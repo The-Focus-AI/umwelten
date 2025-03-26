@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getOllamaModels, getOpenRouterModels, getAllModels } from '../src/models'
+import { getOllamaModels, getOpenRouterModels, getAllModels, type ModelDetails } from '../src/models.js'
 
 describe('Model Information', () => {
   it('should list available Ollama models', async () => {
@@ -38,7 +38,17 @@ describe('Model Information', () => {
         expect(typeof model.costs.completionTokens).toBe('number')
       }
       
-      console.log('Example OpenRouter model:', model)
+      // Log all free models
+      const freeModels = models.filter((m: ModelDetails) => 
+        m.costs && m.costs.promptTokens === 0 && m.costs.completionTokens === 0
+      )
+      console.log('\nAvailable free models:')
+      freeModels.forEach((m: ModelDetails) => {
+        console.log(`\nModel: ${m.name}`)
+        console.log(`ID: ${m.id}`)
+        console.log(`Context Length: ${m.contextLength}`)
+        console.log('Details:', m.details)
+      })
     }
   })
 

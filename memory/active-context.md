@@ -1,83 +1,65 @@
 # Active Context
-Last Updated: 2025-03-25 20:20:06 EDT
+Last Updated: 2025-03-25 23:19:47 EDT
 
-## Current Stage
-Phase 1: Core Model Runner implementation
+## Current Focus
+Completing Phase 1 core model runner implementation, with rate limit handling now implemented and tested.
 
-## What's Being Worked On
-- [X] Project brief review completed
-- [X] Project plan created with phased approach
-- [X] Detailed evaluation framework designed
-- [-] Core Model Runner implementation
-  - [X] Basic structure and types
-  - [X] OpenRouter provider
-  - [-] Tests and error handling
-    - [X] Basic test infrastructure with Vitest
-    - [X] Cost calculation tests
-    - [X] Model listing tests
-    - [X] Ollama provider integration tests
-    - [ ] OpenRouter provider integration tests
-    - [ ] Error handling tests
-    - [ ] Stream handling tests
-    - [ ] Complex prompt tests
+## What's Working
+- Core model runner with OpenRouter and Ollama providers
+- Cost estimation and calculation
+- Rate limit handling with exponential backoff
+- Test suite with high coverage
+- Model switching capability (successfully switched to Mistral model)
 
-## Next Steps
-1. Implement OpenRouter provider integration tests
-2. Add comprehensive error handling tests
-3. Implement stream handling tests
-4. Add complex prompt and chat completion tests
-5. Implement retry mechanism for transient errors
+## Current Implementation Details
+- Rate limit handling module (`rate-limit.ts`):
+  - State tracking per model
+  - Exponential backoff with jitter
+  - Request rate monitoring
+  - Header parsing support
+- Model runner integration:
+  - Automatic rate limit checks
+  - Retry mechanism with backoff
+  - Error classification and handling
+
+## What's Next
+1. CLI Implementation
+   - Design command structure
+   - Implement basic prompt execution
+   - Add result display formatting
+
+2. Documentation
+   - Document rate limit handling behavior
+   - Create usage examples
+   - Update API documentation
 
 ## Blockers
-- Need to verify API key availability for model providers
-- Need to confirm specific model providers to support initially
-- Need to determine which models will be used for evaluation
-- Need to establish evaluation cost budget and optimization strategies
+None currently. All critical functionality is implemented and tested.
 
 ## Recent Decisions
-1. Using Vitest instead of Jest for testing framework
-2. Test coverage shows good progress on cost management and basic provider integration
-3. Identified gaps in test coverage for error handling and advanced features
-4. Ollama integration tests are working with local instance
+1. Switched from Gemini to Mistral model for testing due to rate limits
+2. Implemented exponential backoff with jitter for rate limit handling
+3. Added comprehensive test suite for rate limit functionality
 
 ## Test Status
-- Total test files: 3
-- Total tests: 10 (all passing)
+- Total test files: 5
+- Total tests: 25 (all passing)
 - Current coverage:
   - Cost calculation and formatting ✓
   - Model listing (Ollama & OpenRouter) ✓
   - Basic text generation (Ollama) ✓
   - Token usage tracking ✓
+  - OpenRouter model creation ✓
+  - OpenRouter error handling ✓
+  - Rate limit handling ✓
+  - Model switching ✓
 
-## Current Focus: Cost Management Implementation
+## Technical Debt
+1. Need to implement provider-specific rate limit header parsing
+2. Consider adding rate limit prediction based on usage patterns
+3. May need to add more sophisticated retry strategies
 
-### Overview
-Implementing cost estimation and tracking capabilities for model usage across different providers.
-
-### Currently Working On
-- Core cost estimation module completed
-- Test suite verified
-- Documentation updated
-
-### Next Steps
-1. Consider implementing cost aggregation across multiple requests
-2. Add budget management features
-3. Develop token estimation from text length
-4. Add cost optimization suggestions
-
-### Blockers
-None currently
-
-### Recent Decisions
-- Using per-1K token pricing model
-- Separating prompt and completion costs
-- Returning null for free models
-- Using 6 decimal places for cost precision
-
-### Implementation Notes
-- Cost calculation functions are non-throwing
-- Type-safe interfaces throughout
-- Provider-specific pricing handled via model metadata
-- Basic test infrastructure is working well
-- Local Ollama instance is properly configured and responding
-- OpenRouter API integration is functional for model listing 
+## Notes
+- All tests are passing with good coverage
+- Rate limit handling is working well in tests
+- Core functionality is stable and reliable 

@@ -1,5 +1,5 @@
 # Model Evaluation Tool - Project Plan
-Created: 2025-03-25 19:15:31 EDT
+Last Updated: 2025-03-25 23:19:47 EDT
 
 ## Overview
 This plan outlines the implementation strategy for building a local tool and web dashboard to systematically evaluate language models. The project will be built iteratively, focusing on high-risk components first and ensuring each phase delivers testable value.
@@ -8,21 +8,27 @@ This plan outlines the implementation strategy for building a local tool and web
 
 ### Phase 1: Core Model Runner & Basic CLI (High Risk)
 **Goal**: Establish the foundation for model interaction and basic evaluation
-- [ ] Setup monorepo structure with pnpm workspaces
-  - Validation: Project builds with `pnpm install`
-  - Directory structure matches specification
-  - TypeScript configuration working
+- [X] Setup monorepo structure with pnpm workspaces
+  - Validation: ✓ Project builds with `pnpm install`
+  - ✓ Directory structure matches specification
+  - ✓ TypeScript configuration working
 
-- [ ] Implement core model runner (packages/core)
-  - [ ] Vercel AI SDK integration
-  - [ ] Model provider abstraction (OpenRouter, Olama)
-  - [ ] Timing and token tracking
-  - [ ] Error handling and retries
+- [-] Implement core model runner (packages/core)
+  - [X] Vercel AI SDK integration
+  - [X] Model provider abstraction (OpenRouter, Olama)
+  - [X] Timing and token tracking
+  - [X] Error handling and retries
+    - [X] Basic error classification
+    - [X] Rate limit handling
+      - [X] Rate limit detection and tracking
+      - [X] Exponential backoff with jitter
+      - [X] Request rate monitoring
   Validation:
-  - Can successfully call models
-  - Properly tracks timing and tokens
-  - Handles errors gracefully
-  - Type-safe interfaces
+  - ✓ Can successfully call models
+  - ✓ Properly tracks timing and tokens
+  - ✓ Handles errors gracefully
+  - ✓ Type-safe interfaces
+  - ✓ Properly handles rate limits with backoff
 
 - [ ] Basic CLI implementation (apps/cli)
   - [ ] Command parsing
@@ -148,8 +154,8 @@ Each phase must meet these overall criteria before proceeding:
 
 ## Risk Assessment
 1. **High Risk Areas**:
-   - Vercel AI SDK integration
-   - Model provider compatibility
+   - ✓ Vercel AI SDK integration
+   - ✓ Model provider compatibility
    - Evaluation accuracy and consistency
    - Evaluation costs
    - Performance tracking accuracy
@@ -157,7 +163,7 @@ Each phase must meet these overall criteria before proceeding:
 2. **Medium Risk Areas**:
    - Data storage format
    - Scoring aggregation
-   - Cost calculation
+   - ✓ Cost calculation
    - Dashboard visualization of complex metrics
 
 3. **Low Risk Areas**:

@@ -221,3 +221,107 @@ Conducted comprehensive review of existing test infrastructure and test coverage
 2. Add comprehensive error handling tests
 3. Plan to add budget management features
 4. Consider adding cost tracking/aggregation over multiple requests 
+
+## 2025-03-25 23:07:00 EDT - OpenRouter Provider Test Implementation
+
+### Summary
+Implemented comprehensive test suite for OpenRouter provider integration, with support for both authenticated and unauthenticated scenarios.
+
+### Accomplishments
+- Created new test file `openrouter.test.ts`
+- Implemented model creation tests
+- Added error handling tests
+- Set up API key awareness in tests
+- Added skipped tests for authenticated scenarios
+- Verified model instance structure
+- Added proper error handling expectations
+
+### Technical Details
+- Test Categories:
+  1. Model Creation
+     - Basic instance creation
+     - Empty model name handling
+  2. Text Generation (requires API key)
+     - Basic text generation
+     - Conversation handling
+     - Temperature control
+  3. Error Handling
+     - Invalid model names
+     - Empty prompts
+     - Token limit handling
+
+### Decisions
+- Tests gracefully handle missing API key
+- Skipped tests clearly marked for authenticated scenarios
+- Error handling tests run without API key
+- Model creation tests verify object structure
+
+### Next Actions
+1. Add OpenRouter API key to environment
+2. Implement streaming tests
+3. Add complex prompt handling tests
+4. Consider adding rate limit handling tests
+
+### Notes
+- Need to document API key setup process
+- Consider adding test coverage reporting
+- May need to mock API for some test scenarios
+- Should add timeout handling tests 
+
+## 2025-03-26 03:12:00 EDT - Switched to Mistral Model for Testing
+
+### Summary
+Switched from Gemini to Mistral Small 3.1 24B model for testing due to rate limit issues with Gemini.
+
+### Technical Details
+- Previous model (Gemini Pro 2.5 Experimental) was hitting rate limits
+- New model: `mistralai/mistral-small-3.1-24b-instruct:free`
+  - 96,000 token context length
+  - Free tier (no costs)
+  - Text+image->text modality
+  - Native Mistral tokenizer
+- All tests now passing with the new model:
+  - Basic text generation
+  - Conversation handling
+  - Temperature control
+  - Error handling
+
+### Decisions
+- Chose Mistral model for:
+  - Large context window
+  - Stable API (no rate limits encountered)
+  - Reputable provider
+  - Full feature set needed for tests
+
+### Next Actions
+1. Monitor Mistral model performance and stability
+2. Consider implementing model fallback mechanism
+3. Add model-specific test cases if needed
+4. Document model selection criteria 
+
+## Rate Limit Handling Implementation - Phase 1 (2025-03-26)
+
+### Summary
+Implemented basic rate limit handling functionality to improve reliability and prevent API quota exhaustion.
+
+### Technical Details
+- Created new rate limit handling module (`rate-limit.ts`) with:
+  - State tracking for rate limit encounters
+  - Exponential backoff calculation
+  - Request allowance checks
+- Integrated rate limit handling into model runner
+- Added comprehensive test suite for rate limit functionality
+- All tests passing, including edge cases for backoff timing
+
+### Decisions
+- Implemented exponential backoff strategy with small delays between retries
+- Added state tracking to maintain rate limit information across requests
+- Focused on robustness and reliability in the implementation
+
+### Next Actions
+- Monitor rate limit handling in production usage
+- Consider implementing Phase 2 features:
+  - Per-model rate limit tracking
+  - Quota monitoring
+  - Rate limit prediction
+- Document rate limit handling behavior for users 
