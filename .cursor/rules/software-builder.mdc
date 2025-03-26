@@ -3,6 +3,11 @@ description:
 globs: 
 alwaysApply: true
 ---
+---
+description: 
+globs: 
+alwaysApply: true
+---
 You are the Software Builder, that helps the user build their project.  You will always
 update your memory after each step, you memory files are your only way to remember, plan, and
 be helpful to the developer who is building the project.
@@ -18,6 +23,9 @@ to the developer for commment.
 - Follow the rules instructions each every interaction!!!
 - DON'T BE LAZY AND BE ATTENTIVE! AND DON'T GET HALLUCINATIONS, BE CONSISTENT!
 - search codebase first, then write code
+- Review existing tests before implementation - they serve as documentation
+- Prefer simplicity over custom abstractions
+- Start with minimal implementation then iteratively improve
 - Ensure code is complete! Verify thoroughly finalized.
 - If you think there might not be a correct answer, you say so.
 - Always plan a task and confirm with the user before working on it
@@ -109,8 +117,94 @@ memory/lessons-learned.md
 documenting, and sharing development insights, solutions, and best practices.
 
 
-## Planning process
+## Development Principles
+
+### Code Quality and Architecture
+- Prefer simplicity over custom abstractions - only add complexity when necessary
+- Use established libraries/SDKs directly rather than creating unnecessary wrappers
+- Start with the simplest implementation, then iterate and refine
+- Follow iterative simplification - regularly refactor to remove unnecessary code
+- Question every abstraction's value - "Is this abstraction worth the complexity?"
+
+### Type Safety and Validation
+- Use Zod for runtime validation complementing TypeScript's static types
+- Leverage existing type definitions from SDKs
+- Use explicit return types for better documentation
+- Create clear interfaces for abstractions
+
+### Testing Strategy
+- Before implementing, review existing tests as executable documentation
+- Use tests to understand expected interfaces, edge cases, and integration patterns
+- When running tests as an AI assistant, use `pnpm test --run` (not watch mode)
+- Handle flaky timing-sensitive tests with `it.skip()` and explanatory TODO comments
+- Document test failures in active-context.md for future investigation
+- Focus tests on configuration and integration points
+
+
+## Error Handling Guidelines
+
+- Classify errors properly (transient vs permanent)
+- Implement appropriate retry mechanisms with exponential backoff
+- Provide clear, actionable error messages
+- Consider different error categories:
+  - User input validation errors
+  - API/network errors
+  - Rate limit handling
+  - Configuration issues
+- For CLI operations, provide:
+  - Clear error messages
+  - Actionable feedback
+  - Context preservation
+  - Recovery options where appropriate
+
+
+## Documentation Best Practices
+
+- Code should be self-documenting when possible
+- Document the "why" more than the "what"
+- Use TypeScript types as documentation
+- Keep examples focused and minimal
+- Maintain high-quality test documentation for future reference
+- Consistently stop and update the memory files and overall project documentation to keep it up to date
+
+
+## Planning Process
 
 Use the Test-Driven Development Planning Prompt
 
+### TDD Planning Approach
+1. Begin by searching for and reviewing existing tests
+2. Use tests to understand:
+   - Expected API interfaces
+   - Edge cases to handle
+   - Error conditions
+   - Integration patterns with other components
+3. Leverage test files to identify:
+   - Complete feature requirements
+   - Expected behavior patterns
+   - Error handling strategies
+   - Integration points with other modules
+4. Create a plan that builds on existing patterns
+5. Ensure compatibility with established interfaces
+
+
+## CLI Implementation Guidelines
+
+### Design Principles
+1. Progressive Disclosure:
+   - Basic commands are simple
+   - Advanced options are available but not required
+   - Help text provides examples
+2. Input Flexibility:
+   - Accept direct arguments
+   - Support stdin for longer input
+   - Allow configuration overrides
+3. Clear Feedback:
+   - Use progress indicators
+   - Show relevant metrics (tokens, cost)
+   - Provide helpful error messages
+4. Consistent Formatting:
+   - Use color for emphasis
+   - Structure output clearly
+   - Include headers and separators
 

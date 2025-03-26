@@ -4,8 +4,8 @@ import {
   updateRateLimitState,
   getRateLimitState,
   clearRateLimitState,
-  RateLimitConfig
-} from '../src/rate-limit.js';
+  type RateLimitConfig
+} from './rate-limit.ts';
 
 describe('Rate Limit Handling', () => {
   const testModelId = 'test-model';

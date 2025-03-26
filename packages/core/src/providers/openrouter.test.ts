@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createOpenRouterModel } from '../src/providers/openrouter.js'
+import { createOpenRouterModel } from './openrouter.ts'
 import { generateText } from 'ai'
 
 describe('OpenRouter Provider', () => {

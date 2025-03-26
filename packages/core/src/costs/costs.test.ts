@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { estimateCost, calculateCost, formatCostBreakdown, type TokenUsage } from '../src/costs'
-import { type ModelDetails } from '../src/models'
+import { estimateCost, calculateCost, formatCostBreakdown, type TokenUsage } from './costs.ts'
+import { type ModelDetails } from '../models/models.ts'
 
 describe('Cost Utilities', () => {
   const mockModel: ModelDetails = {
@@ -32,7 +32,8 @@ describe('Cost Utilities', () => {
         expect(breakdown.totalCost).toBe(0.025)
         expect(breakdown.usage).toEqual({
           promptTokens: 1000,
-          completionTokens: 500
+          completionTokens: 500,
+          total: 1500
         })
       }
     })
@@ -47,7 +48,8 @@ describe('Cost Utilities', () => {
     it('should calculate actual costs correctly for paid models', () => {
       const usage: TokenUsage = {
         promptTokens: 2000,
-        completionTokens: 1000
+        completionTokens: 1000,
+        total: 3000
       }
 
       const breakdown = calculateCost(mockModel, usage)
@@ -64,7 +66,8 @@ describe('Cost Utilities', () => {
     it('should return null for free models', () => {
       const usage: TokenUsage = {
         promptTokens: 2000,
-        completionTokens: 1000
+        completionTokens: 1000,
+        total: 3000
       }
 
       const breakdown = calculateCost(mockFreeModel, usage)
@@ -80,7 +83,8 @@ describe('Cost Utilities', () => {
         totalCost: 0.05,
         usage: {
           promptTokens: 2000,
-          completionTokens: 1000
+          completionTokens: 1000,
+          total: 3000
         }
       }
 

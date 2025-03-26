@@ -2,14 +2,15 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    include: ['src/**/*.test.ts'],
+    setupFiles: ['src/test-utils/setup.ts'],
     environment: 'node',
-    setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts'],
+    globals: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
-      exclude: ['**/*.d.ts', '**/*.test.ts']
+      exclude: ['src/**/*.test.ts']
     }
   },
   define: {

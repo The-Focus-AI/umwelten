@@ -1,9 +1,6 @@
-import { ModelCosts, ModelDetails } from './models'
+import { z } from 'zod'
+import { ModelDetails } from './models/models.ts'
 
-export interface TokenUsage {
-  promptTokens: number
-  completionTokens: number
-}
 
 export interface CostBreakdown {
   promptCost: number
@@ -11,6 +8,15 @@ export interface CostBreakdown {
   totalCost: number
   usage: TokenUsage
 }
+
+export const TokenUsageSchema = z.object({
+  promptTokens: z.number(),
+  completionTokens: z.number(),
+  total: z.number(),
+});
+
+export type TokenUsage = z.infer<typeof TokenUsageSchema>;
+
 
 /**
  * Estimates the cost for a given number of tokens based on model pricing
@@ -22,7 +28,8 @@ export function estimateCost(model: ModelDetails, estimatedPromptTokens: number,
 
   const usage = {
     promptTokens: estimatedPromptTokens,
-    completionTokens: estimatedCompletionTokens
+    completionTokens: estimatedCompletionTokens,
+    total: estimatedPromptTokens + estimatedCompletionTokens
   }
 
   const promptCost = (model.costs.promptTokens * estimatedPromptTokens) / 1000

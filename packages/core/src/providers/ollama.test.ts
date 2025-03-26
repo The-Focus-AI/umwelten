@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createOllamaModel } from '../src/providers/ollama'
+import { createOllamaModel } from './ollama.ts'
 import { generateText } from 'ai'
 
 describe('Ollama Provider', () => {

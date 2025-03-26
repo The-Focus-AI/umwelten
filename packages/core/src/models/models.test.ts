@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { getOllamaModels, getOpenRouterModels, getAllModels, type ModelDetails } from '../src/models.js'
+import { getAllModels, type ModelDetails } from './models.ts'
+import { getOllamaModels } from '../providers/ollama.ts'
+import { getOpenRouterModels } from '../providers/openrouter.ts'
 
 describe('Model Information', () => {
   it('should list available Ollama models', async () => {

@@ -1,5 +1,6 @@
-import { ModelOptions, ModelProvider, ModelResponse, ModelRunner } from './types.js';
-import { shouldAllowRequest, updateRateLimitState, RateLimitConfig } from './rate-limit.js';
+import { ModelProvider, ModelOptions, ModelResponse, ModelRunner } from './models/models.ts'
+import { RateLimitConfig } from './rate-limit.ts'
+import { shouldAllowRequest, updateRateLimitState } from './rate-limit.ts'
 
 export interface ModelRunnerConfig {
   rateLimitConfig?: RateLimitConfig;
