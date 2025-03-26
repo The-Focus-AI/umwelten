@@ -1,5 +1,5 @@
 # Active Context
-Last Updated: 2025-03-25 19:34:18 EDT
+Last Updated: 2025-03-25 20:20:06 EDT
 
 ## Current Stage
 Phase 1: Core Model Runner implementation
@@ -11,16 +11,22 @@ Phase 1: Core Model Runner implementation
 - [-] Core Model Runner implementation
   - [X] Basic structure and types
   - [X] OpenRouter provider
-  - [ ] Tests and error handling
+  - [-] Tests and error handling
+    - [X] Basic test infrastructure with Vitest
+    - [X] Cost calculation tests
+    - [X] Model listing tests
+    - [X] Ollama provider integration tests
+    - [ ] OpenRouter provider integration tests
+    - [ ] Error handling tests
+    - [ ] Stream handling tests
+    - [ ] Complex prompt tests
 
 ## Next Steps
-1. Create Jest configuration for core package
-2. Write tests for:
-   - Base model runner
-   - OpenRouter provider
-   - Type validations
-3. Implement retry mechanism for transient errors
-4. Add proper error classification
+1. Implement OpenRouter provider integration tests
+2. Add comprehensive error handling tests
+3. Implement stream handling tests
+4. Add complex prompt and chat completion tests
+5. Implement retry mechanism for transient errors
 
 ## Blockers
 - Need to verify API key availability for model providers
@@ -29,11 +35,19 @@ Phase 1: Core Model Runner implementation
 - Need to establish evaluation cost budget and optimization strategies
 
 ## Recent Decisions
-1. Adopted a phased approach prioritizing high-risk components first
-2. Structured project as a monorepo using pnpm workspaces
-3. Implemented core model runner before storage to validate basic functionality
-4. Using Jest for testing framework
-5. OpenRouter as first provider implementation
+1. Using Vitest instead of Jest for testing framework
+2. Test coverage shows good progress on cost management and basic provider integration
+3. Identified gaps in test coverage for error handling and advanced features
+4. Ollama integration tests are working with local instance
+
+## Test Status
+- Total test files: 3
+- Total tests: 10 (all passing)
+- Current coverage:
+  - Cost calculation and formatting ✓
+  - Model listing (Ollama & OpenRouter) ✓
+  - Basic text generation (Ollama) ✓
+  - Token usage tracking ✓
 
 ## Current Focus: Cost Management Implementation
 
@@ -64,4 +78,6 @@ None currently
 - Cost calculation functions are non-throwing
 - Type-safe interfaces throughout
 - Provider-specific pricing handled via model metadata
-- Comprehensive test coverage ensures reliability 
+- Basic test infrastructure is working well
+- Local Ollama instance is properly configured and responding
+- OpenRouter API integration is functional for model listing 
