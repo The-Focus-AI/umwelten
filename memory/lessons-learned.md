@@ -8,6 +8,8 @@ Last Updated: 2025-03-25 19:34:18 EDT
    - Using pnpm workspaces provides efficient dependency management
    - Clear separation between apps and shared packages
    - Easier version control and consistency
+   - Keep all packages in `packages/` directory for consistency
+   - Decided against `apps/` directory to maintain simpler structure
 
 ### API Integration
 1. **Model Provider Integration**
@@ -114,6 +116,18 @@ Last Updated: 2025-03-25 19:34:18 EDT
   - Document version changes in worklog
   - Use caret (^) for minor version updates
   - Test thoroughly after version updates
+
+### 4. Package Organization in Monorepo
+- **Date**: March 26, 2025
+- **Context**: Deciding CLI package location
+- **Problem**: Initially planned to use apps/cli directory based on common patterns
+- **Solution**: Decided to keep all packages in packages/ directory for simplicity
+- **Lesson**: While separating apps from packages is a common pattern, simpler projects benefit from a flatter structure
+- **Impact**: 
+  - Simpler dependency management
+  - Easier relative imports
+  - More consistent package structure
+  - Better aligned with current project scale
 
 ## Development Process
 

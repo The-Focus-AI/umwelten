@@ -30,14 +30,44 @@ This plan outlines the implementation strategy for building a local tool and web
   - ✓ Type-safe interfaces
   - ✓ Properly handles rate limits with backoff
 
-- [ ] Basic CLI implementation (apps/cli)
-  - [ ] Command parsing
-  - [ ] Basic prompt execution
-  - [ ] Output to console
+- [ ] Basic CLI implementation (packages/cli)
+  - [ ] Command Structure Implementation
+    - [ ] `run` command
+      - Basic prompt execution
+      - Model selection
+      - Provider selection
+      - Temperature control
+      - Token limiting
+      - Cost display
+      - Streaming support
+    
+    - [ ] `chat` command
+      - Interactive mode
+      - System prompt support
+      - Conversation management
+      - History save/load
+    
+    - [ ] `models` commands
+      - Model listing
+      - Detailed info display
+      - Cost information
+    
+    - [ ] `eval` commands
+      - Evaluation suite execution
+      - Model comparison
+      - Statistics display
+    
+    - [ ] `config` commands
+      - Configuration management
+      - Settings persistence
+  
   Validation:
-  - CLI accepts prompts and model selection
-  - Successfully executes model calls
-  - Displays results clearly
+  - Commands follow consistent patterns
+  - All core features accessible
+  - Clear help text and documentation
+  - Error handling and feedback
+  - Configuration persistence
+  - Cost tracking integration
 
 ### Phase 2: Storage & Data Structure (Medium Risk)
 **Goal**: Implement persistent storage and result organization

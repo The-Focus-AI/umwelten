@@ -29,6 +29,12 @@ packages/
     package.json
     tsconfig.json
     vitest.config.ts
+  cli/                # CLI package
+    src/
+      commands/       # CLI command implementations
+      utils/         # CLI-specific utilities
+    package.json
+    tsconfig.json
 ```
 
 ## Core Components
@@ -61,6 +67,44 @@ packages/
   - Provider-specific tests
   - Error handling scenarios
   - Performance metrics
+
+### CLI Interface
+- Command-line interface for model evaluation
+- Direct integration with core package
+- Command Structure:
+  1. Basic Model Interaction
+     - `run`: Single prompt execution
+     - `chat`: Interactive chat sessions
+     - Support for streaming, temperature control
+     - Cost estimation and display
+
+  2. Model Management
+     - `models list`: Available models
+     - `models info`: Detailed capabilities
+     - `models costs`: Cost information
+     - Provider-specific features
+
+  3. Evaluation Tools
+     - `eval run`: Run evaluation suites
+     - `eval compare`: Compare models
+     - `eval stats`: View statistics
+     - Integration with storage
+
+  4. Configuration
+     - `config set/get/list`: Manage settings
+     - Environment variable handling
+     - Provider configuration
+     - Default preferences
+
+- Implementation Details:
+  - TypeScript-based implementation
+  - No build step required
+  - Direct execution of .ts files
+  - Commander.js for command parsing
+  - Consistent error handling
+  - Clear user feedback
+  - Progress indicators
+  - Cost tracking integration
 
 ## Implementation Guidelines
 

@@ -1,5 +1,5 @@
 {
-  "name": "@delve-trails/core",
+  "name": "@model-eval/core",
   "version": "0.1.0",
   "description": "Core package for model evaluation",
   "private": true,
@@ -13,8 +13,7 @@
     "@openrouter/ai-sdk-provider": "^0.4.3",
     "ollama-ai-provider": "^1.2.0",
     "ai": "^4.1.46",
-    "zod": "^3.22.4",
-    "tsx": "^4.7.1"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

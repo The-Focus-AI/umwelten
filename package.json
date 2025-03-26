@@ -8,7 +8,8 @@
     "test": "pnpm -r test",
     "test:run": "pnpm -r test:run",
     "lint": "pnpm -r lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "cli": "tsx packages/cli/src/index.ts"
   },
   "keywords": [
     "llm",
@@ -19,6 +20,9 @@
   "author": "",
   "license": "MIT",
   "packageManager": "pnpm@10.6.1",
+  "dependencies": {
+    "tsx": "^4.7.1"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

@@ -1,5 +1,5 @@
 # Active Context
-Last Updated: 2025-03-26 13:13:00 EDT
+Last Updated: 2025-03-26 13:45:00 EDT
 
 ## Current Focus
 Expanding test coverage and implementing advanced features, with core functionality verified and stable.
@@ -9,12 +9,20 @@ Expanding test coverage and implementing advanced features, with core functional
 - Cost estimation and calculation (✅ 5 tests passing)
 - Rate limit handling with exponential backoff (✅ 7 tests passing)
 - Model information and listing (✅ 3 tests passing)
+  - Table-based display with sorting and filtering
+  - ANSI-aware formatting
+  - Provider-specific grouping
 - Provider implementations:
   - OpenRouter (✅ 8 tests passing)
   - Ollama (✅ 2 tests passing)
 - Environment configuration and API key handling
 
 ## Current Implementation Details
+- CLI Improvements:
+  - Enhanced model listing with table format
+  - Sorting by name, context length, and cost
+  - Filtering by provider and cost (free/paid)
+  - Color-coded output with proper alignment
 - Rate limit handling module (`src/rate-limit/rate-limit.ts`):
   - State tracking per model
   - Exponential backoff with jitter
@@ -84,9 +92,10 @@ None currently. All core functionality is tested and working.
 
 ## Recent Decisions
 1. Verified all core functionality with comprehensive tests
-2. Confirmed OpenRouter API integration working
-3. Validated both provider implementations
-4. Ready to proceed with advanced features
+2. Completed model listing CLI with enhanced formatting
+3. Confirmed OpenRouter API integration working
+4. Validated both provider implementations
+5. Standardized on technical model IDs for clarity
 
 ## Technical Debt
 1. Add streaming support tests
@@ -94,9 +103,11 @@ None currently. All core functionality is tested and working.
 3. Expand Ollama provider test coverage
 4. Add performance benchmarking
 5. Implement advanced error scenarios
+6. Verify and fix Ollama model context lengths
+7. Consider adding model capability information to verbose output
 
 ## Notes
 - All 25 tests passing successfully
 - Core functionality is stable and verified
-- Ready to implement advanced features
-- Good foundation for further development 
+- CLI formatting improved with proper table display
+- Ready to implement advanced features 
