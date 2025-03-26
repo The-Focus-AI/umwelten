@@ -4,6 +4,97 @@ Last Updated: 2025-03-26 12:00:00 EDT
 ## Overview
 A tool for evaluating and comparing different LLM models across providers, with a focus on cost management, rate limiting, and comprehensive testing.
 
+## Tech Stack (2025-03-26 06:40 EDT)
+
+### Core Technologies
+- TypeScript for type safety and better development experience
+- pnpm for package management and workspaces
+- Vitest for testing
+- Zod for runtime validation
+
+### Key Dependencies
+- @openrouter/ai-sdk-provider: Provider SDK for OpenRouter
+- ollama-ai-provider: Provider SDK for Ollama
+- chalk: Terminal styling
+- cli-table3: Table formatting
+- commander: CLI framework
+
+## Directory Layout
+
+```
+model-eval/
+├── packages/
+│   ├── core/               # Core functionality
+│   │   ├── src/
+│   │   │   ├── models/    # Model interfaces and search
+│   │   │   ├── providers/ # Provider implementations
+│   │   │   └── costs/     # Cost calculation
+│   │   └── tests/         # Core test utilities
+│   └── cli/               # Command-line interface
+│       ├── src/
+│       │   └── commands/  # CLI commands
+│       └── tests/         # CLI-specific tests
+└── memory/                # Project memory files
+```
+
+## Implementation Patterns
+
+### Provider Integration
+1. Each provider has its own file in `core/providers/`
+2. Provider-specific logic stays in provider files
+3. Common interface exposed through `index.ts`
+4. URL generation handled by each provider
+
+### Error Handling
+1. Classify errors properly (transient vs permanent)
+2. Implement appropriate retry mechanisms
+3. Provide clear, actionable error messages
+4. Handle EPIPE errors for pipe operations
+
+### Testing Strategy
+1. Tests colocated with source files
+2. Feature-based directory structure
+3. Centralized test utilities
+4. Comprehensive test coverage
+
+### CLI Design
+1. Progressive disclosure of complexity
+2. Consistent color coding
+3. Human-readable formatting
+4. Proper error handling
+
+### Documentation
+1. README in each package
+2. Type definitions as documentation
+3. Clear examples and usage
+4. Environment variable documentation
+
+## Best Practices
+
+### Code Organization
+1. Keep provider-specific logic isolated
+2. Use interfaces for common patterns
+3. Minimize abstractions
+4. Follow feature-based structure
+
+### Testing
+1. Write tests alongside code
+2. Use descriptive test names
+3. Test error conditions
+4. Verify formatting and display
+
+### Error Handling
+1. Clear error messages
+2. Proper error classification
+3. Retry mechanisms where appropriate
+4. User-friendly error display
+
+### Documentation
+1. Keep docs up to date
+2. Include examples
+3. Document configuration
+4. Explain design decisions
+
 ## Directory Structure
 ```
 packages/

@@ -1,7 +1,9 @@
 import { Command } from 'commander';
-import { getAllModels, type ModelDetails } from '@model-eval/core/src/models/models';
-import { estimateCost } from '@model-eval/core/src/costs/costs';
+import { getAllModels, type ModelDetails, searchModels, type ModelSearchOptions } from '@model-eval/core/src/models/models.js';
+import { estimateCost } from '@model-eval/core/src/costs/costs.js';
+import { getModelUrl } from '@model-eval/core/src/providers/index.js';
 import chalk from 'chalk';
+import Table from 'cli-table3';
 
 // Utility function to get visible length of string (excluding ANSI codes)
 function visibleLength(str: string): number {
@@ -13,6 +15,12 @@ function visibleLength(str: string): number {
 function visiblePadEnd(str: string, length: number): string {
   const visLen = visibleLength(str);
   return str + ' '.repeat(Math.max(0, length - visLen));
+}
+
+// Utility function to right align text to visible length
+function visiblePadStart(str: string, length: number): string {
+  const visLen = visibleLength(str);
+  return ' '.repeat(Math.max(0, length - visLen)) + str;
 }
 
 // Utility function for consistent headers
@@ -67,136 +75,178 @@ function truncate(str: string, length: number): string {
   return str.slice(0, Math.max(0, length - 3)) + '...';
 }
 
+// Utility function to format context length
+function formatContextLength(tokens: number): string {
+  if (tokens >= 1000000) {
+    return `${Math.round(tokens / 1000000)}M`;
+  }
+  if (tokens >= 1000) {
+    return `${Math.round(tokens / 1000)}K`;
+  }
+  return tokens.toString();
+}
+
+type Provider = 'openrouter' | 'ollama' | 'all';
+type SortField = 'name' | 'addedDate' | 'contextLength' | 'cost';
+type ViewMode = 'list' | 'info' | 'costs';
+
+interface CommandOptions {
+  search?: string;
+  provider?: Provider;
+  sort?: SortField;
+  desc?: boolean;
+  free?: boolean;
+  json?: boolean;
+  view?: ViewMode;
+  id?: string;
+}
+
+function formatCost(model: ModelDetails): string {
+  if (model.provider === 'ollama') return chalk.green('Free');
+  if (!model.costs) return chalk.green('Free');
+  
+  const totalCost = model.costs.promptTokens + model.costs.completionTokens;
+  return totalCost === 0 ? chalk.green('Free') : chalk.cyan(`$${totalCost.toFixed(3)}`);
+}
+
+function displayModelInfo(model: ModelDetails) {
+  console.log('\nModel Details:');
+  console.log('=============');
+  console.log(`ID: ${model.id}`);
+  console.log(`Name: ${model.name}`);
+  console.log(`Provider: ${model.provider}`);
+  
+  const url = getModelUrl(model);
+  if (url) {
+    // Using OSC 8 escape sequence for clickable links in terminal
+    console.log(`URL: \x1b]8;;${url}\x1b\\${chalk.cyan(url)}\x1b]8;;\x1b\\`);
+  }
+  
+  console.log(`Context Length: ${formatContextLength(model.contextLength)} tokens`);
+  console.log(`Cost per 1K tokens: ${formatCost(model)}`);
+  console.log(`Added: ${new Date(model.addedDate).toLocaleDateString()}`);
+  console.log(`Last Updated: ${new Date(model.lastUpdated).toLocaleDateString()}`);
+  
+  if (model.details) {
+    console.log('\nAdditional Details:');
+    console.log('==================');
+    Object.entries(model.details).forEach(([key, value]) => {
+      console.log(`${key}: ${value}`);
+    });
+  }
+}
+
+function formatDate(date: Date): string {
+  // Format as MM/DD/YY
+  return date.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
+    year: '2-digit'
+  })
+}
+
 export const modelsCommand = new Command('models')
-  .description('Manage and inspect available models');
-
-// models list command
-modelsCommand
-  .command('list')
-  .description('List all available models')
-  .option('-p, --provider <provider>', 'Filter by provider (openrouter/ollama)')
-  .option('--free-only', 'Show only free models')
-  .option('-v, --verbose', 'Show detailed information')
-  .option('--sort <field>', 'Sort by field (name, context, cost)', 'name')
-  .action(async (options) => {
+  .description('List and search available models')
+  .option('-s, --search <query>', 'Search for models by name or description')
+  .option('-p, --provider <provider>', 'Filter by provider (openrouter, ollama, all)', 'all')
+  .option('--sort <field>', 'Sort by field (name, addedDate, contextLength, cost)', 'name')
+  .option('--desc', 'Sort in descending order')
+  .option('--free', 'Show only free models')
+  .option('--json', 'Output in JSON format')
+  .option('--view <mode>', 'Display mode: list (default), info, costs')
+  .option('--id <model-id>', 'Model ID for detailed view')
+  .action(async (options: CommandOptions) => {
     try {
-      console.log(chalk.dim('\nFetching available models...'));
-      const models = await getAllModels();
+      // Handle EPIPE errors (e.g., when piping to head)
+      process.stdout.on('error', (err) => {
+        if (err.code === 'EPIPE') {
+          process.exit(0);
+        }
+      });
 
-      // Apply filters
-      let filteredModels = models;
-      if (options.provider) {
-        filteredModels = filteredModels.filter(m => m.provider === options.provider);
-      }
-      if (options.freeOnly) {
-        filteredModels = filteredModels.filter(m => !m.costs || (m.costs.promptTokens === 0 && m.costs.completionTokens === 0));
-      }
-
-      // Sort models within each provider group
-      const sortModels = (models: ModelDetails[]) => {
-        return [...models].sort((a, b) => {
-          switch (options.sort) {
-            case 'context':
-              return b.contextLength - a.contextLength;
-            case 'cost':
-              const aCost = !a.costs ? 0 : (a.costs.promptTokens + a.costs.completionTokens);
-              const bCost = !b.costs ? 0 : (b.costs.promptTokens + b.costs.completionTokens);
-              return aCost - bCost;
-            case 'name':
-            default:
-              return a.id.localeCompare(b.id);
-          }
-        });
+      const searchOptions: ModelSearchOptions = {
+        query: options.search || '',
+        provider: options.provider,
+        sortBy: options.sort,
+        sortOrder: options.desc ? 'desc' : 'asc',
+        onlyFree: options.free
       };
 
-      // Group by provider
-      const grouped = filteredModels.reduce((acc, model) => {
-        // Fix Ollama context lengths - they vary by model
-        if (model.provider === 'ollama') {
-          // These are approximate values based on model sizes
-          switch (true) {
-            case model.id.includes('7b'):
-              model.contextLength = 4096;
-              break;
-            case model.id.includes('13b'):
-              model.contextLength = 8192;
-              break;
-            case model.id.includes('34b'):
-              model.contextLength = 16384;
-              break;
-            case model.id.includes('70b'):
-              model.contextLength = 32768;
-              break;
-            default:
-              // Default to 4096 if we can't determine
-              model.contextLength = 4096;
-          }
-        }
-        
-        if (!acc[model.provider]) acc[model.provider] = [];
-        acc[model.provider].push(model);
-        return acc;
-      }, {} as Record<string, ModelDetails[]>);
+      const models = await searchModels(searchOptions);
 
-      // Display results
-      console.log(chalk.bold(`\nFound ${chalk.green(filteredModels.length)} models\n`));
-      
-      // Define column widths (for visible content)
-      const widths = [45, 18, 15];
-      if (options.verbose) widths.push(25);
-      
-      for (const [provider, providerModels] of Object.entries(grouped)) {
-        printHeader(`${provider.toUpperCase()} (${providerModels.length} models)`);
-        
-        // Print table top border
-        console.log(chalk.dim(createTableHeaderSeparator(widths)));
-        
-        // Print table header
-        const headers = ['Model ID', 'Context Length', 'Cost'];
-        if (options.verbose) headers.push('Details');
-        console.log(chalk.dim(formatTableRow(
-          headers.map(h => chalk.yellow.bold(h)),
-          widths
-        )));
-        
-        // Print header separator
-        console.log(chalk.dim(createTableSeparator(widths)));
-        
-        // Sort and print rows
-        sortModels(providerModels).forEach((model, index) => {
-          const modelId = chalk.cyan(model.id);
-          const costDisplay = !model.costs || (model.costs.promptTokens === 0 && model.costs.completionTokens === 0)
-            ? chalk.green('Free')
-            : chalk.cyan(`$${(model.costs.promptTokens + model.costs.completionTokens).toFixed(4)}/1K`);
-          
-          const details = options.verbose
-            ? model.details?.family || model.details?.parameterSize || chalk.dim('No details')
-            : '';
-            
-          const columns = [
-            modelId,
-            `${model.contextLength.toLocaleString()} tokens`,
-            costDisplay
-          ];
-          
-          if (options.verbose) {
-            columns.push(truncate(details, 23));
-          }
-          
-          console.log(chalk.dim(formatTableRow(columns, widths)));
-          
-          // Add separator between rows except for the last row
-          if (index < providerModels.length - 1) {
-            console.log(chalk.dim(createTableSeparator(widths)));
-          }
-        });
-        
-        // Print table bottom border
-        console.log(chalk.dim(createTableFooterSeparator(widths)));
-        console.log(); // Add spacing between provider sections
+      // Handle info view mode
+      if (options.view === 'info') {
+        if (!options.id) {
+          console.error('Error: --id <model-id> is required when using --view info');
+          process.exit(1);
+        }
+
+        const model = models.find(m => m.id === options.id);
+        if (!model) {
+          console.error(`Error: Model with ID "${options.id}" not found`);
+          process.exit(1);
+        }
+
+        displayModelInfo(model);
+        return;
       }
+
+      if (options.json) {
+        console.log(JSON.stringify(models, null, 2));
+        return;
+      }
+
+      // Print summary
+      console.log(`\nFound ${models.length} models`);
+      if (options.search) console.log(`Search: "${options.search}"`);
+      if (options.provider && options.provider !== 'all') console.log(`Provider: ${options.provider}`);
+      if (options.free) console.log('Showing only free models');
+      console.log();
+
+      // Create table with updated columns
+      const table = new Table({
+        head: [
+          chalk.bold('ID'),
+          chalk.bold('Provider'),
+          chalk.bold('Context'),
+          chalk.bold('Cost/1K'),
+          chalk.bold('Added')
+        ],
+        style: {
+          head: [],  // Remove bold style since we're using chalk
+          border: []
+        },
+        colWidths: [
+          52, // ID (increased from 25 to fit longest ID)
+          12, // Provider
+          10, // Context
+          10, // Cost
+          10  // Added (adjusted to fit MM/DD/YY format)
+        ]
+      });
+
+      // Add rows with model data
+      for (const model of models) {
+        const id = model.id.length > 51 ? model.id.substring(0, 48) + '...' : model.id;
+        const date = formatDate(new Date(model.addedDate));
+        
+        table.push([
+          chalk.cyan(id),
+          chalk.yellow(model.provider),
+          chalk.cyan(formatContextLength(model.contextLength)),
+          formatCost(model),
+          chalk.dim(visiblePadStart(date, 10))
+        ]);
+      }
+
+      console.log(table.toString());
+      console.log('\nTip: Use --json for machine-readable output');
+      if (!options.view) {
+        console.log('     Use --view info --id <model-id> for detailed information about a specific model');
+      }
+
     } catch (error) {
-      console.error(chalk.red('\nError fetching models:'), error);
+      console.error('Error fetching models:', error);
       process.exit(1);
     }
   });
@@ -220,7 +270,14 @@ modelsCommand
       console.log(`${chalk.yellow('Name')}: ${chalk.bold(model.name)}`);
       console.log(`${chalk.yellow('ID')}: ${model.id}`);
       console.log(`${chalk.yellow('Provider')}: ${chalk.cyan(model.provider)}`);
-      console.log(`${chalk.yellow('Context Length')}: ${model.contextLength.toLocaleString()} tokens`);
+      
+      const url = getModelUrl(model);
+      if (url) {
+        console.log(`${chalk.yellow('URL')}: \x1b]8;;${url}\x1b\\${chalk.cyan(url)}\x1b]8;;\x1b\\`);
+        console.log(chalk.dim('(URL is clickable in most modern terminals)'));
+      }
+      
+      console.log(`${chalk.yellow('Context Length')}: ${chalk.cyan(formatContextLength(model.contextLength))} tokens`);
       console.log(`${chalk.yellow('Cost')}: ${formatModelCosts(model)}`);
       console.log(`${chalk.yellow('Details')}: ${formatModelDetails(model)}`);
 

@@ -187,4 +187,73 @@ Last Updated: 2025-03-26 14:30:00 EDT
   - Clearer project progression
   - Reduced initial complexity
   - Better risk management
-  - More focused development effort 
+  - More focused development effort
+
+## CLI Development (2025-03-26 06:40 EDT)
+
+### User Interface Design
+1. **Progressive Disclosure**
+   - Basic commands should be simple and intuitive
+   - Advanced options available but not required
+   - Help text with clear examples is essential
+
+2. **Input Flexibility**
+   - Accept direct arguments for simple cases
+   - Support stdin for piped operations
+   - Allow configuration overrides for advanced users
+
+3. **Clear Feedback**
+   - Use color coding consistently (e.g., green for "Free", cyan for values)
+   - Right-align numeric/date values for better readability
+   - Use human-readable formats (e.g., "1M" instead of "1000000")
+
+### Code Organization
+1. **Provider-Specific Logic**
+   - Keep provider-specific code in dedicated files
+   - Use a common interface for shared functionality
+   - Implement provider-specific URL generation in respective modules
+
+2. **Error Handling**
+   - Handle EPIPE errors gracefully for pipe operations
+   - Provide clear, actionable error messages
+   - Consider the user's context when displaying errors
+
+3. **Testing Strategy**
+   - Colocate tests with source files
+   - Use feature-based directory structure
+   - Centralize test utilities for reusability
+
+### Documentation
+1. **README Best Practices**
+   - Start with clear feature overview
+   - Provide installation instructions
+   - Include usage examples with common scenarios
+   - Document environment variables and configuration
+
+2. **Code Documentation**
+   - Use TypeScript types as documentation
+   - Document the "why" more than the "what"
+   - Keep examples focused and minimal
+
+### Technical Insights
+1. **Formatting**
+   - Account for ANSI color codes in width calculations
+   - Use consistent date formatting
+   - Format numbers for human readability
+
+2. **Integration**
+   - Use provider SDKs directly when possible
+   - Keep abstractions minimal and purposeful
+   - Handle provider-specific quirks in dedicated modules
+
+### Future Considerations
+1. **Potential Improvements**
+   - Model comparison functionality
+   - Capability-based filtering
+   - Version tracking
+   - Performance benchmarking
+
+2. **Known Limitations**
+   - Some providers may have rate limits
+   - Context lengths may vary by model
+   - Not all models support all features 

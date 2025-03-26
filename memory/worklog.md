@@ -811,3 +811,29 @@ Implemented basic rate limit handling functionality to improve reliability and p
 **TODO**:
 - Investigate and verify Ollama model context lengths
 - Consider adding model capability information to verbose output
+
+## Model CLI Improvements (2025-03-26 06:40 EDT)
+
+### Summary
+Enhanced the model CLI display and organization with improved formatting, clickable links, and better code structure.
+
+### Accomplishments
+- Added clickable model URLs for both OpenRouter and Ollama models
+- Improved context length formatting (1M, 32K, etc.)
+- Right-aligned dates in the table view
+- Moved provider-specific URL logic to core providers
+- Added EPIPE error handling for better pipe support
+- Enhanced cost display with "Free" labels
+- Improved table formatting and column widths
+
+### Decisions
+- Provider-specific URL generation should live in respective provider files
+- Common URL interface exposed through providers/index.ts
+- Context lengths should be rounded and use K/M suffixes
+- Dates should be right-aligned for better readability
+- Free models should consistently show as "Free" in green
+
+### Next Steps
+- Consider adding model comparison functionality
+- Consider adding model filtering by capabilities
+- Consider adding model version tracking

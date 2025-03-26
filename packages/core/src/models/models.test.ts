@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAllModels, type ModelDetails } from './models.ts'
+import { getAllModels, searchModels, type ModelDetails } from './models.ts'
 import { getOllamaModels } from '../providers/ollama.ts'
 import { getOpenRouterModels } from '../providers/openrouter.ts'
 
@@ -76,5 +76,63 @@ describe('Model Information', () => {
         costs: modelWithCost.costs
       })
     }
+  })
+})
+
+describe('Model Search', () => {
+  it('should search models by name', async () => {
+    const results = await searchModels({ query: 'gemini' })
+    expect(results).toBeInstanceOf(Array)
+    results.forEach(model => {
+      const searchText = `${model.id} ${model.name} ${model.details?.family || ''} ${model.details?.format || ''}`.toLowerCase()
+      expect(searchText).toContain('gemini')
+    })
+  })
+
+  it('should filter by provider', async () => {
+    const results = await searchModels({ query: '', provider: 'openrouter' })
+    expect(results).toBeInstanceOf(Array)
+    results.forEach(model => {
+      expect(model.provider).toBe('openrouter')
+    })
+  })
+
+  it('should sort by date', async () => {
+    const results = await searchModels({ 
+      query: '',
+      sortBy: 'addedDate',
+      sortOrder: 'desc'
+    })
+    expect(results).toBeInstanceOf(Array)
+    if (results.length > 1) {
+      // Verify dates are valid
+      const modelsWithDates = results.filter(model => model.addedDate !== undefined)
+      expect(modelsWithDates.length).toBeGreaterThan(0)
+      
+      modelsWithDates.forEach(model => {
+        expect(model.addedDate).toBeInstanceOf(Date)
+        if (model.lastUpdated) {
+          expect(model.lastUpdated).toBeInstanceOf(Date)
+          expect(model.lastUpdated.getTime()).toBeLessThanOrEqual(Date.now())
+        }
+        expect(model.addedDate.getTime()).toBeLessThanOrEqual(Date.now())
+      })
+
+      // Verify sorting
+      for (let i = 1; i < modelsWithDates.length; i++) {
+        expect(modelsWithDates[i-1].addedDate.getTime()).toBeGreaterThanOrEqual(modelsWithDates[i].addedDate.getTime())
+      }
+    }
+  })
+
+  it('should filter free models', async () => {
+    const results = await searchModels({ query: '', onlyFree: true })
+    expect(results).toBeInstanceOf(Array)
+    results.forEach(model => {
+      if (model.costs) {
+        expect(model.costs.promptTokens).toBe(0)
+        expect(model.costs.completionTokens).toBe(0)
+      }
+    })
   })
 }) 

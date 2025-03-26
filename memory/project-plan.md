@@ -1,254 +1,99 @@
-# Model Evaluation Tool - Project Plan
-Last Updated: 2025-03-25 23:19:47 EDT
+# Project Plan
 
-## Overview
-This plan outlines the implementation strategy for building a local tool and web dashboard to systematically evaluate language models. The project will be built iteratively, focusing on high-risk components first and ensuring each phase delivers testable value.
+Last Updated: 2025-03-26 06:40 EDT
 
-## Implementation Phases
+## Phase 1: Core Model Runner ✅
+**Status**: Complete
 
-### Phase 1: Core Model Runner & Basic CLI (High Risk)
-**Goal**: Establish the foundation for model interaction and basic evaluation
-- [X] Setup monorepo structure with pnpm workspaces
-  - Validation: ✓ Project builds with `pnpm install`
-  - ✓ Directory structure matches specification
-  - ✓ TypeScript configuration working
+### Objectives
+- Implement basic model interaction
+- Set up provider integrations
+- Create cost calculation system
 
-- [-] Implement core model runner (packages/core)
-  - [X] Vercel AI SDK integration
-  - [X] Model provider abstraction (OpenRouter, Olama)
-  - [X] Timing and token tracking
-  - [X] Error handling and retries
-    - [X] Basic error classification
-    - [X] Rate limit handling
-      - [X] Rate limit detection and tracking
-      - [X] Exponential backoff with jitter
-      - [X] Request rate monitoring
-  Validation:
-  - ✓ Can successfully call models
-  - ✓ Properly tracks timing and tokens
-  - ✓ Handles errors gracefully
-  - ✓ Type-safe interfaces
-  - ✓ Properly handles rate limits with backoff
+### Validation Criteria
+- [X] Core interfaces defined and implemented
+- [X] OpenRouter provider working
+- [X] Ollama provider working
+- [X] Cost calculation accurate
+- [X] Basic error handling in place
 
-- [ ] Basic CLI implementation (packages/cli)
-  - [ ] Command Structure Implementation
-    - [ ] `run` command
-      - Basic prompt execution
-      - Model selection
-      - Provider selection
-      - Temperature control
-      - Token limiting
-      - Cost display
-    
-    - [ ] `chat` command
-      - Interactive mode
-      - System prompt support
-      - Conversation management
-      - History save/load
-    
-    - [ ] `models` commands
-      - Model listing
-      - Detailed info display
-      - Cost information
-    
-    - [ ] `eval` commands
-      - Evaluation suite execution
-      - Model comparison
-      - Statistics display
-    
-    - [ ] `config` commands
-      - Configuration management
-      - Settings persistence
-  
-  Validation:
-  - Commands follow consistent patterns
-  - All core features accessible
-  - Clear help text and documentation
-  - Error handling and feedback
-  - Configuration persistence
-  - Cost tracking integration
+## Phase 2: CLI Implementation ✅
+**Status**: Complete
 
-### Phase 2: Storage & Data Structure (Medium Risk)
-**Goal**: Implement persistent storage and result organization
-- [ ] Implement storage package (packages/store)
-  - [ ] Run directory creation and management
-  - [ ] JSON file structure for metadata
-  - [ ] Result serialization
-  Validation:
-  - Creates properly structured run directories
-  - Correctly saves all required metadata
-  - Data can be reliably retrieved
+### Objectives
+- Create user-friendly CLI interface
+- Implement model listing and filtering
+- Add detailed model information display
 
-- [ ] Enhanced CLI with storage integration
-  - [ ] Save results to run directories
-  - [ ] Generate run summaries
-  Validation:
-  - Complete run data saved to filesystem
-  - Consistent file naming and organization
+### Validation Criteria
+- [X] Basic command structure working
+- [X] Model listing with formatting
+- [X] Search and filtering options
+- [X] Cost display and formatting
+- [X] Error handling for user input
 
-### Phase 3: Evaluation Framework & Metrics (High Risk)
-**Goal**: Implement comprehensive model evaluation system
-- [ ] Create evaluation package structure
-  - [ ] Set up evaluators directory structure
-  - [ ] Define core evaluation interfaces
-  - [ ] Implement evaluation result types
-  Validation:
-  - Type system correctly represents all evaluation scenarios
-  - Package structure supports easy extension
+## Phase 3: UI/UX Improvements ✅
+**Status**: Complete
 
-- [ ] Implement Reference-Based Evaluation
-  - [ ] Key points matching system
-  - [ ] Must-include/must-not-include checks
-  - [ ] Similarity scoring
-  Validation:
-  - Accurately identifies presence of key points
-  - Handles partial matches appropriately
-  - Consistent scoring across similar responses
+### Objectives
+- Enhance display formatting
+- Add color coding
+- Improve error messages
+- Add clickable links
 
-- [ ] Implement Model-Based Evaluation
-  - [ ] Evaluation prompt templates
-  - [ ] Rubric-based scoring system
-  - [ ] Multi-criteria assessment
-  - [ ] Confidence scoring
-  Validation:
-  - Evaluator model provides consistent scores
-  - Reasoning is clear and actionable
-  - Cost tracking for evaluation runs
+### Validation Criteria
+- [X] Table formatting with proper alignment
+- [X] Color coding for better readability
+- [X] Clickable model URLs
+- [X] Human-readable number formatting
+- [X] EPIPE error handling
 
-- [ ] Task-Specific Evaluators
-  - [ ] Factual accuracy checker
-  - [ ] Code evaluation system
-  - [ ] Creative writing assessor
-  Validation:
-  - Each evaluator type works independently
-  - Can be combined for composite scoring
-  - Appropriate for their specific domains
+## Phase 4: Testing and Documentation ⏳
+**Status**: In Progress
 
-- [ ] Metrics Collection & Analysis
-  - [ ] Response timing metrics
-  - [ ] Token usage tracking
-  - [ ] Cost calculation
-  - [ ] Aggregate scoring system
-  Validation:
-  - Accurate performance metrics
-  - Reliable cost tracking
-  - Meaningful aggregate scores
+### Objectives
+- Implement comprehensive test suite
+- Create clear documentation
+- Add usage examples
 
-### Phase 4: Dashboard Implementation (Medium Risk)
-**Goal**: Create visual interface for results with enhanced evaluation insights
-- [ ] Setup Vite + React dashboard (apps/dashboard)
-  - [ ] Project structure
-  - [ ] Basic routing
-  - [ ] Evaluation results visualization
-  Validation:
-  - Development server runs
-  - Basic navigation works
-  - Can display complex evaluation results
+### Validation Criteria
+- [-] Unit tests for core functionality
+- [-] Integration tests for providers
+- [-] CLI command testing
+- [-] Error handling tests
+- [X] README with examples
+- [X] Environment variable documentation
 
-- [ ] Implement core dashboard features
-  - [ ] Run list view
-  - [ ] Detailed run view with evaluation breakdowns
-  - [ ] Comparison view with evaluation metrics
-  - [ ] Evaluation method configuration
-  Validation:
-  - All views render correctly
-  - Data loading works
-  - Responsive design
-  - Evaluation settings are configurable
+## Phase 5: Advanced Features 🔄
+**Status**: Planning
 
-- [ ] Add visualization components
-  - [ ] Evaluation score charts
-  - [ ] Performance metrics graphs
-  - [ ] Cost analysis visualizations
-  - [ ] Evaluation confidence indicators
-  Validation:
-  - Visualizations render correctly
-  - Interactive features work
-  - Clear presentation of evaluation data
+### Objectives
+- Add model comparison
+- Implement capability filtering
+- Add version tracking
+- Add performance benchmarks
 
-### Phase 5: Advanced Features (Low Risk)
-**Goal**: Implement advanced model capabilities and optimizations
-- [ ] Advanced Model Interactions
-  - [ ] Streaming support
-    - [ ] Core runner implementation
-    - [ ] CLI integration
-    - [ ] Dashboard live updates
-    - [ ] Performance optimization
-  Validation:
-  - Streaming works reliably
-  - Memory usage remains stable
-  - UI updates smoothly
-
-- [ ] Function Calling Support
-  - [ ] Core function calling interface
-  - [ ] Function registration system
-  - [ ] Type-safe function definitions
-  - [ ] Result validation
-  - [ ] CLI function calling commands
-  - [ ] Dashboard function visualization
-  Validation:
-  - Function calls work reliably
-  - Type safety is maintained
-  - Error handling is robust
-  - Results are properly validated
-
-- [ ] Advanced Provider Features
-  - [ ] Provider-specific optimizations
-  - [ ] Custom model configurations
-  - [ ] Advanced parameter tuning
-  Validation:
-  - Provider features are properly utilized
-  - Performance is optimized
-  - Configuration is flexible
-
-## Validation Criteria
-Each phase must meet these overall criteria before proceeding:
-1. All tests pass
-2. TypeScript compilation succeeds with no errors
-3. No critical bugs
-4. Documentation updated
-5. Code review completed
-
-### Additional Evaluation-Specific Criteria
-1. Evaluation results are reproducible
-2. Scoring is consistent across similar responses
-3. Evaluation costs are tracked and optimized
-4. Clear distinction between objective and subjective metrics
-5. Evaluation confidence is properly measured and reported
+### Validation Criteria
+- [ ] Model comparison working
+- [ ] Capability-based filtering
+- [ ] Version tracking implemented
+- [ ] Performance metrics available
 
 ## Risk Assessment
-1. **High Risk Areas**:
-   - ✓ Vercel AI SDK integration
-   - ✓ Model provider compatibility
-   - Evaluation accuracy and consistency
-   - Evaluation costs
-   - Performance tracking accuracy
 
-2. **Medium Risk Areas**:
-   - Data storage format
-   - Scoring aggregation
-   - ✓ Cost calculation
-   - Dashboard visualization of complex metrics
+### Technical Risks
+1. Provider API changes
+2. Rate limit handling
+3. Token calculation accuracy
 
-3. **Low Risk Areas**:
-   - Basic CLI functionality
-   - Result storage
-   - Simple metric displays
-
-## Dependencies
-- Node.js v20+
-- pnpm
-- Vercel AI SDK
-- API keys for model providers
-- API keys for evaluation models
-- Development environment setup
+### Mitigation Strategies
+1. Use provider SDKs directly
+2. Implement robust error handling
+3. Add comprehensive test coverage
 
 ## Success Metrics
-1. Can evaluate at least 3 different model providers
-2. Response timing accuracy within 50ms
-3. Cost calculations match actual billing
-4. Dashboard loads and displays data within 2 seconds
-5. CLI commands complete within expected timeframes
-6. Evaluation results have >90% consistency across runs
-7. Evaluation costs stay within 20% of response generation costs
-8. Clear correlation between evaluation scores and human judgment 
+1. All tests passing
+2. Clear, readable output
+3. Proper error handling
+4. User-friendly interface
+5. Comprehensive documentation 

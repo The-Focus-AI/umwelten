@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { modelsCommand } from './commands/models';
+import { modelsCommand } from './commands/models.js';
 
 const program = new Command();
 
 program
   .name('model-eval')
-  .description('CLI tool for evaluating language models')
-  .version('0.0.1');
+  .description('Model evaluation CLI')
+  .version('0.1.0');
 
 // Add commands
 program.addCommand(modelsCommand);

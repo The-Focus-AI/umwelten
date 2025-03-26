@@ -1,3 +1,75 @@
+# Project Brief
+
+Last Updated: 2025-03-26 06:40 EDT
+
+## Overview
+A command-line tool for evaluating and comparing AI models across different providers, with a focus on usability, cost transparency, and comprehensive model information.
+
+## Core Goals
+1. Provide easy access to model information
+2. Enable informed model selection
+3. Ensure cost transparency
+4. Deliver excellent user experience
+
+## Key Features
+1. Model Discovery
+   - Search and filter models
+   - View detailed model information
+   - Compare model capabilities
+
+2. Cost Management
+   - Display clear cost information
+   - Identify free models
+   - Show cost breakdowns
+
+3. User Experience
+   - Beautiful, color-coded output
+   - Human-readable formatting
+   - Clickable documentation links
+   - Pipe-friendly operation
+
+## Target Users
+1. Developers evaluating models
+2. Teams managing model costs
+3. Researchers comparing capabilities
+4. CLI automation users
+
+## Success Criteria
+1. Technical
+   - All tests passing
+   - Clean error handling
+   - Proper performance
+   - Type safety maintained
+
+2. User Experience
+   - Clear, readable output
+   - Intuitive commands
+   - Helpful documentation
+   - Proper error messages
+
+3. Business
+   - Accurate cost information
+   - Reliable model data
+   - Up-to-date capabilities
+   - Provider compatibility
+
+## Constraints
+1. Technical
+   - Provider API limitations
+   - Rate limit considerations
+   - Token calculation accuracy
+
+2. Business
+   - API key requirements
+   - Provider availability
+   - Cost accuracy
+
+## Timeline
+1. Phase 1: Core Runner ✅
+2. Phase 2: CLI Implementation ✅
+3. Phase 3: UI/UX Improvements ✅
+4. Phase 4: Testing & Documentation ⏳
+5. Phase 5: Advanced Features 🔄
 
 # 🧠 Model Evaluation Tool — Developer Specification
 
@@ -225,7 +297,7 @@ VERCEL_AI_KEY=...
     
 - JSON parse & format validation errors logged per run
     
-- Errors per model call don’t crash the whole run
+- Errors per model call don't crash the whole run
     
 - Dashboard marks failures in red with error info
     

@@ -1,77 +1,38 @@
 # Active Context
-Last Updated: 2025-03-26 14:30:00 EDT
 
-## Current Focus
-Core model runner implementation is complete, moving to basic CLI implementation phase.
+## Current Status (2025-03-26 06:40 EDT)
 
-## What's Working
-- Core model runner with OpenRouter and Ollama providers (✅ fully tested)
-- Cost estimation and calculation (✅ 5 tests passing)
-- Rate limit handling with exponential backoff (✅ 7 tests passing)
-- Model information and listing (✅ 3 tests passing)
-  - Table-based display with sorting and filtering
-  - ANSI-aware formatting
-  - Provider-specific grouping
-- Provider implementations:
-  - OpenRouter (✅ 8 tests passing)
-  - Ollama (✅ 2 tests passing)
-- Environment configuration and API key handling
+### Overview
+The CLI implementation is now complete with improved formatting, better error handling, and enhanced user experience features.
 
-## Current Implementation Details
-- Core Runner Status:
-  - All planned features implemented
-  - Comprehensive test coverage
-  - Error handling and retries working
-  - Rate limiting functioning properly
-  - Cost tracking implemented
+### Currently Working On
+- [X] CLI improvements and polish
+  - [X] Model URL linking
+  - [X] Context length formatting
+  - [X] Date alignment
+  - [X] Cost display
+  - [X] Error handling
 
-## Test Coverage Status
-1. Core Runner (✅ Complete):
-   - Model creation and validation
-   - Text generation
-   - Error handling
-   - Rate limiting
-   - Cost calculation
+### Next Steps
+1. Implement comprehensive testing suite
+2. Add model comparison functionality
+3. Consider adding capability-based filtering
+4. Add model version tracking
 
-2. OpenRouter Provider (✅ Complete):
-   - Model creation and validation
-   - Text generation
-   - Error handling
-   - Cost tracking
+### Blockers
+None currently.
 
-3. Ollama Provider (✅ Basic Coverage):
-   - Basic connectivity
-   - Text generation
-   - Token usage tracking
+### Recent Decisions
+1. Provider-specific URL generation moved to provider files
+2. Standardized formatting for:
+   - Context lengths (K/M suffixes)
+   - Dates (right-aligned)
+   - Costs ("Free" in green)
+3. Added clickable links for model documentation
+4. Improved error handling for pipe operations
 
-## What's Next
-1. Begin CLI Implementation:
-   - Set up CLI package structure
-   - Implement basic run command
-   - Add model selection
-   - Implement cost display
-
-2. Documentation:
-   - Update API documentation
-   - Add usage examples
-   - Document CLI commands
-
-## Blockers
-None currently. Core functionality is tested and working.
-
-## Recent Decisions
-1. Moved streaming and function calling to Phase 5 (Advanced Features)
-2. Completed core model runner implementation
-3. Ready to begin CLI implementation
-4. Keeping provider implementations simple using SDK directly
-
-## Technical Debt
-1. Add more Ollama provider test coverage
-2. Improve error scenario coverage
-3. Add performance benchmarking
-4. Document provider-specific configurations
-
-## Notes
-- All 25 tests passing successfully
-- Core functionality is stable and verified
-- Ready to begin CLI implementation phase 
+### Notes
+- The CLI now provides a polished, user-friendly interface
+- All core functionality is implemented and working
+- Code organization follows best practices with clear separation of concerns
+- Documentation needs to be completed 
