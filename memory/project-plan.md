@@ -39,7 +39,6 @@ This plan outlines the implementation strategy for building a local tool and web
       - Temperature control
       - Token limiting
       - Cost display
-      - Streaming support
     
     - [ ] `chat` command
       - Interactive mode
@@ -166,6 +165,41 @@ This plan outlines the implementation strategy for building a local tool and web
   - Visualizations render correctly
   - Interactive features work
   - Clear presentation of evaluation data
+
+### Phase 5: Advanced Features (Low Risk)
+**Goal**: Implement advanced model capabilities and optimizations
+- [ ] Advanced Model Interactions
+  - [ ] Streaming support
+    - [ ] Core runner implementation
+    - [ ] CLI integration
+    - [ ] Dashboard live updates
+    - [ ] Performance optimization
+  Validation:
+  - Streaming works reliably
+  - Memory usage remains stable
+  - UI updates smoothly
+
+- [ ] Function Calling Support
+  - [ ] Core function calling interface
+  - [ ] Function registration system
+  - [ ] Type-safe function definitions
+  - [ ] Result validation
+  - [ ] CLI function calling commands
+  - [ ] Dashboard function visualization
+  Validation:
+  - Function calls work reliably
+  - Type safety is maintained
+  - Error handling is robust
+  - Results are properly validated
+
+- [ ] Advanced Provider Features
+  - [ ] Provider-specific optimizations
+  - [ ] Custom model configurations
+  - [ ] Advanced parameter tuning
+  Validation:
+  - Provider features are properly utilized
+  - Performance is optimized
+  - Configuration is flexible
 
 ## Validation Criteria
 Each phase must meet these overall criteria before proceeding:

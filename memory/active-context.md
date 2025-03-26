@@ -1,8 +1,8 @@
 # Active Context
-Last Updated: 2025-03-26 13:45:00 EDT
+Last Updated: 2025-03-26 14:30:00 EDT
 
 ## Current Focus
-Expanding test coverage and implementing advanced features, with core functionality verified and stable.
+Core model runner implementation is complete, moving to basic CLI implementation phase.
 
 ## What's Working
 - Core model runner with OpenRouter and Ollama providers (✅ fully tested)
@@ -18,96 +18,60 @@ Expanding test coverage and implementing advanced features, with core functional
 - Environment configuration and API key handling
 
 ## Current Implementation Details
-- CLI Improvements:
-  - Enhanced model listing with table format
-  - Sorting by name, context length, and cost
-  - Filtering by provider and cost (free/paid)
-  - Color-coded output with proper alignment
-- Rate limit handling module (`src/rate-limit/rate-limit.ts`):
-  - State tracking per model
-  - Exponential backoff with jitter
-  - Request rate monitoring
-  - Header parsing support
-- Model runner integration:
-  - Automatic rate limit checks
-  - Retry mechanism with backoff
-  - Error classification and handling
-- Test Organization:
-  - Tests colocated with source files
-  - Feature-based directory structure
-  - Centralized test utilities
-  - Environment configuration working
+- Core Runner Status:
+  - All planned features implemented
+  - Comprehensive test coverage
+  - Error handling and retries working
+  - Rate limiting functioning properly
+  - Cost tracking implemented
 
 ## Test Coverage Status
-1. Cost Calculation (✅ Complete):
-   - Estimates and actual calculations
-   - Free vs paid model handling
-   - Cost breakdown formatting
-   - Token usage tracking
-
-2. Rate Limiting (✅ Complete):
-   - Request allowance checks
-   - Exponential backoff
-   - State management
-   - Header parsing
-
-3. Model Information (✅ Complete):
-   - Model listing and validation
-   - Cost information handling
-   - Provider-specific details
-   - Model capabilities
-
-4. OpenRouter Provider (✅ Complete):
+1. Core Runner (✅ Complete):
    - Model creation and validation
    - Text generation
-   - Temperature control
    - Error handling
-   - Conversation handling
+   - Rate limiting
+   - Cost calculation
 
-5. Ollama Provider (✅ Basic Coverage):
+2. OpenRouter Provider (✅ Complete):
+   - Model creation and validation
+   - Text generation
+   - Error handling
+   - Cost tracking
+
+3. Ollama Provider (✅ Basic Coverage):
    - Basic connectivity
    - Text generation
    - Token usage tracking
 
 ## What's Next
-1. Advanced Feature Implementation:
-   - Streaming support
-   - Function calling capabilities
-   - System message handling
-   - Concurrent request management
+1. Begin CLI Implementation:
+   - Set up CLI package structure
+   - Implement basic run command
+   - Add model selection
+   - Implement cost display
 
-2. Test Coverage Expansion:
-   - Streaming response tests
-   - Concurrent request handling
-   - Advanced error scenarios
-   - Performance benchmarks
-
-3. Documentation:
+2. Documentation:
    - Update API documentation
    - Add usage examples
-   - Document advanced features
+   - Document CLI commands
 
 ## Blockers
-None currently. All core functionality is tested and working.
+None currently. Core functionality is tested and working.
 
 ## Recent Decisions
-1. Verified all core functionality with comprehensive tests
-2. Completed model listing CLI with enhanced formatting
-3. Confirmed OpenRouter API integration working
-4. Validated both provider implementations
-5. Standardized on technical model IDs for clarity
+1. Moved streaming and function calling to Phase 5 (Advanced Features)
+2. Completed core model runner implementation
+3. Ready to begin CLI implementation
+4. Keeping provider implementations simple using SDK directly
 
 ## Technical Debt
-1. Add streaming support tests
-2. Implement concurrent request handling
-3. Expand Ollama provider test coverage
-4. Add performance benchmarking
-5. Implement advanced error scenarios
-6. Verify and fix Ollama model context lengths
-7. Consider adding model capability information to verbose output
+1. Add more Ollama provider test coverage
+2. Improve error scenario coverage
+3. Add performance benchmarking
+4. Document provider-specific configurations
 
 ## Notes
 - All 25 tests passing successfully
 - Core functionality is stable and verified
-- CLI formatting improved with proper table display
-- Ready to implement advanced features 
+- Ready to begin CLI implementation phase 

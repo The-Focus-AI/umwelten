@@ -1,5 +1,5 @@
 # Lessons Learned
-Last Updated: 2025-03-25 19:34:18 EDT
+Last Updated: 2025-03-26 14:30:00 EDT
 
 ## Technical Insights
 
@@ -169,4 +169,22 @@ Last Updated: 2025-03-25 19:34:18 EDT
   - Simple implementations can be self-documenting
   - Use TypeScript types as documentation
   - Keep examples focused and minimal
-  - Document the "why" more than the "what" 
+  - Document the "why" more than the "what"
+
+## Project Planning
+
+### 1. Feature Prioritization and Phasing
+- **Date**: March 26, 2025
+- **Context**: Initially included streaming and function calling in core implementation
+- **Problem**: Including advanced features in early phases increased complexity and risk
+- **Solution**: Created dedicated Advanced Features phase and moved non-essential features there
+- **Lesson**: 
+  1. Start with essential features that provide core value
+  2. Move advanced features to later phases
+  3. Keep early phases focused and manageable
+  4. Plan for extensibility without implementing it early
+- **Impact**:
+  - Clearer project progression
+  - Reduced initial complexity
+  - Better risk management
+  - More focused development effort 
