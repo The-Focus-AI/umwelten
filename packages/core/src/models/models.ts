@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { TokenUsage, TokenUsageSchema } from '../costs/costs.ts'
 import { getOpenRouterModels } from '../providers/openrouter.ts'
 import { getOllamaModels } from '../providers/ollama.ts'
+import { getGoogleModels } from '../providers/google.ts'
 
 export interface ModelCosts {
   promptTokens: number  // Cost per 1K prompt tokens in USD
@@ -14,7 +15,7 @@ export interface ModelDetails {
   name: string
   contextLength: number
   costs?: ModelCosts  // Optional since Ollama models are free
-  provider: 'openrouter' | 'ollama'
+  provider: 'openrouter' | 'ollama' | 'google'
   addedDate: Date     // When the model was first seen
   lastUpdated: Date   // When the model was last updated
   details?: {
@@ -22,6 +23,11 @@ export interface ModelDetails {
     family?: string
     parameterSize?: string
     quantizationLevel?: string
+    description?: string
+    version?: string
+    inputTokenLimit?: number
+    outputTokenLimit?: number
+    supportedGenerationMethods?: string[]
   }
 }
 
@@ -35,9 +41,10 @@ export interface ModelProvider {
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
   try {
-    const [openRouterModels, ollamaModels] = await Promise.allSettled([
+    const [openRouterModels, ollamaModels, googleModels] = await Promise.allSettled([
       getOpenRouterModels(),
-      getOllamaModels()
+      getOllamaModels(),
+      getGoogleModels()
     ])
     
     const models: ModelDetails[] = []
@@ -48,6 +55,10 @@ export async function getAllModels(): Promise<ModelDetails[]> {
     
     if (ollamaModels.status === 'fulfilled') {
       models.push(...ollamaModels.value)
+    }
+
+    if (googleModels.status === 'fulfilled') {
+      models.push(...googleModels.value)
     }
     
     return models
@@ -105,7 +116,7 @@ export interface ModelRunner {
 
 export interface ModelSearchOptions {
   query: string              // Search term
-  provider?: 'openrouter' | 'ollama' | 'all'  // Filter by provider
+  provider?: 'openrouter' | 'ollama' | 'google' | 'all'  // Filter by provider
   sortBy?: 'name' | 'addedDate' | 'contextLength' | 'cost'  // Sort results
   sortOrder?: 'asc' | 'desc'  // Sort direction
   onlyFree?: boolean        // Only show free models

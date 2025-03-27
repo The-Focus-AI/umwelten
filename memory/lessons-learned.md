@@ -256,4 +256,148 @@ Last Updated: 2025-03-26 14:30:00 EDT
 2. **Known Limitations**
    - Some providers may have rate limits
    - Context lengths may vary by model
-   - Not all models support all features 
+   - Not all models support all features
+
+## Dependency Management
+1. Always use latest stable versions of dependencies:
+   - Check npm for latest versions regularly
+   - Update dependencies proactively to get new features and fixes
+   - Document version changes in worklog
+2. Consider dependency compatibility:
+   - Verify TypeScript type definitions are available
+   - Test integration points after version updates
+   - Keep track of breaking changes
+
+## Provider Integration
+1. Dynamic vs Static Implementation:
+   - Prefer dynamic model listing over hardcoded lists
+   - Use provider SDKs when available for better maintainability
+   - Implement proper error handling for API failures
+2. Standardization:
+   - Create consistent interfaces across providers
+   - Normalize metadata and capabilities
+   - Handle provider-specific features gracefully
+
+## Type Safety
+1. TypeScript Best Practices:
+   - Use proper type declarations for all dependencies
+   - Handle undefined/optional values explicitly
+   - Document type interfaces thoroughly
+2. Error Handling:
+   - Implement proper error classification
+   - Provide meaningful error messages
+   - Consider retry mechanisms for transient failures
+
+## Testing Strategy
+1. Provider Testing:
+   - Test model listing functionality
+   - Verify token counting accuracy
+   - Check error handling paths
+2. Integration Testing:
+   - Test provider interoperability
+   - Verify consistent behavior across providers
+   - Monitor API rate limits and quotas
+
+## Documentation
+1. Keep documentation up to date:
+   - Document version changes
+   - Update setup instructions
+   - Maintain clear usage examples
+2. Provider-specific documentation:
+   - Document API key requirements
+   - List supported features
+   - Provide troubleshooting guides
+
+## Provider Implementation (2024-03-26)
+
+### 1. Interface-First Development
+- **Date**: March 26, 2024
+- **Context**: Google provider implementation
+- **Problem**: Started by creating custom interfaces mirroring API response, leading to unnecessary complexity
+- **Solution**: Focus on implementing the core `ModelDetails` interface directly
+- **Lesson**: 
+  1. Start with the core interfaces from your system
+  2. Transform external data directly to these interfaces
+  3. Avoid creating intermediate types unless absolutely necessary
+  4. Let TypeScript infer types where possible
+- **Impact**:
+  - Simpler, more maintainable code
+  - Better alignment with system architecture
+  - Reduced cognitive load
+  - Easier to update when APIs change
+
+### 2. Data Transformation Best Practices
+- **Date**: March 26, 2024
+- **Context**: Mapping Google API response to ModelDetails
+- **Problem**: Created complex transformation logic with multiple helper functions
+- **Solution**: Simplified to direct mapping in a single function
+- **Lesson**:
+  1. Keep transformations simple and direct
+  2. Use const assertions for static data (as const)
+  3. Inline simple helper functions unless reused
+  4. Document source of external data (e.g., pricing URLs)
+- **Example**:
+  ```typescript
+  // Before: Complex helper functions
+  function getModelCosts(name: string): ModelPricing { ... }
+  function getModelDates(name: string, version: string): Dates { ... }
+
+  // After: Direct transformation
+  return {
+    costs: GEMINI_PRICING[baseModel] || GEMINI_PRICING.default,
+    addedDate: version?.includes('exp') ? new Date() : baseDate
+  };
+  ```
+
+### 3. Type Safety Without Overhead
+- **Date**: March 26, 2024
+- **Context**: Google provider implementation
+- **Problem**: Over-engineered type system with unnecessary interfaces
+- **Solution**: Leverage TypeScript's type inference and const assertions
+- **Lesson**:
+  1. Use TypeScript's type inference where possible
+  2. Add explicit types only where needed for clarity
+  3. Const assertions provide type safety for static data
+  4. Trust the compiler to catch type errors
+- **Impact**:
+  - Cleaner, more readable code
+  - Maintained type safety
+  - Easier to maintain and update
+  - Better developer experience
+
+### 4. API Integration Patterns
+- **Date**: March 26, 2024
+- **Context**: Google AI model integration
+- **Problem**: Initially created complex wrappers around API responses
+- **Solution**: Direct transformation to core interfaces
+- **Lesson**:
+  1. Focus on your system's core interfaces
+  2. Transform external data at the boundary
+  3. Don't preserve unnecessary API structure
+  4. Document API versions and endpoints
+- **Impact**:
+  - Cleaner architecture
+  - Better separation of concerns
+  - Easier to add new providers
+  - More maintainable codebase 
+
+## API Key Management
+
+### Test Suite Design
+- Implement mock data responses for basic functionality tests
+- Use environment variables for API key configuration
+- Create helper functions (like `itWithAuth`) to handle conditional test execution
+- Clearly document required environment variables and their purpose
+
+### Environment Configuration
+- Use descriptive environment variable names (e.g., `GOOGLE_GENERATIVE_AI_API_KEY` vs `GOOGLE_API_KEY`)
+- Implement proper validation and error messages for missing/invalid keys
+- Maintain an up-to-date `.env.example` file
+- Log helpful debugging information during test setup
+
+### Best Practices
+1. Always verify API key validity before running tests
+2. Provide clear error messages when API keys are missing or invalid
+3. Use mock data for tests that don't require API access
+4. Document API key requirements and setup process
+5. Implement proper error handling for API authentication failures 

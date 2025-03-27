@@ -15,6 +15,7 @@ A tool for evaluating and comparing different LLM models across providers, with 
 ### Key Dependencies
 - @openrouter/ai-sdk-provider: Provider SDK for OpenRouter
 - ollama-ai-provider: Provider SDK for Ollama
+- @google/generative-ai: Provider SDK for Google AI
 - chalk: Terminal styling
 - cli-table3: Table formatting
 - commander: CLI framework
@@ -197,6 +198,131 @@ packages/
   - Progress indicators
   - Cost tracking integration
 
+## Provider Integration Guide
+
+### Adding a New Provider
+
+1. Provider Setup
+   - Create new provider file in `packages/core/src/providers/`
+   - Implement provider interface:
+     ```typescript
+     export interface Provider {
+       getModelUrls(): Promise<Record<string, string>>;
+       getAvailableModels(): Promise<ModelDetails[]>;
+       calculateCosts(model: string, promptTokens: number, completionTokens: number): ModelCosts;
+     }
+     ```
+
+2. Required Components
+   - Model URL generation logic
+   - Available models fetching
+   - Cost calculation implementation
+   - Type definitions and validation
+   - Error handling and retries
+   - Rate limit management
+
+3. Integration Steps
+   a. Create Provider File
+      - Add provider-specific configuration
+      - Implement core interfaces
+      - Add type definitions
+      - Handle authentication
+
+   b. Update Core Files
+      - Add to provider index
+      - Update model interfaces if needed
+      - Add new capabilities or features
+      - Update type definitions
+
+   c. Testing
+      - Create provider test file
+      - Add unit tests for core functionality
+      - Add integration tests
+      - Test error scenarios
+      - Verify cost calculations
+
+   d. Documentation
+      - Update README with new provider
+      - Document authentication requirements
+      - Add usage examples
+      - Update environment variables
+
+4. Validation Checklist
+   - [ ] Core interface implementation complete
+   - [ ] Error handling implemented
+   - [ ] Rate limiting configured
+   - [ ] Tests written and passing
+   - [ ] Documentation updated
+   - [ ] Examples added
+   - [ ] Cost calculation verified
+   - [ ] Type definitions complete
+
+5. Best Practices
+   - Keep provider-specific logic isolated
+   - Use consistent error handling patterns
+   - Implement proper rate limiting
+   - Add comprehensive tests
+   - Document authentication clearly
+   - Provide usage examples
+   - Consider backwards compatibility
+
+6. Common Patterns
+   - Authentication handling
+   - Rate limit implementation
+   - Error classification
+   - Cost calculation
+   - Model capability mapping
+   - URL generation
+
+7. Testing Requirements
+   - Unit tests for core functionality
+   - Integration tests with actual API
+   - Error scenario coverage
+   - Rate limit testing
+   - Cost calculation verification
+   - Type safety validation
+
+8. Documentation Requirements
+   - Setup instructions
+   - Authentication guide
+   - Environment variables
+   - Usage examples
+   - Rate limit details
+   - Cost calculation explanation
+   - Troubleshooting guide
+
+### Provider-Specific Considerations
+
+1. Authentication
+   - API key management
+   - Environment variables
+   - Configuration validation
+   - Security best practices
+
+2. Rate Limiting
+   - Provider-specific limits
+   - Retry strategies
+   - Backoff implementation
+   - Concurrent request handling
+
+3. Cost Management
+   - Token counting methods
+   - Price calculation
+   - Usage tracking
+   - Budget controls
+
+4. Error Handling
+   - Provider-specific errors
+   - Retry strategies
+   - User feedback
+   - Logging requirements
+
+5. Model Capabilities
+   - Feature support
+   - Token limits
+   - Special parameters
+   - Performance characteristics
+
 ## Implementation Guidelines
 
 ### Code Organization
@@ -297,3 +423,114 @@ packages/
    - Integration tests for provider interaction
    - Error handling validation
    - Performance benchmarks
+
+## Provider Implementation Patterns
+
+### Core Principles
+1. **Interface-First Development**
+   - Start with core system interfaces (e.g., `ModelDetails`)
+   - Transform external data directly to these interfaces
+   - Avoid intermediate types/interfaces unless absolutely necessary
+   - Let TypeScript infer types where possible
+
+2. **Data Transformation**
+   - Keep transformations simple and direct
+   - Use const assertions for static data
+   - Inline simple helper functions unless reused
+   - Document external data sources (e.g., pricing URLs)
+
+3. **Type Safety**
+   - Use TypeScript's type inference
+   - Add explicit types only where needed for clarity
+   - Use const assertions for static data
+   - Trust the compiler to catch type errors
+
+4. **API Integration**
+   - Focus on system's core interfaces
+   - Transform external data at the boundary
+   - Don't preserve unnecessary API structure
+   - Document API versions and endpoints
+
+### Example Implementation
+```typescript
+// 1. Import core interfaces only
+import type { ModelDetails } from '../models/models';
+
+// 2. Static data with const assertion
+const PRICING = {
+  'model-a': { promptTokens: 0.001, completionTokens: 0.002 },
+  default: { promptTokens: 0.0005, completionTokens: 0.001 }
+} as const;
+
+// 3. Direct transformation to core interface
+async function getModels(): Promise<ModelDetails[]> {
+  const data = await fetchFromAPI();
+  
+  return data.models.map(model => ({
+    id: model.id,
+    name: model.name,
+    provider: 'provider' as const,
+    costs: PRICING[model.id] || PRICING.default,
+    // ... other direct mappings
+  }));
+}
+```
+
+### Anti-Patterns to Avoid
+1. **Unnecessary Abstractions**
+   ```typescript
+   // DON'T: Create interfaces mirroring API
+   interface APIResponse {
+     models: Array<{
+       // ... duplicating ModelDetails fields
+     }>;
+   }
+   
+   // DO: Transform directly to ModelDetails
+   const models: ModelDetails[] = data.models.map(...)
+   ```
+
+2. **Complex Helper Functions**
+   ```typescript
+   // DON'T: Create helpers for simple transformations
+   function getModelDates(name: string): Dates { ... }
+   function getModelCosts(name: string): Costs { ... }
+   
+   // DO: Transform inline when simple
+   addedDate: version?.includes('exp') ? new Date() : baseDate,
+   costs: PRICING[modelId] || PRICING.default
+   ```
+
+3. **Type Overengineering**
+   ```typescript
+   // DON'T: Create complex type hierarchies
+   type ModelPricing = { ... }
+   type GeminiPricing = { [key in ModelTypes]: ModelPricing }
+   
+   // DO: Use const assertions and inference
+   const PRICING = { ... } as const
+   ```
+
+### Directory Structure
+```
+packages/
+  core/
+    src/
+      providers/
+        google.ts      # Each provider in its own file
+        openrouter.ts
+        ollama.ts
+      models/
+        models.ts      # Core interfaces
+      costs/
+        costs.ts       # Cost calculation
+```
+
+### Implementation Checklist
+- [ ] Review core interfaces before starting
+- [ ] Plan data transformation approach
+- [ ] Document any static data sources
+- [ ] Keep transformations simple and direct
+- [ ] Use TypeScript's type inference
+- [ ] Add tests for edge cases
+- [ ] Document API versions and endpoints
