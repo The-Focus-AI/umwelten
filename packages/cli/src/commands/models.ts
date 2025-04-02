@@ -76,7 +76,8 @@ function truncate(str: string, length: number): string {
 }
 
 // Utility function to format context length
-function formatContextLength(tokens: number): string {
+function formatContextLength(tokens: number | undefined): string {
+  if (!tokens) return 'Unknown';
   if (tokens >= 1000000) {
     return `${Math.round(tokens / 1000000)}M`;
   }
@@ -112,9 +113,12 @@ function formatCost(model: ModelDetails): string {
 function displayModelInfo(model: ModelDetails) {
   console.log('\nModel Details:');
   console.log('=============');
-  console.log(`ID: ${model.id}`);
-  console.log(`Name: ${model.name}`);
+  console.log(`ID: ${model.modelId}`);
+  console.log(`Name: ${model.name || model.modelId}`);
   console.log(`Provider: ${model.provider}`);
+  if (model.provider === 'openrouter' && model.details?.provider) {
+    console.log(`Model Provider: ${model.details.provider}`);
+  }
   
   const url = getModelUrl(model);
   if (url) {
@@ -124,25 +128,28 @@ function displayModelInfo(model: ModelDetails) {
   
   console.log(`Context Length: ${formatContextLength(model.contextLength)} tokens`);
   console.log(`Cost per 1K tokens: ${formatCost(model)}`);
-  console.log(`Added: ${new Date(model.addedDate).toLocaleDateString()}`);
-  console.log(`Last Updated: ${new Date(model.lastUpdated).toLocaleDateString()}`);
+  if (model.addedDate) console.log(`Added: ${formatDate(model.addedDate)}`);
+  if (model.lastUpdated) console.log(`Last Updated: ${formatDate(model.lastUpdated)}`);
   
   if (model.details) {
     console.log('\nAdditional Details:');
     console.log('==================');
     Object.entries(model.details).forEach(([key, value]) => {
-      console.log(`${key}: ${value}`);
+      if (key !== 'provider') { // Skip provider since we already showed it
+        console.log(`${key}: ${value}`);
+      }
     });
   }
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: Date | undefined): string {
+  if (!date) return 'Unknown';
   // Format as MM/DD/YY
   return date.toLocaleDateString('en-US', {
     month: 'numeric',
     day: 'numeric',
     year: '2-digit'
-  })
+  });
 }
 
 export const modelsCommand = new Command('models')
@@ -164,15 +171,53 @@ export const modelsCommand = new Command('models')
         }
       });
 
-      const searchOptions: ModelSearchOptions = {
-        query: options.search || '',
-        provider: options.provider,
-        sortBy: options.sort,
-        sortOrder: options.desc ? 'desc' : 'asc',
-        onlyFree: options.free
-      };
+      // Get all models first
+      let models = await getAllModels();
 
-      const models = await searchModels(searchOptions);
+      // Filter by provider if specified
+      if (options.provider && options.provider !== 'all') {
+        models = models.filter(m => m.provider === options.provider);
+      }
+
+      // Filter free models if requested
+      if (options.free) {
+        models = models.filter(m => {
+          if (m.provider === 'ollama') return true;
+          if (!m.costs) return true;
+          return m.costs.promptTokens === 0 && m.costs.completionTokens === 0;
+        });
+      }
+
+      // Search if query provided
+      if (options.search) {
+        models = await searchModels(options.search, models);
+      }
+
+      // Sort models
+      if (options.sort) {
+        models = [...models].sort((a, b) => {
+          switch (options.sort) {
+            case 'name':
+              const nameA = a.name || a.modelId;
+              const nameB = b.name || b.modelId;
+              return options.desc ? nameB.localeCompare(nameA) : nameA.localeCompare(nameB);
+            case 'addedDate':
+              const dateA = a.addedDate ? new Date(a.addedDate).getTime() : 0;
+              const dateB = b.addedDate ? new Date(b.addedDate).getTime() : 0;
+              return options.desc ? dateB - dateA : dateA - dateB;
+            case 'contextLength':
+              const lenA = a.contextLength || 0;
+              const lenB = b.contextLength || 0;
+              return options.desc ? lenB - lenA : lenA - lenB;
+            case 'cost':
+              const costA = a.costs ? (a.costs.promptTokens + a.costs.completionTokens) : 0;
+              const costB = b.costs ? (b.costs.promptTokens + b.costs.completionTokens) : 0;
+              return options.desc ? costB - costA : costA - costB;
+            default:
+              return 0;
+          }
+        });
+      }
 
       // Handle info view mode
       if (options.view === 'info') {
@@ -181,7 +226,7 @@ export const modelsCommand = new Command('models')
           process.exit(1);
         }
 
-        const model = models.find(m => m.id === options.id);
+        const model = models.find(m => m.modelId === options.id);
         if (!model) {
           console.error(`Error: Model with ID "${options.id}" not found`);
           process.exit(1);
@@ -227,8 +272,8 @@ export const modelsCommand = new Command('models')
 
       // Add rows with model data
       for (const model of models) {
-        const id = model.id.length > 51 ? model.id.substring(0, 48) + '...' : model.id;
-        const date = formatDate(new Date(model.addedDate));
+        const id = model.modelId.length > 51 ? model.modelId.substring(0, 48) + '...' : model.modelId;
+        const date = formatDate(model.addedDate);
         
         table.push([
           chalk.cyan(id),
@@ -259,7 +304,7 @@ modelsCommand
   .action(async (modelId) => {
     try {
       const models = await getAllModels();
-      const model = models.find(m => m.id === modelId || m.name === modelId);
+      const model = models.find(m => m.modelId === modelId || m.name === modelId);
       
       if (!model) {
         console.error(chalk.red(`\nModel "${modelId}" not found`));
@@ -267,8 +312,8 @@ modelsCommand
       }
 
       printHeader('Model Information');
-      console.log(`${chalk.yellow('Name')}: ${chalk.bold(model.name)}`);
-      console.log(`${chalk.yellow('ID')}: ${model.id}`);
+      console.log(`${chalk.yellow('Name')}: ${chalk.bold(model.name || model.modelId)}`);
+      console.log(`${chalk.yellow('ID')}: ${model.modelId}`);
       console.log(`${chalk.yellow('Provider')}: ${chalk.cyan(model.provider)}`);
       
       const url = getModelUrl(model);
@@ -354,17 +399,8 @@ modelsCommand
           chalk.bold(`$${model.totalCostPer1K.toFixed(4)}`)
         );
       });
-
-      // Show free models at the end
-      const freeModels = models.filter(m => !m.costs || (m.costs.promptTokens === 0 && m.costs.completionTokens === 0));
-      if (freeModels.length > 0) {
-        printHeader('Free Models');
-        freeModels.forEach(model => {
-          console.log(`${chalk.cyan(model.name)} ${chalk.dim(`(${model.provider})`)}`);
-        });
-      }
     } catch (error) {
-      console.error(chalk.red('\nError fetching model costs:'), error);
+      console.error('Error fetching model costs:', error);
       process.exit(1);
     }
-  }); 
+  });

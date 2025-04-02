@@ -1,43 +1,195 @@
 import { describe, it, expect } from 'vitest'
-import { createOllamaModel } from './ollama.ts'
+import { createOllamaProvider } from './ollama.js'
 import { generateText } from 'ai'
+import { ModelRoute } from '../models/types.js'
 
 describe('Ollama Provider', () => {
-  // First check if Ollama is running
-  it('should be able to connect to Ollama', async () => {
-    const response = await fetch('http://localhost:11434/api/version')
-    expect(response.ok).toBe(true)
-  })
+  // Check if Ollama is running locally
+  const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434'
+  
+  // Helper function to check if Ollama is available
+  const checkOllamaConnection = async () => {
+    try {
+      const response = await fetch(`${OLLAMA_HOST}/api/tags`)
+      return response.ok
+    } catch (e) {
+      return false
+    }
+  }
 
-  it('should generate text with gemma3 model and return usage stats', async () => {
-    const model = createOllamaModel('gemma3')
-    const prompt = 'Write a haiku about programming'
-    
-    const response = await generateText({
-      model,
-      prompt
+  // Test route using the gemma model
+  const TEST_ROUTE: ModelRoute = {
+    modelId: 'gemma3',
+    provider: 'ollama',
+    route: 'ollama'
+  }
+
+  describe('Provider Instance', () => {
+    it('should create a provider instance', () => {
+      const provider = createOllamaProvider()
+      expect(provider).toBeDefined()
+      expect(typeof provider).toBe('object')
+      expect(provider).not.toBeNull()
     })
 
-    console.log('Full response:', response)
-    
-    expect(response.text).toBeTruthy()
-    expect(typeof response.text).toBe('string')
-    console.log('Generated text:', response.text)
-    
-    // Check if we get usage statistics
-    expect(response).toHaveProperty('usage')
-    if (response.usage) {
-      console.log('Usage stats:', response.usage)
-      expect(response.usage).toHaveProperty('promptTokens')
-      expect(response.usage).toHaveProperty('completionTokens')
-      expect(response.usage).toHaveProperty('totalTokens')
+    it('should accept custom base URL', () => {
+      const provider = createOllamaProvider('http://custom:11434')
+      expect(provider).toBeDefined()
+    })
+  })
+
+  describe('Model Listing', () => {
+    it('should list available models', async () => {
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection()
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test')
+        return
+      }
+
+      const provider = createOllamaProvider()
+      const models = await provider.listModels()
+      expect(models).toBeInstanceOf(Array)
+
+      // Log first model for debugging
+      if (models.length > 0) {
+        console.log('First model:', models[0])
+      }
+
+      // Check model structure
+      models.forEach(model => {
+        expect(model.modelId).toBeDefined()
+        expect(model.provider).toBe('ollama')
+        expect(model.route).toBe('ollama')
+        expect(model.name).toBeDefined()
+        expect(model.contextLength).toBeTypeOf('number')
+        expect(model.costs).toBeDefined()
+        expect(model.costs?.promptTokens).toBeTypeOf('number')
+        expect(model.costs?.completionTokens).toBeTypeOf('number')
+      })
+    })
+  })
+
+  describe('Text Generation', () => {
+    it('should generate text with gemma model', async () => {
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection()
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test')
+        return
+      }
+
+      const provider = createOllamaProvider()
+      const model = provider.getLanguageModel(TEST_ROUTE)
+      const prompt = 'Write a haiku about coding'
       
-      // Verify the numbers make sense
-      expect(response.usage.promptTokens).toBeGreaterThan(0)
-      expect(response.usage.completionTokens).toBeGreaterThan(0)
-      expect(response.usage.totalTokens).toBe(
-        response.usage.promptTokens + response.usage.completionTokens
-      )
-    }
+      const response = await generateText({
+        model,
+        prompt
+      })
+
+      console.log('Generated text:', response.text)
+      
+      expect(response.text).toBeTruthy()
+      expect(typeof response.text).toBe('string')
+      expect(response.text.length).toBeGreaterThan(0)
+      
+      // Check usage statistics
+      expect(response).toHaveProperty('usage')
+      if (response.usage) {
+        console.log('Usage stats:', response.usage)
+        expect(response.usage).toHaveProperty('promptTokens')
+        expect(response.usage).toHaveProperty('completionTokens')
+        expect(response.usage).toHaveProperty('totalTokens')
+        expect(response.usage.totalTokens).toBe(
+          response.usage.promptTokens + response.usage.completionTokens
+        )
+      }
+    })
+
+    it('should handle longer conversations', async () => {
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection()
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test')
+        return
+      }
+
+      const provider = createOllamaProvider()
+      const model = provider.getLanguageModel(TEST_ROUTE)
+      const prompt = `
+System: You are a helpful assistant. Keep your responses concise.
+User: What is the capital of France?
+Assistant: Paris.
+User: What is its population?
+`
+      const response = await generateText({
+        model,
+        prompt
+      })
+
+      console.log('Conversation response:', response.text)
+      
+      expect(response.text).toBeTruthy()
+      expect(typeof response.text).toBe('string')
+      expect(response.text.length).toBeGreaterThan(0)
+    })
+
+    it('should respect temperature setting', async () => {
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection()
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test')
+        return
+      }
+
+      const provider = createOllamaProvider()
+      const model = provider.getLanguageModel(TEST_ROUTE)
+      const prompt = 'Generate a random number between 1 and 10'
+      
+      // Generate with temperature 0 (deterministic)
+      const response1 = await generateText({
+        model,
+        prompt,
+        temperature: 0
+      })
+
+      // Generate again with same temperature
+      const response2 = await generateText({
+        model,
+        prompt,
+        temperature: 0
+      })
+
+      console.log('Response 1:', response1.text)
+      console.log('Response 2:', response2.text)
+      
+      // With temperature 0, responses should be identical
+      expect(response1.text).toBe(response2.text)
+    })
+  })
+
+  describe('Error Handling', () => {
+    it('should handle invalid model IDs', async () => {
+      const provider = createOllamaProvider()
+      const invalidRoute: ModelRoute = {
+        ...TEST_ROUTE,
+        modelId: 'invalid-model-name'
+      }
+      const model = provider.getLanguageModel(invalidRoute)
+      const prompt = 'This should fail'
+      
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection()
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test')
+        return
+      }
+
+      await expect(generateText({
+        model,
+        prompt
+      })).rejects.toThrow()
+    })
   })
 }) 

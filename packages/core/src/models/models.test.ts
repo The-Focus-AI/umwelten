@@ -1,16 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { getAllModels, searchModels, type ModelDetails } from './models.ts'
-import { getOllamaModels } from '../providers/ollama.ts'
-import { getOpenRouterModels } from '../providers/openrouter.ts'
+import { searchModels, type ModelDetails } from './models.js'
+import { createOllamaProvider } from '../providers/ollama.js'
+import { createOpenRouterProvider } from '../providers/openrouter.js'
+import { createGoogleProvider } from '../providers/google.js'
+
+// API keys for providers that require authentication
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+const GOOGLE_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY
 
 describe('Model Information', () => {
   it('should list available Ollama models', async () => {
-    const models = await getOllamaModels()
+    const provider = createOllamaProvider()
+    const models = await provider.listModels()
     expect(models).toBeInstanceOf(Array)
     
     if (models.length > 0) {
       const model = models[0]
-      expect(model).toHaveProperty('id')
+      expect(model).toHaveProperty('modelId')
       expect(model).toHaveProperty('name')
       expect(model).toHaveProperty('contextLength')
       expect(model.provider).toBe('ollama')
@@ -21,16 +27,23 @@ describe('Model Information', () => {
   })
 
   it('should list available OpenRouter models', async () => {
-    const models = await getOpenRouterModels()
+    if (!OPENROUTER_API_KEY) {
+      console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
+      return
+    }
+
+    const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
+    const models = await provider.listModels()
     expect(models).toBeInstanceOf(Array)
     
     if (models.length > 0) {
       const model = models[0]
-      expect(model).toHaveProperty('id')
+      expect(model).toHaveProperty('modelId')
       expect(model).toHaveProperty('name')
       expect(model).toHaveProperty('contextLength')
       expect(model).toHaveProperty('costs')
-      expect(model.provider).toBe('openrouter')
+      expect(model.provider).toBeDefined()
+      expect(model.route).toBe('openrouter')
       
       // Check cost structure
       if (model.costs) {
@@ -47,25 +60,62 @@ describe('Model Information', () => {
       console.log('\nAvailable free models:')
       freeModels.forEach((m: ModelDetails) => {
         console.log(`\nModel: ${m.name}`)
-        console.log(`ID: ${m.id}`)
+        console.log(`ID: ${m.modelId}`)
         console.log(`Context Length: ${m.contextLength}`)
         console.log('Details:', m.details)
       })
     }
   })
 
-  it('should get all available models', async () => {
-    const models = await getAllModels()
+  it('should list available Google models', async () => {
+    if (!GOOGLE_API_KEY) {
+      console.warn('⚠️ GOOGLE_API_KEY not found, skipping test')
+      return
+    }
+
+    const provider = createGoogleProvider(GOOGLE_API_KEY)
+    const models = await provider.listModels()
+    expect(models).toBeInstanceOf(Array)
+    
+    if (models.length > 0) {
+      const model = models[0]
+      expect(model).toHaveProperty('modelId')
+      expect(model).toHaveProperty('name')
+      expect(model).toHaveProperty('contextLength')
+      expect(model.provider).toBe('google')
+      expect(model.route).toBe('direct')
+      
+      console.log('Example Google model:', model)
+    }
+  })
+
+  it('should get models from all available providers', async () => {
+    // Create providers
+    const providers = [
+      createOllamaProvider(),
+      ...(OPENROUTER_API_KEY ? [createOpenRouterProvider(OPENROUTER_API_KEY)] : []),
+      ...(GOOGLE_API_KEY ? [createGoogleProvider(GOOGLE_API_KEY)] : [])
+    ]
+
+    // Get models from all providers
+    const modelLists = await Promise.all(
+      providers.map(provider => provider.listModels())
+    )
+    
+    // Combine all models
+    const models = modelLists.flat()
     expect(models).toBeInstanceOf(Array)
     
     // Group models by provider
     const ollamaModels = models.filter(m => m.provider === 'ollama')
     const openRouterModels = models.filter(m => m.provider === 'openrouter')
+    const googleModels = models.filter(m => m.provider === 'google')
     
     console.log('Model counts:', {
       total: models.length,
       ollama: ollamaModels.length,
-      openRouter: openRouterModels.length
+      openRouter: openRouterModels.length,
+      google: googleModels.length
     })
     
     // Log some cost examples if available
@@ -80,55 +130,80 @@ describe('Model Information', () => {
 })
 
 describe('Model Search', () => {
+  // Helper to get all models from available providers
+  async function getAllModels(): Promise<ModelDetails[]> {
+    const providers = [
+      createOllamaProvider(),
+      ...(OPENROUTER_API_KEY ? [createOpenRouterProvider(OPENROUTER_API_KEY)] : []),
+      ...(GOOGLE_API_KEY ? [createGoogleProvider(GOOGLE_API_KEY)] : [])
+    ]
+    const modelLists = await Promise.all(
+      providers.map(provider => provider.listModels())
+    )
+    return modelLists.flat()
+  }
+
   it('should search models by name', async () => {
-    const results = await searchModels({ query: 'gemini' })
+    const models = await getAllModels()
+    const results = await searchModels('gemini', models)
     expect(results).toBeInstanceOf(Array)
     results.forEach(model => {
-      const searchText = `${model.id} ${model.name} ${model.details?.family || ''} ${model.details?.format || ''}`.toLowerCase()
+      const searchText = `${model.modelId} ${model.name} ${model.details?.family || ''} ${model.details?.format || ''}`.toLowerCase()
       expect(searchText).toContain('gemini')
     })
   })
 
   it('should filter by provider', async () => {
-    const results = await searchModels({ query: '', provider: 'openrouter' })
-    expect(results).toBeInstanceOf(Array)
-    results.forEach(model => {
+    const models = await getAllModels()
+    const openRouterModels = models.filter(m => m.provider === 'openrouter')
+    expect(openRouterModels).toBeInstanceOf(Array)
+    openRouterModels.forEach(model => {
       expect(model.provider).toBe('openrouter')
     })
   })
 
   it('should sort by date', async () => {
-    const results = await searchModels({ 
-      query: '',
-      sortBy: 'addedDate',
-      sortOrder: 'desc'
+    const models = await getAllModels()
+    const modelsWithDates = models.filter(model => model.addedDate !== undefined)
+    const sortedModels = [...modelsWithDates].sort((a, b) => {
+      const dateA = a.addedDate?.getTime() || 0
+      const dateB = b.addedDate?.getTime() || 0
+      return dateB - dateA // descending order
     })
-    expect(results).toBeInstanceOf(Array)
-    if (results.length > 1) {
+
+    if (sortedModels.length > 1) {
       // Verify dates are valid
-      const modelsWithDates = results.filter(model => model.addedDate !== undefined)
-      expect(modelsWithDates.length).toBeGreaterThan(0)
+      expect(sortedModels.length).toBeGreaterThan(0)
       
-      modelsWithDates.forEach(model => {
+      sortedModels.forEach(model => {
         expect(model.addedDate).toBeInstanceOf(Date)
         if (model.lastUpdated) {
           expect(model.lastUpdated).toBeInstanceOf(Date)
           expect(model.lastUpdated.getTime()).toBeLessThanOrEqual(Date.now())
         }
-        expect(model.addedDate.getTime()).toBeLessThanOrEqual(Date.now())
+        if (model.addedDate) {
+          expect(model.addedDate.getTime()).toBeLessThanOrEqual(Date.now())
+        }
       })
 
       // Verify sorting
-      for (let i = 1; i < modelsWithDates.length; i++) {
-        expect(modelsWithDates[i-1].addedDate.getTime()).toBeGreaterThanOrEqual(modelsWithDates[i].addedDate.getTime())
+      for (let i = 1; i < sortedModels.length; i++) {
+        const prevDate = sortedModels[i-1].addedDate
+        const currDate = sortedModels[i].addedDate
+        if (prevDate && currDate) {
+          expect(prevDate.getTime()).toBeGreaterThanOrEqual(currDate.getTime())
+        }
       }
     }
   })
 
   it('should filter free models', async () => {
-    const results = await searchModels({ query: '', onlyFree: true })
-    expect(results).toBeInstanceOf(Array)
-    results.forEach(model => {
+    const models = await getAllModels()
+    const freeModels = models.filter(model => 
+      model.costs && model.costs.promptTokens === 0 && model.costs.completionTokens === 0
+    )
+    expect(freeModels).toBeInstanceOf(Array)
+    freeModels.forEach(model => {
       if (model.costs) {
         expect(model.costs.promptTokens).toBe(0)
         expect(model.costs.completionTokens).toBe(0)

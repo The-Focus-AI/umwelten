@@ -1,65 +1,158 @@
 # Active Context
+Last Updated: 2025-04-01 08:15:00 EDT
+
+## CRITICAL IMPLEMENTATION RULES
+1. ALWAYS use Vercel AI SDK wrappers for ALL providers
+   - OpenRouter: @openrouter/ai-sdk-provider
+   - Google: @ai-sdk/google
+   - Ollama: ollama-ai-provider
+2. NEVER use provider-specific SDKs directly (e.g., @google/generative-ai)
+3. This ensures consistent interfaces and behavior across all providers
+4. All providers must implement the LanguageModelV1 interface from the 'ai' package
 
 ## Current Focus
-Debugging Google Generative AI API key integration in test suite
+Improving provider implementation and CLI display
 
 ## Current Status
-- [-] Investigating API key validation issues
-- [X] Identified invalid API key in environment
-- [X] Verified code is correctly reading environment variables
-- [X] Confirmed test suite behavior with mock data
+- [X] Defined model routing architecture
+- [X] Implementing model routing system
+- [X] Update configuration format
+- [X] Update provider implementations
+- [X] Update CLI display
 
-## Current Findings
-- API key `AIzaSyBf3FC2xoBaOGZRmvN9a1jYDN_GlWuvcrk` is being rejected by Google's API
-- Test suite correctly uses mock data with `test-key`
-- Environment variables are being loaded properly from `.env` file
-- 12 tests passing, 3 failing due to invalid API key
+## Implementation Plan
+### Phase 1: Core Model Routing (Completed)
+1. Create ModelRoute interface and utilities
+   - [ ] Define types in models/types.ts
+   - [ ] Implement parseModelIdentifier
+   - [ ] Implement formatModelIdentifier
+   - [ ] Add provider inference logic
+
+2. Update Configuration Schema
+   - [ ] Update model configuration format
+   - [ ] Add route and variant fields
+   - [ ] Update validation
+
+3. Update Provider Implementation
+   - [ ] Modify getModelProvider to use route information
+   - [ ] Update Google provider
+   - [ ] Update OpenRouter provider
+   - [ ] Update Ollama provider
+
+4. CLI Updates
+   - [ ] Update model listing format
+   - [ ] Add route information to model info
+   - [ ] Update help documentation
+
+### Phase 2: Provider Improvements (Current)
+1. OpenRouter Provider Updates
+   - [X] Set provider field to 'openrouter'
+   - [X] Add originalProvider field for actual provider
+   - [X] Update CLI to display both provider fields
+   - [X] Fix model listing in CLI
+
+2. CLI Enhancements
+   - [X] Update model listing format
+   - [X] Add provider/originalProvider display
+   - [X] Fix linter errors in display code
+   - [X] Improve error handling
+
+### Phase 3: Testing and Documentation
+- [ ] Add tests for updated provider implementations
+- [ ] Test CLI enhancements
+- [ ] Update documentation with new provider fields
+- [ ] Add examples for provider usage
+
+## Technical Details
+### Model Route Interface
+```typescript
+interface ModelRoute {
+  modelId: string;      // Base model identifier
+  provider: string;     // Original provider
+  route: "direct" | "openrouter" | "ollama";  // Access method
+  variant?: string;     // Optional variant (e.g. "free")
+}
+```
+
+### Configuration Format
+```json
+{
+  "models": [
+    {
+      "id": "gemini-2.5-pro-exp-03-25",
+      "route": "direct",
+      "provider": "google"
+    },
+    {
+      "id": "gemini-2.5-pro-exp-03-25",
+      "route": "openrouter",
+      "provider": "google",
+      "variant": "free"
+    }
+  ]
+}
+```
+
+### Model Details Interface Updates
+```typescript
+interface ModelDetails extends ModelRoute {
+  originalProvider?: string; // For OpenRouter models, the actual provider (e.g., 'openai', 'anthropic')
+}
+```
 
 ## Next Steps
-1. Generate new valid Google Generative AI API key
-2. Update `.env` file with new key
-3. Re-run tests to verify text generation functionality
+1. Complete testing of provider updates
+2. Update documentation with new provider fields
+3. Add examples for provider usage
+4. Review and update error handling
 
 ## Blockers
-- [!] Need valid Google Generative AI API key
-- [!] Need to verify API key has correct permissions for Gemini API
+None currently
 
 ## Recent Decisions
-- Confirmed that the test suite should skip text generation tests when using mock data
-- Verified that the environment variable naming is correct (`GOOGLE_GENERATIVE_AI_API_KEY`)
+1. OpenRouter models now consistently use 'openrouter' as provider
+2. Added originalProvider field to track actual model provider
+3. Enhanced CLI display to show both provider fields
+4. CRITICAL: Must use Vercel AI SDK wrappers for all providers
+
+## Dependencies
+Current core dependencies:
+- ai: ^4.1.46 (Vercel AI SDK core)
+- @ai-sdk/google: Latest (Vercel AI wrapper for Google)
+- @openrouter/ai-sdk-provider: ^0.4.3
+- ollama-ai-provider: ^1.2.0
+- zod: ^3.22.4
 
 ### In Progress
-- Adding Google provider support using @google/generative-ai v0.24.0
-- Implementing dynamic model listing instead of hardcoded models
-- Fixing TypeScript linting issues in Google provider implementation
+- Fixing provider implementation to use Vercel AI SDK wrappers exclusively
+- Implementing dynamic model listing
+- Fixing TypeScript linting issues in provider implementations
 
 ### Dependencies Update Status
-Current core dependencies (all at latest versions):
-- @google/generative-ai: ^0.24.0 (Latest)
-- @openrouter/ai-sdk-provider: ^0.4.3 (Latest)
-- ollama-ai-provider: ^1.2.0 (Latest)
-- ai: ^4.1.46
+All dependencies at latest versions, focusing on Vercel AI SDK ecosystem:
+- ai: ^4.1.46 (Core Vercel AI SDK)
+- @ai-sdk/google: Latest (Vercel wrapper)
+- @openrouter/ai-sdk-provider: ^0.4.3
+- ollama-ai-provider: ^1.2.0
 - zod: ^3.22.4
 
 ### Next Steps
-1. Fix TypeScript linting issues in Google provider:
-   - Add proper type declarations for @google/generative-ai
-   - Fix LanguageModelV1 interface compatibility
+1. Fix TypeScript linting issues in providers:
+   - Ensure proper LanguageModelV1 interface implementation
    - Add proper type annotations for parameters
-2. Test Google provider implementation
-3. Update documentation with Google provider setup instructions
+2. Test provider implementations with Vercel AI SDK wrappers
+3. Update documentation with provider setup instructions
 
 ### Blockers
-- Need to resolve TypeScript type issues with the Google Generative AI SDK
-- Need to verify token counting and cost calculation for Google models
+- Need to verify token counting and cost calculation for all providers through Vercel AI SDK wrappers
 
 ### Recent Decisions
-1. Switched to dynamic model listing using API endpoints instead of hardcoded lists
-2. Using latest @google/generative-ai SDK (v0.24.0) for better features and stability
-3. Added Google as a third provider option alongside OpenRouter and Ollama
+1. CRITICAL: Must use Vercel AI SDK wrappers for all providers
+2. Using dynamic model listing where available
+3. Standardizing on LanguageModelV1 interface from 'ai' package
 4. Verified all dependencies are at their latest versions
 
-### Current Status (2025-03-26 06:40 EDT)
+### Current Status (2025-04-01 08:15:00 EDT)
 
 ### Overview
 The CLI implementation is now complete with improved formatting, better error handling, and enhanced user experience features.
@@ -76,4 +169,5 @@ The CLI implementation is now complete with improved formatting, better error ha
 - The CLI now provides a polished, user-friendly interface
 - All core functionality is implemented and working
 - Code organization follows best practices with clear separation of concerns
-- Documentation needs to be completed 
+- Documentation needs to be completed
+- CRITICAL: All providers must use Vercel AI SDK wrappers 

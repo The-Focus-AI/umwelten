@@ -902,3 +902,36 @@ Investigated failing tests in the Google provider implementation, specifically f
 - Generate new API key with correct permissions
 - Update environment configuration
 - Verify text generation functionality
+
+## 2025-04-01 07:26:28 EDT - Model Routing Architecture Implementation
+
+### Summary
+Defined and documented a new route-based model identification system to handle multiple provider paths for the same models (e.g., accessing Gemini models directly vs. through OpenRouter).
+
+### Accomplishments
+1. Defined ModelRoute interface for consistent model identification
+2. Updated architecture documentation with new model routing system
+3. Created implementation plan for the changes
+4. Updated active context with current status and next steps
+
+### Key Decisions
+1. Adopted route-based approach with explicit provider and route fields
+2. Standardized model configuration format to include routing information
+3. Added support for variants (e.g., "free" for OpenRouter models)
+4. Maintained backward compatibility with existing configurations
+
+### Technical Details
+```typescript
+interface ModelRoute {
+  modelId: string;      // Base model identifier
+  provider: string;     // Original provider
+  route: "direct" | "openrouter" | "ollama";  // Access method
+  variant?: string;     // Optional variant (e.g. "free")
+}
+```
+
+### Next Steps
+1. Implement ModelRoute interface and utilities
+2. Update configuration schema
+3. Modify provider implementations to support routing
+4. Update CLI to display routing information

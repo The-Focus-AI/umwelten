@@ -1,24 +1,181 @@
-# Model Evaluation Tool Architecture
-Last Updated: 2025-03-26 12:00:00 EDT
+# Architecture Documentation
+Last Updated: 2025-04-01 07:26:28 EDT
 
-## Overview
-A tool for evaluating and comparing different LLM models across providers, with a focus on cost management, rate limiting, and comprehensive testing.
+## CRITICAL IMPLEMENTATION RULES
+1. ALWAYS use Vercel AI SDK wrappers for ALL providers
+   - OpenRouter: @openrouter/ai-sdk-provider
+   - Google: @ai-sdk/google
+   - Ollama: ollama-ai-provider
+2. NEVER use provider-specific SDKs directly (e.g., @google/generative-ai)
+3. This ensures consistent interfaces and behavior across all providers
+4. All providers must implement the LanguageModelV1 interface from 'ai' package
 
-## Tech Stack (2025-03-26 06:40 EDT)
+## Model Routing Architecture
+We use a route-based approach for model identification that clearly separates:
+1. The actual model ID (e.g., "gemini-2.5-pro")
+2. The original provider (e.g., "google")
+3. The access route (e.g., "direct" or "openrouter")
+4. Optional variants (e.g., "free" for OpenRouter variants)
 
-### Core Technologies
-- TypeScript for type safety and better development experience
-- pnpm for package management and workspaces
-- Vitest for testing
-- Zod for runtime validation
+### Model Route Interface
+```typescript
+interface ModelRoute {
+  modelId: string;      // Base model identifier
+  provider: string;     // Original provider
+  route: "direct" | "openrouter" | "ollama";  // Access method
+  variant?: string;     // Optional variant (e.g. "free")
+}
+```
 
-### Key Dependencies
-- @openrouter/ai-sdk-provider: Provider SDK for OpenRouter
-- ollama-ai-provider: Provider SDK for Ollama
-- @google/generative-ai: Provider SDK for Google AI
-- chalk: Terminal styling
-- cli-table3: Table formatting
-- commander: CLI framework
+### Model ID Format Examples
+1. Direct Access:
+   ```
+   "gemini-2.5-pro-exp-03-25"  // Direct Google access
+   ```
+
+2. OpenRouter Access:
+   ```
+   "openrouter/google/gemini-2.5-pro-exp-03-25:free"  // Via OpenRouter with variant
+   ```
+
+3. Configuration Format:
+   ```json
+   {
+     "models": [
+       {
+         "id": "gemini-2.5-pro-exp-03-25",
+         "route": "direct",
+         "provider": "google"
+       },
+       {
+         "id": "gemini-2.5-pro-exp-03-25",
+         "route": "openrouter",
+         "provider": "google",
+         "variant": "free"
+       }
+     ]
+   }
+   ```
+
+## Tech Stack
+- TypeScript/Node.js
+- Vercel AI SDK (Core)
+  - @ai-sdk/google (Google provider wrapper)
+  - @openrouter/ai-sdk-provider (OpenRouter provider wrapper)
+  - ollama-ai-provider (Ollama provider wrapper)
+- Zod for schema validation
+- Commander.js for CLI
+
+## Implementation Patterns
+1. Provider Interface
+   - All providers MUST implement LanguageModelV1 interface from 'ai' package
+   - Use Vercel AI SDK wrappers for consistent behavior
+   - Standardized error handling across providers
+
+2. Model Management
+   - Dynamic model listing where available
+   - Consistent model ID format
+   - Proper error handling for unavailable models
+
+3. Evaluation Process
+   - Structured configuration files
+   - Clear separation of concerns
+   - Consistent scoring mechanism
+
+## Best Practices
+1. Code Organization
+   - Clear directory structure
+   - Modular components
+   - Type safety with TypeScript
+   - Consistent error handling
+
+2. Provider Implementation
+   - ALWAYS use Vercel AI SDK wrappers
+   - Implement LanguageModelV1 interface
+   - Handle rate limits and retries
+   - Proper error propagation
+
+3. Testing
+   - Unit tests for core functionality
+   - Integration tests for providers
+   - End-to-end evaluation tests
+
+## Directory Structure
+```
+packages/
+├── core/
+│   ├── src/
+│   │   ├── providers/        # Model providers (using Vercel AI SDK wrappers)
+│   │   ├── evaluation/       # Evaluation logic
+│   │   ├── models/          # Model interfaces and types
+│   │   └── utils/           # Shared utilities
+│   └── tests/
+├── cli/                    # Command-line interface
+└── docs/                   # Documentation
+```
+
+## Provider Implementation
+### Key Requirements
+1. MUST use Vercel AI SDK wrappers:
+   - Google: @ai-sdk/google
+   - OpenRouter: @openrouter/ai-sdk-provider
+   - Ollama: ollama-ai-provider
+
+2. Interface Compliance:
+   - Implement LanguageModelV1 from 'ai' package
+   - Proper type definitions
+   - Consistent error handling
+
+3. Model Management:
+   - Dynamic model listing
+   - Proper validation
+   - Cost tracking
+
+### Error Handling
+1. Provider-specific errors
+2. Rate limiting
+3. Token limits
+4. Network issues
+5. Authentication failures
+
+## Configuration
+1. Environment variables for API keys
+2. Model-specific settings
+3. Evaluation parameters
+4. Output formatting
+
+## Testing Strategy
+1. Unit tests
+2. Integration tests
+3. Provider-specific tests
+4. End-to-end evaluation tests
+
+## Documentation
+1. Setup instructions
+2. Provider configuration
+3. Model compatibility
+4. Error handling
+5. Best practices
+
+## Maintenance
+1. Regular dependency updates
+2. Provider wrapper updates
+3. Security patches
+4. Performance optimization
+
+## Security
+1. API key management
+2. Rate limiting
+3. Error logging
+4. Input validation
+
+## Future Considerations
+1. Additional provider support
+2. Enhanced evaluation metrics
+3. Automated testing
+4. Performance optimization
+
+Remember: ALWAYS use Vercel AI SDK wrappers for ALL providers. This is a CRITICAL rule.
 
 ## Directory Layout
 

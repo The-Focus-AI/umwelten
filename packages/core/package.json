@@ -4,26 +4,38 @@
   "description": "Core package for model evaluation",
   "private": true,
   "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "model-eval": "dist/cli.js"
+  },
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "build": "tsc",
+    "cli": "tsx src/cli.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.3",
     "@google/generative-ai": "^0.24.0",
     "@openrouter/ai-sdk-provider": "^0.4.3",
     "ai": "^4.2.5",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
     "ollama-ai-provider": "^1.2.0",
+    "ora": "^8.2.0",
+    "uuid": "^11.1.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/dotenv": "^8.2.3",
     "@types/node": "^20.11.24",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
     "dotenv": "^16.4.7",
     "eslint": "^8.57.0",
+    "tsx": "^4.7.1",
     "typescript": "^5.4.2",
     "vite": "^6.2.3",
     "vitest": "^1.3.1"

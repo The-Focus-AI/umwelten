@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { createOpenRouterModel } from './openrouter.ts'
+import { createOpenRouterProvider } from './openrouter.js'
 import { generateText } from 'ai'
+import type { ModelRoute } from '../models/types.js'
 
 describe('OpenRouter Provider', () => {
   // Check if OpenRouter API key is available
@@ -13,31 +14,61 @@ describe('OpenRouter Provider', () => {
   // Helper function to skip tests if no API key
   const itWithAuth = OPENROUTER_API_KEY ? it : it.skip
 
-  // Use the free Mistral model for all tests
-  const FREE_MODEL_ID = 'mistralai/mistral-small-3.1-24b-instruct:free'
+  // Test route using the free Mistral model
+  const TEST_ROUTE: ModelRoute = {
+    modelId: 'mistral-small-3.1-24b-instruct',
+    provider: 'mistralai',
+    route: 'openrouter',
+    variant: 'free'
+  }
 
-  describe('Model Creation', () => {
-    it('should create a model instance', () => {
-      const model = createOpenRouterModel(FREE_MODEL_ID)
-      expect(model).toBeDefined()
-      expect(typeof model).toBe('object')
-      expect(model).not.toBeNull()
+  describe('Provider Instance', () => {
+    it('should create a provider instance', () => {
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      expect(provider).toBeDefined()
+      expect(typeof provider).toBe('object')
+      expect(provider).not.toBeNull()
     })
 
-    it('should accept empty model name but fail on execution', async () => {
-      const model = createOpenRouterModel('')
-      expect(model).toBeDefined()
-      
-      await expect(generateText({
-        model,
-        prompt: 'test'
-      })).rejects.toThrow()
+    it('should fail without API key', () => {
+      expect(() => createOpenRouterProvider('')).toThrow()
+    })
+  })
+
+  describe('Model Listing', () => {
+    itWithAuth('should list available models', async () => {
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const models = await provider.listModels()
+      expect(models).toBeInstanceOf(Array)
+      expect(models.length).toBeGreaterThan(0)
+
+      // Log first model for debugging
+      console.log('First model:', models[0])
+
+      // Check model structure
+      models.forEach(model => {
+        expect(model.modelId).toBeDefined()
+        expect(model.provider).toBeDefined()
+        expect(model.route).toBe('openrouter')
+        expect(model.name).toBeDefined()
+        expect(model.contextLength).toBeTypeOf('number')
+        expect(model.costs).toBeDefined()
+        expect(model.costs?.promptTokens).toBeTypeOf('number')
+        expect(model.costs?.completionTokens).toBeTypeOf('number')
+      })
+
+      // Log free models
+      const freeModels = models.filter(m => 
+        m.costs && m.costs.promptTokens === 0 && m.costs.completionTokens === 0
+      )
+      console.log('\nAvailable free models:', freeModels.map(m => m.modelId))
     })
   })
 
   describe('Text Generation', () => {
     itWithAuth('should generate text with free Mistral model', async () => {
-      const model = createOpenRouterModel(FREE_MODEL_ID)
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const model = provider.getLanguageModel(TEST_ROUTE)
       const prompt = 'Write a haiku about coding'
       
       const response = await generateText({
@@ -65,7 +96,8 @@ describe('OpenRouter Provider', () => {
     })
 
     itWithAuth('should handle longer conversations', async () => {
-      const model = createOpenRouterModel(FREE_MODEL_ID)
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const model = provider.getLanguageModel(TEST_ROUTE)
       const prompt = `
 System: You are a helpful assistant. Keep your responses concise.
 User: What is the capital of France?
@@ -85,7 +117,8 @@ User: What is its population?
     })
 
     itWithAuth('should respect temperature setting', async () => {
-      const model = createOpenRouterModel(FREE_MODEL_ID)
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const model = provider.getLanguageModel(TEST_ROUTE)
       const prompt = 'Generate a random number between 1 and 10'
       
       // Generate with temperature 0 (deterministic)
@@ -111,8 +144,13 @@ User: What is its population?
   })
 
   describe('Error Handling', () => {
-    it('should handle invalid model names', async () => {
-      const model = createOpenRouterModel('invalid-model-name')
+    it('should handle invalid model IDs', async () => {
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const invalidRoute: ModelRoute = {
+        ...TEST_ROUTE,
+        modelId: 'invalid-model-name'
+      }
+      const model = provider.getLanguageModel(invalidRoute)
       const prompt = 'This should fail'
       
       await expect(generateText({
@@ -122,7 +160,8 @@ User: What is its population?
     })
 
     itWithAuth('should handle empty prompts', async () => {
-      const model = createOpenRouterModel(FREE_MODEL_ID)
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const model = provider.getLanguageModel(TEST_ROUTE)
       
       await expect(generateText({
         model,
@@ -131,7 +170,8 @@ User: What is its population?
     })
 
     itWithAuth('should handle very long prompts', async () => {
-      const model = createOpenRouterModel(FREE_MODEL_ID)
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+      const model = provider.getLanguageModel(TEST_ROUTE)
       // Create a prompt that's definitely too long (100K tokens)
       const longPrompt = Array(100000).fill('test').join(' ')
       

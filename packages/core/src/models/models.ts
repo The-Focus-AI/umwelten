@@ -1,67 +1,99 @@
 import { LanguageModelV1 } from 'ai'
 import { z } from 'zod'
-import { TokenUsage, TokenUsageSchema } from '../costs/costs.ts'
-import { getOpenRouterModels } from '../providers/openrouter.ts'
-import { getOllamaModels } from '../providers/ollama.ts'
-import { getGoogleModels } from '../providers/google.ts'
+import { TokenUsage, TokenUsageSchema } from '../costs/costs.js'
+import { createOpenRouterProvider } from '../providers/openrouter.js'
+import { createOllamaProvider } from '../providers/ollama.js'
+import { createGoogleProvider } from '../providers/google.js'
+import { ModelRoute, ModelRouteSchema } from './types.js'
 
 export interface ModelCosts {
   promptTokens: number  // Cost per 1K prompt tokens in USD
   completionTokens: number  // Cost per 1K completion tokens in USD
 }
 
-export interface ModelDetails {
-  id: string
-  name: string
-  contextLength: number
-  costs?: ModelCosts  // Optional since Ollama models are free
-  provider: 'openrouter' | 'ollama' | 'google'
-  addedDate: Date     // When the model was first seen
-  lastUpdated: Date   // When the model was last updated
-  details?: {
-    format?: string
-    family?: string
-    parameterSize?: string
-    quantizationLevel?: string
-    description?: string
-    version?: string
-    inputTokenLimit?: number
-    outputTokenLimit?: number
-    supportedGenerationMethods?: string[]
-  }
+export interface ModelDetails extends ModelRoute {
+  name?: string;
+  description?: string;
+  contextLength?: number;
+  costs?: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+  addedDate?: Date;
+  lastUpdated?: Date;
+  details?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
+  originalProvider?: string; // For OpenRouter models, the actual provider (e.g., 'openai', 'anthropic')
 }
 
-export interface ModelProvider {
-  listModels(): Promise<ModelDetails[]>
-  createModel(modelId: string): LanguageModelV1
+export const ModelDetailsSchema = ModelRouteSchema.extend({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  contextLength: z.number().optional(),
+  costs: z.object({
+    promptTokens: z.number(),
+    completionTokens: z.number()
+  }).optional(),
+  addedDate: z.date().optional(),
+  lastUpdated: z.date().optional(),
+  details: z.record(z.unknown()).optional(),
+  parameters: z.record(z.unknown()).optional(),
+  originalProvider: z.string().optional()
+});
+
+export interface ModelConfig extends ModelRoute {
+  description?: string;
+  parameters?: Record<string, unknown>;
 }
 
+export const ModelConfigSchema = ModelRouteSchema.extend({
+  description: z.string().optional(),
+  parameters: z.record(z.unknown()).optional()
+});
 
+export interface ModelsConfig {
+  models: ModelConfig[];
+  metadata?: {
+    created?: string;
+    version?: string;
+    notes?: string;
+    requirements?: Record<string, string>;
+  };
+}
+
+export const ModelsConfigSchema = z.object({
+  models: z.array(ModelConfigSchema),
+  metadata: z.object({
+    created: z.string().optional(),
+    version: z.string().optional(),
+    notes: z.string().optional(),
+    requirements: z.record(z.string()).optional()
+  }).optional()
+});
+
+export interface ModelProvider extends ModelRoute {
+  capabilities: ModelCapabilities;
+  execute(prompt: string, options?: ModelOptions): Promise<ModelResponse>;
+  calculateCost(usage: TokenUsage): number;
+  listModels(): Promise<ModelDetails[]>;
+}
 
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
   try {
-    const [openRouterModels, ollamaModels, googleModels] = await Promise.allSettled([
-      getOpenRouterModels(),
-      getOllamaModels(),
-      getGoogleModels()
-    ])
-    
-    const models: ModelDetails[] = []
-    
-    if (openRouterModels.status === 'fulfilled') {
-      models.push(...openRouterModels.value)
-    }
-    
-    if (ollamaModels.status === 'fulfilled') {
-      models.push(...ollamaModels.value)
-    }
+    const providers = [
+      createOllamaProvider(),
+      ...(process.env.OPENROUTER_API_KEY ? [createOpenRouterProvider(process.env.OPENROUTER_API_KEY)] : []),
+      ...(process.env.GOOGLE_GENERATIVE_AI_API_KEY ? [createGoogleProvider(process.env.GOOGLE_GENERATIVE_AI_API_KEY)] : [])
+    ]
 
-    if (googleModels.status === 'fulfilled') {
-      models.push(...googleModels.value)
-    }
+    const modelLists = await Promise.allSettled(
+      providers.map(provider => provider.listModels())
+    )
     
-    return models
+    return modelLists
+      .filter((result): result is PromiseFulfilledResult<ModelDetails[]> => result.status === 'fulfilled')
+      .flatMap(result => result.value)
   } catch (error) {
     console.error('Error fetching models:', error)
     return []
@@ -99,13 +131,6 @@ export const ModelResponseSchema = z.object({
 
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 
-export interface ModelProvider {
-  id: string;
-  capabilities: ModelCapabilities;
-  execute(prompt: string, options?: ModelOptions): Promise<ModelResponse>;
-  calculateCost(usage: TokenUsage): number;
-}
-
 export interface ModelRunner {
   execute(params: {
     prompt: string;
@@ -125,57 +150,30 @@ export interface ModelSearchOptions {
 /**
  * Search through available models using various criteria
  */
-export async function searchModels(options: ModelSearchOptions): Promise<ModelDetails[]> {
-  const allModels = await getAllModels()
-  let results = allModels
+export async function searchModels(query: string, models: ModelDetails[]): Promise<ModelDetails[]> {
+  const searchTerms = query.toLowerCase().split(/\s+/);
+  return models.filter(model => {
+    const searchText = `${model.modelId} ${model.name || ''} ${model.description || ''}`.toLowerCase();
+    return searchTerms.every(term => searchText.includes(term));
+  });
+} 
 
-  // Filter by provider if specified
-  if (options.provider && options.provider !== 'all') {
-    results = results.filter(model => model.provider === options.provider)
-  }
+export function findModelById(models: ModelDetails[], modelId: string): ModelDetails | undefined {
+  return models.find(model => model.modelId === modelId);
+}
 
-  // Filter by search query
-  if (options.query) {
-    const searchTerms = options.query.toLowerCase().split(/\s+/)
-    results = results.filter(model => {
-      const searchText = `${model.id} ${model.name} ${model.details?.family || ''} ${model.details?.format || ''}`.toLowerCase()
-      return searchTerms.every(term => searchText.includes(term))
-    })
-  }
+export function sortModelsByName(models: ModelDetails[]): ModelDetails[] {
+  return [...models].sort((a, b) => {
+    const nameA = a.name || a.modelId;
+    const nameB = b.name || b.modelId;
+    return nameA.localeCompare(nameB);
+  });
+}
 
-  // Filter free models if requested
-  if (options.onlyFree) {
-    results = results.filter(model => 
-      !model.costs || (model.costs.promptTokens === 0 && model.costs.completionTokens === 0)
-    )
-  }
-
-  // Sort results
-  if (options.sortBy) {
-    results.sort((a, b) => {
-      let comparison = 0
-      switch (options.sortBy) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name)
-          break
-        case 'addedDate':
-          if (!a.addedDate && !b.addedDate) return 0
-          if (!a.addedDate) return 1
-          if (!b.addedDate) return -1
-          comparison = a.addedDate.getTime() - b.addedDate.getTime()
-          break
-        case 'contextLength':
-          comparison = a.contextLength - b.contextLength
-          break
-        case 'cost':
-          const aCost = a.costs ? (a.costs.promptTokens + a.costs.completionTokens) : 0
-          const bCost = b.costs ? (b.costs.promptTokens + b.costs.completionTokens) : 0
-          comparison = aCost - bCost
-          break
-      }
-      return options.sortOrder === 'desc' ? -comparison : comparison
-    })
-  }
-
-  return results
+export function sortModelsByContextLength(models: ModelDetails[]): ModelDetails[] {
+  return [...models].sort((a, b) => {
+    const lengthA = a.contextLength || 0;
+    const lengthB = b.contextLength || 0;
+    return lengthB - lengthA;
+  });
 } 

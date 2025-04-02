@@ -1,0 +1,96 @@
+{
+  "prompt": {
+    "title": "Frankenstein Analysis",
+    "question": "What are the key themes and moral implications in Mary Shelley's Frankenstein?",
+    "context": "Consider the novel's exploration of scientific ethics, human nature, and the consequences of unchecked ambition.",
+    "parameters": {
+      "max_tokens": 1000,
+      "temperature": 0.7,
+      "top_p": 0.9
+    },
+    "metadata": {
+      "created": "2025-04-01",
+      "version": "1.0",
+      "description": "Analysis of themes in Frankenstein",
+      "expected_themes": [
+        "Scientific responsibility",
+        "Nature vs nurture",
+        "Isolation and alienation",
+        "Ambition and hubris",
+        "Creator's responsibility"
+      ]
+    }
+  },
+  "rubric": {
+    "evaluation_prompt": "Evaluate the response based on:\n1. Understanding of key themes\n2. Analysis of moral implications\n3. Support from the text\n4. Clarity and coherence",
+    "scoring_criteria": {
+      "thematic_understanding": {
+        "description": "Demonstrates understanding of major themes",
+        "points": 10,
+        "key_aspects": [
+          "Scientific ethics",
+          "Human nature",
+          "Ambition",
+          "Responsibility"
+        ]
+      },
+      "moral_analysis": {
+        "description": "Analyzes moral implications",
+        "points": 10,
+        "key_aspects": [
+          "Ethical considerations",
+          "Consequences",
+          "Moral responsibility"
+        ]
+      }
+    },
+    "scoring_instructions": {
+      "method": "Points-based scoring with justification",
+      "scale": "0-10 points per criterion",
+      "minimum_pass": 12,
+      "excellent_threshold": 16
+    },
+    "metadata": {
+      "created": "2025-04-01",
+      "version": "1.0",
+      "evaluator_model": "openai/gpt-4-turbo",
+      "notes": "Focus on depth of thematic analysis"
+    }
+  },
+  "models": {
+    "models": [
+      {
+        "modelId": "gemini-pro",
+        "provider": "google",
+        "route": "direct",
+        "description": "Google's Gemini Pro model",
+        "parameters": {
+          "temperature": 0.7,
+          "top_p": 0.9,
+          "max_tokens": 1000
+        }
+      },
+      {
+        "modelId": "gpt-4-turbo",
+        "provider": "openai",
+        "route": "openrouter",
+        "variant": "free",
+        "description": "GPT-4 Turbo via OpenRouter",
+        "parameters": {
+          "temperature": 0.7,
+          "top_p": 0.9,
+          "max_tokens": 1000
+        }
+      }
+    ],
+    "metadata": {
+      "created": "2025-04-01",
+      "version": "1.0",
+      "notes": "Comparing Gemini Pro and GPT-4 Turbo",
+      "requirements": {
+        "GOOGLE_API_KEY": "Required for Gemini Pro",
+        "OPENROUTER_API_KEY": "Required for OpenRouter models"
+      }
+    }
+  }
+} 

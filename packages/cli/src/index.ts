@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { modelsCommand } from './commands/models';
+import { modelsCommand } from './commands/models.js';
+import { evaluateCommand } from './commands/evaluate.js';
 
 const program = new Command();
 
@@ -11,5 +12,6 @@ program
 
 // Add commands
 program.addCommand(modelsCommand);
+program.addCommand(evaluateCommand);
 
 program.parse(); 
