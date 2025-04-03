@@ -1,4 +1,4 @@
-# Active Context - Thu Apr 3 05:56:05 EDT 2025
+# Active Context - Thu Apr 3 18:27:35 EDT 2025
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers
@@ -10,32 +10,108 @@
 4. All providers must implement the LanguageModelV1 interface from the 'ai' package
 
 ## Current Focus
-Working on model evaluation configuration and CLI tooling improvements.
+Refactoring model execution architecture to use Vercel AI SDK consistently.
 
 ### What's Being Worked On
-- Fixed model configuration in evaluation files to use consistent field names (`modelId` instead of `id`)
-- Improved CLI display and handling of model configurations
-- Updated Frankenstein evaluation example with correct model configurations
+- [X] Removed execute method from ModelProvider interface
+- [X] Updated ModelRunner to use Vercel AI SDK's generateText
+- [X] Fixed response handling to match generateText structure
+- [X] Added proper token usage calculation
+- [X] Improved provider and model identification
 
 ### Current State
-- Successfully updated the Frankenstein evaluation configuration with:
-  - Evaluator: gpt-4-turbo-preview (OpenAI)
-  - Test Model: gemini-1.5-pro (Google)
-- Fixed CLI tools to handle both `id` and `modelId` fields for backward compatibility
-- Improved error handling and display in CLI tools
+- Successfully refactored model execution to use Vercel AI SDK
+- ModelProvider interface now focused on capabilities and metadata
+- ModelRunner handles all execution through generateText
+- Proper error handling and retries implemented
+- Rate limiting integrated with new execution flow
 
 ### Next Steps
-- Validate the updated configuration with actual evaluation runs
-- Consider adding validation for model configurations in the CLI tools
-- Update documentation to reflect the standardized use of `modelId`
+1. Update provider implementations to reflect new interface:
+   - [ ] Update Google provider
+   - [ ] Update OpenRouter provider
+   - [ ] Update Ollama provider
+
+2. Add tests for refactored components:
+   - [ ] ModelRunner tests
+   - [ ] Provider interface tests
+   - [ ] Integration tests
+
+3. Update documentation:
+   - [ ] Update provider implementation guide
+   - [ ] Document new execution flow
+   - [ ] Add examples for new pattern
 
 ### Blockers
 None currently.
 
 ### Recent Decisions
-1. Standardized on `modelId` as the field name for model identifiers
-2. Added compatibility handling for legacy `id` field
-3. Updated CLI display to show correct model information
+1. Moved execution responsibility to ModelRunner
+2. Using Vercel AI SDK's generateText for all providers
+3. Standardized response handling
+4. Improved error handling and retries
+5. Better token usage calculation
+
+## Technical Details
+### ModelProvider Interface
+```typescript
+export interface ModelProvider extends ModelRoute {
+  capabilities: ModelCapabilities;
+  calculateCost(usage: TokenUsage): number;
+  listModels(): Promise<ModelDetails[]>;
+}
+```
+
+### ModelRunner Interface
+```typescript
+export interface ModelRunner {
+  execute(params: {
+    prompt: string;
+    model: LanguageModelV1;
+    options?: ModelOptions;
+  }): Promise<ModelResponse>;
+}
+```
+
+### Response Format
+```typescript
+interface ModelResponse {
+  content: string;
+  metadata: {
+    startTime: Date;
+    endTime: Date;
+    tokenUsage: {
+      promptTokens: number;
+      completionTokens: number;
+      total: number;
+    };
+    cost: number;
+    provider: string;
+    model: string;
+  };
+}
+```
+
+## Dependencies
+Current core dependencies:
+- ai: ^4.1.46 (Vercel AI SDK core)
+- @ai-sdk/google: Latest (Vercel wrapper)
+- @openrouter/ai-sdk-provider: ^0.4.3
+- ollama-ai-provider: ^1.2.0
+- zod: ^3.22.4
+
+### Implementation Status
+- [X] Core interface refactoring
+- [X] ModelRunner implementation
+- [ ] Provider updates
+- [ ] Test coverage
+- [ ] Documentation updates
+
+### Next Actions
+1. Update provider implementations to match new interface
+2. Add comprehensive test suite
+3. Update documentation with new patterns
+4. Verify all providers work with new execution flow
 
 ## Current Status
 - [X] Defined model routing architecture
@@ -180,3 +256,71 @@ The CLI implementation is now complete with improved formatting, better error ha
 - Code organization follows best practices with clear separation of concerns
 - Documentation needs to be completed
 - CRITICAL: All providers must use Vercel AI SDK wrappers 
+
+### Test Infrastructure
+```typescript
+// Test utilities
+- Console output capture
+- Command argument parsing
+- Mock data generation
+- Cleanup utilities
+
+// Mocking strategy
+- Core function mocks
+- Console output spies
+- Error handling
+- Environment variables
+```
+
+### Test Patterns
+1. Command Testing:
+   - Parse arguments
+   - Execute command
+   - Verify output
+   - Clean up mocks
+
+2. Output Verification:
+   - Capture console output
+   - Parse JSON when needed
+   - Check formatting
+   - Verify error messages
+
+3. Error Handling:
+   - Mock API errors
+   - Verify error messages
+   - Check error formatting
+   - Ensure proper cleanup
+
+### Dependencies
+Current test dependencies:
+- vitest: Testing framework
+- commander: Command parsing
+- chalk: Output formatting
+- cli-table3: Table formatting
+
+### Testing Guidelines
+1. Mock external dependencies
+2. Capture and verify console output
+3. Clean up mocks after each test
+4. Test both success and error cases
+5. Verify formatting and display
+
+### Current Test Coverage
+- Models Command:
+  - [X] Basic listing
+  - [X] JSON output
+  - [X] Provider filtering
+  - [X] Model details
+  - [X] Error handling
+
+- Evaluate Command:
+  - [ ] Config loading
+  - [ ] Model evaluation
+  - [ ] Result formatting
+  - [ ] Error handling
+
+- Evals Command:
+  - [ ] Config management
+  - [ ] Batch processing
+  - [ ] Progress display
+  - [ ] Error handling 

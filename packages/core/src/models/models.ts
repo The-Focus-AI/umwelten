@@ -73,7 +73,6 @@ export const ModelsConfigSchema = z.object({
 
 export interface ModelProvider extends ModelRoute {
   capabilities: ModelCapabilities;
-  execute(prompt: string, options?: ModelOptions): Promise<ModelResponse>;
   calculateCost(usage: TokenUsage): number;
   listModels(): Promise<ModelDetails[]>;
 }
@@ -134,7 +133,7 @@ export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 export interface ModelRunner {
   execute(params: {
     prompt: string;
-    model: ModelProvider;
+    model: LanguageModelV1;
     options?: ModelOptions;
   }): Promise<ModelResponse>;
 }

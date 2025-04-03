@@ -70,45 +70,23 @@
     "metadata": {
       "created": "2024-03-28",
       "version": "1.0",
-      "evaluator_model": "openai/gpt-4-turbo-preview",
+      "evaluator_model": "ph4:latest",
       "notes": "Focus on depth of analysis and connection between themes"
     }
   },
   "models": {
     "evaluator": {
-      "modelId": "gpt-4-turbo-preview",
-      "provider": "openai",
+      "modelId": "ph4:latest",
+      "provider": "ollama",
       "route": "direct",
-      "description": "GPT-4 Turbo for evaluation"
+      "description": "ph4:latest for evaluation"
     },
     "models": [
       {
-        "modelId": "gemini-2.0-pro-exp",
-        "provider": "google",
+        "modelId": "gemma3:12b",
+        "provider": "ollama",
         "route": "direct",
-        "description": "Gemini 2.0 Pro Experimental - Latest version with enhanced capabilities",
-        "parameters": {
-          "temperature": 0.7,
-          "max_tokens": 1000,
-          "top_p": 0.95
-        }
-      },
-      {
-        "modelId": "openrouter/anthropic/claude-3-opus",
-        "provider": "anthropic",
-        "route": "openrouter",
-        "description": "Claude 3 Opus - Most capable Claude model",
-        "parameters": {
-          "temperature": 0.7,
-          "max_tokens": 1000,
-          "top_p": 0.95
-        }
-      },
-      {
-        "modelId": "openrouter/qwen/qwen-max",
-        "provider": "qwen",
-        "route": "openrouter",
-        "description": "Qwen Max - High performance model with 32k context",
+        "description": "ollama model",
         "parameters": {
           "temperature": 0.7,
           "max_tokens": 1000,
@@ -126,4 +104,4 @@
       }
     }
   }
-} 
+}

@@ -870,3 +870,73 @@ interface ModelRoute {
 2. Update configuration schema
 3. Modify provider implementations to support routing
 4. Update CLI to display routing information
+```
+
+## CLI Testing Implementation (Thu Apr 3 05:56:05 EDT 2025)
+
+### Summary
+Started implementing comprehensive test coverage for CLI commands, beginning with the models command. Set up test infrastructure and established testing patterns following the core package's approach.
+
+### Accomplishments
+1. Implemented test suite for models command:
+   - Basic model listing tests
+   - JSON output format verification
+   - Provider filtering tests
+   - Model information display tests
+   - Error handling coverage
+
+2. Established test infrastructure:
+   - Set up proper mocking for core functions
+   - Implemented console output capture
+   - Created test utilities for command testing
+   - Added cleanup procedures
+
+3. Documentation:
+   - Updated progress tracking
+   - Documented testing patterns
+   - Updated active context with test status
+
+### Decisions
+1. Co-locate test files with source files (following core package pattern)
+2. Use Vitest for consistency across packages
+3. Implement console output capture for verification
+4. Follow established mocking patterns
+5. Maintain proper test cleanup
+
+### Next Steps
+1. Implement evaluate command tests
+2. Implement evals command tests
+3. Add test documentation
+4. Review and improve test coverage
+
+## Thu Apr 3 18:27:35 EDT 2025 - Model Execution Refactoring
+
+### Summary
+Completed major refactoring of model execution architecture to use Vercel AI SDK consistently across all providers.
+
+### Accomplishments
+1. Removed execute method from ModelProvider interface
+2. Updated ModelRunner to use Vercel AI SDK's generateText
+3. Fixed response handling to match generateText structure
+4. Added proper token usage calculation
+5. Improved provider and model identification
+
+### Technical Changes
+- ModelProvider interface simplified to focus on capabilities and metadata
+- ModelRunner now handles all execution through generateText
+- Standardized response handling across all providers
+- Improved error handling and retry mechanism
+- Better token usage calculation and cost tracking
+
+### Decisions Made
+1. Moved execution responsibility entirely to ModelRunner
+2. Using Vercel AI SDK's generateText as the standard execution method
+3. Standardized response format across all providers
+4. Improved error handling with retries
+5. Enhanced token usage calculation
+
+### Next Steps
+1. Update provider implementations to match new interface
+2. Add comprehensive test suite for new components
+3. Update documentation with new patterns
+4. Verify all providers work with new execution flow
