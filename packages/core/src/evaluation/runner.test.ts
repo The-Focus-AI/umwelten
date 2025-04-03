@@ -1,44 +1,78 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EvaluationRunner, EvaluationRunnerError } from './runner';
 import { EvaluationConfig } from './types';
-import { ModelProvider } from '../models/models';
+import type { ModelProvider } from '../models/models';
 
 // Mock the getModelProvider function
 vi.mock('../providers', () => ({
   getModelProvider: vi.fn((modelId: string) => {
-    if (modelId === 'test-model-1') {
+    // Direct access models
+    if (modelId === 'gemini-pro') {
       return Promise.resolve({
-        id: 'test-model-1',
+        modelId: 'gemini-pro',
+        id: 'gemini-pro',
         provider: 'google',
+        route: 'direct',
+        capabilities: { streaming: true },
         execute: vi.fn().mockResolvedValue({
-          content: 'Test response',
+          content: 'Test response from Gemini',
           metadata: {
             startTime: new Date(),
             endTime: new Date(),
             tokenUsage: { total: 100 },
             cost: 0.001,
             provider: 'google',
-            model: 'test-model-1'
+            model: 'gemini-pro'
           }
-        })
-      });
+        }),
+        calculateCost: vi.fn(),
+        listModels: vi.fn()
+      } as unknown as ModelProvider);
     }
-    if (modelId === 'openai/gpt-4-turbo') {
+    if (modelId === 'gpt-4-turbo-preview') {
       return Promise.resolve({
-        id: 'gpt-4-turbo',
-        provider: 'openrouter',
+        modelId: 'gpt-4-turbo-preview',
+        id: 'gpt-4-turbo-preview',
+        provider: 'openai',
+        route: 'direct',
+        capabilities: { streaming: true },
         execute: vi.fn().mockResolvedValue({
-          content: 'SCORE: 8\nREASONING: Good analysis',
+          content: 'SCORE: 8\nREASONING: Good analysis of themes and technical implementation',
           metadata: {
             startTime: new Date(),
             endTime: new Date(),
             tokenUsage: { total: 50 },
             cost: 0.002,
-            provider: 'openrouter',
-            model: 'gpt-4-turbo'
+            provider: 'openai',
+            model: 'gpt-4-turbo-preview'
           }
-        })
-      });
+        }),
+        calculateCost: vi.fn(),
+        listModels: vi.fn()
+      } as unknown as ModelProvider);
+    }
+    // OpenRouter models
+    if (modelId === 'openrouter/anthropic/claude-3-opus') {
+      return Promise.resolve({
+        modelId: 'openrouter/anthropic/claude-3-opus',
+        id: 'claude-3-opus',
+        provider: 'openrouter',
+        route: 'openrouter',
+        capabilities: { streaming: true },
+        execute: vi.fn().mockResolvedValue({
+          content: 'Test response from Claude',
+          metadata: {
+            startTime: new Date(),
+            endTime: new Date(),
+            tokenUsage: { total: 150 },
+            cost: 0.003,
+            provider: 'openrouter',
+            model: 'claude-3-opus'
+          }
+        }),
+        calculateCost: vi.fn(),
+        listModels: vi.fn()
+      } as unknown as ModelProvider);
     }
     return Promise.resolve(undefined);
   })
@@ -90,15 +124,38 @@ describe('EvaluationRunner', () => {
         }
       },
       models: {
+        evaluator: {
+          modelId: 'gpt-4-turbo-preview',
+          provider: 'openai',
+          route: 'direct',
+          description: 'GPT-4 Turbo for evaluation',
+          parameters: {
+            temperature: 0.3,
+            max_tokens: 500,
+            top_p: 0.95
+          }
+        },
         models: [
           {
-            id: 'test-model-1',
+            modelId: 'gemini-pro',
             provider: 'google',
-            description: 'Test model 1',
+            route: 'direct',
+            description: 'Test model - Direct access',
             parameters: {
               temperature: 0.7,
-              top_p: 0.95,
-              max_tokens: 1000
+              max_tokens: 1000,
+              top_p: 0.95
+            }
+          },
+          {
+            modelId: 'openrouter/anthropic/claude-3-opus',
+            provider: 'anthropic',
+            route: 'openrouter',
+            description: 'Test model - OpenRouter access',
+            parameters: {
+              temperature: 0.7,
+              max_tokens: 1000,
+              top_p: 0.95
             }
           }
         ],
@@ -107,36 +164,53 @@ describe('EvaluationRunner', () => {
           version: '1.0',
           notes: 'Test models',
           requirements: {
-            google: 'TEST_API_KEY'
+            GOOGLE_GENERATIVE_AI_API_KEY: 'Required for Google models',
+            OPENROUTER_API_KEY: 'Required for OpenRouter models'
           }
         }
       }
     };
   });
 
-  it('should run evaluation successfully', async () => {
+  it('should run evaluation successfully with direct access model', async () => {
+    // Use only the Gemini model for this test
+    testConfig.models.models = [testConfig.models.models[0]];
     const results = await runner.runEvaluation(testConfig);
 
     expect(results).toBeDefined();
     expect(results.results).toHaveLength(1);
-    expect(results.results[0].modelId).toBe('test-model-1');
-    expect(results.results[0].response).toBe('Test response');
+    expect(results.results[0].modelId).toBe('gemini-pro');
+    expect(results.results[0].provider).toBe('google');
+    expect(results.results[0].response).toBe('Test response from Gemini');
+    expect(results.results[0].scores).toHaveLength(1);
+    expect(results.results[0].scores[0].score).toBe(8);
+  });
+
+  it('should run evaluation successfully with OpenRouter model', async () => {
+    // Use only the Claude model for this test
+    testConfig.models.models = [testConfig.models.models[1]];
+    const results = await runner.runEvaluation(testConfig);
+
+    expect(results).toBeDefined();
+    expect(results.results).toHaveLength(1);
+    expect(results.results[0].modelId).toBe('openrouter/anthropic/claude-3-opus');
+    expect(results.results[0].provider).toBe('anthropic');
+    expect(results.results[0].response).toBe('Test response from Claude');
     expect(results.results[0].scores).toHaveLength(1);
     expect(results.results[0].scores[0].score).toBe(8);
   });
 
   it('should throw error for invalid model', async () => {
-    testConfig.models.models[0].id = 'invalid-model';
-
+    testConfig.models.models[0].modelId = 'invalid-model';
     await expect(runner.runEvaluation(testConfig)).rejects.toThrow(
       EvaluationRunnerError
     );
   });
 
-  it('should calculate total cost correctly', async () => {
+  it('should calculate total cost correctly for multiple models', async () => {
     const results = await runner.runEvaluation(testConfig);
-
-    expect(results.metadata.totalCost).toBe(0.003); // 0.001 for response + 0.002 for evaluation
+    // 0.001 for Gemini + 0.003 for Claude + 0.002 for each evaluation = 0.008
+    expect(results.metadata.totalCost).toBe(0.008);
   });
 
   it('should include all required metadata', async () => {

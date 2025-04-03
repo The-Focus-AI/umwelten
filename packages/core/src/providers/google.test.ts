@@ -23,7 +23,7 @@ describe('Google Provider', () => {
 
   // Test route using Gemini Pro
   const TEST_ROUTE: ModelRoute = {
-    modelId: 'gemini-pro',
+    modelId: 'gemini-1.5-pro',
     provider: 'google',
     route: 'direct'
   }
@@ -117,10 +117,23 @@ describe('Google Provider', () => {
       const provider = createGoogleProvider(GOOGLE_API_KEY!)
       const model = provider.getLanguageModel(TEST_ROUTE)
       
-      await expect(generateText({
+      const response = await generateText({
         model,
         prompt: ''
-      })).rejects.toThrow()
+      })
+
+      // Should return a message asking for input
+      expect(response.text).toBeTruthy()
+      expect(response.text.toLowerCase()).toContain('provide')
+      expect(response.text.toLowerCase()).toContain('respond')
+
+      // Should have usage statistics
+      expect(response.usage).toBeDefined()
+      expect(response.usage?.promptTokens).toBeGreaterThan(0)
+      expect(response.usage?.completionTokens).toBeGreaterThan(0)
+      expect(response.usage?.totalTokens).toBe(
+        response.usage?.promptTokens + response.usage?.completionTokens
+      )
     })
   })
 }) 

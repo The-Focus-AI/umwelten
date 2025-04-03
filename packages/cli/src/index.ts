@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { modelsCommand } from './commands/models.js';
 import { evaluateCommand } from './commands/evaluate.js';
+import { evalsCommand } from './commands/evals.js';
 
 const program = new Command();
 
@@ -13,5 +14,6 @@ program
 // Add commands
 program.addCommand(modelsCommand);
 program.addCommand(evaluateCommand);
+program.addCommand(evalsCommand);
 
 program.parse(); 

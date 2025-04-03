@@ -1,0 +1,129 @@
+{
+  "prompt": {
+    "title": "Frankenstein Analysis",
+    "question": "Analyze the key themes in Mary Shelley's 'Frankenstein', focusing on the relationship between creator and creation. How does this relationship reflect broader questions about scientific responsibility and human nature?",
+    "context": "Mary Shelley's 'Frankenstein' is a groundbreaking work that explores themes of scientific ambition, moral responsibility, and the complex relationship between creator and creation. The novel follows Victor Frankenstein's quest to create life and the consequences of his actions.",
+    "parameters": {
+      "temperature": 0.7,
+      "max_tokens": 1000,
+      "top_p": 0.95
+    },
+    "metadata": {
+      "created": "2024-03-28",
+      "version": "1.0",
+      "description": "Analysis of themes and moral implications in Frankenstein",
+      "expected_themes": [
+        "Creator-creation relationship",
+        "Scientific responsibility",
+        "Human nature",
+        "Ambition and hubris",
+        "Moral consequences"
+      ]
+    }
+  },
+  "rubric": {
+    "evaluation_prompt": "Evaluate the response based on the following criteria:\n1. Theme Analysis: Depth and insight in analyzing the creator-creation relationship\n2. Scientific Ethics: Discussion of scientific responsibility and ethical implications\n3. Textual Support: Use of specific examples from the text\n4. Coherence: Logical organization and clear expression of ideas",
+    "scoring_criteria": {
+      "theme_analysis": {
+        "description": "Depth and insight in analyzing the creator-creation relationship",
+        "points": 3,
+        "key_aspects": [
+          "Understanding of the relationship dynamics",
+          "Analysis of power dynamics",
+          "Exploration of responsibility themes"
+        ]
+      },
+      "scientific_ethics": {
+        "description": "Discussion of scientific responsibility and ethical implications",
+        "points": 3,
+        "key_aspects": [
+          "Ethical considerations in scientific pursuit",
+          "Consequences of unchecked ambition",
+          "Moral responsibilities of creators"
+        ]
+      },
+      "textual_support": {
+        "description": "Use of specific examples from the text to support analysis",
+        "points": 2,
+        "key_aspects": [
+          "Relevant quotations or scenes",
+          "Accurate interpretation of text",
+          "Connection to themes"
+        ]
+      },
+      "coherence": {
+        "description": "Logical organization and clear expression of ideas",
+        "points": 2,
+        "key_aspects": [
+          "Clear structure",
+          "Logical flow",
+          "Effective communication"
+        ]
+      }
+    },
+    "scoring_instructions": {
+      "method": "Points-based scoring with justification",
+      "scale": "0-10 points total",
+      "minimum_pass": 6,
+      "excellent_threshold": 8
+    },
+    "metadata": {
+      "created": "2024-03-28",
+      "version": "1.0",
+      "evaluator_model": "openai/gpt-4-turbo-preview",
+      "notes": "Focus on depth of analysis and connection between themes"
+    }
+  },
+  "models": {
+    "evaluator": {
+      "modelId": "gpt-4-turbo-preview",
+      "provider": "openai",
+      "route": "direct",
+      "description": "GPT-4 Turbo for evaluation"
+    },
+    "models": [
+      {
+        "modelId": "gemini-2.0-pro-exp",
+        "provider": "google",
+        "route": "direct",
+        "description": "Gemini 2.0 Pro Experimental - Latest version with enhanced capabilities",
+        "parameters": {
+          "temperature": 0.7,
+          "max_tokens": 1000,
+          "top_p": 0.95
+        }
+      },
+      {
+        "modelId": "openrouter/anthropic/claude-3-opus",
+        "provider": "anthropic",
+        "route": "openrouter",
+        "description": "Claude 3 Opus - Most capable Claude model",
+        "parameters": {
+          "temperature": 0.7,
+          "max_tokens": 1000,
+          "top_p": 0.95
+        }
+      },
+      {
+        "modelId": "openrouter/qwen/qwen-max",
+        "provider": "qwen",
+        "route": "openrouter",
+        "description": "Qwen Max - High performance model with 32k context",
+        "parameters": {
+          "temperature": 0.7,
+          "max_tokens": 1000,
+          "top_p": 0.95
+        }
+      }
+    ],
+    "metadata": {
+      "created": "2024-03-28",
+      "version": "1.1",
+      "notes": "Updated model selection with Gemini 2.0 Pro, Claude 3 Opus, and Qwen Max",
+      "requirements": {
+        "GOOGLE_GENERATIVE_AI_API_KEY": "Required for Google models",
+        "OPENROUTER_API_KEY": "Required for OpenRouter models (Claude and Qwen)"
+      }
+    }
+  }
+} 

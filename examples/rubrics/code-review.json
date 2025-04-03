@@ -1,0 +1,53 @@
+{
+  "evaluation_prompt": "Evaluate the code review response based on the following criteria:\n1. Code Quality Analysis: Assessment of code structure and organization\n2. Best Practices: Identification of adherence to or deviation from best practices\n3. Actionable Feedback: Specific, implementable suggestions for improvement\n4. Technical Accuracy: Correctness of technical observations and recommendations",
+  "scoring_criteria": {
+    "code_quality_analysis": {
+      "description": "Depth and insight in analyzing code structure and organization",
+      "points": 3,
+      "key_aspects": [
+        "Code organization assessment",
+        "Modularity and coupling analysis",
+        "Readability evaluation"
+      ]
+    },
+    "best_practices": {
+      "description": "Identification and analysis of best practices",
+      "points": 3,
+      "key_aspects": [
+        "Design pattern recognition",
+        "Error handling assessment",
+        "Documentation completeness"
+      ]
+    },
+    "actionable_feedback": {
+      "description": "Specific and implementable improvement suggestions",
+      "points": 2,
+      "key_aspects": [
+        "Clear recommendations",
+        "Practical solutions",
+        "Priority indication"
+      ]
+    },
+    "technical_accuracy": {
+      "description": "Correctness of technical observations",
+      "points": 2,
+      "key_aspects": [
+        "Accurate problem identification",
+        "Valid solution proposals",
+        "Technical feasibility"
+      ]
+    }
+  },
+  "scoring_instructions": {
+    "method": "Points-based scoring with justification",
+    "scale": "0-10 points total",
+    "minimum_pass": 6,
+    "excellent_threshold": 8
+  },
+  "metadata": {
+    "created": "2024-03-28",
+    "version": "1.0",
+    "evaluator_model": "openai/gpt-4-turbo-preview",
+    "notes": "Focus on practical improvements and technical accuracy"
+  }
+} 

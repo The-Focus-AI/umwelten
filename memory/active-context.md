@@ -1,5 +1,4 @@
-# Active Context
-Last Updated: 2025-04-01 08:15:00 EDT
+# Active Context - Thu Apr 3 05:56:05 EDT 2025
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers
@@ -11,7 +10,32 @@ Last Updated: 2025-04-01 08:15:00 EDT
 4. All providers must implement the LanguageModelV1 interface from the 'ai' package
 
 ## Current Focus
-Improving provider implementation and CLI display
+Working on model evaluation configuration and CLI tooling improvements.
+
+### What's Being Worked On
+- Fixed model configuration in evaluation files to use consistent field names (`modelId` instead of `id`)
+- Improved CLI display and handling of model configurations
+- Updated Frankenstein evaluation example with correct model configurations
+
+### Current State
+- Successfully updated the Frankenstein evaluation configuration with:
+  - Evaluator: gpt-4-turbo-preview (OpenAI)
+  - Test Model: gemini-1.5-pro (Google)
+- Fixed CLI tools to handle both `id` and `modelId` fields for backward compatibility
+- Improved error handling and display in CLI tools
+
+### Next Steps
+- Validate the updated configuration with actual evaluation runs
+- Consider adding validation for model configurations in the CLI tools
+- Update documentation to reflect the standardized use of `modelId`
+
+### Blockers
+None currently.
+
+### Recent Decisions
+1. Standardized on `modelId` as the field name for model identifiers
+2. Added compatibility handling for legacy `id` field
+3. Updated CLI display to show correct model information
 
 ## Current Status
 - [X] Defined model routing architecture
@@ -99,21 +123,6 @@ interface ModelDetails extends ModelRoute {
   originalProvider?: string; // For OpenRouter models, the actual provider (e.g., 'openai', 'anthropic')
 }
 ```
-
-## Next Steps
-1. Complete testing of provider updates
-2. Update documentation with new provider fields
-3. Add examples for provider usage
-4. Review and update error handling
-
-## Blockers
-None currently
-
-## Recent Decisions
-1. OpenRouter models now consistently use 'openrouter' as provider
-2. Added originalProvider field to track actual model provider
-3. Enhanced CLI display to show both provider fields
-4. CRITICAL: Must use Vercel AI SDK wrappers for all providers
 
 ## Dependencies
 Current core dependencies:

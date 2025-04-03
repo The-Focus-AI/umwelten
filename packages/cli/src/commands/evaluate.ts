@@ -2,8 +2,15 @@ import { Command } from 'commander';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { EvaluationRunner } from '@model-eval/core/src/evaluation/runner.js';
-import { EvaluationConfig } from '@model-eval/core/src/evaluation/types.js';
-import { z } from 'zod';
+import { 
+  EvaluationConfig,
+  EvaluationResults,
+  ModelEvaluationResult,
+  PromptConfigSchema,
+  RubricConfigSchema,
+  ModelsConfigSchema
+} from '@model-eval/core/src/evaluation/types.js';
+import { loadEvaluationConfig } from '@model-eval/core/src/evaluation/config.js';
 import chalk from 'chalk';
 import ora from 'ora';
 import { config } from 'dotenv';
@@ -23,65 +30,13 @@ async function loadConfig(path: string): Promise<EvaluationConfig> {
   try {
     const configStr = readFileSync(resolve(path), 'utf-8');
     const config = JSON.parse(configStr);
-    
-    // Validate config using Zod schemas
-    const validatedConfig = z.object({
-      prompt: z.object({
-        title: z.string(),
-        question: z.string(),
-        context: z.string(),
-        parameters: z.object({
-          max_tokens: z.number(),
-          temperature: z.number(),
-          top_p: z.number()
-        }),
-        metadata: z.object({
-          created: z.string(),
-          version: z.string(),
-          description: z.string(),
-          expected_themes: z.array(z.string())
-        })
-      }),
-      rubric: z.object({
-        evaluation_prompt: z.string(),
-        scoring_criteria: z.record(z.object({
-          description: z.string(),
-          points: z.number(),
-          key_aspects: z.array(z.string())
-        })),
-        scoring_instructions: z.object({
-          method: z.string(),
-          scale: z.string(),
-          minimum_pass: z.number(),
-          excellent_threshold: z.number()
-        }),
-        metadata: z.object({
-          created: z.string(),
-          version: z.string(),
-          evaluator_model: z.string(),
-          notes: z.string()
-        })
-      }),
-      models: z.object({
-        models: z.array(z.object({
-          id: z.string(),
-          provider: z.enum(['google', 'openrouter', 'ollama']),
-          description: z.string(),
-          parameters: z.object({
-            temperature: z.number(),
-            max_tokens: z.number()
-          })
-        })),
-        metadata: z.object({
-          created: z.string(),
-          version: z.string(),
-          notes: z.string(),
-          requirements: z.record(z.string())
-        })
-      })
-    }).parse(config);
 
-    return validatedConfig;
+    // Validate each section using the core schemas
+    const prompt = PromptConfigSchema.parse(config.prompt);
+    const rubric = RubricConfigSchema.parse(config.rubric);
+    const models = ModelsConfigSchema.parse(config.models);
+
+    return { prompt, rubric, models };
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to load config: ${error.message}`);
@@ -90,7 +45,7 @@ async function loadConfig(path: string): Promise<EvaluationConfig> {
   }
 }
 
-function formatResults(results: any, format: string): string {
+function formatResults(results: EvaluationResults, format: string): string {
   if (format === 'json') {
     return JSON.stringify(results, null, 2);
   }

@@ -53,9 +53,20 @@ describe('Evaluation Configuration', () => {
   };
 
   const modelsConfig = {
+    evaluator: {
+      modelId: 'gpt-4-turbo-preview',
+      route: 'openrouter',
+      provider: 'openai',
+      parameters: {
+        temperature: 0.7,
+        top_p: 0.95,
+        max_tokens: 1000
+      }
+    },
     models: [
       {
-        id: 'test-model-1',
+        modelId: 'gemini-1.5-pro',
+        route: 'direct',
         provider: 'google',
         description: 'Test model 1',
         parameters: {

@@ -1,5 +1,5 @@
 # Lessons Learned
-Last Updated: 2025-03-26 14:30:00 EDT
+Last Updated: Thu Apr 3 05:56:05 EDT 2025
 
 ## Technical Insights
 
@@ -401,3 +401,27 @@ Last Updated: 2025-03-26 14:30:00 EDT
 3. Use mock data for tests that don't require API access
 4. Document API key requirements and setup process
 5. Implement proper error handling for API authentication failures 
+
+## Recent Lessons
+
+### Model Configuration Management (Apr 3, 2025)
+1. **Field Name Consistency**
+   - Standardize on clear, descriptive field names (`modelId` vs `id`)
+   - Maintain backward compatibility when changing field names
+   - Document field name changes and deprecation plans
+
+2. **CLI Tool Design**
+   - Handle both current and legacy field names for smoother transitions
+   - Provide clear error messages for configuration issues
+   - Validate configurations before saving changes
+
+3. **Configuration Updates**
+   - Test configuration changes with actual evaluation runs
+   - Update example configurations to reflect best practices
+   - Consider adding schema validation at the CLI level
+
+### Best Practices
+1. Always validate configurations before saving
+2. Provide clear upgrade paths for breaking changes
+3. Keep example configurations up to date
+4. Document field name changes and their rationale 

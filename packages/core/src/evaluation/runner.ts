@@ -5,11 +5,14 @@ import {
   ModelEvaluationResult,
   EvaluationResults,
   EvaluationScore,
-  ScoringCriterion
+  ScoringCriterion,
+  ModelConfig,
+  ModelParameters
 } from './types.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getModelProvider } from '../providers/index.js';
 import chalk from 'chalk';
+import type { LanguageModelV1 } from 'ai';
 
 export class EvaluationRunnerError extends Error {
   constructor(message: string, public readonly modelId?: string) {
@@ -25,25 +28,34 @@ export class EvaluationRunner {
     this.modelRunner = new BaseModelRunner();
   }
 
+  private convertModelParameters(params?: ModelParameters): { temperature?: number; maxTokens?: number; stop?: string[] } {
+    if (!params) return {};
+    return {
+      temperature: params.temperature,
+      maxTokens: params.max_tokens
+    };
+  }
+
   private async validateModelAccess(config: EvaluationConfig): Promise<void> {
     const modelErrors: string[] = [];
     const requiredModels = [
-      { id: 'openai/gpt-4-turbo', purpose: 'Evaluator model (required for scoring)' },
-      ...config.models.models.map(m => ({ id: m.id, purpose: 'Evaluation model' }))
+      { ...config.models.evaluator, purpose: 'Evaluator model (required for scoring)' },
+      ...config.models.models.map(m => ({ ...m, purpose: 'Evaluation model' }))
     ];
     
     console.log('\nChecking model availability:');
 
     for (const model of requiredModels) {
       try {
-        const modelProvider = await getModelProvider(model.id);
+        const modelProvider = await getModelProvider(model.modelId);
         if (!modelProvider) {
-          modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.id} not available`));
+          modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelId} not available`));
         } else {
-          console.log(chalk.green(`✓ ${model.purpose} ${model.id} available`));
+          console.log(chalk.green(`✓ ${model.purpose} ${model.modelId} available`));
         }
       } catch (error) {
-        modelErrors.push(chalk.red(`❌ Failed to access ${model.purpose} ${model.id}: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.error('Error creating model:', error);
+        modelErrors.push(chalk.red(`❌ Failed to access ${model.purpose} ${model.modelId}: ${error instanceof Error ? error.message : 'Unknown error'}`));
       }
     }
 
@@ -65,19 +77,19 @@ export class EvaluationRunner {
     // Run evaluation for each model
     for (const modelConfig of config.models.models) {
       try {
-        const modelProvider = await getModelProvider(modelConfig.id);
+        const modelProvider = await getModelProvider(modelConfig.modelId);
         if (!modelProvider) {
-          throw new EvaluationRunnerError(`Model provider not found for ${modelConfig.id}`, modelConfig.id);
+          throw new EvaluationRunnerError(`Model provider not found for ${modelConfig.modelId}`, modelConfig.modelId);
         }
 
         // Generate response
         const modelStartTime = new Date();
         const response = await this.modelRunner.execute({
           prompt: this.buildPrompt(config),
-          model: modelProvider,
-          options: {
-            temperature: modelConfig.parameters.temperature,
-            maxTokens: modelConfig.parameters.max_tokens
+          model: modelProvider as unknown as ModelProvider,
+          options: this.convertModelParameters(modelConfig.parameters) || {
+            temperature: 0.7,
+            maxTokens: 1000
           }
         });
 
@@ -88,7 +100,7 @@ export class EvaluationRunner {
         // Calculate metadata
         const modelEndTime = new Date();
         const result: ModelEvaluationResult = {
-          modelId: modelConfig.id,
+          modelId: modelConfig.modelId,
           provider: modelConfig.provider,
           response: response.content,
           scores,
@@ -106,8 +118,8 @@ export class EvaluationRunner {
       } catch (error) {
         if (error instanceof Error) {
           throw new EvaluationRunnerError(
-            `Evaluation failed for model ${modelConfig.id}: ${error.message}`,
-            modelConfig.id
+            `Evaluation failed for model ${modelConfig.modelId}: ${error.message}`,
+            modelConfig.modelId
           );
         }
         throw error;
@@ -137,10 +149,10 @@ ${config.prompt.context}`;
     response: string,
     config: EvaluationConfig
   ): Promise<{ scores: EvaluationScore[]; cost: number }> {
-    // Get the evaluator model (GPT-4)
-    const evaluator = await getModelProvider('openai/gpt-4-turbo');
+    // Get the evaluator model
+    const evaluator = await getModelProvider(config.models.evaluator.modelId);
     if (!evaluator) {
-      throw new EvaluationRunnerError('Evaluator model (GPT-4) not found');
+      throw new EvaluationRunnerError(`Evaluator model (${config.models.evaluator.modelId}) not found`);
     }
 
     const scores: EvaluationScore[] = [];
@@ -174,8 +186,8 @@ REASONING: [your explanation]`;
 
       const evaluation = await this.modelRunner.execute({
         prompt: evaluationPrompt,
-        model: evaluator,
-        options: {
+        model: evaluator as unknown as ModelProvider,
+        options: this.convertModelParameters(config.models.evaluator.parameters) || {
           temperature: 0.3,
           maxTokens: 500
         }

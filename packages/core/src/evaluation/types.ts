@@ -71,6 +71,7 @@ export const ModelsMetadataSchema = z.object({
 });
 
 export const ModelsConfigSchema = z.object({
+  evaluator: ModelConfigSchema,
   models: z.array(ModelConfigSchema),
   metadata: ModelsMetadataSchema.optional()
 });
