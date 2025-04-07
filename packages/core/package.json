@@ -9,8 +9,10 @@
     "model-eval": "dist/cli.js"
   },
   "scripts": {
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest --reporter=verbose",
+    "test:run": "vitest run --reporter=verbose",
+    "test:watch": "vitest --reporter=verbose",
+    "test:coverage": "vitest run --coverage --reporter=verbose",
     "lint": "eslint src --ext .ts,.tsx",
     "build": "tsc",
     "cli": "tsx src/cli.ts"

@@ -1,4 +1,4 @@
-# Active Context - Thu Apr 3 18:27:35 EDT 2025
+# Active Context - Thu Apr 4 2025
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers
@@ -10,47 +10,46 @@
 4. All providers must implement the LanguageModelV1 interface from the 'ai' package
 
 ## Current Focus
-Refactoring model execution architecture to use Vercel AI SDK consistently.
+Fixing CLI test failures and improving test infrastructure.
 
 ### What's Being Worked On
-- [X] Removed execute method from ModelProvider interface
-- [X] Updated ModelRunner to use Vercel AI SDK's generateText
-- [X] Fixed response handling to match generateText structure
-- [X] Added proper token usage calculation
-- [X] Improved provider and model identification
+- [X] Core package tests (51 tests passing)
+- [-] CLI package tests
+  - [ ] Fix models command test failures
+  - [ ] Improve error handling in tests
+  - [ ] Add proper process.exit mocking
 
 ### Current State
-- Successfully refactored model execution to use Vercel AI SDK
-- ModelProvider interface now focused on capabilities and metadata
-- ModelRunner handles all execution through generateText
-- Proper error handling and retries implemented
-- Rate limiting integrated with new execution flow
+- Core package is stable with all tests passing
+- CLI package has test failures in models command
+- Need to fix API error handling in CLI tests
+- Process.exit calls need proper test handling
 
 ### Next Steps
-1. Update provider implementations to reflect new interface:
-   - [ ] Update Google provider
-   - [ ] Update OpenRouter provider
-   - [ ] Update Ollama provider
+1. Fix CLI test failures:
+   - [ ] Implement proper API error mocking
+   - [ ] Add process.exit handling in tests
+   - [ ] Fix models command error handling
+   - [ ] Add test coverage for edge cases
 
-2. Add tests for refactored components:
-   - [ ] ModelRunner tests
-   - [ ] Provider interface tests
-   - [ ] Integration tests
+2. Complete remaining provider tests:
+   - [X] Google provider tests
+   - [ ] OpenRouter provider tests
+   - [ ] Ollama provider tests
 
 3. Update documentation:
-   - [ ] Update provider implementation guide
-   - [ ] Document new execution flow
-   - [ ] Add examples for new pattern
+   - [ ] Add provider implementation guide
+   - [ ] Document test patterns
+   - [ ] Add examples for each provider
 
 ### Blockers
-None currently.
+- CLI tests failing due to API errors and process.exit handling
 
 ### Recent Decisions
-1. Moved execution responsibility to ModelRunner
-2. Using Vercel AI SDK's generateText for all providers
-3. Standardized response handling
-4. Improved error handling and retries
-5. Better token usage calculation
+1. Need to improve API error mocking in CLI tests
+2. Should handle process.exit differently in test environment
+3. Adding debug logging in tests
+4. Standardizing test structure across providers
 
 ## Technical Details
 ### ModelProvider Interface

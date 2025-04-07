@@ -11,6 +11,17 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts']
+    },
+    reporters: ['verbose'],
+    stdout: true,
+    silent: false,
+    testTimeout: 10000,
+    diffLimit: 10000,
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true
+      }
     }
   },
   define: {

@@ -4,10 +4,14 @@ import {
   PromptConfig,
   RubricConfig,
   ModelsConfig,
+  ScoringCriterion, // Import ScoringCriterion
   PromptConfigSchema,
   RubricConfigSchema,
   ModelsConfigSchema
-} from './types';
+} from './types.js'; // Add .js extension
+
+// Define the type for a single model entry in the config
+type ModelEntry = ModelsConfig['models'][number];
 
 export class EvaluationConfigError extends Error {
   constructor(message: string, public readonly path?: string) {
@@ -64,17 +68,18 @@ export async function validateConfig(config: EvaluationConfig): Promise<string[]
   const warnings: string[] = [];
 
   // Check for consistent parameters across configs
-  config.models.models.forEach(model => {
-    if (model.parameters.max_tokens !== config.prompt.parameters.max_tokens) {
+  config.models.models.forEach((model: ModelEntry) => { // Explicitly type model
+    // Check only if model-specific parameters are defined
+    if (model.parameters && model.parameters.max_tokens !== config.prompt.parameters.max_tokens) {
       warnings.push(
-        `Model ${model.id} has different max_tokens (${model.parameters.max_tokens}) than prompt config (${config.prompt.parameters.max_tokens})`
+        `Model ${model.modelId} has different max_tokens (${model.parameters.max_tokens}) than prompt config (${config.prompt.parameters.max_tokens})`
       );
     }
   });
 
   // Validate total points in rubric add up to expected total
   const totalPoints = Object.values(config.rubric.scoring_criteria)
-    .reduce((sum, criterion) => sum + criterion.points, 0);
+    .reduce((sum, criterion: ScoringCriterion) => sum + criterion.points, 0); // Explicitly type criterion
   
   if (totalPoints !== 10) {
     warnings.push(
@@ -83,12 +88,14 @@ export async function validateConfig(config: EvaluationConfig): Promise<string[]
   }
 
   // Check if required API keys are present in environment
-  const requiredKeys = config.models.metadata.requirements;
-  for (const [provider, envVar] of Object.entries(requiredKeys)) {
-    if (!process.env[envVar]) {
-      warnings.push(
-        `Missing required API key for ${provider} (${envVar} not set in environment)`
-      );
+  const requiredKeys = config.models.metadata?.requirements; // Safely access optional requirements
+  if (requiredKeys) { // Check if requirements exist
+    for (const [provider, envVar] of Object.entries(requiredKeys)) {
+      if (!process.env[envVar]) { // envVar is string here
+        warnings.push(
+          `Missing required API key for ${provider} (${envVar} not set in environment)`
+        );
+      }
     }
   }
 

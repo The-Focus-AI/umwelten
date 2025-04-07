@@ -118,7 +118,7 @@ describe('Evaluation Configuration', () => {
       // Check models config
       expect(config.models).toBeDefined();
       expect(config.models.models).toHaveLength(1);
-      expect(config.models.models[0].provider).toBe('google');
+      expect(config.models.models[0].modelId).toBe('gemini-1.5-pro'); // Check modelId instead
     });
 
     it('should throw EvaluationConfigError for missing files', async () => {

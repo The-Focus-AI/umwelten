@@ -58,10 +58,6 @@ export const ModelParametersSchema = z.object({
   max_tokens: z.number()
 });
 
-export const ModelConfigSchema = ModelRouteSchema.extend({
-  description: z.string().optional(),
-  parameters: ModelParametersSchema.optional()
-});
 
 export const ModelsMetadataSchema = z.object({
   created: z.string(),
@@ -71,8 +67,15 @@ export const ModelsMetadataSchema = z.object({
 });
 
 export const ModelsConfigSchema = z.object({
-  evaluator: ModelConfigSchema,
-  models: z.array(ModelConfigSchema),
+  evaluator: z.object({
+    modelId: z.string(),
+    parameters: ModelParametersSchema.optional()
+  }),
+  models: z.array(z.object({
+    modelId: z.string(),
+    parameters: ModelParametersSchema.optional(),
+    description: z.string().optional() // Keep description for context in config
+  })),
   metadata: ModelsMetadataSchema.optional()
 });
 
@@ -87,7 +90,6 @@ export type RubricMetadata = z.infer<typeof RubricMetadataSchema>;
 export type RubricConfig = z.infer<typeof RubricConfigSchema>;
 
 export type ModelParameters = z.infer<typeof ModelParametersSchema>;
-export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 export type ModelsMetadata = z.infer<typeof ModelsMetadataSchema>;
 export type ModelsConfig = z.infer<typeof ModelsConfigSchema>;
 

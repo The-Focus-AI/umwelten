@@ -59,7 +59,7 @@ export class BaseModelRunner implements ModelRunner {
               total: response.usage?.totalTokens || 0
             },
             cost: 0, // Cost calculation should be handled separately
-            provider: params.model.toString().split('/')[0] || 'unknown',
+            provider: params.model.provider || 'unknown', // Use the provider property
             model: params.model.toString()
           }
         };

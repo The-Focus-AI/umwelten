@@ -1,4 +1,4 @@
-import { ModelResponse, ModelProvider } from '../models/models.js';
+import { ModelResponse } from '../models/models.js'; // Removed ModelProvider import
 import { BaseModelRunner } from '../model-runner.js';
 import {
   EvaluationConfig,
@@ -6,7 +6,6 @@ import {
   EvaluationResults,
   EvaluationScore,
   ScoringCriterion,
-  ModelConfig,
   ModelParameters
 } from './types.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -86,7 +85,7 @@ export class EvaluationRunner {
         const modelStartTime = new Date();
         const response = await this.modelRunner.execute({
           prompt: this.buildPrompt(config),
-          model: modelProvider as unknown as ModelProvider,
+          model: modelProvider as LanguageModelV1, // Removed incorrect cast
           options: this.convertModelParameters(modelConfig.parameters) || {
             temperature: 0.7,
             maxTokens: 1000
@@ -101,7 +100,7 @@ export class EvaluationRunner {
         const modelEndTime = new Date();
         const result: ModelEvaluationResult = {
           modelId: modelConfig.modelId,
-          provider: modelConfig.provider,
+          provider: response.metadata.provider, // Get provider from response metadata
           response: response.content,
           scores,
           totalScore,
@@ -186,7 +185,7 @@ REASONING: [your explanation]`;
 
       const evaluation = await this.modelRunner.execute({
         prompt: evaluationPrompt,
-        model: evaluator as unknown as ModelProvider,
+        model: evaluator as LanguageModelV1, // Removed incorrect cast
         options: this.convertModelParameters(config.models.evaluator.parameters) || {
           temperature: 0.3,
           maxTokens: 500

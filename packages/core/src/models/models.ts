@@ -6,10 +6,6 @@ import { createOllamaProvider } from '../providers/ollama.js'
 import { createGoogleProvider } from '../providers/google.js'
 import { ModelRoute, ModelRouteSchema } from './types.js'
 
-export interface ModelCosts {
-  promptTokens: number  // Cost per 1K prompt tokens in USD
-  completionTokens: number  // Cost per 1K completion tokens in USD
-}
 
 export interface ModelDetails extends ModelRoute {
   name?: string;
@@ -22,7 +18,6 @@ export interface ModelDetails extends ModelRoute {
   addedDate?: Date;
   lastUpdated?: Date;
   details?: Record<string, unknown>;
-  parameters?: Record<string, unknown>;
   originalProvider?: string; // For OpenRouter models, the actual provider (e.g., 'openai', 'anthropic')
 }
 
@@ -37,7 +32,6 @@ export const ModelDetailsSchema = ModelRouteSchema.extend({
   addedDate: z.date().optional(),
   lastUpdated: z.date().optional(),
   details: z.record(z.unknown()).optional(),
-  parameters: z.record(z.unknown()).optional(),
   originalProvider: z.string().optional()
 });
 
@@ -71,11 +65,6 @@ export const ModelsConfigSchema = z.object({
   }).optional()
 });
 
-export interface ModelProvider extends ModelRoute {
-  capabilities: ModelCapabilities;
-  calculateCost(usage: TokenUsage): number;
-  listModels(): Promise<ModelDetails[]>;
-}
 
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {

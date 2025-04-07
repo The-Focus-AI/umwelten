@@ -425,3 +425,61 @@ Last Updated: Thu Apr 3 05:56:05 EDT 2025
 2. Provide clear upgrade paths for breaking changes
 3. Keep example configurations up to date
 4. Document field name changes and their rationale 
+
+# Testing Provider Implementations
+*Thu Apr 4 2025*
+
+## Key Learnings from Google Provider Implementation
+
+1. Test Structure
+   - Use beforeEach to verify API keys
+   - Implement skip tests for missing credentials
+   - Add debug logging for test troubleshooting
+   - Test both success and error cases
+
+2. Error Handling
+   - Handle empty prompts gracefully
+   - Validate API keys before provider creation
+   - Test invalid model IDs
+   - Check token usage in responses
+
+3. Test Organization
+   - Group tests by functionality
+   - Use descriptive test names
+   - Add console logging for debugging
+   - Keep tests focused and isolated
+
+4. Best Practices
+   - Use environment variables for API keys
+   - Clean up environment after tests
+   - Add proper type checking
+   - Verify usage statistics 
+
+# CLI Testing Best Practices
+*Thu Apr 4 2025*
+
+## Key Learnings from CLI Test Implementation
+
+1. Process Exit Handling
+   - Don't use process.exit in testable code
+   - Return error codes instead of direct exit
+   - Use dependency injection for process handling
+   - Consider using a custom exit handler in tests
+
+2. API Error Mocking
+   - Mock API calls consistently
+   - Provide realistic error responses
+   - Test both success and failure paths
+   - Include rate limit and network errors
+
+3. Test Organization
+   - Group tests by command and functionality
+   - Mock external dependencies
+   - Capture and verify console output
+   - Clean up mocks after each test
+
+4. Best Practices
+   - Avoid direct process manipulation in application code
+   - Use dependency injection for better testability
+   - Implement proper cleanup in tests
+   - Add comprehensive error scenarios 

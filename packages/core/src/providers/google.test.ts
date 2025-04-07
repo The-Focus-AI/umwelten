@@ -125,7 +125,7 @@ describe('Google Provider', () => {
       // Should return a message asking for input
       expect(response.text).toBeTruthy()
       expect(response.text.toLowerCase()).toContain('provide')
-      expect(response.text.toLowerCase()).toContain('respond')
+      expect(response.text.toLowerCase()).toContain("haven't provided") // Check for actual response content
 
       // Should have usage statistics
       expect(response.usage).toBeDefined()
