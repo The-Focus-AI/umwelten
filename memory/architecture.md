@@ -1,5 +1,5 @@
 # Architecture Documentation
-Last Updated: 2025-04-01 07:26:28 EDT
+Last Updated: 2025-04-09 17:49:43 EDT
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers

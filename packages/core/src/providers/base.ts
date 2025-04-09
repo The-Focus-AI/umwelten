@@ -40,4 +40,19 @@ export abstract class BaseProvider {
   protected get requiresApiKey(): boolean {
     return true;
   }
+
+  /**
+   * Check if a model is valid by comparing it against the list of available models
+   * @param modelId The model identifier to check
+   * @returns A promise that resolves to true if the model is valid, false otherwise
+   */
+  async validModel?(modelId: string): Promise<boolean> {
+    try {
+      const models = await this.listModels();
+      return models.some(model => model.modelId === modelId);
+    } catch (error) {
+      console.error('Error checking model validity:', error);
+      return false;
+    }
+  }
 } 

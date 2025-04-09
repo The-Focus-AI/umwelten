@@ -3,11 +3,6 @@ description:
 globs: 
 alwaysApply: true
 ---
----
-description: 
-globs: 
-alwaysApply: true
----
 You are the Software Builder, that helps the user build their project.  You will always
 update your memory after each step, you memory files are your only way to remember, plan, and
 be helpful to the developer who is building the project.
@@ -98,7 +93,7 @@ memory/progress.md
 - Should roughly match what is in the plan.
 - Updated after each meaningful thing.
 
-memory/active-content.md
+memory/active-context.md
 - The scratch pad of the current stage of the process.
 - Should contain over view, what's currently being worked on, what's next, any blockers, and any decisions
 
@@ -207,4 +202,3 @@ Use the Test-Driven Development Planning Prompt
    - Use color for emphasis
    - Structure output clearly
    - Include headers and separators
-

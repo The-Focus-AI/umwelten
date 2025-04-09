@@ -46,11 +46,18 @@ export class EvaluationRunner {
 
     for (const model of requiredModels) {
       try {
+        console.log(`Checking availability for model ID: ${model.modelId}`);
         const modelProvider = await getModelProvider(model.modelId);
         if (!modelProvider) {
           modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelId} not available`));
         } else {
-          console.log(chalk.green(`✓ ${model.purpose} ${model.modelId} available`));
+          // Check if the model is valid
+          const isValid = await (modelProvider as any).validModel?.(model.modelId);
+          if (!isValid) {
+            modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelId} is not a valid model`));
+          } else {
+            console.log(chalk.green(`✓ ${model.purpose} ${model.modelId} available and valid`));
+          }
         }
       } catch (error) {
         console.error('Error creating model:', error);
@@ -73,6 +80,10 @@ export class EvaluationRunner {
     const results: ModelEvaluationResult[] = [];
     let totalCost = 0;
 
+    if (config.verbose) {
+      console.log(chalk.dim('Starting evaluation at:', startTime.toISOString()));
+    }
+
     // Run evaluation for each model
     for (const modelConfig of config.models.models) {
       try {
@@ -81,16 +92,27 @@ export class EvaluationRunner {
           throw new EvaluationRunnerError(`Model provider not found for ${modelConfig.modelId}`, modelConfig.modelId);
         }
 
+        if (config.verbose) {
+          console.log(chalk.dim(`Evaluating model: ${modelConfig.modelId}`));
+          console.log(chalk.dim(`Provider: ${modelConfig.provider}`));
+          console.log(chalk.dim(`Route: ${modelConfig.route}`));
+          console.log(chalk.dim(`Prompt: ${config.prompt.question}`));
+        }
+
         // Generate response
         const modelStartTime = new Date();
         const response = await this.modelRunner.execute({
           prompt: this.buildPrompt(config),
           model: modelProvider as LanguageModelV1, // Removed incorrect cast
-          options: this.convertModelParameters(modelConfig.parameters) || {
-            temperature: 0.7,
-            maxTokens: 1000
-          }
+          options: this.convertModelParameters(modelConfig.parameters)
         });
+
+        if (config.verbose) {
+          console.log(chalk.dim(`Response received for model: ${modelConfig.modelId}`));
+          console.log(chalk.dim(`Response content: ${response.content}`));
+          console.log(chalk.dim(`Tokens used: ${response.metadata.tokenUsage.total}`));
+          console.log(chalk.dim(`Cost: $${response.metadata.cost.toFixed(4)}`));
+        }
 
         // Evaluate response
         const { scores, cost: evaluationCost } = await this.evaluateResponse(response.content, config);
@@ -116,13 +138,18 @@ export class EvaluationRunner {
         totalCost += response.metadata.cost + evaluationCost;
       } catch (error) {
         if (error instanceof Error) {
-          throw new EvaluationRunnerError(
-            `Evaluation failed for model ${modelConfig.modelId}: ${error.message}`,
-            modelConfig.modelId
-          );
+          console.error(chalk.red(`Error during evaluation of model ${modelConfig.modelId}: ${error.message}`));
+          if (config.verbose) {
+            console.error(chalk.dim('Stack trace:', error.stack));
+          }
         }
         throw error;
       }
+    }
+
+    if (config.verbose) {
+      console.log(chalk.dim('Evaluation completed at:', new Date().toISOString()));
+      console.log(chalk.dim(`Total cost: $${totalCost.toFixed(4)}`));
     }
 
     return {
@@ -149,6 +176,7 @@ ${config.prompt.context}`;
     config: EvaluationConfig
   ): Promise<{ scores: EvaluationScore[]; cost: number }> {
     // Get the evaluator model
+    console.log('Evaluating response with evaluator model:', config.models.evaluator.modelId);
     const evaluator = await getModelProvider(config.models.evaluator.modelId);
     if (!evaluator) {
       throw new EvaluationRunnerError(`Evaluator model (${config.models.evaluator.modelId}) not found`);
@@ -185,11 +213,8 @@ REASONING: [your explanation]`;
 
       const evaluation = await this.modelRunner.execute({
         prompt: evaluationPrompt,
-        model: evaluator as LanguageModelV1, // Removed incorrect cast
-        options: this.convertModelParameters(config.models.evaluator.parameters) || {
-          temperature: 0.3,
-          maxTokens: 500
-        }
+        model: evaluator,
+        options: this.convertModelParameters(config.models.evaluator.parameters)
       });
 
       totalEvaluationCost += evaluation.metadata.cost;

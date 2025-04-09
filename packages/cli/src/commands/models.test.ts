@@ -18,39 +18,39 @@ describe('Models Command', () => {
   // Mock model data with complete interface
   const mockModels: ModelDetails[] = [
     {
-      modelId: 'gemini-1.5-pro',
-      provider: 'google',
-      route: 'direct' as Route,
-      name: 'Gemini Pro',
-      contextLength: 32768,
+      modelId: 'openrouter/quasar-alpha',
+      provider: 'openrouter',
+      route: 'openrouter' as Route,
+      name: 'Quasar Alpha',
+      contextLength: 1000000,
       costs: {
-        promptTokens: 0.0005,
-        completionTokens: 0.0005
+        promptTokens: 0,
+        completionTokens: 0
       },
-      addedDate: new Date('2024-03-01'),
-      lastUpdated: new Date('2024-03-25'),
+      addedDate: new Date('2025-03-16T02:47:18.952Z'),
+      lastUpdated: new Date('2025-03-16T02:47:18.952Z'),
       details: {
-        family: 'gemini',
-        format: 'chat',
-        provider: 'google'
+        architecture: 'text+image->text',
+        tokenizer: 'Other',
+        instructType: null
       }
     },
     {
-      modelId: 'gpt-4-turbo-preview',
-      provider: 'openai',
-      route: 'openrouter' as Route,
-      name: 'GPT-4 Turbo',
-      contextLength: 128000,
+      modelId: 'meta-llama/llama-4-maverick:free',
+      provider: 'meta-llama',
+      route: 'ollama' as Route,
+      name: 'Meta: Llama 4 Maverick (free)',
+      contextLength: 256000,
       costs: {
-        promptTokens: 0.01,
-        completionTokens: 0.03
+        promptTokens: 0,
+        completionTokens: 0
       },
-      addedDate: new Date('2024-02-01'),
-      lastUpdated: new Date('2024-03-20'),
+      addedDate: new Date('2025-03-16T02:47:18.952Z'),
+      lastUpdated: new Date('2025-03-16T02:47:18.952Z'),
       details: {
-        family: 'gpt-4',
-        format: 'chat',
-        provider: 'openai'
+        architecture: 'text+image->text',
+        tokenizer: 'Other',
+        instructType: null
       }
     }
   ];
@@ -77,14 +77,14 @@ describe('Models Command', () => {
       const output = mockConsoleLog.mock.calls.join('\n');
       
       // Check model information
-      expect(output).toContain('gemini-1.5-pro');
-      expect(output).toContain('gpt-4-turbo-preview');
-      expect(output).toContain('google');
-      expect(output).toContain('openai');
+      expect(output).toContain('openrouter/quasar-alpha');
+      expect(output).toContain('meta-llama/llama-4-maverick:free');
+      expect(output).toContain('openrouter');
+      expect(output).toContain('meta-llama');
       
       // Check formatting
-      expect(output).toContain('32K'); // Context length formatting
-      expect(output).toContain('128K');
+      expect(output).toContain('1M');
+      expect(output).toContain('256K');
       expect(output).toContain('$0.0005'); // Cost formatting
       expect(output).toContain('$0.01');
       
@@ -122,16 +122,16 @@ describe('Models Command', () => {
 
     it('should filter models by provider', async () => {
       const mockConsoleLog = vi.spyOn(console, 'log');
-      await modelsCommand.parseAsync(['node', 'test', '--provider', 'google', '--json']);
+      await modelsCommand.parseAsync(['node', 'test', '--provider', 'openrouter', '--json']);
       
       expect(mockConsoleLog).toHaveBeenCalled();
       const output = mockConsoleLog.mock.calls[0][0];
       const parsed = JSON.parse(output);
       
       expect(parsed).toHaveLength(1);
-      expect(parsed[0].modelId).toBe('gemini-1.5-pro');
-      expect(parsed[0].provider).toBe('google');
-      expect(parsed[0].route).toBe('direct');
+      expect(parsed[0].modelId).toBe('openrouter/quasar-alpha');
+      expect(parsed[0].provider).toBe('openrouter');
+      expect(parsed[0].route).toBe('openrouter');
       
       mockConsoleLog.mockRestore();
     });
@@ -158,18 +158,18 @@ describe('Models Command', () => {
   describe('Model Info', () => {
     it('should display detailed model information', async () => {
       const mockConsoleLog = vi.spyOn(console, 'log');
-      await modelsCommand.parseAsync(['node', 'test', '--view', 'info', '--id', 'gemini-1.5-pro']);
+      await modelsCommand.parseAsync(['node', 'test', '--view', 'info', '--id', 'openrouter/quasar-alpha']);
       
       expect(mockConsoleLog).toHaveBeenCalled();
       const output = mockConsoleLog.mock.calls.join('\n');
       
       // Check all model details are displayed
-      expect(output).toContain('gemini-1.5-pro');
-      expect(output).toContain('google');
-      expect(output).toContain('32768');
+      expect(output).toContain('openrouter/quasar-alpha');
+      expect(output).toContain('openrouter');
+      expect(output).toContain('1M');
       expect(output).toContain('$0.0005');
-      expect(output).toContain('Family: gemini');
-      expect(output).toContain('Format: chat');
+      expect(output).toContain('Family: llama');
+      expect(output).toContain('Format: gguf');
       
       mockConsoleLog.mockRestore();
     });
@@ -226,28 +226,30 @@ describe('Models Command', () => {
   describe('Search Functionality', () => {
     it('should search models by name', async () => {
       const mockConsoleLog = vi.spyOn(console, 'log');
-      await modelsCommand.parseAsync(['node', 'test', '--search', 'gemini', '--json']);
+      await modelsCommand.parseAsync(['node', 'test', '--search', 'llama', '--json']);
       
       expect(mockConsoleLog).toHaveBeenCalled();
       const output = mockConsoleLog.mock.calls[0][0];
       const parsed = JSON.parse(output);
       
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0].modelId).toBe('gemini-1.5-pro');
+      expect(parsed).toHaveLength(2);
+      expect(parsed[0].modelId).toBe('openrouter/quasar-alpha');
+      expect(parsed[1].modelId).toBe('meta-llama/llama-4-maverick:free');
       
       mockConsoleLog.mockRestore();
     });
 
     it('should search models by family', async () => {
       const mockConsoleLog = vi.spyOn(console, 'log');
-      await modelsCommand.parseAsync(['node', 'test', '--search', 'gpt-4', '--json']);
+      await modelsCommand.parseAsync(['node', 'test', '--search', 'llama', '--json']);
       
       expect(mockConsoleLog).toHaveBeenCalled();
       const output = mockConsoleLog.mock.calls[0][0];
       const parsed = JSON.parse(output);
       
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0].modelId).toBe('gpt-4-turbo-preview');
+      expect(parsed).toHaveLength(2);
+      expect(parsed[0].modelId).toBe('openrouter/quasar-alpha');
+      expect(parsed[1].modelId).toBe('meta-llama/llama-4-maverick:free');
       
       mockConsoleLog.mockRestore();
     });

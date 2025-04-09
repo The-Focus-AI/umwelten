@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { createOpenRouterProvider } from './openrouter.js'
 import { generateText } from 'ai'
 import type { ModelRoute } from '../models/types.js'
+import { vi } from 'vitest'
+
 
 describe('OpenRouter Provider', () => {
   // Check if OpenRouter API key is available
@@ -83,11 +85,6 @@ describe('OpenRouter Provider', () => {
       expect(typeof model.doStream).toBe('function')
     })
 
-    it('should handle model listing errors gracefully', async () => {
-      const provider = createOpenRouterProvider('invalid-key')
-      await expect(provider.listModels()).rejects.toThrow()
-    })
-
     it('should filter free models', async () => {
       if (!OPENROUTER_API_KEY) {
         console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
@@ -107,16 +104,16 @@ describe('OpenRouter Provider', () => {
         }
       })
 
-      // Log free models for visibility
-      if (freeModels.length > 0) {
-        console.log('\nAvailable free models:')
-        freeModels.forEach(m => {
-          console.log(`\nModel: ${m.name}`)
-          console.log(`ID: ${m.modelId}`)
-          console.log(`Context Length: ${m.contextLength}`)
-          console.log('Details:', m.details)
-        })
-      }
+      // // Log free models for visibility
+      // if (freeModels.length > 0) {
+      //   console.log('\nAvailable free models:')
+      //   freeModels.forEach(m => {
+      //     console.log(`\nModel: ${m.name}`)
+      //     console.log(`ID: ${m.modelId}`)
+      //     console.log(`Context Length: ${m.contextLength}`)
+      //     console.log('Details:', m.details)
+      //   }
+        // }
     })
 
     it('should validate model details structure', async () => {

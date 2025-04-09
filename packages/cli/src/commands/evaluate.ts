@@ -88,15 +88,21 @@ export const evaluateCommand = new Command('evaluate')
   .action(async (options) => {
     try {
       // Load and validate config
-      const spinner = ora('Loading configuration...').start();
       const config = await loadConfig(options.config);
-      spinner.succeed('Configuration loaded successfully');
+      console.log(chalk.green('Configuration loaded successfully'));
+
+      if (options.verbose) {
+        console.log(chalk.dim('Loaded Configuration:', JSON.stringify(config, null, 2)));
+      }
+
+      // Add verbose flag to the configuration
+      config.verbose = options.verbose;
 
       // Run evaluation
-      spinner.start('Running evaluation...');
+      console.log('Running evaluation...');
       const runner = new EvaluationRunner();
       const results = await runner.runEvaluation(config);
-      spinner.succeed('Evaluation completed successfully');
+      console.log(chalk.green('Evaluation completed successfully'));
 
       // Format and output results
       const formattedResults = formatResults(results, options.format);

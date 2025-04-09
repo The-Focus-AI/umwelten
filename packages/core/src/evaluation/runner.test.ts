@@ -3,52 +3,32 @@ import { EvaluationRunner, EvaluationRunnerError } from './runner';
 import { EvaluationConfig } from './types';
 import type { LanguageModelV1 } from 'ai'; // Import LanguageModelV1
 
-// Mock the getModelProvider function
+// Update the mock data to use models from the CLI output
 vi.mock('../providers', () => ({
   getModelProvider: vi.fn((modelId: string) => {
-    // Direct access models
-    if (modelId === 'gemini-pro' || modelId === 'google/gemini-pro') { // Handle potential ID format
-      return Promise.resolve({
-        // Mock the doGenerate method expected by the AI SDK
-        doGenerate: vi.fn().mockResolvedValue({
-          text: 'Test response from Gemini',
-          usage: { promptTokens: 50, completionTokens: 50, totalTokens: 100 },
-          // Add other relevant fields if needed by the runner's cost calculation mock
-        }),
-        // Add missing required properties for LanguageModelV1
-        specificationVersion: 'v1',
-        doStream: vi.fn(), // Basic mock for doStream
-        // Include other necessary LanguageModelV1 properties if required by tests
-        modelId: 'gemini-pro',
-        provider: 'google',
-        defaultObjectGenerationMode: 'json',
-        // Remove unnecessary mock methods like calculateCost, listModels
-      } as LanguageModelV1); // Cast to the correct type
-    }
-    if (modelId === 'gpt-4-turbo-preview' || modelId === 'openai/gpt-4-turbo-preview') { // Handle potential ID format
+    if (modelId === 'openrouter/quasar-alpha') {
       return Promise.resolve({
         doGenerate: vi.fn().mockResolvedValue({
-          text: 'SCORE: 8\nREASONING: Good analysis of themes and technical implementation',
-          usage: { promptTokens: 25, completionTokens: 25, totalTokens: 50 },
+          text: 'Test response from Quasar Alpha',
+          usage: { promptTokens: 100, completionTokens: 100, totalTokens: 200 },
         }),
         specificationVersion: 'v1',
         doStream: vi.fn(),
-        modelId: 'gpt-4-turbo-preview',
-        provider: 'openai',
+        modelId: 'openrouter/quasar-alpha',
+        provider: 'openrouter',
         defaultObjectGenerationMode: 'json',
       } as LanguageModelV1);
     }
-    // OpenRouter models
-    if (modelId === 'openrouter/anthropic/claude-3-opus' || modelId === 'anthropic/claude-3-opus') { // Handle potential ID format
+    if (modelId === 'google/gemini-2.5-pro-exp-03-25:free') {
       return Promise.resolve({
         doGenerate: vi.fn().mockResolvedValue({
-          text: 'Test response from Claude',
-          usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+          text: 'Test response from Gemini 2.5 Pro',
+          usage: { promptTokens: 50, completionTokens: 50, totalTokens: 100 },
         }),
         specificationVersion: 'v1',
         doStream: vi.fn(),
-        modelId: 'openrouter/anthropic/claude-3-opus',
-        provider: 'openrouter',
+        modelId: 'google/gemini-2.5-pro-exp-03-25:free',
+        provider: 'google',
         defaultObjectGenerationMode: 'json',
       } as LanguageModelV1);
     }
@@ -64,65 +44,74 @@ describe('EvaluationRunner', () => {
     runner = new EvaluationRunner();
     testConfig = {
       prompt: {
-        title: 'Test Evaluation',
-        question: 'Test question?',
-        context: 'Test context',
+        title: "Frankenstein Analysis",
+        question: "What are the key themes and moral implications in Mary Shelley's Frankenstein regarding the relationship between creator and creation?",
+        context: "Consider the dynamic between Victor Frankenstein and his creation, focusing on themes of responsibility, ambition, and the consequences of scientific advancement without ethical consideration.",
         parameters: {
           max_tokens: 1000,
           temperature: 0.7,
           top_p: 0.95
         },
         metadata: {
-          created: '2024-03-26',
-          version: '1.0',
-          description: 'Test description',
-          expected_themes: ['theme1']
+          created: "2024-03-26",
+          version: "1.0",
+          description: "Analysis of creator-creation relationship in Frankenstein",
+          expected_themes: [
+            "scientific responsibility",
+            "hubris",
+            "abandonment",
+            "ethical boundaries"
+          ]
         }
       },
       rubric: {
-        evaluation_prompt: 'Test evaluation prompt',
+        evaluation_prompt: "Evaluate the response based on the following criteria, considering depth of analysis, textual evidence, and clarity of reasoning.",
         scoring_criteria: {
-          criterion1: {
-            description: 'Test criterion 1',
-            points: 5,
-            key_aspects: ['aspect1']
+          thematic_analysis: {
+            description: "Understanding and analysis of key themes",
+            points: 10,
+            key_aspects: [
+              "identification of major themes",
+              "depth of analysis",
+              "connection between themes"
+            ]
+          },
+          moral_implications: {
+            description: "Analysis of moral and ethical implications",
+            points: 10,
+            key_aspects: [
+              "ethical considerations",
+              "responsibility discussion",
+              "consequences analysis"
+            ]
           }
         },
         scoring_instructions: {
-          method: 'Test method',
-          scale: '0-10',
+          method: "Points-based scoring with detailed reasoning",
+          scale: "0-10 per criterion",
           minimum_pass: 6,
           excellent_threshold: 8
         },
         metadata: {
-          created: '2024-03-26',
-          version: '1.0',
-          evaluator_model: 'gpt-4',
-          notes: 'Test notes'
+          created: "2024-03-26",
+          version: "1.0",
+          evaluator_model: "gpt-4",
+          notes: "Focus on depth of analysis and ethical understanding"
         }
       },
       models: {
         evaluator: {
-          modelId: 'gpt-4-turbo-preview',
-          parameters: {
-            temperature: 0.3,
-            max_tokens: 500,
-            top_p: 0.95
-          }
+          modelId: "google/gemini-2.5-pro-exp-03-25:free",
+          provider: "google",
+          route: "direct",
+          description: "Gemini 2.5 Pro for evaluation"
         },
         models: [
           {
-            modelId: 'gemini-pro',
-            description: 'Test model - Direct access',
-            parameters: {
-              temperature: 0.7,
-              max_tokens: 1000,
-              top_p: 0.95
-            }
-          },
-          {
-            modelId: 'openrouter/anthropic/claude-3-opus',
-            description: 'Test model - OpenRouter access',
+            modelId: "openrouter/quasar-alpha",
+            provider: "openrouter",
+            route: "openrouter",
+            description: "Quasar Alpha model",
             parameters: {
               temperature: 0.7,
               max_tokens: 1000,
@@ -131,12 +120,13 @@ describe('EvaluationRunner', () => {
           }
         ],
         metadata: {
-          created: '2024-03-26',
-          version: '1.0',
-          notes: 'Test models',
+          created: "2024-03-26",
+          version: "1.0",
+          notes: "Using Quasar Alpha for analysis",
           requirements: {
-            GOOGLE_GENERATIVE_AI_API_KEY: 'Required for Google models',
-            OPENROUTER_API_KEY: 'Required for OpenRouter models'
+            google: "GOOGLE_GENERATIVE_AI_API_KEY",
+            OPENAI_API_KEY: "Required for openai models",
+            GOOGLE_GENERATIVE_AI_API_KEY: "Required for google models"
           }
         }
       }
@@ -150,11 +140,12 @@ describe('EvaluationRunner', () => {
 
     expect(results).toBeDefined();
     expect(results.results).toHaveLength(1);
-    expect(results.results[0].modelId).toBe('gemini-pro');
+    expect(results.results[0].modelId).toBe('gemini-1.5-pro');
     expect(results.results[0].provider).toBe('google');
     expect(results.results[0].response).toBe('Test response from Gemini');
-    expect(results.results[0].scores).toHaveLength(1);
+    expect(results.results[0].scores).toHaveLength(2);
     expect(results.results[0].scores[0].score).toBe(8);
+    expect(results.results[0].scores[1].score).toBe(8);
   });
 
   it('should run evaluation successfully with OpenRouter model', async () => {
@@ -167,8 +158,9 @@ describe('EvaluationRunner', () => {
     expect(results.results[0].modelId).toBe('openrouter/anthropic/claude-3-opus');
     expect(results.results[0].provider).toBe('openrouter'); // Provider comes from the mock response metadata now
     expect(results.results[0].response).toBe('Test response from Claude');
-    expect(results.results[0].scores).toHaveLength(1);
+    expect(results.results[0].scores).toHaveLength(2);
     expect(results.results[0].scores[0].score).toBe(8);
+    expect(results.results[0].scores[1].score).toBe(8);
   });
 
   it('should throw error for invalid model', async () => {

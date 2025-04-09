@@ -167,6 +167,30 @@ User: What is its population?
       // With temperature 0, responses should be identical
       expect(response1.text).toBe(response2.text)
     })
+
+    it('should generate text with gemma3:12b model', async () => {
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection()
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test')
+        return
+      }
+
+      const provider = createOllamaProvider()
+      const model = provider.getLanguageModel({ modelId: 'gemma3:12b', provider: 'ollama', route: 'ollama' })
+      const prompt = 'Write a haiku about coding'
+      
+      const response = await generateText({
+        model,
+        prompt
+      })
+
+      console.log('Generated text for gemma3:12b:', response.text)
+      
+      expect(response.text).toBeTruthy()
+      expect(typeof response.text).toBe('string')
+      expect(response.text.length).toBeGreaterThan(0)
+    })
   })
 
   describe('Error Handling', () => {

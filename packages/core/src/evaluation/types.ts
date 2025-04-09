@@ -66,17 +66,12 @@ export const ModelsMetadataSchema = z.object({
   requirements: z.record(z.string()).optional()
 });
 
-export const ModelsConfigSchema = z.object({
-  evaluator: z.object({
-    modelId: z.string(),
-    parameters: ModelParametersSchema.optional()
-  }),
-  models: z.array(z.object({
-    modelId: z.string(),
-    parameters: ModelParametersSchema.optional(),
-    description: z.string().optional() // Keep description for context in config
-  })),
-  metadata: ModelsMetadataSchema.optional()
+export const ModelConfigSchema = z.object({
+  modelId: z.string(),
+  provider: z.string(),
+  route: z.string(),
+  parameters: ModelParametersSchema.optional(),
+  description: z.string().optional()
 });
 
 // Derived TypeScript types
@@ -91,7 +86,11 @@ export type RubricConfig = z.infer<typeof RubricConfigSchema>;
 
 export type ModelParameters = z.infer<typeof ModelParametersSchema>;
 export type ModelsMetadata = z.infer<typeof ModelsMetadataSchema>;
-export type ModelsConfig = z.infer<typeof ModelsConfigSchema>;
+export const ModelsConfigSchema = z.object({
+  evaluator: ModelConfigSchema,
+  models: z.array(ModelConfigSchema),
+  metadata: ModelsMetadataSchema.optional()
+});
 
 // Evaluation Results Types
 export interface EvaluationScore {
@@ -132,4 +131,7 @@ export interface EvaluationConfig {
   prompt: PromptConfig;
   rubric: RubricConfig;
   models: ModelsConfig;
-} 
+  verbose?: boolean;
+}
+
+export type ModelsConfig = z.infer<typeof ModelsConfigSchema>; 

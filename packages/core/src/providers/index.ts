@@ -2,7 +2,6 @@ import { getOllamaModelUrl } from './ollama.js';
 import { getOpenRouterModelUrl } from './openrouter.js';
 import { getGoogleModelUrl } from './google.js';
 import type { ModelDetails } from '../models/models.js';
-import { parseModelIdentifier } from '../models/types.js';
 import { createGoogleProvider } from './google.js';
 import { createOpenRouterProvider } from './openrouter.js';
 import { createOllamaProvider } from './ollama.js';
@@ -30,25 +29,23 @@ export function getModelUrl(model: ModelDetails): string | undefined {
  */
 export async function getModelProvider(modelId: string): Promise<LanguageModelV1 | undefined> {
   try {
-    const route = parseModelIdentifier(modelId);
-
-    switch (route.provider) {
-      case 'google':
+    switch (true) {
+      case modelId.startsWith('google'):
         const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
         if (!googleKey) {
           throw new Error('GOOGLE_GENERATIVE_AI_API_KEY environment variable is required');
         }
-        return createGoogleProvider(googleKey).getLanguageModel(route);
-      case 'openrouter':
+        return createGoogleProvider(googleKey).getLanguageModel({ modelId, provider: 'google', route: 'direct' });
+      case modelId.startsWith('openrouter'):
         const openrouterKey = process.env.OPENROUTER_API_KEY;
         if (!openrouterKey) {
           throw new Error('OPENROUTER_API_KEY environment variable is required');
         }
-        return createOpenRouterProvider(openrouterKey).getLanguageModel(route);
-      case 'ollama':
-        return createOllamaProvider().getLanguageModel(route);
+        return createOpenRouterProvider(openrouterKey).getLanguageModel({ modelId, provider: 'openrouter', route: 'openrouter' });
+      case modelId.startsWith('ollama'):
+        return createOllamaProvider().getLanguageModel({ modelId, provider: 'ollama', route: 'direct' });
       default:
-        throw new Error(`Unsupported provider: ${route.provider}`);
+        throw new Error(`Unsupported provider for modelId: ${modelId}`);
     }
   } catch (error) {
     console.error('Error creating model:', error);
