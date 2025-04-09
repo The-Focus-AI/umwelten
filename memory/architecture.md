@@ -20,9 +20,8 @@ We use a route-based approach for model identification that clearly separates:
 ### Model Route Interface
 ```typescript
 interface ModelRoute {
-  modelId: string;      // Base model identifier
+  name: string;      // Base model identifier
   provider: string;     // Original provider
-  route: "direct" | "openrouter" | "ollama";  // Access method
   variant?: string;     // Optional variant (e.g. "free")
 }
 ```

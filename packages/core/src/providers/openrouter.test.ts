@@ -123,11 +123,9 @@ describe('OpenRouter Provider', () => {
       
       models.forEach(model => {
         // Required fields
-        expect(model).toHaveProperty('modelId')
         expect(model).toHaveProperty('name')
         expect(model).toHaveProperty('contextLength')
         expect(model).toHaveProperty('provider')
-        expect(model).toHaveProperty('route')
         expect(model.provider).toBe('openrouter')
         
         // Optional but structured fields

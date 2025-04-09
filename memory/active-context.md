@@ -171,9 +171,8 @@ Current core dependencies:
 ### Model Route Interface
 ```typescript
 interface ModelRoute {
-  modelId: string;      // Base model identifier
+  name: string;      // Base model identifier
   provider: string;     // Original provider
-  route: "direct" | "openrouter" | "ollama";  // Access method
   variant?: string;     // Optional variant (e.g. "free")
 }
 ```
@@ -328,3 +327,12 @@ Current test dependencies:
   - [ ] Batch processing
   - [ ] Progress display
   - [ ] Error handling 
+
+### Test Failures
+- [ ] OpenRouter Provider - Model Listing: Missing "modelId" property
+- [ ] OpenRouter Provider - Text Generation: Rate limit exceeded
+- [ ] OpenRouter Provider - Handle Longer Conversations: Rate limit exceeded
+- [ ] OpenRouter Provider - Respect Temperature Setting: Rate limit exceeded
+
+### Decision
+- Address test failures later and update memory accordingly. 

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { searchModels, type ModelDetails } from './models.js'
+import type { ModelDetails } from './types.js'
 import { createOllamaProvider } from '../providers/ollama.js'
 import { createOpenRouterProvider } from '../providers/openrouter.js'
 import { createGoogleProvider } from '../providers/google.js'
+import { searchModels } from './models.js'
 
 // API keys for providers that require authentication
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
@@ -16,7 +17,6 @@ describe('Model Information', () => {
     
     if (models.length > 0) {
       const model = models[0]
-      expect(model).toHaveProperty('modelId')
       expect(model).toHaveProperty('name')
       expect(model).toHaveProperty('contextLength')
       expect(model.provider).toBe('ollama')
@@ -38,12 +38,10 @@ describe('Model Information', () => {
     
     if (models.length > 0) {
       const model = models[0]
-      expect(model).toHaveProperty('modelId')
       expect(model).toHaveProperty('name')
       expect(model).toHaveProperty('contextLength')
       expect(model).toHaveProperty('costs')
       expect(model.provider).toBeDefined()
-      expect(model.route).toBe('openrouter')
       
       // Check cost structure
       if (model.costs) {
@@ -57,13 +55,6 @@ describe('Model Information', () => {
       const freeModels = models.filter((m: ModelDetails) => 
         m.costs && m.costs.promptTokens === 0 && m.costs.completionTokens === 0
       )
-      console.log('\nAvailable free models:')
-      freeModels.forEach((m: ModelDetails) => {
-        console.log(`\nModel: ${m.name}`)
-        console.log(`ID: ${m.modelId}`)
-        console.log(`Context Length: ${m.contextLength}`)
-        console.log('Details:', m.details)
-      })
     }
   })
 
@@ -79,11 +70,11 @@ describe('Model Information', () => {
     
     if (models.length > 0) {
       const model = models[0]
-      expect(model).toHaveProperty('modelId')
+
       expect(model).toHaveProperty('name')
       expect(model).toHaveProperty('contextLength')
       expect(model.provider).toBe('google')
-      expect(model.route).toBe('direct')
+      
       
       console.log('Example Google model:', model)
     }
@@ -148,7 +139,7 @@ describe('Model Search', () => {
     const results = await searchModels('gemini', models)
     expect(results).toBeInstanceOf(Array)
     results.forEach(model => {
-      const searchText = `${model.modelId} ${model.name} ${model.details?.family || ''} ${model.details?.format || ''}`.toLowerCase()
+      const searchText = `${model.provider} ${model.name} ${model.details?.family || ''} ${model.details?.format || ''}`.toLowerCase()
       expect(searchText).toContain('gemini')
     })
   })

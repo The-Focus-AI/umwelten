@@ -80,10 +80,10 @@ export const evalsCommand = new Command('evals')
             .reduce((sum: number, criterion: any) => sum + criterion.points, 0)}`);
 
           console.log(chalk.blue('\nModels:'));
-          console.log(`  Evaluator: ${config.models.evaluator.modelId} (${config.models.evaluator.provider})`);
+          console.log(`  Evaluator: ${config.models.evaluator.provider} (${config.models.evaluator.name})`);
           console.log('\n  Test Models:');
           for (const model of config.models.models) {
-            console.log(`  - ${model.modelId} (${model.provider})`);
+            console.log(`  - ${model.provider} (${model.name})`);
           }
 
           console.log(chalk.blue('\nRequirements:'));

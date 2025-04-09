@@ -34,9 +34,7 @@ export class GoogleProvider extends BaseProvider {
       const modelId = model.name.replace("models/", "");
       const baseModel = modelId.split("-").slice(0, 3).join("-");
       return {
-        modelId: modelId,
         provider: "google",
-        route: "direct" as const,
         name: model.displayName,
         contextLength: model.inputTokenLimit,
         costs:

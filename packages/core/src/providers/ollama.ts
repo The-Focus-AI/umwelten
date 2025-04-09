@@ -28,9 +28,8 @@ export class OllamaProvider extends BaseProvider {
     const data = await response.json();
     
     return data.models.map((model: any) => ({
-      modelId: model.name,
       provider: 'ollama',
-      route: 'ollama' as const,
+
       name: model.name,
       contextLength: 4096, // Default context length, could be adjusted based on model
       costs: {
@@ -45,7 +44,7 @@ export class OllamaProvider extends BaseProvider {
       },
       addedDate: parseDate(model.modified_at),
       lastUpdated: parseDate(model.modified_at),
-    }));
+    } as ModelDetails));
   }
 
   getLanguageModel(route: ModelRoute): LanguageModelV1 {
