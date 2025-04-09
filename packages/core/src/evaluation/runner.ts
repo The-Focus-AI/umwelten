@@ -1,6 +1,6 @@
 import { BaseModelRunner } from '../model-runner.js';
 import { v4 as uuidv4 } from 'uuid';
-import { getModelProvider } from '../providers/index.js';
+import { getModel, validateModel } from '../providers/index.js';
 import chalk from 'chalk';
 import type { LanguageModelV1 } from 'ai';
 import { ModelDetails } from '../models/types.js';
@@ -40,17 +40,17 @@ export class EvaluationRunner {
 
     for (const model of requiredModels) {
       try {
-        console.log(`Checking availability for model ID: ${model.modelDetails.name}`);
-        const modelProvider = await getModelProvider(model.modelDetails.name);
+        console.log(`Checking availability for model ID: ${model.modelDetails.provider} ${model.modelDetails.name}`);
+        const modelProvider = await getModel(model.modelDetails);
         if (!modelProvider) {
-          modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelDetails.provider}/${model.modelDetails.name} not available`));
+          modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelDetails.provider} ${model.modelDetails.name} not available`));
         } else {
           // Check if the model is valid
-          const isValid = await (modelProvider as any).validModel?.(model.modelDetails.name);
+          const isValid = await validateModel(model.modelDetails);
           if (!isValid) {
-            modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelDetails.provider}/${model.modelDetails.name} is not a valid model`));
+            modelErrors.push(chalk.red(`❌ ${model.purpose} ${model.modelDetails.provider} ${model.modelDetails.name} is not a valid model`));
           } else {
-            console.log(chalk.green(`✓ ${model.purpose} ${model.modelDetails.provider}/${model.modelDetails.name} available and valid`));
+            console.log(chalk.green(`✓ ${model.purpose} ${model.modelDetails.provider} ${model.modelDetails.name} available and valid`));
           }
         }
       } catch (error) {
@@ -81,7 +81,7 @@ export class EvaluationRunner {
     // Run evaluation for each model
     for (const modelConfig of config.models.models) {
       try {
-        const modelProvider = await getModelProvider(modelConfig.modelDetails.name);
+        const modelProvider = await getModel(modelConfig.modelDetails);
         if (!modelProvider) {
           throw new EvaluationRunnerError(`Model provider not found for ${modelConfig.modelDetails.name}`, modelConfig.modelDetails);
         }
@@ -170,7 +170,7 @@ ${config.prompt.context}`;
   ): Promise<{ scores: EvaluationScore[]; cost: number }> {
     // Get the evaluator model
     console.log('Evaluating response with evaluator model:', config.models.evaluator.modelDetails.name);
-    const evaluator = await getModelProvider(config.models.evaluator.modelDetails.name);
+    const evaluator = await getModel(config.models.evaluator.modelDetails);
     if (!evaluator) {
       throw new EvaluationRunnerError(`Evaluator model (${config.models.evaluator.modelDetails.name}) not found`);
     }

@@ -3,18 +3,6 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { resolve, join } from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
-import {
-  EvaluationConfig,
-  PromptConfig,
-  RubricConfig,
-  ModelsConfig,
-  ModelConfig,
-  PromptConfigSchema,
-  RubricConfigSchema,
-  ModelsConfigSchema,
-  ModelConfigSchema
-} from '@model-eval/core/src/evaluation/types.js';
-import { getModelProvider } from '@model-eval/core/src/providers/index.js';
 
 // Helper functions
 function ensureDirectoryExists(dir: string) {

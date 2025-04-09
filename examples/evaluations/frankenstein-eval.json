@@ -76,16 +76,19 @@
   },
   "models": {
     "evaluator": {
-      "modelId": "phi4:latest",
-      "provider": "ollama",
-      "route": "direct",
-      "description": "phi4:latest for evaluation"
+      "modelDetails": {
+        "name": "phi4:latest",
+        "provider": "ollama",
+        "description": "phi4:latest for evaluation"
+      }
     },
     "models": [
       {
-        "modelId": "gemma3:12b",
-        "provider": "ollama",
-        "route": "direct",
+        "modelDetails": {
+          "name": "gemma3:12b",
+          "provider": "ollama"
+        },
+
         "description": "ollama model",
         "parameters": {
           "temperature": 0.7,
