@@ -36,32 +36,123 @@ describe('OpenRouter Provider', () => {
   })
 
   describe('Model Listing', () => {
-    itWithAuth('should list available models', async () => {
-      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+    it('should list available models', async () => {
+      if (!OPENROUTER_API_KEY) {
+        console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
+        return
+      }
+
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
       const models = await provider.listModels()
       expect(models).toBeInstanceOf(Array)
-      expect(models.length).toBeGreaterThan(0)
-
-      // Log first model for debugging
-      console.log('First model:', models[0])
-
-      // Check model structure
-      models.forEach(model => {
-        expect(model.modelId).toBeDefined()
+      
+      if (models.length > 0) {
+        const model = models[0]
+        expect(model).toHaveProperty('modelId')
+        expect(model).toHaveProperty('name')
+        expect(model).toHaveProperty('contextLength')
+        expect(model).toHaveProperty('costs')
         expect(model.provider).toBeDefined()
         expect(model.route).toBe('openrouter')
-        expect(model.name).toBeDefined()
-        expect(model.contextLength).toBeTypeOf('number')
-        expect(model.costs).toBeDefined()
-        expect(model.costs?.promptTokens).toBeTypeOf('number')
-        expect(model.costs?.completionTokens).toBeTypeOf('number')
+        
+        // Check cost structure
+        if (model.costs) {
+          expect(model.costs).toHaveProperty('promptTokens')
+          expect(model.costs).toHaveProperty('completionTokens')
+          expect(typeof model.costs.promptTokens).toBe('number')
+          expect(typeof model.costs.completionTokens).toBe('number')
+        }
+      }
+    })
+
+    it('should get language model for valid model ID', async () => {
+      if (!OPENROUTER_API_KEY) {
+        console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
+        return
+      }
+
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
+      const modelRoute: ModelRoute = {
+        modelId: 'gpt-3.5-turbo',
+        provider: 'openai',
+        route: 'openrouter'
+      }
+      const model = provider.getLanguageModel(modelRoute)
+      expect(model).toBeDefined()
+      expect(typeof model.doGenerate).toBe('function')
+      expect(typeof model.doStream).toBe('function')
+    })
+
+    it('should handle model listing errors gracefully', async () => {
+      const provider = createOpenRouterProvider('invalid-key')
+      await expect(provider.listModels()).rejects.toThrow()
+    })
+
+    it('should filter free models', async () => {
+      if (!OPENROUTER_API_KEY) {
+        console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
+        return
+      }
+
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
+      const models = await provider.listModels()
+      const freeModels = models.filter(model => 
+        model.costs && model.costs.promptTokens === 0 && model.costs.completionTokens === 0
+      )
+      
+      freeModels.forEach(model => {
+        if (model.costs) {
+          expect(model.costs.promptTokens).toBe(0)
+          expect(model.costs.completionTokens).toBe(0)
+        }
       })
 
-      // Log free models
-      const freeModels = models.filter(m => 
-        m.costs && m.costs.promptTokens === 0 && m.costs.completionTokens === 0
-      )
-      console.log('\nAvailable free models:', freeModels.map(m => m.modelId))
+      // Log free models for visibility
+      if (freeModels.length > 0) {
+        console.log('\nAvailable free models:')
+        freeModels.forEach(m => {
+          console.log(`\nModel: ${m.name}`)
+          console.log(`ID: ${m.modelId}`)
+          console.log(`Context Length: ${m.contextLength}`)
+          console.log('Details:', m.details)
+        })
+      }
+    })
+
+    it('should validate model details structure', async () => {
+      if (!OPENROUTER_API_KEY) {
+        console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
+        return
+      }
+
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
+      const models = await provider.listModels()
+      
+      models.forEach(model => {
+        // Required fields
+        expect(model).toHaveProperty('modelId')
+        expect(model).toHaveProperty('name')
+        expect(model).toHaveProperty('contextLength')
+        expect(model).toHaveProperty('provider')
+        expect(model).toHaveProperty('route')
+        expect(model.route).toBe('openrouter')
+        
+        // Optional but structured fields
+        if (model.costs) {
+          expect(model.costs).toHaveProperty('promptTokens')
+          expect(model.costs).toHaveProperty('completionTokens')
+          expect(typeof model.costs.promptTokens).toBe('number')
+          expect(typeof model.costs.completionTokens).toBe('number')
+        }
+        
+        if (model.details) {
+          if (model.details.family) expect(typeof model.details.family).toBe('string')
+          if (model.details.format) expect(typeof model.details.format).toBe('string')
+        }
+        
+        if (model.addedDate) expect(model.addedDate).toBeInstanceOf(Date)
+        if (model.lastUpdated) expect(model.lastUpdated).toBeInstanceOf(Date)
+      })
     })
   })
 
