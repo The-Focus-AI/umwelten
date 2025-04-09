@@ -10,248 +10,78 @@
 4. All providers must implement the LanguageModelV1 interface from the 'ai' package
 
 ## Current Focus
-Fixing CLI test failures and improving test infrastructure.
+Improving CLI testing infrastructure and enhancing test result visibility.
 
 ### What's Being Worked On
-- [X] Core package tests (51 tests passing)
-- [-] CLI package tests
-  - [ ] Fix models command test failures
-  - [ ] Improve error handling in tests
-  - [ ] Add proper process.exit mocking
+- [-] Implementing proper API error mocking
+- [-] Adding process.exit handling in tests
+- [-] Fixing models command error handling
+- [-] Adding test coverage for edge cases
+- [X] Added `runCommand` to CLI and integrated with `generateText` function
 
 ### Current State
-- Core package is stable with all tests passing
-- CLI package has test failures in models command
-- Need to fix API error handling in CLI tests
-- Process.exit calls need proper test handling
+- [X] Core package is stable with all tests passing
+- [!] CLI package has test failures in models command
 
 ### Next Steps
-1. Fix CLI test failures:
-   - [ ] Implement proper API error mocking
-   - [ ] Add process.exit handling in tests
-   - [ ] Fix models command error handling
-   - [ ] Add test coverage for edge cases
+1. Improve CLI testing infrastructure:
+   - [-] Implement proper API error mocking
+   - [-] Add process.exit handling in tests
+   - [-] Fix models command error handling
+   - [-] Add test coverage for edge cases
 
-2. Complete remaining provider tests:
-   - [X] Google provider tests
-   - [X] OpenRouter provider tests
-   - [ ] Ollama provider tests
+2. Enhance test result visibility:
+   - [ ] Improve logging and output formatting for test results
+   - [ ] Ensure test failures are clearly documented and actionable
 
 3. Update documentation:
    - [ ] Add provider implementation guide
-   - [ ] Document test patterns
-   - [ ] Add examples for each provider
+   - [ ] Document test patterns and examples for each provider
 
 ### Blockers
-- CLI tests failing due to API errors and process.exit handling
+- [!] CLI tests failing due to API errors and process.exit handling
 
 ### Recent Decisions
-1. Need to improve API error mocking in CLI tests
-2. Should handle process.exit differently in test environment
-3. Adding debug logging in tests
-4. Standardizing test structure across providers
+- [X] Improve API error mocking in CLI tests
+- [X] Handle process.exit differently in test environment
+- [X] Add debug logging in tests
+- [X] Standardize test structure across providers
 
 ### Key Findings
-- Verified `LanguageModelV1` interface methods: `doGenerate`, `doStream`
-- Ensured alignment with core testing strategies
-- Tests successfully verify OpenRouter provider functionality
-
-## Technical Details
-### ModelProvider Interface
-```typescript
-export interface ModelProvider extends ModelRoute {
-  capabilities: ModelCapabilities;
-  calculateCost(usage: TokenUsage): number;
-  listModels(): Promise<ModelDetails[]>;
-}
-```
-
-### ModelRunner Interface
-```typescript
-export interface ModelRunner {
-  execute(params: {
-    prompt: string;
-    model: LanguageModelV1;
-    options?: ModelOptions;
-  }): Promise<ModelResponse>;
-}
-```
-
-### Response Format
-```typescript
-interface ModelResponse {
-  content: string;
-  metadata: {
-    startTime: Date;
-    endTime: Date;
-    tokenUsage: {
-      promptTokens: number;
-      completionTokens: number;
-      total: number;
-    };
-    cost: number;
-    provider: string;
-    model: string;
-  };
-}
-```
+- [X] Verified `LanguageModelV1` interface methods: `doGenerate`, `doStream`
+- [X] Ensured alignment with core testing strategies
+- [X] Tests successfully verify OpenRouter provider functionality
 
 ## Dependencies
 Current core dependencies:
-- ai: ^4.1.46 (Vercel AI SDK core)
+- ai: ^4.2.5 (Vercel AI SDK core)
 - @ai-sdk/google: Latest (Vercel wrapper)
 - @openrouter/ai-sdk-provider: ^0.4.3
 - ollama-ai-provider: ^1.2.0
 - zod: ^3.22.4
 
 ### Implementation Status
-- [X] Core interface refactoring
-- [X] ModelRunner implementation
-- [ ] Provider updates
-- [ ] Test coverage
-- [ ] Documentation updates
+- [X] Core interface refactoring completed
+- [X] ModelRunner implementation completed
+- [-] Provider updates and test coverage in progress
 
 ### Next Actions
-1. Update provider implementations to match new interface
-2. Add comprehensive test suite
-3. Update documentation with new patterns
-4. Verify all providers work with new execution flow
-
-## Current Status
-- [X] Defined model routing architecture
-- [X] Implementing model routing system
-- [X] Update configuration format
-- [X] Update provider implementations
-- [X] Update CLI display
-
-## Implementation Plan
-### Phase 1: Core Model Routing (Completed)
-1. Create ModelRoute interface and utilities
-   - [ ] Define types in models/types.ts
-   - [ ] Implement parseModelIdentifier
-   - [ ] Implement formatModelIdentifier
-   - [ ] Add provider inference logic
-
-2. Update Configuration Schema
-   - [ ] Update model configuration format
-   - [ ] Add route and variant fields
-   - [ ] Update validation
-
-3. Update Provider Implementation
-   - [ ] Modify getModelProvider to use route information
-   - [ ] Update Google provider
-   - [ ] Update OpenRouter provider
-   - [ ] Update Ollama provider
-
-4. CLI Updates
-   - [ ] Update model listing format
-   - [ ] Add route information to model info
-   - [ ] Update help documentation
-
-### Phase 2: Provider Improvements (Current)
-1. OpenRouter Provider Updates
-   - [X] Set provider field to 'openrouter'
-   - [X] Add originalProvider field for actual provider
-   - [X] Update CLI to display both provider fields
-   - [X] Fix model listing in CLI
-
-2. CLI Enhancements
-   - [X] Update model listing format
-   - [X] Add provider/originalProvider display
-   - [X] Fix linter errors in display code
-   - [X] Improve error handling
-
-### Phase 3: Testing and Documentation
-- [ ] Add tests for updated provider implementations
-- [ ] Test CLI enhancements
-- [ ] Update documentation with new provider fields
-- [ ] Add examples for provider usage
-
-## Technical Details
-### Model Route Interface
-```typescript
-interface ModelRoute {
-  name: string;      // Base model identifier
-  provider: string;     // Original provider
-  variant?: string;     // Optional variant (e.g. "free")
-}
-```
-
-### Configuration Format
-```json
-{
-  "models": [
-    {
-      "id": "gemini-2.5-pro-exp-03-25",
-      "route": "direct",
-      "provider": "google"
-    },
-    {
-      "id": "gemini-2.5-pro-exp-03-25",
-      "route": "openrouter",
-      "provider": "google",
-      "variant": "free"
-    }
-  ]
-}
-```
-
-### Model Details Interface Updates
-```typescript
-interface ModelDetails extends ModelRoute {
-  originalProvider?: string; // For OpenRouter models, the actual provider (e.g., 'openai', 'anthropic')
-}
-```
-
-## Dependencies
-Current core dependencies:
-- ai: ^4.1.46 (Vercel AI SDK core)
-- @ai-sdk/google: Latest (Vercel AI wrapper for Google)
-- @openrouter/ai-sdk-provider: ^0.4.3
-- ollama-ai-provider: ^1.2.0
-- zod: ^3.22.4
-
-### In Progress
-- Fixing provider implementation to use Vercel AI SDK wrappers exclusively
-- Implementing dynamic model listing
-- Fixing TypeScript linting issues in provider implementations
-
-### Dependencies Update Status
-All dependencies at latest versions, focusing on Vercel AI SDK ecosystem:
-- ai: ^4.1.46 (Core Vercel AI SDK)
-- @ai-sdk/google: Latest (Vercel wrapper)
-- @openrouter/ai-sdk-provider: ^0.4.3
-- ollama-ai-provider: ^1.2.0
-- zod: ^3.22.4
-
-### Next Steps
-1. Fix TypeScript linting issues in providers:
-   - Ensure proper LanguageModelV1 interface implementation
-   - Add proper type annotations for parameters
-2. Test provider implementations with Vercel AI SDK wrappers
-3. Update documentation with provider setup instructions
+- [-] Update provider implementations to match new interface
+- [-] Add comprehensive test suite
+- [-] Update documentation with new patterns
+- [-] Verify all providers work with new execution flow
 
 ### Blockers
-- Need to verify token counting and cost calculation for all providers through Vercel AI SDK wrappers
+- [!] Need to verify token counting and cost calculation for all providers through Vercel AI SDK wrappers
 
 ### Recent Decisions
-1. CRITICAL: Must use Vercel AI SDK wrappers for all providers
-2. Using dynamic model listing where available
-3. Standardizing on LanguageModelV1 interface from 'ai' package
-4. Verified all dependencies are at their latest versions
+- [X] Must use Vercel AI SDK wrappers for all providers
+- [X] Using dynamic model listing where available
+- [X] Standardizing on LanguageModelV1 interface from 'ai' package
+- [X] Verified all dependencies are at their latest versions
 
-### Current Status (2025-04-01 08:15:00 EDT)
-
-### Overview
-The CLI implementation is now complete with improved formatting, better error handling, and enhanced user experience features.
-
-### Currently Working On
-- [X] CLI improvements and polish
-  - [X] Model URL linking
-  - [X] Context length formatting
-  - [X] Date alignment
-  - [X] Cost display
-  - [X] Error handling
+### Current Status
+- [X] CLI implementation is complete with improved formatting, better error handling, and enhanced user experience features.
 
 ### Notes
 - The CLI now provides a polished, user-friendly interface
@@ -261,19 +91,10 @@ The CLI implementation is now complete with improved formatting, better error ha
 - CRITICAL: All providers must use Vercel AI SDK wrappers 
 
 ### Test Infrastructure
-```typescript
-// Test utilities
 - Console output capture
 - Command argument parsing
 - Mock data generation
 - Cleanup utilities
-
-// Mocking strategy
-- Core function mocks
-- Console output spies
-- Error handling
-- Environment variables
-```
 
 ### Test Patterns
 1. Command Testing:
@@ -329,10 +150,10 @@ Current test dependencies:
   - [ ] Error handling 
 
 ### Test Failures
-- [ ] OpenRouter Provider - Model Listing: Missing "modelId" property
-- [ ] OpenRouter Provider - Text Generation: Rate limit exceeded
-- [ ] OpenRouter Provider - Handle Longer Conversations: Rate limit exceeded
-- [ ] OpenRouter Provider - Respect Temperature Setting: Rate limit exceeded
+- [!] OpenRouter Provider - Model Listing: Missing "modelId" property
+- [!] OpenRouter Provider - Text Generation: Rate limit exceeded
+- [!] OpenRouter Provider - Handle Longer Conversations: Rate limit exceeded
+- [!] OpenRouter Provider - Respect Temperature Setting: Rate limit exceeded
 
 ### Decision
 - Address test failures later and update memory accordingly. 
