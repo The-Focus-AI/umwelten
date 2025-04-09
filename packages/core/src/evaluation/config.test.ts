@@ -54,9 +54,10 @@ describe('Evaluation Configuration', () => {
 
   const modelsConfig = {
     evaluator: {
-      modelId: 'gpt-4-turbo-preview',
-      route: 'openrouter',
-      provider: 'openai',
+      modelDetails: {
+        name: 'gpt-4-turbo-preview',
+        provider: 'openai',
+      },
       parameters: {
         temperature: 0.7,
         top_p: 0.95,
@@ -65,10 +66,11 @@ describe('Evaluation Configuration', () => {
     },
     models: [
       {
-        modelId: 'gemini-1.5-pro',
-        route: 'direct',
-        provider: 'google',
-        description: 'Test model 1',
+        modelDetails: {
+          name: 'gemini-1.5-pro',
+          provider: 'google',
+          description: 'Test model 1',
+        },
         parameters: {
           temperature: 0.7,
           top_p: 0.95,
@@ -118,7 +120,7 @@ describe('Evaluation Configuration', () => {
       // Check models config
       expect(config.models).toBeDefined();
       expect(config.models.models).toHaveLength(1);
-      expect(config.models.models[0].modelId).toBe('gemini-1.5-pro'); // Check modelId instead
+      expect(config.models.models[0].modelDetails.name).toBe('gemini-1.5-pro'); // Check modelId instead
     });
 
     it('should throw EvaluationConfigError for missing files', async () => {

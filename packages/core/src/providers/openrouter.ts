@@ -1,9 +1,7 @@
 import { openrouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModelV1 } from 'ai'
-import { ModelDetails } from '../models/models.js'
-import { ModelRoute } from '../models/types.js'
 import { BaseProvider } from './base.js'
-
+import type { ModelDetails, ModelRoute } from '../models/types.js'
 export function createOpenRouterModel(modelName: string): LanguageModelV1 {
   return openrouter(modelName)
 } 
@@ -33,11 +31,10 @@ export class OpenRouterProvider extends BaseProvider {
     const data = await response.json()
     
     return data.data.map((model: any) => ({
-      modelId: model.id,
+      name: model.id,
       provider: 'openrouter' as const,
       originalProvider: model.id.split('/')[0], // e.g., 'openai', 'anthropic'
       route: 'openrouter' as const,
-      name: model.name,
       contextLength: model.context_length,
       costs: {
         promptTokens: parseFloat(model.pricing?.prompt || '0') * 1000,
@@ -59,8 +56,8 @@ export class OpenRouterProvider extends BaseProvider {
     
     // Format the model ID for OpenRouter
     const modelId = route.variant 
-      ? `${route.provider}/${route.modelId}:${route.variant}` 
-      : `${route.provider}/${route.modelId}`;
+      ? `${route.provider}/${route.name}:${route.variant}` 
+      : `${route.provider}/${route.name}`;
 
     // The openrouter function from the SDK automatically uses OPENROUTER_API_KEY from env
     return openrouter(modelId);

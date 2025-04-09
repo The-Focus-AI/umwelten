@@ -72,7 +72,7 @@ export async function validateConfig(config: EvaluationConfig): Promise<string[]
     // Check only if model-specific parameters are defined
     if (model.parameters && model.parameters.max_tokens !== config.prompt.parameters.max_tokens) {
       warnings.push(
-        `Model ${model.modelId} has different max_tokens (${model.parameters.max_tokens}) than prompt config (${config.prompt.parameters.max_tokens})`
+        `Model ${model.modelDetails.name} has different max_tokens (${model.parameters.max_tokens}) than prompt config (${config.prompt.parameters.max_tokens})`
       );
     }
   });

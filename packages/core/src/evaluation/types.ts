@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ModelRouteSchema } from '../models/types.js';
+import { ModelDetailsSchema } from '../models/types.js';
 
 // Prompt Types and Schemas
 export const PromptParametersSchema = z.object({
@@ -67,9 +67,7 @@ export const ModelsMetadataSchema = z.object({
 });
 
 export const ModelConfigSchema = z.object({
-  modelId: z.string(),
-  provider: z.string(),
-  route: z.string(),
+  modelDetails: ModelDetailsSchema,
   parameters: ModelParametersSchema.optional(),
   description: z.string().optional()
 });

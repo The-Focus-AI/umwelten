@@ -1,7 +1,6 @@
 import { google } from "@ai-sdk/google";
 import type { LanguageModelV1 } from "ai";
-import { ModelDetails } from "../models/models.js";
-import { ModelRoute } from "../models/types.js";
+import type { ModelDetails, ModelRoute } from "../models/types.js";
 import { BaseProvider } from "./base.js";
 
 const GEMINI_PRICING = {
@@ -65,7 +64,7 @@ export class GoogleProvider extends BaseProvider {
     this.validateConfig();
 
     // Use the Vercel AI SDK wrapper for Google
-    return google(route.modelId);
+    return google(route.name);
   }
 }
 

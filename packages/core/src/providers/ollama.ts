@@ -1,9 +1,7 @@
 import { ollama } from 'ollama-ai-provider'
-import type { LanguageModelV1 } from 'ai'
-import { ModelDetails } from '../models/models.js'
-import { ModelRoute } from '../models/types.js'
+import type { LanguageModelV1 } from 'ai' 
 import { BaseProvider } from './base.js'
-
+import type { ModelDetails, ModelRoute } from '../models/types.js'
 const now = new Date();
 
 function parseDate(dateStr: string): Date | undefined {
@@ -51,8 +49,7 @@ export class OllamaProvider extends BaseProvider {
   }
 
   getLanguageModel(route: ModelRoute): LanguageModelV1 {
-    // For Ollama, we just use the modelId directly
-    return ollama(route.modelId);
+    return ollama(route.name);
   }
 }
 
@@ -63,6 +60,5 @@ export function createOllamaProvider(baseUrl?: string): OllamaProvider {
 
 export function getOllamaModelUrl(modelId: string): string {
   // Strip off version/tags to get base model name
-  const baseModel = modelId.split(':')[0];
-  return `https://ollama.com/library/${baseModel}`;
+  return `https://ollama.com/library/${modelId}`;
 }

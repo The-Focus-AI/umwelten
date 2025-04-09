@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createGoogleProvider } from './google.js'
 import { generateText } from 'ai'
-import type { ModelDetails } from '../models/models.js'
-import type { ModelRoute } from '../models/types.js'
+import type { ModelDetails, ModelRoute } from '../models/types.js'
 
 describe('Google Provider', () => {
   const originalEnv = process.env
@@ -23,9 +22,8 @@ describe('Google Provider', () => {
 
   // Test route using Gemini Pro
   const TEST_ROUTE: ModelRoute = {
-    modelId: 'gemini-1.5-pro',
+    name: 'gemini-1.5-pro',
     provider: 'google',
-    route: 'direct'
   }
 
   describe('Provider Instance', () => {
@@ -52,10 +50,8 @@ describe('Google Provider', () => {
       console.log('First model:', models[models.length - 1])
       
       models.forEach((model: ModelDetails) => {
-        expect(model.modelId).toBeDefined()
         expect(model.name).toBeDefined()
         expect(model.provider).toBe('google')
-        expect(model.route).toBe('direct')
         expect(model.contextLength).toBeTypeOf('number')
         
         // Check costs
@@ -102,7 +98,7 @@ describe('Google Provider', () => {
       const provider = createGoogleProvider(GOOGLE_API_KEY!)
       const invalidRoute: ModelRoute = {
         ...TEST_ROUTE,
-        modelId: 'invalid-model-name'
+        name: 'invalid-model-name'
       }
       const model = provider.getLanguageModel(invalidRoute)
       const prompt = 'This should fail'

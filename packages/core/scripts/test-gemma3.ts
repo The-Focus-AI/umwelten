@@ -21,7 +21,7 @@ async function testGemma3Model() {
   }
 
   const provider = createOllamaProvider();
-  const model = provider.getLanguageModel({ modelId: 'gemma3:12b', provider: 'ollama', route: 'ollama' });
+  const model = provider.getLanguageModel({ name: 'gemma3:12b', provider: 'ollama' });
   const prompt = 'Describe the features of gemma3:12b model';
 
   const modelRunner = new BaseModelRunner();

@@ -70,16 +70,16 @@
     "metadata": {
       "created": "2024-03-28",
       "version": "1.0",
-      "evaluator_model": "ph4:latest",
+      "evaluator_model": "phi4:latest",
       "notes": "Focus on depth of analysis and connection between themes"
     }
   },
   "models": {
     "evaluator": {
-      "modelId": "ph4:latest",
+      "modelId": "phi4:latest",
       "provider": "ollama",
       "route": "direct",
-      "description": "ph4:latest for evaluation"
+      "description": "phi4:latest for evaluation"
     },
     "models": [
       {

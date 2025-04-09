@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { getAllModels, type ModelDetails, searchModels, type ModelSearchOptions } from '@model-eval/core/src/models/models.js';
+import { getAllModels, searchModels } from '@model-eval/core/src/models/models.js';
 import { estimateCost } from '@model-eval/core/src/costs/costs.js';
 import { getModelUrl } from '@model-eval/core/src/providers/index.js';
 import chalk from 'chalk';
 import Table from 'cli-table3';
-
+import type { ModelDetails } from '@model-eval/core/src/models/types.js';
 // Utility function to get visible length of string (excluding ANSI codes)
 function visibleLength(str: string): number {
   // Remove ANSI escape codes when calculating length
@@ -113,8 +113,8 @@ function formatCost(model: ModelDetails): string {
 function displayModelInfo(model: ModelDetails) {
   console.log('\nModel Details:');
   console.log('=============');
-  console.log(`ID: ${model.modelId}`);
-  console.log(`Name: ${model.name || model.modelId}`);
+  console.log(`ID: ${model.name}`);
+  console.log(`Name: ${model.name}`);
   console.log(`Provider: ${model.provider}`);
   if (model.provider === 'openrouter' && model.details?.provider) {
     console.log(`Model Provider: ${model.details.provider}`);
@@ -198,8 +198,8 @@ export const modelsCommand = new Command('models')
         models = [...models].sort((a, b) => {
           switch (options.sort) {
             case 'name':
-              const nameA = a.name || a.modelId;
-              const nameB = b.name || b.modelId;
+              const nameA = a.name;
+              const nameB = b.name;
               return options.desc ? nameB.localeCompare(nameA) : nameA.localeCompare(nameB);
             case 'addedDate':
               const dateA = a.addedDate ? new Date(a.addedDate).getTime() : 0;
@@ -226,7 +226,7 @@ export const modelsCommand = new Command('models')
           process.exit(1);
         }
 
-        const model = models.find(m => m.modelId === options.id);
+        const model = models.find(m => m.name === options.id);
         if (!model) {
           console.error(`Error: Model with ID "${options.id}" not found`);
           process.exit(1);
@@ -272,7 +272,7 @@ export const modelsCommand = new Command('models')
 
       // Add rows with model data
       for (const model of models) {
-        const id = model.modelId.length > 51 ? model.modelId.substring(0, 48) + '...' : model.modelId;
+        const id = model.name.length > 51 ? model.name.substring(0, 48) + '...' : model.name;
         const date = formatDate(model.addedDate);
         
         table.push([
@@ -304,7 +304,7 @@ modelsCommand
   .action(async (modelId) => {
     try {
       const models = await getAllModels();
-      const model = models.find(m => m.modelId === modelId || m.name === modelId);
+      const model = models.find(m => m.name === modelId);
       
       if (!model) {
         console.error(chalk.red(`\nModel "${modelId}" not found`));
@@ -312,8 +312,7 @@ modelsCommand
       }
 
       printHeader('Model Information');
-      console.log(`${chalk.yellow('Name')}: ${chalk.bold(model.name || model.modelId)}`);
-      console.log(`${chalk.yellow('ID')}: ${model.modelId}`);
+      console.log(`${chalk.yellow('Name')}: ${chalk.bold(model.name)}`);
       console.log(`${chalk.yellow('Provider')}: ${chalk.cyan(model.provider)}`);
       
       const url = getModelUrl(model);

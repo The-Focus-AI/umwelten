@@ -19,9 +19,8 @@ describe('Ollama Provider', () => {
 
   // Test route using the gemma model
   const TEST_ROUTE: ModelRoute = {
-    modelId: 'gemma3',
+    name: 'gemma3:latest',
     provider: 'ollama',
-    route: 'ollama'
   }
 
   describe('Provider Instance', () => {
@@ -58,9 +57,8 @@ describe('Ollama Provider', () => {
 
       // Check model structure
       models.forEach(model => {
-        expect(model.modelId).toBeDefined()
+        expect(model.name).toBeDefined()
         expect(model.provider).toBe('ollama')
-        expect(model.route).toBe('ollama')
         expect(model.name).toBeDefined()
         expect(model.contextLength).toBeTypeOf('number')
         expect(model.costs).toBeDefined()
@@ -177,7 +175,8 @@ User: What is its population?
       }
 
       const provider = createOllamaProvider()
-      const model = provider.getLanguageModel({ modelId: 'gemma3:12b', provider: 'ollama', route: 'ollama' })
+      const model = provider.getLanguageModel({ name: 'gemma3:12b', provider: 'ollama' })
+      
       const prompt = 'Write a haiku about coding'
       
       const response = await generateText({
@@ -198,7 +197,7 @@ User: What is its population?
       const provider = createOllamaProvider()
       const invalidRoute: ModelRoute = {
         ...TEST_ROUTE,
-        modelId: 'invalid-model-name'
+        name: 'invalid-model-name'
       }
       const model = provider.getLanguageModel(invalidRoute)
       const prompt = 'This should fail'

@@ -18,9 +18,8 @@ describe('OpenRouter Provider', () => {
 
   // Test route using the free Mistral model
   const TEST_ROUTE: ModelRoute = {
-    modelId: 'mistral-small-3.1-24b-instruct',
+    name: 'mistral-small-3.1-24b-instruct',
     provider: 'mistralai',
-    route: 'openrouter',
     variant: 'free'
   }
 
@@ -50,12 +49,10 @@ describe('OpenRouter Provider', () => {
       
       if (models.length > 0) {
         const model = models[0]
-        expect(model).toHaveProperty('modelId')
         expect(model).toHaveProperty('name')
         expect(model).toHaveProperty('contextLength')
         expect(model).toHaveProperty('costs')
-        expect(model.provider).toBeDefined()
-        expect(model.route).toBe('openrouter')
+        expect(model.provider).toBe('openrouter')
         
         // Check cost structure
         if (model.costs) {
@@ -75,9 +72,8 @@ describe('OpenRouter Provider', () => {
 
       const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
       const modelRoute: ModelRoute = {
-        modelId: 'gpt-3.5-turbo',
+        name: 'gpt-3.5-turbo',
         provider: 'openai',
-        route: 'openrouter'
       }
       const model = provider.getLanguageModel(modelRoute)
       expect(model).toBeDefined()
@@ -132,7 +128,7 @@ describe('OpenRouter Provider', () => {
         expect(model).toHaveProperty('contextLength')
         expect(model).toHaveProperty('provider')
         expect(model).toHaveProperty('route')
-        expect(model.route).toBe('openrouter')
+        expect(model.provider).toBe('openrouter')
         
         // Optional but structured fields
         if (model.costs) {
@@ -236,7 +232,7 @@ User: What is its population?
       const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
       const invalidRoute: ModelRoute = {
         ...TEST_ROUTE,
-        modelId: 'invalid-model-name'
+        name: 'invalid-model-name'
       }
       const model = provider.getLanguageModel(invalidRoute)
       const prompt = 'This should fail'
