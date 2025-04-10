@@ -4,8 +4,8 @@ import { ModelDetails } from '../src/models/types.js';
 
 async function testGemma3Model() {
   const modelInfo:ModelDetails = {
-    name: 'gemma3:12b',
-    provider: 'ollama',
+    name: 'gemini-2.5-pro-preview-03-25',
+    provider: 'google',
   };
 
   const model = await getModel(modelInfo);

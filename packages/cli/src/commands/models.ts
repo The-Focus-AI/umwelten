@@ -33,7 +33,7 @@ function formatModelCosts(model: ModelDetails): string {
   if (!model.costs || (model.costs.promptTokens === 0 && model.costs.completionTokens === 0)) {
     return chalk.green('Free');
   }
-  return `${chalk.yellow('Prompt')}: ${chalk.cyan('$' + model.costs.promptTokens.toFixed(4))}/1K tokens, ${chalk.yellow('Completion')}: ${chalk.cyan('$' + model.costs.completionTokens.toFixed(4))}/1K tokens`;
+  return `${chalk.yellow('Input Cost')}: ${chalk.cyan('$' + (model.costs.promptTokens * 1000000).toFixed(4))}/1M tokens, ${chalk.yellow('Output Cost')}: ${chalk.cyan('$' + (model.costs.completionTokens * 1000000).toFixed(4))}/1M tokens`;
 }
 
 // Utility function to format model details
@@ -106,8 +106,8 @@ function formatCost(model: ModelDetails): string {
   if (model.provider === 'ollama') return chalk.green('Free');
   if (!model.costs) return chalk.green('Free');
   
-  const totalCost = model.costs.promptTokens + model.costs.completionTokens;
-  return totalCost === 0 ? chalk.green('Free') : chalk.cyan(`$${totalCost.toFixed(3)}`);
+  const totalCost = (model.costs.promptTokens + model.costs.completionTokens) * 1000000;
+  return totalCost === 0 ? chalk.green('Free') : chalk.cyan(`$${totalCost.toFixed(3)} per million tokens`);
 }
 
 function displayModelInfo(model: ModelDetails) {
@@ -254,7 +254,8 @@ export const modelsCommand = new Command('models')
           chalk.bold('ID'),
           chalk.bold('Provider'),
           chalk.bold('Context'),
-          chalk.bold('Cost/1K'),
+          chalk.bold('Input Cost/1M'),
+          chalk.bold('Output Cost/1M'),
           chalk.bold('Added')
         ],
         style: {
@@ -265,7 +266,8 @@ export const modelsCommand = new Command('models')
           52, // ID (increased from 25 to fit longest ID)
           12, // Provider
           10, // Context
-          10, // Cost
+          15, // Input Cost
+          15, // Output Cost
           10  // Added (adjusted to fit MM/DD/YY format)
         ]
       });
@@ -279,7 +281,8 @@ export const modelsCommand = new Command('models')
           chalk.cyan(id),
           chalk.yellow(model.provider),
           chalk.cyan(formatContextLength(model.contextLength)),
-          formatCost(model),
+          model.costs ? chalk.cyan(`$${(model.costs.promptTokens * 1000000).toFixed(4)}`) : chalk.green('Free'),
+          model.costs ? chalk.cyan(`$${(model.costs.completionTokens * 1000000).toFixed(4)}`) : chalk.green('Free'),
           chalk.dim(visiblePadStart(date, 10))
         ]);
       }

@@ -49,3 +49,4 @@ runs/*
 *.temp
 .tmp/
 temp/ 
+output/

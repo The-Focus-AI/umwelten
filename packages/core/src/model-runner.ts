@@ -1,4 +1,4 @@
-import { ModelOptions, ModelResponse, ModelRunner } from './models/models.js'
+import { ModelOptions, ModelResponse, ModelRunner } from './models/types.js'
 import { RateLimitConfig } from './rate-limit.js'
 import { shouldAllowRequest, updateRateLimitState } from './rate-limit.js'
 import { LanguageModelV1, generateText } from 'ai'
@@ -60,7 +60,7 @@ export class BaseModelRunner implements ModelRunner {
             completionTokens: response.usage?.completionTokens || 0,
             total: response.usage?.totalTokens || 0
           },
-          cost: 0, // Cost calculation should be handled separately
+          cost: response.usage ? (response.usage.promptTokens * (params.model as any).costs.promptTokens + response.usage.completionTokens * (params.model as any).costs.completionTokens) / 1000000 : 0, // Calculate cost per million tokens
           provider: params.model.provider || 'unknown', // Use the provider property
           model: params.model.toString()
         }

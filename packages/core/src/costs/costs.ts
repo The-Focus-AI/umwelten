@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ModelDetails } from './models/models.ts'
+import { ModelDetails } from '../models/types.js'
 
 
 export interface CostBreakdown {
@@ -32,8 +32,8 @@ export function estimateCost(model: ModelDetails, estimatedPromptTokens: number,
     total: estimatedPromptTokens + estimatedCompletionTokens
   }
 
-  const promptCost = (model.costs.promptTokens * estimatedPromptTokens) / 1000
-  const completionCost = (model.costs.completionTokens * estimatedCompletionTokens) / 1000
+  const promptCost = (model.costs.promptTokens * estimatedPromptTokens) / 1000000
+  const completionCost = (model.costs.completionTokens * estimatedCompletionTokens) / 1000000
 
   return {
     promptCost,
@@ -51,8 +51,8 @@ export function calculateCost(model: ModelDetails, usage: TokenUsage): CostBreak
     return null // Free model or costs not available
   }
 
-  const promptCost = (model.costs.promptTokens * usage.promptTokens) / 1000
-  const completionCost = (model.costs.completionTokens * usage.completionTokens) / 1000
+  const promptCost = (model.costs.promptTokens * usage.promptTokens) / 1000000
+  const completionCost = (model.costs.completionTokens * usage.completionTokens) / 1000000
 
   return {
     promptCost,

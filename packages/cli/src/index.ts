@@ -4,6 +4,7 @@ import { modelsCommand } from './commands/models.js';
 import { evaluateCommand } from './commands/evaluate.js';
 import { evalsCommand } from './commands/evals.js';
 import { runCommand } from './commands/run.js';
+import { evaluateViewCommand } from './commands/evaluate-view.js';
 
 const program = new Command();
 
@@ -17,5 +18,6 @@ program.addCommand(modelsCommand);
 program.addCommand(evaluateCommand);
 program.addCommand(evalsCommand);
 program.addCommand(runCommand);
+program.addCommand(evaluateViewCommand);
 
 program.parse(); 

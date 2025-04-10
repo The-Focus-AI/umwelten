@@ -4,10 +4,11 @@ import type { ModelDetails, ModelRoute } from "../models/types.js";
 import { BaseProvider } from "./base.js";
 
 const GEMINI_PRICING = {
-  "gemini-1.0-pro": { promptTokens: 0.00025, completionTokens: 0.0005 },
-  "gemini-1.0-pro-vision": { promptTokens: 0.00025, completionTokens: 0.0005 },
-  "gemini-1.5-pro": { promptTokens: 0.0005, completionTokens: 0.001 },
-  "gemini-1.5-pro-vision": { promptTokens: 0.0005, completionTokens: 0.001 },
+  "gemini-2.5-pro": { promptTokens: 0.00000125, completionTokens: 0.00001 },
+  "gemini-2.5-pro-exp-03-25": { promptTokens: 0.0000025, completionTokens: 0.000015 },
+  "gemini-2.0-flash": { promptTokens: 0.0000001, completionTokens: 0.0000004 },
+  "gemini-1.5-pro": { promptTokens: 0.00000125, completionTokens: 0.000005 },
+  "gemini-1.5-pro-exp-03-25": { promptTokens: 0.0000025, completionTokens: 0.00001 },
   "gemini-ultra": { promptTokens: 0.001, completionTokens: 0.002 },
   "gemini-ultra-vision": { promptTokens: 0.001, completionTokens: 0.002 },
   default: { promptTokens: 0.00025, completionTokens: 0.0005 }, // Default to Pro pricing
