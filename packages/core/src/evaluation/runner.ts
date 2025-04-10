@@ -23,10 +23,19 @@ export class EvaluationRunner {
 
   private convertModelParameters(params?: ModelParameters): { temperature?: number; maxTokens?: number; stop?: string[] } {
     if (!params) return {};
-    return {
-      temperature: params.temperature,
-      maxTokens: params.max_tokens
-    };
+    // Ensure max_tokens is handled if undefined
+    const options: { temperature?: number; maxTokens?: number; stop?: string[] } = {};
+    if (params.temperature !== undefined) {
+      options.temperature = params.temperature;
+    }
+    if (params.max_tokens !== undefined) {
+      options.maxTokens = params.max_tokens;
+    }
+    // Add handling for 'stop' sequences if needed in ModelParameters
+    // if (params.stop !== undefined) {
+    //   options.stop = params.stop;
+    // }
+    return options;
   }
 
   private async validateModelAccess(config: EvaluationConfig): Promise<void> {
@@ -96,7 +105,7 @@ export class EvaluationRunner {
         const modelStartTime = new Date();
         const response = await this.modelRunner.execute({
           prompt: this.buildPrompt(config),
-          model: modelProvider as LanguageModelV1, // Removed incorrect cast
+          modelDetails: modelConfig.modelDetails,
           options: this.convertModelParameters(modelConfig.parameters)
         });
 
@@ -206,7 +215,7 @@ REASONING: [your explanation]`;
 
       const evaluation = await this.modelRunner.execute({
         prompt: evaluationPrompt,
-        model: evaluator,
+        modelDetails: config.models.evaluator.modelDetails,
         options: this.convertModelParameters(config.models.evaluator.parameters)
       });
 

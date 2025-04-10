@@ -1,78 +1,82 @@
 import { describe, it, expect } from 'vitest'
-import { estimateCost, calculateCost, formatCostBreakdown, type TokenUsage } from './costs.ts'
-import { type ModelDetails } from '../models/models.ts'
+import { estimateCost, calculateCost, formatCostBreakdown, type TokenUsage } from './costs.js'
+import { type ModelDetails } from '../models/types.js'
 
 describe('Cost Utilities', () => {
   const mockModel: ModelDetails = {
-    id: 'test-model',
     name: 'Test Model',
+    provider: 'test-provider',
     contextLength: 4096,
-    provider: 'openrouter',
     costs: {
-      promptTokens: 0.01,    // $0.01 per 1K prompt tokens
-      completionTokens: 0.03  // $0.03 per 1K completion tokens
+      promptTokens: 10,    // $10 per 1M prompt tokens (previously $0.01/1k)
+      completionTokens: 30  // $30 per 1M completion tokens (previously $0.03/1k)
     }
   }
 
   const mockFreeModel: ModelDetails = {
-    id: 'free-model',
     name: 'Free Model',
+    provider: 'ollama',
     contextLength: 4096,
-    provider: 'ollama'
   }
 
   describe('estimateCost', () => {
-    it('should estimate costs correctly for paid models', () => {
-      const breakdown = estimateCost(mockModel, 1000, 500)
-      expect(breakdown).not.toBeNull()
+    it('should estimate costs correctly for paid models (per million tokens)', () => {
+      const breakdown = estimateCost(mockModel, 1000, 500); // 1k prompt, 500 completion
+      expect(breakdown).not.toBeNull();
       
       if (breakdown) {
-        expect(breakdown.promptCost).toBe(0.01) // 1000 tokens * $0.01/1K
-        expect(breakdown.completionCost).toBe(0.015) // 500 tokens * $0.03/1K
-        expect(breakdown.totalCost).toBe(0.025)
+        // Expected prompt cost: (10 * 1000) / 1,000,000 = 0.01
+        expect(breakdown.promptCost).toBeCloseTo(0.01);
+        // Expected completion cost: (30 * 500) / 1,000,000 = 0.015
+        expect(breakdown.completionCost).toBeCloseTo(0.015);
+        // Expected total cost: 0.01 + 0.015 = 0.025
+        expect(breakdown.totalCost).toBeCloseTo(0.025);
         expect(breakdown.usage).toEqual({
           promptTokens: 1000,
           completionTokens: 500,
           total: 1500
-        })
+        });
       }
-    })
+    });
 
-    it('should return null for free models', () => {
-      const breakdown = estimateCost(mockFreeModel, 1000, 500)
-      expect(breakdown).toBeNull()
-    })
+    it('should return null for models without cost defined', () => {
+      const breakdown = estimateCost(mockFreeModel, 1000, 500);
+      expect(breakdown).toBeNull();
+    });
   })
 
   describe('calculateCost', () => {
-    it('should calculate actual costs correctly for paid models', () => {
+    it('should calculate actual costs correctly for paid models (per million tokens)', () => {
       const usage: TokenUsage = {
         promptTokens: 2000,
         completionTokens: 1000,
         total: 3000
-      }
+      };
 
-      const breakdown = calculateCost(mockModel, usage)
-      expect(breakdown).not.toBeNull()
+      const breakdown = calculateCost(mockModel, usage);
+      expect(breakdown).not.toBeNull();
       
       if (breakdown) {
-        expect(breakdown.promptCost).toBe(0.02) // 2000 tokens * $0.01/1K
-        expect(breakdown.completionCost).toBe(0.03) // 1000 tokens * $0.03/1K
-        expect(breakdown.totalCost).toBe(0.05)
-        expect(breakdown.usage).toEqual(usage)
+        // Expected prompt cost: (10 * 2000) / 1,000,000 = 0.02
+        expect(breakdown.promptCost).toBeCloseTo(0.02);
+        // Expected completion cost: (30 * 1000) / 1,000,000 = 0.03
+        expect(breakdown.completionCost).toBeCloseTo(0.03);
+        // Expected total cost: 0.02 + 0.03 = 0.05
+        expect(breakdown.totalCost).toBeCloseTo(0.05);
+        expect(breakdown.usage).toEqual(usage);
       }
-    })
+    });
 
-    it('should return null for free models', () => {
+    it('should return null for models without cost defined', () => {
       const usage: TokenUsage = {
         promptTokens: 2000,
         completionTokens: 1000,
         total: 3000
-      }
+      };
 
-      const breakdown = calculateCost(mockFreeModel, usage)
-      expect(breakdown).toBeNull()
-    })
+      const breakdown = calculateCost(mockFreeModel, usage);
+      expect(breakdown).toBeNull();
+    });
   })
 
   describe('formatCostBreakdown', () => {

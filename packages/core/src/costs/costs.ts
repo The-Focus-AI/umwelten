@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { ModelDetails } from '../models/types.js'
 
-
 export interface CostBreakdown {
   promptCost: number
   completionCost: number
@@ -14,6 +13,15 @@ export const TokenUsageSchema = z.object({
   completionTokens: z.number(),
   total: z.number().optional(),
 });
+
+
+export const CostBreakdownSchema = z.object({
+  promptCost: z.number(),
+  completionCost: z.number(), 
+  totalCost: z.number(),
+  usage: TokenUsageSchema
+});
+
 
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 

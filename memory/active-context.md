@@ -1,15 +1,15 @@
 # Active Context
 
-## Current Date: Thu Apr 10 05:51:00 EDT 2025
+## Current Date: Thu Apr 10 11:48:47 EDT 2025
 
-### Current Focus: Standardizing Cost Calculation
+### Current Focus: Standardizing Cost Calculations in Tests
 
-We have just finished integrating the standardized cost calculation logic from `costs.ts` into the `BaseModelRunner`. This ensures that costs are consistently calculated per million tokens based on actual usage returned by the model provider.
+We have updated the cost tests in `costs.test.ts` to align with the standardized cost calculation per million tokens. This involved adjusting mock data and expectations to ensure consistency across the application and tests.
 
 ### Key Accomplishments:
-- Updated `BaseModelRunner.execute` to use `calculateCost`.
-- Resolved type issues between `LanguageModelV1` and `ModelDetails` by fetching `ModelDetails` within the `execute` method.
-- Fixed associated linter errors.
+- Updated mock model costs to reflect per-million-token pricing.
+- Adjusted test expectations to use `toBeCloseTo` for floating-point comparisons.
+- Verified that all cost-related tests pass with the new standardization.
 
 ### Blockers
 - None currently.

@@ -1,16 +1,18 @@
-import { z } from 'zod';
-import { LanguageModelV1 } from 'ai';
-import { TokenUsage, TokenUsageSchema } from '../costs/costs.js';
+import { z } from "zod";
+import { LanguageModelV1 } from "ai";
+import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
+import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
+
 export interface ModelRoute {
-  name: string;      // Base model identifier
-  provider: string;     // Original provider
-  variant?: string;     // Optional variant (e.g. "free")
+  name: string; // Base model identifier
+  provider: string; // Original provider
+  variant?: string; // Optional variant (e.g. "free")
 }
 
 export const ModelRouteSchema = z.object({
   name: z.string(),
   provider: z.string(),
-  variant: z.string().optional()
+  variant: z.string().optional(),
 });
 
 export interface ModelDetails extends ModelRoute {
@@ -29,14 +31,16 @@ export interface ModelDetails extends ModelRoute {
 export const ModelDetailsSchema = ModelRouteSchema.extend({
   description: z.string().optional(),
   contextLength: z.number().optional(),
-  costs: z.object({
-    promptTokens: z.number(),
-    completionTokens: z.number()
-  }).optional(),
+  costs: z
+    .object({
+      promptTokens: z.number(),
+      completionTokens: z.number(),
+    })
+    .optional(),
   addedDate: z.date().optional(),
   lastUpdated: z.date().optional(),
   details: z.record(z.unknown()).optional(),
-  originalProvider: z.string().optional()
+  originalProvider: z.string().optional(),
 });
 
 export interface ModelConfig extends ModelRoute {
@@ -46,7 +50,7 @@ export interface ModelConfig extends ModelRoute {
 
 export const ModelConfigSchema = ModelRouteSchema.extend({
   description: z.string().optional(),
-  parameters: z.record(z.unknown()).optional()
+  parameters: z.record(z.unknown()).optional(),
 });
 
 export interface ModelsConfig {
@@ -61,14 +65,15 @@ export interface ModelsConfig {
 
 export const ModelsConfigSchema = z.object({
   models: z.array(ModelConfigSchema),
-  metadata: z.object({
-    created: z.string().optional(),
-    version: z.string().optional(),
-    notes: z.string().optional(),
-    requirements: z.record(z.string()).optional()
-  }).optional()
+  metadata: z
+    .object({
+      created: z.string().optional(),
+      version: z.string().optional(),
+      notes: z.string().optional(),
+      requirements: z.record(z.string()).optional(),
+    })
+    .optional(),
 });
-
 
 export const ModelCapabilitiesSchema = z.object({
   maxTokens: z.number(),
@@ -94,7 +99,7 @@ export const ModelResponseSchema = z.object({
     tokenUsage: TokenUsageSchema,
     provider: z.string(),
     model: z.string(),
-    cost: z.number(),
+    cost: CostBreakdownSchema.optional(),
   }),
 });
 
@@ -103,15 +108,15 @@ export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 export interface ModelRunner {
   execute(params: {
     prompt: string;
-    model: LanguageModelV1;
+    modelDetails: ModelDetails;
     options?: ModelOptions;
   }): Promise<ModelResponse>;
 }
 
 export interface ModelSearchOptions {
-  query: string              // Search term
-  provider?: 'openrouter' | 'ollama' | 'google' | 'all'  // Filter by provider
-  sortBy?: 'name' | 'addedDate' | 'contextLength' | 'cost'  // Sort results
-  sortOrder?: 'asc' | 'desc'  // Sort direction
-  onlyFree?: boolean        // Only show free models
+  query: string; // Search term
+  provider?: "openrouter" | "ollama" | "google" | "all"; // Filter by provider
+  sortBy?: "name" | "addedDate" | "contextLength" | "cost"; // Sort results
+  sortOrder?: "asc" | "desc"; // Sort direction
+  onlyFree?: boolean; // Only show free models
 }

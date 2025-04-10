@@ -1108,3 +1108,19 @@ Integrated the `calculateCost` function from `costs.ts` into the `BaseModelRunne
 
 ### Notes
 - Ensured cost calculation logic is centralized in `costs.ts`.
+
+## Thu Apr 10 11:48:47 EDT 2025 - Updated Cost Tests
+
+### Summary
+Updated the cost tests in `costs.test.ts` to align with the standardized cost calculation per million tokens. Adjusted mock data and expectations to reflect this change.
+
+### Accomplishments
+1. Updated mock model costs to be per million tokens.
+2. Adjusted test expectations to use `toBeCloseTo` for floating-point comparisons.
+3. Ensured all cost-related tests pass with the new standardization.
+
+### Next Actions
+1. Continue with the next planned development task.
+
+### Notes
+- Standardizing cost calculations ensures consistency across the application and tests.

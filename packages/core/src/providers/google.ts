@@ -36,7 +36,8 @@ export class GoogleProvider extends BaseProvider {
       const baseModel = modelId.split("-").slice(0, 3).join("-");
       return {
         provider: "google",
-        name: model.displayName,
+        name: modelId,
+        displayName: model.displayName,
         contextLength: model.inputTokenLimit,
         costs:
           GEMINI_PRICING[baseModel as keyof typeof GEMINI_PRICING] ||

@@ -88,18 +88,18 @@ export async function getModelProvider(
 
 export async function validateModel(
   modelDetails: ModelDetails
-): Promise<boolean> {
+): Promise<ModelDetails | undefined> {
   const modelProvider = await getModelProvider(modelDetails);
   if (!modelProvider) {
-    return false;
+    return undefined;
   }
   try {
     const models = await modelProvider.listModels();
-    return models.some(
+    return models.find(
       (model: ModelDetails) => model.name === modelDetails.name
     );
   } catch (error) {
     console.error("Error checking model validity:", error);
-    return false;
+    return undefined;
   }
 }
