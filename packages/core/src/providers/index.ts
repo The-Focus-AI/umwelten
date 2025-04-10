@@ -34,6 +34,31 @@ export async function getModel(
   }
 }
 
+/**
+ * Gets the ModelDetails for a given LanguageModelV1 instance by looking up the model
+ * from its provider
+ */
+export async function getModelDetails(model: LanguageModelV1): Promise<ModelDetails | undefined> {
+  try {
+    const provider = await getModelProvider({
+      name: model.toString(),
+      provider: model.provider || 'unknown'
+    });
+
+    if (!provider) {
+      return undefined;
+    }
+
+    const models = await provider.listModels();
+    return models.find(m => m.name === model.toString());
+
+  } catch (error) {
+    console.error("Error getting model details:", error);
+    return undefined;
+  }
+}
+
+
 export async function getModelProvider(
   modelDetails: ModelDetails
 ): Promise<BaseProvider | undefined> {

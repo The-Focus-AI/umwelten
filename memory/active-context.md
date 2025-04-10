@@ -1,4 +1,21 @@
-# Active Context - Wed Apr 9 2025
+# Active Context
+
+## Current Date: Thu Apr 10 05:51:00 EDT 2025
+
+### Current Focus: Standardizing Cost Calculation
+
+We have just finished integrating the standardized cost calculation logic from `costs.ts` into the `BaseModelRunner`. This ensures that costs are consistently calculated per million tokens based on actual usage returned by the model provider.
+
+### Key Accomplishments:
+- Updated `BaseModelRunner.execute` to use `calculateCost`.
+- Resolved type issues between `LanguageModelV1` and `ModelDetails` by fetching `ModelDetails` within the `execute` method.
+- Fixed associated linter errors.
+
+### Blockers
+- None currently.
+
+### Next Steps
+- Proceed with the next development task as per the project plan.
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers

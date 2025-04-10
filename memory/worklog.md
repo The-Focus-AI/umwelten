@@ -1077,3 +1077,34 @@ Updated memory files to reflect the latest project status and addressed test fai
 #### Decisions
 - Use `generateText` function directly for model execution.
 - Add `ai` package to the CLI package dependencies.
+
+## 2025-04-10 05:30:07 EDT - Updated Memory Files with Current Date
+
+### Summary
+Updated all memory files to reflect the current date for consistency and accuracy.
+
+### Accomplishments
+1. Updated `active-context.md` with the current date.
+2. Ensured all memory files are up-to-date with the latest information.
+
+### Next Actions
+1. Continue monitoring and updating memory files as needed.
+
+### Notes
+- Keeping memory files updated ensures accurate tracking of project progress and decisions.
+
+## Thu Apr 10 05:51:00 EDT 2025 - Standardized Cost Calculation
+
+### Summary
+Integrated the `calculateCost` function from `costs.ts` into the `BaseModelRunner` to ensure consistent cost calculation across the application based on token usage per million tokens. Addressed type mismatches and linter errors during integration.
+
+### Accomplishments
+1. Updated `BaseModelRunner` to use `calculateCost` for accurate cost determination.
+2. Resolved linter errors related to import paths and type mismatches between `LanguageModelV1` and `ModelDetails`.
+3. Verified that `response.usage` contains the necessary token information.
+
+### Next Actions
+1. Continue with the next planned development task.
+
+### Notes
+- Ensured cost calculation logic is centralized in `costs.ts`.

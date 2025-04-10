@@ -12,7 +12,7 @@ export interface CostBreakdown {
 export const TokenUsageSchema = z.object({
   promptTokens: z.number(),
   completionTokens: z.number(),
-  total: z.number(),
+  total: z.number().optional(),
 });
 
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;

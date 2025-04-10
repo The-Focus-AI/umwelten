@@ -215,4 +215,27 @@ User: What is its population?
       })).rejects.toThrow()
     })
   })
+
+  describe('Verify Costs Property', () => {
+    it('should have valid costs for each model', async () => {
+      // Skip if Ollama is not running
+      const ollamaAvailable = await checkOllamaConnection();
+      if (!ollamaAvailable) {
+        console.warn('⚠️ Ollama not available, skipping test');
+        return;
+      }
+
+      const provider = createOllamaProvider();
+      const models = await provider.listModels();
+      expect(models).toBeInstanceOf(Array);
+
+      models.forEach(model => {
+        expect(model.costs).toBeDefined();
+        expect(typeof model.costs?.promptTokens).toBe('number');
+        expect(typeof model.costs?.completionTokens).toBe('number');
+        expect(model.costs?.promptTokens).toBeGreaterThanOrEqual(0);
+        expect(model.costs?.completionTokens).toBeGreaterThanOrEqual(0);
+      });
+    });
+  });
 }) 

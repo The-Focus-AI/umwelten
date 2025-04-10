@@ -2,7 +2,8 @@ import { ModelOptions, ModelResponse, ModelRunner } from './models/types.js'
 import { RateLimitConfig } from './rate-limit.js'
 import { shouldAllowRequest, updateRateLimitState } from './rate-limit.js'
 import { LanguageModelV1, generateText } from 'ai'
-
+import { calculateCost } from './costs/costs.js'
+import { getModelDetails } from './providers/index.js'
 export interface ModelRunnerConfig {
   rateLimitConfig?: RateLimitConfig;
   maxRetries?: number;
@@ -46,10 +47,15 @@ export class BaseModelRunner implements ModelRunner {
         ...params.options
       });
       
+      
       // Update rate limit state with success
       updateRateLimitState(params.model.toString(), true, undefined, this.config.rateLimitConfig);
 
-      // Format the response to match our ModelResponse interface
+      const modelDetails = await getModelDetails(params.model);
+      if (!modelDetails) {
+        throw new Error('Model details not found');
+      }
+      const costBreakdown = calculateCost(modelDetails, response.usage);
       const modelResponse: ModelResponse = {
         content: response.text,
         metadata: {
@@ -60,11 +66,13 @@ export class BaseModelRunner implements ModelRunner {
             completionTokens: response.usage?.completionTokens || 0,
             total: response.usage?.totalTokens || 0
           },
-          cost: response.usage ? (response.usage.promptTokens * (params.model as any).costs.promptTokens + response.usage.completionTokens * (params.model as any).costs.completionTokens) / 1000000 : 0, // Calculate cost per million tokens
-          provider: params.model.provider || 'unknown', // Use the provider property
+          cost: costBreakdown ? costBreakdown.totalCost : 0, // Use calculated cost
+          provider: params.model.provider || 'unknown',
           model: params.model.toString()
         }
       };
+      
+      console.log('Response object:', response);
       
       return modelResponse;
     } catch (error) {
