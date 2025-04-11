@@ -39,6 +39,8 @@ Improving CLI testing infrastructure and enhancing test result visibility.
 ### Current State
 - [X] Core package is stable with all tests passing
 - [!] CLI package has test failures in models command
+- Expanded test coverage for EvaluationRunner.
+- Fixed linter errors related to cost handling in runner.ts.
 
 ### Next Steps
 1. Improve CLI testing infrastructure:
@@ -54,6 +56,10 @@ Improving CLI testing infrastructure and enhancing test result visibility.
 3. Update documentation:
    - [ ] Add provider implementation guide
    - [ ] Document test patterns and examples for each provider
+
+4. Monitor for any additional linter errors or test failures.
+5. Ensure all changes are documented and reviewed for consistency.
+6. Continue with any pending tasks or new features as planned.
 
 ### Blockers
 - [!] CLI tests failing due to API errors and process.exit handling
@@ -174,3 +180,9 @@ Current test dependencies:
 
 ### Decision
 - Address test failures later and update memory accordingly. 
+
+## Next Steps
+- Monitor for any additional linter errors or test failures.
+- Ensure all changes are documented and reviewed for consistency.
+- Continue with any pending tasks or new features as planned.
+- Date: April 11, 2025 

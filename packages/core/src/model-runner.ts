@@ -137,6 +137,7 @@ export class BaseModelRunner implements ModelRunner {
     try {
       const responseStream = await streamText({
         model: model,
+        
         prompt: params.prompt,
         ...params.options
       });

@@ -21,6 +21,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.6.1",
   "dependencies": {
+    "@model-eval/core": "link:packages/core",
     "tsx": "^4.7.1"
   },
   "devDependencies": {
@@ -30,5 +31,10 @@
     "eslint": "^8.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@model-eval/core": "link:packages/core"
+    }
   }
 }

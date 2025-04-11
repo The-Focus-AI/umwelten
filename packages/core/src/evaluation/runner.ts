@@ -113,7 +113,8 @@ export class EvaluationRunner {
           console.log(chalk.dim(`Response received for model: ${modelConfig.modelDetails.name}`));
           console.log(chalk.dim(`Response content: ${response.content}`));
           console.log(chalk.dim(`Tokens used: ${response.metadata.tokenUsage.total}`));
-          console.log(chalk.dim(`Cost: $${response.metadata.cost.toFixed(4)}`));
+          const responseCost = typeof response.metadata.cost === 'number' ? response.metadata.cost : 0;
+          console.log(chalk.dim(`Cost: $${responseCost.toFixed(4)}`));
         }
 
         // Evaluate response
@@ -131,13 +132,17 @@ export class EvaluationRunner {
           metadata: {
             startTime: modelStartTime,
             endTime: modelEndTime,
-            tokensUsed: response.metadata.tokenUsage.total,
-            cost: response.metadata.cost
+            tokensUsed: response.metadata.tokenUsage.total ?? 0,
+            cost: typeof response.metadata.cost === 'number' ? response.metadata.cost : 0
           }
         };
 
         results.push(result);
-        totalCost += response.metadata.cost + evaluationCost;
+        const responseCost = typeof response.metadata.cost === 'number' ? response.metadata.cost : 0;
+        totalCost += responseCost;
+
+        const evalCost = typeof evaluationCost === 'number' ? evaluationCost : 0;
+        totalCost += evalCost;
       } catch (error) {
         if (error instanceof Error) {
           console.error(chalk.red(`Error during evaluation of model ${modelConfig.modelDetails.name}: ${error.message}`));
@@ -219,7 +224,7 @@ REASONING: [your explanation]`;
         options: this.convertModelParameters(config.models.evaluator.parameters)
       });
 
-      totalEvaluationCost += evaluation.metadata.cost;
+      totalEvaluationCost += typeof evaluation.metadata.cost === 'number' ? evaluation.metadata.cost : 0;
 
       // Parse evaluation response
       const [scoreLine, reasoningLine] = evaluation.content.split('\n');

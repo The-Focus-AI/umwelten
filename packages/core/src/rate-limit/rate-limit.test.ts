@@ -117,4 +117,22 @@ describe('Rate Limit Handling', () => {
       expect(state?.requestCount).toBe(2);
     });
   });
+
+  describe('Ollama Provider', () => {
+    const ollamaModelId = 'ollama-model';
+    const ollamaConfig: RateLimitConfig = {
+      maxRequestsPerMinute: Infinity, // No rate limit for ollama
+      baseDelayMs: 0,
+      maxDelayMs: 0,
+      jitterFactor: 0
+    };
+
+    it('should never rate limit requests to ollama', () => {
+      expect(shouldAllowRequest(ollamaModelId, ollamaConfig)).toBe(true);
+      updateRateLimitState(ollamaModelId, true, undefined, ollamaConfig);
+      expect(shouldAllowRequest(ollamaModelId, ollamaConfig)).toBe(true);
+      updateRateLimitState(ollamaModelId, true, undefined, ollamaConfig);
+      expect(shouldAllowRequest(ollamaModelId, ollamaConfig)).toBe(true);
+    });
+  });
 }); 

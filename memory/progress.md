@@ -144,4 +144,6 @@ Last Updated: Wed Apr 9 2025
 - Identified CLI test failures in models command
 - Need to improve API error mocking
 - Need to handle process.exit in tests
-- [X] Implemented tests for OpenRouter provider (Tue Apr 8 20:02:23 EDT 2025) 
+- [X] Implemented tests for OpenRouter provider (Tue Apr 8 20:02:23 EDT 2025)
+- [X] Expanded test coverage for EvaluationRunner and fixed linter errors in runner.ts
+- Date: April 11, 2025 
