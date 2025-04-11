@@ -1,14 +1,17 @@
-import { ModelDetails, ModelOptions, ModelResponse, ModelRunner } from './models/types.js'
-import { RateLimitConfig } from './rate-limit.js'
-import { shouldAllowRequest, updateRateLimitState } from './rate-limit.js'
+import { ModelDetails, ModelOptions, ModelResponse, ModelRunner } from './types.js'
+import { RateLimitConfig } from '../rate-limit/rate-limit.js'
+import { shouldAllowRequest, updateRateLimitState } from '../rate-limit/rate-limit.js'
 import { LanguageModelV1, generateText, streamText } from 'ai'
-import { calculateCost } from './costs/costs.js'
-import { getModel, validateModel } from './providers/index.js'
+import { calculateCost } from '../costs/costs.js'
+import { getModel, validateModel } from '../providers/index.js'
+import { Conversation } from '../conversation/conversation.js'
 
 export interface ModelRunnerConfig {
   rateLimitConfig?: RateLimitConfig;
   maxRetries?: number;
 }
+
+
 
 const DEFAULT_CONFIG: ModelRunnerConfig = {
   maxRetries: 3
@@ -79,24 +82,24 @@ export class BaseModelRunner implements ModelRunner {
       : null;
   }
 
-  async execute(params: {
-    prompt: string;
-    modelDetails: ModelDetails;
-    options?: ModelOptions;
-  }): Promise<ModelResponse> {
+  async execute(conversation: Conversation): Promise<ModelResponse> {
     const startTime = new Date();
-    const { model, modelIdString } = await this.validateAndPrepareModel(params);
+    const { model, modelIdString } = await this.validateAndPrepareModel({
+      prompt: conversation.prompt,
+      modelDetails: conversation.modelDetails,
+      options: conversation.options
+    });
 
     try {
       const response = await generateText({
         model: model,
-        prompt: params.prompt,
-        ...params.options
+        messages: conversation.getMessages(),
+        ...conversation.options
       });
 
       updateRateLimitState(modelIdString, true, undefined, this.config.rateLimitConfig);
 
-      const costBreakdown = this.calculateCostBreakdown(response.usage, params);
+      const costBreakdown = this.calculateCostBreakdown(response.usage, { modelDetails: conversation.modelDetails });
 
       if (!response.usage || response.usage.promptTokens === undefined || response.usage.completionTokens === undefined) {
         console.warn(`Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`);
@@ -113,8 +116,8 @@ export class BaseModelRunner implements ModelRunner {
             total: response.usage?.totalTokens || (response.usage?.promptTokens || 0) + (response.usage?.completionTokens || 0)
           },
           cost: costBreakdown || undefined,
-          provider: params.modelDetails.provider,
-          model: params.modelDetails.name
+          provider: conversation.modelDetails.provider,
+          model: conversation.modelDetails.name
         }
       };
 
@@ -126,20 +129,19 @@ export class BaseModelRunner implements ModelRunner {
     }
   }
 
-  async stream(params: {
-    prompt: string;
-    modelDetails: ModelDetails;
-    options?: ModelOptions;
-  }): Promise<ModelResponse> {
+  async stream(conversation: Conversation): Promise<ModelResponse> {
     const startTime = new Date();
-    const { model, modelIdString } = await this.validateAndPrepareModel(params);
+    const { model, modelIdString } = await this.validateAndPrepareModel({
+      prompt: conversation.prompt,
+      modelDetails: conversation.modelDetails,
+      options: conversation.options
+    });
 
     try {
       const responseStream = await streamText({
         model: model,
-        
-        prompt: params.prompt,
-        ...params.options
+        messages: conversation.getMessages(),
+        ...conversation.options
       });
 
       for await (const textPart of responseStream.textStream) {
@@ -149,7 +151,7 @@ export class BaseModelRunner implements ModelRunner {
       const usage = await responseStream.usage;
       const final = await responseStream.text;
 
-      const costBreakdown = this.calculateCostBreakdown(usage, params);
+      const costBreakdown = this.calculateCostBreakdown(usage, { modelDetails: conversation.modelDetails });
 
       if (!usage || usage.promptTokens === undefined || usage.completionTokens === undefined) {
         console.warn(`Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`);
@@ -166,8 +168,8 @@ export class BaseModelRunner implements ModelRunner {
             total: usage?.totalTokens || (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
           },
           cost: costBreakdown || undefined,
-          provider: params.modelDetails.provider,
-          model: params.modelDetails.name
+          provider: conversation.modelDetails.provider,
+          model: conversation.modelDetails.name
         }
       };
 

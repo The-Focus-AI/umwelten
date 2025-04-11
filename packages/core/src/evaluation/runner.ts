@@ -1,4 +1,4 @@
-import { BaseModelRunner } from '../model-runner.js';
+import { BaseModelRunner } from '../models/runner.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getModel, validateModel } from '../providers/index.js';
 import chalk from 'chalk';
@@ -6,6 +6,7 @@ import type { LanguageModelV1 } from 'ai';
 import { ModelDetails } from '../models/types.js';
 import type { ModelParameters } from './types.js';
 import { EvaluationConfig, EvaluationResults, ModelEvaluationResult, EvaluationScore, ScoringCriterion } from './types.js';
+import { Conversation } from '../conversation/conversation.js';
 
 export class EvaluationRunnerError extends Error {
   constructor(message: string, public readonly modelDetails?: ModelDetails) {
@@ -102,12 +103,14 @@ export class EvaluationRunner {
         }
 
         // Generate response
+        const conversation = new Conversation(
+          modelConfig.modelDetails,
+          this.buildPrompt(config),
+          this.convertModelParameters(modelConfig.parameters)
+        );
+
         const modelStartTime = new Date();
-        const response = await this.modelRunner.execute({
-          prompt: this.buildPrompt(config),
-          modelDetails: modelConfig.modelDetails,
-          options: this.convertModelParameters(modelConfig.parameters)
-        });
+        const response = await this.modelRunner.execute(conversation);
 
         if (config.verbose) {
           console.log(chalk.dim(`Response received for model: ${modelConfig.modelDetails.name}`));
@@ -218,11 +221,13 @@ Format your response exactly like this:
 SCORE: [number]
 REASONING: [your explanation]`;
 
-      const evaluation = await this.modelRunner.execute({
-        prompt: evaluationPrompt,
-        modelDetails: config.models.evaluator.modelDetails,
-        options: this.convertModelParameters(config.models.evaluator.parameters)
-      });
+      const evaluationConversation = new Conversation(
+        config.models.evaluator.modelDetails,
+        evaluationPrompt,
+        this.convertModelParameters(config.models.evaluator.parameters)
+      );
+
+      const evaluation = await this.modelRunner.execute(evaluationConversation);
 
       totalEvaluationCost += typeof evaluation.metadata.cost === 'number' ? evaluation.metadata.cost : 0;
 

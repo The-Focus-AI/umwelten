@@ -79,6 +79,20 @@ Last Updated: 2025-04-09 17:49 EDT
 - [ ] Version tracking implemented
 - [ ] Performance metrics available
 
+## Conversation Package Implementation
+
+- [ ] Create a new package named `conversation` within the `packages` directory.
+- [ ] Design the `Conversation` class with attributes for messages, files, images, and history.
+- [ ] Implement methods for adding messages, files, images, and retrieving history.
+- [ ] Integrate the `Conversation` class with `BaseModelRunner`.
+- [ ] Update and add tests for the new functionality.
+- [ ] Update documentation to reflect changes.
+
+### Validation Criteria
+- The `Conversation` class should handle `CoreMessage` types.
+- The `BaseModelRunner` should accept a `Conversation` object.
+- Tests should cover all new functionalities.
+
 ## Risk Assessment
 
 ### Technical Risks

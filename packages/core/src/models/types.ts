@@ -2,6 +2,7 @@ import { z } from "zod";
 import { LanguageModelV1 } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
+import { Conversation } from '../conversation/conversation.js';
 
 export interface ModelRoute {
   name: string; // Base model identifier
@@ -106,11 +107,8 @@ export const ModelResponseSchema = z.object({
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 
 export interface ModelRunner {
-  execute(params: {
-    prompt: string;
-    modelDetails: ModelDetails;
-    options?: ModelOptions;
-  }): Promise<ModelResponse>;
+  execute(conversation: Conversation): Promise<ModelResponse>;
+  stream(conversation: Conversation): Promise<ModelResponse>;
 }
 
 export interface ModelSearchOptions {

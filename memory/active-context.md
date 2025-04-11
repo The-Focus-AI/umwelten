@@ -186,3 +186,30 @@ Current test dependencies:
 - Ensure all changes are documented and reviewed for consistency.
 - Continue with any pending tasks or new features as planned.
 - Date: April 11, 2025 
+
+## Current Status (2025-04-11)
+
+### What's Working
+- Conversation class successfully implemented
+- File attachment support working
+- BaseModelRunner refactored to use Conversation objects
+- Code organization improved with proper directory structure
+
+### Current Focus
+- Testing and validating the new Conversation implementation
+- Ensuring all file types are handled correctly
+- Verifying the integration with BaseModelRunner
+
+### Next Steps
+1. Add more comprehensive tests for Conversation class
+2. Implement validation for file attachments
+3. Add support for chat history management
+4. Consider additional file type support
+
+### Blockers
+None currently identified
+
+### Recent Decisions
+- Placed Conversation class in core/src/conversation
+- Used CoreMessage from AI SDK for message handling
+- Made ModelDetails, options, and prompt public for accessibility 

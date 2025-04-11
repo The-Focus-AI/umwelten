@@ -1146,3 +1146,31 @@ Refactored the BaseModelRunner class to reduce duplication between the execute a
 - Fixed linter errors in runner.ts related to cost handling.
 - Updated error handling and type checks to prevent potential runtime issues.
 - Verified changes with successful test runs.
+
+## 2025-04-11: Implemented Conversation Class with File Attachments
+
+### Summary
+- Refactored the model runner to use a new Conversation class
+- Moved model-runner.ts to models/runner.ts for better organization
+- Successfully implemented file attachment support in the Conversation class
+- Updated all dependent code to use the new Conversation interface
+
+### Accomplishments
+- Created Conversation class that handles:
+  - Core messages (using CoreMessage from AI SDK)
+  - File attachments
+  - Model details and configuration
+- Refactored BaseModelRunner to use Conversation objects
+- Successfully tested with both text and file inputs
+- Improved code organization by moving files to appropriate directories
+
+### Decisions
+- Placed Conversation class in core/src/conversation instead of a separate package
+- Used CoreMessage from AI SDK for message handling
+- Kept ModelDetails, options, and prompt as public properties for easy access
+
+### Next Steps
+- Consider adding support for more file types
+- Add validation for file attachments
+- Consider adding chat history management
+- Add more comprehensive tests for the Conversation class

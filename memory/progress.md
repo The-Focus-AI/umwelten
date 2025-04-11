@@ -146,4 +146,11 @@ Last Updated: Wed Apr 9 2025
 - Need to handle process.exit in tests
 - [X] Implemented tests for OpenRouter provider (Tue Apr 8 20:02:23 EDT 2025)
 - [X] Expanded test coverage for EvaluationRunner and fixed linter errors in runner.ts
-- Date: April 11, 2025 
+- Date: April 11, 2025
+
+[X] 2025-04-11: Implement Conversation class with file attachment support
+- Created Conversation class in core/src/conversation
+- Added support for CoreMessage from AI SDK
+- Implemented file attachment functionality
+- Successfully tested with image and PDF files
+- Refactored BaseModelRunner to use Conversation objects 

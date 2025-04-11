@@ -1,6 +1,7 @@
 import { getModel, validateModel } from '../src/providers/index.js';
-import { BaseModelRunner } from '../src/model-runner.js';
+import { BaseModelRunner } from '../src/models/runner.js';
 import { ModelDetails } from '../src/models/types.js';
+import { Conversation } from '../src/conversation/conversation.js';
 
 async function testGemma3Model() {
   const modelInfo:ModelDetails = {
@@ -17,13 +18,10 @@ async function testGemma3Model() {
   const prompt = 'Write a short poem about a cat.';
 
   const modelRunner = new BaseModelRunner();
-
+  const conversation = new Conversation(model, prompt);
   try {
     console.log('Generating text for gemma3:12b using BaseModelRunner...');
-    const response = await modelRunner.stream({
-      prompt,
-      modelDetails: model,
-    });
+    const response = await modelRunner.stream(conversation);
 
     console.log('Generated text for gemma3:12b:', response.content);
 
