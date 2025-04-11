@@ -1,15 +1,15 @@
 # Active Context
 
-## Current Date: Thu Apr 10 11:48:47 EDT 2025
+## Current Date: Fri Apr 11 16:20:51 EDT 2025
 
-### Current Focus: Standardizing Cost Calculations in Tests
+### Current Focus: Refactoring BaseModelRunner
 
-We have updated the cost tests in `costs.test.ts` to align with the standardized cost calculation per million tokens. This involved adjusting mock data and expectations to ensure consistency across the application and tests.
+We have refactored the BaseModelRunner class to reduce duplication between the execute and stream methods. This involved consolidating error handling and streamlining logging to improve code readability and maintainability.
 
 ### Key Accomplishments:
-- Updated mock model costs to reflect per-million-token pricing.
-- Adjusted test expectations to use `toBeCloseTo` for floating-point comparisons.
-- Verified that all cost-related tests pass with the new standardization.
+- Extracted common logic into helper methods.
+- Consolidated error handling into a single method.
+- Streamlined logging to improve code readability.
 
 ### Blockers
 - None currently.

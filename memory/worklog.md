@@ -1124,3 +1124,19 @@ Updated the cost tests in `costs.test.ts` to align with the standardized cost ca
 
 ### Notes
 - Standardizing cost calculations ensures consistency across the application and tests.
+
+## Fri Apr 11 16:20:51 EDT 2025 - Refactored BaseModelRunner
+
+### Summary
+Refactored the BaseModelRunner class to reduce duplication between the execute and stream methods. Consolidated error handling and streamlined logging.
+
+### Accomplishments
+1. Extracted common logic into helper methods.
+2. Consolidated error handling into a single method.
+3. Streamlined logging to improve code readability.
+
+### Next Actions
+1. Continue with the next planned development task.
+
+### Notes
+- The refactoring improves code maintainability and readability.
