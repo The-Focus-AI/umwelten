@@ -7,102 +7,96 @@ import { z } from 'zod';
 import fs from 'fs';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-
-const pricingPage = 'https://ai.google.dev/gemini-api/docs/pricing';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const htmlFile = path.resolve(__dirname, '../output/google-pricing/html.txt');
-const modelResponseFile = path.resolve(__dirname, '../output/google-pricing/model-response.txt');
-const pricingFile = path.resolve(__dirname, '../output/google-pricing/pricing.json');
 
-const pricingSchema = z.object({
-  'pricing': z.array(z.object({
-    'model': z.string().describe('The model name'),
-    'inputCost': z.number().describe('The cost of 1 million input tokens'),
-    'outputCost': z.number().describe('The cost of 1 million output tokens'),
-    'description': z.string().describe('A description of the model'),
-    'contextLength': z.number().describe('The context length of the model'),  
-    'caching': z.boolean().describe('Whether the model supports caching'),
-  })),
-});
+export class SiteInfoExtractor {
+  private static readonly siteInfoSchema = z.object({
+    'siteName': z.string().describe('The name of the site'),
+    'siteUrl': z.string().describe('The url of the site'),
+    'siteDescription': z.string().describe('A description of the site'),
+    'siteKeywords': z.array(z.string()).describe('The keywords of the site'),
+    'feedUrl': z.string().describe('The url of the site\'s RSS feed'),
+    categories: z.array(z.object({
+      'name': z.string().describe('The name of the category'),
+      'url': z.string().describe('The full url including hostname of the category'),
+    })),
+    entries: z.array(z.object({
+      'title': z.string().describe('The title of the entry'),
+      'url': z.string().describe('The full url including hostname of the entry'),
+      'description': z.string().describe('A description of the entry'),
+      'category': z.string().describe('The category of the entry'),
+      'published': z.string().describe('The date the entry was published in YYYY-MM-DD format'),
+      'author': z.string().describe('The author of the entry'),
+    })),
+  });
 
-async function getGooglePricingFile() {
-  if(fs.existsSync(htmlFile)) {
-    const html = fs.readFileSync(htmlFile, 'utf8');
-    return html;
-  }
-  console.log('Fetching Google pricing...');
-
-  const response = await fetch(pricingPage);
-  const html = await response.text();
-  
-  const dir = path.dirname(htmlFile);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  fs.writeFileSync(htmlFile, html);
-  return html;
-}
-
-async function getModelResponse() {
-  if(fs.existsSync(modelResponseFile)) {
-    const modelResponse = fs.readFileSync(modelResponseFile, 'utf8');
-    return modelResponse;
-  }
-
-  const html = await getGooglePricingFile();
-
-  // const model:ModelDetails = {
-  //   name: 'gemma3:12b',
-  //   provider: 'ollama',
-  // };
-
-  const model:ModelDetails = {
-    // name: 'gemma-3-27b-it',
-    name:'google/gemma-3-12b-it',
-    provider: 'openrouter',
+  private readonly outputDir: string;
+  private readonly htmlFile: string;
+  private readonly modelResponseFile: string;
+  private readonly model: ModelDetails = {
+    name: 'gemini-2.0-flash',
+    provider: 'google',
   };
 
-  const prompt = `You are a a software agent that looks at html to find model pricing and you return json`
-
-  const conversation = new Conversation(model, prompt);
-
-  conversation.addMessage({
-    role: 'user',
-    content: html,
-  });
-
-  conversation.addMessage({
-    role: 'user',
-    content: `Please parse the html and return the json in the form specified by the schema ${JSON.stringify(zodToJsonSchema(pricingSchema))}`
-  });
-
-  const modelRunner = new BaseModelRunner();
-  const response = await modelRunner.stream(conversation);
-
-  fs.writeFileSync(modelResponseFile, response.content);
-  return response.content;
-}
-
-async function googlePricing() {
-  const modelResponse = await getModelResponse();
-  const pricing = parseJsonFromModelResponse(modelResponse);
-  return pricing;
-}
-
-function parseJsonFromModelResponse(modelResponse: string) {
-  if(modelResponse.includes('```json')) {
-    modelResponse = modelResponse.split('```json').pop()!.split('```')[0];
-    // modelResponse = modelResponse.split('```json')[1].split('```')[0];
+  constructor(private readonly siteUrl: string, private readonly siteName: string) {
+    this.outputDir = path.resolve(__dirname, '../output/sites', this.siteName);
+    this.htmlFile = path.resolve(this.outputDir, 'site.html');
+    this.modelResponseFile = path.resolve(this.outputDir, 'model-response.json');
   }
-  const pricing = JSON.parse(modelResponse);
-  return pricing;
+
+  private async getSiteHtml(): Promise<string> {
+    if (fs.existsSync(this.htmlFile)) {
+      return fs.readFileSync(this.htmlFile, 'utf8');
+    }
+
+    console.log('Fetching site html...');
+    const response = await fetch(this.siteUrl);
+    const html = await response.text();
+    
+    const dir = path.dirname(this.htmlFile);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(this.htmlFile, html);
+    return html;
+  }
+
+  public async extract() {
+    try {
+      if (fs.existsSync(this.modelResponseFile)) {
+        const modelResponse = fs.readFileSync(this.modelResponseFile, 'utf8');
+        return JSON.parse(modelResponse);
+      }
+
+      const html = await this.getSiteHtml();
+      const prompt = `You are an expert in information extraction. You will be given a html page and you will need to extract the information from the page. The currrent date is ${new Date().toISOString()}`;
+
+      const conversation = new Conversation(this.model, prompt);
+      conversation.addMessage({ role: 'user', content: html });
+      conversation.addMessage({
+        role: 'user',
+        content: `Please parse the html and return the structure of the page`
+      });
+
+      const modelRunner = new BaseModelRunner();
+      const response = await modelRunner.streamObject(conversation, SiteInfoExtractor.siteInfoSchema);
+
+      fs.writeFileSync(this.modelResponseFile, JSON.stringify(response, null, 2));
+      return response;
+    } catch (error) {
+      console.error(`Error extracting info from ${this.siteUrl}:`, error);
+      throw error;
+    }
+  }
 }
 
-googlePricing().then((pricing) => {
-  console.log(pricing);
+// Example usage
+const extractor = new SiteInfoExtractor('https://thefocus.ai', 'thefocus');
+extractor.extract().then((siteInfo) => {
+  console.log(siteInfo);
   process.exit(0);
 }).catch((error) => {
-  console.error('Error fetching Google pricing:', error);
+  console.error('Error:', error);
+  process.exit(1);
 });

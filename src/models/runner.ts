@@ -16,7 +16,7 @@ import {
   streamObject,
   streamText,
 } from "ai";
-import { calculateCost } from "../costs/costs.js";
+import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
 import { Conversation } from "../conversation/conversation.js";
 import { z } from "zod";
@@ -81,25 +81,29 @@ export class BaseModelRunner implements ModelRunner {
 
   private async validateAndPrepareModel(params: {
     prompt: string;
-    modelDetails: ModelDetails;
+    conversation: Conversation;
     options?: ModelOptions;
   }): Promise<{ model: LanguageModelV1; modelIdString: string }> {
-    const modelIdString = `${params.modelDetails.provider}/${params.modelDetails.name}`;
+    const modelIdString = `${params.conversation.modelDetails.provider}/${params.conversation.modelDetails.name}`;
 
-    const validatedModel = await validateModel(params.modelDetails);
+    const validatedModel = await validateModel(params.conversation.modelDetails);
     if (!validatedModel) {
       throw new Error(
-        `Invalid model details: ${JSON.stringify(params.modelDetails)}`
+        `Invalid model details: ${JSON.stringify(params.conversation.modelDetails)}`
       );
     }
-    if (params.modelDetails.numCtx) {
-      validatedModel.numCtx = params.modelDetails.numCtx;
+    if (params.conversation.modelDetails.numCtx) {
+      validatedModel.numCtx = params.conversation.modelDetails.numCtx;
     }
-    params.modelDetails = validatedModel;
+    params.conversation.modelDetails = validatedModel;
 
-    this.logModelDetails(modelIdString, params);
+    this.logModelDetails(modelIdString, {
+      prompt: params.prompt,
+      modelDetails: params.conversation.modelDetails,
+      options: params.conversation.options,
+    });
 
-    const model = await getModel(params.modelDetails);
+    const model = await getModel(params.conversation.modelDetails);
     if (!model) {
       throw new Error(`Failed to get LanguageModelV1 for ${modelIdString}`);
     }
@@ -245,9 +249,8 @@ export class BaseModelRunner implements ModelRunner {
   }> {
     const startTime = new Date();
     const { model, modelIdString } = await this.validateAndPrepareModel({
+      conversation: conversation,
       prompt: conversation.prompt,
-      modelDetails: conversation.modelDetails,
-      options: conversation.options,
     });
 
     return { startTime, model, modelIdString };
@@ -275,9 +278,13 @@ export class BaseModelRunner implements ModelRunner {
       this.config.rateLimitConfig
     );
 
+    console.log('usage', usage);
+
     const costBreakdown = this.calculateCostBreakdown(usage, {
       modelDetails: conversation.modelDetails,
     });
+
+    console.log('cost breakdown', costBreakdown);
 
     if (
       !usage ||
@@ -302,6 +309,7 @@ export class BaseModelRunner implements ModelRunner {
             (usage?.promptTokens || 0) + (usage?.completionTokens || 0),
         },
         cost: costBreakdown || undefined,
+        costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
         provider: conversation.modelDetails.provider,
         model: conversation.modelDetails.name,
       },

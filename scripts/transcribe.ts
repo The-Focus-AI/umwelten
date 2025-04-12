@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const testDataDir = path.resolve(__dirname, '../examples/audio');
@@ -28,11 +29,15 @@ export const TranscriptionSchema = z.object({
   ),
 });
 
-async function transcribeAudio(inputFile: string) {
+async function transcribeAudio(inputFile: string, outputFile: string) {
   const model:ModelDetails = {
-    name: 'gemini-2.5-pro-preview-03-25',
+    name: 'gemini-2.0-flash',
     provider: 'google',
   };
+  // const model:ModelDetails = {
+  //   name: 'openrouter/optimus-alpha',
+  //   provider: 'openrouter',
+  // };
 
   const prompt = `You are a transcription agent that transcribes audio. You will be given a file and you will need to transcribe the audio.`;
 
@@ -52,6 +57,9 @@ async function transcribeAudio(inputFile: string) {
   const response = await modelRunner.streamObject(conversation, TranscriptionSchema);
 
   console.log('Response:', JSON.stringify(response, null, 2));
+
+  fs.writeFileSync(path.join(outputDir, outputFile), JSON.stringify(response, null, 2));
 }
 
-await transcribeAudio('heavyweight_small.mp3');
+// await transcribeAudio('heavyweight_small.mp3', 'heavyweight_small.json');
+await transcribeAudio('smaller.mp3', 'smaller.json');

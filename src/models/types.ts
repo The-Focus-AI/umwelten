@@ -103,6 +103,7 @@ export const ModelResponseSchema = z.object({
     provider: z.string(),
     model: z.string(),
     cost: CostBreakdownSchema.optional(),
+    costInfo: z.string().optional(),
   }),
 });
 
