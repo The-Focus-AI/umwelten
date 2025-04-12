@@ -69,6 +69,25 @@ pnpm cli models costs --sort-by completion
 pnpm cli models costs --sort-by total
 ```
 
+### Chat with a Model
+
+```bash
+# Basic chat (requires --provider and --model)
+pnpm cli chat --provider google --model gemini-pro "Hello, how are you?"
+
+# Chat and include a file as context
+pnpm cli chat --provider ollama --model llama3 --file ./examples/test_data/Home-Cooked\ Software\ and\ Barefoot\ Developers.pdf "Summarize the attached PDF."
+
+# If you omit the message, you will be prompted to enter it interactively
+pnpm cli chat --provider openrouter --model gpt-4-turbo
+```
+
+**Options:**
+- `--provider <provider>`: Provider to use (e.g. `google`, `ollama`, `openrouter`) (required)
+- `--model <model>`: Model name to use (e.g. `gemini-pro`, `llama3`, etc.) (required)
+- `--file <filePath>`: File to include in the chat (optional)
+
+
 ## Output Format
 
 The CLI provides several output formats:

@@ -5,6 +5,7 @@ import { evaluateCommand } from './evaluate.js';
 import { evalsCommand } from './evals.js';
 import { runCommand } from './run.js';
 import { evaluateViewCommand } from './evaluate-view.js';
+import { chatCommand } from './chat.js';
 
 const program = new Command();
 
@@ -19,5 +20,6 @@ program.addCommand(evaluateCommand);
 program.addCommand(evalsCommand);
 program.addCommand(runCommand);
 program.addCommand(evaluateViewCommand);
+program.addCommand(chatCommand);
 
 program.parse(); 

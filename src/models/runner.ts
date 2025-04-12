@@ -97,11 +97,11 @@ export class BaseModelRunner implements ModelRunner {
     }
     params.conversation.modelDetails = validatedModel;
 
-    this.logModelDetails(modelIdString, {
-      prompt: params.prompt,
-      modelDetails: params.conversation.modelDetails,
-      options: params.conversation.options,
-    });
+    // this.logModelDetails(modelIdString, {
+    //   prompt: params.prompt,
+    //   modelDetails: params.conversation.modelDetails,
+    //   options: params.conversation.options,
+    // });
 
     const model = await getModel(params.conversation.modelDetails);
     if (!model) {
@@ -278,13 +278,13 @@ export class BaseModelRunner implements ModelRunner {
       this.config.rateLimitConfig
     );
 
-    console.log('usage', usage);
+    // console.log('usage', usage);
 
     const costBreakdown = this.calculateCostBreakdown(usage, {
       modelDetails: conversation.modelDetails,
     });
 
-    console.log('cost breakdown', costBreakdown);
+    // console.log('cost breakdown', costBreakdown);
 
     if (
       !usage ||
@@ -295,6 +295,11 @@ export class BaseModelRunner implements ModelRunner {
         `Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`
       );
     }
+
+    conversation.addMessage({
+      role: "assistant",
+      content: content,
+    });
 
     const modelResponse: ModelResponse = {
       content: content,
@@ -315,7 +320,7 @@ export class BaseModelRunner implements ModelRunner {
       },
     };
 
-    console.log("Response object:", response);
+    // console.log("Response object:", response);
 
     return modelResponse;
   }
