@@ -78,7 +78,7 @@ async function getModelResponse() {
   });
 
   const modelRunner = new BaseModelRunner();
-  const response = await modelRunner.stream(conversation);
+  const response = await modelRunner.streamText(conversation);
 
   fs.writeFileSync(modelResponseFile, response.content);
   return response.content;

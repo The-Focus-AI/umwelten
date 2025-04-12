@@ -4,12 +4,14 @@ import path from "path";
 import fs, { FileHandle } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
 import { PathLike } from "fs";
+import { z } from "zod";
 
 export class Conversation {
   private messages: CoreMessage[] = [];
   public modelDetails: ModelDetails;
   public prompt: string;
   public options?: ModelOptions;
+  public outputFormat?: z.ZodSchema;
 
   constructor(
     modelDetails: ModelDetails,
@@ -69,6 +71,9 @@ export class Conversation {
     }
   }
 
+  setOutputFormat(outputFormat: z.ZodSchema): void {
+    this.outputFormat = outputFormat;
+  }
 
   getMessages(): CoreMessage[] {
     return this.messages;

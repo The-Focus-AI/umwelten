@@ -21,7 +21,7 @@ async function testGemma3Model() {
   const conversation = new Conversation(model, prompt);
   try {
     console.log('Generating text for gemma3:12b using BaseModelRunner...');
-    const response = await modelRunner.stream(conversation);
+    const response = await modelRunner.generateText(conversation);
 
     console.log('Generated text for gemma3:12b:', response.content);
 

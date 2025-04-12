@@ -109,8 +109,11 @@ export const ModelResponseSchema = z.object({
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 
 export interface ModelRunner {
-  execute(conversation: Conversation): Promise<ModelResponse>;
-  stream(conversation: Conversation): Promise<ModelResponse>;
+  generateText(conversation: Conversation): Promise<ModelResponse>;
+  streamText(conversation: Conversation): Promise<ModelResponse>;
+  // generateObject(conversation: Conversation): Promise<ModelResponse>;
+  // streamObject(conversation: Conversation): Promise<ModelResponse>;
+  // generateImage(conversation: Conversation): Promise<ModelResponse>;
 }
 
 export interface ModelSearchOptions {
