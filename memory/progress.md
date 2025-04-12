@@ -1,5 +1,5 @@
 # Project Progress
-Last Updated: 2025-04-12 04:47:28 EDT
+Last Updated: April 12, 2025 13:01 EDT
 
 ## Current Sprint Status
 
@@ -25,11 +25,16 @@ Last Updated: 2025-04-12 04:47:28 EDT
   - [ ] Add more integration tests
 
 ### CLI Implementation
-- [-] Basic command structure
-- [-] Move CLI to bin directory
-- [ ] Interactive mode
-- [ ] Cost estimation display
-- [ ] Progress indicators
+- [X] Basic model listing
+- [X] Model filtering and search
+- [X] Cost display formatting
+  - [X] Consistent per-million-token display
+  - [X] Clear unit indicators
+  - [X] Proper handling of free models
+- [-] Advanced model information display
+- [-] Interactive model selection
+- [ ] Streaming support
+- [ ] Function calling support
 
 ## Overall Progress
 - [X] Define model routing architecture

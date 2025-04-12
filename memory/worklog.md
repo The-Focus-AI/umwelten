@@ -1198,3 +1198,24 @@ Restructured project to move away from monorepo architecture to a simpler single
 2. Verify all import paths
 3. Update build and test scripts
 4. Review remaining documentation
+
+## Cost Formatting Fixes (April 12, 2025 13:01 EDT)
+
+### Summary
+Fixed cost formatting across the CLI to consistently display costs per million tokens.
+
+### Accomplishments
+- Updated `formatModelCosts` to show costs per million tokens with "/1M tokens" suffix
+- Updated `formatCost` to show costs per million tokens with "/1M" suffix
+- Fixed table view to show costs per million tokens in "Input Cost/1M" and "Output Cost/1M" columns
+- Updated costs command to:
+  - Show header as "Model Costs (per 1M tokens)"
+  - Use `totalCostPer1M` instead of `totalCostPer1K`
+  - Display all costs multiplied by 1,000,000 for per-million-token format
+  - Update sort functions to use per-million-token costs
+
+### Decisions
+- Standardized on showing costs per million tokens across all views
+- Used consistent formatting with 4 decimal places
+- Show "Free" instead of "$0.0000" for zero-cost models
+- Added "/1M" or "/1M tokens" suffix to clarify the unit

@@ -1,5 +1,5 @@
 # Lessons Learned
-Last Updated: Wed Apr 9 17:49:43 EDT 2025
+Last Updated: April 12, 2025 13:01 EDT
 
 ## Technical Insights
 
@@ -500,3 +500,37 @@ Last Updated: Wed Apr 9 17:49:43 EDT 2025
 - Importance of thorough type checking to prevent runtime errors.
 - Ensuring test coverage includes edge cases for better reliability.
 - Regular updates to memory files help maintain project clarity and direction. 
+
+## CLI Implementation
+
+### Cost Display Formatting
+1. Standardization is crucial
+   - Choose a consistent unit (per 1M tokens) and stick to it
+   - Use the same precision (4 decimal places) everywhere
+   - Add clear unit indicators ("/1M" or "/1M tokens")
+
+2. Edge Cases Matter
+   - Handle free models explicitly with "Free" display
+   - Consider null/undefined costs
+   - Use proper type guards for TypeScript safety
+
+3. User Experience
+   - Clear headers indicating units
+   - Consistent formatting across different views
+   - Helpful suffixes to avoid confusion
+
+### Best Practices
+1. Always multiply raw costs before display
+   - Raw costs are typically very small numbers
+   - Multiply by 1M for better readability
+   - Keep calculations separate from display formatting
+
+2. Type Safety
+   - Use null coalescing for undefined checks
+   - Extract repeated calculations to variables
+   - Keep type guards close to data access
+
+3. Error Handling
+   - Implement proper error classification
+   - Provide meaningful error messages
+   - Consider retry mechanisms for transient failures 

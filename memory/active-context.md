@@ -1,5 +1,26 @@
 # Active Context
-Last Updated: 2025-04-12 04:47:28 EDT
+Last Updated: April 12, 2025 13:01 EDT
+
+## Current Focus
+Improving cost display formatting in the CLI to ensure consistency and clarity.
+
+## Current Status
+- [X] Fixed cost formatting to consistently use per-million-token costs
+- [X] Updated all cost display functions to handle free models correctly
+- [X] Ensured proper type safety with null/undefined checks
+
+## Next Steps
+- [ ] Review other potential formatting inconsistencies
+- [ ] Consider adding unit tests for cost formatting edge cases
+- [ ] Consider adding configuration option for cost display units (per 1K vs per 1M tokens)
+
+## Blockers
+None currently.
+
+## Recent Decisions
+1. Standardized on per-million-token cost display across all views
+2. Added clear suffixes ("/1M" or "/1M tokens") to indicate units
+3. Consistent handling of free models by showing "Free" instead of "$0.0000"
 
 ## Current Focus
 Moving away from monorepo structure to a simpler, single-package architecture.
