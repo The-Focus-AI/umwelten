@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { modelsCommand } from './commands/models.js';
-import { evaluateCommand } from './commands/evaluate.js';
-import { evalsCommand } from './commands/evals.js';
-import { runCommand } from './commands/run.js';
-import { evaluateViewCommand } from './commands/evaluate-view.js';
+import { modelsCommand } from './models.js';
+import { evaluateCommand } from './evaluate.js';
+import { evalsCommand } from './evals.js';
+import { runCommand } from './run.js';
+import { evaluateViewCommand } from './evaluate-view.js';
 
 const program = new Command();
 

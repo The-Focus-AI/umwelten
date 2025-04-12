@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { getAllModels, searchModels } from '@model-eval/core/src/models/models.js';
-import { estimateCost } from '@model-eval/core/src/costs/costs.js';
-import { getModelUrl } from '@model-eval/core/src/providers/index.js';
+import { getAllModels, searchModels } from '../models/models.js';
+import { estimateCost } from '../costs/costs.js';
+import { getModelUrl } from '../providers/index.js';
 import chalk from 'chalk';
 import Table from 'cli-table3';
-import type { ModelDetails } from '@model-eval/core/src/models/types.js';
+import type { ModelDetails } from '../models/types.js';
 // Utility function to get visible length of string (excluding ANSI codes)
 function visibleLength(str: string): number {
   // Remove ANSI escape codes when calculating length
@@ -171,6 +171,12 @@ export const modelsCommand = new Command('models')
         }
       });
 
+      // Check if --id is required but missing
+      if (options.view === 'info' && !options.id) {
+        console.error('Error: --id <model-id> is required for detailed view');
+        process.exit(1);
+      }
+
       // Get all models first
       let models = await getAllModels();
 
@@ -193,17 +199,26 @@ export const modelsCommand = new Command('models')
         models = await searchModels(options.search, models);
       }
 
+      // Handle model info view
+      if (options.view === 'info' && options.id) {
+        const model = models.find(m => m.name === options.id);
+        if (!model) {
+          console.error(`Error: Model with ID "${options.id}" not found`);
+          process.exit(1);
+        }
+        displayModelInfo(model);
+        return;
+      }
+
       // Sort models
       if (options.sort) {
         models = [...models].sort((a, b) => {
           switch (options.sort) {
             case 'name':
-              const nameA = a.name;
-              const nameB = b.name;
-              return options.desc ? nameB.localeCompare(nameA) : nameA.localeCompare(nameB);
+              return options.desc ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name);
             case 'addedDate':
-              const dateA = a.addedDate ? new Date(a.addedDate).getTime() : 0;
-              const dateB = b.addedDate ? new Date(b.addedDate).getTime() : 0;
+              const dateA = a.addedDate?.getTime() || 0;
+              const dateB = b.addedDate?.getTime() || 0;
               return options.desc ? dateB - dateA : dateA - dateB;
             case 'contextLength':
               const lenA = a.contextLength || 0;
@@ -219,80 +234,32 @@ export const modelsCommand = new Command('models')
         });
       }
 
-      // Handle info view mode
-      if (options.view === 'info') {
-        if (!options.id) {
-          console.error('Error: --id <model-id> is required when using --view info');
-          process.exit(1);
-        }
-
-        const model = models.find(m => m.name === options.id);
-        if (!model) {
-          console.error(`Error: Model with ID "${options.id}" not found`);
-          process.exit(1);
-        }
-
-        displayModelInfo(model);
-        return;
-      }
-
+      // Output results
       if (options.json) {
         console.log(JSON.stringify(models, null, 2));
-        return;
-      }
+      } else {
+        // Display table format
+        console.log(`\nFound ${models.length} models\n`);
+        const table = new Table({
+          head: ['ID', 'Provider', 'Context', 'Input Cost/1M', 'Output Cost/1M', 'Added'],
+          style: { head: ['blue'] }
+        });
 
-      // Print summary
-      console.log(`\nFound ${models.length} models`);
-      if (options.search) console.log(`Search: "${options.search}"`);
-      if (options.provider && options.provider !== 'all') console.log(`Provider: ${options.provider}`);
-      if (options.free) console.log('Showing only free models');
-      console.log();
+        models.forEach(model => {
+          table.push([
+            model.name,
+            model.provider,
+            formatContextLength(model.contextLength),
+            model.costs ? `$${(model.costs.promptTokens * 1000000).toFixed(4)}` : '$0.0000',
+            model.costs ? `$${(model.costs.completionTokens * 1000000).toFixed(4)}` : '$0.0000',
+            model.addedDate ? formatDate(model.addedDate) : 'Unknown'
+          ]);
+        });
 
-      // Create table with updated columns
-      const table = new Table({
-        head: [
-          chalk.bold('ID'),
-          chalk.bold('Provider'),
-          chalk.bold('Context'),
-          chalk.bold('Input Cost/1M'),
-          chalk.bold('Output Cost/1M'),
-          chalk.bold('Added')
-        ],
-        style: {
-          head: [],  // Remove bold style since we're using chalk
-          border: []
-        },
-        colWidths: [
-          52, // ID (increased from 25 to fit longest ID)
-          12, // Provider
-          10, // Context
-          15, // Input Cost
-          15, // Output Cost
-          10  // Added (adjusted to fit MM/DD/YY format)
-        ]
-      });
-
-      // Add rows with model data
-      for (const model of models) {
-        const id = model.name.length > 51 ? model.name.substring(0, 48) + '...' : model.name;
-        const date = formatDate(model.addedDate);
-        
-        table.push([
-          chalk.cyan(id),
-          chalk.yellow(model.provider),
-          chalk.cyan(formatContextLength(model.contextLength)),
-          model.costs ? chalk.cyan(`$${(model.costs.promptTokens * 1000000).toFixed(4)}`) : chalk.green('Free'),
-          model.costs ? chalk.cyan(`$${(model.costs.completionTokens * 1000000).toFixed(4)}`) : chalk.green('Free'),
-          chalk.dim(visiblePadStart(date, 10))
-        ]);
-      }
-
-      console.log(table.toString());
-      console.log('\nTip: Use --json for machine-readable output');
-      if (!options.view) {
+        console.log(table.toString());
+        console.log('\nTip: Use --json for machine-readable output');
         console.log('     Use --view info --id <model-id> for detailed information about a specific model');
       }
-
     } catch (error) {
       console.error('Error fetching models:', error);
       process.exit(1);

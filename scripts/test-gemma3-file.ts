@@ -13,7 +13,7 @@ async function testGemma3File() {
     provider: 'ollama',
   };
 
-  const testDataDir = path.resolve(__dirname, '../../../examples/test_data');
+  const testDataDir = path.resolve(__dirname, '../examples/test_data');
   const imageFile = path.join(testDataDir, 'internet_archive_fffound.png');
   const pdfFile = path.join(
     testDataDir,

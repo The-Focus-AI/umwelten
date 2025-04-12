@@ -1,24 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { modelsCommand } from "./models";
-import type { ModelDetails } from "@model-eval/core/src/models/types.js";
-import type { ModelRoute } from "@model-eval/core/src/models/types.js";
+import type { ModelDetails } from "../models/types.js";
+import type { ModelRoute } from "../models/types.js";
+import { getAllModels, searchModels } from "../models/models.js";
 
-describe("Models Command", () => {
-  // Mock process.exit
-  beforeEach(() => {
-    vi.spyOn(process, "exit").mockImplementation(
-      (code?: number | string | null): never => {
-        throw new Error(`Process.exit called with code: ${code}`);
-      }
-    );
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  // Mock model data with complete interface
-  const mockModels: ModelDetails[] = [
+// Mock the getAllModels and searchModels functions
+vi.mock("../models/models.js", () => ({
+  getAllModels: vi.fn().mockResolvedValue([
     {
       name: "openrouter/quasar-alpha",
       provider: "openrouter",
@@ -51,23 +39,31 @@ describe("Models Command", () => {
         instructType: null,
       },
     },
-  ];
+  ]),
+  searchModels: vi.fn().mockImplementation((query: string, models: ModelDetails[]) => {
+    return models.filter(
+      (m: ModelDetails) =>
+        m.name?.toLowerCase().includes(query.toLowerCase()) ||
+        (m.details &&
+          typeof m.details.family === "string" &&
+          m.details.family.toLowerCase().includes(query.toLowerCase()))
+    );
+  }),
+}));
 
-  // Mock the getAllModels and searchModels functions
-  vi.mock("@model-eval/core/src/models/models.js", () => ({
-    getAllModels: vi.fn().mockResolvedValue(mockModels),
-    searchModels: vi
-      .fn()
-      .mockImplementation((query: string, models: ModelDetails[]) => {
-        return models.filter(
-          (m: ModelDetails) =>
-            m.name?.toLowerCase().includes(query.toLowerCase()) ||
-            (m.details &&
-              typeof m.details.family === "string" &&
-              m.details.family.toLowerCase().includes(query.toLowerCase()))
-        );
-      }),
-  }));
+describe("Models Command", () => {
+  // Mock process.exit
+  beforeEach(() => {
+    vi.spyOn(process, "exit").mockImplementation(
+      (code?: number | string | null): never => {
+        throw new Error(`Process.exit called with code: ${code}`);
+      }
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   describe("List Models", () => {
     it("should list all available models in table format", async () => {
@@ -188,11 +184,11 @@ describe("Models Command", () => {
 
   describe("Error Handling", () => {
     it("should handle API errors gracefully", async () => {
-      vi.mock("@model-eval/core/src/models/models.js", () => ({
-        getAllModels: vi.fn().mockRejectedValue(new Error("API Error")),
-      }));
-
       const mockConsoleError = vi.spyOn(console, "error");
+      
+      // Override the mock for this test
+      const getAllModelsMock = vi.fn().mockRejectedValue(new Error("API Error"));
+      vi.mocked(getAllModels).mockImplementation(getAllModelsMock);
 
       await expect(modelsCommand.parseAsync(["node", "test"])).rejects.toThrow(
         "Process.exit called with code: 1"
@@ -234,7 +230,7 @@ describe("Models Command", () => {
       ).rejects.toThrow("Process.exit called with code: 1");
 
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining("not found")
+        expect.stringContaining("Model with ID \"invalid-model\" not found")
       );
 
       mockConsoleError.mockRestore();

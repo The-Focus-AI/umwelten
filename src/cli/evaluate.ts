@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { EvaluationRunner } from '@model-eval/core/src/evaluation/runner.js';
+import { EvaluationRunner } from '../evaluation/runner.js';
 import { 
   EvaluationConfig,
   EvaluationResults,
@@ -9,8 +9,8 @@ import {
   PromptConfigSchema,
   RubricConfigSchema,
   ModelsConfigSchema
-} from '@model-eval/core/src/evaluation/types.js';
-import { loadEvaluationConfig } from '@model-eval/core/src/evaluation/config.js';
+} from '../evaluation/types.js';
+import { loadEvaluationConfig } from '../evaluation/config.js';
 import chalk from 'chalk';
 import ora from 'ora';
 import { config } from 'dotenv';
