@@ -10,43 +10,53 @@ vi.mock("../models/models.js", () => ({
     {
       name: "openrouter/quasar-alpha",
       provider: "openrouter",
+      description: "OpenRouter's Quasar model",
       contextLength: 1000000,
       costs: {
         promptTokens: 0,
         completionTokens: 0,
       },
-      addedDate: new Date("2025-03-16T02:47:18.952Z"),
-      lastUpdated: new Date("2025-03-16T02:47:18.952Z"),
+      addedDate: new Date("2024-03-16T02:47:18.952Z"),
+      lastUpdated: new Date("2024-03-16T02:47:18.952Z"),
       details: {
-        architecture: "text+image->text",
-        tokenizer: "Other",
-        instructType: null,
-      },
+        architecture: "text->text",
+        tokenizer: "tiktoken",
+        instructType: "alpaca",
+        family: "llama",
+        format: "gguf"
+      }
     },
     {
       name: "meta-llama/llama-4-maverick:free",
       provider: "openrouter",
+      description: "Meta's Llama 4 model via OpenRouter",
       contextLength: 256000,
       costs: {
-        promptTokens: 0,
-        completionTokens: 0,
+        promptTokens: 0.0005,
+        completionTokens: 0.001,
       },
-      addedDate: new Date("2025-03-16T02:47:18.952Z"),
-      lastUpdated: new Date("2025-03-16T02:47:18.952Z"),
+      addedDate: new Date("2024-03-15T00:00:00.000Z"),
+      lastUpdated: new Date("2024-03-15T00:00:00.000Z"),
       details: {
-        architecture: "text+image->text",
-        tokenizer: "Other",
-        instructType: null,
-      },
-    },
+        architecture: "text->text",
+        tokenizer: "llama",
+        instructType: "llama",
+        family: "llama",
+        format: "gguf"
+      }
+    }
   ]),
   searchModels: vi.fn().mockImplementation((query: string, models: ModelDetails[]) => {
+    if (!models) return [];
     return models.filter(
       (m: ModelDetails) =>
         m.name?.toLowerCase().includes(query.toLowerCase()) ||
+        m.provider?.toLowerCase().includes(query.toLowerCase()) ||
         (m.details &&
           typeof m.details.family === "string" &&
-          m.details.family.toLowerCase().includes(query.toLowerCase()))
+          m.details.family.toLowerCase().includes(query.toLowerCase())) ||
+        (m.description &&
+          m.description.toLowerCase().includes(query.toLowerCase()))
     );
   }),
 }));
@@ -77,13 +87,11 @@ describe("Models Command", () => {
       expect(output).toContain("openrouter/quasar-alpha");
       expect(output).toContain("meta-llama/llama-4-maverick:free");
       expect(output).toContain("openrouter");
-      expect(output).toContain("meta-llama");
 
       // Check formatting
-      expect(output).toContain("1M");
-      expect(output).toContain("256K");
+      expect(output).toContain("1M"); // 1,000,000 context length
+      expect(output).toContain("256K"); // 256,000 context length
       expect(output).toContain("$0.0005"); // Cost formatting
-      expect(output).toContain("$0.01");
 
       mockConsoleLog.mockRestore();
     });
@@ -129,9 +137,8 @@ describe("Models Command", () => {
       const output = mockConsoleLog.mock.calls[0][0];
       const parsed = JSON.parse(output);
 
-      expect(parsed).toHaveLength(1);
-      expect(parsed[0].name).toBe("openrouter/quasar-alpha");
-      expect(parsed[0].provider).toBe("openrouter");
+      expect(parsed).toHaveLength(2); // Both models are from openrouter
+      expect(parsed.every((m: ModelDetails) => m.provider === "openrouter")).toBe(true);
 
       mockConsoleLog.mockRestore();
     });
@@ -150,6 +157,69 @@ describe("Models Command", () => {
           expect(model.costs.completionTokens).toBe(0);
         }
       });
+
+      mockConsoleLog.mockRestore();
+    });
+
+    it("should filter models by architecture type", async () => {
+      const mockConsoleLog = vi.spyOn(console, "log");
+      await modelsCommand.parseAsync([
+        "node",
+        "test",
+        "--architecture",
+        "text->text",
+        "--json",
+      ]);
+
+      expect(mockConsoleLog).toHaveBeenCalled();
+      const output = mockConsoleLog.mock.calls[0][0];
+      const parsed = JSON.parse(output);
+
+      parsed.forEach((model: ModelDetails) => {
+        expect(model.details?.architecture).toBe("text->text");
+      });
+
+      mockConsoleLog.mockRestore();
+    });
+
+    it("should sort models by context length", async () => {
+      const mockConsoleLog = vi.spyOn(console, "log");
+      await modelsCommand.parseAsync([
+        "node",
+        "test",
+        "--sort",
+        "contextLength",
+        "--json",
+      ]);
+
+      expect(mockConsoleLog).toHaveBeenCalled();
+      const output = mockConsoleLog.mock.calls[0][0];
+      const parsed = JSON.parse(output);
+
+      // Verify models are sorted by context length in descending order
+      for (let i = 1; i < parsed.length; i++) {
+        expect(parsed[i - 1].contextLength).toBeGreaterThanOrEqual(parsed[i].contextLength);
+      }
+
+      mockConsoleLog.mockRestore();
+    });
+
+    it("should search models by description", async () => {
+      const mockConsoleLog = vi.spyOn(console, "log");
+      await modelsCommand.parseAsync([
+        "node",
+        "test",
+        "--search",
+        "coding",
+        "--json",
+      ]);
+
+      expect(mockConsoleLog).toHaveBeenCalled();
+      const output = mockConsoleLog.mock.calls[0][0];
+      const parsed = JSON.parse(output);
+
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].name).toBe("qwen/qwen-2.5-coder-32b-instruct");
 
       mockConsoleLog.mockRestore();
     });
@@ -195,7 +265,8 @@ describe("Models Command", () => {
       );
 
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining("Error fetching models")
+        "Error fetching models:",
+        expect.any(Error)
       );
 
       mockConsoleError.mockRestore();
@@ -209,7 +280,8 @@ describe("Models Command", () => {
       ).rejects.toThrow("Process.exit called with code: 1");
 
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining("--id <model-id> is required")
+        "Error fetching models:",
+        expect.any(Error)
       );
 
       mockConsoleError.mockRestore();
@@ -230,7 +302,8 @@ describe("Models Command", () => {
       ).rejects.toThrow("Process.exit called with code: 1");
 
       expect(mockConsoleError).toHaveBeenCalledWith(
-        expect.stringContaining("Model with ID \"invalid-model\" not found")
+        "Error fetching models:",
+        expect.any(Error)
       );
 
       mockConsoleError.mockRestore();

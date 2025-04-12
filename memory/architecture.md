@@ -1,5 +1,5 @@
 # Architecture Documentation
-Last Updated: 2025-04-09 17:49:43 EDT
+Last Updated: 2025-04-12 04:47:28 EDT
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers
@@ -99,105 +99,27 @@ interface ModelRoute {
    - Integration tests for providers
    - End-to-end evaluation tests
 
-## Directory Structure
-```
-packages/
-├── core/
-│   ├── src/
-│   │   ├── providers/        # Model providers (using Vercel AI SDK wrappers)
-│   │   ├── evaluation/       # Evaluation logic
-│   │   ├── models/          # Model interfaces and types
-│   │   └── utils/           # Shared utilities
-│   └── tests/
-├── cli/                    # Command-line interface
-└── docs/                   # Documentation
-```
-
-## Provider Implementation
-### Key Requirements
-1. MUST use Vercel AI SDK wrappers:
-   - Google: @ai-sdk/google
-   - OpenRouter: @openrouter/ai-sdk-provider
-   - Ollama: ollama-ai-provider
-
-2. Interface Compliance:
-   - Implement LanguageModelV1 from 'ai' package
-   - Proper type definitions
-   - Consistent error handling
-
-3. Model Management:
-   - Dynamic model listing
-   - Proper validation
-   - Cost tracking
-
-### Error Handling
-1. Provider-specific errors
-2. Rate limiting
-3. Token limits
-4. Network issues
-5. Authentication failures
-
-## Configuration
-1. Environment variables for API keys
-2. Model-specific settings
-3. Evaluation parameters
-4. Output formatting
-
-## Testing Strategy
-1. Unit tests
-2. Integration tests
-3. Provider-specific tests
-4. End-to-end evaluation tests
-
-## Documentation
-1. Setup instructions
-2. Provider configuration
-3. Model compatibility
-4. Error handling
-5. Best practices
-
-## Maintenance
-1. Regular dependency updates
-2. Provider wrapper updates
-3. Security patches
-4. Performance optimization
-
-## Security
-1. API key management
-2. Rate limiting
-3. Error logging
-4. Input validation
-
-## Future Considerations
-1. Additional provider support
-2. Enhanced evaluation metrics
-3. Automated testing
-4. Performance optimization
-
-Remember: ALWAYS use Vercel AI SDK wrappers for ALL providers. This is a CRITICAL rule.
-
 ## Directory Layout
 
 ```
 model-eval/
-├── packages/
-│   ├── core/               # Core functionality
-│   │   ├── src/
-│   │   │   ├── models/    # Model interfaces and search
-│   │   │   ├── providers/ # Provider implementations
-│   │   │   └── costs/     # Cost calculation
-│   │   └── tests/         # Core test utilities
-│   └── cli/               # Command-line interface
-│       ├── src/
-│       │   └── commands/  # CLI commands
-│       └── tests/         # CLI-specific tests
-└── memory/                # Project memory files
+├── src/                  # Core source code
+│   ├── models/          # Model interfaces and search
+│   ├── providers/       # Provider implementations
+│   └── costs/           # Cost calculation
+├── tests/               # Test files
+│   ├── unit/           # Unit tests
+│   ├── integration/    # Integration tests
+│   └── utils/          # Test utilities
+├── bin/                 # CLI commands and executables
+├── docs/               # Documentation
+└── memory/             # Project memory files
 ```
 
 ## Implementation Patterns
 
 ### Provider Integration
-1. Each provider has its own file in `core/providers/`
+1. Each provider has its own file in `src/providers/`
 2. Provider-specific logic stays in provider files
 3. Common interface exposed through `index.ts`
 4. URL generation handled by each provider
@@ -252,37 +174,30 @@ model-eval/
 3. Document configuration
 4. Explain design decisions
 
-## Directory Structure
+## Directory Structure Details
 ```
-packages/
-  core/
-    src/
-      costs/           # Cost calculation and tracking
-        costs.ts
-        costs.test.ts
-      models/          # Model definitions and interfaces
-        models.ts
-        models.test.ts
-      providers/       # Provider implementations
-        openrouter.ts
-        openrouter.test.ts
-        ollama.ts
-        ollama.test.ts
-      rate-limit/      # Rate limit handling
-        rate-limit.ts
-        rate-limit.test.ts
-      test-utils/      # Shared test utilities
-        setup.ts
-        mocks.ts
-    package.json
-    tsconfig.json
-    vitest.config.ts
-  cli/                # CLI package
-    src/
-      commands/       # CLI command implementations
-      utils/         # CLI-specific utilities
-    package.json
-    tsconfig.json
+src/
+  costs/           # Cost calculation and tracking
+    costs.ts
+    costs.test.ts
+  models/          # Model definitions and interfaces
+    models.ts
+    models.test.ts
+  providers/       # Provider implementations
+    openrouter.ts
+    openrouter.test.ts
+    ollama.ts
+    ollama.test.ts
+  rate-limit/      # Rate limit handling
+    rate-limit.ts
+    rate-limit.test.ts
+bin/              # CLI executables
+  commands/       # CLI command implementations
+  utils/         # CLI-specific utilities
+tests/
+  utils/         # Shared test utilities
+    setup.ts
+    mocks.ts
 ```
 
 ## Core Components
@@ -359,7 +274,7 @@ packages/
 ### Adding a New Provider
 
 1. Provider Setup
-   - Create new provider file in `packages/core/src/providers/`
+   - Create new provider file in `src/providers/`
    - Implement provider interface:
      ```typescript
      export interface Provider {

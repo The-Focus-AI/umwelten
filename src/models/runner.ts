@@ -138,18 +138,27 @@ export class BaseModelRunner implements ModelRunner {
     });
 
     try {
+      console.log('Streaming messages:')
       const responseStream = await streamText({
         model: model,
         messages: conversation.getMessages(),
-        ...conversation.options
+        ...conversation.options,
+        onFinish: (event) => {
+          console.log('Finish Reason:', event.finishReason);
+        },
+        onError: (error) => {
+          console.error('Error:', error);
+        }
       });
 
       for await (const textPart of responseStream.textStream) {
         process.stdout.write(textPart);
       }
 
+
       const usage = await responseStream.usage;
       const final = await responseStream.text;
+      const finishReason = await responseStream.finishReason;
 
       const costBreakdown = this.calculateCostBreakdown(usage, { modelDetails: conversation.modelDetails });
 

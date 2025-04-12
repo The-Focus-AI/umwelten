@@ -1,4 +1,35 @@
-# Project Progress - Wed Apr 9 17:49:43 EDT 2025
+# Project Progress
+Last Updated: 2025-04-12 04:47:28 EDT
+
+## Current Sprint Status
+
+### Project Structure
+- [X] Initial project setup
+- [X] Basic directory structure
+- [-] Move from monorepo to single package
+  - [X] Update directory structure documentation
+  - [X] Plan migration steps
+  - [ ] Update package.json
+  - [ ] Update import paths
+  - [ ] Update build scripts
+  - [ ] Verify all tests pass
+
+### Core Implementation
+- [X] Provider interface definition
+- [X] Basic model runner
+- [X] Cost calculation
+- [X] Rate limit handling
+- [-] Test infrastructure
+  - [X] Basic test setup
+  - [-] Reorganize tests for new structure
+  - [ ] Add more integration tests
+
+### CLI Implementation
+- [-] Basic command structure
+- [-] Move CLI to bin directory
+- [ ] Interactive mode
+- [ ] Cost estimation display
+- [ ] Progress indicators
 
 ## Overall Progress
 - [X] Define model routing architecture

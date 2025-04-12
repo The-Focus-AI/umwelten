@@ -33,7 +33,11 @@ function formatModelCosts(model: ModelDetails): string {
   if (!model.costs || (model.costs.promptTokens === 0 && model.costs.completionTokens === 0)) {
     return chalk.green('Free');
   }
-  return `${chalk.yellow('Input Cost')}: ${chalk.cyan('$' + (model.costs.promptTokens * 1000000).toFixed(4))}/1M tokens, ${chalk.yellow('Output Cost')}: ${chalk.cyan('$' + (model.costs.completionTokens * 1000000).toFixed(4))}/1M tokens`;
+  
+  const inputCostPerM = model.costs.promptTokens * 1000000;
+  const outputCostPerM = model.costs.completionTokens * 1000000;
+  
+  return `${chalk.yellow('Input Cost')}: ${chalk.cyan('$' + inputCostPerM.toFixed(4))}/1M tokens, ${chalk.yellow('Output Cost')}: ${chalk.cyan('$' + outputCostPerM.toFixed(4))}/1M tokens`;
 }
 
 // Utility function to format model details
@@ -100,14 +104,23 @@ interface CommandOptions {
   json?: boolean;
   view?: ViewMode;
   id?: string;
+  architecture?: string;
 }
 
 function formatCost(model: ModelDetails): string {
   if (model.provider === 'ollama') return chalk.green('Free');
   if (!model.costs) return chalk.green('Free');
   
-  const totalCost = (model.costs.promptTokens + model.costs.completionTokens) * 1000000;
-  return totalCost === 0 ? chalk.green('Free') : chalk.cyan(`$${totalCost.toFixed(3)} per million tokens`);
+  const inputCostPerM = model.costs.promptTokens * 1000000;
+  const outputCostPerM = model.costs.completionTokens * 1000000;
+  
+  if (inputCostPerM === 0 && outputCostPerM === 0) return chalk.green('Free');
+  
+  const parts = [];
+  if (inputCostPerM > 0) parts.push(`Input: $${inputCostPerM.toFixed(4)}/1M`);
+  if (outputCostPerM > 0) parts.push(`Output: $${outputCostPerM.toFixed(4)}/1M`);
+  
+  return chalk.cyan(parts.join(', '));
 }
 
 function displayModelInfo(model: ModelDetails) {
@@ -162,6 +175,7 @@ export const modelsCommand = new Command('models')
   .option('--json', 'Output in JSON format')
   .option('--view <mode>', 'Display mode: list (default), info, costs')
   .option('--id <model-id>', 'Model ID for detailed view')
+  .option('--architecture <type>', 'Filter by architecture type (e.g., text->text)')
   .action(async (options: CommandOptions) => {
     try {
       // Handle EPIPE errors (e.g., when piping to head)
@@ -185,6 +199,11 @@ export const modelsCommand = new Command('models')
         models = models.filter(m => m.provider === options.provider);
       }
 
+      // Filter by architecture if specified
+      if (options.architecture) {
+        models = models.filter(m => m.details?.architecture === options.architecture);
+      }
+
       // Filter free models if requested
       if (options.free) {
         models = models.filter(m => {
@@ -199,60 +218,62 @@ export const modelsCommand = new Command('models')
         models = await searchModels(options.search, models);
       }
 
-      // Handle model info view
-      if (options.view === 'info' && options.id) {
-        const model = models.find(m => m.name === options.id);
-        if (!model) {
-          console.error(`Error: Model with ID "${options.id}" not found`);
-          process.exit(1);
-        }
-        displayModelInfo(model);
-        return;
-      }
-
       // Sort models
       if (options.sort) {
-        models = [...models].sort((a, b) => {
+        models.sort((a, b) => {
           switch (options.sort) {
             case 'name':
-              return options.desc ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name);
+              return (a.name || '').localeCompare(b.name || '');
             case 'addedDate':
-              const dateA = a.addedDate?.getTime() || 0;
-              const dateB = b.addedDate?.getTime() || 0;
-              return options.desc ? dateB - dateA : dateA - dateB;
+              return (a.addedDate?.getTime() || 0) - (b.addedDate?.getTime() || 0);
             case 'contextLength':
-              const lenA = a.contextLength || 0;
-              const lenB = b.contextLength || 0;
-              return options.desc ? lenB - lenA : lenA - lenB;
+              return (a.contextLength || 0) - (b.contextLength || 0);
             case 'cost':
-              const costA = a.costs ? (a.costs.promptTokens + a.costs.completionTokens) : 0;
-              const costB = b.costs ? (b.costs.promptTokens + b.costs.completionTokens) : 0;
-              return options.desc ? costB - costA : costA - costB;
+              const aCost = a.costs ? a.costs.promptTokens + a.costs.completionTokens : 0;
+              const bCost = b.costs ? b.costs.promptTokens + b.costs.completionTokens : 0;
+              return aCost - bCost;
             default:
               return 0;
           }
         });
+
+        // Reverse if descending order requested
+        if (options.desc) {
+          models.reverse();
+        }
       }
 
-      // Output results
-      if (options.json) {
+      // Handle different view modes
+      if (options.view === 'info') {
+        const model = models.find(m => m.name === options.id);
+        if (!model) {
+          console.error(`Model with ID "${options.id}" not found`);
+          process.exit(1);
+        }
+        displayModelInfo(model);
+      } else if (options.json) {
         console.log(JSON.stringify(models, null, 2));
       } else {
-        // Display table format
+        // Default table view
         console.log(`\nFound ${models.length} models\n`);
         const table = new Table({
           head: ['ID', 'Provider', 'Context', 'Input Cost/1M', 'Output Cost/1M', 'Added'],
-          style: { head: ['blue'] }
+          style: {
+            head: [],
+            border: []
+          }
         });
 
         models.forEach(model => {
+          const inputCost = model.costs?.promptTokens ?? 0;
+          const outputCost = model.costs?.completionTokens ?? 0;
           table.push([
             model.name,
             model.provider,
             formatContextLength(model.contextLength),
-            model.costs ? `$${(model.costs.promptTokens * 1000000).toFixed(4)}` : '$0.0000',
-            model.costs ? `$${(model.costs.completionTokens * 1000000).toFixed(4)}` : '$0.0000',
-            model.addedDate ? formatDate(model.addedDate) : 'Unknown'
+            inputCost === 0 ? 'Free' : `$${(inputCost * 1000000).toFixed(4)}`,
+            outputCost === 0 ? 'Free' : `$${(outputCost * 1000000).toFixed(4)}`,
+            formatDate(model.addedDate)
           ]);
         });
 
@@ -333,8 +354,8 @@ modelsCommand
       // Calculate total cost for 1K tokens (both prompt and completion)
       const modelsWithTotalCost = paidModels.map(model => ({
         ...model,
-        totalCostPer1K: model.costs ? 
-          (model.costs.promptTokens + model.costs.completionTokens) : 0
+        totalCostPer1M: model.costs ? 
+          (model.costs.promptTokens + model.costs.completionTokens) * 1000000 : 0
       }));
 
       // Sort models
@@ -342,15 +363,15 @@ modelsCommand
         if (!a.costs || !b.costs) return 0;
         switch (options.sortBy) {
           case 'prompt':
-            return a.costs.promptTokens - b.costs.promptTokens;
+            return (a.costs.promptTokens * 1000000) - (b.costs.promptTokens * 1000000);
           case 'completion':
-            return a.costs.completionTokens - b.costs.completionTokens;
+            return (a.costs.completionTokens * 1000000) - (b.costs.completionTokens * 1000000);
           default:
-            return a.totalCostPer1K - b.totalCostPer1K;
+            return a.totalCostPer1M - b.totalCostPer1M;
         }
       });
 
-      printHeader('Model Costs (per 1K tokens)');
+      printHeader('Model Costs (per 1M tokens)');
       console.log(
         chalk.bold(chalk.cyan('Model'.padEnd(40))),
         chalk.bold(chalk.yellow('Prompt'.padEnd(15))),
@@ -361,11 +382,13 @@ modelsCommand
 
       modelsWithTotalCost.forEach(model => {
         if (!model.costs) return;
+        const inputCost = model.costs.promptTokens * 1000000;
+        const outputCost = model.costs.completionTokens * 1000000;
         console.log(
           chalk.cyan(model.name.padEnd(40)),
-          `$${model.costs.promptTokens.toFixed(4)}`.padEnd(15),
-          `$${model.costs.completionTokens.toFixed(4)}`.padEnd(15),
-          chalk.bold(`$${model.totalCostPer1K.toFixed(4)}`)
+          inputCost === 0 ? 'Free'.padEnd(15) : `$${inputCost.toFixed(4)}`.padEnd(15),
+          outputCost === 0 ? 'Free'.padEnd(15) : `$${outputCost.toFixed(4)}`.padEnd(15),
+          model.totalCostPer1M === 0 ? chalk.green('Free') : chalk.bold(`$${model.totalCostPer1M.toFixed(4)}`)
         );
       });
     } catch (error) {

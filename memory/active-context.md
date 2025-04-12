@@ -1,4 +1,34 @@
 # Active Context
+Last Updated: 2025-04-12 04:47:28 EDT
+
+## Current Focus
+Moving away from monorepo structure to a simpler, single-package architecture.
+
+## What's Being Worked On
+- Restructuring project directory layout
+- Updating documentation to reflect new structure
+- Ensuring all file references are updated
+
+## Current Structure Changes
+- Moving from packages-based structure to direct src/tests/bin layout
+- Consolidating core and CLI into single package
+- Simplifying test organization
+- Maintaining memory files as documentation
+
+## Next Steps
+1. Update package.json and dependencies
+2. Verify all import paths in code
+3. Update build and test scripts
+4. Review and update documentation
+
+## Blockers
+None currently identified.
+
+## Recent Decisions
+1. Move away from monorepo structure for simpler maintenance
+2. Keep core functionality and CLI in same package
+3. Maintain separate test directories for better organization
+4. Keep memory files for project documentation
 
 ## Current Date: Fri Apr 11 16:20:51 EDT 2025
 

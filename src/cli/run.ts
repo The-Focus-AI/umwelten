@@ -1,6 +1,6 @@
-import { Command } from 'commander';
-import { getModel } from '@model-eval/core/src/providers/index.js';
-import { ModelDetails } from '@model-eval/core/src/models/types.js';
+import { Command } from 'commander';  
+import { getModel } from '../providers/index.js';
+import { ModelDetails } from '../models/types.js';
 import { generateText } from 'ai';
 
 export const runCommand = new Command('run')

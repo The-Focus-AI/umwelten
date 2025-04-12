@@ -55,9 +55,7 @@ export class OpenRouterProvider extends BaseProvider {
     this.validateConfig();
     
     // Format the model ID for OpenRouter
-    const modelId = route.variant 
-      ? `${route.provider}/${route.name}:${route.variant}` 
-      : `${route.provider}/${route.name}`;
+    const modelId = route.name;
 
     // The openrouter function from the SDK automatically uses OPENROUTER_API_KEY from env
     return openrouter(modelId);
