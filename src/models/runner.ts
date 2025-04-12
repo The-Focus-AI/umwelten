@@ -56,6 +56,9 @@ export class BaseModelRunner implements ModelRunner {
     if (!validatedModel) {
       throw new Error(`Invalid model details: ${JSON.stringify(params.modelDetails)}`);
     }
+    if(params.modelDetails.numCtx) {
+      validatedModel.numCtx = params.modelDetails.numCtx;
+    }
     params.modelDetails = validatedModel;
 
     this.logModelDetails(modelIdString, params);

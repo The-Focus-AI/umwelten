@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import fs from 'fs';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+
+
 const pricingPage = 'https://ai.google.dev/gemini-api/docs/pricing';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,17 +53,16 @@ async function getModelResponse() {
 
   const html = await getGooglePricingFile();
 
-  const model:ModelDetails = {
-    name: 'gemma3:12b',
-    provider: 'ollama',
-    numCtx: 131072,
-  };
-
   // const model:ModelDetails = {
-  //   // name: 'gemma-3-27b-it',
-  //   name:'google/gemma-3-12b-it',
-  //   provider: 'openrouter',
+  //   name: 'gemma3:12b',
+  //   provider: 'ollama',
   // };
+
+  const model:ModelDetails = {
+    // name: 'gemma-3-27b-it',
+    name:'google/gemma-3-12b-it',
+    provider: 'openrouter',
+  };
 
   const prompt = `You are a a software agent that looks at html to find model pricing and you return json`
 
