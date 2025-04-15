@@ -195,6 +195,11 @@ export class BaseModelRunner implements ModelRunner {
       messages: conversation.getMessages(),
       ...conversation.options,
       schema: schema,
+      experimental_repairText: async (options: {  text: string, error: any}) => {
+        console.log("Repairing text:", options.text);
+        console.log("Options:", options);
+        return options.text.replace(/^```json\n/, '').replace(/\n```$/, '');
+      }
     });
 
     return this.makeResult({

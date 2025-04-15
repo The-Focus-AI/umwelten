@@ -8,6 +8,7 @@ import { z } from "zod";
 
 export class Conversation {
   private messages: CoreMessage[] = [];
+  public userId: string = "default";
   public modelDetails: ModelDetails;
   public prompt: string;
   public options?: ModelOptions;
