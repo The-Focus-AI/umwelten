@@ -1,11 +1,12 @@
 import { BaseModelRunner } from '../src/models/runner.js';
-import { ModelDetails } from '../src/models/types.js';
+import { ModelDetails, ModelResponse } from '../src/models/types.js';
 import { Conversation } from '../src/conversation/conversation.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import fs from 'fs';
+import { EvaluationRunner } from '../src/evaluation/runner.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const testDataDir = path.resolve(__dirname, '../examples/audio');
@@ -22,44 +23,66 @@ export const TranscriptionSchema = z.object({
 
       guest_interview: z.boolean().describe("Indicates if this segment is part of a guest interview"),
 
-      topics: z.array(z.string().min(1)).min(1).describe("List of topics or themes discussed in this segment"),
+      topics: z.array(z.string()).describe("List of topics or themes discussed in this segment"),
 
       spoken_text: z.string().min(1).describe("The actual transcribed text of what was spoken in this segment"),
     }).describe("A segment of transcribed audio with metadata")
   ),
 });
 
-async function transcribeAudio(inputFile: string, outputFile: string) {
-  const model:ModelDetails = {
-    name: 'gemini-2.0-flash',
-    provider: 'google',
-  };
-  // const model:ModelDetails = {
-  //   name: 'openrouter/optimus-alpha',
-  //   provider: 'openrouter',
-  // };
+async function transcribeAudio(audioPath: string, model: ModelDetails): Promise<ModelResponse> {
 
   const prompt = `You are a transcription agent that transcribes audio. You will be given a file and you will need to transcribe the audio.`;
 
   const conversation = new Conversation(model, prompt);
 
-  conversation.addAttachmentFromPath(path.join(testDataDir, inputFile));
+  conversation.addAttachmentFromPath(audioPath);
 
   conversation.addMessage({
     role: 'user',
-    content: `Please transcribe the audio file ${inputFile}.`
+    content: `Please transcribe the audio file ${audioPath}.`
   });
-
-  // conversation.setOutputFormat(TranscriptionSchema);
 
   const modelRunner = new BaseModelRunner();
 
   const response = await modelRunner.streamObject(conversation, TranscriptionSchema);
 
-  console.log('Response:', JSON.stringify(response, null, 2));
-
-  fs.writeFileSync(path.join(outputDir, outputFile), JSON.stringify(response, null, 2));
+  return response;
 }
 
-// await transcribeAudio('heavyweight_small.mp3', 'heavyweight_small.json');
-await transcribeAudio('smaller.mp3', 'smaller.json');
+class Transcriber extends EvaluationRunner {
+  private inputFile: string;
+
+  constructor(evaluationId: string, inputFile: string) {
+    super(evaluationId);
+    this.inputFile = path.resolve(this.getTestDataDir(), inputFile);
+  }
+  async getModelResponse(details: ModelDetails): Promise<ModelResponse> {
+    return await transcribeAudio(this.inputFile, details);
+  }
+}
+
+let runner: Transcriber;
+/*
+runner = new Transcriber('long-podcast', 'smaller.mp3');
+
+runner.evaluate({
+  name: 'gemini-2.0-flash',
+  provider: 'google',
+});
+
+runner.evaluate({
+  name: 'openrouter/optimus-alpha',
+  provider: 'openrouter',
+});
+*/
+runner = new Transcriber('transcribe/heavyweight', 'heavyweight_small.mp3');
+runner.evaluate({
+  name: 'gemini-2.0-flash',
+  provider: 'google',
+});
+
+runner.evaluate({
+  name: 'gemini-2.5-pro-exp-03-25',
+  provider: 'google',
+});

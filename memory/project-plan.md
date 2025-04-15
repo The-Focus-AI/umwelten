@@ -1,6 +1,6 @@
 # Project Plan
 
-Last Updated: 2025-04-09 17:49 EDT
+Last Updated: Tue Apr 15 11:54:52 EDT 2025
 
 ## Phase 1: Core Model Runner ✅
 **Status**: Complete
@@ -32,37 +32,53 @@ Last Updated: 2025-04-09 17:49 EDT
 - [X] Cost display and formatting
 - [X] Error handling for user input
 
-## Phase 3: UI/UX Improvements ✅
-**Status**: Complete
-
-### Objectives
-- Enhance display formatting
-- Add color coding
-- Improve error messages
-- Add clickable links
-
-### Validation Criteria
-- [X] Table formatting with proper alignment
-- [X] Color coding for better readability
-- [X] Clickable model URLs
-- [X] Human-readable number formatting
-- [X] EPIPE error handling
-
-## Phase 4: Testing and Documentation ⏳
+## Phase 3: Evaluation Framework Simplification ⏳
 **Status**: In Progress
 
 ### Objectives
-- Implement comprehensive test suite
+- Simplify evaluation framework
+- Create straightforward test runner
+- Implement clear results storage
+- Update CLI integration
+
+### Validation Criteria
+- [X] Define new interfaces (ModelTest, TestResult)
+- [-] Implement ModelEvaluation class
+- [ ] Set up results storage system
+- [ ] Update CLI evaluate command
+- [ ] Convert existing tests
+
+### Implementation Steps
+1. Core Framework
+   - [X] Define interfaces
+   - [-] Create ModelEvaluation class
+   - [ ] Implement test running logic
+   - [ ] Set up results storage
+
+2. CLI Integration
+   - [ ] Update evaluate command
+   - [ ] Add test management
+   - [ ] Improve results display
+
+3. Test Migration
+   - [ ] Convert determine-operations test
+   - [ ] Add new test examples
+   - [ ] Update documentation
+
+## Phase 4: Testing and Documentation 🔄
+**Status**: Planned
+
+### Objectives
+- Add comprehensive test coverage
 - Create clear documentation
 - Add usage examples
 
 ### Validation Criteria
-- [-] Unit tests for core functionality
-- [-] Integration tests for providers
-- [-] CLI command testing
-- [-] Error handling tests
-- [X] README with examples
-- [X] Environment variable documentation
+- [ ] Unit tests for ModelEvaluation
+- [ ] Integration tests for test running
+- [ ] CLI command testing
+- [ ] Updated README with examples
+- [ ] Test writing guide
 
 ## Phase 5: Advanced Features 🔄
 **Status**: Planning
@@ -96,18 +112,18 @@ Last Updated: 2025-04-09 17:49 EDT
 ## Risk Assessment
 
 ### Technical Risks
-1. Provider API changes
-2. Rate limit handling
-3. Token calculation accuracy
+1. Test result storage consistency
+2. Performance measurement accuracy
+3. Cost calculation precision
 
 ### Mitigation Strategies
-1. Use provider SDKs directly
-2. Implement robust error handling
-3. Add comprehensive test coverage
+1. Use standardized file formats
+2. Implement precise timing
+3. Verify cost calculations
 
 ## Success Metrics
 1. All tests passing
 2. Clear, readable output
-3. Proper error handling
-4. User-friendly interface
-5. Comprehensive documentation 
+3. Accurate performance metrics
+4. Consistent cost tracking
+5. Easy test creation process 

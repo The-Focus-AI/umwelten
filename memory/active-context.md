@@ -1,5 +1,71 @@
 # Active Context
-Last Updated: April 12, 2025 13:01 EDT
+Last Updated: Tue Apr 15 11:54:52 EDT 2025
+
+## Current Focus
+Simplifying the evaluation framework to focus on model testing and comparison.
+
+## Current Status
+- [-] Replacing complex evaluation framework with simpler ModelEvaluation approach
+- [-] Updating test infrastructure for better usability
+- [-] Streamlining result storage and analysis
+
+## What's Being Worked On
+1. Simplifying evaluation framework
+   - Removing complex configuration system
+   - Implementing straightforward test runner
+   - Adding clear results storage
+
+2. Test Infrastructure Updates
+   - Creating ModelTest interface
+   - Implementing ModelEvaluation class
+   - Setting up results directory structure
+
+3. CLI Updates
+   - Simplifying evaluate command
+   - Adding test running capabilities
+   - Improving results display
+
+## Next Steps
+1. Implement new ModelEvaluation class
+2. Update CLI evaluate command
+3. Set up results storage structure
+4. Convert existing tests to new format
+
+## Blockers
+None currently identified.
+
+## Recent Decisions
+1. Simplify evaluation framework to focus on model testing
+2. Store test results in organized directory structure
+3. Focus on cost and performance metrics
+4. Make test creation and running more straightforward
+
+## Implementation Plan
+1. File Updates:
+   - Replace runner.ts with new ModelEvaluation class
+   - Update CLI evaluate command
+   - Remove unnecessary config files
+
+2. Directory Structure:
+```
+output/
+  evaluations/
+    test-name-YYYY-MM-DD-HH-mm-ss/
+      results.json      # Test results and metrics
+```
+
+3. Key Features:
+   - Simple test definition
+   - Multiple model support
+   - Cost tracking
+   - Performance metrics
+   - Clear results storage
+
+## Testing Guidelines
+1. Each test should be self-contained
+2. Results should be easily comparable
+3. Costs should be clearly tracked
+4. Performance metrics should be consistent
 
 ## Current Focus
 Improving cost display formatting in the CLI to ensure consistency and clarity.

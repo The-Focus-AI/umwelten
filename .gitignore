@@ -50,5 +50,4 @@ runs/*
 .tmp/
 temp/ 
 output/
-examples/audio/
-examples/videos/
+input/

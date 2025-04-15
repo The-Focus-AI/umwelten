@@ -1219,3 +1219,49 @@ Fixed cost formatting across the CLI to consistently display costs per million t
 - Used consistent formatting with 4 decimal places
 - Show "Free" instead of "$0.0000" for zero-cost models
 - Added "/1M" or "/1M tokens" suffix to clarify the unit
+
+## Tue Apr 15 11:54:52 EDT 2025 - Evaluation Framework Simplification
+
+### Summary
+Started simplifying the evaluation framework to focus on model testing and comparison, removing unnecessary complexity and improving usability.
+
+### Accomplishments
+1. Defined new interfaces for model testing:
+   - ModelTest interface for test definition
+   - TestResult types for storing results
+   - TestRunSummary for overall test runs
+2. Updated project memory files with new plan
+3. Planned implementation of ModelEvaluation class
+4. Designed simplified results storage structure
+
+### Decisions Made
+1. Remove complex configuration-based evaluation system
+2. Focus on simple, direct test definitions
+3. Store results in organized directory structure
+4. Track costs and performance metrics consistently
+
+### Technical Details
+- New directory structure for test results:
+  ```
+  output/
+    evaluations/
+      test-name-YYYY-MM-DD-HH-mm-ss/
+        results.json
+  ```
+- Simplified test interface focusing on:
+  - Test definition
+  - Model execution
+  - Result validation
+  - Performance tracking
+
+### Next Actions
+1. Implement ModelEvaluation class
+2. Update CLI evaluate command
+3. Set up results storage structure
+4. Convert existing tests to new format
+
+### Notes
+- Simplification will make test creation and running more straightforward
+- Focus on practical metrics: cost, performance, accuracy
+- Results storage designed for easy analysis
+- Clear separation between test definition and execution

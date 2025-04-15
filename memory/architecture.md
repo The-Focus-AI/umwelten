@@ -1,5 +1,5 @@
 # Architecture Documentation
-Last Updated: 2025-04-12 04:47:28 EDT
+Last Updated: 2025-04-15 10:57:06 EDT
 
 ## CRITICAL IMPLEMENTATION RULES
 1. ALWAYS use Vercel AI SDK wrappers for ALL providers
@@ -104,16 +104,19 @@ interface ModelRoute {
 ```
 model-eval/
 ├── src/                  # Core source code
-│   ├── models/          # Model interfaces and search
+│   ├── models/          # Model interfaces, runners (Base, Smart)
 │   ├── providers/       # Provider implementations
-│   └── costs/           # Cost calculation
-├── tests/               # Test files
-│   ├── unit/           # Unit tests
-│   ├── integration/    # Integration tests
-│   └── utils/          # Test utilities
-├── bin/                 # CLI commands and executables
-├── docs/               # Documentation
-└── memory/             # Project memory files
+│   ├── costs/           # Cost calculation
+│   ├── memory/          # Memory store, hooks, MemoryRunner
+│   ├── cli/             # CLI command implementations
+│   ├── conversation/    # Conversation management
+│   ├── rate-limit/      # Rate limit handling
+│   └── test-utils/      # Shared test utilities
+├── examples/            # Example usage and data
+├── memory/              # Project memory files (docs, plans)
+├── output/              # Generated output files
+├── scripts/             # Utility scripts
+└── tests/               # (Deprecated, tests are colocated)
 ```
 
 ## Implementation Patterns
@@ -177,36 +180,50 @@ model-eval/
 ## Directory Structure Details
 ```
 src/
+  cli/             # CLI command implementations
+    cli.ts
+    chat.ts
+    ...
+  conversation/    # Conversation management
+    conversation.ts
   costs/           # Cost calculation and tracking
     costs.ts
     costs.test.ts
-  models/          # Model definitions and interfaces
+  memory/          # Memory system components
+    memory_store.ts
+    memory_runner.ts
+    extract_facts.ts
+    determine_operations.ts
+    types.ts
+    *.test.ts
+  models/          # Model interfaces and runners
+    types.ts
+    runner.ts        # BaseModelRunner
+    smart_runner.ts  # SmartModelRunner (hookable)
     models.ts
-    models.test.ts
+    *.test.ts
   providers/       # Provider implementations
-    openrouter.ts
-    openrouter.test.ts
+    index.ts
+    base.ts
+    google.ts
     ollama.ts
-    ollama.test.ts
+    openrouter.ts
+    *.test.ts
   rate-limit/      # Rate limit handling
     rate-limit.ts
     rate-limit.test.ts
-bin/              # CLI executables
-  commands/       # CLI command implementations
-  utils/         # CLI-specific utilities
-tests/
-  utils/         # Shared test utilities
+  test-utils/      # Shared test utilities
     setup.ts
-    mocks.ts
 ```
 
 ## Core Components
 
 ### Model Runner
-- Unified interface for model interactions
-- Provider-specific implementations (OpenRouter, Ollama)
-- Streaming support (planned)
-- Function calling capabilities (planned)
+- `BaseModelRunner`: Core logic for interacting with models via Vercel AI SDK.
+- `SmartModelRunner`: Extends `BaseModelRunner` to add hook support (before, during, after).
+- `MemoryRunner`: Extends `SmartModelRunner`, configured with memory extraction and update hooks.
+- Unified `ModelRunner` interface.
+- Streaming and object generation support via Vercel AI SDK.
 
 ### Cost Management
 - Pre-execution cost estimation
@@ -231,43 +248,16 @@ tests/
   - Error handling scenarios
   - Performance metrics
 
-### CLI Interface
-- Command-line interface for model evaluation
-- Direct integration with core package
-- Command Structure:
-  1. Basic Model Interaction
-     - `run`: Single prompt execution
-     - `chat`: Interactive chat sessions
-     - Support for streaming, temperature control
-     - Cost estimation and display
-
-  2. Model Management
-     - `models list`: Available models
-     - `models info`: Detailed capabilities
-     - `models costs`: Cost information
-     - Provider-specific features
-
-  3. Evaluation Tools
-     - `eval run`: Run evaluation suites
-     - `eval compare`: Compare models
-     - `eval stats`: View statistics
-     - Integration with storage
-
-  4. Configuration
-     - `config set/get/list`: Manage settings
-     - Environment variable handling
-     - Provider configuration
-     - Default preferences
-
-- Implementation Details:
-  - TypeScript-based implementation
-  - No build step required
-  - Direct execution of .ts files
-  - Commander.js for command parsing
-  - Consistent error handling
-  - Clear user feedback
-  - Progress indicators
-  - Cost tracking integration
+### CLI Interface (`src/cli/`)
+- Command-line interface for model interaction and evaluation.
+- Uses `commander.js`.
+- `run`: Single prompt execution.
+- `chat`: Interactive chat sessions with optional file attachments and memory.
+  - `--memory`: Enables `MemoryRunner` with fact extraction and memory updates.
+  - Commands: `/?` (help), `/reset` (clear history), `/mem` (show memory), `/history` (show messages).
+- `models`: List, inspect models.
+- `eval`: Run evaluations (planned).
+- Clear user feedback and error handling.
 
 ## Provider Integration Guide
 
@@ -449,23 +439,25 @@ tests/
 ## Current Implementation Status
 
 ### Completed Features
-- Core model runner
-- Basic provider implementations
-- Cost calculation and tracking
-- Rate limit handling
-- Test infrastructure
+- Core model runner (`BaseModelRunner`)
+- Hookable runner (`SmartModelRunner`)
+- Memory-augmented runner (`MemoryRunner`) with fact extraction and update hooks.
+- In-memory store (`InMemoryMemoryStore`).
+- Provider implementations (Google, Ollama, OpenRouter) via Vercel AI SDK.
+- Cost calculation and tracking.
+- Rate limit handling.
+- Test infrastructure (Vitest).
+- CLI with `run` and `chat` commands (including memory support and chat commands).
 
 ### In Progress
-- Streaming support
-- Function calling
-- Advanced error handling
-- Performance testing
+- Refinement of memory prompts and logic.
+- More robust error handling in specialists.
 
 ### Planned Features
-- CLI implementation
-- System message support
-- Budget management
-- Usage optimization
+- Persistent memory storage options (e.g., file-based, database).
+- Evaluation framework (`eval` command).
+- More sophisticated memory retrieval/context injection.
+- Budget management.
 
 ## Testing Organization
 1. Test Colocation

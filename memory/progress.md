@@ -1,18 +1,18 @@
 # Project Progress
-Last Updated: April 12, 2025 13:01 EDT
+Last Updated: Tue Apr 15 11:54:52 EDT 2025
 
 ## Current Sprint Status
 
 ### Project Structure
 - [X] Initial project setup
 - [X] Basic directory structure
-- [-] Move from monorepo to single package
+- [X] Move from monorepo to single package
   - [X] Update directory structure documentation
   - [X] Plan migration steps
-  - [ ] Update package.json
-  - [ ] Update import paths
-  - [ ] Update build scripts
-  - [ ] Verify all tests pass
+  - [X] Update package.json
+  - [X] Update import paths
+  - [X] Update build scripts
+  - [X] Verify all tests pass
 
 ### Core Implementation
 - [X] Provider interface definition
@@ -21,20 +21,24 @@ Last Updated: April 12, 2025 13:01 EDT
 - [X] Rate limit handling
 - [-] Test infrastructure
   - [X] Basic test setup
-  - [-] Reorganize tests for new structure
-  - [ ] Add more integration tests
+  - [-] Implementing new ModelEvaluation framework
+  - [ ] Convert existing tests to new format
+
+### Evaluation Framework
+- [-] Framework Simplification
+  - [X] Define new interfaces (ModelTest, TestResult)
+  - [-] Implement ModelEvaluation class
+  - [ ] Set up results storage
+  - [ ] Update CLI integration
 
 ### CLI Implementation
 - [X] Basic model listing
 - [X] Model filtering and search
 - [X] Cost display formatting
-  - [X] Consistent per-million-token display
-  - [X] Clear unit indicators
-  - [X] Proper handling of free models
-- [-] Advanced model information display
-- [-] Interactive model selection
-- [ ] Streaming support
-- [ ] Function calling support
+- [-] Evaluation commands
+  - [-] Simplify evaluate command
+  - [ ] Add test running support
+  - [ ] Improve results display
 
 ## Overall Progress
 - [X] Define model routing architecture
@@ -43,46 +47,37 @@ Last Updated: April 12, 2025 13:01 EDT
 - [X] Update provider implementations
 - [X] Update CLI display
 - [X] Refactor model execution to use Vercel AI SDK
-- [-] Update provider implementations for new interface
-- [ ] Add comprehensive test coverage
-- [ ] Update documentation
+- [-] Simplify evaluation framework
+- [ ] Convert existing tests to new format
 
-## Current Phase: Provider Updates and Testing
-### Phase 1: Core Model Routing (Completed)
-- [X] Create ModelRoute interface and utilities
-- [X] Update Configuration Schema
-- [X] Update Provider Implementation
-- [X] CLI Updates
+## Current Phase: Evaluation Framework Simplification
+### Phase 1: Interface Definition (Completed)
+- [X] Define ModelTest interface
+- [X] Define TestResult types
+- [X] Update type system
 
-### Phase 2: Model Execution Refactoring (Current)
-- [X] Remove execute from ModelProvider interface
-- [X] Update ModelRunner to use generateText
-- [X] Fix response handling
-- [X] Add proper token usage calculation
-- [X] Improve provider identification
-- [X] Update Google provider implementation
-- [-] Update OpenRouter provider implementation
-- [-] Update Ollama provider implementation
+### Phase 2: Implementation (Current)
+- [-] Create ModelEvaluation class
+- [-] Set up results storage
+- [ ] Implement test running
+- [ ] Add results analysis
 
-### Phase 3: Testing and Documentation (Planned)
-- [ ] Add ModelRunner tests
-- [-] Add Provider interface tests
-- [ ] Add Integration tests
-- [ ] Update provider implementation guide
-- [ ] Document new execution flow
-- [ ] Add examples for new pattern
+### Phase 3: CLI Integration (Planned)
+- [ ] Update evaluate command
+- [ ] Add test management
+- [ ] Improve results display
 
 ## Recent Milestones
-1. Successfully refactored model execution architecture
-2. Implemented standardized response handling
-3. Improved error handling and retries
-4. Enhanced token usage calculation
+1. Successfully simplified evaluation framework design
+2. Defined clear interfaces for tests and results
+3. Planned straightforward results storage
+4. Designed simple test running approach
 
 ## Next Milestones
-1. Complete provider implementation updates
-2. Add comprehensive test coverage
-3. Update documentation with new patterns
-4. Verify all providers work with new execution flow
+1. Complete ModelEvaluation implementation
+2. Set up results storage structure
+3. Update CLI for new framework
+4. Convert existing tests
 
 # Progress Report
 Last Updated: Wed Apr 9 2025

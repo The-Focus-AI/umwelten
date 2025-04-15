@@ -2,13 +2,17 @@
 
 ## Overview
 
-This command-line tool allows you to evaluate and compare AI models across different providers, focusing on usability, cost transparency, and comprehensive model information. It is designed for developers, teams managing model costs, researchers, and CLI automation users.
+This command-line tool allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
 
 ## Core Features
 
-- **Model Discovery**: Search and filter models, view detailed information, and compare capabilities.
-- **Cost Management**: Display clear cost information, identify free models, and show cost breakdowns.
-- **User Experience**: Beautiful, color-coded output, human-readable formatting, and pipe-friendly operation.
+- **Model Interaction**: Run single prompts (`run`) or engage in interactive chat sessions (`chat`).
+- **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
+- **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
+- **Provider Support**: Integrates with Google, Ollama, and OpenRouter via the Vercel AI SDK.
+- **Cost Tracking**: Calculates and displays estimated costs based on token usage.
+- **Rate Limiting**: Basic rate limit handling with backoff.
+- **Extensible Runner**: `SmartModelRunner` allows adding custom logic via hooks (before, during, after).
 
 ## Getting Started
 
@@ -40,51 +44,35 @@ This command-line tool allows you to evaluate and compare AI models across diffe
 
 ### Usage
 
-#### Running a Model Evaluation
+#### Running a Single Prompt
 
-To run a model evaluation, use the `run` command. Here's an example using the `frankenstein-eval.json`:
+Use the `run` command:
 
 ```bash
-pnpm cli run --prompt "What are the key themes and moral implications in Mary Shelley's Frankenstein regarding the relationship between creator and creation?" --model gpt-4-turbo-preview --format json
+pnpm cli run --provider ollama --model gemma3:latest --prompt "Explain the concept of quantum entanglement."
 ```
 
-This command will:
+#### Interactive Chat
 
-- Use the `gpt-4-turbo-preview` model to analyze the prompt.
-- Output the results in JSON format.
-- Log details such as response speed, quality, and cost.
+Use the `chat` command:
 
-#### Example: Frankenstein Analysis
+```bash
+# Standard chat
+pnpm cli chat --provider ollama --model gemma3:latest
 
-The `frankenstein-eval.json` provides a structured evaluation setup:
+# Chat with memory enabled
+pnpm cli chat --provider ollama --model gemma3:latest --memory
 
-```json
-{
-  "prompt": {
-    "title": "Frankenstein Analysis",
-    "question": "What are the key themes and moral implications in Mary Shelley's Frankenstein regarding the relationship between creator and creation?",
-    "context": "Consider the dynamic between Victor Frankenstein and his creation, focusing on themes of responsibility, ambition, and the consequences of scientific advancement without ethical consideration.",
-    "parameters": {
-      "max_tokens": 1000,
-      "temperature": 0.7,
-      "top_p": 0.95
-    }
-  },
-  "rubric": {
-    "evaluation_prompt": "Evaluate the response based on the following criteria, considering depth of analysis, textual evidence, and clarity of reasoning.",
-    "scoring_criteria": {
-      "thematic_analysis": {
-        "description": "Understanding and analysis of key themes",
-        "points": 10
-      },
-      "moral_implications": {
-        "description": "Analysis of moral and ethical implications",
-        "points": 10
-      }
-    }
-  }
-}
+# Chat with a file attachment
+pnpm cli chat --provider google --model gemini-1.5-flash-latest --file ./examples/test_data/internet_archive_fffound.png
 ```
+
+Inside the chat session, you can use commands:
+- `/?`: Show help.
+- `/reset`: Clear conversation history.
+- `/mem`: Show memory facts (requires `--memory`).
+- `/history`: Show message history.
+- `exit` or `quit`: End the session.
 
 ### Advanced Features
 
@@ -97,22 +85,21 @@ The `frankenstein-eval.json` provides a structured evaluation setup:
 ### Directory Structure
 
 ```
-model-eval/
-├── apps/
-│   ├── cli/              # Command-line interface
-│   └── dashboard/        # Local web UI
-├── packages/
-│   ├── core/             # Shared logic
-│   ├── store/            # Data storage
-│   └── metrics/          # Scoring and validation
-├── runs/
-│   ├── run_001/
-│   │   ├── prompt.json
-│   │   ├── outputs.json
-│   │   ├── metadata.json
-│   │   └── index.html
-└── .env
+src/
+  cli/             # CLI command implementations
+  conversation/    # Conversation management
+  costs/           # Cost calculation
+  memory/          # Memory system (store, runner, hooks)
+  models/          # Model interfaces and runners (Base, Smart)
+  providers/       # Provider implementations
+  rate-limit/      # Rate limit handling
+  test-utils/      # Shared test utilities
+memory/            # Project planning/documentation files
+examples/          # Example usage files
+output/            # Generated output
+scripts/           # Utility scripts
 ```
+(Tests are colocated with source files, e.g., `*.test.ts`)
 
 ### Testing
 

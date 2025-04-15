@@ -1,15 +1,17 @@
 # Model Evaluation CLI
 
-A command-line interface for interacting with and evaluating various AI models across different providers.
+A command-line interface for interacting with and evaluating various AI models across different providers (Google, Ollama, OpenRouter).
 
 ## Features
 
-- 🔍 Search and filter models by name, provider, and capabilities
-- 💰 View and compare model costs
-- 📊 Display detailed model information with clickable documentation links
-- 📏 Human-readable context lengths and costs
-- 🎨 Beautiful, color-coded output
-- 🔄 Pipe-friendly output with proper error handling
+- **Model Interaction**: Run single prompts (`run`) or engage in interactive chat sessions (`chat`).
+- **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
+- **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
+- **Provider Support**: Integrates with Google, Ollama, and OpenRouter via the Vercel AI SDK.
+- **Cost Tracking**: Calculates and displays estimated costs based on token usage.
+- **Rate Limiting**: Basic rate limit handling with backoff.
+- **Model Discovery**: Search and filter models (`models list`), view detailed information (`models info`), and compare costs (`models costs`).
+- **User Experience**: Color-coded output, human-readable formatting.
 
 ## Installation
 
@@ -69,64 +71,47 @@ pnpm cli models costs --sort-by completion
 pnpm cli models costs --sort-by total
 ```
 
-### Chat with a Model
+### Run a Single Prompt
 
 ```bash
-# Basic chat (requires --provider and --model)
-pnpm cli chat --provider google --model gemini-pro "Hello, how are you?"
+pnpm cli run --provider ollama --model gemma3:latest --prompt "Explain quantum entanglement."
+```
 
-# Chat and include a file as context
-pnpm cli chat --provider ollama --model llama3 --file ./examples/test_data/Home-Cooked\ Software\ and\ Barefoot\ Developers.pdf "Summarize the attached PDF."
+### Interactive Chat
 
-# If you omit the message, you will be prompted to enter it interactively
-pnpm cli chat --provider openrouter --model gpt-4-turbo
+```bash
+# Standard chat
+pnpm cli chat --provider ollama --model gemma3:latest
+
+# Chat with memory enabled
+pnpm cli chat --provider ollama --model gemma3:latest --memory
+
+# Chat with a file attachment
+pnpm cli chat --provider google --model gemini-1.5-flash-latest --file ./examples/test_data/internet_archive_fffound.png
 ```
 
 **Options:**
 - `--provider <provider>`: Provider to use (e.g. `google`, `ollama`, `openrouter`) (required)
 - `--model <model>`: Model name to use (e.g. `gemini-pro`, `llama3`, etc.) (required)
 - `--file <filePath>`: File to include in the chat (optional)
+- `--memory`: Enable memory-augmented chat (uses MemoryRunner) (optional)
 
 
-## Output Format
+### Chat Commands
 
-The CLI provides several output formats:
+Inside an interactive chat session (`pnpm cli chat ...`), you can use the following commands:
 
-### List View
-```
-ID                                                  Provider     Context    Cost/1K    Added
-────────────────────────────────────────────────────────────────────────────────────────
-google/gemini-2.5-pro-exp-03-25:free               openrouter   1M        Free       03/25/24
-gemma3:4b                                          ollama       32K       Free       03/24/24
-```
-
-### Info View
-```
-Model Information
-================
-Name: Gemini Pro 2.5 Experimental
-ID: google/gemini-2.5-pro-exp-03-25:free
-Provider: openrouter
-URL: https://openrouter.ai/google/gemini-2.5-pro-exp-03-25:free
-Context Length: 1M tokens
-Cost: Free
-Details: architecture: text | tokenizer: bpe | instructType: prompt
-```
-
-### Costs View
-```
-Model Costs (per 1K tokens)
-==========================
-Model                                    Prompt         Completion     Total
-────────────────────────────────────────────────────────────────────────────
-gpt-4-turbo                             $0.0100        $0.0300        $0.0400
-claude-3-opus                           $0.0150        $0.0750        $0.0900
-```
+- `/?`: Show help message listing available commands.
+- `/reset`: Clear the current conversation history.
+- `/mem`: Display the facts currently stored in memory (only works if chat was started with `--memory`).
+- `/history`: Show the full message history for the current session.
+- `exit` or `quit`: End the chat session.
 
 ## Environment Variables
 
-- `OPENROUTER_API_KEY`: Your OpenRouter API key (required for OpenRouter models)
-- `OLLAMA_HOST`: Ollama host URL (default: http://localhost:11434)
+- `OPENROUTER_API_KEY`: Your OpenRouter API key (required for OpenRouter provider).
+- `GOOGLE_GENERATIVE_AI_API_KEY`: Your Google AI API key (required for Google provider).
+- `OLLAMA_HOST`: Ollama host URL (default: `http://localhost:11434`).
 
 ## Contributing
 
