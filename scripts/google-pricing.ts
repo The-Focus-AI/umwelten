@@ -75,6 +75,10 @@ await runner.evaluate({
   provider: 'google',
 });
 
+await runner.evaluate({
+  name:'gemini-2.5-flash-preview-04-17',
+  provider: 'google',
+})
 
 // await runner.evaluate({
 //   name: 'qwen2.5:14b',
@@ -86,10 +90,10 @@ await runner.evaluate({
   provider: 'openrouter',
 });
 
-await runner.evaluate({
-  name: 'mistralai/mistral-nemo',
-  provider: 'openrouter',
-});
+// await runner.evaluate({
+//   name: 'mistralai/mistral-nemo',
+//   provider: 'openrouter',
+// });
 
 // await runner.evaluate({
 //   name: 'gemma3:12b',

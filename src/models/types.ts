@@ -94,20 +94,38 @@ export const ModelOptionsSchema = z.object({
 
 export type ModelOptions = z.infer<typeof ModelOptionsSchema>;
 
+
+export const ResponseMetadataSchema = z.object({
+  startTime: z.date(),
+  endTime: z.date(),
+  tokenUsage: TokenUsageSchema,
+  provider: z.string(),
+  model: z.string(),
+  cost: CostBreakdownSchema,
+});
+
 export const ModelResponseSchema = z.object({
   content: z.string(),
-  metadata: z.object({
-    startTime: z.date(),
-    endTime: z.date(),
-    tokenUsage: TokenUsageSchema,
-    provider: z.string(),
-    model: z.string(),
-    cost: CostBreakdownSchema.optional(),
-    costInfo: z.string().optional(),
-  }),
+  metadata: ResponseMetadataSchema,
 });
 
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;
+
+export const ScoreSchema = z.object({
+  evals: z.array(z.object({
+    key: z.string().describe("Key that we are looking for"),
+      value: z.string().describe("Value that is found)"),
+      score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
+    })
+  )
+});
+
+export const ScoreResponseSchema = z.object({
+  evals: ScoreSchema,
+  metadata: ResponseMetadataSchema,
+});
+
+export type ScoreResponse = z.infer<typeof ScoreResponseSchema>;
 
 export interface ModelRunner {
   generateText(conversation: Conversation): Promise<ModelResponse>;

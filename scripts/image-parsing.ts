@@ -1,11 +1,16 @@
-import { BaseModelRunner } from '../src/models/runner.js';
-import { ModelDetails, ModelResponse } from '../src/models/types.js';
-import { Conversation } from '../src/conversation/conversation.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { EvaluationRunner } from '../src/evaluation/runner.js';
+import { BaseModelRunner } from "../src/models/runner.js";
+import { ModelDetails, ModelResponse, ScoreResponse, ScoreSchema } from "../src/models/types.js";
+import { Conversation } from "../src/conversation/conversation.js";
+import path from "path";
+import { EvaluationRunner } from "../src/evaluation/runner.js";
+import { EvaluationScorer } from "../src/evaluation/scorer.js";
+import { Prompt } from "../src/conversation/prompt.js";
+import { z } from "zod";
 
-export async function parseImage(imagePath: string, model: ModelDetails): Promise<ModelResponse> {
+export async function parseImage(
+  imagePath: string,
+  model: ModelDetails
+): Promise<ModelResponse> {
   const prompt = "Analyze this image and provide a summary of the content.";
 
   const conversation = new Conversation(model, prompt);
@@ -33,80 +38,117 @@ class ImageParser extends EvaluationRunner {
   }
 }
 
-
-const runner = new ImageParser('image-parsing', 'internet_archive_fffound.png');
+const runner = new ImageParser("image-parsing", "internet_archive_fffound.png");
 
 await runner.evaluate({
-  name: 'gemma3:12b',
-  provider: 'ollama',
+  name: "gemma3:12b",
+  provider: "ollama",
 });
 
 await runner.evaluate({
-  name: 'qwen2.5:14b',
-  provider: 'ollama',
+  name: "qwen2.5:14b",
+  provider: "ollama",
 });
 
 await runner.evaluate({
-  name: 'phi4:latest',
-  provider: 'ollama',
+  name: "phi4:latest",
+  provider: "ollama",
 });
 
 await runner.evaluate({
-  name: 'phi4-mini:latest',
-  provider: 'ollama',
+  name: "phi4-mini:latest",
+  provider: "ollama",
 });
 
 await runner.evaluate({
-  name: 'gemini-2.0-flash',
-  provider: 'google',
+  name: "gemini-2.0-flash",
+  provider: "google",
 });
 
 await runner.evaluate({
-  name: 'gemini-2.5-pro-exp-03-25',
-  provider: 'google',
+  name: "gemini-2.5-pro-exp-03-25",
+  provider: "google",
+});
+
+await runner.evaluate({
+  name: "gemini-2.5-flash-preview-04-17",
+  provider: "google",
 });
 
 
+class ImageScorer extends EvaluationScorer {
+  constructor(evaluationId: string) {
+    super(evaluationId);
+  }
 
-/*
+  async test() {
+    const responses = await this.getModelResponses();
 
+    const table = responses.map((response) => {
+      return {
+        name: response.metadata.model,
+        provider: response.metadata.provider,
+        time:
+          (new Date(response.metadata.endTime).getTime() -
+            new Date(response.metadata.startTime).getTime()) /
+          1000,
+        tokens: response.metadata.tokenUsage.total,
+        cost: response.metadata.cost?.totalCost?.toFixed(10),
+      };
+    });
+    console.table(table);
+    return 0;
+  }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+  async scoreResponse(response: ModelResponse): Promise<ScoreResponse> {
+    console.log(JSON.stringify(response, null, 2));
+    console.log(
+      "Evaluating",
+      response.metadata.model,
+      response.metadata.provider
+    );
 
-async function testGemma3File() {
-  const model:ModelDetails = {
-    name: 'gemma3:12b',
-    provider: 'ollama',
-  };
+    const prompt = new Prompt({
+      role: "unit testing expert",
+      objective:
+        "score the following model response based on the image it is analyzing.",
+    });
+    prompt.addInstruction( "For each of the following please identify if it's in the content" );
+    prompt.addInstruction( "key: title, value: Archve of ffffound.com" );
+    prompt.addInstruction( "key: pages, value: 3986701")
+    prompt.addInstruction( "key: views, value: 109886")
+    prompt.addInstruction( "key: scanned, value: 2017-05-07")
+    prompt.addInstruction( "key: size, value: 62.2G of data")
+    prompt.addInstruction( "key: identifier, value: ffffound.com-warc-archive-2017-05-07")
 
-  const testDataDir = path.resolve(__dirname, '../examples/test_data');
-  const imageFile = path.join(testDataDir, 'internet_archive_fffound.png');
-  const pdfFile = path.join(
-    testDataDir,
-    'Home-Cooked Software and Barefoot Developers.pdf'
-  );
+    prompt.addOutput("You should respond in json format");
+    prompt.addOutput("You should include the key, the found value, and the score in the response");
+    prompt.addOutput("You should score 0 if the found value doesn't exist or doesn't match expected value")    
 
-  const prompt = "Analyze this PDF and provide a summary of the content.";
+    console.log(prompt.getPrompt());
 
-  const conversation = new Conversation(model, prompt);
+    const conversation = new Conversation(
+      { provider: "google", name: "gemini-2.5-pro-exp-03-25" },
+      prompt.getPrompt()
+    );
+    conversation.addMessage({ role: "user", content: response.content });
 
-  // conversation.addAttachmentFromPath(pdfFile);
-  conversation.addAttachmentFromPath(imageFile);
+    const modelRunner = new BaseModelRunner();
 
-  const modelRunner = new BaseModelRunner();
+    const newResponse = await modelRunner.streamObject(conversation, ScoreSchema);
 
-  try {
-    console.log('Generating text for gemma3:12b using BaseModelRunner...');
-    const response = await modelRunner.stream(conversation);
-
-    console.log('Generated text for gemma3:12b:', response.content);
-
-    console.log('Response:', JSON.stringify(response, null, 2));
-  } catch (error) {
-    console.error('Error generating text:', error);
+    console.log(JSON.stringify(newResponse, null, 2));
+    return newResponse as unknown as ScoreResponse;
   }
 }
 
-testGemma3File();
-*/
+const scorer = new ImageScorer("image-parsing");
+
+await scorer.score();
+
+const responses = await scorer.getModelResponses();
+console.log(JSON.stringify(responses[0], null, 2));
+
+await scorer.scoreResponse(responses[0]);
+
+// await scorer.doScore(await scorer.getModelResponses()[0]);

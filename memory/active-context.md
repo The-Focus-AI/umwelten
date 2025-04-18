@@ -1,5 +1,335 @@
 # Active Context
-Last Updated: Tue Apr 15 11:54:52 EDT 2025
+Last Updated: Fri Apr 18 12:19:35 EDT 2025
+
+## Current Focus
+Designing evaluation strategies for model responses, incorporating both deterministic (unit test style) and AI-assisted evaluation approaches.
+
+## Evaluation Strategy Types
+
+### 1. Deterministic Evaluations
+These are unit-test style evaluations with clear pass/fail criteria:
+
+1. Schema Validation
+   - Zod schema conformance
+   - Required field presence
+   - Data type correctness
+   - Field format validation
+
+2. Content Structure Tests
+   - Array length requirements
+   - Object property presence
+   - Numerical range validation
+   - String pattern matching
+
+3. Factual Accuracy Tests
+   - Known value matching
+   - Date/time accuracy
+   - URL validity
+   - Numerical precision
+
+4. Format Compliance
+   - JSON structure
+   - Markdown formatting
+   - HTML validity
+   - Code syntax checking
+
+### 2. AI-Assisted Evaluations
+Using evaluation models to assess qualitative aspects:
+
+1. Content Quality Assessment
+   ```typescript
+   interface QualityMetrics {
+     relevance: number;      // 0-10 scale
+     completeness: number;   // 0-10 scale
+     accuracy: number;       // 0-10 scale
+     coherence: number;      // 0-10 scale
+     reasoning: number;      // 0-10 scale
+   }
+   ```
+
+2. Response Comparison
+   - Compare multiple model outputs
+   - Identify unique insights
+   - Assess reasoning paths
+   - Evaluate completeness
+
+3. Creative/Subjective Tasks
+   - Writing style analysis
+   - Code quality review
+   - Design suggestion evaluation
+   - Problem-solving approach
+
+### Implementation Plan
+
+1. Evaluation Interface
+```typescript
+interface ResponseEvaluation {
+  // Deterministic checks
+  schemaValidation: {
+    passed: boolean;
+    errors?: string[];
+  };
+  contentChecks: {
+    passed: boolean;
+    results: Record<string, boolean>;
+  };
+  
+  // AI-assisted evaluation
+  qualityMetrics?: QualityMetrics;
+  comparisonResults?: ComparisonAnalysis;
+  
+  // Overall scores
+  scores: {
+    technical: number;    // 0-100, based on deterministic checks
+    qualitative: number;  // 0-100, based on AI evaluation
+    overall: number;      // Weighted combination
+  };
+}
+```
+
+2. Evaluation Configuration
+```typescript
+interface EvaluationConfig {
+  // Deterministic checks
+  schema?: z.ZodSchema;
+  contentChecks?: {
+    name: string;
+    check: (response: any) => boolean;
+  }[];
+  
+  // AI evaluation settings
+  useAiEvaluation?: boolean;
+  evaluationPrompt?: string;
+  evaluationModel?: ModelDetails;
+  
+  // Scoring weights
+  weights?: {
+    technical: number;
+    qualitative: number;
+  };
+}
+```
+
+3. Result Storage
+```typescript
+interface EvaluationResult {
+  metadata: {
+    testId: string;
+    modelDetails: ModelDetails;
+    timestamp: string;
+    config: EvaluationConfig;
+  };
+  evaluation: ResponseEvaluation;
+  rawResponse: any;
+  processingMetrics: {
+    responseTime: number;
+    tokenUsage: TokenUsage;
+    cost: number;
+  };
+}
+```
+
+## Implementation Priorities
+
+1. Deterministic Framework
+   - [ ] Create base evaluation runner
+   - [ ] Implement schema validation
+   - [ ] Add content check system
+   - [ ] Build scoring calculator
+
+2. AI Evaluation System
+   - [ ] Design evaluation prompts
+   - [ ] Implement quality metric collection
+   - [ ] Create comparison system
+   - [ ] Build scoring aggregator
+
+3. Integration Layer
+   - [ ] Combine evaluation types
+   - [ ] Implement weighted scoring
+   - [ ] Add result storage
+   - [ ] Create comparison views
+
+## Example Evaluations
+
+1. Factual Extraction Test
+```typescript
+const config: EvaluationConfig = {
+  schema: z.object({
+    title: z.string(),
+    date: z.string().datetime(),
+    author: z.string(),
+    topics: z.array(z.string())
+  }),
+  contentChecks: [
+    {
+      name: "hasValidTitle",
+      check: (r) => r.title.length > 0 && r.title.length < 200
+    }
+  ]
+};
+```
+
+2. Creative Writing Evaluation
+```typescript
+const config: EvaluationConfig = {
+  useAiEvaluation: true,
+  evaluationPrompt: `
+    Evaluate this creative writing response on:
+    1. Originality (0-10)
+    2. Narrative structure (0-10)
+    3. Character development (0-10)
+    4. Language use (0-10)
+    5. Overall impact (0-10)
+  `,
+  weights: {
+    technical: 0.2,   // Basic formatting, grammar
+    qualitative: 0.8  // AI evaluation score
+  }
+};
+```
+
+## Next Steps
+1. Implement base evaluation runner
+2. Create initial deterministic checks
+3. Design AI evaluation prompts
+4. Build result storage system
+
+## CRITICAL IMPLEMENTATION RULES
+1. All evaluations must be reproducible
+2. Store raw responses alongside evaluations
+3. Clear separation between deterministic and AI-assisted evaluations
+4. Comprehensive metadata for all evaluations
+5. Enable easy result comparison and analysis
+
+## Current Status
+- [X] Evaluation framework implementation complete
+- [X] Multiple example implementations working
+- [-] Results analysis and visualization planning
+  - [ ] Results storage format design
+  - [ ] Analysis metrics definition
+- [X] Core evaluation framework implemented and stable
+- [X] Multiple example implementations showing different use cases
+- [X] File caching and result storage working effectively
+- [X] Support for multiple model providers integrated
+
+## Implementation Examples
+1. Document Analysis
+   - [X] PDF parsing implementation
+   - [X] HTML site analysis
+   - [X] Pricing data extraction
+
+2. Media Processing
+   - [X] Audio transcription with metadata
+   - [X] Structured data extraction
+
+3. Provider Integration
+   - [X] Google (Gemini models)
+   - [X] Ollama (local models)
+   - [X] OpenRouter integration
+
+## Framework Features
+1. Core Components
+   - [X] Abstract EvaluationRunner base class
+   - [X] Flexible model response handling
+   - [X] Structured data validation with Zod
+   - [X] File caching system
+
+2. Data Management
+   - [X] Automatic workspace creation
+   - [X] Result caching and storage
+   - [X] Test data organization
+   - [X] HTML/file content caching
+
+3. Model Integration
+   - [X] Multiple provider support
+   - [X] Consistent interface across providers
+   - [X] Structured response handling
+   - [X] Error management
+
+## Next Steps
+1. [ ] Add more comprehensive documentation
+2. [ ] Create additional example implementations
+3. [ ] Add performance metrics collection
+4. [ ] Implement result comparison tools
+
+## Blockers
+None currently identified.
+
+## Recent Decisions
+1. Framework successfully simplified to focus on practical evaluation cases
+2. File caching and workspace management working effectively
+3. Multiple real-world examples demonstrate framework capabilities
+4. Structured data validation proving valuable for complex use cases
+
+## Implementation Pattern
+```typescript
+class SpecificEvaluator extends EvaluationRunner {
+  constructor(evaluationId: string, ...specificParams) {
+    super(evaluationId);
+    // Store specific configuration
+  }
+
+  async getModelResponse(details: ModelDetails): Promise<ModelResponse> {
+    // Implementation specific logic
+    return response;
+  }
+}
+```
+
+## Directory Structure
+```
+scripts/                    # Example implementations
+  ├── google-pricing.ts    # Price extraction example
+  ├── site-info.ts        # Website analysis
+  ├── pdf-parsing.ts      # Document processing
+  ├── transcribe.ts       # Audio transcription
+  └── ...
+
+output/
+  evaluations/
+    {evaluationId}/
+      responses/
+        {modelName}-{provider}.json
+```
+
+## CRITICAL IMPLEMENTATION RULES
+1. ALWAYS use Vercel AI SDK wrappers for ALL providers
+   - OpenRouter: @openrouter/ai-sdk-provider
+   - Google: @ai-sdk/google
+   - Ollama: ollama-ai-provider
+2. NEVER use provider-specific SDKs directly
+3. All providers must implement LanguageModelV1 interface from 'ai' package
+
+## Current Implementation Status
+The evaluation framework has proven successful with multiple real-world implementations:
+
+1. Price Data Extraction
+   - Structured data extraction from web pages
+   - Complex schema validation
+   - Multiple model comparison
+
+2. Site Analysis
+   - HTML parsing and metadata extraction
+   - Category and content organization
+   - URL and feed processing
+
+3. Document Processing
+   - PDF content analysis
+   - Text extraction and summarization
+   - Multiple model comparison
+
+4. Audio Processing
+   - Transcription with metadata
+   - Speaker identification
+   - Topic extraction and segmentation
+
+Each implementation demonstrates the framework's flexibility while maintaining consistent patterns for:
+- Data caching
+- Result storage
+- Model evaluation
+- Error handling
+
+The framework is now stable and ready for additional implementations and enhancements.
 
 ## Current Focus
 Simplifying the evaluation framework to focus on model testing and comparison.

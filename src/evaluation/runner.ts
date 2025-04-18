@@ -2,50 +2,14 @@ import path from 'path';
 import fs from 'fs';
 import { ModelResponse } from '../models/types.js';
 import { ModelDetails } from '../models/types.js';
+import { Evaluation } from './base.js';
 
-export abstract class EvaluationRunner {
-  private evaluationId: string;
+export abstract class EvaluationRunner extends Evaluation {
   constructor(evaluationId: string) {
-    this.evaluationId = evaluationId;
+    super(evaluationId);
   }
 
   abstract getModelResponse(details: ModelDetails): Promise<ModelResponse>;
-
-  getWorkdir() {
-    const workdir = path.join(process.cwd(), 'output', 'evaluations', this.evaluationId);
-    if (!fs.existsSync(workdir)) {
-      fs.mkdirSync(workdir, { recursive: true });
-    }
-    return workdir;
-  }
-
-  getTestDataDir() {
-    const testDataDir = path.join(process.cwd(), 'input', this.evaluationId);
-    if (!fs.existsSync(testDataDir)) {
-      fs.mkdirSync(testDataDir, { recursive: true });
-    }
-    return testDataDir;
-  }
-
-  async getCachedFile(filename: string, fetch: () => Promise<string>) {
-    const file = path.resolve(this.getWorkdir(), filename);
-    if(fs.existsSync(file)) {
-      return fs.readFileSync(file, 'utf8');
-    }
-    console.log(`Fetching ${filename}`);
-    const content = await fetch();
-    fs.writeFileSync(file, content);
-    return content;
-  }
-
-  getModelResponseFile(details: ModelDetails) {
-    const filename = `${details.name.replace('/', '-')}-${details.provider}.json`;
-    const directory = path.resolve(this.getWorkdir(), "responses");
-    if(!fs.existsSync(directory)) {
-      fs.mkdirSync(directory, { recursive: true });
-    }
-    return path.resolve(directory, filename);
-  }
 
   async evaluate(details: ModelDetails): Promise<ModelResponse|undefined> {
     console.log(`Evaluating ${details.name} ${details.provider}`);
