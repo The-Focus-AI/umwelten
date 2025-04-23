@@ -23,25 +23,17 @@ export async function catPoem(model: ModelDetails): Promise<ModelResponse> {
   return response;
 }
 
-evaluate(catPoem, "cat-poem", {
+let response = await catPoem({
+  name: "gemma3:latest",
+  provider: "ollama",
+  temperature: 2,
+  topP: 0.8,
+});
+
+response = await catPoem({
   name: "gemma3:latest",
   provider: "ollama",
   temperature: 0.5,
-},5);
-
-evaluate(catPoem, "cat-poem", {
-  name: "gemma3:12b",
-  provider: "ollama",
-  temperature: 0.5,
-},5);
-
-
-evaluate(catPoem, "cat-poem", {
-  name: "gemini-2.0-flash",
-  provider: "google",
+  topP: 0.8,
 });
 
-evaluate(catPoem, "cat-poem", {
-  name: "gemini-2.5-pro-exp-03-25",
-  provider: "google",
-});

@@ -2,11 +2,10 @@ import { z } from "zod";
 import { BaseModelRunner } from "../src/models/runner.js";
 import { ModelDetails } from "../src/models/types.js";
 import { Conversation } from "../src/conversation/conversation.js";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
 import { ModelResponse } from "../src/models/types.js";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
+import { Prompt } from "../src/conversation/prompt.js";
+import { fromHtmlViaMarkify, fromHtmlViaModel } from "../src/markdown/from_html.js";
 
 const siteInfoSchema = z.object({
   'siteName': z.string().describe('The name of the site'),
@@ -28,20 +27,29 @@ const siteInfoSchema = z.object({
   })),
 });
 
-export async function   getSiteInfo(html:string, model:ModelDetails): Promise<ModelResponse> {
-  const prompt = `You are an expert in information extraction. You will be given a html page and you will need to extract the information from the page. The currrent date is ${new Date().toISOString()}`;
+export async function getSiteInfo(html:string, model:ModelDetails): Promise<ModelResponse> {
+  const prompt = new Prompt();
+  prompt.setRole('expert web scraper');
+  prompt.addInstruction('You will be given a html page and you will need to extract the information from the page.');
+  prompt.addInstruction(`The currrent date is ${new Date().toISOString()}`);
+  prompt.addInstruction(`Dont make up any information, only use the information provided in the html page.`);
 
-  const conversation = new Conversation(model, prompt);
+  prompt.setObjective(`Please parse the html and return the structure of the page`);
+
+  console.log(prompt.getPrompt());
+  const conversation = new Conversation(model, prompt.getPrompt());
   conversation.addMessage({ role: 'user', content: html });
-  conversation.addMessage({
-    role: 'user',
-    content: `Please parse the html and return the structure of the page`
-  });
+  // conversation.addMessage({
+  //   role: 'user',
+  //   content: `Please parse the html and return the structure of the page`
+  // });
 
   const modelRunner = new BaseModelRunner();
   const response = await modelRunner.streamObject(conversation, siteInfoSchema);
   return response;
 }
+
+
 
 class SiteInfoEvaluator extends EvaluationRunner {
   private readonly url: string;
@@ -60,6 +68,17 @@ class SiteInfoEvaluator extends EvaluationRunner {
       return html.text();
     });
   }
+  async getMarkdown(url:string,key:string) {
+    return this.getCachedFile(key, async () => {
+      const html = await this.getHtml(url, "root.html");
+      // return fromHtmlViaMarkify(html);
+      return fromHtmlViaModel(html, {
+        name: "gemini-2.0-flash",
+        provider: "google",
+      });
+    });
+  }
+
   async getModelResponse(details: ModelDetails): Promise<ModelResponse> {
     const html = await this.getHtml(this.url, "root.html");
     return getSiteInfo(html, details);
@@ -73,6 +92,9 @@ const urls = [
 
 for (const [evaluationId, url] of urls) {
   const runner = new SiteInfoEvaluator(evaluationId, url);
+
+  const markdown = await runner.getMarkdown( url, "root.md");
+  console.log(markdown);
 
   await runner.evaluate({
     name: 'gemini-2.0-flash',
@@ -88,4 +110,10 @@ for (const [evaluationId, url] of urls) {
     name: 'gemini-1.5-flash-8b',
     provider: 'google',
   });
+
+  await runner.evaluate({
+    name: 'gemma3:12b',
+    provider: 'ollama',
+  });
+
 }

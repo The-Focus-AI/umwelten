@@ -1,4 +1,5 @@
-import { ModelDetails } from "../models/types.js";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export type PromptOptions = {
     role?: string,
@@ -16,6 +17,14 @@ export class Prompt {
         this.options = options || {role: "helpful assistant"};
     }
 
+    setRole(role: string) {
+        this.options.role = role;
+    }
+
+    setObjective(objective: string) {
+        this.options.objective = objective;
+    }
+
     addInstruction(instruction: string) {
         this.options.instructions = this.options.instructions || [];
         this.options.instructions.push(instruction);
@@ -24,6 +33,11 @@ export class Prompt {
     addOutput(output: string) {
         this.options.output = this.options.output || [];
         this.options.output.push(output);
+    }
+
+    setOutputSchema(schema: z.ZodSchema) {
+        const schemaString = JSON.stringify(zodToJsonSchema(schema));
+        this.options.output = [schemaString];
     }
 
     getPrompt() {

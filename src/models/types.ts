@@ -8,6 +8,9 @@ export interface ModelRoute {
   name: string; // Base model identifier
   provider: string; // Original provider
   variant?: string; // Optional variant (e.g. "free")
+  temperature?: number; // Optional temperature
+  topP?: number; // Optional topP
+  topK?: number; // Optional topK
   numCtx?: number; // Optional number of context tokens
 }
 
@@ -16,6 +19,9 @@ export const ModelRouteSchema = z.object({
   provider: z.string(),
   variant: z.string().optional(),
   numCtx: z.number().optional(),
+  temperature: z.number().optional(),
+  topP: z.number().optional(),
+  topK: z.number().optional(),
 });
 
 export interface ModelDetails extends ModelRoute {

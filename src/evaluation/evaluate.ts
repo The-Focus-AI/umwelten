@@ -13,7 +13,9 @@ export class FunctionEvaluationRunner extends EvaluationRunner {
   }
 }
 
-export async function evaluate(fn: (details: ModelDetails) => Promise<ModelResponse>, evaluationId: string, details: ModelDetails) {
-  const runner = new FunctionEvaluationRunner(evaluationId, fn);
-  return await runner.evaluate(details);
+export async function evaluate(fn: (details: ModelDetails) => Promise<ModelResponse>, evaluationId: string, details: ModelDetails, count: number = 1) {
+  for( let i = 0; i < count; i++ ) {
+    const runner = new FunctionEvaluationRunner(i == 0 ? evaluationId : `${evaluationId}-${i}`, fn);
+    await runner.evaluate(details);
+  }
 }

@@ -95,6 +95,16 @@ export class BaseModelRunner implements ModelRunner {
     if (params.conversation.modelDetails.numCtx) {
       validatedModel.numCtx = params.conversation.modelDetails.numCtx;
     }
+    if (params.conversation.modelDetails.temperature) {
+      validatedModel.temperature = params.conversation.modelDetails.temperature;
+    }
+    if (params.conversation.modelDetails.topP) {
+      validatedModel.topP = params.conversation.modelDetails.topP;
+    } 
+    if (params.conversation.modelDetails.topK) {
+      validatedModel.topK = params.conversation.modelDetails.topK;
+    }
+    
     params.conversation.modelDetails = validatedModel;
 
     // this.logModelDetails(modelIdString, {
@@ -135,9 +145,14 @@ export class BaseModelRunner implements ModelRunner {
     const { startTime, model, modelIdString } =
       await this.startUp(conversation);
 
+    // console.log("Model Details:", JSON.stringify(conversation.modelDetails, null, 2));
+
     const response = await generateText({
       model: model,
       messages: conversation.getMessages(),
+      temperature: conversation.modelDetails.temperature,
+      topP: conversation.modelDetails.topP,
+      topK: conversation.modelDetails.topK,
       ...conversation.options,
     });
 
@@ -159,6 +174,9 @@ export class BaseModelRunner implements ModelRunner {
         model: model,
         messages: conversation.getMessages(),
         ...conversation.options,
+        temperature: conversation.modelDetails.temperature,
+        topP: conversation.modelDetails.topP,
+        topK: conversation.modelDetails.topK,  
         onFinish: (event) => {
           console.log("Finish Reason:", event.finishReason);
         },
@@ -194,6 +212,9 @@ export class BaseModelRunner implements ModelRunner {
       model: model,
       messages: conversation.getMessages(),
       ...conversation.options,
+      temperature: conversation.modelDetails.temperature,
+      topP: conversation.modelDetails.topP,
+      topK: conversation.modelDetails.topK,
       schema: schema,
       experimental_repairText: async (options: {  text: string, error: any}) => {
         console.log("Repairing text:", options.text);
@@ -222,6 +243,9 @@ export class BaseModelRunner implements ModelRunner {
       const response = await streamObject({
         model: model,
         messages: conversation.getMessages(),
+        temperature: conversation.modelDetails.temperature,
+        topP: conversation.modelDetails.topP,
+        topK: conversation.modelDetails.topK,  
         ...conversation.options,
         schema: schema,
       });
@@ -319,7 +343,7 @@ export class BaseModelRunner implements ModelRunner {
             (usage?.promptTokens || 0) + (usage?.completionTokens || 0),
         },
         cost: costBreakdown || undefined,
-        costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
+        // costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
         provider: conversation.modelDetails.provider,
         model: conversation.modelDetails.name,
       },
