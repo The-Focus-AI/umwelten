@@ -91,7 +91,7 @@ describe("Models Command", () => {
       // Check formatting
       expect(output).toContain("1M"); // 1,000,000 context length
       expect(output).toContain("256K"); // 256,000 context length
-      expect(output).toContain("$0.0005"); // Cost formatting
+      expect(output).toContain("$0.5000"); // Cost formatting
 
       mockConsoleLog.mockRestore();
     });
