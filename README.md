@@ -50,8 +50,10 @@ This command-line tool allows you to interact with and evaluate AI models across
 Use the `run` command:
 
 ```bash
-pnpm cli run --provider ollama --model gemma3:latest --prompt "Explain the concept of quantum entanglement."
+pnpm cli run --provider ollama --model gemma3:latest "Explain the concept of quantum entanglement."
 ```
+
+> Note: The prompt is a required positional argument (not a --prompt option).
 
 #### Interactive Chat
 
