@@ -32,8 +32,8 @@ vi.mock("../models/models.js", () => ({
       description: "Meta's Llama 4 model via OpenRouter",
       contextLength: 256000,
       costs: {
-        promptTokens: 0.0005,
-        completionTokens: 0.001,
+        promptTokens: 0.0000005,
+        completionTokens: 0.000001,
       },
       addedDate: new Date("2024-03-15T00:00:00.000Z"),
       lastUpdated: new Date("2024-03-15T00:00:00.000Z"),
