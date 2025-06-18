@@ -534,3 +534,9 @@ Last Updated: April 12, 2025 13:01 EDT
    - Implement proper error classification
    - Provide meaningful error messages
    - Consider retry mechanisms for transient failures 
+
+## 2025-06-18: LM Studio Provider Lessons
+- LM Studio REST API provides better error handling than OpenAI-compatible endpoint
+- Dynamic test model selection ensures tests pass if any model is loaded
+- Error handling should expect API error objects, not just thrown exceptions
+- Prefer REST API for robust integration and error reporting 

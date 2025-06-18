@@ -7,6 +7,7 @@ import { createOpenRouterProvider } from "./openrouter.js";
 import { createOllamaProvider } from "./ollama.js";
 import type { LanguageModelV1 } from "ai";
 import { BaseProvider } from "./base.js";
+import { createLMStudioProvider } from "./lmstudio.js";
 
 
 export function getModelUrl(model: ModelDetails): string | undefined {
@@ -17,6 +18,8 @@ export function getModelUrl(model: ModelDetails): string | undefined {
       return getOllamaModelUrl(model.name);
     case "google":
       return getGoogleModelUrl(model.name);
+    case "lmstudio":
+      return undefined;
     default:
       return undefined;
   }
@@ -79,6 +82,8 @@ export async function getModelProvider(
       return createOpenRouterProvider(openrouterKey);
     case "ollama":
       return createOllamaProvider();
+    case "lmstudio":
+      return createLMStudioProvider();
     default:
       throw new Error(
         `Unsupported provider for modelId: ${modelDetails.provider} ${modelDetails.name}`

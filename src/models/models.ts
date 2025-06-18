@@ -1,12 +1,14 @@
 import { createOpenRouterProvider } from "../providers/openrouter.js";
 import { createOllamaProvider } from "../providers/ollama.js";
 import { createGoogleProvider } from "../providers/google.js";
+import { createLMStudioProvider } from "../providers/lmstudio.js";
 import type { ModelDetails } from "./types.js";
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
   try {
     const providers = [
       createOllamaProvider(),
+      createLMStudioProvider(),
       ...(process.env.OPENROUTER_API_KEY
         ? [createOpenRouterProvider(process.env.OPENROUTER_API_KEY)]
         : []),

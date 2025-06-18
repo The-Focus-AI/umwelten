@@ -597,3 +597,12 @@ packages/
 - [ ] Use TypeScript's type inference
 - [ ] Add tests for edge cases
 - [ ] Document API versions and endpoints
+```
+
+## 2025-06-18: LM Studio Provider Integration
+- LM Studio provider uses REST API endpoints (`/api/v0/models`, `/api/v0/completions`)
+- Provider registered in model registry and CLI
+- Model details mapped from REST API (context length, type, etc.)
+- Tests select first loaded model for text generation
+- Error handling for invalid model IDs is robust
+- All provider tests pass
