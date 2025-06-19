@@ -5,69 +5,83 @@ import { createMemoryRunner } from "../memory/memory_runner.js";
 import { getModel } from "../providers/index.js";
 import readline from "readline";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
-export const chatCommand = new Command("chat")
-  .description(
-    "Chat interactively with a model, optionally including a file. Requires --provider and --model."
-  )
-  .option(
-    "-p, --provider <provider>",
-    "Provider to use (e.g. 'google', 'ollama', 'openrouter')"
-  )
-  .option(
-    "-m, --model <model>",
-    "Model name to use (e.g. 'gemini-pro', 'llama3', etc.)"
-  )
-  .option("-f, --file <filePath>", "File to include in the chat")
-  .option("--memory", "Enable memory-augmented chat (uses MemoryRunner)")
-  .action(async (options) => {
-    if (!options.provider || !options.model) {
-      console.error("Both --provider and --model are required.");
-      process.exit(1);
-    }
+import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
+import { setupConversation } from './conversationUtils.js';
 
-    const modelDetails = {
-      name: options.model,
-      provider: options.provider,
-    };
+export const chatCommand = addCommonOptions(
+  new Command("chat")
+    .description(
+      "Chat interactively with a model, optionally including a file. Requires --provider and --model."
+    )
+    .option("-f, --file <filePath>", "File to include in the chat")
+    .option("--memory", "Enable memory-augmented chat (uses MemoryRunner)")
+).action(async (options: any) => {
+  const { provider, model, attach, debug } = parseCommonOptions(options);
+  if (!provider || !model) {
+    console.error("Both --provider and --model are required.");
+    process.exit(1);
+  }
 
-    const model = await getModel(modelDetails);
-    if (!model) {
-      console.error("Failed to load the model.");
-      process.exit(1);
-    }
+  if (debug) {
+    console.log("[DEBUG] Options:", options);
+  }
 
-    const conversation = new Conversation(
-      modelDetails,
-      "You are now in an interactive chat session."
-    );
-    if (options.file) {
-      await conversation.addAttachmentFromPath(options.file);
-    }
+  const modelDetails = {
+    name: model,
+    provider: provider,
+  };
+
+  if (debug) {
+    console.log("[DEBUG] Model details:", modelDetails);
+  }
+
+  const modelInstance = await getModel(modelDetails);
+  if (!modelInstance) {
+    console.error("Failed to load the model.");
+    process.exit(1);
+  }
+
+  // Prompt for the first message
+  let firstMessage = '';
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: "You: ",
+  });
+
+  // Ask for the first message
+  rl.question("You: ", async (line) => {
+    firstMessage = line.trim();
+    const conversation = await setupConversation({ modelDetails, prompt: firstMessage, attach, debug });
     let runner;
     let memoryStore = new InMemoryMemoryStore();
     if (options.memory) {
       runner = createMemoryRunner({
         baseRunner: new BaseModelRunner(),
-        llmModel: options.model,
+        llmModel: model,
         memoryStore: memoryStore,
       });
     } else {
       runner = new BaseModelRunner();
     }
-    // Removed duplicate runner declaration
-
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: "You: ",
-    });
-
-    console.log(
-      "Type your message and press Enter. Type 'exit' or 'quit' to end the chat."
-    );
-    console.log("Type '/?' for a list of commands.");
+    // Stream the model's response
+    process.stdout.write("Model: ");
+    try {
+      const response = await runner.streamText(conversation);
+      if (response?.content) {
+        process.stdout.write(response.content + "\n");
+      } else {
+        process.stdout.write("[No response]\n");
+      }
+    } catch (err) {
+      console.error("[ERROR] Model execution failed.");
+      if (debug) {
+        console.error(err);
+      }
+    }
+    // Now enter the interactive loop for further messages
+    rl.setPrompt("You: ");
     rl.prompt();
-
     rl.on("line", async (line) => {
       const message = line.trim();
       if (
@@ -77,7 +91,6 @@ export const chatCommand = new Command("chat")
         rl.close();
         return;
       }
-
       // Handle special commands
       if (message === "/?") {
         console.log("Available commands:");
@@ -89,14 +102,12 @@ export const chatCommand = new Command("chat")
         rl.prompt();
         return;
       }
-
       if (message === "/reset") {
         conversation.clearContext();
         console.log("Conversation history cleared.");
         rl.prompt();
         return;
       }
-
       if (message === "/history") {
         console.log("Conversation history:");
         for (const msg of conversation.getMessages()) {
@@ -105,7 +116,6 @@ export const chatCommand = new Command("chat")
         rl.prompt();
         return;
       }
-
       if (message === "/mem" && options.memory) {
         const facts = await memoryStore.getFacts(conversation.userId);
         if (facts.length === 0) {
@@ -119,24 +129,27 @@ export const chatCommand = new Command("chat")
         rl.prompt();
         return;
       }
-
       // Normal chat message
       conversation.addMessage({ role: "user", content: message });
-
-      // Stream the model's response
       process.stdout.write("Model: ");
-      const response = await runner.streamText(conversation);
-      if (response?.content) {
-        process.stdout.write(response.content + "\n");
-      } else {
-        process.stdout.write("[No response]\n");
+      try {
+        const response = await runner.streamText(conversation);
+        if (response?.content) {
+          process.stdout.write(response.content + "\n");
+        } else {
+          process.stdout.write("[No response]\n");
+        }
+      } catch (err) {
+        console.error("[ERROR] Model execution failed.");
+        if (debug) {
+          console.error(err);
+        }
       }
-
       rl.prompt();
     });
-
     rl.on("close", () => {
       console.log("Chat session ended.");
       process.exit(0);
     });
   });
+});
