@@ -36,7 +36,7 @@ export class Prompt {
     }
 
     setOutputSchema(schema: z.ZodSchema) {
-        const schemaString = JSON.stringify(zodToJsonSchema(schema));
+        const schemaString = JSON.stringify(zodToJsonSchema(schema), null, 2);
         this.options.output = [schemaString];
     }
 

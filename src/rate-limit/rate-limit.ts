@@ -57,11 +57,12 @@ function calculateBackoff(consecutiveFailures: number, config: RateLimitConfig):
  */
 export function shouldAllowRequest(modelId: string, config: RateLimitConfig = DEFAULT_CONFIG): boolean {
   const now = new Date();
-  const state = rateLimitStates.get(modelId) || {
-    requestCount: 0,
-    lastRequestTime: new Date(0),
-    consecutiveFailures: 0,
-  };
+  
+  let state = rateLimitStates.get(modelId);
+
+  if (!state) {
+    return true;
+  }
 
   // If we're in backoff, check if we can exit
   if (state.backoffUntil && state.backoffUntil > now) {

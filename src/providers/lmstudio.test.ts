@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createLMStudioProvider } from './lmstudio.js';
-import { generateText } from 'ai';
+import { generateText, streamObject, generateObject } from 'ai';
 import { ModelRoute } from '../models/types.js';
+import { z } from 'zod';
 
 // Default LM Studio host
 const LMSTUDIO_HOST = process.env.LMSTUDIO_HOST || 'http://localhost:1234/v1';
@@ -113,6 +114,74 @@ describe('LM Studio Provider', () => {
         }
       }
       expect(errorCaught).toBe(true);
+    });
+  });
+
+  describe('Structured Object Streaming', () => {
+    it('should stream a structured haiku object', async () => {
+      const lmstudioAvailable = await checkLMStudioConnection();
+      if (!lmstudioAvailable) {
+        console.warn('⚠️ LM Studio not available, skipping test');
+        return;
+      }
+      const provider = createLMStudioProvider();
+      const models = await provider.listModels();
+      const loadedModel = models.find(m => m.details?.state === 'loaded');
+      if (!loadedModel) {
+        console.warn('⚠️ No loaded models found in LM Studio, skipping test');
+        return;
+      }
+      const model = provider.getLanguageModel(loadedModel);
+      const schema = z.object({
+        title: z.string(),
+        lines: z.array(z.string()).length(3),
+      });
+      const prompt = `Write a haiku about spring as a JSON object with the following schema: { "title": string, "lines": string[3] }`;
+      const result = await streamObject({
+        model,
+        prompt,
+        schema,
+      });
+      expect(result).toBeDefined();
+      expect(typeof result.object.title).toBe('string');
+      expect(Array.isArray(result.object.lines)).toBe(true);
+      expect(result.object.lines.length).toBe(3);
+      result.object.lines.forEach(line => expect(typeof line).toBe('string'));
+      console.log('Structured haiku object:', result.object);
+    });
+  });
+
+  describe('Structured Object Generation', () => {
+    it('should generate a structured haiku object', async () => {
+      const lmstudioAvailable = await checkLMStudioConnection();
+      if (!lmstudioAvailable) {
+        console.warn('⚠️ LM Studio not available, skipping test');
+        return;
+      }
+      const provider = createLMStudioProvider();
+      const models = await provider.listModels();
+      const loadedModel = models.find(m => m.details?.state === 'loaded');
+      if (!loadedModel) {
+        console.warn('⚠️ No loaded models found in LM Studio, skipping test');
+        return;
+      }
+      const model = provider.getLanguageModel(loadedModel);
+      const schema = z.object({
+        title: z.string(),
+        lines: z.array(z.string()).length(3),
+      });
+      const prompt = `Write a haiku about spring as a JSON object with the following schema: { "title": string, "lines": string[3] }`;
+      const result = await generateObject({
+        model,
+        prompt,
+        schema,
+      });
+      expect(result).toBeDefined();
+      expect(typeof result.object.title).toBe('string');
+      expect(Array.isArray(result.object.lines)).toBe(true);
+      expect(result.object.lines.length).toBe(3);
+      result.object.lines.forEach(line => expect(typeof line).toBe('string'));
+      console.log('Structured haiku object (generateObject):', result.object);
     });
   });
 }); 
