@@ -1,96 +1,157 @@
 # How to Write an Evaluation Script
 
-This guide explains how to write evaluation scripts for running data (such as images) through multiple models and comparing their outputs, with a focus on feature extraction. It is based on patterns found in the `scripts/` directory of this project.
+This guide explains how to write evaluation scripts for running data through multiple models and comparing their outputs. It is based on the patterns established in `scripts/image-feature-batch.ts` and `scripts/image-feature-extract.ts`.
+
+The recommended structure is to separate the core model evaluation logic from the orchestration script.
+
+-   **Core Logic Script (e.g., `image-feature-extract.ts`):** A file that defines a single, reusable task. It contains the prompt, the Zod schema for the expected output, and a function that takes an input (like an image path) and returns a model response.
+-   **Orchestrator Script (e.g., `image-feature-batch.ts`):** A file that manages the evaluation process. It defines the list of models and inputs, calls the core logic for each combination, and handles scoring and reporting.
 
 ---
 
-## 1. Script Structure & CLI Usage
-- Each evaluation is a standalone script in `scripts/`, run via CLI (e.g., `pnpm tsx scripts/your-eval.ts`).
-- Scripts import model runners, evaluation runners, and types from `src/`.
-- Main logic is wrapped in async functions and/or custom classes extending `EvaluationRunner` or `EvaluationScorer`.
-
-## 2. Input/Output Handling
-- **Inputs**: Data files (images, PDFs, audio, URLs) are referenced by path or URL.
-- **Outputs**: Results are stored in the `output/` directory, with subfolders per evaluation (e.g., `output/image-parsing`).
-- **Format**: Each result is saved as a JSON file, one per model/input combination.
-
-## 3. Intermediate Results & Rerun Logic
-- The `EvaluationRunner` base class uses a caching mechanism (`getCachedFile`) to check if a result exists before running the model.
-- If the output file exists, it is reused; otherwise, the model is run and the result is saved.
-- This allows rerunning only missing evaluations by default. To force reruns, clear the relevant output files.
-
-## 4. Collation & Reporting
-- Use `getModelResponses()` in the runner/scorer to aggregate all results for further analysis or reporting.
-- Scoring and reporting can be handled by custom scorer classes (extending `EvaluationScorer`).
-- Main output is JSON, but you can add scripts to generate Markdown, HTML, or CSV reports from the JSON results.
-
-## 5. Step-by-Step: Writing a New Evaluation
-
-### a. Define the Evaluation Goal
-- What are you measuring? (e.g., feature extraction accuracy)
-- What are the inputs and expected outputs? (define a Zod schema)
-
-### b. Set Up the Script
-- Create a new file in `scripts/`, e.g., `image-feature-eval.ts`.
-- Import necessary classes: `BaseModelRunner`, `EvaluationRunner`, `ModelDetails`, etc.
-
-### c. Write the Model Invocation Function
-```ts
-export async function extractFeatures(imagePath: string, model: ModelDetails): Promise<ModelResponse> {
-  // Set up prompt/conversation
-  // Attach image
-  // Run model
-  // Return response
-}
-```
-
-### d. Create a Runner Class
-```ts
-class FeatureExtractionRunner extends EvaluationRunner {
-  constructor(evaluationId: string, imagePath: string) {
-    super(evaluationId);
-    this.imagePath = imagePath;
-  }
-  async getModelResponse(details: ModelDetails): Promise<ModelResponse> {
-    return extractFeatures(this.imagePath, details);
-  }
-}
-```
-
-### e. Run Evaluations for Each Model
-```ts
-const runner = new FeatureExtractionRunner('feature-extraction/image1', 'path/to/image1.png');
-await runner.evaluate({ name: 'modelA', provider: 'providerA' });
-await runner.evaluate({ name: 'modelB', provider: 'providerB' });
-```
-
-### f. Intermediate Results and Reruns
-- Results are saved in `output/feature-extraction/image1/modelA.json`, etc.
-- The runner will skip models that already have results unless you clear the output directory.
-
-### g. Collate and Score Results
-```ts
-class FeatureScorer extends EvaluationScorer {
-  async score() {
-    const responses = await this.getModelResponses();
-    // Analyze, print tables, or save summary JSON
-  }
-}
-const scorer = new FeatureScorer('feature-extraction/image1');
-await scorer.score();
-```
-
-### h. Generate Reports
-- Write a post-processing script to read the JSON results and generate HTML/Markdown/CSV as needed.
+## 1. **Best Practices: Use the Framework**
+- **Always use the provided base classes and helpers:**
+  - `evaluate()`: A utility that wraps a single evaluation run, handling caching and saving the output file correctly.
+  - `EvaluationScorer`: The base class for scoring model responses against ground truth.
+  - `EvaluationReporter`: The base class for generating human-readable reports from the collected responses.
+- **This ensures:**
+  - DRY, maintainable code.
+  - Consistent output structure.
+  - Automatic caching and reuse of model responses.
+  - Easy integration with reporting tools.
 
 ---
 
-## Recommendations for Image Feature Extraction
-- **Batch Processing**: Loop over all images and all models, using a unique evaluation ID for each combination.
-- **Parallelization**: Consider running evaluations in parallel for speed, but ensure output files don't conflict.
-- **Custom Scoring**: Implement a scorer that compares extracted features to ground truth or expected values.
-- **Report Generation**: Add a script to convert JSON results into HTML tables or visualizations for easy comparison.
+## 2. Script Structure & CLI Usage
+- Each evaluation is a standalone script in `scripts/`, run via a CLI command (e.g., `pnpm tsx scripts/image-feature-batch.ts extract`).
+- Scripts should support multiple commands for different stages of the process, such as `extract`, `score`, and `report`.
 
 ---
 
-For more examples, see the scripts in the `scripts/` directory (e.g., `image-parsing.ts`, `pdf-parsing.ts`, `site-info.ts`). 
+## 3. Example: A Complete Image Feature Evaluation
+
+### Step 1: Define the Core Logic (`image-feature-extract.ts`)
+
+First, define the schema for the data you want to extract and create a function to perform the extraction for a single input.
+
+```ts
+// scripts/image-feature-extract.ts
+import { z } from 'zod';
+import { Prompt } from '../src/conversation/prompt.js';
+import { ModelDetails, ModelResponse } from '../src/models/types.js';
+import { Conversation } from '../src/conversation/conversation.js';
+import { BaseModelRunner } from '../src/models/runner.js';
+
+// 1. Define the output schema with Zod
+export const ImageFeatureSchema = z.object({
+  color_palette: z.object({
+    value: z.enum(["warm", "cool", "neutral", "unknown"]),
+    confidence: z.number().min(0).max(1),
+  }),
+  people_count: z.object({
+    value: z.number().int(),
+    confidence: z.number().min(0).max(1),
+  }),
+  // ... other features
+});
+
+// 2. Create a reusable extraction function
+const featurePrompt = new Prompt('You are an expert image analyst. Given an image, extract features and return them as a JSON object.');
+
+export async function imageFeatureExtract(imagePath: string, model: ModelDetails): Promise<ModelResponse> {
+  const conversation = new Conversation(model, featurePrompt.getPrompt());
+  await conversation.addAttachmentFromPath(imagePath);
+  const runner = new BaseModelRunner();
+  return runner.streamObject(conversation, ImageFeatureSchema);
+}
+```
+
+### Step 2: Create the Orchestrator (`image-feature-batch.ts`)
+
+This script runs the core logic across multiple models and images, and also handles reporting.
+
+```ts
+// scripts/image-feature-batch.ts
+import fs from 'fs';
+import path from 'path';
+import { evaluate } from '../src/evaluation/evaluate.js';
+import { imageFeatureExtract } from './image-feature-extract.js';
+import { ModelDetails, ModelResponse } from '../src/models/types.js';
+import { EvaluationReporter } from '../src/evaluation/reporter.js';
+
+const evaluationId = 'image-feature-extraction';
+
+// 1. Define models and inputs
+const models: ModelDetails[] = [
+  { name: 'gemma3:4b', provider: 'ollama' },
+  { name: 'gemini-2.0-flash-lite', provider: 'google' },
+];
+const inputDir = path.resolve('input/images');
+
+// 2. Create a batch extraction function using the `evaluate` helper
+async function batchExtract() {
+  const images = fs.readdirSync(inputDir).filter(f => f.endsWith('.jpeg'));
+  for (const model of models) {
+    for (const image of images) {
+      const imagePath = path.join(inputDir, image);
+      // The `evaluate` function handles running, caching, and saving
+      await evaluate(
+        (details) => imageFeatureExtract(imagePath, details),
+        evaluationId,
+        image, // Used for the output subdirectory
+        model
+      );
+    }
+  }
+}
+
+// 3. Create a reporter to generate a summary
+class ImageFeatureReporter extends EvaluationReporter {
+  // ... (Implementation for loading responses and generating a report)
+}
+
+// 4. Create a CLI entrypoint
+async function main() {
+  const mode = process.argv[2];
+  if (mode === 'extract') {
+    await batchExtract();
+  } else if (mode === 'report') {
+    // ... call reporter
+  }
+}
+
+main();
+```
+
+---
+
+## 4. Input/Output Structure
+- **Inputs**:
+  - Data files (e.g., images) should be placed in a dedicated folder, like `input/images/`.
+  - Ground truth data, if used, should be in a file like `input/image-feature-extrator/ground_truth.csv`.
+- **Outputs**:
+  - The `evaluate` helper saves responses to `output/evaluations/<evaluationId>/`.
+  - **Crucially, it creates a subdirectory for each input file.**
+  - The final structure is: `output/evaluations/<evaluationId>/<input_filename>/<model_name>.json`.
+  - Reports should be saved to `output/evaluations/<evaluationId>/reports/`.
+
+---
+
+## 5. Reporting Best Practices
+When building a reporter, keep these in mind:
+
+- **Load from Nested Directories**: Your `loadResponses` logic must scan the subdirectories for each input file to find all the JSON results.
+- **Image Context**: Always show the image being analyzed in the report for context. Use a relative path from the report file.
+- **Feature Comparison**: For comparing models, a table with models as rows and features as columns works well.
+- **Performance Metrics**: Include processing time and cost for each run to evaluate model efficiency.
+- **Clear Organization**: Group results by image to make comparisons intuitive.
+
+---
+
+## 6. Common Pitfalls
+- **Incorrect Output Path**: Forgetting that the `evaluate` helper creates a subdirectory for each input file. Your reporter must account for this nested structure.
+- **Manual File Handling**: Writing your own file caching or directory creation logic instead of using the `evaluate` helper.
+- **Not Including Context**: Generating reports without including the source image, making it hard to interpret the results.
+- **Parsing Without Error Handling**: Not wrapping `JSON.parse()` in a `try...catch` block when processing model responses, which can crash the entire reporting process.
+
+For a full, working example, see the `scripts/image-feature-batch.ts` and `scripts/image-feature-extract.ts` files.
