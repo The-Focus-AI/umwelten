@@ -7,7 +7,9 @@ import {
 import { RateLimitConfig } from "../rate-limit/rate-limit.js";
 import {
   shouldAllowRequest,
+  getRateLimitState,
   updateRateLimitState,
+  clearRateLimitState,
 } from "../rate-limit/rate-limit.js";
 import {
   LanguageModelV1,
@@ -20,13 +22,16 @@ import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
 import { Conversation } from "../conversation/conversation.js";
 import { z } from "zod";
+
 export interface ModelRunnerConfig {
   rateLimitConfig?: RateLimitConfig;
   maxRetries?: number;
+  maxTokens?: number;
 }
 
 const DEFAULT_CONFIG: ModelRunnerConfig = {
   maxRetries: 3,
+  maxTokens: 4096, // Default safeguard
 };
 
 export class BaseModelRunner implements ModelRunner {
@@ -61,7 +66,8 @@ export class BaseModelRunner implements ModelRunner {
     updateRateLimitState(
       modelIdString,
       false,
-      undefined,
+      error,
+      error.response?.headers,
       this.config.rateLimitConfig
     );
 
@@ -145,7 +151,10 @@ export class BaseModelRunner implements ModelRunner {
     const { startTime, model, modelIdString } =
       await this.startUp(conversation);
 
-    // console.log("Model Details:", JSON.stringify(conversation.modelDetails, null, 2));
+    const mergedOptions = {
+      maxTokens: this.config.maxTokens,
+      ...conversation.options,
+    };
 
     const response = await generateText({
       model: model,
@@ -153,7 +162,7 @@ export class BaseModelRunner implements ModelRunner {
       temperature: conversation.modelDetails.temperature,
       topP: conversation.modelDetails.topP,
       topK: conversation.modelDetails.topK,
-      ...conversation.options,
+      ...mergedOptions,
     });
 
     return this.makeResult({
@@ -170,10 +179,15 @@ export class BaseModelRunner implements ModelRunner {
     const { startTime, model, modelIdString } =
       await this.startUp(conversation);
     try {
+      const mergedOptions = {
+        maxTokens: this.config.maxTokens,
+        ...conversation.options,
+      };
+
       const response = await streamText({
         model: model,
         messages: conversation.getMessages(),
-        ...conversation.options,
+        ...mergedOptions,
         temperature: conversation.modelDetails.temperature,
         topP: conversation.modelDetails.topP,
         topK: conversation.modelDetails.topK,  
@@ -208,10 +222,15 @@ export class BaseModelRunner implements ModelRunner {
     const { startTime, model, modelIdString } =
       await this.startUp(conversation);
 
+    const mergedOptions = {
+      maxTokens: this.config.maxTokens,
+      ...conversation.options,
+    };
+
     const response = await generateObject({
       model: model,
       messages: conversation.getMessages(),
-      ...conversation.options,
+      ...mergedOptions,
       temperature: conversation.modelDetails.temperature,
       topP: conversation.modelDetails.topP,
       topK: conversation.modelDetails.topK,
@@ -240,13 +259,18 @@ export class BaseModelRunner implements ModelRunner {
     const { startTime, model, modelIdString } =
       await this.startUp(conversation);
     try {
+      const mergedOptions = {
+        maxTokens: this.config.maxTokens,
+        ...conversation.options,
+      };
+
       const response = await streamObject({
         model: model,
         messages: conversation.getMessages(),
         temperature: conversation.modelDetails.temperature,
         topP: conversation.modelDetails.topP,
         topK: conversation.modelDetails.topK,  
-        ...conversation.options,
+        ...mergedOptions,
         schema: schema,
       });
 

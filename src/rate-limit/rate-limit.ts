@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export type RateLimitErrorType = 'soft' | 'hard';
+
 // Rate limit tracking for a specific model
 export interface RateLimitState {
   requestCount: number;
@@ -52,6 +54,27 @@ function calculateBackoff(consecutiveFailures: number, config: RateLimitConfig):
   return delay + jitter;
 }
 
+// Function to determine if an error is retriable
+export function isRetriableError(error: any): boolean {
+  if (!error) return false;
+  
+  // Handle OpenAI-like error responses
+  if (error.status) {
+    // 429 is the classic rate limit error
+    if (error.status === 429) return true;
+    // 5xx errors are server-side issues, often transient
+    if (error.status >= 500 && error.status <= 599) return true;
+  }
+  
+  // Add other checks for transient network errors if needed
+  // e.g., ECONNRESET, ETIMEDOUT
+  if (error.code && ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'].includes(error.code)) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Check if we should allow a request based on rate limit state
  */
@@ -84,6 +107,7 @@ export function shouldAllowRequest(modelId: string, config: RateLimitConfig = DE
 export function updateRateLimitState(
   modelId: string,
   success: boolean,
+  error?: any,
   headers?: Record<string, string>,
   config: RateLimitConfig = DEFAULT_CONFIG
 ): void {
@@ -103,15 +127,24 @@ export function updateRateLimitState(
     }
   }
 
+  const errorType: RateLimitErrorType = isRetriableError(error) ? 'soft' : 'hard';
+
   if (success) {
     // Reset failure count on success
     state.consecutiveFailures = 0;
     state.backoffUntil = undefined;
   } else {
-    // Increment failure count and calculate backoff
-    state.consecutiveFailures++;
-    const backoffMs = calculateBackoff(state.consecutiveFailures, config);
-    state.backoffUntil = new Date(now.getTime() + backoffMs);
+    // For soft errors, increment failure count and calculate backoff
+    if (errorType === 'soft') {
+      state.consecutiveFailures++;
+      const backoffMs = calculateBackoff(state.consecutiveFailures, config);
+      state.backoffUntil = new Date(now.getTime() + backoffMs);
+    } else {
+      // For hard errors, do not backoff, just log the failure internally
+      // and reset consecutive failures to not penalize future requests.
+      state.consecutiveFailures = 0;
+      state.backoffUntil = undefined;
+    }
   }
 
   // Update request count and time
