@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LanguageModelV1 } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
-import { Conversation } from '../conversation/conversation.js';
+import { Interaction } from '../interaction/interaction.js';
 
 export interface ModelRoute {
   name: string; // Base model identifier
@@ -127,18 +127,22 @@ export const ScoreSchema = z.object({
 });
 
 export const ScoreResponseSchema = z.object({
-  evals: ScoreSchema,
+  evals: z.array(z.object({
+    key: z.string().describe("Key that we are looking for"),
+    value: z.string().describe("Value that is found)"),
+    score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
+  })),
   metadata: ResponseMetadataSchema,
 });
 
 export type ScoreResponse = z.infer<typeof ScoreResponseSchema>;
 
 export interface ModelRunner {
-  generateText(conversation: Conversation): Promise<ModelResponse>;
-  streamText(conversation: Conversation): Promise<ModelResponse>;
-  // generateObject(conversation: Conversation): Promise<ModelResponse>;
-  // streamObject(conversation: Conversation): Promise<ModelResponse>;
-  // generateImage(conversation: Conversation): Promise<ModelResponse>;
+  generateText(interaction: Interaction): Promise<ModelResponse>;
+  streamText(interaction: Interaction): Promise<ModelResponse>;
+  // generateObject(interaction: Interaction): Promise<ModelResponse>;
+  // streamObject(interaction: Interaction): Promise<ModelResponse>;
+  // generateImage(interaction: Interaction): Promise<ModelResponse>;
 }
 
 export interface ModelSearchOptions {

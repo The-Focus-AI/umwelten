@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-export type PromptOptions = {
+export type StimulusOptions = {
     role?: string,
     objective?: string,
     instructions?: string[],
@@ -10,10 +10,10 @@ export type PromptOptions = {
     examples?: string[] 
 }
 
-export class Prompt {
-    private options: PromptOptions;
+export class Stimulus {
+    private options: StimulusOptions;
 
-    constructor(options?: PromptOptions) {
+    constructor(options?: StimulusOptions) {
         this.options = options || {role: "helpful assistant"};
     }
 

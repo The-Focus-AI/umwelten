@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
 import type { LanguageModelV1 } from "ai";
-import type { ModelDetails, ModelRoute } from "../models/types.js";
+import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 import { BaseProvider } from "./base.js";
 
 const GEMINI_PRICING = {

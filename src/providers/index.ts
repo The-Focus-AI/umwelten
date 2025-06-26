@@ -1,7 +1,7 @@
 import { getOllamaModelUrl } from "./ollama.js";
 import { getOpenRouterModelUrl } from "./openrouter.js";
 import { getGoogleModelUrl } from "./google.js";
-import type { ModelDetails } from "../models/types.js";
+import type { ModelDetails } from "../cognition/types.js";
 import { createGoogleProvider } from "./google.js";
 import { createOpenRouterProvider } from "./openrouter.js";
 import { createOllamaProvider } from "./ollama.js";

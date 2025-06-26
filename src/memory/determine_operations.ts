@@ -4,9 +4,9 @@ import {
   memoryOperationResultSchema,
   MemoryOperation,
 } from "./types.js";
-import { Conversation } from "../conversation/conversation.js";
-import { BaseModelRunner } from "../models/runner.js";
-import { ModelDetails } from "../models/types.js";
+import { Interaction } from "../interaction/interaction.js";
+import { BaseModelRunner } from "../cognition/runner.js";
+import { ModelDetails } from "../cognition/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { Fact } from "./types.js";
 // Memory operation prompt
@@ -208,11 +208,11 @@ export async function determineOperations(
     previousMemory
   ).replace("{new_facts}", factsContent);
 
-  const conversation = new Conversation(model, prompt);
+  const interaction = new Interaction(model, prompt);
 
   const runner = new BaseModelRunner();
   const result = await runner.generateObject(
-    conversation,
+    interaction,
     memoryOperationResultSchema
   );
 

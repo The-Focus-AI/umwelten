@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createLMStudioProvider } from './lmstudio.js';
 import { generateText, streamObject, generateObject } from 'ai';
-import { ModelRoute } from '../models/types.js';
+import { ModelRoute } from '../cognition/types.js';
 import { z } from 'zod';
 
 // Default LM Studio host

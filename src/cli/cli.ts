@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { modelsCommand } from './models.js';
 import { runCommand } from './run.js';
 import { chatCommand } from './chat.js';
+import { addToolsCommand } from './tools.js';
 
 const program = new Command();
 
@@ -15,5 +16,6 @@ program
 program.addCommand(modelsCommand);
 program.addCommand(runCommand);
 program.addCommand(chatCommand);
+addToolsCommand(program);
 
 program.parse(); 

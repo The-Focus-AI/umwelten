@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ModelDetails } from '../models/types.js'
+import { ModelDetails } from '../cognition/types.js'
 
 export interface CostBreakdown {
   promptCost: number

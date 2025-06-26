@@ -1,5 +1,5 @@
 import { EvaluationScorer } from './scorer.js';
-import { ModelResponse, ScoreResponse } from '../models/types.js';
+import { ModelResponse, ScoreResponse } from '../cognition/types.js';
 import fs from 'fs';
 import path from 'path';
 

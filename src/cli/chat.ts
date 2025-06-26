@@ -1,6 +1,7 @@
 import { Command } from "commander";
-import { Conversation } from "../conversation/conversation.js";
-import { BaseModelRunner } from "../models/runner.js";
+import { Interaction } from "../interaction/interaction.js";
+import { BaseModelRunner } from "../cognition/runner.js";
+import { ModelRunner } from "../cognition/types.js";
 import { createMemoryRunner } from "../memory/memory_runner.js";
 import { getModel } from "../providers/index.js";
 import readline from "readline";
@@ -53,7 +54,7 @@ export const chatCommand = addCommonOptions(
   rl.question("You: ", async (line) => {
     firstMessage = line.trim();
     const conversation = await setupConversation({ modelDetails, prompt: firstMessage, attach, debug });
-    let runner;
+    let runner: ModelRunner;
     let memoryStore = new InMemoryMemoryStore();
     if (options.memory) {
       runner = createMemoryRunner({

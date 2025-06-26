@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { SmartModelRunner, RunnerHook, RunnerContext, RunnerAbort, RunnerModification } from "./smart_runner";
-import { BaseModelRunner } from "./runner";
-import { Conversation } from "../conversation/conversation";
-import { InMemoryMemoryStore } from "../memory/memory_store";
+import { SmartModelRunner, RunnerHook, RunnerAbort, RunnerModification } from "./smart_runner.js";
+import { BaseModelRunner } from "./runner.js";
+import { Interaction } from "../interaction/interaction.js";
+import { InMemoryMemoryStore } from "../memory/memory_store.js";
 
 describe("SmartModelRunner", () => {
   const dummyModelResponse = {
@@ -18,10 +18,10 @@ describe("SmartModelRunner", () => {
 
   // DummyBaseRunner that does not call super and does not use provider logic
   class DummyBaseRunner {
-    async generateText(conversation: Conversation) {
+    async generateText(interaction: Interaction) {
       return dummyModelResponse;
     }
-    async streamText(conversation: Conversation) {
+    async streamText(interaction: Interaction) {
       return dummyModelResponse;
     }
     // For SmartModelRunner's super() call, provide a dummy config
@@ -31,8 +31,8 @@ describe("SmartModelRunner", () => {
   }
 
   const makeConversation = () =>
-    new Conversation(
-      { provider: "ollama", name: "gemma3:latest" },
+    new Interaction(
+      { provider: "ollama", name: "gemma3:27b" },
       "test"
     );
 
@@ -66,7 +66,10 @@ describe("SmartModelRunner", () => {
 
   it("modifies context if before hook returns RunnerModification", async () => {
     const beforeHook: RunnerHook = async (ctx) =>
-      new RunnerModification((c) => ({ ...c, foo: "bar" }));
+      new RunnerModification((c) => {
+        (c as any).foo = "bar";
+        return c;
+      });
     const duringHook: RunnerHook = async (ctx) => {
       expect((ctx as any).foo).toBe("bar");
     };

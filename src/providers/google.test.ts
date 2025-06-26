@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createGoogleProvider } from './google.js'
 import { generateText } from 'ai'
-import type { ModelDetails, ModelRoute } from '../models/types.js'
+import type { ModelDetails, ModelRoute } from '../cognition/types.js'
 
 describe('Google Provider', () => {
   const originalEnv = process.env

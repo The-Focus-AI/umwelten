@@ -1,6 +1,6 @@
 import { LanguageModelV1 } from 'ai';
-import { ModelDetails } from '../models/types.js';
-import { ModelRoute } from '../models/types.js';
+import { ModelDetails } from '../cognition/types.js';
+import { ModelRoute } from '../cognition/types.js';
 
 /**
  * Base class for all model providers.

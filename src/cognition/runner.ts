@@ -20,7 +20,7 @@ import {
 } from "ai";
 import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
-import { Conversation } from "../conversation/conversation.js";
+import { Interaction } from "../interaction/interaction.js";
 import { z } from "zod";
 
 export interface ModelRunnerConfig {
@@ -87,39 +87,39 @@ export class BaseModelRunner implements ModelRunner {
 
   private async validateAndPrepareModel(params: {
     prompt: string;
-    conversation: Conversation;
+    interaction: Interaction;
     options?: ModelOptions;
   }): Promise<{ model: LanguageModelV1; modelIdString: string }> {
-    const modelIdString = `${params.conversation.modelDetails.provider}/${params.conversation.modelDetails.name}`;
+    const modelIdString = `${params.interaction.modelDetails.provider}/${params.interaction.modelDetails.name}`;
 
-    const validatedModel = await validateModel(params.conversation.modelDetails);
+    const validatedModel = await validateModel(params.interaction.modelDetails);
     if (!validatedModel) {
       throw new Error(
-        `Invalid model details: ${JSON.stringify(params.conversation.modelDetails)}`
+        `Invalid model details: ${JSON.stringify(params.interaction.modelDetails)}`
       );
     }
-    if (params.conversation.modelDetails.numCtx) {
-      validatedModel.numCtx = params.conversation.modelDetails.numCtx;
+    if (params.interaction.modelDetails.numCtx) {
+      validatedModel.numCtx = params.interaction.modelDetails.numCtx;
     }
-    if (params.conversation.modelDetails.temperature) {
-      validatedModel.temperature = params.conversation.modelDetails.temperature;
+    if (params.interaction.modelDetails.temperature) {
+      validatedModel.temperature = params.interaction.modelDetails.temperature;
     }
-    if (params.conversation.modelDetails.topP) {
-      validatedModel.topP = params.conversation.modelDetails.topP;
+    if (params.interaction.modelDetails.topP) {
+      validatedModel.topP = params.interaction.modelDetails.topP;
     } 
-    if (params.conversation.modelDetails.topK) {
-      validatedModel.topK = params.conversation.modelDetails.topK;
+    if (params.interaction.modelDetails.topK) {
+      validatedModel.topK = params.interaction.modelDetails.topK;
     }
     
-    params.conversation.modelDetails = validatedModel;
+    params.interaction.modelDetails = validatedModel;
 
     // this.logModelDetails(modelIdString, {
     //   prompt: params.prompt,
-    //   modelDetails: params.conversation.modelDetails,
-    //   options: params.conversation.options,
+    //   modelDetails: params.interaction.modelDetails,
+    //   options: params.interaction.options,
     // });
 
-    const model = await getModel(params.conversation.modelDetails);
+    const model = await getModel(params.interaction.modelDetails);
     if (!model) {
       throw new Error(`Failed to get LanguageModelV1 for ${modelIdString}`);
     }
@@ -147,54 +147,74 @@ export class BaseModelRunner implements ModelRunner {
       : null;
   }
 
-  async generateText(conversation: Conversation): Promise<ModelResponse> {
+  async generateText(interaction: Interaction): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
 
     const mergedOptions = {
       maxTokens: this.config.maxTokens,
-      ...conversation.options,
+      ...interaction.options,
     };
 
-    const response = await generateText({
+    const generateOptions: any = {
       model: model,
-      messages: conversation.getMessages(),
-      temperature: conversation.modelDetails.temperature,
-      topP: conversation.modelDetails.topP,
-      topK: conversation.modelDetails.topK,
+      messages: interaction.getMessages(),
+      temperature: interaction.modelDetails.temperature,
+      topP: interaction.modelDetails.topP,
+      topK: interaction.modelDetails.topK,
       ...mergedOptions,
-    });
+    };
+
+    // Add tools if available
+    if (interaction.hasTools()) {
+      generateOptions.tools = interaction.getVercelTools();
+      if (interaction.maxSteps) {
+        generateOptions.maxSteps = interaction.maxSteps;
+      }
+    }
+
+    const response = await generateText(generateOptions);
 
     return this.makeResult({
       response,
       content: response.text,
       usage: response.usage,
-      conversation,
+      interaction,
       startTime,
       modelIdString,
     });
   }
 
-  async streamText(conversation: Conversation): Promise<ModelResponse> {
+  async streamText(interaction: Interaction): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
     try {
       const mergedOptions = {
         maxTokens: this.config.maxTokens,
-        ...conversation.options,
+        ...interaction.options,
       };
 
-      const response = await streamText({
+      const streamOptions: any = {
         model: model,
-        messages: conversation.getMessages(),
+        messages: interaction.getMessages(),
         ...mergedOptions,
-        temperature: conversation.modelDetails.temperature,
-        topP: conversation.modelDetails.topP,
-        topK: conversation.modelDetails.topK,  
-        onFinish: (event) => {
+        temperature: interaction.modelDetails.temperature,
+        topP: interaction.modelDetails.topP,
+        topK: interaction.modelDetails.topK,  
+        onFinish: (event: any) => {
           console.log("Finish Reason:", event.finishReason);
         },
-      });
+      };
+
+      // Add tools if available
+      if (interaction.hasTools()) {
+        streamOptions.tools = interaction.getVercelTools();
+        if (interaction.maxSteps) {
+          streamOptions.maxSteps = interaction.maxSteps;
+        }
+      }
+
+      const response = await streamText(streamOptions);
 
       for await (const textPart of response.textStream) {
         process.stdout.write(textPart);
@@ -206,7 +226,7 @@ export class BaseModelRunner implements ModelRunner {
         response,
         content: await response.text,
         usage,
-        conversation,
+        interaction,
         startTime,
         modelIdString,
       });
@@ -216,24 +236,24 @@ export class BaseModelRunner implements ModelRunner {
   }
 
   async generateObject(
-    conversation: Conversation,
+    interaction: Interaction,
     schema: z.ZodSchema
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
 
     const mergedOptions = {
       maxTokens: this.config.maxTokens,
-      ...conversation.options,
+      ...interaction.options,
     };
 
     const response = await generateObject({
       model: model,
-      messages: conversation.getMessages(),
+      messages: interaction.getMessages(),
       ...mergedOptions,
-      temperature: conversation.modelDetails.temperature,
-      topP: conversation.modelDetails.topP,
-      topK: conversation.modelDetails.topK,
+      temperature: interaction.modelDetails.temperature,
+      topP: interaction.modelDetails.topP,
+      topK: interaction.modelDetails.topK,
       schema: schema,
       experimental_repairText: async (options: {  text: string, error: any}) => {
         console.log("Repairing text:", options.text);
@@ -246,30 +266,30 @@ export class BaseModelRunner implements ModelRunner {
       response,
       content: response.object as string,
       usage: response.usage,
-      conversation,
+      interaction,
       startTime,
       modelIdString,
     });
   }
 
   async streamObject(
-    conversation: Conversation,
+    interaction: Interaction,
     schema: z.ZodSchema
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
     try {
       const mergedOptions = {
         maxTokens: this.config.maxTokens,
-        ...conversation.options,
+        ...interaction.options,
       };
 
       const response = await streamObject({
         model: model,
-        messages: conversation.getMessages(),
-        temperature: conversation.modelDetails.temperature,
-        topP: conversation.modelDetails.topP,
-        topK: conversation.modelDetails.topK,  
+        messages: interaction.getMessages(),
+        temperature: interaction.modelDetails.temperature,
+        topP: interaction.modelDetails.topP,
+        topK: interaction.modelDetails.topK,  
         ...mergedOptions,
         schema: schema,
       });
@@ -284,7 +304,7 @@ export class BaseModelRunner implements ModelRunner {
         response,
         content: (await response.object) as string,
         usage,
-        conversation,
+        interaction,
         startTime,
         modelIdString,
       });
@@ -294,7 +314,7 @@ export class BaseModelRunner implements ModelRunner {
   }
 
   async startUp(
-    conversation: Conversation
+    interaction: Interaction
   ): Promise<{
     startTime: Date;
     model: LanguageModelV1;
@@ -302,8 +322,8 @@ export class BaseModelRunner implements ModelRunner {
   }> {
     const startTime = new Date();
     const { model, modelIdString } = await this.validateAndPrepareModel({
-      conversation: conversation,
-      prompt: conversation.prompt,
+      interaction: interaction,
+      prompt: interaction.prompt,
     });
 
     return { startTime, model, modelIdString };
@@ -313,14 +333,14 @@ export class BaseModelRunner implements ModelRunner {
     response,
     content,
     usage,
-    conversation,
+    interaction,
     startTime,
     modelIdString,
   }: {
     response: any;
     content: string;
     usage: any;
-    conversation: Conversation;
+    interaction: Interaction;
     startTime: Date;
     modelIdString: string;
   }) {
@@ -328,13 +348,14 @@ export class BaseModelRunner implements ModelRunner {
       modelIdString,
       true,
       undefined,
+      undefined,
       this.config.rateLimitConfig
     );
 
     // console.log('usage', usage);
 
     const costBreakdown = this.calculateCostBreakdown(usage, {
-      modelDetails: conversation.modelDetails,
+      modelDetails: interaction.modelDetails,
     });
 
     // console.log('cost breakdown', costBreakdown);
@@ -349,7 +370,7 @@ export class BaseModelRunner implements ModelRunner {
       );
     }
 
-    conversation.addMessage({
+    interaction.addMessage({
       role: "assistant",
       content: content,
     });
@@ -368,8 +389,8 @@ export class BaseModelRunner implements ModelRunner {
         },
         cost: costBreakdown || undefined,
         // costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
-        provider: conversation.modelDetails.provider,
-        model: conversation.modelDetails.name,
+        provider: interaction.modelDetails.provider,
+        model: interaction.modelDetails.name,
       },
     };
 
@@ -379,12 +400,12 @@ export class BaseModelRunner implements ModelRunner {
   }
 
   /*
-  async stream(conversation: Conversation): Promise<ModelResponse> {
+  async stream(interaction: Interaction): Promise<ModelResponse> {
     const startTime = new Date();
     const { model, modelIdString } = await this.validateAndPrepareModel({
-      prompt: conversation.prompt,
-      modelDetails: conversation.modelDetails,
-      options: conversation.options
+      prompt: interaction.prompt,
+      modelDetails: interaction.modelDetails,
+      options: interaction.options
     });
 
     try {
@@ -393,8 +414,8 @@ export class BaseModelRunner implements ModelRunner {
 
       const responseStream = await streamText({
         model: model,
-        messages: conversation.getMessages(),
-        ...conversation.options,
+        messages: interaction.getMessages(),
+        ...interaction.options,
         onFinish: (event) => {
           console.log('Finish Reason:', event.finishReason);
         },
@@ -413,7 +434,7 @@ export class BaseModelRunner implements ModelRunner {
       const final = await responseStream.text;
       const finishReason = await responseStream.finishReason;
 
-      const costBreakdown = this.calculateCostBreakdown(usage, { modelDetails: conversation.modelDetails });
+      const costBreakdown = this.calculateCostBreakdown(usage, { modelDetails: interaction.modelDetails });
 
       if (!usage || usage.promptTokens === undefined || usage.completionTokens === undefined) {
         console.warn(`Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`);
@@ -430,8 +451,8 @@ export class BaseModelRunner implements ModelRunner {
             total: usage?.totalTokens || (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
           },
           cost: costBreakdown || undefined,
-          provider: conversation.modelDetails.provider,
-          model: conversation.modelDetails.name
+          provider: interaction.modelDetails.provider,
+          model: interaction.modelDetails.name
         }
       };
 

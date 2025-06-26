@@ -1,7 +1,7 @@
 import { Command } from 'commander';  
 import { getModel } from '../providers/index.js';
-import { ModelDetails } from '../models/types.js';
-import { BaseModelRunner } from '../models/runner.js';
+import { ModelDetails } from '../cognition/types.js';
+import { BaseModelRunner } from '../cognition/runner.js';
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import { setupConversation } from './conversationUtils.js';
 // Optionally import a schema for --object mode

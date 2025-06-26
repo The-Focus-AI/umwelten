@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { ModelResponse, ScoreResponse } from '../models/types.js';
+import { ModelResponse, ScoreResponse } from '../cognition/types.js';
 import { Evaluation } from './base.js';
 
 export abstract class EvaluationScorer extends Evaluation {

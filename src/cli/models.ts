@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { getAllModels, searchModels } from '../models/models.js';
+import { getAllModels, searchModels } from '../cognition/models.js';
 import { estimateCost } from '../costs/costs.js';
 import { getModelUrl } from '../providers/index.js';
 import chalk from 'chalk';
 import Table from 'cli-table3';
-import type { ModelDetails } from '../models/types.js';
+import type { ModelDetails } from '../cognition/types.js';
 // Utility function to get visible length of string (excluding ANSI codes)
 function visibleLength(str: string): number {
   // Remove ANSI escape codes when calculating length

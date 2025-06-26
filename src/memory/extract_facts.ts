@@ -1,6 +1,6 @@
-import { ModelDetails } from "../models/types.js";
-import { Conversation } from "../conversation/conversation.js";
-import { BaseModelRunner } from "../models/runner.js";
+import { ModelDetails } from "../cognition/types.js";
+import { Interaction } from "../interaction/interaction.js";
+import { BaseModelRunner } from "../cognition/runner.js";
 import { FactSchema, factsSchema } from "./types.js";
 
 const factEnums = {
@@ -74,7 +74,7 @@ You should detect the language of the user input and record the facts in the sam
  * @returns Array of extracted facts
  */
 export async function extractFacts(
-  conversation: Conversation,
+  conversation: Interaction,
   model: ModelDetails
 ): Promise<FactSchema> {
   try {
@@ -96,13 +96,13 @@ export async function extractFacts(
 
     const runner = new BaseModelRunner();
 
-    const factsConversation = new Conversation(model, promptWithDate);
-    factsConversation.addMessage({ role: "user", content: messagesContent });
+    const factsInteraction = new Interaction(model, promptWithDate);
+    factsInteraction.addMessage({ role: "user", content: messagesContent });
     // Call LLM to extract facts
 
     // console.log("Extracting facts from conversation:", messagesContent);
     const result = await runner.generateObject(
-      factsConversation,
+      factsInteraction,
       factsSchema
     );
 
