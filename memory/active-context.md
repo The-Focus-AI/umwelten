@@ -1,119 +1,104 @@
 # Active Context
-Last Updated: 2025-06-26 04:46:40 UTC (Great Renaming Project - Phase 1 COMPLETED)
+Last Updated: 2025-06-26 17:45:18 UTC (Great Renaming Project - Phase 2.1 COMPLETED)
 
-## Current Status: Phase 1 COMPLETED ✅ - Ready for Phase 2
+## Current Status: Phase 2.1 COMPLETED ✅ - Ready for Phase 2.2
 
 ### Overview
-✅ **PHASE 1 COMPLETED**: Successfully executed comprehensive architectural refactoring implementing the "Umwelt" concept semantic framework. All TypeScript compilation errors resolved, core functionality preserved, and the codebase is now semantically aligned with meaningful cognitive concepts.
+✅ **PHASE 1 COMPLETED**: Successfully executed comprehensive architectural refactoring implementing the "Umwelt" concept semantic framework.
 
-### Phase 1 Final Results
+✅ **PHASE 2.1 COMPLETED**: Successfully implemented Vercel AI SDK tools integration with modern, type-safe architecture.
 
-#### ✅ Semantic Renaming COMPLETED
-1. **Directory Structure Changes** ✅
-   - `src/models` → `src/cognition` (reasoning/thinking processes)
-   - `src/conversation` → `src/interaction` (model-environment interactions)
+🎯 **PHASE 2.2 STARTING**: MCP Integration Architecture
 
-2. **File and Class Renaming** ✅
-   - `conversation.ts` → `interaction.ts` / `Conversation` class → `Interaction`
-   - `prompt.ts` → `stimulus.ts` / `Prompt` class → `Stimulus`
-   - `PromptOptions` → `StimulusOptions`
+### Phase 2.1 Final Results ✅ COMPLETED
 
-3. **Import Path Updates** ✅
-   - Updated all 44+ TypeScript files across the codebase
-   - Fixed all provider, memory, CLI, evaluation, and test imports
-   - Maintained type safety throughout
+#### ✅ Vercel AI SDK Tools Integration COMPLETED
+- **Tool Framework**: Created `src/stimulus/tools/` with comprehensive type system
+- **Native Integration**: Using `tool()` helper function with Zod validation
+- **Multi-step Support**: Implemented `maxSteps` for complex tool calling sequences
+- **Error Handling**: Tool-specific error types with proper validation
+- **Example Tools**: Calculator, random number generator, and statistics tools
 
-4. **Type System Fixes** ✅
-   - Fixed `ModelRunner` interface compatibility
-   - Fixed rate limit configuration issues
-   - Fixed evaluation schema structure
-   - Fixed LM Studio provider null safety
+#### ✅ Architecture Integration COMPLETED
+- **Enhanced Interaction Class**: Added tool support and maxSteps configuration
+- **Updated BaseModelRunner**: Tool calling in `generateText` and `streamText`
+- **Tool Registry**: Global tool management with discovery and categorization
+- **CLI Integration**: New `tools` command with list and demo functionality
 
-### Verification Status
-- ✅ **TypeScript Compilation**: All errors resolved (`npx tsc --noEmit --skipLibCheck` passes)
-- ✅ **Core Functionality**: Preserved and operational
-- ✅ **Test Infrastructure**: 39/77 tests passing (failures due to external dependencies, not renaming)
-- ✅ **Provider Integration**: All providers (Google, OpenRouter, Ollama, LM Studio) functional
-- ✅ **CLI Commands**: All commands operational with new class names
+#### ✅ Technical Excellence COMPLETED
+- **TypeScript Compilation**: All errors resolved
+- **Tool Registration**: Proper discovery and metadata management
+- **Backward Compatibility**: All existing functionality preserved
+- **Type Safety**: Full TypeScript support throughout tool system
 
-### Philosophical Foundation Successfully Implemented
-- **Cognition**: Model reasoning and thinking processes ✅
-- **Interaction**: Model-environment interactions ✅  
-- **Stimulus**: Input that triggers cognitive response ✅
-- **Umwelt**: Perceptual world model operates within ✅
+### Phase 2.2 Goals: MCP Integration Architecture
 
-## Phase 2: MCP Integration - READY TO BEGIN
+#### 🎯 Phase 2.2 Implementation Plan
 
-### Next Implementation Strategy
+**2.2.1 MCP Protocol Foundation**
+- [ ] Create `src/mcp/types/` with MCP protocol types and interfaces
+- [ ] Implement JSON-RPC 2.0 communication layer
+- [ ] Define MCP message schemas and validation
+- [ ] Create transport abstractions (SSE, stdio, custom)
 
-#### Phase 2 Objectives
-1. **Create MCP Infrastructure**
-   - `src/mcp/client.ts` - MCP client for consuming external tools
-   - `src/mcp/server.ts` - MCP server for exposing our tools
-   - `src/mcp/types.ts` - MCP protocol types and interfaces
+**2.2.2 MCP Client Implementation**
+- [ ] Build `src/mcp/client/` for connecting to external MCP servers
+- [ ] Implement tool discovery from MCP servers
+- [ ] Add connection management and lifecycle handling
+- [ ] Support schema discovery and schema definition approaches
+- [ ] Handle MCP tool execution and result processing
 
-2. **Tool Organization**
-   - Create `src/stimulus/tools/` directory
-   - Move existing tool definitions
-   - Structure tools for MCP compatibility
+**2.2.3 MCP Server Implementation**
+- [ ] Create `src/mcp/server/` for exposing our tools via MCP
+- [ ] Implement tool registration and exposure
+- [ ] Add session management and client handling
+- [ ] Support multiple transport options
+- [ ] Ensure proper security and validation
 
-3. **Integration Points**
-   - **MCP Client**: Connect to MCP servers to consume external tools/data
-   - **MCP Server**: Expose tools via MCP standard for other applications
+**2.2.4 Tool Interoperability**
+- [ ] Enable single tool definition to work with both Vercel AI SDK and MCP
+- [ ] Create tool adaptation layer for MCP compatibility
+- [ ] Implement tool metadata conversion between formats
+- [ ] Add tool execution bridging for MCP clients
 
-#### Phase 2 Implementation Plan
-1. **Research MCP Specification**: Study Model-Context-Protocol standards and examples
-2. **Design Integration Points**: Map existing architecture to MCP concepts
-3. **Implement Client Components**: Build MCP client for consuming external tools
-4. **Implement Server Components**: Expose tools via MCP standard
-5. **Tool Migration**: Move tools to new `src/stimulus/tools/` structure
-6. **Testing & Validation**: Ensure MCP integration works with existing functionality
+#### 🔧 Technical Requirements for Phase 2.2
+- **JSON-RPC 2.0**: Standard communication protocol for MCP
+- **Transport Layer**: SSE, stdio, and custom transport implementations
+- **Schema Handling**: Both discovery and definition approaches
+- **Connection Management**: Proper lifecycle and cleanup
+- **Security**: Tool execution validation and authorization
 
-### Current Focus
-Ready to begin Phase 2 MCP Integration with solid foundation from completed Phase 1 semantic renaming.
+### Next Steps
+1. **Research MCP Specification**: Study Model Context Protocol standards in detail
+2. **Implement MCP Types**: Create comprehensive type definitions for MCP protocol
+3. **Build Transport Layer**: Implement JSON-RPC 2.0 communication
+4. **Create MCP Client**: Connect to external MCP servers for tool consumption
+5. **Build MCP Server**: Expose our tools via MCP standard
 
-### Success Criteria for Phase 2
-1. MCP client can connect to external MCP servers
-2. MCP server can expose our tools to external applications  
-3. Existing tool functionality preserved
-4. New `src/stimulus/tools/` structure operational
-5. All tests continue passing
-6. Documentation updated for MCP usage
+### Current Blockers
+None - ready to proceed with Phase 2.2 MCP implementation
 
-### Risk Mitigation for Phase 2
-1. **Incremental Approach**: Implement MCP components without breaking existing functionality
-2. **Fallback Strategy**: Maintain existing tool interfaces during transition
-3. **Testing Strategy**: Validate MCP integration at each step
-4. **Documentation**: Clear MCP usage guides and examples
+### Key Decisions Made
+- **Unified Tool Interface**: Single definition works with multiple frameworks ✅
+- **Type-First Approach**: Leveraging Zod for validation and TypeScript inference ✅
+- **Modular Architecture**: Clear separation of concerns ✅
+- **Semantic Alignment**: Tools as stimulus components in Umwelt framework ✅
 
-### Dependencies & Blockers
-- None currently identified for Phase 2 start
-- MCP specification research required
-- Integration design decisions needed
+### Success Criteria for Phase 2.2
+1. **MCP Client**: Can connect to external MCP servers and discover tools
+2. **MCP Server**: Can expose our tools to external MCP clients
+3. **Tool Interoperability**: Single tool works with both Vercel AI SDK and MCP
+4. **Protocol Compliance**: Full JSON-RPC 2.0 and MCP specification adherence
+5. **Performance**: Efficient tool discovery and execution via MCP
+6. **Documentation**: Clear guides for MCP usage and integration
 
-## Implementation Approach for Phase 2
+### Risk Mitigation for Phase 2.2
+1. **Incremental Implementation**: Build MCP components without breaking existing tools
+2. **Fallback Strategy**: Maintain Vercel AI SDK tools as primary during MCP development
+3. **Testing Strategy**: Validate MCP protocol compliance at each step
+4. **Documentation**: Clear examples and integration guides
 
-### 1. MCP Research & Design
-- Study MCP specification and examples
-- Design integration points with existing architecture
-- Plan tool migration strategy
-
-### 2. Infrastructure Development
-- Create `src/mcp/` directory structure
-- Implement basic MCP client/server components
-- Define MCP protocol interfaces
-
-### 3. Tool Organization
-- Create `src/stimulus/tools/` directory
-- Design tool structure for MCP compatibility
-- Plan migration of existing tools
-
-### 4. Integration & Testing
-- Integrate MCP components with existing architecture
-- Test MCP client/server functionality
-- Validate tool migration
-
-The Great Renaming Phase 1 has successfully established a strong semantic foundation. The project is now ready to proceed with Phase 2 MCP Integration, building upon the improved conceptual framework to add Model-Context-Protocol capabilities.
+The successful completion of Phase 2.1 provides a solid foundation for MCP integration, with a proven tool framework that can be extended to support the Model Context Protocol while maintaining compatibility with Vercel AI SDK patterns.
 
 ## Current Focus: The Great Renaming & MCP Integration
 
@@ -196,6 +181,7 @@ The renaming reflects a shift from generic terms to semantically meaningful conc
 ### Dependencies & Blockers
 - None currently identified
 - MCP specification understanding may require research
+- Integration design decisions needed
 
 ## Implementation Approach
 

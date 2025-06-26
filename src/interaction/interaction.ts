@@ -1,5 +1,6 @@
 import { CoreMessage } from "ai";
 import { ModelDetails, ModelOptions } from "../cognition/types.js";
+import { ToolSet, toVercelToolSet } from "../stimulus/tools/index.js";
 import path from "path";
 import fs, { FileHandle } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
@@ -13,6 +14,8 @@ export class Interaction {
   public prompt: string;
   public options?: ModelOptions;
   public outputFormat?: z.ZodSchema;
+  public tools?: ToolSet;
+  public maxSteps?: number;
 
   constructor(
     modelDetails: ModelDetails,
@@ -76,10 +79,37 @@ export class Interaction {
     this.outputFormat = outputFormat;
   }
 
+  /**
+   * Set tools for this interaction
+   */
+  setTools(tools: ToolSet): void {
+    this.tools = tools;
+  }
+
+  /**
+   * Set maximum number of steps for multi-step tool calling
+   */
+  setMaxSteps(maxSteps: number): void {
+    this.maxSteps = maxSteps;
+  }
+
+  /**
+   * Get tools in Vercel AI SDK format
+   */
+  getVercelTools() {
+    return this.tools ? toVercelToolSet(this.tools) : undefined;
+  }
+
+  /**
+   * Check if this interaction has tools
+   */
+  hasTools(): boolean {
+    return this.tools !== undefined && Object.keys(this.tools).length > 0;
+  }
+
   getMessages(): CoreMessage[] {
     return this.messages;
   }
-
 
   clearContext(): void {
     this.messages = [];

@@ -156,14 +156,24 @@ export class BaseModelRunner implements ModelRunner {
       ...interaction.options,
     };
 
-    const response = await generateText({
+    const generateOptions: any = {
       model: model,
       messages: interaction.getMessages(),
       temperature: interaction.modelDetails.temperature,
       topP: interaction.modelDetails.topP,
       topK: interaction.modelDetails.topK,
       ...mergedOptions,
-    });
+    };
+
+    // Add tools if available
+    if (interaction.hasTools()) {
+      generateOptions.tools = interaction.getVercelTools();
+      if (interaction.maxSteps) {
+        generateOptions.maxSteps = interaction.maxSteps;
+      }
+    }
+
+    const response = await generateText(generateOptions);
 
     return this.makeResult({
       response,
@@ -184,17 +194,27 @@ export class BaseModelRunner implements ModelRunner {
         ...interaction.options,
       };
 
-      const response = await streamText({
+      const streamOptions: any = {
         model: model,
         messages: interaction.getMessages(),
         ...mergedOptions,
         temperature: interaction.modelDetails.temperature,
         topP: interaction.modelDetails.topP,
         topK: interaction.modelDetails.topK,  
-        onFinish: (event) => {
+        onFinish: (event: any) => {
           console.log("Finish Reason:", event.finishReason);
         },
-      });
+      };
+
+      // Add tools if available
+      if (interaction.hasTools()) {
+        streamOptions.tools = interaction.getVercelTools();
+        if (interaction.maxSteps) {
+          streamOptions.maxSteps = interaction.maxSteps;
+        }
+      }
+
+      const response = await streamText(streamOptions);
 
       for await (const textPart of response.textStream) {
         process.stdout.write(textPart);
