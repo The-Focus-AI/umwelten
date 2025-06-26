@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { ModelResponse } from "../models/types.js";
-import { ModelDetails } from "../models/types.js";
+import { ModelResponse } from "../cognition/types.js";
+import { ModelDetails } from "../cognition/types.js";
 
 export abstract class Evaluation {
   private evaluationId: string;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { SmartModelRunner, RunnerHook, RunnerContext, RunnerAbort, RunnerModification } from "./smart_runner";
 import { BaseModelRunner } from "./runner";
-import { Conversation } from "../conversation/conversation";
+import { Conversation } from "../interaction/interaction";
 import { InMemoryMemoryStore } from "../memory/memory_store";
 
 describe("SmartModelRunner", () => {
@@ -18,10 +18,10 @@ describe("SmartModelRunner", () => {
 
   // DummyBaseRunner that does not call super and does not use provider logic
   class DummyBaseRunner {
-    async generateText(conversation: Conversation) {
+    async generateText(interaction: Conversation) {
       return dummyModelResponse;
     }
-    async streamText(conversation: Conversation) {
+    async streamText(interaction: Conversation) {
       return dummyModelResponse;
     }
     // For SmartModelRunner's super() call, provide a dummy config
@@ -31,7 +31,7 @@ describe("SmartModelRunner", () => {
   }
 
   const makeConversation = () =>
-    new Conversation(
+    new Interaction(
       { provider: "ollama", name: "gemma3:latest" },
       "test"
     );

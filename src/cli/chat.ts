@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import { Conversation } from "../conversation/conversation.js";
-import { BaseModelRunner } from "../models/runner.js";
+import { Interaction } from "../interaction/interaction.js";
+import { BaseModelRunner } from "../cognition/runner.js";
 import { createMemoryRunner } from "../memory/memory_runner.js";
 import { getModel } from "../providers/index.js";
 import readline from "readline";

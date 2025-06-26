@@ -1,7 +1,7 @@
 import { ollama } from "ollama-ai-provider";
 import type { LanguageModelV1 } from "ai";
 import { BaseProvider } from "./base.js";
-import type { ModelDetails, ModelRoute } from "../models/types.js";
+import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 const now = new Date();
 
 function parseDate(dateStr: string): Date | undefined {

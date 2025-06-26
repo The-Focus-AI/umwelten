@@ -1,5 +1,111 @@
 # Active Context
-Last Updated: Fri Apr 18 12:19:35 EDT 2025
+Last Updated: 2025-01-21 (Great Renaming Project)
+
+## Current Focus: The Great Renaming & MCP Integration
+
+### Overview
+Executing a comprehensive architectural refactoring to align the codebase with the "Umwelt" concept - creating a more cohesive semantic framework around how models perceive and interact with their environment. This includes integrating Model-Context-Protocol (MCP) support.
+
+### Philosophical Foundation
+The renaming reflects a shift from generic terms to semantically meaningful concepts:
+- **Cognition**: The reasoning and thinking processes (formerly "models")
+- **Interaction**: Model-environment interactions (formerly "conversation") 
+- **Stimulus**: Input that triggers cognitive response (formerly "prompt")
+- **Umwelt**: The perceptual world model operates within
+
+### Implementation Strategy
+
+#### Phase 1: Semantic Renaming
+1. **Directory Structure Changes**
+   - `src/models` → `src/cognition`
+   - `src/conversation` → `src/interaction`
+
+2. **File and Class Renaming**
+   - `conversation.ts` → `interaction.ts`
+   - `Conversation` class → `Interaction`
+   - `prompt.ts` → `stimulus.ts` 
+   - `Prompt` class → `Stimulus`
+
+3. **Import Path Updates**
+   - Update all import statements across the codebase
+   - Maintain backward compatibility where possible
+   - Update test files accordingly
+
+#### Phase 2: MCP Integration
+1. **Create MCP Infrastructure**
+   - `src/mcp/client.ts` - MCP client for consuming external tools
+   - `src/mcp/server.ts` - MCP server for exposing our tools
+   - `src/mcp/types.ts` - MCP protocol types and interfaces
+
+2. **Tool Organization**
+   - Create `src/stimulus/tools/` directory
+   - Move existing tool definitions
+   - Structure tools for MCP compatibility
+
+#### Phase 3: Testing & Validation
+1. **Test Suite Updates**
+   - Update all test files for new names/paths
+   - Ensure all 25+ tests continue passing
+   - Add MCP integration tests
+
+2. **Documentation Updates**
+   - Update README and documentation
+   - Update memory files
+   - Create MCP usage guides
+
+### Current Status
+- [X] Memory files reviewed and understood
+- [X] Implementation plan created
+- [ ] Phase 1: Semantic renaming execution
+- [ ] Phase 2: MCP integration
+- [ ] Phase 3: Testing & validation
+
+### Risk Mitigation
+1. **Incremental Approach**: Execute changes in phases to maintain stability
+2. **Test Coverage**: Run full test suite after each phase
+3. **Backup Strategy**: Ensure git commits at each major step
+4. **Rollback Plan**: Clear path to revert if issues arise
+
+### Success Criteria
+1. All existing functionality preserved
+2. All tests continue passing
+3. Improved semantic clarity in codebase
+4. MCP integration functional
+5. Documentation updated and accurate
+
+### Next Immediate Steps
+1. Begin Phase 1 with directory renaming
+2. Update import paths systematically
+3. Run tests to ensure no regressions
+4. Document progress in worklog
+
+### Dependencies & Blockers
+- None currently identified
+- MCP specification understanding may require research
+
+## Implementation Approach
+
+### 1. Pre-Renaming Audit
+- Catalog all current import statements
+- Identify external dependencies on current structure
+- Create comprehensive test baseline
+
+### 2. Systematic Execution
+- Use search-and-replace for import paths
+- Update file names and class names in sequence
+- Test after each major change set
+
+### 3. MCP Research & Implementation
+- Study MCP specification and examples
+- Design integration points with existing architecture
+- Implement client and server components
+
+### 4. Quality Assurance
+- Full test suite validation
+- Documentation review and updates
+- Performance impact assessment
+
+This refactoring represents a significant evolution in the project's conceptual framework while maintaining its solid technical foundation.
 
 ## Current Focus
 Designing evaluation strategies for model responses, incorporating both deterministic (unit test style) and AI-assisted evaluation approaches.

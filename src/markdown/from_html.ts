@@ -1,7 +1,7 @@
-import { Prompt } from "../conversation/prompt.js";
-import { ModelDetails } from "../models/types.js";
-import { Conversation } from "../conversation/conversation.js";
-import { BaseModelRunner } from "../models/runner.js";
+import { Stimulus } from "../interaction/stimulus.js";
+import { ModelDetails } from "../cognition/types.js";
+import { Interaction } from "../interaction/interaction.js";
+import { BaseModelRunner } from "../cognition/runner.js";
 
 const markifyUrl = process.env.MARKIFY_URL || "https://markify.fly.dev";
 

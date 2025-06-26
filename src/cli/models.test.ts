@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { modelsCommand } from "./models";
-import type { ModelDetails } from "../models/types.js";
-import type { ModelRoute } from "../models/types.js";
-import { getAllModels, searchModels } from "../models/models.js";
+import type { ModelDetails } from "../cognition/types.js";
+import type { ModelRoute } from "../cognition/types.js";
+import { getAllModels, searchModels } from "../cognition/models.js";
 
 // Mock the getAllModels and searchModels functions
 vi.mock("../models/models.js", () => ({

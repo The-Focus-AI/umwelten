@@ -2,7 +2,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModelV1 } from "ai";
 import { BaseProvider } from "./base.js";
-import type { ModelDetails, ModelRoute } from "../models/types.js";
+import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 
 // Default LM Studio API base URL
 const DEFAULT_BASE_URL = "http://localhost:1234/v1";

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createOllamaProvider } from './ollama.js'
 import { generateText } from 'ai'
-import { ModelRoute } from '../models/types.js'
+import { ModelRoute } from '../cognition/types.js'
 
 describe('Ollama Provider', () => {
   // Check if Ollama is running locally

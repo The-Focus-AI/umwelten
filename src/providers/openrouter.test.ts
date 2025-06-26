@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createOpenRouterProvider } from './openrouter.js'
 import { generateText } from 'ai'
-import type { ModelRoute } from '../models/types.js'
+import type { ModelRoute } from '../cognition/types.js'
 import { vi } from 'vitest'
 
 

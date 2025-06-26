@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { ModelResponse, ScoreResponse } from '../models/types.js';
+import { ModelResponse, ScoreResponse } from '../cognition/types.js';
 
 /**
  * EvaluationReporter: Standardized reporting utility for evaluation results.

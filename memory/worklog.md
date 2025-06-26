@@ -1,5 +1,46 @@
 # Work Log
 
+## Thu Jun 26 04:25:36 UTC 2025 - The Great Renaming & MCP Integration - Phase 1
+
+### Summary
+Beginning comprehensive architectural refactoring to align codebase with "Umwelt" concept and integrate Model-Context-Protocol (MCP) support. Executing semantic renaming to create more meaningful conceptual framework.
+
+### Baseline Assessment
+- **Test Status**: 31 failed, 39 passed, 7 skipped (total 77 tests)
+- **Main Issues**: Missing API keys, unavailable external services (Ollama), some CLI functionality issues
+- **Core Functionality**: Working - costs, conversation/prompt, basic provider operations
+- **Ready for Refactoring**: Yes - good baseline established
+
+### Phase 1 Plan: Semantic Renaming
+1. **Directory Renames**:
+   - `src/models` → `src/cognition` (reasoning/thinking processes)
+   - `src/conversation` → `src/interaction` (model-environment interactions)
+
+2. **File and Class Renames**:
+   - `conversation.ts` → `interaction.ts` / `Conversation` class → `Interaction`
+   - `prompt.ts` → `stimulus.ts` / `Prompt` class → `Stimulus`
+
+3. **Import Path Updates**: Update all 44 TypeScript files to use new paths
+
+### Philosophical Foundation
+- **Cognition**: Model reasoning and thinking processes
+- **Interaction**: Model-environment interactions
+- **Stimulus**: Input that triggers cognitive response
+- **Umwelt**: Perceptual world model operates within
+
+### Execution Strategy
+- Incremental changes with git commits at each major step
+- Test after each major change set
+- Maintain backward compatibility where possible
+- Update all import statements systematically
+
+### Next Actions
+1. Begin directory renaming
+2. Update file names and class names
+3. Update all import paths
+4. Run tests to verify no regressions
+5. Proceed to Phase 2 (MCP Integration)
+
 ## Fri Apr 18 12:19:35 EDT 2025 - Memory File Date Update
 
 ### Summary

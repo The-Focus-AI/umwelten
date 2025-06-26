@@ -1,11 +1,11 @@
-import { Conversation } from "../conversation/conversation.js";
+import { Interaction } from "../interaction/interaction.js";
 import { ModelResponse, ModelRunner } from "./types.js";
 
 /**
  * Types for runner hooks
  */
 
-export type RunnerHook = (conversation: Conversation) => Promise<void | RunnerAbort | RunnerModification>;
+export type RunnerHook = (interaction: Interaction) => Promise<void | RunnerAbort | RunnerModification>;
 
 export class RunnerAbort {
   constructor(public reason: string) {}
@@ -13,7 +13,7 @@ export class RunnerAbort {
 
 export class RunnerModification {
   // Deprecated: context modification is not supported in this version.
-  constructor(public modify: (conversation: Conversation) => Conversation) {}
+  constructor(public modify: (interaction: Interaction) => Interaction) {}
 }
 
 /**
@@ -41,49 +41,49 @@ export class SmartModelRunner extends BaseModelRunner {
 
   private async runHooks(
     hooks: RunnerHook[],
-    conversation: Conversation
+    interaction: Interaction
   ): Promise<boolean> {
     for (const hook of hooks) {
-      const result = await hook(conversation);
+      const result = await hook(interaction);
       if (result instanceof RunnerAbort) return false;
       if (result instanceof RunnerModification) {
-        // If you want to support modifications, you can extend Conversation or handle here
+        // If you want to support modifications, you can extend Interaction or handle here
       }
     }
     return true;
   }
 
-  async generateText(conversation: Conversation): Promise<ModelResponse> {
+  async generateText(interaction: Interaction): Promise<ModelResponse> {
     // Before hooks
-    const beforeOk = await this.runHooks(this.beforeHooks, conversation);
+    const beforeOk = await this.runHooks(this.beforeHooks, interaction);
     if (!beforeOk) throw new Error("Aborted by before hook");
 
     // Main model run
-    const mainResult = await super.generateText(conversation);
+    const mainResult = await super.generateText(interaction);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(conversation)));
+    await Promise.all(this.duringHooks.map(hook => hook(interaction)));
 
     // After hooks
-    const afterOk = await this.runHooks(this.afterHooks, conversation);
+    const afterOk = await this.runHooks(this.afterHooks, interaction);
     if (!afterOk) throw new Error("Aborted by after hook");
 
     return mainResult;
   }
 
-  async streamText(conversation: Conversation): Promise<ModelResponse> {
+  async streamText(interaction: Interaction): Promise<ModelResponse> {
     // Before hooks
-    const beforeOk = await this.runHooks(this.beforeHooks, conversation);
+    const beforeOk = await this.runHooks(this.beforeHooks, interaction);
     if (!beforeOk) throw new Error("Aborted by before hook");
 
     // Main model run
-    const mainResult = await super.streamText(conversation);
+    const mainResult = await super.streamText(interaction);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(conversation)));
+    await Promise.all(this.duringHooks.map(hook => hook(interaction)));
 
     // After hooks
-    const afterOk = await this.runHooks(this.afterHooks, conversation);
+    const afterOk = await this.runHooks(this.afterHooks, interaction);
     if (!afterOk) throw new Error("Aborted by after hook");
 
     return mainResult;

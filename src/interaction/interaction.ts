@@ -1,12 +1,12 @@
 import { CoreMessage } from "ai";
-import { ModelDetails, ModelOptions } from "../models/types.js";
+import { ModelDetails, ModelOptions } from "../cognition/types.js";
 import path from "path";
 import fs, { FileHandle } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
 import { PathLike } from "fs";
 import { z } from "zod";
 
-export class Conversation {
+export class Interaction {
   private messages: CoreMessage[] = [];
   public userId: string = "default";
   public modelDetails: ModelDetails;

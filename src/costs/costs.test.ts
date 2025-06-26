@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { estimateCost, calculateCost, formatCostBreakdown, type TokenUsage } from './costs.js'
-import { type ModelDetails } from '../models/types.js'
+import { type ModelDetails } from '../cognition/types.js'
 
 describe('Cost Utilities', () => {
   const mockModel: ModelDetails = {

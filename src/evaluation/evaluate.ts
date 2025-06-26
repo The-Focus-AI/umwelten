@@ -1,5 +1,5 @@
 import { EvaluationRunner } from "./runner.js";
-import { ModelDetails, ModelResponse } from "../models/types.js";
+import { ModelDetails, ModelResponse } from "../cognition/types.js";
 import path from "path";
 import fs from "fs";
 
