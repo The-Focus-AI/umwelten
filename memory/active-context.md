@@ -891,3 +891,27 @@ None currently identified
 ### Next Steps
 - Consider adding modality support (text, vision, etc.)
 - Further enhancements as needed 
+
+## Overview
+- Recent test run using `dotenvx run -- pnpm test:run` resulted in multiple failures across model listing, Ollama, and OpenRouter provider tests.
+
+## Current Focus
+- Diagnose and repair failing tests, starting with model registry/expectation mismatches, Ollama model availability, and OpenRouter authentication/model ID issues.
+
+## Main Issues
+- Model listing/filtering tests expect a small, fixed set of models, but actual output contains hundreds.
+- Ollama provider tests fail due to missing model `gemma3:latest`.
+- OpenRouter provider tests fail due to invalid model IDs or authentication issues.
+
+## Next Steps
+1. Categorize and prioritize test failures.
+2. Fix Ollama model issue (pull or update model in tests).
+3. Update OpenRouter API key/model IDs as needed.
+4. Update model listing/filtering test expectations.
+5. Document progress and lessons learned.
+
+## Blockers
+- None at this stage, pending investigation of model availability and API credentials.
+
+## Decisions
+- Proceeding with test repair in prioritized order. 

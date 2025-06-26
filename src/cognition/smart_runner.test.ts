@@ -32,7 +32,7 @@ describe("SmartModelRunner", () => {
 
   const makeConversation = () =>
     new Interaction(
-      { provider: "ollama", name: "gemma3:latest" },
+      { provider: "ollama", name: "gemma3:27b" },
       "test"
     );
 
@@ -66,7 +66,10 @@ describe("SmartModelRunner", () => {
 
   it("modifies context if before hook returns RunnerModification", async () => {
     const beforeHook: RunnerHook = async (ctx) =>
-      new RunnerModification((c) => ({ ...c, foo: "bar" }));
+      new RunnerModification((c) => {
+        (c as any).foo = "bar";
+        return c;
+      });
     const duringHook: RunnerHook = async (ctx) => {
       expect((ctx as any).foo).toBe("bar");
     };

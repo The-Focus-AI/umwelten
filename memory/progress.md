@@ -290,3 +290,11 @@ Successfully completed comprehensive "Umwelt" semantic transformation, renaming 
 2. Implement modular analysis tools
 3. Create reusable visualization components
 4. Enable easy data export 
+
+- [ ] Test suite run with `dotenvx run -- pnpm test:run` (2024-06-26)
+  - [X] Ran all tests
+  - [-] Multiple failures detected:
+    - Model listing/filtering tests: output mismatch (hundreds of models vs. expected 2)
+    - Ollama provider: missing model `gemma3:latest`
+    - OpenRouter provider: invalid model IDs/authentication issues
+  - [ ] Next: Categorize failures, fix Ollama model, update OpenRouter config, update test expectations 

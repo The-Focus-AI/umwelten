@@ -42,49 +42,52 @@ export class SmartModelRunner extends BaseModelRunner {
   private async runHooks(
     hooks: RunnerHook[],
     interaction: Interaction
-  ): Promise<boolean> {
+  ): Promise<{ok: boolean, interaction: Interaction}> {
+    let ctx = interaction;
     for (const hook of hooks) {
-      const result = await hook(interaction);
-      if (result instanceof RunnerAbort) return false;
+      const result = await hook(ctx);
+      if (result instanceof RunnerAbort) return { ok: false, interaction: ctx };
       if (result instanceof RunnerModification) {
-        // If you want to support modifications, you can extend Interaction or handle here
+        ctx = result.modify(ctx);
       }
     }
-    return true;
+    return { ok: true, interaction: ctx };
   }
 
   async generateText(interaction: Interaction): Promise<ModelResponse> {
     // Before hooks
-    const beforeOk = await this.runHooks(this.beforeHooks, interaction);
-    if (!beforeOk) throw new Error("Aborted by before hook");
+    const beforeResult = await this.runHooks(this.beforeHooks, interaction);
+    if (!beforeResult.ok) throw new Error("Aborted by before hook");
+    let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await super.generateText(interaction);
+    const mainResult = await super.generateText(ctx);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(interaction)));
+    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
 
     // After hooks
-    const afterOk = await this.runHooks(this.afterHooks, interaction);
-    if (!afterOk) throw new Error("Aborted by after hook");
+    const afterResult = await this.runHooks(this.afterHooks, ctx);
+    if (!afterResult.ok) throw new Error("Aborted by after hook");
 
     return mainResult;
   }
 
   async streamText(interaction: Interaction): Promise<ModelResponse> {
     // Before hooks
-    const beforeOk = await this.runHooks(this.beforeHooks, interaction);
-    if (!beforeOk) throw new Error("Aborted by before hook");
+    const beforeResult = await this.runHooks(this.beforeHooks, interaction);
+    if (!beforeResult.ok) throw new Error("Aborted by before hook");
+    let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await super.streamText(interaction);
+    const mainResult = await super.streamText(ctx);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(interaction)));
+    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
 
     // After hooks
-    const afterOk = await this.runHooks(this.afterHooks, interaction);
-    if (!afterOk) throw new Error("Aborted by after hook");
+    const afterResult = await this.runHooks(this.afterHooks, ctx);
+    if (!afterResult.ok) throw new Error("Aborted by after hook");
 
     return mainResult;
   }

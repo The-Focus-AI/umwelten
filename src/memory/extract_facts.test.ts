@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { extractFacts } from "./extract_facts";
 import { Interaction } from "../interaction/interaction";
 
-describe("extractFacts (gemma3:latest)", () => {
-  const model = { provider: "ollama", name: "gemma3:latest" };
+describe("extractFacts (gemma3:27b)", () => {
+  const model = { provider: "ollama", name: "gemma3:27b" };
 
   const createTestConversation = (messages: { role: "user" | "assistant"; content: string }[]) => {
     const conversation = new Interaction(model, "Test prompt");
