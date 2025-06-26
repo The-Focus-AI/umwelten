@@ -173,6 +173,146 @@ const response = await runner.streamText(interaction);
 
 The implementation successfully bridges the gap between our semantic "Umwelt" architecture and modern AI SDK patterns, providing a solid foundation for advanced tool capabilities and MCP integration.
 
+## Thu Jun 26 19:02:22 UTC 2025 - Phase 2.2: MCP Implementation - COMPLETED ✅
+
+### Summary
+Successfully completed Phase 2.2 of the "Great Renaming" project, implementing comprehensive Model Context Protocol (MCP) support with both client and server frameworks. Created a dual implementation that provides both consumption (client) and serving (server) capabilities for the MCP ecosystem.
+
+### Phase 2.2 Final Results ✅ COMPLETED
+
+#### ✅ MCP Protocol Foundation COMPLETED
+- **Protocol Types**: Created comprehensive MCP protocol types based on JSON-RPC 2.0 (`src/mcp/types/protocol.ts`)
+- **Transport Layer**: Implemented transport abstractions supporting stdio, SSE, and WebSocket (`src/mcp/types/transport.ts`)
+- **Message Schemas**: Defined MCP message schemas with Zod validation
+- **Connection Management**: Proper lifecycle and cleanup handling
+- **Error Handling**: MCP-specific error codes and logging utilities
+
+#### ✅ MCP Client Implementation (Stimulation) COMPLETED
+- **Client Framework**: Built comprehensive MCP client (`src/mcp/client/client.ts`)
+- **Tool Discovery**: Implemented tool discovery from external MCP servers
+- **Resource Access**: Added resource discovery and fetching capabilities
+- **Prompt Support**: Support for prompt template discovery and execution
+- **Connection Management**: Robust connection lifecycle handling
+- **Integration Layer**: Created stimulus integration (`src/mcp/integration/stimulus.ts`)
+
+#### ✅ MCP Server Framework Implementation COMPLETED
+- **Server Framework**: Created flexible MCP server framework (`src/mcp/server/server.ts`)
+- **Builder Pattern**: Implemented server builder for easy custom server creation
+- **Tool Registration**: Dynamic tool registration and exposure via MCP protocol
+- **Resource Serving**: Support for resource serving capabilities
+- **Session Management**: Client handling and session management
+- **Multi-transport**: Support for stdio, SSE, and WebSocket transports
+
+#### ✅ Tool Interoperability & Integration COMPLETED
+- **Unified Tool Interface**: Existing tools work with both Vercel AI SDK and MCP
+- **Tool Adaptation**: Created tool adaptation layer for MCP compatibility
+- **Metadata Conversion**: Implemented metadata conversion between formats
+- **CLI Integration**: New `mcp` command with comprehensive subcommands
+- **Schema Conversion**: JSON Schema to Zod conversion utilities
+
+#### ✅ CLI Enhancement COMPLETED
+- **MCP Commands**: New `mcp` command with multiple subcommands
+- **Client Operations**: `mcp connect`, `mcp test-tool`, `mcp read-resource`
+- **Server Operations**: `mcp create-server` with example tools and resources
+- **Utility Commands**: `mcp list` for usage examples and help
+
+### Technical Architecture Achievements
+
+#### MCP Client (Stimulation) Architecture ✅
+```typescript
+// Connection to external MCP server
+const manager = createMCPStimulusManager({
+  name: 'my-client',
+  version: '1.0.0',
+  serverCommand: 'node my-mcp-server.js',
+  autoConnect: true
+});
+
+// Discover and use external tools
+const tools = manager.getAvailableTools();
+const resources = manager.getAvailableResources();
+```
+
+#### MCP Server Framework Architecture ✅
+```typescript
+// Create custom MCP server
+const server = createMCPServer()
+  .withName('my-evaluation-server')
+  .withVersion('1.0.0')
+  .addTool('calculator', toolDef, handler)
+  .addResource('results://data', resourceDef, handler)
+  .build();
+
+await server.start(transport);
+```
+
+### Validation Results ✅ COMPLETED
+- **Protocol Compliance**: Full JSON-RPC 2.0 and MCP specification adherence
+- **Transport Support**: Stdio, SSE, and WebSocket transports implemented
+- **Tool Interoperability**: Single tool definition works across frameworks
+- **Type Safety**: Full TypeScript support throughout MCP system
+- **CLI Functionality**: All MCP commands functional and tested
+- **Integration**: Seamless integration with existing Interaction/Stimulus system
+
+### Success Criteria Achieved ✅
+1. **MCP Client**: ✅ Can connect to external MCP servers and discover/use tools
+2. **MCP Server Framework**: ✅ Can create servers that expose tools to external applications
+3. **Protocol Compliance**: ✅ Full JSON-RPC 2.0 and MCP specification adherence
+4. **Tool Interoperability**: ✅ Existing tools work with both Vercel AI SDK and MCP
+5. **CLI Integration**: ✅ Commands for managing MCP clients and servers
+6. **Documentation**: ✅ Clear examples and integration patterns
+
+### Key Architectural Decisions Implemented
+- **Dual Implementation**: ✅ Separate client and server frameworks for different use cases
+- **Transport Agnostic**: ✅ Support for stdio, SSE, and WebSocket transports
+- **Tool Interoperability**: ✅ Single tool definition works across frameworks
+- **Type-First Approach**: ✅ Leveraging Zod for validation and TypeScript inference
+- **Framework Pattern**: ✅ Server framework for easy custom server creation
+
+### Phase 2.2 Impact
+The MCP implementation provides both consumption (client) and serving (server) capabilities for the Model Context Protocol, enabling rich integration with the broader MCP ecosystem while maintaining the project's strong architectural foundation. This creates a powerful bridge between our evaluation framework and external MCP servers, significantly expanding the tool and resource capabilities available for model stimulation.
+
+## Thu Jun 26 04:25:36 UTC 2025 - The Great Renaming & MCP Integration - Phase 1
+
+### Summary
+Beginning comprehensive architectural refactoring to align codebase with "Umwelt" concept and integrate Model-Context-Protocol (MCP) support. Executing semantic renaming to create more meaningful conceptual framework.
+
+### Baseline Assessment
+- **Test Status**: 31 failed, 39 passed, 7 skipped (total 77 tests)
+- **Main Issues**: Missing API keys, unavailable external services (Ollama), some CLI functionality issues
+- **Core Functionality**: Working - costs, conversation/prompt, basic provider operations
+- **Ready for Refactoring**: Yes - good baseline established
+
+### Phase 1 Plan: Semantic Renaming
+1. **Directory Renames**:
+   - `src/models` → `src/cognition` (reasoning/thinking processes)
+   - `src/conversation` → `src/interaction` (model-environment interactions)
+
+2. **File and Class Renames**:
+   - `conversation.ts` → `interaction.ts` / `Conversation` class → `Interaction`
+   - `prompt.ts` → `stimulus.ts` / `Prompt` class → `Stimulus`
+
+3. **Import Path Updates**: Update all 44 TypeScript files to use new paths
+
+### Philosophical Foundation
+- **Cognition**: Model reasoning and thinking processes
+- **Interaction**: Model-environment interactions
+- **Stimulus**: Input that triggers cognitive response
+- **Umwelt**: Perceptual world model operates within
+
+### Execution Strategy
+- Incremental changes with git commits at each major step
+- Test after each major change set
+- Maintain backward compatibility where possible
+- Update all import statements systematically
+
+### Next Actions
+1. Begin directory renaming
+2. Update file names and class names
+3. Update all import paths
+4. Run tests to verify no regressions
+5. Proceed to Phase 2 (MCP Integration)
+
 ## Thu Jun 26 04:46:40 UTC 2025 - The Great Renaming Phase 1 - COMPLETED ✅
 
 ### Summary
