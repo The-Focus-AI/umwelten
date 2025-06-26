@@ -6,20 +6,20 @@ import { BaseModelRunner } from "../cognition/runner.js";
 const markifyUrl = process.env.MARKIFY_URL || "https://markify.fly.dev";
 
 export async function fromHtmlViaModel(html: string, model: ModelDetails) {
-  const prompt = new Prompt();
-  prompt.addInstruction(
+  const stimulus = new Stimulus();
+  stimulus.addInstruction(
     `You are a helpful assistant that converts html to markdown.`
   );
 
-  prompt.addInstruction(`Convert the html to markdown.`);
-  prompt.addInstruction(`Dont add any other text, just the markdown.`);
-  prompt.addInstruction(`Keep image links as is`)
-  prompt.addInstruction(`Update links to include baseURL when relative links are used`)
+  stimulus.addInstruction(`Convert the html to markdown.`);
+  stimulus.addInstruction(`Dont add any other text, just the markdown.`);
+  stimulus.addInstruction(`Keep image links as is`)
+  stimulus.addInstruction(`Update links to include baseURL when relative links are used`)
 
-  const conversation = new Conversation(model, prompt.getPrompt());
-  conversation.addMessage({ role: "user", content: html });
+  const interaction = new Interaction(model, stimulus.getPrompt());
+  interaction.addMessage({ role: "user", content: html });
   const modelRunner = new BaseModelRunner();
-  const response = await modelRunner.streamText(conversation);
+  const response = await modelRunner.streamText(interaction);
   return response.content;
 }
 

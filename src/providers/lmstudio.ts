@@ -18,7 +18,8 @@ export class LMStudioProvider extends BaseProvider {
 
   // List available models from LM Studio
   async listModels(): Promise<ModelDetails[]> {
-    const response = await fetch(`${this.baseUrl.replace(/\/v1$/, '')}/api/v0/models`);
+    const baseUrl = this.baseUrl || DEFAULT_BASE_URL;
+    const response = await fetch(`${baseUrl.replace(/\/v1$/, '')}/api/v0/models`);
     if (!response.ok) throw new Error("Failed to fetch LM Studio models");
     const data = await response.json();
     if (!data || !Array.isArray(data.data)) return [];
@@ -48,9 +49,10 @@ export class LMStudioProvider extends BaseProvider {
   // Return a LanguageModelV1 instance for the given route
   getLanguageModel(route: ModelRoute): LanguageModelV1 {
     // Use the OpenAI-compatible provider instance
+    const baseUrl = this.baseUrl || DEFAULT_BASE_URL;
     const lmstudio = createOpenAICompatible({
       name: "lmstudio",
-      baseURL: this.baseUrl,
+      baseURL: baseUrl,
     });
     return lmstudio(route.name);
   }

@@ -96,13 +96,13 @@ export async function extractFacts(
 
     const runner = new BaseModelRunner();
 
-    const factsConversation = new Conversation(model, promptWithDate);
-    factsConversation.addMessage({ role: "user", content: messagesContent });
+    const factsInteraction = new Interaction(model, promptWithDate);
+    factsInteraction.addMessage({ role: "user", content: messagesContent });
     // Call LLM to extract facts
 
     // console.log("Extracting facts from conversation:", messagesContent);
     const result = await runner.generateObject(
-      factsConversation,
+      factsInteraction,
       factsSchema
     );
 

@@ -149,7 +149,7 @@ export class BaseModelRunner implements ModelRunner {
 
   async generateText(interaction: Interaction): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
 
     const mergedOptions = {
       maxTokens: this.config.maxTokens,
@@ -177,7 +177,7 @@ export class BaseModelRunner implements ModelRunner {
 
   async streamText(interaction: Interaction): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
     try {
       const mergedOptions = {
         maxTokens: this.config.maxTokens,
@@ -220,7 +220,7 @@ export class BaseModelRunner implements ModelRunner {
     schema: z.ZodSchema
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
 
     const mergedOptions = {
       maxTokens: this.config.maxTokens,
@@ -257,7 +257,7 @@ export class BaseModelRunner implements ModelRunner {
     schema: z.ZodSchema
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
-      await this.startUp(conversation);
+      await this.startUp(interaction);
     try {
       const mergedOptions = {
         maxTokens: this.config.maxTokens,
@@ -327,6 +327,7 @@ export class BaseModelRunner implements ModelRunner {
     updateRateLimitState(
       modelIdString,
       true,
+      undefined,
       undefined,
       this.config.rateLimitConfig
     );

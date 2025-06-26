@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { SmartModelRunner, RunnerHook, RunnerContext, RunnerAbort, RunnerModification } from "./smart_runner";
-import { BaseModelRunner } from "./runner";
-import { Conversation } from "../interaction/interaction";
-import { InMemoryMemoryStore } from "../memory/memory_store";
+import { SmartModelRunner, RunnerHook, RunnerAbort, RunnerModification } from "./smart_runner.js";
+import { BaseModelRunner } from "./runner.js";
+import { Interaction } from "../interaction/interaction.js";
+import { InMemoryMemoryStore } from "../memory/memory_store.js";
 
 describe("SmartModelRunner", () => {
   const dummyModelResponse = {
@@ -18,10 +18,10 @@ describe("SmartModelRunner", () => {
 
   // DummyBaseRunner that does not call super and does not use provider logic
   class DummyBaseRunner {
-    async generateText(interaction: Conversation) {
+    async generateText(interaction: Interaction) {
       return dummyModelResponse;
     }
-    async streamText(interaction: Conversation) {
+    async streamText(interaction: Interaction) {
       return dummyModelResponse;
     }
     // For SmartModelRunner's super() call, provide a dummy config

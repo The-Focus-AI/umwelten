@@ -208,11 +208,11 @@ export async function determineOperations(
     previousMemory
   ).replace("{new_facts}", factsContent);
 
-  const conversation = new Conversation(model, prompt);
+  const interaction = new Interaction(model, prompt);
 
   const runner = new BaseModelRunner();
   const result = await runner.generateObject(
-    conversation,
+    interaction,
     memoryOperationResultSchema
   );
 

@@ -127,7 +127,11 @@ export const ScoreSchema = z.object({
 });
 
 export const ScoreResponseSchema = z.object({
-  evals: ScoreSchema,
+  evals: z.array(z.object({
+    key: z.string().describe("Key that we are looking for"),
+    value: z.string().describe("Value that is found)"),
+    score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
+  })),
   metadata: ResponseMetadataSchema,
 });
 

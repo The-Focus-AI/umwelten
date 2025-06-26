@@ -9,7 +9,7 @@ export async function setupConversation({ modelDetails, prompt, attach, debug, s
   attach?: string,
   debug?: boolean,
   systemPrompt?: string
-}): Promise<Conversation> {
+}): Promise<Interaction> {
   const conversation = new Interaction(
     modelDetails,
     systemPrompt || 'You are now in an interactive chat session.'

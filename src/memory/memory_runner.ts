@@ -1,6 +1,6 @@
-import { SmartModelRunner, RunnerHook } from "../models/smart_runner.js";
+import { SmartModelRunner, RunnerHook } from "../cognition/smart_runner.js";
 import { MemoryStore } from "./memory_store.js";
-import { ModelRunner } from "../models/types.js";
+import { ModelRunner } from "../cognition/types.js";
 import { extractFacts } from "./extract_facts.js";
 import { determineOperations } from "./determine_operations.js";
 import { Fact } from "./types.js";
