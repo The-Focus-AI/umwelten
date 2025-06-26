@@ -12,7 +12,7 @@
     "sourceMap": true,
     "rootDir": "src",
     "types": ["node", "vitest/globals"],
-    "emitDeclarationOnly": true
+    "emitDeclarationOnly": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]

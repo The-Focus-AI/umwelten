@@ -1,6 +1,6 @@
-import { BaseModelRunner } from '../src/models/runner.js';
-import { ModelDetails, ModelResponse } from '../src/models/types.js';
-import { Conversation } from '../src/conversation/conversation.js';
+import { BaseModelRunner } from '../src/cognition/runner.js';
+import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
+import { Interaction } from '../src/interaction/interaction.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
@@ -34,7 +34,7 @@ async function transcribeAudio(audioPath: string, model: ModelDetails): Promise<
 
   const prompt = `You are a transcription agent that transcribes audio. You will be given a file and you will need to transcribe the audio.`;
 
-  const conversation = new Conversation(model, prompt);
+  const conversation = new Interaction(model, prompt);
 
   conversation.addAttachmentFromPath(audioPath);
 

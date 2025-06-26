@@ -25,4 +25,4 @@ export async function frankenstein(model: ModelDetails): Promise<ModelResponse> 
 await evaluate(frankenstein, "frankenstein", "ollama-27b", { name: "gemma3:27b", provider: "ollama" });
 await evaluate(frankenstein, "frankenstein", "ollama-12b", { name: "gemma3:12b", provider: "ollama" });
 await evaluate(frankenstein, "frankenstein", "google-flash", { name: "gemini-2.0-flash", provider: "google" });
-await evaluate(frankenstein, "frankenstein", "google-pro", { name: "gemini-2.5-pro-exp-03-25", provider: "google" });
+await evaluate(frankenstein, "frankenstein", "google-pro", { name: "gemini-2.5-flash", provider: "google" });

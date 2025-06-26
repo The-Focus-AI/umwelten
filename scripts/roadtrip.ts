@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { BaseModelRunner } from "../src/models/runner.js";
-import { ModelDetails } from "../src/models/types.js";
-import { Conversation } from "../src/conversation/conversation.js";
+import { BaseModelRunner } from "../src/cognition/runner.js";
+import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
+import { Stimulus } from "../src/interaction/stimulus.js";
+import { Interaction } from "../src/interaction/interaction.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import { ModelResponse } from "../src/models/types.js";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
-import { Prompt } from "../src/conversation/prompt.js";
 
 const roadtripPromptSchema = z.object({
   startLocation: z.string().describe("The start location of the roadtrip"),
@@ -95,7 +94,7 @@ const roadtripSchema = z.object({
 });
 
 export async function fleshoutPlan(model: ModelDetails) {
-  const prompt = new Prompt();
+  const prompt = new Stimulus();
   prompt.setRole("expert roadtrip planner");
   prompt.addInstruction(
     "You will be given a roadtrip prompt and you will need to plan a roadtrip based on the prompt."
@@ -112,7 +111,7 @@ export async function planRoadtrip(
   roadTripPrompt: RoadTripPrompt,
   model: ModelDetails
 ): Promise<ModelResponse> {
-  const prompt = new Prompt();
+  const prompt = new Stimulus();
   prompt.setRole("expert electric vehicle roadtrip planner");
   prompt.addInstruction(
     "You will be given a roadtrip prompt and you will need to plan a roadtrip based on the prompt."
@@ -139,7 +138,7 @@ export async function planRoadtrip(
   prompt.setOutputSchema(roadtripSchema);
 
   console.log(prompt.getPrompt());
-  const conversation = new Conversation(model, prompt.getPrompt());
+  const conversation = new Interaction(model, prompt.getPrompt());
   conversation.addMessage({
     role: "user",
     content: JSON.stringify(roadTripPrompt),

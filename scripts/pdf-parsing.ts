@@ -1,68 +1,71 @@
-import { BaseModelRunner } from '../src/models/runner.js';
-import { ModelDetails, ModelResponse } from '../src/models/types.js';
-import { Conversation } from '../src/conversation/conversation.js';
+import { z } from 'zod';
+import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
+import { Interaction } from '../src/interaction/interaction.js';
+import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Stimulus } from '../src/interaction/stimulus.js';
+import { evaluate } from '../src/evaluation/evaluate.js';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { EvaluationRunner } from '../src/evaluation/runner.js';
 
-export async function parsePDF(pdfPath: string, model: ModelDetails): Promise<ModelResponse> {
-  const prompt = "Analyze this PDF and provide a summary of the content.";
+// 1. Define the output schema with Zod
+export const PDFSummarySchema = z.object({
+  able_to_parse: z.object({
+    value: z.boolean().describe('Is the model able to parse and analyze the attached PDF? true only if you actually see and analyze the PDF, false otherwise.'),
+    confidence: z.number().min(0).max(1).describe('Confidence score for PDF parsing ability (0-1)'),
+  }),
+  summary: z.object({
+    value: z.string().describe('A detailed summary of the PDF content'),
+    confidence: z.number().min(0).max(1).describe('Confidence score for summary (0-1)'),
+  }),
+  main_points: z.object({
+    value: z.array(z.string()).describe('Key points or arguments made in the document'),
+    confidence: z.number().min(0).max(1).describe('Confidence score for main points (0-1)'),
+  }),
+  document_type: z.object({
+    value: z.enum(['article', 'blog', 'paper', 'manual', 'unknown']).describe('Type of document'),
+    confidence: z.number().min(0).max(1).describe('Confidence score for document type (0-1)'),
+  }),
+});
 
-  const conversation = new Conversation(model, prompt);
+export type PDFSummary = z.infer<typeof PDFSummarySchema>;
 
-  // conversation.addAttachmentFromPath(pdfFile);
-  conversation.addAttachmentFromPath(pdfPath);
+// 2. Create the Stimulus (Prompt)
+const pdfPrompt = new Stimulus();
+pdfPrompt.setRole('You are an expert document analyst.');
+pdfPrompt.setObjective('Given a PDF, extract a detailed summary, main points, and document type as a JSON object.');
+// pdfPrompt.setOutputSchema(PDFSummarySchema); // Optionally include schema
 
-  const modelRunner = new BaseModelRunner();
-
-  const response = await modelRunner.streamText(conversation);
-
-  return response;
+// 3. Core extraction function
+export async function pdfParseExtract(pdfPath: string, model: ModelDetails): Promise<ModelResponse> {
+  const conversation = new Interaction(model, pdfPrompt.getPrompt());
+  await conversation.addAttachmentFromPath(pdfPath);
+  const runner = new BaseModelRunner();
+  return runner.streamObject(conversation, PDFSummarySchema);
 }
 
-class PDFParser extends EvaluationRunner {
-  private pdfPath: string;
+// 4. Orchestrator: Evaluate for each model
+const evaluationId = 'pdf-parsing';
+const pdfFile = 'Home-Cooked Software and Barefoot Developers.pdf';
+const pdfPath = path.resolve('input', 'pdf-parsing', pdfFile); // Adjust as needed
 
-  constructor(evaluationId: string, pdfPath: string) {
-    super(evaluationId);
-    this.pdfPath = path.resolve(this.getTestDataDir(), pdfPath);
-  }
+const models: ModelDetails[] = [
+  { name: 'gemma3:12b', provider: 'ollama' },
+  { name: 'qwen2.5:14b', provider: 'ollama' },
+  { name: 'phi4:latest', provider: 'ollama' },
+  { name: 'phi4-mini:latest', provider: 'ollama' },
+  { name: 'gemini-2.0-flash', provider: 'google' },
+  { name: 'gemini-2.5-flash', provider: 'google' },
+];
 
-  async getModelResponse(details: ModelDetails): Promise<ModelResponse> {
-    return parsePDF(this.pdfPath, details);
+async function main() {
+  for (const model of models) {
+    await evaluate(
+      (details) => pdfParseExtract(pdfPath, details),
+      evaluationId,
+      pdfFile,
+      model
+    );
   }
 }
 
-
-const runner = new PDFParser('pdf-parsing', 'Home-Cooked Software and Barefoot Developers.pdf');
-
-await runner.evaluate({
-  name: 'gemma3:12b',
-  provider: 'ollama',
-});
-
-await runner.evaluate({
-  name: 'qwen2.5:14b',
-  provider: 'ollama',
-});
-
-await runner.evaluate({
-  name: 'phi4:latest',
-  provider: 'ollama',
-});
-
-await runner.evaluate({
-  name: 'phi4-mini:latest',
-  provider: 'ollama',
-});
-
-await runner.evaluate({
-  name: 'gemini-2.0-flash',
-  provider: 'google',
-});
-
-await runner.evaluate({
-  name: 'gemini-2.5-pro-exp-03-25',
-  provider: 'google',
-});
+main();
 

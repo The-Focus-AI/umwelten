@@ -1,8 +1,8 @@
 import { z, ZodObject, ZodRawShape } from 'zod';
-import { Prompt } from '../src/conversation/prompt.js';
-import { ModelDetails, ModelResponse } from '../src/models/types.js';
-import { Conversation } from '../src/conversation/conversation.js';
-import { BaseModelRunner } from '../src/models/runner.js';
+import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
+import { Interaction } from '../src/interaction/interaction.js';
+import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Stimulus } from '../src/interaction/stimulus.js';
 
 export const ImageFeatureSchema = z.object({
   able_to_parse: z.object({
@@ -46,13 +46,13 @@ export const ImageFeatureSchema = z.object({
 export type ImageFeature = z.infer<typeof ImageFeatureSchema>;
 
 
-const featurePrompt = new Prompt();
+const featurePrompt = new Stimulus();
 featurePrompt.setRole('You are an expert image analyst.');
 featurePrompt.setObjective('Given an image, extract the following features and return them as a JSON object.');
 // featurePrompt.setOutputSchema(ImageFeatureSchema);
 
 export async function imageFeatureExtract(imagePath: string, model: ModelDetails): Promise<ModelResponse> {
-  const conversation = new Conversation(model, featurePrompt.getPrompt());
+  const conversation = new Interaction(model, featurePrompt.getPrompt());
   await conversation.addAttachmentFromPath(imagePath);
   const runner = new BaseModelRunner();
   return runner.streamObject(conversation, ImageFeatureSchema);

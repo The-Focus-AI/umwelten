@@ -1,10 +1,10 @@
-import { BaseModelRunner } from "../src/models/runner.js";
-import { ModelDetails, ModelResponse, ScoreResponse, ScoreSchema } from "../src/models/types.js";
-import { Conversation } from "../src/conversation/conversation.js";
+import { BaseModelRunner } from "../src/cognition/runner.js";
+import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
+import { Stimulus } from "../src/interaction/stimulus.js";
+import { Interaction } from "../src/interaction/interaction.js";
 import path from "path";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
 import { EvaluationScorer } from "../src/evaluation/scorer.js";
-import { Prompt } from "../src/conversation/prompt.js";
 import { z } from "zod";
 
 export async function parseImage(
@@ -13,7 +13,7 @@ export async function parseImage(
 ): Promise<ModelResponse> {
   const prompt = "Analyze this image and provide a summary of the content.";
 
-  const conversation = new Conversation(model, prompt);
+  const conversation = new Interaction(model, prompt);
 
   // conversation.addAttachmentFromPath(pdfFile);
   conversation.addAttachmentFromPath(imagePath);
@@ -108,7 +108,7 @@ class ImageScorer extends EvaluationScorer {
       response.metadata.provider
     );
 
-    const prompt = new Prompt({
+    const prompt = new Stimulus({
       role: "unit testing expert",
       objective:
         "score the following model response based on the image it is analyzing.",
@@ -127,7 +127,7 @@ class ImageScorer extends EvaluationScorer {
 
     console.log(prompt.getPrompt());
 
-    const conversation = new Conversation(
+    const conversation = new Interaction(
       { provider: "google", name: "gemini-2.5-pro-exp-03-25" },
       prompt.getPrompt()
     );

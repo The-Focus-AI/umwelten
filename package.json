@@ -1,8 +1,11 @@
 {
-  "name": "model-eval",
+  "name": "umwelten",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "umwelten": "./dist/cli/cli.js"
+  },
   "description": "A tool for systematically evaluating language models",
   "scripts": {
     "test": "vitest --reporter=verbose",

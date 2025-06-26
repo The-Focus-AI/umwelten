@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { BaseModelRunner } from "../src/models/runner.js";
-import { ModelDetails } from "../src/models/types.js";
-import { Conversation } from "../src/conversation/conversation.js";
-import { ModelResponse } from "../src/models/types.js";
+import { BaseModelRunner } from "../src/cognition/runner.js";
+import { ModelDetails } from "../src/cognition/types.js";
+import { Interaction } from "../src/interaction/interaction.js";
+import { ModelResponse } from "../src/cognition/types.js";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
-import { Prompt } from "../src/conversation/prompt.js";
+import { Stimulus } from "../src/interaction/stimulus.js";
 import { fromHtmlViaMarkify, fromHtmlViaModel } from "../src/markdown/from_html.js";
 
 const siteInfoSchema = z.object({
@@ -28,7 +28,7 @@ const siteInfoSchema = z.object({
 });
 
 export async function getSiteInfo(html:string, model:ModelDetails): Promise<ModelResponse> {
-  const prompt = new Prompt();
+  const prompt = new Stimulus();
   prompt.setRole('expert web scraper');
   prompt.addInstruction('You will be given a html page and you will need to extract the information from the page.');
   prompt.addInstruction(`The currrent date is ${new Date().toISOString()}`);
@@ -37,7 +37,7 @@ export async function getSiteInfo(html:string, model:ModelDetails): Promise<Mode
   prompt.setObjective(`Please parse the html and return the structure of the page`);
 
   console.log(prompt.getPrompt());
-  const conversation = new Conversation(model, prompt.getPrompt());
+  const conversation = new Interaction(model, prompt.getPrompt());
   conversation.addMessage({ role: 'user', content: html });
   // conversation.addMessage({
   //   role: 'user',

@@ -1,8 +1,8 @@
 import { EvaluationRunner } from '../src/evaluation/runner.js';
 import { z } from 'zod';
-import { Conversation } from '../src/conversation/conversation.js';
-import { ModelDetails, ModelResponse } from '../src/models/types.js';
-import { BaseModelRunner } from '../src/models/runner.js';
+import { Interaction } from '../src/interaction/interaction.js';
+import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
+import { BaseModelRunner } from '../src/cognition/runner.js';
 
 const pricingPage = 'https://ai.google.dev/gemini-api/docs/pricing';
 
@@ -22,7 +22,7 @@ const pricingSchema = z.object({
 async function parseGooglePricing(html: string, model:ModelDetails): Promise<ModelResponse> {
   const prompt = `You are a pricing agent that looks through the pricing page and returns the pricing for the models described on the page`
 
-  const conversation = new Conversation(model , prompt);
+  const conversation = new Interaction(model , prompt);
 
   conversation.addMessage({
     role: 'user',

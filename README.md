@@ -1,4 +1,4 @@
-# AI Model Evaluation Tool
+# Umwelten - AI Model Evaluation Tool
 
 ## Overview
 
@@ -26,8 +26,8 @@ This command-line tool allows you to interact with and evaluate AI models across
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/model-eval.git
-   cd model-eval
+   git clone https://github.com/yourusername/umwelten.git
+   cd umwelten
    ```
 
 2. Install dependencies:
