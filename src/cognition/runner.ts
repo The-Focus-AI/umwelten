@@ -163,7 +163,15 @@ export class BaseModelRunner implements ModelRunner {
       topP: interaction.modelDetails.topP,
       topK: interaction.modelDetails.topK,
       ...mergedOptions,
+      onError: (err: any) => {
+        console.error(`[onError] generateText:`, err);
+      },
     };
+
+    // Enable usage accounting for OpenRouter
+    if (interaction.modelDetails.provider === "openrouter") {
+      generateOptions.usage = { include: true };
+    }
 
     // Add tools if available
     if (interaction.hasTools()) {
@@ -171,13 +179,16 @@ export class BaseModelRunner implements ModelRunner {
       if (interaction.maxSteps) {
         generateOptions.maxSteps = interaction.maxSteps;
       }
+      if (process.env.DEBUG === '1') {
+        console.log("[DEBUG] Passing tools to model (generateText):", Object.keys(interaction.getVercelTools() || {}));
+      }
     }
 
     const response = await generateText(generateOptions);
 
     return this.makeResult({
       response,
-      content: response.text,
+      content: await response.text,
       usage: response.usage,
       interaction,
       startTime,
@@ -197,41 +208,71 @@ export class BaseModelRunner implements ModelRunner {
       const streamOptions: any = {
         model: model,
         messages: interaction.getMessages(),
-        ...mergedOptions,
         temperature: interaction.modelDetails.temperature,
         topP: interaction.modelDetails.topP,
-        topK: interaction.modelDetails.topK,  
-        onFinish: (event: any) => {
-          console.log("Finish Reason:", event.finishReason);
+        topK: interaction.modelDetails.topK,
+        ...mergedOptions,
+        onError: (err: any) => {
+          console.error(`[onError] streamText:`, err);
         },
       };
 
-      // Add tools if available
+      // Enable usage accounting for OpenRouter
+      if (interaction.modelDetails.provider === "openrouter") {
+        streamOptions.usage = { include: true };
+      }
+
       if (interaction.hasTools()) {
         streamOptions.tools = interaction.getVercelTools();
         if (interaction.maxSteps) {
           streamOptions.maxSteps = interaction.maxSteps;
         }
+        if (process.env.DEBUG === '1') {
+          console.log("[DEBUG] Passing tools to model (streamText):", Object.keys(interaction.getVercelTools() || {}));
+        }
       }
 
       const response = await streamText(streamOptions);
-
-      for await (const textPart of response.textStream) {
-        process.stdout.write(textPart);
+      let fullText = '';
+      if (response.fullStream) {
+        for await (const event of response.fullStream) {
+          switch ((event as any).type) {
+            case 'text-delta':
+              process.stdout.write((event as any).textDelta);
+              fullText += (event as any).textDelta;
+              break;
+            case 'tool-call':
+              console.log(`\n[TOOL CALL] ${(event as any).toolName} called with:`, (event as any).args);
+              break;
+            case 'tool-result':
+              console.log(`\n[TOOL RESULT] ${(event as any).toolName} result:`, (event as any).result);
+              break;
+            // Ignore other event types (reasoning, error, finish, etc.)
+            default:
+              break;
+          }
+        }
+      } else if (response.textStream) {
+        for await (const textPart of response.textStream) {
+          process.stdout.write(textPart);
+          fullText += textPart;
+        }
+      } else {
+        // fallback: await the full text if streaming is not available
+        fullText = await response.text;
+        process.stdout.write(fullText);
       }
-
-      const usage = await response.usage;
 
       return this.makeResult({
         response,
-        content: await response.text,
-        usage,
+        content: fullText,
+        usage: response.usage,
         interaction,
         startTime,
         modelIdString,
       });
-    } catch (error) {
-      this.handleError(error, modelIdString, "execution");
+    } catch (err) {
+      this.handleError(err, modelIdString, "streamText");
     }
   }
 
@@ -241,35 +282,53 @@ export class BaseModelRunner implements ModelRunner {
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } =
       await this.startUp(interaction);
+    try {
+      const mergedOptions = {
+        maxTokens: this.config.maxTokens,
+        ...interaction.options,
+      };
 
-    const mergedOptions = {
-      maxTokens: this.config.maxTokens,
-      ...interaction.options,
-    };
+      const generateOptions: any = {
+        model: model,
+        messages: interaction.getMessages(),
+        schema,
+        temperature: interaction.modelDetails.temperature,
+        topP: interaction.modelDetails.topP,
+        topK: interaction.modelDetails.topK,
+        ...mergedOptions,
+        onError: (err: any) => {
+          console.error(`[onError] generateObject:`, err);
+        },
+      };
 
-    const response = await generateObject({
-      model: model,
-      messages: interaction.getMessages(),
-      ...mergedOptions,
-      temperature: interaction.modelDetails.temperature,
-      topP: interaction.modelDetails.topP,
-      topK: interaction.modelDetails.topK,
-      schema: schema,
-      experimental_repairText: async (options: {  text: string, error: any}) => {
-        console.log("Repairing text:", options.text);
-        console.log("Options:", options);
-        return options.text.replace(/^```json\n/, '').replace(/\n```$/, '');
+      // Enable usage accounting for OpenRouter
+      if (interaction.modelDetails.provider === "openrouter") {
+        generateOptions.usage = { include: true };
       }
-    });
 
-    return this.makeResult({
-      response,
-      content: response.object as string,
-      usage: response.usage,
-      interaction,
-      startTime,
-      modelIdString,
-    });
+      if (interaction.hasTools()) {
+        generateOptions.tools = interaction.getVercelTools();
+        if (interaction.maxSteps) {
+          generateOptions.maxSteps = interaction.maxSteps;
+        }
+        if (process.env.DEBUG === '1') {
+          console.log("[DEBUG] Passing tools to model (generateObject):", Object.keys(interaction.getVercelTools() || {}));
+        }
+      }
+
+      const response = await generateObject(generateOptions);
+
+      return this.makeResult({
+        response,
+        content: String(await response.object),
+        usage: response.usage,
+        interaction,
+        startTime,
+        modelIdString,
+      });
+    } catch (err) {
+      this.handleError(err, modelIdString, "generateObject");
+    }
   }
 
   async streamObject(
@@ -284,32 +343,46 @@ export class BaseModelRunner implements ModelRunner {
         ...interaction.options,
       };
 
-      const response = await streamObject({
+      const streamOptions: any = {
         model: model,
         messages: interaction.getMessages(),
+        schema,
         temperature: interaction.modelDetails.temperature,
         topP: interaction.modelDetails.topP,
-        topK: interaction.modelDetails.topK,  
+        topK: interaction.modelDetails.topK,
         ...mergedOptions,
-        schema: schema,
-      });
+        onError: (err: any) => {
+          console.error(`[onError] streamObject:`, err);
+        },
+      };
 
-      for await (const textPart of response.textStream) {
-        process.stdout.write(textPart);
+      // Enable usage accounting for OpenRouter
+      if (interaction.modelDetails.provider === "openrouter") {
+        streamOptions.usage = { include: true };
       }
 
-      const usage = await response.usage;
+      if (interaction.hasTools()) {
+        streamOptions.tools = interaction.getVercelTools();
+        if (interaction.maxSteps) {
+          streamOptions.maxSteps = interaction.maxSteps;
+        }
+        if (process.env.DEBUG === '1') {
+          console.log("[DEBUG] Passing tools to model (streamObject):", Object.keys(interaction.getVercelTools() || {}));
+        }
+      }
+
+      const response = await streamObject(streamOptions);
 
       return this.makeResult({
         response,
-        content: (await response.object) as string,
-        usage,
+        content: String(await response.object),
+        usage: response.usage,
         interaction,
         startTime,
         modelIdString,
       });
-    } catch (error) {
-      this.handleError(error, modelIdString, "execution");
+    } catch (err) {
+      this.handleError(err, modelIdString, "streamObject");
     }
   }
 

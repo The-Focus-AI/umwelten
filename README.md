@@ -60,8 +60,11 @@ pnpm cli run --provider ollama --model gemma3:latest "Explain the concept of qua
 Use the `chat` command:
 
 ```bash
-# Standard chat
+# Standard chat (no tools enabled by default)
 pnpm cli chat --provider ollama --model gemma3:latest
+
+# Enable specific tools (e.g., calculator, statistics)
+pnpm cli chat --provider openrouter --model gpt-4o --tools calculator,statistics
 
 # Chat with memory enabled
 pnpm cli chat --provider ollama --model gemma3:latest --memory
@@ -72,6 +75,13 @@ pnpm cli chat --provider google --model gemini-1.5-flash-latest --file ./example
 # Chat with a local LM Studio model (ensure LM Studio server is running and model is loaded)
 pnpm cli chat --provider lmstudio --model mistralai/devstral-small-2505
 ```
+
+> **Tool Usage in Chat:**
+>
+> - By default, **no tools are enabled** in chat sessions.
+> - Use the `--tools` flag with a comma-separated list of tool names to enable specific tools (e.g., `--tools calculator,statistics`).
+> - To see available tools, run `pnpm cli tools list`.
+> - If a tool name is not found, it will be ignored with a warning.
 
 Inside the chat session, you can use commands:
 - `/?`: Show help.

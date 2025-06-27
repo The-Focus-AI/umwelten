@@ -8,6 +8,7 @@ import readline from "readline";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import { setupConversation } from './conversationUtils.js';
+import { getTool } from '../stimulus/tools/registry.js';
 
 export const chatCommand = addCommonOptions(
   new Command("chat")
@@ -16,6 +17,7 @@ export const chatCommand = addCommonOptions(
     )
     .option("-f, --file <filePath>", "File to include in the chat")
     .option("--memory", "Enable memory-augmented chat (uses MemoryRunner)")
+    .option("--tools <tools>", "Comma-separated list of tool names to enable (default: none)")
 ).action(async (options: any) => {
   const { provider, model, attach, debug } = parseCommonOptions(options);
   if (!provider || !model) {
@@ -23,23 +25,35 @@ export const chatCommand = addCommonOptions(
     process.exit(1);
   }
 
-  if (debug) {
-    console.log("[DEBUG] Options:", options);
-  }
+  if (process.env.DEBUG === '1') console.log("[DEBUG] Options:", options);
 
   const modelDetails = {
     name: model,
     provider: provider,
   };
 
-  if (debug) {
-    console.log("[DEBUG] Model details:", modelDetails);
-  }
+  if (process.env.DEBUG === '1') console.log("[DEBUG] Model details:", modelDetails);
 
   const modelInstance = await getModel(modelDetails);
   if (!modelInstance) {
     console.error("Failed to load the model.");
     process.exit(1);
+  }
+
+  // Parse tools
+  let toolSet: Record<string, any> | undefined = undefined;
+  if (options.tools) {
+    const toolNames = options.tools.split(',').map((t: string) => t.trim()).filter(Boolean);
+    toolSet = {};
+    for (const name of toolNames) {
+      const tool = getTool(name);
+      if (tool) {
+        (toolSet as Record<string, any>)[name] = tool;
+      } else {
+        console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
+      }
+    }
+    if (process.env.DEBUG === '1') console.log("[DEBUG] Tool set:", Object.keys(toolSet));
   }
 
   // Prompt for the first message
@@ -54,6 +68,11 @@ export const chatCommand = addCommonOptions(
   rl.question("You: ", async (line) => {
     firstMessage = line.trim();
     const conversation = await setupConversation({ modelDetails, prompt: firstMessage, attach, debug });
+    if (toolSet) {
+      conversation.setTools(toolSet);
+    } else {
+      conversation.setTools({}); // Explicitly set no tools
+    }
     let runner: ModelRunner;
     let memoryStore = new InMemoryMemoryStore();
     if (options.memory) {

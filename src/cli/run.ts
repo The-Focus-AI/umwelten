@@ -18,18 +18,14 @@ export const runCommand = addCommonOptions(
       name: model,
       provider: provider
     };
-    if (debug) {
-      console.log('[DEBUG] Model details:', modelDetails);
-    }
+    if (process.env.DEBUG === '1') console.log('[DEBUG] Model details:', modelDetails);
     const modelInstance = await getModel(modelDetails);
     if (!modelInstance) {
       console.error('Failed to fetch model details.');
       process.exit(1);
     }
     const conversation = await setupConversation({ modelDetails, prompt, attach, debug, systemPrompt });
-    if (debug) {
-      console.log('[DEBUG] Conversation messages:', JSON.stringify(conversation.getMessages(), null, 2));
-    }
+    if (process.env.DEBUG === '1') console.log('[DEBUG] Conversation messages:', JSON.stringify(conversation.getMessages(), null, 2));
     const runner = new BaseModelRunner();
     process.stdout.write('Model: ');
     try {

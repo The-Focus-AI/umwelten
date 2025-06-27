@@ -80,15 +80,19 @@ pnpm cli run --provider ollama --model gemma3:latest --prompt "Explain quantum e
 ### Interactive Chat
 
 ```bash
-# Standard chat
+# Standard chat (no tools enabled by default)
 pnpm cli chat --provider ollama --model gemma3:latest
 
-# Chat with memory enabled
-pnpm cli chat --provider ollama --model gemma3:latest --memory
-
-# Chat with a file attachment
-pnpm cli chat --provider google --model gemini-1.5-flash-latest --file ./examples/test_data/internet_archive_fffound.png
+# Enable specific tools (e.g., calculator, statistics)
+pnpm cli chat --provider openrouter --model gpt-4o --tools calculator,statistics
 ```
+
+> **Tool Usage in Chat:**
+>
+> - By default, **no tools are enabled** in chat sessions.
+> - Use the `--tools` flag with a comma-separated list of tool names to enable specific tools (e.g., `--tools calculator,statistics`).
+> - To see available tools, run `pnpm cli tools list`.
+> - If a tool name is not found, it will be ignored with a warning.
 
 **Options:**
 - `--provider <provider>`: Provider to use (e.g. `google`, `ollama`, `openrouter`) (required)

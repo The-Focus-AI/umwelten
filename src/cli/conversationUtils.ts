@@ -16,9 +16,7 @@ export async function setupConversation({ modelDetails, prompt, attach, debug, s
   );
   if (attach && prompt) {
     // Combine prompt and attachment into a single user message (array of parts)
-    if (debug) {
-      console.log(`[DEBUG] Attaching file and combining with prompt: ${attach}`);
-    }
+    if (process.env.DEBUG === '1') console.log(`[DEBUG] Attaching file and combining with prompt: ${attach}`);
     try {
       const filename = path.basename(attach);
       const fileBuffer = fs.readFileSync(attach);
@@ -42,9 +40,7 @@ export async function setupConversation({ modelDetails, prompt, attach, debug, s
           ],
         });
       }
-      if (debug) {
-        console.log(`[DEBUG] File attached and combined with prompt successfully: ${attach}`);
-      }
+      if (process.env.DEBUG === '1') console.log(`[DEBUG] File attached and combined with prompt successfully: ${attach}`);
     } catch (err) {
       console.error(`[ERROR] Failed to attach file: ${attach}`);
       if (debug) {
@@ -54,14 +50,10 @@ export async function setupConversation({ modelDetails, prompt, attach, debug, s
     }
   } else if (attach) {
     // Only attachment, no prompt
-    if (debug) {
-      console.log(`[DEBUG] Attaching file: ${attach}`);
-    }
+    if (process.env.DEBUG === '1') console.log(`[DEBUG] Attaching file: ${attach}`);
     try {
       await conversation.addAttachmentFromPath(attach);
-      if (debug) {
-        console.log(`[DEBUG] File attached successfully: ${attach}`);
-      }
+      if (process.env.DEBUG === '1') console.log(`[DEBUG] File attached successfully: ${attach}`);
     } catch (err) {
       console.error(`[ERROR] Failed to attach file: ${attach}`);
       if (debug) {
