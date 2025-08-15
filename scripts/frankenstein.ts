@@ -22,6 +22,7 @@ export async function frankenstein(model: ModelDetails): Promise<ModelResponse> 
   return response;
 }
 
+await evaluate(frankenstein, "frankenstein", "gpt-oss:20b", { name: "gpt-oss:20b", provider: "ollama" });
 await evaluate(frankenstein, "frankenstein", "ollama-27b", { name: "gemma3:27b", provider: "ollama" });
 await evaluate(frankenstein, "frankenstein", "ollama-12b", { name: "gemma3:12b", provider: "ollama" });
 await evaluate(frankenstein, "frankenstein", "google-flash", { name: "gemini-2.0-flash", provider: "google" });
