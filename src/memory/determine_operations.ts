@@ -19,7 +19,7 @@ and returns a list of operations to update the memory.  For each time, you can d
 
 You will receive a list of memory items with a unique ID and a list of retrieved facts.
 
-The operations should be in the format ${JSON.stringify(zodToJsonSchema(memoryOperationResultSchema))}
+The operations should be in the format of a JSON object with a "memory" array containing objects with "id", "fact", "event", and optionally "old_memory" fields.
 
 If you are modifying the memory, then you should return the IDs in the output from the input IDs only and do not generate any new ID.
 
@@ -216,10 +216,19 @@ export async function determineOperations(
     memoryOperationResultSchema
   );
 
-  const memoryArray = result.content as unknown as MemoryOperationResult;
+  // Parse the content if it's a string, otherwise use it directly
+  let memoryArray: MemoryOperationResult;
+  if (typeof result.content === 'string') {
+    memoryArray = JSON.parse(result.content) as MemoryOperationResult;
+  } else {
+    memoryArray = result.content as MemoryOperationResult;
+  }
 
   console.log("Memory Operations:", JSON.stringify(memoryArray, null, 2));
   console.log("--------------------------------");
 
-  return memoryArray;
+  // Ensure we return the correct structure
+  return {
+    memory: memoryArray.memory || []
+  };
 }

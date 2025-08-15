@@ -1,4 +1,4 @@
-import { LanguageModelV1 } from 'ai';
+import { LanguageModel } from 'ai';
 import { ModelDetails } from '../cognition/types.js';
 import { ModelRoute } from '../cognition/types.js';
 
@@ -23,7 +23,7 @@ export abstract class BaseProvider {
    * Get a specific model instance that implements the Vercel AI SDK interface
    * @param route The model route specification
    */
-  abstract getLanguageModel(route: ModelRoute): LanguageModelV1;
+  abstract getLanguageModel(route: ModelRoute): LanguageModel;
 
   /**
    * Validate that required configuration is present

@@ -1,6 +1,6 @@
 // NOTE: Requires `@ai-sdk/openai-compatible` package. Install with: pnpm add @ai-sdk/openai-compatible
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 
@@ -47,7 +47,7 @@ export class LMStudioProvider extends BaseProvider {
   }
 
   // Return a LanguageModelV1 instance for the given route
-  getLanguageModel(route: ModelRoute): LanguageModelV1 {
+  getLanguageModel(route: ModelRoute): LanguageModel {
     // Use the OpenAI-compatible provider instance
     const baseUrl = this.baseUrl || DEFAULT_BASE_URL;
     const lmstudio = createOpenAICompatible({

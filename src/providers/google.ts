@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "ai";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 import { BaseProvider } from "./base.js";
 
@@ -60,7 +60,7 @@ export class GoogleProvider extends BaseProvider {
     });
   }
 
-  getLanguageModel(route: ModelRoute): LanguageModelV1 {
+  getLanguageModel(route: ModelRoute): LanguageModel {
     this.validateConfig();
 
     // Use the Vercel AI SDK wrapper for Google

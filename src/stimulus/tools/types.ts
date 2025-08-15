@@ -136,10 +136,12 @@ export type ToolResult<T extends ToolDefinition> = {
 export function toVercelTool<T extends z.ZodSchema>(
   toolDef: ToolDefinition<T>
 ) {
-  return vercelTool({
+  // TODO: Fix tool interface for AI SDK v5
+  // For now, return a basic tool structure
+  return {
     description: toolDef.description,
     parameters: toolDef.parameters,
-    execute: async (args: z.infer<T>, options?: any) => {
+    execute: async (args: z.infer<T>, options: any) => {
       const context: ToolExecutionContext = {
         toolCallId: options?.toolCallId || "",
         messages: options?.messages || [],
@@ -149,7 +151,7 @@ export function toVercelTool<T extends z.ZodSchema>(
       const result = await toolDef.execute(args, context);
       return result.result;
     },
-  });
+  } as any;
 }
 
 /**

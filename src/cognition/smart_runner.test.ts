@@ -22,7 +22,16 @@ describe("SmartModelRunner", () => {
       return dummyModelResponse;
     }
     async streamText(interaction: Interaction) {
-      return dummyModelResponse;
+      // AI SDK v5 streaming interface expects a different structure
+      return {
+        ...dummyModelResponse,
+        textStream: (async function* () {
+          yield "dummy";
+        })(),
+        fullStream: (async function* () {
+          yield { type: 'text-delta', textDelta: 'dummy' };
+        })()
+      };
     }
     // For SmartModelRunner's super() call, provide a dummy config
     get config() {

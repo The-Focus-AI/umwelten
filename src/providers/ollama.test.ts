@@ -96,11 +96,11 @@ describe('Ollama Provider', () => {
       expect(response).toHaveProperty('usage')
       if (response.usage) {
         console.log('Usage stats:', response.usage)
-        expect(response.usage).toHaveProperty('promptTokens')
-        expect(response.usage).toHaveProperty('completionTokens')
+        expect(response.usage).toHaveProperty('inputTokens')
+        expect(response.usage).toHaveProperty('outputTokens')
         expect(response.usage).toHaveProperty('totalTokens')
         expect(response.usage.totalTokens).toBe(
-          response.usage.promptTokens + response.usage.completionTokens
+          response.usage.inputTokens + response.usage.outputTokens
         )
       }
     })

@@ -1,5 +1,5 @@
-import { ollama } from "ollama-ai-provider";
-import type { LanguageModelV1 } from "ai";
+import { ollama } from "ai-sdk-ollama";
+import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 const now = new Date();
@@ -50,8 +50,12 @@ export class OllamaProvider extends BaseProvider {
     );
   }
 
-  getLanguageModel(route: ModelRoute): LanguageModelV1 {
-    return ollama(route.name, { numCtx: route.numCtx });
+  getLanguageModel(route: ModelRoute): LanguageModel {
+    return ollama(route.name, { 
+      options: { 
+        num_ctx: route.numCtx 
+      } 
+    });
   }
 }
 

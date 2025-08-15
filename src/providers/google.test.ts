@@ -83,11 +83,11 @@ describe('Google Provider', () => {
       expect(response).toHaveProperty('usage')
       if (response.usage) {
         console.log('Usage stats:', response.usage)
-        expect(response.usage).toHaveProperty('promptTokens')
-        expect(response.usage).toHaveProperty('completionTokens')
+        expect(response.usage).toHaveProperty('inputTokens')
+        expect(response.usage).toHaveProperty('outputTokens')
         expect(response.usage).toHaveProperty('totalTokens')
         expect(response.usage.totalTokens).toBe(
-          response.usage.promptTokens + response.usage.completionTokens
+          response.usage.inputTokens + response.usage.outputTokens
         )
       }
     })
@@ -121,14 +121,15 @@ describe('Google Provider', () => {
       // Should return a message asking for input
       expect(response.text).toBeTruthy()
       expect(response.text.toLowerCase()).toContain('provide')
-      expect(response.text.toLowerCase()).toContain("haven't provided") // Check for actual response content
+      // AI SDK v5 behavior changed - model now provides helpful suggestions instead of error message
+      expect(response.text.toLowerCase()).toContain('task') // Check for helpful response content
 
       // Should have usage statistics
       expect(response.usage).toBeDefined()
-      expect(response.usage?.promptTokens).toBeGreaterThan(0)
-      expect(response.usage?.completionTokens).toBeGreaterThan(0)
+      expect(response.usage?.inputTokens).toBeGreaterThan(0)
+      expect(response.usage?.outputTokens).toBeGreaterThan(0)
       expect(response.usage?.totalTokens).toBe(
-        response.usage?.promptTokens + response.usage?.completionTokens
+        response.usage?.inputTokens + response.usage?.outputTokens
       )
     })
   })

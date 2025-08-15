@@ -5,7 +5,7 @@ import type { ModelDetails } from "../cognition/types.js";
 import { createGoogleProvider } from "./google.js";
 import { createOpenRouterProvider } from "./openrouter.js";
 import { createOllamaProvider } from "./ollama.js";
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
 
@@ -27,7 +27,7 @@ export function getModelUrl(model: ModelDetails): string | undefined {
 
 export async function getModel(
   modelDetails: ModelDetails
-): Promise<LanguageModelV1 | undefined> {
+): Promise<LanguageModel | undefined> {
   try {
     const provider = await getModelProvider(modelDetails);
     return provider?.getLanguageModel(modelDetails);
@@ -41,19 +41,41 @@ export async function getModel(
  * Gets the ModelDetails for a given LanguageModelV1 instance by looking up the model
  * from its provider
  */
-export async function getModelDetails(model: LanguageModelV1): Promise<ModelDetails | undefined> {
+export async function getModelDetails(model: LanguageModel): Promise<ModelDetails | undefined> {
   try {
-    const provider = await getModelProvider({
-      name: model.toString(),
-      provider: model.provider || 'unknown'
-    });
-
-    if (!provider) {
+    // For string models, we can't determine the provider
+    if (typeof model === 'string') {
       return undefined;
     }
-
-    const models = await provider.listModels();
-    return models.find(m => m.name === model.toString());
+    
+    // For LanguageModelV2, we need to determine the provider differently
+    // Since we don't have direct access to provider info, we'll try to match by model ID
+    const modelId = model.toString();
+    
+    // Try to find the model in our known providers
+    const providers = ['google', 'openrouter', 'ollama', 'lmstudio'] as const;
+    
+    for (const providerName of providers) {
+      try {
+        const provider = await getModelProvider({
+          name: modelId,
+          provider: providerName
+        });
+        
+        if (provider) {
+          const models = await provider.listModels();
+          const foundModel = models.find(m => m.name === modelId);
+          if (foundModel) {
+            return foundModel;
+          }
+        }
+      } catch (error) {
+        // Continue to next provider
+        continue;
+      }
+    }
+    
+    return undefined;
 
   } catch (error) {
     console.error("Error getting model details:", error);

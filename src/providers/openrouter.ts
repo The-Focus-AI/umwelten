@@ -1,8 +1,8 @@
 import { openrouter } from '@openrouter/ai-sdk-provider'
-import type { LanguageModelV1 } from 'ai'
+import type { LanguageModel } from 'ai'
 import { BaseProvider } from './base.js'
 import type { ModelDetails, ModelRoute } from '../cognition/types.js'
-export function createOpenRouterModel(modelName: string): LanguageModelV1 {
+export function createOpenRouterModel(modelName: string): LanguageModel {
   return openrouter(modelName)
 } 
 
@@ -51,7 +51,7 @@ export class OpenRouterProvider extends BaseProvider {
     }))
   }
 
-  getLanguageModel(route: ModelRoute): LanguageModelV1 {
+  getLanguageModel(route: ModelRoute): LanguageModel {
     this.validateConfig();
     
     // Format the model ID for OpenRouter

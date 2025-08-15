@@ -28,7 +28,7 @@ export async function setupConversation({ modelDetails, prompt, attach, debug, s
           role: 'user',
           content: [
             { type: 'text', text: prompt },
-            { type: 'image', image: data, mimeType: mime_type },
+            { type: 'image', image: data },
           ],
         });
       } else {
@@ -36,7 +36,7 @@ export async function setupConversation({ modelDetails, prompt, attach, debug, s
           role: 'user',
           content: [
             { type: 'text', text: prompt },
-            { type: 'file', data: data, mimeType: mime_type },
+            { type: 'file', data: data, mediaType: mime_type },
           ],
         });
       }

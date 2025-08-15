@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LanguageModelV1 } from "ai";
+import { LanguageModel } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
 import { Interaction } from '../interaction/interaction.js';
@@ -48,7 +48,7 @@ export const ModelDetailsSchema = ModelRouteSchema.extend({
     .optional(),
   addedDate: z.date().optional(),
   lastUpdated: z.date().optional(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
   originalProvider: z.string().optional(),
 });
 
@@ -59,7 +59,7 @@ export interface ModelConfig extends ModelRoute {
 
 export const ModelConfigSchema = ModelRouteSchema.extend({
   description: z.string().optional(),
-  parameters: z.record(z.unknown()).optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
 });
 
 export interface ModelsConfig {
@@ -79,7 +79,7 @@ export const ModelsConfigSchema = z.object({
       created: z.string().optional(),
       version: z.string().optional(),
       notes: z.string().optional(),
-      requirements: z.record(z.string()).optional(),
+      requirements: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
 });

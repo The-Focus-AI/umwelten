@@ -24,7 +24,7 @@ export const JSONRPCRequestSchema = z.object({
   jsonrpc: JSONRPCVersionSchema,
   id: JSONRPCIdSchema,
   method: z.string(),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 export type JSONRPCRequest = z.infer<typeof JSONRPCRequestSchema>;
 
@@ -32,7 +32,7 @@ export type JSONRPCRequest = z.infer<typeof JSONRPCRequestSchema>;
 export const JSONRPCSuccessResponseSchema = z.object({
   jsonrpc: JSONRPCVersionSchema,
   id: JSONRPCIdSchema,
-  result: z.record(z.unknown()).optional(),
+  result: z.record(z.string(), z.unknown()).optional(),
 });
 export type JSONRPCSuccessResponse = z.infer<typeof JSONRPCSuccessResponseSchema>;
 
@@ -63,7 +63,7 @@ export type JSONRPCResponse = z.infer<typeof JSONRPCResponseSchema>;
 export const JSONRPCNotificationSchema = z.object({
   jsonrpc: JSONRPCVersionSchema,
   method: z.string(),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 export type JSONRPCNotification = z.infer<typeof JSONRPCNotificationSchema>;
 
@@ -92,7 +92,7 @@ export const MCPClientCapabilitiesSchema = z.object({
     listChanged: z.boolean().optional(),
   }).optional(),
   sampling: z.object({}).optional(),
-  experimental: z.record(z.unknown()).optional(),
+  experimental: z.record(z.string(), z.unknown()).optional(),
 });
 export type MCPClientCapabilities = z.infer<typeof MCPClientCapabilitiesSchema>;
 
@@ -109,7 +109,7 @@ export const MCPServerCapabilitiesSchema = z.object({
   tools: z.object({
     listChanged: z.boolean().optional(),
   }).optional(),
-  experimental: z.record(z.unknown()).optional(),
+  experimental: z.record(z.string(), z.unknown()).optional(),
 });
 export type MCPServerCapabilities = z.infer<typeof MCPServerCapabilitiesSchema>;
 
@@ -119,7 +119,7 @@ export type MCPServerCapabilities = z.infer<typeof MCPServerCapabilitiesSchema>;
 
 export const MCPToolInputSchemaSchema = z.object({
   type: z.literal('object'),
-  properties: z.record(z.unknown()).optional(),
+  properties: z.record(z.string(), z.unknown()).optional(),
   required: z.array(z.string()).optional(),
   additionalProperties: z.boolean().optional(),
 });
@@ -134,7 +134,7 @@ export type MCPTool = z.infer<typeof MCPToolSchema>;
 
 export const MCPToolCallSchema = z.object({
   name: z.string(),
-  arguments: z.record(z.unknown()).optional(),
+  arguments: z.record(z.string(), z.unknown()).optional(),
 });
 export type MCPToolCall = z.infer<typeof MCPToolCallSchema>;
 
@@ -235,7 +235,7 @@ export type MCPListToolsResult = z.infer<typeof MCPListToolsResultSchema>;
 
 export const MCPCallToolRequestParamsSchema = z.object({
   name: z.string(),
-  arguments: z.record(z.unknown()).optional(),
+  arguments: z.record(z.string(), z.unknown()).optional(),
 });
 export type MCPCallToolRequestParams = z.infer<typeof MCPCallToolRequestParamsSchema>;
 
@@ -258,7 +258,7 @@ export type MCPListPromptsResult = z.infer<typeof MCPListPromptsResultSchema>;
 
 export const MCPGetPromptRequestParamsSchema = z.object({
   name: z.string(),
-  arguments: z.record(z.unknown()).optional(),
+  arguments: z.record(z.string(), z.unknown()).optional(),
 });
 export type MCPGetPromptRequestParams = z.infer<typeof MCPGetPromptRequestParamsSchema>;
 

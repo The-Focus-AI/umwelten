@@ -103,7 +103,7 @@ function jsonSchemaToZod(schema: any): z.ZodSchema {
 
     case 'object':
       if (!schema.properties) {
-        return z.record(z.unknown());
+        return z.record(z.string(), z.unknown());
       }
 
       const shape: Record<string, z.ZodSchema> = {};

@@ -110,7 +110,11 @@ export async function extractFacts(
       return { facts: [] };
     }
 
-    return result.content as unknown as FactSchema;
+    // Ensure we return the correct structure
+    const content = result.content as unknown as FactSchema;
+    return {
+      facts: content.facts || []
+    };
   } catch (error) {
     console.error("Error extracting facts:", error);
     return { facts: [] };

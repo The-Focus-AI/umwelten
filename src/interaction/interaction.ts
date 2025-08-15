@@ -57,7 +57,7 @@ export class Interaction {
         role: "user",
         content: [
           { type: "text", text: `I've shared an image named ${filename} for you to analyze.` },
-          { type: "image", image: data as string, mimeType: mime_type },
+          { type: "image", image: data as string },
         ],
       });
     } else {
@@ -68,7 +68,7 @@ export class Interaction {
           {
             type: "file",
             data: data as string,
-            mimeType: mime_type || "application/octet-stream",
+            mediaType: mime_type || "application/octet-stream",
           },
         ],
       });

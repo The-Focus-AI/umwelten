@@ -254,12 +254,13 @@ describe("Models Command", () => {
         "test",
         "--sort",
         "contextLength",
+        "--desc",
         "--json",
       ]);
       expect(mockConsoleLog).toHaveBeenCalled();
       const output = mockConsoleLog.mock.calls[0][0];
       const parsed = JSON.parse(output);
-      // Relaxed: check that the first 10 are not strictly increasing
+      // Check that the first 10 are sorted in descending order
       for (let i = 1; i < Math.min(10, parsed.length); i++) {
         if (typeof parsed[i - 1].contextLength === 'number' && typeof parsed[i].contextLength === 'number') {
           expect(parsed[i - 1].contextLength).toBeGreaterThanOrEqual(parsed[i].contextLength);

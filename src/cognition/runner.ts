@@ -12,7 +12,7 @@ import {
   clearRateLimitState,
 } from "../rate-limit/rate-limit.js";
 import {
-  LanguageModelV1,
+  LanguageModel,
   generateText,
   generateObject,
   streamObject,
@@ -89,7 +89,7 @@ export class BaseModelRunner implements ModelRunner {
     prompt: string;
     interaction: Interaction;
     options?: ModelOptions;
-  }): Promise<{ model: LanguageModelV1; modelIdString: string }> {
+  }): Promise<{ model: LanguageModel; modelIdString: string }> {
     const modelIdString = `${params.interaction.modelDetails.provider}/${params.interaction.modelDetails.name}`;
 
     const validatedModel = await validateModel(params.interaction.modelDetails);
@@ -121,7 +121,7 @@ export class BaseModelRunner implements ModelRunner {
 
     const model = await getModel(params.interaction.modelDetails);
     if (!model) {
-      throw new Error(`Failed to get LanguageModelV1 for ${modelIdString}`);
+      throw new Error(`Failed to get LanguageModel for ${modelIdString}`);
     }
 
     if (!shouldAllowRequest(modelIdString, this.config.rateLimitConfig)) {
@@ -238,8 +238,11 @@ export class BaseModelRunner implements ModelRunner {
         for await (const event of response.fullStream) {
           switch ((event as any).type) {
             case 'text-delta':
-              process.stdout.write((event as any).textDelta);
-              fullText += (event as any).textDelta;
+              const textDelta = (event as any).textDelta;
+              if (textDelta !== undefined && textDelta !== null) {
+                process.stdout.write(textDelta);
+                fullText += textDelta;
+              }
               break;
             case 'tool-call':
               console.log(`\n[TOOL CALL] ${(event as any).toolName} called with:`, (event as any).args);
@@ -254,13 +257,17 @@ export class BaseModelRunner implements ModelRunner {
         }
       } else if (response.textStream) {
         for await (const textPart of response.textStream) {
-          process.stdout.write(textPart);
-          fullText += textPart;
+          if (textPart !== undefined && textPart !== null) {
+            process.stdout.write(textPart);
+            fullText += textPart;
+          }
         }
       } else {
         // fallback: await the full text if streaming is not available
         fullText = await response.text;
-        process.stdout.write(fullText);
+        if (fullText !== undefined && fullText !== null) {
+          process.stdout.write(fullText);
+        }
       }
 
       return this.makeResult({
@@ -320,7 +327,7 @@ export class BaseModelRunner implements ModelRunner {
 
       return this.makeResult({
         response,
-        content: String(await response.object),
+        content: response.object,
         usage: response.usage,
         interaction,
         startTime,
@@ -390,7 +397,7 @@ export class BaseModelRunner implements ModelRunner {
     interaction: Interaction
   ): Promise<{
     startTime: Date;
-    model: LanguageModelV1;
+    model: LanguageModel;
     modelIdString: string;
   }> {
     const startTime = new Date();
@@ -411,7 +418,7 @@ export class BaseModelRunner implements ModelRunner {
     modelIdString,
   }: {
     response: any;
-    content: string;
+    content: string | unknown;
     usage: any;
     interaction: Interaction;
     startTime: Date;
@@ -443,13 +450,16 @@ export class BaseModelRunner implements ModelRunner {
       );
     }
 
+    // For generateObject, content is the actual object, not a string
+    const contentString = typeof content === 'string' ? content : JSON.stringify(content);
+    
     interaction.addMessage({
       role: "assistant",
-      content: content,
+      content: contentString,
     });
 
     const modelResponse: ModelResponse = {
-      content: content,
+      content: contentString,
       metadata: {
         startTime,
         endTime: new Date(),
