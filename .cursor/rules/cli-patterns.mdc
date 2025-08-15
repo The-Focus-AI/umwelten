@@ -1,0 +1,226 @@
+---
+globs: src/cli/*.ts,src/cli/*.test.ts
+description: CLI implementation patterns and command structure for the umwelten tool
+---
+
+# CLI Implementation Patterns
+
+## Command Structure
+The CLI is built using Commander.js and follows a consistent pattern. Main entry point is [src/cli/cli.ts](mdc:src/cli/cli.ts).
+
+### Available Commands
+- **`run`**: Single prompt execution with model selection
+- **`chat`**: Interactive chat sessions with optional file attachments and memory
+- **`models`**: List and inspect available models
+- **`mcp`**: Model Context Protocol client and server management
+- **`eval`**: Run evaluations (planned)
+
+## CLI Design Principles
+
+### 1. Progressive Disclosure
+- Basic commands are simple and intuitive
+- Advanced options are available but not required
+- Help text provides clear examples
+- Commands build on each other logically
+
+### 2. Input Flexibility
+- Accept direct arguments for simple cases
+- Support stdin for longer input (`cat file.txt | umwelten run`)
+- Allow configuration overrides via flags
+- Support both interactive and non-interactive modes
+
+### 3. Clear Feedback
+- Use progress indicators for long operations
+- Show relevant metrics (tokens, cost, response time)
+- Provide helpful error messages with actionable guidance
+- Use color coding for different types of information
+
+### 4. Consistent Formatting
+- Use color for emphasis and categorization
+- Structure output clearly with headers and separators
+- Include clickable documentation links where appropriate
+- Maintain consistent table formatting
+
+## Command Implementation Pattern
+
+### Basic Command Structure
+```typescript
+import { Command } from 'commander';
+import { formatModelDetails, formatCosts } from './commonOptions';
+
+export function createRunCommand(): Command {
+  return new Command('run')
+    .description('Execute a single prompt with a model')
+    .argument('<prompt>', 'The prompt to send to the model')
+    .option('-m, --model <model>', 'Model to use')
+    .option('-p, --provider <provider>', 'Provider to use')
+    .option('--json', 'Output in JSON format')
+    .action(async (prompt, options) => {
+      // Implementation
+    });
+}
+```
+
+### Common Options
+Use shared options from [src/cli/commonOptions.ts](mdc:src/cli/commonOptions.ts):
+- Model selection
+- Provider filtering
+- Output formatting
+- Cost display options
+
+### Error Handling
+```typescript
+try {
+  // Command implementation
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error(chalk.red('Validation Error:'), error.message);
+    process.exit(1);
+  } else if (error instanceof ProviderError) {
+    console.error(chalk.red('Provider Error:'), error.message);
+    process.exit(1);
+  } else {
+    console.error(chalk.red('Unexpected Error:'), error);
+    process.exit(1);
+  }
+}
+```
+
+## Chat Command Features
+
+### Interactive Mode
+- **Commands**: `/?` (help), `/reset` (clear history), `/mem` (show memory), `/history` (show messages)
+- **File Attachments**: Support for text, image, and document files
+- **Memory Integration**: Optional fact extraction and memory updates
+
+### Memory Support
+- `--memory` flag enables `MemoryRunner` with fact extraction
+- Automatic memory updates after each interaction
+- Memory display and management commands
+
+## Models Command Features
+
+### Listing Models
+- **Basic listing**: Show all available models
+- **Provider filtering**: `--provider google`
+- **JSON output**: `--json` for programmatic use
+- **Detailed view**: `--details` for comprehensive information
+
+### Model Information
+- Model capabilities and features
+- Cost information per million tokens
+- Provider-specific details
+- Performance characteristics
+
+## Output Formatting
+
+### Table Formatting
+Use `cli-table3` for consistent table display:
+```typescript
+import Table from 'cli-table3';
+
+const table = new Table({
+  head: ['Model', 'Provider', 'Cost (prompt)', 'Cost (completion)'],
+  colWidths: [30, 15, 15, 15]
+});
+
+table.push([
+  model.name,
+  model.provider,
+  formatCost(model.costs.promptTokens),
+  formatCost(model.costs.completionTokens)
+]);
+```
+
+### Color Coding
+- **Green**: Success messages, costs, positive metrics
+- **Yellow**: Warnings, rate limits, performance notes
+- **Red**: Errors, failures, critical issues
+- **Blue**: Information, help text, documentation links
+- **Cyan**: Model names, provider information
+
+### JSON Output
+When `--json` flag is used:
+- Structured data output
+- Consistent schema across commands
+- Machine-readable format
+- Preserves all metadata
+
+## Testing Patterns
+
+### Command Testing
+```typescript
+import { runCommand } from '../cli';
+
+describe('run command', () => {
+  it('should execute a simple prompt', async () => {
+    const result = await runCommand(['run', 'Hello world', '--model', 'gpt-4']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Hello world');
+  });
+});
+```
+
+### Output Verification
+- Capture console output
+- Parse JSON when needed
+- Check formatting and color codes
+- Verify error messages
+
+### Mock Management
+- Mock external API calls
+- Mock file system operations
+- Mock environment variables
+- Clean up mocks after each test
+
+## Environment Configuration
+
+### Required Environment Variables
+- `OPENROUTER_API_KEY`: For OpenRouter provider
+- `GOOGLE_API_KEY`: For Google provider
+- `OLLAMA_BASE_URL`: For Ollama provider (optional)
+
+### Configuration Files
+- `.env` for local development
+- `env.template` for documentation
+- Environment-specific configurations
+
+## Error Categories
+
+### User Input Errors
+- Invalid model names
+- Missing required arguments
+- Invalid file paths
+- Malformed JSON input
+
+### Provider Errors
+- Authentication failures
+- Rate limit exceeded
+- Model not available
+- Network timeouts
+
+### System Errors
+- File system issues
+- Memory allocation problems
+- Configuration errors
+- Unexpected exceptions
+
+## Performance Considerations
+
+### Response Time
+- Show progress indicators for long operations
+- Display response time metrics
+- Handle timeouts gracefully
+- Provide cancellation options
+
+### Memory Usage
+- Efficient data structures
+- Proper cleanup of resources
+- Memory monitoring for large files
+- Garbage collection optimization
+
+### Cost Tracking
+- Real-time cost calculation
+- Budget warnings and limits
+- Cost breakdown by component
+- Historical cost tracking

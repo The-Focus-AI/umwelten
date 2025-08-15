@@ -1,0 +1,342 @@
+---
+globs: *.test.ts,*.spec.ts,src/test-utils/*.ts
+description: Testing patterns and strategies for the umwelten codebase
+---
+
+# Testing Patterns & Strategies
+
+## Test Organization
+
+### Test Colocation
+- Tests located next to source files with clear relationship
+- Feature-based directory structure
+- Implementation and tests together for easy navigation
+- Clear ownership and responsibility
+
+### Test Utilities
+Centralized in [src/test-utils/](mdc:src/test-utils/):
+- Shared mocks and helpers
+- Common test setup
+- Test data generation
+- Mock providers for testing
+
+### Test Categories
+1. **Unit tests**: Isolated components and functions
+2. **Integration tests**: Provider interaction and API calls
+3. **Error handling validation**: Edge cases and error scenarios
+4. **Performance benchmarks**: Response time and resource usage
+
+## Testing Framework
+- **Vitest**: Primary testing framework
+- **TypeScript**: Full type safety in tests
+- **Mocking**: Comprehensive mock system for external dependencies
+- **Coverage**: Target >90% test coverage
+
+## Provider Testing Patterns
+
+### Basic Provider Test Structure
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { GoogleProvider } from './google';
+
+describe('GoogleProvider', () => {
+  let provider: GoogleProvider;
+
+  beforeEach(() => {
+    provider = new GoogleProvider();
+    vi.clearAllMocks();
+  });
+
+  describe('getAvailableModels', () => {
+    it('should return list of available models', async () => {
+      const models = await provider.getAvailableModels();
+      expect(models).toBeInstanceOf(Array);
+      expect(models.length).toBeGreaterThan(0);
+      expect(models[0]).toHaveProperty('id');
+      expect(models[0]).toHaveProperty('name');
+    });
+  });
+
+  describe('calculateCosts', () => {
+    it('should calculate costs correctly', () => {
+      const costs = provider.calculateCosts('gemini-2.5-pro', 1000, 500);
+      expect(costs).toHaveProperty('promptTokens');
+      expect(costs).toHaveProperty('completionTokens');
+      expect(costs.total).toBeGreaterThan(0);
+    });
+  });
+});
+```
+
+### Mock API Responses
+```typescript
+import { vi } from 'vitest';
+
+// Mock fetch for API calls
+global.fetch = vi.fn();
+
+beforeEach(() => {
+  vi.mocked(fetch).mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      models: [
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }
+      ]
+    })
+  } as Response);
+});
+```
+
+### Error Scenario Testing
+```typescript
+describe('error handling', () => {
+  it('should handle API errors gracefully', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('Network error'));
+    
+    await expect(provider.getAvailableModels()).rejects.toThrow('Network error');
+  });
+
+  it('should handle rate limit errors', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests'
+    } as Response);
+    
+    await expect(provider.getAvailableModels()).rejects.toThrow('Rate limit exceeded');
+  });
+});
+```
+
+## CLI Testing Patterns
+
+### Command Testing
+```typescript
+import { runCommand } from '../cli';
+
+describe('run command', () => {
+  it('should execute a simple prompt', async () => {
+    const result = await runCommand(['run', 'Hello world', '--model', 'gpt-4']);
+    
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Hello world');
+    expect(result.stderr).toBe('');
+  });
+
+  it('should handle invalid model gracefully', async () => {
+    const result = await runCommand(['run', 'Hello', '--model', 'invalid-model']);
+    
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Model not found');
+  });
+});
+```
+
+### Output Verification
+```typescript
+describe('output formatting', () => {
+  it('should format model list correctly', async () => {
+    const result = await runCommand(['models', '--provider', 'google']);
+    
+    expect(result.stdout).toContain('Model');
+    expect(result.stdout).toContain('Provider');
+    expect(result.stdout).toContain('Cost');
+  });
+
+  it('should output JSON when requested', async () => {
+    const result = await runCommand(['models', '--json']);
+    
+    const output = JSON.parse(result.stdout);
+    expect(Array.isArray(output)).toBe(true);
+    expect(output[0]).toHaveProperty('id');
+    expect(output[0]).toHaveProperty('name');
+  });
+});
+```
+
+### Mock Management
+```typescript
+import { vi } from 'vitest';
+
+describe('CLI with mocks', () => {
+  beforeEach(() => {
+    // Mock console methods
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+});
+```
+
+## Evaluation Testing Patterns
+
+### Evaluation Runner Tests
+```typescript
+import { EvaluationRunner } from '../evaluation/runner';
+
+describe('EvaluationRunner', () => {
+  let runner: EvaluationRunner;
+
+  beforeEach(() => {
+    runner = new EvaluationRunner('test-evaluation');
+  });
+
+  it('should execute evaluation successfully', async () => {
+    const result = await runner.run({
+      model: 'gpt-4',
+      prompt: 'Test prompt',
+      expectedSchema: z.object({ result: z.string() })
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.response).toHaveProperty('result');
+  });
+
+  it('should handle schema validation errors', async () => {
+    const result = await runner.run({
+      model: 'gpt-4',
+      prompt: 'Test prompt',
+      expectedSchema: z.object({ required: z.string() })
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain('Missing required field');
+  });
+});
+```
+
+## Memory System Testing
+
+### Memory Store Tests
+```typescript
+import { InMemoryMemoryStore } from '../memory/memory_store';
+
+describe('InMemoryMemoryStore', () => {
+  let store: InMemoryMemoryStore;
+
+  beforeEach(() => {
+    store = new InMemoryMemoryStore();
+  });
+
+  it('should store and retrieve facts', async () => {
+    const fact = { id: '1', content: 'Test fact', timestamp: new Date() };
+    await store.addFact(fact);
+    
+    const facts = await store.getFacts();
+    expect(facts).toHaveLength(1);
+    expect(facts[0]).toEqual(fact);
+  });
+
+  it('should filter facts by query', async () => {
+    await store.addFact({ id: '1', content: 'Apple is a fruit', timestamp: new Date() });
+    await store.addFact({ id: '2', content: 'Car is a vehicle', timestamp: new Date() });
+    
+    const fruits = await store.queryFacts('fruit');
+    expect(fruits).toHaveLength(1);
+    expect(fruits[0].content).toContain('Apple');
+  });
+});
+```
+
+## Performance Testing
+
+### Response Time Tests
+```typescript
+describe('performance', () => {
+  it('should complete within reasonable time', async () => {
+    const start = Date.now();
+    
+    await provider.generateText('Test prompt', { model: 'gpt-4' });
+    
+    const duration = Date.now() - start;
+    expect(duration).toBeLessThan(10000); // 10 seconds
+  });
+
+  it('should handle concurrent requests', async () => {
+    const promises = Array(5).fill(null).map(() => 
+      provider.generateText('Test prompt', { model: 'gpt-4' })
+    );
+    
+    const results = await Promise.all(promises);
+    expect(results).toHaveLength(5);
+    expect(results.every(r => r.success)).toBe(true);
+  });
+});
+```
+
+## Test Data Management
+
+### Test Data Generation
+```typescript
+// src/test-utils/test-data.ts
+export const createMockModel = (overrides = {}): ModelDetails => ({
+  id: 'test-model',
+  name: 'Test Model',
+  provider: 'test' as const,
+  costs: { promptTokens: 0.001, completionTokens: 0.002 },
+  ...overrides
+});
+
+export const createMockResponse = (overrides = {}): ModelResponse => ({
+  text: 'Test response',
+  usage: { promptTokens: 100, completionTokens: 50 },
+  ...overrides
+});
+```
+
+### Test Environment Setup
+```typescript
+// src/test-utils/setup.ts
+import { beforeAll, afterAll } from 'vitest';
+
+beforeAll(() => {
+  // Set up test environment
+  process.env.NODE_ENV = 'test';
+  process.env.OPENROUTER_API_KEY = 'test-key';
+});
+
+afterAll(() => {
+  // Clean up test environment
+  delete process.env.OPENROUTER_API_KEY;
+});
+```
+
+## Coverage Strategy
+
+### Required Coverage Areas
+1. **Core functionality**: All main features and workflows
+2. **Provider-specific features**: Each provider's unique capabilities
+3. **Error scenarios**: Edge cases and error conditions
+4. **CLI commands**: All command variations and options
+5. **Integration points**: Cross-component interactions
+
+### Coverage Targets
+- **Unit tests**: >95% line coverage
+- **Integration tests**: >80% integration coverage
+- **Error handling**: 100% error path coverage
+- **CLI commands**: 100% command coverage
+
+## Test Maintenance
+
+### Test Naming Conventions
+- Use descriptive test names that explain the scenario
+- Group related tests with `describe` blocks
+- Use consistent naming patterns across the codebase
+
+### Test Documentation
+- Document complex test scenarios
+- Explain mock setup and teardown
+- Document test data sources and assumptions
+- Keep test documentation up to date
+
+### Test Refactoring
+- Extract common test utilities
+- Consolidate duplicate test logic
+- Maintain test readability and maintainability
+- Regular test cleanup and optimization

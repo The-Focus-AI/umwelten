@@ -1,0 +1,148 @@
+---
+globs: *.ts,*.tsx
+description: Development patterns and best practices for the umwelten codebase
+---
+
+# Development Patterns & Best Practices
+
+## Code Organization
+- **Feature-based directory structure**: Each feature in dedicated directory with implementation and tests together
+- **Colocated tests**: Tests located next to source files with clear relationship
+- **Shared utilities**: Common utilities in dedicated directories (e.g., [src/test-utils/](mdc:src/test-utils/))
+
+## Provider Implementation Patterns
+
+### Core Principles
+1. **Interface-First Development**
+   - Start with core system interfaces (e.g., `ModelDetails`)
+   - Transform external data directly to these interfaces
+   - Avoid intermediate types/interfaces unless absolutely necessary
+   - Let TypeScript infer types where possible
+
+2. **Data Transformation**
+   - Keep transformations simple and direct
+   - Use const assertions for static data
+   - Inline simple helper functions unless reused
+   - Document external data sources (e.g., pricing URLs)
+
+3. **Type Safety**
+   - Use TypeScript's type inference
+   - Add explicit types only where needed for clarity
+   - Use const assertions for static data
+   - Trust the compiler to catch type errors
+
+### Provider Integration Checklist
+- [ ] Core interface implementation complete
+- [ ] Error handling implemented
+- [ ] Rate limiting configured
+- [ ] Tests written and passing
+- [ ] Documentation updated
+- [ ] Examples added
+- [ ] Cost calculation verified
+- [ ] Type definitions complete
+
+## Testing Strategy
+1. **Test Colocation**: Tests located next to source files
+2. **Feature-Based Structure**: Each feature in dedicated directory
+3. **Centralized Test Utilities**: Shared mocks and helpers in [src/test-utils/](mdc:src/test-utils/)
+4. **Comprehensive Coverage**: Core functionality, provider-specific features, error scenarios, performance metrics
+
+### Test Categories
+- Unit tests for isolated components
+- Integration tests for provider interaction
+- Error handling validation
+- Performance benchmarks
+
+### Test Patterns
+1. **Command Testing**:
+   - Parse arguments
+   - Execute command
+   - Verify output
+   - Clean up mocks
+
+2. **Output Verification**:
+   - Capture console output
+   - Parse JSON when needed
+   - Check formatting
+   - Verify error messages
+
+3. **Error Handling**:
+   - Mock API errors
+   - Verify error messages
+   - Check error formatting
+   - Ensure proper cleanup
+
+## Error Handling Guidelines
+- Classify errors properly (transient vs permanent)
+- Implement appropriate retry mechanisms with exponential backoff
+- Provide clear, actionable error messages
+- Consider different error categories:
+  - User input validation errors
+  - API/network errors
+  - Rate limit handling
+  - Configuration issues
+
+## CLI Implementation Guidelines
+
+### Design Principles
+1. **Progressive Disclosure**:
+   - Basic commands are simple
+   - Advanced options are available but not required
+   - Help text provides examples
+
+2. **Input Flexibility**:
+   - Accept direct arguments
+   - Support stdin for longer input
+   - Allow configuration overrides
+
+3. **Clear Feedback**:
+   - Use progress indicators
+   - Show relevant metrics (tokens, cost)
+   - Provide helpful error messages
+
+4. **Consistent Formatting**:
+   - Use color for emphasis
+   - Structure output clearly
+   - Include headers and separators
+
+## Documentation Best Practices
+- Code should be self-documenting when possible
+- Document the "why" more than the "what"
+- Use TypeScript types as documentation
+- Keep examples focused and minimal
+- Maintain high-quality test documentation for future reference
+
+## Anti-Patterns to Avoid
+1. **Unnecessary Abstractions**
+   ```typescript
+   // DON'T: Create interfaces mirroring API
+   interface APIResponse {
+     models: Array<{
+       // ... duplicating ModelDetails fields
+     }>;
+   }
+   
+   // DO: Transform directly to ModelDetails
+   const models: ModelDetails[] = data.models.map(...)
+   ```
+
+2. **Complex Helper Functions**
+   ```typescript
+   // DON'T: Create helpers for simple transformations
+   function getModelDates(name: string): Dates { ... }
+   function getModelCosts(name: string): Costs { ... }
+   
+   // DO: Transform inline when simple
+   addedDate: version?.includes('exp') ? new Date() : baseDate,
+   costs: PRICING[modelId] || PRICING.default
+   ```
+
+3. **Type Overengineering**
+   ```typescript
+   // DON'T: Create complex type hierarchies
+   type ModelPricing = { ... }
+   type GeminiPricing = { [key in ModelTypes]: ModelPricing }
+   
+   // DO: Use const assertions and inference
+   const PRICING = { ... } as const
+   ```

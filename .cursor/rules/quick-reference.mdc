@@ -1,0 +1,318 @@
+---
+alwaysApply: true
+description: Quick reference for common tasks, file locations, and commands in the umwelten codebase
+---
+
+# Quick Reference Guide
+
+## Essential Files & Locations
+
+### Core Architecture
+- **Main CLI Entry**: [src/cli/cli.ts](mdc:src/cli/cli.ts)
+- **Package Configuration**: [package.json](mdc:package.json)
+- **TypeScript Config**: [tsconfig.json](mdc:tsconfig.json)
+- **Test Configuration**: [vitest.config.ts](mdc:vitest.config.ts)
+
+### Semantic Components
+- **Cognition (Models)**: [src/cognition/](mdc:src/cognition/)
+- **Interaction (Conversations)**: [src/interaction/](mdc:src/interaction/)
+- **Stimulus (Prompts)**: [src/stimulus/](mdc:src/stimulus/)
+- **Memory System**: [src/memory/](mdc:src/memory/)
+- **Evaluation Framework**: [src/evaluation/](mdc:src/evaluation/)
+
+### Provider Implementations
+- **Google Provider**: [src/providers/google.ts](mdc:src/providers/google.ts)
+- **OpenRouter Provider**: [src/providers/openrouter.ts](mdc:src/providers/openrouter.ts)
+- **Ollama Provider**: [src/providers/ollama.ts](mdc:src/providers/ollama.ts)
+- **LM Studio Provider**: [src/providers/lmstudio.ts](mdc:src/providers/lmstudio.ts)
+- **Provider Index**: [src/providers/index.ts](mdc:src/providers/index.ts)
+
+### MCP Integration
+- **MCP Client**: [src/mcp/client/](mdc:src/mcp/client/)
+- **MCP Server**: [src/mcp/server/](mdc:src/mcp/server/)
+- **MCP Types**: [src/mcp/types/](mdc:src/mcp/types/)
+
+### Project Memory
+- **Project Brief**: [memory/project-brief.md](mdc:memory/project-brief.md)
+- **Architecture**: [memory/architecture.md](mdc:memory/architecture.md)
+- **Active Context**: [memory/active-context.md](mdc:memory/active-context.md)
+- **Progress Tracking**: [memory/progress.md](mdc:memory/progress.md)
+- **Work Log**: [memory/worklog.md](mdc:memory/worklog.md)
+
+## Common Commands
+
+### Development
+```bash
+# Install dependencies
+pnpm install
+
+# Run tests
+pnpm test
+
+# Run tests in watch mode
+pnpm test:watch
+
+# Run tests once (no watch)
+pnpm test:run
+
+# Type checking
+pnpm type-check
+
+# Linting
+pnpm lint
+
+# Build project
+pnpm build
+```
+
+### CLI Usage
+```bash
+# Basic model execution
+pnpm cli run "Hello, world!" --model gpt-4
+
+# Interactive chat
+pnpm cli chat --memory
+
+# List available models
+pnpm cli models
+
+# List models by provider
+pnpm cli models --provider google
+
+# JSON output
+pnpm cli models --json
+
+# MCP commands
+pnpm cli mcp connect --server "node external-server.js"
+pnpm cli mcp test-tool calculator --params '{"operation":"add","a":5,"b":3}'
+pnpm cli mcp read-resource file:///path/to/file.txt
+```
+
+### Example Scripts
+```bash
+# Run example evaluations
+pnpm tsx scripts/google-pricing.ts
+pnpm tsx scripts/site-info.ts
+pnpm tsx scripts/pdf-parsing.ts
+pnpm tsx scripts/transcribe.ts
+```
+
+## Environment Setup
+
+### Required Environment Variables
+```bash
+# OpenRouter API key
+OPENROUTER_API_KEY=your_openrouter_key
+
+# Google API key
+GOOGLE_API_KEY=your_google_key
+
+# Ollama base URL (optional)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# LM Studio base URL (optional)
+LMSTUDIO_BASE_URL=http://localhost:1234
+```
+
+### Environment Template
+Copy [env.template](mdc:env.template) to `.env` and fill in your API keys.
+
+## Key Interfaces & Types
+
+### Model Details
+```typescript
+interface ModelDetails {
+  id: string;
+  name: string;
+  provider: 'google' | 'openrouter' | 'ollama' | 'lmstudio';
+  costs: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+  // ... other properties
+}
+```
+
+### Provider Interface
+```typescript
+interface Provider {
+  getModelUrls(): Promise<Record<string, string>>;
+  getAvailableModels(): Promise<ModelDetails[]>;
+  calculateCosts(model: string, promptTokens: number, completionTokens: number): ModelCosts;
+}
+```
+
+### Interaction Pattern
+```typescript
+import { Interaction } from '../interaction/interaction';
+import { Stimulus } from '../stimulus/stimulus';
+
+const interaction = new Interaction(modelDetails, systemPrompt);
+interaction.addStimulus(new Stimulus(prompt));
+const response = await interaction.execute();
+```
+
+## Testing Patterns
+
+### Provider Testing
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { GoogleProvider } from './google';
+
+describe('GoogleProvider', () => {
+  let provider: GoogleProvider;
+
+  beforeEach(() => {
+    provider = new GoogleProvider();
+    vi.clearAllMocks();
+  });
+
+  it('should return available models', async () => {
+    const models = await provider.getAvailableModels();
+    expect(models).toBeInstanceOf(Array);
+    expect(models.length).toBeGreaterThan(0);
+  });
+});
+```
+
+### CLI Testing
+```typescript
+import { runCommand } from '../cli';
+
+describe('run command', () => {
+  it('should execute a simple prompt', async () => {
+    const result = await runCommand(['run', 'Hello world', '--model', 'gpt-4']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Hello world');
+  });
+});
+```
+
+## Common Development Tasks
+
+### Adding a New Provider
+1. Create provider file in [src/providers/](mdc:src/providers/)
+2. Implement `Provider` interface
+3. Add to provider index in [src/providers/index.ts](mdc:src/providers/index.ts)
+4. Create test file with comprehensive coverage
+5. Update documentation
+
+### Adding a New CLI Command
+1. Create command function in [src/cli/](mdc:src/cli/)
+2. Add to main CLI in [src/cli/cli.ts](mdc:src/cli/cli.ts)
+3. Add tests for command functionality
+4. Update help documentation
+
+### Adding a New Evaluation
+1. Create evaluation script in [scripts/](mdc:scripts/)
+2. Extend `EvaluationRunner` class
+3. Implement evaluation logic
+4. Add result storage and analysis
+
+### Adding MCP Tools
+1. Define tool schema with Zod
+2. Implement tool handler function
+3. Register tool with MCP server
+4. Add CLI commands for testing
+
+## Error Handling Patterns
+
+### Provider Errors
+```typescript
+try {
+  const models = await provider.getAvailableModels();
+} catch (error) {
+  if (error instanceof NetworkError) {
+    console.error('Network error:', error.message);
+  } else if (error instanceof AuthenticationError) {
+    console.error('Authentication failed:', error.message);
+  } else if (error instanceof RateLimitError) {
+    console.error('Rate limit exceeded:', error.message);
+  }
+}
+```
+
+### CLI Errors
+```typescript
+try {
+  // Command implementation
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error(chalk.red('Validation Error:'), error.message);
+    process.exit(1);
+  } else if (error instanceof ProviderError) {
+    console.error(chalk.red('Provider Error:'), error.message);
+    process.exit(1);
+  }
+}
+```
+
+## Performance Considerations
+
+### Cost Tracking
+- All providers implement cost calculation
+- Costs displayed per million tokens
+- Real-time cost estimation available
+- Budget limits can be set
+
+### Rate Limiting
+- Exponential backoff for retries
+- Provider-specific rate limit handling
+- Concurrent request management
+- Rate limit detection and recovery
+
+### Memory Management
+- Efficient data structures
+- Proper cleanup of resources
+- Memory monitoring for large files
+- Garbage collection optimization
+
+## Debugging Tips
+
+### Enable Debug Logging
+```bash
+DEBUG=umwelten:* pnpm cli run "test prompt"
+```
+
+### Check Provider Status
+```bash
+# Test provider connectivity
+pnpm cli models --provider google
+pnpm cli models --provider openrouter
+pnpm cli models --provider ollama
+```
+
+### Validate Configuration
+```bash
+# Check environment variables
+pnpm cli models --json | jq '.[0]'
+
+# Test specific model
+pnpm cli run "test" --model gpt-4 --json
+```
+
+## Common Issues & Solutions
+
+### Provider Connection Issues
+- Verify API keys are set correctly
+- Check network connectivity
+- Validate provider endpoints
+- Review rate limit status
+
+### Test Failures
+- Ensure all dependencies are installed
+- Check environment variables
+- Verify provider availability
+- Review test mock setup
+
+### TypeScript Errors
+- Run `pnpm type-check` for detailed errors
+- Check import paths for semantic naming
+- Verify interface implementations
+- Review type definitions
+
+### Build Issues
+- Clear node_modules and reinstall
+- Check TypeScript configuration
+- Verify all dependencies are compatible
+- Review build script configuration
