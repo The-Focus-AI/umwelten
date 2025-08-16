@@ -136,3 +136,8 @@ Last Updated: 2025-06-26 18:00:00 UTC
 - All providers functional with new Interaction/Stimulus structure
 - TypeScript compilation clean, tests passing (39/77)
 - Ready for next phase of development
+
+- Overview: Implementing `weird` CLI that converts CSVs into runnable MCP servers per spec in `weird/spec.md`.
+- Currently working on: Initial scaffolding of generator (`apps/weird`) with commands (preview, analyze, doctor), LLM integration, validators, and codegen templates for generated MCP server.
+- Next: Add fixtures for tests (preamble, mixed types), integrate into root scripts, and verify build/test.
+- Blockers: None. Requires GOOGLE_API_KEY for LLM flows; tests use pure functions where possible.

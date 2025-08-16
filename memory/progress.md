@@ -451,3 +451,10 @@ The implementation delivers exactly what the user requested: both an MCP client 
     - Ollama provider: missing model `gemma3:latest`
     - OpenRouter provider: invalid model IDs/authentication issues
   - [ ] Next: Categorize failures, fix Ollama model, update OpenRouter config, update test expectations 
+
+- [ - ] weird CLI scaffolding (apps/weird) — commands preview/analyze/doctor
+- [ - ] Core modules: csvSampler, headerDetector, validation, llmClient
+- [ - ] Codegen templates for MCP server (server, ingest, tools, llm)
+- [ ] Tests: validators, header detector, delimiter sniff (fixtures TBD)
+- [ ] Wire root workspaces/scripts for building weird
+- [ ] Manual QA on sample CSVs 
