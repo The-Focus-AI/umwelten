@@ -18,10 +18,4 @@ program.addCommand(runCommand);
 program.addCommand(chatCommand);
 addToolsCommand(program);
 
-// weird CLI (CSV -> MCP) experimental
-try {
-	const { createWeirdCommand } = await import('./weird/index.js');
-	program.addCommand(createWeirdCommand());
-} catch {}
-
 program.parse(); 

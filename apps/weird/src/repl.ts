@@ -10,15 +10,9 @@ import { deriveProjectNameFromPath, ExitCodes } from './utils.js';
 import { generateProject } from './templating/codegen.js';
 
 async function loadCore() {
-	try {
-		const { BaseModelRunner } = await import('../../../src/cognition/runner.ts');
-		const { Interaction } = await import('../../../src/interaction/interaction.ts');
-		return { BaseModelRunner, Interaction } as any;
-	} catch {
-		const { BaseModelRunner } = await import('../../../dist/cognition/runner.js');
-		const { Interaction } = await import('../../../dist/interaction/interaction.js');
-		return { BaseModelRunner, Interaction } as any;
-	}
+	const { BaseModelRunner } = await import('umwelten/cognition/runner.js');
+	const { Interaction } = await import('umwelten/interaction/interaction.js');
+	return { BaseModelRunner, Interaction } as any;
 }
 
 export function createAnalyzeCommand(): Command {

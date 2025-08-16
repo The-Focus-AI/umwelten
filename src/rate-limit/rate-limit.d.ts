@@ -1,3 +1,4 @@
+import { z } from 'zod';
 export type RateLimitErrorType = 'soft' | 'hard';
 export interface RateLimitState {
     requestCount: number;
@@ -11,7 +12,11 @@ export interface RateLimitConfig {
     maxDelayMs: number;
     jitterFactor: number;
 }
-export declare const RateLimitHeadersSchema: any;
+export declare const RateLimitHeadersSchema: z.ZodObject<{
+    'x-ratelimit-limit': z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    'x-ratelimit-remaining': z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    'x-ratelimit-reset': z.ZodOptional<z.ZodOptional<z.ZodString>>;
+}, z.core.$strip>;
 export declare function isRetriableError(error: any): boolean;
 /**
  * Check if we should allow a request based on rate limit state

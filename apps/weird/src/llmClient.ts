@@ -6,17 +6,9 @@ type RunnerCtor = new (...args: any[]) => any;
 type InteractionCtor = new (...args: any[]) => any;
 
 async function loadCore(): Promise<{ BaseModelRunner: RunnerCtor; Interaction: InteractionCtor }> {
-	try {
-		// Prefer source (tsx can transpile)
-		const { BaseModelRunner } = await import('../../../src/cognition/runner.ts');
-		const { Interaction } = await import('../../../src/interaction/interaction.ts');
-		return { BaseModelRunner, Interaction } as any;
-	} catch {
-		// Fallback to built dist
-		const { BaseModelRunner } = await import('../../../dist/cognition/runner.js');
-		const { Interaction } = await import('../../../dist/interaction/interaction.js');
-		return { BaseModelRunner, Interaction } as any;
-	}
+	const { BaseModelRunner } = await import('umwelten/cognition/runner.js');
+	const { Interaction } = await import('umwelten/interaction/interaction.js');
+	return { BaseModelRunner, Interaction } as any;
 }
 
 async function runJsonPrompt(prompt: string, system: string, modelId: string): Promise<string> {

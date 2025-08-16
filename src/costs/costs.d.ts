@@ -6,8 +6,21 @@ export interface CostBreakdown {
     totalCost: number;
     usage: TokenUsage;
 }
-export declare const TokenUsageSchema: any;
-export declare const CostBreakdownSchema: any;
+export declare const TokenUsageSchema: z.ZodObject<{
+    promptTokens: z.ZodNumber;
+    completionTokens: z.ZodNumber;
+    total: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export declare const CostBreakdownSchema: z.ZodObject<{
+    promptCost: z.ZodNumber;
+    completionCost: z.ZodNumber;
+    totalCost: z.ZodNumber;
+    usage: z.ZodObject<{
+        promptTokens: z.ZodNumber;
+        completionTokens: z.ZodNumber;
+        total: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>;
+}, z.core.$strip>;
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 /**
  * Estimates the cost for a given number of tokens based on model pricing

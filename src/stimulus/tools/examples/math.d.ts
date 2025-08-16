@@ -1,7 +1,23 @@
+import { z } from "zod";
 import { ToolDefinition } from "../types.js";
-declare const calculatorSchema: any;
-declare const randomNumberSchema: any;
-declare const statisticsSchema: any;
+declare const calculatorSchema: z.ZodObject<{
+    operation: z.ZodEnum<{
+        add: "add";
+        subtract: "subtract";
+        multiply: "multiply";
+        divide: "divide";
+    }>;
+    a: z.ZodNumber;
+    b: z.ZodNumber;
+}, z.core.$strip>;
+declare const randomNumberSchema: z.ZodObject<{
+    min: z.ZodNumber;
+    max: z.ZodNumber;
+    integer: z.ZodDefault<z.ZodBoolean>;
+}, z.core.$strip>;
+declare const statisticsSchema: z.ZodObject<{
+    numbers: z.ZodArray<z.ZodNumber>;
+}, z.core.$strip>;
 /**
  * Calculator tool for basic arithmetic operations
  */

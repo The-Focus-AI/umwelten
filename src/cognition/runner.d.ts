@@ -31,5 +31,28 @@ export declare class BaseModelRunner implements ModelRunner {
         interaction: Interaction;
         startTime: Date;
         modelIdString: string;
-    }): Promise<z.infer<any>>;
+    }): Promise<{
+        content: string;
+        metadata: {
+            startTime: Date;
+            endTime: Date;
+            tokenUsage: {
+                promptTokens: number;
+                completionTokens: number;
+                total?: number | undefined;
+            };
+            provider: string;
+            model: string;
+            cost: {
+                promptCost: number;
+                completionCost: number;
+                totalCost: number;
+                usage: {
+                    promptTokens: number;
+                    completionTokens: number;
+                    total?: number | undefined;
+                };
+            };
+        };
+    }>;
 }
