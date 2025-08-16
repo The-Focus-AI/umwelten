@@ -5,10 +5,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadAndPreviewCSV, parseEntireCSV, sampleRows, SampleOptions } from './csvSampler.js';
 import { detectHeaderAndData } from './headerDetector.js';
-import { createLLMClient } from './llmClient.js';
 import { validateParsingSpec, validateDomainSpec } from './validation.js';
 import { deriveProjectNameFromPath, ExitCodes } from './utils.js';
 import { generateProject } from './templating/codegen.js';
+
+async function loadCore() {
+	try {
+		const { BaseModelRunner } = await import('../../../src/cognition/runner.ts');
+		const { Interaction } = await import('../../../src/interaction/interaction.ts');
+		return { BaseModelRunner, Interaction } as any;
+	} catch {
+		const { BaseModelRunner } = await import('../../../dist/cognition/runner.js');
+		const { Interaction } = await import('../../../dist/interaction/interaction.js');
+		return { BaseModelRunner, Interaction } as any;
+	}
+}
 
 export function createAnalyzeCommand(): Command {
 	return new Command('analyze')
@@ -29,7 +40,6 @@ export function createAnalyzeCommand(): Command {
 				console.log(chalk.cyan('Detected encoding:'), preview.detection.encoding);
 				console.log(chalk.cyan('Detected delimiter:'), JSON.stringify(preview.detection.delimiter));
 
-				// Step 2: header/data detection
 				let detection = await detectHeaderAndData(preview.rows, preview.detection.delimiter, true, opts.model);
 				console.log(chalk.cyan('Proposed header row index:'), detection.header_row_index);
 				console.log(chalk.cyan('Proposed data start row index:'), detection.data_start_row_index);
@@ -44,15 +54,15 @@ export function createAnalyzeCommand(): Command {
 				detection.data_start_row_index = confHeader.dataStart;
 				detection.has_header = confHeader.hasHeader;
 
-				// Parse entire CSV for sampling to LLM
 				const allRows = parseEntireCSV(csv, preview.detection);
 				const sampled = sampleRows(allRows, sample);
 
-				// Step 3: ParsingSpec via LLM
-				const llm = createLLMClient(opts.model);
-				const parsingPayload = buildParsingSpecPrompt(preview.detection.encoding, preview.detection.delimiter, detection, sampled);
-				const parsingRaw = await llm.generateParsingSpec(parsingPayload);
-				const parsingSpec = validateParsingSpec(parsingRaw);
+				const { BaseModelRunner, Interaction } = await loadCore();
+				const runner = new BaseModelRunner();
+				const parsingInteraction = new Interaction({ name: opts.model, provider: 'google' }, 'Output only valid JSON matching the ParsingSpec schema. No prose.');
+				parsingInteraction.addMessage({ role: 'user', content: buildParsingSpecPrompt(preview.detection.encoding, preview.detection.delimiter, detection, sampled) });
+				const parsingRes = await runner.generateText(parsingInteraction);
+				const parsingSpec = validateParsingSpec(safeParseJSON(parsingRes.content || '') || {});
 				console.log(chalk.green('ParsingSpec proposed by LLM:'));
 				console.log(JSON.stringify(parsingSpec, null, 2));
 
@@ -68,10 +78,10 @@ export function createAnalyzeCommand(): Command {
 					}
 				}
 
-				// Step 4: DomainSpec
-				const domainPayload = buildDomainSpecPrompt(parsingSpec, sampled);
-				const domainRaw = await llm.generateDomainSpec(domainPayload);
-				const domainSpec = validateDomainSpec(domainRaw);
+				const domainInteraction = new Interaction({ name: opts.model, provider: 'google' }, 'Output only valid JSON matching the DomainSpec schema. No prose.');
+				domainInteraction.addMessage({ role: 'user', content: buildDomainSpecPrompt(parsingSpec, sampled) });
+				const domainRes = await runner.generateText(domainInteraction);
+				const domainSpec = validateDomainSpec(safeParseJSON(domainRes.content || '') || {});
 				console.log(chalk.green('DomainSpec proposed by LLM:'));
 				console.log(JSON.stringify(domainSpec, null, 2));
 				const domainEdited = await prompts({ type: 'confirm', name: 'ok', message: 'Accept DomainSpec?', initial: true });
@@ -91,7 +101,6 @@ export function createAnalyzeCommand(): Command {
 					return;
 				}
 
-				// Step 5: Code generation
 				const projectName = opts.projectName || deriveProjectNameFromPath(csv);
 				const outDir = opts.out || path.resolve(process.cwd(), 'generated', `mcp-${projectName}`);
 				await generateProject({ outDir, projectName, parsingSpec, domainSpec });
@@ -127,4 +136,8 @@ function buildDomainSpecPrompt(parsingSpec: any, rows: string[][]): string {
 		rows.map(r => r.join(',')).join('\n'),
 		'Respond with strict JSON matching DomainSpec schema only. Keep faq_queries small (2–5).'
 	].join('\n');
+}
+
+function safeParseJSON(text: string): any | null {
+	try { return JSON.parse(text as any); } catch { const m = (text || '').toString().match(/\{[\s\S]*\}/); return m ? safeParseJSON(m[0]) : null; }
 }

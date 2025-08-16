@@ -1,0 +1,79 @@
+import { z } from "zod";
+import { TokenUsageSchema } from "../costs/costs.js";
+import { CostBreakdownSchema } from "../costs/costs.js";
+export const ModelRouteSchema = z.object({
+    name: z.string(),
+    provider: z.string(),
+    variant: z.string().optional(),
+    numCtx: z.number().optional(),
+    temperature: z.number().optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+});
+export const ModelDetailsSchema = ModelRouteSchema.extend({
+    description: z.string().optional(),
+    contextLength: z.number().optional(),
+    costs: z
+        .object({
+        promptTokens: z.number(),
+        completionTokens: z.number(),
+    })
+        .optional(),
+    addedDate: z.date().optional(),
+    lastUpdated: z.date().optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
+    originalProvider: z.string().optional(),
+});
+export const ModelConfigSchema = ModelRouteSchema.extend({
+    description: z.string().optional(),
+    parameters: z.record(z.string(), z.unknown()).optional(),
+});
+export const ModelsConfigSchema = z.object({
+    models: z.array(ModelConfigSchema),
+    metadata: z
+        .object({
+        created: z.string().optional(),
+        version: z.string().optional(),
+        notes: z.string().optional(),
+        requirements: z.record(z.string(), z.string()).optional(),
+    })
+        .optional(),
+});
+export const ModelCapabilitiesSchema = z.object({
+    maxTokens: z.number(),
+    streaming: z.boolean(),
+    functionCalling: z.boolean(),
+});
+export const ModelOptionsSchema = z.object({
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().positive().optional(),
+    stop: z.array(z.string()).optional(),
+});
+export const ResponseMetadataSchema = z.object({
+    startTime: z.date(),
+    endTime: z.date(),
+    tokenUsage: TokenUsageSchema,
+    provider: z.string(),
+    model: z.string(),
+    cost: CostBreakdownSchema,
+});
+export const ModelResponseSchema = z.object({
+    content: z.string(),
+    metadata: ResponseMetadataSchema,
+});
+export const ScoreSchema = z.object({
+    evals: z.array(z.object({
+        key: z.string().describe("Key that we are looking for"),
+        value: z.string().describe("Value that is found)"),
+        score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
+    }))
+});
+export const ScoreResponseSchema = z.object({
+    evals: z.array(z.object({
+        key: z.string().describe("Key that we are looking for"),
+        value: z.string().describe("Value that is found)"),
+        score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
+    })),
+    metadata: ResponseMetadataSchema,
+});
+//# sourceMappingURL=types.js.map
