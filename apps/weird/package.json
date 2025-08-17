@@ -1,0 +1,38 @@
+{
+  "name": "@umwelten/weird",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "weird": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.6",
+    "ai": "^5.0.14",
+    "chalk": "^5.4.1",
+    "chardet": "^2.0.0",
+    "commander": "^14.0.0",
+    "dotenv": "^16.5.0",
+    "handlebars": "^4.7.8",
+    "iconv-lite": "^0.6.3",
+    "papaparse": "^5.4.1",
+    "prompts": "^2.4.2",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3",
+    "@types/papaparse": "^5.3.16",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

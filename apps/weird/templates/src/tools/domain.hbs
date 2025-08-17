@@ -1,0 +1,55 @@
+import type { Database } from 'sqlite';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { createLLM } from '../llm/client.js';
+
+const DOMAIN_SPEC = {{domainSpec}};
+
+export function registerDomainTools(server: Server, db: Database) {
+	server.tool('describe_domain', {
+		description: 'Return DomainSpec',
+		inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+		handler: async () => ({ content: [{ type: 'text', text: JSON.stringify(DOMAIN_SPEC) }] })
+	});
+
+	server.tool('explain_field', {
+		description: 'Explain a field based on spec or sample values with LLM fallback',
+		inputSchema: { type: 'object', properties: { column: { type: 'string' }, table: { type: 'string' } }, required: ['column','table'], additionalProperties: false },
+		handler: async (args: any) => {
+			const known = guessFieldDescription(args.column);
+			if (known) return { content: [{ type: 'text', text: known }] };
+			const sample = await db.all(`SELECT ${args.column} AS v FROM ${args.table} WHERE ${args.column} IS NOT NULL LIMIT 50`);
+			const llm = createLLM();
+			const text = await llm.explainField(args.column, sample.map((r: any) => r.v));
+			return { content: [{ type: 'text', text }] };
+		}
+	});
+
+	server.tool('suggest_queries', {
+		description: 'Suggest 2–5 parameterized SQL templates',
+		inputSchema: { type: 'object', properties: { table: { type: 'string' } }, required: ['table'], additionalProperties: false },
+		handler: async (args: any) => {
+			const llm = createLLM();
+			const suggestions = await llm.suggestQueries(DOMAIN_SPEC, args.table);
+			return { content: [{ type: 'text', text: JSON.stringify(suggestions) }] };
+		}
+	});
+
+	server.tool('run_faq_query', {
+		description: 'Run a named FAQ query from DomainSpec',
+		inputSchema: { type: 'object', properties: { name: { type: 'string' }, table: { type: 'string' } }, required: ['name','table'], additionalProperties: false },
+		handler: async (args: any) => {
+			const q = DOMAIN_SPEC.faq_queries.find((x: any) => x.name === args.name);
+			if (!q) throw new Error('Unknown FAQ query');
+			const sql = (q.sql as string).replaceAll('{{table}}', args.table);
+			const rows = await db.all(sql);
+			return { content: [{ type: 'text', text: JSON.stringify(rows) }] };
+		}
+	});
+}
+
+function guessFieldDescription(column: string): string | null {
+	if (DOMAIN_SPEC.dimensions.includes(column)) return `${column} is a dimension (categorical/label field).`;
+	if (DOMAIN_SPEC.measures.includes(column)) return `${column} is a measure (numeric field).`;
+	if (DOMAIN_SPEC.time_fields.includes(column)) return `${column} is a time field (date/datetime).`;
+	return null;
+}
