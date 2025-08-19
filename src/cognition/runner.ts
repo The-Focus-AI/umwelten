@@ -17,6 +17,8 @@ import {
   generateObject,
   streamObject,
   streamText,
+  wrapLanguageModel,
+  extractReasoningMiddleware,
 } from "ai";
 import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
@@ -119,14 +121,20 @@ export class BaseModelRunner implements ModelRunner {
     //   options: params.interaction.options,
     // });
 
-    const model = await getModel(params.interaction.modelDetails);
-    if (!model) {
+    const baseModel = await getModel(params.interaction.modelDetails);
+    if (!baseModel) {
       throw new Error(`Failed to get LanguageModel for ${modelIdString}`);
     }
 
     if (!shouldAllowRequest(modelIdString, this.config.rateLimitConfig)) {
       throw new Error("Rate limit exceeded - backoff in progress");
     }
+
+    // Wrap the model with reasoning middleware to extract reasoning tokens
+    const model = wrapLanguageModel({
+      model: baseModel as any, // Type assertion to handle LanguageModelV1/V2 compatibility
+      middleware: extractReasoningMiddleware({ tagName: 'think' }),
+    });
 
     return { model, modelIdString };
   }
@@ -234,14 +242,38 @@ export class BaseModelRunner implements ModelRunner {
 
       const response = await streamText(streamOptions);
       let fullText = '';
+      let reasoningText = '';
+      let reasoningDetails: any[] = [];
+      
       if (response.fullStream) {
         for await (const event of response.fullStream) {
           switch ((event as any).type) {
             case 'text-delta':
-              const textDelta = (event as any).textDelta;
+              const textDelta = (event as any).textDelta || (event as any).text;
               if (textDelta !== undefined && textDelta !== null) {
                 process.stdout.write(textDelta);
                 fullText += textDelta;
+              }
+              break;
+            case 'reasoning-start':
+              console.log('\n🧠 [REASONING START]');
+              break;
+            case 'reasoning-delta':
+              const reasoningDelta = (event as any).delta;
+              if (reasoningDelta !== undefined && reasoningDelta !== null) {
+                process.stdout.write(`\x1b[36m${reasoningDelta}\x1b[0m`); // Cyan color for reasoning
+                reasoningText += reasoningDelta;
+              }
+              break;
+            case 'reasoning-end':
+              console.log('\n🧠 [REASONING END]');
+              break;
+            case 'reasoning':
+              // Handle single reasoning chunk (AI SDK 4.0 style)
+              const reasoningChunk = (event as any).text;
+              if (reasoningChunk !== undefined && reasoningChunk !== null) {
+                console.log('\n🧠 [REASONING]:', reasoningChunk);
+                reasoningText += reasoningChunk;
               }
               break;
             case 'tool-call':
@@ -250,7 +282,7 @@ export class BaseModelRunner implements ModelRunner {
             case 'tool-result':
               console.log(`\n[TOOL RESULT] ${(event as any).toolName} result:`, (event as any).result);
               break;
-            // Ignore other event types (reasoning, error, finish, etc.)
+            // Ignore other event types (error, finish, etc.)
             default:
               break;
           }
@@ -270,10 +302,39 @@ export class BaseModelRunner implements ModelRunner {
         }
       }
 
+      // Get reasoning from response if available (handle as promise)
+      if (response.reasoning) {
+        const reasoningResult = await response.reasoning;
+        reasoningText = typeof reasoningResult === 'string' ? reasoningResult : JSON.stringify(reasoningResult);
+      }
+
+      // Debug: Log the response structure for Ollama
+      if (interaction.modelDetails.provider === 'ollama' && process.env.DEBUG === '1') {
+        console.log('[DEBUG] Ollama response structure:', JSON.stringify(response, null, 2));
+      }
+      
+      // For Ollama, usage might be in different locations depending on response type
+      let usage = response.usage;
+      if (interaction.modelDetails.provider === 'ollama') {
+        // For streaming responses, usage is in _totalUsage.status.value
+        const responseAny = response as any;
+        if (responseAny._totalUsage && responseAny._totalUsage.status && responseAny._totalUsage.status.value) {
+          usage = responseAny._totalUsage.status.value;
+        }
+        // For non-streaming responses, usage might be in steps[0].usage
+        else if (response.steps) {
+          const steps = Array.isArray(response.steps) ? response.steps : await response.steps;
+          if (steps && steps[0] && steps[0].usage) {
+            usage = steps[0].usage;
+          }
+        }
+      }
+      
       return this.makeResult({
         response,
         content: fullText,
-        usage: response.usage,
+        reasoning: reasoningText,
+        usage: usage,
         interaction,
         startTime,
         modelIdString,
@@ -412,6 +473,7 @@ export class BaseModelRunner implements ModelRunner {
   async makeResult({
     response,
     content,
+    reasoning,
     usage,
     interaction,
     startTime,
@@ -419,6 +481,7 @@ export class BaseModelRunner implements ModelRunner {
   }: {
     response: any;
     content: string | unknown;
+    reasoning?: string;
     usage: any;
     interaction: Interaction;
     startTime: Date;
@@ -440,10 +503,14 @@ export class BaseModelRunner implements ModelRunner {
 
     // console.log('cost breakdown', costBreakdown);
 
+    // Handle different token usage formats (Ollama uses inputTokens/outputTokens)
+    const promptTokens = usage?.promptTokens || usage?.inputTokens;
+    const completionTokens = usage?.completionTokens || usage?.outputTokens;
+    
     if (
       !usage ||
-      usage.promptTokens === undefined ||
-      usage.completionTokens === undefined
+      promptTokens === undefined ||
+      completionTokens === undefined
     ) {
       console.warn(
         `Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`
@@ -464,17 +531,18 @@ export class BaseModelRunner implements ModelRunner {
         startTime,
         endTime: new Date(),
         tokenUsage: {
-          promptTokens: usage?.promptTokens || 0,
-          completionTokens: usage?.completionTokens || 0,
+          promptTokens: promptTokens || 0,
+          completionTokens: completionTokens || 0,
           total:
             usage?.totalTokens ||
-            (usage?.promptTokens || 0) + (usage?.completionTokens || 0),
+            (promptTokens || 0) + (completionTokens || 0),
         },
         cost: costBreakdown || undefined,
         // costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
         provider: interaction.modelDetails.provider,
         model: interaction.modelDetails.name,
       },
+      ...(reasoning && { reasoning }),
     };
 
     // console.log("Response object:", response);

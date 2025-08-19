@@ -113,6 +113,13 @@ export const ResponseMetadataSchema = z.object({
 export const ModelResponseSchema = z.object({
   content: z.string(),
   metadata: ResponseMetadataSchema,
+  reasoning: z.string().optional(),
+  reasoningDetails: z.array(z.object({
+    type: z.enum(['text', 'redacted']),
+    text: z.string().optional(),
+    data: z.string().optional(),
+    signature: z.string().optional(),
+  })).optional(),
 });
 
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;

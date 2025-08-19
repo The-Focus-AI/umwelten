@@ -5,7 +5,7 @@ import { Interaction } from "../src/interaction/interaction.js";
 import path from "path";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
 import { EvaluationScorer } from "../src/evaluation/scorer.js";
-import { z } from "zod";
+import { ScoreResponse, ScoreSchema } from "../src/cognition/types.js";
 
 export async function parseImage(
   imagePath: string,

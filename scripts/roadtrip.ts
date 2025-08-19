@@ -3,9 +3,6 @@ import { BaseModelRunner } from "../src/cognition/runner.js";
 import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
 import { Stimulus } from "../src/interaction/stimulus.js";
 import { Interaction } from "../src/interaction/interaction.js";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
 
 const roadtripPromptSchema = z.object({

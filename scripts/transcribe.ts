@@ -4,13 +4,9 @@ import { Interaction } from '../src/interaction/interaction.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import fs from 'fs';
 import { EvaluationRunner } from '../src/evaluation/runner.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const testDataDir = path.resolve(__dirname, '../examples/audio');
-const outputDir = path.resolve(__dirname, '../output/audio');
 
 export const TranscriptionSchema = z.object({
   segments: z.array(

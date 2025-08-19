@@ -37,6 +37,7 @@
     "commander": "^14.0.0",
     "file-type": "^21.0.0",
     "ora": "^8.2.0",
+    "tiktoken": "^1.0.22",
     "uuid": "^11.1.0",
     "zod": "^4.0.17",
     "zod-to-json-schema": "^3.24.5"

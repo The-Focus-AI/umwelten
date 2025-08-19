@@ -1,4 +1,4 @@
-import { z, ZodObject, ZodRawShape } from 'zod';
+import { z } from 'zod';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 import { Interaction } from '../src/interaction/interaction.js';
 import { BaseModelRunner } from '../src/cognition/runner.js';

@@ -2,11 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { evaluate } from '../src/evaluation/evaluate.js';
 import { imageFeatureExtract, ImageFeatureSchema } from './image-feature-extract.js';
-import { ModelDetails, ModelResponse, ScoreResponse } from '../src/models/types.js';
-import { EvaluationRunner } from '../src/evaluation/runner.js';
+import { ModelDetails, ModelResponse, ScoreResponse } from '../src/cognition/types.js';
 import { EvaluationScorer } from '../src/evaluation/scorer.js';
 import { EvaluationReporter } from '../src/evaluation/reporter.js';
-import { z } from 'zod';
 
 // --- Config ---
 const evaluationId = 'image-feature-extraction';
@@ -48,13 +46,11 @@ async function batchExtract() {
 class ImageFeatureScorer extends EvaluationScorer {
   async scoreResponse(response: ModelResponse): Promise<ScoreResponse> {
     return {
-      evals: {
-        evals: features.map(feature => ({
+      evals: features.map(feature => ({ 
           key: feature,
           value: 'N/A',
           score: 0
-        }))
-      },
+        })),
       metadata: response.metadata
     };
   }

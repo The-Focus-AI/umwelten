@@ -42,7 +42,6 @@ export async function pdfParseExtract(pdfPath: string, model: ModelDetails): Pro
   return runner.streamObject(conversation, PDFSummarySchema);
 }
 
-// 4. Orchestrator: Evaluate for each model
 const evaluationId = 'pdf-parsing';
 const pdfFile = 'Home-Cooked Software and Barefoot Developers.pdf';
 const pdfPath = path.resolve('input', 'pdf-parsing', pdfFile); // Adjust as needed
