@@ -4,11 +4,11 @@
  * Ollama TypeScript Evaluation Pipeline
  * 
  * This script performs a complete evaluation of Ollama models for TypeScript code generation:
- * 1. Generates responses from multiple Ollama models
- * 2. Extracts TypeScript code from responses
- * 3. Creates Docker environments for each model
- * 4. Tests all Docker containers
- * 5. Generates comprehensive reports
+ * PASS 1: Generate responses from all models
+ * PASS 2: Extract TypeScript code from responses
+ * PASS 3: Build and run Docker containers for each extracted code
+ * PASS 4: Evaluate results and generate scores
+ * PASS 5: Combine everything into final report
  */
 
 import fs from 'fs';
@@ -16,9 +16,9 @@ import path from 'path';
 import { FunctionEvaluationRunner } from '../src/evaluation/evaluate.js';
 import { BaseModelRunner } from '../src/cognition/runner.js';
 import { Interaction } from '../src/interaction/interaction.js';
-import { extractTypeScriptCode } from '../src/evaluation/typescript-code-extractor.js';
-import { DockerEnvironmentGenerator } from '../src/evaluation/docker-generator.js';
-import { ReportGenerator } from '../src/evaluation/report-generator.js';
+import { extractTypeScriptCode, fixCommonTypeScriptErrors, ensureConsoleOutput } from '../src/evaluation/typescript-code-extractor.js';
+import { DockerRunner } from '../src/evaluation/docker-runner.js';
+import { CodeScorer } from '../src/evaluation/code-scorer.js';
 
 // Configuration
 const OLLAMA_MODELS = [
@@ -36,7 +36,23 @@ const PROMPT = `i need a script that will give me at least 1042 distinct but mad
 const EVALUATION_ID = 'ollama-typescript-eval';
 const WORKDIR = path.join(process.cwd(), 'output/evaluations', EVALUATION_ID);
 
+interface ModelResult {
+  modelName: string;
+  response?: any;
+  extractedCode?: string;
+  dockerResult?: any;
+  score?: any;
+  timing?: {
+    responseTime?: number;
+    extractionTime?: number;
+    dockerTime?: number;
+    totalTime?: number;
+  };
+}
+
 async function main() {
+  const overallStartTime = Date.now();
+  
   console.log('🚀 Starting Ollama TypeScript Evaluation Pipeline');
   console.log('='.repeat(60));
   console.log(`📝 Prompt: "${PROMPT}"`);
@@ -44,40 +60,51 @@ async function main() {
   console.log(`📁 Workdir: ${WORKDIR}`);
   console.log();
 
-  // Step 1: Generate responses from all models
-  console.log('📤 Step 1: Generating responses from Ollama models...');
-  const responses = await generateModelResponses();
-  console.log(`✅ Generated ${responses.length} responses`);
+  const results: ModelResult[] = OLLAMA_MODELS.map(model => ({ 
+    modelName: model.name,
+    timing: {}
+  }));
+  
+  // PASS 1: Generate responses from all models
+  console.log('📤 PASS 1: Generating responses from Ollama models...');
+  await generateModelResponses(results);
+  console.log(`✅ Generated responses for ${results.filter(r => r.response).length} models`);
   console.log();
 
-  // Step 2: Extract TypeScript code and create Docker environments
-  console.log('🔧 Step 2: Extracting TypeScript code and creating Docker environments...');
-  const dockerDir = path.join(WORKDIR, 'docker-tests');
-  const extractionResults = await extractCodeAndCreateDockerEnvironments(responses, dockerDir);
-  console.log(`✅ Created ${extractionResults.length} Docker environments`);
+  // PASS 2: Extract TypeScript code from responses
+  console.log('🔧 PASS 2: Extracting TypeScript code from responses...');
+  await extractTypeScriptCodeFromResponses(results);
+  console.log(`✅ Extracted code for ${results.filter(r => r.extractedCode).length} models`);
   console.log();
 
-  // Step 3: Test all Docker containers
-  console.log('🐳 Step 3: Testing Docker containers...');
-  const dockerResults = await testAllDockerContainers(dockerDir);
-  console.log(`✅ Tested ${dockerResults.length} Docker containers`);
+  // PASS 3: Run code in Docker containers
+  console.log('🐳 PASS 3: Running code in Docker containers...');
+  await runCodeInDockerContainers(results);
+  console.log(`✅ Docker executions completed for ${results.filter(r => r.dockerResult).length} models`);
   console.log();
 
-  // Step 4: Generate comprehensive reports
-  console.log('📊 Step 4: Generating reports...');
-  await generateReports(responses, dockerDir, dockerResults);
-  console.log('✅ Reports generated');
+  // PASS 4: Evaluate results and generate scores
+  console.log('📊 PASS 4: Evaluating results and generating scores...');
+  await evaluateResults(results);
+  console.log(`✅ Evaluated ${results.filter(r => r.score).length} models`);
   console.log();
 
-  // Step 5: Print summary
-  printSummary(responses, dockerResults);
+  // PASS 5: Generate final report
+  console.log('📋 PASS 5: Generating final evaluation report...');
+  await generateFinalReport(results);
+  console.log('✅ Final report generated');
+  console.log();
+
+
+
+  // Print summary
+  printSummary(results, overallStartTime);
 }
 
 /**
- * Step 1: Generate responses from all models
+ * PASS 1: Generate responses from all models
  */
-async function generateModelResponses() {
-  const responses: any[] = [];
+async function generateModelResponses(results: ModelResult[]) {
   const responsesDir = path.join(WORKDIR, 'responses');
   
   // Create responses directory
@@ -85,10 +112,12 @@ async function generateModelResponses() {
     fs.mkdirSync(responsesDir, { recursive: true });
   }
 
-  for (const model of OLLAMA_MODELS) {
-    console.log(`  🤖 Testing ${model.name}...`);
+  for (const result of results) {
+    console.log(`  🤖 Testing ${result.modelName}...`);
     
     try {
+      const startTime = Date.now();
+      
       // Create evaluation runner with function to generate response
       const runner = new FunctionEvaluationRunner(EVALUATION_ID, 'responses', async (details) => {
         const modelRunner = new BaseModelRunner();
@@ -98,165 +127,339 @@ async function generateModelResponses() {
         return await modelRunner.streamText(interaction);
       });
 
-      const response = await runner.evaluate(model);
-      
+      // Run evaluation for this model
+      const response = await runner.evaluate({ name: result.modelName, provider: 'ollama' });
       if (response) {
-        responses.push(response);
-        console.log(`    ✅ Response generated (${response.content.length} chars)`);
+        result.response = response;
+        
+        // Extract actual response time from metadata if available
+        if (response.metadata?.startTime && response.metadata?.endTime) {
+          const actualStartTime = new Date(response.metadata.startTime).getTime();
+          const actualEndTime = new Date(response.metadata.endTime).getTime();
+          result.timing!.responseTime = actualEndTime - actualStartTime;
+          console.log(`    ✅ Response generated (${response.content.length} chars) in ${result.timing!.responseTime}ms (${(result.timing!.responseTime / 1000).toFixed(1)}s)`);
+        } else {
+          // Fallback to file loading time (will be very small for cached responses)
+          result.timing!.responseTime = Date.now() - startTime;
+          console.log(`    ✅ Response generated (${response.content.length} chars) in ${result.timing!.responseTime}ms (cached)`);
+        }
+      } else {
+        console.log(`    ⚠️  No response generated`);
       }
       
     } catch (error) {
-      console.error(`    ❌ Error with ${model.name}:`, error);
+      console.error(`    ❌ Error generating response for ${result.modelName}:`, error);
     }
   }
-  
-  return responses;
 }
 
 /**
- * Step 2: Extract TypeScript code and create Docker environments
+ * PASS 2: Extract TypeScript code from responses
  */
-async function extractCodeAndCreateDockerEnvironments(responses: any[], dockerDir: string) {
-  const results: Array<{ modelName: string; typescriptCode: string }> = [];
-
-  // Create docker directory
-  if (!fs.existsSync(dockerDir)) {
-    fs.mkdirSync(dockerDir, { recursive: true });
+async function extractTypeScriptCodeFromResponses(results: ModelResult[]) {
+  const extractedDir = path.join(WORKDIR, 'extracted-code');
+  
+  // Create extracted code directory
+  if (!fs.existsSync(extractedDir)) {
+    fs.mkdirSync(extractedDir, { recursive: true });
   }
 
-  for (const response of responses) {
-    const modelName = response.metadata.model;
-    console.log(`  🔍 Processing ${modelName}...`);
+  for (const result of results) {
+    if (!result.response) {
+      console.log(`  ⚠️  Skipping ${result.modelName} - no response available`);
+      continue;
+    }
 
+    console.log(`  🔧 Extracting code from ${result.modelName}...`);
+    
     try {
-      // Extract TypeScript code
-      const typescriptCode = extractTypeScriptCode(response.content);
+      const startTime = Date.now();
+      const content = result.response.content;
+      let extractedCode = extractTypeScriptCode(content);
       
-      if (!typescriptCode) {
-        console.log(`    ❌ No TypeScript code found for ${modelName}`);
+      if (extractedCode) {
+        // Fix common TypeScript errors
+        extractedCode = fixCommonTypeScriptErrors(extractedCode);
+        // Ensure the code outputs to console.log instead of files
+        extractedCode = ensureConsoleOutput(extractedCode);
+        result.extractedCode = extractedCode;
+        
+        // Save extracted code to file
+        const codeFile = path.join(extractedDir, `${result.modelName.replace(/[^a-zA-Z0-9]/g, '-')}.ts`);
+        fs.writeFileSync(codeFile, extractedCode);
+        
+        result.timing!.extractionTime = Date.now() - startTime;
+        console.log(`    ✅ Code extracted (${extractedCode.length} chars) in ${result.timing!.extractionTime}ms`);
+      } else {
+        console.log(`    ❌ No TypeScript code found in response`);
+      }
+      
+    } catch (error) {
+      console.error(`    ❌ Error extracting code from ${result.modelName}:`, error);
+    }
+  }
+}
+
+/**
+ * PASS 3: Run code in Docker containers
+ */
+async function runCodeInDockerContainers(results: ModelResult[]) {
+  for (const result of results) {
+    if (!result.extractedCode) {
+      console.log(`  ⚠️  Skipping ${result.modelName} - no code extracted`);
+      continue;
+    }
+
+    console.log(`  🐳 Running ${result.modelName} code in Docker...`);
+    
+    try {
+      const startTime = Date.now();
+      
+      // Run code in Docker container
+      const dockerResult = await DockerRunner.runCode({
+        code: result.extractedCode,
+        language: 'typescript',
+        timeout: 30,
+        modelName: result.modelName
+      });
+      
+      result.dockerResult = {
+        modelName: result.modelName,
+        buildSuccess: dockerResult.success,
+        testSuccess: dockerResult.success,
+        output: dockerResult.output,
+        error: dockerResult.error
+      };
+      
+      result.timing!.dockerTime = Date.now() - startTime;
+      
+      if (dockerResult.success) {
+        const outputLines = dockerResult.output?.split('\n').filter(line => line.trim().length > 0).length || 0;
+        const distinctLines = new Set(dockerResult.output?.split('\n').filter(line => line.trim().length > 0)).size;
+        console.log(`    ✅ Docker execution successful (${outputLines} lines, ${distinctLines} unique, ${dockerResult.output?.length || 0} chars) in ${result.timing!.dockerTime}ms`);
+      } else {
+        console.log(`    ❌ Docker execution failed: ${dockerResult.error} (${result.timing!.dockerTime}ms)`);
+      }
+      
+    } catch (error) {
+      console.error(`    ❌ Error running Docker for ${result.modelName}:`, error);
+    }
+  }
+}
+
+/**
+ * PASS 4: Evaluate results and generate scores using AI-powered code quality evaluation
+ */
+async function evaluateResults(results: ModelResult[]) {
+  const scoresDir = path.join(WORKDIR, 'scores');
+  
+  // Create scores directory
+  if (!fs.existsSync(scoresDir)) {
+    fs.mkdirSync(scoresDir, { recursive: true });
+  }
+
+  // Initialize the AI-powered code scorer
+  const codeScorer = new CodeScorer(EVALUATION_ID, 'gpt-oss:20b');
+
+  for (const result of results) {
+    console.log(`  📊 Evaluating ${result.modelName} with AI...`);
+    
+    try {
+      if (!result.response) {
+        console.log(`    ⚠️  Skipping ${result.modelName} - no response available`);
         continue;
       }
 
-      console.log(`    ✅ Extracted ${typescriptCode.length} characters of TypeScript code`);
-
-      // Create Docker environment
-      DockerEnvironmentGenerator.generateEnvironment({
-        modelName,
-        typescriptCode,
-        outputDir: dockerDir
-      });
-
-      console.log(`    ✅ Created Docker environment for ${modelName}`);
-      results.push({ modelName, typescriptCode });
-
-    } catch (error) {
-      console.error(`    ❌ Error processing ${modelName}:`, error);
-    }
-  }
-
-  // Generate master test script
-  DockerEnvironmentGenerator.generateMasterTestScript(dockerDir);
-  console.log(`    ✅ Generated master test script`);
-
-  return results;
-}
-
-/**
- * Step 3: Test all Docker containers
- */
-async function testAllDockerContainers(dockerDir: string) {
-  const results: Array<{ modelName: string; buildSuccess: boolean; testSuccess: boolean; error?: string; output?: string }> = [];
-
-  // Read all directories
-  const dirs = fs.readdirSync(dockerDir).filter(item => {
-    const itemPath = path.join(dockerDir, item);
-    return fs.statSync(itemPath).isDirectory() && fs.existsSync(path.join(itemPath, 'Dockerfile'));
-  });
-
-  for (const dir of dirs) {
-    const modelDir = path.join(dockerDir, dir);
-    const modelName = dir.replace(/-/g, ':').replace(/_/g, '-');
-    
-    console.log(`  🐳 Testing ${modelName}...`);
-
-    try {
-      const result = await DockerEnvironmentGenerator.testDockerEnvironment(modelDir);
-      results.push(result);
-
-      if (result.buildSuccess && result.testSuccess) {
-        console.log(`    ✅ ${modelName}: Build and test successful`);
-      } else if (result.buildSuccess) {
-        console.log(`    ⚠️ ${modelName}: Build successful, test failed`);
-      } else {
-        console.log(`    ❌ ${modelName}: Build failed`);
+      // Use the AI-powered code scorer to evaluate the response
+      const scoreResponse = await codeScorer.scoreResponse(result.response);
+      
+      // Calculate total time for this model
+      if (result.timing) {
+        result.timing.totalTime = (result.timing.responseTime || 0) + 
+                                 (result.timing.extractionTime || 0) + 
+                                 (result.timing.dockerTime || 0);
       }
 
+      // Create enhanced score with AI evaluation results
+      const score = {
+        modelName: result.modelName,
+        hasResponse: !!result.response,
+        hasExtractedCode: !!result.extractedCode,
+        codeLength: result.extractedCode?.length || 0,
+        dockerBuildSuccess: result.dockerResult?.buildSuccess || false,
+        dockerTestSuccess: result.dockerResult?.testSuccess || false,
+        output: result.dockerResult?.output || null,
+        outputLength: result.dockerResult?.output?.length || 0,
+        error: result.dockerResult?.error || null,
+        timing: result.timing,
+        aiCodeQualityScore: 0,
+        aiCodeQualitySummary: '',
+        totalScore: 0,
+        timestamp: new Date().toISOString()
+      };
+
+      // Extract AI evaluation results from scoreResponse
+      const aiQualityEval = scoreResponse.evals.find(e => e.key === 'ai_code_quality_score');
+      const aiSummaryEval = scoreResponse.evals.find(e => e.key === 'ai_code_quality_summary');
+      const totalScoreEval = scoreResponse.evals.find(e => e.key === 'total_score');
+
+      if (aiQualityEval) {
+        score.aiCodeQualityScore = parseInt(aiQualityEval.value);
+      }
+      if (aiSummaryEval) {
+        score.aiCodeQualitySummary = aiSummaryEval.value;
+      }
+      if (totalScoreEval) {
+        score.totalScore = parseFloat(totalScoreEval.value);
+      }
+
+      result.score = score;
+      
+      // Save score to file
+      const scoreFile = path.join(scoresDir, `${result.modelName.replace(/[^a-zA-Z0-9]/g, '-')}-ollama.json`);
+      fs.writeFileSync(scoreFile, JSON.stringify(score, null, 2));
+      
+      console.log(`    ✅ AI evaluation complete - Quality: ${score.aiCodeQualityScore}/5, Total Score: ${score.totalScore.toFixed(3)}`);
+      
     } catch (error) {
-      console.error(`    ❌ Error testing ${modelName}:`, error);
-      results.push({
-        modelName,
-        buildSuccess: false,
-        testSuccess: false,
-        error: error.message
-      });
+      console.error(`    ❌ Error evaluating ${result.modelName}:`, error);
     }
   }
-
-  return results;
 }
 
 /**
- * Step 4: Generate comprehensive reports
+ * PASS 5: Generate final report
  */
-async function generateReports(responses: any[], dockerDir: string, dockerResults: any[]) {
-  const responsesDir = path.join(WORKDIR, 'responses');
-
-  // Generate Docker testing results report
-  ReportGenerator.generateDockerResultsReport(responsesDir, dockerDir, dockerResults);
-  console.log(`  📄 Generated Docker testing results report`);
-
-  // Generate evaluation report
-  const evaluationReport = ReportGenerator.generateEvaluationReport(responses);
+async function generateFinalReport(results: ModelResult[]) {
+  const analysisDir = path.join(WORKDIR, 'analysis');
   
-  const reportPath = path.join(WORKDIR, 'analysis', 'evaluation-report.json');
-  if (!fs.existsSync(path.dirname(reportPath))) {
-    fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  // Create analysis directory
+  if (!fs.existsSync(analysisDir)) {
+    fs.mkdirSync(analysisDir, { recursive: true });
+  }
+
+  // Generate comprehensive report
+  const report = generateComprehensiveReport(results);
+  
+  // Save report to file
+  const reportFile = path.join(analysisDir, 'comprehensive-evaluation-report.md');
+  fs.writeFileSync(reportFile, report);
+  
+  console.log(`  📄 Report saved to: ${reportFile}`);
+  console.log('\n' + report);
+}
+
+/**
+ * Generate comprehensive evaluation report
+ */
+function generateComprehensiveReport(results: ModelResult[]): string {
+  const successfulModels = results.filter(r => r.score?.dockerTestSuccess);
+  const failedModels = results.filter(r => !r.score?.dockerTestSuccess);
+  
+  let report = `# Ollama TypeScript Code Generation Evaluation Report\n\n`;
+  report += `**Generated:** ${new Date().toISOString()}\n`;
+  report += `**Total Models:** ${results.length}\n`;
+  report += `**Successful:** ${successfulModels.length}\n`;
+  report += `**Failed:** ${failedModels.length}\n\n`;
+  
+  report += `## Summary\n\n`;
+  report += `- **Models with responses:** ${results.filter(r => r.response).length}/${results.length}\n`;
+  report += `- **Models with extracted code:** ${results.filter(r => r.extractedCode).length}/${results.length}\n`;
+  report += `- **Models with successful Docker executions:** ${successfulModels.length}/${results.length}\n`;
+  report += `- **AI Evaluator Model:** gpt-oss:20b\n`;
+  report += `- **Average AI Quality Score:** ${(results.reduce((sum, r) => sum + (r.score?.aiCodeQualityScore || 0), 0) / results.length).toFixed(2)}/5\n`;
+  report += `- **Average Total Score:** ${(results.reduce((sum, r) => sum + (r.score?.totalScore || 0), 0) / results.length).toFixed(3)}\n\n`;
+  
+  report += `## Successful Models\n\n`;
+  for (const result of successfulModels) {
+      report += `### ${result.modelName}\n`;
+  report += `- **Code Length:** ${result.score?.codeLength} characters\n`;
+  report += `- **Output Length:** ${result.score?.outputLength} characters\n`;
+  report += `- **Output Lines:** ${result.dockerResult?.output?.split('\n').filter(line => line.trim().length > 0).length || 0}\n`;
+  report += `- **Unique Items:** ${new Set(result.dockerResult?.output?.split('\n').filter(line => line.trim().length > 0)).size || 0}\n`;
+  report += `- **Response Time:** ${result.score?.timing?.responseTime || 0}ms\n`;
+  report += `- **Extraction Time:** ${result.score?.timing?.extractionTime || 0}ms\n`;
+  report += `- **Docker Time:** ${result.score?.timing?.dockerTime || 0}ms\n`;
+  report += `- **Total Time:** ${result.score?.timing?.totalTime || 0}ms\n`;
+  report += `- **AI Code Quality:** ${result.score?.aiCodeQualityScore || 0}/5\n`;
+  report += `- **AI Summary:** ${result.score?.aiCodeQualitySummary || 'No evaluation'}\n`;
+  report += `- **Total Score:** ${result.score?.totalScore || 0}\n`;
+  report += `- **Docker Execution:** ✅ Success\n\n`;
   }
   
-  fs.writeFileSync(reportPath, JSON.stringify(evaluationReport, null, 2));
-  console.log(`  📄 Generated evaluation report`);
+  report += `## Failed Models\n\n`;
+  for (const result of failedModels) {
+      report += `### ${result.modelName}\n`;
+  report += `- **Has Response:** ${result.response ? '✅' : '❌'}\n`;
+  report += `- **Has Extracted Code:** ${result.extractedCode ? '✅' : '❌'}\n`;
+  report += `- **Response Time:** ${result.score?.timing?.responseTime || 0}ms\n`;
+  report += `- **Extraction Time:** ${result.score?.timing?.extractionTime || 0}ms\n`;
+  report += `- **Docker Time:** ${result.score?.timing?.dockerTime || 0}ms\n`;
+  report += `- **Total Time:** ${result.score?.timing?.totalTime || 0}ms\n`;
+  report += `- **AI Code Quality:** ${result.score?.aiCodeQualityScore || 0}/5\n`;
+  report += `- **AI Summary:** ${result.score?.aiCodeQualitySummary || 'No evaluation'}\n`;
+  report += `- **Total Score:** ${result.score?.totalScore || 0}\n`;
+  report += `- **Docker Execution:** ${result.score?.dockerTestSuccess ? '✅' : '❌'}\n`;
+  if (result.score?.error) {
+    report += `- **Error:** ${result.score.error}\n`;
+  }
+  report += `\n`;
+  }
+  
+  return report;
 }
 
 /**
- * Step 5: Print summary
+ * Print summary
  */
-function printSummary(responses: any[], dockerResults: any[]) {
-  const successfulTests = dockerResults.filter(r => r.testSuccess).length;
-  const successfulBuilds = dockerResults.filter(r => r.buildSuccess).length;
-  const modelsWithCode = responses.filter(r => extractTypeScriptCode(r.content)).length;
-
+function printSummary(results: ModelResult[], overallStartTime: number) {
   console.log('🎉 Evaluation Pipeline Complete!');
   console.log('='.repeat(60));
-  console.log(`📊 Summary:`);
-  console.log(`   - Total models tested: ${responses.length}`);
-  console.log(`   - Models with TypeScript code: ${modelsWithCode}`);
-  console.log(`   - Successful Docker builds: ${successfulBuilds}`);
-  console.log(`   - Successful Docker tests: ${successfulTests}`);
-  console.log(`   - Success rate: ${Math.round(successfulTests/responses.length*100)}%`);
-  console.log();
-  console.log(`📁 Results:`);
+  
+  const successful = results.filter(r => r.score?.dockerTestSuccess).length;
+  const failed = results.filter(r => !r.score?.dockerTestSuccess).length;
+  
+  console.log('📊 Final Summary:');
+  console.log(`   - Total models tested: ${results.length}`);
+  console.log(`   - Successful Docker tests: ${successful}`);
+  console.log(`   - Failed Docker tests: ${failed}`);
+  console.log(`   - Success rate: ${((successful / results.length) * 100).toFixed(1)}%`);
+  
+  console.log('\n📁 Results Location:');
   console.log(`   - Responses: ${path.join(WORKDIR, 'responses')}`);
-  console.log(`   - Docker environments: ${path.join(WORKDIR, 'docker-tests')}`);
-  console.log(`   - Analysis reports: ${path.join(WORKDIR, 'analysis')}`);
-  console.log();
-  console.log(`🚀 Next steps:`);
-  console.log(`   - Run 'cd ${path.join(WORKDIR, 'docker-tests')} && ./test-all.sh' to test all containers`);
-  console.log(`   - Check individual model directories for detailed results`);
-  console.log(`   - Review generated reports for comprehensive analysis`);
+  console.log(`   - Extracted Code: ${path.join(WORKDIR, 'extracted-code')}`);
+  console.log(`   - Scores: ${path.join(WORKDIR, 'scores')}`);
+  console.log(`   - Analysis: ${path.join(WORKDIR, 'analysis')}`);
+  
+  if (successful > 0) {
+    console.log('\n🏆 Top Performers (by Total Score):');
+    const topPerformers = results
+      .filter(r => r.score?.totalScore)
+      .sort((a, b) => (b.score?.totalScore || 0) - (a.score?.totalScore || 0))
+      .slice(0, 3);
+    
+    topPerformers.forEach((result, index) => {
+      console.log(`   ${index + 1}. ${result.modelName}: Score ${result.score?.totalScore?.toFixed(3)}, AI Quality ${result.score?.aiCodeQualityScore}/5, ${result.score?.outputLength || 0} chars output`);
+    });
+  }
+  
+  // Show timing summary
+  const totalTime = Date.now() - overallStartTime;
+  console.log(`\n⏱️  Total Evaluation Time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`);
+  
+  const avgResponseTime = results
+    .filter(r => r.score?.timing?.responseTime)
+    .reduce((sum, r) => sum + (r.score?.timing?.responseTime || 0), 0) / results.filter(r => r.score?.timing?.responseTime).length;
+  
+  const avgDockerTime = results
+    .filter(r => r.score?.timing?.dockerTime)
+    .reduce((sum, r) => sum + (r.score?.timing?.dockerTime || 0), 0) / results.filter(r => r.score?.timing?.dockerTime).length;
+  
+  console.log(`📊 Average Response Time: ${avgResponseTime.toFixed(0)}ms`);
+  console.log(`📊 Average Docker Time: ${avgDockerTime.toFixed(0)}ms`);
 }
 
-// Run the pipeline
-main().catch(error => {
-  console.error('❌ Pipeline failed:', error);
-  process.exit(1);
-});
+// Run the main function
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(console.error);
+}
