@@ -214,7 +214,7 @@ Each model has its own Docker environment with:
         if (analysis?.hasSyntaxErrors) {
           codeQuality = 'syntax_errors';
           notes = 'Has syntax errors that need fixing';
-        } else if (analysis?.imports > 0) {
+        } else if (analysis?.imports && analysis.imports > 0) {
           codeQuality = 'good';
           notes = 'Uses ES6 imports';
         } else {

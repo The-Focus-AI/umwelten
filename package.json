@@ -1,7 +1,6 @@
 {
   "name": "umwelten",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "bin": {
     "umwelten": "./dist/cli/cli.js"
@@ -14,7 +13,9 @@
     "test:coverage": "vitest run --coverage --reporter=verbose",
     "lint": "eslint src --ext .ts,.tsx",
     "build": "tsc",
-    "cli": "tsx src/cli/cli.ts"
+    "cli": "tsx src/cli/cli.ts",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
   },
   "keywords": [
     "llm",
@@ -22,8 +23,25 @@
     "ai",
     "testing"
   ],
-  "author": "",
+  "author": "The Focus AI",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/The-Focus-AI/umwelten.git"
+  },
+  "homepage": "https://github.com/The-Focus-AI/umwelten#readme",
+  "bugs": {
+    "url": "https://github.com/The-Focus-AI/umwelten/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "env.template"
+  ],
   "packageManager": "pnpm@10.6.1",
   "dependencies": {
     "@ai-sdk/google": "^2.0.6",

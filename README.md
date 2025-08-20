@@ -24,9 +24,15 @@ This command-line tool allows you to interact with and evaluate AI models across
 
 ### Installation
 
+#### Option 1: Install from npm (Recommended)
+```bash
+npm install -g umwelten
+```
+
+#### Option 2: Install from source
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/umwelten.git
+   git clone https://github.com/The-Focus-AI/umwelten.git
    cd umwelten
    ```
 
@@ -35,13 +41,35 @@ This command-line tool allows you to interact with and evaluate AI models across
    pnpm install
    ```
 
-3. Set up your `.env` file with the required API keys:
-   ```plaintext
-   OPENROUTER_API_KEY=your_openrouter_api_key
-   OLAMA_API_KEY=your_olama_api_key
-   VERCEL_AI_KEY=your_vercel_ai_key
-   # LM Studio does not require an API key
+3. Build the project:
+   ```bash
+   npm run build
    ```
+
+4. Use the CLI:
+   ```bash
+   node dist/cli/cli.js --help
+   ```
+
+#### Environment Setup
+Set up your environment variables with the required API keys:
+
+**Option A: Environment variables**
+```bash
+export OPENROUTER_API_KEY=your_openrouter_api_key
+export GOOGLE_API_KEY=your_google_api_key
+export OLLAMA_BASE_URL=http://localhost:11434  # Optional
+export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional
+```
+
+**Option B: .env file (for development)**
+```plaintext
+OPENROUTER_API_KEY=your_openrouter_api_key
+GOOGLE_API_KEY=your_google_api_key
+OLLAMA_BASE_URL=http://localhost:11434
+LMSTUDIO_BASE_URL=http://localhost:1234
+# LM Studio does not require an API key
+```
 
 ### Usage
 
@@ -50,7 +78,7 @@ This command-line tool allows you to interact with and evaluate AI models across
 Use the `run` command:
 
 ```bash
-pnpm cli run --provider ollama --model gemma3:latest "Explain the concept of quantum entanglement."
+umwelten run --provider ollama --model gemma3:latest "Explain the concept of quantum entanglement."
 ```
 
 > Note: The prompt is a required positional argument (not a --prompt option).
@@ -61,26 +89,26 @@ Use the `chat` command:
 
 ```bash
 # Standard chat (no tools enabled by default)
-pnpm cli chat --provider ollama --model gemma3:latest
+umwelten chat --provider ollama --model gemma3:latest
 
 # Enable specific tools (e.g., calculator, statistics)
-pnpm cli chat --provider openrouter --model gpt-4o --tools calculator,statistics
+umwelten chat --provider openrouter --model gpt-4o --tools calculator,statistics
 
 # Chat with memory enabled
-pnpm cli chat --provider ollama --model gemma3:latest --memory
+umwelten chat --provider ollama --model gemma3:latest --memory
 
 # Chat with a file attachment
-pnpm cli chat --provider google --model gemini-1.5-flash-latest --file ./examples/test_data/internet_archive_fffound.png
+umwelten chat --provider google --model gemini-1.5-flash-latest --file ./examples/test_data/internet_archive_fffound.png
 
 # Chat with a local LM Studio model (ensure LM Studio server is running and model is loaded)
-pnpm cli chat --provider lmstudio --model mistralai/devstral-small-2505
+umwelten chat --provider lmstudio --model mistralai/devstral-small-2505
 ```
 
 > **Tool Usage in Chat:**
 >
 > - By default, **no tools are enabled** in chat sessions.
 > - Use the `--tools` flag with a comma-separated list of tool names to enable specific tools (e.g., `--tools calculator,statistics`).
-> - To see available tools, run `pnpm cli tools list`.
+> - To see available tools, run `umwelten tools list`.
 > - If a tool name is not found, it will be ignored with a warning.
 
 Inside the chat session, you can use commands:

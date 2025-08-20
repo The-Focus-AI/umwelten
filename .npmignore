@@ -1,0 +1,70 @@
+# Source files (not needed in npm package)
+src/
+scripts/
+memory/
+docs/
+weird/
+
+# Test files
+src/test/
+dist/test/
+
+# Development files
+.vscode/
+.cursor/
+.claude/
+.superdesign/
+
+# Test files and configs
+**/*.test.ts
+**/*.test.js
+vitest.config.ts
+tsconfig.test.json
+
+# Development tools
+.cache/
+.eslintcache
+.stylelintcache
+
+# Project specific development files
+input/
+output/
+runs/
+!runs/.gitkeep
+!runs/index.json
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+temp/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Development documentation
+tdd.md
+README.cli.md
+
+# Development scripts
+test-docker-runner.js

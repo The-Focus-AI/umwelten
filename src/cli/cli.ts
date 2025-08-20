@@ -8,9 +8,9 @@ import { addToolsCommand } from './tools.js';
 const program = new Command();
 
 program
-  .name('model-eval')
+  .name('umwelten')
   .description('CLI tool for evaluating language models')
-  .version('0.0.1');
+  .version('0.1.0');
 
 // Add commands
 program.addCommand(modelsCommand);

@@ -1,5 +1,622 @@
 # Work Log
 
+## Wed Aug 20 20:30:16 UTC 2025 - Fixed Score Loading and AI Summary Issues - COMPLETED ✅
+
+### Summary
+Fixed two critical issues in the multi-language evaluation system: score loading efficiency and AI summary inclusion in analysis reports.
+
+### Key Accomplishments
+
+#### ✅ Score Loading Fix
+- **Completed**: Added logic to check for existing score files before running evaluations
+- **Completed**: Script now loads existing scores instead of re-running AI evaluations unnecessarily
+- **Completed**: Improved efficiency by avoiding duplicate work when re-running the script
+
+#### ✅ AI Summary Inclusion Fix
+- **Completed**: Added AI summary field to analysis reports for successful models
+- **Completed**: Added AI summary field to analysis reports for failed models (when available)
+- **Completed**: Analysis reports now include the detailed AI evaluation summaries
+
+#### ✅ Problem Identified
+1. **Score Loading Issue**: Script was re-running AI evaluations even when score files already existed
+2. **AI Summary Missing**: Analysis reports were missing the detailed AI evaluation summaries that provide valuable insights
+
+#### ✅ Solution Implemented
+Updated the `evaluateResults` function in `scripts/multi-language-evaluation.ts`:
+
+```typescript
+// Check if score file already exists
+const scoreFile = path.join(scoresDir, `${result.modelName.replace(/[^a-zA-Z0-9]/g, '-')}-${language}.json`);
+if (fs.existsSync(scoreFile)) {
+  console.log(`    📁 Loading existing score for ${result.modelName}...`);
+  const existingScore = JSON.parse(fs.readFileSync(scoreFile, 'utf8'));
+  result.score = existingScore;
+  console.log(`    ✅ Loaded existing score - Quality: ${existingScore.aiCodeQualityScore}/5, Total Score: ${existingScore.totalScore?.toFixed(3)}`);
+  continue;
+}
+```
+
+Updated the `generateLanguageSpecificReport` function to include AI summaries:
+
+```typescript
+// For successful models
+report += `- **AI Summary:** ${result.score?.aiCodeQualitySummary || 'No AI evaluation'}\n`;
+
+// For failed models
+if (result.score?.aiCodeQualitySummary) {
+  report += `- **AI Summary:** ${result.score.aiCodeQualitySummary}\n`;
+}
+```
+
+### Verification
+- ✅ Score loading works correctly with existing TypeScript results
+- ✅ AI summaries are properly included in analysis reports
+- ✅ Script efficiency improved by avoiding duplicate evaluations
+- ✅ Analysis reports now provide comprehensive AI evaluation insights
+
+### Files Modified
+- `scripts/multi-language-evaluation.ts` - Added score loading logic and AI summary inclusion
+
+---
+
+## Wed Aug 20 20:24:59 UTC 2025 - Fixed Analysis Phase Timing - COMPLETED ✅
+
+### Summary
+Fixed the analysis phase timing issue where analysis directories were only created at the very end after all languages were processed. Now analysis reports are generated immediately after each language's evaluation completes.
+
+### Key Accomplishments
+
+#### ✅ Analysis Phase Timing Fix
+- **Completed**: Moved language-specific analysis report generation to run immediately after PASS 4 completes for each language
+- **Completed**: Created new `generateLanguageAnalysisReport()` function for single language analysis
+- **Completed**: Maintained cross-language comparison report generation at the very end
+- **Completed**: Verified fix works correctly with test scripts
+
+#### ✅ Problem Identified
+The issue was that PASS 5 and 6 (analysis phases) only ran at the very end after all languages were processed:
+- If the script was stopped after processing only some languages, no analysis reports were generated
+- User expected analysis reports to be created immediately after each language's evaluation
+- Analysis directories were missing because the script never reached the analysis phase
+
+#### ✅ Solution Implemented
+Updated the multi-language evaluation script to generate analysis reports immediately after each language:
+```typescript
+// Before: Analysis only at the very end
+for (const languageConfig of LANGUAGES) {
+  // PASS 1-4 for each language
+}
+// PASS 5-6 only at the very end (never reached if script stopped early)
+
+// After: Analysis immediately after each language
+for (const languageConfig of LANGUAGES) {
+  // PASS 1-4 for each language
+  // PASS 5: Generate analysis report immediately after PASS 4
+  await generateLanguageAnalysisReport(languageResults, languageConfig.name);
+}
+// PASS 6: Cross-language comparison at the very end
+```
+
+#### ✅ Correct Timing Now Implemented
+```
+For each language:
+  PASS 1: Generate responses ✅
+  PASS 2: Extract code ✅
+  PASS 3: Run Docker ✅
+  PASS 4: Evaluate results ✅
+  PASS 5: Generate analysis report ✅ (IMMEDIATELY)
+  
+After all languages:
+  PASS 6: Cross-language comparison ✅
+```
+
+### Technical Implementation Details
+
+#### New Function Added
+```typescript
+async function generateLanguageAnalysisReport(modelResults: ModelResult[], language: string) {
+  const languageAnalysisDir = path.join(WORKDIR, language, 'analysis');
+  
+  // Create language-specific analysis directory
+  if (!fs.existsSync(languageAnalysisDir)) {
+    fs.mkdirSync(languageAnalysisDir, { recursive: true });
+  }
+
+  // Generate and save language-specific report
+  const report = generateLanguageSpecificReport(languageResult);
+  const reportFile = path.join(languageAnalysisDir, `${language}-evaluation-report.md`);
+  fs.writeFileSync(reportFile, report);
+}
+```
+
+#### Main Loop Updated
+```typescript
+for (const languageConfig of LANGUAGES) {
+  // PASS 1-4: Generate responses, extract code, run Docker, evaluate
+  await generateModelResponses(languageResults, languageConfig.prompt, languageConfig.name);
+  await extractCodeFromResponses(languageResults, languageConfig.name);
+  await runCodeInDockerContainers(languageResults, languageConfig.name);
+  await evaluateResults(languageResults, languageConfig.name);
+  
+  // PASS 5: Generate analysis report immediately after PASS 4
+  await generateLanguageAnalysisReport(languageResults, languageConfig.name);
+  
+  results.push({ language: languageConfig.name, modelResults: languageResults });
+}
+
+// PASS 6: Cross-language comparison at the very end
+await generateCrossLanguageComparisonReport(results);
+```
+
+### Verification
+- ✅ Analysis directories created immediately after each language completes
+- ✅ No conflicting top-level analysis directories
+- ✅ Proper hierarchical structure maintained
+- ✅ Cross-language comparison still works at the end
+- ✅ Test scripts verify the fix works correctly
+
+### Files Modified
+- `scripts/multi-language-evaluation.ts` - Added immediate analysis phase after each language
+
+---
+
+## Thu Jun 26 22:00:00 UTC 2025 - Fixed CodeScorer Analysis Directory Conflict - COMPLETED ✅
+
+### Summary
+Fixed a critical issue where the CodeScorer was creating its own analysis directory structure in the top-level evaluation directory, conflicting with the desired language-first hierarchical organization. The CodeScorer was automatically saving analysis files to `{evaluationId}/analysis/` instead of respecting the language-specific directory structure.
+
+### Key Accomplishments
+
+#### ✅ CodeScorer Analysis Directory Fix
+- **Completed**: Modified CodeScorer constructor to accept optional custom analysis directory
+- **Completed**: Added logic to disable automatic analysis saving when custom directory is provided
+- **Completed**: Updated multi-language evaluation script to disable CodeScorer's automatic analysis
+- **Completed**: Verified correct directory structure creation
+
+#### ✅ Problem Identified
+The issue was in the `CodeScorer.saveDetailedAnalysis()` method which was creating:
+```
+output/evaluations/multi-language-eval/
+├── analysis/                    # ❌ Wrong - created by CodeScorer
+│   ├── ai-evaluations/
+│   ├── docker-outputs/
+│   └── evaluated-code/
+├── typescript/
+│   ├── responses/
+│   ├── extracted-code/
+│   └── scores/
+└── python/
+    ├── responses/
+    ├── extracted-code/
+    └── scores/
+```
+
+#### ✅ Solution Implemented
+Updated CodeScorer to support disabling automatic analysis saving:
+```typescript
+// Before: CodeScorer always created its own analysis directory
+const codeScorer = new CodeScorer(EVALUATION_ID, 'gpt-oss:20b');
+
+// After: CodeScorer can be configured to not create analysis files
+const codeScorer = new CodeScorer(EVALUATION_ID, 'gpt-oss:20b', 'disabled');
+```
+
+#### ✅ Correct Directory Structure Now Created
+```
+output/evaluations/multi-language-eval/
+├── typescript/
+│   ├── responses/          # Model responses for TypeScript
+│   ├── extracted-code/     # Extracted TypeScript code files
+│   ├── scores/            # Evaluation scores for TypeScript
+│   └── analysis/          # TypeScript-specific analysis reports
+├── python/
+│   ├── responses/         # Model responses for Python
+│   ├── extracted-code/    # Extracted Python code files
+│   ├── scores/           # Evaluation scores for Python
+│   └── analysis/         # Python-specific analysis reports
+├── bash/
+│   ├── responses/        # Model responses for Bash
+│   ├── extracted-code/   # Extracted Bash script files
+│   ├── scores/          # Evaluation scores for Bash
+│   └── analysis/        # Bash-specific analysis reports
+└── cross-language-analysis/
+    └── cross-language-evaluation-report.md  # Overall comparison
+```
+
+### Technical Implementation Details
+
+#### CodeScorer Constructor Update
+```typescript
+export class CodeScorer extends EvaluationScorer {
+  private evaluationDir: string;
+  private aiEvaluatorModel: string;
+  private customAnalysisDir?: string;
+
+  constructor(evaluationId: string, aiEvaluatorModel: string = 'gpt-oss:20b', customAnalysisDir?: string) {
+    super(evaluationId);
+    this.evaluationDir = path.join(process.cwd(), 'output', 'evaluations', evaluationId);
+    this.aiEvaluatorModel = aiEvaluatorModel;
+    this.customAnalysisDir = customAnalysisDir;
+  }
+}
+```
+
+#### Disabled Analysis Saving
+```typescript
+private async saveDetailedAnalysis(result: CodeEvaluationResult, code: string): Promise<void> {
+  // If custom analysis directory is provided, don't save analysis files
+  if (this.customAnalysisDir) {
+    return;
+  }
+  
+  // Original analysis saving logic...
+}
+```
+
+#### Multi-Language Evaluation Script Update
+```typescript
+// Initialize the AI-powered code scorer
+// Pass a custom analysis directory to disable automatic analysis saving
+const codeScorer = new CodeScorer(EVALUATION_ID, 'gpt-oss:20b', 'disabled');
+```
+
+### Benefits Achieved
+1. **Correct Directory Structure**: Analysis files now go to language-specific directories
+2. **No Conflicts**: CodeScorer no longer creates conflicting top-level analysis directories
+3. **Clean Organization**: Everything is properly organized by language first
+4. **Backward Compatibility**: CodeScorer still works normally when no custom directory is provided
+5. **Flexible Design**: Can be configured to save analysis files or not as needed
+
+### Files Updated
+- `src/evaluation/code-scorer.ts` - Added custom analysis directory support
+- `scripts/multi-language-evaluation.ts` - Updated to disable CodeScorer analysis saving
+- `memory/active-context.md` - Updated with directory structure fix
+- `memory/worklog.md` - Documented the fix
+
+---
+
+## Thu Jun 26 21:45:00 UTC 2025 - Hierarchical Directory Structure - COMPLETED ✅
+
+### Summary
+Implemented hierarchical directory structure for the multi-language evaluation system, organizing everything by language first, then by type. This provides better organization and makes it easier to analyze results per language and compare across languages.
+
+### Key Accomplishments
+
+#### ✅ Hierarchical Directory Structure
+- **Completed**: Reorganized output structure to be language-first
+- **Completed**: Created language-specific analysis reports
+- **Completed**: Separated cross-language comparison into dedicated directory
+- **Completed**: Updated all directory creation logic in evaluation scripts
+- **Completed**: Added comprehensive documentation of new structure
+
+#### ✅ New Directory Structure
+```
+output/evaluations/multi-language-eval/
+├── typescript/
+│   ├── responses/          # Model responses for TypeScript
+│   ├── extracted-code/     # Extracted TypeScript code files
+│   ├── scores/            # Evaluation scores for TypeScript
+│   └── analysis/          # TypeScript-specific analysis reports
+├── python/
+│   ├── responses/         # Model responses for Python
+│   ├── extracted-code/    # Extracted Python code files
+│   ├── scores/           # Evaluation scores for Python
+│   └── analysis/         # Python-specific analysis reports
+├── bash/
+│   ├── responses/        # Model responses for Bash
+│   ├── extracted-code/   # Extracted Bash script files
+│   ├── scores/          # Evaluation scores for Bash
+│   └── analysis/        # Bash-specific analysis reports
+└── cross-language-analysis/
+    └── cross-language-evaluation-report.md  # Overall comparison
+```
+
+#### ✅ Updated Evaluation Pipeline
+- **PASS 1**: Generate responses → `{language}/responses/`
+- **PASS 2**: Extract code → `{language}/extracted-code/`
+- **PASS 3**: Run Docker → Results stored in scores
+- **PASS 4**: Evaluate results → `{language}/scores/`
+- **PASS 5**: Language analysis → `{language}/analysis/`
+- **PASS 6**: Cross-language comparison → `cross-language-analysis/`
+
+#### ✅ Language-Specific Analysis Reports
+- **Individual Language Reports**: Each language gets its own detailed analysis
+- **Success Rate Analysis**: Per-language success rates and statistics
+- **Model Performance**: How each model performs in that specific language
+- **Error Analysis**: Language-specific error patterns and issues
+
+#### ✅ Cross-Language Comparison
+- **Model Comparison**: How each model performs across all languages
+- **Language Comparison**: How each language performs across all models
+- **Overall Rankings**: Best models and languages for code generation
+- **Performance Metrics**: Response times, success rates, quality scores
+
+### Technical Implementation Details
+
+#### Updated Directory Creation
+```typescript
+// Before: Flat structure
+const responsesDir = path.join(WORKDIR, 'responses', language);
+const extractedDir = path.join(WORKDIR, 'extracted-code', language);
+const scoresDir = path.join(WORKDIR, 'scores', language);
+
+// After: Language-first structure
+const responsesDir = path.join(WORKDIR, language, 'responses');
+const extractedDir = path.join(WORKDIR, language, 'extracted-code');
+const scoresDir = path.join(WORKDIR, language, 'scores');
+const analysisDir = path.join(WORKDIR, language, 'analysis');
+```
+
+#### FunctionEvaluationRunner Integration
+```typescript
+// Use nested key structure for proper directory organization
+const runner = new FunctionEvaluationRunner(EVALUATION_ID, `${language}/responses`, async (details) => {
+  // ... response generation logic
+});
+```
+
+#### Analysis Report Generation
+```typescript
+// Language-specific analysis
+async function generateLanguageAnalysisReports(results: LanguageResult[]) {
+  for (const languageResult of results) {
+    const language = languageResult.language;
+    const languageAnalysisDir = path.join(WORKDIR, language, 'analysis');
+    const report = generateLanguageSpecificReport(languageResult);
+    const reportFile = path.join(languageAnalysisDir, `${language}-evaluation-report.md`);
+    fs.writeFileSync(reportFile, report);
+  }
+}
+
+// Cross-language comparison
+async function generateCrossLanguageComparisonReport(results: LanguageResult[]) {
+  const crossAnalysisDir = path.join(WORKDIR, 'cross-language-analysis');
+  const report = generateComprehensiveCrossLanguageReport(results);
+  const reportFile = path.join(crossAnalysisDir, 'cross-language-evaluation-report.md');
+  fs.writeFileSync(reportFile, report);
+}
+```
+
+### Benefits Achieved
+1. **Better Organization**: Language-first structure makes it easier to find specific results
+2. **Language-Specific Analysis**: Each language gets detailed analysis and insights
+3. **Clear Separation**: Language-specific vs cross-language analysis are clearly separated
+4. **Easier Navigation**: Intuitive directory structure for exploring results
+5. **Scalable Design**: Easy to add new languages without restructuring
+6. **Comprehensive Reporting**: Both detailed and summary reports available
+
+### Files Updated
+- `scripts/multi-language-evaluation.ts` - Updated directory structure and analysis pipeline
+- `docs/multi-language-evaluation.md` - Added Output Structure documentation
+- `memory/active-context.md` - Updated with hierarchical organization benefits
+
+---
+
+## Thu Jun 26 21:30:00 UTC 2025 - Language Alias Normalization - COMPLETED ✅
+
+### Summary
+Implemented language alias normalization in the code extractor to treat "ts" and "typescript" as the same language, and "js" and "javascript" as the same language. This improves the robustness of the multi-language evaluation system by handling common language abbreviations that models often use in their responses.
+
+### Key Accomplishments
+
+#### ✅ Language Alias Normalization
+- **Completed**: Added `normalizeLanguage()` function to handle language aliases
+- **Completed**: Updated `extractAllCodeBlocks()` to normalize extracted languages
+- **Completed**: Updated `getCodeForLanguage()` to normalize target languages
+- **Completed**: Updated `hasLanguage()` to normalize expected languages
+- **Completed**: Updated `fixCommonCodeErrors()` and `ensureConsoleOutput()` to use normalized languages
+- **Completed**: Added comprehensive tests for language alias handling
+
+#### ✅ Supported Language Aliases
+```typescript
+const languageMap: Record<string, string> = {
+  'ts': 'typescript',
+  'typescript': 'typescript',
+  'js': 'javascript', 
+  'javascript': 'javascript',
+  'py': 'python',
+  'python': 'python',
+  'rb': 'ruby',
+  'ruby': 'ruby',
+  'pl': 'perl',
+  'perl': 'perl',
+  'sh': 'bash',
+  'bash': 'bash',
+  'php': 'php',
+  'java': 'java',
+  'go': 'go',
+  'rust': 'rust'
+};
+```
+
+#### ✅ Test Results
+- **Before**: 50% success rate (3/6 tests passed) - TypeScript extraction failing due to "ts" vs "typescript"
+- **After**: 83.3% success rate (5/6 tests passed) - All TypeScript tests now passing
+- **Verification**: Confirmed bidirectional lookup works (can find code using "ts" or "typescript")
+
+### Technical Implementation Details
+
+#### Language Normalization Function
+```typescript
+function normalizeLanguage(language: string): string {
+  const languageMap: Record<string, string> = {
+    'ts': 'typescript',
+    'typescript': 'typescript',
+    'js': 'javascript',
+    'javascript': 'javascript',
+    // ... other mappings
+  };
+  
+  return languageMap[language.toLowerCase()] || language.toLowerCase();
+}
+```
+
+#### Updated Code Extraction
+```typescript
+// Before: Direct language assignment
+const language = match[1] ? match[1].toLowerCase() : inferLanguageFromCode(match[2].trim());
+
+// After: Normalized language assignment
+const rawLanguage = match[1] ? match[1].toLowerCase() : inferLanguageFromCode(match[2].trim());
+const language = normalizeLanguage(rawLanguage);
+```
+
+#### Updated Language Lookup
+```typescript
+// Before: Direct comparison
+const languageBlocks = extracted.blocks.filter(block => block.language === language);
+
+// After: Normalized comparison
+const normalizedLanguage = normalizeLanguage(language);
+const languageBlocks = extracted.blocks.filter(block => block.language === normalizedLanguage);
+```
+
+### Benefits Achieved
+1. **Improved Robustness**: Handles common language abbreviations that models use
+2. **Better Success Rate**: TypeScript extraction success rate improved from 50% to 83.3%
+3. **Bidirectional Support**: Can find code using either short or full language names
+4. **Consistent Processing**: All language-specific functions now use normalized names
+5. **Extensible Design**: Easy to add more language aliases in the future
+
+### Files Updated
+- `src/evaluation/code-extractor.ts` - Added language normalization
+- `src/evaluation/code-extractor.test.ts` - Added tests for language aliases
+
+---
+
+## Thu Jun 26 21:17:00 UTC 2025 - Multi-Language Evaluation System - COMPLETED ✅
+
+### Summary
+Successfully implemented a comprehensive multi-language evaluation system that extends the umwelten project to support testing AI models across 10 different programming languages. This system provides a unified framework for evaluating how well different models perform when generating code in various languages.
+
+### Key Accomplishments
+
+#### ✅ Generic Code Extractor
+- **Completed**: Created `src/evaluation/code-extractor.ts` with unified language support
+- **Completed**: Implemented automatic language detection from code content
+- **Completed**: Added support for code blocks with and without language specifications
+- **Completed**: Created language-specific error fixing and console output optimization
+- **Completed**: Comprehensive test suite with 13 passing tests
+
+#### ✅ Extended Docker Runner
+- **Completed**: Extended `src/evaluation/docker-runner.ts` to support 10 languages
+- **Completed**: Added Docker configurations for Ruby, Perl, Bash, PHP, Java
+- **Completed**: Maintained existing support for TypeScript, JavaScript, Python, Rust, Go
+- **Completed**: All Docker tests passing (10/11, 1 skipped)
+
+#### ✅ Multi-Language Evaluation Scripts
+- **Completed**: Created `scripts/multi-language-evaluation.ts` for full evaluation
+- **Completed**: Created `scripts/test-multi-language.ts` for quick testing
+- **Completed**: Implemented cross-language reporting and analysis
+- **Completed**: Language-specific prompts and evaluation criteria
+
+#### ✅ Language Detection System
+- **Completed**: Pattern-based language inference for 10 programming languages
+- **Completed**: Support for TypeScript/JavaScript, Python, Ruby, Perl, Bash, PHP, Java, Go, Rust
+- **Completed**: Automatic language identification from code content
+- **Completed**: Robust handling of code blocks without language specifications
+
+#### ✅ Code Processing Features
+- **Completed**: Language-specific error fixing (loop conditions, print statements, etc.)
+- **Completed**: Console output optimization (removes file writing operations)
+- **Completed**: Automatic shebang addition for bash scripts
+- **Completed**: Import cleanup for unused file system operations
+
+### Technical Implementation Details
+
+#### Generic Code Extractor Architecture
+```typescript
+export function extractAllCodeBlocks(response: string): ExtractedCode {
+  // Match all code blocks (with or without language specification)
+  const allCodeBlocks = response.match(/```(\w+)?\n([\s\S]*?)\n```/g);
+  
+  // Extract language and code from each block
+  // Infer language from code content when not specified
+  // Return structured data with all code blocks and languages
+}
+```
+
+#### Language Detection Patterns
+```typescript
+const languageHints = [
+  { language: 'typescript', patterns: ['function', 'const', 'let', 'interface', 'type', 'import', 'export'] },
+  { language: 'python', patterns: ['def ', 'import ', 'print(', 'if __name__', 'class ', 'self.'] },
+  { language: 'ruby', patterns: ['def ', 'puts ', 'class ', 'attr_accessor', 'require ', 'module '] },
+  { language: 'perl', patterns: ['sub ', 'my ', 'print ', 'use ', 'package ', '$', '@', '%'] },
+  { language: 'bash', patterns: ['#!/bin/bash', 'echo ', 'for ', 'while ', 'if [', 'function '] },
+  // ... and more for all 10 languages
+];
+```
+
+#### Extended Docker Configurations
+```typescript
+export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
+  typescript: { extension: '.ts', baseImage: 'node:20-alpine', runCommand: 'npx tsx /app/code.ts' },
+  python: { extension: '.py', baseImage: 'python:3.11-alpine', runCommand: 'python /app/code.py' },
+  ruby: { extension: '.rb', baseImage: 'ruby:3.2-alpine', runCommand: 'ruby /app/code.rb' },
+  perl: { extension: '.pl', baseImage: 'perl:5.38-alpine', runCommand: 'perl /app/code.pl' },
+  bash: { extension: '.sh', baseImage: 'alpine:latest', runCommand: 'sh /app/code.sh' },
+  php: { extension: '.php', baseImage: 'php:8.2-alpine', runCommand: 'php /app/code.php' },
+  java: { extension: '.java', baseImage: 'openjdk:17-alpine', runCommand: 'javac /app/code.java && java -cp /app Main' },
+  rust: { extension: '.rs', baseImage: 'rust:1.75-alpine', runCommand: 'rustc /app/code.rs -o /app/code && /app/code' },
+  go: { extension: '.go', baseImage: 'golang:1.21-alpine', runCommand: 'go run /app/code.go' }
+};
+```
+
+#### Multi-Language Evaluation Pipeline
+```typescript
+const LANGUAGES = [
+  { name: 'typescript', prompt: 'i need a script that will give me at least 1042 distinct but made up show names...' },
+  { name: 'python', prompt: 'i need a script that will give me at least 1042 distinct but made up show names...' },
+  { name: 'ruby', prompt: 'i need a script that will give me at least 1042 distinct but made up show names...' },
+  // ... and more languages
+];
+
+// For each language, run the full evaluation pipeline
+for (const languageConfig of LANGUAGES) {
+  // PASS 1: Generate responses for this language
+  // PASS 2: Extract code for this language  
+  // PASS 3: Run code in Docker for this language
+  // PASS 4: Evaluate results for this language
+}
+```
+
+### Benefits Achieved
+1. **Unified Language Support**: Single extractor handles all programming languages
+2. **Automatic Language Detection**: Infers language from code content when not specified
+3. **Cross-Language Evaluation**: Test models across multiple programming languages
+4. **Comprehensive Reporting**: Compare performance across languages and models
+5. **Extensible Architecture**: Easy to add new languages and evaluation criteria
+6. **Language-Specific Processing**: Error fixing and optimization for each language
+
+### Files Created/Updated
+- **Created**: `src/evaluation/code-extractor.ts` - Generic code extractor for multi-language support
+- **Updated**: `src/evaluation/docker-runner.ts` - Extended with 10 programming languages
+- **Updated**: `src/evaluation/code-scorer.ts` - Updated for language-specific evaluation
+- **Created**: `scripts/multi-language-evaluation.ts` - Complete multi-language evaluation pipeline
+- **Created**: `scripts/test-multi-language.ts` - Quick test script for validation
+- **Created**: `src/evaluation/code-extractor.test.ts` - Comprehensive test suite
+- **Created**: `docs/multi-language-evaluation.md` - Complete documentation
+
+### Testing Results
+- **Code Extractor Tests**: 13/13 passing ✅
+- **Docker Runner Tests**: 10/11 passing, 1 skipped ✅
+- **Language Detection**: Working correctly for all 10 languages ✅
+- **Code Processing**: Error fixing and console output optimization working ✅
+
+### Supported Languages
+1. **TypeScript** - Full support with tsx execution
+2. **JavaScript** - Full support with node execution  
+3. **Python** - Full support with python execution
+4. **Ruby** - Full support with ruby execution
+5. **Perl** - Full support with perl execution
+6. **Bash** - Full support with sh execution
+7. **PHP** - Full support with php execution
+8. **Java** - Full support with javac/java execution
+9. **Rust** - Full support with rustc execution
+10. **Go** - Full support with go run execution
+
+---
+
 ## Thu Jun 26 20:15:00 UTC 2025 - AI-Powered Code Evaluation System & Typescript-Scorer Cleanup - COMPLETED ✅
 
 ### Summary

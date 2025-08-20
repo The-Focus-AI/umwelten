@@ -1,6 +1,6 @@
 import { EvaluationScorer } from './scorer.js';
 import { ModelResponse, ScoreResponse } from '../cognition/types.js';
-import { extractTypeScriptCode } from './typescript-code-extractor.js';
+import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from './code-extractor.js';
 import { DockerRunner } from './docker-runner.js';
 import { BaseModelRunner } from '../cognition/runner.js';
 import { Interaction } from '../interaction/interaction.js';
@@ -25,17 +25,19 @@ export interface CodeEvaluationResult {
 export class CodeScorer extends EvaluationScorer {
   private evaluationDir: string;
   private aiEvaluatorModel: string;
+  private customAnalysisDir?: string;
 
-  constructor(evaluationId: string, aiEvaluatorModel: string = 'gpt-oss:20b') {
+  constructor(evaluationId: string, aiEvaluatorModel: string = 'gpt-oss:20b', customAnalysisDir?: string) {
     super(evaluationId);
     this.evaluationDir = path.join(process.cwd(), 'output', 'evaluations', evaluationId);
     this.aiEvaluatorModel = aiEvaluatorModel;
+    this.customAnalysisDir = customAnalysisDir;
   }
 
   /**
    * Scores a code generation response using AI evaluation
    */
-  async scoreResponse(response: ModelResponse): Promise<ScoreResponse> {
+  async scoreResponse(response: ModelResponse, targetLanguage: string = 'typescript'): Promise<ScoreResponse> {
     const modelName = response.metadata.model;
     const result: CodeEvaluationResult = {
       modelName,
@@ -56,20 +58,26 @@ export class CodeScorer extends EvaluationScorer {
       const endTime = new Date(response.metadata.endTime);
       result.generationTimeMs = endTime.getTime() - startTime.getTime();
 
-      // 2. Extract code (supports TypeScript, but can be extended)
-      const extractedCode = extractTypeScriptCode(response.content);
+      // 2. Extract all code blocks and find the target language
+      const extracted = extractAllCodeBlocks(response.content);
+      const extractedCode = getCodeForLanguage(extracted, targetLanguage);
+      
       if (!extractedCode) {
-        result.errors.push('No code found in response');
+        result.errors.push(`No ${targetLanguage} code found in response. Available languages: ${extracted.blocks.map(b => b.language).join(', ')}`);
         return this.createScoreResponse(result);
       }
 
       result.codeExtractionSuccess = true;
       result.codeLength = extractedCode.length;
 
-      // 3. Run code in Docker container to test functionality
+      // 3. Fix common errors and ensure console output
+      let processedCode = fixCommonCodeErrors(extractedCode, targetLanguage);
+      processedCode = ensureConsoleOutput(processedCode, targetLanguage);
+
+      // 4. Run code in Docker container to test functionality
       const dockerResult = await DockerRunner.runCode({
-        code: extractedCode,
-        language: 'typescript',
+        code: processedCode,
+        language: targetLanguage,
         timeout: 30,
         modelName: result.modelName
       });
@@ -82,17 +90,17 @@ export class CodeScorer extends EvaluationScorer {
         result.errors.push(`Docker execution failed: ${dockerResult.error}`);
       }
 
-      // 4. Use AI to evaluate code quality
-      const aiEvaluation = await this.evaluateCodeWithAI(extractedCode, result.modelName);
+      // 5. Use AI to evaluate code quality
+      const aiEvaluation = await this.evaluateCodeWithAI(processedCode, targetLanguage, result.modelName);
       result.aiCodeQualityScore = aiEvaluation.score;
       result.aiCodeQualitySummary = aiEvaluation.summary;
       result.aiEvaluationResponse = aiEvaluation.fullResponse;
 
-      // 5. Calculate total score
+      // 6. Calculate total score
       result.totalScore = this.calculateTotalScore(result);
 
-      // 6. Save detailed analysis
-      await this.saveDetailedAnalysis(result, extractedCode);
+      // 7. Save detailed analysis
+      await this.saveDetailedAnalysis(result, processedCode);
 
     } catch (error) {
       result.errors.push(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
@@ -104,15 +112,15 @@ export class CodeScorer extends EvaluationScorer {
   /**
    * Uses AI to evaluate code quality
    */
-  private async evaluateCodeWithAI(code: string, originalModelName: string): Promise<{
+  private async evaluateCodeWithAI(code: string, language: string, originalModelName: string): Promise<{
     score: number;
     summary: string;
     fullResponse: string;
   }> {
-    const prompt = `Please evaluate this code on how clean it is and return a one sentence summary and a rating from 1 to 5 where 5 is best.
+    const prompt = `Please evaluate this ${language} code on how clean it is and return a one sentence summary and a rating from 1 to 5 where 5 is best.
 
 Code to evaluate:
-\`\`\`typescript
+\`\`\`${language}
 ${code}
 \`\`\`
 
@@ -295,6 +303,11 @@ Rating: 4`;
    * Saves detailed analysis to files
    */
   private async saveDetailedAnalysis(result: CodeEvaluationResult, code: string): Promise<void> {
+    // If custom analysis directory is provided, don't save analysis files
+    if (this.customAnalysisDir) {
+      return;
+    }
+    
     // Save AI evaluation details
     const analysisDir = path.join(this.evaluationDir, 'analysis', 'ai-evaluations');
     if (!fs.existsSync(analysisDir)) {

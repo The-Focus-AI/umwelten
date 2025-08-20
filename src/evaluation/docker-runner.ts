@@ -52,6 +52,32 @@ export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
     baseImage: 'python:3.11-alpine',
     runCommand: 'python /app/code.py'
   },
+  ruby: {
+    extension: '.rb',
+    baseImage: 'ruby:3.2-alpine',
+    runCommand: 'ruby /app/code.rb'
+  },
+  perl: {
+    extension: '.pl',
+    baseImage: 'perl:5.38-alpine',
+    runCommand: 'perl /app/code.pl'
+  },
+  bash: {
+    extension: '.sh',
+    baseImage: 'alpine:latest',
+    runCommand: 'sh /app/code.sh',
+    setupCommands: ['chmod +x /app/code.sh']
+  },
+  php: {
+    extension: '.php',
+    baseImage: 'php:8.2-alpine',
+    runCommand: 'php /app/code.php'
+  },
+  java: {
+    extension: '.java',
+    baseImage: 'openjdk:17-alpine',
+    runCommand: 'javac /app/code.java && java -cp /app Main'
+  },
   rust: {
     extension: '.rs',
     baseImage: 'rust:1.75-alpine',
@@ -127,15 +153,15 @@ export class DockerRunner {
     let dockerfile = `FROM ${langConfig.baseImage}\n`;
     dockerfile += `WORKDIR /app\n`;
     
-    // Add setup commands if any
+    // Copy code file first
+    dockerfile += `COPY code${langConfig.extension} .\n`;
+    
+    // Add setup commands after copying (for things like chmod)
     if (langConfig.setupCommands) {
       langConfig.setupCommands.forEach(cmd => {
         dockerfile += `RUN ${cmd}\n`;
       });
     }
-    
-    // Copy code file
-    dockerfile += `COPY code${langConfig.extension} .\n`;
     
     // Set run command
     dockerfile += `CMD ["sh", "-c", "${langConfig.runCommand}"]\n`;
