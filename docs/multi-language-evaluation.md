@@ -371,6 +371,23 @@ The Docker runner tests include comprehensive timeout testing:
 
 Timeout tests use 10-second vitest timeouts for 5-second internal timeouts to ensure proper testing.
 
+### Language-Specific Testing
+
+The Docker runner includes comprehensive tests for all major languages:
+
+- **TypeScript/JavaScript**: Basic execution, syntax errors, timeouts
+- **Python**: Basic execution and error handling
+- **Perl**: Basic execution with and without shebang lines
+- **Bash**: Basic execution, simple commands, timeouts
+- **Rust**: Basic execution and complex features (vectors, HashMap, Option/Result)
+- **Go**: Basic execution and complex features (structs, maps, goroutines)
+
+Each language test verifies:
+- Code compilation/interpretation
+- Expected output generation
+- Error handling for syntax errors
+- Timeout behavior where applicable
+
 ## Performance Considerations
 
 - **Docker Overhead**: Each language test requires building and running a Docker container

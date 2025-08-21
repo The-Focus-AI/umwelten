@@ -33,7 +33,8 @@ const OLLAMA_MODELS = [
   { name: 'devstral:24b', provider: 'ollama' },
   { name: 'mistral-small3.2:24b', provider: 'ollama' },
   { name: 'llama3.2:latest', provider: 'ollama' },
-  { name: 'qwen3-coder:latest', provider: 'ollama' }
+  { name: 'qwen3-coder:latest', provider: 'ollama' },
+  { name: 'codestral:latest', provider: 'ollama' }
 ] as const;
 
 const LANGUAGES = [
@@ -60,6 +61,16 @@ const LANGUAGES = [
   { 
     name: 'javascript', 
     prompt: 'i need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in javascript' 
+  },
+  {
+    name: 'go',
+    prompt: 'i need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in go'
+  },
+  {
+    name: 'rust',
+    prompt: 'i need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in rust'
+  },
+  {
   }
 ] as const;
 

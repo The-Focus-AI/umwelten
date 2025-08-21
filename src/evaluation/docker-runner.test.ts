@@ -490,6 +490,318 @@ echo "Simple test completed"
         expect(result.modelName).toBe('test-bash-simple');
       }
     }, 60000);
+
+    it('should handle Rust code execution', async () => {
+      const testCode = `
+fn main() {
+    println!("Hello from Rust!");
+    println!("Testing Docker runner");
+
+    // Test variables and data structures
+    let numbers = vec![1, 2, 3, 4, 5];
+    for num in &numbers {
+        println!("Number: {}", num);
+    }
+
+    // Test string manipulation
+    let message = "Rust is awesome!";
+    println!("Message: {}", message);
+
+    // Test basic arithmetic
+    let sum: i32 = numbers.iter().sum();
+    println!("Sum of numbers: {}", sum);
+
+    // Test conditional logic
+    if sum > 10 {
+        println!("Sum is greater than 10");
+    } else {
+        println!("Sum is 10 or less");
+    }
+
+    println!("Rust test completed");
+}
+      `.trim();
+
+      const result = await DockerRunner.runCode({
+        code: testCode,
+        language: 'rust',
+        timeout: 30,
+        modelName: 'test-rust'
+      });
+
+      console.log('Rust execution result:', {
+        success: result.success,
+        modelName: result.modelName,
+        outputLength: result.output?.length,
+        error: result.error,
+        exitCode: result.exitCode
+      });
+
+      if (result.success) {
+        expect(result.success).toBe(true);
+        expect(result.modelName).toBe('test-rust');
+        expect(result.output).toContain('Hello from Rust!');
+        expect(result.output).toContain('Testing Docker runner');
+        expect(result.output).toContain('Number: 1');
+        expect(result.output).toContain('Message: Rust is awesome!');
+        expect(result.output).toContain('Sum of numbers: 15');
+        expect(result.output).toContain('Sum is greater than 10');
+        expect(result.output).toContain('Rust test completed');
+      } else {
+        expect(result.success).toBe(false);
+        expect(result.error).toBeDefined();
+        expect(result.modelName).toBe('test-rust');
+        
+        // Log detailed error for debugging
+        console.log('Rust execution failed:', {
+          error: result.error,
+          output: result.output,
+          exitCode: result.exitCode
+        });
+      }
+    }, 60000);
+
+    it('should handle Go code execution', async () => {
+      const testCode = `
+package main
+
+import (
+    "fmt"
+    "strings"
+)
+
+func main() {
+    fmt.Println("Hello from Go!")
+    fmt.Println("Testing Docker runner")
+
+    // Test variables and slices
+    numbers := []int{1, 2, 3, 4, 5}
+    for _, num := range numbers {
+        fmt.Printf("Number: %d\\n", num)
+    }
+
+    // Test string manipulation
+    message := "Go is amazing!"
+    fmt.Printf("Message: %s\\n", message)
+
+    // Test basic arithmetic
+    sum := 0
+    for _, num := range numbers {
+        sum += num
+    }
+    fmt.Printf("Sum of numbers: %d\\n", sum)
+
+    // Test conditional logic
+    if sum > 10 {
+        fmt.Println("Sum is greater than 10")
+    } else {
+        fmt.Println("Sum is 10 or less")
+    }
+
+    // Test string functions
+    words := strings.Split("Go programming language", " ")
+    fmt.Printf("Words: %v\\n", words)
+
+    fmt.Println("Go test completed")
+}
+      `.trim();
+
+      const result = await DockerRunner.runCode({
+        code: testCode,
+        language: 'go',
+        timeout: 30,
+        modelName: 'test-go'
+      });
+
+      console.log('Go execution result:', {
+        success: result.success,
+        modelName: result.modelName,
+        outputLength: result.output?.length,
+        error: result.error,
+        exitCode: result.exitCode
+      });
+
+      if (result.success) {
+        expect(result.success).toBe(true);
+        expect(result.modelName).toBe('test-go');
+        expect(result.output).toContain('Hello from Go!');
+        expect(result.output).toContain('Testing Docker runner');
+        expect(result.output).toContain('Number: 1');
+        expect(result.output).toContain('Message: Go is amazing!');
+        expect(result.output).toContain('Sum of numbers: 15');
+        expect(result.output).toContain('Sum is greater than 10');
+        expect(result.output).toContain('Words: [Go programming language]');
+        expect(result.output).toContain('Go test completed');
+      } else {
+        expect(result.success).toBe(false);
+        expect(result.error).toBeDefined();
+        expect(result.modelName).toBe('test-go');
+        
+        // Log detailed error for debugging
+        console.log('Go execution failed:', {
+          error: result.error,
+          output: result.output,
+          exitCode: result.exitCode
+        });
+      }
+    }, 60000);
+
+    it('should handle Rust with more complex features', async () => {
+      const testCode = `
+use std::collections::HashMap;
+
+fn main() {
+    println!("Rust complex features test");
+
+    // Test vectors and iterators
+    let mut numbers = vec![1, 2, 3, 4, 5];
+    numbers.push(6);
+    
+    let doubled: Vec<i32> = numbers.iter().map(|x| x * 2).collect();
+    println!("Doubled numbers: {:?}", doubled);
+
+    // Test HashMap
+    let mut scores = HashMap::new();
+    scores.insert("Alice", 100);
+    scores.insert("Bob", 85);
+    scores.insert("Charlie", 92);
+
+    for (name, score) in &scores {
+        println!("{}: {}", name, score);
+    }
+
+    // Test Option and Result
+    let maybe_number: Option<i32> = Some(42);
+    match maybe_number {
+        Some(n) => println!("Got number: {}", n),
+        None => println!("No number found"),
+    }
+
+    // Test string formatting
+    let name = "Rust";
+    let version = "1.75";
+    println!("{} version {}", name, version);
+
+    println!("Complex Rust test completed");
+}
+      `.trim();
+
+      const result = await DockerRunner.runCode({
+        code: testCode,
+        language: 'rust',
+        timeout: 30,
+        modelName: 'test-rust-complex'
+      });
+
+      console.log('Rust complex test result:', {
+        success: result.success,
+        modelName: result.modelName,
+        outputLength: result.output?.length,
+        error: result.error
+      });
+
+      if (result.success) {
+        expect(result.success).toBe(true);
+        expect(result.modelName).toBe('test-rust-complex');
+        expect(result.output).toContain('Rust complex features test');
+        expect(result.output).toContain('Doubled numbers: [2, 4, 6, 8, 10, 12]');
+        expect(result.output).toContain('Alice: 100');
+        expect(result.output).toContain('Got number: 42');
+        expect(result.output).toContain('Rust version 1.75');
+        expect(result.output).toContain('Complex Rust test completed');
+      } else {
+        expect(result.success).toBe(false);
+        expect(result.error).toBeDefined();
+        expect(result.modelName).toBe('test-rust-complex');
+      }
+    }, 60000);
+
+    it('should handle Go with more complex features', async () => {
+      const testCode = `
+package main
+
+import (
+    "fmt"
+    "sort"
+)
+
+type Person struct {
+    Name string
+    Age  int
+}
+
+func main() {
+    fmt.Println("Go complex features test")
+
+    // Test slices and functions
+    numbers := []int{3, 1, 4, 1, 5, 9, 2, 6}
+    sort.Ints(numbers)
+    fmt.Printf("Sorted numbers: %v\\n", numbers)
+
+    // Test structs
+    people := []Person{
+        {"Alice", 30},
+        {"Bob", 25},
+        {"Charlie", 35},
+    }
+
+    for _, person := range people {
+        fmt.Printf("%s is %d years old\\n", person.Name, person.Age)
+    }
+
+    // Test maps
+    colors := map[string]string{
+        "red":   "#FF0000",
+        "green": "#00FF00",
+        "blue":  "#0000FF",
+    }
+
+    for color, hex := range colors {
+        fmt.Printf("%s: %s\\n", color, hex)
+    }
+
+    // Test goroutines (simple example)
+    fmt.Println("Starting goroutine test")
+    done := make(chan bool)
+    go func() {
+        fmt.Println("Hello from goroutine!")
+        done <- true
+    }()
+    <-done
+
+    fmt.Println("Complex Go test completed")
+}
+      `.trim();
+
+      const result = await DockerRunner.runCode({
+        code: testCode,
+        language: 'go',
+        timeout: 30,
+        modelName: 'test-go-complex'
+      });
+
+      console.log('Go complex test result:', {
+        success: result.success,
+        modelName: result.modelName,
+        outputLength: result.output?.length,
+        error: result.error
+      });
+
+      if (result.success) {
+        expect(result.success).toBe(true);
+        expect(result.modelName).toBe('test-go-complex');
+        expect(result.output).toContain('Go complex features test');
+        expect(result.output).toContain('Sorted numbers: [1 1 2 3 4 5 6 9]');
+        expect(result.output).toContain('Alice is 30 years old');
+        expect(result.output).toContain('red: #FF0000');
+        expect(result.output).toContain('Hello from goroutine!');
+        expect(result.output).toContain('Complex Go test completed');
+      } else {
+        expect(result.success).toBe(false);
+        expect(result.error).toBeDefined();
+        expect(result.modelName).toBe('test-go-complex');
+      }
+    }, 60000);
   });
 
   describe('language configurations', () => {
