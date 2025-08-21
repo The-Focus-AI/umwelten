@@ -21,8 +21,8 @@ The system currently supports the following programming languages:
 | JavaScript | `.js` | `node:20-alpine` | ✅ Supported |
 | Python | `.py` | `python:3.11-alpine` | ✅ Supported |
 | Ruby | `.rb` | `ruby:3.2-alpine` | ✅ Supported |
-| Perl | `.pl` | `perl:5.38-alpine` | ✅ Supported |
-| Bash | `.sh` | `alpine:latest` | ✅ Supported |
+| Perl | `.pl` | `perl:5.42` | ✅ Supported |
+| Bash | `.sh` | `bash:latest` | ✅ Supported |
 | PHP | `.php` | `php:8.2-alpine` | ✅ Supported |
 | Java | `.java` | `openjdk:17-alpine` | ✅ Supported |
 | Rust | `.rs` | `rust:1.75-alpine` | ✅ Supported |
@@ -41,6 +41,28 @@ The generic code extractor can:
 - Fix common syntax errors across languages
 - Ensure code outputs to console instead of files
 
+### Docker Runner (`src/evaluation/docker-runner.ts`)
+
+The Docker runner has been extended to support multiple languages with robust timeout handling:
+
+- **Timeout Script**: Uses a dedicated `timeout.sh` script inside Docker containers
+- **Language-Specific Timeouts**: Bash scripts use 5-second timeout, others use 30 seconds
+- **Proper Error Handling**: Detects timeout conditions and provides clear error messages
+- **Container Cleanup**: Automatically cleans up Docker containers and images
+- **Multi-Language Support**: Supports all major programming languages with appropriate Docker images
+
+#### Timeout Implementation
+
+The timeout system works as follows:
+
+1. **Timeout Script Creation**: A `timeout.sh` script is created for each Docker container
+2. **Script Parameters**: The script takes timeout duration and command as parameters
+3. **Execution**: The script runs the command with the specified timeout using the system `timeout` command
+4. **Error Detection**: Exit code 124 indicates timeout, which is caught and reported
+5. **Clean Error Messages**: Timeout errors show "Execution timed out after X seconds"
+
+This approach ensures reliable timeout handling across all supported languages and prevents hanging containers.
+
 ```typescript
 import { extractAllCodeBlocks, getCodeForLanguage } from '../src/evaluation/code-extractor.js';
 
@@ -52,10 +74,6 @@ const typescriptCode = getCodeForLanguage(extracted, 'typescript');
 const pythonCode = getCodeForLanguage(extracted, 'python');
 ```
 
-### Docker Runner (`src/evaluation/docker-runner.ts`)
-
-The Docker runner has been extended to support multiple languages:
-
 ```typescript
 import { DockerRunner } from '../src/evaluation/docker-runner.js';
 
@@ -66,6 +84,10 @@ const result = await DockerRunner.runCode({
   timeout: 30,
   modelName: 'test-model'
 });
+
+// The timeout is automatically adjusted based on language:
+// - Bash: 5 seconds (due to common AI-generated script issues)
+// - Other languages: 30 seconds (or custom value)
 ```
 
 ### Code Scorer (`src/evaluation/code-scorer.ts`)
@@ -82,6 +104,20 @@ const score = await scorer.scoreResponse(response, 'typescript');
 ```
 
 ## Usage
+
+### Supported Models
+
+The evaluation currently supports 9 Ollama models:
+
+- `gpt-oss:20b` - GPT-4 Open Source alternative
+- `gemma3:12b` - Google's Gemma 3 12B parameter model
+- `gemma3:27b` - Google's Gemma 3 27B parameter model
+- `deepseek-r1:32b` - DeepSeek's reasoning model
+- `devstral:24b` - DevStral coding model
+- `mistral-small3.2:24b` - Mistral's small model
+- `llama3.2:latest` - Meta's latest Llama model
+- `qwen3-coder:latest` - Alibaba's coding model
+- `phi4-reasoning:latest` - Microsoft's reasoning model
 
 ### Quick Test
 
@@ -101,7 +137,27 @@ Run a comprehensive evaluation across all supported languages:
 pnpm tsx scripts/multi-language-evaluation.ts
 ```
 
-This will test 7 Ollama models across 6 programming languages with the show names generation task.
+This will test 9 Ollama models across 6 programming languages with the show names generation task.
+
+### Language-Specific Evaluation
+
+Run evaluation for a specific language only:
+
+```bash
+# Evaluate only bash
+pnpm tsx scripts/multi-language-evaluation.ts bash
+
+# Evaluate only perl
+pnpm tsx scripts/multi-language-evaluation.ts perl
+
+# Evaluate only typescript
+pnpm tsx scripts/multi-language-evaluation.ts typescript
+```
+
+This is useful for:
+- Testing specific languages without running the full evaluation
+- Debugging language-specific issues
+- Quick iteration on language-specific improvements
 
 ### Custom Evaluation
 
@@ -297,19 +353,34 @@ Run the test suite to verify everything works:
 # Test the code extractor
 pnpm test:run src/evaluation/code-extractor.test.ts
 
-# Test the Docker runner
+# Test the Docker runner (includes timeout tests)
 pnpm test:run src/evaluation/docker-runner.test.ts
 
 # Test the full evaluation framework
 pnpm test:run src/evaluation/code-scorer.test.ts
 ```
 
+### Timeout Testing
+
+The Docker runner tests include comprehensive timeout testing:
+
+- **Fast Execution**: Tests that quick scripts complete without timeout
+- **Timeout Detection**: Tests that infinite loops are properly timed out
+- **Error Messages**: Verifies correct timeout error messages
+- **Language-Specific**: Tests timeout behavior for different languages
+
+Timeout tests use 10-second vitest timeouts for 5-second internal timeouts to ensure proper testing.
+
 ## Performance Considerations
 
 - **Docker Overhead**: Each language test requires building and running a Docker container
-- **Timeout Settings**: Adjust timeouts based on language complexity (e.g., longer for Java/Rust compilation)
+- **Timeout Settings**: 
+  - Bash scripts: 5 seconds (fast timeout due to common issues with AI-generated bash)
+  - Other languages: 30 seconds (standard timeout)
+  - Timeouts are handled by a dedicated timeout script inside Docker containers
 - **Resource Usage**: Monitor memory and CPU usage during large evaluations
 - **Caching**: Responses are cached to avoid regenerating the same content
+- **Language-Specific Processing**: Use language-specific evaluation to reduce processing time
 
 ## Troubleshooting
 
@@ -317,8 +388,12 @@ pnpm test:run src/evaluation/code-scorer.test.ts
 
 1. **Docker Build Failures**: Ensure Docker is running and has sufficient resources
 2. **Language Detection Errors**: Check that language patterns are correctly defined
-3. **Timeout Issues**: Increase timeout values for complex languages
+3. **Timeout Issues**: 
+   - Bash scripts timeout after 5 seconds due to common AI-generated script issues
+   - Other languages use 30-second timeout
+   - Timeout errors show "Execution timed out after X seconds"
 4. **Permission Errors**: Ensure Docker has proper permissions to create containers
+5. **Language-Specific Failures**: Use language-specific evaluation to isolate issues
 
 ### Debug Mode
 
@@ -335,3 +410,6 @@ DEBUG=umwelten:* pnpm tsx scripts/multi-language-evaluation.ts
 - **Performance Benchmarking**: Language-specific performance metrics
 - **Code Quality Metrics**: Language-specific code quality assessment
 - **Integration Testing**: Test code that interacts with external systems
+- **Additional Models**: Support for more Ollama models and other providers
+- **Enhanced Timeout Handling**: More granular timeout controls per language and model
+- **Real-time Progress**: Live progress indicators during long evaluations

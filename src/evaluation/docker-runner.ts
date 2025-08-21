@@ -59,13 +59,13 @@ export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
   },
   perl: {
     extension: '.pl',
-    baseImage: 'perl:5.38-alpine',
+    baseImage: 'perl:5.42',
     runCommand: 'perl /app/code.pl'
   },
   bash: {
     extension: '.sh',
-    baseImage: 'alpine:latest',
-    runCommand: 'sh /app/code.sh',
+    baseImage: 'bash:latest',
+    runCommand: 'bash /app/code.sh',
     setupCommands: ['chmod +x /app/code.sh']
   },
   php: {
@@ -119,8 +119,28 @@ export class DockerRunner {
       // Write code to file
       await fs.promises.writeFile(codeFile, code);
       
+      // Create timeout script
+      const timeoutScript = `#!/bin/sh
+# Timeout script
+TIMEOUT_SECONDS="$1"
+shift
+COMMAND="$@"
+
+# Run command with timeout
+timeout "$TIMEOUT_SECONDS" sh -c "$COMMAND"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 124 ]; then
+  echo "Execution timed out after $TIMEOUT_SECONDS seconds" >&2
+  exit 124
+fi
+
+exit $EXIT_CODE
+`;
+      await fs.promises.writeFile(path.join(tempDir, 'timeout.sh'), timeoutScript);
+      
       // Create Dockerfile
-      const dockerfile = this.generateDockerfile(langConfig);
+      const dockerfile = this.generateDockerfile(langConfig, timeout);
       await fs.promises.writeFile(path.join(tempDir, 'Dockerfile'), dockerfile);
       
       // Build and run Docker container
@@ -149,12 +169,16 @@ export class DockerRunner {
   /**
    * Generates a Dockerfile for the given language configuration
    */
-  private static generateDockerfile(langConfig: LanguageConfig): string {
+  private static generateDockerfile(langConfig: LanguageConfig, timeout: number): string {
     let dockerfile = `FROM ${langConfig.baseImage}\n`;
     dockerfile += `WORKDIR /app\n`;
     
     // Copy code file first
     dockerfile += `COPY code${langConfig.extension} .\n`;
+    
+    // Copy timeout script
+    dockerfile += `COPY timeout.sh .\n`;
+    dockerfile += `RUN chmod +x /app/timeout.sh\n`;
     
     // Add setup commands after copying (for things like chmod)
     if (langConfig.setupCommands) {
@@ -163,8 +187,8 @@ export class DockerRunner {
       });
     }
     
-    // Set run command
-    dockerfile += `CMD ["sh", "-c", "${langConfig.runCommand}"]\n`;
+    // Use timeout script to run the command
+    dockerfile += `CMD ["/app/timeout.sh", "${timeout}", "${langConfig.runCommand}"]\n`;
     
     return dockerfile;
   }
@@ -189,8 +213,8 @@ export class DockerRunner {
         };
       }
       
-      // Run Docker container with timeout
-      const runCommand = `timeout ${timeout} docker run --rm --name ${containerName}-run ${containerName}`;
+      // Run Docker container (timeout is handled inside the container)
+      const runCommand = `docker run --rm --name ${containerName}-run ${containerName}`;
       const runResult = await execAsync(runCommand);
       
       return {
@@ -201,24 +225,24 @@ export class DockerRunner {
       };
       
     } catch (error: any) {
-      // Check if it's a timeout
-      if (error.code === 124) {
-              return {
-        success: false,
-        error: `Execution timed out after ${timeout} seconds`,
-        modelName
-      };
+      // Check if it's a timeout (exit code 124 for timeout command, or Docker timeout)
+      if (error.code === 124 || error.stderr?.includes('timeout') || error.stderr?.includes('killed') || error.stderr?.includes('Terminated')) {
+        return {
+          success: false,
+          error: `Execution timed out after ${timeout} seconds`,
+          modelName
+        };
       }
       
       // Check if it's a Docker run error (non-zero exit code)
       if (error.stdout || error.stderr) {
-              return {
-        success: false,
-        output: error.stdout,
-        error: error.stderr,
-        exitCode: error.code,
-        modelName
-      };
+        return {
+          success: false,
+          output: error.stdout,
+          error: error.stderr,
+          exitCode: error.code,
+          modelName
+        };
       }
       
       return {
@@ -228,8 +252,11 @@ export class DockerRunner {
       };
       
     } finally {
-      // Clean up Docker image
+      // Clean up Docker image and any running containers
       try {
+        // Force stop any running containers with this name
+        await execAsync(`docker stop ${containerName}-run 2>/dev/null || true`);
+        await execAsync(`docker rm ${containerName}-run 2>/dev/null || true`);
         await execAsync(`docker rmi ${containerName} 2>/dev/null || true`);
       } catch {
         // Ignore cleanup errors

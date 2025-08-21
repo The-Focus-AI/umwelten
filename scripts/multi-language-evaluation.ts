@@ -19,6 +19,10 @@ import { Interaction } from '../src/interaction/interaction.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from '../src/evaluation/code-extractor.js';
 import { DockerRunner } from '../src/evaluation/docker-runner.js';
 import { CodeScorer } from '../src/evaluation/code-scorer.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 // Configuration
 const OLLAMA_MODELS = [
@@ -85,17 +89,32 @@ interface LanguageResult {
 async function main() {
   const overallStartTime = Date.now();
   
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  const targetLanguage = args[0]?.toLowerCase();
+  
+  // Filter languages if a specific language is requested
+  const languagesToEvaluate = targetLanguage 
+    ? LANGUAGES.filter(lang => lang.name === targetLanguage)
+    : LANGUAGES;
+  
+  if (targetLanguage && languagesToEvaluate.length === 0) {
+    console.error(`❌ Language '${targetLanguage}' not found. Available languages:`);
+    console.error(`   ${LANGUAGES.map(l => l.name).join(', ')}`);
+    process.exit(1);
+  }
+  
   console.log('🚀 Starting Multi-Language Evaluation Pipeline');
   console.log('='.repeat(60));
   console.log(`🤖 Models: ${OLLAMA_MODELS.length} Ollama models`);
-  console.log(`🌐 Languages: ${LANGUAGES.length} programming languages`);
+  console.log(`🌐 Languages: ${languagesToEvaluate.length} programming languages${targetLanguage ? ` (${targetLanguage} only)` : ''}`);
   console.log(`📁 Workdir: ${WORKDIR}`);
   console.log();
 
   const results: LanguageResult[] = [];
 
   // For each language, run the full evaluation pipeline
-  for (const languageConfig of LANGUAGES) {
+  for (const languageConfig of languagesToEvaluate) {
     console.log(`\n🌐 Evaluating ${languageConfig.name.toUpperCase()}...`);
     console.log('='.repeat(40));
     
@@ -242,9 +261,30 @@ async function extractCodeFromResponses(results: ModelResult[], language: string
 }
 
 /**
+ * Clean up any hanging Docker containers
+ */
+async function cleanupDockerContainers() {
+  try {
+    // Stop any running containers
+    await execAsync('docker ps -q | xargs -r docker stop');
+    // Remove any stopped containers
+    await execAsync('docker ps -aq | xargs -r docker rm');
+    console.log('  🧹 Cleaned up Docker containers');
+  } catch (error) {
+    console.log('  ⚠️  Docker cleanup failed (this is normal if no containers were running)');
+  }
+}
+
+/**
  * PASS 3: Run code in Docker containers for a specific language
  */
 async function runCodeInDockerContainers(results: ModelResult[], language: string) {
+  // Clean up any hanging containers before starting
+  await cleanupDockerContainers();
+  
+  // For bash scripts, use a very short timeout to prevent hanging
+  const timeout = language === 'bash' ? 5 : 30;
+  
   for (const result of results) {
     if (!result.extractedCode) {
       console.log(`  ⚠️  Skipping ${result.modelName} - no code extracted`);
@@ -260,7 +300,7 @@ async function runCodeInDockerContainers(results: ModelResult[], language: strin
       const dockerResult = await DockerRunner.runCode({
         code: result.extractedCode,
         language: language,
-        timeout: 30,
+        timeout: timeout,
         modelName: result.modelName
       });
       
@@ -285,8 +325,13 @@ async function runCodeInDockerContainers(results: ModelResult[], language: strin
       
     } catch (error) {
       console.error(`    ❌ Error running Docker for ${result.modelName}:`, error);
+      // Clean up after errors
+      await cleanupDockerContainers();
     }
   }
+  
+  // Final cleanup after all executions
+  await cleanupDockerContainers();
 }
 
 /**
