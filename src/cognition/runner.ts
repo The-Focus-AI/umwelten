@@ -441,7 +441,7 @@ export class BaseModelRunner implements ModelRunner {
 
       const response = await streamObject(streamOptions);
 
-      return this.makeResult({
+      const result = this.makeResult({
         response,
         content: String(await response.object),
         usage: response.usage,
@@ -449,6 +449,8 @@ export class BaseModelRunner implements ModelRunner {
         startTime,
         modelIdString,
       });
+      
+      return result;
     } catch (err) {
       this.handleError(err, modelIdString, "streamObject");
     }
