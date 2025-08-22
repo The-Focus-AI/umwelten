@@ -69,8 +69,6 @@ const LANGUAGES = [
   {
     name: 'rust',
     prompt: 'i need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in rust'
-  },
-  {
   }
 ] as const;
 
@@ -331,7 +329,13 @@ async function runCodeInDockerContainers(results: ModelResult[], language: strin
         const distinctLines = new Set(dockerResult.output?.split('\n').filter(line => line.trim().length > 0)).size;
         console.log(`    ✅ Docker execution successful (${outputLines} lines, ${distinctLines} unique, ${dockerResult.output?.length || 0} chars) in ${result.timing!.dockerTime}ms`);
       } else {
-        console.log(`    ❌ Docker execution failed: ${dockerResult.error} (${result.timing!.dockerTime}ms)`);
+        // Limit error output to first 20 lines for console display
+        const errorMessage = dockerResult.error || 'Unknown error';
+        const errorLines = errorMessage.split('\n');
+        const limitedError = errorLines.length > 20 
+          ? errorLines.slice(0, 20).join('\n') + `\n... (${errorLines.length - 20} more lines)`
+          : errorMessage;
+        console.log(`    ❌ Docker execution failed: ${limitedError} (${result.timing!.dockerTime}ms)`);
       }
       
     } catch (error) {
@@ -551,7 +555,12 @@ function generateLanguageSpecificReport(languageResult: LanguageResult): string 
       } else if (!result.extractedCode) {
         report += `- **Error:** No ${language} code extracted\n\n`;
       } else if (result.score?.error) {
-        report += `- **Error:** ${result.score.error}\n\n`;
+        // Limit error output to first 20 lines
+        const errorLines = result.score.error.split('\n');
+        const limitedError = errorLines.length > 20 
+          ? errorLines.slice(0, 20).join('\n') + `\n... (${errorLines.length - 20} more lines)`
+          : result.score.error;
+        report += `- **Error:** ${limitedError}\n\n`;
       } else if (result.score?.aiCodeQualitySummary) {
         report += `- **AI Summary:** ${result.score.aiCodeQualitySummary}\n\n`;
       }
@@ -625,6 +634,7 @@ function generateComprehensiveCrossLanguageReport(results: LanguageResult[]): st
         report += `- **Output Length:** ${result.score?.outputLength} characters\n`;
         report += `- **Response Time:** ${result.score?.timing?.responseTime || 0}ms\n`;
         report += `- **AI Code Quality:** ${result.score?.aiCodeQualityScore || 0}/5\n`;
+        report += `- **AI Summary:** ${result.score?.aiCodeQualitySummary || 'No AI evaluation'}\n`;
         report += `- **Total Score:** ${result.score?.totalScore || 0}\n\n`;
       }
     }
@@ -637,9 +647,15 @@ function generateComprehensiveCrossLanguageReport(results: LanguageResult[]): st
         report += `- **Has Extracted Code:** ${result.extractedCode ? '✅' : '❌'}\n`;
         report += `- **Response Time:** ${result.score?.timing?.responseTime || 0}ms\n`;
         report += `- **AI Code Quality:** ${result.score?.aiCodeQualityScore || 0}/5\n`;
+        report += `- **AI Summary:** ${result.score?.aiCodeQualitySummary || 'No AI evaluation'}\n`;
         report += `- **Total Score:** ${result.score?.totalScore || 0}\n`;
         if (result.score?.error) {
-          report += `- **Error:** ${result.score.error}\n`;
+          // Limit error output to first 20 lines
+          const errorLines = result.score.error.split('\n');
+          const limitedError = errorLines.length > 20 
+            ? errorLines.slice(0, 20).join('\n') + `\n... (${errorLines.length - 20} more lines)`
+            : result.score.error;
+          report += `- **Error:** ${limitedError}\n`;
         }
         report += `\n`;
       }
