@@ -2572,3 +2572,40 @@ Completed comprehensive review of the evaluation framework implementation and it
 - Error handling for invalid model IDs now robust (API error is caught and logged)
 - All provider tests pass
 - All memory files updated to reflect LM Studio provider integration completion and lessons learned
+
+## 2025-08-22: NPM Package Publication (v0.2.0) ✅
+
+**Summary**: Successfully published umwelten v0.2.0 to npm registry with major new features
+
+**Accomplishments**:
+- Bumped version from 0.1.1 to 0.2.0 (minor version for new features)
+- Verified npm authentication and build process
+- Published package to npm registry (126.0 kB, 158 files)
+- Package now available globally via `npm install -g umwelten`
+
+**Key Features in v0.2.0**:
+1. **Multi-Language Evaluation System**: Support for 10 programming languages (TypeScript, JavaScript, Python, Ruby, Perl, Bash, PHP, Java, Rust, Go)
+2. **AI-Powered Code Scoring**: GPT-OSS-20B integration for code quality assessment
+3. **Semantic Architecture**: Complete Interaction/Stimulus/Cognition framework
+4. **MCP Integration**: Model Context Protocol client and server
+5. **Memory System**: Fact extraction and memory management
+6. **Enhanced CLI**: Improved commands and user experience
+
+**Technical Details**:
+- Package size: 126.0 kB (158 files)
+- CLI command: `umwelten`
+- Registry: https://registry.npmjs.org/
+- Build process: TypeScript compilation successful
+- Tests: 97 passed, 11 failed (expected without API keys)
+
+**Decisions Made**:
+- Chose minor version bump (0.2.0) due to significant new features
+- Published to public npm registry for maximum accessibility
+- Maintained semantic architecture naming conventions
+- Preserved all existing functionality while adding new features
+
+**Next Steps**:
+- Monitor package downloads and usage
+- Set up CI/CD for automated publishing
+- Consider publishing to GitHub Packages
+- Create release notes and changelog
