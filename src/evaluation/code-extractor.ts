@@ -89,7 +89,8 @@ function normalizeLanguage(language: string): string {
     'php': 'php',
     'java': 'java',
     'go': 'go',
-    'rust': 'rust'
+    'rust': 'rust',
+    'swift': 'swift'
   };
   
   return languageMap[language.toLowerCase()] || language.toLowerCase();
@@ -111,7 +112,8 @@ function inferLanguageFromCode(code: string): string {
     { language: 'php', patterns: ['<?php', 'function ', 'echo ', 'class ', 'public ', 'private '] },
     { language: 'java', patterns: ['public class', 'public static void main', 'System.out.println', 'import java'] },
     { language: 'go', patterns: ['package main', 'func ', 'import ', 'fmt.Println', 'var ', 'type '] },
-    { language: 'rust', patterns: ['fn ', 'let ', 'println!', 'use ', 'struct ', 'impl '] }
+    { language: 'rust', patterns: ['fn ', 'let ', 'println!', 'use ', 'struct ', 'impl '] },
+    { language: 'swift', patterns: ['func ', 'var ', 'let ', 'print(', 'import ', 'class ', 'struct ', 'enum ', 'protocol '] }
   ];
   
   const scores: Record<string, number> = {};
@@ -207,6 +209,13 @@ export function fixCommonCodeErrors(code: string, language: string): string {
         fixedCode = '#!/bin/bash\n' + fixedCode;
       }
       break;
+      
+    case 'swift':
+      // Fix print statements
+      fixedCode = fixedCode.replace(/print\s+([^()\n]+)/g, 'print($1)');
+      // Fix string interpolation
+      fixedCode = fixedCode.replace(/\$\{([^}]+)\}/g, '\\($1)');
+      break;
   }
   
   return fixedCode;
@@ -250,6 +259,13 @@ export function ensureConsoleOutput(code: string, language: string): string {
     case 'perl':
       // Remove file writing operations
       modifiedCode = modifiedCode.replace(/open\([^)]+\)/g, '# File writing removed');
+      break;
+      
+    case 'swift':
+      // Remove file writing operations
+      modifiedCode = modifiedCode.replace(/try\s+String\(contentsOfFile:[^)]+\)/g, '# File writing removed');
+      modifiedCode = modifiedCode.replace(/try\s+[^)]+\.write\(toFile:[^)]+\)/g, '# File writing removed');
+      modifiedCode = modifiedCode.replace(/\.write\(toFile:[^)]+\)/g, '# File writing removed');
       break;
   }
   

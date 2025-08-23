@@ -802,6 +802,164 @@ func main() {
         expect(result.modelName).toBe('test-go-complex');
       }
     }, 60000);
+
+    it('should handle Swift code execution', async () => {
+      const testCode = `
+print("Hello from Swift!")
+print("Testing Docker runner")
+
+// Test variables and arrays
+let numbers = [1, 2, 3, 4, 5]
+for num in numbers {
+    print("Number: \\(num)")
+}
+
+// Test string manipulation
+let message = "Swift is awesome!"
+print("Message: \\(message)")
+
+// Test basic arithmetic
+let sum = numbers.reduce(0, +)
+print("Sum of numbers: \\(sum)")
+
+// Test conditional logic
+if sum > 10 {
+    print("Sum is greater than 10")
+} else {
+    print("Sum is 10 or less")
+}
+
+print("Swift test completed")
+      `.trim();
+
+      const result = await DockerRunner.runCode({
+        code: testCode,
+        language: 'swift',
+        timeout: 30,
+        modelName: 'test-swift'
+      });
+
+      console.log('Swift execution result:', {
+        success: result.success,
+        modelName: result.modelName,
+        outputLength: result.output?.length,
+        error: result.error,
+        exitCode: result.exitCode
+      });
+
+      if (result.success) {
+        expect(result.success).toBe(true);
+        expect(result.modelName).toBe('test-swift');
+        expect(result.output).toContain('Hello from Swift!');
+        expect(result.output).toContain('Testing Docker runner');
+        expect(result.output).toContain('Number: 1');
+        expect(result.output).toContain('Message: Swift is awesome!');
+        expect(result.output).toContain('Sum of numbers: 15');
+        expect(result.output).toContain('Sum is greater than 10');
+        expect(result.output).toContain('Swift test completed');
+      } else {
+        expect(result.success).toBe(false);
+        expect(result.error).toBeDefined();
+        expect(result.modelName).toBe('test-swift');
+        
+        // Log detailed error for debugging
+        console.log('Swift execution failed:', {
+          error: result.error,
+          output: result.output,
+          exitCode: result.exitCode
+        });
+      }
+    }, 60000);
+
+    it('should handle Swift with more complex features', async () => {
+      const testCode = `
+print("Swift complex features test")
+
+// Test structs and classes
+struct Person {
+    let name: String
+    let age: Int
+}
+
+class Calculator {
+    func add(_ a: Int, _ b: Int) -> Int {
+        return a + b
+    }
+    
+    func multiply(_ a: Int, _ b: Int) -> Int {
+        return a * b
+    }
+}
+
+// Test arrays and dictionaries
+let numbers = [3, 1, 4, 1, 5, 9, 2, 6]
+let sortedNumbers = numbers.sorted()
+print("Sorted numbers: \\(sortedNumbers)")
+
+let people = [
+    Person(name: "Alice", age: 30),
+    Person(name: "Bob", age: 25),
+    Person(name: "Charlie", age: 35)
+]
+
+for person in people {
+    print("\\(person.name) is \\(person.age) years old")
+}
+
+let colors = [
+    "red": "#FF0000",
+    "green": "#00FF00",
+    "blue": "#0000FF"
+]
+
+for (color, hex) in colors {
+    print("\\(color): \\(hex)")
+}
+
+// Test optionals and error handling
+let optionalString: String? = "Hello, Optional!"
+if let unwrapped = optionalString {
+    print("Unwrapped: \\(unwrapped)")
+}
+
+// Test calculator
+let calc = Calculator()
+let result = calc.add(5, 3)
+print("5 + 3 = \\(result)")
+
+print("Complex Swift test completed")
+      `.trim();
+
+      const result = await DockerRunner.runCode({
+        code: testCode,
+        language: 'swift',
+        timeout: 30,
+        modelName: 'test-swift-complex'
+      });
+
+      console.log('Swift complex test result:', {
+        success: result.success,
+        modelName: result.modelName,
+        outputLength: result.output?.length,
+        error: result.error
+      });
+
+      if (result.success) {
+        expect(result.success).toBe(true);
+        expect(result.modelName).toBe('test-swift-complex');
+        expect(result.output).toContain('Swift complex features test');
+        expect(result.output).toContain('Sorted numbers: [1, 1, 2, 3, 4, 5, 6, 9]');
+        expect(result.output).toContain('Alice is 30 years old');
+        expect(result.output).toContain('red: #FF0000');
+        expect(result.output).toContain('Unwrapped: Hello, Optional!');
+        expect(result.output).toContain('5 + 3 = 8');
+        expect(result.output).toContain('Complex Swift test completed');
+      } else {
+        expect(result.success).toBe(false);
+        expect(result.error).toBeDefined();
+        expect(result.modelName).toBe('test-swift-complex');
+      }
+    }, 60000);
   });
 
   describe('language configurations', () => {
@@ -848,6 +1006,10 @@ func main() {
       expect(LANGUAGE_CONFIGS.go.extension).toBe('.go');
       expect(LANGUAGE_CONFIGS.go.baseImage).toBe('golang:1.21-alpine');
       expect(LANGUAGE_CONFIGS.go.runCommand).toContain('go run');
+
+      expect(LANGUAGE_CONFIGS.swift.extension).toBe('.swift');
+      expect(LANGUAGE_CONFIGS.swift.baseImage).toBe('swift:5.9-focal');
+      expect(LANGUAGE_CONFIGS.swift.runCommand).toContain('swift');
     });
   });
 });

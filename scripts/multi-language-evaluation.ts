@@ -69,6 +69,10 @@ const LANGUAGES = [
   {
     name: 'rust',
     prompt: 'i need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in rust'
+  },
+  {
+    name: 'swift',
+    prompt: 'i need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in swift'
   }
 ] as const;
 
@@ -679,7 +683,8 @@ function getFileExtension(language: string): string {
     php: 'php',
     java: 'java',
     rust: 'rs',
-    go: 'go'
+    go: 'go',
+    swift: 'swift'
   };
   return extensions[language] || 'txt';
 }

@@ -87,6 +87,11 @@ export const LANGUAGE_CONFIGS: Record<string, LanguageConfig> = {
     extension: '.go',
     baseImage: 'golang:1.21-alpine',
     runCommand: 'go run /app/code.go'
+  },
+  swift: {
+    extension: '.swift',
+    baseImage: 'swift:5.9-focal',
+    runCommand: 'swift /app/code.swift'
   }
 };
 

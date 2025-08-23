@@ -163,6 +163,21 @@ console.log("JavaScript");
       const jsCode = getCodeForLanguage(extracted, 'js');
       expect(jsCode).toBe('console.log("JavaScript");');
     });
+
+    it('should handle Swift code blocks', () => {
+      const extracted = extractAllCodeBlocks(`
+\`\`\`swift
+func generateNames() -> [String] {
+    return (0..<1042).map { "Show \\($0)" }
+}
+print(generateNames())
+\`\`\`
+`);
+
+      const swiftCode = getCodeForLanguage(extracted, 'swift');
+      expect(swiftCode).toContain('func generateNames()');
+      expect(swiftCode).toContain('print(generateNames())');
+    });
   });
 
   describe('getAvailableLanguages', () => {
@@ -219,6 +234,26 @@ console.log("JavaScript");
       // Should not recognize other languages
       expect(hasLanguage(extracted, 'python')).toBe(false);
     });
+
+    it('should infer Swift from code content', () => {
+      const response = `
+Here's some Swift code:
+
+\`\`\`
+func generateNames() -> [String] {
+    let names = (0..<1042).map { "Show \\($0)" }
+    return names
+}
+print(generateNames())
+\`\`\`
+`;
+
+      const result = extractAllCodeBlocks(response);
+      
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].language).toBe('swift');
+      expect(result.blocks[0].code).toContain('func generateNames');
+    });
   });
 
   describe('fixCommonCodeErrors', () => {
@@ -252,6 +287,18 @@ done
       const fixed = fixCommonCodeErrors(code, 'bash');
       expect(fixed).toContain('#!/bin/bash');
     });
+
+    it('should fix Swift print statements and string interpolation', () => {
+      const code = `
+print "Hello World"
+let message = "Count: \${count}"
+print message
+`;
+      const fixed = fixCommonCodeErrors(code, 'swift');
+      expect(fixed).toContain('print("Hello World")');
+      expect(fixed).toContain('let message = "Count: \\(count)"');
+      expect(fixed).toContain('print(message)');
+    });
   });
 
   describe('ensureConsoleOutput', () => {
@@ -276,6 +323,17 @@ print(names)
 `;
       const modified = ensureConsoleOutput(code, 'python');
       expect(modified).not.toContain('with open');
+      expect(modified).toContain('print(names)');
+    });
+
+    it('should remove file writing from Swift', () => {
+      const code = `
+let names = ["Show 1", "Show 2"]
+try names.joined(separator: "\\n").write(toFile: "output.txt", atomically: true, encoding: .utf8)
+print(names)
+`;
+      const modified = ensureConsoleOutput(code, 'swift');
+      expect(modified).not.toContain('write(toFile:');
       expect(modified).toContain('print(names)');
     });
   });
