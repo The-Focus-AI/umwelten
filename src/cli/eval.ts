@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { runEvaluation, EvaluationConfig, generateReport } from '../evaluation/api.js';
+import { runEvaluation, EvaluationConfig, generateReport, listEvaluations } from '../evaluation/api.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -144,7 +144,61 @@ const evalReportCommand = new Command('report')
     }
   });
 
+const evalListCommand = new Command('list')
+  .description('List available evaluations')
+  .option('-d, --details', 'Show detailed information including models and reports', false)
+  .option('--json', 'Output as JSON', false)
+  .action(async (options) => {
+    try {
+      const evaluations = listEvaluations(options.details);
+      
+      if (evaluations.length === 0) {
+        console.log('No evaluations found in output/evaluations/');
+        console.log('Run "umwelten eval run" to create an evaluation first.');
+        return;
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(evaluations, null, 2));
+        return;
+      }
+
+      // Format as table
+      console.log('📊 Available Evaluations:\n');
+      
+      if (options.details) {
+        for (const evaluation of evaluations) {
+          console.log(`🔸 ${evaluation.id}`);
+          console.log(`   Models: ${evaluation.responseCount} (${evaluation.modelNames?.join(', ') || 'N/A'})`);
+          console.log(`   Last Modified: ${evaluation.lastModified.toLocaleDateString()} ${evaluation.lastModified.toLocaleTimeString()}`);
+          console.log(`   Has Reports: ${evaluation.hasReports ? '✅ Yes' : '❌ No'}`);
+          console.log(`   Path: ${evaluation.path}`);
+          console.log();
+        }
+      } else {
+        // Simple list format
+        const maxIdLength = Math.max(...evaluations.map(e => e.id.length));
+        
+        console.log('ID'.padEnd(maxIdLength + 2) + 'Models  Last Modified');
+        console.log('─'.repeat(maxIdLength + 2) + '──────  ─────────────');
+        
+        for (const evaluation of evaluations) {
+          const modelsText = evaluation.responseCount.toString().padStart(6);
+          const dateText = evaluation.lastModified.toLocaleDateString();
+          console.log(`${evaluation.id.padEnd(maxIdLength + 2)}${modelsText}  ${dateText}`);
+        }
+      }
+
+      console.log(`\n💡 Use "umwelten eval report --id <ID>" to generate reports`);
+
+    } catch (error) {
+      console.error('❌ Failed to list evaluations:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 export const evalCommand = new Command('eval')
   .description('Evaluation commands')
   .addCommand(evalRunCommand)
-  .addCommand(evalReportCommand);
+  .addCommand(evalReportCommand)
+  .addCommand(evalListCommand);

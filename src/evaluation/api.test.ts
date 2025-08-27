@@ -286,4 +286,88 @@ describe('Evaluation API', () => {
       expect(parsed.responses[0].metadata.model).toBe('test-model');
     });
   });
+
+  describe('listEvaluations', () => {
+    it('should return empty array when evaluations directory does not exist', async () => {
+      const { listEvaluations } = await import('./api.js');
+      
+      mockFs.existsSync.mockReturnValue(false);
+      
+      const result = listEvaluations();
+      expect(result).toEqual([]);
+    });
+
+    it('should list evaluations without details', async () => {
+      const { listEvaluations } = await import('./api.js');
+      
+      // Mock evaluations directory exists
+      mockFs.existsSync.mockImplementation((path: string) => {
+        if (path.includes('output/evaluations')) return true;
+        if (path.includes('test-eval-1/responses')) return true;
+        if (path.includes('test-eval-2/responses')) return true;
+        return false;
+      });
+
+      // Mock directory listings
+      mockFs.readdirSync.mockImplementation((path: string) => {
+        if (path.includes('output/evaluations')) return ['test-eval-1', 'test-eval-2'] as any;
+        if (path.includes('test-eval-1/responses')) return ['model1.json', 'model2.json'] as any;
+        if (path.includes('test-eval-2/responses')) return ['model1.json', 'model2.json'] as any;
+        return [] as any;
+      });
+
+      // Mock fs.statSync
+      vi.mocked(fs.statSync).mockReturnValue({
+        isDirectory: () => true,
+        mtime: new Date('2024-01-01')
+      } as any);
+
+      const result = listEvaluations(false);
+      
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe('test-eval-1');
+      expect(result[0].responseCount).toBe(2);
+      expect(result[0].modelNames).toBeUndefined();
+      expect(result[0].hasReports).toBeUndefined();
+    });
+
+    it('should list evaluations with details', async () => {
+      const { listEvaluations } = await import('./api.js');
+      
+      mockFs.existsSync.mockImplementation((path: string) => {
+        if (path.includes('output/evaluations')) return true;
+        if (path.includes('test-eval-1/responses')) return true;
+        if (path.includes('test-eval-1/reports')) return true;
+        return false;
+      });
+
+      mockFs.readdirSync.mockImplementation((path: string) => {
+        if (path.includes('output/evaluations')) return ['test-eval-1'] as any;
+        if (path.includes('test-eval-1/responses')) return ['model1.json'] as any;
+        return [] as any;
+      });
+
+      mockFs.readFileSync.mockReturnValue(JSON.stringify({
+        content: 'test response',
+        metadata: {
+          model: 'test-model',
+          provider: 'test-provider'
+        }
+      }));
+
+      // Mock fs.statSync
+      vi.mocked(fs.statSync).mockReturnValue({
+        isDirectory: () => true,
+        mtime: new Date('2024-01-01')
+      } as any);
+
+      const result = listEvaluations(true);
+      
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('test-eval-1');
+      expect(result[0].responseCount).toBe(1);
+      expect(result[0].modelNames).toEqual(['test-model (test-provider)']);
+      expect(result[0].hasReports).toBe(true);
+    });
+  });
 });

@@ -299,5 +299,72 @@ function generateCSVReport(evaluationId: string, responses: ModelResponse[]): st
   return csv;
 }
 
+// List available evaluations
+export interface EvaluationSummary {
+  id: string;
+  path: string;
+  responseCount: number;
+  lastModified: Date;
+  modelNames?: string[];
+  hasReports?: boolean;
+}
+
+export function listEvaluations(includeDetails: boolean = false): EvaluationSummary[] {
+  const evaluationsDir = path.join(process.cwd(), "output", "evaluations");
+  
+  if (!fs.existsSync(evaluationsDir)) {
+    return [];
+  }
+  
+  const evaluations: EvaluationSummary[] = [];
+  const entries = fs.readdirSync(evaluationsDir);
+  
+  for (const entry of entries) {
+    const evalPath = path.join(evaluationsDir, entry);
+    const stats = fs.statSync(evalPath);
+    
+    if (!stats.isDirectory()) continue;
+    
+    const responsesDir = path.join(evalPath, "responses");
+    let responseCount = 0;
+    let modelNames: string[] = [];
+    
+    if (fs.existsSync(responsesDir)) {
+      const responseFiles = fs.readdirSync(responsesDir).filter(f => f.endsWith('.json'));
+      responseCount = responseFiles.length;
+      
+      if (includeDetails && responseCount > 0) {
+        // Extract model names from response files
+        modelNames = responseFiles.map(f => {
+          try {
+            const content = fs.readFileSync(path.join(responsesDir, f), 'utf8');
+            const response = JSON.parse(content);
+            return `${response.metadata.model} (${response.metadata.provider})`;
+          } catch {
+            return f.replace('.json', '');
+          }
+        });
+      }
+    }
+    
+    // Check for reports
+    const reportsDir = path.join(evalPath, "reports");
+    const analysisDir = path.join(evalPath, "analysis");
+    const hasReports = fs.existsSync(reportsDir) || fs.existsSync(analysisDir);
+    
+    evaluations.push({
+      id: entry,
+      path: evalPath,
+      responseCount,
+      lastModified: stats.mtime,
+      modelNames: includeDetails ? modelNames : undefined,
+      hasReports: includeDetails ? hasReports : undefined
+    });
+  }
+  
+  // Sort by last modified (newest first)
+  return evaluations.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+}
+
 // Export utility functions that might be useful for other commands
 export { parseModel as parseModelString };
