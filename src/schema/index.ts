@@ -12,3 +12,6 @@ export { validateSchema, createValidator, coerceData } from './validator.js';
 
 // Schema manager
 export { SchemaManager, schemaManager } from './manager.js';
+
+// Zod converter
+export { parsedSchemaToZod } from './zod-converter.js';

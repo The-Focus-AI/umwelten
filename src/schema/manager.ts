@@ -2,7 +2,8 @@ import { parseDSLSchema, toJSONSchema } from './dsl-parser.js';
 import { loadZodSchema } from './zod-loader.js';
 import { validateSchema, coerceData } from './validator.js';
 import { SchemaSource, ParsedSchema, SchemaValidationResult, SCHEMA_TEMPLATES } from './types.js';
-import { readFile, existsSync } from 'fs/promises';
+import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 
 /**
  * Central manager for loading and working with schemas
@@ -47,7 +48,11 @@ export class SchemaManager {
         if (!(source.name in SCHEMA_TEMPLATES)) {
           throw new Error(`Unknown schema template: ${source.name}. Available templates: ${Object.keys(SCHEMA_TEMPLATES).join(', ')}`);
         }
-        schema = SCHEMA_TEMPLATES[source.name as keyof typeof SCHEMA_TEMPLATES];
+        const template = SCHEMA_TEMPLATES[source.name as keyof typeof SCHEMA_TEMPLATES];
+        schema = {
+          ...template,
+          required: [...template.required]
+        };
         break;
 
       default:

@@ -81,6 +81,13 @@ const evalRunCommand = new Command('run')
   .option('--ui', 'Use interactive UI with streaming responses', false)
   .option('--concurrent', 'Enable concurrent evaluation for faster processing', false)
   .option('--max-concurrency <number>', 'Maximum number of concurrent evaluations (default: 3)', parseInt)
+  .option('--schema <dsl>', 'Simple DSL schema format (e.g., "name, age int, active bool")')
+  .option('--schema-template <name>', 'Built-in schema template (person, contact, event)')
+  .option('--schema-file <path>', 'JSON Schema file path')
+  .option('--zod-schema <path>', 'TypeScript Zod schema file path')
+  .option('--validate-output', 'Enable output validation (default: true with schemas)', true)
+  .option('--coerce-types', 'Attempt to coerce data types (string numbers → numbers)', false)
+  .option('--strict-validation', 'Fail evaluation on validation errors', false)
   .action(async (options) => {
     try {
       // Validate required options - these should already be validated by Commander.js
@@ -180,6 +187,55 @@ const evalRunCommand = new Command('run')
         process.exit(1);
       }
 
+      // Process schema validation options
+      let schemaConfig: any = undefined;
+      if (options.schema || options.schemaTemplate || options.schemaFile || options.zodSchema) {
+        console.log('🔍 Schema validation enabled');
+        
+        // Validate that only one schema option is provided
+        const schemaOptions = [options.schema, options.schemaTemplate, options.schemaFile, options.zodSchema].filter(Boolean);
+        if (schemaOptions.length > 1) {
+          console.error('❌ Error: Multiple schema options provided');
+          console.error('   Use only one of: --schema, --schema-template, --schema-file, or --zod-schema');
+          process.exit(1);
+        }
+
+        if (options.schema) {
+          schemaConfig = { type: 'dsl', value: options.schema };
+          console.log(`   DSL Schema: ${options.schema}`);
+        } else if (options.schemaTemplate) {
+          schemaConfig = { type: 'template', value: options.schemaTemplate };
+          console.log(`   Template: ${options.schemaTemplate}`);
+        } else if (options.schemaFile) {
+          const schemaPath = path.resolve(options.schemaFile);
+          if (!fs.existsSync(schemaPath)) {
+            console.error(`❌ Error: Schema file not found: ${options.schemaFile}`);
+            console.error(`   Resolved path: ${schemaPath}`);
+            process.exit(1);
+          }
+          schemaConfig = { type: 'file', value: schemaPath };
+          console.log(`   Schema File: ${options.schemaFile}`);
+        } else if (options.zodSchema) {
+          const zodPath = path.resolve(options.zodSchema);
+          if (!fs.existsSync(zodPath)) {
+            console.error(`❌ Error: Zod schema file not found: ${options.zodSchema}`);
+            console.error(`   Resolved path: ${zodPath}`);
+            process.exit(1);
+          }
+          schemaConfig = { type: 'zod', value: zodPath };
+          console.log(`   Zod Schema: ${options.zodSchema}`);
+        }
+
+        // Add validation options
+        schemaConfig.validateOutput = options.validateOutput;
+        schemaConfig.coerceTypes = options.coerceTypes;
+        schemaConfig.strictValidation = options.strictValidation;
+        
+        console.log(`   Validation: ${schemaConfig.validateOutput ? 'enabled' : 'disabled'}`);
+        console.log(`   Type Coercion: ${schemaConfig.coerceTypes ? 'enabled' : 'disabled'}`);
+        console.log(`   Strict Mode: ${schemaConfig.strictValidation ? 'enabled' : 'disabled'}`);
+      }
+
       // Build evaluation config
       const config: EvaluationConfig = {
         evaluationId: options.id,
@@ -191,7 +247,8 @@ const evalRunCommand = new Command('run')
         resume: options.resume,
         attachments,
         concurrent: options.concurrent,
-        maxConcurrency: options.maxConcurrency || 3
+        maxConcurrency: options.maxConcurrency || 3,
+        schema: schemaConfig
       };
 
       if (options.ui) {

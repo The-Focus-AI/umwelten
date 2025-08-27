@@ -73,7 +73,27 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
 
 ## 🚧 Current Tasks
 
-*No tasks currently in progress*
+### Phase 3.5: Schema Integration Testing & Polish - IN PROGRESS
+- [X] **Test schema integration with CLI**
+  - ✅ Fix remaining TypeScript compilation issues
+  - ✅ Test schema validation with real CLI commands
+  - ✅ Validate schema options work correctly
+  
+- [X] **Create schema validation examples**
+  - ✅ Test DSL schema validation (working with structured JSON output)
+  - ✅ Test template schema validation (working with structured JSON output)
+  - [-] Test JSON schema file validation
+  - [-] Test Zod schema file validation
+  
+- [X] **Complete schema enforcement**
+  - ✅ Convert JSON schema to Zod schema for streamObject usage
+  - ✅ Use streamObject instead of generateText when schema is provided
+  - ✅ Implement proper structured output validation
+  
+- [-] **Document schema integration**
+  - [-] Update README with working schema examples
+  - [-] Create schema validation guide
+  - [-] Add troubleshooting section for schema issues
 
 ## ✅ Recently Completed Tasks
 
@@ -108,6 +128,36 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
   - ✅ Added concurrent-aware progress reporting and logging
   - ✅ Maintained full compatibility with existing features (UI, resume, attachments)
 
+### Phase 3: Schema Validation System - ✅ Complete
+
+- [x] **Add comprehensive schema validation system**
+  - ✅ DSL-based schemas for quick definition (`"name, age int, active bool"`)
+  - ✅ Zod schema file loading and validation with TypeScript support
+  - ✅ JSON schema support for standard schema definitions
+  - ✅ Template-based schemas (person, contact, event) for common use cases
+  - ✅ Schema manager with unified interface for all schema types
+  - ✅ Comprehensive validation with type coercion and error reporting
+
+- [x] **Create schema validation infrastructure**
+  - ✅ DSL parser for simple schema definitions
+  - ✅ Zod loader for TypeScript schema files
+  - ✅ Schema validator with type coercion and strict validation
+  - ✅ Schema manager for unified schema handling
+  - ✅ Template system for common schema patterns
+
+- [x] **Add extensive test coverage for schema system**
+  - ✅ DSL parser tests (161 lines) covering all syntax variations
+  - ✅ Zod loader tests (186 lines) with fixture schemas
+  - ✅ Schema validator tests (263 lines) with comprehensive validation scenarios
+  - ✅ Schema manager tests (245 lines) for unified interface
+  - ✅ Complex schema fixtures for testing edge cases
+
+- [x] **Integrate schema validation with evaluation system**
+  - ✅ Schema runner for evaluation integration
+  - ✅ CLI integration with `--schema`, `--schema-template`, `--schema-file`, `--zod-schema` options
+  - ✅ Output validation with type coercion and error reporting
+  - ✅ Built-in templates for common use cases
+
 ## 📋 Planned Tasks
 
 ### Future Enhancements (Lower Priority)
@@ -141,6 +191,7 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
 - ✅ Performance: Multi-model evaluations run efficiently with concurrent support
 - ✅ Cost transparency: Users understand the cost implications with integrated calculations
 - ✅ Polish: Smooth, professional user experience with comprehensive error handling
+- ✅ Structured Output: Schema-based evaluation with validation, coercion, and comprehensive error reporting
 
 ## 📈 Impact Assessment
 
@@ -153,6 +204,7 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
 - ✅ Integrated real cost calculations for informed decision making
 - ✅ Implemented concurrent processing for significantly faster evaluations
 - ✅ Enhanced error handling with detailed validation and troubleshooting
+- ✅ Added comprehensive schema validation system with DSL, Zod, and JSON schema support
 
 **Major Performance Improvements:**
 - Interactive UI with real-time progress and streaming responses
@@ -172,6 +224,7 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
 - ✅ Concurrent execution with controlled batching for performance
 - ✅ Integration with existing cost calculation infrastructure
 - ✅ Comprehensive input validation with helpful error messages
+- ✅ Schema validation with multiple formats (DSL, Zod, JSON) for structured output
 
 **Key Design Principles:**
 - Build on proven patterns from existing scripts

@@ -18,6 +18,13 @@ export interface EvaluationConfig {
   attachments?: string[]; // File paths to attach
   concurrent?: boolean; // Enable concurrent evaluation (default: false)
   maxConcurrency?: number; // Max concurrent evaluations (default: 3)
+  schema?: {
+    type: 'dsl' | 'template' | 'file' | 'zod';
+    value: string;
+    validateOutput?: boolean;
+    coerceTypes?: boolean;
+    strictValidation?: boolean;
+  };
 }
 
 export interface EvaluationResult {
@@ -121,6 +128,107 @@ function createEvaluationFunction(config: EvaluationConfig) {
     }
 
     const modelRunner = new BaseModelRunner();
+    
+    // Handle schema validation if specified
+    if (config.schema) {
+      try {
+        // Import schema manager
+        const { schemaManager } = await import('../schema/index.js');
+        
+        // Load the schema based on type
+        let schema: any;
+        switch (config.schema.type) {
+          case 'dsl':
+            schema = await schemaManager.loadSchema({ type: 'dsl', content: config.schema.value });
+            break;
+          case 'template':
+            schema = await schemaManager.loadSchema({ type: 'template', name: config.schema.value });
+            break;
+          case 'file':
+            schema = await schemaManager.loadSchema({ type: 'json-file', path: config.schema.value });
+            break;
+          case 'zod':
+            schema = await schemaManager.loadSchema({ type: 'zod-file', path: config.schema.value });
+            break;
+          default:
+            throw new Error(`Unknown schema type: ${config.schema.type}`);
+        }
+        
+        // Convert to Zod schema and use streamObject for structured output
+        if (schema) {
+          console.log(`🔍 Using schema validation for ${model.provider}:${model.name}`);
+          
+          try {
+            // Import the Zod converter
+            const { parsedSchemaToZod } = await import('../schema/index.js');
+            
+            // Convert ParsedSchema to Zod schema
+            const zodSchema = parsedSchemaToZod(schema);
+            
+            console.log(`🔍 Attempting structured output with streamObject for ${model.provider}:${model.name}`);
+            
+            // Use streamObject for structured output
+            let result;
+            if (config.timeout) {
+              const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error("streamObject timeout")), config.timeout);
+              });
+              
+              result = await Promise.race([
+                modelRunner.streamObject(conversation, zodSchema),
+                timeoutPromise
+              ]);
+            } else {
+              result = await modelRunner.streamObject(conversation, zodSchema);
+            }
+            
+            return result;
+          } catch (error) {
+            console.log(`⚠️ streamObject failed for ${model.provider}:${model.name}, falling back to generateText: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            
+            // Fall back to generateText with schema in prompt
+            const schemaPrompt = `${config.prompt}\n\nPlease respond with a valid JSON object matching this schema:\n${JSON.stringify(schema, null, 2)}`;
+            const enhancedConversation = new Interaction(model, schemaPrompt);
+            
+            if (config.attachments) {
+              for (const attachment of config.attachments) {
+                await enhancedConversation.addAttachmentFromPath(attachment);
+              }
+            }
+            
+            if (config.timeout) {
+              const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error("Timeout")), config.timeout);
+              });
+              
+              return Promise.race([
+                modelRunner.generateText(enhancedConversation),
+                timeoutPromise
+              ]);
+            }
+            
+            return modelRunner.generateText(enhancedConversation);
+          }
+        }
+        
+        // Use timeout if specified
+        if (config.timeout) {
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error("Timeout")), config.timeout);
+          });
+          
+          return Promise.race([
+            modelRunner.generateText(conversation),
+            timeoutPromise
+          ]);
+        }
+        
+        return modelRunner.generateText(conversation);
+      } catch (error) {
+        console.error(`❌ Schema validation error for ${model.provider}:${model.name}:`, error);
+        throw error;
+      }
+    }
     
     // Use timeout if specified
     if (config.timeout) {
