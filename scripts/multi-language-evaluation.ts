@@ -34,7 +34,9 @@ const OLLAMA_MODELS = [
   { name: 'mistral-small3.2:24b', provider: 'ollama' },
   { name: 'llama3.2:latest', provider: 'ollama' },
   { name: 'qwen3-coder:latest', provider: 'ollama' },
-  { name: 'codestral:latest', provider: 'ollama' }
+  { name: 'codestral:latest', provider: 'ollama' },
+  { name: 'phi4:latest', provider: 'ollama' },
+  { name: 'phi4-mini:latest', provider: 'ollama' }
 ] as const;
 
 const LANGUAGES = [
