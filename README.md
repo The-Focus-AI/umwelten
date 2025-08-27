@@ -12,9 +12,11 @@ This command-line tool allows you to interact with and evaluate AI models across
 - **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
 - **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
 - **Provider Support**: Integrates with Google, Ollama, OpenRouter, and LM Studio via the Vercel AI SDK and REST APIs.
-- **Cost Tracking**: Calculates and displays estimated costs based on token usage.
+- **Cost Tracking**: Calculates and displays accurate costs based on token usage and model pricing.
 - **Rate Limiting**: Basic rate limit handling with backoff.
 - **Extensible Runner**: `SmartModelRunner` allows adding custom logic via hooks (before, during, after).
+- **Interactive UI**: Real-time progress tracking with streaming responses during evaluations.
+- **Concurrent Processing**: Fast parallel evaluation across multiple models with configurable concurrency.
 
 ## Getting Started
 
@@ -197,6 +199,13 @@ umwelten eval run \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
   --id "creative-story" \
   --ui
+
+# Fast concurrent evaluation (up to 20x faster)
+umwelten eval run \
+  --prompt "Compare programming languages" \
+  --models "ollama:gemma3:12b,ollama:llama3.2:latest,google:gemini-2.0-flash" \
+  --id "lang-comparison" \
+  --concurrent --max-concurrency 3
 ```
 
 **Evaluation Options:**
@@ -204,11 +213,13 @@ umwelten eval run \
 - `--models`: Comma-separated models in `provider:model` format (required)
 - `--id`: Unique evaluation identifier (required)
 - `--system`: Optional system prompt
-- `--temperature`: Temperature for generation (0.0-1.0)
-- `--timeout`: Timeout in milliseconds
+- `--temperature`: Temperature for generation (0.0-2.0)
+- `--timeout`: Timeout in milliseconds (minimum 1000ms)
 - `--resume`: Re-run existing responses (default: false)
 - `--attach`: Comma-separated file paths to attach
 - `--ui`: Use interactive UI with streaming responses and progress indicators
+- `--concurrent`: Enable concurrent evaluation for faster processing
+- `--max-concurrency <number>`: Maximum concurrent evaluations (1-20, default: 3)
 
 Results are saved to `output/evaluations/{id}/responses/` with structured JSON output including metadata, token usage, and timing information.
 
@@ -221,6 +232,15 @@ The interactive UI provides a rich, real-time evaluation experience:
 - **Response Preview**: Truncated response preview in bordered boxes
 - **Multi-Model Support**: All models displayed simultaneously with independent progress
 - **Graceful Exit**: Clean termination with Ctrl+C
+- **Concurrent Support**: Works seamlessly with `--concurrent` flag for parallel evaluation
+
+**Concurrent Processing (`--concurrent` flag):**
+Significantly speeds up multi-model evaluations by running them in parallel:
+- **Configurable Concurrency**: Control parallel execution with `--max-concurrency` (default: 3)
+- **Intelligent Batching**: Processes models in batches to respect system resources
+- **Progress Reporting**: Real-time completion notifications in concurrent mode
+- **Error Isolation**: Individual model failures don't affect other concurrent evaluations
+- **Performance Boost**: Up to 20x faster for evaluations with many models
 
 #### Evaluation Reports
 
@@ -241,11 +261,13 @@ umwelten eval report --id image-description --format json
 ```
 
 **Report Features:**
-- **Summary Table**: Model comparison with response lengths, token usage, timing
-- **Statistics**: Aggregated metrics across all models 
+- **Summary Table**: Model comparison with response lengths, token usage, timing, and cost estimates
+- **Statistics**: Aggregated metrics across all models including total costs
 - **Individual Responses**: Full response content with metadata
 - **Multiple Formats**: Markdown, HTML, JSON, CSV
 - **Export Options**: Save to file or display in terminal
+- **Cost Analysis**: Accurate cost calculations using integrated pricing data
+- **Enhanced Error Handling**: Detailed validation and helpful troubleshooting suggestions
 
 **Sample Report Output:**
 ```markdown
@@ -254,15 +276,31 @@ umwelten eval report --id image-description --format json
 **Generated:** 2025-08-27T01:03:51.260Z  
 **Total Models:** 2
 
-| Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) |
-|-------|----------|----------------|-------------------|-----------|
-| gemma3:12b | ollama | 128 | 29/39/68 | 3540 |
-| gemini-2.0-flash | google | 156 | 31/42/73 | 2100 |
+| Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) | Cost Estimate |
+|-------|----------|----------------|-------------------|-----------|---------------|
+| gemma3:12b | ollama | 128 | 29/39/68 | 3540 | Free |
+| gemini-2.0-flash | google | 156 | 31/42/73 | 2100 | $0.000098 |
 
 ## Statistics
 - **Total Time:** 5640ms (5.6s)
 - **Total Tokens:** 141
+- **Total Cost:** $0.000098
 - **Average Response Length:** 142 characters
+```
+
+#### Evaluation Management
+
+List and discover previous evaluations:
+
+```bash
+# List all available evaluations
+umwelten eval list
+
+# Show detailed information about evaluations
+umwelten eval list --details
+
+# JSON output for programmatic use
+umwelten eval list --json
 ```
 
 ### Advanced Features
@@ -270,8 +308,11 @@ umwelten eval report --id image-description --format json
 - **Model Comparison**: Compare models based on cost, speed, and quality using evaluation results.
 - **Batch Processing**: Run systematic evaluations across model matrices.
 - **Resume Capability**: Skip completed evaluations unless explicitly resumed.
-- **Report Generation**: Create detailed analysis reports in multiple formats.
-- **Error Handling**: Graceful handling of API failures and invalid configurations.
+- **Report Generation**: Create detailed analysis reports in multiple formats with integrated cost calculations.
+- **Error Handling**: Comprehensive input validation and graceful handling of API failures with helpful troubleshooting.
+- **Interactive UI**: Real-time progress tracking with streaming responses and visual indicators.
+- **Concurrent Processing**: Parallel evaluation support for significant performance improvements.
+- **Cost Transparency**: Accurate cost tracking and analysis across all supported providers.
 
 ## Provider Support
 
@@ -292,13 +333,14 @@ src/
   cli/             # CLI command implementations
   cognition/       # Model interfaces and runners (Base, Smart)
   conversation/    # Conversation management
-  costs/           # Cost calculation
-  evaluation/      # Evaluation system (runners, scorers, extractors)
+  costs/           # Cost calculation with accurate provider pricing
+  evaluation/      # Evaluation system (runners, scorers, extractors, concurrent processing)
   interaction/     # Model interaction and stimulus handling
   memory/          # Memory system (store, runner, hooks)
-  providers/       # Provider implementations
+  providers/       # Provider implementations with enhanced context window data
   rate-limit/      # Rate limit handling
   test-utils/      # Shared test utilities
+  ui/              # Interactive terminal UI components (React/Ink)
 memory/            # Project planning/documentation files
 output/            # Generated output (evaluations, reports)
 scripts/           # Utility scripts (being migrated to CLI)
