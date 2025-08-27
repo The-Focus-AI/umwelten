@@ -3,15 +3,17 @@ import type { LanguageModel } from "ai";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 import { BaseProvider } from "./base.js";
 
+// Google Gemini pricing in USD per 1 million tokens (to match cost calculation format)
 const GEMINI_PRICING = {
-  "gemini-2.5-pro": { promptTokens: 0.00000125, completionTokens: 0.00001 },
-  "gemini-2.5-pro-exp-03-25": { promptTokens: 0.0000025, completionTokens: 0.000015 },
-  "gemini-2.0-flash": { promptTokens: 0.0000001, completionTokens: 0.0000004 },
-  "gemini-1.5-pro": { promptTokens: 0.00000125, completionTokens: 0.000005 },
-  "gemini-1.5-pro-exp-03-25": { promptTokens: 0.0000025, completionTokens: 0.00001 },
-  "gemini-ultra": { promptTokens: 0.001, completionTokens: 0.002 },
-  "gemini-ultra-vision": { promptTokens: 0.001, completionTokens: 0.002 },
-  default: { promptTokens: 0.00025, completionTokens: 0.0005 }, // Default to Pro pricing
+  "gemini-2.5-pro": { promptTokens: 1.25, completionTokens: 10 },
+  "gemini-2.5-pro-exp-03-25": { promptTokens: 2.5, completionTokens: 15 },
+  "gemini-2.0-flash": { promptTokens: 0.075, completionTokens: 0.30 },
+  "gemini-1.5-pro": { promptTokens: 1.25, completionTokens: 5 },
+  "gemini-1.5-pro-exp-03-25": { promptTokens: 2.5, completionTokens: 10 },
+  "gemini-1.5-flash": { promptTokens: 0.075, completionTokens: 0.30 },
+  "gemini-ultra": { promptTokens: 1000, completionTokens: 2000 },
+  "gemini-ultra-vision": { promptTokens: 1000, completionTokens: 2000 },
+  default: { promptTokens: 0.25, completionTokens: 0.5 }, // Default pricing
 } as const;
 
 export class GoogleProvider extends BaseProvider {

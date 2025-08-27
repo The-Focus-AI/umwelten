@@ -12,7 +12,7 @@ This command-line tool allows you to interact with and evaluate AI models across
 - **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
 - **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
 - **Provider Support**: Integrates with Google, Ollama, OpenRouter, and LM Studio via the Vercel AI SDK and REST APIs.
-- **Cost Tracking**: Calculates and displays accurate costs based on token usage and model pricing.
+- **Cost Tracking**: Calculates and displays accurate real-time costs based on token usage and official model pricing across all providers.
 - **Rate Limiting**: Basic rate limit handling with backoff.
 - **Extensible Runner**: `SmartModelRunner` allows adding custom logic via hooks (before, during, after).
 - **Interactive UI**: Real-time progress tracking with streaming responses during evaluations.
@@ -102,7 +102,29 @@ umwelten models list --sort cost
 
 # Search models
 umwelten models list --search "gpt-4"
+```
 
+**Model List Features:**
+- **Cost Comparison**: View accurate pricing for each model per 1M tokens
+- **Context Length**: See maximum context window sizes (8K, 128K, 2M, etc.)  
+- **Provider Information**: Compare models across Google, OpenRouter, and Ollama
+- **Multiple Formats**: Table view (default) or JSON output
+- **Smart Filtering**: Search, sort, and filter by provider or cost
+
+**Example Output:**
+```
+Found 3 models
+
+┌───────────────────┬────────────┬─────────┬───────────────┬────────────────┬────────┐
+│ ID                │ Provider   │ Context │ Input Cost/1M │ Output Cost/1M │ Added  │
+├───────────────────┼────────────┼─────────┼───────────────┼────────────────┼────────┤
+│ openai/gpt-4o     │ openrouter │ 128K    │ $2.5000       │ $10.0000       │ 5/12/24│
+│ openai/gpt-4o-mini│ openrouter │ 128K    │ $0.1500       │ $0.6000        │ 7/17/24│
+│ gemma3:12b        │ ollama     │ 8K      │ Free          │ Free           │ 7/15/25│
+└───────────────────┴────────────┴─────────┴───────────────┴────────────────┴────────┘
+```
+
+```bash
 # Get detailed information about a specific model
 umwelten models info <model-id>
 
@@ -178,6 +200,14 @@ umwelten eval run \
   --id "quantum-explanation" \
   --system "You are a physics professor" \
   --temperature 0.3
+
+# Test PDF parsing capabilities across models
+umwelten eval run \
+  --prompt "Analyze this PDF document and extract key information" \
+  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
+  --id "pdf-analysis" \
+  --attach "./document.pdf" \
+  --concurrent
 
 # Resume a previous evaluation (re-run existing responses)
 umwelten eval run \
@@ -271,21 +301,21 @@ umwelten eval report --id image-description --format json
 
 **Sample Report Output:**
 ```markdown
-# Evaluation Report: cat-poem-eval
+# Evaluation Report: openrouter-cost-comparison
 
-**Generated:** 2025-08-27T01:03:51.260Z  
+**Generated:** 2025-08-27T22:23:04.735Z  
 **Total Models:** 2
 
 | Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) | Cost Estimate |
 |-------|----------|----------------|-------------------|-----------|---------------|
-| gemma3:12b | ollama | 128 | 29/39/68 | 3540 | Free |
-| gemini-2.0-flash | google | 156 | 31/42/73 | 2100 | $0.000098 |
+| openai/gpt-4o-mini | openrouter | 1862 | 17/363/380 | 5223 | $0.000220 |
+| openai/gpt-4o | openrouter | 1824 | 17/363/380 | 4014 | $0.003672 |
 
 ## Statistics
-- **Total Time:** 5640ms (5.6s)
-- **Total Tokens:** 141
-- **Total Cost:** $0.000098
-- **Average Response Length:** 142 characters
+- **Total Time:** 9237ms (9.2s)
+- **Total Tokens:** 760
+- **Total Cost:** $0.003893
+- **Average Response Length:** 1843 characters
 ```
 
 #### Evaluation Management

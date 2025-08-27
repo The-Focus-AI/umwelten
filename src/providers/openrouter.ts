@@ -37,8 +37,9 @@ export class OpenRouterProvider extends BaseProvider {
       route: 'openrouter' as const,
       contextLength: model.context_length,
       costs: {
-        promptTokens: parseFloat(model.pricing?.prompt || '0'),
-        completionTokens: parseFloat(model.pricing?.completion || '0'),
+        // Convert from per-token pricing (OpenRouter format) to per-million-tokens (our format)
+        promptTokens: parseFloat(model.pricing?.prompt || '0') * 1000000,
+        completionTokens: parseFloat(model.pricing?.completion || '0') * 1000000,
       },
       details: {
         provider: model.id.split('/')[0], // Include original provider in details

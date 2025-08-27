@@ -271,8 +271,8 @@ export const modelsCommand = new Command('models')
             model.name,
             model.provider,
             formatContextLength(model.contextLength),
-            inputCost === 0 ? 'Free' : `$${(inputCost * 1000000).toFixed(4)}`,
-            outputCost === 0 ? 'Free' : `$${(outputCost * 1000000).toFixed(4)}`,
+            inputCost === 0 ? 'Free' : `$${inputCost.toFixed(4)}`,
+            outputCost === 0 ? 'Free' : `$${outputCost.toFixed(4)}`,
             formatDate(model.addedDate)
           ]);
         });
