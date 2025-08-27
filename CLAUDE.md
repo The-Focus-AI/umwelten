@@ -1,0 +1,2 @@
+- make sure to run tests before building
+- always use the npm run cli command to test out the cli directly without doing a build

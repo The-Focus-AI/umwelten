@@ -7,6 +7,8 @@ This command-line tool allows you to interact with and evaluate AI models across
 ## Core Features
 
 - **Model Interaction**: Run single prompts (`run`) or engage in interactive chat sessions (`chat`).
+- **Model Evaluation**: Systematic evaluation across multiple models with the `eval` command.
+- **Model Discovery**: Search and filter models (`models list`), view detailed information (`models info`), and compare costs (`models costs`).
 - **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
 - **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
 - **Provider Support**: Integrates with Google, Ollama, OpenRouter, and LM Studio via the Vercel AI SDK and REST APIs.
@@ -57,21 +59,59 @@ Set up your environment variables with the required API keys:
 **Option A: Environment variables**
 ```bash
 export OPENROUTER_API_KEY=your_openrouter_api_key
-export GOOGLE_API_KEY=your_google_api_key
-export OLLAMA_BASE_URL=http://localhost:11434  # Optional
-export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional
+export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+export OLLAMA_HOST=http://localhost:11434  # Optional, defaults to localhost:11434
+export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional, defaults to localhost:1234
 ```
 
 **Option B: .env file (for development)**
 ```plaintext
 OPENROUTER_API_KEY=your_openrouter_api_key
-GOOGLE_API_KEY=your_google_api_key
-OLLAMA_BASE_URL=http://localhost:11434
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+OLLAMA_HOST=http://localhost:11434
 LMSTUDIO_BASE_URL=http://localhost:1234
 # LM Studio does not require an API key
 ```
 
 ### Usage
+
+#### Model Discovery
+
+Explore available models across all providers:
+
+```bash
+# List all models
+umwelten models list
+
+# List models with JSON output
+umwelten models list --json
+
+# Filter by provider
+umwelten models list --provider openrouter
+umwelten models list --provider ollama
+
+# Show only free models
+umwelten models list --free
+
+# Sort by different fields
+umwelten models list --sort addedDate --desc
+umwelten models list --sort contextLength
+umwelten models list --sort cost
+
+# Search models
+umwelten models list --search "gpt-4"
+
+# Get detailed information about a specific model
+umwelten models info <model-id>
+
+# View cost breakdown for all models
+umwelten models costs
+
+# Sort costs by different metrics
+umwelten models costs --sort-by prompt
+umwelten models costs --sort-by completion
+umwelten models costs --sort-by total
+```
 
 #### Running a Single Prompt
 
@@ -118,11 +158,58 @@ Inside the chat session, you can use commands:
 - `/history`: Show message history.
 - `exit` or `quit`: End the session.
 
+#### Model Evaluation
+
+Use the `eval` command to systematically evaluate prompts across multiple models:
+
+```bash
+# Basic evaluation across multiple models
+umwelten eval run \
+  --prompt "Write a short poem about cats" \
+  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
+  --id "cat-poem-eval"
+
+# With system prompt and temperature
+umwelten eval run \
+  --prompt "Explain quantum computing" \
+  --models "ollama:gemma3:27b,openrouter:openai/gpt-4o-mini" \
+  --id "quantum-explanation" \
+  --system "You are a physics professor" \
+  --temperature 0.3
+
+# Resume a previous evaluation (re-run existing responses)
+umwelten eval run \
+  --prompt "Write a story" \
+  --models "ollama:gemma3:12b" \
+  --id "story-eval" \
+  --resume
+
+# With file attachments
+umwelten eval run \
+  --prompt "Describe this image" \
+  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --id "image-description" \
+  --attach "./path/to/image.jpg"
+```
+
+**Evaluation Options:**
+- `--prompt`: The prompt to evaluate (required)
+- `--models`: Comma-separated models in `provider:model` format (required)
+- `--id`: Unique evaluation identifier (required)
+- `--system`: Optional system prompt
+- `--temperature`: Temperature for generation (0.0-1.0)
+- `--timeout`: Timeout in milliseconds
+- `--resume`: Re-run existing responses (default: false)
+- `--attach`: Comma-separated file paths to attach
+
+Results are saved to `output/evaluations/{id}/responses/` with structured JSON output including metadata, token usage, and timing information.
+
 ### Advanced Features
 
-- **Model Comparison**: Compare models based on cost, speed, and quality.
-- **Batch Processing**: Run evaluations in batch mode for multiple prompts.
-- **Web Dashboard**: Visualize results using a local web dashboard built with React and Vite.
+- **Model Comparison**: Compare models based on cost, speed, and quality using evaluation results.
+- **Batch Processing**: Run systematic evaluations across model matrices.
+- **Resume Capability**: Skip completed evaluations unless explicitly resumed.
+- **Error Handling**: Graceful handling of API failures and invalid configurations.
 
 ## Provider Support
 
@@ -141,17 +228,18 @@ Inside the chat session, you can use commands:
 ```
 src/
   cli/             # CLI command implementations
+  cognition/       # Model interfaces and runners (Base, Smart)
   conversation/    # Conversation management
   costs/           # Cost calculation
+  evaluation/      # Evaluation system (runners, scorers, extractors)
+  interaction/     # Model interaction and stimulus handling
   memory/          # Memory system (store, runner, hooks)
-  models/          # Model interfaces and runners (Base, Smart)
   providers/       # Provider implementations
   rate-limit/      # Rate limit handling
   test-utils/      # Shared test utilities
 memory/            # Project planning/documentation files
-examples/          # Example usage files
-output/            # Generated output
-scripts/           # Utility scripts
+output/            # Generated output (evaluations, reports)
+scripts/           # Utility scripts (being migrated to CLI)
 ```
 (Tests are colocated with source files, e.g., `*.test.ts`)
 
