@@ -6,6 +6,8 @@ import React from 'react';
 import { render } from 'ink';
 import { EvaluationApp } from '../ui/EvaluationApp.js';
 
+
+
 function parseModels(modelsString: string): string[] {
   if (!modelsString || modelsString.trim() === '') {
     throw new Error('Models string cannot be empty');
@@ -530,8 +532,249 @@ const evalListCommand = new Command('list')
     }
   });
 
+// Schema parsing utility
+function parseSchemaOptions(options: any) {
+  let schemaConfig: any = undefined;
+  
+  // Validate schema options
+  const schemaOptions = [options.schema, options.schemaTemplate, options.schemaFile, options.zodSchema].filter(Boolean);
+  if (schemaOptions.length > 1) {
+    console.error('❌ Error: Multiple schema options specified');
+    console.error('   Use only one of: --schema, --schema-template, --schema-file, or --zod-schema');
+    process.exit(1);
+  }
+
+  if (options.schema) {
+    schemaConfig = { type: 'dsl', value: options.schema };
+  } else if (options.schemaTemplate) {
+    schemaConfig = { type: 'template', value: options.schemaTemplate };
+  } else if (options.schemaFile) {
+    const schemaPath = path.resolve(options.schemaFile);
+    if (!fs.existsSync(schemaPath)) {
+      console.error(`❌ Error: Schema file not found: ${options.schemaFile}`);
+      console.error(`   Resolved path: ${schemaPath}`);
+      process.exit(1);
+    }
+    schemaConfig = { type: 'file', value: schemaPath };
+  } else if (options.zodSchema) {
+    const zodPath = path.resolve(options.zodSchema);
+    if (!fs.existsSync(zodPath)) {
+      console.error(`❌ Error: Zod schema file not found: ${options.zodSchema}`);
+      console.error(`   Resolved path: ${zodPath}`);
+      process.exit(1);
+    }
+    schemaConfig = { type: 'zod', value: zodPath };
+  }
+
+  // Add validation options
+  if (schemaConfig) {
+    schemaConfig.validateOutput = options.validateOutput;
+    schemaConfig.coerceTypes = options.coerceTypes;
+    schemaConfig.strictValidation = options.strictValidation;
+  }
+
+  return schemaConfig;
+}
+
+// File discovery utility for batch processing
+function discoverFiles(files?: string[], directory?: string, filePattern?: string, recursive?: boolean, maxFiles?: number): string[] {
+  const discoveredFiles: string[] = [];
+  
+  // Process explicit file list
+  if (files && files.length > 0) {
+    for (const file of files) {
+      const resolvedPath = path.resolve(file);
+      if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile()) {
+        discoveredFiles.push(resolvedPath);
+      }
+    }
+  }
+  
+  // Process directory scanning
+  if (directory) {
+    const dirPath = path.resolve(directory);
+    if (!fs.existsSync(dirPath)) {
+      throw new Error(`Directory not found: ${directory}`);
+    }
+    
+    function scanDirectory(dir: string, depth: number = 0): void {
+      if (maxFiles && discoveredFiles.length >= maxFiles) return;
+      
+      const items = fs.readdirSync(dir);
+      for (const item of items) {
+        if (maxFiles && discoveredFiles.length >= maxFiles) break;
+        
+        const itemPath = path.join(dir, item);
+        const stats = fs.statSync(itemPath);
+        
+        if (stats.isDirectory() && recursive && depth < 10) { // Prevent infinite recursion
+          scanDirectory(itemPath, depth + 1);
+        } else if (stats.isFile()) {
+          // Check file pattern if specified
+          if (!filePattern || item.match(new RegExp(filePattern.replace(/\*/g, '.*')))) {
+            discoveredFiles.push(itemPath);
+          }
+        }
+      }
+    }
+    
+    scanDirectory(dirPath);
+  }
+  
+  return discoveredFiles.slice(0, maxFiles || discoveredFiles.length);
+}
+
+const evalBatchCommand = new Command('batch')
+  .description('Run evaluations across multiple files')
+  .requiredOption('-p, --prompt <prompt>', 'The prompt to evaluate')
+  .requiredOption('-m, --models <models>', 'Comma-separated list of models in format "provider:model"')
+  .requiredOption('-i, --id <id>', 'Unique evaluation identifier')
+  .option('-s, --system <prompt>', 'System prompt (optional)')
+  .option('-t, --temperature <number>', 'Temperature for model generation', parseFloat)
+  .option('--timeout <ms>', 'Timeout in milliseconds', parseInt)
+  .option('--resume', 'Resume evaluation (re-run existing responses)', false)
+  .option('--ui', 'Use interactive UI with streaming responses', false)
+  .option('--concurrent', 'Enable concurrent evaluation for faster processing', false)
+  .option('--max-concurrency <number>', 'Maximum number of concurrent evaluations (default: 3)', parseInt)
+  .option('--files <files>', 'Comma-separated list of files or glob patterns')
+  .option('--directory <dir>', 'Directory to scan for files')
+  .option('--file-pattern <pattern>', 'File pattern (e.g., "*.jpg")')
+  .option('--recursive', 'Scan subdirectories recursively', false)
+  .option('--max-files <number>', 'Maximum number of files to process', parseInt)
+  .option('--schema <dsl>', 'Simple DSL schema format (e.g., "name, age int, active bool")')
+  .option('--schema-template <name>', 'Built-in schema template (person, contact, event)')
+  .option('--schema-file <path>', 'JSON Schema file path')
+  .option('--zod-schema <path>', 'TypeScript Zod schema file path')
+  .option('--validate-output', 'Enable output validation (default: true with schemas)', true)
+  .option('--coerce-types', 'Attempt to coerce data types (string numbers → numbers)', false)
+  .option('--strict-validation', 'Fail evaluation on validation errors', false)
+  .action(async (options) => {
+    try {
+      // Validate required options
+      if (!options.prompt || options.prompt.trim() === '') {
+        console.error('❌ Error: Prompt cannot be empty');
+        console.error('   Use --prompt "Your evaluation prompt here"');
+        process.exit(1);
+      }
+      
+      if (!options.models || options.models.trim() === '') {
+        console.error('❌ Error: Models cannot be empty');
+        console.error('   Use --models "provider:model1,provider:model2"');
+        process.exit(1);
+      }
+      
+      if (!options.id || options.id.trim() === '') {
+        console.error('❌ Error: Evaluation ID cannot be empty');
+        console.error('   Use --id "unique-evaluation-id"');
+        process.exit(1);
+      }
+      
+      // Validate batch-specific options
+      if (!options.files && !options.directory) {
+        console.error('❌ Error: Must specify either --files or --directory for batch processing');
+        console.error('   Use --files "file1.jpg,file2.jpg" or --directory "input/images"');
+        process.exit(1);
+      }
+      
+      // Parse models
+      const models = parseModels(options.models);
+      
+             // Discover files
+       const fileList = options.files ? options.files.split(',').map((f: string) => f.trim()) : undefined;
+       const files = discoverFiles(fileList, options.directory, options.filePattern, options.recursive, options.maxFiles);
+      
+      if (files.length === 0) {
+        console.error('❌ Error: No files found for batch processing');
+        if (options.directory) {
+          console.error(`   Directory: ${options.directory}`);
+          console.error(`   Pattern: ${options.filePattern || '*'}`);
+          console.error(`   Recursive: ${options.recursive ? 'Yes' : 'No'}`);
+        }
+        process.exit(1);
+      }
+      
+      console.log(`🚀 Starting batch evaluation with ${files.length} files`);
+      console.log(`📁 Files: ${files.length} files discovered`);
+      console.log(`🤖 Models: ${models.length} models (${models.join(', ')})`);
+      console.log(`🔄 Total evaluations: ${files.length * models.length}`);
+      console.log();
+      
+      // Parse schema options
+      const schema = parseSchemaOptions(options);
+      
+             // Create base configuration
+       const baseConfig: EvaluationConfig = {
+         evaluationId: options.id,
+         prompt: options.prompt,
+         models: models,
+         systemPrompt: options.system,
+         temperature: options.temperature,
+         timeout: options.timeout,
+         resume: options.resume,
+         concurrent: options.concurrent || false,
+         maxConcurrency: options.maxConcurrency || 3,
+         schema: schema
+       };
+       
+       // Run batch evaluation
+       console.log('📊 Running batch evaluation...');
+       
+       let completed = 0;
+       const total = files.length * models.length;
+       
+       for (const file of files) {
+         const fileConfig = { ...baseConfig, attachments: [file] };
+         
+         try {
+           console.log(`\n📄 Processing: ${path.basename(file)}`);
+           const result = await runEvaluation(fileConfig);
+           
+           completed += result.results.filter(r => r.success).length;
+           console.log(`\n✅ Completed: ${path.basename(file)}`);
+         } catch (error) {
+           console.error(`\n❌ Failed: ${path.basename(file)}`);
+           if (error instanceof Error) {
+             console.error(`   Error: ${error.message}`);
+           }
+         }
+       }
+       
+       console.log(`\n🎉 Batch evaluation complete!`);
+       console.log(`   ✅ Successful: ${completed}/${total} evaluations`);
+       console.log(`   📊 Results saved to: output/evaluations/${options.id}/`);
+       console.log(`   📋 Generate report: umwelten eval report --id ${options.id}`);
+      
+    } catch (error) {
+      console.error('\n❌ Batch evaluation failed:');
+      
+      if (error instanceof Error) {
+        console.error(`   ${error.message}`);
+        
+        if (error.message.includes('No files found')) {
+          console.error('\n💡 No files found. Check:');
+          console.error('   - File paths are correct');
+          console.error('   - Directory exists and contains files');
+          console.error('   - File pattern matches your files');
+        } else if (error.message.includes('Invalid model format')) {
+          console.error('\n💡 Invalid model format. Use:');
+          console.error('   --models "provider:model" (e.g., "google:gemini-2.0-flash")');
+        }
+        
+        if (process.env.NODE_ENV === 'development' && error.stack) {
+          console.error('\n🐛 Debug stack trace:');
+          console.error(error.stack);
+        }
+      } else {
+        console.error(`   ${String(error)}`);
+      }
+      
+      process.exit(1);
+    }
+  });
+
 export const evalCommand = new Command('eval')
   .description('Evaluation commands')
   .addCommand(evalRunCommand)
   .addCommand(evalReportCommand)
-  .addCommand(evalListCommand);
+  .addCommand(evalListCommand)
+  .addCommand(evalBatchCommand);

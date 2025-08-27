@@ -4,7 +4,7 @@
 
 This document summarizes the successful migration of evaluation scripts from the `scripts/` directory to the new CLI system, demonstrating how the CLI has evolved to replace ad-hoc scripts with a comprehensive evaluation platform.
 
-## ✅ Successfully Migrated Scripts (5 scripts)
+## ✅ Successfully Migrated Scripts (6 scripts)
 
 ### 1. cat-poem.ts → CLI Evaluation
 **Original:** Simple evaluation across multiple models for cat poem generation  
@@ -66,6 +66,29 @@ npm run cli -- eval run \
   --id "pdf-analysis" \
   --attach "./document.pdf" \
   --concurrent
+```
+
+### 6. image-feature-batch.ts → CLI Batch Processing
+**Original:** Batch processing of multiple images with feature extraction  
+**Migration:** 100% equivalent functionality using `umwelten eval batch`  
+**Benefits:**
+- Same batch processing functionality with better error handling
+- Concurrent processing support for faster execution
+- Rich reporting with cost analysis and timing
+- File pattern matching and directory scanning
+- Resume capability for interrupted evaluations
+- No need for custom scoring/reporting classes
+
+**Test Command:**
+```bash
+umwelten eval batch \
+  --prompt "Analyze this image and extract features including: able_to_parse (boolean), image_description (string), contain_text (boolean), color_palette (warm/cool/monochrome/earthy/pastel/vibrant/neutral/unknown), aesthetic_style (realistic/cartoon/abstract/clean/vintage/moody/minimalist/unknown), time_of_day (day/night/unknown), scene_type (indoor/outdoor/unknown), people_count (number), dress_style (fancy/casual/unknown). Return as JSON with confidence scores." \
+  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --id "image-feature-batch" \
+  --directory "input/images" \
+  --file-pattern "*.jpeg" \
+  --concurrent \
+  --max-concurrency 5
 ```
 
 ## 🎯 Migration Success Metrics

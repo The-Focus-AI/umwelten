@@ -230,15 +230,31 @@ umwelten eval run \
 ### image-feature-batch.ts
 **Purpose:** Batch processing of multiple images with feature extraction
 
-**Missing Features:**
-- [ ] **Batch file processing** - CLI doesn't support multiple files yet
-- [ ] **Directory scanning** - No recursive file discovery
-- [ ] **Parallel image processing** - Need concurrent file processing
+**CLI Equivalent:**
+```bash
+# Batch process images with feature extraction (✅ FULLY SUPPORTED)
+umwelten eval batch \
+  --prompt "Analyze this image and extract features including: able_to_parse (boolean), image_description (string), contain_text (boolean), color_palette (warm/cool/monochrome/earthy/pastel/vibrant/neutral/unknown), aesthetic_style (realistic/cartoon/abstract/clean/vintage/moody/minimalist/unknown), time_of_day (day/night/unknown), scene_type (indoor/outdoor/unknown), people_count (number), dress_style (fancy/casual/unknown). Return as JSON with confidence scores." \
+  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --id "image-feature-batch" \
+  --directory "input/images" \
+  --file-pattern "*.jpeg" \
+  --concurrent \
+  --max-concurrency 5
 
-**TODOs:**
-- [ ] Add `--batch-files` or `--directory` flag
-- [ ] Add concurrent file processing
-- [ ] Add batch reporting formats
+# Generate comprehensive report
+umwelten eval report --id image-feature-batch --format markdown
+```
+
+**Status:** ✅ **COMPLETE** - CLI batch command fully replaces the script
+
+**Benefits:**
+- Same batch processing functionality with better error handling
+- Concurrent processing support for faster execution
+- Rich reporting with cost analysis and timing
+- File pattern matching and directory scanning
+- Resume capability for interrupted evaluations
+- No need for custom scoring/reporting classes
 
 ---
 
