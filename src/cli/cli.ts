@@ -4,6 +4,7 @@ import { modelsCommand } from './models.js';
 import { runCommand } from './run.js';
 import { chatCommand } from './chat.js';
 import { addToolsCommand } from './tools.js';
+import { evalCommand } from './eval.js';
 
 const program = new Command();
 
@@ -16,6 +17,7 @@ program
 program.addCommand(modelsCommand);
 program.addCommand(runCommand);
 program.addCommand(chatCommand);
+program.addCommand(evalCommand);
 addToolsCommand(program);
 
 program.parse(); 
