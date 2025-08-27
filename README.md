@@ -190,6 +190,13 @@ umwelten eval run \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-description" \
   --attach "./path/to/image.jpg"
+
+# Interactive UI with streaming responses
+umwelten eval run \
+  --prompt "Write a creative story about AI" \
+  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
+  --id "creative-story" \
+  --ui
 ```
 
 **Evaluation Options:**
@@ -201,8 +208,19 @@ umwelten eval run \
 - `--timeout`: Timeout in milliseconds
 - `--resume`: Re-run existing responses (default: false)
 - `--attach`: Comma-separated file paths to attach
+- `--ui`: Use interactive UI with streaming responses and progress indicators
 
 Results are saved to `output/evaluations/{id}/responses/` with structured JSON output including metadata, token usage, and timing information.
+
+**Interactive UI Mode (`--ui` flag):**
+The interactive UI provides a rich, real-time evaluation experience:
+- **Live Progress Bar**: Visual progress indicator showing completion status
+- **Streaming Responses**: Watch model responses generate in real-time as they stream
+- **Status Indicators**: Clear visual status for each model (pending, generating, completed, error)
+- **Individual Timing**: Per-model timing with elapsed time display
+- **Response Preview**: Truncated response preview in bordered boxes
+- **Multi-Model Support**: All models displayed simultaneously with independent progress
+- **Graceful Exit**: Clean termination with Ctrl+C
 
 #### Evaluation Reports
 

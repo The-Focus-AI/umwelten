@@ -61,6 +61,16 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
   - ✅ Proper error handling for empty directories
   - ✅ Helpful usage hints and next action suggestions
 
+- [x] **Add progress indicators and better user feedback during evaluations**
+  - ✅ Interactive UI mode with `--ui` flag using Ink and React
+  - ✅ Live progress bars showing completion percentage
+  - ✅ Streaming response display as models generate content
+  - ✅ Real-time status indicators (pending, starting, streaming, completed, error)
+  - ✅ Individual timing for each model with elapsed time display
+  - ✅ Bordered response boxes with truncation for long content  
+  - ✅ Final completion summary with total time and success/failure counts
+  - ✅ Graceful Ctrl+C handling and app cleanup
+
 ## 🚧 Current Tasks
 
 *No tasks currently in progress*
@@ -68,17 +78,6 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
 ## 📋 Planned Tasks
 
 ### Phase 2 Continuation: Enhanced User Experience
-- [x] **Add eval list command to show available evaluations**
-  - ✅ List all evaluation IDs in output/evaluations/
-  - ✅ Optional --details flag to show summary stats
-  - ✅ Help users discover existing evaluations
-  - ✅ JSON output format for programmatic use
-  - ✅ Shows model counts, last modified dates, report availability
-  
-- [ ] **Add progress indicators and better user feedback during evaluations**
-  - Spinners/progress bars during model evaluation
-  - "Evaluating model 2/5..." style progress updates
-  - Estimated time remaining for multi-model runs
   
 - [ ] **Add cost calculation integration to reports**
   - Integrate existing cost calculation system

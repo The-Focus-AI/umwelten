@@ -1,7 +1,10 @@
 import { Command } from 'commander';
-import { runEvaluation, EvaluationConfig, generateReport, listEvaluations } from '../evaluation/api.js';
+import { runEvaluation, EvaluationConfig, generateReport, listEvaluations, runEvaluationWithProgress, EnhancedEvaluationConfig } from '../evaluation/api.js';
 import path from 'path';
 import fs from 'fs';
+import React from 'react';
+import { render } from 'ink';
+import { EvaluationApp } from '../ui/EvaluationApp.js';
 
 function parseModels(modelsString: string): string[] {
   return modelsString.split(',').map(m => m.trim()).filter(Boolean);
@@ -28,6 +31,7 @@ const evalRunCommand = new Command('run')
   .option('--timeout <ms>', 'Timeout in milliseconds', parseInt)
   .option('--resume', 'Resume evaluation (re-run existing responses)', false)
   .option('-a, --attach <files>', 'Comma-separated list of file paths to attach')
+  .option('--ui', 'Use interactive UI with streaming responses', false)
   .action(async (options) => {
     try {
       // Validate required options
@@ -79,7 +83,46 @@ const evalRunCommand = new Command('run')
         attachments
       };
 
-      // Run evaluation
+      if (options.ui) {
+        // Use interactive UI
+        const enhancedConfig: EnhancedEvaluationConfig = {
+          ...config,
+          useUI: true
+        };
+
+        const app = render(
+          React.createElement(EvaluationApp, {
+            config: enhancedConfig,
+            onComplete: (results: any) => {
+              console.log('\n📊 Evaluation Summary:');
+              console.log(`   ID: ${results.evaluationId}`);
+              console.log(`   Total Time: ${Math.round(results.totalTime / 1000)}s`);
+              console.log(`   Models: ${results.results.length}`);
+              console.log(`   Successful: ${results.results.filter((r: any) => r.status === 'completed').length}`);
+              console.log(`   Failed: ${results.results.filter((r: any) => r.status === 'error').length}`);
+              
+              const outputDir = path.join(process.cwd(), "output", "evaluations", results.evaluationId);
+              console.log(`\n✅ Evaluation completed! Check results in: ${outputDir}`);
+              
+              process.exit(0);
+            },
+            onError: (error: Error) => {
+              console.error('\n❌ Evaluation failed:', error.message);
+              process.exit(1);
+            }
+          })
+        );
+
+        // Handle Ctrl+C
+        process.on('SIGINT', () => {
+          app.unmount();
+          process.exit(0);
+        });
+
+        return; // Don't run the regular evaluation
+      }
+
+      // Run evaluation (regular mode)
       console.log('🚀 Starting evaluation...\n');
       const result = await runEvaluation(config);
       

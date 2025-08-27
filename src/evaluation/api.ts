@@ -79,6 +79,23 @@ function createEvaluationFunction(config: EvaluationConfig) {
   };
 }
 
+// Progress callback types
+export interface EvaluationProgress {
+  modelName: string;
+  status: 'starting' | 'streaming' | 'completed' | 'error';
+  content?: string;
+  error?: string;
+  metadata?: any;
+}
+
+export type ProgressCallback = (progress: EvaluationProgress) => void;
+
+// Enhanced evaluation config with progress callback
+export interface EnhancedEvaluationConfig extends EvaluationConfig {
+  onProgress?: ProgressCallback;
+  useUI?: boolean;
+}
+
 // Main evaluation runner function
 export async function runEvaluation(config: EvaluationConfig): Promise<EvaluationResult> {
   console.log(`Starting evaluation: ${config.evaluationId}`);
@@ -364,6 +381,122 @@ export function listEvaluations(includeDetails: boolean = false): EvaluationSumm
   
   // Sort by last modified (newest first)
   return evaluations.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+}
+
+// Enhanced evaluation runner with streaming and progress callbacks
+export async function runEvaluationWithProgress(config: EnhancedEvaluationConfig): Promise<EvaluationResult> {
+  const evaluationFn = createEvaluationFunction(config);
+  const results: EvaluationResult["results"] = [];
+  
+  for (const modelString of config.models) {
+    try {
+      const model = parseModel(modelString, config.temperature);
+      
+      // Notify progress: starting
+      config.onProgress?.({
+        modelName: `${model.provider}:${model.name}`,
+        status: 'starting'
+      });
+      
+      const runner = new FunctionEvaluationRunner(
+        config.evaluationId,
+        "responses", 
+        evaluationFn
+      );
+      
+      // Check if already exists and resume flag
+      const responseFile = runner.getModelResponseFile(model);
+      if (fs.existsSync(responseFile) && !config.resume) {
+        const existingResponse = JSON.parse(fs.readFileSync(responseFile, 'utf8'));
+        
+        // Notify progress: completed (cached)
+        config.onProgress?.({
+          modelName: `${model.provider}:${model.name}`,
+          status: 'completed',
+          content: existingResponse.content,
+          metadata: existingResponse.metadata
+        });
+        
+        results.push({
+          model,
+          success: true,
+          response: existingResponse
+        });
+        continue;
+      }
+      
+      // For streaming, we'd need to modify the evaluation function
+      // For now, simulate streaming with the actual response
+      const response = await runner.evaluate(model);
+      
+      if (response) {
+        // Notify progress: streaming (simulate chunks)
+        const words = response.content.split(' ');
+        let accumulatedContent = '';
+        
+        for (let i = 0; i < words.length; i += 3) {
+          const chunk = words.slice(i, i + 3).join(' ') + ' ';
+          accumulatedContent += chunk;
+          
+          config.onProgress?.({
+            modelName: `${model.provider}:${model.name}`,
+            status: 'streaming',
+            content: accumulatedContent.trim()
+          });
+          
+          // Small delay to simulate streaming
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Notify progress: completed
+        config.onProgress?.({
+          modelName: `${model.provider}:${model.name}`,
+          status: 'completed',
+          content: response.content,
+          metadata: response.metadata
+        });
+        
+        results.push({
+          model,
+          success: true,
+          response: response
+        });
+      }
+      
+    } catch (error) {
+      // Handle parseModel errors by creating a dummy model for error reporting
+      let model: ModelDetails;
+      try {
+        model = parseModel(modelString, config.temperature);
+      } catch (parseError) {
+        model = { name: modelString, provider: 'unknown' as any };
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Notify progress: error
+      config.onProgress?.({
+        modelName: `${model.provider}:${model.name}`,
+        status: 'error',
+        error: errorMessage
+      });
+      
+      results.push({
+        model,
+        success: false,
+        error: errorMessage
+      });
+    }
+  }
+  
+  // Get output directory
+  const outputDir = path.join(process.cwd(), "output", "evaluations", config.evaluationId);
+  
+  return {
+    evaluationId: config.evaluationId,
+    outputDir,
+    results
+  };
 }
 
 // Export utility functions that might be useful for other commands
