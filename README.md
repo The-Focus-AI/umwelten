@@ -17,6 +17,7 @@ This command-line tool allows you to interact with and evaluate AI models across
 - **Extensible Runner**: `SmartModelRunner` allows adding custom logic via hooks (before, during, after).
 - **Interactive UI**: Real-time progress tracking with streaming responses during evaluations.
 - **Concurrent Processing**: Fast parallel evaluation across multiple models with configurable concurrency.
+- **Structured Output Schemas**: Define and validate structured output formats using DSL, JSON Schema, Zod files, or built-in templates.
 
 ## Getting Started
 
@@ -272,6 +273,74 @@ Significantly speeds up multi-model evaluations by running them in parallel:
 - **Error Isolation**: Individual model failures don't affect other concurrent evaluations
 - **Performance Boost**: Up to 20x faster for evaluations with many models
 
+#### Structured Output Schemas
+
+Define and validate structured output formats for consistent model responses:
+
+```bash
+# Evaluate with a simple DSL schema
+umwelten eval run \
+  --prompt "Extract person information from this text: John is 25 years old..." \
+  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --id "person-extraction" \
+  --schema "name, age int: person's age, email: email address"
+
+# Use a built-in template schema
+umwelten eval run \
+  --prompt "Extract contact information from the business card" \
+  --models "google:gemini-2.0-flash" \
+  --id "contact-extraction" \
+  --schema-template contact \
+  --attach "./business_card.jpg"
+
+# Load schema from a JSON Schema file
+umwelten eval run \
+  --prompt "Analyze the financial data and extract key metrics" \
+  --models "google:gemini-2.0-flash" \
+  --id "financial-analysis" \
+  --schema-file "./schemas/financial_metrics.json"
+
+# Use a TypeScript Zod schema for complex validation
+umwelten eval run \
+  --prompt "Process the order data and validate structure" \
+  --models "openrouter:openai/gpt-4o" \
+  --id "order-processing" \
+  --zod-schema "./schemas/order-schema.ts"
+```
+
+**Schema Options:**
+- `--schema <dsl>`: Simple DSL format like `"name, age int, active bool"`
+- `--schema-template <name>`: Built-in templates (`person`, `contact`, `event`)  
+- `--schema-file <path>`: JSON Schema file
+- `--zod-schema <path>`: TypeScript Zod schema file
+- `--validate-output`: Enable output validation (default: true with schemas)
+- `--coerce-types`: Attempt to coerce data types (string numbers → numbers)
+- `--strict-validation`: Fail evaluation on validation errors
+
+**DSL Schema Syntax:**
+```bash
+# Basic fields (defaults to string type)
+"name, email, location"
+
+# Typed fields
+"name, age int, active bool, tags array"
+
+# With descriptions
+"name: full name, age int: person's age, email: email address"
+
+# Complex example
+"startLocation, endLocation, startDate, totalDays int: number of days, withKids bool: traveling with children"
+```
+
+**Built-in Templates:**
+- `person`: Basic person information (name, age, email, location)
+- `contact`: Contact details (name, email, phone, company)
+- `event`: Event information (name, date, time, location, description)
+
+Schema validation provides automatic output validation, type coercion, and detailed error reporting to ensure consistent structured data extraction across different models.
+
+For detailed schema documentation with comprehensive examples, see [Structured Output Schemas Guide](./docs/structured-schemas.md).
+
 #### Evaluation Reports
 
 Generate comprehensive reports from evaluation results:
@@ -343,6 +412,7 @@ umwelten eval list --json
 - **Interactive UI**: Real-time progress tracking with streaming responses and visual indicators.
 - **Concurrent Processing**: Parallel evaluation support for significant performance improvements.
 - **Cost Transparency**: Accurate cost tracking and analysis across all supported providers.
+- **Structured Output**: Schema-based evaluation with validation, coercion, and comprehensive error reporting.
 
 ## Provider Support
 

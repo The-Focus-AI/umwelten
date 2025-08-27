@@ -1,13 +1,101 @@
 # How to Write an Evaluation Script
 
-This guide explains how to write evaluation scripts for running data through multiple models and comparing their outputs. It is based on the patterns established in `scripts/image-feature-batch.ts` and `scripts/image-feature-extract.ts`.
+This guide explains how to write evaluation scripts for running data through multiple models and comparing their outputs. It covers both the legacy script-based approach and the new CLI-based structured schema evaluations.
 
-The recommended structure is to separate the core model evaluation logic from the orchestration script.
+## Quick Start: CLI-Based Evaluations (Recommended)
+
+For most use cases, use the CLI with structured schemas instead of writing custom scripts:
+
+```bash
+# Simple structured evaluation
+umwelten eval run \
+  --prompt "Extract person information from: John Smith, age 25, works at Google" \
+  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --id "person-extraction" \
+  --schema "name, age int, company"
+
+# Generate report
+umwelten eval report --id person-extraction
+```
+
+For complex custom evaluations, you can still write scripts using the patterns below.
 
 -   **Core Logic Script (e.g., `image-feature-extract.ts`):** A file that defines a single, reusable task. It contains the prompt, the Zod schema for the expected output, and a function that takes an input (like an image path) and returns a model response.
 -   **Orchestrator Script (e.g., `image-feature-batch.ts`):** A file that manages the evaluation process. It defines the list of models and inputs, calls the core logic for each combination, and handles scoring and reporting.
 
 ---
+
+## Modern Approach: Schema-Based Evaluations
+
+### Using Built-in Templates
+
+```bash
+# Person extraction using built-in template
+umwelten eval run \
+  --prompt "Extract contact info from this business card" \
+  --models "google:gemini-2.0-flash" \
+  --id "business-card-extraction" \
+  --schema-template contact \
+  --attach "./business_card.jpg"
+```
+
+### Custom DSL Schemas
+
+```bash
+# Financial data extraction
+umwelten eval run \
+  --prompt "Extract Q3 financial metrics from this report" \
+  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --id "financial-metrics" \
+  --schema "quarter int, revenue num: revenue in millions, profit num, growth num: growth percentage" \
+  --attach "./q3-report.pdf"
+```
+
+### Advanced Zod Schemas
+
+For complex validation, create a Zod schema file:
+
+```typescript
+// schemas/product-analysis.ts
+import { z } from 'zod';
+
+export const schema = z.object({
+  productName: z.string().describe('Product name'),
+  category: z.string().describe('Product category'),
+  price: z.number().positive().describe('Price in dollars'),
+  features: z.array(z.string()).describe('Key features'),
+  sentiment: z.enum(['positive', 'negative', 'neutral']),
+  competitors: z.array(z.object({
+    name: z.string(),
+    price: z.number().positive()
+  })).optional(),
+  recommendation: z.enum(['buy', 'wait', 'avoid'])
+});
+```
+
+```bash
+umwelten eval run \
+  --prompt "Analyze this product review and extract structured information" \
+  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --id "product-analysis" \
+  --zod-schema "./schemas/product-analysis.ts" \
+  --validate-output \
+  --coerce-types
+```
+
+### Schema Evaluation Benefits
+
+- **Consistent Output**: Same structure across all models
+- **Automatic Validation**: Built-in type checking and error reporting  
+- **Type Coercion**: Convert "25" to 25, "true" to true automatically
+- **Rich Reports**: Validation success rates and common errors
+- **No Custom Code**: Define schema, run evaluation, get results
+
+---
+
+## Custom Scripts (Advanced Use Cases)
+
+For scenarios requiring custom logic, file processing, or complex orchestration, write custom evaluation scripts.
 
 ## 1. **Best Practices: Use the Framework**
 - **Always use the provided base classes and helpers:**
@@ -155,3 +243,83 @@ When building a reporter, keep these in mind:
 - **Parsing Without Error Handling**: Not wrapping `JSON.parse()` in a `try...catch` block when processing model responses, which can crash the entire reporting process.
 
 For a full, working example, see the `scripts/image-feature-batch.ts` and `scripts/image-feature-extract.ts` files.
+
+---
+
+## Migrating Existing Scripts to Schema-Based Evaluations
+
+If you have existing Zod-based evaluation scripts, you can easily migrate them to use the CLI approach:
+
+### Before: Custom Script
+```typescript
+// scripts/person-extraction.ts
+import { z } from 'zod';
+import { EvaluationRunner } from '../src/evaluation/runner.js';
+
+const PersonSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  email: z.string().email()
+});
+
+class PersonEvaluationRunner extends EvaluationRunner {
+  // ... custom implementation
+}
+
+// Run manually
+const runner = new PersonEvaluationRunner('person-extraction');
+await runner.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+```
+
+### After: CLI with Schema
+```bash
+# Convert the Zod schema to a file
+echo 'import { z } from "zod";
+export const schema = z.object({
+  name: z.string(),
+  age: z.number(), 
+  email: z.string().email()
+});' > schemas/person.ts
+
+# Run via CLI
+umwelten eval run \
+  --prompt "Extract person information from this text" \
+  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --id "person-extraction" \
+  --zod-schema "./schemas/person.ts"
+```
+
+### Schema-Based Custom Runners (Advanced)
+
+For custom evaluation logic with schema validation:
+
+```typescript
+import { SchemaEvaluationRunner } from '../src/evaluation/schema-runner.js';
+
+class CustomPersonExtractor extends SchemaEvaluationRunner {
+  constructor() {
+    super('person-extraction', {
+      schema: { type: 'zod-file', path: './schemas/person.ts' },
+      validateOutput: true,
+      coerceOutput: true
+    });
+  }
+
+  async getModelResponse(details: ModelDetails): Promise<ModelResponse> {
+    // Custom extraction logic
+    const conversation = new Interaction(details, this.buildPrompt());
+    const runner = new BaseModelRunner();
+    return runner.streamObject(conversation, await this.getInstructionSchema());
+  }
+}
+
+// Use the custom runner
+const extractor = new CustomPersonExtractor();
+await extractor.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+
+// Get validation summary
+const summary = await extractor.getValidationSummary();
+console.log(`Validation success rate: ${summary.validationRate * 100}%`);
+```
+
+This approach combines the flexibility of custom scripts with the power of automatic schema validation.
