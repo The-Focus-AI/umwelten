@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Full name of the person"
+    },
+    "age": {
+      "type": "number",
+      "description": "Age in years"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email address"
+    },
+    "location": {
+      "type": "string",
+      "description": "Current location or city"
+    }
+  },
+  "required": ["name"],
+  "description": "Basic person information extraction"
+}

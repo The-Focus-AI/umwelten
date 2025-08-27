@@ -280,18 +280,17 @@ Define and validate structured output formats for consistent model responses:
 ```bash
 # Evaluate with a simple DSL schema
 umwelten eval run \
-  --prompt "Extract person information from this text: John is 25 years old..." \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --prompt "Extract person information from this text: Henry is 38 years old and lives in Phoenix" \
+  --models "ollama:gemma3:12b" \
   --id "person-extraction" \
-  --schema "name, age int: person's age, email: email address"
+  --schema "name, age int, location"
 
 # Use a built-in template schema
 umwelten eval run \
-  --prompt "Extract contact information from the business card" \
-  --models "google:gemini-2.0-flash" \
+  --prompt "Extract contact information from this text: Irene works at DataCorp, her email is irene@datacorp.com and phone is 555-9876" \
+  --models "ollama:gemma3:12b" \
   --id "contact-extraction" \
-  --schema-template contact \
-  --attach "./business_card.jpg"
+  --schema-template contact
 
 # Load schema from a JSON Schema file
 umwelten eval run \
@@ -337,9 +336,46 @@ umwelten eval run \
 - `contact`: Contact details (name, email, phone, company)
 - `event`: Event information (name, date, time, location, description)
 
-Schema validation provides automatic output validation, type coercion, and detailed error reporting to ensure consistent structured data extraction across different models.
+**Example Output:**
+The schema validation ensures structured JSON output instead of markdown format:
+
+```json
+// DSL Schema Output
+{
+  "name": "Henry",
+  "age": 38,
+  "location": "Phoenix"
+}
+
+// Template Schema Output  
+{
+  "name": "Irene",
+  "email": "irene@datacorp.com",
+  "phone": "555-9876",
+  "company": "DataCorp"
+}
+```
+
+Schema validation provides automatic output validation, type coercion, and detailed error reporting to ensure consistent structured data extraction across different models. The system automatically attempts to use structured output generation and falls back to prompt-based validation if needed.
 
 For detailed schema documentation with comprehensive examples, see [Structured Output Schemas Guide](./docs/structured-schemas.md).
+
+### Schema Validation Troubleshooting
+
+**Common Issues:**
+
+1. **Timeout with streamObject**: Some models may timeout when using structured output generation. The system automatically falls back to prompt-based validation.
+
+2. **JSON Parsing Errors**: If models return malformed JSON, the system will show validation errors. Try using `--coerce-types` to handle type conversions.
+
+3. **Schema Type Mismatches**: Use `--strict-validation` to catch all validation errors, or disable it for more lenient validation.
+
+**Best Practices:**
+
+- Start with simple DSL schemas for basic extraction tasks
+- Use built-in templates for common data structures
+- Test with smaller models first before scaling to larger ones
+- Use `--timeout` to prevent hanging evaluations
 
 #### Evaluation Reports
 
