@@ -151,5 +151,153 @@ export async function runEvaluation(config: EvaluationConfig): Promise<Evaluatio
   };
 }
 
+// Report generation function
+export async function generateReport(evaluationId: string, format: 'markdown' | 'html' | 'json' | 'csv' = 'markdown'): Promise<string> {
+  const outputDir = path.join(process.cwd(), "output", "evaluations", evaluationId);
+  const responsesDir = path.join(outputDir, "responses");
+  
+  if (!fs.existsSync(responsesDir)) {
+    throw new Error(`No evaluation results found for: ${evaluationId}`);
+  }
+  
+  // Load all responses
+  const responseFiles = fs.readdirSync(responsesDir).filter(f => f.endsWith('.json'));
+  const responses: ModelResponse[] = [];
+  
+  for (const file of responseFiles) {
+    const content = fs.readFileSync(path.join(responsesDir, file), 'utf8');
+    responses.push(JSON.parse(content));
+  }
+  
+  if (responses.length === 0) {
+    throw new Error(`No valid responses found in: ${responsesDir}`);
+  }
+  
+  // Generate report based on format
+  switch (format) {
+    case 'markdown':
+      return generateMarkdownReport(evaluationId, responses);
+    case 'html':
+      return generateHTMLReport(evaluationId, responses);
+    case 'json':
+      return JSON.stringify({ evaluationId, responses }, null, 2);
+    case 'csv':
+      return generateCSVReport(evaluationId, responses);
+    default:
+      throw new Error(`Unsupported format: ${format}`);
+  }
+}
+
+// Generate markdown report
+function generateMarkdownReport(evaluationId: string, responses: ModelResponse[]): string {
+  const timestamp = new Date().toISOString();
+  let report = `# Evaluation Report: ${evaluationId}\n\n`;
+  report += `**Generated:** ${timestamp}  \n`;
+  report += `**Total Models:** ${responses.length}\n\n`;
+  
+  // Summary table
+  report += `## Summary\n\n`;
+  report += `| Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) | Cost Estimate |\n`;
+  report += `|-------|----------|----------------|-------------------|-----------|---------------|\n`;
+  
+  let totalTime = 0;
+  let totalTokens = 0;
+  
+  for (const response of responses) {
+    const provider = response.metadata.provider;
+    const model = response.metadata.model;
+    const length = response.content.length;
+    const tokens = response.metadata.tokenUsage;
+    const timeMs = response.metadata.startTime && response.metadata.endTime 
+      ? new Date(response.metadata.endTime).getTime() - new Date(response.metadata.startTime).getTime()
+      : 'N/A';
+    
+    totalTime += typeof timeMs === 'number' ? timeMs : 0;
+    totalTokens += tokens?.total || 0;
+    
+    const tokenStr = tokens ? `${tokens.promptTokens}/${tokens.completionTokens}/${tokens.total}` : 'N/A';
+    const cost = 'N/A'; // TODO: Calculate actual cost
+    
+    report += `| ${model} | ${provider} | ${length} | ${tokenStr} | ${timeMs} | ${cost} |\n`;
+  }
+  
+  // Aggregated stats
+  report += `\n## Statistics\n\n`;
+  report += `- **Total Time:** ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)\n`;
+  report += `- **Total Tokens:** ${totalTokens}\n`;
+  report += `- **Average Response Length:** ${Math.round(responses.reduce((sum, r) => sum + r.content.length, 0) / responses.length)} characters\n`;
+  
+  // Individual responses
+  report += `\n## Individual Responses\n\n`;
+  for (const response of responses) {
+    report += `### ${response.metadata.model} (${response.metadata.provider})\n\n`;
+    report += `**Length:** ${response.content.length} characters  \n`;
+    if (response.metadata.tokenUsage) {
+      report += `**Tokens:** ${response.metadata.tokenUsage.total} (${response.metadata.tokenUsage.promptTokens} prompt + ${response.metadata.tokenUsage.completionTokens} completion)  \n`;
+    }
+    if (response.metadata.startTime && response.metadata.endTime) {
+      const time = new Date(response.metadata.endTime).getTime() - new Date(response.metadata.startTime).getTime();
+      report += `**Time:** ${time}ms (${(time / 1000).toFixed(1)}s)  \n`;
+    }
+    report += `\n**Response:**\n\`\`\`\n${response.content}\n\`\`\`\n\n`;
+  }
+  
+  return report;
+}
+
+// Generate HTML report (simplified version)
+function generateHTMLReport(evaluationId: string, responses: ModelResponse[]): string {
+  const markdown = generateMarkdownReport(evaluationId, responses);
+  // For now, return markdown wrapped in basic HTML
+  // In a full implementation, you'd use a proper markdown-to-HTML converter
+  return `<!DOCTYPE html>
+<html>
+<head>
+    <title>Evaluation Report: ${evaluationId}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        pre { background: #f8f8f8; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        code { background: #f0f0f0; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <pre>${markdown}</pre>
+</body>
+</html>`;
+}
+
+// Generate CSV report
+function generateCSVReport(evaluationId: string, responses: ModelResponse[]): string {
+  const headers = ['Model', 'Provider', 'Response_Length', 'Prompt_Tokens', 'Completion_Tokens', 'Total_Tokens', 'Time_Ms'];
+  let csv = headers.join(',') + '\n';
+  
+  for (const response of responses) {
+    const model = response.metadata.model;
+    const provider = response.metadata.provider;
+    const length = response.content.length;
+    const tokens = response.metadata.tokenUsage;
+    const timeMs = response.metadata.startTime && response.metadata.endTime 
+      ? new Date(response.metadata.endTime).getTime() - new Date(response.metadata.startTime).getTime()
+      : '';
+    
+    const row = [
+      `"${model}"`,
+      `"${provider}"`,
+      length,
+      tokens?.promptTokens || '',
+      tokens?.completionTokens || '',
+      tokens?.total || '',
+      timeMs
+    ];
+    
+    csv += row.join(',') + '\n';
+  }
+  
+  return csv;
+}
+
 // Export utility functions that might be useful for other commands
 export { parseModel as parseModelString };

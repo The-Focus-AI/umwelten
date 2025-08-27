@@ -174,4 +174,116 @@ describe('Evaluation API', () => {
       expect(result.results[0].error).toContain('Invalid model format');
     });
   });
+
+  describe('generateReport', () => {
+    it('should throw error for nonexistent evaluation', async () => {
+      const { generateReport } = await import('./api.js');
+      await expect(generateReport('nonexistent-eval')).rejects.toThrow('No evaluation results found');
+    });
+
+    it('should generate markdown report', async () => {
+      const { generateReport } = await import('./api.js');
+      
+      // Mock file system for this test
+      mockFs.existsSync.mockImplementation((path: string) => {
+        if (path.includes('test-eval-report/responses')) return true;
+        return false;
+      });
+
+      mockFs.readdirSync.mockReturnValue(['model1.json']);
+      mockFs.readFileSync.mockReturnValue(JSON.stringify({
+        content: 'Test response content',
+        metadata: {
+          model: 'test-model',
+          provider: 'test-provider',
+          tokenUsage: { promptTokens: 10, completionTokens: 20, total: 30 },
+          startTime: '2024-01-01T00:00:00.000Z',
+          endTime: '2024-01-01T00:00:01.000Z'
+        }
+      }));
+
+      const report = await generateReport('test-eval-report', 'markdown');
+      
+      expect(report).toContain('# Evaluation Report: test-eval-report');
+      expect(report).toContain('test-model');
+      expect(report).toContain('test-provider');
+      expect(report).toContain('Test response content');
+    });
+
+    it('should generate CSV report', async () => {
+      const { generateReport } = await import('./api.js');
+      
+      // Mock the same data as above
+      mockFs.existsSync.mockImplementation((path: string) => {
+        if (path.includes('test-eval-report/responses')) return true;
+        return false;
+      });
+
+      mockFs.readdirSync.mockReturnValue(['model1.json']);
+      mockFs.readFileSync.mockReturnValue(JSON.stringify({
+        content: 'Test response',
+        metadata: {
+          model: 'test-model',
+          provider: 'test-provider',
+          tokenUsage: { promptTokens: 10, completionTokens: 20, total: 30 }
+        }
+      }));
+
+      const report = await generateReport('test-eval-report', 'csv');
+      
+      expect(report).toContain('Model,Provider,Response_Length');
+      expect(report).toContain('"test-model","test-provider",13');
+    });
+
+    it('should generate HTML report', async () => {
+      const { generateReport } = await import('./api.js');
+      
+      // Mock the same data
+      mockFs.existsSync.mockImplementation((path: string) => {
+        if (path.includes('test-eval-report/responses')) return true;
+        return false;
+      });
+
+      mockFs.readdirSync.mockReturnValue(['model1.json']);
+      mockFs.readFileSync.mockReturnValue(JSON.stringify({
+        content: 'Test response',
+        metadata: {
+          model: 'test-model',
+          provider: 'test-provider'
+        }
+      }));
+
+      const report = await generateReport('test-eval-report', 'html');
+      
+      expect(report).toContain('<!DOCTYPE html>');
+      expect(report).toContain('<title>Evaluation Report: test-eval-report</title>');
+    });
+
+    it('should generate JSON report', async () => {
+      const { generateReport } = await import('./api.js');
+      
+      // Mock the same data
+      mockFs.existsSync.mockImplementation((path: string) => {
+        if (path.includes('test-eval-report/responses')) return true;
+        return false;
+      });
+
+      mockFs.readdirSync.mockReturnValue(['model1.json']);
+      const mockResponse = {
+        content: 'Test response',
+        metadata: {
+          model: 'test-model',
+          provider: 'test-provider'
+        }
+      };
+      mockFs.readFileSync.mockReturnValue(JSON.stringify(mockResponse));
+
+      const report = await generateReport('test-eval-report', 'json');
+      
+      const parsed = JSON.parse(report);
+      expect(parsed.evaluationId).toBe('test-eval-report');
+      expect(parsed.responses).toHaveLength(1);
+      expect(parsed.responses[0].metadata.model).toBe('test-model');
+    });
+  });
 });

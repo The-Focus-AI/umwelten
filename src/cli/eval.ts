@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { runEvaluation, EvaluationConfig } from '../evaluation/api.js';
+import { runEvaluation, EvaluationConfig, generateReport } from '../evaluation/api.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -108,6 +108,43 @@ const evalRunCommand = new Command('run')
     }
   });
 
+const evalReportCommand = new Command('report')
+  .description('Generate reports from evaluation results')
+  .requiredOption('-i, --id <id>', 'Evaluation ID to generate report for')
+  .option('-f, --format <format>', 'Output format: markdown, html, json, csv', 'markdown')
+  .option('-o, --output <file>', 'Output file path (defaults to stdout)')
+  .action(async (options) => {
+    try {
+      // Validate format
+      const validFormats = ['markdown', 'html', 'json', 'csv'];
+      if (!validFormats.includes(options.format)) {
+        console.error(`Error: Invalid format '${options.format}'. Valid formats: ${validFormats.join(', ')}`);
+        process.exit(1);
+      }
+
+      console.log(`📊 Generating ${options.format} report for evaluation: ${options.id}`);
+      
+      // Generate report
+      const report = await generateReport(options.id, options.format);
+      
+      // Output to file or stdout
+      if (options.output) {
+        const outputPath = path.resolve(options.output);
+        fs.writeFileSync(outputPath, report, 'utf8');
+        console.log(`✅ Report saved to: ${outputPath}`);
+      } else {
+        // Output to stdout
+        console.log('\n' + '='.repeat(60));
+        console.log(report);
+      }
+
+    } catch (error) {
+      console.error('❌ Report generation failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 export const evalCommand = new Command('eval')
   .description('Evaluation commands')
-  .addCommand(evalRunCommand);
+  .addCommand(evalRunCommand)
+  .addCommand(evalReportCommand);

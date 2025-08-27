@@ -204,11 +204,55 @@ umwelten eval run \
 
 Results are saved to `output/evaluations/{id}/responses/` with structured JSON output including metadata, token usage, and timing information.
 
+#### Evaluation Reports
+
+Generate comprehensive reports from evaluation results:
+
+```bash
+# Generate markdown report (default)
+umwelten eval report --id cat-poem-eval
+
+# Generate HTML report and save to file
+umwelten eval report --id quantum-explanation --format html --output report.html
+
+# Export data as CSV for analysis
+umwelten eval report --id story-eval --format csv --output results.csv
+
+# JSON export for programmatic use
+umwelten eval report --id image-description --format json
+```
+
+**Report Features:**
+- **Summary Table**: Model comparison with response lengths, token usage, timing
+- **Statistics**: Aggregated metrics across all models 
+- **Individual Responses**: Full response content with metadata
+- **Multiple Formats**: Markdown, HTML, JSON, CSV
+- **Export Options**: Save to file or display in terminal
+
+**Sample Report Output:**
+```markdown
+# Evaluation Report: cat-poem-eval
+
+**Generated:** 2025-08-27T01:03:51.260Z  
+**Total Models:** 2
+
+| Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) |
+|-------|----------|----------------|-------------------|-----------|
+| gemma3:12b | ollama | 128 | 29/39/68 | 3540 |
+| gemini-2.0-flash | google | 156 | 31/42/73 | 2100 |
+
+## Statistics
+- **Total Time:** 5640ms (5.6s)
+- **Total Tokens:** 141
+- **Average Response Length:** 142 characters
+```
+
 ### Advanced Features
 
 - **Model Comparison**: Compare models based on cost, speed, and quality using evaluation results.
 - **Batch Processing**: Run systematic evaluations across model matrices.
 - **Resume Capability**: Skip completed evaluations unless explicitly resumed.
+- **Report Generation**: Create detailed analysis reports in multiple formats.
 - **Error Handling**: Graceful handling of API failures and invalid configurations.
 
 ## Provider Support
