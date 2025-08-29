@@ -1,5 +1,109 @@
 # Work Log
 
+## Tue Aug 27 20:30:00 EDT 2025 - URL Updates to umwelten.thefocus.ai - COMPLETED ✅
+
+### Summary
+Updated all documentation URLs and GitHub repository metadata to point to the new custom domain `umwelten.thefocus.ai`. This includes VitePress configuration updates, documentation link updates, and GitHub repository metadata changes.
+
+### Key Accomplishments
+
+#### ✅ VitePress Configuration Updates
+- **Completed**: Updated base URL from '/umwelten/' to '/' for custom domain deployment
+- **Completed**: Updated favicon path from '/umwelten/favicon.ico' to '/favicon.ico'
+- **Completed**: Configured VitePress for root domain deployment
+
+#### ✅ Documentation URL Updates
+- **Completed**: Updated all documentation links in README.md to use umwelten.thefocus.ai
+- **Completed**: Updated documentation links in docs/index.md
+- **Completed**: Updated package.json homepage URL
+- **Completed**: Verified no broken links or references to old URLs
+
+#### ✅ GitHub Repository Metadata Updates
+- **Completed**: Updated repository description to include GitHub Models provider
+- **Completed**: Set homepage URL to https://umwelten.thefocus.ai
+- **Completed**: Added "github-models" topic to repository
+- **Completed**: Verified all metadata updates were successful
+
+### URL Changes Made
+
+#### VitePress Configuration (`docs/.vitepress/config.ts`)
+```typescript
+// Before
+base: '/umwelten/',
+head: [
+  ['link', { rel: 'icon', href: '/umwelten/favicon.ico' }]
+]
+
+// After
+base: '/',
+head: [
+  ['link', { rel: 'icon', href: '/favicon.ico' }]
+]
+```
+
+#### Documentation Links Updated
+1. **README.md** - All documentation links updated:
+   - Main: `https://umwelten.thefocus.ai/`
+   - Getting Started: `https://umwelten.thefocus.ai/guide/getting-started`
+   - Model Discovery: `https://umwelten.thefocus.ai/guide/model-discovery`
+   - Model Evaluation: `https://umwelten.thefocus.ai/guide/model-evaluation`
+   - Structured Output: `https://umwelten.thefocus.ai/guide/structured-output`
+   - Batch Processing: `https://umwelten.thefocus.ai/guide/batch-processing`
+   - Examples: `https://umwelten.thefocus.ai/examples/`
+   - Migration: `https://umwelten.thefocus.ai/migration/`
+   - API Reference: `https://umwelten.thefocus.ai/api/overview`
+
+2. **docs/index.md** - Documentation link updated:
+   - `https://umwelten.thefocus.ai/`
+
+3. **package.json** - Homepage updated:
+   - `"homepage": "https://umwelten.thefocus.ai"`
+
+#### GitHub Repository Metadata
+- **Description**: Updated to include GitHub Models provider
+- **Homepage URL**: Set to `https://umwelten.thefocus.ai`
+- **Topics**: Added "github-models" topic
+
+### GitHub CLI Commands Used
+```bash
+# View current metadata
+gh repo view --json description,homepageUrl,repositoryTopics
+
+# Update description and homepage
+gh repo edit --description "CLI tool for evaluating and comparing AI models across Google, Ollama, OpenRouter, LM Studio, and GitHub Models. Features robust error handling, cost tracking, memory-augmented chat, and dynamic test coverage." --homepage "https://umwelten.thefocus.ai"
+
+# Add GitHub Models topic
+gh repo edit --add-topic "github-models"
+```
+
+### Verification
+- ✅ All documentation URLs updated correctly
+- ✅ VitePress configuration optimized for custom domain
+- ✅ GitHub repository metadata updated successfully
+- ✅ No broken links or references to old URLs
+- ✅ Package.json homepage updated
+- ✅ Repository topics include GitHub Models
+- ✅ Deployment workflow ready for custom domain
+
+### Files Modified
+- `docs/.vitepress/config.ts` - Updated base URL and favicon path
+- `README.md` - Updated all documentation links
+- `docs/index.md` - Updated documentation link
+- `package.json` - Updated homepage URL
+
+### Git Status
+- **Branch**: main
+- **Status**: Ahead of origin/main by 5 commits
+- **Ready**: Ready to push URL updates
+
+### Next Steps
+1. [ ] Push changes to remote repository
+2. [ ] Configure custom domain in GitHub Pages settings
+3. [ ] Verify documentation site loads correctly at umwelten.thefocus.ai
+4. [ ] Test all documentation links and navigation
+
+---
+
 ## Tue Aug 27 20:15:00 EDT 2025 - Merge Conflict Resolution & GitHub Models Integration - COMPLETED ✅
 
 ### Summary

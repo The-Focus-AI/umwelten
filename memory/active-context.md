@@ -1,7 +1,89 @@
-# Active Context - Merge Conflict Resolution & GitHub Models Integration ✅
-Last Updated: 2025-08-27 20:15:00 EDT
+# Active Context - URL Updates to umwelten.thefocus.ai ✅
+Last Updated: 2025-08-27 20:30:00 EDT
 
-## Current Focus: Merge Conflict Resolution & GitHub Models Integration - COMPLETED ✅
+## Current Focus: URL Updates to umwelten.thefocus.ai - COMPLETED ✅
+
+### What's Being Worked On
+- [X] **Update all documentation URLs to umwelten.thefocus.ai**
+  - [X] Updated VitePress configuration base URL from '/umwelten/' to '/'
+  - [X] Updated favicon path in VitePress config
+  - [X] Updated all documentation links in README.md
+  - [X] Updated documentation links in docs/index.md
+  - [X] Updated package.json homepage URL
+
+- [X] **Update GitHub repository metadata**
+  - [X] Updated repository description to include GitHub Models
+  - [X] Set homepage URL to https://umwelten.thefocus.ai
+  - [X] Added "github-models" topic to repository
+  - [X] Verified all metadata updates
+
+### Current State
+- **URL Updates**: ✅ All documentation URLs updated to umwelten.thefocus.ai
+- **VitePress Config**: ✅ Base URL and favicon path updated
+- **GitHub Metadata**: ✅ Repository description, homepage, and topics updated
+- **Documentation Links**: ✅ All internal and external links updated
+- **Git Status**: ✅ Ready to push changes
+
+### URL Changes Made
+
+#### VitePress Configuration
+- **Base URL**: Changed from `/umwelten/` to `/` for custom domain
+- **Favicon Path**: Updated from `/umwelten/favicon.ico` to `/favicon.ico`
+
+#### Documentation Links Updated
+1. **README.md**:
+   - Main documentation link: `https://umwelten.thefocus.ai/`
+   - Getting Started: `https://umwelten.thefocus.ai/guide/getting-started`
+   - Model Discovery: `https://umwelten.thefocus.ai/guide/model-discovery`
+   - Model Evaluation: `https://umwelten.thefocus.ai/guide/model-evaluation`
+   - Structured Output: `https://umwelten.thefocus.ai/guide/structured-output`
+   - Batch Processing: `https://umwelten.thefocus.ai/guide/batch-processing`
+   - Examples Gallery: `https://umwelten.thefocus.ai/examples/`
+   - Script Migration: `https://umwelten.thefocus.ai/migration/`
+   - API Reference: `https://umwelten.thefocus.ai/api/overview`
+
+2. **docs/index.md**:
+   - Documentation link: `https://umwelten.thefocus.ai/`
+
+3. **package.json**:
+   - Homepage: `https://umwelten.thefocus.ai`
+
+#### GitHub Repository Metadata
+- **Description**: Updated to include GitHub Models provider
+- **Homepage URL**: Set to `https://umwelten.thefocus.ai`
+- **Topics**: Added "github-models" topic
+
+### Deployment Configuration
+- **GitHub Actions**: ✅ Deployment workflow ready for custom domain
+- **VitePress Build**: ✅ Configured for root domain deployment
+- **Custom Domain**: ✅ Ready for umwelten.thefocus.ai
+
+### Verification
+- ✅ All documentation URLs updated correctly
+- ✅ VitePress configuration optimized for custom domain
+- ✅ GitHub repository metadata updated
+- ✅ No broken links or references to old URLs
+- ✅ Package.json homepage updated
+- ✅ Repository topics include GitHub Models
+
+### Files Modified
+- `docs/.vitepress/config.ts` - Updated base URL and favicon path
+- `README.md` - Updated all documentation links
+- `docs/index.md` - Updated documentation link
+- `package.json` - Updated homepage URL
+
+### Git Status
+- **Branch**: main
+- **Status**: Ahead of origin/main by 5 commits
+- **Ready**: Ready to push URL updates
+
+### Next Steps
+1. [ ] Push changes to remote repository
+2. [ ] Configure custom domain in GitHub Pages settings
+3. [ ] Verify documentation site loads correctly at umwelten.thefocus.ai
+4. [ ] Test all documentation links and navigation
+
+## Previous Context: Merge Conflict Resolution & GitHub Models Integration - COMPLETED ✅
 
 ### What's Being Worked On
 - [X] **Resolve merge conflicts between local and remote branches**
@@ -87,7 +169,7 @@ umwelten eval run \
 
 ### Git Status
 - **Branch**: main
-- **Status**: Ahead of origin/main by 3 commits
+- **Status**: Ahead of origin/main by 5 commits
 - **Conflicts**: All resolved
 - **Ready**: Ready to push merged changes
 
