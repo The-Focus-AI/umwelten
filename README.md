@@ -1,499 +1,150 @@
 # Umwelten - AI Model Evaluation Tool
 
-## Overview
+A command-line tool for systematic AI model evaluation across providers (Google, Ollama, OpenRouter, LM Studio) with structured output validation, batch processing, and comprehensive cost analysis.
 
-This command-line tool allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
+## 🚀 Quick Start
 
-## Core Features
-
-- **Model Interaction**: Run single prompts (`run`) or engage in interactive chat sessions (`chat`).
-- **Model Evaluation**: Systematic evaluation across multiple models with the `eval` command.
-- **Model Discovery**: Search and filter models (`models list`), view detailed information (`models info`), and compare costs (`models costs`).
-- **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
-- **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
-- **Provider Support**: Integrates with Google, Ollama, OpenRouter, and LM Studio via the Vercel AI SDK and REST APIs.
-- **Cost Tracking**: Calculates and displays accurate real-time costs based on token usage and official model pricing across all providers.
-- **Rate Limiting**: Basic rate limit handling with backoff.
-- **Extensible Runner**: `SmartModelRunner` allows adding custom logic via hooks (before, during, after).
-- **Interactive UI**: Real-time progress tracking with streaming responses during evaluations.
-- **Concurrent Processing**: Fast parallel evaluation across multiple models with configurable concurrency.
-- **Structured Output Schemas**: Define and validate structured output formats using DSL, JSON Schema, Zod files, or built-in templates.
-
-## Getting Started
-
-### Prerequisites
-
-- **Node.js** (v20+)
-- **pnpm** for package management
-- **API Keys**: Ensure you have the necessary API keys for the providers you intend to use. These should be stored in a `.env` file. (LM Studio does not require an API key for local usage.)
-
-### Installation
-
-#### Option 1: Install from npm (Recommended)
 ```bash
+# Install globally
 npm install -g umwelten
-```
 
-#### Option 2: Install from source
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/The-Focus-AI/umwelten.git
-   cd umwelten
-   ```
-
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-
-3. Build the project:
-   ```bash
-   npm run build
-   ```
-
-4. Use the CLI:
-   ```bash
-   node dist/cli/cli.js --help
-   ```
-
-#### Environment Setup
-Set up your environment variables with the required API keys:
-
-**Option A: Environment variables**
-```bash
-export OPENROUTER_API_KEY=your_openrouter_api_key
-export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
-export OLLAMA_HOST=http://localhost:11434  # Optional, defaults to localhost:11434
-export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional, defaults to localhost:1234
-```
-
-**Option B: .env file (for development)**
-```plaintext
-OPENROUTER_API_KEY=your_openrouter_api_key
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
-OLLAMA_HOST=http://localhost:11434
-LMSTUDIO_BASE_URL=http://localhost:1234
-# LM Studio does not require an API key
-```
-
-### Usage
-
-#### Model Discovery
-
-Explore available models across all providers:
-
-```bash
-# List all models
+# Discover available models
 umwelten models list
 
-# List models with JSON output
-umwelten models list --json
-
-# Filter by provider
-umwelten models list --provider openrouter
-umwelten models list --provider ollama
-
-# Show only free models
-umwelten models list --free
-
-# Sort by different fields
-umwelten models list --sort addedDate --desc
-umwelten models list --sort contextLength
-umwelten models list --sort cost
-
-# Search models
-umwelten models list --search "gpt-4"
-```
-
-**Model List Features:**
-- **Cost Comparison**: View accurate pricing for each model per 1M tokens
-- **Context Length**: See maximum context window sizes (8K, 128K, 2M, etc.)  
-- **Provider Information**: Compare models across Google, OpenRouter, and Ollama
-- **Multiple Formats**: Table view (default) or JSON output
-- **Smart Filtering**: Search, sort, and filter by provider or cost
-
-**Example Output:**
-```
-Found 3 models
-
-┌───────────────────┬────────────┬─────────┬───────────────┬────────────────┬────────┐
-│ ID                │ Provider   │ Context │ Input Cost/1M │ Output Cost/1M │ Added  │
-├───────────────────┼────────────┼─────────┼───────────────┼────────────────┼────────┤
-│ openai/gpt-4o     │ openrouter │ 128K    │ $2.5000       │ $10.0000       │ 5/12/24│
-│ openai/gpt-4o-mini│ openrouter │ 128K    │ $0.1500       │ $0.6000        │ 7/17/24│
-│ gemma3:12b        │ ollama     │ 8K      │ Free          │ Free           │ 7/15/25│
-└───────────────────┴────────────┴─────────┴───────────────┴────────────────┴────────┘
-```
-
-```bash
-# Get detailed information about a specific model
-umwelten models info <model-id>
-
-# View cost breakdown for all models
-umwelten models costs
-
-# Sort costs by different metrics
-umwelten models costs --sort-by prompt
-umwelten models costs --sort-by completion
-umwelten models costs --sort-by total
-```
-
-#### Running a Single Prompt
-
-Use the `run` command:
-
-```bash
-umwelten run --provider ollama --model gemma3:latest "Explain the concept of quantum entanglement."
-```
-
-> Note: The prompt is a required positional argument (not a --prompt option).
-
-#### Interactive Chat
-
-Use the `chat` command:
-
-```bash
-# Standard chat (no tools enabled by default)
-umwelten chat --provider ollama --model gemma3:latest
-
-# Enable specific tools (e.g., calculator, statistics)
-umwelten chat --provider openrouter --model gpt-4o --tools calculator,statistics
-
-# Chat with memory enabled
-umwelten chat --provider ollama --model gemma3:latest --memory
-
-# Chat with a file attachment
-umwelten chat --provider google --model gemini-1.5-flash-latest --file ./examples/test_data/internet_archive_fffound.png
-
-# Chat with a local LM Studio model (ensure LM Studio server is running and model is loaded)
-umwelten chat --provider lmstudio --model mistralai/devstral-small-2505
-```
-
-> **Tool Usage in Chat:**
->
-> - By default, **no tools are enabled** in chat sessions.
-> - Use the `--tools` flag with a comma-separated list of tool names to enable specific tools (e.g., `--tools calculator,statistics`).
-> - To see available tools, run `umwelten tools list`.
-> - If a tool name is not found, it will be ignored with a warning.
-
-Inside the chat session, you can use commands:
-- `/?`: Show help.
-- `/reset`: Clear conversation history.
-- `/mem`: Show memory facts (requires `--memory`).
-- `/history`: Show message history.
-- `exit` or `quit`: End the session.
-
-#### Model Evaluation
-
-Use the `eval` command to systematically evaluate prompts across multiple models:
-
-```bash
-# Basic evaluation across multiple models
+# Run a simple evaluation
 umwelten eval run \
   --prompt "Write a short poem about cats" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
   --id "cat-poem-eval"
 
-# With system prompt and temperature
-umwelten eval run \
-  --prompt "Explain quantum computing" \
-  --models "ollama:gemma3:27b,openrouter:openai/gpt-4o-mini" \
-  --id "quantum-explanation" \
-  --system "You are a physics professor" \
-  --temperature 0.3
+# Generate a report
+umwelten eval report --id cat-poem-eval --format markdown
+```
 
-# Test PDF parsing capabilities across models
+## ✨ Key Features
+
+- **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio
+- **📊 Structured Output**: DSL, JSON Schema, Zod validation with type coercion
+- **⚡ Batch Processing**: Concurrent file processing with intelligent error handling
+- **💰 Cost Transparency**: Real-time cost calculations with accurate pricing
+- **🎯 Interactive UI**: Real-time progress with streaming responses
+- **🧠 Memory & Tools**: Chat with memory and specialized tools
+- **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV)
+
+## 📚 Documentation
+
+**Complete documentation is available at [umwelten.dev](https://the-focus-ai.github.io/umwelten/)**
+
+### Quick Links
+
+- 📖 [Getting Started](https://the-focus-ai.github.io/umwelten/guide/getting-started) - Installation and setup
+- 🔍 [Model Discovery](https://the-focus-ai.github.io/umwelten/guide/model-discovery) - Find and compare models
+- 🎯 [Model Evaluation](https://the-focus-ai.github.io/umwelten/guide/model-evaluation) - Systematic testing
+- 📊 [Structured Output](https://the-focus-ai.github.io/umwelten/guide/structured-output) - Schema validation
+- ⚡ [Batch Processing](https://the-focus-ai.github.io/umwelten/guide/batch-processing) - Multi-file workflows
+
+### Examples & Migration
+
+- 💡 [Examples Gallery](https://the-focus-ai.github.io/umwelten/examples/) - Complete usage examples
+- 🔄 [Script Migration](https://the-focus-ai.github.io/umwelten/migration/) - Migrate from scripts to CLI
+- 📋 [API Reference](https://the-focus-ai.github.io/umwelten/api/overview) - Complete command reference
+
+## 🛠️ Installation
+
+### Option 1: NPM (Recommended)
+```bash
+npm install -g umwelten
+```
+
+### Option 2: From Source
+```bash
+git clone https://github.com/The-Focus-AI/umwelten.git
+cd umwelten
+pnpm install
+npm run build
+```
+
+## ⚙️ Environment Setup
+
+```bash
+# Required API keys
+export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+export OPENROUTER_API_KEY=your_openrouter_api_key
+
+# Optional (for local models)
+export OLLAMA_HOST=http://localhost:11434
+export LMSTUDIO_BASE_URL=http://localhost:1234
+```
+
+## 🎯 Common Use Cases
+
+### Model Comparison
+```bash
 umwelten eval run \
-  --prompt "Analyze this PDF document and extract key information" \
-  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
-  --id "pdf-analysis" \
-  --attach "./document.pdf" \
+  --prompt "Explain quantum computing in simple terms" \
+  --models "ollama:gemma3:12b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --id "quantum-comparison" \
   --concurrent
+```
 
-# Resume a previous evaluation (re-run existing responses)
+### Image Analysis
+```bash
 umwelten eval run \
-  --prompt "Write a story" \
-  --models "ollama:gemma3:12b" \
-  --id "story-eval" \
-  --resume
-
-# With file attachments
-umwelten eval run \
-  --prompt "Describe this image" \
+  --prompt "Describe this image in detail" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
-  --id "image-description" \
-  --attach "./path/to/image.jpg"
-
-# Interactive UI with streaming responses
-umwelten eval run \
-  --prompt "Write a creative story about AI" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
-  --id "creative-story" \
-  --ui
-
-# Fast concurrent evaluation (up to 20x faster)
-umwelten eval run \
-  --prompt "Compare programming languages" \
-  --models "ollama:gemma3:12b,ollama:llama3.2:latest,google:gemini-2.0-flash" \
-  --id "lang-comparison" \
-  --concurrent --max-concurrency 3
+  --id "image-analysis" \
+  --attach "./image.jpg"
 ```
 
-**Evaluation Options:**
-- `--prompt`: The prompt to evaluate (required)
-- `--models`: Comma-separated models in `provider:model` format (required)
-- `--id`: Unique evaluation identifier (required)
-- `--system`: Optional system prompt
-- `--temperature`: Temperature for generation (0.0-2.0)
-- `--timeout`: Timeout in milliseconds (minimum 1000ms)
-- `--resume`: Re-run existing responses (default: false)
-- `--attach`: Comma-separated file paths to attach
-- `--ui`: Use interactive UI with streaming responses and progress indicators
-- `--concurrent`: Enable concurrent evaluation for faster processing
-- `--max-concurrency <number>`: Maximum concurrent evaluations (1-20, default: 3)
-
-Results are saved to `output/evaluations/{id}/responses/` with structured JSON output including metadata, token usage, and timing information.
-
-**Interactive UI Mode (`--ui` flag):**
-The interactive UI provides a rich, real-time evaluation experience:
-- **Live Progress Bar**: Visual progress indicator showing completion status
-- **Streaming Responses**: Watch model responses generate in real-time as they stream
-- **Status Indicators**: Clear visual status for each model (pending, generating, completed, error)
-- **Individual Timing**: Per-model timing with elapsed time display
-- **Response Preview**: Truncated response preview in bordered boxes
-- **Multi-Model Support**: All models displayed simultaneously with independent progress
-- **Graceful Exit**: Clean termination with Ctrl+C
-- **Concurrent Support**: Works seamlessly with `--concurrent` flag for parallel evaluation
-
-**Concurrent Processing (`--concurrent` flag):**
-Significantly speeds up multi-model evaluations by running them in parallel:
-- **Configurable Concurrency**: Control parallel execution with `--max-concurrency` (default: 3)
-- **Intelligent Batching**: Processes models in batches to respect system resources
-- **Progress Reporting**: Real-time completion notifications in concurrent mode
-- **Error Isolation**: Individual model failures don't affect other concurrent evaluations
-- **Performance Boost**: Up to 20x faster for evaluations with many models
-
-#### Structured Output Schemas
-
-Define and validate structured output formats for consistent model responses:
-
+### Structured Data Extraction
 ```bash
-# Evaluate with a simple DSL schema
 umwelten eval run \
-  --prompt "Extract person information from this text: Henry is 38 years old and lives in Phoenix" \
-  --models "ollama:gemma3:12b" \
-  --id "person-extraction" \
-  --schema "name, age int, location"
-
-# Use a built-in template schema
-umwelten eval run \
-  --prompt "Extract contact information from this text: Irene works at DataCorp, her email is irene@datacorp.com and phone is 555-9876" \
-  --models "ollama:gemma3:12b" \
-  --id "contact-extraction" \
-  --schema-template contact
-
-# Load schema from a JSON Schema file
-umwelten eval run \
-  --prompt "Analyze the financial data and extract key metrics" \
+  --prompt "Extract person info: John is 25 and works as a developer" \
   --models "google:gemini-2.0-flash" \
-  --id "financial-analysis" \
-  --schema-file "./schemas/financial_metrics.json"
-
-# Use a TypeScript Zod schema for complex validation
-umwelten eval run \
-  --prompt "Process the order data and validate structure" \
-  --models "openrouter:openai/gpt-4o" \
-  --id "order-processing" \
-  --zod-schema "./schemas/order-schema.ts"
+  --id "person-extraction" \
+  --schema "name, age int, job"
 ```
 
-**Schema Options:**
-- `--schema <dsl>`: Simple DSL format like `"name, age int, active bool"`
-- `--schema-template <name>`: Built-in templates (`person`, `contact`, `event`)  
-- `--schema-file <path>`: JSON Schema file
-- `--zod-schema <path>`: TypeScript Zod schema file
-- `--validate-output`: Enable output validation (default: true with schemas)
-- `--coerce-types`: Attempt to coerce data types (string numbers → numbers)
-- `--strict-validation`: Fail evaluation on validation errors
-
-**DSL Schema Syntax:**
+### Batch Processing
 ```bash
-# Basic fields (defaults to string type)
-"name, email, location"
-
-# Typed fields
-"name, age int, active bool, tags array"
-
-# With descriptions
-"name: full name, age int: person's age, email: email address"
-
-# Complex example
-"startLocation, endLocation, startDate, totalDays int: number of days, withKids bool: traveling with children"
+umwelten eval batch \
+  --prompt "Analyze this document" \
+  --models "google:gemini-2.0-flash" \
+  --id "doc-batch" \
+  --directory "./documents" \
+  --file-pattern "*.pdf" \
+  --concurrent
 ```
 
-**Built-in Templates:**
-- `person`: Basic person information (name, age, email, location)
-- `contact`: Contact details (name, email, phone, company)
-- `event`: Event information (name, date, time, location, description)
+## 📊 Provider Support
 
-**Example Output:**
-The schema validation ensures structured JSON output instead of markdown format:
+| Provider | Models | Features | Cost |
+|----------|--------|----------|------|
+| **Google** | Gemini 2.0/2.5, Flash | Vision, Large Context (2M tokens) | Low cost |
+| **Ollama** | Gemma, Llama, Qwen, etc. | Local processing, Privacy | Free |
+| **OpenRouter** | GPT-4, Claude, etc. | Wide model selection | Pay-per-use |
+| **LM Studio** | Any local model | Full privacy, No API key | Free |
 
-```json
-// DSL Schema Output
-{
-  "name": "Henry",
-  "age": 38,
-  "location": "Phoenix"
-}
-
-// Template Schema Output  
-{
-  "name": "Irene",
-  "email": "irene@datacorp.com",
-  "phone": "555-9876",
-  "company": "DataCorp"
-}
-```
-
-Schema validation provides automatic output validation, type coercion, and detailed error reporting to ensure consistent structured data extraction across different models. The system automatically attempts to use structured output generation and falls back to prompt-based validation if needed.
-
-For detailed schema documentation with comprehensive examples, see [Structured Output Schemas Guide](./docs/structured-schemas.md).
-
-### Schema Validation Troubleshooting
-
-**Common Issues:**
-
-1. **Timeout with streamObject**: Some models may timeout when using structured output generation. The system automatically falls back to prompt-based validation.
-
-2. **JSON Parsing Errors**: If models return malformed JSON, the system will show validation errors. Try using `--coerce-types` to handle type conversions.
-
-3. **Schema Type Mismatches**: Use `--strict-validation` to catch all validation errors, or disable it for more lenient validation.
-
-**Best Practices:**
-
-- Start with simple DSL schemas for basic extraction tasks
-- Use built-in templates for common data structures
-- Test with smaller models first before scaling to larger ones
-- Use `--timeout` to prevent hanging evaluations
-
-#### Evaluation Reports
-
-Generate comprehensive reports from evaluation results:
-
-```bash
-# Generate markdown report (default)
-umwelten eval report --id cat-poem-eval
-
-# Generate HTML report and save to file
-umwelten eval report --id quantum-explanation --format html --output report.html
-
-# Export data as CSV for analysis
-umwelten eval report --id story-eval --format csv --output results.csv
-
-# JSON export for programmatic use
-umwelten eval report --id image-description --format json
-```
-
-**Report Features:**
-- **Summary Table**: Model comparison with response lengths, token usage, timing, and cost estimates
-- **Statistics**: Aggregated metrics across all models including total costs
-- **Individual Responses**: Full response content with metadata
-- **Multiple Formats**: Markdown, HTML, JSON, CSV
-- **Export Options**: Save to file or display in terminal
-- **Cost Analysis**: Accurate cost calculations using integrated pricing data
-- **Enhanced Error Handling**: Detailed validation and helpful troubleshooting suggestions
-
-**Sample Report Output:**
-```markdown
-# Evaluation Report: openrouter-cost-comparison
-
-**Generated:** 2025-08-27T22:23:04.735Z  
-**Total Models:** 2
-
-| Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) | Cost Estimate |
-|-------|----------|----------------|-------------------|-----------|---------------|
-| openai/gpt-4o-mini | openrouter | 1862 | 17/363/380 | 5223 | $0.000220 |
-| openai/gpt-4o | openrouter | 1824 | 17/363/380 | 4014 | $0.003672 |
-
-## Statistics
-- **Total Time:** 9237ms (9.2s)
-- **Total Tokens:** 760
-- **Total Cost:** $0.003893
-- **Average Response Length:** 1843 characters
-```
-
-#### Evaluation Management
-
-List and discover previous evaluations:
-
-```bash
-# List all available evaluations
-umwelten eval list
-
-# Show detailed information about evaluations
-umwelten eval list --details
-
-# JSON output for programmatic use
-umwelten eval list --json
-```
-
-### Advanced Features
-
-- **Model Comparison**: Compare models based on cost, speed, and quality using evaluation results.
-- **Batch Processing**: Run systematic evaluations across model matrices.
-- **Resume Capability**: Skip completed evaluations unless explicitly resumed.
-- **Report Generation**: Create detailed analysis reports in multiple formats with integrated cost calculations.
-- **Error Handling**: Comprehensive input validation and graceful handling of API failures with helpful troubleshooting.
-- **Interactive UI**: Real-time progress tracking with streaming responses and visual indicators.
-- **Concurrent Processing**: Parallel evaluation support for significant performance improvements.
-- **Cost Transparency**: Accurate cost tracking and analysis across all supported providers.
-- **Structured Output**: Schema-based evaluation with validation, coercion, and comprehensive error reporting.
-
-## Provider Support
-
-- **Google**: Gemini models (text, vision)
-- **Ollama**: Local LLMs
-- **OpenRouter**: Hosted LLMs
-- **LM Studio**: Local LLMs and embeddings via REST API (no API key required)
-  - Uses `/api/v0/models` and `/api/v0/completions` endpoints
-  - Robust error handling and dynamic model selection in tests
-  - Supports both completions and embeddings (if model is available)
-
-## Development
-
-### Directory Structure
+## 🏗️ Architecture
 
 ```
 src/
-  cli/             # CLI command implementations
-  cognition/       # Model interfaces and runners (Base, Smart)
-  conversation/    # Conversation management
-  costs/           # Cost calculation with accurate provider pricing
-  evaluation/      # Evaluation system (runners, scorers, extractors, concurrent processing)
-  interaction/     # Model interaction and stimulus handling
-  memory/          # Memory system (store, runner, hooks)
-  providers/       # Provider implementations with enhanced context window data
-  rate-limit/      # Rate limit handling
-  test-utils/      # Shared test utilities
-  ui/              # Interactive terminal UI components (React/Ink)
-memory/            # Project planning/documentation files
-output/            # Generated output (evaluations, reports)
-scripts/           # Utility scripts (being migrated to CLI)
+├── cli/           # CLI command implementations
+├── evaluation/    # Evaluation system with concurrent processing
+├── providers/     # Multi-provider integrations
+├── cognition/     # Model runners and interfaces
+├── costs/         # Accurate cost calculation
+└── ui/            # Interactive terminal components
 ```
-(Tests are colocated with source files, e.g., `*.test.ts`)
 
-### Testing
+## 🤝 Contributing
 
-- **Unit Tests**: Use Vitest for testing core functionalities.
-- **Integration Tests**: Ensure end-to-end functionality of CLI commands.
-- **Manual QA**: Run evaluations against known prompts and compare results.
-- **LM Studio**: Tests dynamically select the first loaded model for text generation, ensuring robust and reliable test coverage.
+Contributions welcome! Check our [Contributing Guide](CONTRIBUTING.md) and [open issues](https://github.com/The-Focus-AI/umwelten/issues).
 
-## Contributing
+## 📄 License
 
-Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## License
+---
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
+**[📖 View Full Documentation](https://the-focus-ai.github.io/umwelten/)** | **[🚀 Examples](https://the-focus-ai.github.io/umwelten/examples/)** | **[🔄 Migration Guide](https://the-focus-ai.github.io/umwelten/migration/)** 
