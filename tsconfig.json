@@ -12,7 +12,9 @@
     "sourceMap": true,
     "rootDir": "src",
     "types": ["node", "vitest/globals"],
-    "emitDeclarationOnly": false
+    "emitDeclarationOnly": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "src/test/"]

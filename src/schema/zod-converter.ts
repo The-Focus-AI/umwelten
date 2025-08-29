@@ -31,11 +31,10 @@ export function parsedSchemaToZod(schema: ParsedSchema): z.ZodSchema {
 function convertFieldToZod(field: SchemaField): z.ZodSchema {
   switch (field.type) {
     case 'string':
-      let stringSchema = z.string();
       if (field.enum) {
-        stringSchema = z.enum(field.enum as [string, ...string[]]);
+        return z.enum(field.enum as [string, ...string[]]);
       }
-      return stringSchema;
+      return z.string();
 
     case 'number':
       return z.number();
