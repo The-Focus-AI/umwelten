@@ -1,10 +1,12 @@
 import { getOllamaModelUrl } from "./ollama.js";
 import { getOpenRouterModelUrl } from "./openrouter.js";
 import { getGoogleModelUrl } from "./google.js";
+import { getGitHubModelsModelUrl } from "./github-models.js";
 import type { ModelDetails } from "../cognition/types.js";
 import { createGoogleProvider } from "./google.js";
 import { createOpenRouterProvider } from "./openrouter.js";
 import { createOllamaProvider } from "./ollama.js";
+import { createGitHubModelsProvider } from "./github-models.js";
 import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
@@ -18,6 +20,8 @@ export function getModelUrl(model: ModelDetails): string | undefined {
       return getOllamaModelUrl(model.name);
     case "google":
       return getGoogleModelUrl(model.name);
+    case "github-models":
+      return getGitHubModelsModelUrl(model.name);
     case "lmstudio":
       return undefined;
     default:
@@ -53,7 +57,7 @@ export async function getModelDetails(model: LanguageModel): Promise<ModelDetail
     const modelId = model.toString();
     
     // Try to find the model in our known providers
-    const providers = ['google', 'openrouter', 'ollama', 'lmstudio'] as const;
+    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'lmstudio'] as const;
     
     for (const providerName of providers) {
       try {
@@ -102,6 +106,12 @@ export async function getModelProvider(
         throw new Error("OPENROUTER_API_KEY environment variable is required");
       }
       return createOpenRouterProvider(openrouterKey);
+    case "github-models":
+      const githubToken = process.env.GITHUB_TOKEN;
+      if (!githubToken) {
+        throw new Error("GITHUB_TOKEN environment variable is required");
+      }
+      return createGitHubModelsProvider(githubToken);
     case "ollama":
       return createOllamaProvider();
     case "lmstudio":

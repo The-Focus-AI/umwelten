@@ -6,7 +6,7 @@ A command-line tool to interact with and systematically evaluate AI models acros
 
 Umwelten is a comprehensive AI model evaluation and interaction tool that implements the "Umwelt" concept - creating a semantic framework around how models perceive and interact with their environment. It provides:
 
-- **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio
+- **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models
 - **Semantic Architecture**: Cognition, Interaction, and Stimulus frameworks
 - **Evaluation Framework**: Systematic model assessment and comparison
 - **Memory System**: Persistent conversation memory and fact extraction
@@ -57,6 +57,7 @@ Connect to multiple AI providers seamlessly:
 - **OpenRouter**: Access to OpenAI, Anthropic, and more
 - **Ollama**: Local model execution
 - **LM Studio**: Local REST API models
+- **GitHub Models**: Free access to AI models during preview
 
 ### 📊 Evaluation Framework
 

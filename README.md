@@ -1,6 +1,6 @@
 # Umwelten - AI Model Evaluation Tool
 
-A command-line tool for systematic AI model evaluation across providers (Google, Ollama, OpenRouter, LM Studio) with structured output validation, batch processing, and comprehensive cost analysis.
+A command-line tool for systematic AI model evaluation across providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models) with structured output validation, batch processing, and comprehensive cost analysis.
 
 ## 🚀 Quick Start
 
@@ -23,7 +23,7 @@ umwelten eval report --id cat-poem-eval --format markdown
 
 ## ✨ Key Features
 
-- **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio
+- **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio, GitHub Models
 - **📊 Structured Output**: DSL, JSON Schema, Zod validation with type coercion
 - **⚡ Batch Processing**: Concurrent file processing with intelligent error handling
 - **💰 Cost Transparency**: Real-time cost calculations with accurate pricing
@@ -70,6 +70,7 @@ npm run build
 # Required API keys
 export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
 export OPENROUTER_API_KEY=your_openrouter_api_key
+export GITHUB_TOKEN=your_github_personal_access_token
 
 # Optional (for local models)
 export OLLAMA_HOST=http://localhost:11434
@@ -124,6 +125,7 @@ umwelten eval batch \
 | **Ollama** | Gemma, Llama, Qwen, etc. | Local processing, Privacy | Free |
 | **OpenRouter** | GPT-4, Claude, etc. | Wide model selection | Pay-per-use |
 | **LM Studio** | Any local model | Full privacy, No API key | Free |
+| **GitHub Models** | OpenAI, Meta, DeepSeek, etc. | Free during preview | Free |
 
 ## 🏗️ Architecture
 

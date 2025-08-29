@@ -1,6 +1,6 @@
 # Model Discovery
 
-Umwelten provides comprehensive model discovery features to help you find and compare models across all supported providers (Google, Ollama, OpenRouter, LM Studio).
+Umwelten provides comprehensive model discovery features to help you find and compare models across all supported providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models).
 
 ## Listing Models
 
@@ -22,6 +22,7 @@ umwelten models list --provider openrouter
 umwelten models list --provider ollama
 umwelten models list --provider google
 umwelten models list --provider lmstudio
+umwelten models list --provider github-models
 ```
 
 ### Filter by Cost
@@ -147,6 +148,12 @@ Found 150+ models
 - No API key required
 - Models must be downloaded and loaded in LM Studio
 - Full privacy and control
+
+### GitHub Models
+- Free access during preview period
+- Requires GitHub Personal Access Token with `models` scope
+- Access to models from OpenAI, Meta, DeepSeek, and other providers
+- OpenAI-compatible API interface
 
 ## Next Steps
 

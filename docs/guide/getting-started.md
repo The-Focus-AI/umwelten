@@ -1,6 +1,6 @@
 # Getting Started
 
-Umwelten is a command-line tool that allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
+Umwelten is a command-line tool that allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
 
 ## Prerequisites
 
@@ -47,6 +47,7 @@ Set up your environment variables with the required API keys:
 ```bash
 export OPENROUTER_API_KEY=your_openrouter_api_key
 export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+export GITHUB_TOKEN=your_github_personal_access_token
 export OLLAMA_HOST=http://localhost:11434  # Optional, defaults to localhost:11434
 export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional, defaults to localhost:1234
 ```
@@ -55,6 +56,7 @@ export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional, defaults to localhos
 ```plaintext
 OPENROUTER_API_KEY=your_openrouter_api_key
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+GITHUB_TOKEN=your_github_personal_access_token
 OLLAMA_HOST=http://localhost:11434
 LMSTUDIO_BASE_URL=http://localhost:1234
 # LM Studio does not require an API key
@@ -62,6 +64,8 @@ LMSTUDIO_BASE_URL=http://localhost:1234
 
 ::: tip
 LM Studio does not require an API key for local usage, but you'll need to have the LM Studio server running and a model loaded.
+
+GitHub Models requires a GitHub Personal Access Token with the `models` scope. During the preview period, GitHub Models is free to use.
 :::
 
 ## Verify Installation

@@ -108,7 +108,7 @@ interface CommandOptions {
 }
 
 function formatCost(model: ModelDetails): string {
-  if (model.provider === 'ollama') return chalk.green('Free');
+  if (model.provider === 'ollama' || model.provider === 'github-models') return chalk.green('Free');
   if (!model.costs) return chalk.green('Free');
   
   const inputCostPerM = model.costs.promptTokens * 1000000;
@@ -168,7 +168,7 @@ function formatDate(date: Date | undefined): string {
 export const modelsCommand = new Command('models')
   .description('List and search available models')
   .option('-s, --search <query>', 'Search for models by name or description')
-  .option('-p, --provider <provider>', 'Filter by provider (openrouter, ollama, google, all)', 'all')
+  .option('-p, --provider <provider>', 'Filter by provider (openrouter, ollama, google, github-models, all)', 'all')
   .option('--sort <field>', 'Sort by field (name, addedDate, contextLength, cost)', 'name')
   .option('--desc', 'Sort in descending order')
   .option('--free', 'Show only free models')
@@ -207,7 +207,7 @@ export const modelsCommand = new Command('models')
       // Filter free models if requested
       if (options.free) {
         models = models.filter(m => {
-          if (m.provider === 'ollama') return true;
+          if (m.provider === 'ollama' || m.provider === 'github-models') return true;
           if (!m.costs) return true;
           return m.costs.promptTokens === 0 && m.costs.completionTokens === 0;
         });

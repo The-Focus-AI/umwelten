@@ -18,6 +18,7 @@ The Providers package abstracts the complexity of different AI model APIs and pr
 - **OpenRouter**: Access to multiple providers (OpenAI, Anthropic, etc.)
 - **Ollama**: Local model execution
 - **LM Studio**: Local model execution with REST API
+- **GitHub Models**: Free access to AI models during preview period
 
 ## Core Classes
 
@@ -177,6 +178,59 @@ console.log('Available LM Studio models:', models.map(m => m.name));
 
 **Returns**: Promise resolving to array of available model details
 
+### GitHubModelsProvider
+
+Provider for GitHub Models, offering free access to AI models during the preview period.
+
+```typescript
+import { GitHubModelsProvider } from '../src/providers/github-models.js';
+
+const provider = new GitHubModelsProvider();
+```
+
+#### Constructor
+
+```typescript
+constructor(apiKey?: string, baseUrl?: string)
+```
+
+**Parameters**:
+- `apiKey`: GitHub Personal Access Token with `models` scope
+- `baseUrl`: Optional base URL (defaults to 'https://models.github.ai/inference')
+
+#### Methods
+
+##### `getAvailableModels(): Promise<ModelDetails[]>`
+
+Get all available GitHub Models.
+
+```typescript
+const models = await provider.getAvailableModels();
+console.log('Available GitHub Models:', models.map(m => m.name));
+```
+
+**Returns**: Promise resolving to array of available model details
+
+##### `calculateCosts(model: string, promptTokens: number, completionTokens: number): ModelCosts`
+
+Calculate costs for GitHub Models (free during preview period).
+
+```typescript
+const costs = provider.calculateCosts('openai/gpt-4o-mini', 1000, 500);
+console.log(`GitHub Models cost: $${costs.totalCost.toFixed(4)}`); // $0.00 during preview
+```
+
+**Parameters**:
+- `model`: Model identifier (e.g., 'openai/gpt-4o-mini')
+- `promptTokens`: Number of prompt tokens
+- `completionTokens`: Number of completion tokens
+
+**Returns**: ModelCosts object with pricing information (currently free)
+
+::: tip
+GitHub Models is currently free during the preview period. The provider supports models from OpenAI, Meta, DeepSeek, and other providers through the GitHub Models platform.
+:::
+
 ## Provider Management
 
 ### Provider Registry
@@ -196,10 +250,11 @@ const googleProvider = getProvider('google');
 const openRouterProvider = getProvider('openrouter');
 const ollamaProvider = getProvider('ollama');
 const lmStudioProvider = getProvider('lmstudio');
+const githubModelsProvider = getProvider('github-models');
 ```
 
 **Parameters**:
-- `name`: Provider name ('google', 'openrouter', 'ollama', 'lmstudio')
+- `name`: Provider name ('google', 'openrouter', 'ollama', 'lmstudio', 'github-models')
 
 **Returns**: Provider instance
 
