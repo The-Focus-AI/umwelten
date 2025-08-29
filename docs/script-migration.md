@@ -193,7 +193,7 @@ umwelten eval run \
 
 ---
 
-## 📋 Complex Scripts Requiring New CLI Features
+## ✅ Fully Migrated Scripts
 
 ### image-feature-extract.ts
 **Purpose:** Structured extraction of image features using Zod schemas
@@ -203,27 +203,49 @@ umwelten eval run \
 - Structured data extraction (confidence scores, enums)
 - Vision model testing
 
-**CLI Equivalent (Basic):**
+**CLI Equivalent:**
 ```bash
-# Basic image evaluation (✅ Supported)
+# Full structured image evaluation with Zod schema (✅ FULLY SUPPORTED)
 umwelten eval run \
-  --prompt "Analyze this image and describe its features in detail" \
+  --prompt "Analyze this image and extract structured features" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-features" \
-  --attach "./path/to/image.jpg"
+  --attach "./path/to/image.jpg" \
+  --zod-schema "./scripts/image-feature-extract.ts"
 ```
 
-**Missing Features:**
-- [ ] **Structured output schemas** - No Zod schema support in CLI
-- [ ] **Confidence scoring** - No built-in confidence extraction
-- [ ] **Enum validation** - No structured data validation
-- [ ] **Batch image processing** - No batch file support
+**Status:** ✅ **COMPLETE** - CLI fully supports Zod schema validation
 
-**TODOs:**
-- [ ] Add `--schema` flag for structured output
-- [ ] Add confidence scoring extraction
-- [ ] Add batch file processing support
-- [ ] Add structured validation and reporting
+**Features Now Available:**
+- ✅ **Structured output schemas** - Full Zod schema support via `--zod-schema`
+- ✅ **Confidence scoring** - Built into schema validation
+- ✅ **Enum validation** - Full enum support through Zod schemas
+- ✅ **Type coercion** - Automatic type conversion with `--coerce-types`
+- ✅ **Validation reporting** - Comprehensive error reporting and validation
+
+### image-parsing.ts
+**Purpose:** Basic image analysis and content summary
+
+**Original Features:**
+- Simple image analysis with content summary
+- Multiple model testing
+- Basic evaluation and scoring
+
+**CLI Equivalent:**
+```bash
+# Basic image analysis (✅ FULLY SUPPORTED)
+umwelten eval run \
+  --prompt "Analyze this image and provide a summary of the content" \
+  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest,ollama:gemma3:12b" \
+  --id "image-parsing" \
+  --attach "./input/images/internet_archive_fffound.png" \
+  --concurrent
+
+# Generate comprehensive report
+umwelten eval report --id image-parsing --format markdown
+```
+
+**Status:** ✅ **COMPLETE** - CLI fully replaces script functionality
 
 ---
 
@@ -350,18 +372,19 @@ umwelten eval run \
 
 ## 📈 Migration Priority
 
-### High Priority (Easy Wins)
-1. **✅ cat-poem.ts** - Already complete
-2. **✅ temperature.ts** - Already complete  
-3. **✅ google-pricing.ts** - Already complete
-4. **✅ frankenstein.ts** - Already complete
-5. **✅ pdf-identify.ts & pdf-parsing.ts** - Complete, tests model's native PDF parsing
-6. **🔄 roadtrip.ts** - Complex structured output, needs schema support
+### High Priority (Easy Wins) - ✅ All Complete
+1. **✅ cat-poem.ts** - Complete
+2. **✅ temperature.ts** - Complete  
+3. **✅ google-pricing.ts** - Complete
+4. **✅ frankenstein.ts** - Complete
+5. **✅ pdf-identify.ts & pdf-parsing.ts** - Complete
+6. **✅ image-feature-extract.ts** - Complete with Zod schema support
+7. **✅ image-feature-batch.ts** - Complete with batch processing
+8. **✅ image-parsing.ts** - Complete with attachment support
 
-### Medium Priority (New CLI Features Needed)
-1. **roadtrip.ts** - Add structured input/output schema support
-2. **image-feature-extract.ts** - Add structured output support
-3. **multi-language-evaluation.ts** - Add pipeline commands
+### Medium Priority (Complex Structured I/O)
+1. **🔄 roadtrip.ts** - Basic functionality works, complex nested schemas may need refinement
+2. **multi-language-evaluation.ts** - Needs pipeline orchestration commands
 
 ### Low Priority (Complex Integration)
 1. **transcribe.ts** - Requires audio support
@@ -376,10 +399,10 @@ umwelten eval run \
 3. Document any missing CLI features found
 
 ### CLI Enhancement Roadmap
-1. **Structured Output Support** - Add `--schema` flag for Zod schemas
-2. **Batch Processing** - Add `--batch-files` or `--directory` support
-3. **Pipeline Commands** - Add `extract-code`, `docker-test`, `score` subcommands
-4. **Media Support** - Add audio and better PDF processing
+1. **✅ Structured Output Support** - Complete with `--schema`, `--zod-schema`, `--schema-file` flags
+2. **✅ Batch Processing** - Complete with `umwelten eval batch` command
+3. **Pipeline Commands** - Add `extract-code`, `docker-test`, `score` subcommands for multi-language evaluation
+4. **Media Support** - Add audio support (PDF already supported)
 5. **Web Integration** - Add URL input and web scraping
 
 ### Testing Strategy

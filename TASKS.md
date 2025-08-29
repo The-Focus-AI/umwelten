@@ -157,13 +157,22 @@ The evaluation system now includes comprehensive batch processing capabilities, 
   - ✅ Output validation with type coercion and error reporting
   - ✅ Built-in templates for common use cases
 
+## ✅ All Core Migration Tasks Complete
+
+### Image Script Migration - ✅ Complete
+- [x] **image-feature-batch.ts** - Fully migrated via `umwelten eval batch` command
+- [x] **image-feature-extract.ts** - Fully migrated via `--zod-schema` flag for structured output
+- [x] **image-parsing.ts** - Fully migrated via `--attach` flag for image analysis
+
+All image-related scripts in the `scripts/` directory can now be fully replaced with CLI commands using the comprehensive schema validation system (Phase 3) and batch processing capabilities (Phase 4).
+
 ## 📋 Planned Tasks
 
 ### Future Enhancements (Lower Priority)
 - [ ] **Add eval diff command for comparing evaluations**
 - [ ] **Add eval serve command for local dashboard**
 - [ ] **Template system for common evaluation scenarios**
-- [ ] **Integration with existing complex evaluation scripts**
+- [ ] **Integration with remaining complex evaluation scripts** (multi-language pipeline, transcription, web scraping)
 
 ## 🎯 Success Metrics
 
