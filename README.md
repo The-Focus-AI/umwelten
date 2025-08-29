@@ -2,7 +2,7 @@
 
 ## Overview
 
-This command-line tool allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
+This command-line tool allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
 
 ## Core Features
 
@@ -11,7 +11,7 @@ This command-line tool allows you to interact with and evaluate AI models across
 - **Model Discovery**: Search and filter models (`models list`), view detailed information (`models info`), and compare costs (`models costs`).
 - **Memory Augmentation**: Use the `--memory` flag with `chat` to enable fact extraction and memory updates during conversations.
 - **Chat Commands**: Use commands like `/?`, `/reset`, `/mem`, `/history` within chat sessions.
-- **Provider Support**: Integrates with Google, Ollama, OpenRouter, and LM Studio via the Vercel AI SDK and REST APIs.
+- **Provider Support**: Integrates with Google, Ollama, OpenRouter, LM Studio, and GitHub Models via the Vercel AI SDK and REST APIs.
 - **Cost Tracking**: Calculates and displays accurate real-time costs based on token usage and official model pricing across all providers.
 - **Rate Limiting**: Basic rate limit handling with backoff.
 - **Extensible Runner**: `SmartModelRunner` allows adding custom logic via hooks (before, during, after).
@@ -63,6 +63,7 @@ Set up your environment variables with the required API keys:
 ```bash
 export OPENROUTER_API_KEY=your_openrouter_api_key
 export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+export GITHUB_TOKEN=your_github_personal_access_token
 export OLLAMA_HOST=http://localhost:11434  # Optional, defaults to localhost:11434
 export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional, defaults to localhost:1234
 ```
@@ -71,9 +72,10 @@ export LMSTUDIO_BASE_URL=http://localhost:1234  # Optional, defaults to localhos
 ```plaintext
 OPENROUTER_API_KEY=your_openrouter_api_key
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
+GITHUB_TOKEN=your_github_personal_access_token
 OLLAMA_HOST=http://localhost:11434
 LMSTUDIO_BASE_URL=http://localhost:1234
-# LM Studio does not require an API key
+# LM Studio and Ollama do not require API keys
 ```
 
 ### Usage
@@ -92,6 +94,7 @@ umwelten models list --json
 # Filter by provider
 umwelten models list --provider openrouter
 umwelten models list --provider ollama
+umwelten models list --provider github-models
 
 # Show only free models
 umwelten models list --free
@@ -459,6 +462,11 @@ umwelten eval list --json
   - Uses `/api/v0/models` and `/api/v0/completions` endpoints
   - Robust error handling and dynamic model selection in tests
   - Supports both completions and embeddings (if model is available)
+- **GitHub Models**: Free access to AI models during preview
+  - Uses OpenAI-compatible API at `https://models.github.ai/inference`
+  - Requires GitHub Personal Access Token with `models` scope
+  - Free to use during preview period
+  - Supports models from OpenAI, Meta, DeepSeek, and other providers
 
 ## Development
 
