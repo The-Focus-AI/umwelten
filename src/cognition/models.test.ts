@@ -4,6 +4,7 @@ import { createOllamaProvider } from '../providers/ollama.js'
 import { createOpenRouterProvider } from '../providers/openrouter.js'
 import { createGoogleProvider } from '../providers/google.js'
 import { searchModels } from './models.js'
+import { hasOpenRouterKey, hasGoogleKey } from '../test-utils/setup.js'
 
 // API keys for providers that require authentication
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
@@ -27,7 +28,7 @@ describe('Model Information', () => {
   })
 
   it('should list available OpenRouter models', async () => {
-    if (!OPENROUTER_API_KEY) {
+    if (!hasOpenRouterKey() || !OPENROUTER_API_KEY) {
       console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
       return
     }
@@ -59,7 +60,7 @@ describe('Model Information', () => {
   })
 
   it('should list available Google models', async () => {
-    if (!GOOGLE_API_KEY) {
+    if (!hasGoogleKey() || !GOOGLE_API_KEY) {
       console.warn('⚠️ GOOGLE_API_KEY not found, skipping test')
       return
     }
@@ -84,8 +85,8 @@ describe('Model Information', () => {
     // Create providers
     const providers = [
       createOllamaProvider(),
-      ...(OPENROUTER_API_KEY ? [createOpenRouterProvider(OPENROUTER_API_KEY)] : []),
-      ...(GOOGLE_API_KEY ? [createGoogleProvider(GOOGLE_API_KEY)] : [])
+      ...(hasOpenRouterKey() && OPENROUTER_API_KEY ? [createOpenRouterProvider(OPENROUTER_API_KEY)] : []),
+      ...(hasGoogleKey() && GOOGLE_API_KEY ? [createGoogleProvider(GOOGLE_API_KEY)] : [])
     ]
 
     // Get models from all providers
@@ -125,8 +126,8 @@ describe('Model Search', () => {
   async function getAllModels(): Promise<ModelDetails[]> {
     const providers = [
       createOllamaProvider(),
-      ...(OPENROUTER_API_KEY ? [createOpenRouterProvider(OPENROUTER_API_KEY)] : []),
-      ...(GOOGLE_API_KEY ? [createGoogleProvider(GOOGLE_API_KEY)] : [])
+      ...(hasOpenRouterKey() && OPENROUTER_API_KEY ? [createOpenRouterProvider(OPENROUTER_API_KEY)] : []),
+      ...(hasGoogleKey() && GOOGLE_API_KEY ? [createGoogleProvider(GOOGLE_API_KEY)] : [])
     ]
     const modelLists = await Promise.all(
       providers.map(provider => provider.listModels())

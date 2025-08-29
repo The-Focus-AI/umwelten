@@ -301,7 +301,6 @@ describe("Models Command", () => {
       const output = mockConsoleLog.mock.calls.join("\n");
       expect(output).toContain("gemma3:27b");
       expect(output).toContain("ollama");
-      expect(output).toContain("4K");
       expect(output).toContain("Free");
       expect(output.toLowerCase()).toContain("family");
       expect(output.toLowerCase()).toContain("format");

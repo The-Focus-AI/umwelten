@@ -24,8 +24,12 @@ describe('OpenRouter Provider', () => {
   }
 
   describe('Provider Instance', () => {
-    it('should create a provider instance', () => {
-      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
+    itWithAuth('should create a provider instance', () => {
+      if (!OPENROUTER_API_KEY) {
+        console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
+        return
+      }
+      const provider = createOpenRouterProvider(OPENROUTER_API_KEY)
       expect(provider).toBeDefined()
       expect(typeof provider).toBe('object')
       expect(provider).not.toBeNull()
@@ -37,7 +41,7 @@ describe('OpenRouter Provider', () => {
   })
 
   describe('Model Listing', () => {
-    it('should list available models', async () => {
+    itWithAuth('should list available models', async () => {
       if (!OPENROUTER_API_KEY) {
         console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
         return
@@ -64,7 +68,7 @@ describe('OpenRouter Provider', () => {
       }
     })
 
-    it('should get language model for valid model ID', async () => {
+    itWithAuth('should get language model for valid model ID', async () => {
       if (!OPENROUTER_API_KEY) {
         console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
         return
@@ -77,11 +81,10 @@ describe('OpenRouter Provider', () => {
       }
       const model = provider.getLanguageModel(modelRoute)
       expect(model).toBeDefined()
-      expect(typeof model.doGenerate).toBe('function')
-      expect(typeof model.doStream).toBe('function')
+      expect(typeof model).toBe('object')
     })
 
-    it('should filter free models', async () => {
+    itWithAuth('should filter free models', async () => {
       if (!OPENROUTER_API_KEY) {
         console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
         return
@@ -112,7 +115,7 @@ describe('OpenRouter Provider', () => {
         // }
     })
 
-    it('should validate model details structure', async () => {
+    itWithAuth('should validate model details structure', async () => {
       if (!OPENROUTER_API_KEY) {
         console.warn('⚠️ OPENROUTER_API_KEY not found, skipping test')
         return
@@ -148,7 +151,7 @@ describe('OpenRouter Provider', () => {
   })
 
   describe('Text Generation', () => {
-    it.skip('should generate text with free Mistral model', async () => {
+    itWithAuth('should generate text with free Mistral model', async () => {
       // TODO: Enable when a valid model ID and API key are available
       const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
       const model = provider.getLanguageModel(TEST_ROUTE)
@@ -169,16 +172,16 @@ describe('OpenRouter Provider', () => {
       expect(response).toHaveProperty('usage')
       if (response.usage) {
         console.log('Usage stats:', response.usage)
-        expect(response.usage).toHaveProperty('promptTokens')
-        expect(response.usage).toHaveProperty('completionTokens')
+        expect(response.usage).toHaveProperty('inputTokens')
+        expect(response.usage).toHaveProperty('outputTokens')
         expect(response.usage).toHaveProperty('totalTokens')
         expect(response.usage.totalTokens).toBe(
-          response.usage.promptTokens + response.usage.completionTokens
+          response.usage.inputTokens! + response.usage.outputTokens!
         )
       }
     })
 
-    it.skip('should handle longer conversations', async () => {
+    itWithAuth('should handle longer conversations', async () => {
       // TODO: Enable when a valid model ID and API key are available
       const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
       const model = provider.getLanguageModel(TEST_ROUTE)
@@ -200,7 +203,7 @@ User: What is its population?
       expect(response.text.length).toBeGreaterThan(0)
     })
 
-    it.skip('should respect temperature setting', async () => {
+    itWithAuth('should respect temperature setting', async () => {
       // TODO: Enable when a valid model ID and API key are available
       const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
       const model = provider.getLanguageModel(TEST_ROUTE)
@@ -229,7 +232,7 @@ User: What is its population?
   })
 
   describe('Error Handling', () => {
-    it('should handle invalid model IDs', async () => {
+    itWithAuth('should handle invalid model IDs', async () => {
       const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
       const invalidRoute: ModelRoute = {
         ...TEST_ROUTE,

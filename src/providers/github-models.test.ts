@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createGitHubModelsProvider } from './github-models.js'
 import { generateText } from 'ai'
 import type { ModelRoute } from '../cognition/types.js'
+import { hasGitHubToken } from '../test-utils/setup.js'
 
 describe('GitHub Models Provider', () => {
   // Check if GitHub token is available
@@ -12,7 +13,7 @@ describe('GitHub Models Provider', () => {
   }
 
   // Helper function to skip tests if no API key
-  const itWithAuth = GITHUB_TOKEN ? it : it.skip
+  const itWithAuth = hasGitHubToken() ? it : it.skip
 
   // Test route using a commonly available model
   const TEST_ROUTE: ModelRoute = {
@@ -23,7 +24,7 @@ describe('GitHub Models Provider', () => {
 
   describe('Provider Instance', () => {
     it('should create a provider instance', () => {
-      if (!GITHUB_TOKEN) {
+      if (!hasGitHubToken()) {
         // Skip this test if no token available
         return
       }
@@ -60,12 +61,12 @@ describe('GitHub Models Provider', () => {
         expect(firstModel).toHaveProperty('details')
         
         // GitHub Models should be free during preview
-        expect(firstModel.costs.promptTokens).toBe(0)
-        expect(firstModel.costs.completionTokens).toBe(0)
+        expect(firstModel.costs!.promptTokens).toBe(0)
+        expect(firstModel.costs!.completionTokens).toBe(0)
         
         console.log(`📋 Found ${models.length} GitHub Models`)
         console.log(`📄 Sample model: ${firstModel.name}`)
-        console.log(`💰 Costs: $${firstModel.costs.promptTokens}/1M prompt tokens, $${firstModel.costs.completionTokens}/1M completion tokens`)
+        console.log(`💰 Costs: $${firstModel.costs!.promptTokens}/1M prompt tokens, $${firstModel.costs!.completionTokens}/1M completion tokens`)
       } else {
         console.log('⚠️ No models returned from GitHub Models API')
       }
@@ -82,7 +83,6 @@ describe('GitHub Models Provider', () => {
       const result = await generateText({
         model,
         prompt: 'Say "Hello, GitHub Models!" and nothing else.',
-        maxTokens: 50,
         temperature: 0
       })
       
@@ -91,11 +91,11 @@ describe('GitHub Models Provider', () => {
       expect(typeof result.text).toBe('string')
       expect(result.text.length).toBeGreaterThan(0)
       expect(result.usage).toBeDefined()
-      expect(result.usage?.promptTokens).toBeGreaterThan(0)
-      expect(result.usage?.completionTokens).toBeGreaterThan(0)
+      expect(result.usage?.inputTokens).toBeGreaterThan(0)
+      expect(result.usage?.outputTokens).toBeGreaterThan(0)
       
       console.log(`🤖 Generated response: "${result.text}"`)
-      console.log(`📊 Token usage: ${result.usage?.promptTokens} prompt + ${result.usage?.completionTokens} completion = ${result.usage?.totalTokens} total`)
+      console.log(`📊 Token usage: ${result.usage?.inputTokens} input + ${result.usage?.outputTokens} output = ${result.usage?.totalTokens} total`)
       
       // Verify the response contains expected content
       expect(result.text.toLowerCase()).toContain('hello')
@@ -120,8 +120,7 @@ describe('GitHub Models Provider', () => {
       try {
         await generateText({
           model,
-          prompt: 'This should fail',
-          maxTokens: 10
+          prompt: 'This should fail'
         })
         // If we get here, the test should fail
         expect.fail('Expected an error for invalid model ID')

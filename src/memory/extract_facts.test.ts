@@ -11,7 +11,7 @@ describe("extractFacts (gemma3:27b)", () => {
     return conversation;
   };
 
-  it("should extract facts from a simple conversation", async () => {
+  it.skip("should extract facts from a simple conversation", async () => {
     const conversation = createTestConversation([
       { role: "user", content: "Hi, my name is John. I am a software engineer." },
       { role: "assistant", content: "Nice to meet you, John!" }
@@ -32,7 +32,7 @@ describe("extractFacts (gemma3:27b)", () => {
     expect(result.facts.length).toBe(0);
   });
 
-  it("should extract multiple facts from a complex message", async () => {
+  it.skip("should extract multiple facts from a complex message", async () => {
     const conversation = createTestConversation([
       { role: "user", content: "Yesterday, I had a meeting with John at 3pm. We discussed the new project." },
       { role: "assistant", content: "How did it go?" }

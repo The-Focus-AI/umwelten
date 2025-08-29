@@ -3,19 +3,10 @@ import { createLMStudioProvider } from './lmstudio.js';
 import { generateText, streamObject, generateObject } from 'ai';
 import { ModelRoute } from '../cognition/types.js';
 import { z } from 'zod';
+import { checkLMStudioConnection } from '../test-utils/setup.js';
 
 // Default LM Studio host
 const LMSTUDIO_HOST = process.env.LMSTUDIO_HOST || 'http://localhost:1234/v1';
-
-// Helper to check if LM Studio is running
-const checkLMStudioConnection = async () => {
-  try {
-    const response = await fetch(`${LMSTUDIO_HOST}/models`);
-    return response.ok;
-  } catch (e) {
-    return false;
-  }
-};
 
 // Example test route (update with a real model name if needed)
 const TEST_ROUTE: ModelRoute = {

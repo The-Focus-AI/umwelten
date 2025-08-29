@@ -16,7 +16,7 @@ type TestPerson = z.infer<typeof testSchema>;
 describe("generateObject with AI SDK v5", () => {
   // Use smaller, faster models for testing
   const gemma3Model = ollama("gemma3:12b"); // 8.1GB - faster than 27b
-  const gptOssModel = ollama("gpt-oss:20b"); // 13GB - much faster than 120b
+  const qwen3Model = ollama("qwen3:latest"); // 13GB - much faster than 120b
 
   describe("Gemma3 Model (12b)", () => {
     it("should generate a structured object with gemma3", async () => {
@@ -82,17 +82,17 @@ describe("generateObject with AI SDK v5", () => {
     }, 30000);
   });
 
-  describe("GPT-OSS Model (20b)", () => {
-    it("should generate a structured object with gpt-oss", async () => {
+  describe("Qwen3 Model (14b)", () => {
+    it("should generate a structured object with qwen3", async () => {
       const prompt = "Create a profile for a data scientist named Bob who is 32 years old and enjoys machine learning, yoga, and cooking.";
 
       const result = await generateObject({
-        model: gptOssModel,
+        model: qwen3Model, 
         prompt,
         schema: testSchema,
       });
 
-      console.log("GPT-OSS result:", result.object);
+      console.log("Qwen3 result:", result.object);
       
       expect(result.object).toBeDefined();
       expect(typeof result.object).toBe("object");
@@ -113,7 +113,7 @@ describe("generateObject with AI SDK v5", () => {
       expect(person.hobbies.some(hobby => hobby.toLowerCase().includes("machine"))).toBe(true);
     }, 30000);
 
-    it("should handle complex structured generation with gpt-oss", async () => {
+    it("should handle complex structured generation with qwen3", async () => {
       const complexSchema = z.object({
         analysis: z.object({
           topic: z.string(),
@@ -130,12 +130,12 @@ describe("generateObject with AI SDK v5", () => {
       const prompt = "Analyze the impact of artificial intelligence on modern software development. Provide 2 key insights with confidence levels.";
 
       const result = await generateObject({
-        model: gptOssModel,
+        model: qwen3Model,
         prompt,
         schema: complexSchema,
       });
 
-      console.log("GPT-OSS complex result:", JSON.stringify(result.object, null, 2));
+      console.log("Qwen3 complex result:", JSON.stringify(result.object, null, 2));
       
       expect(result.object).toBeDefined();
       expect(result.object).toHaveProperty("analysis");

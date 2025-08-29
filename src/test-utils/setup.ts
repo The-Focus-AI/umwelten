@@ -1,26 +1,37 @@
-import { config } from 'dotenv'
-import { resolve } from 'path'
+// Test utility functions for environment variable checking
+// Tests should only use environment variables that are already set
 
-// Load environment variables from .env file
-const envPath = resolve(__dirname, '../../../../.env')
-console.log('Loading .env from:', envPath)
-console.log('Current directory:', __dirname)
+export function hasRequiredEnvVar(key: string): boolean {
+  return !!process.env[key]
+}
 
-const result = config({
-  path: envPath
-})
+export function skipIfNoEnvVar(key: string, message?: string): void {
+  if (!hasRequiredEnvVar(key)) {
+    console.warn(`⚠️ ${key} not found in environment, skipping test`)
+    throw new Error(`Test skipped: ${message || key} not available`)
+  }
+}
 
-console.log('Dotenv config result:', result)
-console.log('Current env vars:', {
-  GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-  NODE_ENV: process.env.NODE_ENV
-})
+// Export commonly used environment variable checks
+export const hasOpenRouterKey = () => hasRequiredEnvVar('OPENROUTER_API_KEY')
+export const hasGoogleKey = () => hasRequiredEnvVar('GOOGLE_GENERATIVE_AI_API_KEY')
+export const hasGitHubToken = () => hasRequiredEnvVar('GITHUB_TOKEN')
 
-// Verify required environment variables
-const requiredEnvVars = ['OPENROUTER_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY']
-const missingEnvVars = requiredEnvVars.filter(key => !process.env[key])
+// Service availability checks
+export async function checkOllamaConnection(host = 'http://localhost:11434'): Promise<boolean> {
+  try {
+    const response = await fetch(`${host}/api/tags`)
+    return response.ok
+  } catch (e) {
+    return false
+  }
+}
 
-if (missingEnvVars.length > 0) {
-  console.warn(`⚠️ Missing environment variables: ${missingEnvVars.join(', ')}`)
-  console.warn('Some tests may be skipped. See .env.example for required variables.')
+export async function checkLMStudioConnection(host = 'http://localhost:1234/v1'): Promise<boolean> {
+  try {
+    const response = await fetch(`${host}/models`)
+    return response.ok
+  } catch (e) {
+    return false
+  }
 } 

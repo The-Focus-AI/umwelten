@@ -2,21 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { createOllamaProvider } from './ollama.js'
 import { generateText } from 'ai'
 import { ModelRoute } from '../cognition/types.js'
+import { checkOllamaConnection } from '../test-utils/setup.js'
 
 describe('Ollama Provider', () => {
   // Check if Ollama is running locally
   const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434'
   
-  // Helper function to check if Ollama is available
-  const checkOllamaConnection = async () => {
-    try {
-      const response = await fetch(`${OLLAMA_HOST}/api/tags`)
-      return response.ok
-    } catch (e) {
-      return false
-    }
-  }
-
   // Test route using the gemma model
   const TEST_ROUTE: ModelRoute = {
     name: 'gemma3:27b',
