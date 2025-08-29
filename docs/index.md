@@ -128,5 +128,5 @@ MIT License - see [LICENSE](https://github.com/The-Focus-AI/umwelten/blob/main/L
 ## Support
 
 - **GitHub Issues**: [Report bugs and request features](https://github.com/The-Focus-AI/umwelten/issues)
-- **Documentation**: [Full documentation](https://the-focus-ai.github.io/umwelten/)
+- **Documentation**: [Full documentation](https://umwelten.thefocus.ai/)
 - **Discussions**: [Community discussions](https://github.com/The-Focus-AI/umwelten/discussions)

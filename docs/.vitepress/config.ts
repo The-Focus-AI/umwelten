@@ -4,11 +4,11 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Umwelten",
   description: "A command-line tool to interact with and systematically evaluate AI models across providers",
-  base: '/umwelten/',
+  base: '/',
   ignoreDeadLinks: true, // Temporarily ignore dead links while we build out documentation
-  head: [
-    ['link', { rel: 'icon', href: '/umwelten/favicon.ico' }]
-  ],
+      head: [
+      ['link', { rel: 'icon', href: '/favicon.ico' }]
+    ],
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [

@@ -33,21 +33,21 @@ umwelten eval report --id cat-poem-eval --format markdown
 
 ## 📚 Documentation
 
-**Complete documentation is available at [umwelten.dev](https://the-focus-ai.github.io/umwelten/)**
+**Complete documentation is available at [umwelten.thefocus.ai](https://umwelten.thefocus.ai/)**
 
 ### Quick Links
 
-- 📖 [Getting Started](https://the-focus-ai.github.io/umwelten/guide/getting-started) - Installation and setup
-- 🔍 [Model Discovery](https://the-focus-ai.github.io/umwelten/guide/model-discovery) - Find and compare models
-- 🎯 [Model Evaluation](https://the-focus-ai.github.io/umwelten/guide/model-evaluation) - Systematic testing
-- 📊 [Structured Output](https://the-focus-ai.github.io/umwelten/guide/structured-output) - Schema validation
-- ⚡ [Batch Processing](https://the-focus-ai.github.io/umwelten/guide/batch-processing) - Multi-file workflows
+- 📖 [Getting Started](https://umwelten.thefocus.ai/guide/getting-started) - Installation and setup
+- 🔍 [Model Discovery](https://umwelten.thefocus.ai/guide/model-discovery) - Find and compare models
+- 🎯 [Model Evaluation](https://umwelten.thefocus.ai/guide/model-evaluation) - Systematic testing
+- 📊 [Structured Output](https://umwelten.thefocus.ai/guide/structured-output) - Schema validation
+- ⚡ [Batch Processing](https://umwelten.thefocus.ai/guide/batch-processing) - Multi-file workflows
 
 ### Examples & Migration
 
-- 💡 [Examples Gallery](https://the-focus-ai.github.io/umwelten/examples/) - Complete usage examples
-- 🔄 [Script Migration](https://the-focus-ai.github.io/umwelten/migration/) - Migrate from scripts to CLI
-- 📋 [API Reference](https://the-focus-ai.github.io/umwelten/api/overview) - Complete command reference
+- 💡 [Examples Gallery](https://umwelten.thefocus.ai/examples/) - Complete usage examples
+- 🔄 [Script Migration](https://umwelten.thefocus.ai/migration/) - Migrate from scripts to CLI
+- 📋 [API Reference](https://umwelten.thefocus.ai/api/overview) - Complete command reference
 
 ## 🛠️ Installation
 
@@ -149,4 +149,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**[📖 View Full Documentation](https://the-focus-ai.github.io/umwelten/)** | **[🚀 Examples](https://the-focus-ai.github.io/umwelten/examples/)** | **[🔄 Migration Guide](https://the-focus-ai.github.io/umwelten/migration/)** 
+**[📖 View Full Documentation](https://umwelten.thefocus.ai/)** | **[🚀 Examples](https://umwelten.thefocus.ai/examples/)** | **[🔄 Migration Guide](https://umwelten.thefocus.ai/migration/)** 
