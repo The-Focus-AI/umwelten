@@ -1,7 +1,103 @@
-# Active Context - VitePress Documentation Setup ✅
-Last Updated: 2025-08-27 19:45:00 EDT
+# Active Context - Merge Conflict Resolution & GitHub Models Integration ✅
+Last Updated: 2025-08-27 20:15:00 EDT
 
-## Current Focus: VitePress Documentation Setup - COMPLETED ✅
+## Current Focus: Merge Conflict Resolution & GitHub Models Integration - COMPLETED ✅
+
+### What's Being Worked On
+- [X] **Resolve merge conflicts between local and remote branches**
+  - [X] Identified conflicts in README.md between local VitePress docs and remote GitHub Models provider
+  - [X] Integrated GitHub Models provider information into new VitePress documentation system
+  - [X] Resolved README.md conflict by keeping essential information while avoiding duplication
+  - [X] Successfully merged remote changes with local documentation improvements
+
+- [X] **Integrate GitHub Models provider into documentation system**
+  - [X] Updated getting-started guide with GitHub Models setup instructions
+  - [X] Added GitHub Models provider to API documentation
+  - [X] Updated model discovery guide to include GitHub Models
+  - [X] Updated main index page to mention GitHub Models support
+  - [X] Added GitHub Models to provider support table
+
+### Current State
+- **Merge Conflicts**: ✅ Successfully resolved all conflicts
+- **GitHub Models Integration**: ✅ Provider fully integrated into documentation
+- **Documentation System**: ✅ VitePress docs updated with new provider information
+- **README.md**: ✅ Clean, focused version without duplication
+- **Git Status**: ✅ Ready to push merged changes
+
+### GitHub Models Provider Integration ✅ COMPLETED
+
+**Provider Details:**
+- **Name**: GitHub Models
+- **API**: OpenAI-compatible API at `https://models.github.ai/inference`
+- **Authentication**: GitHub Personal Access Token with `models` scope
+- **Cost**: Free during preview period
+- **Models**: Access to OpenAI, Meta, DeepSeek, and other providers
+
+**Documentation Updates:**
+1. **Getting Started Guide**: Added GitHub Models setup instructions
+2. **API Documentation**: Complete provider documentation with examples
+3. **Model Discovery**: Added GitHub Models to provider filtering
+4. **Main Index**: Updated to include GitHub Models in provider list
+5. **Environment Setup**: Added GITHUB_TOKEN to required environment variables
+
+**Key Features:**
+- Free access during preview period
+- OpenAI-compatible API interface
+- Access to models from multiple providers
+- Integrated cost calculation (currently free)
+- Full integration with existing CLI commands
+
+**Environment Variables:**
+```bash
+export GITHUB_TOKEN=your_github_personal_access_token
+```
+
+**Usage Examples:**
+```bash
+# List GitHub Models
+umwelten models list --provider github-models
+
+# Run evaluation with GitHub Models
+umwelten eval run \
+  --prompt "Explain quantum computing" \
+  --models "github-models:openai/gpt-4o-mini" \
+  --id "quantum-github"
+```
+
+### Merge Resolution Strategy ✅ COMPLETED
+
+**Approach:**
+1. **Avoid Duplication**: Keep comprehensive documentation in VitePress system
+2. **Maintain README Focus**: Keep README.md concise and feature-focused
+3. **Integrate New Features**: Add GitHub Models provider to appropriate documentation sections
+4. **Preserve Functionality**: Ensure all new provider features are properly documented
+
+**Files Updated:**
+- [X] `docs/guide/getting-started.md` - Added GitHub Models setup
+- [X] `docs/api/providers.md` - Added GitHubModelsProvider documentation
+- [X] `docs/guide/model-discovery.md` - Added GitHub Models to provider list
+- [X] `docs/index.md` - Updated provider support list
+- [X] `README.md` - Clean merge resolution with essential information
+
+**Benefits:**
+- No documentation duplication between README and VitePress
+- Comprehensive provider documentation in appropriate sections
+- Clean, maintainable documentation structure
+- All new features properly integrated and documented
+
+### Git Status
+- **Branch**: main
+- **Status**: Ahead of origin/main by 3 commits
+- **Conflicts**: All resolved
+- **Ready**: Ready to push merged changes
+
+### Next Steps
+1. [ ] Push merged changes to remote repository
+2. [ ] Verify GitHub Models provider functionality
+3. [ ] Test documentation site with new provider information
+4. [ ] Consider additional provider-specific examples
+
+## Previous Context: VitePress Documentation Setup - COMPLETED ✅
 
 ### What's Being Worked On
 - [X] **Update .gitignore for VitePress installation**
