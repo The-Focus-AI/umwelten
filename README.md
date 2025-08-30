@@ -39,6 +39,8 @@ umwelten eval report --id cat-poem-eval --format markdown
 
 - 📖 [Getting Started](https://umwelten.thefocus.ai/guide/getting-started) - Installation and setup
 - 🔍 [Model Discovery](https://umwelten.thefocus.ai/guide/model-discovery) - Find and compare models
+- 💬 [Running Prompts](https://umwelten.thefocus.ai/guide/running-prompts) - Single prompt execution
+- 🗣️ [Interactive Chat](https://umwelten.thefocus.ai/guide/interactive-chat) - Extended conversations
 - 🎯 [Model Evaluation](https://umwelten.thefocus.ai/guide/model-evaluation) - Systematic testing
 - 📊 [Structured Output](https://umwelten.thefocus.ai/guide/structured-output) - Schema validation
 - ⚡ [Batch Processing](https://umwelten.thefocus.ai/guide/batch-processing) - Multi-file workflows

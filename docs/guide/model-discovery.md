@@ -175,5 +175,6 @@ Found 150+ models
 Once you've discovered suitable models:
 
 - [Run basic prompts](/guide/running-prompts) to test functionality
+- [Start interactive chat](/guide/interactive-chat) for extended conversations
 - [Start model evaluation](/guide/model-evaluation) for systematic comparison
 - [Use cost analysis](/guide/cost-analysis) to optimize spending

@@ -1,18 +1,18 @@
 # Running Prompts
 
-Learn how to run individual prompts and engage in interactive conversations with AI models using Umwelten.
+Learn how to run individual prompts with AI models using Umwelten.
 
 ## Overview
 
-Umwelten provides two main ways to interact with AI models:
-- **Single Prompts**: Run one-off prompts with the `run` command
-- **Interactive Chat**: Engage in ongoing conversations with the `chat` command
+Umwelten provides a powerful way to execute single prompts with AI models using the `run` command. This is ideal for:
+- **One-off tasks**: Quick questions, analysis, or content generation
+- **Batch processing**: Running the same prompt across multiple files
+- **Testing and evaluation**: Systematic model testing and comparison
+- **Automation**: Scripted interactions with AI models
 
-Both support multiple providers, file attachments, and various configuration options.
+The `run` command supports multiple providers, file attachments, and various configuration options.
 
-## Single Prompt Execution
-
-### Basic Usage
+## Basic Usage
 
 Run a simple prompt with any model:
 
@@ -56,65 +56,6 @@ umwelten run --provider openrouter --model anthropic/claude-3.7-sonnet:thinking 
 ```bash
 # Local model (ensure LM Studio server is running)
 umwelten run --provider lmstudio --model mistralai/devstral-small-2505 "Help me debug this Python code"
-```
-
-## Interactive Chat
-
-### Basic Chat Sessions
-
-Start an interactive conversation:
-
-```bash
-# Basic chat
-umwelten chat --provider ollama --model gemma3:latest
-
-# Chat with premium model
-umwelten chat --provider google --model gemini-2.0-flash
-
-# Chat with tools enabled
-umwelten chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
-```
-
-### Chat Commands
-
-Within a chat session, you can use special commands:
-
-- `/?`: Show help and available commands
-- `/reset`: Clear conversation history and start fresh
-- `/mem`: Show memory facts (requires `--memory` flag)
-- `/history`: Display the conversation history
-- `exit` or `quit`: End the chat session
-
-### Enhanced Chat Features
-
-#### Memory-Enabled Chat
-```bash
-# Chat with memory for persistent facts
-umwelten chat --provider ollama --model gemma3:latest --memory
-```
-
-The memory system automatically:
-- Extracts important facts from conversations
-- Maintains context across sessions
-- Provides personalized responses based on learned information
-
-#### Tool-Enabled Chat
-```bash
-# Chat with specific tools
-umwelten chat --provider openrouter --model gpt-4o --tools calculator,statistics
-
-# Available tools (use 'umwelten tools list' to see all)
-umwelten chat --provider google --model gemini-2.0-flash --tools web_search,file_analysis
-```
-
-#### File Attachments in Chat
-```bash
-# Start chat with a file
-umwelten chat --provider google --model gemini-1.5-flash-latest --file ./document.pdf
-
-# During chat, reference the attached file
-> "Summarize the main points from the attached document"
-> "What are the key findings in section 3 of the PDF?"
 ```
 
 ## Advanced Prompt Configuration
@@ -369,7 +310,7 @@ umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
 
 ## Next Steps
 
-- Try [model evaluation](/guide/model-evaluation) for systematic testing
-- Explore [interactive chat](/guide/interactive-chat) for extended conversations
+- Try [interactive chat](/guide/interactive-chat) for extended conversations
+- Explore [model evaluation](/guide/model-evaluation) for systematic testing
 - Learn [batch processing](/guide/batch-processing) for multiple files
 - See [structured output](/guide/structured-output) for data extraction

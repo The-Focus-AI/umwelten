@@ -89,6 +89,7 @@ Now that you have Umwelten installed, you can:
 
 - 🔍 [Discover models](/guide/model-discovery) across all providers
 - 💬 [Run basic prompts](/guide/running-prompts) to test functionality
+- 🗣️ [Start interactive chat](/guide/interactive-chat) for extended conversations
 - 🎯 [Start evaluating models](/guide/model-evaluation) systematically
 - 📊 [Use structured output](/guide/structured-output) for data extraction
 
