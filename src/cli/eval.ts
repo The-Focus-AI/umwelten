@@ -382,6 +382,7 @@ const evalReportCommand = new Command('report')
   .requiredOption('-i, --id <id>', 'Evaluation ID to generate report for')
   .option('-f, --format <format>', 'Output format: markdown, html, json, csv', 'markdown')
   .option('-o, --output <file>', 'Output file path (defaults to stdout)')
+  .option('--short', 'Generate summary report without full response content', false)
   .action(async (options) => {
     try {
       // Validate evaluation ID
@@ -424,10 +425,10 @@ const evalReportCommand = new Command('report')
         }
       }
 
-      console.log(`📊 Generating ${options.format} report for evaluation: ${options.id}`);
+      console.log(`📊 Generating ${options.format} report for evaluation: ${options.id}${options.short ? ' (short mode)' : ''}`);
       
       // Generate report
-      const report = await generateReport(options.id, options.format);
+      const report = await generateReport(options.id, options.format, options.short);
       
       // Output to file or stdout
       if (options.output) {

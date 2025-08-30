@@ -383,7 +383,7 @@ export async function runEvaluation(config: EvaluationConfig): Promise<Evaluatio
 }
 
 // Report generation function
-export async function generateReport(evaluationId: string, format: 'markdown' | 'html' | 'json' | 'csv' = 'markdown'): Promise<string> {
+export async function generateReport(evaluationId: string, format: 'markdown' | 'html' | 'json' | 'csv' = 'markdown', short: boolean = false): Promise<string> {
   const outputDir = path.join(process.cwd(), "output", "evaluations", evaluationId);
   const responsesDir = path.join(outputDir, "responses");
   
@@ -410,20 +410,20 @@ export async function generateReport(evaluationId: string, format: 'markdown' | 
   // Generate report based on format
   switch (format) {
     case 'markdown':
-      return generateMarkdownReport(evaluationId, responses, allModels);
+      return generateMarkdownReport(evaluationId, responses, allModels, short);
     case 'html':
-      return generateHTMLReport(evaluationId, responses, allModels);
+      return generateHTMLReport(evaluationId, responses, allModels, short);
     case 'json':
-      return JSON.stringify({ evaluationId, responses }, null, 2);
+      return JSON.stringify({ evaluationId, responses: short ? responses.map(r => ({ ...r, content: '[SHORT MODE - CONTENT HIDDEN]' })) : responses }, null, 2);
     case 'csv':
-      return generateCSVReport(evaluationId, responses, allModels);
+      return generateCSVReport(evaluationId, responses, allModels, short);
     default:
       throw new Error(`Unsupported format: ${format}`);
   }
 }
 
 // Generate markdown report
-function generateMarkdownReport(evaluationId: string, responses: ModelResponse[], allModels: ModelDetails[]): string {
+function generateMarkdownReport(evaluationId: string, responses: ModelResponse[], allModels: ModelDetails[], short: boolean = false): string {
   const timestamp = new Date().toISOString();
   let report = `# Evaluation Report: ${evaluationId}\n\n`;
   report += `**Generated:** ${timestamp}  \n`;
@@ -479,28 +479,32 @@ function generateMarkdownReport(evaluationId: string, responses: ModelResponse[]
     return sum + contentStr.length;
   }, 0) / responses.length)} characters\n`;
   
-  // Individual responses
-  report += `\n## Individual Responses\n\n`;
-  for (const response of responses) {
-    const contentStr = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
-    report += `### ${response.metadata.model} (${response.metadata.provider})\n\n`;
-    report += `**Length:** ${contentStr.length} characters  \n`;
-    if (response.metadata.tokenUsage) {
-      report += `**Tokens:** ${response.metadata.tokenUsage.total} (${response.metadata.tokenUsage.promptTokens} prompt + ${response.metadata.tokenUsage.completionTokens} completion)  \n`;
+  // Individual responses (only in full mode)
+  if (!short) {
+    report += `\n## Individual Responses\n\n`;
+    for (const response of responses) {
+      const contentStr = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+      report += `### ${response.metadata.model} (${response.metadata.provider})\n\n`;
+      report += `**Length:** ${contentStr.length} characters  \n`;
+      if (response.metadata.tokenUsage) {
+        report += `**Tokens:** ${response.metadata.tokenUsage.total} (${response.metadata.tokenUsage.promptTokens} prompt + ${response.metadata.tokenUsage.completionTokens} completion)  \n`;
+      }
+      if (response.metadata.startTime && response.metadata.endTime) {
+        const time = new Date(response.metadata.endTime).getTime() - new Date(response.metadata.startTime).getTime();
+        report += `**Time:** ${time}ms (${(time / 1000).toFixed(1)}s)  \n`;
+      }
+      report += `\n**Response:**\n\`\`\`\n${contentStr}\n\`\`\`\n\n`;
     }
-    if (response.metadata.startTime && response.metadata.endTime) {
-      const time = new Date(response.metadata.endTime).getTime() - new Date(response.metadata.startTime).getTime();
-      report += `**Time:** ${time}ms (${(time / 1000).toFixed(1)}s)  \n`;
-    }
-    report += `\n**Response:**\n\`\`\`\n${contentStr}\n\`\`\`\n\n`;
+  } else {
+    report += `\n*Full response content hidden in short mode. Use without --short to see complete responses.*\n\n`;
   }
   
   return report;
 }
 
 // Generate HTML report (simplified version)
-function generateHTMLReport(evaluationId: string, responses: ModelResponse[], allModels: ModelDetails[]): string {
-  const markdown = generateMarkdownReport(evaluationId, responses, allModels);
+function generateHTMLReport(evaluationId: string, responses: ModelResponse[], allModels: ModelDetails[], short: boolean = false): string {
+  const markdown = generateMarkdownReport(evaluationId, responses, allModels, short);
   // For now, return markdown wrapped in basic HTML
   // In a full implementation, you'd use a proper markdown-to-HTML converter
   return `<!DOCTYPE html>
@@ -523,7 +527,7 @@ function generateHTMLReport(evaluationId: string, responses: ModelResponse[], al
 }
 
 // Generate CSV report
-function generateCSVReport(evaluationId: string, responses: ModelResponse[], allModels: ModelDetails[]): string {
+function generateCSVReport(evaluationId: string, responses: ModelResponse[], allModels: ModelDetails[], short: boolean = false): string {
   const headers = ['Model', 'Provider', 'Response_Length', 'Prompt_Tokens', 'Completion_Tokens', 'Total_Tokens', 'Time_Ms', 'Cost_USD'];
   let csv = headers.join(',') + '\n';
   
