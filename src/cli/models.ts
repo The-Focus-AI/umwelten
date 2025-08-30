@@ -111,8 +111,9 @@ function formatCost(model: ModelDetails): string {
   if (model.provider === 'ollama' || model.provider === 'github-models') return chalk.green('Free');
   if (!model.costs) return chalk.green('Free');
   
-  const inputCostPerM = model.costs.promptTokens * 1000000;
-  const outputCostPerM = model.costs.completionTokens * 1000000;
+  // Costs are already in per-million-tokens format, no need to multiply again
+  const inputCostPerM = model.costs.promptTokens;
+  const outputCostPerM = model.costs.completionTokens;
   
   if (inputCostPerM === 0 && outputCostPerM === 0) return chalk.green('Free');
   
@@ -140,7 +141,7 @@ function displayModelInfo(model: ModelDetails) {
   }
   
   console.log(`Context Length: ${formatContextLength(model.contextLength)} tokens`);
-  console.log(`Cost per 1K tokens: ${formatCost(model)}`);
+  console.log(`Cost per 1M tokens: ${formatCost(model)}`);
   if (model.addedDate) console.log(`Added: ${formatDate(model.addedDate)}`);
   if (model.lastUpdated) console.log(`Last Updated: ${formatDate(model.lastUpdated)}`);
   
@@ -298,46 +299,50 @@ modelsCommand
   .action(async (options) => {
     try {
       const models = await getAllModels();
-      const paidModels = models.filter(m => m.costs);
 
-      // Calculate total cost for 1K tokens (both prompt and completion)
-      const modelsWithTotalCost = paidModels.map(model => ({
+      // Calculate total cost for 1M tokens (both prompt and completion)
+      const modelsWithTotalCost = models.map(model => ({
         ...model,
         totalCostPer1M: model.costs ? 
-          (model.costs.promptTokens + model.costs.completionTokens) * 1000000 : 0
+          (model.costs.promptTokens + model.costs.completionTokens) : 0
       }));
 
       // Sort models
       modelsWithTotalCost.sort((a, b) => {
-        if (!a.costs || !b.costs) return 0;
+        const aCost = a.costs ? a.costs.promptTokens + a.costs.completionTokens : 0;
+        const bCost = b.costs ? b.costs.promptTokens + b.costs.completionTokens : 0;
+        
         switch (options.sortBy) {
           case 'prompt':
-            return (a.costs.promptTokens * 1000000) - (b.costs.promptTokens * 1000000);
+            return (a.costs?.promptTokens || 0) - (b.costs?.promptTokens || 0);
           case 'completion':
-            return (a.costs.completionTokens * 1000000) - (b.costs.completionTokens * 1000000);
+            return (a.costs?.completionTokens || 0) - (b.costs?.completionTokens || 0);
           default:
-            return a.totalCostPer1M - b.totalCostPer1M;
+            return aCost - bCost;
         }
       });
 
       printHeader('Model Costs (per 1M tokens)');
       console.log(
-        chalk.bold(chalk.cyan('Model'.padEnd(40))),
-        chalk.bold(chalk.yellow('Prompt'.padEnd(15))),
-        chalk.bold(chalk.yellow('Completion'.padEnd(15))),
+        chalk.bold(chalk.cyan('Model'.padEnd(35))),
+        chalk.bold(chalk.blue('Provider'.padEnd(12))),
+        chalk.bold(chalk.yellow('Prompt'.padEnd(12))),
+        chalk.bold(chalk.yellow('Completion'.padEnd(12))),
         chalk.bold(chalk.yellow('Total'))
       );
-      console.log(chalk.dim('─'.repeat(80)));
+      console.log(chalk.dim('─'.repeat(85)));
 
       modelsWithTotalCost.forEach(model => {
-        if (!model.costs) return;
-        const inputCost = model.costs.promptTokens * 1000000;
-        const outputCost = model.costs.completionTokens * 1000000;
+        const inputCost = model.costs?.promptTokens || 0;
+        const outputCost = model.costs?.completionTokens || 0;
+        const totalCost = inputCost + outputCost;
+        
         console.log(
-          chalk.cyan(model.name.padEnd(40)),
-          inputCost === 0 ? 'Free'.padEnd(15) : `$${inputCost.toFixed(4)}`.padEnd(15),
-          outputCost === 0 ? 'Free'.padEnd(15) : `$${outputCost.toFixed(4)}`.padEnd(15),
-          model.totalCostPer1M === 0 ? chalk.green('Free') : chalk.bold(`$${model.totalCostPer1M.toFixed(4)}`)
+          chalk.cyan(model.name.padEnd(35)),
+          chalk.blue(model.provider.padEnd(12)),
+          inputCost === 0 ? 'Free'.padEnd(12) : `$${inputCost.toFixed(4)}`.padEnd(12),
+          outputCost === 0 ? 'Free'.padEnd(12) : `$${outputCost.toFixed(4)}`.padEnd(12),
+          totalCost === 0 ? chalk.green('Free') : chalk.bold(`$${totalCost.toFixed(4)}`)
         );
       });
     } catch (error) {

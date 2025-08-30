@@ -4,7 +4,11 @@ A command-line tool to interact with and systematically evaluate AI models acros
 
 ## Overview
 
-Umwelten is a comprehensive AI model evaluation and interaction tool that implements the "Umwelt" concept - creating a semantic framework around how models perceive and interact with their environment. It provides:
+An "Umwelt" is the perceptual world in which an organism exists - its unique sensory bubble that defines how it experiences reality. We use the plural "Umwelten" because every AI model, tool, and agent creates its own distinct perceptual environment, shaped by its training, capabilities, and context.
+
+Umwelten is a comprehensive AI model evaluation and interaction tool that implements the "Umwelt" concept - creating a semantic framework around how models perceive and interact with their environment.  
+
+It provides:
 
 - **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models
 - **Semantic Architecture**: Cognition, Interaction, and Stimulus frameworks
@@ -30,13 +34,17 @@ pnpm add -g umwelten
 umwelten models
 
 # Run a simple prompt
-umwelten run "Explain quantum computing" --model gpt-4
+umwelten run "Explain quantum computing like I'm 8" --model gpt-oss:latest --provider ollama
 
 # Start interactive chat
-umwelten chat --model gemini-2.0-flash
+umwelten chat --model gemini-2.0-flash --provider google
 
-# Run model evaluation
-umwelten eval --model gpt-4 --task coding
+# Run model evaluation across 3 providers with concurrently
+dotenvx run -- umwelten eval run \
+  --prompt "Make a space invader game in a single html file" \
+  --models "ollama:gemma3:27b,google:gemini-2.0-flash,ollama:qwen3:latest" \
+  --id "space-game" \
+  --ui --concurrent --resume
 ```
 
 ## Core Features

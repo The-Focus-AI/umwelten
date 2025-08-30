@@ -1,14 +1,16 @@
-# Active Context - GitHub Models Provider Issue Investigation
-Last Updated: 2025-08-29 20:30:00 EDT
+# Active Context - OpenRouter Cost Calculation & Costs Command Fix
+Last Updated: 2025-01-27 15:30:00 EST
 
-## Current Focus: GitHub Models Provider Issue - RESOLVED ✅
+## Current Focus: OpenRouter Cost Calculation & Costs Command Issues - RESOLVED ✅
 
 ### Issue Summary
-User reported that `pnpm run cli models` isn't listing GitHub models. Investigation and resolution:
+User reported that the `umwelten models --view info --id openai/gpt-4o` command was showing incorrect costs (e.g., $2500000.0000/1M instead of $2.50/1M) and only returning one result. Additionally, the `umwelten models costs` command was missing provider information and sorting wasn't working correctly.
 
-1. **Root Cause**: GitHub Models provider was missing from `getAllModels()` function in `src/cognition/models.ts`
-2. **Secondary Issue**: GitHub Models API was using incorrect endpoint and headers
-3. **Resolution**: Fixed provider integration and updated API endpoint to use correct GitHub API format
+### Root Cause Analysis
+1. **Double Multiplication Bug**: OpenRouter provider was correctly converting per-token pricing to per-million-tokens, but the CLI display logic was multiplying by 1,000,000 again
+2. **Special Case Handling**: OpenRouter API returns `-1` for auto-routing models, which was causing negative costs when multiplied
+3. **Display Label Issue**: CLI was showing "Cost per 1K tokens" instead of "Cost per 1M tokens"
+4. **Costs Command Issues**: Missing provider column, filtering out free models, and sorting not working correctly
 
 ### Resolution Results
 - ✅ **Provider Integration**: GitHub Models provider properly integrated into `getAllModels()`
@@ -16,6 +18,15 @@ User reported that `pnpm run cli models` isn't listing GitHub models. Investigat
 - ✅ **Authentication**: Using proper GitHub API headers (`Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`)
 - ✅ **Model Discovery**: Successfully listing 58 GitHub Models including OpenAI, Meta, Microsoft, Mistral, and others
 - ✅ **CLI Integration**: GitHub Models now appear in both provider-specific and full model lists
+- ✅ **Cost Calculation Fixed**: OpenRouter costs now display correctly (e.g., $2.5000/1M for GPT-4o input)
+- ✅ **Multiple Results**: Models command now shows all 322 OpenRouter models instead of just one
+- ✅ **Special Cases Handled**: Auto-routing models (like `openrouter/auto`) now show as "Free" instead of negative costs
+- ✅ **Display Labels Fixed**: CLI now correctly shows "Cost per 1M tokens"
+- ✅ **Costs Command Fixed**: `umwelten models costs` command now works correctly with proper sorting
+- ✅ **Provider Column Added**: Costs command now shows provider information for all models
+- ✅ **All Models Included**: Costs command now shows both free and paid models (not just paid models)
+- ✅ **Sorting Functionality**: All sorting options (prompt, completion, total) work correctly
+- ✅ **Documentation Updated**: Model discovery guide updated to reflect correct functionality
 
 ### Technical Fixes Applied
 1. **Provider Integration**: Added GitHub Models provider to `src/cognition/models.ts`

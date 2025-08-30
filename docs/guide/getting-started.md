@@ -63,7 +63,7 @@ LMSTUDIO_BASE_URL=http://localhost:1234
 ```
 
 ::: tip
-LM Studio does not require an API key for local usage, but you'll need to have the LM Studio server running and a model loaded.
+LM Studio and Ollama do not require an API key for local usage, but you'll need to have the LM Studio server running and a model loaded.
 
 GitHub Models requires a GitHub Personal Access Token with the `models` scope. During the preview period, GitHub Models is free to use.
 :::
@@ -80,7 +80,7 @@ umwelten --version
 umwelten --help
 
 # List available models (requires API keys to be set)
-umwelten models list
+umwelten models
 ```
 
 ## Next Steps

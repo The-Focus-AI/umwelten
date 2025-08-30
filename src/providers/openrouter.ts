@@ -38,8 +38,17 @@ export class OpenRouterProvider extends BaseProvider {
       contextLength: model.context_length,
       costs: {
         // Convert from per-token pricing (OpenRouter format) to per-million-tokens (our format)
-        promptTokens: parseFloat(model.pricing?.prompt || '0') * 1000000,
-        completionTokens: parseFloat(model.pricing?.completion || '0') * 1000000,
+        // OpenRouter returns prices like "0.0000025" which is $0.0000025 per token
+        // We convert to per-million-tokens: 0.0000025 * 1000000 = 2.5 (which is $2.50 per million tokens)
+        // Special case: -1 indicates auto-routing models, set to 0 (free)
+        promptTokens: (() => {
+          const price = parseFloat(model.pricing?.prompt || '0');
+          return price === -1 ? 0 : price * 1000000;
+        })(),
+        completionTokens: (() => {
+          const price = parseFloat(model.pricing?.completion || '0');
+          return price === -1 ? 0 : price * 1000000;
+        })(),
       },
       details: {
         provider: model.id.split('/')[0], // Include original provider in details

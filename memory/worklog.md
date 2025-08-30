@@ -2940,3 +2940,14 @@ Completed comprehensive review of the evaluation framework implementation and it
 - Set up CI/CD for automated publishing
 - Consider publishing to GitHub Packages
 - Create release notes and changelog
+
+### Impact
+- **Cost Transparency**: Users now see accurate pricing information
+- **Model Discovery**: All OpenRouter models are properly listed
+- **Special Models**: Auto-routing models correctly show as "Free"
+- **CLI Consistency**: All cost-related commands work correctly
+- **User Experience**: Clear, accurate cost information for model selection
+- **Provider Visibility**: Costs command now shows which provider hosts each model
+- **Complete Model List**: Costs command shows all models (free and paid) instead of filtering
+- **Sorting Functionality**: All sorting options (prompt, completion, total) work correctly
+- **Documentation Accuracy**: Model discovery guide reflects actual functionality

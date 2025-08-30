@@ -8,50 +8,50 @@ Umwelten provides comprehensive model discovery features to help you find and co
 
 ```bash
 # List all available models
-umwelten models list
+umwelten models 
 
 # List with JSON output for programmatic use
-umwelten models list --json
+umwelten models  --json
 ```
 
 ### Filter by Provider
 
 ```bash
 # Filter by specific provider
-umwelten models list --provider openrouter
-umwelten models list --provider ollama
-umwelten models list --provider google
-umwelten models list --provider lmstudio
-umwelten models list --provider github-models
+umwelten models --provider openrouter      # requires OPENROUTER_API_KEY
+umwelten models  --provider ollama
+umwelten models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
+umwelten models  --provider lmstudio
+umwelten models  --provider github-models  # GITHUB_TOKEN
 ```
 
 ### Filter by Cost
 
 ```bash
 # Show only free models
-umwelten models list --free
+umwelten models --free
 
 # Sort by cost (ascending by default)
-umwelten models list --sort cost
+umwelten models --sort cost
 ```
 
 ### Search Models
 
 ```bash
 # Search for specific models
-umwelten models list --search "gpt-4"
-umwelten models list --search "gemini"
-umwelten models list --search "llama"
+umwelten models --search "gpt-4"
+umwelten models --search "gemini"
+umwelten models --search "llama"
 ```
 
 ### Sorting Options
 
 ```bash
 # Sort by different fields
-umwelten models list --sort addedDate --desc
-umwelten models list --sort contextLength
-umwelten models list --sort cost
-umwelten models list --sort name
+umwelten models --sort addedDate --desc
+umwelten models --sort contextLength
+umwelten models --sort cost
+umwelten models --sort name
 ```
 
 ## Model Information
@@ -88,6 +88,15 @@ umwelten models costs --sort-by prompt
 umwelten models costs --sort-by completion
 umwelten models costs --sort-by total
 ```
+
+The costs command shows:
+- **Model**: Model identifier
+- **Provider**: Which service hosts the model (ollama, openrouter, google, github-models, lmstudio)
+- **Prompt**: Cost per 1M input tokens
+- **Completion**: Cost per 1M output tokens  
+- **Total**: Combined cost per 1M tokens
+
+Models are sorted by the specified metric (default: total cost).
 
 ## Understanding the Output
 
