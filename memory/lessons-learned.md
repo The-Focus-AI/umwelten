@@ -1,7 +1,47 @@
 # Lessons Learned
-Last Updated: April 12, 2025 13:01 EDT
+Last Updated: January 27, 2025 18:30 EST
 
 ## Technical Insights
+
+### StreamObject Implementation Patterns
+- **Date**: January 27, 2025
+- **Context**: Investigating hanging issues with `streamObject` in BaseModelRunner
+- **Problem**: `streamObject` was hanging indefinitely when using `await result.object`
+- **Root Cause**: The Vercel AI SDK's `streamObject` is designed for streaming, not waiting for completion
+- **Solution**: Use `partialObjectStream` iteration instead of awaiting the final object
+- **Lesson**:
+  - **streamObject is designed for streaming, not waiting**: Always use `partialObjectStream` for real-time updates
+  - **Avoid `await result.object`**: This causes hanging indefinitely across all providers
+  - **Iterate over partial objects**: Merge partial objects to build the final result
+  - **Test with multiple providers**: Issues may be provider-specific or SDK-wide
+  - **Direct SDK testing helps**: Bypass abstractions to isolate implementation issues
+- **Implementation Pattern**:
+  ```typescript
+  // ✅ CORRECT: Use partialObjectStream iteration
+  const result = streamObject(options);
+  let finalObject: Record<string, any> = {};
+  
+  for await (const partialObject of result.partialObjectStream) {
+    if (partialObject && typeof partialObject === 'object') {
+      finalObject = { ...finalObject, ...partialObject };
+    }
+  }
+  
+  // ❌ INCORRECT: This hangs indefinitely
+  const result = streamObject(options);
+  const finalObject = await result.object; // HANGS HERE
+  ```
+- **Usage Patterns**:
+  1. **Real-Time Streaming**: Use `streamObject` with `partialObjectStream`
+  2. **Immediate Results**: Use `generateObject` with Zod schemas
+  3. **Text Streaming**: Use `streamText` for real-time text chunks
+  4. **Flexible JSON**: Use `generateText` + JSON parsing for dynamic schemas
+- **Impact**:
+  - Fixed hanging issues with both Ollama and Google Gemini providers
+  - Real-time streaming now functional for interactive applications
+  - Comprehensive test coverage for all streaming methods
+  - Clear usage patterns documented for developers
+  - No breaking changes to existing interfaces
 
 ### LanguageModelV1 Interface
 - **Date**: April 8, 2025

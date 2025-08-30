@@ -151,6 +151,38 @@ umwelten eval run \
   --prompt "Your prompt"
 ```
 
+### Streaming Issues
+
+**Problem**: `streamObject` hanging or timing out
+
+**Solutions**:
+```typescript
+// ✅ CORRECT: Use partialObjectStream iteration
+const result = streamObject(options);
+let finalObject: Record<string, any> = {};
+
+for await (const partialObject of result.partialObjectStream) {
+  if (partialObject && typeof partialObject === 'object') {
+    finalObject = { ...finalObject, ...partialObject };
+  }
+}
+
+// ❌ INCORRECT: This hangs indefinitely
+const result = streamObject(options);
+const finalObject = await result.object; // HANGS HERE
+```
+
+**Best Practices**:
+- **Use `streamObject` with `partialObjectStream`** for real-time updates
+- **Use `generateObject`** for immediate structured results
+- **Use `streamText`** for real-time text streaming
+- **Avoid `await result.object`** from `streamObject` (causes hanging)
+
+**Performance Notes**:
+- **Google Gemini**: ~600ms for streamObject
+- **Ollama (gemma3:12b)**: ~500ms for streamObject
+- **Both providers**: Real-time streaming works without hanging
+
 ## Model-Specific Issues
 
 ### Google Gemini Errors

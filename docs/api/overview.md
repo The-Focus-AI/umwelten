@@ -1,3 +1,9 @@
+---
+title: TypeScript API Reference
+description: Comprehensive reference for Umwelten's TypeScript API for building custom evaluations and integrations
+keywords: [TypeScript, API, reference, custom evaluations, model interaction, programmatic access, integrations, BaseModelRunner, Interaction, schemas, Zod, structured output, file attachments, streaming]
+---
+
 # TypeScript API Reference
 
 Comprehensive reference for Umwelten's TypeScript API, showing how to build custom evaluations, interact with models programmatically, and extend functionality. Use this API to create custom scripts and integrations like those in the `scripts/` directory.
@@ -5,6 +11,7 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 ## Quick Navigation
 
 ### Core APIs
+- **[Cognition Module](/api/cognition)**: Core model execution, runners, and streaming capabilities
 - **[Core Classes](/api/core-classes)**: Essential classes for model interaction and evaluation
 - **[Model Integration](/api/model-integration)**: Working with different AI model providers
 - **[Evaluation Framework](/api/evaluation-framework)**: Building custom evaluation logic and runners

@@ -81,6 +81,13 @@ interface ModelRoute {
    - Clear separation of concerns
    - Consistent scoring mechanism
 
+4. Streaming Patterns
+   - **Real-Time Object Streaming**: Use `streamObject` with `partialObjectStream`
+   - **Immediate Results**: Use `generateObject` with Zod schemas
+   - **Text Streaming**: Use `streamText` for real-time text chunks
+   - **Flexible JSON**: Use `generateText` + JSON parsing for dynamic schemas
+   - **Avoid**: `await result.object` from `streamObject` (hangs indefinitely)
+
 ## Best Practices
 1. Code Organization
    - Clear directory structure
@@ -94,10 +101,18 @@ interface ModelRoute {
    - Handle rate limits and retries
    - Proper error propagation
 
-3. Testing
+3. Streaming Implementation
+   - Use `partialObjectStream` for real-time object streaming
+   - Avoid `await result.object` which hangs indefinitely
+   - Iterate over partial objects and merge them
+   - Use `streamText` for real-time text streaming
+   - Use `generateObject` for immediate structured results
+
+4. Testing
    - Unit tests for core functionality
    - Integration tests for providers
    - End-to-end evaluation tests
+   - Direct SDK testing to isolate implementation issues
 
 ## Directory Layout
 

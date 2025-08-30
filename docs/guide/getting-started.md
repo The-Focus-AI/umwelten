@@ -1,3 +1,9 @@
+---
+title: Getting Started with Umwelten
+description: Learn how to install and set up Umwelten for AI model evaluation and interaction
+keywords: [installation, setup, configuration, API keys, environment variables, Node.js, pnpm, prerequisites, Google API, OpenRouter API, GitHub token, Ollama, LM Studio, verification]
+---
+
 # Getting Started
 
 Umwelten is a command-line tool that allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.

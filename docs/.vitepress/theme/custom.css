@@ -1,0 +1,128 @@
+/* Custom search styling */
+:root {
+  --vp-c-brand: #646cff;
+  --vp-c-brand-light: #747bff;
+  --vp-c-brand-dark: #535bf2;
+}
+
+/* Enhanced search modal styling */
+.VPNavBarSearch {
+  position: relative;
+}
+
+.VPNavBarSearch .DocSearch-Button {
+  background: transparent;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
+}
+
+.VPNavBarSearch .DocSearch-Button:hover {
+  border-color: var(--vp-c-brand);
+  background: var(--vp-c-bg-soft);
+}
+
+/* Search results styling */
+.DocSearch-Hit {
+  border-radius: 6px;
+  margin: 4px 0;
+}
+
+.DocSearch-Hit[aria-selected="true"] {
+  background: var(--vp-c-brand-soft);
+}
+
+.DocSearch-Hit-source {
+  color: var(--vp-c-text-2);
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+.DocSearch-Hit-title {
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.DocSearch-Hit-path {
+  color: var(--vp-c-text-3);
+  font-size: 0.875rem;
+}
+
+/* Search modal improvements */
+.DocSearch-Modal {
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.DocSearch-Input {
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  padding: 12px 16px;
+}
+
+.DocSearch-Input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Keyboard shortcuts */
+.DocSearch-Commands {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--vp-c-text-3);
+}
+
+.DocSearch-Commands-Key {
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .VPNavBarSearch .DocSearch-Button {
+    padding: 6px 8px;
+  }
+  
+  .DocSearch-Button-Placeholder {
+    display: none;
+  }
+}
+
+/* Search result highlighting */
+.DocSearch-Hit mark {
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Loading state */
+.DocSearch-LoadingIndicator {
+  color: var(--vp-c-brand);
+}
+
+/* No results styling */
+.DocSearch-NoResults {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--vp-c-text-2);
+}
+
+.DocSearch-NoResults-Prelabel {
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+.DocSearch-NoResults-Label {
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}

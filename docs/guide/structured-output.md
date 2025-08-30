@@ -295,6 +295,81 @@ umwelten eval batch \
   --concurrent
 ```
 
+## Streaming Patterns
+
+Umwelten supports real-time streaming for structured output, providing immediate feedback as models generate responses.
+
+### Real-Time Object Streaming
+
+For interactive applications that need immediate partial results:
+
+```typescript
+import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Interaction } from '../src/interaction/interaction.js';
+import { z } from 'zod';
+
+const schema = z.object({
+  name: z.string(),
+  age: z.number(),
+  location: z.string(),
+});
+
+const runner = new BaseModelRunner();
+const interaction = new Interaction(modelDetails, systemPrompt);
+interaction.setOutputFormat(schema);
+
+// Real-time streaming with partial object updates
+const result = await runner.streamObject(interaction, schema);
+console.log('Streamed result:', result.content);
+```
+
+### Usage Patterns
+
+#### 1. For Immediate Results
+```typescript
+// Use generateObject for immediate structured results
+const result = await runner.generateObject(interaction, schema);
+const data = JSON.parse(result.content);
+// data is immediately available
+```
+
+#### 2. For Real-Time Streaming
+```typescript
+// Use streamObject for real-time partial updates
+const result = await runner.streamObject(interaction, schema);
+const data = JSON.parse(result.content);
+// data is built from partial object stream
+```
+
+#### 3. For Flexible JSON
+```typescript
+// Use generateText + JSON parsing for dynamic schemas
+const result = await runner.generateText(interaction);
+const jsonMatch = result.content.match(/\{.*\}/s);
+const data = JSON.parse(jsonMatch[0]);
+```
+
+#### 4. For Text Streaming
+```typescript
+// Use streamText for real-time text chunks
+const result = await runner.streamText(interaction);
+// Process text chunks as they arrive
+```
+
+### Streaming Best Practices
+
+- **Use `streamObject` for interactive applications** that need real-time feedback
+- **Use `generateObject` for immediate results** when you need the complete object
+- **Use `streamText` for text-based streaming** when you need raw text chunks
+- **Use `generateText` + JSON parsing** for flexible schema handling
+
+### Performance Considerations
+
+- **Google Gemini**: ~600ms for streamObject
+- **Ollama (gemma3:12b)**: ~500ms for streamObject
+- **Both providers**: Real-time streaming works without hanging
+- **No timeout issues** with proper implementation
+
 ## Examples
 
 For comprehensive structured output examples, see:
@@ -307,3 +382,4 @@ For comprehensive structured output examples, see:
 - Try [batch processing](/guide/batch-processing) with structured output
 - Explore [image analysis](/examples/image-features) for vision + structure
 - Learn [cost optimization](/guide/cost-analysis) for efficient structured processing
+- Read the [Cognition Module API](/api/cognition) for advanced streaming patterns

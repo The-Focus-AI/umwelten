@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { searchConfig } from './search.config'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -6,9 +7,10 @@ export default defineConfig({
   description: "A command-line tool to interact with and systematically evaluate AI models across providers",
   base: '/',
   ignoreDeadLinks: true, // Temporarily ignore dead links while we build out documentation
-      head: [
-      ['link', { rel: 'icon', href: '/favicon.ico' }]
-    ],
+  head: [
+    ['link', { rel: 'icon', href: '/favicon.ico' }]
+  ],
+    // Custom theme for enhanced search
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -19,6 +21,9 @@ export default defineConfig({
       { text: 'API', link: '/api/overview' }
     ],
 
+    // Search configuration
+    search: searchConfig,
+
     sidebar: {
       '/guide/': [
         {
@@ -26,7 +31,8 @@ export default defineConfig({
           items: [
             { text: 'Installation', link: '/guide/getting-started' },
             { text: 'Configuration', link: '/guide/configuration' },
-            { text: 'Basic Usage', link: '/guide/basic-usage' }
+            { text: 'Basic Usage', link: '/guide/basic-usage' },
+            { text: 'Search Documentation', link: '/guide/search' }
           ]
         },
         {
@@ -102,6 +108,7 @@ export default defineConfig({
           text: 'TypeScript API',
           items: [
             { text: 'Overview', link: '/api/overview' },
+            { text: 'Cognition Module', link: '/api/cognition' },
             { text: 'Interaction', link: '/api/interaction' },
             { text: 'Providers', link: '/api/providers' },
             { text: 'Memory', link: '/api/memory' },
@@ -133,6 +140,25 @@ export default defineConfig({
     footer: {
       message: 'Released under the MIT License.',
       copyright: 'Copyright © 2025 The Focus AI'
+    },
+
+    // Additional search features
+    outline: {
+      level: [2, 3],
+      label: 'On this page'
+    },
+
+    docFooter: {
+      prev: 'Previous page',
+      next: 'Next page'
+    },
+
+    lastUpdated: {
+      text: 'Last updated',
+      formatOptions: {
+        dateStyle: 'full',
+        timeStyle: 'medium'
+      }
     }
   }
 })

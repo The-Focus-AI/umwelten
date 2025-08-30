@@ -28,6 +28,7 @@ umwelten eval report --id cat-poem-eval --format markdown
 - **⚡ Batch Processing**: Concurrent file processing with intelligent error handling
 - **💰 Cost Transparency**: Real-time cost calculations with accurate pricing
 - **🎯 Interactive UI**: Real-time progress with streaming responses
+- **🔄 Real-Time Streaming**: Object and text streaming with partial updates
 - **🧠 Memory & Tools**: Chat with memory and specialized tools
 - **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV)
 
@@ -97,6 +98,17 @@ umwelten eval run \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-analysis" \
   --attach "./image.jpg"
+```
+
+### Real-Time Streaming
+```bash
+# Stream structured objects with real-time updates
+umwelten eval run \
+  --prompt "Generate a recipe for lasagna" \
+  --models "ollama:gemma3:12b" \
+  --id "recipe-streaming" \
+  --stream \
+  --schema '{"recipe": {"name": "string", "ingredients": ["string"], "steps": ["string"]}}'
 ```
 
 ### Structured Data Extraction

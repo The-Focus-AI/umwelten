@@ -1,3 +1,9 @@
+---
+title: Umwelten - AI Model Evaluation Tool
+description: A command-line tool to interact with and systematically evaluate AI models across providers
+keywords: [AI, evaluation, models, command-line, tool, providers, Google, OpenRouter, Ollama, LM Studio, GitHub Models, semantic architecture, cognition, interaction, stimulus, memory system, MCP integration, structured output, Zod, TypeScript]
+---
+
 # Umwelten
 
 A command-line tool to interact with and systematically evaluate AI models across providers.
@@ -93,6 +99,15 @@ Simplified tool integration using Vercel AI SDK:
 - Random number generation
 - Custom tool development
 - Seamless model integration
+
+### 🔄 Real-Time Streaming
+
+Advanced streaming capabilities for interactive applications:
+
+- **Object Streaming**: Real-time structured data with `streamObject`
+- **Text Streaming**: Live text chunks with `streamText`
+- **Partial Updates**: Immediate feedback with `partialObjectStream`
+- **Performance Optimized**: No hanging or timeout issues
 
 ### 🔌 MCP Integration
 

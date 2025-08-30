@@ -33,7 +33,7 @@ console.log(response.cost);    // Cost information
 
 #### `streamObject<T>(interaction: Interaction, schema: ZodSchema<T>): Promise<ModelResponse>`
 
-Generate structured output validated against a Zod schema.
+Generate structured output with real-time streaming, validated against a Zod schema.
 
 ```typescript
 import { z } from 'zod';
@@ -48,9 +48,16 @@ const TaskSchema = z.object({
 const runner = new BaseModelRunner();
 const response = await runner.streamObject(conversation, TaskSchema);
 
-// response.structuredOutput is validated and typed
-const task: z.infer<typeof TaskSchema> = response.structuredOutput;
+// response.content contains the final JSON string
+const task: z.infer<typeof TaskSchema> = JSON.parse(response.content);
 ```
+
+**Important**: This method uses `partialObjectStream` internally to avoid hanging issues. The implementation iterates over partial objects and merges them to build the final result.
+
+**Performance**:
+- **Google Gemini**: ~600ms for streamObject
+- **Ollama (gemma3:12b)**: ~500ms for streamObject
+- **Real-time streaming**: Works without hanging or timeout issues
 
 #### `streamText(interaction: Interaction): AsyncIterable<string>`
 
@@ -62,6 +69,41 @@ const runner = new BaseModelRunner();
 for await (const chunk of runner.streamText(conversation)) {
   process.stdout.write(chunk); // Real-time output
 }
+```
+
+### Streaming Patterns
+
+The `BaseModelRunner` provides multiple methods for different streaming needs:
+
+#### 1. For Immediate Results
+```typescript
+// Use generateObject for immediate structured results
+const result = await runner.generateObject(interaction, schema);
+const data = JSON.parse(result.content);
+// data is immediately available
+```
+
+#### 2. For Real-Time Streaming
+```typescript
+// Use streamObject for real-time partial updates
+const result = await runner.streamObject(interaction, schema);
+const data = JSON.parse(result.content);
+// data is built from partial object stream
+```
+
+#### 3. For Flexible JSON
+```typescript
+// Use generateText + JSON parsing for dynamic schemas
+const result = await runner.generateText(interaction);
+const jsonMatch = result.content.match(/\{.*\}/s);
+const data = JSON.parse(jsonMatch[0]);
+```
+
+#### 4. For Text Streaming
+```typescript
+// Use streamText for real-time text chunks
+const result = await runner.streamText(interaction);
+// Process text chunks as they arrive
 ```
 
 ### Error Handling
