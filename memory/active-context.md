@@ -1,7 +1,48 @@
-# Active Context - URL Updates to umwelten.thefocus.ai ✅
-Last Updated: 2025-08-27 20:30:00 EDT
+# Active Context - GitHub Models Provider Issue Investigation
+Last Updated: 2025-08-29 20:30:00 EDT
 
-## Current Focus: URL Updates to umwelten.thefocus.ai - COMPLETED ✅
+## Current Focus: GitHub Models Provider Issue - RESOLVED ✅
+
+### Issue Summary
+User reported that `pnpm run cli models` isn't listing GitHub models. Investigation and resolution:
+
+1. **Root Cause**: GitHub Models provider was missing from `getAllModels()` function in `src/cognition/models.ts`
+2. **Secondary Issue**: GitHub Models API was using incorrect endpoint and headers
+3. **Resolution**: Fixed provider integration and updated API endpoint to use correct GitHub API format
+
+### Resolution Results
+- ✅ **Provider Integration**: GitHub Models provider properly integrated into `getAllModels()`
+- ✅ **API Endpoint**: Updated to use `https://models.github.ai/catalog/models` with correct headers
+- ✅ **Authentication**: Using proper GitHub API headers (`Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`)
+- ✅ **Model Discovery**: Successfully listing 58 GitHub Models including OpenAI, Meta, Microsoft, Mistral, and others
+- ✅ **CLI Integration**: GitHub Models now appear in both provider-specific and full model lists
+
+### Technical Fixes Applied
+1. **Provider Integration**: Added GitHub Models provider to `src/cognition/models.ts`
+2. **API Endpoint**: Changed from `/inference/models` to `/catalog/models`
+3. **Headers**: Updated to use GitHub API standard headers
+4. **Data Mapping**: Updated to handle GitHub Models catalog API response format
+
+### Current Status
+- **GitHub Models Available**: 58 models from various providers (OpenAI, Meta, Microsoft, Mistral, etc.)
+- **CLI Working**: `pnpm run cli models --provider github-models` shows all models
+- **Integration Complete**: GitHub Models appear in full model list alongside other providers
+- **Cost Information**: Currently showing as "Free" (pricing not available in catalog API)
+- **Model Info Command**: Updated to use `--view info --id` with provider filtering instead of separate subcommand
+
+### CLI Improvements Made
+- **Removed**: Problematic `models info` subcommand that had option parsing issues
+- **Enhanced**: Main `models` command with `--view info --id` functionality
+- **Added**: Provider filtering support for detailed model information
+- **Updated**: Documentation to reflect new command structure
+- **Tested**: Provider-specific model info works correctly (e.g., `--provider github-models --view info --id openai/gpt-4.1`)
+
+### Models Available
+- **OpenAI**: GPT-4.1, GPT-4o, GPT-5, O1, O3, O4 series
+- **Meta**: Llama 3.2, 3.3, 4 series with vision capabilities
+- **Microsoft**: Phi-3, Phi-4 series including multimodal models
+- **Mistral**: Large, Medium, Small, Nemo, Codestral models
+- **Others**: Cohere, DeepSeek, xAI Grok, AI21 Jamba, Core42 JAIS
 
 ### What's Being Worked On
 - [X] **Update all documentation URLs to umwelten.thefocus.ai**

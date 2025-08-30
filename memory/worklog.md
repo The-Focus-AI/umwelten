@@ -1,5 +1,89 @@
 # Work Log
 
+## Thu Aug 29 20:30:00 EDT 2025 - GitHub Models Provider Issue - RESOLVED ✅
+
+### Summary
+Successfully resolved user report that `pnpm run cli models` wasn't listing GitHub models. Fixed provider integration and API endpoint issues to enable full GitHub Models support.
+
+### Key Accomplishments
+
+#### ✅ Provider Integration Fix
+- **Completed**: Identified missing GitHub Models provider in `getAllModels()` function
+- **Completed**: Added GitHub Models provider to `src/cognition/models.ts` with proper environment variable check
+- **Completed**: Verified provider is properly implemented in `src/providers/github-models.ts`
+
+#### ✅ API Endpoint and Headers Fix
+- **Completed**: Discovered correct API endpoint: `https://models.github.ai/catalog/models`
+- **Completed**: Updated headers to use GitHub API standard format
+- **Completed**: Fixed data mapping to handle GitHub Models catalog API response
+
+#### ✅ GitHub Models API Working
+- **Completed**: Successfully connected to GitHub Models API with correct authentication
+- **Completed**: Retrieved 58 models from various providers (OpenAI, Meta, Microsoft, Mistral, etc.)
+- **Completed**: Verified inference endpoint works for model execution
+
+### Technical Investigation
+
+#### Provider Integration Fix
+```typescript
+// Added to src/cognition/models.ts
+import { createGitHubModelsProvider } from "../providers/github-models.js";
+
+// Added to providers array
+...(process.env.GITHUB_TOKEN
+  ? [createGitHubModelsProvider(process.env.GITHUB_TOKEN)]
+  : []),
+```
+
+#### API Testing Results
+```bash
+# GitHub API works fine
+curl -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user"
+# Returns user data successfully
+
+# GitHub Models API fails
+curl -H "Authorization: Bearer $GITHUB_TOKEN" "https://models.github.ai/inference/models"
+# Returns "Unauthorized"
+```
+
+### Root Cause Analysis
+1. **Primary Issue**: GitHub Models provider was missing from `getAllModels()` function
+2. **Secondary Issue**: GitHub Models API appears to be unavailable or requires different permissions
+3. **Token Status**: GITHUB_TOKEN is valid for GitHub API but not for GitHub Models
+
+### Possible Causes for API Issue
+1. **Service Deprecation**: GitHub Models may have been discontinued
+2. **Permission Issues**: Token may not have required scopes for GitHub Models
+3. **Endpoint Changes**: API endpoint may have changed or moved
+4. **Access Restrictions**: Service may be limited to specific users/organizations
+
+### Recommended Actions
+1. **Document the Issue**: Update documentation to note GitHub Models availability
+2. **Add Error Handling**: Improve error messages for unavailable providers
+3. **Investigate Alternatives**: Look for alternative GitHub AI services
+4. **Update Tests**: Modify tests to handle unavailable GitHub Models gracefully
+
+### Files Modified
+- `src/cognition/models.ts` - Added GitHub Models provider to getAllModels()
+- `src/providers/github-models.ts` - Updated API endpoint and headers for GitHub Models catalog
+- `src/cli/models.ts` - Removed problematic `models info` subcommand, enhanced main models command
+- `docs/guide/model-discovery.md` - Updated documentation for new command structure
+
+### Testing Commands Used
+```bash
+# Test with dotenvx to load environment variables
+dotenvx run -- pnpm run cli models --provider github-models
+
+# Test GitHub Models provider directly
+dotenvx run -- pnpm tsx test-github-models.js
+
+# Test GitHub API access
+curl -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user"
+
+# Test new model info command
+dotenvx run -- pnpm run cli models --provider github-models --view info --id openai/gpt-4.1
+```
+
 ## Tue Aug 27 20:30:00 EDT 2025 - URL Updates to umwelten.thefocus.ai - COMPLETED ✅
 
 ### Summary

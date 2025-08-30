@@ -61,12 +61,18 @@ umwelten models list --sort name
 Get comprehensive information about a specific model:
 
 ```bash
-umwelten models info <model-id>
+# Basic model info (finds first match across all providers)
+umwelten models --view info --id <model-id>
 
 # Examples
-umwelten models info openai/gpt-4o
-umwelten models info gemini-2.0-flash
-umwelten models info gemma3:12b
+umwelten models --view info --id openai/gpt-4o
+umwelten models --view info --id gemini-2.0-flash
+umwelten models --view info --id gemma3:12b
+
+# Get info for a specific provider's version of a model
+umwelten models --provider github-models --view info --id openai/gpt-4.1
+umwelten models --provider openrouter --view info --id openai/gpt-4o
+umwelten models --provider google --view info --id gemini-2.0-flash
 ```
 
 ### Cost Analysis

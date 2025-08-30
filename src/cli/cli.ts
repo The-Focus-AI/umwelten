@@ -3,11 +3,15 @@ import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { config } from 'dotenv';
 import { modelsCommand } from './models.js';
 import { runCommand } from './run.js';
 import { chatCommand } from './chat.js';
 import { addToolsCommand } from './tools.js';
 import { evalCommand } from './eval.js';
+
+// Load environment variables from .env file
+config();
 
 // Get the version from package.json
 const __filename = fileURLToPath(import.meta.url);

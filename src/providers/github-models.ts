@@ -19,11 +19,11 @@ export class GitHubModelsProvider extends BaseProvider {
 
   // List available models from GitHub Models
   async listModels(): Promise<ModelDetails[]> {
-    const baseUrl = this.baseUrl || DEFAULT_BASE_URL;
-    const response = await fetch(`${baseUrl}/models`, {
+    const response = await fetch('https://models.github.ai/catalog/models', {
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
-        'Accept': 'application/json',
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'umwelten/github-models-provider'
       }
     });
@@ -34,31 +34,37 @@ export class GitHubModelsProvider extends BaseProvider {
 
     const data = await response.json();
     
-    // GitHub Models uses OpenAI-compatible API format
-    if (!data || !Array.isArray(data.data)) {
+    // GitHub Models catalog API returns array of models
+    if (!data || !Array.isArray(data)) {
       return [];
     }
 
-    // Map GitHub Models model info to ModelDetails
-    return data.data.map((model: any) => ({
+    // Map GitHub Models catalog data to ModelDetails
+    return data.map((model: any) => ({
       provider: "github-models",
       name: model.id ?? '',
       displayName: model.name || model.id,
-      contextLength: model.context_window || 4096, // Default context window
+      contextLength: model.limits?.max_input_tokens || 4096,
       costs: {
-        // GitHub Models is free during preview
+        // GitHub Models pricing not available in catalog
         promptTokens: 0,
         completionTokens: 0,
       },
       details: {
-        description: model.description || `GitHub Models: ${model.id}`,
+        description: model.summary || `GitHub Models: ${model.id}`,
         family: model.id?.split('/')[0] || 'unknown', // e.g., 'openai', 'meta'
         modelId: model.id,
-        object: model.object,
-        created: model.created,
-        owned_by: model.owned_by,
+        publisher: model.publisher,
+        version: model.version,
+        registry: model.registry,
+        rateLimitTier: model.rate_limit_tier,
+        supportedInputModalities: model.supported_input_modalities,
+        supportedOutputModalities: model.supported_output_modalities,
+        tags: model.tags,
+        capabilities: model.capabilities,
+        htmlUrl: model.html_url,
       },
-      addedDate: model.created ? new Date(model.created * 1000) : undefined,
+      addedDate: new Date(), // Catalog doesn't provide creation date
       lastUpdated: new Date(),
     }));
   }

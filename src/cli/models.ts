@@ -280,6 +280,7 @@ export const modelsCommand = new Command('models')
         console.log(table.toString());
         console.log('\nTip: Use --json for machine-readable output');
         console.log('     Use --view info --id <model-id> for detailed information about a specific model');
+        console.log('     Use --provider <provider> to filter by specific provider');
       }
     } catch (error) {
       console.error('Error fetching models:', error);
@@ -287,59 +288,7 @@ export const modelsCommand = new Command('models')
     }
   });
 
-// models info command
-modelsCommand
-  .command('info')
-  .description('Show detailed information about a specific model')
-  .argument('<model-id>', 'The ID of the model to inspect')
-  .action(async (modelId) => {
-    try {
-      const models = await getAllModels();
-      const model = models.find(m => m.name === modelId);
-      
-      if (!model) {
-        console.error(chalk.red(`\nModel "${modelId}" not found`));
-        process.exit(1);
-      }
 
-      printHeader('Model Information');
-      console.log(`${chalk.yellow('Name')}: ${chalk.bold(model.name)}`);
-      console.log(`${chalk.yellow('Provider')}: ${chalk.cyan(model.provider)}`);
-      
-      const url = getModelUrl(model);
-      if (url) {
-        console.log(`${chalk.yellow('URL')}: \x1b]8;;${url}\x1b\\${chalk.cyan(url)}\x1b]8;;\x1b\\`);
-        console.log(chalk.dim('(URL is clickable in most modern terminals)'));
-      }
-      
-      console.log(`${chalk.yellow('Context Length')}: ${chalk.cyan(formatContextLength(model.contextLength))} tokens`);
-      console.log(`${chalk.yellow('Cost')}: ${formatModelCosts(model)}`);
-      console.log(`${chalk.yellow('Details')}: ${formatModelDetails(model)}`);
-
-      // Show example cost estimates
-      if (model.costs) {
-        printHeader('Example Costs');
-        const examples = [
-          { prompt: 100, completion: 50 },
-          { prompt: 500, completion: 200 },
-          { prompt: 1000, completion: 500 }
-        ];
-
-        examples.forEach(({ prompt, completion }) => {
-          const cost = estimateCost(model, prompt, completion);
-          if (cost) {
-            console.log(chalk.bold(`\n${prompt.toLocaleString()} prompt + ${completion.toLocaleString()} completion tokens:`));
-            console.log(`  ${chalk.yellow('Prompt cost')}:     ${chalk.cyan('$' + cost.promptCost.toFixed(4))}`);
-            console.log(`  ${chalk.yellow('Completion cost')}: ${chalk.cyan('$' + cost.completionCost.toFixed(4))}`);
-            console.log(`  ${chalk.yellow('Total cost')}:      ${chalk.cyan('$' + cost.totalCost.toFixed(4))}`);
-          }
-        });
-      }
-    } catch (error) {
-      console.error(chalk.red('\nError fetching model information:'), error);
-      process.exit(1);
-    }
-  });
 
 // models costs command
 modelsCommand
