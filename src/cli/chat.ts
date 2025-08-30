@@ -8,7 +8,7 @@ import readline from "readline";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import { setupConversation } from './conversationUtils.js';
-import { getTool } from '../stimulus/tools/registry.js';
+import { getTool } from '../stimulus/tools/simple-registry.js';
 
 export const chatCommand = addCommonOptions(
   new Command("chat")

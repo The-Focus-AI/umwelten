@@ -85,11 +85,20 @@ Persistent memory across interactions:
 - Knowledge retrieval and context
 - Privacy controls
 
-### 🛠️ MCP Integration
+### 🛠️ Tool Calling
+
+Simplified tool integration using Vercel AI SDK:
+
+- Mathematical operations (calculator, statistics)
+- Random number generation
+- Custom tool development
+- Seamless model integration
+
+### 🔌 MCP Integration
 
 Model Context Protocol support:
 
-- Tool integration and execution
+- External tool integration and execution
 - Resource reading and manipulation
 - Extensible plugin architecture
 
@@ -98,6 +107,10 @@ Model Context Protocol support:
 ### [Getting Started](/guide/getting-started)
 
 Learn how to install, configure, and use Umwelten for basic tasks.
+
+### [Tool Calling](/guide/tool-calling)
+
+Learn how to use and create tools to enhance AI model capabilities.
 
 ### [API Reference](/api/overview)
 

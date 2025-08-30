@@ -277,10 +277,10 @@ export class BaseModelRunner implements ModelRunner {
               }
               break;
             case 'tool-call':
-              console.log(`\n[TOOL CALL] ${(event as any).toolName} called with:`, (event as any).args);
+              console.log(`\n[TOOL CALL] ${(event as any).toolName} called with:`, (event as any).input);
               break;
             case 'tool-result':
-              console.log(`\n[TOOL RESULT] ${(event as any).toolName} result:`, (event as any).result);
+              console.log(`\n[TOOL RESULT] ${(event as any).toolName} result:`, (event as any).output);
               break;
             // Ignore other event types (error, finish, etc.)
             default:

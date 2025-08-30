@@ -220,25 +220,22 @@ List and manage available tools.
 
 ```bash
 # List all tools
-umwelten tools
+umwelten tools list
 
-# List tools by category
-umwelten tools --category file
+# Run interactive tool demo
+umwelten tools demo
 
-# Test specific tool
-umwelten tools test calculator
+# Demo with custom prompt
+umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number"
 
-# Install tool
-umwelten tools install custom-tool
-
-# Remove tool
-umwelten tools remove old-tool
+# Demo with step limit
+umwelten tools demo --max-steps 3
 ```
 
 **Options**:
-- `--category <category>`: Filter by tool category
+- `--prompt <prompt>`: Custom prompt for demo (default: mathematical operations)
+- `--max-steps <steps>`: Maximum tool execution steps (default: 5)
 - `--json`: Output in JSON format
-- `--verbose`: Show detailed tool information
 
 ## Core Functions
 

@@ -9,6 +9,7 @@ Perfect for getting started with Umwelten:
 - **[Simple Text Generation](/examples/text-generation)** - Basic prompt evaluation across models
 - **[Creative Writing](/examples/creative-writing)** - Poetry and story generation with temperature control  
 - **[Analysis & Reasoning](/examples/analysis-reasoning)** - Complex reasoning tasks and literary analysis
+- **[Tool Integration](/examples/tool-integration)** - Using and creating tools to enhance AI capabilities
 
 ## Image Processing Examples
 

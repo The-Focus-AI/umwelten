@@ -7,9 +7,8 @@ import {
   calculatorTool, 
   randomNumberTool, 
   statisticsTool,
-  registerTool,
   listTools,
-  ToolSet
+  getAllTools
 } from "../stimulus/tools/index.js";
 
 export function addToolsCommand(program: Command) {
@@ -17,34 +16,28 @@ export function addToolsCommand(program: Command) {
     .command("tools")
     .description("Demonstrate tool calling capabilities");
 
-  // Register example tools
-  registerTool(calculatorTool);
-  registerTool(randomNumberTool);
-  registerTool(statisticsTool);
+  // Tools are already registered in math.ts
 
   toolsCommand
     .command("list")
     .description("List all available tools")
     .action(() => {
-      const tools = listTools();
+      const tools = getAllTools();
       
       console.log("\n🔧 Available Tools:");
       console.log("==================");
       
-      if (tools.length === 0) {
+      if (Object.keys(tools).length === 0) {
         console.log("No tools registered.");
         return;
       }
 
-      tools.forEach((tool) => {
-        console.log(`\n📋 ${tool.name}`);
-        console.log(`   Description: ${tool.description}`);
-        console.log(`   Category: ${tool.metadata?.category || 'uncategorized'}`);
-        console.log(`   Tags: ${tool.metadata?.tags?.join(', ') || 'none'}`);
-        console.log(`   Version: ${tool.metadata?.version || 'unknown'}`);
+      Object.entries(tools).forEach(([name, tool]) => {
+        console.log(`\n📋 ${name}`);
+        console.log(`   Description: ${tool.description || 'No description'}`);
       });
       
-      console.log(`\nTotal: ${tools.length} tools available\n`);
+      console.log(`\nTotal: ${Object.keys(tools).length} tools available\n`);
     });
 
   toolsCommand
@@ -75,11 +68,7 @@ export function addToolsCommand(program: Command) {
           "You are a helpful assistant with access to mathematical tools. Use the available tools to help answer questions and perform calculations."
         );
         // Set up tools
-        const toolSet: ToolSet = {
-          calculator: calculatorTool as any,
-          randomNumber: randomNumberTool as any,
-          statistics: statisticsTool as any,
-        };
+        const toolSet = getAllTools();
         interaction.setTools(toolSet);
         interaction.setMaxSteps(parseInt(options.maxSteps));
         // Add user message

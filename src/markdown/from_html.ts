@@ -1,4 +1,4 @@
-import { Stimulus } from "../interaction/stimulus.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import { ModelDetails } from "../cognition/types.js";
 import { Interaction } from "../interaction/interaction.js";
 import { BaseModelRunner } from "../cognition/runner.js";

@@ -137,21 +137,29 @@ umwelten chat --provider google --model gemini-2.0-flash --tools web_search,file
 
 #### Available Tools
 - **calculator**: Mathematical calculations and formulas
-- **statistics**: Statistical analysis and data processing
-- **web_search**: Real-time web search capabilities
-- **file_analysis**: Analyze and process files
-- **code_execution**: Run and test code snippets
+- **statistics**: Statistical analysis and data processing  
+- **randomNumber**: Generate random numbers within ranges
 
 #### Tool Usage Examples
 ```bash
 # Math-focused chat
 umwelten chat --provider openrouter --model gpt-4o --tools calculator
 
-# Research chat with web search
-umwelten chat --provider google --model gemini-2.0-flash --tools web_search
+# Data analysis chat
+umwelten chat --provider google --model gemini-2.0-flash --tools statistics
 
-# Code development chat
-umwelten chat --provider ollama --model codestral:latest --tools code_execution
+# Multi-tool chat
+umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+```
+
+#### Tool Demo
+Test tool functionality:
+```bash
+# Interactive tool demo
+umwelten tools demo
+
+# Custom demo
+umwelten tools demo --prompt "Calculate 15 + 27, then generate a random number"
 ```
 
 ### File Attachments in Chat

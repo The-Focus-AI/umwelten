@@ -35,6 +35,7 @@ export default defineConfig({
             { text: 'Model Discovery', link: '/guide/model-discovery' },
             { text: 'Running Prompts', link: '/guide/running-prompts' },
             { text: 'Interactive Chat', link: '/guide/interactive-chat' },
+            { text: 'Tool Calling', link: '/guide/tool-calling' },
             { text: 'Model Evaluation', link: '/guide/model-evaluation' },
             { text: 'Structured Output', link: '/guide/structured-output' },
             { text: 'Batch Processing', link: '/guide/batch-processing' }
@@ -57,7 +58,8 @@ export default defineConfig({
             { text: 'Overview', link: '/examples/' },
             { text: 'Simple Text Generation', link: '/examples/text-generation' },
             { text: 'Creative Writing', link: '/examples/creative-writing' },
-            { text: 'Analysis & Reasoning', link: '/examples/analysis-reasoning' }
+            { text: 'Analysis & Reasoning', link: '/examples/analysis-reasoning' },
+            { text: 'Tool Integration', link: '/examples/tool-integration' }
           ]
         },
         {
@@ -103,6 +105,7 @@ export default defineConfig({
             { text: 'Interaction', link: '/api/interaction' },
             { text: 'Providers', link: '/api/providers' },
             { text: 'Memory', link: '/api/memory' },
+            { text: 'Tools', link: '/api/tools' },
             { text: 'CLI', link: '/api/cli' },
             { text: 'Core Classes', link: '/api/core-classes' },
             { text: 'Model Integration', link: '/api/model-integration' },

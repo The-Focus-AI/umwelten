@@ -1,6 +1,6 @@
 import { CoreMessage } from "ai";
 import { ModelDetails, ModelOptions } from "../cognition/types.js";
-import { ToolSet, toVercelToolSet } from "../stimulus/tools/index.js";
+import { getAllTools } from "../stimulus/tools/index.js";
 import path from "path";
 import fs, { FileHandle } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
@@ -14,7 +14,7 @@ export class Interaction {
   public prompt: string;
   public options?: ModelOptions;
   public outputFormat?: z.ZodSchema;
-  public tools?: ToolSet;
+  public tools?: Record<string, any>;
   public maxSteps?: number;
 
   constructor(
@@ -82,7 +82,7 @@ export class Interaction {
   /**
    * Set tools for this interaction
    */
-  setTools(tools: ToolSet): void {
+  setTools(tools: Record<string, any>): void {
     this.tools = tools;
   }
 
@@ -97,7 +97,7 @@ export class Interaction {
    * Get tools in Vercel AI SDK format
    */
   getVercelTools() {
-    return this.tools ? toVercelToolSet(this.tools) : undefined;
+    return this.tools || undefined;
   }
 
   /**
