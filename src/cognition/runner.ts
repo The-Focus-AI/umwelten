@@ -439,18 +439,41 @@ export class BaseModelRunner implements ModelRunner {
         }
       }
 
-      const response = await streamObject(streamOptions);
+      // streamObject returns immediately in AI SDK 4.0+
+      const result = streamObject(streamOptions);
+      
+      // Use partialObjectStream instead of awaiting result.object (which hangs)
+      let finalObject: Record<string, any> = {};
+      let partialCount = 0;
+      
+      for await (const partialObject of result.partialObjectStream) {
+        partialCount++;
+        // Merge partial objects to build the final object
+        if (partialObject && typeof partialObject === 'object') {
+          finalObject = { ...finalObject, ...partialObject };
+        }
+        
+        // Optional: Log progress for debugging
+        if (process.env.DEBUG === '1') {
+          console.log(`[DEBUG] Partial object ${partialCount}:`, partialObject ? Object.keys(partialObject) : 'null/undefined');
+        }
+      }
+      
+      const objectContent = JSON.stringify(finalObject);
+      
+      // Print the result for visibility
+      process.stdout.write("Streamed object result: " + objectContent + "\n");
 
-      const result = this.makeResult({
-        response,
-        content: String(await response.object),
-        usage: response.usage,
+      const modelResponse = this.makeResult({
+        response: result,
+        content: objectContent,
+        usage: await result.usage,
         interaction,
         startTime,
         modelIdString,
       });
       
-      return result;
+      return modelResponse;
     } catch (err) {
       this.handleError(err, modelIdString, "streamObject");
     }
