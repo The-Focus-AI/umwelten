@@ -79,6 +79,24 @@ const OLLAMA_CONTEXT_WINDOWS: Record<string, number> = {
   'vicuna:33b': 2048,
 };
 
+async function getActualContextWindow(baseUrl: string, modelName: string): Promise<number | null> {
+  try {
+    // First try to get context from running models via /api/ps
+    const psResponse = await fetch(`${baseUrl}/api/ps`);
+    if (psResponse.ok) {
+      const psData = await psResponse.json();
+      const runningModel = psData.models?.find((m: any) => m.name === modelName || m.model === modelName);
+      if (runningModel?.context_length) {
+        return runningModel.context_length;
+      }
+    }
+  } catch (error) {
+    // Silently fall through to other methods
+  }
+  
+  return null;
+}
+
 function getContextWindow(modelName: string): number {
   // Try exact match first
   if (OLLAMA_CONTEXT_WINDOWS[modelName]) {
@@ -132,12 +150,14 @@ export class OllamaProvider extends BaseProvider {
     const response = await fetch(`${this.baseUrl}/api/tags`);
     const data = await response.json();
 
-    return data.models.map(
-      (model: any) =>
-        ({
+    // Try to get actual context windows from running models
+    const modelsWithContext = await Promise.all(
+      data.models.map(async (model: any) => {
+        const actualContext = model.name ? await getActualContextWindow(this.baseUrl, model.name) : null;
+        return {
           provider: "ollama",
           name: model.name,
-          contextLength: getContextWindow(model.name),
+          contextLength: actualContext || getContextWindow(model.name || ''),
           costs: {
             promptTokens: 0,
             completionTokens: 0,
@@ -150,8 +170,11 @@ export class OllamaProvider extends BaseProvider {
           },
           addedDate: parseDate(model.modified_at),
           lastUpdated: parseDate(model.modified_at),
-        }) as ModelDetails
+        } as ModelDetails;
+      })
     );
+
+    return modelsWithContext;
   }
 
   getLanguageModel(route: ModelRoute): LanguageModel {

@@ -73,26 +73,19 @@ Building out the evaluation CLI system based on the promptfoo inspiration, follo
 
 ## 🚧 Current Tasks
 
-### Phase 4: Batch Processing System - ✅ Complete
+### Phase 5: Ollama Provider Enhancement - ✅ Complete
 
-- [x] **Add file-based batch processing to CLI**
-  - ✅ Implemented `umwelten eval batch` command with file discovery
-  - ✅ Added directory scanning with file pattern matching
-  - ✅ Support for recursive directory scanning
-  - ✅ File limit controls and validation
-  - ✅ Concurrent processing support for batch operations
-  - ✅ Comprehensive error handling and progress reporting
-
-- [x] **Test batch processing with real-world scenarios**
-  - ✅ Successfully migrated `image-feature-batch.ts` to CLI
-  - ✅ Verified file discovery and pattern matching works correctly
-  - ✅ Confirmed concurrent processing improves performance
-  - ✅ Validated reporting and cost calculation integration
-  - ✅ Tested resume functionality for interrupted batch operations
+- [x] **Fix Ollama context window dynamic detection**
+  - ✅ Identified issue: Context windows were hardcoded instead of dynamically fetched from Ollama API
+  - ✅ Analyzed `/api/ps` endpoint to get actual context windows from running models
+  - ✅ Implemented `getActualContextWindow()` function to query Ollama API
+  - ✅ Modified `listModels()` to check actual context windows before falling back to hardcoded values
+  - ✅ Fixed TypeScript issues and ensured proper error handling
+  - ✅ Verified fix works: `gpt-oss:latest` now shows correct 131K context instead of 4K default
 
 *All major tasks completed! 🎉*
 
-The evaluation system now includes comprehensive batch processing capabilities, enabling efficient processing of multiple files across multiple models.
+The evaluation system now correctly detects dynamically configured Ollama context windows set via the UI, providing accurate model information to users.
 
 ## ✅ Recently Completed Tasks
 
