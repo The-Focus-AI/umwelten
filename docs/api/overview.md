@@ -10,6 +10,10 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 
 ## Quick Navigation
 
+### 🆕 New Interaction + Interface Pattern
+- **[Interaction + Interface Pattern](/api/interaction-interface-pattern)**: Unified API for CLI, web, and agent contexts
+- **[Interaction + Interface Examples](/examples/interaction-interface-examples)**: Comprehensive usage examples
+
 ### Core APIs
 - **[Cognition Module](/api/cognition)**: Core model execution, runners, and streaming capabilities
 - **[Core Classes](/api/core-classes)**: Essential classes for model interaction and evaluation
@@ -24,7 +28,43 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 
 ## Core Concepts
 
-### Basic Model Interaction
+### 🆕 New Interaction + Interface Pattern (Recommended)
+
+The new pattern provides pre-configured interactions and clean interface separation:
+
+```typescript
+import { ChatInteraction, CLIInterface, EvaluationInteraction } from 'umwelten';
+
+// Chat with memory and tools
+const chatInteraction = new ChatInteraction({
+  name: "llama3.2:latest",
+  provider: "ollama"
+});
+
+// Use with CLI interface
+const cliInterface = new CLIInterface();
+await cliInterface.startChat(chatInteraction);
+
+// Or use programmatically
+const response = await chatInteraction.chat("What's the weather in New York?");
+
+// Evaluation with structured output
+const evalInteraction = new EvaluationInteraction(
+  { name: "gpt-4", provider: "openrouter" },
+  "Analyze this code and provide a score from 1-10"
+);
+
+const score = await evalInteraction.evaluateWithSchema(scoreSchema);
+```
+
+**Benefits:**
+- ✅ Pre-configured interactions (Chat, Evaluation, Agent)
+- ✅ Multiple interfaces (CLI, Web, Agent)
+- ✅ Built-in tools and memory
+- ✅ Same API works across environments
+- ✅ Type-safe and well-documented
+
+### Basic Model Interaction (Legacy)
 
 The simplest way to interact with a model:
 

@@ -2,6 +2,15 @@
 
 This section provides comprehensive examples showing how to use Umwelten for various AI model evaluation tasks. Many of these examples correspond to scripts that have been migrated from the `scripts/` directory to CLI commands.
 
+## 🆕 New Interaction + Interface Pattern
+
+The modern way to use Umwelten with pre-configured interactions and clean interfaces:
+
+- **[Interaction + Interface Examples](/examples/interaction-interface-examples)** - Comprehensive examples of the new pattern
+- **[Chat with Tools](/examples/interaction-interface-examples#chat-with-tools)** - Interactive chat with weather, calculator, file analysis
+- **[Web Integration](/examples/interaction-interface-examples#web-integration)** - React, Vue.js, and Next.js examples
+- **[Agent Workflows](/examples/interaction-interface-examples#agent-examples)** - Autonomous agents with triggers and events
+
 ## Basic Examples
 
 Perfect for getting started with Umwelten:
@@ -53,6 +62,21 @@ These examples show CLI equivalents for scripts that have been migrated:
 | `multi-language-evaluation.ts` | [Multi-language Evaluation](/examples/multi-language) | 🔄 Needs Pipeline |
 
 ## Quick Examples
+
+### 🆕 New Pattern Examples
+
+```bash
+# Interactive chat with tools
+pnpm tsx src/cli/cli.ts chat-new -p ollama -m llama3.2:latest
+
+# Tools demonstration
+pnpm tsx scripts/tools.ts -p ollama -m llama3.2:latest --prompt "What's the weather in New York?"
+
+# Programmatic usage
+pnpm tsx scripts/new-pattern-example.ts
+```
+
+### Traditional CLI Examples
 
 Here are some quick examples to get you started:
 

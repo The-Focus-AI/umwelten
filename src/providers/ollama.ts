@@ -153,7 +153,15 @@ export class OllamaProvider extends BaseProvider {
     // Try to get actual context windows from running models
     const modelsWithContext = await Promise.all(
       data.models.map(async (model: any) => {
-        const actualContext = model.name ? await getActualContextWindow(this.baseUrl, model.name) : null;
+        let actualContext: number | null = null;
+        try {
+          if (model.name) {
+            const name = String(model.name);
+            actualContext = await getActualContextWindow(this.baseUrl, name as string);
+          }
+        } catch (error) {
+          // Ignore errors when getting context window
+        }
         return {
           provider: "ollama",
           name: model.name,

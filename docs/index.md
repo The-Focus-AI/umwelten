@@ -33,7 +33,28 @@ npm install -g umwelten
 pnpm add -g umwelten
 ```
 
-### Basic Usage
+### 🆕 New Interaction + Interface Pattern
+
+The modern way to use Umwelten with pre-configured interactions and clean interfaces:
+
+```bash
+# Interactive chat with tools (new pattern)
+pnpm tsx src/cli/cli.ts chat-new -p ollama -m llama3.2:latest
+
+# Tools demonstration with weather, calculator, file analysis
+pnpm tsx scripts/tools.ts -p ollama -m llama3.2:latest --prompt "What's the weather in New York?"
+
+# Programmatic usage
+pnpm tsx scripts/new-pattern-example.ts
+```
+
+**Benefits:**
+- ✅ Pre-configured interactions (Chat, Evaluation, Agent)
+- ✅ Multiple interfaces (CLI, Web, Agent)
+- ✅ Built-in tools and memory
+- ✅ Same API works across environments
+
+### Traditional CLI Usage
 
 ```bash
 # List available models

@@ -16,9 +16,12 @@ export interface MemoryRunnerConfig {
 }
 
 export class MemoryRunner extends SmartModelRunner {
+  private memoryStore: MemoryStore;
+
   constructor(config: MemoryRunnerConfig) {
     let extractedFacts: Fact[] = [];
     const model = { provider: "ollama", name: "gemma3:12b" };
+    
     // During hook: extract facts and store in context
     const extractFactsHook: RunnerHook = async (conversation) => {  
       const facts = await extractFacts(conversation, model);
@@ -58,6 +61,12 @@ export class MemoryRunner extends SmartModelRunner {
       duringHooks: [extractFactsHook],
       afterHooks: [updateMemoryHook],
     });
+    
+    this.memoryStore = config.memoryStore;
+  }
+
+  getMemoryStore(): MemoryStore {
+    return this.memoryStore;
   }
 }
 

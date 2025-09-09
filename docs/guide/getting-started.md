@@ -8,6 +8,18 @@ keywords: [installation, setup, configuration, API keys, environment variables, 
 
 Umwelten is a command-line tool that allows you to interact with and evaluate AI models across different providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models). It focuses on usability, cost transparency, and providing a flexible runner architecture with memory capabilities.
 
+## 🆕 New to Umwelten?
+
+**We recommend starting with the new Interaction + Interface pattern:**
+
+👉 **[Getting Started with the New Pattern](/guide/getting-started-new-pattern)** - Modern, unified API for CLI, web, and agent contexts
+
+This guide covers the traditional CLI approach. The new pattern provides:
+- ✅ Pre-configured interactions (Chat, Evaluation, Agent)
+- ✅ Multiple interfaces (CLI, Web, Agent)
+- ✅ Built-in tools and memory
+- ✅ Same API works across environments
+
 ## Prerequisites
 
 - **Node.js** (v20+)

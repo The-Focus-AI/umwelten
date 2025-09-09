@@ -180,15 +180,8 @@ export class MCPServer extends EventEmitter {
       description: toolDef.description,
       inputSchema: {
         type: 'object',
-        properties: toolDef.parameters._def?.shape ? 
-          Object.fromEntries(
-            Object.entries(toolDef.parameters._def.shape).map(([key, schema]) => [
-              key, 
-              this.zodSchemaToJsonSchema(schema as any)
-            ])
-          ) : {},
-        required: toolDef.parameters._def?.shape ? 
-          Object.keys(toolDef.parameters._def.shape) : [],
+        properties: this.getZodSchemaProperties(toolDef.parameters),
+        required: this.getZodSchemaRequired(toolDef.parameters),
       },
     };
 
@@ -519,6 +512,39 @@ export class MCPServer extends EventEmitter {
     error.code = code;
     error.data = data;
     return error;
+  }
+
+  /**
+   * Get properties from Zod schema
+   */
+  private getZodSchemaProperties(schema: any): Record<string, any> {
+    try {
+      if (schema._def?.shape) {
+        return Object.fromEntries(
+          Object.entries(schema._def.shape).map(([key, subSchema]) => [
+            key, 
+            this.zodSchemaToJsonSchema(subSchema as any)
+          ])
+        );
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Get required fields from Zod schema
+   */
+  private getZodSchemaRequired(schema: any): string[] {
+    try {
+      if (schema._def?.shape) {
+        return Object.keys(schema._def.shape);
+      }
+      return [];
+    } catch {
+      return [];
+    }
   }
 
   private zodSchemaToJsonSchema(schema: any): any {

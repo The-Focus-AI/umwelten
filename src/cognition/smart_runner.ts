@@ -1,5 +1,6 @@
 import { Interaction } from "../interaction/interaction.js";
 import { ModelResponse, ModelRunner } from "./types.js";
+import { z } from "zod";
 
 /**
  * Types for runner hooks
@@ -81,6 +82,44 @@ export class SmartModelRunner extends BaseModelRunner {
 
     // Main model run
     const mainResult = await super.streamText(ctx);
+
+    // During hooks (parallel/side tasks)
+    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
+
+    // After hooks
+    const afterResult = await this.runHooks(this.afterHooks, ctx);
+    if (!afterResult.ok) throw new Error("Aborted by after hook");
+
+    return mainResult;
+  }
+
+  async generateObject(interaction: Interaction, schema: z.ZodSchema): Promise<ModelResponse> {
+    // Before hooks
+    const beforeResult = await this.runHooks(this.beforeHooks, interaction);
+    if (!beforeResult.ok) throw new Error("Aborted by before hook");
+    let ctx = beforeResult.interaction;
+
+    // Main model run
+    const mainResult = await super.generateObject(ctx, schema);
+
+    // During hooks (parallel/side tasks)
+    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
+
+    // After hooks
+    const afterResult = await this.runHooks(this.afterHooks, ctx);
+    if (!afterResult.ok) throw new Error("Aborted by after hook");
+
+    return mainResult;
+  }
+
+  async streamObject(interaction: Interaction, schema: z.ZodSchema): Promise<ModelResponse> {
+    // Before hooks
+    const beforeResult = await this.runHooks(this.beforeHooks, interaction);
+    if (!beforeResult.ok) throw new Error("Aborted by before hook");
+    let ctx = beforeResult.interaction;
+
+    // Main model run
+    const mainResult = await super.streamObject(ctx, schema);
 
     // During hooks (parallel/side tasks)
     await Promise.all(this.duringHooks.map(hook => hook(ctx)));

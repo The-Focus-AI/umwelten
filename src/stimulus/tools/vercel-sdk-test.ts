@@ -77,7 +77,6 @@ async function testDirectVercelSDK() {
         calculator: calculatorTool,
         statistics: statisticsTool,
       },
-      maxSteps: 3,
       prompt: 'Calculate 15 + 27 using the calculator tool, then calculate statistics for [10, 20, 30, 40, 50]',
     });
 

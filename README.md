@@ -4,32 +4,64 @@ A command-line tool for systematic AI model evaluation across providers (Google,
 
 ## 🚀 Quick Start
 
+### New Interaction + Interface Pattern
+
 ```bash
 # Install globally
 npm install -g umwelten
 
-# Discover available models
-umwelten models list
+# Interactive chat with tools (new pattern)
+pnpm tsx src/cli/cli.ts chat-new -p ollama -m llama3.2:latest
 
-# Run a simple evaluation
+# Tools demonstration with weather, calculator, file analysis
+pnpm tsx scripts/tools.ts -p ollama -m llama3.2:latest --prompt "What's the weather in New York?"
+
+# Traditional evaluation workflow
 umwelten eval run \
   --prompt "Write a short poem about cats" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
   --id "cat-poem-eval"
+```
 
-# Generate a report
-umwelten eval report --id cat-poem-eval --format markdown
+### Programmatic Usage
+
+```typescript
+import { ChatInteraction, CLIInterface, EvaluationInteraction } from 'umwelten';
+
+// Chat with memory and tools
+const chatInteraction = new ChatInteraction({
+  name: "llama3.2:latest",
+  provider: "ollama"
+});
+
+const cliInterface = new CLIInterface();
+await cliInterface.startChat(chatInteraction);
+
+// Evaluation with structured output
+const evalInteraction = new EvaluationInteraction(
+  { name: "gpt-4", provider: "openrouter" },
+  "Analyze this code and provide a score from 1-10"
+);
+
+const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 ```
 
 ## ✨ Key Features
 
+### 🆕 New Interaction + Interface Pattern
+- **🎯 Pre-configured Interactions**: `ChatInteraction`, `EvaluationInteraction`, `AgentInteraction`
+- **🖥️ Multiple Interfaces**: CLI, Web, Agent interfaces for different environments
+- **🔧 Built-in Tools**: Weather, calculator, file analysis, and more
+- **🧠 Memory Integration**: Automatic memory management for learning
+- **⚡ Simplified API**: Same interaction works across CLI, web, and agent contexts
+
+### 🔧 Core Capabilities
 - **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio, GitHub Models
 - **📊 Structured Output**: DSL, JSON Schema, Zod validation with type coercion
 - **⚡ Batch Processing**: Concurrent file processing with intelligent error handling
 - **💰 Cost Transparency**: Real-time cost calculations with accurate pricing
 - **🎯 Interactive UI**: Real-time progress with streaming responses
 - **🔄 Real-Time Streaming**: Object and text streaming with partial updates
-- **🧠 Memory & Tools**: Chat with memory and specialized tools
 - **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV)
 
 ## 📚 Documentation

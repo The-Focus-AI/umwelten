@@ -145,11 +145,11 @@ export const ScoreResponseSchema = z.object({
 export type ScoreResponse = z.infer<typeof ScoreResponseSchema>;
 
 export interface ModelRunner {
-  generateText(interaction: Interaction): Promise<ModelResponse>;
-  streamText(interaction: Interaction): Promise<ModelResponse>;
-  // generateObject(interaction: Interaction): Promise<ModelResponse>;
-  // streamObject(interaction: Interaction): Promise<ModelResponse>;
-  // generateImage(interaction: Interaction): Promise<ModelResponse>;
+  generateText(interaction: any): Promise<ModelResponse>;
+  streamText(interaction: any): Promise<ModelResponse>;
+  generateObject(interaction: any, schema: z.ZodSchema): Promise<ModelResponse>;
+  streamObject(interaction: any, schema: z.ZodSchema): Promise<ModelResponse>;
+  // generateImage(interaction: any): Promise<ModelResponse>;
 }
 
 export interface ModelSearchOptions {

@@ -223,6 +223,9 @@ export class BaseModelRunner implements ModelRunner {
         onError: (err: any) => {
           console.error(`[onError] streamText:`, err);
         },
+        onFinish: (event: any) => {
+          console.log(`[onFinish] streamText:`, JSON.stringify(event, null, 2));
+        },
       };
 
       // Enable usage accounting for OpenRouter
@@ -235,6 +238,7 @@ export class BaseModelRunner implements ModelRunner {
         if (interaction.maxSteps) {
           streamOptions.maxSteps = interaction.maxSteps;
         }
+        streamOptions.experimental_toolCallStreaming = true;
         if (process.env.DEBUG === '1') {
           console.log("[DEBUG] Passing tools to model (streamText):", Object.keys(interaction.getVercelTools() || {}));
         }
@@ -284,6 +288,7 @@ export class BaseModelRunner implements ModelRunner {
               break;
             // Ignore other event types (error, finish, etc.)
             default:
+              // console.log(`[DEBUG] Unknown event type: ${(event as any).type}`, event as any);
               break;
           }
         }
@@ -294,12 +299,14 @@ export class BaseModelRunner implements ModelRunner {
             fullText += textPart;
           }
         }
+        console.log(`[DEBUG] Text stream complete1`,fullText);
       } else {
         // fallback: await the full text if streaming is not available
         fullText = await response.text;
         if (fullText !== undefined && fullText !== null) {
           process.stdout.write(fullText);
         }
+        console.log(`[DEBUG] Text stream complete2`,fullText);
       }
 
       // Get reasoning from response if available (handle as promise)

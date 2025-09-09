@@ -1,5 +1,8 @@
 import { CoreMessage } from "ai";
-import { ModelDetails, ModelOptions } from "../cognition/types.js";
+import { ModelDetails, ModelOptions, ModelRunner, ModelResponse } from "../cognition/types.js";
+import { BaseModelRunner } from "../cognition/runner.js";
+import { createMemoryRunner } from "../memory/memory_runner.js";
+import { InMemoryMemoryStore } from "../memory/memory_store.js";
 import { getAllTools } from "../stimulus/tools/index.js";
 import path from "path";
 import fs, { FileHandle } from "fs/promises";
@@ -9,6 +12,7 @@ import { z } from "zod";
 
 export class Interaction {
   private messages: CoreMessage[] = [];
+  protected runner: ModelRunner;
   public userId: string = "default";
   public modelDetails: ModelDetails;
   public prompt: string;
@@ -20,15 +24,33 @@ export class Interaction {
   constructor(
     modelDetails: ModelDetails,
     prompt: string,
-    options?: ModelOptions
+    options?: ModelOptions,
+    runnerType: 'base' | 'memory' = 'base'
   ) {
     this.modelDetails = modelDetails;
     this.prompt = prompt;
     this.options = options;
+    
+    // Create the appropriate runner
+    this.runner = this.createRunner(runnerType);
+    
     this.messages.push({
       role: "system",
       content: this.prompt,
     });
+  }
+
+  protected createRunner(runnerType: 'base' | 'memory'): ModelRunner {
+    switch (runnerType) {
+      case 'memory':
+        return createMemoryRunner({
+          baseRunner: new BaseModelRunner(),
+          llmModel: this.modelDetails.name,
+          memoryStore: new InMemoryMemoryStore()
+        });
+      default:
+        return new BaseModelRunner();
+    }
   }
 
   addMessage(message: CoreMessage): void {
@@ -113,5 +135,27 @@ export class Interaction {
 
   clearContext(): void {
     this.messages = [];
+  }
+
+  // Delegate to the internal runner
+  async generateText(): Promise<ModelResponse> {
+    return await this.runner.generateText(this);
+  }
+
+  async streamText(): Promise<ModelResponse> {
+    return await this.runner.streamText(this);
+  }
+
+  async generateObject(schema: z.ZodSchema): Promise<ModelResponse> {
+    return await this.runner.generateObject(this, schema);
+  }
+
+  async streamObject(schema: z.ZodSchema): Promise<ModelResponse> {
+    return await this.runner.streamObject(this, schema);
+  }
+
+  // Access to underlying components when needed
+  getRunner(): ModelRunner {
+    return this.runner;
   }
 }
