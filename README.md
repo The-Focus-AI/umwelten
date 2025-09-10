@@ -62,7 +62,9 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - **💰 Cost Transparency**: Real-time cost calculations with accurate pricing
 - **🎯 Interactive UI**: Real-time progress with streaming responses
 - **🔄 Real-Time Streaming**: Object and text streaming with partial updates
-- **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV)
+- **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV) with `--short` option
+- **🔧 Advanced Tool Calling**: Multi-step tool execution with proper `stopWhen` control
+- **🔍 Enhanced Documentation**: VitePress site with local search and keyboard shortcuts
 
 ## 📚 Documentation
 
@@ -77,6 +79,9 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - 🎯 [Model Evaluation](https://umwelten.thefocus.ai/guide/model-evaluation) - Systematic testing
 - 📊 [Structured Output](https://umwelten.thefocus.ai/guide/structured-output) - Schema validation
 - ⚡ [Batch Processing](https://umwelten.thefocus.ai/guide/batch-processing) - Multi-file workflows
+- 📈 [Reports & Analysis](https://umwelten.thefocus.ai/guide/reports) - Generate comprehensive reports
+- 🔧 [Tool Calling](https://umwelten.thefocus.ai/guide/tool-calling) - Multi-step tool execution
+- 🔄 [Concurrent Processing](https://umwelten.thefocus.ai/guide/concurrent-processing) - Parallel execution
 
 ### Examples & Migration
 
@@ -163,6 +168,28 @@ umwelten eval batch \
   --concurrent
 ```
 
+### Report Generation
+```bash
+# Generate comprehensive report
+umwelten eval report --id "quantum-comparison" --format html --output report.html
+
+# Generate short summary (without full response content)
+umwelten eval report --id "quantum-comparison" --short
+
+# Export to different formats
+umwelten eval report --id "quantum-comparison" --format json --short --output summary.json
+```
+
+### Tool Calling with Multi-Step Execution
+```bash
+# Tools demonstration with multi-step execution
+umwelten tools demo \
+  --prompt "Calculate 15 + 27, then generate a random number, then calculate statistics" \
+  --max-steps 5 \
+  --provider openrouter \
+  --model openai/gpt-4o-mini
+```
+
 ## 📊 Provider Support
 
 | Provider | Models | Features | Cost |
@@ -172,6 +199,24 @@ umwelten eval batch \
 | **OpenRouter** | GPT-4, Claude, etc. | Wide model selection | Pay-per-use |
 | **LM Studio** | Any local model | Full privacy, No API key | Free |
 | **GitHub Models** | OpenAI, Meta, DeepSeek, etc. | Free during preview | Free |
+
+## 🆕 Recent Enhancements
+
+### 📊 Enhanced Report Generation
+- **`--short` Option**: Generate concise summaries without full response content
+- **Multiple Formats**: Markdown, HTML, JSON, CSV with short mode support
+- **Quick Overviews**: Perfect for presentations and executive summaries
+
+### 🔧 Improved Tool Calling
+- **`stopWhen` Integration**: Proper multi-step tool execution using AI SDK best practices
+- **Better Control**: More precise control over tool calling sequences
+- **Enhanced Debugging**: Improved visibility into tool execution behavior
+
+### 🔍 Enhanced Documentation
+- **VitePress Site**: Complete documentation with local search functionality
+- **Keyboard Shortcuts**: Cmd+K/Ctrl+K for quick search, Escape to close
+- **Smart Search**: Intelligent relevance scoring and fuzzy matching
+- **100% Coverage**: All sidebar references implemented with comprehensive content
 
 ## 🏗️ Architecture
 

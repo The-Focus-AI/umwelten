@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { ChatInteraction, CLIInterface } from "../src/ui/index.js";
 import { z } from "zod";
-import { registerTool, listTools, getAllTools } from "../src/stimulus/tools/simple-registry.js";
+// Registry removed: tools are attached directly to Interaction
 import fs from "fs";
 import path from "path";
 
@@ -212,10 +212,12 @@ const fileAnalysisTool = {
   },
 };
 
-// Register all tools
-registerTool('weather', weatherTool);
-registerTool('calculator', calculatorTool);
-registerTool('fileAnalysis', fileAnalysisTool);
+// Build a local tool set for this script
+const scriptTools: Record<string, any> = {
+  weather: weatherTool,
+  calculator: calculatorTool,
+  fileAnalysis: fileAnalysisTool,
+};
 
 export const chatCommand = new Command()
   .description("Interactive chat with a model using the new Interaction + Interface pattern")
@@ -229,7 +231,7 @@ export const chatCommand = new Command()
 
     console.log(`🚀 Starting chat with ${provider}/${model} using the new Interaction pattern`);
     if (tools) {
-      console.log("🔧 Tools enabled:", listTools());
+      console.log("🔧 Tools enabled:", Object.keys(scriptTools));
     }
     console.log();
 
@@ -245,9 +247,8 @@ export const chatCommand = new Command()
       
       // Add custom tools if tools are enabled
       if (tools) {
-        const customTools = getAllTools();
-        chatInteraction.setTools(customTools);
-        console.log("✅ Custom tools registered:", Object.keys(customTools));
+        chatInteraction.setTools(scriptTools);
+        console.log("✅ Custom tools registered:", Object.keys(scriptTools));
       }
       
       // Handle file attachment if provided

@@ -1,6 +1,6 @@
 import { Interaction } from "./interaction.js";
 import { ModelDetails, ModelOptions } from "../cognition/types.js";
-import { getAllTools } from "../stimulus/tools/index.js";
+// No default tools; caller must attach tools explicitly if desired
 
 /**
  * AgentInteraction - Specialized interaction for autonomous agents
@@ -40,42 +40,8 @@ You have access to various tools to help you accomplish your objectives. Use the
     
     this.agentRole = agentRole;
     this.capabilities = capabilities;
-    
-    // Set up comprehensive agent tools
-    this.setupAgentTools();
-    
     // Enable extended multi-step tool calling for complex agent tasks
     this.setMaxSteps(10);
-  }
-
-  private setupAgentTools(): void {
-    const availableTools = getAllTools();
-    
-    // Select comprehensive tool set for agents
-    const agentTools: Record<string, any> = {};
-    
-    // Mathematical and computational tools
-    if (availableTools.calculator) {
-      agentTools.calculator = availableTools.calculator;
-    }
-    
-    if (availableTools.statistics) {
-      agentTools.statistics = availableTools.statistics;
-    }
-    
-    if (availableTools.randomNumber) {
-      agentTools.randomNumber = availableTools.randomNumber;
-    }
-    
-    // Information gathering tools
-    if (availableTools.weather) {
-      agentTools.weather = availableTools.weather;
-    }
-    
-    // Add more agent-specific tools as they become available
-    // e.g., webSearch, fileSystem, apiCall, etc.
-    
-    this.setTools(agentTools);
   }
 
   /**

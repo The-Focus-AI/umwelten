@@ -1,6 +1,6 @@
 import { Interaction } from "./interaction.js";
 import { ModelDetails, ModelOptions } from "../cognition/types.js";
-import { getAllTools } from "../stimulus/tools/index.js";
+// No default tools; caller must attach tools explicitly if desired
 
 /**
  * ChatInteraction - Specialized interaction for conversational AI
@@ -26,37 +26,8 @@ For simple greetings, questions, or conversations, respond directly with text. D
 
 When you do use tools, provide a clear text response explaining the results.`;
     super(modelDetails, systemPrompt, options, useMemory ? 'memory' : 'base'); // Use memory or base runner
-    
-    // Set up chat-specific tools
-    this.setupChatTools();
-    
     // Enable multi-step tool calling for complex tasks
     this.setMaxSteps(5);
-  }
-
-  private setupChatTools(): void {
-    const availableTools = getAllTools();
-    
-    // Select common chat tools
-    const chatTools: Record<string, any> = {};
-    
-    if (availableTools.calculator) {
-      chatTools.calculator = availableTools.calculator;
-    }
-    
-    if (availableTools.weather) {
-      chatTools.weather = availableTools.weather;
-    }
-    
-    if (availableTools.statistics) {
-      chatTools.statistics = availableTools.statistics;
-    }
-    
-    if (availableTools.randomNumber) {
-      chatTools.randomNumber = availableTools.randomNumber;
-    }
-    
-    this.setTools(chatTools);
   }
 
   /**

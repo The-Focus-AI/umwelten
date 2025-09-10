@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { tool } from "ai";
-import { registerTool } from "../simple-registry.js";
+// Registry removed: tools are imported and attached per Interaction
 
 // Schema definitions
 const calculatorSchema = z.object({
@@ -134,8 +134,7 @@ export const calculatorTool = tool({
   },
 });
 
-// Register the tool
-registerTool('calculator', calculatorTool);
+// Registration removed; set on Interaction where needed
 
 /**
  * Random number generator tool
@@ -168,8 +167,7 @@ export const randomNumberTool = tool({
   },
 });
 
-// Register the tool
-registerTool('randomNumber', randomNumberTool);
+// Registration removed; set on Interaction where needed
 
 /**
  * Statistics tool for basic statistical calculations
@@ -223,5 +221,4 @@ export const statisticsTool = tool({
   },
 });
 
-// Register the tool
-registerTool('statistics', statisticsTool);
+// Registration removed; set on Interaction where needed

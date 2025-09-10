@@ -11,10 +11,71 @@
 3. **Custom Styling**: Add custom CSS for better search appearance
 4. **Documentation**: Create search guide and implementation documentation
 5. **Keywords**: Add search keywords to documentation pages
+6. **Tool Calling Enhancement**: Update tool calling to use proper `stopWhen` functionality from AI SDK
 
 ### Search Implementation Results ✅ COMPLETED
 
 **Task Summary**: Successfully implemented comprehensive search functionality for the Umwelten VitePress documentation with local search provider, custom relevance scoring, and enhanced user experience.
+
+### Tool Calling Enhancement ✅ COMPLETED
+
+**Task Summary**: Updated tool calling implementation to use proper `stopWhen` functionality from AI SDK as recommended in the [AI SDK documentation](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling).
+
+**Implementation Details**:
+1. ✅ **Import Added**: Added `stepCountIs` import from 'ai' package
+2. ✅ **generateText Method**: Updated to use `stopWhen: stepCountIs(maxSteps)` instead of `maxSteps`
+3. ✅ **streamText Method**: Updated to use `stopWhen: stepCountIs(maxSteps)` instead of `maxSteps`
+4. ✅ **generateObject Method**: Updated to use `stopWhen: stepCountIs(maxSteps)` instead of `maxSteps`
+5. ✅ **streamObject Method**: Updated to use `stopWhen: stepCountIs(maxSteps)` instead of `maxSteps`
+6. ✅ **Debug Logging**: Enhanced debug output to show `stopWhen` usage
+
+**Key Changes Made**:
+- **File**: `src/cognition/runner.ts`
+- **Import**: Added `stepCountIs` from 'ai' package
+- **All Methods**: Updated `maxSteps` to `stopWhen: stepCountIs(maxSteps)`
+- **Backward Compatibility**: Maintained existing `maxSteps` property in Interaction class
+- **Debug Output**: Enhanced logging to show `stopWhen` usage
+
+**Benefits**:
+- **Proper Multi-Step Tool Calling**: Uses AI SDK's recommended approach for multi-step tool execution
+- **Better Control**: More precise control over when tool calling stops
+- **Standards Compliance**: Follows AI SDK best practices for tool calling
+- **Enhanced Debugging**: Better visibility into tool calling behavior
+
+### Documentation Updates ✅ COMPLETED
+
+**Task Summary**: Updated README and documentation to reflect all recent enhancements and improvements.
+
+**Implementation Details**:
+1. ✅ **README Updates**: Added new features and enhancements to main README
+2. ✅ **Reports Documentation**: Updated with `--short` option examples and usage
+3. ✅ **Tool Calling Documentation**: Added multi-step execution and `stopWhen` information
+4. ✅ **Search Documentation**: Comprehensive VitePress search functionality already documented
+
+**Key Updates Made**:
+
+#### **README.md Enhancements**:
+- **New Features Section**: Added `--short` option, `stopWhen` tool calling, and VitePress search
+- **Enhanced Capabilities**: Updated core capabilities list with new features
+- **Usage Examples**: Added report generation and tool calling examples
+- **Recent Enhancements**: New section highlighting latest improvements
+- **Documentation Links**: Updated quick links with new guide sections
+
+#### **Tool Calling Documentation**:
+- **Multi-Step Execution**: Added comprehensive section on `stopWhen` functionality
+- **Step-by-Step Process**: Explained how multi-step tool calling works
+- **Benefits Section**: Highlighted advantages of proper `stopWhen` implementation
+- **Usage Examples**: Added practical examples with `max-steps` parameter
+
+#### **Reports Documentation**:
+- **`--short` Option**: Already comprehensive with examples and usage patterns
+- **Multiple Formats**: Documented short mode across all formats (markdown, HTML, JSON, CSV)
+- **Best Practices**: Included recommendations for when to use short vs full reports
+
+#### **Search Documentation**:
+- **Comprehensive Coverage**: Already includes keyboard shortcuts, search tips, and customization
+- **User Guide**: Complete user guide for search functionality
+- **Developer Guide**: Technical implementation details and customization options
 
 **Key Features Implemented**:
 - **Local Search Provider**: Fast client-side search with no external dependencies

@@ -109,6 +109,14 @@ export class Interaction {
   }
 
   /**
+   * Add a single tool to this interaction
+   */
+  addTool(name: string, tool: any): void {
+    if (!this.tools) this.tools = {};
+    this.tools[name] = tool;
+  }
+
+  /**
    * Set maximum number of steps for multi-step tool calling
    */
   setMaxSteps(maxSteps: number): void {

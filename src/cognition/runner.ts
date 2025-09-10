@@ -19,6 +19,7 @@ import {
   streamText,
   wrapLanguageModel,
   extractReasoningMiddleware,
+  stepCountIs,
 } from "ai";
 import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
@@ -185,10 +186,11 @@ export class BaseModelRunner implements ModelRunner {
     if (interaction.hasTools()) {
       generateOptions.tools = interaction.getVercelTools();
       if (interaction.maxSteps) {
-        generateOptions.maxSteps = interaction.maxSteps;
+        generateOptions.stopWhen = stepCountIs(interaction.maxSteps);
       }
       if (process.env.DEBUG === '1') {
         console.log("[DEBUG] Passing tools to model (generateText):", Object.keys(interaction.getVercelTools() || {}));
+        console.log("[DEBUG] Using stopWhen with maxSteps:", interaction.maxSteps);
       }
     }
 
@@ -224,7 +226,7 @@ export class BaseModelRunner implements ModelRunner {
           console.error(`[onError] streamText:`, err);
         },
         onFinish: (event: any) => {
-          console.log(`[onFinish] streamText:`, JSON.stringify(event, null, 2));
+          // console.log(`[onFinish] streamText:`, JSON.stringify(event, null, 2));
         },
       };
 
@@ -236,11 +238,12 @@ export class BaseModelRunner implements ModelRunner {
       if (interaction.hasTools()) {
         streamOptions.tools = interaction.getVercelTools();
         if (interaction.maxSteps) {
-          streamOptions.maxSteps = interaction.maxSteps;
+          streamOptions.stopWhen = stepCountIs(interaction.maxSteps);
         }
         streamOptions.experimental_toolCallStreaming = true;
         if (process.env.DEBUG === '1') {
           console.log("[DEBUG] Passing tools to model (streamText):", Object.keys(interaction.getVercelTools() || {}));
+          console.log("[DEBUG] Using stopWhen with maxSteps:", interaction.maxSteps);
         }
       }
 
@@ -299,14 +302,37 @@ export class BaseModelRunner implements ModelRunner {
             fullText += textPart;
           }
         }
-        console.log(`[DEBUG] Text stream complete1`,fullText);
+        // console.log(`[DEBUG] Text stream complete1`,fullText);
       } else {
         // fallback: await the full text if streaming is not available
         fullText = await response.text;
         if (fullText !== undefined && fullText !== null) {
           process.stdout.write(fullText);
         }
-        console.log(`[DEBUG] Text stream complete2`,fullText);
+        // console.log(`[DEBUG] Text stream complete2`,fullText);
+      }
+
+      // If no text was captured from streaming, try to get it from the response object
+      if (!fullText) {
+        // Try different possible locations for the text content
+        if (response.text) {
+          fullText = await response.text;
+        } else if (response.content && Array.isArray(response.content)) {
+          // Handle content array (might contain text parts)
+          fullText = response.content.map((part: any) => {
+            if (typeof part === 'string') return part;
+            if (part && typeof part === 'object' && part.text) return part.text;
+            return '';
+          }).join('');
+        } else if (response.content && typeof response.content === 'string') {
+          fullText = response.content;
+        }
+        
+        // If we found text, display it
+        if (fullText) {
+          console.log('\n[MODEL RESPONSE]:');
+          console.log(fullText);
+        }
       }
 
       // Get reasoning from response if available (handle as promise)
@@ -384,10 +410,11 @@ export class BaseModelRunner implements ModelRunner {
       if (interaction.hasTools()) {
         generateOptions.tools = interaction.getVercelTools();
         if (interaction.maxSteps) {
-          generateOptions.maxSteps = interaction.maxSteps;
+          generateOptions.stopWhen = stepCountIs(interaction.maxSteps);
         }
         if (process.env.DEBUG === '1') {
           console.log("[DEBUG] Passing tools to model (generateObject):", Object.keys(interaction.getVercelTools() || {}));
+          console.log("[DEBUG] Using stopWhen with maxSteps:", interaction.maxSteps);
         }
       }
 
@@ -439,10 +466,11 @@ export class BaseModelRunner implements ModelRunner {
       if (interaction.hasTools()) {
         streamOptions.tools = interaction.getVercelTools();
         if (interaction.maxSteps) {
-          streamOptions.maxSteps = interaction.maxSteps;
+          streamOptions.stopWhen = stepCountIs(interaction.maxSteps);
         }
         if (process.env.DEBUG === '1') {
           console.log("[DEBUG] Passing tools to model (streamObject):", Object.keys(interaction.getVercelTools() || {}));
+          console.log("[DEBUG] Using stopWhen with maxSteps:", interaction.maxSteps);
         }
       }
 
@@ -557,6 +585,17 @@ export class BaseModelRunner implements ModelRunner {
       content: contentString,
     });
 
+    // Handle tool calls and results (they might be promises)
+    let toolCalls = null;
+    let toolResults = null;
+    
+    if (response.toolCalls) {
+      toolCalls = await response.toolCalls;
+    }
+    if (response.toolResults) {
+      toolResults = await response.toolResults;
+    }
+
     const modelResponse: ModelResponse = {
       content: contentString,
       metadata: {
@@ -573,6 +612,9 @@ export class BaseModelRunner implements ModelRunner {
         // costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
         provider: interaction.modelDetails.provider,
         model: interaction.modelDetails.name,
+        // Include tool call information if available
+        ...(toolCalls && { toolCalls }),
+        ...(toolResults && { toolResults }),
       },
       ...(reasoning && { reasoning }),
     };

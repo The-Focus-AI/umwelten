@@ -1,5 +1,2 @@
-// Simple registry
-export * from "./simple-registry.js";
-
-// Example tools
+// Export built-in tool definitions only. Tools are attached per Interaction.
 export * from "./examples/math.js";

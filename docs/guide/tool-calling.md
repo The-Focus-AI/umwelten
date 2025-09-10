@@ -207,9 +207,32 @@ umwelten chat --provider ollama --model qwen3:latest --tools calculator,statisti
 #       and finally calculate statistics for [10, 20, 30, 40, 50]"
 ```
 
+### Multi-Step Tool Execution
+
+Umwelten uses the AI SDK's `stopWhen` functionality for proper multi-step tool calling:
+
+```bash
+# Tools demo with step control
+umwelten tools demo --max-steps 5 --provider openrouter --model openai/gpt-4o-mini
+
+# The model will execute up to 5 steps:
+# 1. Calculate 15 + 27 = 42
+# 2. Generate random number (e.g., 73)
+# 3. Calculate statistics for the array
+# 4. Provide a comprehensive response
+# 5. Stop (max steps reached)
+```
+
+**How Multi-Step Works**:
+- **Step 1**: Model receives user prompt and decides to use a tool
+- **Step 2**: Tool executes and returns result
+- **Step 3**: Model receives tool result and decides next action
+- **Step 4**: Model may use another tool or provide final response
+- **Step 5**: Process continues until `maxSteps` limit or completion
+
 ### Tool Chaining
 
-Models can chain multiple tool calls:
+Models can chain multiple tool calls automatically:
 
 ```bash
 # The model will automatically:
@@ -218,6 +241,12 @@ Models can chain multiple tool calls:
 # 3. Calculate statistics for the array
 # 4. Provide a comprehensive response
 ```
+
+**Benefits of Multi-Step Execution**:
+- **Better Control**: Precise control over tool calling sequences
+- **Standards Compliance**: Uses AI SDK best practices with `stopWhen`
+- **Enhanced Debugging**: Better visibility into tool execution behavior
+- **Reliable Execution**: Proper handling of complex tool workflows
 
 ### Error Handling
 

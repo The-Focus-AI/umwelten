@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { ChatInteraction, CLIInterface } from "../ui/index.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
-import { getTool } from '../stimulus/tools/simple-registry.js';
+import { calculatorTool, statisticsTool, randomNumberTool } from '../stimulus/tools/index.js';
 import path from "path";
 import fs from "fs";
 
@@ -36,19 +36,20 @@ export const chatCommand = addCommonOptions(
     // Handle custom tools if specified
     if (options.tools) {
       const toolNames = options.tools.split(',').map((t: string) => t.trim()).filter(Boolean);
+      const knownTools: Record<string, any> = {
+        calculator: calculatorTool,
+        statistics: statisticsTool,
+        randomNumber: randomNumberTool,
+      };
       const customTools: Record<string, any> = {};
-      
+
       for (const name of toolNames) {
-        const tool = getTool(name);
-        if (tool) {
-          customTools[name] = tool;
-        } else {
-          console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
-        }
+        const tool = knownTools[name];
+        if (tool) customTools[name] = tool;
+        else console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
       }
-      
+
       if (Object.keys(customTools).length > 0) {
-        // Replace default tools with custom tools
         chatInteraction.setTools(customTools);
         if (process.env.DEBUG === '1') console.log("[DEBUG] Custom tools set:", Object.keys(customTools));
       }

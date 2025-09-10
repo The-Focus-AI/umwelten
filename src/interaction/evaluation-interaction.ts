@@ -1,6 +1,6 @@
 import { Interaction } from "./interaction.js";
 import { ModelDetails, ModelOptions } from "../cognition/types.js";
-import { getAllTools } from "../stimulus/tools/index.js";
+// No default tools; caller must attach tools explicitly if desired
 
 /**
  * EvaluationInteraction - Specialized interaction for model evaluation
@@ -29,32 +29,8 @@ Instructions:
 Evaluation prompt: ${evaluationPrompt}`;
     
     super(modelDetails, systemPrompt, options, 'base'); // Use base runner
-    
-    // Set up evaluation-specific tools
-    this.setupEvaluationTools();
-    
     // Enable multi-step tool calling for complex evaluations
     this.setMaxSteps(3);
-  }
-
-  private setupEvaluationTools(): void {
-    const availableTools = getAllTools();
-    
-    // Select evaluation-relevant tools
-    const evaluationTools: Record<string, any> = {};
-    
-    if (availableTools.calculator) {
-      evaluationTools.calculator = availableTools.calculator;
-    }
-    
-    if (availableTools.statistics) {
-      evaluationTools.statistics = availableTools.statistics;
-    }
-    
-    // Add more evaluation-specific tools as they become available
-    // e.g., codeAnalyzer, factChecker, etc.
-    
-    this.setTools(evaluationTools);
   }
 
   /**

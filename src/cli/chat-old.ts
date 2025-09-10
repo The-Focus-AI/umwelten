@@ -8,7 +8,7 @@ import readline from "readline";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import { setupConversation } from './conversationUtils.js';
-import { getTool } from '../stimulus/tools/simple-registry.js';
+import { calculatorTool, statisticsTool, randomNumberTool } from '../stimulus/tools/index.js';
 
 export const chatCommand = addCommonOptions(
   new Command("chat")
@@ -44,14 +44,16 @@ export const chatCommand = addCommonOptions(
   let toolSet: Record<string, any> | undefined = undefined;
   if (options.tools) {
     const toolNames = options.tools.split(',').map((t: string) => t.trim()).filter(Boolean);
+    const knownTools: Record<string, any> = {
+      calculator: calculatorTool,
+      statistics: statisticsTool,
+      randomNumber: randomNumberTool,
+    };
     toolSet = {};
     for (const name of toolNames) {
-      const tool = getTool(name);
-      if (tool) {
-        (toolSet as Record<string, any>)[name] = tool;
-      } else {
-        console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
-      }
+      const tool = knownTools[name];
+      if (tool) (toolSet as Record<string, any>)[name] = tool;
+      else console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
     }
     if (process.env.DEBUG === '1') console.log("[DEBUG] Tool set:", Object.keys(toolSet));
   }
