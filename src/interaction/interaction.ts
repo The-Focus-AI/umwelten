@@ -3,7 +3,7 @@ import { ModelDetails, ModelOptions, ModelRunner, ModelResponse } from "../cogni
 import { BaseModelRunner } from "../cognition/runner.js";
 import { createMemoryRunner } from "../memory/memory_runner.js";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
-import { getAllTools } from "../stimulus/tools/index.js";
+// import { getAllTools } from "../stimulus/tools/index.js";
 import path from "path";
 import fs, { FileHandle } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";

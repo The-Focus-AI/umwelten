@@ -57,7 +57,7 @@ function convertFieldToZod(field: SchemaField): z.ZodSchema {
         }
         return z.object(objectShape);
       }
-      return z.record(z.unknown());
+      return z.record(z.string(), z.unknown());
 
     default:
       return z.unknown();

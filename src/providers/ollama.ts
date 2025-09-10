@@ -155,9 +155,9 @@ export class OllamaProvider extends BaseProvider {
       data.models.map(async (model: any) => {
         let actualContext: number | null = null;
         try {
-          if (model.name) {
+          if (model.name && this.baseUrl) {
             const name = String(model.name);
-            actualContext = await getActualContextWindow(this.baseUrl, name as string);
+            actualContext = await getActualContextWindow(this.baseUrl, name);
           }
         } catch (error) {
           // Ignore errors when getting context window

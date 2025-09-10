@@ -200,7 +200,8 @@ export class CLIInterface {
           if (message === "/mem") {
             this.rl?.pause();
             try {
-              const memoryStore = interaction.getRunner().getMemoryStore?.();
+              const runner = interaction.getRunner();
+              const memoryStore = (runner as any).getMemoryStore?.();
               if (memoryStore) {
                 const facts = await memoryStore.getFacts(interaction.userId);
                 if (facts.length === 0) {

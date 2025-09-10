@@ -83,7 +83,7 @@ function convertZodFieldToSchemaField(name: string, zodField: z.ZodType): Schema
   let isRequired = true;
 
   // Handle chained modifiers like .optional().nullable()
-  let currentType = zodField;
+  let currentType: any = zodField;
   while (true) {
     if (currentType instanceof z.ZodOptional) {
       currentType = currentType.unwrap();
@@ -118,14 +118,14 @@ function convertZodFieldToSchemaField(name: string, zodField: z.ZodType): Schema
 
   // Handle enum values
   if (innerType instanceof z.ZodEnum) {
-    schemaField.enum = innerType.options;
+    schemaField.enum = innerType.options.map(String);
   } else if (innerType instanceof z.ZodLiteral) {
     schemaField.enum = [String(innerType.value)];
   }
 
   // Handle array items
   if (innerType instanceof z.ZodArray) {
-    const itemSchema = convertZodFieldToSchemaField('item', innerType.element);
+    const itemSchema = convertZodFieldToSchemaField('item', innerType.element as any);
     schemaField.items = itemSchema;
   }
 
@@ -159,7 +159,7 @@ function getZodFieldType(zodType: z.ZodType): SchemaField['type'] {
     // For unions, try to infer the most appropriate type
     const options = zodType.options;
     if (options.length > 0) {
-      return getZodFieldType(options[0]);
+      return getZodFieldType(options[0] as any);
     }
   }
   
