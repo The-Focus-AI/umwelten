@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { BaseModelRunner } from "../src/cognition/runner.js";
 import { ModelDetails } from "../src/cognition/types.js";
 import { Interaction } from "../src/interaction/interaction.js";
 import { ModelResponse } from "../src/cognition/types.js";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
-import { Stimulus } from "../src/interaction/stimulus.js";
+import { Stimulus } from "../src/stimulus/stimulus.js";
 import { fromHtmlViaMarkify, fromHtmlViaModel } from "../src/markdown/from_html.js";
 
 const siteInfoSchema = z.object({
@@ -28,24 +27,26 @@ const siteInfoSchema = z.object({
 });
 
 export async function getSiteInfo(html:string, model:ModelDetails): Promise<ModelResponse> {
-  const prompt = new Stimulus();
-  prompt.setRole('expert web scraper');
-  prompt.addInstruction('You will be given a html page and you will need to extract the information from the page.');
-  prompt.addInstruction(`The currrent date is ${new Date().toISOString()}`);
-  prompt.addInstruction(`Dont make up any information, only use the information provided in the html page.`);
-
-  prompt.setObjective(`Please parse the html and return the structure of the page`);
-
-  console.log(prompt.getPrompt());
-  const conversation = new Interaction(model, prompt.getPrompt());
-  conversation.addMessage({ role: 'user', content: html });
-  // conversation.addMessage({
+  const stimulus = new Stimulus({
+    role: "expert web scraper",
+    objective: "parse HTML and return structured site information",
+    instructions: [
+      "You will be given a html page and you will need to extract the information from the page",
+      `The current date is ${new Date().toISOString()}`,
+      "Don't make up any information, only use the information provided in the HTML page",
+      "Return structured data according to the schema"
+    ],
+    runnerType: 'base'
+  });
+  
+  const interaction = new Interaction(model, stimulus);
+  interaction.addMessage({ role: 'user', content: html });
+  // interaction.addMessage({
   //   role: 'user',
   //   content: `Please parse the html and return the structure of the page`
   // });
 
-  const modelRunner = new BaseModelRunner();
-  const response = await modelRunner.streamObject(conversation, siteInfoSchema);
+  const response = await interaction.streamObject(siteInfoSchema);
   return response;
 }
 

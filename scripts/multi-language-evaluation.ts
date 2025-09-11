@@ -14,8 +14,8 @@
 import fs from 'fs';
 import path from 'path';
 import { FunctionEvaluationRunner } from '../src/evaluation/evaluate.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from '../src/evaluation/code-extractor.js';
 import { DockerRunner } from '../src/evaluation/docker-runner.js';
 import { CodeScorer } from '../src/evaluation/code-scorer.js';
@@ -193,11 +193,15 @@ async function generateModelResponses(results: ModelResult[], prompt: string, la
       
       // Create evaluation runner with function to generate response
       const runner = new FunctionEvaluationRunner(EVALUATION_ID, `${language}/responses`, async (details) => {
-        const modelRunner = new BaseModelRunner();
-        const interaction = new Interaction(details, 'You are a helpful programming assistant.');
+        const programmingStimulus = new Stimulus({
+          role: "helpful programming assistant",
+          objective: "generate code solutions",
+          runnerType: 'base'
+        });
+        const interaction = new Interaction(details, programmingStimulus);
         interaction.addMessage({ role: 'user', content: prompt });
         
-        return await modelRunner.streamText(interaction);
+        return await interaction.streamText();
       });
 
       // Run evaluation for this model

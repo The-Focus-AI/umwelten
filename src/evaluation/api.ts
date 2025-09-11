@@ -1,6 +1,7 @@
 import { BaseModelRunner } from "../cognition/runner.js";
 import { ModelDetails, ModelResponse } from "../cognition/types.js";
 import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import { FunctionEvaluationRunner } from "./evaluate.js";
 import { calculateCost, CostBreakdown } from "../costs/costs.js";
 import { getAllModels } from "../cognition/models.js";
@@ -13,6 +14,7 @@ export interface EvaluationConfig {
   models: string[]; // Format: "provider:model"
   systemPrompt?: string;
   temperature?: number;
+  maxTokens?: number;
   timeout?: number;
   resume?: boolean;
   attachments?: string[]; // File paths to attach
@@ -112,7 +114,22 @@ async function runConcurrentWithBatching<T, R>(
 // Create an evaluation function from the config
 function createEvaluationFunction(config: EvaluationConfig) {
   return async (model: ModelDetails): Promise<ModelResponse> => {
-    const conversation = new Interaction(model, config.systemPrompt || "");
+    // Create stimulus from evaluation config
+    const stimulus = new Stimulus({
+      role: "evaluation system",
+      objective: "provide accurate responses for evaluation",
+      instructions: [
+        "Be precise and factual",
+        "Follow evaluation criteria exactly",
+        "Provide structured responses when requested"
+      ],
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      runnerType: 'base' // Evaluations don't need memory
+    });
+    
+    // Create interaction with stimulus
+    const conversation = new Interaction(model, stimulus);
     
     // Add the main prompt
     conversation.addMessage({
@@ -123,7 +140,7 @@ function createEvaluationFunction(config: EvaluationConfig) {
     // Add any attachments
     if (config.attachments) {
       for (const attachment of config.attachments) {
-        conversation.addAttachmentFromPath(attachment);
+        await conversation.addAttachmentFromPath(attachment);
       }
     }
 
@@ -188,7 +205,29 @@ function createEvaluationFunction(config: EvaluationConfig) {
             
             // Fall back to generateText with schema in prompt
             const schemaPrompt = `${config.prompt}\n\nPlease respond with a valid JSON object matching this schema:\n${JSON.stringify(schema, null, 2)}`;
-            const enhancedConversation = new Interaction(model, schemaPrompt);
+            
+            // Create stimulus for schema fallback
+            const schemaStimulus = new Stimulus({
+              role: "evaluation system",
+              objective: "provide accurate JSON responses matching the specified schema",
+              instructions: [
+                "Be precise and factual",
+                "Follow evaluation criteria exactly",
+                "Return valid JSON matching the provided schema",
+                "Ensure all required fields are present"
+              ],
+              temperature: config.temperature,
+              maxTokens: config.maxTokens,
+              runnerType: 'base'
+            });
+            
+            const enhancedConversation = new Interaction(model, schemaStimulus);
+            
+            // Add the schema prompt as a user message
+            enhancedConversation.addMessage({
+              role: "user",
+              content: schemaPrompt
+            });
             
             if (config.attachments) {
               for (const attachment of config.attachments) {

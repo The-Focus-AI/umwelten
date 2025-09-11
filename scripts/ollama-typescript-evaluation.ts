@@ -14,8 +14,8 @@
 import fs from 'fs';
 import path from 'path';
 import { FunctionEvaluationRunner } from '../src/evaluation/evaluate.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { extractTypeScriptCode, fixCommonTypeScriptErrors, ensureConsoleOutput } from '../src/evaluation/typescript-code-extractor.js';
 import { DockerRunner } from '../src/evaluation/docker-runner.js';
 import { CodeScorer } from '../src/evaluation/code-scorer.js';
@@ -120,11 +120,15 @@ async function generateModelResponses(results: ModelResult[]) {
       
       // Create evaluation runner with function to generate response
       const runner = new FunctionEvaluationRunner(EVALUATION_ID, 'responses', async (details) => {
-        const modelRunner = new BaseModelRunner();
-        const interaction = new Interaction(details, 'You are a helpful TypeScript programming assistant.');
+        const typescriptStimulus = new Stimulus({
+          role: "helpful TypeScript programming assistant",
+          objective: "generate TypeScript code solutions",
+          runnerType: 'base'
+        });
+        const interaction = new Interaction(details, typescriptStimulus);
         interaction.addMessage({ role: 'user', content: PROMPT });
         
-        return await modelRunner.streamText(interaction);
+        return await interaction.streamText();
       });
 
       // Run evaluation for this model

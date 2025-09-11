@@ -7,16 +7,14 @@
  */
 
 import { 
-  ChatInteraction, 
-  EvaluationInteraction, 
-  AgentInteraction,
+  Interaction,
   CLIInterface,
-  WebInterface,
   ModelDetails 
 } from '../src/ui/index.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
 async function demonstrateNewPattern() {
-  console.log("🚀 Demonstrating New Interaction + Interface Pattern\n");
+  console.log("🚀 Demonstrating New Stimulus-Driven Interaction Pattern\n");
 
   // Example model details
   const modelDetails: ModelDetails = {
@@ -28,13 +26,24 @@ async function demonstrateNewPattern() {
   console.log("1. Chat Interaction with CLI Interface");
   console.log("=====================================");
   
-  const chatInteraction = new ChatInteraction(modelDetails);
+  const chatStimulus = new Stimulus({
+    role: "helpful AI assistant",
+    objective: "be conversational, engaging, and helpful",
+    instructions: [
+      "Always respond with text content first",
+      "Only use tools when you need specific information",
+      "Be conversational and engaging"
+    ],
+    runnerType: 'memory',
+    maxToolSteps: 5
+  });
+  
+  const chatInteraction = new Interaction(modelDetails, chatStimulus);
   const cliInterface = new CLIInterface();
   
   console.log("Chat interaction created with:");
-  console.log("- Conversational system prompt");
+  console.log("- Conversational stimulus with role and objective");
   console.log("- Memory-enabled runner");
-  console.log("- Common chat tools:", Object.keys(chatInteraction.getVercelTools() || {}));
   console.log("- Multi-step tool calling (max 5 steps)");
   console.log();
 
@@ -42,15 +51,26 @@ async function demonstrateNewPattern() {
   console.log("2. Evaluation Interaction");
   console.log("========================");
   
-  const evalInteraction = new EvaluationInteraction(
-    modelDetails, 
-    "Analyze the quality of this code and provide a score from 1-10"
-  );
+  const evalStimulus = new Stimulus({
+    role: "evaluation system",
+    objective: "provide accurate responses for evaluation",
+    instructions: [
+      "Be precise and factual",
+      "Follow evaluation criteria exactly",
+      "Provide structured responses when requested"
+    ],
+    runnerType: 'base'
+  });
+  
+  const evalInteraction = new Interaction(modelDetails, evalStimulus);
+  evalInteraction.addMessage({ 
+    role: "user", 
+    content: "Analyze the quality of this code and provide a score from 1-10" 
+  });
   
   console.log("Evaluation interaction created with:");
-  console.log("- Evaluation-focused system prompt");
+  console.log("- Evaluation-focused stimulus");
   console.log("- Base runner (no memory needed)");
-  console.log("- Evaluation-specific tools:", Object.keys(evalInteraction.getVercelTools() || {}));
   console.log("- Structured output support");
   console.log();
 
@@ -58,30 +78,36 @@ async function demonstrateNewPattern() {
   console.log("3. Agent Interaction");
   console.log("===================");
   
-  const agentInteraction = new AgentInteraction(
-    modelDetails,
-    "Data Analysis Agent",
-    ["Analyze data", "Generate reports", "Make recommendations"]
-  );
+  const agentStimulus = new Stimulus({
+    role: "Data Analysis Agent",
+    objective: "analyze data, generate reports, and make recommendations",
+    instructions: [
+      "Analyze data thoroughly",
+      "Generate comprehensive reports",
+      "Make actionable recommendations",
+      "Learn from previous interactions"
+    ],
+    runnerType: 'memory',
+    maxToolSteps: 10
+  });
+  
+  const agentInteraction = new Interaction(modelDetails, agentStimulus);
   
   console.log("Agent interaction created with:");
-  console.log("- Agent-focused system prompt");
+  console.log("- Agent-focused stimulus with specific role");
   console.log("- Memory-enabled runner for learning");
-  console.log("- Comprehensive tool set:", Object.keys(agentInteraction.getVercelTools() || {}));
   console.log("- Extended multi-step capabilities (max 10 steps)");
   console.log();
 
-  // 4. Web Interface Example
-  console.log("4. Web Interface Example");
-  console.log("========================");
+  // 4. Interface Examples
+  console.log("4. Interface Examples");
+  console.log("====================");
   
-  const webInterface = new WebInterface(chatInteraction);
-  
-  console.log("Web interface created with:");
-  console.log("- React-compatible hooks");
-  console.log("- State management");
+  console.log("CLI interface created with:");
+  console.log("- Interactive command handling");
   console.log("- Real-time streaming support");
   console.log("- Message history tracking");
+  console.log("- Special commands (/? /reset /mem /history)");
   console.log();
 
   // 5. Usage Examples
@@ -89,21 +115,22 @@ async function demonstrateNewPattern() {
   console.log("=================");
   
   console.log("// CLI Usage:");
-  console.log("const chatInteraction = new ChatInteraction(modelDetails);");
+  console.log("const chatStimulus = new Stimulus({ role: 'assistant', objective: 'help', runnerType: 'memory' });");
+  console.log("const chatInteraction = new Interaction(modelDetails, chatStimulus);");
   console.log("const cliInterface = new CLIInterface();");
   console.log("await cliInterface.startChat(chatInteraction);");
   console.log();
 
-  console.log("// Web Usage:");
-  console.log("const chatInteraction = new ChatInteraction(modelDetails);");
-  console.log("const webInterface = new WebInterface(chatInteraction);");
-  console.log("const { sendMessage, messages, isLoading } = useWebInterface(chatInteraction);");
+  console.log("// Evaluation Usage:");
+  console.log("const evalStimulus = new Stimulus({ role: 'evaluator', objective: 'assess', runnerType: 'base' });");
+  console.log("const evalInteraction = new Interaction(modelDetails, evalStimulus);");
+  console.log("evalInteraction.addMessage({ role: 'user', content: 'Evaluate this code' });");
   console.log();
 
   console.log("// Agent Usage:");
-  console.log("const agentInteraction = new AgentInteraction(modelDetails, 'Data Analyst', ['analyze', 'report']);");
-  console.log("const agentInterface = new AgentInterface(modelDetails, 'Data Analyst');");
-  console.log("await agentInterface.startAgent({ 'file-change': handler });");
+  console.log("const agentStimulus = new Stimulus({ role: 'Data Analyst', objective: 'analyze and report', runnerType: 'memory' });");
+  console.log("const agentInteraction = new Interaction(modelDetails, agentStimulus);");
+  console.log("// Add tools and messages as needed");
   console.log();
 
   console.log("✅ New pattern demonstration complete!");

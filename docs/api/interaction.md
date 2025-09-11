@@ -1,13 +1,13 @@
 # Interaction API
 
-The Interaction package provides the core framework for managing model-environment interactions. It implements the semantic concept of "interaction" - the dynamic exchange between models and their environment.
+The Interaction package provides the core framework for managing model-environment interactions. It implements the semantic concept of "interaction" - the dynamic exchange between models and their environment using the new Stimulus-driven architecture.
 
 ## Overview
 
 The Interaction package manages the complete lifecycle of model interactions, including:
 
-- **Interaction Management**: Core class for managing model conversations
-- **Stimulus Processing**: Handling environmental inputs that trigger cognitive responses
+- **Interaction Management**: Core class for managing model conversations with Stimulus-driven context
+- **Stimulus Processing**: Self-contained environmental context with tools, instructions, and model options
 - **Message Flow**: Managing the exchange of messages between user and model
 - **Attachment Support**: Handling file attachments and multi-modal content
 
@@ -15,10 +15,11 @@ The Interaction package manages the complete lifecycle of model interactions, in
 
 ### Interaction
 
-The primary class for managing model-environment interactions and conversations.
+The primary class for managing model-environment interactions and conversations. Now requires both `modelDetails` and a `Stimulus` object.
 
 ```typescript
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { ModelDetails } from '../src/cognition/types.js';
 
 const model: ModelDetails = {
@@ -26,34 +27,55 @@ const model: ModelDetails = {
   provider: 'google'
 };
 
-const interaction = new Interaction(model, "You are a helpful assistant.");
+const stimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "provide accurate and helpful responses",
+  instructions: ["Be clear and concise", "Provide examples when helpful"]
+});
+
+const interaction = new Interaction(model, stimulus);
 ```
 
 #### Constructor
 
 ```typescript
-constructor(model: ModelDetails, systemPrompt?: string)
+constructor(modelDetails: ModelDetails, stimulus: Stimulus)
 ```
 
 **Parameters**:
-- `model`: The model details for this interaction
-- `systemPrompt`: Optional system prompt to set the model's behavior
+- `modelDetails`: The model details for this interaction
+- `stimulus`: The environmental context and configuration for this interaction
 
 #### Methods
 
-##### `addStimulus(stimulus: Stimulus): void`
+##### `setStimulus(stimulus: Stimulus): void`
 
-Add a stimulus (environmental input) to the interaction.
+Update the stimulus (environmental context) for the interaction.
 
 ```typescript
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
-const stimulus = new Stimulus("What is the capital of France?");
-interaction.addStimulus(stimulus);
+const newStimulus = new Stimulus({
+  role: "math tutor",
+  objective: "help with calculations",
+  tools: { calculator: calculatorTool }
+});
+interaction.setStimulus(newStimulus);
 ```
 
 **Parameters**:
-- `stimulus`: The stimulus to add to the interaction
+- `stimulus`: The new stimulus to set for the interaction
+
+##### `getStimulus(): Stimulus`
+
+Get the current stimulus for the interaction.
+
+```typescript
+const currentStimulus = interaction.getStimulus();
+console.log('Current role:', currentStimulus.options.role);
+```
+
+**Returns**: The current stimulus object
 
 ##### `addMessage(message: Message): void`
 
@@ -104,16 +126,35 @@ interaction.addAttachmentFromBuffer(imageBuffer, 'image/jpeg', 'image.jpg');
 - `mimeType`: The MIME type of the file
 - `filename`: Optional filename for the attachment
 
-##### `getStimuli(): Stimulus[]`
+##### `streamText(): Promise<ModelResponse>`
 
-Get all stimuli in the interaction.
+Generate a text response from the model.
 
 ```typescript
-const stimuli = interaction.getStimuli();
-console.log(`Interaction has ${stimuli.length} stimuli`);
+const response = await interaction.streamText();
+console.log('Response:', response.content);
 ```
 
-**Returns**: Array of all stimuli in the interaction
+**Returns**: Promise resolving to ModelResponse with generated content
+
+##### `streamObject<T>(schema: z.ZodSchema<T>): Promise<ModelResponse>`
+
+Generate structured output with real-time streaming, validated against a Zod schema.
+
+```typescript
+import { z } from 'zod';
+
+const TaskSchema = z.object({
+  title: z.string(),
+  priority: z.enum(['low', 'medium', 'high']),
+  completed: z.boolean().default(false)
+});
+
+const response = await interaction.streamObject(TaskSchema);
+const task = JSON.parse(response.content);
+```
+
+**Returns**: Promise resolving to ModelResponse with structured content
 
 ##### `getMessages(): Message[]`
 
@@ -141,27 +182,16 @@ attachments.forEach(attachment => {
 
 **Returns**: Array of all attachments in the interaction
 
-##### `getSystemPrompt(): string | undefined`
+##### `getRunner(): ModelRunner`
 
-Get the system prompt for this interaction.
-
-```typescript
-const systemPrompt = interaction.getSystemPrompt();
-console.log('System prompt:', systemPrompt);
-```
-
-**Returns**: The system prompt or undefined if not set
-
-##### `setSystemPrompt(prompt: string): void`
-
-Set or update the system prompt for this interaction.
+Get the underlying model runner for this interaction.
 
 ```typescript
-interaction.setSystemPrompt("You are a helpful coding assistant. Always provide clear, well-documented code examples.");
+const runner = interaction.getRunner();
+console.log('Runner type:', runner.constructor.name);
 ```
 
-**Parameters**:
-- `prompt`: The new system prompt
+**Returns**: The model runner instance
 
 ##### `clear(): void`
 
@@ -185,63 +215,118 @@ const clonedInteraction = interaction.clone();
 
 ### Stimulus
 
-Represents environmental input that triggers cognitive response.
+Represents environmental context that triggers cognitive response. The Stimulus class is now a self-contained unit containing all environmental context, tools, instructions, and model options.
 
 ```typescript
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { tool } from 'ai';
+import { z } from 'zod';
 
-const stimulus = new Stimulus("Analyze this text and extract key insights.");
+const calculatorTool = tool({
+  description: "Performs basic arithmetic operations",
+  inputSchema: z.object({
+    operation: z.enum(["add", "subtract", "multiply", "divide"]),
+    a: z.number(),
+    b: z.number()
+  }),
+  execute: async ({ operation, a, b }) => {
+    // Tool implementation
+  }
+});
+
+const stimulus = new Stimulus({
+  role: "math tutor",
+  objective: "help students with mathematical problems",
+  instructions: [
+    "Always show your work step by step",
+    "Use the calculator tool for complex calculations",
+    "Explain mathematical concepts clearly"
+  ],
+  tools: { calculator: calculatorTool },
+  temperature: 0.7,
+  maxTokens: 1000,
+  runnerType: 'base'
+});
 ```
 
 #### Constructor
 
 ```typescript
-constructor(content: string, options?: StimulusOptions)
+constructor(options?: StimulusOptions)
 ```
 
 **Parameters**:
-- `content`: The stimulus content (text, prompt, etc.)
-- `options`: Optional configuration for the stimulus
+- `options`: Configuration for the stimulus including role, objective, instructions, tools, and model options
 
 #### Methods
 
-##### `getContent(): string`
+##### `getPrompt(): string`
 
-Get the stimulus content.
+Get the complete system prompt generated from the stimulus configuration.
 
 ```typescript
-const content = stimulus.getContent();
-console.log('Stimulus content:', content);
+const prompt = stimulus.getPrompt();
+console.log('Generated prompt:', prompt);
 ```
 
-**Returns**: The stimulus content string
+**Returns**: The complete system prompt string
 
-##### `getOptions(): StimulusOptions`
+##### `addTool(name: string, tool: Tool): void`
 
-Get the stimulus options.
-
-```typescript
-const options = stimulus.getOptions();
-console.log('Stimulus options:', options);
-```
-
-**Returns**: The stimulus options object
-
-##### `withOptions(options: Partial<StimulusOptions>): Stimulus`
-
-Create a new stimulus with updated options.
+Add a tool to the stimulus.
 
 ```typescript
-const newStimulus = stimulus.withOptions({
-  temperature: 0.7,
-  maxTokens: 1000
-});
+stimulus.addTool('calculator', calculatorTool);
 ```
 
 **Parameters**:
-- `options`: Partial options to merge with existing options
+- `name`: The name of the tool
+- `tool`: The tool object from Vercel AI SDK
 
-**Returns**: New Stimulus instance with updated options
+##### `getTools(): Record<string, Tool>`
+
+Get all tools in the stimulus.
+
+```typescript
+const tools = stimulus.getTools();
+console.log('Available tools:', Object.keys(tools));
+```
+
+**Returns**: Object containing all tools
+
+##### `hasTools(): boolean`
+
+Check if the stimulus has any tools.
+
+```typescript
+if (stimulus.hasTools()) {
+  console.log('Stimulus has tools available');
+}
+```
+
+**Returns**: True if stimulus has tools, false otherwise
+
+##### `getModelOptions(): ModelOptions`
+
+Get the model options from the stimulus.
+
+```typescript
+const options = stimulus.getModelOptions();
+console.log('Model options:', options);
+```
+
+**Returns**: Model options object with temperature, maxTokens, etc.
+
+##### `getRunnerType(): 'base' | 'memory'`
+
+Get the runner type for this stimulus.
+
+```typescript
+const runnerType = stimulus.getRunnerType();
+console.log('Runner type:', runnerType);
+```
+
+**Returns**: The runner type ('base' or 'memory')
 
 ## Type Definitions
 
@@ -276,12 +361,22 @@ Configuration options for stimuli.
 
 ```typescript
 interface StimulusOptions {
-  temperature?: number;      // Model temperature (0.0 to 2.0)
-  maxTokens?: number;        // Maximum tokens to generate
-  topP?: number;            // Top-p sampling parameter
-  frequencyPenalty?: number; // Frequency penalty
-  presencePenalty?: number;  // Presence penalty
-  stopSequences?: string[];  // Stop sequences
+  role?: string;                    // The role of the AI assistant
+  objective?: string;               // The objective or goal
+  instructions?: string[];          // Array of specific instructions
+  reasoning?: string;               // Reasoning approach
+  output?: string[];                // Output format requirements
+  examples?: string[];              // Example responses
+  tools?: Record<string, Tool>;     // Available tools
+  toolInstructions?: string[];      // Instructions for tool usage
+  maxToolSteps?: number;            // Maximum tool execution steps
+  temperature?: number;             // Model temperature (0.0 to 2.0)
+  maxTokens?: number;               // Maximum tokens to generate
+  topP?: number;                    // Top-p sampling parameter
+  frequencyPenalty?: number;        // Frequency penalty
+  presencePenalty?: number;         // Presence penalty
+  runnerType?: 'base' | 'memory';   // Type of model runner
+  systemContext?: string;           // Additional system context
 }
 ```
 
@@ -291,7 +386,7 @@ interface StimulusOptions {
 
 ```typescript
 import { Interaction } from '../src/interaction/interaction.js';
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { ModelDetails } from '../src/cognition/types.js';
 
 const model: ModelDetails = {
@@ -299,71 +394,131 @@ const model: ModelDetails = {
   provider: 'google'
 };
 
-// Create interaction with system prompt
-const interaction = new Interaction(model, "You are a helpful coding assistant.");
+// Create stimulus with role and instructions
+const stimulus = new Stimulus({
+  role: "helpful coding assistant",
+  objective: "provide clear, well-documented code examples",
+  instructions: [
+    "Always include comments in code",
+    "Explain complex concepts step by step",
+    "Provide test examples when appropriate"
+  ],
+  temperature: 0.7,
+  maxTokens: 1000
+});
 
-// Add stimuli
-interaction.addStimulus(new Stimulus("Write a function to calculate fibonacci numbers."));
-interaction.addStimulus(new Stimulus("Explain how the function works."));
+// Create interaction with stimulus
+const interaction = new Interaction(model, stimulus);
 
 // Add user message
 interaction.addMessage({
   role: 'user',
-  content: 'Can you also show me how to test this function?'
+  content: 'Write a function to calculate fibonacci numbers and explain how it works.'
 });
 
-console.log(`Interaction has ${interaction.getStimuli().length} stimuli`);
-console.log(`Interaction has ${interaction.getMessages().length} messages`);
+// Generate response
+const response = await interaction.streamText();
+console.log('Response:', response.content);
 ```
 
 ### File Attachments
 
 ```typescript
 import { Interaction } from '../src/interaction/interaction.js';
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
 const model = { name: 'gemini-2.0-flash', provider: 'google' };
-const interaction = new Interaction(model, "Analyze the attached files.");
+
+// Create stimulus for file analysis
+const stimulus = new Stimulus({
+  role: "document analyst",
+  objective: "analyze files and extract key information",
+  instructions: [
+    "Provide detailed analysis of attached files",
+    "Extract key information and insights",
+    "Summarize findings clearly"
+  ]
+});
+
+const interaction = new Interaction(model, stimulus);
 
 // Add file attachments
 await interaction.addAttachmentFromPath('./image.jpg');
 await interaction.addAttachmentFromPath('./document.pdf');
 
-// Add stimulus for analysis
-interaction.addStimulus(new Stimulus("Analyze the attached image and document. Extract key information and provide insights."));
+// Add user message for analysis
+interaction.addMessage({
+  role: 'user',
+  content: 'Analyze the attached image and document. Extract key information and provide insights.'
+});
 
-const attachments = interaction.getAttachments();
-console.log(`Interaction has ${attachments.length} attachments`);
+// Generate analysis
+const response = await interaction.streamText();
+console.log('Analysis:', response.content);
 ```
 
-### Stimulus with Options
+### Stimulus with Tools
 
 ```typescript
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { tool } from 'ai';
+import { z } from 'zod';
 
-// Create stimulus with specific options
-const creativeStimulus = new Stimulus("Write a creative story about a robot learning to paint.", {
-  temperature: 0.9,
-  maxTokens: 500,
-  topP: 0.9
+// Define tools
+const calculatorTool = tool({
+  description: "Performs basic arithmetic operations",
+  inputSchema: z.object({
+    operation: z.enum(["add", "subtract", "multiply", "divide"]),
+    a: z.number(),
+    b: z.number()
+  }),
+  execute: async ({ operation, a, b }) => {
+    let result: number;
+    switch (operation) {
+      case "add": result = a + b; break;
+      case "subtract": result = a - b; break;
+      case "multiply": result = a * b; break;
+      case "divide": result = a / b; break;
+    }
+    return { result, expression: `${a} ${operation} ${b} = ${result}` };
+  }
 });
 
-// Create stimulus with different options
-const analyticalStimulus = new Stimulus("Analyze the following data and provide insights.", {
-  temperature: 0.1,
-  maxTokens: 1000,
-  topP: 0.5
+// Create stimulus with tools
+const mathStimulus = new Stimulus({
+  role: "math tutor",
+  objective: "help with mathematical problems",
+  instructions: [
+    "Use the calculator tool for complex calculations",
+    "Show your work step by step",
+    "Explain mathematical concepts clearly"
+  ],
+  tools: { calculator: calculatorTool },
+  toolInstructions: ["Use calculator for arithmetic operations"],
+  maxToolSteps: 5,
+  temperature: 0.7,
+  maxTokens: 1000
 });
 
-const interaction = new Interaction(model, "You are a versatile AI assistant.");
-interaction.addStimulus(creativeStimulus);
-interaction.addStimulus(analyticalStimulus);
+const interaction = new Interaction(model, mathStimulus);
+interaction.addMessage({
+  role: 'user',
+  content: 'Calculate 15 + 27 and then multiply the result by 3'
+});
+
+const response = await interaction.streamText();
+console.log('Math response:', response.content);
 ```
 
 ### Message History Management
 
 ```typescript
-const interaction = new Interaction(model, "You are a helpful assistant.");
+const stimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "provide clear and accurate information"
+});
+
+const interaction = new Interaction(model, stimulus);
 
 // Add conversation history
 interaction.addMessage({
@@ -388,32 +543,54 @@ messages.forEach((message, index) => {
 });
 ```
 
-### Interaction Cloning
+### Dynamic Stimulus Updates
 
 ```typescript
-const originalInteraction = new Interaction(model, "You are a helpful assistant.");
-originalInteraction.addStimulus(new Stimulus("Explain quantum computing."));
-originalInteraction.addMessage({
+// Create initial stimulus
+const initialStimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "provide general assistance"
+});
+
+const interaction = new Interaction(model, initialStimulus);
+interaction.addMessage({
   role: 'user',
   content: 'What are qubits?'
 });
 
-// Clone the interaction
-const clonedInteraction = originalInteraction.clone();
+// Update stimulus for specialized task
+const quantumStimulus = new Stimulus({
+  role: "quantum physics expert",
+  objective: "explain quantum computing concepts",
+  instructions: [
+    "Use precise scientific terminology",
+    "Provide analogies for complex concepts",
+    "Include practical applications"
+  ],
+  temperature: 0.3,
+  maxTokens: 1500
+});
 
-// Modify the clone
-clonedInteraction.addStimulus(new Stimulus("Now explain quantum entanglement."));
+interaction.setStimulus(quantumStimulus);
+interaction.addMessage({
+  role: 'user',
+  content: 'Now explain quantum entanglement.'
+});
 
-// Original remains unchanged
-console.log(`Original stimuli: ${originalInteraction.getStimuli().length}`);
-console.log(`Cloned stimuli: ${clonedInteraction.getStimuli().length}`);
+const response = await interaction.streamText();
+console.log('Quantum explanation:', response.content);
 ```
 
 ### Error Handling
 
 ```typescript
 try {
-  const interaction = new Interaction(model, "Analyze the attached file.");
+  const stimulus = new Stimulus({
+    role: "file analyzer",
+    objective: "analyze attached files"
+  });
+  
+  const interaction = new Interaction(model, stimulus);
   
   // Try to add a non-existent file
   await interaction.addAttachmentFromPath('./nonexistent.jpg');
@@ -427,6 +604,16 @@ try {
 } catch (error) {
   console.error('Unsupported file type:', error.message);
 }
+
+// Handle model generation errors
+try {
+  const response = await interaction.streamText();
+  if (response.finishReason === 'error') {
+    console.error('Model generation failed');
+  }
+} catch (error) {
+  console.error('Generation error:', error.message);
+}
 ```
 
 ## Best Practices
@@ -437,12 +624,16 @@ Follow the semantic architecture by using clear, meaningful names:
 
 ```typescript
 // Good: Clear semantic meaning
-const interaction = new Interaction(model, "You are a data analyst.");
-const stimulus = new Stimulus("Analyze this dataset and identify trends.");
+const dataAnalysisStimulus = new Stimulus({
+  role: "data analyst",
+  objective: "analyze datasets and identify trends",
+  instructions: ["Use statistical methods", "Provide visual insights"]
+});
+const interaction = new Interaction(model, dataAnalysisStimulus);
 
 // Avoid: Generic names
-const conv = new Interaction(model);
-const prompt = new Stimulus("do stuff");
+const stimulus = new Stimulus({ role: "assistant" });
+const conv = new Interaction(model, stimulus);
 ```
 
 ### 2. Manage Interaction State
@@ -451,12 +642,24 @@ Keep interactions focused and manageable:
 
 ```typescript
 // Good: Clear, focused interaction
-const interaction = new Interaction(model, "You are a code reviewer.");
-interaction.addStimulus(new Stimulus("Review this TypeScript code for best practices."));
+const codeReviewStimulus = new Stimulus({
+  role: "code reviewer",
+  objective: "review TypeScript code for best practices",
+  instructions: [
+    "Check for TypeScript best practices",
+    "Identify potential bugs",
+    "Suggest improvements"
+  ]
+});
+const interaction = new Interaction(model, codeReviewStimulus);
 
-// Avoid: Overly complex interactions with too many stimuli
-const interaction = new Interaction(model, "You are everything.");
-// ... adding 20+ stimuli
+// Avoid: Overly complex stimuli with too many instructions
+const stimulus = new Stimulus({
+  role: "everything",
+  instructions: [
+    "Do this", "Do that", "Also this", "And that", // ... 20+ instructions
+  ]
+});
 ```
 
 ### 3. Handle File Attachments Properly
@@ -481,19 +684,25 @@ Configure stimulus options based on the task:
 
 ```typescript
 // Creative tasks
-const creativeStimulus = new Stimulus("Write a poem about AI.", {
+const creativeStimulus = new Stimulus({
+  role: "creative writer",
+  objective: "write engaging creative content",
   temperature: 0.9,
   maxTokens: 200
 });
 
 // Analytical tasks
-const analyticalStimulus = new Stimulus("Analyze this data.", {
+const analyticalStimulus = new Stimulus({
+  role: "data analyst",
+  objective: "analyze data and provide insights",
   temperature: 0.1,
   maxTokens: 1000
 });
 
 // Code generation
-const codeStimulus = new Stimulus("Write a function to sort an array.", {
+const codeStimulus = new Stimulus({
+  role: "software engineer",
+  objective: "write clean, efficient code",
   temperature: 0.3,
   maxTokens: 500
 });
@@ -504,7 +713,12 @@ const codeStimulus = new Stimulus("Write a function to sort an array.", {
 Use message history to maintain context across interactions:
 
 ```typescript
-const interaction = new Interaction(model, "You are a helpful assistant.");
+const stimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "provide assistance with development projects"
+});
+
+const interaction = new Interaction(model, stimulus);
 
 // Add context
 interaction.addMessage({
@@ -518,62 +732,122 @@ interaction.addMessage({
 });
 
 // Continue with context
-interaction.addStimulus(new Stimulus("How do I implement state management in React?"));
+interaction.addMessage({
+  role: 'user',
+  content: 'How do I implement state management in React?'
+});
+
+const response = await interaction.streamText();
+console.log('Response:', response.content);
 ```
 
-### 6. Clone for Experimentation
+### 6. Use Dynamic Stimulus Updates
 
-Use cloning to experiment with different approaches:
+Use dynamic stimulus updates to experiment with different approaches:
 
 ```typescript
-const baseInteraction = new Interaction(model, "You are a helpful assistant.");
-baseInteraction.addStimulus(new Stimulus("Explain the concept of recursion."));
+const baseStimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "explain complex concepts"
+});
 
-// Clone for different approaches
-const simpleInteraction = baseInteraction.clone();
-simpleInteraction.setSystemPrompt("You are a helpful assistant. Explain concepts simply.");
+const interaction = new Interaction(model, baseStimulus);
+interaction.addMessage({
+  role: 'user',
+  content: 'Explain the concept of recursion.'
+});
 
-const detailedInteraction = baseInteraction.clone();
-detailedInteraction.setSystemPrompt("You are a helpful assistant. Provide detailed explanations with examples.");
+// Update stimulus for simple explanation
+const simpleStimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "explain concepts simply and clearly",
+  instructions: ["Use simple language", "Avoid jargon", "Provide basic examples"]
+});
+
+interaction.setStimulus(simpleStimulus);
+const simpleResponse = await interaction.streamText();
+
+// Update stimulus for detailed explanation
+const detailedStimulus = new Stimulus({
+  role: "technical expert",
+  objective: "provide detailed technical explanations",
+  instructions: ["Use precise terminology", "Include advanced examples", "Explain implementation details"]
+});
+
+interaction.setStimulus(detailedStimulus);
+const detailedResponse = await interaction.streamText();
 ```
 
 ## Integration with Other Packages
 
 ### With Cognition Package
 
+The Interaction class now manages its own model runner internally:
+
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
-const interaction = new Interaction(model, "You are a helpful assistant.");
-interaction.addStimulus(new Stimulus("Explain quantum computing."));
+const stimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "explain complex concepts clearly"
+});
 
-const runner = new BaseModelRunner();
-const response = await runner.generateText(interaction);
+const interaction = new Interaction(model, stimulus);
+interaction.addMessage({
+  role: 'user',
+  content: 'Explain quantum computing.'
+});
+
+// The interaction manages its own runner internally
+const response = await interaction.streamText();
 ```
 
 ### With Memory Package
 
+Use memory-enabled stimuli for persistent context:
+
 ```typescript
-import { MemoryRunner } from '../src/memory/memory_runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
-const interaction = new Interaction(model, "You are a helpful assistant with memory.");
-interaction.addStimulus(new Stimulus("Remember that I prefer detailed explanations."));
+const memoryStimulus = new Stimulus({
+  role: "helpful assistant with memory",
+  objective: "remember user preferences and context",
+  runnerType: 'memory'  // Uses MemoryRunner internally
+});
 
-const memoryRunner = new MemoryRunner();
-const response = await memoryRunner.execute(interaction);
+const interaction = new Interaction(model, memoryStimulus);
+interaction.addMessage({
+  role: 'user',
+  content: 'Remember that I prefer detailed explanations.'
+});
+
+const response = await interaction.streamText();
 ```
 
 ### With Evaluation Package
 
+Create evaluation-specific stimuli:
+
 ```typescript
-import { EvaluationRunner } from '../src/evaluation/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
-const interaction = new Interaction(model, "You are a helpful assistant.");
-interaction.addStimulus(new Stimulus("Answer this question accurately."));
+const evaluationStimulus = new Stimulus({
+  role: "evaluation system",
+  objective: "provide accurate responses for evaluation",
+  instructions: [
+    "Be precise and factual",
+    "Follow evaluation criteria exactly",
+    "Provide structured responses when requested"
+  ],
+  runnerType: 'base'  // Evaluations typically don't need memory
+});
 
-const evaluator = new EvaluationRunner();
-const evaluation = await evaluator.evaluate(interaction);
+const interaction = new Interaction(model, evaluationStimulus);
+interaction.addMessage({
+  role: 'user',
+  content: 'Answer this question accurately.'
+});
+
+const response = await interaction.streamText();
 ```

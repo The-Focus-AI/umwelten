@@ -524,7 +524,7 @@ export class BaseModelRunner implements ModelRunner {
     const startTime = new Date();
     const { model, modelIdString } = await this.validateAndPrepareModel({
       interaction: interaction,
-      prompt: interaction.prompt,
+      prompt: interaction.stimulus.getPrompt(),
     });
 
     return { startTime, model, modelIdString };

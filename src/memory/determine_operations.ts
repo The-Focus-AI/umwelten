@@ -5,6 +5,7 @@ import {
   MemoryOperation,
 } from "./types.js";
 import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
 import { ModelDetails } from "../cognition/types.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -208,7 +209,19 @@ export async function determineOperations(
     previousMemory
   ).replace("{new_facts}", factsContent);
 
-  const interaction = new Interaction(model, prompt);
+  const stimulus = new Stimulus({
+    role: "smart memory manager",
+    objective: "determine memory operations based on previous memories and new facts",
+    instructions: [
+      "Analyze previous memories and new facts",
+      "Determine appropriate operations (ADD, UPDATE, NONE)",
+      "Return structured operation results"
+    ],
+    runnerType: 'base'
+  });
+
+  const interaction = new Interaction(model, stimulus);
+  interaction.addMessage({ role: "user", content: prompt });
 
   const runner = new BaseModelRunner();
   const result = await runner.generateObject(

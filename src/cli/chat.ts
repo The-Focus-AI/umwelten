@@ -1,5 +1,7 @@
 import { Command } from "commander";
-import { ChatInteraction, CLIInterface } from "../ui/index.js";
+import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
+import { CLIInterface } from "../ui/index.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import { calculatorTool, statisticsTool, randomNumberTool } from '../stimulus/tools/index.js';
 import path from "path";
@@ -30,30 +32,41 @@ export const chatCommand = addCommonOptions(
   if (process.env.DEBUG === '1') console.log("[DEBUG] Model details:", modelDetails);
 
   try {
-    // Create chat interaction with the new pattern
-    const chatInteraction = new ChatInteraction(modelDetails, undefined, options.memory);
+    // Create chat stimulus with the new pattern
+    const chatStimulus = new Stimulus({
+      role: "helpful AI assistant",
+      objective: "be conversational, engaging, and helpful",
+      instructions: [
+        "Always respond with text content first",
+        "Only use tools when you need specific information",
+        "Be conversational and engaging"
+      ],
+      runnerType: options.memory ? 'memory' : 'base',
+      maxToolSteps: 5
+    });
     
-    // Handle custom tools if specified
+    // Add tools if specified
     if (options.tools) {
       const toolNames = options.tools.split(',').map((t: string) => t.trim()).filter(Boolean);
-      const knownTools: Record<string, any> = {
+      const knownTools = {
         calculator: calculatorTool,
         statistics: statisticsTool,
         randomNumber: randomNumberTool,
       };
-      const customTools: Record<string, any> = {};
 
       for (const name of toolNames) {
-        const tool = knownTools[name];
-        if (tool) customTools[name] = tool;
-        else console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
+        const tool = knownTools[name as keyof typeof knownTools];
+        if (tool) {
+          chatStimulus.addTool(name, tool);
+        } else {
+          console.warn(`[WARN] Tool '${name}' not found and will be ignored.`);
+        }
       }
 
-      if (Object.keys(customTools).length > 0) {
-        chatInteraction.setTools(customTools);
-        if (process.env.DEBUG === '1') console.log("[DEBUG] Custom tools set:", Object.keys(customTools));
-      }
+      if (process.env.DEBUG === '1') console.log("[DEBUG] Custom tools set:", Object.keys(chatStimulus.getTools()));
     }
+    
+    const chatInteraction = new Interaction(modelDetails, chatStimulus);
     
     // Handle file attachment if provided
     if (options.file) {

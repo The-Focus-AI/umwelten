@@ -1,8 +1,8 @@
 import { EvaluationRunner } from '../src/evaluation/runner.js';
 import { z } from 'zod';
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
 
 const pricingPage = 'https://ai.google.dev/gemini-api/docs/pricing';
 
@@ -20,17 +20,25 @@ const pricingSchema = z.object({
 
 
 async function parseGooglePricing(html: string, model:ModelDetails): Promise<ModelResponse> {
-  const prompt = `You are a pricing agent that looks through the pricing page and returns the pricing for the models described on the page`
+  const stimulus = new Stimulus({
+    role: "pricing analysis agent",
+    objective: "extract pricing information from Google AI pricing pages",
+    instructions: [
+      "You are a pricing agent that looks through the pricing page and returns the pricing for the models described on the page",
+      "Extract accurate pricing data including input/output costs, context lengths, and model descriptions",
+      "Return structured pricing information according to the schema"
+    ],
+    runnerType: 'base'
+  });
 
-  const conversation = new Interaction(model , prompt);
+  const interaction = new Interaction(model, stimulus);
 
-  conversation.addMessage({
+  interaction.addMessage({
     role: 'user',
     content: html,
   });
 
-  const modelRunner = new BaseModelRunner();
-  const response = await modelRunner.streamObject(conversation, pricingSchema);
+  const response = await interaction.streamObject(pricingSchema);
 
   return response;
 }

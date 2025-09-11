@@ -1,6 +1,5 @@
-import { BaseModelRunner } from "../src/cognition/runner.js";
 import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
-import { Stimulus } from "../src/interaction/stimulus.js";
+import { Stimulus } from "../src/stimulus/stimulus.js";
 import { Interaction } from "../src/interaction/interaction.js";
 import path from "path";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
@@ -11,16 +10,22 @@ export async function parseImage(
   imagePath: string,
   model: ModelDetails
 ): Promise<ModelResponse> {
-  const prompt = "Analyze this image and provide a summary of the content.";
+  const stimulus = new Stimulus({
+    role: "image analysis expert",
+    objective: "analyze images and provide detailed summaries",
+    instructions: [
+      "Analyze the image content thoroughly",
+      "Provide a comprehensive summary of what you see",
+      "Include details about objects, people, settings, and activities"
+    ],
+    runnerType: 'base'
+  });
 
-  const conversation = new Interaction(model, prompt);
+  const interaction = new Interaction(model, stimulus);
 
-  // conversation.addAttachmentFromPath(pdfFile);
-  conversation.addAttachmentFromPath(imagePath);
+  interaction.addAttachmentFromPath(imagePath);
 
-  const modelRunner = new BaseModelRunner();
-
-  const response = await modelRunner.streamText(conversation);
+  const response = await interaction.streamText();
 
   return response;
 }
@@ -108,34 +113,35 @@ class ImageScorer extends EvaluationScorer {
       response.metadata.provider
     );
 
-    const prompt = new Stimulus({
+    const scoringStimulus = new Stimulus({
       role: "unit testing expert",
-      objective:
-        "score the following model response based on the image it is analyzing.",
+      objective: "score the following model response based on the image it is analyzing.",
+      instructions: [
+        "For each of the following please identify if it's in the content",
+        "key: title, value: Archive of ffffound.com",
+        "key: pages, value: 3986701",
+        "key: views, value: 109886",
+        "key: scanned, value: 2017-05-07",
+        "key: size, value: 62.2G of data",
+        "key: identifier, value: ffffound.com-warc-archive-2017-05-07"
+      ],
+      output: [
+        "You should respond in json format",
+        "You should include the key, the found value, and the score in the response",
+        "You should score 0 if the found value doesn't exist or doesn't match expected value"
+      ],
+      runnerType: 'base'
     });
-    prompt.addInstruction( "For each of the following please identify if it's in the content" );
-    prompt.addInstruction( "key: title, value: Archve of ffffound.com" );
-    prompt.addInstruction( "key: pages, value: 3986701")
-    prompt.addInstruction( "key: views, value: 109886")
-    prompt.addInstruction( "key: scanned, value: 2017-05-07")
-    prompt.addInstruction( "key: size, value: 62.2G of data")
-    prompt.addInstruction( "key: identifier, value: ffffound.com-warc-archive-2017-05-07")
 
-    prompt.addOutput("You should respond in json format");
-    prompt.addOutput("You should include the key, the found value, and the score in the response");
-    prompt.addOutput("You should score 0 if the found value doesn't exist or doesn't match expected value")    
+    console.log(scoringStimulus.getPrompt());
 
-    console.log(prompt.getPrompt());
-
-    const conversation = new Interaction(
+    const interaction = new Interaction(
       { provider: "google", name: "gemini-2.5-pro-exp-03-25" },
-      prompt.getPrompt()
+      scoringStimulus
     );
-    conversation.addMessage({ role: "user", content: response.content });
+    interaction.addMessage({ role: "user", content: response.content });
 
-    const modelRunner = new BaseModelRunner();
-
-    const newResponse = await modelRunner.streamObject(conversation, ScoreSchema);
+    const newResponse = await interaction.streamObject(ScoreSchema);
 
     console.log(JSON.stringify(newResponse, null, 2));
     return newResponse as unknown as ScoreResponse;

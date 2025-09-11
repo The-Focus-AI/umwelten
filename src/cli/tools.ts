@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
 import { getModel } from "../providers/index.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
@@ -26,18 +27,30 @@ export async function runToolsDemo(options: any) {
       process.exit(1);
     }
     if (process.env.DEBUG === '1') console.log("[DEBUG] modelInstance:", modelInstance);
-    // Create interaction with tools
-    const interaction = new Interaction(
-      { name: model, provider },
-      "You are a helpful assistant with access to mathematical tools. You MUST use the available tools to perform calculations and mathematical operations. When asked to calculate something, use the calculator tool. When asked to generate random numbers, use the randomNumber tool. When asked for statistics, use the statistics tool. Always use the appropriate tool and then provide a clear explanation of the results."
-    );
+    // Create stimulus with tools
     const toolSet: Record<string, any> = {
       calculator: calculatorTool,
       randomNumber: randomNumberTool,
       statistics: statisticsTool,
     };
-    interaction.setTools(toolSet);
-    interaction.setMaxSteps(parseInt(options.maxSteps ?? '5'));
+    
+    const stimulus = new Stimulus({
+      role: "helpful assistant with access to mathematical tools",
+      objective: "perform calculations and mathematical operations using available tools",
+      instructions: [
+        "You MUST use the available tools to perform calculations and mathematical operations",
+        "When asked to calculate something, use the calculator tool",
+        "When asked to generate random numbers, use the randomNumber tool", 
+        "When asked for statistics, use the statistics tool",
+        "Always use the appropriate tool and then provide a clear explanation of the results"
+      ],
+      tools: toolSet,
+      maxToolSteps: parseInt(options.maxSteps ?? '5'),
+      runnerType: 'base'
+    });
+
+    // Create interaction with stimulus
+    const interaction = new Interaction({ name: model, provider }, stimulus);
     // Add user message
     interaction.addMessage({ 
       role: "user", 

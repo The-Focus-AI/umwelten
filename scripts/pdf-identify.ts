@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 import { Interaction } from '../src/interaction/interaction.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { evaluate } from '../src/evaluation/evaluate.js';
 import path from 'path';
 import fs from 'fs';
@@ -30,16 +29,17 @@ export const PDFIdentificationSchema = z.object({
 export type PDFIdentification = z.infer<typeof PDFIdentificationSchema>;
 
 // 2. Create the Stimulus (Prompt)
-const pdfPrompt = new Stimulus();
-pdfPrompt.setRole('You are an expert document identifier and bibliographer.');
-pdfPrompt.setObjective('Given a PDF, extract the title, author(s), and document type. Focus on identifying these key bibliographic elements rather than analyzing content.');
+const pdfPrompt = new Stimulus({
+  role: "expert document identifier and bibliographer",
+  objective: "Given a PDF, extract the title, author(s), and document type. Focus on identifying these key bibliographic elements rather than analyzing content.",
+  runnerType: 'base'
+});
 
 // 3. Core extraction function
 export async function pdfIdentifyExtract(pdfPath: string, model: ModelDetails): Promise<ModelResponse> {
-  const conversation = new Interaction(model, pdfPrompt.getPrompt());
-  await conversation.addAttachmentFromPath(pdfPath);
-  const runner = new BaseModelRunner();
-  return runner.generateObject(conversation, PDFIdentificationSchema);
+  const interaction = new Interaction(model, pdfPrompt);
+  await interaction.addAttachmentFromPath(pdfPath);
+  return interaction.streamObject(PDFIdentificationSchema);
 }
 
 // 4. Get all PDFs from the input directory

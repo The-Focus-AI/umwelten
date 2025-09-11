@@ -1,24 +1,25 @@
-import { BaseModelRunner } from "../src/cognition/runner.js";
-import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
+import { Stimulus } from "../src/stimulus/stimulus.js";
 import { Interaction } from "../src/interaction/interaction.js";
 import { evaluate } from "../src/evaluation/evaluate.js";
+import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
 
-export async function catPoem(model: ModelDetails): Promise<ModelResponse> {
-  const systemPrompt = "You are a helpful assistant that writes short poems about cats.";
-  const prompt = "Write a short poem about a cat.";
-
-  const modelRunner = new BaseModelRunner();
-  const conversation = new Interaction(model, systemPrompt);
-  conversation.addMessage({
-    role: "user",
-    content: prompt,
+export async function catPoem(model: ModelDetails) : Promise<ModelResponse> {
+  const poemStimulus = new Stimulus({
+    role: "literary genius", 
+    objective: "write short poems about cats",
+    temperature: 0.5,
+    maxTokens: 200,
+    runnerType: 'base'
   });
+  const interaction = new Interaction(model, poemStimulus);
 
-  console.log(`Generating text for ${model.name} using BaseModelRunner...`);
-  const response = await modelRunner.generateText(conversation);
-
-  console.log(`Generated text for ${model.name}:`, response.content);
-
+  console.log(`Generating cat poem for ${model.name}...`);
+  
+  // Use streamText directly for better control over streaming
+  interaction.addMessage({ role: "user", content: "Write a short poem about a cat." });
+  const response = await interaction.streamText();
+  
+  console.log(`Generated poem for ${model.name}:`, response.content);
   return response;
 }
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Interaction } from '../../interaction/interaction.js';
+import { Stimulus } from '../../stimulus/stimulus.js';
 import { BaseModelRunner } from '../../cognition/runner.js';
 import { getModel } from '../../providers/index.js';
 import { 
@@ -34,13 +35,17 @@ describe('Tool Integration Tests with Ollama', () => {
         return;
       }
 
+      const stimulus = new Stimulus({
+        role: "helpful assistant with access to mathematical tools",
+        objective: "Use the calculator tool to perform calculations when asked",
+        tools: toolSet,
+        maxToolSteps: 3
+      });
+      
       const interaction = new Interaction(
         { name: 'qwen3:latest', provider: 'ollama' },
-        "You are a helpful assistant with access to mathematical tools. Use the calculator tool to perform calculations when asked."
+        stimulus
       );
-
-      interaction.setTools(toolSet);
-      interaction.setMaxSteps(3);
       interaction.addMessage({
         role: "user",
         content: "Calculate 15 + 27 using the calculator tool",
@@ -69,13 +74,17 @@ describe('Tool Integration Tests with Ollama', () => {
         return;
       }
 
+      const stimulus = new Stimulus({
+        role: "helpful assistant with access to statistical tools",
+        objective: "Use the statistics tool to analyze data when asked",
+        tools: toolSet,
+        maxToolSteps: 3
+      });
+      
       const interaction = new Interaction(
         { name: 'qwen3:latest', provider: 'ollama' },
-        "You are a helpful assistant with access to statistical tools. Use the statistics tool to analyze data when asked."
+        stimulus
       );
-
-      interaction.setTools(toolSet);
-      interaction.setMaxSteps(3);
       interaction.addMessage({
         role: "user",
         content: "Calculate statistics for the numbers [10, 20, 30, 40, 50] using the statistics tool",
@@ -104,13 +113,17 @@ describe('Tool Integration Tests with Ollama', () => {
         return;
       }
 
+      const stimulus = new Stimulus({
+        role: "helpful assistant with access to mathematical tools",
+        objective: "Use the available tools to help answer questions and perform calculations",
+        tools: toolSet,
+        maxToolSteps: 5
+      });
+      
       const interaction = new Interaction(
         { name: 'qwen3:latest', provider: 'ollama' },
-        "You are a helpful assistant with access to mathematical tools. Use the available tools to help answer questions and perform calculations."
+        stimulus
       );
-
-      interaction.setTools(toolSet);
-      interaction.setMaxSteps(5);
       interaction.addMessage({
         role: "user",
         content: "First calculate 15 + 27, then generate a random number between 1 and 100, and finally calculate statistics for the numbers [10, 20, 30, 40, 50]",
@@ -142,13 +155,17 @@ describe('Tool Integration Tests with Ollama', () => {
         return;
       }
 
+      const stimulus = new Stimulus({
+        role: "helpful assistant with access to mathematical tools",
+        objective: "Use the calculator tool to perform calculations when asked",
+        tools: toolSet,
+        maxToolSteps: 3
+      });
+      
       const interaction = new Interaction(
         { name: 'gpt-oss:latest', provider: 'ollama' },
-        "You are a helpful assistant with access to mathematical tools. Use the calculator tool to perform calculations when asked."
+        stimulus
       );
-
-      interaction.setTools(toolSet);
-      interaction.setMaxSteps(3);
       interaction.addMessage({
         role: "user",
         content: "Calculate 5 + 3 using the calculator tool",

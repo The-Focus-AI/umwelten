@@ -1,6 +1,6 @@
-import { BaseModelRunner } from '../src/cognition/runner.js';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
@@ -28,20 +28,27 @@ export const TranscriptionSchema = z.object({
 
 async function transcribeAudio(audioPath: string, model: ModelDetails): Promise<ModelResponse> {
 
-  const prompt = `You are a transcription agent that transcribes audio. You will be given a file and you will need to transcribe the audio.`;
+  const stimulus = new Stimulus({
+    role: "transcription agent",
+    objective: "transcribe audio files with detailed metadata",
+    instructions: [
+      "You are a transcription agent that transcribes audio",
+      "You will be given a file and you will need to transcribe the audio",
+      "Provide detailed metadata including timestamps, speakers, and topics"
+    ],
+    runnerType: 'base'
+  });
 
-  const conversation = new Interaction(model, prompt);
+  const interaction = new Interaction(model, stimulus);
 
-  conversation.addAttachmentFromPath(audioPath);
+  interaction.addAttachmentFromPath(audioPath);
 
-  conversation.addMessage({
+  interaction.addMessage({
     role: 'user',
     content: `Please transcribe the audio file ${audioPath}.`
   });
 
-  const modelRunner = new BaseModelRunner();
-
-  const response = await modelRunner.streamObject(conversation, TranscriptionSchema);
+  const response = await interaction.streamObject(TranscriptionSchema);
 
   return response;
 }

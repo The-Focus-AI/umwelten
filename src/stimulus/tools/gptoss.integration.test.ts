@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Interaction } from '../../interaction/interaction.js';
+import { Stimulus } from '../../stimulus/stimulus.js';
 import { BaseModelRunner } from '../../cognition/runner.js';
 import { calculatorTool, statisticsTool } from './index.js';
 import { checkOllamaConnection } from '../../test-utils/setup.js';
@@ -12,13 +13,16 @@ describe('Tool Integration - gpt-oss:latest (Ollama)', () => {
       return;
     }
 
+    const stimulus = new Stimulus({
+      role: "helpful assistant with access to tools",
+      tools: { calculator: calculatorTool },
+      maxToolSteps: 3
+    });
+    
     const interaction = new Interaction(
       { name: 'gpt-oss:latest', provider: 'ollama' },
-      'You are a helpful assistant with access to tools.'
+      stimulus
     );
-
-    interaction.setTools({ calculator: calculatorTool });
-    interaction.setMaxSteps(3);
     interaction.addMessage({ role: 'user', content: 'Use the calculator tool to compute 12 + 30' });
 
     const runner = new BaseModelRunner();
@@ -35,13 +39,16 @@ describe('Tool Integration - gpt-oss:latest (Ollama)', () => {
       return;
     }
 
+    const stimulus = new Stimulus({
+      role: "helpful assistant with access to tools",
+      tools: { calculator: calculatorTool, statistics: statisticsTool },
+      maxToolSteps: 5
+    });
+    
     const interaction = new Interaction(
       { name: 'gpt-oss:latest', provider: 'ollama' },
-      'You are a helpful assistant with access to tools.'
+      stimulus
     );
-
-    interaction.setTools({ calculator: calculatorTool, statistics: statisticsTool });
-    interaction.setMaxSteps(5);
     interaction.addMessage({ role: 'user', content: 'Compute 10 + 5, then statistics for [1,2,3,4,5]' });
 
     const runner = new BaseModelRunner();

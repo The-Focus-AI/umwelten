@@ -1,8 +1,5 @@
 import readline from "readline";
 import { Interaction } from "../../interaction/interaction.js";
-import { ChatInteraction } from "../../interaction/chat-interaction.js";
-import { EvaluationInteraction } from "../../interaction/evaluation-interaction.js";
-import { AgentInteraction } from "../../interaction/agent-interaction.js";
 
 /**
  * CLIInterface - Handles command-line interface interactions
@@ -16,7 +13,7 @@ export class CLIInterface {
   /**
    * Start an interactive chat session
    */
-  async startChat(interaction: ChatInteraction): Promise<void> {
+  async startChat(interaction: Interaction): Promise<void> {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -84,11 +81,11 @@ export class CLIInterface {
   /**
    * Start an evaluation session
    */
-  async startEvaluation(interaction: EvaluationInteraction): Promise<void> {
+  async startEvaluation(interaction: Interaction): Promise<void> {
     console.log("Starting evaluation session...\n");
     
     try {
-      const response = await interaction.evaluate();
+      const response = await interaction.generateText();
       console.log("Evaluation Result:");
       console.log("==================");
       console.log(response);
@@ -101,7 +98,7 @@ export class CLIInterface {
   /**
    * Start an agent session
    */
-  async startAgent(interaction: AgentInteraction): Promise<void> {
+  async startAgent(interaction: Interaction): Promise<void> {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -110,8 +107,8 @@ export class CLIInterface {
 
     this.isActive = true;
     console.log("Starting agent session. Type 'exit' or 'quit' to end.\n");
-    console.log("Agent Role:", interaction.getAgentStatus().role);
-    console.log("Available Tools:", interaction.getAgentStatus().availableTools.join(", "));
+    console.log("Agent Role:", interaction.stimulus.options.role || "assistant");
+    console.log("Available Tools:", interaction.stimulus.hasTools() ? Object.keys(interaction.stimulus.getTools()).join(", ") : "none");
     console.log();
 
     this.rl.on("line", async (line) => {
@@ -135,10 +132,12 @@ export class CLIInterface {
         process.stdout.write("\r\x1b[K"); // Clear current line
         process.stdout.write("Agent: ");
         
-        const response = await interaction.executeTask(task);
+        // Add the task as a user message and execute
+        interaction.addMessage({ role: "user", content: task });
+        const response = await interaction.streamText();
         
         // Write the response with proper formatting
-        process.stdout.write(response);
+        process.stdout.write(response.content);
         process.stdout.write("\n\n");
         
       } catch (error) {
@@ -159,7 +158,7 @@ export class CLIInterface {
   /**
    * Setup special commands for chat interactions
    */
-  private setupSpecialCommands(interaction: ChatInteraction): void {
+  private setupSpecialCommands(interaction: Interaction): void {
     if (!this.rl) return;
 
     // Override the line handler to check for special commands first
@@ -191,7 +190,7 @@ export class CLIInterface {
           if (message === "/history") {
             this.rl?.pause();
             console.log("Conversation history:");
-            console.log(interaction.getConversationHistory());
+            console.log(interaction.getMessages().filter(msg => msg.role !== "system").map(msg => `${msg.role}: ${msg.content}`).join('\n'));
             this.rl?.resume();
             this.rl?.prompt();
             return;

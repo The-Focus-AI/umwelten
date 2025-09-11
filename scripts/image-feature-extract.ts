@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 import { Interaction } from '../src/interaction/interaction.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Stimulus } from '../src/interaction/stimulus.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
 export const ImageFeatureSchema = z.object({
   able_to_parse: z.object({
@@ -46,14 +45,14 @@ export const ImageFeatureSchema = z.object({
 export type ImageFeature = z.infer<typeof ImageFeatureSchema>;
 
 
-const featurePrompt = new Stimulus();
-featurePrompt.setRole('You are an expert image analyst.');
-featurePrompt.setObjective('Given an image, extract the following features and return them as a JSON object.');
-// featurePrompt.setOutputSchema(ImageFeatureSchema);
+const featurePrompt = new Stimulus({
+  role: "expert image analyst",
+  objective: "Given an image, extract the following features and return them as a JSON object.",
+  runnerType: 'base'
+});
 
 export async function imageFeatureExtract(imagePath: string, model: ModelDetails): Promise<ModelResponse> {
-  const conversation = new Interaction(model, featurePrompt.getPrompt());
-  await conversation.addAttachmentFromPath(imagePath);
-  const runner = new BaseModelRunner();
-  return runner.streamObject(conversation, ImageFeatureSchema);
+  const interaction = new Interaction(model, featurePrompt);
+  await interaction.addAttachmentFromPath(imagePath);
+  return interaction.streamObject(ImageFeatureSchema);
 } 

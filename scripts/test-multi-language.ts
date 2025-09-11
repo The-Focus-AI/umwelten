@@ -10,8 +10,8 @@
 import fs from 'fs';
 import path from 'path';
 import { FunctionEvaluationRunner } from '../src/evaluation/evaluate.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from '../src/evaluation/code-extractor.js';
 import { DockerRunner } from '../src/evaluation/docker-runner.js';
 
@@ -74,11 +74,15 @@ async function main() {
       try {
         // Step 1: Generate response
         const runner = new FunctionEvaluationRunner(EVALUATION_ID, languageConfig.name, async (details) => {
-          const modelRunner = new BaseModelRunner();
-          const interaction = new Interaction(details, 'You are a helpful programming assistant.');
+          const programmingStimulus = new Stimulus({
+            role: "helpful programming assistant",
+            objective: "generate code solutions",
+            runnerType: 'base'
+          });
+          const interaction = new Interaction(details, programmingStimulus);
           interaction.addMessage({ role: 'user', content: languageConfig.prompt });
           
-          return await modelRunner.streamText(interaction);
+          return await interaction.streamText();
         });
 
         const response = await runner.evaluate({ name: model.name, provider: 'ollama' });

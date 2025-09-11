@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { BaseModelRunner } from "../src/cognition/runner.js";
 import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
-import { Stimulus } from "../src/interaction/stimulus.js";
+import { Stimulus } from "../src/stimulus/stimulus.js";
 import { Interaction } from "../src/interaction/interaction.js";
 import { EvaluationRunner } from "../src/evaluation/runner.js";
 
@@ -108,41 +107,31 @@ export async function planRoadtrip(
   roadTripPrompt: RoadTripPrompt,
   model: ModelDetails
 ): Promise<ModelResponse> {
-  const prompt = new Stimulus();
-  prompt.setRole("expert electric vehicle roadtrip planner");
-  prompt.addInstruction(
-    "You will be given a roadtrip prompt and you will need to plan a roadtrip based on the prompt."
-  );
-  prompt.addInstruction(
-    `You will be given a list of locations and you will need to plan a roadtrip that visits all of the locations.`
-  );
-  prompt.addInstruction(
-    `You will need to plan the roadtrip in a way that is efficient for an electric vehicle.`
-  );
-  prompt.addInstruction(
-    `You will need to plan the roadtrip in a way that is safe for an electric vehicle.`
-  );
-  prompt.addInstruction(
-    `You will need to take in account the users preferences`
-  );
-  prompt.addInstruction(`The currrent date is ${new Date().toISOString()}`);
-  prompt.addInstruction(
-    `Dont make up any information, only use the information provided in the prompt.`
-  );
+  const roadtripStimulus = new Stimulus({
+    role: "expert electric vehicle roadtrip planner",
+    objective: "plan a roadtrip based on the prompt",
+    instructions: [
+      "You will be given a roadtrip prompt and you will need to plan a roadtrip based on the prompt.",
+      "You will be given a list of locations and you will need to plan a roadtrip that visits all of the locations.",
+      "You will need to plan the roadtrip in a way that is efficient for an electric vehicle.",
+      "You will need to plan the roadtrip in a way that is safe for an electric vehicle.",
+      "You will need to take in account the users preferences",
+      `The current date is ${new Date().toISOString()}`,
+      "Don't make up any information, only use the information provided in the prompt."
+    ],
+    runnerType: 'base'
+  });
 
-  prompt.setObjective(`Please plan a roadtrip based on the prompt`);
+  roadtripStimulus.setOutputSchema(roadtripSchema);
 
-  prompt.setOutputSchema(roadtripSchema);
-
-  console.log(prompt.getPrompt());
-  const conversation = new Interaction(model, prompt.getPrompt());
-  conversation.addMessage({
+  console.log(roadtripStimulus.getPrompt());
+  const interaction = new Interaction(model, roadtripStimulus);
+  interaction.addMessage({
     role: "user",
     content: JSON.stringify(roadTripPrompt),
   });
 
-  const modelRunner = new BaseModelRunner();
-  const response = await modelRunner.streamText(conversation);
+  const response = await interaction.streamText();
   return response;
 }
 

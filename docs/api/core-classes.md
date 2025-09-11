@@ -134,17 +134,18 @@ try {
 
 ## Interaction
 
-Manages conversations with models, including messages, attachments, and model configuration.
+Manages conversations with models using the new Stimulus-driven architecture. Now requires both `modelDetails` and a `Stimulus` object.
 
 ### Import
 ```typescript
 import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 ```
 
 ### Constructor
 
 ```typescript
-constructor(model: ModelDetails, systemPrompt?: string)
+constructor(modelDetails: ModelDetails, stimulus: Stimulus)
 ```
 
 Create a new conversation:
@@ -154,12 +155,22 @@ import { ModelDetails } from '../src/cognition/types.js';
 
 const model: ModelDetails = {
   name: 'gemini-2.0-flash',
-  provider: 'google',
-  temperature: 0.7,
-  maxTokens: 1000
+  provider: 'google'
 };
 
-const interaction = new Interaction(model, "You are an expert data analyst");
+const stimulus = new Stimulus({
+  role: "expert data analyst",
+  objective: "analyze data and provide insights",
+  instructions: [
+    "Use statistical methods",
+    "Provide clear visualizations",
+    "Explain findings in business terms"
+  ],
+  temperature: 0.7,
+  maxTokens: 1000
+});
+
+const interaction = new Interaction(model, stimulus);
 ```
 
 ### Methods
@@ -213,6 +224,33 @@ const messages = interaction.getMessages();
 for (const message of messages) {
   console.log(`${message.role}: ${message.content}`);
 }
+```
+
+#### `streamText(): Promise<ModelResponse>`
+
+Generate a text response from the model:
+
+```typescript
+const response = await interaction.streamText();
+console.log('Response:', response.content);
+console.log('Usage:', response.usage);
+```
+
+#### `streamObject<T>(schema: z.ZodSchema<T>): Promise<ModelResponse>`
+
+Generate structured output with real-time streaming:
+
+```typescript
+import { z } from 'zod';
+
+const TaskSchema = z.object({
+  title: z.string(),
+  priority: z.enum(['low', 'medium', 'high']),
+  completed: z.boolean().default(false)
+});
+
+const response = await interaction.streamObject(TaskSchema);
+const task = JSON.parse(response.content);
 ```
 
 #### `getModel(): ModelDetails`

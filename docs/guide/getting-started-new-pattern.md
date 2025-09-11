@@ -1,6 +1,6 @@
-# Getting Started with the New Interaction + Interface Pattern
+# Getting Started with the New Stimulus-Driven Pattern
 
-This guide will help you get started with Umwelten's new Interaction + Interface pattern, which provides a unified way to work with AI models across different environments.
+This guide will help you get started with Umwelten's new Stimulus-driven Interaction pattern, which provides a unified way to work with AI models using self-contained environmental context.
 
 ## 🚀 Quick Start
 
@@ -28,7 +28,7 @@ cp env.template .env
 
 ```bash
 # Start an interactive chat with tools
-pnpm tsx src/cli/cli.ts chat-new -p ollama -m llama3.2:latest
+pnpm cli chat --provider ollama --model llama3.2:latest
 ```
 
 Try these commands in the chat:
@@ -38,23 +38,33 @@ Try these commands in the chat:
 - `/?` (show help)
 - `exit` (end chat)
 
-## 🎯 Interaction Types
+## 🎯 Stimulus Types
 
-### ChatInteraction
+### Chat Stimulus
 
 Perfect for conversational AI with memory and tools:
 
 ```typescript
-import { ChatInteraction } from 'umwelten';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/interaction.js';
 
-const chatInteraction = new ChatInteraction({
-  name: "llama3.2:latest",
-  provider: "ollama"
+const chatStimulus = new Stimulus({
+  role: "helpful AI assistant",
+  objective: "be conversational, engaging, and helpful",
+  instructions: [
+    "Always respond with text content first",
+    "Only use tools when you need specific information",
+    "Be conversational and engaging"
+  ],
+  tools: { calculator: calculatorTool, weather: weatherTool },
+  runnerType: 'memory',
+  maxToolSteps: 5
 });
 
-// Send a message
-const response = await chatInteraction.chat("Hello!");
-console.log(response);
+const interaction = new Interaction(model, chatStimulus);
+interaction.addMessage({ role: 'user', content: "Hello!" });
+const response = await interaction.streamText();
+console.log(response.content);
 ```
 
 **Features:**

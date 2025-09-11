@@ -1,5 +1,6 @@
 import { ModelDetails } from "../cognition/types.js";
 import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
 import { FactSchema, factsSchema } from "./types.js";
 
@@ -96,7 +97,19 @@ export async function extractFacts(
 
     const runner = new BaseModelRunner();
 
-    const factsInteraction = new Interaction(model, promptWithDate);
+    const stimulus = new Stimulus({
+      role: "fact extraction assistant",
+      objective: "extract relevant facts from conversation messages",
+      instructions: [
+        "Analyze conversation messages for extractable facts",
+        "Categorize facts appropriately",
+        "Return structured fact data"
+      ],
+      runnerType: 'base'
+    });
+
+    const factsInteraction = new Interaction(model, stimulus);
+    factsInteraction.addMessage({ role: "user", content: promptWithDate });
     factsInteraction.addMessage({ role: "user", content: messagesContent });
     // Call LLM to extract facts
 

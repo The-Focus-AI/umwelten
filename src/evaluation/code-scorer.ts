@@ -2,8 +2,8 @@ import { EvaluationScorer } from './scorer.js';
 import { ModelResponse, ScoreResponse } from '../cognition/types.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from './code-extractor.js';
 import { DockerRunner } from './docker-runner.js';
-import { BaseModelRunner } from '../cognition/runner.js';
 import { Interaction } from '../interaction/interaction.js';
+import { Stimulus } from '../stimulus/stimulus.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -133,14 +133,18 @@ Summary: This code is well-structured with clear variable names and good separat
 Rating: 4`;
 
     try {
-      const modelRunner = new BaseModelRunner();
+      const evaluationStimulus = new Stimulus({
+        role: "code quality expert",
+        objective: "evaluate code based on cleanliness, readability, structure, and best practices",
+        runnerType: 'base'
+      });
       const interaction = new Interaction(
         { name: this.aiEvaluatorModel, provider: 'ollama' },
-        'You are a code quality expert. Evaluate code based on cleanliness, readability, structure, and best practices.'
+        evaluationStimulus
       );
       interaction.addMessage({ role: 'user', content: prompt });
       
-      const aiResponse = await modelRunner.streamText(interaction);
+      const aiResponse = await interaction.streamText();
       const responseContent = aiResponse.content;
 
       // Parse the AI response to extract score and summary

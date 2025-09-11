@@ -1,21 +1,24 @@
-import { BaseModelRunner } from "../src/cognition/runner.js";
 import { ModelDetails, ModelResponse } from "../src/cognition/types.js";
 import { Interaction } from "../src/interaction/interaction.js";
+import { Stimulus } from "../src/stimulus/stimulus.js";
 import { evaluate } from "../src/evaluation/evaluate.js";
 
 export async function frankenstein(model: ModelDetails): Promise<ModelResponse> {
-  const systemPrompt = "You are a literary critic that writes about books.";
+  const literaryStimulus = new Stimulus({
+    role: "literary critic",
+    objective: "write about books",
+    runnerType: 'base'
+  });
   const prompt = "Who is the monster in Mary Shelley's Frankenstein?";
 
-  const modelRunner = new BaseModelRunner();
-  const conversation = new Interaction(model, systemPrompt);
-  conversation.addMessage({
+  const interaction = new Interaction(model, literaryStimulus);
+  interaction.addMessage({
     role: "user",
     content: prompt,
   });
 
-  console.log(`Generating text for ${model.name} using BaseModelRunner...`);
-  const response = await modelRunner.generateText(conversation);
+  console.log(`Generating text for ${model.name}...`);
+  const response = await interaction.streamText();
 
   console.log(`Generated text for ${model.name}:`, response.content);
 

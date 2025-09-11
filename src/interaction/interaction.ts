@@ -9,13 +9,14 @@ import fs, { FileHandle } from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
 import { PathLike } from "fs";
 import { z } from "zod";
+import { Stimulus } from "../stimulus/stimulus.js";
 
 export class Interaction {
   private messages: CoreMessage[] = [];
   protected runner: ModelRunner;
   public userId: string = "default";
   public modelDetails: ModelDetails;
-  public prompt: string;
+  public stimulus: Stimulus;  // NEW: Required stimulus
   public options?: ModelOptions;
   public outputFormat?: z.ZodSchema;
   public tools?: Record<string, any>;
@@ -23,21 +24,65 @@ export class Interaction {
 
   constructor(
     modelDetails: ModelDetails,
-    prompt: string,
-    options?: ModelOptions,
-    runnerType: 'base' | 'memory' = 'base'
+    stimulus: Stimulus  // NEW: Required parameter
   ) {
     this.modelDetails = modelDetails;
-    this.prompt = prompt;
-    this.options = options;
+    this.stimulus = stimulus;
+    
+    // Apply stimulus context immediately
+    this.applyStimulusContext();
     
     // Create the appropriate runner
-    this.runner = this.createRunner(runnerType);
-    
+    this.runner = this.createRunner(this.stimulus.getRunnerType());
+  }
+
+  private applyStimulusContext(): void {
+    // Set system prompt from stimulus
     this.messages.push({
       role: "system",
-      content: this.prompt,
+      content: this.stimulus.getPrompt(),
     });
+
+    // Apply model options from stimulus
+    if (this.stimulus.hasModelOptions()) {
+      this.options = this.stimulus.getModelOptions();
+    }
+
+    // Apply tools from stimulus
+    if (this.stimulus.hasTools()) {
+      this.tools = this.stimulus.getTools();
+    }
+
+    // Apply tool-specific settings
+    if (this.stimulus.options?.maxToolSteps) {
+      this.setMaxSteps(this.stimulus.options.maxToolSteps);
+    }
+  }
+
+  // NEW: Method to update stimulus (for dynamic changes)
+  setStimulus(stimulus: Stimulus): void {
+    this.stimulus = stimulus;
+    this.clearContext();
+    this.applyStimulusContext();
+  }
+
+  // NEW: Get current stimulus
+  getStimulus(): Stimulus {
+    return this.stimulus;
+  }
+
+  // DEPRECATED: Legacy method for backward compatibility
+  setSystemPrompt(prompt: string): void {
+    console.warn("setSystemPrompt is deprecated. Use setStimulus with a new Stimulus object instead.");
+    if(this.messages[0].role === "system") {
+      this.messages[0].content = prompt;
+    } else {
+      console.warn("System prompt not found, adding to the beginning of the messages");
+      this.messages.unshift({
+        role: "system",
+        content: prompt,
+      });
+    }
   }
 
   protected createRunner(runnerType: 'base' | 'memory'): ModelRunner {

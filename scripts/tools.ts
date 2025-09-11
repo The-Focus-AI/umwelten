@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { ChatInteraction, CLIInterface } from "../src/ui/index.js";
+import { Interaction, CLIInterface } from "../src/ui/index.js";
+import { Stimulus } from "../src/stimulus/stimulus.js";
 import { z } from "zod";
 // Registry removed: tools are attached directly to Interaction
 import fs from "fs";
@@ -242,12 +243,23 @@ export const chatCommand = new Command()
     };
 
     try {
-      // Create chat interaction with the new pattern
-      const chatInteraction = new ChatInteraction(modelDetails);
+      // Create stimulus with tools
+      const stimulus = new Stimulus({
+        role: "helpful AI assistant with access to tools",
+        objective: "be helpful and use available tools when needed",
+        instructions: [
+          "Always respond with text content first",
+          "Use tools when you need specific information or calculations",
+          "Be conversational and engaging"
+        ],
+        tools: tools ? scriptTools : undefined,
+        runnerType: 'base'
+      });
       
-      // Add custom tools if tools are enabled
+      // Create interaction with stimulus
+      const chatInteraction = new Interaction(modelDetails, stimulus);
+      
       if (tools) {
-        chatInteraction.setTools(scriptTools);
         console.log("✅ Custom tools registered:", Object.keys(scriptTools));
       }
       
@@ -273,7 +285,8 @@ export const chatCommand = new Command()
         console.log(`📝 Non-interactive mode - sending prompt: ${prompt}\n`);
         
         try {
-          const response = await chatInteraction.chat(prompt);
+          chatInteraction.addMessage({ role: "user", content: prompt });
+          const response = await chatInteraction.generateText();
           console.log("🤖 Model Response:");
           if (response && response.trim()) {
             console.log(response);
