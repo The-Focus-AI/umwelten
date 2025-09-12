@@ -206,10 +206,10 @@ export class BaseModelRunner implements ModelRunner {
     });
   }
 
-  async streamText(interaction: Interaction): Promise<ModelResponse> {
-    const { startTime, model, modelIdString } =
+  async makeStreamOptions(interaction: Interaction): Promise<any> {
+    const { startTime, model, modelIdString } = 
       await this.startUp(interaction);
-    try {
+    
       const mergedOptions = {
         maxTokens: this.config.maxTokens,
         ...interaction.options,
@@ -246,8 +246,20 @@ export class BaseModelRunner implements ModelRunner {
           console.log("[DEBUG] Using stopWhen with maxSteps:", interaction.maxSteps);
         }
       }
+    
+    return streamOptions;
+  }
+
+  async streamText(interaction: Interaction): Promise<ModelResponse> {
+    const { startTime, modelIdString } = 
+      await this.startUp(interaction);
+
+    try {
+
+      const streamOptions = await this.makeStreamOptions(interaction);
 
       const response = await streamText(streamOptions);
+
       let fullText = '';
       let reasoningText = '';
       let reasoningDetails: any[] = [];

@@ -1,5 +1,5 @@
 import { generateText, tool } from 'ai';
-import { ollama } from 'ai-sdk-ollama';
+import { ollama } from 'ollama-ai-provider-v2';
 import { z } from 'zod';
 
 // Define tools using Vercel AI SDK pattern

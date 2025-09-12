@@ -12,7 +12,7 @@ import { z } from "zod";
 import { Stimulus } from "../stimulus/stimulus.js";
 
 export class Interaction {
-  private messages: CoreMessage[] = [];
+  public messages: CoreMessage[] = [];
   protected runner: ModelRunner;
   public userId: string = "default";
   public modelDetails: ModelDetails;
@@ -61,9 +61,7 @@ export class Interaction {
 
   // NEW: Method to update stimulus (for dynamic changes)
   setStimulus(stimulus: Stimulus): void {
-    this.stimulus = stimulus;
-    this.clearContext();
-    this.applyStimulusContext();
+    this.setSystemPrompt(stimulus.getPrompt());
   }
 
   // NEW: Get current stimulus
@@ -71,9 +69,10 @@ export class Interaction {
     return this.stimulus;
   }
 
-  // DEPRECATED: Legacy method for backward compatibility
+  
   setSystemPrompt(prompt: string): void {
     console.warn("setSystemPrompt is deprecated. Use setStimulus with a new Stimulus object instead.");
+    
     if(this.messages[0].role === "system") {
       this.messages[0].content = prompt;
     } else {
