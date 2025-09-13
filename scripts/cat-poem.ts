@@ -23,7 +23,14 @@ export async function catPoem(model: ModelDetails) : Promise<ModelResponse> {
   return response;
 }
 
-evaluate(catPoem, "cat-poem", "ollama-27b", { name: "gemma3:27b", provider: "ollama", temperature: 0.5 });
-evaluate(catPoem, "cat-poem", "ollama-12b", { name: "gemma3:12b", provider: "ollama", temperature: 0.5 });
-evaluate(catPoem, "cat-poem", "google-flash", { name: "gemini-2.0-flash", provider: "google" });
-evaluate(catPoem, "cat-poem", "google-pro", { name: "gemini-2.5-pro-exp-03-25", provider: "google" });
+const models: ModelDetails[] = [
+  { name: "gemma3:27b", provider: "ollama", temperature: 0.5 },
+  { name: "gemma3:12b", provider: "ollama", temperature: 0.5 },
+  { name: "gemini-2.0-flash", provider: "google" },
+  { name: "gemini-2.5-flash", provider: "google" },
+  { name: "gemini-2.5-pro", provider: "google" },
+];
+
+for (const model of models) {
+  evaluate(catPoem, "cat-poem", model.name, model);
+}
