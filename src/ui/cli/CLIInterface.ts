@@ -1,5 +1,6 @@
 import readline from "readline";
 import { Interaction } from "../../interaction/interaction.js";
+import { CommandRegistry, CLICommand } from "./CommandRegistry.js";
 
 /**
  * CLIInterface - Handles command-line interface interactions
@@ -9,6 +10,175 @@ import { Interaction } from "../../interaction/interaction.js";
 export class CLIInterface {
   private rl?: readline.Interface;
   private isActive: boolean = false;
+  private commandRegistry: CommandRegistry;
+  private lastResponse?: {
+    startTime: number;
+    endTime: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalCost?: number;
+    modelName: string;
+    provider: string;
+  };
+  private showStatsAfterResponse: boolean = false;
+
+  constructor(commandRegistry?: CommandRegistry) {
+    this.commandRegistry = commandRegistry || new CommandRegistry();
+  }
+
+  /**
+   * Add a CLI command to the registry
+   * 
+   * @param command The command to add
+   */
+  addCommand(command: CLICommand): void {
+    this.commandRegistry.addCommand(command);
+  }
+
+  /**
+   * Add multiple CLI commands to the registry
+   * 
+   * @param commands Array of commands to add
+   */
+  addCommands(commands: CLICommand[]): void {
+    this.commandRegistry.addCommands(commands);
+  }
+
+  /**
+   * Remove a CLI command from the registry
+   * 
+   * @param trigger The command trigger to remove
+   */
+  removeCommand(trigger: string): void {
+    this.commandRegistry.removeCommand(trigger);
+  }
+
+  /**
+   * Get the command registry
+   * 
+   * @returns The command registry instance
+   */
+  getCommandRegistry(): CommandRegistry {
+    return this.commandRegistry;
+  }
+
+  /**
+   * Track a model response for statistics
+   * 
+   * @param startTime When the request started
+   * @param endTime When the request completed
+   * @param promptTokens Number of prompt tokens used
+   * @param completionTokens Number of completion tokens used
+   * @param totalCost Total cost of the request (if available)
+   * @param modelName Name of the model used
+   * @param provider Provider used
+   */
+  trackResponse(
+    startTime: number,
+    endTime: number,
+    promptTokens: number,
+    completionTokens: number,
+    totalCost: number | undefined,
+    modelName: string,
+    provider: string
+  ): void {
+    this.lastResponse = {
+      startTime,
+      endTime,
+      promptTokens,
+      completionTokens,
+      totalCost,
+      modelName,
+      provider
+    };
+
+    // Auto-display stats if enabled
+    if (this.showStatsAfterResponse) {
+      this.displayStats();
+    }
+  }
+
+  /**
+   * Display statistics for the last response
+   */
+  displayStats(): void {
+    if (!this.lastResponse) {
+      console.log("No response data available.");
+      return;
+    }
+
+    const { startTime, endTime, promptTokens, completionTokens, totalCost, modelName, provider } = this.lastResponse;
+    const duration = endTime - startTime;
+    const totalTokens = promptTokens + completionTokens;
+
+    console.log("\n📊 Response Statistics:");
+    console.log("======================");
+    console.log(`Model: ${modelName} (${provider})`);
+    console.log(`Duration: ${duration.toFixed(0)}ms`);
+    console.log(`Tokens: ${totalTokens.toLocaleString()} (${promptTokens.toLocaleString()} prompt + ${completionTokens.toLocaleString()} completion)`);
+    
+    if (totalCost !== undefined) {
+      console.log(`Cost: $${totalCost.toFixed(6)}`);
+    } else {
+      console.log(`Cost: Not available`);
+    }
+    
+    console.log("======================\n");
+  }
+
+  /**
+   * Toggle automatic display of stats after each response
+   * 
+   * @param enabled Whether to show stats automatically
+   */
+  setShowStatsAfterResponse(enabled: boolean): void {
+    this.showStatsAfterResponse = enabled;
+  }
+
+  /**
+   * Get whether stats are shown after each response
+   * 
+   * @returns True if stats are shown automatically
+   */
+  getShowStatsAfterResponse(): boolean {
+    return this.showStatsAfterResponse;
+  }
+
+  /**
+   * Get the last response data
+   * 
+   * @returns Last response data or undefined
+   */
+  getLastResponse() {
+    return this.lastResponse;
+  }
+
+  /**
+   * Display current settings and information
+   */
+  displayInfo(): void {
+    console.log("\nℹ️  Current Settings:");
+    console.log("===================");
+    console.log(`Auto-display stats: ${this.showStatsAfterResponse ? 'Enabled' : 'Disabled'}`);
+    console.log(`Registered commands: ${this.commandRegistry.getCommandCount()}`);
+    
+    if (this.lastResponse) {
+      const { modelName, provider } = this.lastResponse;
+      console.log(`Last model: ${modelName} (${provider})`);
+    } else {
+      console.log(`Last model: None`);
+    }
+    
+    console.log("===================\n");
+  }
+
+  /**
+   * Toggle automatic display of stats
+   */
+  toggleStats(): void {
+    this.showStatsAfterResponse = !this.showStatsAfterResponse;
+    console.log(`Auto-display stats: ${this.showStatsAfterResponse ? 'Enabled' : 'Disabled'}`);
+  }
 
   /**
    * Start an interactive chat session
@@ -22,9 +192,6 @@ export class CLIInterface {
 
     this.isActive = true;
     console.log("Starting chat session. Type 'exit' or 'quit' to end.\n");
-
-    // Handle special commands
-    this.setupSpecialCommands(interaction);
 
     // Start the chat loop
     this.rl.prompt();
@@ -42,6 +209,12 @@ export class CLIInterface {
         return;
       }
 
+      // Check for registered commands first
+      const commandExecuted = await this.handleCommand(message, interaction);
+      if (commandExecuted) {
+        return;
+      }
+
       try {
         // Add user message and get response
         interaction.addMessage({ role: "user", content: message });
@@ -53,7 +226,9 @@ export class CLIInterface {
         process.stdout.write("\r\x1b[K"); // Clear current line
         process.stdout.write("Model: ");
         
+        const startTime = Date.now();
         const response = await interaction.streamText();
+        const endTime = Date.now();
         
         // Write the response with proper formatting
         if (response.content && response.content.trim()) {
@@ -62,6 +237,17 @@ export class CLIInterface {
           process.stdout.write("[No response content received]");
         }
         process.stdout.write("\n\n");
+        
+        // Track response statistics
+        this.trackResponse(
+          startTime,
+          endTime,
+          response.metadata?.tokenUsage?.promptTokens || 0,
+          response.metadata?.tokenUsage?.completionTokens || 0,
+          response.metadata?.tokenUsage?.total,
+          interaction.modelDetails.name,
+          interaction.modelDetails.provider
+        );
         
       } catch (error) {
         console.error("Error:", error);
@@ -124,6 +310,12 @@ export class CLIInterface {
         return;
       }
 
+      // Check for registered commands first
+      const commandExecuted = await this.handleCommand(task, interaction);
+      if (commandExecuted) {
+        return;
+      }
+
       try {
         // Pause readline to prevent interference with streaming
         this.rl?.pause();
@@ -134,11 +326,24 @@ export class CLIInterface {
         
         // Add the task as a user message and execute
         interaction.addMessage({ role: "user", content: task });
+        const startTime = Date.now();
         const response = await interaction.streamText();
+        const endTime = Date.now();
         
         // Write the response with proper formatting
         process.stdout.write(response.content);
         process.stdout.write("\n\n");
+        
+        // Track response statistics
+        this.trackResponse(
+          startTime,
+          endTime,
+          response.metadata?.tokenUsage?.promptTokens || 0,
+          response.metadata?.tokenUsage?.completionTokens || 0,
+          response.metadata?.tokenUsage?.total,
+          interaction.modelDetails.name,
+          interaction.modelDetails.provider
+        );
         
       } catch (error) {
         console.error("Agent error:", error);
@@ -156,92 +361,77 @@ export class CLIInterface {
   }
 
   /**
-   * Setup special commands for chat interactions
+   * Handle command execution
+   * 
+   * @param input The user input to check for commands
+   * @param interaction The interaction context
+   * @returns True if a command was executed
    */
-  private setupSpecialCommands(interaction: Interaction): void {
-    if (!this.rl) return;
+  private async handleCommand(input: string, interaction: Interaction): Promise<boolean> {
+    // Check if input starts with a command trigger
+    const command = this.commandRegistry.getAllCommands().find(cmd => 
+      input.startsWith(cmd.trigger)
+    );
 
-    // Override the line handler to check for special commands first
-    const originalOn = this.rl.on.bind(this.rl);
-    
-    this.rl.on = (event: string, listener: any) => {
-      if (event === "line") {
-        return originalOn(event, async (line: string) => {
-          const message = line.trim();
-          
-          // Handle special commands
-          if (message === "/?") {
-            this.rl?.pause();
-            this.showHelp();
-            this.rl?.resume();
-            this.rl?.prompt();
-            return;
-          }
-          
-          if (message === "/reset") {
-            this.rl?.pause();
-            interaction.clearContext();
-            console.log("Conversation history cleared.");
-            this.rl?.resume();
-            this.rl?.prompt();
-            return;
-          }
-          
-          if (message === "/history") {
-            this.rl?.pause();
-            console.log("Conversation history:");
-            console.log(interaction.getMessages().filter(msg => msg.role !== "system").map(msg => `${msg.role}: ${msg.content}`).join('\n'));
-            this.rl?.resume();
-            this.rl?.prompt();
-            return;
-          }
-          
-          if (message === "/mem") {
-            this.rl?.pause();
-            try {
-              const runner = interaction.getRunner();
-              const memoryStore = (runner as any).getMemoryStore?.();
-              if (memoryStore) {
-                const facts = await memoryStore.getFacts(interaction.userId);
-                if (facts.length === 0) {
-                  console.log("No memory facts stored.");
-                } else {
-                  console.log("Memory facts:");
-                  for (const fact of facts) {
-                    console.log(`- ${fact.text}`);
-                  }
-                }
-              } else {
-                console.log("Memory not enabled for this interaction.");
-              }
-            } catch (error) {
-              console.error("Error accessing memory:", error);
-            }
-            this.rl?.resume();
-            this.rl?.prompt();
-            return;
-          }
-          
-          // Call the original listener for normal messages
-          await listener(line);
-        });
+    if (!command) {
+      return false;
+    }
+
+    // Handle special cases
+    if (command.trigger === "/?") {
+      this.rl?.pause();
+      console.log(this.commandRegistry.getHelpText());
+      this.rl?.resume();
+      this.rl?.prompt();
+      return true;
+    }
+
+    if (command.trigger === "/exit") {
+      this.stop();
+      return true;
+    }
+
+    if (command.trigger === "/stats") {
+      this.rl?.pause();
+      this.displayStats();
+      this.rl?.resume();
+      this.rl?.prompt();
+      return true;
+    }
+
+    if (command.trigger === "/info") {
+      this.rl?.pause();
+      this.displayInfo();
+      this.rl?.resume();
+      this.rl?.prompt();
+      return true;
+    }
+
+    if (command.trigger === "/toggle-stats") {
+      this.rl?.pause();
+      this.toggleStats();
+      this.rl?.resume();
+      this.rl?.prompt();
+      return true;
+    }
+
+    // Execute the command
+    if (command.pauseReadline !== false) {
+      this.rl?.pause();
+    }
+
+    try {
+      await command.execute(interaction);
+    } finally {
+      if (command.pauseReadline !== false) {
+        this.rl?.resume();
+        this.rl?.prompt();
       }
-      
-      return originalOn(event, listener);
-    };
+    }
+
+    return true;
   }
 
-  /**
-   * Show help for special commands
-   */
-  private showHelp(): void {
-    console.log("Available commands:");
-    console.log("  /?         Show this help message");
-    console.log("  /reset     Clear the conversation history");
-    console.log("  /history   Show chat message history");
-    console.log("  /mem       Show memory facts (if memory enabled)");
-    console.log("  exit, quit End the chat session");
-  }
 
   /**
    * Stop the interface

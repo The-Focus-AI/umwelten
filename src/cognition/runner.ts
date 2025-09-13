@@ -230,8 +230,8 @@ export class BaseModelRunner implements ModelRunner {
         },
       };
 
-      // Enable usage accounting for OpenRouter
-      if (interaction.modelDetails.provider === "openrouter") {
+      // Enable usage accounting for OpenRouter, GitHub models, and Google
+      if (interaction.modelDetails.provider === "openrouter" || interaction.modelDetails.provider === "github-models" || interaction.modelDetails.provider === "google") {
         streamOptions.usage = { include: true };
       }
 
@@ -353,13 +353,14 @@ export class BaseModelRunner implements ModelRunner {
         reasoningText = typeof reasoningResult === 'string' ? reasoningResult : JSON.stringify(reasoningResult);
       }
 
-      // Debug: Log the response structure for Ollama
-      if (interaction.modelDetails.provider === 'ollama' && process.env.DEBUG === '1') {
-        console.log('[DEBUG] Ollama response structure:', JSON.stringify(response, null, 2));
-      }
-      
       // For Ollama, usage might be in different locations depending on response type
       let usage = response.usage;
+      
+      // Debug: Log the response structure for debugging
+      if (process.env.DEBUG === '1') {
+        console.log(`[DEBUG] ${interaction.modelDetails.provider} response structure:`, JSON.stringify(response, null, 2));
+        console.log(`[DEBUG] Usage object before extraction:`, JSON.stringify(usage, null, 2));
+      }
       if (interaction.modelDetails.provider === 'ollama') {
         // For streaming responses, usage is in _totalUsage.status.value
         const responseAny = response as any;
@@ -373,6 +374,74 @@ export class BaseModelRunner implements ModelRunner {
             usage = steps[0].usage;
           }
         }
+      }
+      
+      // For OpenRouter and Google, usage is in _totalUsage.status.value or steps[0].usage
+      if (interaction.modelDetails.provider === 'openrouter' || interaction.modelDetails.provider === 'google') {
+        const responseAny = response as any;
+        // Check if usage is in _totalUsage.status.value
+        if (responseAny._totalUsage && responseAny._totalUsage.status && responseAny._totalUsage.status.value) {
+          usage = responseAny._totalUsage.status.value;
+        }
+        // Check if usage is in steps[0].usage
+        else if (responseAny._steps && responseAny._steps.status && responseAny._steps.status.value) {
+          const steps = responseAny._steps.status.value;
+          if (Array.isArray(steps) && steps[0] && steps[0].usage) {
+            usage = steps[0].usage;
+          }
+        }
+      }
+      
+      // For GitHub models, usage might be in different locations
+      if (interaction.modelDetails.provider === 'github-models') {
+        const responseAny = response as any;
+        // Check if usage is in the response object directly
+        if (responseAny.usage) {
+          usage = responseAny.usage;
+        }
+        // Check if usage is in a different property
+        else if (responseAny.usage_stats) {
+          usage = responseAny.usage_stats;
+        }
+        // Check if usage is in the response metadata
+        else if (responseAny.metadata && responseAny.metadata.usage) {
+          usage = responseAny.metadata.usage;
+        }
+        // Check if usage is in _totalUsage.status.value
+        else if (responseAny._totalUsage && responseAny._totalUsage.status && responseAny._totalUsage.status.value) {
+          usage = responseAny._totalUsage.status.value;
+        }
+        // Check if usage is in steps[0].usage
+        else if (responseAny._steps && responseAny._steps.status && responseAny._steps.status.value) {
+          const steps = responseAny._steps.status.value;
+          if (Array.isArray(steps) && steps[0] && steps[0].usage) {
+            usage = steps[0].usage;
+          }
+        }
+        // Try to extract from response headers if available
+        else if (responseAny._steps && responseAny._steps.status && responseAny._steps.status.value) {
+          const steps = responseAny._steps.status.value;
+          if (Array.isArray(steps) && steps[0] && steps[0].response && steps[0].response.headers) {
+            const headers = steps[0].response.headers;
+            // Try to extract token usage from headers
+            const inputTokens = headers['x-usage-input-tokens'] || headers['x-usage-prompt-tokens'] || headers['x-ratelimit-used-prompt-tokens'];
+            const outputTokens = headers['x-usage-output-tokens'] || headers['x-usage-completion-tokens'] || headers['x-ratelimit-used-completion-tokens'];
+            const totalTokens = headers['x-usage-total-tokens'] || headers['x-ratelimit-used-total-tokens'];
+            
+            if (inputTokens || outputTokens || totalTokens) {
+              usage = {
+                inputTokens: parseInt(inputTokens) || 0,
+                outputTokens: parseInt(outputTokens) || 0,
+                totalTokens: parseInt(totalTokens) || (parseInt(inputTokens) || 0) + (parseInt(outputTokens) || 0)
+              } as any;
+            }
+          }
+        }
+      }
+      
+      // Debug: Log the final usage object after extraction
+      if (process.env.DEBUG === '1') {
+        console.log(`[DEBUG] Usage object after extraction:`, JSON.stringify(usage, null, 2));
       }
       
       return this.makeResult({
@@ -470,8 +539,8 @@ export class BaseModelRunner implements ModelRunner {
         },
       };
 
-      // Enable usage accounting for OpenRouter
-      if (interaction.modelDetails.provider === "openrouter") {
+      // Enable usage accounting for OpenRouter, GitHub models, and Google
+      if (interaction.modelDetails.provider === "openrouter" || interaction.modelDetails.provider === "github-models" || interaction.modelDetails.provider === "google") {
         streamOptions.usage = { include: true };
       }
 
@@ -575,9 +644,9 @@ export class BaseModelRunner implements ModelRunner {
 
     // console.log('cost breakdown', costBreakdown);
 
-    // Handle different token usage formats (Ollama uses inputTokens/outputTokens)
-    const promptTokens = usage?.promptTokens || usage?.inputTokens;
-    const completionTokens = usage?.completionTokens || usage?.outputTokens;
+    // Handle different token usage formats (Vercel AI SDK uses inputTokens/outputTokens, Ollama uses inputTokens/outputTokens)
+    const promptTokens = usage?.promptTokens || usage?.inputTokens || usage?.prompt_tokens || usage?.input_tokens;
+    const completionTokens = usage?.completionTokens || usage?.outputTokens || usage?.completion_tokens || usage?.output_tokens;
     
     if (
       !usage ||
@@ -587,6 +656,7 @@ export class BaseModelRunner implements ModelRunner {
       console.warn(
         `Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`
       );
+      console.warn(`Available usage fields:`, Object.keys(usage || {}));
     }
 
     // For generateObject, content is the actual object, not a string

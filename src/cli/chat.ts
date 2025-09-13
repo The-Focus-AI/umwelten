@@ -4,6 +4,7 @@ import { Stimulus } from "../stimulus/stimulus.js";
 import { CLIInterface } from "../ui/index.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import { calculatorTool, statisticsTool, randomNumberTool } from '../stimulus/tools/index.js';
+import { getChatCommands } from '../ui/cli/DefaultCommands.js';
 import path from "path";
 import fs from "fs";
 
@@ -85,8 +86,11 @@ export const chatCommand = addCommonOptions(
       }
     }
 
-    // Create CLI interface and start chat
+    // Create CLI interface and register chat commands
     const cliInterface = new CLIInterface();
+    cliInterface.addCommands(getChatCommands());
+    
+    // Start chat
     await cliInterface.startChat(chatInteraction);
 
   } catch (error) {

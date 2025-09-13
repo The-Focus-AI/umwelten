@@ -7,7 +7,8 @@ export function addCommonOptions(cmd: Command): Command {
     .option('--attach <filePath>', 'File to attach to the prompt or conversation (any file type)')
     .option('--debug', 'Enable debug logging')
     .option('--system-prompt <prompt>', 'Custom system prompt for the conversation')
-    .option('--object', 'Expect a structured object response (use streamObject instead of streamText)');
+    .option('--object', 'Expect a structured object response (use streamObject instead of streamText)')
+    .option('--stats', 'Show response statistics after completion');
 }
 
 export function parseCommonOptions(options: any) {
@@ -18,5 +19,6 @@ export function parseCommonOptions(options: any) {
     debug: !!options.debug,
     systemPrompt: options.systemPrompt,
     object: !!options.object,
+    stats: !!options.stats,
   };
 } 

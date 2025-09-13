@@ -16,7 +16,7 @@ export const runCommand = addCommonOptions(
     .description('Run a prompt through a model')
     .argument('<prompt>', 'The prompt to send to the model')
 ).action(async (prompt: string, options: any) => {
-  const { provider, model, attach, debug, systemPrompt, object } = parseCommonOptions(options);
+  const { provider, model, attach, debug, systemPrompt, object, stats } = parseCommonOptions(options);
   try {
     const modelDetails: ModelDetails = {
       name: model,
@@ -100,9 +100,10 @@ export const runCommand = addCommonOptions(
     const runner = new BaseModelRunner();
     process.stdout.write('Model: ');
     try {
+      let response;
       if (object) {
         if (typeof ImageFeatureSchema !== 'undefined') {
-          const response = await runner.streamObject(conversation, ImageFeatureSchema);
+          response = await runner.streamObject(conversation, ImageFeatureSchema);
           if (response?.content) {
             process.stdout.write(JSON.stringify(response.content, null, 2) + '\n');
           } else {
@@ -110,7 +111,7 @@ export const runCommand = addCommonOptions(
           }
         } else {
           console.warn('[WARN] --object is set but no schema is available. Falling back to streamText.');
-          const response = await runner.streamText(conversation);
+          response = await runner.streamText(conversation);
           if (response?.content) {
             process.stdout.write(response.content + '\n');
           } else {
@@ -118,12 +119,27 @@ export const runCommand = addCommonOptions(
           }
         }
       } else {
-        const response = await runner.streamText(conversation);
+        response = await runner.streamText(conversation);
         if (response?.content) {
           process.stdout.write(response.content + '\n');
         } else {
           process.stdout.write('[No response]\n');
         }
+      }
+      
+      // Display stats if requested
+      if (stats && response?.metadata) {
+        console.log('\n📊 Response Statistics:');
+        console.log('======================');
+        console.log(`Model: ${response.metadata.model} (${response.metadata.provider})`);
+        console.log(`Duration: ${response.metadata.endTime.getTime() - response.metadata.startTime.getTime()}ms`);
+        console.log(`Tokens: ${response.metadata.tokenUsage.total} (${response.metadata.tokenUsage.promptTokens} prompt + ${response.metadata.tokenUsage.completionTokens} completion)`);
+        if (response.metadata.cost) {
+          console.log(`Cost: $${response.metadata.cost.totalCost.toFixed(6)}`);
+        } else {
+          console.log(`Cost: $0.000000`);
+        }
+        console.log('======================');
       }
     } catch (err) {
       console.error('[ERROR] Model execution failed.');
