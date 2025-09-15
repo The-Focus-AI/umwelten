@@ -1,15 +1,37 @@
 # Examples Overview
 
-This section provides comprehensive examples showing how to use Umwelten for various AI model evaluation tasks. Many of these examples correspond to scripts that have been migrated from the `scripts/` directory to CLI commands.
+This section provides comprehensive examples showing how to use Umwelten for various AI model evaluation tasks. The examples demonstrate the new infrastructure-first architecture with stimulus-centric design.
 
-## 🆕 New Interaction + Interface Pattern
+## 🚀 Quick Start Examples
 
-The modern way to use Umwelten with pre-configured interactions and clean interfaces:
+Run these examples to get started immediately:
 
-- **[Interaction + Interface Examples](/examples/interaction-interface-examples)** - Comprehensive examples of the new pattern
-- **[Chat with Tools](/examples/interaction-interface-examples#chat-with-tools)** - Interactive chat with weather, calculator, file analysis
-- **[Web Integration](/examples/interaction-interface-examples#web-integration)** - React, Vue.js, and Next.js examples
-- **[Agent Workflows](/examples/interaction-interface-examples#agent-examples)** - Autonomous agents with triggers and events
+```bash
+# Simple evaluation example
+pnpm tsx scripts/examples/simple-evaluation-example.ts
+
+# Matrix evaluation (compare multiple models)
+pnpm tsx scripts/examples/matrix-evaluation-example.ts
+
+# Batch evaluation (process multiple inputs)
+pnpm tsx scripts/examples/batch-evaluation-example.ts
+
+# Complex pipeline (multi-step evaluation)
+pnpm tsx scripts/examples/complex-pipeline-example.ts
+
+# Comprehensive analysis
+pnpm tsx scripts/examples/comprehensive-analysis-example.ts
+```
+
+## 📚 Infrastructure Examples
+
+The new infrastructure-first approach with reusable components:
+
+- **[Simple Evaluation](/examples/simple-evaluation)** - Basic single-model evaluation using stimulus templates
+- **[Matrix Evaluation](/examples/matrix-evaluation)** - Multi-model comparison and benchmarking
+- **[Batch Evaluation](/examples/batch-evaluation)** - Batch processing with tool integration
+- **[Complex Pipeline](/examples/complex-pipeline)** - Multi-step evaluations with dependencies
+- **[Comprehensive Analysis](/examples/comprehensive-analysis)** - Performance and quality analysis
 
 ## Basic Examples
 

@@ -2,6 +2,31 @@
 
 A command-line tool for systematic AI model evaluation across providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models) with structured output validation, batch processing, and comprehensive cost analysis.
 
+## 🎯 New: Stimulus-Centric Evaluation Architecture
+
+**Phase 2 Complete!** We've implemented a revolutionary new evaluation architecture that makes **Stimulus** the primary unit of cognitive testing. This provides:
+
+- **Advanced Evaluation Strategies**: Code generation, matrix evaluation, batch processing
+- **Comprehensive Result Analysis**: Detailed metrics, insights, and recommendations
+- **Enhanced Stimulus Templates**: Sophisticated cognitive tasks with proper metadata
+- **Production-Ready Infrastructure**: Robust error handling and comprehensive testing
+
+### New Architecture Features
+
+```bash
+# Code Generation Evaluation with Docker execution
+pnpm tsx scripts/evaluate-advanced-typescript.ts
+
+# Matrix Evaluation across multiple dimensions
+pnpm tsx scripts/evaluate-matrix-creative.ts
+
+# Batch Evaluation for large datasets
+pnpm tsx scripts/evaluate-batch-analysis.ts
+
+# Comprehensive Phase 2 Demo
+pnpm tsx scripts/evaluate-phase2-demo.ts
+```
+
 ## 🚀 Quick Start
 
 ### New Interaction + Interface Pattern
