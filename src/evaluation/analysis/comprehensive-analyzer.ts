@@ -200,7 +200,7 @@ export class ComprehensiveAnalyzer {
     quality: QualityAnalysis
   ): ComprehensiveAnalysis['summary'] {
     const totalEvaluations = this.results.length;
-    const totalResponses = this.results.reduce((sum, result) => sum + result.responses.length, 0);
+    const totalResponses = this.results.length;
     const averageQuality = quality.overall.overallQuality * 100;
     const averagePerformance = this.calculateAveragePerformance(performance);
     const totalCost = performance.overall.totalCost;

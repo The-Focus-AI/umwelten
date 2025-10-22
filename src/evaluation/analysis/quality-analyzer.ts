@@ -47,13 +47,13 @@ export class QualityAnalyzer {
   }
 
   private calculateOverallQuality(): QualityMetrics {
-    const allResponses = this.results.flatMap(result => result.responses);
+    const allResponses = this.results.map(result => result.response);
     
     if (allResponses.length === 0) {
       return this.getEmptyMetrics();
     }
 
-    const averageLength = allResponses.reduce((sum, r) => sum + r.content.length, 0) / allResponses.length;
+    const averageLength = allResponses.reduce((sum, r) => sum + (r.content?.length || 0), 0) / allResponses.length;
     const averageComplexity = this.calculateAverageComplexity(allResponses);
     const coherenceScore = this.calculateCoherenceScore(allResponses);
     const relevanceScore = this.calculateRelevanceScore(allResponses);
@@ -83,13 +83,11 @@ export class QualityAnalyzer {
 
     // Group responses by model
     for (const result of this.results) {
-      for (const response of result.responses) {
-        const key = `${response.metadata.model}:${response.metadata.provider}`;
-        if (!modelGroups.has(key)) {
-          modelGroups.set(key, []);
-        }
-        modelGroups.get(key)!.push(response);
+      const key = `${result.model.name}:${result.model.provider}`;
+      if (!modelGroups.has(key)) {
+        modelGroups.set(key, []);
       }
+      modelGroups.get(key)!.push(result.response);
     }
 
     const qualityByModel: Record<string, QualityMetrics> = {};
@@ -133,13 +131,11 @@ export class QualityAnalyzer {
 
     // Group responses by test case
     for (const result of this.results) {
-      for (const response of result.responses) {
-        const testId = response.metadata.testCaseId || 'unknown';
-        if (!testGroups.has(testId)) {
-          testGroups.set(testId, []);
-        }
-        testGroups.get(testId)!.push(response);
+      const testId = result.metadata.stimulusId || 'unknown';
+      if (!testGroups.has(testId)) {
+        testGroups.set(testId, []);
       }
+      testGroups.get(testId)!.push(result.response);
     }
 
     const qualityByTest: Record<string, QualityMetrics> = {};

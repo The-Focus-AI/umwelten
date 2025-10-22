@@ -8,17 +8,18 @@
 
 import { SimpleEvaluation } from '../../src/evaluation/strategies/simple-evaluation.js';
 import { createCreativeStimulus, LiteraryAnalysisTemplate } from '../../src/stimulus/templates/creative-templates.js';
-import { getAvailableModels } from '../../src/providers/index.js';
+import { getAllModels } from '../../src/cognition/models.js';
+import { EvaluationCache } from '../../src/evaluation/caching/cache-service.js';
 
 async function runSimpleEvaluationExample() {
   console.log('🎭 Simple Evaluation Example: Literary Analysis');
   console.log('=' .repeat(50));
 
   // Get available models (filter to a few for demo)
-  const allModels = await getAvailableModels();
+  const allModels = await getAllModels();
   const models = allModels
-    .filter(model => ['gpt-4', 'gpt-3.5-turbo', 'gemini-2.0-flash'].includes(model.name))
-    .slice(0, 2); // Limit to 2 models for demo
+    .filter(model => ['gemma3:12b', 'qwen2.5:14b', 'llama3.2:latest'].includes(model.name))
+    
 
   if (models.length === 0) {
     console.log('❌ No models available. Please check your API keys.');
@@ -32,11 +33,15 @@ async function runSimpleEvaluationExample() {
     systemContext: "Focus on Mary Shelley's Frankenstein novel"
   });
 
+  // Create cache for this evaluation
+  const cache = new EvaluationCache('simple-evaluation-example', { verbose: true });
+
   // Create evaluation
   const evaluation = new SimpleEvaluation(
     stimulus,
     models,
-    "Who is the monster in Mary Shelley's Frankenstein? Explain your reasoning and support your analysis with textual evidence."
+    "Who is the monster in Mary Shelley's Frankenstein? Explain your reasoning and support your analysis with textual evidence.",
+    cache
   );
 
   console.log('\n🚀 Running evaluation...');
@@ -56,19 +61,19 @@ async function runSimpleEvaluationExample() {
     results.forEach((result, index) => {
       console.log(`\n${index + 1}. ${result.model.name} (${result.model.provider})`);
       console.log(`   Response: ${result.response.content.substring(0, 200)}...`);
-      console.log(`   Tokens: ${result.usage?.total || 'N/A'}`);
-      console.log(`   Cost: $${result.cost?.totalCost?.toFixed(6) || 'N/A'}`);
-      console.log(`   Duration: ${result.duration}ms`);
+      console.log(`   Tokens: ${result.response.metadata?.tokenUsage?.total || 'N/A'}`);
+      console.log(`   Cost: $${result.response.metadata?.cost?.total?.toFixed(6) || 'N/A'}`);
+      console.log(`   Duration: ${result.metadata?.duration || 'N/A'}ms`);
     });
 
     // Summary
-    const totalCost = results.reduce((sum, r) => sum + (r.cost?.totalCost || 0), 0);
-    const totalTokens = results.reduce((sum, r) => sum + (r.usage?.total || 0), 0);
+    const totalCost = results.reduce((sum, r) => sum + (r.response.metadata?.cost?.total || 0), 0);
+    const totalTokens = results.reduce((sum, r) => sum + (r.response.metadata?.tokenUsage?.total || 0), 0);
     
     console.log('\n📈 Summary:');
     console.log(`   Total Cost: $${totalCost.toFixed(6)}`);
     console.log(`   Total Tokens: ${totalTokens.toLocaleString()}`);
-    console.log(`   Average Response Time: ${Math.round(results.reduce((sum, r) => sum + r.duration, 0) / results.length)}ms`);
+    console.log(`   Average Response Time: ${Math.round(results.reduce((sum, r) => sum + (r.metadata?.duration || 0), 0) / results.length)}ms`);
 
   } catch (error) {
     console.error('❌ Evaluation failed:', error);

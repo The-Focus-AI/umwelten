@@ -3,6 +3,7 @@ import { Stimulus } from '../../stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationCache } from '../caching/cache-service.js';
 import { Interaction } from '../../interaction/interaction.js';
+import path from 'path';
 
 export interface BatchItem {
   id: string;
@@ -104,9 +105,13 @@ export class BatchEvaluation implements EvaluationStrategy {
       // Create unique cache key for this item
       const itemKey = `item-${item.id}`;
       
+      // Generate a better cache key using stimulus role and objective
+      const stimulusKey = this.stimulus.id || 
+        `${this.stimulus.options.role || 'assistant'}-${this.stimulus.options.objective || 'task'}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+      
       const response = await this.cache.getCachedModelResponse(
         model,
-        `${this.stimulus.id}-${itemKey}`,
+        `${stimulusKey}-${itemKey}`,
         async () => {
           const interaction = new Interaction(model, this.stimulus);
           interaction.addMessage({ role: 'user', content: itemPrompt });
@@ -117,8 +122,8 @@ export class BatchEvaluation implements EvaluationStrategy {
       const duration = Date.now() - startTime;
 
       const metadata: EvaluationMetadata = {
-        stimulusId: this.stimulus.id,
-        evaluationId: this.cache.getWorkdir()?.split(require('path').sep).pop() || 'unknown',
+        stimulusId: stimulusKey,
+        evaluationId: this.cache.getWorkdir()?.split(path.sep).pop() || 'unknown',
         timestamp: new Date(),
         duration,
         cached: false
@@ -146,9 +151,12 @@ export class BatchEvaluation implements EvaluationStrategy {
     } catch (error) {
       console.error(`Error evaluating item ${item.id} with model ${model.name}:`, error);
       
+      const stimulusKey = this.stimulus.id || 
+        `${this.stimulus.options.role || 'assistant'}-${this.stimulus.options.objective || 'task'}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+      
       const metadata: EvaluationMetadata = {
-        stimulusId: this.stimulus.id,
-        evaluationId: this.cache.getWorkdir()?.split(require('path').sep).pop() || 'unknown',
+        stimulusId: stimulusKey,
+        evaluationId: this.cache.getWorkdir()?.split(path.sep).pop() || 'unknown',
         timestamp: new Date(),
         duration: Date.now() - startTime,
         cached: false,

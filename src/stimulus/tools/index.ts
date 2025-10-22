@@ -9,3 +9,6 @@ export * from './audio-tools';
 
 // Image tools
 export * from './image-tools';
+
+// Math tools (from examples)
+export * from './examples/math';

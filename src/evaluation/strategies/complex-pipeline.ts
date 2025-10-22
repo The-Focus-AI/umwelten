@@ -2,7 +2,7 @@ import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { Interaction } from '../../interaction/interaction.js';
 import { EvaluationResult, TestCase } from '../types/evaluation.js';
-import { CacheService } from '../caching/cache-service.js';
+import { EvaluationCache } from '../caching/cache-service.js';
 
 export interface EvaluationStep {
   id: string;
@@ -51,7 +51,7 @@ export interface ComplexPipelineResult extends EvaluationResult {
 
 export class ComplexPipeline {
   private options: ComplexPipelineOptions;
-  private cache?: CacheService;
+  private cache?: EvaluationCache;
 
   constructor(options: ComplexPipelineOptions) {
     this.options = {
@@ -63,7 +63,7 @@ export class ComplexPipeline {
     };
 
     if (this.options.cache?.enabled) {
-      this.cache = new CacheService({
+      this.cache = new EvaluationCache({
         ttl: this.options.cache.ttl,
         strategy: this.options.cache.strategy
       });
@@ -258,9 +258,16 @@ export class ComplexPipeline {
     // Check cache first
     if (this.cache) {
       const cacheKey = this.createCacheKey(step, models);
-      const cached = await this.cache.get(cacheKey);
-      if (cached) {
-        return cached;
+      try {
+        const cached = await this.cache.getCachedFile(cacheKey, async () => {
+          // This will only be called if cache miss
+          return null;
+        });
+        if (cached) {
+          return cached;
+        }
+      } catch (error) {
+        // Cache miss, continue with execution
       }
     }
 
@@ -284,10 +291,10 @@ export class ComplexPipeline {
         throw new Error(`Unknown strategy: ${step.strategy}`);
     }
 
-    // Cache result
+    // Cache result using getCachedFile (which will store it)
     if (this.cache) {
       const cacheKey = this.createCacheKey(step, models);
-      await this.cache.set(cacheKey, result);
+      await this.cache.getCachedFile(cacheKey, async () => result);
     }
 
     return result;

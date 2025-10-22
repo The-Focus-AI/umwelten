@@ -8,16 +8,17 @@
 
 import { BatchEvaluation } from '../../src/evaluation/strategies/batch-evaluation.js';
 import { createAnalysisStimulus, DocumentAnalysisTemplate } from '../../src/stimulus/templates/analysis-templates.js';
-import { getAvailableModels } from '../../src/providers/index.js';
+import { getAllModels } from '../../src/cognition/models.js';
+import { EvaluationCache } from '../../src/evaluation/caching/cache-service.js';
 
 async function runBatchEvaluationExample() {
   console.log('📄 Batch Evaluation Example: Document Analysis');
   console.log('=' .repeat(50));
 
   // Get available models
-  const allModels = await getAvailableModels();
+  const allModels = await getAllModels();
   const models = allModels
-    .filter(model => ['gpt-4', 'gpt-3.5-turbo', 'gemini-2.0-flash'].includes(model.name))
+    .filter(model => ['gemma3:12b', 'qwen2.5:14b', 'llama3.2:latest'].includes(model.name))
     .slice(0, 2); // Limit to 2 models for demo
 
   if (models.length === 0) {
@@ -58,16 +59,30 @@ async function runBatchEvaluationExample() {
 
   console.log(`📄 Processing ${sampleDocuments.length} documents`);
 
-  // Create input processor
-  const inputProcessor = (doc: typeof sampleDocuments[0]) => 
-    `Analyze this document:\n\nTitle: ${doc.title}\n\nContent:\n${doc.content}`;
+  // Create cache for this evaluation
+  const cache = new EvaluationCache('batch-evaluation-example', { verbose: true });
+
+  // Convert documents to batch items
+  const batchItems = sampleDocuments.map((doc, index) => ({
+    id: doc.id,
+    content: `Analyze this document:\n\nTitle: ${doc.title}\n\nContent:\n${doc.content}`,
+    metadata: { originalTitle: doc.title }
+  }));
 
   // Create batch evaluation
   const evaluation = new BatchEvaluation(
     stimulus,
     models,
-    sampleDocuments,
-    inputProcessor
+    "Analyze the following document and provide insights about its content, structure, and key themes.\n\n{content}",
+    cache,
+    {
+      items: batchItems,
+      maxConcurrent: 2,
+      groupByModel: false,
+      progressCallback: (progress) => {
+        console.log(`Progress: ${progress.completed}/${progress.total} (${progress.percentage.toFixed(1)}%) - ${progress.currentModel} - ${progress.currentItem}`);
+      }
+    }
   );
 
   console.log('\n🚀 Running batch evaluation...');
@@ -86,7 +101,7 @@ async function runBatchEvaluationExample() {
     
     // Group results by document
     const resultsByDocument = results.reduce((acc, result) => {
-      const docId = result.input.id;
+      const docId = result.item.id;
       if (!acc[docId]) acc[docId] = [];
       acc[docId].push(result);
       return acc;

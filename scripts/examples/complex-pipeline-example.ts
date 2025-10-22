@@ -1,28 +1,32 @@
 import { ModelDetails } from "../../src/cognition/types.js";
 import { ComplexPipeline } from "../../src/evaluation/strategies/complex-pipeline.js";
 import { 
+  createCreativeStimulus,
   LiteraryAnalysisTemplate,
   CreativeWritingTemplate,
   PoetryGenerationTemplate
 } from "../../src/stimulus/templates/creative-templates.js";
 import { 
+  createCodingStimulus,
   CodeGenerationTemplate,
   DebuggingTemplate
 } from "../../src/stimulus/templates/coding-templates.js";
 
-// Define models to use
+// Define models to use (using available Ollama models)
 const models: ModelDetails[] = [
   {
-    name: "gpt-4",
-    provider: "openrouter",
-    costs: { promptTokens: 0.0001, completionTokens: 0.0001 },
+    name: "gemma3:12b",
+    provider: "ollama",
+    contextLength: 32768,
+    costs: { promptTokens: 0, completionTokens: 0 },
     maxTokens: 1000,
     temperature: 0.7
   },
   {
-    name: "claude-3",
-    provider: "openrouter", 
-    costs: { promptTokens: 0.0001, completionTokens: 0.0001 },
+    name: "qwen2.5:14b",
+    provider: "ollama", 
+    contextLength: 32768,
+    costs: { promptTokens: 0, completionTokens: 0 },
     maxTokens: 1000,
     temperature: 0.7
   }
@@ -53,7 +57,7 @@ const steps = [
     id: "brainstorm",
     name: "Brainstorm Ideas",
     strategy: "simple" as const,
-    stimulus: LiteraryAnalysisTemplate,
+    stimulus: createCreativeStimulus(LiteraryAnalysisTemplate),
     input: {
       prompt: "Brainstorm creative story ideas about artificial intelligence and human relationships",
       requirements: [
@@ -67,7 +71,7 @@ const steps = [
     id: "outline",
     name: "Create Story Outline",
     strategy: "simple" as const,
-    stimulus: LiteraryAnalysisTemplate,
+    stimulus: createCreativeStimulus(LiteraryAnalysisTemplate),
     input: {
       prompt: "Create a detailed outline for one of the story ideas",
       requirements: [
@@ -82,7 +86,7 @@ const steps = [
     id: "write-story",
     name: "Write the Story",
     strategy: "matrix" as const,
-    stimulus: CreativeWritingTemplate,
+    stimulus: createCreativeStimulus(CreativeWritingTemplate),
     input: {
       prompt: "Write a complete short story based on the outline",
       requirements: [
@@ -98,7 +102,7 @@ const steps = [
     id: "write-poem",
     name: "Write a Poem",
     strategy: "simple" as const,
-    stimulus: PoetryGenerationTemplate,
+    stimulus: createCreativeStimulus(PoetryGenerationTemplate),
     input: {
       prompt: "Write a poem inspired by the story themes",
       requirements: [
@@ -113,7 +117,7 @@ const steps = [
     id: "code-implementation",
     name: "Code Implementation",
     strategy: "simple" as const,
-    stimulus: CodeGenerationTemplate,
+    stimulus: createCodingStimulus(CodeGenerationTemplate),
     input: {
       prompt: "Write a Python function that could be used to analyze the story for themes and emotions",
       requirements: [
@@ -127,7 +131,7 @@ const steps = [
     id: "debug-code",
     name: "Debug and Improve Code",
     strategy: "simple" as const,
-    stimulus: DebuggingTemplate,
+    stimulus: createCodingStimulus(DebuggingTemplate),
     input: {
       prompt: "Review and improve the code implementation",
       requirements: [

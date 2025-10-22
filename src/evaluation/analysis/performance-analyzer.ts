@@ -55,15 +55,15 @@ export class PerformanceAnalyzer {
   }
 
   private calculateOverallMetrics(): PerformanceMetrics {
-    const totalResponses = this.results.reduce((sum, result) => sum + result.responses.length, 0);
-    const totalTime = this.results.reduce((sum, result) => sum + result.metrics.totalTime, 0);
-    const totalTokens = this.results.reduce((sum, result) => sum + result.metrics.totalTokens, 0);
-    const totalCost = this.results.reduce((sum, result) => sum + result.metrics.totalCost, 0);
-    const totalCacheHits = this.results.reduce((sum, result) => sum + result.metrics.cacheHits, 0);
-    const totalCacheRequests = totalResponses + totalCacheHits;
+    const totalResponses = this.results.length;
+    const totalTime = this.results.reduce((sum, result) => sum + (result.metadata.duration || 0), 0);
+    const totalTokens = this.results.reduce((sum, result) => sum + (result.response.metadata?.tokenUsage?.total || 0), 0);
+    const totalCost = this.results.reduce((sum, result) => sum + (result.response.metadata?.cost?.total || 0), 0);
+    const totalCacheHits = this.results.reduce((sum, result) => sum + (result.metadata.cached ? 1 : 0), 0);
+    const totalCacheRequests = totalResponses;
 
     const errorCount = this.results.reduce((sum, result) => {
-      return sum + result.responses.filter(r => r.metadata.error).length;
+      return sum + (result.metadata.error ? 1 : 0);
     }, 0);
 
     return {
@@ -83,17 +83,15 @@ export class PerformanceAnalyzer {
 
     // Group responses by model
     for (const result of this.results) {
-      for (const response of result.responses) {
-        const key = `${response.metadata.model}:${response.metadata.provider}`;
-        if (!modelGroups.has(key)) {
-          modelGroups.set(key, {
-            responses: [],
-            model: response.metadata.model,
-            provider: response.metadata.provider
-          });
-        }
-        modelGroups.get(key)!.responses.push(response);
+      const key = `${result.model.name}:${result.model.provider}`;
+      if (!modelGroups.has(key)) {
+        modelGroups.set(key, {
+          responses: [],
+          model: result.model.name,
+          provider: result.model.provider
+        });
       }
+      modelGroups.get(key)!.responses.push(result.response);
     }
 
     // Calculate metrics for each model
@@ -101,7 +99,7 @@ export class PerformanceAnalyzer {
       const responses = data.responses;
       const totalTime = responses.reduce((sum, r) => sum + (r.metadata.endTime - r.metadata.startTime), 0);
       const totalTokens = responses.reduce((sum, r) => sum + (r.metadata.tokenUsage?.total || 0), 0);
-      const totalCost = responses.reduce((sum, r) => sum + (r.metadata.cost?.totalCost || 0), 0);
+      const totalCost = responses.reduce((sum, r) => sum + (r.metadata.cost?.total || 0), 0);
       const errorCount = responses.filter(r => r.metadata.error).length;
 
       return {

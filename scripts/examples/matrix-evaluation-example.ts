@@ -8,16 +8,17 @@
 
 import { MatrixEvaluation } from '../../src/evaluation/strategies/matrix-evaluation.js';
 import { createCreativeStimulus, PoetryGenerationTemplate } from '../../src/stimulus/templates/creative-templates.js';
-import { getAvailableModels } from '../../src/providers/index.js';
+import { getAllModels } from '../../src/cognition/models.js';
+import { EvaluationCache } from '../../src/evaluation/caching/cache-service.js';
 
 async function runMatrixEvaluationExample() {
   console.log('🎭 Matrix Evaluation Example: Poetry Generation');
   console.log('=' .repeat(50));
 
   // Get available models
-  const allModels = await getAvailableModels();
+  const allModels = await getAllModels();
   const models = allModels
-    .filter(model => ['gpt-4', 'gpt-3.5-turbo', 'gemini-2.0-flash'].includes(model.name))
+    .filter(model => ['gemma3:12b', 'qwen2.5:14b', 'llama3.2:latest'].includes(model.name))
     .slice(0, 2); // Limit to 2 models for demo
 
   if (models.length === 0) {
@@ -34,21 +35,35 @@ async function runMatrixEvaluationExample() {
 
   // Define matrix dimensions
   const dimensions = {
-    poeticForm: ['haiku', 'sonnet', 'free-verse', 'limerick'],
-    theme: ['ocean', 'forest', 'mountain', 'desert'],
-    mood: ['peaceful', 'dramatic', 'melancholy', 'joyful']
+    poeticForm: ['haiku', 'sonnet'],
+    theme: ['ocean', 'forest'],
+    mood: ['peaceful', 'dramatic']
   };
 
   // Create prompt template
   const promptTemplate = (dims: Record<string, any>) => 
     `Write a ${dims.poeticForm} about a ${dims.theme} with a ${dims.mood} mood.`;
 
+  // Create cache for this evaluation
+  const cache = new EvaluationCache('matrix-evaluation-example', { verbose: true });
+
   // Create matrix evaluation
   const evaluation = new MatrixEvaluation(
     stimulus,
     models,
-    dimensions,
-    promptTemplate
+    "Write a poem based on the specified parameters.",
+    cache,
+    {
+      dimensions: [
+        { name: 'poeticForm', values: dimensions.poeticForm },
+        { name: 'theme', values: dimensions.theme },
+        { name: 'mood', values: dimensions.mood }
+      ],
+      maxConcurrent: 2,
+      progressCallback: (progress) => {
+        console.log(`Progress: ${progress.completed}/${progress.total} (${progress.percentage.toFixed(1)}%) - ${progress.currentModel} - ${JSON.stringify(progress.currentCombination)}`);
+      }
+    }
   );
 
   console.log('\n🚀 Running matrix evaluation...');
@@ -88,16 +103,16 @@ async function runMatrixEvaluationExample() {
     
     const sampleResults = results.slice(0, 3);
     sampleResults.forEach((result, index) => {
-      const dims = result.dimensions;
-      console.log(`\n${index + 1}. ${dims.poeticForm} about ${dims.theme} (${dims.mood})`);
+      const combination = result.combination;
+      console.log(`\n${index + 1}. ${combination.poeticForm} about ${combination.theme} (${combination.mood})`);
       console.log(`   Model: ${result.model.name}`);
       console.log(`   Response: ${result.response.content.substring(0, 150)}...`);
     });
 
     // Summary statistics
-    const totalCost = results.reduce((sum, r) => sum + (r.cost?.totalCost || 0), 0);
-    const totalTokens = results.reduce((sum, r) => sum + (r.usage?.total || 0), 0);
-    const avgResponseTime = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
+    const totalCost = results.reduce((sum, r) => sum + (r.response.metadata?.cost?.total || 0), 0);
+    const totalTokens = results.reduce((sum, r) => sum + (r.response.metadata?.tokenUsage?.total || 0), 0);
+    const avgResponseTime = results.reduce((sum, r) => sum + (r.metadata?.duration || 0), 0) / results.length;
     
     console.log('\n📈 Matrix Summary:');
     console.log(`   Total Combinations: ${results.length}`);

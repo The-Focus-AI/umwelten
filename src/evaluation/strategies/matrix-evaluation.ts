@@ -3,6 +3,7 @@ import { Stimulus } from '../../stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationCache } from '../caching/cache-service.js';
 import { Interaction } from '../../interaction/interaction.js';
+import path from 'path';
 
 export interface MatrixDimension {
   name: string;
@@ -107,9 +108,13 @@ export class MatrixEvaluation implements EvaluationStrategy {
       // Create a unique cache key that includes the combination
       const combinationKey = this.createCombinationKey(combination);
       
+      // Generate a better cache key using stimulus role and objective
+      const stimulusKey = this.stimulus.id || 
+        `${this.stimulus.options.role || 'assistant'}-${this.stimulus.options.objective || 'task'}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+      
       const response = await this.cache.getCachedModelResponse(
         model,
-        `${this.stimulus.id}-${combinationKey}`,
+        `${stimulusKey}-${combinationKey}`,
         async () => {
           const interaction = new Interaction(model, this.stimulus);
           interaction.addMessage({ role: 'user', content: modifiedPrompt });
@@ -120,8 +125,8 @@ export class MatrixEvaluation implements EvaluationStrategy {
       const duration = Date.now() - startTime;
 
       const metadata: EvaluationMetadata = {
-        stimulusId: this.stimulus.id,
-        evaluationId: this.cache.getWorkdir()?.split(require('path').sep).pop() || 'unknown',
+        stimulusId: stimulusKey,
+        evaluationId: this.cache.getWorkdir()?.split(path.sep).pop() || 'unknown',
         timestamp: new Date(),
         duration,
         cached: false
@@ -138,9 +143,12 @@ export class MatrixEvaluation implements EvaluationStrategy {
     } catch (error) {
       console.error(`Error evaluating combination ${JSON.stringify(combination)} with model ${model.name}:`, error);
       
+      const stimulusKey = this.stimulus.id || 
+        `${this.stimulus.options.role || 'assistant'}-${this.stimulus.options.objective || 'task'}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+      
       const metadata: EvaluationMetadata = {
-        stimulusId: this.stimulus.id,
-        evaluationId: this.cache.getWorkdir()?.split(require('path').sep).pop() || 'unknown',
+        stimulusId: stimulusKey,
+        evaluationId: this.cache.getWorkdir()?.split(path.sep).pop() || 'unknown',
         timestamp: new Date(),
         duration: Date.now() - startTime,
         cached: false,
