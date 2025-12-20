@@ -27,14 +27,14 @@ export interface SmartModelRunnerConfig {
   baseRunner: ModelRunner;
 }
 
-import { BaseModelRunner } from "./runner.js";
-
-export class SmartModelRunner extends BaseModelRunner {
+export class SmartModelRunner implements ModelRunner {
   private beforeHooks: RunnerHook[];
   private duringHooks: RunnerHook[];
   private afterHooks: RunnerHook[];
+  private baseRunner: ModelRunner;
+
   constructor(config: SmartModelRunnerConfig) {
-    super(config.baseRunner ? (config.baseRunner as any).config : {});
+    this.baseRunner = config.baseRunner;
     this.beforeHooks = config.beforeHooks || [];
     this.duringHooks = config.duringHooks || [];
     this.afterHooks = config.afterHooks || [];
@@ -62,7 +62,7 @@ export class SmartModelRunner extends BaseModelRunner {
     let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await super.generateText(ctx);
+    const mainResult = await this.baseRunner.generateText(ctx);
 
     // During hooks (parallel/side tasks)
     await Promise.all(this.duringHooks.map(hook => hook(ctx)));
@@ -81,7 +81,7 @@ export class SmartModelRunner extends BaseModelRunner {
     let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await super.streamText(ctx);
+    const mainResult = await this.baseRunner.streamText(ctx);
 
     // During hooks (parallel/side tasks)
     await Promise.all(this.duringHooks.map(hook => hook(ctx)));
@@ -100,7 +100,7 @@ export class SmartModelRunner extends BaseModelRunner {
     let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await super.generateObject(ctx, schema);
+    const mainResult = await this.baseRunner.generateObject(ctx, schema);
 
     // During hooks (parallel/side tasks)
     await Promise.all(this.duringHooks.map(hook => hook(ctx)));
@@ -119,7 +119,7 @@ export class SmartModelRunner extends BaseModelRunner {
     let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await super.streamObject(ctx, schema);
+    const mainResult = await this.baseRunner.streamObject(ctx, schema);
 
     // During hooks (parallel/side tasks)
     await Promise.all(this.duringHooks.map(hook => hook(ctx)));

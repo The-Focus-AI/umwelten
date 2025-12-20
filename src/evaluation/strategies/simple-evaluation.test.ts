@@ -4,11 +4,21 @@ import { EvaluationCache } from '../caching/cache-service.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationConfig, EvaluationProgress } from '../types/evaluation-types.js';
+import { Interaction } from '../../interaction/interaction.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Mock the Interaction module at the top level
+vi.mock('../../interaction/interaction.js');
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Shared mock for Interaction - reset in beforeEach
+let mockInteraction: {
+  addMessage: ReturnType<typeof vi.fn>;
+  generateText: ReturnType<typeof vi.fn>;
+};
 
 describe('SimpleEvaluation', () => {
   let evaluation: SimpleEvaluation;
@@ -19,9 +29,12 @@ describe('SimpleEvaluation', () => {
   let progressCallback: vi.MockedFunction<(progress: EvaluationProgress) => void>;
 
   beforeEach(() => {
+    // Reset all mocks
+    vi.clearAllMocks();
+
     // Create a unique test directory for each test
     testDir = path.join(__dirname, '..', '..', '..', 'test-output', `simple-eval-test-${Date.now()}`);
-    
+
     // Create test stimulus
     stimulus = new Stimulus({
       id: 'test-stimulus',
@@ -33,7 +46,7 @@ describe('SimpleEvaluation', () => {
       maxTokens: 100,
       runnerType: 'base'
     });
-    
+
     // Create test models
     models = [
       {
@@ -49,16 +62,36 @@ describe('SimpleEvaluation', () => {
         costs: { promptTokens: 0.001, completionTokens: 0.002 },
       },
     ];
-    
+
     // Create cache
     cache = new EvaluationCache('test-evaluation', {
       baseDir: testDir,
       verbose: false,
     });
-    
+
     // Create progress callback mock
     progressCallback = vi.fn();
-    
+
+    // Setup Interaction mock - shared across tests
+    mockInteraction = {
+      addMessage: vi.fn(),
+      generateText: vi.fn().mockResolvedValue({
+        content: 'Test response',
+        metadata: {
+          startTime: new Date(),
+          endTime: new Date(),
+          tokenUsage: { promptTokens: 10, completionTokens: 20 },
+          provider: 'test-provider',
+          model: 'test-model',
+          cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
+        },
+      }),
+    };
+
+    vi.mocked(Interaction).mockImplementation(function(this: any, modelDetails: any, stimulus: any) {
+      return mockInteraction as any;
+    } as any);
+
     // Create evaluation
     evaluation = new SimpleEvaluation(
       stimulus,
@@ -100,27 +133,6 @@ describe('SimpleEvaluation', () => {
 
   describe('run', () => {
     it('should run evaluation for all models sequentially', async () => {
-      // Mock the Interaction class to avoid actual model calls
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      // Mock the Interaction constructor
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       const results = await evaluation.run();
 
       expect(results).toHaveLength(2);
@@ -146,26 +158,6 @@ describe('SimpleEvaluation', () => {
         progressCallback
       );
 
-      // Mock the Interaction class
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       const results = await concurrentEvaluation.run();
 
       expect(results).toHaveLength(2);
@@ -174,15 +166,8 @@ describe('SimpleEvaluation', () => {
     });
 
     it('should handle model errors gracefully', async () => {
-      // Mock the Interaction class to throw an error
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockRejectedValue(new Error('Model error')),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
+      // Reset mock to throw an error
+      mockInteraction.generateText.mockRejectedValue(new Error('Model error'));
 
       const results = await evaluation.run();
 
@@ -194,26 +179,6 @@ describe('SimpleEvaluation', () => {
     });
 
     it('should call progress callback for each model', async () => {
-      // Mock the Interaction class
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       await evaluation.run();
 
       // Check that progress callback was called for each model
@@ -254,52 +219,12 @@ describe('SimpleEvaluation', () => {
         progressCallback
       );
 
-      // Mock the Interaction class
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       await noProgressEvaluation.run();
 
       expect(progressCallback).not.toHaveBeenCalled();
     });
 
     it('should use caching when enabled', async () => {
-      // Mock the Interaction class
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       // First run
       await evaluation.run();
       expect(mockInteraction.generateText).toHaveBeenCalledTimes(2);
@@ -323,26 +248,6 @@ describe('SimpleEvaluation', () => {
         }
       );
 
-      // Mock the Interaction class
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       // First run
       await noCacheEvaluation.run();
       expect(mockInteraction.generateText).toHaveBeenCalledTimes(2);
@@ -355,46 +260,26 @@ describe('SimpleEvaluation', () => {
 
   describe('result structure', () => {
     it('should return properly structured results', async () => {
-      // Mock the Interaction class
-      const mockInteraction = {
-        addMessage: vi.fn(),
-        generateText: vi.fn().mockResolvedValue({
-          content: 'Test response',
-          metadata: {
-            startTime: new Date(),
-            endTime: new Date(),
-            tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'test-provider',
-            model: 'test-model',
-            cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-          },
-        }),
-      };
-
-      vi.doMock('../../interaction/interaction.js', () => ({
-        Interaction: vi.fn().mockImplementation(() => mockInteraction),
-      }));
-
       const results = await evaluation.run();
 
       expect(results).toHaveLength(2);
-      
+
       results.forEach((result, index) => {
         expect(result).toHaveProperty('model');
         expect(result).toHaveProperty('response');
         expect(result).toHaveProperty('metadata');
-        
+
         expect(result.model).toEqual(models[index]);
         expect(result.response).toHaveProperty('content');
         expect(result.response).toHaveProperty('metadata');
-        
+
         expect(result.metadata).toHaveProperty('stimulusId');
         expect(result.metadata).toHaveProperty('evaluationId');
         expect(result.metadata).toHaveProperty('timestamp');
         expect(result.metadata).toHaveProperty('duration');
         expect(result.metadata).toHaveProperty('cached');
         expect(result.metadata).toHaveProperty('strategy');
-        
+
         expect(result.metadata.stimulusId).toBe('test-assistant-complete-test-tasks');
         expect(result.metadata.evaluationId).toBe('test-evaluation');
         expect(result.metadata.strategy).toBe('SimpleEvaluation');

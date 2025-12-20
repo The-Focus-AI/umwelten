@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import { BaseModelRunner } from "./runner.js";
 import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import type { ModelDetails } from "./types.js";
 
 // Test schema for structured object generation
@@ -40,10 +41,11 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
   describe("Gemma3 Model (12b)", () => {
     it("should generate a structured object with gemma3", async () => {
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const prompt = "Create a profile for a software engineer named Alice who is 28 years old and enjoys coding, hiking, and reading.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "assistant that creates structured profiles" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(testSchema);
+      interaction.addMessage({ role: "user", content: "Create a profile for a software engineer named Alice who is 28 years old and enjoys coding, hiking, and reading." });
 
       const result = await runner.generateObject(interaction, testSchema);
 
@@ -89,10 +91,11 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
       });
 
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const prompt = "Write a short story about a brave knight who learns the value of friendship. Include 2 characters with their traits.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "creative story writer" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(complexSchema);
+      interaction.addMessage({ role: "user", content: "Write a short story about a brave knight who learns the value of friendship. Include 2 characters with their traits." });
 
       const result = await runner.generateObject(interaction, complexSchema);
 
@@ -111,10 +114,11 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
   describe("Qwen3 Model (14b)", () => {
     it("should generate a structured object with qwen3", async () => {
       const modelDetails = createOllamaModelDetails("qwen3:latest");
-      const prompt = "Create a profile for a data scientist named Bob who is 32 years old and enjoys machine learning, yoga, and cooking.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "assistant that creates structured profiles" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(testSchema);
+      interaction.addMessage({ role: "user", content: "Create a profile for a data scientist named Bob who is 32 years old and enjoys machine learning, yoga, and cooking." });
 
       const result = await runner.generateObject(interaction, testSchema);
 
@@ -154,10 +158,11 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
       });
 
       const modelDetails = createOllamaModelDetails("qwen3:latest");
-      const prompt = "Analyze the impact of artificial intelligence on modern software development. Provide 2 key insights with confidence levels.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "AI research analyst" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(complexSchema);
+      interaction.addMessage({ role: "user", content: "Analyze the impact of artificial intelligence on modern software development. Provide 2 key insights with confidence levels." });
 
       const result = await runner.generateObject(interaction, complexSchema);
 
@@ -178,10 +183,11 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
   describe("Usage Statistics", () => {
     it("should provide usage statistics", async () => {
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const prompt = "Create a simple profile for John, age 25, who is a teacher and likes reading.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "assistant that creates structured profiles" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(testSchema);
+      interaction.addMessage({ role: "user", content: "Create a simple profile for John, age 25, who is a teacher and likes reading." });
 
       const result = await runner.generateObject(interaction, testSchema);
 
@@ -216,10 +222,11 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
       });
 
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const prompt = "Extract key facts about artificial intelligence from this text: AI is transforming software development by automating code generation, testing, and deployment processes.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "fact extractor" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(memorySchema);
+      interaction.addMessage({ role: "user", content: "Extract key facts about artificial intelligence from this text: AI is transforming software development by automating code generation, testing, and deployment processes." });
 
       const result = await runner.generateObject(interaction, memorySchema);
 
@@ -239,19 +246,21 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
   describe("Error Handling", () => {
     it("should handle invalid model gracefully", async () => {
       const modelDetails = createOllamaModelDetails("nonexistent-model:latest");
-      const prompt = "Create a simple profile.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "assistant" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(testSchema);
+      interaction.addMessage({ role: "user", content: "Create a simple profile." });
 
       await expect(runner.generateObject(interaction, testSchema)).rejects.toThrow();
     }, 30000);
 
     it("should handle malformed schema gracefully", async () => {
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const prompt = "Create a simple profile.";
-      
-      const interaction = new Interaction(modelDetails, prompt);
+      const stimulus = new Stimulus({ role: "assistant" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
+      interaction.addMessage({ role: "user", content: "Create a simple profile." });
       
       // This should fail because the model can't generate valid JSON for an impossible schema
       const impossibleSchema = z.object({

@@ -51,23 +51,31 @@ describe('MatrixEvaluation', () => {
     vi.mocked(mockCache.getWorkdir).mockReturnValue('/test/workdir');
 
     // Mock Interaction
-    mockInteractionInstance = new Interaction(mockModels[0], mockStimulus);
-    vi.mocked(mockInteractionInstance.generateText).mockResolvedValue({
-      content: 'Generated story content',
-      metadata: {
-        startTime: new Date(),
-        endTime: new Date(),
-        tokenUsage: { promptTokens: 10, completionTokens: 20 },
-        provider: 'mock-provider',
-        model: 'mock-model',
-        cost: { total: 0.01, prompt: 0.005, completion: 0.005 },
-      },
-    });
-    vi.mocked(Interaction).mockImplementation((modelDetails, stimulus) => {
+    mockInteractionInstance = {
+      modelDetails: mockModels[0],
+      stimulus: mockStimulus,
+      generateText: vi.fn().mockResolvedValue({
+        content: 'Generated story content',
+        metadata: {
+          startTime: new Date(),
+          endTime: new Date(),
+          tokenUsage: { promptTokens: 10, completionTokens: 20 },
+          provider: 'mock-provider',
+          model: 'mock-model',
+          cost: { total: 0.01, prompt: 0.005, completion: 0.005 },
+        },
+      }),
+      addMessage: vi.fn(),
+      getMessages: vi.fn().mockReturnValue([]),
+      getVercelTools: vi.fn().mockReturnValue({}),
+    } as any;
+
+    // Use a class for proper constructor mocking in Vitest 4
+    vi.mocked(Interaction).mockImplementation(function(this: any, modelDetails: any, stimulus: any) {
       mockInteractionInstance.modelDetails = modelDetails;
       mockInteractionInstance.stimulus = stimulus;
       return mockInteractionInstance;
-    });
+    } as any);
   });
 
   it('should generate all combinations correctly', () => {
@@ -118,7 +126,7 @@ describe('MatrixEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(8); // 4 combinations × 2 models
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(9); // 8 evaluations + 1 setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(8); // 8 evaluations
 
     // Check that all combinations are covered
     const combinations = results.map(r => r.combination);

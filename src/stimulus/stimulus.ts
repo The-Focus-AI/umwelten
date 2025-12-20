@@ -133,12 +133,18 @@ export class Stimulus {
     return {
       temperature: this.options.temperature,
       maxTokens: this.options.maxTokens,
+      topP: this.options.topP,
+      frequencyPenalty: this.options.frequencyPenalty,
+      presencePenalty: this.options.presencePenalty,
     };
   }
 
   hasModelOptions(): boolean {
     return this.options.temperature !== undefined || 
-           this.options.maxTokens !== undefined;
+           this.options.maxTokens !== undefined ||
+           this.options.topP !== undefined ||
+           this.options.frequencyPenalty !== undefined ||
+           this.options.presencePenalty !== undefined;
   }
 
   // NEW: Runner type methods

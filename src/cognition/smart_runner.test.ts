@@ -3,6 +3,7 @@ import { SmartModelRunner, RunnerHook, RunnerAbort, RunnerModification } from ".
 import { BaseModelRunner } from "./runner.js";
 import { Interaction } from "../interaction/interaction.js";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 
 describe("SmartModelRunner", () => {
   const dummyModelResponse = {
@@ -42,7 +43,7 @@ describe("SmartModelRunner", () => {
   const makeConversation = () =>
     new Interaction(
       { provider: "ollama", name: "gemma3:27b" },
-      "test"
+      new Stimulus({ role: "test assistant" })
     );
 
   it("calls before, during, and after hooks in order", async () => {

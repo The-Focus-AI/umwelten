@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import { BaseModelRunner } from "./runner.js";
 import { Interaction } from "../interaction/interaction.js";
+import { Stimulus } from "../stimulus/stimulus.js";
 import type { ModelDetails } from "./types.js";
 
 describe("Structured Object Generation with BaseModelRunner", () => {
@@ -51,11 +52,11 @@ describe("Structured Object Generation with BaseModelRunner", () => {
       }).passthrough();
       
       const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
-      const systemPrompt = "You are a helpful assistant that responds with JSON.";
-      
-      const interaction = new Interaction(modelDetails, systemPrompt);
+      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(simpleSchema);
-      
+
       interaction.addMessage({
         role: "user",
         content: "Return a JSON object with a message and a number. Format: {\"message\": \"Hello\", \"number\": 42}"
@@ -79,9 +80,9 @@ describe("Structured Object Generation with BaseModelRunner", () => {
 
     it("should generate text that can be parsed as JSON with generateText", async () => {
       const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
-      const systemPrompt = "You are a helpful assistant that responds with JSON.";
-      
-      const interaction = new Interaction(modelDetails, systemPrompt);
+      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       
       interaction.addMessage({
         role: "user",
@@ -129,11 +130,11 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         message: z.string().optional(),
         number: z.number().optional(),
       }).passthrough();
-      
+
       const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
-      const systemPrompt = "You are a helpful assistant that responds with JSON.";
-      
-      const interaction = new Interaction(modelDetails, systemPrompt);
+      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(simpleSchema);
       
       interaction.addMessage({
@@ -167,11 +168,11 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         message: z.string().optional(),
         number: z.number().optional(),
       }).passthrough();
-      
+
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const systemPrompt = "You are a helpful assistant that responds with JSON.";
-      
-      const interaction = new Interaction(modelDetails, systemPrompt);
+      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(simpleSchema);
       
       interaction.addMessage({
@@ -200,11 +201,11 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         message: z.string().optional(),
         number: z.number().optional(),
       }).passthrough();
-      
+
       const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const systemPrompt = "You are a helpful assistant that responds with JSON.";
-      
-      const interaction = new Interaction(modelDetails, systemPrompt);
+      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(simpleSchema);
       
       interaction.addMessage({
@@ -263,9 +264,9 @@ describe("Structured Object Generation with BaseModelRunner", () => {
   describe("Alternative Approaches", () => {
     it("should demonstrate using generateText + JSON parsing as alternative to streamObject", async () => {
       const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
-      const systemPrompt = "You are a helpful assistant that responds with JSON.";
-      
-      const interaction = new Interaction(modelDetails, systemPrompt);
+      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+
+      const interaction = new Interaction(modelDetails, stimulus);
       
       interaction.addMessage({
         role: "user",

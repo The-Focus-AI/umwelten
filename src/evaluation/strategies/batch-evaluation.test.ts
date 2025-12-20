@@ -53,23 +53,31 @@ describe('BatchEvaluation', () => {
     vi.mocked(mockCache.getWorkdir).mockReturnValue('/test/workdir');
 
     // Mock Interaction
-    mockInteractionInstance = new Interaction(mockModels[0], mockStimulus);
-    vi.mocked(mockInteractionInstance.generateText).mockResolvedValue({
-      content: 'Analysis result',
-      metadata: {
-        startTime: new Date(),
-        endTime: new Date(),
-        tokenUsage: { promptTokens: 10, completionTokens: 20 },
-        provider: 'mock-provider',
-        model: 'mock-model',
-        cost: { total: 0.01, prompt: 0.005, completion: 0.005 },
-      },
-    });
-    vi.mocked(Interaction).mockImplementation((modelDetails, stimulus) => {
+    mockInteractionInstance = {
+      modelDetails: mockModels[0],
+      stimulus: mockStimulus,
+      generateText: vi.fn().mockResolvedValue({
+        content: 'Analysis result',
+        metadata: {
+          startTime: new Date(),
+          endTime: new Date(),
+          tokenUsage: { promptTokens: 10, completionTokens: 20 },
+          provider: 'mock-provider',
+          model: 'mock-model',
+          cost: { total: 0.01, prompt: 0.005, completion: 0.005 },
+        },
+      }),
+      addMessage: vi.fn(),
+      getMessages: vi.fn().mockReturnValue([]),
+      getVercelTools: vi.fn().mockReturnValue({}),
+    } as any;
+    
+    // Use a class for proper constructor mocking in Vitest 4
+    vi.mocked(Interaction).mockImplementation(function(this: any, modelDetails: any, stimulus: any) {
       mockInteractionInstance.modelDetails = modelDetails;
       mockInteractionInstance.stimulus = stimulus;
       return mockInteractionInstance;
-    });
+    } as any);
   });
 
   it('should run evaluation for all item-model combinations', async () => {
@@ -84,7 +92,7 @@ describe('BatchEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(4); // 2 items × 2 models
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(5); // 4 evaluations + 1 setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(4); // 4 evaluations
 
     // Check that all items are covered
     const itemIds = results.map(r => r.item.id);
@@ -158,7 +166,7 @@ describe('BatchEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(4); // 2 items × 2 models
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(5); // 4 evaluations + 1 setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(4); // 4 evaluations
   });
 
   it('should handle errors gracefully', async () => {
@@ -209,7 +217,7 @@ describe('BatchEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(2); // 1 item × 2 models
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(3); // 2 evaluations + 1 setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(2); // 2 evaluations
   });
 
   it('should work with single model', async () => {
@@ -226,7 +234,7 @@ describe('BatchEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(2); // 2 items × 1 model
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(3); // 2 evaluations + 1 setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(2); // 2 evaluations
   });
 
   it('should work with empty items', async () => {

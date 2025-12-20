@@ -1,3 +1,4 @@
 [tools]
 node = "latest"
 "npm:@anthropic-ai/claude-code" = "latest"
+"npm:@beads/bd" = "latest"

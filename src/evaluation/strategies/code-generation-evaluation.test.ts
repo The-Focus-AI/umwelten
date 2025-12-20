@@ -48,23 +48,31 @@ describe('CodeGenerationEvaluation', () => {
     vi.mocked(mockCache.getWorkdir).mockReturnValue('/test/workdir');
 
     // Mock Interaction
-    mockInteractionInstance = new Interaction(mockModels[0], mockStimulus);
-    vi.mocked(mockInteractionInstance.generateText).mockResolvedValue({
-      content: 'function doSomething() { return "hello"; }',
-      metadata: {
-        startTime: new Date(),
-        endTime: new Date(),
-        tokenUsage: { promptTokens: 10, completionTokens: 20 },
-        provider: 'mock-provider',
-        model: 'mock-model',
-        cost: { total: 0.01, prompt: 0.005, completion: 0.005 },
-      },
-    });
-    vi.mocked(Interaction).mockImplementation((modelDetails, stimulus) => {
+    mockInteractionInstance = {
+      modelDetails: mockModels[0],
+      stimulus: mockStimulus,
+      generateText: vi.fn().mockResolvedValue({
+        content: 'function doSomething() { return "hello"; }',
+        metadata: {
+          startTime: new Date(),
+          endTime: new Date(),
+          tokenUsage: { promptTokens: 10, completionTokens: 20 },
+          provider: 'mock-provider',
+          model: 'mock-model',
+          cost: { total: 0.01, prompt: 0.005, completion: 0.005 },
+        },
+      }),
+      addMessage: vi.fn(),
+      getMessages: vi.fn().mockReturnValue([]),
+      getVercelTools: vi.fn().mockReturnValue({}),
+    } as any;
+    
+    // Use a class for proper constructor mocking in Vitest 4
+    vi.mocked(Interaction).mockImplementation(function(this: any, modelDetails: any, stimulus: any) {
       mockInteractionInstance.modelDetails = modelDetails;
       mockInteractionInstance.stimulus = stimulus;
       return mockInteractionInstance;
-    });
+    } as any);
 
     // Mock code extraction
     vi.mock('../typescript-code-extractor.js', () => ({
@@ -73,18 +81,18 @@ describe('CodeGenerationEvaluation', () => {
       ensureConsoleOutput: vi.fn().mockReturnValue('function doSomething() { return "hello"; }')
     }));
 
-    // Mock Docker runner
+    // Mock Docker runner using class syntax for Vitest 4
     vi.mock('../docker-runner.js', () => ({
-      DockerRunner: vi.fn().mockImplementation(() => ({
-        runCode: vi.fn().mockResolvedValue({ success: true, output: 'hello', error: null })
-      }))
+      DockerRunner: class MockDockerRunner {
+        runCode = vi.fn().mockResolvedValue({ success: true, output: 'hello', error: null })
+      }
     }));
 
-    // Mock code scorer
+    // Mock code scorer using class syntax for Vitest 4
     vi.mock('../code-scorer.js', () => ({
-      CodeScorer: vi.fn().mockImplementation(() => ({
-        scoreCode: vi.fn().mockResolvedValue({ overallScore: 0.8, details: {} })
-      }))
+      CodeScorer: class MockCodeScorer {
+        scoreCode = vi.fn().mockResolvedValue({ overallScore: 0.8, details: {} })
+      }
     }));
   });
 
@@ -107,7 +115,7 @@ describe('CodeGenerationEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(mockModels.length);
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(mockModels.length + 1); // +1 for setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(mockModels.length);
     expect(mockCache.getCachedModelResponse).toHaveBeenCalledTimes(mockModels.length);
 
     results.forEach((result, index) => {
@@ -180,7 +188,7 @@ describe('CodeGenerationEvaluation', () => {
 
     expect(results).toHaveLength(mockModels.length);
     // With maxConcurrent: 1, models should be processed sequentially
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(mockModels.length + 1); // +1 for setup call
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(mockModels.length);
   });
 
   it('should use cached data when available', async () => {
@@ -207,7 +215,7 @@ describe('CodeGenerationEvaluation', () => {
     const results = await evaluation.run();
 
     expect(results).toHaveLength(mockModels.length);
-    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(1); // Only setup call, no actual evaluations
+    expect(vi.mocked(Interaction)).toHaveBeenCalledTimes(0); // No Interaction calls - all cached
     results.forEach(result => {
       expect(result.response.content).toBe('cached function');
     });

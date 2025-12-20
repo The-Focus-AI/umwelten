@@ -1,8 +1,0 @@
-{
-    "type": "node",
-    "request": "launch",
-    "name": "Debug TS with ts-node",
-    "runtimeExecutable": "ts-node",
-    "args": ["${relativeFile}"],
-    "cwd": "${workspaceFolder}"
-  }

@@ -61,7 +61,22 @@ export class Interaction {
 
   // NEW: Method to update stimulus (for dynamic changes)
   setStimulus(stimulus: Stimulus): void {
-    this.setSystemPrompt(stimulus.getPrompt());
+    this.stimulus = stimulus;
+
+    // Update system prompt
+    if(this.messages[0]?.role === "system") {
+      this.messages[0].content = stimulus.getPrompt();
+    }
+
+    // Update tools from new stimulus
+    if (stimulus.hasTools()) {
+      this.tools = stimulus.getTools();
+    }
+
+    // Update model options from new stimulus
+    if (stimulus.hasModelOptions()) {
+      this.options = stimulus.getModelOptions();
+    }
   }
 
   // NEW: Get current stimulus
