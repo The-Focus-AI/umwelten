@@ -4,7 +4,7 @@ import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationCache } from '../caching/cache-service.js';
 import { Interaction } from '../../interaction/interaction.js';
 import { extractTypeScriptCode, fixCommonTypeScriptErrors, ensureConsoleOutput } from '../typescript-code-extractor.js';
-import { DaggerRunner as DockerRunner } from '../dagger-runner.js';
+import { DockerRunner } from '../docker-runner.js';
 import { CodeScorer } from '../code-scorer.js';
 import path from 'path';
 
@@ -131,11 +131,15 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
         dockerResult = await this.cache.getCachedFile(
           `docker-results/${this.getModelKey(model)}`,
           async () => {
-            return await DockerRunner.runCode({
-              code: extractedCode!,
+            const dockerRunner = new DockerRunner({
+              timeout: this.config.dockerTimeout,
+              workdir: this.cache.getWorkdir()
+            });
+            
+            return await dockerRunner.runCode(extractedCode!, {
               language: 'typescript',
-              timeout: this.config.dockerTimeout ? this.config.dockerTimeout / 1000 : 30,
-              modelName: model.name
+              model: model.name,
+              evaluationId: this.cache.getWorkdir().split(path.sep).pop() || 'unknown'
             });
           }
         );
@@ -145,15 +149,18 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
       // Step 4: AI Scoring (if enabled)
       if (this.config.aiScoring) {
         const scoringStartTime = Date.now();
-        const evaluationId = this.cache.getWorkdir().split(path.sep).pop() || 'unknown';
         codeScore = await this.cache.getCachedScore(
           model,
           this.stimulus.id,
           'code-quality',
           async () => {
-            const scorer = new CodeScorer(evaluationId);
-            // Pass original response so code can be re-extracted
-            return await scorer.scoreResponse(response);
+            const scorer = new CodeScorer();
+            return await scorer.scoreCode({
+              code: extractedCode || response.content,
+              prompt: this.prompt,
+              dockerResult: dockerResult,
+              model: model.name
+            });
           }
         );
         timing.scoringTime = Date.now() - scoringStartTime;

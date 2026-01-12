@@ -1,7 +1,7 @@
 import { EvaluationScorer } from './scorer.js';
 import { ModelResponse, ScoreResponse } from '../cognition/types.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from './code-extractor.js';
-import { DaggerRunner as DockerRunner } from './dagger-runner.js';
+import { DockerRunner } from './docker-runner.js';
 import { Interaction } from '../interaction/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 import fs from 'fs';

@@ -103,15 +103,6 @@ Systematically evaluate and compare models:
 - Performance metrics and cost analysis
 - Structured output validation
 
-### 🐳 Code Execution
-
-Execute generated code safely in isolated containers:
-
-- Multi-language support (TypeScript, Python, Ruby, Go, Rust, and more)
-- Automatic package detection and installation
-- LLM-assisted container configuration via [Dagger](https://dagger.io/)
-- Configuration caching for fast repeated runs
-
 ### 🧠 Memory System
 
 Persistent memory across interactions:
@@ -160,10 +151,6 @@ Learn how to use and create tools to enhance AI model capabilities.
 ### [API Reference](/api/overview)
 
 Comprehensive TypeScript API documentation for building custom integrations.
-
-### [Code Execution](/guide/code-execution)
-
-Run generated code in secure, isolated containers with automatic package management.
 
 ### [Examples](/examples/)
 
