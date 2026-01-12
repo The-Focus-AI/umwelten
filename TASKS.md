@@ -12,8 +12,10 @@
 - [x] Create `src/evaluation/dagger/index.ts` - Module exports
 - [x] Update `src/evaluation/code-scorer.ts` - Import DaggerRunner
 - [x] Update `src/evaluation/strategies/code-generation-evaluation.ts` - Import DaggerRunner
-- [x] Create test script `scripts/test-dagger-runner.ts`
+- [x] Move test script to `src/test/test-dagger-runner.ts`
 - [x] Verify implementation works with TypeScript, Python, and other languages
+- [x] Test Ruby with gems (feedjira, faraday) - Successfully ran feed_reader.rb
+- [x] Deprecate old docker-runner.ts with warning
 
 ## Current
 
@@ -21,8 +23,7 @@
 
 ## Planned
 
-- [ ] Test LLM-based container configuration with OpenRouter
-- [ ] Add environment variables for OpenRouter LLM configuration
-- [ ] Test with packages that need installation (pandas, lodash, etc.)
+- [ ] Test LLM-based container configuration with valid OpenRouter API key
+- [ ] Add environment variables for OpenRouter LLM configuration in Dagger
 - [ ] Update existing docker-runner tests to work with DaggerRunner
-- [ ] Consider deprecating old docker-runner.ts
+- [ ] Remove deprecated docker-runner.ts in future release
