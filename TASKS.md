@@ -16,6 +16,9 @@
 - [x] Verify implementation works with TypeScript, Python, and other languages
 - [x] Test Ruby with gems (feedjira, faraday) - Successfully ran feed_reader.rb
 - [x] Deprecate old docker-runner.ts with warning
+- [x] Create `docs/guide/code-execution.md` - Comprehensive documentation with examples
+- [x] Update `docs/.vitepress/config.ts` - Add Code Execution to sidebar
+- [x] Update `docs/index.md` - Add Code Execution feature section
 
 ## Current
 
