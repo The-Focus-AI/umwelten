@@ -48,7 +48,8 @@ export class SimpleEvaluation implements EvaluationStrategy {
       maxConcurrency: 3,
       resume: true,
       showProgress: true,
-      ...config
+      ...config,
+      evaluationId: config.evaluationId || `simple-eval-${Date.now()}`
     };
     this.progressCallback = progressCallback;
   }
@@ -109,7 +110,7 @@ export class SimpleEvaluation implements EvaluationStrategy {
       // Create evaluation metadata
       const metadata: EvaluationMetadata = {
         stimulusId: this.getStimulusId(),
-        evaluationId: this.config.evaluationId,
+        evaluationId: this.config.evaluationId || `simple-eval-${Date.now()}`,
         timestamp: new Date(),
         duration,
         cached: false, // This will be set by the cache service
@@ -136,7 +137,7 @@ export class SimpleEvaluation implements EvaluationStrategy {
       // Create error result
       const metadata: EvaluationMetadata = {
         stimulusId: this.getStimulusId(),
-        evaluationId: this.config.evaluationId,
+        evaluationId: this.config.evaluationId || `simple-eval-${Date.now()}`,
         timestamp: new Date(),
         duration,
         cached: false,
@@ -153,7 +154,7 @@ export class SimpleEvaluation implements EvaluationStrategy {
           tokenUsage: { promptTokens: 0, completionTokens: 0 },
           provider: model.provider,
           model: model.name,
-          cost: { promptTokens: 0, completionTokens: 0, total: 0 }
+          cost: { promptCost: 0, completionCost: 0, totalCost: 0, usage: { promptTokens: 0, completionTokens: 0 } }
         }
       };
 

@@ -16,6 +16,7 @@ import {
 } from '../stimulus/tools/index.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 import { checkOllamaConnection } from '../test-utils/setup.js';
+import { Reporter } from '../reporting/index.js';
 
 // Define test scenarios
 const scenarios: ToolTestScenario[] = [
@@ -190,61 +191,21 @@ async function main() {
 
   console.log(`Running ${scenarios.length} scenarios...\n`);
 
-  const startTime = Date.now();
   const results = await runner.runScenarios(scenarios);
-  const totalTime = Date.now() - startTime;
 
-  // Print summary
-  console.log('\n===========================================');
-  console.log('Results Summary');
-  console.log('===========================================\n');
+  // Generate and display report
+  const reporter = new Reporter({ outputDir: './reports' });
+  const report = reporter.fromToolTest(results, 'Tool Conversation Evaluation');
 
-  // Group by scenario
-  const byScenario = new Map<string, typeof results>();
-  for (const result of results) {
-    const existing = byScenario.get(result.scenario) || [];
-    existing.push(result);
-    byScenario.set(result.scenario, existing);
-  }
+  // Output to console
+  reporter.toConsole(report);
 
-  // Print results table
-  console.log('Scenario                      | Model           | Passed | Score | Time');
-  console.log('------------------------------|-----------------|--------|-------|------');
-
-  for (const [scenario, scenarioResults] of byScenario) {
-    for (const result of scenarioResults) {
-      const scenarioName = scenario.padEnd(29).slice(0, 29);
-      const modelName = result.model.name.padEnd(15).slice(0, 15);
-      const passed = result.passed ? '  ✓   ' : '  ✗   ';
-      const score = result.score !== undefined
-        ? `${result.score}`.padStart(3) + '%'
-        : ' N/A ';
-      const time = `${(result.timing.total / 1000).toFixed(1)}s`.padStart(5);
-
-      console.log(`${scenarioName} | ${modelName} | ${passed} | ${score} | ${time}`);
-
-      if (result.errors.length > 0) {
-        for (const error of result.errors) {
-          console.log(`  └─ Error: ${error}`);
-        }
-      }
-    }
-  }
-
-  // Print totals
-  const passedCount = results.filter((r) => r.passed).length;
-  const failedCount = results.length - passedCount;
-  const avgScore = results
-    .filter((r) => r.score !== undefined)
-    .reduce((sum, r) => sum + (r.score || 0), 0) / results.length;
-
-  console.log('\n-------------------------------------------');
-  console.log(`Total: ${results.length} | Passed: ${passedCount} | Failed: ${failedCount}`);
-  console.log(`Average Score: ${avgScore.toFixed(1)}%`);
-  console.log(`Total Time: ${(totalTime / 1000).toFixed(1)}s`);
-  console.log('-------------------------------------------\n');
+  // Save markdown report
+  const filepath = await reporter.toFile(report);
+  console.log(`\nReport saved to: ${filepath}\n`);
 
   // Exit with error if any failed
+  const failedCount = results.filter((r) => !r.passed).length;
   if (failedCount > 0) {
     process.exit(1);
   }

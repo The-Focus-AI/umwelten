@@ -1,7 +1,7 @@
 import { EvaluationScorer } from './scorer.js';
-import { ModelResponse, ScoreResponse } from '../cognition/types.js';
+import { ModelResponse, ScoreResponse, ModelDetails } from '../cognition/types.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from './code-extractor.js';
-import { DaggerRunner as DockerRunner } from './dagger-runner.js';
+import { DaggerRunner } from './dagger-runner.js';
 import { Interaction } from '../interaction/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 import fs from 'fs';
@@ -24,10 +24,14 @@ export interface CodeEvaluationResult {
 
 export class CodeScorer extends EvaluationScorer {
   private evaluationDir: string;
-  private aiEvaluatorModel: string;
+  private aiEvaluatorModel: ModelDetails;
   private customAnalysisDir?: string;
 
-  constructor(evaluationId: string, aiEvaluatorModel: string = 'gpt-oss:20b', customAnalysisDir?: string) {
+  constructor(
+    evaluationId: string,
+    aiEvaluatorModel: ModelDetails = { name: 'gpt-oss:latest', provider: 'ollama' },
+    customAnalysisDir?: string
+  ) {
     super(evaluationId);
     this.evaluationDir = path.join(process.cwd(), 'output', 'evaluations', evaluationId);
     this.aiEvaluatorModel = aiEvaluatorModel;
@@ -74,20 +78,20 @@ export class CodeScorer extends EvaluationScorer {
       let processedCode = fixCommonCodeErrors(extractedCode, targetLanguage);
       processedCode = ensureConsoleOutput(processedCode, targetLanguage);
 
-      // 4. Run code in Docker container to test functionality
-      const dockerResult = await DockerRunner.runCode({
+      // 4. Run code in Dagger container to test functionality
+      const daggerResult = await DaggerRunner.runCode({
         code: processedCode,
         language: targetLanguage,
         timeout: 30,
         modelName: result.modelName
       });
       
-      result.dockerBuildSuccess = dockerResult.success;
-      result.dockerExecutionSuccess = dockerResult.success;
-      result.output = dockerResult.output;
+      result.dockerBuildSuccess = daggerResult.success;
+      result.dockerExecutionSuccess = daggerResult.success;
+      result.output = daggerResult.output;
 
-      if (!dockerResult.success) {
-        result.errors.push(`Docker execution failed: ${dockerResult.error}`);
+      if (!daggerResult.success) {
+        result.errors.push(`Dagger execution failed: ${daggerResult.error}`);
       }
 
       // 5. Use AI to evaluate code quality
@@ -139,11 +143,11 @@ Rating: 4`;
         runnerType: 'base'
       });
       const interaction = new Interaction(
-        { name: this.aiEvaluatorModel, provider: 'ollama' },
+        this.aiEvaluatorModel,
         evaluationStimulus
       );
       interaction.addMessage({ role: 'user', content: prompt });
-      
+
       const aiResponse = await interaction.streamText();
       const responseContent = aiResponse.content;
 
@@ -398,9 +402,9 @@ Rating: 4`;
    */
   private formatReport(results: CodeEvaluationResult[]): string {
     const sortedResults = results.sort((a, b) => b.totalScore - a.totalScore);
-    
+
     let report = `# AI-Powered Code Quality Evaluation Report\n\n`;
-    report += `**AI Evaluator Model:** ${this.aiEvaluatorModel}\n\n`;
+    report += `**AI Evaluator Model:** ${this.aiEvaluatorModel.provider}:${this.aiEvaluatorModel.name}\n\n`;
     report += `## Summary\n\n`;
     
     const totalModels = results.length;
