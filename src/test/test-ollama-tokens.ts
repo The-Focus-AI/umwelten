@@ -6,7 +6,7 @@
  * Run with: npx tsx src/test/test-ollama-tokens.ts
  */
 
-import { ollama } from 'ai-sdk-ollama';
+import { ollama } from 'ollama-ai-provider-v2';
 import { generateText } from 'ai';
 import {
   Reporter,
@@ -28,7 +28,7 @@ async function main() {
 
   try {
     // Test with a simple prompt
-    const model = ollama('llama3.2:latest');
+    const model = ollama('gpt-oss:latest');
 
     console.log('Generating text with Ollama...');
     const result = await generateText({
@@ -71,7 +71,7 @@ async function main() {
       content: {
         type: 'metrics',
         data: [
-          { label: 'Model', value: 'llama3.2:latest' },
+          { label: 'Model', value: 'gpt-oss:latest' },
           { label: 'Provider', value: 'ollama' },
           { label: 'Prompt', value: 'Hello, how are you today?' },
         ],

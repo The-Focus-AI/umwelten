@@ -8,6 +8,7 @@
 
 import { Interaction } from '../interaction/interaction.js';
 import { BaseModelRunner } from '../cognition/runner.js';
+import { Stimulus } from '../stimulus/stimulus.js';
 import {
   Reporter,
   adaptSimpleTestResults,
@@ -24,8 +25,8 @@ async function main() {
 
   // Test with Gemma3 models that support reasoning
   const models = [
-    { name: 'gemma3:12b', provider: 'ollama' as const },
-    { name: 'gemma3:27b', provider: 'ollama' as const },
+    { name: 'qwen3:32b', provider: 'ollama' as const },
+    { name: 'deepseek-r1:14b', provider: 'ollama' as const },
   ];
 
   for (const modelDetails of models) {
@@ -36,10 +37,11 @@ async function main() {
     const prompt =
       'I need a script that will give me at least 1042 distinct but made up show names. They should be funny and grammatically correct and written in TypeScript. Think through this step by step.';
 
-    const interaction = new Interaction(
-      modelDetails,
-      'You are a TypeScript developer. Generate working TypeScript code that compiles and runs successfully. Always wrap your code in ```typescript code blocks. Think through your approach step by step.'
-    );
+    const stimulus = new Stimulus({
+      role: 'TypeScript developer',
+      objective: 'Generate working TypeScript code that compiles and runs successfully. Always wrap your code in ```typescript code blocks. Think through your approach step by step.',
+    });
+    const interaction = new Interaction(modelDetails, stimulus);
     interaction.addMessage({ role: 'user', content: prompt });
 
     const runner = new BaseModelRunner();

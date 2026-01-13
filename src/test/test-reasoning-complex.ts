@@ -8,6 +8,7 @@
 
 import { Interaction } from '../interaction/interaction.js';
 import { BaseModelRunner } from '../cognition/runner.js';
+import { Stimulus } from '../stimulus/stimulus.js';
 import {
   Reporter,
   adaptSingleTestResult,
@@ -19,14 +20,15 @@ async function main() {
   console.log('='.repeat(50));
 
   const startTime = Date.now();
-  const modelDetails = { name: 'qwen3:14b', provider: 'ollama' as const };
+  const modelDetails = { name: 'qwen3:32b', provider: 'ollama' as const };
   const prompt =
     'I need a script that will give me at least 1042 distinct but made up show names. They should be funny and grammatically correct and written in TypeScript. Think through this step by step.';
 
-  const interaction = new Interaction(
-    modelDetails,
-    'You are a TypeScript developer. Generate working TypeScript code. Think through your approach step by step.'
-  );
+  const stimulus = new Stimulus({
+    role: 'TypeScript developer',
+    objective: 'Generate working TypeScript code. Think through your approach step by step.',
+  });
+  const interaction = new Interaction(modelDetails, stimulus);
   interaction.addMessage({ role: 'user', content: prompt });
 
   const runner = new BaseModelRunner();

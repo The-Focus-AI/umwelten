@@ -8,6 +8,7 @@
 
 import { Interaction } from '../interaction/interaction.js';
 import { BaseModelRunner } from '../cognition/runner.js';
+import { Stimulus } from '../stimulus/stimulus.js';
 import {
   Reporter,
   adaptSingleTestResult,
@@ -19,14 +20,15 @@ async function main() {
   console.log('='.repeat(50));
 
   const startTime = Date.now();
-  const modelDetails = { name: 'qwen3:8b', provider: 'ollama' as const };
+  const modelDetails = { name: 'qwen3:32b', provider: 'ollama' as const };
   const prompt =
     'Write a short TypeScript function that adds two numbers. Think through this step by step.';
 
-  const interaction = new Interaction(
-    modelDetails,
-    'You are a TypeScript developer. Generate working TypeScript code. Think through your approach step by step.'
-  );
+  const stimulus = new Stimulus({
+    role: 'TypeScript developer',
+    objective: 'Generate working TypeScript code. Think through your approach step by step.',
+  });
+  const interaction = new Interaction(modelDetails, stimulus);
   interaction.addMessage({ role: 'user', content: prompt });
 
   const runner = new BaseModelRunner();

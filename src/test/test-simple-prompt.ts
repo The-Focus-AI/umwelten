@@ -8,6 +8,7 @@
 
 import { BaseModelRunner } from '../cognition/runner.js';
 import { Interaction } from '../interaction/interaction.js';
+import { Stimulus } from '../stimulus/stimulus.js';
 import {
   Reporter,
   adaptSingleTestResult,
@@ -30,10 +31,11 @@ async function testModel(modelName: string) {
   let errorMsg: string | undefined;
 
   try {
-    const interaction = new Interaction(
-      modelDetails,
-      'You are a helpful TypeScript developer.'
-    );
+    const stimulus = new Stimulus({
+      role: 'TypeScript developer',
+      objective: 'Generate TypeScript code',
+    });
+    const interaction = new Interaction(modelDetails, stimulus);
     interaction.addMessage({
       role: 'user',
       content: prompt,
@@ -92,7 +94,7 @@ async function main() {
   const startTime = Date.now();
 
   // Test just one model
-  const result = await testModel('llama3.2:latest');
+  const result = await testModel('gpt-oss:latest');
 
   const totalDuration = Date.now() - startTime;
 
