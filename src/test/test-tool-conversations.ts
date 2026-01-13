@@ -194,7 +194,7 @@ async function main() {
   const results = await runner.runScenarios(scenarios);
 
   // Generate and display report
-  const reporter = new Reporter({ outputDir: './reports' });
+  const reporter = new Reporter({ outputDir: './output' });
   const report = reporter.fromToolTest(results, 'Tool Conversation Evaluation');
 
   // Output to console

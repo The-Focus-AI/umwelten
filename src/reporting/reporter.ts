@@ -20,7 +20,7 @@ import { MarkdownRenderer } from './renderers/markdown-renderer.js';
 const DEFAULT_OPTIONS: Required<ReporterOptions> = {
   colors: true,
   verbose: false,
-  outputDir: './reports',
+  outputDir: './output',
 };
 
 export class Reporter {
