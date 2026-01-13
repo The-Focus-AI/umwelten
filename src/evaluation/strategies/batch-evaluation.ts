@@ -173,7 +173,7 @@ export class BatchEvaluation implements EvaluationStrategy {
             tokenUsage: { promptTokens: 0, completionTokens: 0 },
             provider: model.provider,
             model: model.name,
-            cost: { promptCost: 0, completionCost: 0, totalCost: 0, usage: { promptTokens: 0, completionTokens: 0 } }
+            cost: { total: 0, prompt: 0, completion: 0 }
           }
         },
         metadata,
