@@ -70,6 +70,14 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Code & Execution',
+          items: [
+            { text: 'Code Execution', link: '/examples/code-execution-examples' },
+            { text: 'Tool Conversations', link: '/examples/tool-conversation-examples' },
+            { text: 'Reasoning & Streaming', link: '/examples/reasoning-streaming-examples' }
+          ]
+        },
+        {
           text: 'Image Processing',
           items: [
             { text: 'Basic Image Analysis', link: '/examples/image-analysis' },
