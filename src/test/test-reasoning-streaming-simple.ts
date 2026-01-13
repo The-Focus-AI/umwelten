@@ -155,7 +155,7 @@ async function main() {
 
   const reporter = new Reporter();
   reporter.toConsole(report);
-  const filepath = await reporter.toFile(report);
+  const filepath = await reporter.toFile(report, 'reasoning-streaming-simple-report.md');
   console.log(`\nReport saved to: ${filepath}`);
 
   if (!success) {

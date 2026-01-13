@@ -134,7 +134,7 @@ async function main() {
 
   const reporter = new Reporter();
   reporter.toConsole(report);
-  const filepath = await reporter.toFile(report);
+  const filepath = await reporter.toFile(report, 'ollama-tokens-report.md');
   console.log(`\nReport saved to: ${filepath}`);
 
   if (!success) {
