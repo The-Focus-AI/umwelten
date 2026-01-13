@@ -11,24 +11,56 @@ import { Interaction } from '../interaction/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 import {
   Reporter,
-  adaptSingleTestResult,
   ReportSection,
+  Report,
 } from '../reporting/index.js';
 
-async function testModel(modelName: string) {
-  console.log(`\nTesting ${modelName} with simple prompt`);
-  console.log('='.repeat(50));
+interface ModelTestResult {
+  model: string;
+  provider: string;
+  success: boolean;
+  error?: string;
+  // Timing
+  durationMs: number;
+  // Tokens
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  // Cost
+  promptCost: number;
+  completionCost: number;
+  totalCost: number;
+  // Response
+  responseLength: number;
+  reasoningLength: number;
+  tokensPerSecond: number;
+}
+
+async function testModel(modelName: string, provider: 'ollama' | 'openrouter' = 'ollama'): Promise<ModelTestResult> {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`Testing: ${modelName} (${provider})`);
+  console.log('='.repeat(60));
 
   const startTime = Date.now();
-  const modelDetails = { name: modelName, provider: 'ollama' as const };
+  const modelDetails = { name: modelName, provider };
   const prompt =
     'I need a script that will give me at least 1042 distinct but made up show names. they should be funny and grammatically correct and written in typescript.';
 
-  let success = false;
-  let responseLength = 0;
-  let reasoningLength = 0;
-  let responseTime = 0;
-  let errorMsg: string | undefined;
+  const result: ModelTestResult = {
+    model: modelName,
+    provider,
+    success: false,
+    durationMs: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    promptCost: 0,
+    completionCost: 0,
+    totalCost: 0,
+    responseLength: 0,
+    reasoningLength: 0,
+    tokensPerSecond: 0,
+  };
 
   try {
     const stimulus = new Stimulus({
@@ -44,124 +76,216 @@ async function testModel(modelName: string) {
     const runner = new BaseModelRunner();
     console.log('Starting streaming...\n');
 
-    const result = await runner.streamText(interaction);
-    responseTime =
-      result.metadata.startTime && result.metadata.endTime
-        ? new Date(result.metadata.endTime).getTime() -
-          new Date(result.metadata.startTime).getTime()
-        : Date.now() - startTime;
+    const response = await runner.streamText(interaction);
 
-    console.log('\nFinal Response:');
-    console.log('='.repeat(50));
-    console.log(
-      result.content.slice(0, 500) + (result.content.length > 500 ? '...' : '')
-    );
+    // Calculate duration
+    result.durationMs = response.metadata.startTime && response.metadata.endTime
+      ? new Date(response.metadata.endTime).getTime() - new Date(response.metadata.startTime).getTime()
+      : Date.now() - startTime;
 
-    responseLength = result.content.length;
+    // Token usage
+    result.promptTokens = response.metadata.tokenUsage.promptTokens || 0;
+    result.completionTokens = response.metadata.tokenUsage.completionTokens || 0;
+    result.totalTokens = response.metadata.tokenUsage.total || (result.promptTokens + result.completionTokens);
 
-    console.log('\nReasoning:');
-    console.log('='.repeat(50));
-    if (result.reasoning) {
-      console.log(result.reasoning);
-      reasoningLength = result.reasoning.length;
-    } else {
-      console.log('No reasoning captured');
-    }
+    // Cost
+    result.promptCost = response.metadata.cost?.promptCost || 0;
+    result.completionCost = response.metadata.cost?.completionCost || 0;
+    result.totalCost = response.metadata.cost?.totalCost || 0;
 
-    console.log('\nMetadata:');
-    console.log('='.repeat(50));
-    console.log(`Response Length: ${result.content.length} characters`);
-    console.log(`Response Time: ${responseTime}ms`);
+    // Response metrics
+    result.responseLength = response.content.length;
+    result.reasoningLength = response.reasoning?.length || 0;
 
-    success = true;
+    // Tokens per second
+    result.tokensPerSecond = result.durationMs > 0
+      ? (result.completionTokens / (result.durationMs / 1000))
+      : 0;
+
+    result.success = true;
+
+    // Print summary
+    console.log('\n--- Response Preview ---');
+    console.log(response.content.slice(0, 300) + (response.content.length > 300 ? '...' : ''));
+
+    console.log('\n--- Metrics ---');
+    console.log(`Duration: ${(result.durationMs / 1000).toFixed(2)}s`);
+    console.log(`Tokens: ${result.totalTokens} (${result.promptTokens} prompt + ${result.completionTokens} completion)`);
+    console.log(`Speed: ${result.tokensPerSecond.toFixed(1)} tokens/sec`);
+    console.log(`Cost: $${result.totalCost.toFixed(6)}`);
+
   } catch (error) {
-    console.error(`Error testing ${modelName}:`, error);
-    errorMsg = error instanceof Error ? error.message : String(error);
+    result.error = error instanceof Error ? error.message : String(error);
+    result.durationMs = Date.now() - startTime;
+    console.error(`Error: ${result.error}`);
   }
 
+  return result;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+}
+
+function formatCost(cost: number): string {
+  if (cost === 0) return 'Free';
+  if (cost < 0.0001) return `$${cost.toFixed(8)}`;
+  if (cost < 0.01) return `$${cost.toFixed(6)}`;
+  return `$${cost.toFixed(4)}`;
+}
+
+function buildModelSection(result: ModelTestResult): ReportSection {
   return {
-    model: modelName,
-    success,
-    responseLength,
-    reasoningLength,
-    responseTime,
-    error: errorMsg,
-    duration: Date.now() - startTime,
+    title: `${result.model} (${result.provider})`,
+    content: {
+      type: 'metrics',
+      data: [
+        // Timing - most important!
+        {
+          label: 'Duration',
+          value: formatDuration(result.durationMs),
+          status: result.success ? 'good' : 'bad'
+        },
+        {
+          label: 'Speed',
+          value: `${result.tokensPerSecond.toFixed(1)} tok/s`,
+          status: result.tokensPerSecond > 20 ? 'good' : 'neutral'
+        },
+        // Cost - critical!
+        {
+          label: 'Total Cost',
+          value: formatCost(result.totalCost),
+          status: result.totalCost === 0 ? 'good' : 'neutral'
+        },
+        {
+          label: 'Prompt Cost',
+          value: formatCost(result.promptCost)
+        },
+        {
+          label: 'Completion Cost',
+          value: formatCost(result.completionCost)
+        },
+        // Tokens
+        {
+          label: 'Total Tokens',
+          value: result.totalTokens,
+          unit: 'tokens'
+        },
+        {
+          label: 'Prompt Tokens',
+          value: result.promptTokens,
+          unit: 'tokens'
+        },
+        {
+          label: 'Completion Tokens',
+          value: result.completionTokens,
+          unit: 'tokens'
+        },
+        // Response
+        {
+          label: 'Response Length',
+          value: result.responseLength,
+          unit: 'chars'
+        },
+        {
+          label: 'Reasoning Length',
+          value: result.reasoningLength,
+          unit: 'chars'
+        },
+        // Status
+        {
+          label: 'Status',
+          value: result.success ? 'PASSED' : `FAILED: ${result.error}`,
+          status: result.success ? 'good' : 'bad'
+        },
+      ],
+    },
   };
 }
 
 async function main() {
-  const startTime = Date.now();
+  const overallStart = Date.now();
 
-  // Test just one model
-  const result = await testModel('gpt-oss:latest');
-
-  const totalDuration = Date.now() - startTime;
-
-  // Build sections
-  const sections: ReportSection[] = [
-    {
-      title: 'Configuration',
-      content: {
-        type: 'metrics',
-        data: [
-          { label: 'Model', value: result.model },
-          { label: 'Provider', value: 'ollama' },
-        ],
-      },
-    },
-    {
-      title: 'Results',
-      content: {
-        type: 'metrics',
-        data: [
-          {
-            label: 'Response Length',
-            value: result.responseLength,
-            unit: 'chars',
-            status: result.responseLength > 0 ? 'good' : 'bad',
-          },
-          {
-            label: 'Reasoning Length',
-            value: result.reasoningLength,
-            unit: 'chars',
-            status: result.reasoningLength > 0 ? 'good' : 'neutral',
-          },
-          {
-            label: 'Response Time',
-            value: result.responseTime,
-            unit: 'ms',
-          },
-        ],
-      },
-    },
+  // Test models - add more here to compare
+  const modelsToTest = [
+    { name: 'gpt-oss:latest', provider: 'ollama' as const },
+    // Add more models to compare:
+    // { name: 'qwen3:32b', provider: 'ollama' as const },
+    // { name: 'deepseek-r1:14b', provider: 'ollama' as const },
   ];
 
-  if (result.error) {
+  const results: ModelTestResult[] = [];
+
+  for (const model of modelsToTest) {
+    const result = await testModel(model.name, model.provider);
+    results.push(result);
+  }
+
+  const totalDuration = Date.now() - overallStart;
+  const passed = results.filter(r => r.success).length;
+  const failed = results.length - passed;
+
+  // Build report sections - ONE SECTION PER MODEL
+  const sections: ReportSection[] = [];
+
+  // Summary comparison table
+  if (results.length > 0) {
     sections.push({
-      title: 'Error',
-      content: { type: 'text', data: result.error },
+      title: 'Performance Summary',
+      content: {
+        type: 'metrics',
+        data: results.map(r => ({
+          label: r.model,
+          value: `${formatDuration(r.durationMs)} | ${r.tokensPerSecond.toFixed(1)} tok/s | ${formatCost(r.totalCost)}`,
+          status: r.success ? 'good' : 'bad',
+        })),
+      },
     });
   }
 
-  // Generate report using adapter
-  const report = adaptSingleTestResult('Simple Prompt Test', result.success, {
+  // Individual model sections
+  for (const result of results) {
+    sections.push(buildModelSection(result));
+  }
+
+  // Build the report
+  const report: Report = {
+    id: `simple-prompt-${Date.now()}`,
     title: 'Simple Prompt Test',
-    duration: totalDuration,
+    timestamp: new Date(),
+    type: 'evaluation',
+    summary: {
+      totalItems: results.length,
+      passed,
+      failed,
+      successRate: results.length > 0 ? (passed / results.length) * 100 : 0,
+      duration: totalDuration,
+      highlights: [
+        `Tested ${results.length} model(s)`,
+        passed === results.length ? 'All models passed' : `${failed} model(s) failed`,
+        `Total time: ${formatDuration(totalDuration)}`,
+        `Total cost: ${formatCost(results.reduce((sum, r) => sum + r.totalCost, 0))}`,
+      ],
+    },
     sections,
     metadata: {
-      model: result.model,
-      responseLength: result.responseLength,
-      responseTime: result.responseTime,
+      models: results.map(r => r.model),
+      totalDuration,
+      totalCost: results.reduce((sum, r) => sum + r.totalCost, 0),
+      averageSpeed: results.length > 0
+        ? results.reduce((sum, r) => sum + r.tokensPerSecond, 0) / results.length
+        : 0,
     },
-  });
+  };
 
   const reporter = new Reporter();
   reporter.toConsole(report);
   const filepath = await reporter.toFile(report, 'simple-prompt-report.md');
   console.log(`\nReport saved to: ${filepath}`);
 
-  if (!result.success) {
+  if (failed > 0) {
     process.exit(1);
   }
 }
