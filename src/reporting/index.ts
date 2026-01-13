@@ -41,7 +41,13 @@ export type {
 } from './types.js';
 
 // Adapters
-export { adaptToolTestResults } from './adapters/index.js';
+export {
+  adaptToolTestResults,
+  adaptSimpleTestResults,
+  adaptSingleTestResult,
+  type SimpleTestResult,
+  type SimpleTestReportOptions,
+} from './adapters/index.js';
 
 // Renderers
 export { ConsoleRenderer, MarkdownRenderer } from './renderers/index.js';

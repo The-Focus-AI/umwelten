@@ -5,3 +5,9 @@
  */
 
 export { adaptToolTestResults } from './tool-test-adapter.js';
+export {
+  adaptSimpleTestResults,
+  adaptSingleTestResult,
+  type SimpleTestResult,
+  type SimpleTestReportOptions,
+} from './simple-test-adapter.js';
