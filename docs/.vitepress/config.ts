@@ -50,6 +50,7 @@ export default defineConfig({
         {
           text: 'Advanced',
           items: [
+            { text: 'Code Execution', link: '/guide/code-execution' },
             { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
             { text: 'Cost Analysis', link: '/guide/cost-analysis' },
             { text: 'Reports & Analysis', link: '/guide/reports' },
