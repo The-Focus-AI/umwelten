@@ -23,17 +23,36 @@ export class GoogleProvider extends BaseProvider {
   }
 
   async listModels(): Promise<ModelDetails[]> {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}`
-    );
-    if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.statusText}`);
-    }
+    this.validateConfig();
 
-    const data = await response.json();
+    const allModels: any[] = [];
+    let pageToken: string | undefined;
     const baseDate = new Date("2024-01-01");
 
-    return data.models.map((model: any) => {
+    // Fetch all pages of models
+    do {
+      const url = new URL(
+        "https://generativelanguage.googleapis.com/v1beta/models"
+      );
+      url.searchParams.set("key", this.apiKey!);
+      url.searchParams.set("pageSize", "1000");
+      if (pageToken) {
+        url.searchParams.set("pageToken", pageToken);
+      }
+
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.models) {
+        allModels.push(...data.models);
+      }
+      pageToken = data.nextPageToken;
+    } while (pageToken);
+
+    const modelDetails = allModels.map((model: any) => {
       const modelId = model.name.replace("models/", "");
       const baseModel = modelId.split("-").slice(0, 3).join("-");
       return {
@@ -59,6 +78,28 @@ export class GoogleProvider extends BaseProvider {
         addedDate: baseDate,
         lastUpdated: new Date(),
       } as ModelDetails;
+    });
+
+    // Sort models: Gemini 3.x first, then 2.5, then 2.0, then 1.5, then others
+    return modelDetails.sort((a, b) => {
+      const getVersionPriority = (name: string): number => {
+        if (name.startsWith('gemini-3')) return 0;
+        if (name.startsWith('gemini-2.5')) return 1;
+        if (name.startsWith('gemini-2.0')) return 2;
+        if (name.startsWith('gemini-1.5')) return 3;
+        if (name.startsWith('gemini-1')) return 4;
+        return 5; // Other models (veo, embedding, etc.)
+      };
+
+      const priorityA = getVersionPriority(a.name);
+      const priorityB = getVersionPriority(b.name);
+
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      // Within same version, sort alphabetically
+      return a.name.localeCompare(b.name);
     });
   }
 
