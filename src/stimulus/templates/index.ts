@@ -2,10 +2,10 @@
 // This file exports all available stimulus templates organized by category
 
 // Creative writing templates
-export * from './creative-templates.js';
+export * from './creative-templates';
 
 // Coding templates
-export * from './coding-templates.js';
+export * from './coding-templates';
 
 // Analysis templates
-export * from './analysis-templates.js';
+export * from './analysis-templates';

@@ -1,22 +1,8 @@
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { Interaction } from '../../interaction/interaction.js';
+import { EvaluationResult, TestCase } from '../types/evaluation.js';
 import { EvaluationCache } from '../caching/cache-service.js';
-
-// Pipeline-specific result type (different from EvaluationResult in types/)
-interface PipelineEvaluationResult {
-  id: string;
-  name: string;
-  responses: ModelResponse[];
-  metrics: {
-    totalTime: number;
-    totalTokens: number;
-    totalCost: number;
-    cacheHits: number;
-  };
-  scores?: any[];
-  metadata: Record<string, any>;
-}
 
 export interface EvaluationStep {
   id: string;
@@ -47,10 +33,10 @@ export interface ComplexPipelineOptions {
   retries?: number;
 }
 
-export interface ComplexPipelineResult extends PipelineEvaluationResult {
+export interface ComplexPipelineResult extends EvaluationResult {
   steps: {
     [stepId: string]: {
-      result: PipelineEvaluationResult;
+      result: EvaluationResult;
       dependencies: string[];
       executionTime: number;
       status: 'success' | 'error' | 'skipped';
@@ -77,8 +63,9 @@ export class ComplexPipeline {
     };
 
     if (this.options.cache?.enabled) {
-      this.cache = new EvaluationCache(this.options.id, {
-        maxAge: this.options.cache.ttl * 1000, // convert seconds to ms
+      this.cache = new EvaluationCache({
+        ttl: this.options.cache.ttl,
+        strategy: this.options.cache.strategy
       });
     }
   }
@@ -267,7 +254,7 @@ export class ComplexPipeline {
     step: EvaluationStep, 
     models: ModelDetails[], 
     pipelineResult: ComplexPipelineResult
-  ): Promise<PipelineEvaluationResult> {
+  ): Promise<EvaluationResult> {
     // Check cache first
     if (this.cache) {
       const cacheKey = this.createCacheKey(step, models);
@@ -288,7 +275,7 @@ export class ComplexPipeline {
     const input = await this.prepareStepInput(step, pipelineResult);
     
     // Execute based on strategy
-    let result: PipelineEvaluationResult;
+    let result: EvaluationResult;
     
     switch (step.strategy) {
       case 'simple':
@@ -349,7 +336,7 @@ export class ComplexPipeline {
     step: EvaluationStep, 
     model: ModelDetails, 
     input: Record<string, any>
-  ): Promise<PipelineEvaluationResult> {
+  ): Promise<EvaluationResult> {
     const interaction = new Interaction(model, step.stimulus);
     
     // Add input as user message
@@ -384,7 +371,7 @@ export class ComplexPipeline {
     step: EvaluationStep, 
     models: ModelDetails[], 
     input: Record<string, any>
-  ): Promise<PipelineEvaluationResult> {
+  ): Promise<EvaluationResult> {
     const responses: ModelResponse[] = [];
     let totalTokens = 0;
     let totalCost = 0;
@@ -426,7 +413,7 @@ export class ComplexPipeline {
     step: EvaluationStep, 
     model: ModelDetails, 
     input: Record<string, any>
-  ): Promise<PipelineEvaluationResult> {
+  ): Promise<EvaluationResult> {
     // For batch execution, input should contain an array of items to process
     const items = Array.isArray(input.items) ? input.items : [input];
     const responses: ModelResponse[] = [];
@@ -473,7 +460,7 @@ export class ComplexPipeline {
     return `complex-pipeline:${this.options.id}:${step.id}:${modelInfo}`;
   }
 
-  private createEmptyResult(step: EvaluationStep): PipelineEvaluationResult {
+  private createEmptyResult(step: EvaluationStep): EvaluationResult {
     return {
       id: step.id,
       name: step.name,

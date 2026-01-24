@@ -402,8 +402,8 @@ class ModelComparisonRunner extends EvaluationRunner {
         prompt: prompt.substring(0, 100) + '...',
         response: response.content,
         duration,
-        tokens: response.metadata?.tokenUsage?.total || 0,
-        cost: response.metadata?.cost?.totalCost || 0
+        tokens: response.usage?.total || 0,
+        cost: response.cost?.total || 0
       });
     }
 
@@ -420,18 +420,15 @@ class ModelComparisonRunner extends EvaluationRunner {
         }
       }, null, 2),
       model: `${model.provider}:${model.name}`,
-      metadata: {
-        tokenUsage: {
-          total: results.reduce((sum, r) => sum + r.tokens, 0),
-          promptTokens: 0,
-          completionTokens: 0
-        },
-        cost: {
-          totalCost: results.reduce((sum, r) => sum + r.cost, 0),
-          promptCost: 0,
-          completionCost: 0,
-          usage: { promptTokens: 0, completionTokens: 0 }
-        }
+      usage: {
+        total: results.reduce((sum, r) => sum + r.tokens, 0),
+        promptTokens: 0, // Could be calculated if needed
+        completionTokens: 0
+      },
+      cost: {
+        total: results.reduce((sum, r) => sum + r.cost, 0),
+        inputCost: 0,
+        outputCost: 0
       }
     };
   }
@@ -494,18 +491,15 @@ class IterativeRefinementRunner extends EvaluationRunner {
         improvement_notes: 'Refinement added depth and addressed gaps'
       }, null, 2),
       model: finalResponse.model,
-      metadata: {
-        tokenUsage: {
-          total: (initialResponse.metadata?.tokenUsage?.total || 0) + (finalResponse.metadata?.tokenUsage?.total || 0),
-          promptTokens: (initialResponse.metadata?.tokenUsage?.promptTokens || 0) + (finalResponse.metadata?.tokenUsage?.promptTokens || 0),
-          completionTokens: (initialResponse.metadata?.tokenUsage?.completionTokens || 0) + (finalResponse.metadata?.tokenUsage?.completionTokens || 0)
-        },
-        cost: {
-          totalCost: (initialResponse.metadata?.cost?.totalCost || 0) + (finalResponse.metadata?.cost?.totalCost || 0),
-          promptCost: (initialResponse.metadata?.cost?.promptCost || 0) + (finalResponse.metadata?.cost?.promptCost || 0),
-          completionCost: (initialResponse.metadata?.cost?.completionCost || 0) + (finalResponse.metadata?.cost?.completionCost || 0),
-          usage: { promptTokens: 0, completionTokens: 0 }
-        }
+      usage: {
+        total: (initialResponse.usage?.total || 0) + (finalResponse.usage?.total || 0),
+        promptTokens: (initialResponse.usage?.promptTokens || 0) + (finalResponse.usage?.promptTokens || 0),
+        completionTokens: (initialResponse.usage?.completionTokens || 0) + (finalResponse.usage?.completionTokens || 0)
+      },
+      cost: {
+        total: (initialResponse.cost?.total || 0) + (finalResponse.cost?.total || 0),
+        inputCost: (initialResponse.cost?.inputCost || 0) + (finalResponse.cost?.inputCost || 0),
+        outputCost: (initialResponse.cost?.outputCost || 0) + (finalResponse.cost?.outputCost || 0)
       }
     };
   }

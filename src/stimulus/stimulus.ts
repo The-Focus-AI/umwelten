@@ -12,7 +12,7 @@ export type StimulusOptions = {
   instructions?: string[];
   reasoning?: string;
   output?: string[];
-  examples?: (string | { input: string; output: string })[];
+  examples?: string[];
   // NEW: Tool management
   tools?: Record<string, Tool>;
   toolInstructions?: string[];
@@ -67,7 +67,7 @@ export class Stimulus {
     return this.options.output;
   }
 
-  get examples(): (string | { input: string; output: string })[] | undefined {
+  get examples(): string[] | undefined {
     return this.options.examples;
   }
 
@@ -106,8 +106,8 @@ export class Stimulus {
     this.options.output.push(output);
   }
 
-  setOutputSchema(schema: z.ZodType<any>) {
-    const schemaString = JSON.stringify(zodToJsonSchema(schema as any), null, 2);
+  setOutputSchema(schema: z.ZodSchema) {
+    const schemaString = JSON.stringify(zodToJsonSchema(schema), null, 2);
     this.options.output = [schemaString];
   }
 
@@ -129,7 +129,7 @@ export class Stimulus {
   }
 
   // NEW: Model options methods
-  getModelOptions(): Partial<ModelOptions> & { topP?: number; frequencyPenalty?: number; presencePenalty?: number } {
+  getModelOptions(): ModelOptions {
     return {
       temperature: this.options.temperature,
       maxTokens: this.options.maxTokens,
