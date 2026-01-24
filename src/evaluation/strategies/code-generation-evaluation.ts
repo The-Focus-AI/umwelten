@@ -4,29 +4,28 @@ import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationCache } from '../caching/cache-service.js';
 import { Interaction } from '../../interaction/interaction.js';
 import { extractTypeScriptCode, fixCommonTypeScriptErrors, ensureConsoleOutput } from '../typescript-code-extractor.js';
-import { DaggerRunner } from '../dagger-runner.js';
+import { DockerRunner } from '../docker-runner.js';
 import { CodeScorer } from '../code-scorer.js';
 import path from 'path';
 
 export interface CodeGenerationConfig {
   extractCode?: boolean;
-  runDagger?: boolean;
+  runDocker?: boolean;
   aiScoring?: boolean;
   fixCommonErrors?: boolean;
   ensureConsoleOutput?: boolean;
-  daggerTimeout?: number;
+  dockerTimeout?: number;
   maxConcurrent?: number;
-  evaluatorModel?: ModelDetails;  // Model to use for AI evaluation (defaults to gpt-oss:latest on ollama)
 }
 
 export interface CodeGenerationResult extends EvaluationResult {
   extractedCode?: string;
-  daggerResult?: any;
+  dockerResult?: any;
   codeScore?: any;
   timing?: {
     responseTime: number;
     extractionTime: number;
-    daggerTime: number;
+    dockerTime: number;
     scoringTime: number;
     totalTime: number;
   };
@@ -43,11 +42,11 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
     // Set defaults
     this.config = {
       extractCode: true,
-      runDagger: true,
+      runDocker: true,
       aiScoring: true,
       fixCommonErrors: true,
       ensureConsoleOutput: true,
-      daggerTimeout: 30000,
+      dockerTimeout: 30000,
       maxConcurrent: 3,
       ...config
     };
@@ -80,12 +79,12 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
   private async evaluateModel(model: ModelDetails, startTime: number): Promise<CodeGenerationResult> {
     const modelStartTime = Date.now();
     let extractedCode: string | undefined;
-    let daggerResult: any;
+    let dockerResult: any;
     let codeScore: any;
     let timing = {
       responseTime: 0,
       extractionTime: 0,
-      daggerTime: 0,
+      dockerTime: 0,
       scoringTime: 0,
       totalTime: 0
     };
@@ -95,7 +94,7 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
       const responseStartTime = Date.now();
       const response = await this.cache.getCachedModelResponse(
         model,
-        this.stimulus.id || 'code-generation',
+        this.stimulus.id,
         async () => {
           const interaction = new Interaction(model, this.stimulus);
           interaction.addMessage({ role: 'user', content: this.prompt });
@@ -107,55 +106,61 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
       // Step 2: Extract code (if enabled)
       if (this.config.extractCode) {
         const extractionStartTime = Date.now();
-        const cachedCode = await this.cache.getCachedFile(
+        extractedCode = await this.cache.getCachedFile(
           `extracted-code/${this.getModelKey(model)}`,
           async () => {
-            let code: string | null = extractTypeScriptCode(response.content);
-
-            if (code && this.config.fixCommonErrors) {
+            let code = extractTypeScriptCode(response.content);
+            
+            if (this.config.fixCommonErrors) {
               code = fixCommonTypeScriptErrors(code);
             }
-
-            if (code && this.config.ensureConsoleOutput) {
+            
+            if (this.config.ensureConsoleOutput) {
               code = ensureConsoleOutput(code);
             }
-
-            return code || '';
+            
+            return code;
           }
         );
-        extractedCode = cachedCode || undefined;
         timing.extractionTime = Date.now() - extractionStartTime;
       }
 
-      // Step 3: Run Dagger (if enabled and code extracted)
-      if (this.config.runDagger && extractedCode) {
-        const daggerStartTime = Date.now();
-        daggerResult = await this.cache.getCachedFile(
-          `dagger-results/${this.getModelKey(model)}`,
+      // Step 3: Run Docker (if enabled and code extracted)
+      if (this.config.runDocker && extractedCode) {
+        const dockerStartTime = Date.now();
+        dockerResult = await this.cache.getCachedFile(
+          `docker-results/${this.getModelKey(model)}`,
           async () => {
-            return await DaggerRunner.runCode({
-              code: extractedCode!,
+            const dockerRunner = new DockerRunner({
+              timeout: this.config.dockerTimeout,
+              workdir: this.cache.getWorkdir()
+            });
+            
+            return await dockerRunner.runCode(extractedCode!, {
               language: 'typescript',
-              timeout: this.config.daggerTimeout ? this.config.daggerTimeout / 1000 : 30,
-              modelName: model.name
+              model: model.name,
+              evaluationId: this.cache.getWorkdir().split(path.sep).pop() || 'unknown'
             });
           }
         );
-        timing.daggerTime = Date.now() - daggerStartTime;
+        timing.dockerTime = Date.now() - dockerStartTime;
       }
 
       // Step 4: AI Scoring (if enabled)
       if (this.config.aiScoring) {
         const scoringStartTime = Date.now();
-        const evaluationId = this.cache.getWorkdir().split(path.sep).pop() || 'unknown';
         codeScore = await this.cache.getCachedScore(
           model,
-          this.stimulus.id || 'code-generation',
+          this.stimulus.id,
           'code-quality',
           async () => {
-            const scorer = new CodeScorer(evaluationId, this.config.evaluatorModel);
-            // Pass original response so code can be re-extracted
-            return await scorer.scoreResponse(response);
+            const scorer = new CodeScorer();
+            return await scorer.scoreCode({
+              code: extractedCode || response.content,
+              prompt: this.prompt,
+              dockerResult: dockerResult,
+              model: model.name
+            });
           }
         );
         timing.scoringTime = Date.now() - scoringStartTime;
@@ -164,7 +169,7 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
       timing.totalTime = Date.now() - modelStartTime;
 
       const metadata: EvaluationMetadata = {
-        stimulusId: this.stimulus.id || 'code-generation',
+        stimulusId: this.stimulus.id,
         evaluationId: this.cache.getWorkdir().split(path.sep).pop() || 'unknown',
         timestamp: new Date(),
         duration: timing.totalTime,
@@ -176,7 +181,7 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
         response,
         metadata,
         extractedCode,
-        daggerResult,
+        dockerResult,
         codeScore,
         timing
       };
@@ -185,7 +190,7 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
       console.error(`Error evaluating model ${model.name}:`, error);
       
       const metadata: EvaluationMetadata = {
-        stimulusId: this.stimulus.id || 'code-generation',
+        stimulusId: this.stimulus.id,
         evaluationId: this.cache.getWorkdir().split(path.sep).pop() || 'unknown',
         timestamp: new Date(),
         duration: Date.now() - modelStartTime,
@@ -203,14 +208,14 @@ export class CodeGenerationEvaluation implements EvaluationStrategy {
             tokenUsage: { promptTokens: 0, completionTokens: 0 },
             provider: model.provider,
             model: model.name,
-            cost: { promptCost: 0, completionCost: 0, totalCost: 0, usage: { promptTokens: 0, completionTokens: 0 } }
+            cost: { total: 0, prompt: 0, completion: 0 }
           }
         },
         metadata,
         timing: {
           responseTime: 0,
           extractionTime: 0,
-          daggerTime: 0,
+          dockerTime: 0,
           scoringTime: 0,
           totalTime: Date.now() - modelStartTime
         }
