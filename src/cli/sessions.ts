@@ -573,15 +573,345 @@ sessionsCommand
     }
   });
 
-// Placeholder for stats subcommand
+// Stats subcommand
+interface StatsOptions {
+  project: string;
+  json?: boolean;
+}
+
 sessionsCommand
   .command('stats')
-  .description('Show statistics and costs for a session')
+  .description('Show token usage statistics and costs for a session')
   .argument('<session-id>', 'Session ID to analyze')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--json', 'Output in JSON format')
-  .action(async (sessionId, options) => {
-    console.log(chalk.yellow('Sessions stats command - to be implemented'));
-    console.log('Session ID:', sessionId);
-    console.log('Options:', options);
+  .action(async (sessionId: string, options: StatsOptions) => {
+    try {
+      const projectPath = options.project;
+
+      // Check if sessions index exists
+      if (!(await hasSessionsIndex(projectPath))) {
+        console.error(
+          chalk.red(`No Claude sessions found for project: ${projectPath}`)
+        );
+        process.exit(1);
+      }
+
+      // Get all sessions and find matching one (support partial IDs)
+      const sessions = await getProjectSessions(projectPath);
+      const session = sessions.find(s =>
+        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      );
+
+      if (!session) {
+        console.error(chalk.red(`Session not found: ${sessionId}`));
+        console.log(
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
+        );
+        process.exit(1);
+      }
+
+      // Parse the session file to get detailed information
+      const { parseSessionFile, summarizeSession } = await import('../sessions/session-parser.js');
+      const messages = await parseSessionFile(session.fullPath);
+      const summary = summarizeSession(messages);
+
+      // Calculate cache efficiency
+      const totalInputTokens = summary.tokenUsage.input_tokens +
+        (summary.tokenUsage.cache_creation_input_tokens || 0) +
+        (summary.tokenUsage.cache_read_input_tokens || 0);
+
+      const cacheHitRate = totalInputTokens > 0
+        ? ((summary.tokenUsage.cache_read_input_tokens || 0) / totalInputTokens) * 100
+        : 0;
+
+      // Calculate cost breakdown
+      const INPUT_PRICE_PER_MTK = 3.0;
+      const OUTPUT_PRICE_PER_MTK = 15.0;
+      const CACHE_WRITE_PRICE_PER_MTK = 3.75;
+      const CACHE_READ_PRICE_PER_MTK = 0.3;
+
+      const inputCost = (summary.tokenUsage.input_tokens / 1_000_000) * INPUT_PRICE_PER_MTK;
+      const outputCost = (summary.tokenUsage.output_tokens / 1_000_000) * OUTPUT_PRICE_PER_MTK;
+      const cacheWriteCost = ((summary.tokenUsage.cache_creation_input_tokens || 0) / 1_000_000) * CACHE_WRITE_PRICE_PER_MTK;
+      const cacheReadCost = ((summary.tokenUsage.cache_read_input_tokens || 0) / 1_000_000) * CACHE_READ_PRICE_PER_MTK;
+
+      // Output JSON if requested
+      if (options.json) {
+        const output = {
+          sessionId: session.sessionId,
+          tokenUsage: {
+            input: summary.tokenUsage.input_tokens,
+            output: summary.tokenUsage.output_tokens,
+            cacheWrite: summary.tokenUsage.cache_creation_input_tokens || 0,
+            cacheRead: summary.tokenUsage.cache_read_input_tokens || 0,
+            total: totalInputTokens + summary.tokenUsage.output_tokens,
+          },
+          cacheStats: {
+            hitRate: cacheHitRate,
+            writeTokens: summary.tokenUsage.cache_creation_input_tokens || 0,
+            readTokens: summary.tokenUsage.cache_read_input_tokens || 0,
+          },
+          costs: {
+            input: inputCost,
+            output: outputCost,
+            cacheWrite: cacheWriteCost,
+            cacheRead: cacheReadCost,
+            total: summary.estimatedCost,
+          },
+          messages: {
+            total: summary.totalMessages,
+            user: summary.userMessages,
+            assistant: summary.assistantMessages,
+            toolCalls: summary.toolCalls,
+          },
+        };
+        console.log(JSON.stringify(output, null, 2));
+        return;
+      }
+
+      // Display formatted output
+      console.log(chalk.bold(`\nToken Usage & Cost Statistics`));
+      console.log(chalk.dim(`Session: ${chalk.cyan(session.sessionId)}\n`));
+
+      // Token Usage Table
+      const tokenTable = new Table({
+        head: ['Token Type', 'Count', 'Cost'],
+        colWidths: [25, 20, 15],
+        style: {
+          head: [],
+          border: [],
+        },
+      });
+
+      tokenTable.push(
+        [
+          'Input Tokens',
+          summary.tokenUsage.input_tokens.toLocaleString(),
+          chalk.dim(`$${inputCost.toFixed(4)}`),
+        ],
+        [
+          'Output Tokens',
+          summary.tokenUsage.output_tokens.toLocaleString(),
+          chalk.dim(`$${outputCost.toFixed(4)}`),
+        ],
+        [
+          chalk.yellow('Cache Write Tokens'),
+          (summary.tokenUsage.cache_creation_input_tokens || 0).toLocaleString(),
+          chalk.dim(`$${cacheWriteCost.toFixed(4)}`),
+        ],
+        [
+          chalk.green('Cache Read Tokens'),
+          (summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
+          chalk.dim(`$${cacheReadCost.toFixed(4)}`),
+        ],
+        ['', '', ''],
+        [
+          chalk.bold('Total'),
+          chalk.bold((totalInputTokens + summary.tokenUsage.output_tokens).toLocaleString()),
+          chalk.bold.green(`$${summary.estimatedCost.toFixed(4)}`),
+        ]
+      );
+
+      console.log(tokenTable.toString());
+
+      // Cache Statistics
+      console.log(chalk.bold('\nCache Performance\n'));
+
+      const cacheStatsTable = new Table({
+        colWidths: [35, 25],
+        style: {
+          head: [],
+          border: [],
+        },
+      });
+
+      cacheStatsTable.push(
+        [
+          'Cache Hit Rate',
+          `${cacheHitRate.toFixed(2)}%`,
+        ],
+        [
+          'Tokens Written to Cache',
+          (summary.tokenUsage.cache_creation_input_tokens || 0).toLocaleString(),
+        ],
+        [
+          'Tokens Read from Cache',
+          (summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
+        ]
+      );
+
+      console.log(cacheStatsTable.toString());
+
+      // Session Overview
+      console.log(chalk.bold('\nSession Overview\n'));
+
+      const overviewTable = new Table({
+        colWidths: [35, 25],
+        style: {
+          head: [],
+          border: [],
+        },
+      });
+
+      overviewTable.push(
+        ['Total Messages', summary.totalMessages.toString()],
+        ['User Messages', summary.userMessages.toString()],
+        ['Assistant Messages', summary.assistantMessages.toString()],
+        ['Tool Calls', summary.toolCalls.toString()]
+      );
+
+      console.log(overviewTable.toString());
+
+      console.log(
+        chalk.dim('\nTip: Use "sessions show <id>" to view full session details')
+      );
+      console.log(
+        chalk.dim('     Use --json to get structured output')
+      );
+    } catch (error) {
+      console.error(chalk.red('Error calculating stats:'), error);
+      process.exit(1);
+    }
+  });
+
+// Format subcommand
+interface FormatOptions {
+  assistantOnly?: boolean;
+  userOnly?: boolean;
+  tools?: boolean;
+  verbose?: boolean;
+}
+
+sessionsCommand
+  .command('format')
+  .description('Format JSONL session stream from stdin to readable text')
+  .option('--assistant-only', 'Show only assistant messages')
+  .option('--user-only', 'Show only user messages')
+  .option('--tools', 'Show tool calls')
+  .option('--verbose', 'Show all message details including metadata')
+  .action(async (options: FormatOptions) => {
+    try {
+      const { createInterface } = await import('node:readline');
+      const { stdin } = await import('node:process');
+
+      // Check if stdin is being piped
+      if (stdin.isTTY) {
+        console.error(chalk.red('Error: This command requires input from stdin'));
+        console.log(chalk.dim('\nUsage: claude -p "prompt" --output-format stream-json | umwelten sessions format'));
+        console.log(chalk.dim('       cat session.jsonl | umwelten sessions format'));
+        process.exit(1);
+      }
+
+      const rl = createInterface({
+        input: stdin,
+        crlfDelay: Infinity,
+      });
+
+      let messageCount = 0;
+
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+
+        try {
+          const message = JSON.parse(line);
+
+          // Filter based on options
+          if (options.userOnly && message.type !== 'user') continue;
+          if (options.assistantOnly && message.type !== 'assistant') continue;
+
+          // Handle different message types
+          if (message.type === 'user') {
+            messageCount++;
+            console.log(chalk.bold.green(`\n[User]`));
+
+            const content = message.message?.content;
+            if (typeof content === 'string') {
+              console.log(content);
+            } else if (Array.isArray(content)) {
+              for (const block of content) {
+                if (block.type === 'text') {
+                  console.log(block.text);
+                }
+              }
+            }
+          } else if (message.type === 'assistant') {
+            messageCount++;
+            console.log(chalk.bold.blue(`\n[Assistant]`));
+
+            const content = message.message?.content;
+            if (typeof content === 'string') {
+              console.log(content);
+            } else if (Array.isArray(content)) {
+              for (const block of content) {
+                if (block.type === 'text') {
+                  console.log(block.text);
+                } else if (block.type === 'tool_use' && options.tools) {
+                  console.log(chalk.yellow(`\n  [Tool Call: ${block.name}]`));
+                  console.log(chalk.dim(`  ID: ${block.id}`));
+                  console.log(chalk.dim(`  Input: ${JSON.stringify(block.input, null, 2).split('\n').join('\n  ')}`));
+                }
+              }
+            }
+
+            if (options.verbose && message.message?.usage) {
+              const usage = message.message.usage;
+              console.log(chalk.dim(`\n  Tokens: in=${usage.input_tokens} out=${usage.output_tokens} cache_read=${usage.cache_read_input_tokens || 0}`));
+            }
+          } else if (message.type === 'system') {
+            if (options.verbose) {
+              console.log(chalk.dim(`\n[System: ${message.subtype || 'info'}]`));
+              if (message.session_id) {
+                console.log(chalk.dim(`  Session: ${message.session_id}`));
+              }
+            }
+          } else if (message.type === 'result') {
+            if (options.verbose) {
+              console.log(chalk.dim(`\n[Result: ${message.subtype || 'unknown'}]`));
+              if (message.result) {
+                console.log(chalk.dim(`  ${message.result}`));
+              }
+            }
+          } else if (message.type === 'tool_result' && options.tools) {
+            console.log(chalk.yellow(`\n[Tool Result: ${message.tool_use_id}]`));
+
+            const content = message.message?.content;
+            if (typeof content === 'string') {
+              // Truncate very long tool results
+              const maxLength = 500;
+              if (content.length > maxLength) {
+                console.log(chalk.dim(content.slice(0, maxLength) + '...'));
+                console.log(chalk.dim(`(${content.length - maxLength} more characters)`));
+              } else {
+                console.log(chalk.dim(content));
+              }
+            } else if (Array.isArray(content)) {
+              for (const block of content) {
+                if (block.type === 'text') {
+                  const text = block.text;
+                  const maxLength = 500;
+                  if (text.length > maxLength) {
+                    console.log(chalk.dim(text.slice(0, maxLength) + '...'));
+                    console.log(chalk.dim(`(${text.length - maxLength} more characters)`));
+                  } else {
+                    console.log(chalk.dim(text));
+                  }
+                }
+              }
+            }
+          }
+        } catch (parseError) {
+          if (options.verbose) {
+            console.error(chalk.red(`Failed to parse line: ${parseError}`));
+          }
+        }
+      }
+
+      if (messageCount === 0 && !options.verbose) {
+        console.log(chalk.yellow('\nNo messages found in stream.'));
+      }
+    } catch (error) {
+      console.error(chalk.red('Error formatting stream:'), error);
+      process.exit(1);
+    }
   });
