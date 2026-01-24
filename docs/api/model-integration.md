@@ -349,9 +349,9 @@ async function costAwareProcessing(tasks: string[]): Promise<void> {
     
     const response = await runner.generateText(conversation);
     
-    if (response.metadata?.cost) {
-      totalCost += response.metadata.cost.totalCost;
-      console.log(`Task cost: $${response.metadata.cost.totalCost}, Total: $${totalCost}`);
+    if (response.cost) {
+      totalCost += response.cost.total;
+      console.log(`Task cost: $${response.cost.total}, Total: $${totalCost}`);
     }
   }
 }
@@ -536,8 +536,8 @@ async function benchmarkProviders(prompt: string): Promise<void> {
       results.push({
         provider: `${model.provider}:${model.name}`,
         duration,
-        tokens: response.metadata?.tokenUsage?.total || 0,
-        cost: response.metadata?.cost?.totalCost || 0,
+        tokens: response.usage?.total || 0,
+        cost: response.cost?.total || 0,
         content: response.content.substring(0, 100) + '...'
       });
       
