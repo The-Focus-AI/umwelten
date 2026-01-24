@@ -1217,3 +1217,216 @@ sessionsCommand
       process.exit(1);
     }
   });
+
+// Export subcommand
+interface ExportOptions {
+  project: string;
+  format: 'markdown' | 'json';
+  output?: string;
+  includeToolCalls?: boolean;
+  includeMetadata?: boolean;
+}
+
+sessionsCommand
+  .command('export')
+  .description('Export session to markdown or JSON format')
+  .argument('<session-id>', 'Session ID to export')
+  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('-f, --format <format>', 'Output format (markdown, json)', 'markdown')
+  .option('-o, --output <file>', 'Output file (prints to stdout if not specified)')
+  .option('--no-tool-calls', 'Exclude tool calls from export')
+  .option('--no-metadata', 'Exclude metadata from export')
+  .action(async (sessionId: string, options: ExportOptions) => {
+    try {
+      const projectPath = options.project;
+
+      // Check if sessions index exists
+      if (!(await hasSessionsIndex(projectPath))) {
+        console.error(
+          chalk.red(`No Claude sessions found for project: ${projectPath}`)
+        );
+        process.exit(1);
+      }
+
+      // Get all sessions and find matching one (support partial IDs)
+      const sessions = await getProjectSessions(projectPath);
+      const session = sessions.find(s =>
+        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      );
+
+      if (!session) {
+        console.error(chalk.red(`Session not found: ${sessionId}`));
+        console.log(
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
+        );
+        process.exit(1);
+      }
+
+      // Parse the session file
+      const { parseSessionFile, summarizeSession, extractToolCalls, extractTextContent } = await import('../sessions/session-parser.js');
+      const messages = await parseSessionFile(session.fullPath);
+      const summary = summarizeSession(messages);
+      const toolCalls = extractToolCalls(messages);
+
+      // Generate export content based on format
+      let exportContent: string;
+
+      if (options.format === 'json') {
+        // JSON export
+        const jsonExport: any = {
+          sessionId: session.sessionId,
+          metadata: options.includeMetadata !== false ? {
+            projectPath: session.projectPath,
+            gitBranch: session.gitBranch,
+            created: session.created,
+            modified: session.modified,
+            isSidechain: session.isSidechain,
+            messageCount: session.messageCount,
+            firstPrompt: session.firstPrompt,
+          } : undefined,
+          summary: {
+            totalMessages: summary.totalMessages,
+            userMessages: summary.userMessages,
+            assistantMessages: summary.assistantMessages,
+            toolCalls: summary.toolCalls,
+            duration: summary.duration,
+            tokenUsage: summary.tokenUsage,
+            estimatedCost: summary.estimatedCost,
+          },
+          conversation: messages
+            .filter(m => m.type === 'user' || m.type === 'assistant')
+            .map(msg => {
+              if (msg.type === 'user' || msg.type === 'assistant') {
+                const content = msg.message.content;
+                const texts = extractTextContent(content);
+
+                return {
+                  type: msg.type,
+                  role: msg.message.role,
+                  timestamp: msg.timestamp,
+                  uuid: msg.uuid,
+                  content: texts.join('\n'),
+                  usage: msg.type === 'assistant' ? msg.message.usage : undefined,
+                };
+              }
+              return msg;
+            }),
+          toolCalls: options.includeToolCalls !== false ? toolCalls : undefined,
+        };
+
+        // Remove undefined fields
+        if (jsonExport.metadata === undefined) delete jsonExport.metadata;
+        if (jsonExport.toolCalls === undefined) delete jsonExport.toolCalls;
+
+        exportContent = JSON.stringify(jsonExport, null, 2);
+      } else {
+        // Markdown export
+        const lines: string[] = [];
+
+        // Header
+        lines.push(`# Claude Code Session: ${session.sessionId}`);
+        lines.push('');
+
+        // Metadata section
+        if (options.includeMetadata !== false) {
+          lines.push('## Metadata');
+          lines.push('');
+          lines.push(`- **Project Path**: ${session.projectPath}`);
+          lines.push(`- **Git Branch**: ${session.gitBranch}`);
+          lines.push(`- **Created**: ${new Date(session.created).toLocaleString()}`);
+          lines.push(`- **Modified**: ${new Date(session.modified).toLocaleString()}`);
+          if (summary.duration) {
+            const durationStr = formatDuration(summary.duration);
+            lines.push(`- **Duration**: ${durationStr}`);
+          }
+          lines.push(`- **Sidechain**: ${session.isSidechain ? 'Yes' : 'No'}`);
+          lines.push('');
+        }
+
+        // Summary section
+        lines.push('## Summary');
+        lines.push('');
+        lines.push(`- **Total Messages**: ${summary.totalMessages}`);
+        lines.push(`- **User Messages**: ${summary.userMessages}`);
+        lines.push(`- **Assistant Messages**: ${summary.assistantMessages}`);
+        lines.push(`- **Tool Calls**: ${summary.toolCalls}`);
+        lines.push(`- **Input Tokens**: ${summary.tokenUsage.input_tokens.toLocaleString()}`);
+        lines.push(`- **Output Tokens**: ${summary.tokenUsage.output_tokens.toLocaleString()}`);
+        if (summary.tokenUsage.cache_read_input_tokens) {
+          lines.push(`- **Cache Read Tokens**: ${summary.tokenUsage.cache_read_input_tokens.toLocaleString()}`);
+        }
+        if (summary.tokenUsage.cache_creation_input_tokens) {
+          lines.push(`- **Cache Write Tokens**: ${summary.tokenUsage.cache_creation_input_tokens.toLocaleString()}`);
+        }
+        lines.push(`- **Estimated Cost**: $${summary.estimatedCost.toFixed(4)}`);
+        lines.push('');
+
+        // Conversation section
+        lines.push('## Conversation');
+        lines.push('');
+
+        const conversationMessages = messages.filter(m => m.type === 'user' || m.type === 'assistant');
+        for (const msg of conversationMessages) {
+          if (msg.type !== 'user' && msg.type !== 'assistant') {
+            continue;
+          }
+
+          const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : 'unknown';
+          const role = msg.type === 'user' ? 'User' : 'Assistant';
+
+          lines.push(`### ${role} (${timestamp})`);
+          lines.push('');
+
+          const content = msg.message.content;
+          const texts = extractTextContent(content);
+
+          for (const text of texts) {
+            lines.push(text);
+            lines.push('');
+          }
+
+          // Add token usage for assistant messages
+          if (msg.type === 'assistant' && msg.message.usage) {
+            const usage = msg.message.usage;
+            lines.push(`*Tokens: ${usage.input_tokens} in, ${usage.output_tokens} out*`);
+            if (usage.cache_read_input_tokens) {
+              lines.push(`*Cache: ${usage.cache_read_input_tokens} tokens read*`);
+            }
+            lines.push('');
+          }
+        }
+
+        // Tool calls section
+        if (options.includeToolCalls !== false && toolCalls.length > 0) {
+          lines.push('## Tool Calls');
+          lines.push('');
+
+          for (const toolCall of toolCalls) {
+            const timestamp = toolCall.timestamp ? new Date(toolCall.timestamp).toLocaleString() : 'unknown';
+            lines.push(`### ${toolCall.name} (${timestamp})`);
+            lines.push('');
+            lines.push('**Input:**');
+            lines.push('');
+            lines.push('```json');
+            lines.push(JSON.stringify(toolCall.input, null, 2));
+            lines.push('```');
+            lines.push('');
+          }
+        }
+
+        exportContent = lines.join('\n');
+      }
+
+      // Output to file or stdout
+      if (options.output) {
+        const { writeFile } = await import('node:fs/promises');
+        await writeFile(options.output, exportContent, 'utf-8');
+        console.log(chalk.green(`✓ Exported session to ${options.output}`));
+      } else {
+        console.log(exportContent);
+      }
+    } catch (error) {
+      console.error(chalk.red('Error exporting session:'), error);
+      process.exit(1);
+    }
+  });
