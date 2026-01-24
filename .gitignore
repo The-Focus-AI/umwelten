@@ -63,3 +63,5 @@ umwelten-*.tgz
 
 # bv (beads viewer) local config and caches
 .bv/
+
+.dagger-cache/

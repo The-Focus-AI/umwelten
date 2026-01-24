@@ -20,12 +20,47 @@
 - [x] Update `docs/.vitepress/config.ts` - Add Code Execution to sidebar
 - [x] Update `docs/index.md` - Add Code Execution feature section
 
-## Current
+## Current: Claude Agent Monitor (Phase 1 - Session Browser)
 
-(None)
+See [docs/claude-agent-monitor.md](docs/claude-agent-monitor.md) for full design.
+
+### Core Module
+- [ ] `umwelten-4n9` - Create session types in src/sessions/types.ts
+- [ ] `umwelten-yoo` - Build session store to read sessions-index.json
+- [ ] `umwelten-bhx` - Build JSONL parser for session transcripts
+- [ ] `umwelten-pf7` - Build stream formatter for live stream-json output
+
+### CLI Commands
+- [ ] `umwelten-uct` - Add sessions command to CLI (src/cli/sessions.ts)
+- [ ] `umwelten-55r` - Implement sessions list command
+- [ ] `umwelten-x8f` - Implement sessions show command
+- [ ] `umwelten-ix2` - Implement sessions messages command
+- [ ] `umwelten-yj1` - Implement sessions tools command
+- [ ] `umwelten-59b` - Implement sessions stats command
+- [ ] `umwelten-zsy` - Implement sessions format command (stdin pipe)
+- [ ] `umwelten-72b` - Implement sessions export command
 
 ## Planned
 
+### Phase 2: Session Analysis
+- [ ] Implement sessions search command
+- [ ] Implement sessions compare command
+- [ ] Implement sessions summary command
+- [ ] Implement sessions cost command
+- [ ] Add session analytics aggregation
+
+### Phase 3: Agent Monitor (Scheduled Runs)
+- [ ] Create monitor repo add/list/remove commands
+- [ ] Create monitor task create/list/enable/disable commands
+- [ ] Implement ClaudeRunner for CLI execution
+- [ ] Implement DaggerSandbox for containerized runs
+- [ ] Implement TaskScheduler with node-cron
+- [ ] Create SQLite database for monitor state
+- [ ] Implement monitor serve web dashboard
+- [ ] Add SSE for live run updates
+- [ ] Implement session continuation from monitor
+
+### Backlog
 - [ ] Test LLM-based container configuration with valid OpenRouter API key
 - [ ] Add environment variables for OpenRouter LLM configuration in Dagger
 - [ ] Update existing docker-runner tests to work with DaggerRunner
