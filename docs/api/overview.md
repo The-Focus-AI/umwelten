@@ -397,9 +397,9 @@ let totalCost = 0;
 
 const response = await runner.generateText(conversation);
 
-if (response.metadata?.cost) {
-  totalCost += response.metadata.cost.totalCost;
-  console.log(`Request cost: $${response.metadata.cost.totalCost}`);
+if (response.cost) {
+  totalCost += response.cost.total;
+  console.log(`Request cost: $${response.cost.total}`);
   console.log(`Total cost: $${totalCost}`);
 }
 ```

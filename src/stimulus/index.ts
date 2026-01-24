@@ -2,32 +2,32 @@
 // This file exports all available stimuli organized by category
 
 // Creative stimuli
-export * from './creative/cat-poem.js';
-export * from './creative/advanced-creative.js';
-export * from './creative/frankenstein.js';
-export * from './creative/poem-test.js';
-export * from './creative/temperature.js';
+export * from './creative/cat-poem';
+export * from './creative/advanced-creative';
+export * from './creative/frankenstein';
+export * from './creative/poem-test';
+export * from './creative/temperature';
 
-// Coding stimuli
-export * from './coding/typescript.js';
-export * from './coding/advanced-typescript.js';
-export * from './coding/python.js';
-export * from './coding/debugging.js';
+// Coding stimuli  
+export * from './coding/typescript';
+export * from './coding/advanced-typescript';
+export * from './coding/python';
+export * from './coding/debugging';
 
 // Analysis stimuli
-export * from './analysis/pdf-analysis.js';
-export * from './analysis/advanced-analysis.js';
-export * from './analysis/pdf-identification.js';
-export * from './analysis/pdf-parsing.js';
-export * from './analysis/transcription.js';
-export * from './analysis/tools.js';
-export * from './analysis/image-analysis.js';
+export * from './analysis/pdf-analysis';
+export * from './analysis/advanced-analysis';
+export * from './analysis/pdf-identification';
+export * from './analysis/pdf-parsing';
+export * from './analysis/transcription';
+export * from './analysis/tools';
+export * from './analysis/image-analysis';
 
 // Stimulus templates
-export * from './templates/index.js';
+export * from './templates';
 
 // Stimulus tools
-export * from './tools/index.js';
+export * from './tools';
 
 // Re-export base Stimulus class for convenience
-export { Stimulus } from './stimulus.js';
+export { Stimulus } from './stimulus';
