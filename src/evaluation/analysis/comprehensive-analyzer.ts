@@ -1,4 +1,4 @@
-import { EvaluationResult } from '../types/evaluation.js';
+import { EvaluationResult } from '../types/index.js';
 import { PerformanceAnalyzer, PerformanceAnalysis } from './performance-analyzer.js';
 import { QualityAnalyzer, QualityAnalysis } from './quality-analyzer.js';
 

@@ -50,6 +50,7 @@ export default defineConfig({
         {
           text: 'Advanced',
           items: [
+            { text: 'Code Execution', link: '/guide/code-execution' },
             { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
             { text: 'Cost Analysis', link: '/guide/cost-analysis' },
             { text: 'Reports & Analysis', link: '/guide/reports' },
@@ -66,6 +67,14 @@ export default defineConfig({
             { text: 'Creative Writing', link: '/examples/creative-writing' },
             { text: 'Analysis & Reasoning', link: '/examples/analysis-reasoning' },
             { text: 'Tool Integration', link: '/examples/tool-integration' }
+          ]
+        },
+        {
+          text: 'Code & Execution',
+          items: [
+            { text: 'Code Execution', link: '/examples/code-execution-examples' },
+            { text: 'Tool Conversations', link: '/examples/tool-conversation-examples' },
+            { text: 'Reasoning & Streaming', link: '/examples/reasoning-streaming-examples' }
           ]
         },
         {

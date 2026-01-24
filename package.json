@@ -68,6 +68,7 @@
     "zod-to-json-schema": "^3.25.0"
   },
   "devDependencies": {
+    "@dagger.io/dagger": "^0.19.9",
     "@types/node": "^24.10.4",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
