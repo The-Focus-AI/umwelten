@@ -668,14 +668,37 @@ export class BaseModelRunner implements ModelRunner {
     });
 
     // Handle tool calls and results (they might be promises)
-    let toolCalls = null;
-    let toolResults = null;
-    
+    // For streaming responses, tool calls are in response.steps rather than response.toolCalls
+    let toolCalls: any[] = [];
+    let toolResults: any[] = [];
+
+    // Try to get tool calls from response.toolCalls first (non-streaming)
     if (response.toolCalls) {
-      toolCalls = await response.toolCalls;
+      const resolvedCalls = await response.toolCalls;
+      if (Array.isArray(resolvedCalls) && resolvedCalls.length > 0) {
+        toolCalls = resolvedCalls;
+      }
     }
     if (response.toolResults) {
-      toolResults = await response.toolResults;
+      const resolvedResults = await response.toolResults;
+      if (Array.isArray(resolvedResults) && resolvedResults.length > 0) {
+        toolResults = resolvedResults;
+      }
+    }
+
+    // For streaming responses, extract from steps (Vercel AI SDK pattern)
+    if (toolCalls.length === 0 && response.steps) {
+      const steps = await response.steps;
+      if (Array.isArray(steps)) {
+        for (const step of steps) {
+          if (step.toolCalls && Array.isArray(step.toolCalls)) {
+            toolCalls.push(...step.toolCalls);
+          }
+          if (step.toolResults && Array.isArray(step.toolResults)) {
+            toolResults.push(...step.toolResults);
+          }
+        }
+      }
     }
 
     const modelResponse: ModelResponse = {
@@ -695,8 +718,8 @@ export class BaseModelRunner implements ModelRunner {
         provider: interaction.modelDetails.provider,
         model: interaction.modelDetails.name,
         // Include tool call information if available
-        ...(toolCalls && { toolCalls }),
-        ...(toolResults && { toolResults }),
+        ...(toolCalls.length > 0 && { toolCalls }),
+        ...(toolResults.length > 0 && { toolResults }),
       },
       ...(reasoning && { reasoning }),
     };

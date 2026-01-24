@@ -1,6 +1,25 @@
 /**
- * Docker Runner
- * Utilities for running code in Docker containers for different languages
+ * Docker Runner (DEPRECATED)
+ *
+ * @deprecated Use DaggerRunner from './dagger-runner.js' instead.
+ * This module is kept for backward compatibility but will be removed in a future version.
+ *
+ * DaggerRunner provides:
+ * - LLM-assisted container configuration for any language
+ * - Automatic package detection and installation
+ * - Configuration caching to avoid repeated setup
+ * - Cache volumes for faster repeated runs
+ *
+ * Migration:
+ * ```typescript
+ * // Old (deprecated):
+ * import { DockerRunner } from './docker-runner.js';
+ *
+ * // New (recommended):
+ * import { DaggerRunner } from './dagger-runner.js';
+ * // or for backward compatibility:
+ * import { DockerRunner } from './dagger-runner.js';
+ * ```
  */
 
 import fs from 'fs';
@@ -9,6 +28,12 @@ import { promisify } from 'util';
 import { exec } from 'child_process';
 
 const execAsync = promisify(exec);
+
+/** @deprecated Use DaggerRunner instead */
+console.warn(
+  'WARNING: DockerRunner from docker-runner.ts is deprecated. ' +
+  'Use DaggerRunner from dagger-runner.ts instead.'
+);
 
 export interface LanguageConfig {
   extension: string;
