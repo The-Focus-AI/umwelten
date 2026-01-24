@@ -79,7 +79,7 @@ export class ResultAnalyzer {
       ? successfulResults.reduce((sum, r) => sum + (r.response.metadata.tokenUsage.promptTokens + r.response.metadata.tokenUsage.completionTokens), 0) / successfulResults.length
       : 0;
 
-    const totalCost = successfulResults.reduce((sum, r) => sum + (r.response.metadata.cost?.totalCost || 0), 0);
+    const totalCost = successfulResults.reduce((sum, r) => sum + (r.response.metadata.cost?.total || 0), 0);
     const averageCost = successfulResults.length > 0 ? totalCost / successfulResults.length : 0;
 
     const errorRate = total > 0 ? (failed / total) * 100 : 0;
@@ -115,7 +115,7 @@ export class ResultAnalyzer {
         ? successfulResults.reduce((sum, r) => sum + (r.response.metadata.tokenUsage.promptTokens + r.response.metadata.tokenUsage.completionTokens), 0) / successfulResults.length
         : 0;
 
-      const totalCost = successfulResults.reduce((sum, r) => sum + (r.response.metadata.cost?.totalCost || 0), 0);
+      const totalCost = successfulResults.reduce((sum, r) => sum + (r.response.metadata.cost?.total || 0), 0);
 
       const errors = modelResults
         .filter(r => r.metadata.error)
@@ -150,7 +150,7 @@ export class ResultAnalyzer {
         ? successfulResults.reduce((sum, r) => sum + (r.response.metadata.tokenUsage.promptTokens + r.response.metadata.tokenUsage.completionTokens), 0) / successfulResults.length
         : 0;
 
-      const totalCost = successfulResults.reduce((sum, r) => sum + (r.response.metadata.cost?.totalCost || 0), 0);
+      const totalCost = successfulResults.reduce((sum, r) => sum + (r.response.metadata.cost?.total || 0), 0);
 
       const models = [...new Set(stimulusResults.map(r => r.model))];
 

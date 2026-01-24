@@ -44,7 +44,7 @@ export class ReportGenerator {
         stimulusId: r.metadata.stimulusId,
         duration: r.metadata.duration,
         tokens: r.response.metadata.tokenUsage.promptTokens + r.response.metadata.tokenUsage.completionTokens,
-        cost: r.response.metadata.cost?.totalCost || 0,
+        cost: r.response.metadata.cost?.total || 0,
         success: !r.metadata.error,
         error: r.metadata.error || null,
         timestamp: r.metadata.timestamp
@@ -260,7 +260,7 @@ ${this.config.includeDetails ? results.map((result, index) => `
 - **Stimulus**: ${result.metadata.stimulusId}
 - **Duration**: ${result.metadata.duration}ms
 - **Tokens**: ${result.response.metadata.tokenUsage.promptTokens + result.response.metadata.tokenUsage.completionTokens}
-- **Cost**: $${(result.response.metadata.cost?.totalCost || 0).toFixed(4)}
+- **Cost**: $${(result.response.metadata.cost?.total || 0).toFixed(4)}
 - **Success**: ${!result.metadata.error ? 'Yes' : 'No'}
 ${result.metadata.error ? `- **Error**: ${result.metadata.error}` : ''}
 - **Response Preview**: ${result.response.content.substring(0, 200)}...
