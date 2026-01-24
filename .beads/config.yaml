@@ -60,3 +60,11 @@
 # - linear.api-key
 # - github.org
 # - github.repo
+
+no-git-ops: true
+
+sync.auto-commit: false
+
+sync.auto-push: false
+
+sync.auto-pull: false
