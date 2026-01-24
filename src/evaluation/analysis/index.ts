@@ -1,3 +1,3 @@
 // Export all analysis tools
-export * from './result-analyzer.js';
-export * from './report-generator.js';
+export * from './result-analyzer';
+export * from './report-generator';

@@ -2,13 +2,13 @@
 // This file exports all available tool integrations
 
 // PDF tools
-export * from './pdf-tools.js';
+export * from './pdf-tools';
 
 // Audio tools
-export * from './audio-tools.js';
+export * from './audio-tools';
 
 // Image tools
-export * from './image-tools.js';
+export * from './image-tools';
 
 // Math tools (from examples)
-export * from './examples/math.js';
+export * from './examples/math';
