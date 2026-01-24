@@ -1,4 +1,4 @@
-import { EvaluationResult } from '../types/evaluation.js';
+import { EvaluationResult } from '../types/index.js';
 import { ModelResponse } from '../../cognition/types.js';
 
 export interface QualityMetrics {
@@ -240,8 +240,9 @@ export class QualityAnalyzer {
       let relevance = 0.5; // Base score
       
       // Check for prompt keywords in response
-      const prompt = response.metadata.prompt || '';
-      const promptWords = prompt.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      // Note: prompt is not part of ModelResponse metadata, skip if not available
+      const prompt = (response.metadata as any).prompt || '';
+      const promptWords: string[] = prompt.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
       const responseWords = response.content.toLowerCase().split(/\s+/);
       
       const keywordMatches = promptWords.filter(word => 

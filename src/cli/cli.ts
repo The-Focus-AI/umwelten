@@ -8,6 +8,7 @@ import { runCommand } from './run.js';
 import { chatCommand } from './chat.js';
 import { addToolsCommand } from './tools.js';
 import { evalCommand } from './eval.js';
+import { sessionsCommand } from './sessions.js';
 
 // Get the version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +28,7 @@ program.addCommand(modelsCommand);
 program.addCommand(runCommand);
 program.addCommand(chatCommand);
 program.addCommand(evalCommand);
+program.addCommand(sessionsCommand);
 addToolsCommand(program);
 
 program.parse(); 

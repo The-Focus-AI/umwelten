@@ -23,6 +23,20 @@ pnpm tsx scripts/examples/complex-pipeline-example.ts
 pnpm tsx scripts/examples/comprehensive-analysis-example.ts
 ```
 
+### Code Execution & Testing
+
+```bash
+# Run code in Dagger containers (TypeScript, Python, Ruby, etc.)
+npx tsx src/test/test-dagger-runner.ts
+
+# Test multi-step tool conversations
+npx tsx src/test/test-tool-conversations.ts
+
+# Test reasoning token capture
+npx tsx src/test/test-reasoning-streaming-simple.ts
+npx tsx src/test/test-reasoning-complex.ts
+```
+
 ## 📚 Infrastructure Examples
 
 The new infrastructure-first approach with reusable components:
@@ -38,9 +52,17 @@ The new infrastructure-first approach with reusable components:
 Perfect for getting started with Umwelten:
 
 - **[Simple Text Generation](/examples/text-generation)** - Basic prompt evaluation across models
-- **[Creative Writing](/examples/creative-writing)** - Poetry and story generation with temperature control  
+- **[Creative Writing](/examples/creative-writing)** - Poetry and story generation with temperature control
 - **[Analysis & Reasoning](/examples/analysis-reasoning)** - Complex reasoning tasks and literary analysis
 - **[Tool Integration](/examples/tool-integration)** - Using and creating tools to enhance AI capabilities
+
+## Code & Execution Examples
+
+Execute and test AI-generated code:
+
+- **[Code Execution](/examples/code-execution-examples)** - Run code in isolated Dagger containers (TypeScript, Python, Ruby, etc.)
+- **[Tool Conversations](/examples/tool-conversation-examples)** - Test multi-step tool calling in conversations
+- **[Reasoning & Streaming](/examples/reasoning-streaming-examples)** - Capture reasoning tokens and stream responses
 
 ## Image Processing Examples
 
