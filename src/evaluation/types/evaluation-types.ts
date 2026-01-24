@@ -46,8 +46,8 @@ export interface EvaluationMetadata {
  * Configuration for evaluation strategies
  */
 export interface EvaluationConfig {
-  /** Unique identifier for this evaluation run */
-  evaluationId: string;
+  /** Unique identifier for this evaluation run (will be auto-generated if not provided) */
+  evaluationId?: string;
   /** Whether to use caching (default: true) */
   useCache?: boolean;
   /** Whether to run evaluations concurrently (default: false) */

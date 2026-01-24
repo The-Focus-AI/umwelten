@@ -486,6 +486,74 @@ umwelten eval report \
 umwelten eval list --id "evaluation-id"
 ```
 
+## Programmatic Reporting with Reporter
+
+For programmatic report generation in your TypeScript code, use the `Reporter` class:
+
+### Basic Usage
+
+```typescript
+import { Reporter } from '../src/reporting/index.js';
+
+// Create a reporter
+const reporter = new Reporter({ outputDir: './reports' });
+
+// Create a report from tool test results
+const report = reporter.fromToolTest(results, 'Tool Conversation Evaluation');
+
+// Output to console with colors and formatting
+reporter.toConsole(report);
+
+// Get markdown string
+const markdown = reporter.toMarkdown(report);
+
+// Save to file (auto-generates filename if not provided)
+const filepath = await reporter.toFile(report, 'my-report.md', 'md');
+```
+
+### Report Types
+
+The Reporter supports multiple result types:
+
+```typescript
+// From tool test results
+const report = reporter.fromToolTest(toolTestResults, 'Tool Evaluation');
+
+// Output formats
+reporter.toConsole(report);                    // Rich terminal output
+const md = reporter.toMarkdown(report);        // Markdown string
+const json = reporter.toJson(report);          // JSON string
+await reporter.toFile(report, 'file.md');      // Save to file
+```
+
+### Console Output
+
+The console renderer provides rich terminal output:
+
+- Boxed headers with Unicode borders
+- Color-coded status indicators (green ✓ for pass, red ✗ for fail)
+- Aligned tables with proper column sizing
+- Summary metrics and highlights
+
+### Markdown Output
+
+Markdown reports include:
+
+- YAML frontmatter with metadata
+- Summary section with key metrics
+- Tables for detailed results
+- Collapsible sections for verbose data
+
+### Reporter Options
+
+```typescript
+const reporter = new Reporter({
+  colors: true,       // Enable ANSI colors for console output
+  verbose: false,     // Enable verbose output
+  outputDir: './reports'  // Directory for saved reports
+});
+```
+
 ## Next Steps
 
 Now that you understand reporting, explore:
