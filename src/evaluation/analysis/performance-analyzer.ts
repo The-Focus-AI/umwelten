@@ -1,4 +1,4 @@
-import { EvaluationResult } from '../types/index.js';
+import { EvaluationResult } from '../types/evaluation.js';
 import { ModelResponse } from '../../cognition/types.js';
 
 export interface PerformanceMetrics {
@@ -58,7 +58,7 @@ export class PerformanceAnalyzer {
     const totalResponses = this.results.length;
     const totalTime = this.results.reduce((sum, result) => sum + (result.metadata.duration || 0), 0);
     const totalTokens = this.results.reduce((sum, result) => sum + (result.response.metadata?.tokenUsage?.total || 0), 0);
-    const totalCost = this.results.reduce((sum, result) => sum + (result.response.metadata?.cost?.totalCost || 0), 0);
+    const totalCost = this.results.reduce((sum, result) => sum + (result.response.metadata?.cost?.total || 0), 0);
     const totalCacheHits = this.results.reduce((sum, result) => sum + (result.metadata.cached ? 1 : 0), 0);
     const totalCacheRequests = totalResponses;
 
@@ -97,11 +97,10 @@ export class PerformanceAnalyzer {
     // Calculate metrics for each model
     return Array.from(modelGroups.entries()).map(([key, data]) => {
       const responses = data.responses;
-      const totalTime = responses.reduce((sum, r) => sum + (r.metadata.endTime.getTime() - r.metadata.startTime.getTime()), 0);
+      const totalTime = responses.reduce((sum, r) => sum + (r.metadata.endTime - r.metadata.startTime), 0);
       const totalTokens = responses.reduce((sum, r) => sum + (r.metadata.tokenUsage?.total || 0), 0);
-      const totalCost = responses.reduce((sum, r) => sum + (r.metadata.cost?.totalCost || 0), 0);
-      // Error count based on empty content (since ModelResponse doesn't have error field)
-      const errorCount = responses.filter(r => !r.content || r.content.length === 0).length;
+      const totalCost = responses.reduce((sum, r) => sum + (r.metadata.cost?.total || 0), 0);
+      const errorCount = responses.filter(r => r.metadata.error).length;
 
       return {
         model: data.model,
