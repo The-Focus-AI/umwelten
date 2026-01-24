@@ -440,7 +440,13 @@ sessionsCommand
     }
   });
 
-// Placeholder for tools subcommand
+// Tools subcommand
+interface ToolsOptions {
+  project: string;
+  tool?: string;
+  json?: boolean;
+}
+
 sessionsCommand
   .command('tools')
   .description('Show tool calls from a session')
@@ -448,10 +454,123 @@ sessionsCommand
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--tool <name>', 'Filter by tool name')
   .option('--json', 'Output in JSON format')
-  .action(async (sessionId, options) => {
-    console.log(chalk.yellow('Sessions tools command - to be implemented'));
-    console.log('Session ID:', sessionId);
-    console.log('Options:', options);
+  .action(async (sessionId: string, options: ToolsOptions) => {
+    try {
+      const projectPath = options.project;
+
+      // Check if sessions index exists
+      if (!(await hasSessionsIndex(projectPath))) {
+        console.error(
+          chalk.red(`No Claude sessions found for project: ${projectPath}`)
+        );
+        process.exit(1);
+      }
+
+      // Get all sessions and find matching one (support partial IDs)
+      const sessions = await getProjectSessions(projectPath);
+      const session = sessions.find(s =>
+        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      );
+
+      if (!session) {
+        console.error(chalk.red(`Session not found: ${sessionId}`));
+        console.log(
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
+        );
+        process.exit(1);
+      }
+
+      // Parse the session file and extract tool calls
+      const { parseSessionFile, extractToolCalls } = await import('../sessions/session-parser.js');
+      const messages = await parseSessionFile(session.fullPath);
+      let toolCalls = extractToolCalls(messages);
+
+      // Filter by tool name if specified
+      if (options.tool) {
+        toolCalls = toolCalls.filter(tc => tc.name === options.tool);
+      }
+
+      // Output JSON if requested
+      if (options.json) {
+        console.log(JSON.stringify(toolCalls, null, 2));
+        return;
+      }
+
+      // Display formatted output
+      if (toolCalls.length === 0) {
+        if (options.tool) {
+          console.log(chalk.yellow(`\nNo tool calls found for tool: ${options.tool}`));
+        } else {
+          console.log(chalk.yellow('\nNo tool calls found in this session.'));
+        }
+        return;
+      }
+
+      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
+      console.log(chalk.dim(`Found ${toolCalls.length} tool call(s)\n`));
+
+      const table = new Table({
+        head: ['Time', 'Tool', 'Input'],
+        colWidths: [12, 20, 70],
+        style: {
+          head: [],
+          border: [],
+        },
+        wordWrap: true,
+      });
+
+      for (const toolCall of toolCalls) {
+        const timestamp = toolCall.timestamp ? formatDate(toolCall.timestamp) : 'unknown';
+
+        // Format input parameters - show as compact JSON
+        let inputStr = '';
+        if (toolCall.input && typeof toolCall.input === 'object') {
+          // Get key parameter names for common tools
+          const keys = Object.keys(toolCall.input);
+          if (keys.length === 0) {
+            inputStr = '{}';
+          } else {
+            // Show first few keys with truncated values
+            const maxKeys = 3;
+            const displayKeys = keys.slice(0, maxKeys);
+            const parts = displayKeys.map(key => {
+              const value = toolCall.input[key];
+              let valueStr = String(value);
+              if (valueStr.length > 40) {
+                valueStr = valueStr.slice(0, 37) + '...';
+              }
+              return `${key}: ${valueStr}`;
+            });
+
+            if (keys.length > maxKeys) {
+              parts.push(`... +${keys.length - maxKeys} more`);
+            }
+
+            inputStr = parts.join('\n');
+          }
+        } else {
+          inputStr = String(toolCall.input);
+        }
+
+        table.push([
+          timestamp,
+          chalk.cyan(toolCall.name),
+          chalk.dim(inputStr),
+        ]);
+      }
+
+      console.log(table.toString());
+
+      console.log(
+        chalk.dim('\nTip: Use --tool <name> to filter by specific tool')
+      );
+      console.log(
+        chalk.dim('     Use --json to get full tool call details')
+      );
+    } catch (error) {
+      console.error(chalk.red('Error extracting tool calls:'), error);
+      process.exit(1);
+    }
   });
 
 // Placeholder for stats subcommand
