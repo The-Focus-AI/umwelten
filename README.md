@@ -89,6 +89,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - **🔄 Real-Time Streaming**: Object and text streaming with partial updates
 - **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV) with `--short` option
 - **🔧 Advanced Tool Calling**: Multi-step tool execution with proper `stopWhen` control
+- **🔎 Session Management & Search**: LLM-powered indexing and semantic search of Claude conversations
 - **🔍 Enhanced Documentation**: VitePress site with local search and keyboard shortcuts
 
 ## 📚 Documentation
@@ -107,6 +108,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - 📈 [Reports & Analysis](https://umwelten.thefocus.ai/guide/reports) - Generate comprehensive reports
 - 🔧 [Tool Calling](https://umwelten.thefocus.ai/guide/tool-calling) - Multi-step tool execution
 - 🔄 [Concurrent Processing](https://umwelten.thefocus.ai/guide/concurrent-processing) - Parallel execution
+- 🔎 [Session Management & Search](https://umwelten.thefocus.ai/guide/session-management) - Index and search Claude conversations
 
 ### Examples & Migration
 

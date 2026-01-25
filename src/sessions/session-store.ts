@@ -1,8 +1,9 @@
 import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
-import { readFile, access } from 'node:fs/promises';
+import { readFile, access, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type { SessionsIndex, SessionIndexEntry } from './types.js';
+import type { SessionAnalysisIndex } from './analysis-types.js';
 
 /**
  * Get the path to Claude's sessions directory for a given project
@@ -195,4 +196,60 @@ export async function getSessionStats(projectPath: string): Promise<SessionStats
   stats.newestSession = sorted[sorted.length - 1].created;
 
   return stats;
+}
+
+/**
+ * Get the path to the analysis index file for a given project
+ */
+export function getAnalysisIndexPath(projectPath: string): string {
+  return join(getClaudeProjectPath(projectPath), 'sessions-analysis-index.json');
+}
+
+/**
+ * Check if an analysis index file exists for a given project
+ */
+export async function hasAnalysisIndex(projectPath: string): Promise<boolean> {
+  try {
+    const indexPath = getAnalysisIndexPath(projectPath);
+    await access(indexPath, constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read and parse the analysis index file for a given project
+ */
+export async function readAnalysisIndex(projectPath: string): Promise<SessionAnalysisIndex> {
+  const indexPath = getAnalysisIndexPath(projectPath);
+
+  try {
+    const content = await readFile(indexPath, 'utf-8');
+    const index = JSON.parse(content) as SessionAnalysisIndex;
+
+    // Validate basic structure
+    if (!index.version || !Array.isArray(index.entries)) {
+      throw new Error('Invalid analysis index format');
+    }
+
+    return index;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      throw new Error(`No analysis index found for project: ${projectPath}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Save the analysis index file for a given project
+ */
+export async function saveAnalysisIndex(
+  projectPath: string,
+  index: SessionAnalysisIndex
+): Promise<void> {
+  const indexPath = getAnalysisIndexPath(projectPath);
+  const content = JSON.stringify(index, null, 2);
+  await writeFile(indexPath, content, 'utf-8');
 }

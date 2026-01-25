@@ -54,7 +54,8 @@ export default defineConfig({
             { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
             { text: 'Cost Analysis', link: '/guide/cost-analysis' },
             { text: 'Reports & Analysis', link: '/guide/reports' },
-            { text: 'Memory & Tools', link: '/guide/memory-tools' }
+            { text: 'Memory & Tools', link: '/guide/memory-tools' },
+            { text: 'Session Management & Search', link: '/guide/session-management' }
           ]
         }
       ],

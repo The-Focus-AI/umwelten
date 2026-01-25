@@ -6,12 +6,22 @@ import {
   hasSessionsIndex,
   getProjectSessions,
   filterSessions,
+  hasAnalysisIndex,
 } from '../sessions/session-store.js';
 import type { SessionIndexEntry } from '../sessions/types.js';
+import { indexProject } from '../sessions/session-indexer.js';
+import {
+  searchSessions,
+  formatSearchResults,
+  formatSearchResultsJSON,
+  getTopTopics,
+  getTopTools,
+  getPatterns,
+} from '../sessions/session-search.js';
+import type { SearchOptions } from '../sessions/analysis-types.js';
 
 export const sessionsCommand = new Command('sessions')
-  .description('View and analyze Claude Code session data')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd());
+  .description('View and analyze Claude Code session data');
 
 // Helper functions
 function formatDate(dateStr: string): string {
@@ -1427,6 +1437,234 @@ sessionsCommand
       }
     } catch (error) {
       console.error(chalk.red('Error exporting session:'), error);
+      process.exit(1);
+    }
+  });
+
+// Index subcommand
+interface IndexCommandOptions {
+  project: string;
+  model?: string;
+  force?: boolean;
+  batchSize?: string;
+  verbose?: boolean;
+}
+
+sessionsCommand
+  .command('index')
+  .description('Index sessions using LLM analysis for intelligent search')
+  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('-m, --model <model>', 'Model for analysis (format: provider:model)', 'google:gemini-3-flash-preview')
+  .option('--force', 'Force reindex all sessions', false)
+  .option('-b, --batch-size <size>', 'Number of sessions to process concurrently', '5')
+  .option('-v, --verbose', 'Show detailed progress', false)
+  .action(async (options: IndexCommandOptions) => {
+    try {
+      const projectPath = options.project;
+
+      // Check if sessions index exists
+      if (!(await hasSessionsIndex(projectPath))) {
+        console.error(
+          chalk.red(`No Claude sessions found for project: ${projectPath}`)
+        );
+        console.log(
+          chalk.dim('\nTip: This project has no Claude Code sessions to index.')
+        );
+        process.exit(1);
+      }
+
+      console.log(chalk.bold('Indexing Claude Code sessions...'));
+      console.log(chalk.dim(`Project: ${projectPath}`));
+      console.log(chalk.dim(`Model: ${options.model}`));
+      console.log('');
+
+      const batchSize = parseInt(options.batchSize || '5', 10);
+
+      const result = await indexProject({
+        projectPath,
+        model: options.model,
+        force: options.force,
+        batchSize,
+        verbose: options.verbose,
+      });
+
+      console.log('');
+      console.log(chalk.green('✓ Indexing complete'));
+      console.log(`  Indexed: ${result.indexed} sessions`);
+      console.log(`  Skipped: ${result.skipped} sessions (already indexed)`);
+      if (result.failed > 0) {
+        console.log(chalk.yellow(`  Failed: ${result.failed} sessions`));
+      }
+
+      // Show index location
+      if (await hasAnalysisIndex(projectPath)) {
+        console.log('');
+        console.log(chalk.dim('Use "sessions search" to search indexed sessions'));
+      }
+    } catch (error) {
+      console.error(chalk.red('Error indexing sessions:'), error);
+      process.exit(1);
+    }
+  });
+
+// Search subcommand
+interface SearchCommandOptions {
+  project: string;
+  tags?: string;
+  topic?: string;
+  tool?: string;
+  type?: string;
+  success?: string;
+  branch?: string;
+  limit?: string;
+  json?: boolean;
+}
+
+sessionsCommand
+  .command('search')
+  .description('Search indexed sessions by keywords, tags, topics, or filters')
+  .argument('[query]', 'Search query (optional)')
+  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('--tags <tags>', 'Filter by tags (comma-separated)')
+  .option('--topic <topic>', 'Filter by topic')
+  .option('--tool <tool>', 'Filter by tool usage')
+  .option('--type <type>', 'Filter by solution type (bug-fix, feature, refactor, exploration, question, other)')
+  .option('--success <indicator>', 'Filter by success (yes, partial, no, unclear)')
+  .option('--branch <branch>', 'Filter by git branch')
+  .option('-l, --limit <limit>', 'Max results', '10')
+  .option('--json', 'Output as JSON', false)
+  .action(async (query: string | undefined, options: SearchCommandOptions) => {
+    try {
+      const projectPath = options.project;
+
+      // Check if analysis index exists
+      if (!(await hasAnalysisIndex(projectPath))) {
+        console.error(
+          chalk.red(`No analysis index found for project: ${projectPath}`)
+        );
+        console.log(
+          chalk.dim('\nTip: Run "sessions index" first to create the analysis index.')
+        );
+        process.exit(1);
+      }
+
+      const searchOptions: SearchOptions = {
+        projectPath,
+        tags: options.tags ? options.tags.split(',').map(t => t.trim()) : undefined,
+        topic: options.topic,
+        tool: options.tool,
+        solutionType: options.type,
+        successIndicator: options.success,
+        branch: options.branch,
+        limit: parseInt(options.limit || '10', 10),
+        json: options.json,
+      };
+
+      const results = await searchSessions(query, searchOptions);
+
+      if (options.json) {
+        console.log(formatSearchResultsJSON(results));
+      } else {
+        console.log(formatSearchResults(results));
+      }
+    } catch (error) {
+      console.error(chalk.red('Error searching sessions:'), error);
+      process.exit(1);
+    }
+  });
+
+// Analyze subcommand
+interface AnalyzeCommandOptions {
+  project: string;
+  type: 'topics' | 'tools' | 'patterns' | 'timeline';
+  json?: boolean;
+}
+
+sessionsCommand
+  .command('analyze')
+  .description('Aggregate analysis across all indexed sessions')
+  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('-t, --type <type>', 'Analysis type: topics, tools, patterns, timeline', 'topics')
+  .option('--json', 'Output as JSON', false)
+  .action(async (options: AnalyzeCommandOptions) => {
+    try {
+      const projectPath = options.project;
+
+      // Check if analysis index exists
+      if (!(await hasAnalysisIndex(projectPath))) {
+        console.error(
+          chalk.red(`No analysis index found for project: ${projectPath}`)
+        );
+        console.log(
+          chalk.dim('\nTip: Run "sessions index" first to create the analysis index.')
+        );
+        process.exit(1);
+      }
+
+      if (options.type === 'topics') {
+        const topics = await getTopTopics(projectPath, 20);
+
+        if (options.json) {
+          console.log(JSON.stringify(topics, null, 2));
+        } else {
+          console.log(chalk.bold(`Top Topics (${topics.length} found):`));
+          console.log('');
+          for (let i = 0; i < topics.length; i++) {
+            console.log(`${i + 1}. ${topics[i].topic} (${topics[i].count} sessions)`);
+          }
+        }
+      } else if (options.type === 'tools') {
+        const tools = await getTopTools(projectPath, 20);
+
+        if (options.json) {
+          console.log(JSON.stringify(tools, null, 2));
+        } else {
+          console.log(chalk.bold(`Tool Usage Analysis (${tools.length} tools):`));
+          console.log('');
+
+          // Calculate total sessions for percentage
+          const { readAnalysisIndex } = await import('../sessions/session-store.js');
+          const index = await readAnalysisIndex(projectPath);
+          const totalSessions = index.entries.length;
+
+          for (let i = 0; i < tools.length; i++) {
+            const percentage = ((tools[i].count / totalSessions) * 100).toFixed(1);
+            console.log(`${i + 1}. ${tools[i].tool} - ${tools[i].count} sessions (${percentage}%)`);
+          }
+        }
+      } else if (options.type === 'patterns') {
+        const patterns = await getPatterns(projectPath);
+
+        if (options.json) {
+          console.log(JSON.stringify(patterns, null, 2));
+        } else {
+          console.log(chalk.bold(`Session Patterns (${patterns.totalSessions} sessions):`));
+          console.log('');
+
+          console.log(chalk.bold('Solution Types:'));
+          for (const st of patterns.solutionTypes) {
+            console.log(`  ${st.type}: ${st.count} sessions`);
+          }
+          console.log('');
+
+          console.log(chalk.bold('Success Rates:'));
+          for (const sr of patterns.successRates) {
+            console.log(`  ${sr.indicator}: ${sr.count} sessions (${sr.percentage.toFixed(1)}%)`);
+          }
+          console.log('');
+
+          console.log(chalk.bold('Languages:'));
+          for (const lang of patterns.languages.slice(0, 10)) {
+            console.log(`  ${lang.language}: ${lang.count} sessions`);
+          }
+        }
+      } else {
+        console.error(chalk.red(`Unknown analysis type: ${options.type}`));
+        console.log(chalk.dim('Available types: topics, tools, patterns, timeline'));
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error(chalk.red('Error analyzing sessions:'), error);
       process.exit(1);
     }
   });
