@@ -113,6 +113,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 ### Examples & Migration
 
 - 💡 [Examples Gallery](https://umwelten.thefocus.ai/examples/) - Complete usage examples
+- 🚶 [Walkthroughs](https://umwelten.thefocus.ai/walkthroughs/) - Step-by-step practical guides
 - 🔄 [Script Migration](https://umwelten.thefocus.ai/migration/) - Migrate from scripts to CLI
 - 📋 [API Reference](https://umwelten.thefocus.ai/api/overview) - Complete command reference
 

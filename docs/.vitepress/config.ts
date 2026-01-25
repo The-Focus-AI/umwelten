@@ -17,6 +17,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Examples', link: '/examples/' },
+      { text: 'Walkthroughs', link: '/walkthroughs/' },
       { text: 'Migration', link: '/migration/' },
       { text: 'API', link: '/api/overview' }
     ],
@@ -99,6 +100,16 @@ export default defineConfig({
             { text: 'Multi-language Evaluation', link: '/examples/multi-language' },
             { text: 'Complex Structured Output', link: '/examples/complex-structured' },
             { text: 'Cost Optimization', link: '/examples/cost-optimization' }
+          ]
+        }
+      ],
+      '/walkthroughs/': [
+        {
+          text: 'Practical Walkthroughs',
+          items: [
+            { text: 'Overview', link: '/walkthroughs/' },
+            { text: 'Session Analysis Walkthrough', link: '/walkthroughs/session-analysis-walkthrough' },
+            { text: 'TRMNL Project Analysis', link: '/walkthroughs/trmnl-project-analysis' }
           ]
         }
       ],
