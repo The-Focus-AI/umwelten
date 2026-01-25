@@ -18,6 +18,26 @@ First, let's see what Claude Code sessions exist for a project:
 pnpm run cli sessions list --project /path/to/your/project
 ```
 
+**Example Output:**
+
+```
+Found 44 sessions (showing 10)
+
+┌──────────┬───────────────┬──────────┬────────────┬──────────────────────────────────────────────────┐
+│ ID       │ Branch        │ Messages │ Modified   │ First Prompt                                     │
+├──────────┼───────────────┼──────────┼────────────┼──────────────────────────────────────────────────┤
+│ 2c0e713c │ main          │ 20       │ 3h ago     │ update the image and push it to the display, th… │
+├──────────┼───────────────┼──────────┼────────────┼──────────────────────────────────────────────────┤
+│ e13f3f1c │ main          │ 24       │ 9h ago     │ update the image and push it to the display, th… │
+├──────────┼───────────────┼──────────┼────────────┼──────────────────────────────────────────────────┤
+│ 46db647f │ main          │ 44       │ 9h ago     │ what urls are you posting the latest images to   │
+├──────────┼───────────────┼──────────┼────────────┼──────────────────────────────────────────────────┤
+│ 439ed4b0 │ main          │ 17       │ 16h ago    │ update the image and push it to the display, th… │
+└──────────┴───────────────┴──────────┴────────────┴──────────────────────────────────────────────────┘
+
+Tip: Use "sessions show <id>" to view session details
+```
+
 This shows:
 - Session IDs (you only need the first 8 characters to reference them)
 - Git branch
@@ -30,14 +50,48 @@ This shows:
 To see details about a specific session:
 
 ```bash
-pnpm run cli sessions show <session-id> --project /path/to/your/project
+pnpm run cli sessions show 2c0e713c --project /path/to/your/project
+```
+
+**Example Output:**
+
+```
+Session: 2c0e713c-f9c4-4f5c-9942-08a3d106b42d
+
+┌─────────────────────────┬──────────────────────────────────────────────────┐
+│ Project Path            │ /Users/user/trmnl-image-agent                    │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Git Branch              │ main                                             │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Created                 │ 3h ago                                           │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Duration                │ 4m 30s                                           │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Total Messages          │ 20                                               │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Tool Calls              │ 35                                               │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Input Tokens            │ 209                                              │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Output Tokens           │ 331                                              │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Cache Read Tokens       │ 1,900,864                                        │
+├─────────────────────────┼──────────────────────────────────────────────────┤
+│ Estimated Cost          │ $0.8986                                          │
+└─────────────────────────┴──────────────────────────────────────────────────┘
+
+First Prompt:
+update the image and push it to the display, then update the readme and commit
+
+Tip: Use "sessions messages <id>" to view the conversation
 ```
 
 This displays:
 - Full metadata (created time, duration, message count)
-- Token usage (input/output tokens)
+- Token usage (input/output tokens, cache hits)
 - Estimated cost
 - Tools used
+- First prompt
 
 ## Step 3: Index Sessions with LLM Analysis
 
@@ -70,12 +124,57 @@ dotenvx run -- pnpm run cli sessions search "debugging" --tags typescript,testin
 dotenvx run -- pnpm run cli sessions search --success yes --type feature --project /path/to/your/project
 ```
 
-Search results show:
+**Example Output:**
+
+```
+Results (3 found):
+
+1. Session: 439ed4b0-bbf7-415b-9e5d-69da5cc098bc (today) ⭐ Success
+   Branch: main
+   Summary: Automated the process of fetching weather and ski conditions, generating a
+            custom dashboard image via Gemini, optimizing it for TRMNL e-ink displays,
+            and updating the project repository.
+   Tags: nano-banana, gemini-api, trmnl, e-ink, image-optimization, automation,
+         weather-data, git
+   Key Learning: Programmatic image generation can be integrated into workflows using
+                 CLI tools like nano-banana with Gemini models. E-ink displays like
+                 TRMNL require specific image optimizations, such as 1-bit conversion
+                 and strict file size limits (under 90KB), to function correctly.
+   Matched: topic, summary, learnings, prompt, recent, success (score: 18.9)
+
+2. Session: 47f88803-ee72-4e86-9438-ed4845dafc3f (today) ⭐ Success
+   Branch: main
+   Summary: The assistant generated a custom weather and ski dashboard image, uploaded
+            it to two TRMNL hardware displays, and synchronized the changes to a GitHub
+            repository.
+   Tags: TRMNL, image-processing, weather-api, automation, git, dashboard,
+         shell-scripting, ski-conditions
+   Key Learning: TRMNL displays require 1-bit images with a strict file size limit
+                 (90KB) for successful uploads. Parallel data fetching for weather and
+                 mountain conditions optimizes the dashboard generation workflow.
+   Matched: topic, summary, learnings, prompt, recent, success (score: 18.8)
+
+3. Session: 312123a0-b90a-42a0-994f-fe2dccb16a05 (1 day ago) ⭐ Success
+   Branch: main
+   Summary: The assistant automated the update of a TRMNL dashboard by fetching weather
+            and ski data, generating a themed image, and pushing the results to both
+            hardware displays and a Git repository.
+   Tags: trmnl, gemini, nano-banana, chrome-driver, e-ink, image-processing, git,
+         weather-api
+   Key Learning: Successfully orchestrated a multi-step workflow combining web scraping
+                 (chrome-driver), AI image generation (nano-banana/Gemini), and hardware
+                 deployment (TRMNL). Learned to process images into 1-bit black and
+                 white format at 800x480 resolution to meet e-ink display constraints.
+   Matched: topic, summary, learnings, prompt, recent, success (score: 18.8)
+```
+
+Each search result shows:
 - Session ID and when it happened
+- Git branch
 - Summary of what was done
 - Tags extracted by the LLM
-- Key learnings
-- Success indicator
+- Key learnings (the valuable insights!)
+- What matched your search
 - Relevance score
 
 ## Step 5: Analyze Patterns
@@ -91,6 +190,63 @@ dotenvx run -- pnpm run cli sessions analyze --type tools --project /path/to/you
 
 # What types of work are you doing? (features, bug fixes, etc.)
 dotenvx run -- pnpm run cli sessions analyze --type patterns --project /path/to/your/project
+```
+
+**Example Topics Output:**
+
+```
+Top Topics (20 found):
+
+1. TRMNL display integration (11 sessions)
+2. Git workflow automation (6 sessions)
+3. Secret management (5 sessions)
+4. Environment variable management (5 sessions)
+5. Weather and ski data integration (4 sessions)
+6. Prompt engineering (4 sessions)
+7. Dashboard image generation (3 sessions)
+8. TRMNL integration (3 sessions)
+9. 1Password integration (3 sessions)
+10. AI image generation (2 sessions)
+```
+
+**Example Tools Output:**
+
+```
+Tool Usage Analysis (20 tools):
+
+1. TRMNL - 30 sessions (71.4%)
+2. nano-banana - 13 sessions (31.0%)
+3. Git - 10 sessions (23.8%)
+4. 1Password - 7 sessions (16.7%)
+5. ImageMagick - 6 sessions (14.3%)
+6. Gemini API - 6 sessions (14.3%)
+7. chrome-driver - 5 sessions (11.9%)
+8. Weather API - 3 sessions (7.1%)
+```
+
+**Example Patterns Output:**
+
+```
+Session Patterns (42 sessions):
+
+Solution Types:
+  feature: 32 sessions
+  bug-fix: 3 sessions
+  question: 3 sessions
+  exploration: 2 sessions
+  refactor: 2 sessions
+
+Success Rates:
+  yes: 40 sessions (95.2%)
+  partial: 5 sessions (10.6%)
+  no: 2 sessions (4.8%)
+
+Languages:
+  markdown: 20 sessions
+  bash: 19 sessions
+  shell: 9 sessions
+  yaml: 6 sessions
+  python: 2 sessions
 ```
 
 ## Real-World Use Cases
