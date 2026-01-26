@@ -20,34 +20,162 @@
 - [x] Update `docs/.vitepress/config.ts` - Add Code Execution to sidebar
 - [x] Update `docs/index.md` - Add Code Execution feature section
 
-## Current: Claude Agent Monitor (Phase 1 - Session Browser)
+## Completed: Claude Agent Monitor (Phase 1 - Session Browser)
 
-See [docs/claude-agent-monitor.md](docs/claude-agent-monitor.md) for full design.
+- [x] Create session types in src/sessions/types.ts
+- [x] Build session store to read sessions-index.json
+- [x] Build JSONL parser for session transcripts
+- [x] Build stream formatter for live stream-json output
+- [x] Add sessions command to CLI (src/cli/sessions.ts)
+- [x] Implement sessions list command
+- [x] Implement sessions show command
+- [x] Implement sessions messages command
+- [x] Implement sessions tools command
+- [x] Implement sessions stats command
+- [x] Implement sessions format command (stdin pipe)
+- [x] Implement sessions export command
+- [x] Implement sessions index command (LLM-powered)
+- [x] Implement sessions search command
+- [x] Implement sessions analyze command
 
-### Core Module
-- [ ] `umwelten-4n9` - Create session types in src/sessions/types.ts
-- [ ] `umwelten-yoo` - Build session store to read sessions-index.json
-- [ ] `umwelten-bhx` - Build JSONL parser for session transcripts
-- [ ] `umwelten-pf7` - Build stream formatter for live stream-json output
+---
 
-### CLI Commands
-- [ ] `umwelten-uct` - Add sessions command to CLI (src/cli/sessions.ts)
-- [ ] `umwelten-55r` - Implement sessions list command
-- [ ] `umwelten-x8f` - Implement sessions show command
-- [ ] `umwelten-ix2` - Implement sessions messages command
-- [ ] `umwelten-yj1` - Implement sessions tools command
-- [ ] `umwelten-59b` - Implement sessions stats command
-- [ ] `umwelten-zsy` - Implement sessions format command (stdin pipe)
-- [ ] `umwelten-72b` - Implement sessions export command
+## Current: Session Normalization (Multi-Source Support)
+
+Goal: Support sessions from Claude Code, Cursor, Windsurf, and other AI coding tools via a normalized format.
+
+### Design
+
+#### Sources to Support
+
+| Source | Storage | Location | Scope |
+|--------|---------|----------|-------|
+| Claude Code | JSONL | ~/.claude/projects/{path}/ | Per-project |
+| Cursor | SQLite | ~/Library/.../workspaceStorage/{hash}/ | Per-workspace |
+| Windsurf | SQLite? | TBD | Per-workspace |
+| Aider | Markdown | .aider.chat.history.md | Per-project |
+
+#### Normalized Types
+
+```typescript
+type SessionSource = 'claude-code' | 'cursor' | 'windsurf' | 'aider' | 'unknown';
+
+interface NormalizedMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp?: string;
+
+  // Tool-specific
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+  toolOutput?: string;
+  toolDuration?: number;
+
+  // Tokens (if available)
+  tokens?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+  };
+
+  sourceData?: Record<string, unknown>;  // Preserve source-specific
+}
+
+interface NormalizedSession {
+  id: string;
+  source: SessionSource;
+  sourceId: string;
+
+  projectPath?: string;
+  workspacePath?: string;
+  gitBranch?: string;
+
+  created: string;
+  modified: string;
+  duration?: number;
+
+  messages: NormalizedMessage[];
+  messageCount: number;
+  firstPrompt: string;
+
+  metrics?: {
+    userMessages: number;
+    assistantMessages: number;
+    toolCalls: number;
+    totalTokens?: number;
+    estimatedCost?: number;
+  };
+
+  sourceData?: Record<string, unknown>;
+}
+
+interface SessionAdapter {
+  source: SessionSource;
+  discoverProjects(): Promise<string[]>;
+  discoverSessions(projectPath: string): Promise<NormalizedSession[]>;
+  getSession(sessionId: string): Promise<NormalizedSession | null>;
+  getMessages(sessionId: string): Promise<NormalizedMessage[]>;
+}
+```
+
+### Implementation Plan
+
+#### Step 1: Create Normalized Types (`normalized-types.ts`)
+- Define `SessionSource` union type
+- Define `NormalizedMessage` interface with common fields
+- Define `NormalizedSession` interface with common fields
+- Define `SessionMetrics` interface for aggregated stats
+- Export all types
+
+#### Step 2: Create Adapter Interface (`adapters/adapter.ts`)
+- Define `SessionAdapter` interface with methods:
+  - `source: SessionSource` - identifier
+  - `getSourceLocation(): string` - where data lives
+  - `discoverSessions(projectPath: string): Promise<NormalizedSession[]>`
+  - `getSession(sessionId: string): Promise<NormalizedSession | null>`
+  - `getMessages(sessionId: string): Promise<NormalizedMessage[]>`
+- Define `AdapterRegistry` for managing multiple adapters
+
+#### Step 3: Implement ClaudeCodeAdapter (`adapters/claude-code-adapter.ts`)
+- Implement `SessionAdapter` interface
+- Reuse existing `session-store.ts` and `session-parser.ts` logic
+- Map `SessionIndexEntry` → `NormalizedSession`
+- Map `SessionMessage` → `NormalizedMessage`
+- Handle tool calls, token usage, timestamps
+
+#### Step 4: Implement CursorAdapter (`adapters/cursor-adapter.ts`)
+- Add `better-sqlite3` dependency
+- Find workspace storage directories
+- Read `state.vscdb` SQLite databases
+- Parse `composerData:*` keys for session metadata
+- Parse `bubbleId:*` keys for messages
+- Map to normalized format
+- Resolve workspace hash to project path
+
+#### Step 5: Create Adapter Registry (`adapters/index.ts`)
+- Register available adapters
+- Auto-detect source based on project path
+- Provide unified access to sessions across sources
+
+#### Step 6: Update CLI
+- Add `--source` flag to `sessions list/show/messages/etc`
+- Default to auto-detection
+- Support `all` to show sessions from all sources
+
+### Tasks (bd tracked)
+
+- [x] `umwelten-e6m` - Create normalized-types.ts with NormalizedSession and NormalizedMessage interfaces
+- [x] `umwelten-z1c` - Create SessionAdapter interface in adapters/adapter.ts
+- [x] `umwelten-3b4` - Implement ClaudeCodeAdapter
+- [x] `umwelten-pta` - Implement CursorAdapter for SQLite session reading (uses ItemTable with aiService.prompts)
+- [x] `umwelten-z6p` - Create adapter registry with auto-detection
+- [x] `umwelten-5hh` - Update sessions CLI with --source flag and interleaved display
+
+---
 
 ## Planned
-
-### Phase 2: Session Analysis
-- [ ] Implement sessions search command
-- [ ] Implement sessions compare command
-- [ ] Implement sessions summary command
-- [ ] Implement sessions cost command
-- [ ] Add session analytics aggregation
 
 ### Phase 3: Agent Monitor (Scheduled Runs)
 - [ ] Create monitor repo add/list/remove commands

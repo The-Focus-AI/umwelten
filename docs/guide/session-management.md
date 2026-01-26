@@ -1,12 +1,23 @@
 # Session Management & Search
 
-Umwelten provides powerful tools to manage, analyze, and search through your Claude Code conversation history. This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
+Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history. This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
+
+## Supported Sources
+
+Umwelten supports sessions from multiple AI coding tools through a unified adapter system:
+
+| Source | Storage Format | Location |
+|--------|---------------|----------|
+| **Claude Code** | JSONL files | `~/.claude/projects/{path}/` |
+| **Cursor** | SQLite database | `~/Library/.../Cursor/User/workspaceStorage/{hash}/state.vscdb` |
+
+More sources (Windsurf, Aider) are planned for future releases.
 
 ## Overview
 
 The session management system consists of three main features:
 
-1. **Session Listing & Inspection** - View and explore Claude Code sessions
+1. **Session Listing & Inspection** - View and explore sessions from Claude Code or Cursor
 2. **LLM-Based Indexing** - Automatically extract topics, tags, and key learnings using AI
 3. **Intelligent Search** - Find relevant sessions using semantic search and filters
 
@@ -15,7 +26,7 @@ The session management system consists of three main features:
 ### List Recent Sessions
 
 ```bash
-# List all sessions for the current project
+# List all sessions for the current project (auto-detects source)
 pnpm run cli sessions list
 
 # Show details for a specific session
@@ -23,6 +34,153 @@ pnpm run cli sessions show abc1234
 
 # Export a session to markdown
 pnpm run cli sessions export abc1234 --output session.md
+```
+
+## Multi-Source Support
+
+### Working with Claude Code Sessions
+
+Claude Code stores sessions as JSONL files in `~/.claude/projects/`. Each project directory contains a `sessions-index.json` and individual session files.
+
+```bash
+# List Claude Code sessions (default)
+pnpm run cli sessions list --source claude-code
+
+# View where Claude Code stores sessions
+ls ~/.claude/projects/-Users-$(whoami)-my-project/
+# Output:
+#   sessions-index.json
+#   abc1234-def5-6789-abcd-ef0123456789.jsonl
+#   ...
+```
+
+**Claude Code Session Features:**
+- Full conversation history with timestamps
+- Token usage and cost tracking
+- Tool call details (Read, Edit, Bash, etc.)
+- Git branch context
+- Cache hit/miss statistics
+
+### Working with Cursor Sessions
+
+Cursor stores sessions in SQLite databases within VS Code's workspace storage. Each workspace has a `state.vscdb` file containing chat history.
+
+```bash
+# List Cursor sessions
+pnpm run cli sessions list --source cursor
+
+# View where Cursor stores sessions
+ls ~/Library/Application\ Support/Cursor/User/workspaceStorage/
+# Output:
+#   a1b2c3d4e5f6.../
+#   f6e5d4c3b2a1.../
+#   ...
+```
+
+**Cursor Session Features:**
+- Conversation history (user/assistant messages)
+- Workspace-to-project path mapping
+- Composer-based chat organization
+
+**Why doesn’t my current Cursor session show up?**
+- The **current** Cursor chat for this project is the same session as the one listed for this workspace. You should see one Cursor row when you run `sessions list` from the project directory.
+- Message count and “First Prompt” can be **slightly stale**: Cursor writes to `state.vscdb` asynchronously (e.g. when you send messages or switch away), so the latest turn may not appear until Cursor has persisted it.
+- Run the CLI from the **project root** (e.g. `cd /path/to/your/project` then `pnpm run cli sessions list`) so the project path matches Cursor’s workspace path. Paths are normalized (resolved, no trailing slash), so using the same directory Cursor has open is sufficient.
+
+### Comparing Sources
+
+```bash
+# List sessions from all sources
+pnpm run cli sessions list --source all
+
+# Compare session counts
+pnpm run cli sessions list --source claude-code --json | jq '.totalCount'
+pnpm run cli sessions list --source cursor --json | jq '.totalCount'
+```
+
+### Programmatic Usage
+
+```typescript
+import { getAdapterRegistry } from 'umwelten/sessions/adapters';
+
+// Get the adapter registry
+const registry = getAdapterRegistry();
+
+// Auto-detect which adapters have sessions for a project
+const adapters = await registry.detectAdapters('/path/to/project');
+console.log('Available sources:', adapters.map(a => a.source));
+
+// Get sessions from a specific source
+const claudeAdapter = registry.get('claude-code');
+const claudeSessions = await claudeAdapter?.discoverSessions({
+  projectPath: '/path/to/project',
+  limit: 10,
+});
+
+// Get sessions from Cursor
+const cursorAdapter = registry.get('cursor');
+const cursorSessions = await cursorAdapter?.discoverSessions({
+  projectPath: '/path/to/project',
+});
+
+// Get sessions from all sources
+const allResults = await registry.discoverAllSessions({
+  projectPath: '/path/to/project',
+});
+
+for (const [source, result] of allResults) {
+  console.log(`${source}: ${result.totalCount} sessions`);
+}
+```
+
+### Normalized Session Format
+
+All adapters return sessions in a normalized format, making it easy to work with data from different sources:
+
+```typescript
+interface NormalizedSession {
+  id: string;              // Prefixed ID (e.g., "claude-code:abc123")
+  source: SessionSource;   // 'claude-code' | 'cursor' | ...
+  sourceId: string;        // Original ID from source
+
+  projectPath?: string;
+  gitBranch?: string;
+
+  created: string;         // ISO timestamp
+  modified: string;
+  duration?: number;       // milliseconds
+
+  messages: NormalizedMessage[];
+  messageCount: number;
+  firstPrompt: string;
+
+  metrics?: {
+    userMessages: number;
+    assistantMessages: number;
+    toolCalls: number;
+    totalTokens?: number;
+    estimatedCost?: number;
+  };
+}
+
+interface NormalizedMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp?: string;
+
+  tool?: {
+    name: string;
+    input?: Record<string, unknown>;
+    output?: string;
+    duration?: number;
+  };
+
+  tokens?: {
+    input?: number;
+    output?: number;
+  };
+}
 ```
 
 ### Index Sessions
@@ -140,6 +298,83 @@ Export a session to markdown format.
 **Example:**
 ```bash
 pnpm run cli sessions export c15a9952 --output session.md
+```
+
+### `sessions messages <id>`
+
+View the conversation messages in a session with inline tool calls.
+
+**Options:**
+- `-p, --project <path>` - Project path
+- `-l, --limit <n>` - Maximum number of messages to display
+- `--user-only` - Show only user messages
+- `--assistant-only` - Show only assistant messages
+- `--json` - Output as JSON
+
+**Example:**
+```bash
+pnpm run cli sessions messages c15a9952 --limit 10
+```
+
+**Output:**
+```
+Session: c15a9952-d2d8-417f-bf25-be52fa2431b7
+
+[3h ago] User:
+update the image and push it to the display, then update the readme and commit
+
+[3h ago] Assistant:
+I'll help you update the image, push it to the display, and then update the README
+and commit the changes.
+
+  ↳ Read (file_path: /Users/user/project/README.md)
+  ↳ Bash (command: ls -la images/, description: List current images)
+
+[3h ago] User:
+looks good, but the colors are off
+
+[3h ago] Assistant:
+I see, let me regenerate the image with the proper color palette.
+
+  ↳ Bash (command: convert input.png -colors 2 -depth 1 output.png, description: Convert to 1-bit)
+```
+
+Tool calls are displayed inline with messages, showing:
+- Tool name in magenta with arrow prefix (↳)
+- Key input parameters in parentheses
+
+### `sessions tools <id>`
+
+View all tool calls made during a session in table format.
+
+**Options:**
+- `-p, --project <path>` - Project path
+- `-t, --tool <name>` - Filter by specific tool name
+- `--json` - Output as JSON
+
+**Example:**
+```bash
+# View all tool calls
+pnpm run cli sessions tools c15a9952
+
+# View only Bash commands
+pnpm run cli sessions tools c15a9952 --tool Bash
+```
+
+**Output:**
+```
+Session: c15a9952-d2d8-417f-bf25-be52fa2431b7
+Found 35 tool call(s)
+
+┌────────────┬──────────────────┬──────────────────────────────────────────────┐
+│ Time       │ Tool             │ Input                                        │
+├────────────┼──────────────────┼──────────────────────────────────────────────┤
+│ 3h ago     │ Read             │ file_path: /Users/user/project/README.md     │
+├────────────┼──────────────────┼──────────────────────────────────────────────┤
+│ 3h ago     │ Bash             │ command: convert input.png -colors 2 out.png │
+├────────────┼──────────────────┼──────────────────────────────────────────────┤
+│ 3h ago     │ Edit             │ file_path: /Users/user/project/README.md     │
+└────────────┴──────────────────┴──────────────────────────────────────────────┘
 ```
 
 ## Session Indexing
@@ -493,12 +728,24 @@ dotenvx run -- pnpm run cli sessions index
 
 If no sessions are listed:
 
+**For Claude Code:**
 ```bash
 # Check if Claude sessions exist for the project
 ls ~/.claude/projects/-Users-*-your-project-name/
 
 # Verify you're in the correct project directory
 pwd
+```
+
+**For Cursor:**
+```bash
+# Check if Cursor workspace storage exists
+ls ~/Library/Application\ Support/Cursor/User/workspaceStorage/
+
+# Find workspaces with chat data
+find ~/Library/Application\ Support/Cursor/User/workspaceStorage/ \
+  -name "state.vscdb" -exec sqlite3 {} \
+  "SELECT COUNT(*) FROM cursorDiskKV WHERE key LIKE 'composerData:%'" \;
 ```
 
 ### Indexing Failures
@@ -518,6 +765,22 @@ If search returns nothing:
 2. Verify index exists: `ls ~/.claude/projects/-Users-*-your-project-name/sessions-analysis-index.json`
 3. Try broader search terms or remove filters
 
+## Source Comparison
+
+| Feature | Claude Code | Cursor |
+|---------|-------------|--------|
+| Token usage tracking | ✅ Full | ❌ Not available |
+| Cost estimation | ✅ Accurate | ❌ Not available |
+| Tool call details | ✅ Full input/output | ❌ Not available |
+| Git branch context | ✅ Yes | ⚠️ Sometimes |
+| Session duration | ✅ Calculated | ⚠️ Approximate |
+| Message timestamps | ✅ Precise | ⚠️ Approximate |
+| Cache statistics | ✅ Yes | ❌ Not available |
+
+**When to use each:**
+- **Claude Code**: Best for detailed cost analysis, tool usage patterns, and full conversation history
+- **Cursor**: Best for quick reference to past IDE-based conversations
+
 ## Best Practices
 
 1. **Index Regularly** - Run indexing after significant work sessions
@@ -525,6 +788,7 @@ If search returns nothing:
 3. **Start Broad** - Begin searches with general terms, then refine with filters
 4. **Monitor Costs** - Track API usage if indexing many sessions
 5. **Backup Index** - Keep backups of `sessions-analysis-index.json` for large projects
+6. **Use Source-Specific Features** - Leverage Claude Code's detailed metrics when available
 
 ## API Reference
 

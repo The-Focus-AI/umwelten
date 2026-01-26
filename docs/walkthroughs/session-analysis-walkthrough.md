@@ -93,7 +93,97 @@ This displays:
 - Tools used
 - First prompt
 
-## Step 3: Index Sessions with LLM Analysis
+## Step 3: View the Conversation
+
+To see the actual messages exchanged in a session:
+
+```bash
+pnpm run cli sessions messages 2c0e713c --project /path/to/your/project
+```
+
+**Example Output:**
+
+```
+Session: 2c0e713c-f9c4-4f5c-9942-08a3d106b42d
+Showing 8 message(s)
+
+[3h ago] User:
+update the image and push it to the display, then update the readme and commit
+
+[3h ago] Assistant:
+I'll help you update the image, push it to the display, and then update the README
+and commit the changes. Let me start by checking the current state of the project.
+
+  ↳ Read (file_path: /Users/user/project/README.md)
+  ↳ Bash (command: ls -la images/, description: List current images)
+
+[3h ago] User:
+looks good, but the colors are off
+
+[3h ago] Assistant:
+I see, the colors aren't displaying correctly. Let me regenerate the image with
+the proper color palette for the e-ink display...
+
+  ↳ Bash (command: convert input.png -colors 2 -depth 1 output.png, description: Convert to 1-bit)
+```
+
+Tool calls are displayed inline with messages, showing:
+- Tool name in magenta with arrow prefix (↳)
+- Key input parameters in parentheses
+
+**Options for viewing messages:**
+
+```bash
+# Show only user messages
+pnpm run cli sessions messages 2c0e713c --user-only
+
+# Show only assistant responses
+pnpm run cli sessions messages 2c0e713c --assistant-only
+
+# Show the last 5 messages
+pnpm run cli sessions messages 2c0e713c --limit 5
+
+# Get full JSON output (includes raw content)
+pnpm run cli sessions messages 2c0e713c --json
+```
+
+## Step 4: View Tool Calls
+
+To see what tools were used in a session:
+
+```bash
+pnpm run cli sessions tools 2c0e713c --project /path/to/your/project
+```
+
+**Example Output:**
+
+```
+Session: 2c0e713c-f9c4-4f5c-9942-08a3d106b42d
+Found 35 tool call(s)
+
+┌────────────┬──────────────────┬──────────────────────────────────────────────────────────────────────┐
+│ Time       │ Tool             │ Input                                                                │
+├────────────┼──────────────────┼──────────────────────────────────────────────────────────────────────┤
+│ 3h ago     │ Read             │ file_path: /Users/user/project/README.md                             │
+├────────────┼──────────────────┼──────────────────────────────────────────────────────────────────────┤
+│ 3h ago     │ Bash             │ command: convert input.png -colors 2 -depth 1 output.png             │
+├────────────┼──────────────────┼──────────────────────────────────────────────────────────────────────┤
+│ 3h ago     │ Edit             │ file_path: /Users/user/project/README.md                             │
+│            │                  │ old_string: ## Installation...                                       │
+└────────────┴──────────────────┴──────────────────────────────────────────────────────────────────────┘
+```
+
+**Filter by specific tool:**
+
+```bash
+# Show only Bash commands
+pnpm run cli sessions tools 2c0e713c --tool Bash
+
+# Show only file edits
+pnpm run cli sessions tools 2c0e713c --tool Edit
+```
+
+## Step 5: Index Sessions with LLM Analysis
 
 Now the powerful part - use an LLM to analyze all your sessions and extract structured metadata:
 
@@ -109,7 +199,7 @@ This will:
 
 Cost: ~$0.03 per 100 sessions
 
-## Step 4: Search Your Work
+## Step 6: Search Your Work
 
 Once indexed, you can search semantically:
 
@@ -177,7 +267,7 @@ Each search result shows:
 - What matched your search
 - Relevance score
 
-## Step 5: Analyze Patterns
+## Step 7: Analyze Patterns
 
 Discover trends across all your work:
 
@@ -308,10 +398,13 @@ dotenvx run -- pnpm run cli sessions search --success yes --limit 20 --project /
 | Command | Purpose |
 |---------|---------|
 | `sessions list` | List all sessions |
-| `sessions show <id>` | Show session details |
+| `sessions show <id>` | Show session metadata (tokens, cost, duration) |
+| `sessions messages <id>` | View conversation messages |
+| `sessions tools <id>` | View tool calls made during session |
+| `sessions stats <id>` | Show detailed token usage and cost breakdown |
 | `sessions index` | Build searchable index with LLM |
 | `sessions search [query]` | Search indexed sessions |
 | `sessions analyze` | Aggregate pattern analysis |
-| `sessions export <id>` | Export session to markdown |
+| `sessions export <id>` | Export session to markdown/JSON |
 
 See the [Session Management Guide](../guide/session-management.md) for complete documentation.

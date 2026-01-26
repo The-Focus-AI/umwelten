@@ -53,6 +53,7 @@
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "@types/react": "^19.2.7",
     "ai": "^5.0.115",
+    "better-sqlite3": "^12.6.2",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^14.0.2",
@@ -69,6 +70,7 @@
   },
   "devDependencies": {
     "@dagger.io/dagger": "^0.19.9",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.4",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
@@ -83,6 +85,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "better-sqlite3",
       "esbuild"
     ]
   }

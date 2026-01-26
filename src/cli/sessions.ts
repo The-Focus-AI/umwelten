@@ -5,7 +5,6 @@ import Table from 'cli-table3';
 import {
   hasSessionsIndex,
   getProjectSessions,
-  filterSessions,
   hasAnalysisIndex,
 } from '../sessions/session-store.js';
 import type { SessionIndexEntry } from '../sessions/types.js';
@@ -19,6 +18,8 @@ import {
   getPatterns,
 } from '../sessions/session-search.js';
 import type { SearchOptions } from '../sessions/analysis-types.js';
+import { getAdapterRegistry } from '../sessions/adapters/index.js';
+import type { NormalizedSessionEntry, SessionSource } from '../sessions/normalized-types.js';
 
 export const sessionsCommand = new Command('sessions')
   .description('View and analyze Claude Code session data');
@@ -78,45 +79,96 @@ interface ListOptions {
   limit: string;
   branch?: string;
   sort: 'created' | 'modified' | 'messages';
+  source?: string;
   json?: boolean;
+}
+
+// Source color mapping
+function getSourceColor(source: SessionSource): (text: string) => string {
+  switch (source) {
+    case 'claude-code':
+      return chalk.blue;
+    case 'cursor':
+      return chalk.magenta;
+    default:
+      return chalk.gray;
+  }
+}
+
+function getSourceLabel(source: SessionSource): string {
+  switch (source) {
+    case 'claude-code':
+      return 'Claude';
+    case 'cursor':
+      return 'Cursor';
+    default:
+      return source;
+  }
 }
 
 // List subcommand
 sessionsCommand
   .command('list')
-  .description('List all sessions for a project')
+  .description('List all sessions for a project (auto-detects Claude Code and Cursor)')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--limit <number>', 'Number of sessions to show', '10')
   .option('--branch <branch>', 'Filter by git branch')
   .option('--sort <field>', 'Sort by field (created, modified, messages)', 'modified')
+  .option('--source <source>', 'Filter by source (claude-code, cursor, all)', 'all')
   .option('--json', 'Output in JSON format')
   .action(async (options: ListOptions) => {
     try {
       const projectPath = options.project;
+      const registry = getAdapterRegistry();
+      const limit = parseInt(options.limit);
+      const sourceFilter = options.source || 'all';
 
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No Claude sessions found for project: ${projectPath}`)
-        );
-        console.log(
-          chalk.dim('\nMake sure this is a Claude Code project directory.')
-        );
+      // Collect sessions from all requested sources
+      const allSessions: NormalizedSessionEntry[] = [];
+      const sourceCounts: Record<string, number> = {};
+
+      // Get adapters to query
+      const adaptersToQuery =
+        sourceFilter === 'all'
+          ? registry.getAll()
+          : [registry.get(sourceFilter as SessionSource)].filter(Boolean);
+
+      if (adaptersToQuery.length === 0) {
+        console.error(chalk.red(`Unknown source: ${sourceFilter}`));
+        console.log(chalk.dim('Available sources: claude-code, cursor, all'));
         process.exit(1);
       }
 
-      // Get all sessions
-      let sessions = await getProjectSessions(projectPath);
+      // Query each adapter
+      for (const adapter of adaptersToQuery) {
+        if (!adapter) continue;
 
-      // Filter by branch if specified
-      if (options.branch) {
-        sessions = await filterSessions(projectPath, {
-          gitBranch: options.branch,
-        });
+        try {
+          const result = await adapter.discoverSessions({
+            projectPath,
+            gitBranch: options.branch,
+            sortBy: options.sort === 'messages' ? 'messageCount' : options.sort,
+            sortOrder: 'desc',
+          });
+
+          sourceCounts[adapter.source] = result.totalCount;
+          allSessions.push(...result.sessions);
+        } catch {
+          // Source not available for this project, skip silently
+          sourceCounts[adapter.source] = 0;
+        }
       }
 
-      // Sort sessions
-      sessions.sort((a, b) => {
+      // Group sessions by source for interleaving
+      const sessionsBySource = new Map<string, NormalizedSessionEntry[]>();
+      for (const session of allSessions) {
+        const list = sessionsBySource.get(session.source) || [];
+        list.push(session);
+        sessionsBySource.set(session.source, list);
+      }
+
+      // Sort each source's sessions
+      const sortFn = (a: NormalizedSessionEntry, b: NormalizedSessionEntry) => {
         switch (options.sort) {
           case 'created':
             return new Date(b.created).getTime() - new Date(a.created).getTime();
@@ -127,31 +179,103 @@ sessionsCommand
           default:
             return 0;
         }
-      });
+      };
 
-      // Limit results
-      const limit = parseInt(options.limit);
-      const limitedSessions = sessions.slice(0, limit);
+      for (const [_source, sessions] of sessionsBySource) {
+        sessions.sort(sortFn);
+      }
+
+      // Interleave sessions from different sources to ensure representation
+      // If we have multiple sources, ensure each gets at least a few slots
+      let limitedSessions: NormalizedSessionEntry[];
+      const activeSources = [...sessionsBySource.entries()].filter(([, s]) => s.length > 0);
+
+      if (activeSources.length > 1) {
+        // Multiple sources: interleave to guarantee representation
+        // Reserve at least 2 slots per source, then fill remaining with most recent
+        const minPerSource = Math.min(2, Math.floor(limit / activeSources.length));
+        const reserved: NormalizedSessionEntry[] = [];
+        const remaining: NormalizedSessionEntry[] = [];
+
+        for (const [_source, sessions] of activeSources) {
+          // Take the minimum reserved slots from each source
+          reserved.push(...sessions.slice(0, minPerSource));
+          // Put the rest in remaining pool
+          remaining.push(...sessions.slice(minPerSource));
+        }
+
+        // Sort remaining by the sort criteria
+        remaining.sort(sortFn);
+
+        // Combine: reserved first, then fill with remaining up to limit
+        limitedSessions = [...reserved, ...remaining].slice(0, limit);
+
+        // Re-sort the final combined list so display is consistent
+        limitedSessions.sort(sortFn);
+      } else {
+        // Single source: just sort and limit normally
+        allSessions.sort(sortFn);
+        limitedSessions = allSessions.slice(0, limit);
+      }
 
       // Output JSON if requested
       if (options.json) {
-        console.log(JSON.stringify(limitedSessions, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              sessions: limitedSessions,
+              totalCount: allSessions.length,
+              sourceCounts,
+            },
+            null,
+            2
+          )
+        );
         return;
       }
 
-      // Display table
+      // Display results
       if (limitedSessions.length === 0) {
         console.log(chalk.yellow('\nNo sessions found.'));
+
+        // Show which sources were checked
+        const checkedSources = Object.keys(sourceCounts).join(', ');
+        console.log(chalk.dim(`\nChecked sources: ${checkedSources}`));
+        console.log(chalk.dim('Make sure this is a project directory with AI coding sessions.'));
         return;
       }
 
+      // Show source summary
+      const sourcesSummary = Object.entries(sourceCounts)
+        .filter(([, count]) => count > 0)
+        .map(([source, count]) => {
+          const colorFn = getSourceColor(source as SessionSource);
+          return colorFn(`${getSourceLabel(source as SessionSource)}: ${count}`);
+        })
+        .join(', ');
+
       console.log(
-        chalk.bold(`\nFound ${sessions.length} sessions (showing ${limitedSessions.length})\n`)
+        chalk.bold(`\nFound ${allSessions.length} sessions (showing ${limitedSessions.length})`)
       );
+      if (Object.keys(sourceCounts).length > 1 || sourceFilter === 'all') {
+        console.log(chalk.dim(`Sources: ${sourcesSummary}`));
+      }
+      console.log();
+
+      // Build table with source column
+      const showSourceColumn = sourceFilter === 'all' && Object.keys(sourceCounts).filter(k => sourceCounts[k] > 0).length > 1;
+
+      const tableHead = showSourceColumn
+        ? ['Source', 'ID', 'Branch', 'Msgs', 'Modified', 'First Prompt']
+        : ['ID', 'Branch', 'Msgs', 'Modified', 'First Prompt'];
+
+      const tableWidths = showSourceColumn
+        ? [8, 10, 12, 6, 10, 45]
+        : [10, 15, 8, 12, 50];
 
       const table = new Table({
-        head: ['ID', 'Branch', 'Messages', 'Modified', 'First Prompt'],
-        colWidths: [10, 15, 10, 12, 50],
+        head: tableHead,
+        colWidths: tableWidths,
         style: {
           head: [],
           border: [],
@@ -159,23 +283,31 @@ sessionsCommand
       });
 
       for (const session of limitedSessions) {
-        table.push([
-          chalk.cyan(shortSessionId(session.sessionId)),
-          session.gitBranch,
-          session.messageCount.toString(),
-          formatDate(session.modified),
-          truncatePrompt(session.firstPrompt),
-        ]);
+        const colorFn = getSourceColor(session.source);
+        const row = showSourceColumn
+          ? [
+              colorFn(getSourceLabel(session.source)),
+              chalk.cyan(shortSessionId(session.sourceId)),
+              session.gitBranch || '-',
+              session.messageCount.toString(),
+              formatDate(session.modified),
+              truncatePrompt(session.firstPrompt, 42),
+            ]
+          : [
+              chalk.cyan(shortSessionId(session.sourceId)),
+              session.gitBranch || '-',
+              session.messageCount.toString(),
+              formatDate(session.modified),
+              truncatePrompt(session.firstPrompt),
+            ];
+
+        table.push(row);
       }
 
       console.log(table.toString());
 
-      console.log(
-        chalk.dim('\nTip: Use "sessions show <id>" to view session details')
-      );
-      console.log(
-        chalk.dim('     Use --branch <name> to filter by git branch')
-      );
+      console.log(chalk.dim('\nTip: Use "sessions show <id>" to view session details'));
+      console.log(chalk.dim('     Use --source claude-code or --source cursor to filter'));
     } catch (error) {
       console.error(chalk.red('Error listing sessions:'), error);
       process.exit(1);
@@ -358,9 +490,78 @@ sessionsCommand
       const { parseSessionFile, extractTextContent } = await import('../sessions/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
 
-      // Filter messages to only user and assistant types
+      // Helper to check if a message has displayable text content
+      const getTextContent = (msg: any): string => {
+        if (msg.type !== 'user' && msg.type !== 'assistant') return '';
+        const content = msg.message?.content;
+        if (!content) return '';
+        if (typeof content === 'string') return content.trim();
+        if (Array.isArray(content)) {
+          const texts = content
+            .filter((block: any) => block.type === 'text' && block.text)
+            .map((block: any) => block.text.trim())
+            .filter((t: string) => t.length > 0);
+          return texts.join('\n');
+        }
+        return '';
+      };
+
+      const hasTextContent = (msg: any): boolean => {
+        return getTextContent(msg).length > 0;
+      };
+
+      // Helper to extract tool_use blocks from a message
+      const getToolUseBlocks = (msg: any): any[] => {
+        if (msg.type !== 'assistant') return [];
+        const content = msg.message?.content;
+        if (!Array.isArray(content)) return [];
+        return content.filter((block: any) => block.type === 'tool_use');
+      };
+
+      const hasToolUse = (msg: any): boolean => {
+        return getToolUseBlocks(msg).length > 0;
+      };
+
+      // Helper to format tool input for display
+      const formatToolInput = (input: any): string => {
+        if (!input) return '';
+        if (typeof input === 'string') return input.slice(0, 100);
+
+        // For objects, show key fields
+        const keys = Object.keys(input);
+        if (keys.length === 0) return '';
+
+        const parts: string[] = [];
+        for (const key of keys.slice(0, 3)) { // Show first 3 keys
+          const value = input[key];
+          let displayValue: string;
+          if (typeof value === 'string') {
+            displayValue = value.length > 60 ? value.slice(0, 60) + '...' : value;
+          } else if (typeof value === 'object') {
+            displayValue = JSON.stringify(value).slice(0, 60) + (JSON.stringify(value).length > 60 ? '...' : '');
+          } else {
+            displayValue = String(value);
+          }
+          parts.push(`${key}: ${displayValue}`);
+        }
+        if (keys.length > 3) {
+          parts.push(`... +${keys.length - 3} more`);
+        }
+        return parts.join(', ');
+      };
+
+      // Helper to check if message is a tool result (user messages that are tool results)
+      const isToolResult = (msg: any): boolean => {
+        if (msg.type !== 'user') return false;
+        const content = msg.message?.content;
+        if (!Array.isArray(content)) return false;
+        return content.some((block: any) => block.type === 'tool_result');
+      };
+
+      // Filter messages to only user and assistant types WITH displayable content OR tool calls
+      // Exclude tool_result messages (those are shown in sessions tools)
       let filteredMessages = messages.filter(
-        m => m.type === 'user' || m.type === 'assistant'
+        m => (m.type === 'user' || m.type === 'assistant') && (hasTextContent(m) || hasToolUse(m)) && !isToolResult(m)
       );
 
       // Apply user/assistant filters
@@ -406,33 +607,63 @@ sessionsCommand
       }
 
       console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
-      console.log(chalk.dim(`Showing ${filteredMessages.length} message(s)\n`));
 
+      let displayedCount = 0;
       for (const msg of filteredMessages) {
         if (msg.type !== 'user' && msg.type !== 'assistant') {
           continue;
         }
 
+        const content = msg.message.content;
+        const texts = extractTextContent(content);
+        const toolUses = getToolUseBlocks(msg);
+
+        // Collect non-empty text content first
+        const displayTexts = texts.map(t => t.trim()).filter(t => t.length > 0);
+
+        // Skip messages with no displayable text AND no tool calls
+        if (displayTexts.length === 0 && toolUses.length === 0) {
+          continue;
+        }
+
+        displayedCount++;
         const timestamp = msg.timestamp ? formatDate(msg.timestamp) : 'unknown';
         const role = msg.type === 'user' ? chalk.green('User') : chalk.blue('Assistant');
 
         console.log(chalk.bold(`[${timestamp}] ${role}:`));
 
-        const content = msg.message.content;
-        const texts = extractTextContent(content);
-
-        for (const text of texts) {
+        // Display text content
+        for (const text of displayTexts) {
           // Truncate very long messages for readability
           const maxLength = 500;
           if (text.length > maxLength) {
-            console.log(chalk.dim(text.slice(0, maxLength) + '...'));
+            console.log(text.slice(0, maxLength) + '...');
             console.log(chalk.dim(`(${text.length - maxLength} more characters)`));
           } else {
             console.log(text);
           }
         }
 
+        // Display tool calls inline
+        if (toolUses.length > 0) {
+          if (displayTexts.length > 0) {
+            console.log(''); // Add spacing if there was text before tools
+          }
+          for (const tool of toolUses) {
+            const toolName = tool.name || 'unknown';
+            const inputSummary = formatToolInput(tool.input);
+            console.log(chalk.magenta(`  ↳ ${toolName}`) + (inputSummary ? chalk.dim(` (${inputSummary})`) : ''));
+          }
+        }
+
         console.log(''); // Empty line between messages
+      }
+
+      if (displayedCount === 0) {
+        console.log(chalk.yellow('No text messages found in this session.'));
+        console.log(chalk.dim('This session may contain only tool calls. Use "sessions tools <id>" to view them.'));
+      } else {
+        console.log(chalk.dim(`Displayed ${displayedCount} message(s)\n`));
       }
 
       console.log(
