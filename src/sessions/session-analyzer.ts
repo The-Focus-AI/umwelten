@@ -138,8 +138,8 @@ export async function extractSessionAnalysis(
  * Parse and validate LLM analysis response
  */
 export function parseAnalysisResponse(response: ModelResponse): AnalysisResponse {
-  // ModelResponse can have either 'text' or 'content' field
-  const text = response.text || (response as any).content || '';
+  // ModelResponse uses 'content' field
+  const text = response.content || '';
 
   // Debug: log the raw response
   if (!text) {
