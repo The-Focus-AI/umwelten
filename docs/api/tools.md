@@ -263,15 +263,15 @@ const result = await randomNumber.execute({
 List available tools:
 
 ```bash
-umwelten tools list
+npx umwelten tools list
 ```
 
 Run interactive demo:
 
 ```bash
-umwelten tools demo
-umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number"
-umwelten tools demo --max-steps 3
+npx umwelten tools demo
+npx umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number"
+npx umwelten tools demo --max-steps 3
 ```
 
 ### Chat Integration
@@ -279,7 +279,7 @@ umwelten tools demo --max-steps 3
 Use tools in chat sessions:
 
 ```bash
-umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics
 ```
 
 ## Integration with Interaction System

@@ -13,7 +13,7 @@ Batch processing allows you to evaluate multiple files with the same prompt acro
 Process all files in a directory:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this document and provide a summary" \
   --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
   --id "document-analysis" \
@@ -28,7 +28,7 @@ Use glob patterns to target specific files:
 
 ```bash
 # Process only JPEG images
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Describe this image in detail" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-descriptions" \
@@ -37,7 +37,7 @@ umwelten eval batch \
   --concurrent
 
 # Process files with specific naming patterns
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this report" \
   --models "google:gemini-2.0-flash" \
   --id "monthly-reports" \
@@ -50,7 +50,7 @@ umwelten eval batch \
 Process files in subdirectories:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Categorize this document by type and content" \
   --models "google:gemini-2.0-flash" \
   --id "document-categorization" \
@@ -67,7 +67,7 @@ Optimize processing speed with concurrency settings:
 
 ```bash
 # High concurrency for fast processing
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract key information from this file" \
   --models "google:gemini-2.0-flash" \
   --id "high-speed-processing" \
@@ -77,7 +77,7 @@ umwelten eval batch \
   --max-concurrency 8
 
 # Conservative concurrency to avoid rate limits
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Detailed analysis of this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-analysis" \
@@ -93,7 +93,7 @@ Control the number of files processed:
 
 ```bash
 # Process only the first 10 files (for testing)
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this document" \
   --models "google:gemini-2.0-flash" \
   --id "test-batch" \
@@ -103,7 +103,7 @@ umwelten eval batch \
   --concurrent
 
 # Process all files (default behavior)
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Full analysis" \
   --models "google:gemini-2.0-flash" \
   --id "complete-batch" \
@@ -117,7 +117,7 @@ umwelten eval batch \
 Continue from where you left off:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Continue processing from where we left off" \
   --models "google:gemini-2.0-flash" \
   --id "large-document-batch" \
@@ -134,7 +134,7 @@ umwelten eval batch \
 Apply structured output schemas to batch processing:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract structured metadata from this document" \
   --models "google:gemini-2.0-flash" \
   --id "metadata-extraction" \
@@ -149,7 +149,7 @@ umwelten eval batch \
 Use TypeScript schemas for complex validation:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image and extract detailed features" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-feature-batch" \
@@ -167,7 +167,7 @@ umwelten eval batch \
 Watch batch processing progress in real-time:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Process this file and extract insights" \
   --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
   --id "interactive-batch" \
@@ -184,7 +184,7 @@ umwelten eval batch \
 
 ```bash
 # PDF documents
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Summarize this PDF document in 200 words" \
   --models "google:gemini-2.0-flash" \
   --id "pdf-summaries" \
@@ -193,7 +193,7 @@ umwelten eval batch \
   --concurrent
 
 # Text files
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze the sentiment and key themes in this text" \
   --models "ollama:gemma3:12b" \
   --id "text-analysis" \
@@ -206,7 +206,7 @@ umwelten eval batch \
 
 ```bash
 # Photo analysis
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Describe this photo including objects, setting, and mood" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "photo-descriptions" \
@@ -215,7 +215,7 @@ umwelten eval batch \
   --concurrent
 
 # Screenshot analysis
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Identify the type of application or website in this screenshot" \
   --models "google:gemini-2.0-flash" \
   --id "screenshot-classification" \
@@ -228,7 +228,7 @@ umwelten eval batch \
 
 ```bash
 # All supported file types
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this file and determine its content type and key information" \
   --models "google:gemini-2.0-flash" \
   --id "mixed-media-analysis" \
@@ -265,16 +265,16 @@ output/evaluations/batch-id/
 
 ```bash
 # Comprehensive markdown report
-umwelten eval report --id document-analysis --format markdown
+npx umwelten eval report --id document-analysis --format markdown
 
 # HTML report with rich formatting
-umwelten eval report --id image-descriptions --format html --output batch-report.html
+npx umwelten eval report --id image-descriptions --format html --output batch-report.html
 
 # CSV export for data analysis
-umwelten eval report --id metadata-extraction --format csv --output batch-results.csv
+npx umwelten eval report --id metadata-extraction --format csv --output batch-results.csv
 
 # JSON for programmatic processing
-umwelten eval report --id interactive-batch --format json
+npx umwelten eval report --id interactive-batch --format json
 ```
 
 ## Performance Optimization
@@ -306,7 +306,7 @@ umwelten eval report --id interactive-batch --format json
 
 ```bash
 # With timeout and validation
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this file with error handling" \
   --models "google:gemini-2.0-flash" \
   --id "robust-batch" \
@@ -321,7 +321,7 @@ umwelten eval batch \
 
 ```bash
 # Resume after fixing issues
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Continue processing after resolving errors" \
   --models "google:gemini-2.0-flash" \
   --id "robust-batch" \
@@ -337,7 +337,7 @@ umwelten eval batch \
 
 ```bash
 # Categorize and tag documents
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Categorize this document and extract tags" \
   --models "google:gemini-2.0-flash" \
   --id "document-library" \
@@ -351,7 +351,7 @@ umwelten eval batch \
 
 ```bash
 # Screen content for appropriateness
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this content for safety and appropriateness" \
   --models "google:gemini-2.0-flash" \
   --id "content-moderation" \
@@ -365,7 +365,7 @@ umwelten eval batch \
 
 ```bash
 # Extract structured data from forms
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract form data from this document" \
   --models "google:gemini-2.0-flash" \
   --id "form-extraction" \
@@ -381,20 +381,20 @@ umwelten eval batch \
 
 ```bash
 # Show all batch evaluations
-umwelten eval list --details
+npx umwelten eval list --details
 
 # Filter for batch evaluations only
-umwelten eval list --json | jq '.[] | select(.type == "batch")'
+npx umwelten eval list --json | jq '.[] | select(.type == "batch")'
 ```
 
 ### Performance Analysis
 
 ```bash
 # Generate performance report
-umwelten eval report --id large-batch --format json > performance.json
+npx umwelten eval report --id large-batch --format json > performance.json
 
 # Analyze timing and costs
-umwelten eval report --id document-batch --format csv --output analysis.csv
+npx umwelten eval report --id document-batch --format csv --output analysis.csv
 ```
 
 ## Best Practices
@@ -431,7 +431,7 @@ umwelten eval report --id document-batch --format csv --output analysis.csv
 
 ```bash
 # Test single file from batch
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Test prompt" \
   --models "google:gemini-2.0-flash" \
   --id "debug-single" \
@@ -441,7 +441,7 @@ umwelten eval run \
 ls ./directory/*.pdf | head -10
 
 # Check batch status
-umwelten eval list --details | grep batch-id
+npx umwelten eval list --details | grep batch-id
 ```
 
 ## Next Steps

@@ -8,50 +8,50 @@ Umwelten provides comprehensive model discovery features to help you find and co
 
 ```bash
 # List all available models
-umwelten models 
+npx umwelten models 
 
 # List with JSON output for programmatic use
-umwelten models  --json
+npx umwelten models  --json
 ```
 
 ### Filter by Provider
 
 ```bash
 # Filter by specific provider
-umwelten models --provider openrouter      # requires OPENROUTER_API_KEY
-umwelten models  --provider ollama
-umwelten models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
-umwelten models  --provider lmstudio
-umwelten models  --provider github-models  # GITHUB_TOKEN
+npx umwelten models --provider openrouter      # requires OPENROUTER_API_KEY
+npx umwelten models  --provider ollama
+npx umwelten models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
+npx umwelten models  --provider lmstudio
+npx umwelten models  --provider github-models  # GITHUB_TOKEN
 ```
 
 ### Filter by Cost
 
 ```bash
 # Show only free models
-umwelten models --free
+npx umwelten models --free
 
 # Sort by cost (ascending by default)
-umwelten models --sort cost
+npx umwelten models --sort cost
 ```
 
 ### Search Models
 
 ```bash
 # Search for specific models
-umwelten models --search "gpt-4"
-umwelten models --search "gemini"
-umwelten models --search "llama"
+npx umwelten models --search "gpt-4"
+npx umwelten models --search "gemini"
+npx umwelten models --search "llama"
 ```
 
 ### Sorting Options
 
 ```bash
 # Sort by different fields
-umwelten models --sort addedDate --desc
-umwelten models --sort contextLength
-umwelten models --sort cost
-umwelten models --sort name
+npx umwelten models --sort addedDate --desc
+npx umwelten models --sort contextLength
+npx umwelten models --sort cost
+npx umwelten models --sort name
 ```
 
 ## Model Information
@@ -62,17 +62,17 @@ Get comprehensive information about a specific model:
 
 ```bash
 # Basic model info (finds first match across all providers)
-umwelten models --view info --id <model-id>
+npx umwelten models --view info --id <model-id>
 
 # Examples
-umwelten models --view info --id openai/gpt-4o
-umwelten models --view info --id gemini-2.0-flash
-umwelten models --view info --id gemma3:12b
+npx umwelten models --view info --id openai/gpt-4o
+npx umwelten models --view info --id gemini-2.0-flash
+npx umwelten models --view info --id gemma3:12b
 
 # Get info for a specific provider's version of a model
-umwelten models --provider github-models --view info --id openai/gpt-4.1
-umwelten models --provider openrouter --view info --id openai/gpt-4o
-umwelten models --provider google --view info --id gemini-2.0-flash
+npx umwelten models --provider github-models --view info --id openai/gpt-4.1
+npx umwelten models --provider openrouter --view info --id openai/gpt-4o
+npx umwelten models --provider google --view info --id gemini-2.0-flash
 ```
 
 ### Cost Analysis
@@ -81,12 +81,12 @@ View cost breakdown across all models:
 
 ```bash
 # View all model costs
-umwelten models costs
+npx umwelten models costs
 
 # Sort by different cost metrics
-umwelten models costs --sort-by prompt
-umwelten models costs --sort-by completion
-umwelten models costs --sort-by total
+npx umwelten models costs --sort-by prompt
+npx umwelten models costs --sort-by completion
+npx umwelten models costs --sort-by total
 ```
 
 The costs command shows:

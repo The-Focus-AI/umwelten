@@ -9,7 +9,7 @@ This example demonstrates how to extract structured data from images using Zod s
 Extract basic image features using Umwelten's DSL schema syntax:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this image and extract structured features" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-features-simple" \
@@ -22,7 +22,7 @@ umwelten eval run \
 Use the full Zod schema from the original script for comprehensive feature extraction:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this image and extract detailed features with confidence scores" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-features-detailed" \
@@ -83,7 +83,7 @@ export const ImageFeatureSchema = z.object({
 ### Single Image Analysis
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this image and extract all the specified features with confidence scores" \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --id "structured-image-analysis" \
@@ -96,7 +96,7 @@ umwelten eval run \
 ### Multiple Models Comparison
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract structured image features with confidence scores" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest,google:gemini-1.5-flash-8b" \
   --id "multi-model-features" \
@@ -174,7 +174,7 @@ When using `--validate-output`, you'll get validation feedback:
 Process multiple images with structured feature extraction:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract structured image features with confidence scores" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-features-batch" \
@@ -190,7 +190,7 @@ umwelten eval batch \
 ### Generate Comprehensive Report
 
 ```bash
-umwelten eval report --id multi-model-features --format html --output features-report.html
+npx umwelten eval report --id multi-model-features --format html --output features-report.html
 ```
 
 ### Sample Report with Structured Data
@@ -232,7 +232,7 @@ umwelten eval report --id multi-model-features --format html --output features-r
 
 ```bash
 # Only accept results with high confidence
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract image features (only provide features you're very confident about)" \
   --models "google:gemini-2.0-flash" \
   --id "high-confidence-features" \
@@ -246,7 +246,7 @@ umwelten eval run \
 Use built-in templates for common patterns:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract basic image information" \
   --models "google:gemini-2.0-flash" \
   --id "template-features" \
@@ -280,7 +280,7 @@ umwelten eval run \
 
 ```bash
 # Disable strict validation for experimental models
-umwelten eval run \
+npx umwelten eval run \
   --zod-schema "./schemas/image-feature-schema.ts" \
   --validate-output false \
   # ... other options

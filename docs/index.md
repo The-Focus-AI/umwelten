@@ -58,16 +58,16 @@ pnpm tsx scripts/new-pattern-example.ts
 
 ```bash
 # List available models
-umwelten models
+npx umwelten models
 
 # Run a simple prompt
-umwelten run "Explain quantum computing like I'm 8" --model gpt-oss:latest --provider ollama
+npx umwelten run "Explain quantum computing like I'm 8" --model gpt-oss:latest --provider ollama
 
 # Start interactive chat
-umwelten chat --model gemini-2.0-flash --provider google
+npx umwelten chat --model gemini-2.0-flash --provider google
 
 # Run model evaluation across 3 providers with concurrently
-dotenvx run -- umwelten eval run \
+dotenvx run -- npx umwelten eval run \
   --prompt "Make a space invader game in a single html file" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash,ollama:qwen3:latest" \
   --id "space-game" \

@@ -17,9 +17,9 @@ Navigate to any project directory and explore Claude session history:
 
 ```bash
 cd /path/to/project
-umwelten sessions              # List all sessions
-umwelten sessions show <id>    # View session details
-umwelten sessions messages <id> # Show conversation
+npx umwelten sessions              # List all sessions
+npx umwelten sessions show <id>    # View session details
+npx umwelten sessions messages <id> # Show conversation
 ```
 
 ### How Claude Stores Sessions
@@ -100,16 +100,16 @@ Example assistant message with tool use:
 
 ```bash
 # Session browsing
-umwelten sessions                    # List sessions for current directory
-umwelten sessions list               # Same as above
-umwelten sessions show <id>          # Show session details
-umwelten sessions messages <id>      # Show conversation messages
-umwelten sessions tools <id>         # Show tool calls in session
-umwelten sessions stats <id>         # Token usage, cost, duration
-umwelten sessions export <id>        # Export to markdown/JSON
+npx umwelten sessions                    # List sessions for current directory
+npx umwelten sessions list               # Same as above
+npx umwelten sessions show <id>          # Show session details
+npx umwelten sessions messages <id>      # Show conversation messages
+npx umwelten sessions tools <id>         # Show tool calls in session
+npx umwelten sessions stats <id>         # Token usage, cost, duration
+npx umwelten sessions export <id>        # Export to markdown/JSON
 
 # Live stream formatting
-claude -p "task" --output-format stream-json | umwelten sessions format
+claude -p "task" --output-format stream-json | npx umwelten sessions format
 ```
 
 ### Data Types
@@ -181,7 +181,7 @@ src/cli/
 ### Example Output
 
 ```
-$ umwelten sessions
+$ npx umwelten sessions
 
 Sessions for /Users/wschenk/The-Focus-AI/umwelten
 
@@ -190,7 +190,7 @@ ID                                   | Date       | Messages | Preview
 fb071297-cf86-4ff8-b0c7-3079fc8ffd9c | 2026-01-24 | 45       | Help me build a claude...
 da1854ce-0695-44c2-ab44-db501f3f9aa2 | 2026-01-23 | 12       | Fix the type errors...
 
-$ umwelten sessions show fb071297
+$ npx umwelten sessions show fb071297
 
 Session: fb071297-cf86-4ff8-b0c7-3079fc8ffd9c
 Project: /Users/wschenk/The-Focus-AI/umwelten
@@ -212,10 +212,10 @@ Add analysis capabilities on top of session browsing.
 ### CLI Commands
 
 ```bash
-umwelten sessions search <query>       # Search across all sessions
-umwelten sessions compare <id> <id>    # Compare two sessions
-umwelten sessions summary              # Stats across all sessions
-umwelten sessions cost [--since date]  # Cost tracking over time
+npx umwelten sessions search <query>       # Search across all sessions
+npx umwelten sessions compare <id> <id>    # Compare two sessions
+npx umwelten sessions summary              # Stats across all sessions
+npx umwelten sessions cost [--since date]  # Cost tracking over time
 ```
 
 ### Features
@@ -258,28 +258,28 @@ Automate Claude agent execution on repositories.
 
 ```bash
 # Repository management
-umwelten monitor repo add <name> <url>
-umwelten monitor repo list
-umwelten monitor repo remove <name>
+npx umwelten monitor repo add <name> <url>
+npx umwelten monitor repo list
+npx umwelten monitor repo remove <name>
 
 # Task management
-umwelten monitor task create <repo> <name> --prompt "..."
-umwelten monitor task list
-umwelten monitor task enable/disable <id>
-umwelten monitor task schedule <id> "0 9 * * *"
+npx umwelten monitor task create <repo> <name> --prompt "..."
+npx umwelten monitor task list
+npx umwelten monitor task enable/disable <id>
+npx umwelten monitor task schedule <id> "0 9 * * *"
 
 # Execution
-umwelten monitor run <task-id>
-umwelten monitor run --sandbox   # Dagger container
-umwelten monitor run --host      # Host machine (for setup)
+npx umwelten monitor run <task-id>
+npx umwelten monitor run --sandbox   # Dagger container
+npx umwelten monitor run --host      # Host machine (for setup)
 
 # Monitoring
-umwelten monitor status
-umwelten monitor logs <run-id>
-umwelten monitor serve           # Web dashboard + scheduler
+npx umwelten monitor status
+npx umwelten monitor logs <run-id>
+npx umwelten monitor serve           # Web dashboard + scheduler
 
 # Session continuation
-umwelten monitor continue <session-id> <prompt>
+npx umwelten monitor continue <session-id> <prompt>
 ```
 
 ### Architecture
@@ -348,12 +348,12 @@ interface MonitorRun {
 
 ### Workflow
 
-1. Add repo: `umwelten monitor repo add my-app https://github.com/...`
-2. Create task: `umwelten monitor task create my-app "daily-check" --prompt "Review and fix issues"`
-3. Set schedule: `umwelten monitor task schedule <id> "0 9 * * *"`
+1. Add repo: `npx umwelten monitor repo add my-app https://github.com/...`
+2. Create task: `npx umwelten monitor task create my-app "daily-check" --prompt "Review and fix issues"`
+3. Set schedule: `npx umwelten monitor task schedule <id> "0 9 * * *"`
 4. Scheduler runs: clones repo, runs Claude, commits to feature branch
-5. Review: `umwelten sessions show <session-id>` or web dashboard
-6. Continue: `umwelten monitor continue <session-id> "Also update tests"`
+5. Review: `npx umwelten sessions show <session-id>` or web dashboard
+6. Continue: `npx umwelten monitor continue <session-id> "Also update tests"`
 
 ### Isolation Modes
 

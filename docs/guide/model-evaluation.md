@@ -11,7 +11,7 @@ Model evaluation is at the heart of Umwelten's functionality. The `eval` command
 ### Simple Model Comparison
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain machine learning in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "ml-explanation" \
@@ -21,7 +21,7 @@ umwelten eval run \
 ### With System Context
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum computing applications" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "quantum-apps" \
@@ -36,7 +36,7 @@ umwelten eval run \
 Watch evaluations in real-time:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a creative story about AI" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
   --id "ai-story" \
@@ -49,7 +49,7 @@ umwelten eval run \
 Test multimodal capabilities:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this document and extract key insights" \
   --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
   --id "document-analysis" \
@@ -80,29 +80,29 @@ umwelten eval run \
 
 ```bash
 # Markdown report (default)
-umwelten eval report --id ml-explanation
+npx umwelten eval report --id ml-explanation
 
 # HTML report with rich formatting
-umwelten eval report --id quantum-apps --format html --output report.html
+npx umwelten eval report --id quantum-apps --format html --output report.html
 
 # CSV export for analysis
-umwelten eval report --id ai-story --format csv --output results.csv
+npx umwelten eval report --id ai-story --format csv --output results.csv
 
 # JSON for programmatic use
-umwelten eval report --id document-analysis --format json
+npx umwelten eval report --id document-analysis --format json
 ```
 
 ### List Evaluations
 
 ```bash
 # List all evaluations
-umwelten eval list
+npx umwelten eval list
 
 # Show detailed information
-umwelten eval list --details
+npx umwelten eval list --details
 
 # JSON format for scripting
-umwelten eval list --json
+npx umwelten eval list --json
 ```
 
 ## Best Practices

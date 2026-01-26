@@ -9,7 +9,7 @@ This example demonstrates how to process multiple images concurrently using Umwe
 Process all images in a directory with the same prompt across multiple models:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image and describe key features including: objects, colors, composition, and any notable characteristics." \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-batch-analysis" \
@@ -24,7 +24,7 @@ umwelten eval batch \
 This is the complete CLI equivalent of the original `image-feature-batch.ts` script:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image and extract features including: able_to_parse (boolean), image_description (string), contain_text (boolean), color_palette (warm/cool/monochrome/earthy/pastel/vibrant/neutral/unknown), aesthetic_style (realistic/cartoon/abstract/clean/vintage/moody/minimalist/unknown), time_of_day (day/night/unknown), scene_type (indoor/outdoor/unknown), people_count (number), dress_style (fancy/casual/unknown). Return as JSON with confidence scores." \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-feature-batch" \
@@ -39,7 +39,7 @@ umwelten eval batch \
 Use structured output validation for consistent results:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract structured image features with confidence scores" \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --id "structured-image-batch" \
@@ -59,7 +59,7 @@ Target specific file types or naming patterns:
 
 ```bash
 # Process only high-resolution images
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this high-resolution image for technical quality" \
   --models "google:gemini-2.0-flash" \
   --id "high-res-batch" \
@@ -68,7 +68,7 @@ umwelten eval batch \
   --concurrent
 
 # Process screenshots separately
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this screenshot and extract any visible text or UI elements" \
   --models "google:gemini-2.0-flash" \
   --id "screenshot-batch" \
@@ -82,7 +82,7 @@ umwelten eval batch \
 Process images in subdirectories:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Categorize this image by content type and quality" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "recursive-image-batch" \
@@ -97,7 +97,7 @@ umwelten eval batch \
 Process a limited number of files for testing:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image for content moderation" \
   --models "google:gemini-2.0-flash" \
   --id "moderation-test" \
@@ -114,7 +114,7 @@ umwelten eval batch \
 Watch batch processing progress in real-time:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract detailed metadata from this image" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "metadata-extraction" \
@@ -131,21 +131,21 @@ umwelten eval batch \
 
 ```bash
 # Generate detailed markdown report
-umwelten eval report --id image-feature-batch --format markdown
+npx umwelten eval report --id image-feature-batch --format markdown
 ```
 
 ### HTML Report with Embedded Previews
 
 ```bash
 # Generate HTML report with rich formatting
-umwelten eval report --id structured-image-batch --format html --output batch-report.html
+npx umwelten eval report --id structured-image-batch --format html --output batch-report.html
 ```
 
 ### CSV Export for Analysis
 
 ```bash
 # Export structured data for further analysis
-umwelten eval report --id structured-image-batch --format csv --output image-data.csv
+npx umwelten eval report --id structured-image-batch --format csv --output image-data.csv
 ```
 
 ## Expected Output Structure
@@ -300,7 +300,7 @@ output/evaluations/image-feature-batch/
 Resume batch processing from where it left off:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Continue batch processing" \
   --models "google:gemini-2.0-flash" \
   --id "image-feature-batch" \
@@ -316,7 +316,7 @@ Use model-specific strengths:
 
 ```bash
 # Detailed analysis with expensive model
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Provide comprehensive artistic and technical analysis" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-analysis" \
@@ -325,7 +325,7 @@ umwelten eval batch \
   --file-limit 5
 
 # Quick categorization with fast model  
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Categorize: portrait/landscape/object/abstract" \
   --models "google:gemini-2.0-flash" \
   --id "quick-categorization" \
@@ -340,7 +340,7 @@ umwelten eval batch \
 Robust processing with validation:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract image features with validation" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "robust-batch" \

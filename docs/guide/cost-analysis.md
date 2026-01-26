@@ -52,29 +52,29 @@ Umwelten provides transparent cost tracking and analysis across all supported pr
 
 ```bash
 # List all models with costs
-umwelten models list
+npx umwelten models list
 
 # View detailed cost breakdown
-umwelten models costs
+npx umwelten models costs
 
 # Sort by cost
-umwelten models costs --sort-by total
+npx umwelten models costs --sort-by total
 
 # Filter by provider
-umwelten models list --provider google
+npx umwelten models list --provider google
 ```
 
 ### Evaluation Cost Reports
 
 ```bash
 # Generate cost report for evaluation
-umwelten eval report --id my-evaluation --format json | jq '.cost'
+npx umwelten eval report --id my-evaluation --format json | jq '.cost'
 
 # Export cost data for analysis
-umwelten eval report --id cost-analysis --format csv --output costs.csv
+npx umwelten eval report --id cost-analysis --format csv --output costs.csv
 
 # View all evaluation costs
-umwelten eval list --details
+npx umwelten eval list --details
 ```
 
 ## Cost Optimization Strategies
@@ -85,19 +85,19 @@ Choose the right model tier for your use case:
 
 ```bash
 # Budget tier (Free)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Simple question" \
   --models "ollama:gemma3:12b" \
   --id "budget-test"
 
 # Standard tier (Cost-effective)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Standard analysis" \
   --models "google:gemini-2.0-flash" \
   --id "standard-test"
 
 # Premium tier (High quality)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Complex reasoning task" \
   --models "openrouter:openai/gpt-4o" \
   --id "premium-test"
@@ -109,13 +109,13 @@ Optimize prompts to reduce token usage:
 
 ```bash
 # Inefficient: Verbose prompt
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Please provide a very detailed, comprehensive, extensive analysis with multiple examples and thorough explanations..." \
   --models "google:gemini-2.0-flash" \
   --id "verbose-prompt"
 
 # Efficient: Concise prompt
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze X focusing on key points A, B, C. Include 2 examples. 300 words max." \
   --models "google:gemini-2.0-flash" \
   --id "concise-prompt"
@@ -127,13 +127,13 @@ Specify desired output length to control costs:
 
 ```bash
 # Short response (lower cost)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Summarize quantum computing in 50 words" \
   --models "google:gemini-2.0-flash" \
   --id "short-response"
 
 # Controlled length response
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain machine learning (200-300 words)" \
   --models "google:gemini-2.0-flash" \
   --id "controlled-response"
@@ -145,13 +145,13 @@ Use cheaper models for initial processing, expensive models for refinement:
 
 ```bash
 # First pass: Quick screening with cheap model
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Is this document relevant to AI research? (yes/no with brief reason)" \
   --models "google:gemini-2.0-flash" \
   --id "screening-pass"
 
 # Second pass: Detailed analysis only for relevant documents
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Provide detailed analysis of this AI research document" \
   --models "openrouter:openai/gpt-4o" \
   --id "detailed-analysis"
@@ -163,35 +163,35 @@ umwelten eval run \
 
 ```bash
 # Compare costs for basic text generation
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a 200-word product description for a smart watch" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o,ollama:gemma3:12b" \
   --id "product-description-cost" \
   --concurrent
 
 # Generate cost comparison report
-umwelten eval report --id product-description-cost --format markdown
+npx umwelten eval report --id product-description-cost --format markdown
 ```
 
 ### Complex Analysis Comparison
 
 ```bash
 # Compare costs for detailed analysis
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze the business implications of artificial intelligence in healthcare, including opportunities, challenges, and regulatory considerations" \
   --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "healthcare-ai-analysis" \
   --concurrent
 
 # Export detailed cost analysis
-umwelten eval report --id healthcare-ai-analysis --format csv --output healthcare-costs.csv
+npx umwelten eval report --id healthcare-ai-analysis --format csv --output healthcare-costs.csv
 ```
 
 ### Batch Processing Cost Analysis
 
 ```bash
 # Process multiple documents and track costs
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Summarize this document in 100 words" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "document-batch-costs" \
@@ -201,7 +201,7 @@ umwelten eval batch \
   --file-limit 20
 
 # Analyze batch processing costs
-umwelten eval report --id document-batch-costs --format json
+npx umwelten eval report --id document-batch-costs --format json
 ```
 
 ## Budget Management
@@ -212,13 +212,13 @@ Before running large evaluations, estimate costs:
 
 ```bash
 # Test with a small sample first
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Your planned prompt" \
   --models "google:gemini-2.0-flash" \
   --id "cost-estimate-test"
 
 # Check cost from the test
-umwelten eval report --id cost-estimate-test --format json | jq '.cost'
+npx umwelten eval report --id cost-estimate-test --format json | jq '.cost'
 
 # Extrapolate: If 1 evaluation costs $0.001, then 1000 evaluations ≈ $1.00
 ```
@@ -229,8 +229,8 @@ Track spending over time:
 
 ```bash
 # Export all evaluation costs
-for eval_id in $(umwelten eval list --json | jq -r '.[].id'); do
-  umwelten eval report --id "$eval_id" --format json >> all-costs.jsonl
+for eval_id in $(npx umwelten eval list --json | jq -r '.[].id'); do
+  npx umwelten eval report --id "$eval_id" --format json >> all-costs.jsonl
 done
 
 # Analyze total spending
@@ -243,13 +243,13 @@ Implement budget controls in your workflows:
 
 ```bash
 # Use file limits for testing
-umwelten eval batch \
+npx umwelten eval batch \
   --file-limit 10 \
   --models "google:gemini-2.0-flash" \
   --id "budget-controlled-test"
 
 # Use cheaper models for development
-umwelten eval run \
+npx umwelten eval run \
   --models "ollama:gemma3:12b" \
   --id "development-test"
 ```
@@ -260,7 +260,7 @@ umwelten eval run \
 
 ```bash
 # Cost comparison for content creation
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a 500-word article about sustainable technology trends" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o" \
   --id "content-creation-costs" \
@@ -276,7 +276,7 @@ umwelten eval run \
 
 ```bash
 # Cost-effective document processing
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract key information: title, date, summary, classification" \
   --models "google:gemini-2.0-flash" \
   --id "document-analysis-cost" \
@@ -293,7 +293,7 @@ umwelten eval batch \
 
 ```bash
 # Cost analysis for support responses
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Provide helpful customer support response to this inquiry: 'How do I reset my password?'" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "support-response-cost" \
@@ -332,13 +332,13 @@ umwelten eval run \
 # Instead of repeating instructions, use templates
 
 # Inefficient: Repeat context each time
-umwelten eval run \
+npx umwelten eval run \
   --prompt "You are a technical writer. Write clearly and concisely. Use bullet points. Explain [TOPIC]" \
   --models "google:gemini-2.0-flash" \
   --id "inefficient"
 
 # Efficient: Use system message for context
-umwelten eval run \
+npx umwelten eval run \
   --system "You are a technical writer. Write clearly and concisely. Use bullet points." \
   --prompt "Explain [TOPIC]" \
   --models "google:gemini-2.0-flash" \
@@ -352,13 +352,13 @@ umwelten eval run \
 # Test different concurrency levels and batch sizes
 
 # Small batches (safer, lower concurrency)
-umwelten eval batch \
+npx umwelten eval batch \
   --file-limit 50 \
   --max-concurrency 2 \
   --id "small-batch-test"
 
 # Large batches (riskier, higher concurrency)
-umwelten eval batch \
+npx umwelten eval batch \
   --file-limit 200 \
   --max-concurrency 5 \
   --id "large-batch-test"
@@ -393,7 +393,7 @@ case "$TASK_COMPLEXITY-$BUDGET" in
     ;;
 esac
 
-umwelten eval run --models "$MODEL" --prompt "$3" --id "$4"
+npx umwelten eval run --models "$MODEL" --prompt "$3" --id "$4"
 ```
 
 ## Cost Reporting and Analytics
@@ -402,20 +402,20 @@ umwelten eval run --models "$MODEL" --prompt "$3" --id "$4"
 
 ```bash
 # Monthly cost summary
-umwelten eval list --json | jq '
+npx umwelten eval list --json | jq '
   map(select(.date | startswith("2025-01"))) | 
   map(.cost.totalCost) | 
   add
 '
 
 # Cost by model type
-umwelten eval list --json | jq '
+npx umwelten eval list --json | jq '
   group_by(.models[0]) | 
   map({model: .[0].models[0], total_cost: map(.cost.totalCost) | add})
 '
 
 # Average cost per evaluation
-umwelten eval list --json | jq '
+npx umwelten eval list --json | jq '
   map(.cost.totalCost) | 
   add / length
 '
@@ -425,7 +425,7 @@ umwelten eval list --json | jq '
 
 ```bash
 # Export to CSV for spreadsheet analysis
-umwelten eval list --json | jq -r '
+npx umwelten eval list --json | jq -r '
   ["ID", "Date", "Model", "Cost", "Tokens"] as $headers |
   $headers,
   (.[] | [.id, .date, .models[0], .cost.totalCost, .cost.usage.total])
@@ -433,7 +433,7 @@ umwelten eval list --json | jq -r '
 ' > evaluation-costs.csv
 
 # Export to format suitable for BI tools
-umwelten eval list --json | jq '[.[] | {
+npx umwelten eval list --json | jq '[.[] | {
   id, 
   date, 
   model: .models[0], 

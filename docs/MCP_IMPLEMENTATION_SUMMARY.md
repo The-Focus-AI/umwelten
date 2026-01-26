@@ -96,7 +96,7 @@ Umwelten provides comprehensive CLI commands for MCP operations:
 Connect to an MCP server and list available capabilities:
 
 ```bash
-umwelten mcp connect -c "node mcp-server.js" --args arg1 arg2
+npx umwelten mcp connect -c "node mcp-server.js" --args arg1 arg2
 ```
 
 #### Test Tool
@@ -104,7 +104,7 @@ umwelten mcp connect -c "node mcp-server.js" --args arg1 arg2
 Test a specific tool from an MCP server:
 
 ```bash  
-umwelten mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}'
+npx umwelten mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}'
 ```
 
 #### Read Resource
@@ -112,7 +112,7 @@ umwelten mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}'
 Read a resource from an MCP server:
 
 ```bash
-umwelten mcp read-resource -c "node server.js" -u "file:///path/to/resource"
+npx umwelten mcp read-resource -c "node server.js" -u "file:///path/to/resource"
 ```
 
 #### Create Test Server
@@ -120,7 +120,7 @@ umwelten mcp read-resource -c "node server.js" -u "file:///path/to/resource"
 Create a test MCP server with example tools and resources:
 
 ```bash
-umwelten mcp create-server --with-tools --with-resources
+npx umwelten mcp create-server --with-tools --with-resources
 ```
 
 #### List Commands
@@ -128,7 +128,7 @@ umwelten mcp create-server --with-tools --with-resources
 Show usage examples and available commands:
 
 ```bash
-umwelten mcp list
+npx umwelten mcp list
 ```
 
 ## Integration with Umwelten
@@ -247,8 +247,8 @@ await server.start(new StdioTransport());
 ## Getting Started
 
 1. **Install Dependencies**: MCP support is included with Umwelten
-2. **Explore Commands**: Use `umwelten mcp list` to see available commands
-3. **Connect to Server**: Try `umwelten mcp connect` with an existing MCP server
+2. **Explore Commands**: Use `npx umwelten mcp list` to see available commands
+3. **Connect to Server**: Try `npx umwelten mcp connect` with an existing MCP server
 4. **Build Custom Server**: Use the server framework to expose your tools
 
 For more information about the Model Context Protocol, visit [modelcontextprotocol.io](https://modelcontextprotocol.io/).

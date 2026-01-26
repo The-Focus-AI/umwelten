@@ -20,16 +20,16 @@ Generate reports from completed evaluations:
 
 ```bash
 # Basic report generation
-umwelten eval report --id "your-evaluation-id"
+npx umwelten eval report --id "your-evaluation-id"
 
 # Specify output format
-umwelten eval report --id "your-evaluation-id" --format markdown
+npx umwelten eval report --id "your-evaluation-id" --format markdown
 
 # Save to file
-umwelten eval report --id "your-evaluation-id" --format html --output report.html
+npx umwelten eval report --id "your-evaluation-id" --format html --output report.html
 
 # Generate short summary (without full response content)
-umwelten eval report --id "your-evaluation-id" --short
+npx umwelten eval report --id "your-evaluation-id" --short
 ```
 
 ### Available Report Formats
@@ -38,16 +38,16 @@ Umwelten supports multiple output formats:
 
 ```bash
 # Markdown (default) - Good for documentation
-umwelten eval report --id "evaluation-id" --format markdown
+npx umwelten eval report --id "evaluation-id" --format markdown
 
 # HTML - Interactive web reports
-umwelten eval report --id "evaluation-id" --format html
+npx umwelten eval report --id "evaluation-id" --format html
 
 # JSON - Machine-readable data
-umwelten eval report --id "evaluation-id" --format json
+npx umwelten eval report --id "evaluation-id" --format json
 
 # CSV - Spreadsheet-friendly data
-umwelten eval report --id "evaluation-id" --format csv
+npx umwelten eval report --id "evaluation-id" --format csv
 ```
 
 ### Report Options
@@ -65,10 +65,10 @@ Get an overview of your evaluation results:
 
 ```bash
 # Generate summary report
-umwelten eval report --id "quantum-explanation" --format markdown
+npx umwelten eval report --id "quantum-explanation" --format markdown
 
 # Generate short summary
-umwelten eval report --id "quantum-explanation" --short
+npx umwelten eval report --id "quantum-explanation" --short
 
 # Output includes:
 # - Evaluation metadata (prompt, models, timestamp)
@@ -84,16 +84,16 @@ Compare multiple models on the same task:
 
 ```bash
 # Compare models on a single prompt
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum computing in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash,openai/gpt-4o" \
   --id "quantum-comparison"
 
 # Generate comparison report
-umwelten eval report --id "quantum-comparison" --format html --output comparison.html
+npx umwelten eval report --id "quantum-comparison" --format html --output comparison.html
 
 # Generate short comparison summary
-umwelten eval report --id "quantum-comparison" --short
+npx umwelten eval report --id "quantum-comparison" --short
 ```
 
 ### Batch Processing Reports
@@ -102,7 +102,7 @@ Analyze results from batch operations:
 
 ```bash
 # Process batch of files
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image and describe key features" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-batch" \
@@ -111,10 +111,10 @@ umwelten eval batch \
   --concurrent
 
 # Generate batch report
-umwelten eval report --id "image-batch" --format markdown --output batch-analysis.md
+npx umwelten eval report --id "image-batch" --format markdown --output batch-analysis.md
 
 # Generate short batch summary
-umwelten eval report --id "image-batch" --short
+npx umwelten eval report --id "image-batch" --short
 ```
 
 ## Report Content Examples
@@ -123,7 +123,7 @@ umwelten eval report --id "image-batch" --short
 
 #### Full Report (Default)
 ```bash
-umwelten eval report --id "quantum-explanation" --format markdown
+npx umwelten eval report --id "quantum-explanation" --format markdown
 ```
 
 Includes:
@@ -135,7 +135,7 @@ Includes:
 
 #### Short Report
 ```bash
-umwelten eval report --id "quantum-explanation" --short
+npx umwelten eval report --id "quantum-explanation" --short
 ```
 
 Includes:
@@ -180,13 +180,13 @@ HTML reports include interactive features:
 
 ```bash
 # Generate interactive HTML report
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format html \
   --output interactive-report.html
 
 # Generate short HTML report
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format html \
   --short \
@@ -237,13 +237,13 @@ Machine-readable JSON format:
 
 ```bash
 # Generate cost-focused report
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format markdown \
   --output cost-analysis.md
 
 # Generate short cost summary
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --short \
   --output cost-summary.md
@@ -253,18 +253,18 @@ umwelten eval report \
 
 ```bash
 # Compare costs across providers
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Your prompt" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash,openai/gpt-4o" \
   --id "cost-comparison"
 
-umwelten eval report \
+npx umwelten eval report \
   --id "cost-comparison" \
   --format markdown \
   --output cost-optimization.md
 
 # Generate short cost comparison
-umwelten eval report \
+npx umwelten eval report \
   --id "cost-comparison" \
   --short \
   --output cost-comparison-summary.md
@@ -276,13 +276,13 @@ umwelten eval report \
 
 ```bash
 # Analyze performance patterns
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format markdown \
   --output performance-analysis.md
 
 # Generate short performance summary
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --short \
   --output performance-summary.md
@@ -294,13 +294,13 @@ For evaluations with quality scoring:
 
 ```bash
 # Generate quality-focused report
-umwelten eval report \
+npx umwelten eval report \
   --id "code-evaluation" \
   --format markdown \
   --output quality-analysis.md
 
 # Generate short quality summary
-umwelten eval report \
+npx umwelten eval report \
   --id "code-evaluation" \
   --short \
   --output quality-summary.md
@@ -312,7 +312,7 @@ umwelten eval report \
 
 ```bash
 # Process large batch
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image" \
   --models "google:gemini-2.0-flash" \
   --id "large-dataset" \
@@ -321,13 +321,13 @@ umwelten eval batch \
   --concurrent
 
 # Generate comprehensive batch report
-umwelten eval report \
+npx umwelten eval report \
   --id "large-dataset" \
   --format html \
   --output batch-analysis.html
 
 # Generate short batch summary
-umwelten eval report \
+npx umwelten eval report \
   --id "large-dataset" \
   --short \
   --output batch-summary.md
@@ -349,13 +349,13 @@ Batch reports include:
 
 ```bash
 # Export to spreadsheet
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format csv \
   --output data.csv
 
 # Export short summary to CSV
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format csv \
   --short \
@@ -368,13 +368,13 @@ umwelten eval report \
 
 ```bash
 # Get JSON data for API integration
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format json \
   --output data.json
 
 # Get short JSON summary
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format json \
   --short \
@@ -389,13 +389,13 @@ umwelten eval report \
 
 ```bash
 # Good: Descriptive ID
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum computing" \
   --models "model1,model2,model3" \
   --id "quantum-explanation-comparison-2024"
 
 # Bad: Generic ID
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum computing" \
   --models "model1,model2,model3" \
   --id "test1"
@@ -405,28 +405,28 @@ umwelten eval run \
 
 ```bash
 # Generate report right after evaluation
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Your prompt" \
   --models "model1,model2" \
   --id "evaluation-id"
 
-umwelten eval report --id "evaluation-id" --format markdown
+npx umwelten eval report --id "evaluation-id" --format markdown
 ```
 
 ### 3. Use Appropriate Formats
 
 ```bash
 # Documentation: Markdown
-umwelten eval report --id "evaluation-id" --format markdown
+npx umwelten eval report --id "evaluation-id" --format markdown
 
 # Presentations: HTML
-umwelten eval report --id "evaluation-id" --format html
+npx umwelten eval report --id "evaluation-id" --format html
 
 # Data Analysis: JSON/CSV
-umwelten eval report --id "evaluation-id" --format json
+npx umwelten eval report --id "evaluation-id" --format json
 
 # Quick summaries: Short format
-umwelten eval report --id "evaluation-id" --short
+npx umwelten eval report --id "evaluation-id" --short
 ```
 
 ### 4. Organize Reports by Project
@@ -436,13 +436,13 @@ umwelten eval report --id "evaluation-id" --short
 mkdir -p reports/quantum-computing
 
 # Generate full reports
-umwelten eval report \
+npx umwelten eval report \
   --id "quantum-*" \
   --format markdown \
   --output reports/quantum-computing/detailed-analysis.md
 
 # Generate short summaries
-umwelten eval report \
+npx umwelten eval report \
   --id "quantum-*" \
   --short \
   --output reports/quantum-computing/summary.md
@@ -452,12 +452,12 @@ umwelten eval report \
 
 ```bash
 # Quick overview of all evaluations
-umwelten eval list | while read -r id; do
-  umwelten eval report --id "$id" --short --format markdown
+npx umwelten eval list | while read -r id; do
+  npx umwelten eval report --id "$id" --short --format markdown
 done
 
 # Generate short summaries for presentations
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --short \
   --format html \
@@ -468,7 +468,7 @@ umwelten eval report \
 
 ### Common Issues
 
-1. **"Evaluation not found"**: Check evaluation ID with `umwelten eval list`
+1. **"Evaluation not found"**: Check evaluation ID with `npx umwelten eval list`
 2. **"No data to report"**: Ensure evaluation completed successfully
 3. **"Format not supported"**: Use supported formats (markdown, html, json, csv)
 4. **"Output file error"**: Check file permissions and directory existence
@@ -477,13 +477,13 @@ umwelten eval report \
 
 ```bash
 # Enable verbose output
-umwelten eval report \
+npx umwelten eval report \
   --id "evaluation-id" \
   --format markdown \
   --verbose
 
 # Check evaluation status
-umwelten eval list --id "evaluation-id"
+npx umwelten eval list --id "evaluation-id"
 ```
 
 ## Programmatic Reporting with Reporter

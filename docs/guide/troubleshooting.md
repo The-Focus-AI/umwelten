@@ -94,13 +94,13 @@ export LMSTUDIO_BASE_URL=http://localhost:1234
 **Solutions**:
 ```bash
 # Increase timeout (default: 30 seconds)
-umwelten eval run \
+npx umwelten eval run \
   --timeout 60000 \
   --prompt "Complex analysis task" \
   --models "google:gemini-2.0-flash"
 
 # For batch processing
-umwelten eval batch \
+npx umwelten eval batch \
   --timeout 45000 \
   --directory "./files" \
   --file-pattern "*.pdf"
@@ -113,18 +113,18 @@ umwelten eval batch \
 **Solutions**:
 ```bash
 # Reduce concurrency
-umwelten eval run \
+npx umwelten eval run \
   --models "google:gemini-2.0-flash" \
   --concurrent \
   --max-concurrency 1
 
 # Add delays between requests (batch processing)
-umwelten eval batch \
+npx umwelten eval batch \
   --max-concurrency 2 \
   --directory "./files"
 
 # Switch to different provider temporarily
-umwelten eval run \
+npx umwelten eval run \
   --models "ollama:gemma3:12b" \
   --prompt "Your prompt"
 ```
@@ -136,17 +136,17 @@ umwelten eval run \
 **Solutions**:
 ```bash
 # Process smaller batches
-umwelten eval batch \
+npx umwelten eval batch \
   --file-limit 50 \
   --directory "./large-collection"
 
 # Reduce concurrency
-umwelten eval batch \
+npx umwelten eval batch \
   --max-concurrency 1 \
   --directory "./files"
 
 # Use less memory-intensive models
-umwelten eval run \
+npx umwelten eval run \
   --models "google:gemini-2.0-flash" \
   --prompt "Your prompt"
 ```
@@ -192,13 +192,13 @@ const finalObject = await result.object; // HANGS HERE
 **Common Errors and Solutions**:
 ```bash
 # "Model not found" - Check model name
-umwelten models list --provider google
+npx umwelten models list --provider google
 
 # "Quota exceeded" - Check API limits in Google AI Studio
 # "Safety filter triggered" - Adjust prompt content
 
 # Test with simple prompt first
-umwelten run \
+npx umwelten run \
   --provider google \
   --model gemini-2.0-flash \
   "Hello, how are you?"
@@ -215,7 +215,7 @@ curl -H "Authorization: Bearer $OPENROUTER_API_KEY" \
   https://openrouter.ai/api/v1/models
 
 # Check available models
-umwelten models list --provider openrouter
+npx umwelten models list --provider openrouter
 
 # Some models require credits - check balance
 # Use alternative models if specific model unavailable
@@ -240,7 +240,7 @@ ollama pull gemma3:12b
 ollama run gemma3:12b "Hello"
 
 # Check model name format in Umwelten
-umwelten models list --provider ollama
+npx umwelten models list --provider ollama
 ```
 
 ## File Attachment Issues
@@ -264,7 +264,7 @@ file ./your-file.ext
 # For documents: convert to PDF
 
 # Test with known good file
-umwelten run \
+npx umwelten run \
   --provider google \
   --model gemini-2.0-flash \
   --file ./test.jpg \
@@ -285,7 +285,7 @@ ls -lh ./large-file.pdf
 # For PDFs: split into smaller sections
 
 # Use timeout for large files
-umwelten run \
+npx umwelten run \
   --timeout 60000 \
   --file ./large-document.pdf \
   --prompt "Summarize this document"
@@ -298,7 +298,7 @@ umwelten run \
 **Solutions**:
 ```bash
 # Use absolute paths
-umwelten run \
+npx umwelten run \
   --file "/full/path/to/file.jpg" \
   --prompt "Analyze this image"
 
@@ -319,13 +319,13 @@ chmod 644 ./file.jpg
 **Solutions**:
 ```bash
 # List all evaluations
-umwelten eval list
+npx umwelten eval list
 
 # Check evaluation directory
 ls -la output/evaluations/
 
 # Use correct evaluation ID
-umwelten eval report --id "exact-evaluation-id"
+npx umwelten eval report --id "exact-evaluation-id"
 ```
 
 ### Batch Processing Failures
@@ -335,7 +335,7 @@ umwelten eval report --id "exact-evaluation-id"
 **Solutions**:
 ```bash
 # Use resume to continue from where it stopped
-umwelten eval batch \
+npx umwelten eval batch \
   --resume \
   --id "previous-batch-id"
 
@@ -343,7 +343,7 @@ umwelten eval batch \
 # Remove or fix files causing issues
 
 # Start with smaller batch to test
-umwelten eval batch \
+npx umwelten eval batch \
   --file-limit 5 \
   --directory "./test-files"
 ```
@@ -355,13 +355,13 @@ umwelten eval batch \
 **Solutions**:
 ```bash
 # Test schema with simple example first
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract name: John Smith is 30 years old" \
   --schema "name, age int" \
   --models "google:gemini-2.0-flash"
 
 # Use type coercion for lenient validation
-umwelten eval run \
+npx umwelten eval run \
   --schema "name, age int" \
   --coerce-types \
   --models "google:gemini-2.0-flash"
@@ -379,12 +379,12 @@ node -e "require('./schemas/my-schema.ts')"
 **Solutions**:
 ```bash
 # Use faster models
-umwelten eval run \
+npx umwelten eval run \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --prompt "Your prompt"
 
 # Enable concurrent processing
-umwelten eval run \
+npx umwelten eval run \
   --models "model1,model2,model3" \
   --concurrent \
   --max-concurrency 5
@@ -400,13 +400,13 @@ umwelten eval run \
 **Solutions**:
 ```bash
 # Reduce batch sizes
-umwelten eval batch --file-limit 20
+npx umwelten eval batch --file-limit 20
 
 # Lower concurrency
-umwelten eval batch --max-concurrency 2
+npx umwelten eval batch --max-concurrency 2
 
 # Process files sequentially
-umwelten eval batch # (without --concurrent)
+npx umwelten eval batch # (without --concurrent)
 
 # Close other applications
 # Increase system memory if possible
@@ -458,17 +458,17 @@ date
 **Solutions**:
 ```bash
 # Check if evaluation exists
-umwelten eval list | grep "your-eval-id"
+npx umwelten eval list | grep "your-eval-id"
 
 # Try different report format
-umwelten eval report --id "eval-id" --format json
-umwelten eval report --id "eval-id" --format markdown
+npx umwelten eval report --id "eval-id" --format json
+npx umwelten eval report --id "eval-id" --format markdown
 
 # Check output directory permissions
 ls -la output/evaluations/
 
 # Generate report to specific location
-umwelten eval report --id "eval-id" --output ./my-report.html
+npx umwelten eval report --id "eval-id" --output ./my-report.html
 ```
 
 ### Missing Output Files
@@ -478,7 +478,7 @@ umwelten eval report --id "eval-id" --output ./my-report.html
 **Solutions**:
 ```bash
 # Check evaluation completion
-umwelten eval list --details
+npx umwelten eval list --details
 
 # Look for partial results
 find output/evaluations/ -name "*.json" | head -5
@@ -496,19 +496,19 @@ touch output/test-write && rm output/test-write
 
 ```bash
 # Check version
-umwelten --version
+npx umwelten --version
 
 # Test basic functionality
-umwelten run --provider google --model gemini-2.0-flash "Hello world"
+npx umwelten run --provider google --model gemini-2.0-flash "Hello world"
 
 # List available models
-umwelten models list
+npx umwelten models list
 
 # Check evaluation history
-umwelten eval list --details
+npx umwelten eval list --details
 
 # Test with minimal example
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Test" \
   --models "google:gemini-2.0-flash" \
   --id "debug-test"
@@ -518,7 +518,7 @@ umwelten eval run \
 
 ```bash
 # Enable debug output (if available)
-NODE_ENV=debug umwelten eval run ...
+NODE_ENV=debug npx umwelten eval run ...
 
 # Check network requests
 # Use browser dev tools or network monitoring
@@ -569,13 +569,13 @@ When reporting issues, include:
 
 ```bash
 # System information
-umwelten --version
+npx umwelten --version
 node --version
 npm --version
 uname -a
 
 # Error reproduction
-umwelten eval run \
+npx umwelten eval run \
   --prompt "failing prompt" \
   --models "problematic-model" \
   --id "error-reproduction"
@@ -601,7 +601,7 @@ When something isn't working:
 - [ ] Check API keys are set correctly
 - [ ] Verify internet connection
 - [ ] Test with simple prompt first
-- [ ] Check model availability with `umwelten models list`
+- [ ] Check model availability with `npx umwelten models list`
 - [ ] Try different model or provider
 - [ ] Increase timeout if needed
 - [ ] Reduce concurrency if rate limited

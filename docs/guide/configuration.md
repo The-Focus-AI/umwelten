@@ -55,7 +55,7 @@ export GOOGLE_GENERATIVE_AI_API_KEY="AIza..."
 
 **Configuration Example**:
 ```bash
-umwelten run \
+npx umwelten run \
   --provider google \
   --model gemini-2.0-flash \
   --temperature 0.7 \
@@ -83,7 +83,7 @@ ollama pull codestral:latest  # Code model
 **Configuration**:
 ```bash
 # Default configuration (localhost:11434)
-umwelten run \
+npx umwelten run \
   --provider ollama \
   --model gemma3:12b \
   "Your prompt here"
@@ -118,7 +118,7 @@ Configure LM Studio for local model hosting:
 # Default configuration (localhost:1234)
 export LMSTUDIO_BASE_URL="http://localhost:1234"
 
-umwelten run \
+npx umwelten run \
   --provider lmstudio \
   --model your-loaded-model \
   "Your prompt here"
@@ -189,13 +189,13 @@ Set appropriate timeouts based on task complexity:
 
 ```bash
 # Simple tasks (30 seconds default)
-umwelten run --timeout 30000 "Simple question"
+npx umwelten run --timeout 30000 "Simple question"
 
 # Complex analysis (2 minutes)
-umwelten eval run --timeout 120000 --prompt "Complex analysis task"
+npx umwelten eval run --timeout 120000 --prompt "Complex analysis task"
 
 # Large file processing (5 minutes)
-umwelten eval run --timeout 300000 --file large-document.pdf "Analyze document"
+npx umwelten eval run --timeout 300000 --file large-document.pdf "Analyze document"
 ```
 
 #### Concurrency Settings
@@ -204,13 +204,13 @@ Optimize concurrent processing based on your resources:
 
 ```bash
 # Conservative (good for API rate limits)
-umwelten eval batch --max-concurrency 2
+npx umwelten eval batch --max-concurrency 2
 
 # Balanced (default for most use cases)
-umwelten eval batch --max-concurrency 5
+npx umwelten eval batch --max-concurrency 5
 
 # Aggressive (high-performance systems)
-umwelten eval batch --max-concurrency 10
+npx umwelten eval batch --max-concurrency 10
 ```
 
 ## Output Configuration
@@ -224,7 +224,7 @@ Configure where evaluations are stored:
 export UMWELTEN_OUTPUT_DIR="/path/to/output"
 
 # Command line override
-umwelten eval run --output-dir "./custom-output" "Your prompt"
+npx umwelten eval run --output-dir "./custom-output" "Your prompt"
 ```
 
 ### Output Format Preferences
@@ -233,16 +233,16 @@ Set default output formats:
 
 ```bash
 # JSON (default)
-umwelten eval report --id evaluation-name
+npx umwelten eval report --id evaluation-name
 
 # HTML with styling
-umwelten eval report --id evaluation-name --format html
+npx umwelten eval report --id evaluation-name --format html
 
 # CSV for analysis
-umwelten eval report --id evaluation-name --format csv
+npx umwelten eval report --id evaluation-name --format csv
 
 # Markdown for documentation
-umwelten eval report --id evaluation-name --format markdown
+npx umwelten eval report --id evaluation-name --format markdown
 ```
 
 ## Security Configuration
@@ -259,7 +259,7 @@ export GOOGLE_GENERATIVE_AI_API_KEY="your-key"
 echo "*.env" >> .gitignore
 
 # Bad: Direct command line (visible in history)
-umwelten run --api-key "your-key" "prompt"  # DON'T DO THIS
+npx umwelten run --api-key "your-key" "prompt"  # DON'T DO THIS
 ```
 
 ### Local vs Remote Execution
@@ -269,10 +269,10 @@ Configure based on data sensitivity:
 ```bash
 # Sensitive data: Use local models only
 export DEFAULT_PROVIDER="ollama"
-umwelten eval run --models "ollama:gemma3:12b" "Sensitive analysis"
+npx umwelten eval run --models "ollama:gemma3:12b" "Sensitive analysis"
 
 # Public data: Use any provider
-umwelten eval run --models "google:gemini-2.0-flash" "Public analysis"
+npx umwelten eval run --models "google:gemini-2.0-flash" "Public analysis"
 ```
 
 ## Troubleshooting Configuration
@@ -283,12 +283,12 @@ Check your current configuration:
 
 ```bash
 # Test API connectivity
-umwelten models list --provider google
-umwelten models list --provider ollama
-umwelten models list --provider openrouter
+npx umwelten models list --provider google
+npx umwelten models list --provider ollama
+npx umwelten models list --provider openrouter
 
 # Test basic functionality
-umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
+npx umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
 ```
 
 ### Common Configuration Issues
@@ -300,7 +300,7 @@ umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
 echo $GOOGLE_GENERATIVE_AI_API_KEY
 
 # Test API key validity
-umwelten run --provider google --model gemini-2.0-flash "Test"
+npx umwelten run --provider google --model gemini-2.0-flash "Test"
 ```
 
 #### Network Issues
@@ -347,7 +347,7 @@ MAX_CONCURRENCY=8
 
 # Load specific environment
 source config/production.env
-umwelten eval batch --directory ./data
+npx umwelten eval batch --directory ./data
 ```
 
 ### Team Configuration
@@ -370,7 +370,7 @@ umwelten eval batch --directory ./data
 }
 
 # Use shared configuration
-umwelten eval batch \
+npx umwelten eval batch \
   --config shared-config.json \
   --directory ./team-data
 ```
@@ -387,7 +387,7 @@ env:
 steps:
   - name: Run Evaluation
     run: |
-      umwelten eval batch \
+      npx umwelten eval batch \
         --models "google:gemini-2.0-flash" \
         --directory "./test-data" \
         --max-concurrency 2 \

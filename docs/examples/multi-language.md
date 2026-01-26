@@ -11,7 +11,7 @@ Multi-language processing enables you to work with content in various languages,
 ### Automatic Language Detection
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Detect the language of this content and provide a confidence score" \
   --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
   --id "language-detection" \
@@ -24,13 +24,13 @@ umwelten eval batch \
 ### Language-Specific Analysis
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this text in its original language, then provide an English summary" \
   --models "google:gemini-2.0-flash" \
   --file "./spanish-document.pdf" \
   --id "spanish-analysis"
 
-umwelten eval run \
+npx umwelten eval run \
   --prompt "この日本語の文書を分析し、英語で要約してください" \
   --models "google:gemini-2.0-flash" \
   --file "./japanese-text.txt" \
@@ -42,7 +42,7 @@ umwelten eval run \
 ### Document Translation
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Translate this document to English while preserving formatting and context" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "document-translation" \
@@ -54,7 +54,7 @@ umwelten eval batch \
 ### Multi-Target Translation
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Translate this English text to Spanish, French, German, and Japanese" \
   --models "google:gemini-2.0-flash" \
   --id "multi-target-translation" \
@@ -64,7 +64,7 @@ umwelten eval run \
 ### Context-Aware Translation
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Translate this technical document to English, preserving technical terminology and context" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./technical-manual-german.pdf" \
@@ -77,7 +77,7 @@ umwelten eval run \
 ### Sentiment Analysis Across Languages
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze the sentiment of this content regardless of language and provide reasoning" \
   --models "google:gemini-2.0-flash" \
   --id "multilingual-sentiment" \
@@ -90,7 +90,7 @@ umwelten eval batch \
 ### Cultural Context Analysis
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this content for cultural references, idioms, and context that might not translate directly" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "cultural-analysis" \
@@ -106,7 +106,7 @@ umwelten eval batch \
 
 ```bash
 # Process contracts in multiple languages
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract key terms, obligations, and dates from this business document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "international-contracts" \
@@ -120,7 +120,7 @@ umwelten eval batch \
 
 ```bash
 # Analyze research papers in various languages
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract methodology, findings, and conclusions from this academic paper" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "multilingual-research" \
@@ -134,7 +134,7 @@ umwelten eval batch \
 
 ```bash
 # Analyze international news articles
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Summarize this news article and identify key events, people, and implications" \
   --models "google:gemini-2.0-flash" \
   --id "international-news" \
@@ -149,7 +149,7 @@ umwelten eval batch \
 ### Translation Quality Assessment
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Compare these two translations of the same source text and assess quality, accuracy, and fluency" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./translation-comparison.txt" \
@@ -160,7 +160,7 @@ umwelten eval run \
 ### Code Comment Translation
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Translate code comments to English while preserving technical accuracy" \
   --models "ollama:codestral:latest,google:gemini-2.0-flash" \
   --id "code-translation" \
@@ -172,7 +172,7 @@ umwelten eval batch \
 ### Multilingual Customer Support
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this customer inquiry and provide response in the same language" \
   --models "google:gemini-2.0-flash" \
   --id "multilingual-support" \
@@ -188,7 +188,7 @@ umwelten eval batch \
 
 ```bash
 # Test different models on the same multilingual content
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Summarize this content in English" \
   --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --file "./chinese-article.txt" \
@@ -201,7 +201,7 @@ umwelten eval run \
 ```bash
 # Test model performance across different languages
 for lang in spanish french german japanese chinese arabic; do
-  umwelten eval run \
+  npx umwelten eval run \
     --prompt "Analyze this ${lang} text and provide insights in English" \
     --models "google:gemini-2.0-flash" \
     --file "./${lang}-sample.txt" \
@@ -214,7 +214,7 @@ done
 ### Consistent Cross-Language Schema
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract structured information from this document regardless of language" \
   --models "google:gemini-2.0-flash" \
   --id "multilingual-extraction" \
@@ -227,7 +227,7 @@ umwelten eval batch \
 ### Language Metadata Enrichment
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this content and provide detailed language metadata" \
   --models "google:gemini-2.0-flash" \
   --id "language-metadata" \
@@ -243,7 +243,7 @@ umwelten eval batch \
 
 ```bash
 # Start multilingual chat session
-umwelten chat --provider google --model gemini-2.0-flash
+npx umwelten chat --provider google --model gemini-2.0-flash
 
 # Within chat:
 > "Please respond in Spanish: ¿Cómo está el clima hoy?"
@@ -254,7 +254,7 @@ umwelten chat --provider google --model gemini-2.0-flash
 ### Translation Chat Assistant
 
 ```bash
-umwelten chat \
+npx umwelten chat \
   --provider google \
   --model gemini-2.0-flash \
   --system "You are a professional translator. Help users translate text between languages while preserving meaning and context."
@@ -276,14 +276,14 @@ umwelten chat \
 
 ```bash
 # Group by language family for efficiency
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Process European language content" \
   --models "google:gemini-2.0-flash" \
   --directory "./european-texts" \
   --file-pattern "*{en,es,fr,de,it}*.txt" \
   --concurrent
 
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Process Asian language content" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --directory "./asian-texts" \
@@ -296,7 +296,7 @@ umwelten eval batch \
 ### International Legal Documents
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract legal obligations and key clauses from this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "legal-multilingual" \
@@ -310,7 +310,7 @@ umwelten eval batch \
 ### E-commerce Product Descriptions
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Translate this product description to English and extract key product features" \
   --models "google:gemini-2.0-flash" \
   --id "product-translation" \
@@ -323,7 +323,7 @@ umwelten eval batch \
 ### Social Media Content Analysis
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze sentiment and extract hashtags from this social media content" \
   --models "google:gemini-2.0-flash" \
   --id "social-multilingual" \
@@ -338,7 +338,7 @@ umwelten eval batch \
 ### Translation Validation
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Check this translation for accuracy, fluency, and cultural appropriateness" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./translation-to-check.txt" \
@@ -349,7 +349,7 @@ umwelten eval run \
 ### Cross-Language Consistency
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Ensure consistent terminology and style across these translated documents" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "consistency-check" \
@@ -365,7 +365,7 @@ umwelten eval batch \
 
 ```bash
 # Generate language statistics
-umwelten eval report --id multilingual-extraction --format json | jq '
+npx umwelten eval report --id multilingual-extraction --format json | jq '
   .results | 
   group_by(.response.source_language) | 
   map({language: .[0].response.source_language, count: length}) | 
@@ -378,15 +378,15 @@ umwelten eval report --id multilingual-extraction --format json | jq '
 
 ```bash
 # Analyze translation quality across different models
-umwelten eval report --id translation-comparison --format csv --output translation-metrics.csv
+npx umwelten eval report --id translation-comparison --format csv --output translation-metrics.csv
 ```
 
 ### Cross-Language Report Generation
 
 ```bash
 # Generate reports in multiple languages
-umwelten eval report --id multilingual-analysis --format markdown --output report-en.md
-umwelten eval run \
+npx umwelten eval report --id multilingual-analysis --format markdown --output report-en.md
+npx umwelten eval run \
   --prompt "Translate this English report to Spanish while preserving structure" \
   --models "google:gemini-2.0-flash" \
   --file "./report-en.md" \
@@ -426,10 +426,10 @@ umwelten eval run \
 
 ```bash
 # Test language detection
-umwelten run --models "google:gemini-2.0-flash" "Detect the language: Bonjour, comment allez-vous?"
+npx umwelten run --models "google:gemini-2.0-flash" "Detect the language: Bonjour, comment allez-vous?"
 
 # Test basic translation  
-umwelten run --models "google:gemini-2.0-flash" "Translate to English: Hola, ¿cómo estás?"
+npx umwelten run --models "google:gemini-2.0-flash" "Translate to English: Hola, ¿cómo estás?"
 
 # Check file encoding
 file -i ./multilingual-document.txt

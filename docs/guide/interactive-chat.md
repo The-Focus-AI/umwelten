@@ -18,13 +18,13 @@ Start an interactive conversation:
 
 ```bash
 # Basic chat
-umwelten chat --provider ollama --model gemma3:latest
+npx umwelten chat --provider ollama --model gemma3:latest
 
 # Chat with premium model
-umwelten chat --provider google --model gemini-2.0-flash
+npx umwelten chat --provider google --model gemini-2.0-flash
 
 # Chat with tools enabled
-umwelten chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
+npx umwelten chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
 ```
 
 ### Provider-Specific Examples
@@ -32,43 +32,43 @@ umwelten chat --provider openrouter --model openai/gpt-4o --tools calculator,sta
 #### Google Models
 ```bash
 # Fast and cost-effective chat
-umwelten chat --provider google --model gemini-2.0-flash
+npx umwelten chat --provider google --model gemini-2.0-flash
 
 # High-quality analytical chat
-umwelten chat --provider google --model gemini-2.5-pro-exp-03-25
+npx umwelten chat --provider google --model gemini-2.5-pro-exp-03-25
 
 # Vision-enabled chat
-umwelten chat --provider google --model gemini-2.0-flash --file ./image.jpg
+npx umwelten chat --provider google --model gemini-2.0-flash --file ./image.jpg
 ```
 
 #### Ollama Models (Local)
 ```bash
 # General conversation
-umwelten chat --provider ollama --model gemma3:12b
+npx umwelten chat --provider ollama --model gemma3:12b
 
 # Code-focused chat
-umwelten chat --provider ollama --model codestral:latest
+npx umwelten chat --provider ollama --model codestral:latest
 
 # Vision chat
-umwelten chat --provider ollama --model qwen2.5vl:latest --file ./screenshot.png
+npx umwelten chat --provider ollama --model qwen2.5vl:latest --file ./screenshot.png
 ```
 
 #### OpenRouter Models
 ```bash
 # Premium quality chat
-umwelten chat --provider openrouter --model openai/gpt-4o
+npx umwelten chat --provider openrouter --model openai/gpt-4o
 
 # Analytical chat
-umwelten chat --provider openrouter --model anthropic/claude-3.7-sonnet:thinking
+npx umwelten chat --provider openrouter --model anthropic/claude-3.7-sonnet:thinking
 
 # Cost-effective chat
-umwelten chat --provider openrouter --model openai/gpt-4o-mini
+npx umwelten chat --provider openrouter --model openai/gpt-4o-mini
 ```
 
 #### LM Studio (Local)
 ```bash
 # Local model chat (ensure LM Studio server is running)
-umwelten chat --provider lmstudio --model mistralai/devstral-small-2505
+npx umwelten chat --provider lmstudio --model mistralai/devstral-small-2505
 ```
 
 ## Chat Commands
@@ -100,7 +100,7 @@ Enable persistent memory to maintain context across sessions:
 
 ```bash
 # Chat with memory for persistent facts
-umwelten chat --provider ollama --model gemma3:latest --memory
+npx umwelten chat --provider ollama --model gemma3:latest --memory
 ```
 
 The memory system automatically:
@@ -112,7 +112,7 @@ The memory system automatically:
 #### Memory Examples
 ```bash
 # Start a memory-enabled chat
-umwelten chat --provider google --model gemini-2.0-flash --memory
+npx umwelten chat --provider google --model gemini-2.0-flash --memory
 
 # During chat, the AI will remember:
 > "I'm a software developer working on a React project"
@@ -129,10 +129,10 @@ Enhance your chat with powerful tools:
 
 ```bash
 # Chat with specific tools
-umwelten chat --provider openrouter --model gpt-4o --tools calculator,statistics
+npx umwelten chat --provider openrouter --model gpt-4o --tools calculator,statistics
 
 # Available tools (use 'umwelten tools list' to see all)
-umwelten chat --provider google --model gemini-2.0-flash --tools web_search,file_analysis
+npx umwelten chat --provider google --model gemini-2.0-flash --tools web_search,file_analysis
 ```
 
 #### Available Tools
@@ -143,23 +143,23 @@ umwelten chat --provider google --model gemini-2.0-flash --tools web_search,file
 #### Tool Usage Examples
 ```bash
 # Math-focused chat
-umwelten chat --provider openrouter --model gpt-4o --tools calculator
+npx umwelten chat --provider openrouter --model gpt-4o --tools calculator
 
 # Data analysis chat
-umwelten chat --provider google --model gemini-2.0-flash --tools statistics
+npx umwelten chat --provider google --model gemini-2.0-flash --tools statistics
 
 # Multi-tool chat
-umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
 ```
 
 #### Tool Demo
 Test tool functionality:
 ```bash
 # Interactive tool demo
-umwelten tools demo
+npx umwelten tools demo
 
 # Custom demo
-umwelten tools demo --prompt "Calculate 15 + 27, then generate a random number"
+npx umwelten tools demo --prompt "Calculate 15 + 27, then generate a random number"
 ```
 
 ### File Attachments in Chat
@@ -168,13 +168,13 @@ Start a chat with file context:
 
 ```bash
 # Start chat with a document
-umwelten chat --provider google --model gemini-1.5-flash-latest --file ./document.pdf
+npx umwelten chat --provider google --model gemini-1.5-flash-latest --file ./document.pdf
 
 # Start chat with an image
-umwelten chat --provider ollama --model qwen2.5vl:latest --file ./photo.jpg
+npx umwelten chat --provider ollama --model qwen2.5vl:latest --file ./photo.jpg
 
 # Start chat with multiple files
-umwelten chat --provider google --model gemini-2.0-flash --file ./report.pdf --file ./data.csv
+npx umwelten chat --provider google --model gemini-2.0-flash --file ./report.pdf --file ./data.csv
 ```
 
 #### File Reference Examples
@@ -195,17 +195,17 @@ Set the AI's role and behavior for the entire conversation:
 
 ```bash
 # Technical expert role
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.0-flash \
   --system "You are a senior software architect with expertise in distributed systems"
 
 # Creative writing role
-umwelten chat \
+npx umwelten chat \
   --provider ollama --model gemma3:27b \
   --system "You are a creative writer specializing in science fiction short stories"
 
 # Educational role
-umwelten chat \
+npx umwelten chat \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --system "You are a patient teacher who explains complex concepts simply"
 ```
@@ -216,17 +216,17 @@ Adjust creativity and randomness for the conversation:
 
 ```bash
 # Very focused and deterministic (0.0-0.3)
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.0-flash \
   --temperature 0.1
 
 # Balanced creativity (0.4-0.7)
-umwelten chat \
+npx umwelten chat \
   --provider ollama --model gemma3:12b \
   --temperature 0.6
 
 # Highly creative (0.8-2.0)
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.0-flash \
   --temperature 1.5
 ```
@@ -237,15 +237,15 @@ Set appropriate timeouts for different types of conversations:
 
 ```bash
 # Quick responses (default: 30 seconds)
-umwelten chat --provider ollama --model gemma3:12b --timeout 30000
+npx umwelten chat --provider ollama --model gemma3:12b --timeout 30000
 
 # Complex analysis (longer timeout)
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --timeout 60000
 
 # Extended processing (very long timeout)
-umwelten chat \
+npx umwelten chat \
   --provider openrouter --model openai/gpt-4o \
   --timeout 120000
 ```
@@ -256,18 +256,18 @@ umwelten chat \
 
 ```bash
 # Math tutoring session
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.0-flash \
   --system "You are a math tutor who shows step-by-step solutions" \
   --tools calculator
 
 # Language learning
-umwelten chat \
+npx umwelten chat \
   --provider ollama --model gemma3:27b \
   --system "You are a Spanish language tutor. Respond in Spanish and help me practice"
 
 # Concept explanation
-umwelten chat \
+npx umwelten chat \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --system "You are a patient teacher explaining complex concepts simply"
 ```
@@ -276,19 +276,19 @@ umwelten chat \
 
 ```bash
 # Story writing collaboration
-umwelten chat \
+npx umwelten chat \
   --provider ollama --model gemma3:27b \
   --system "You are a creative writing partner. Help me develop characters and plot" \
   --temperature 0.8
 
 # Brainstorming session
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.0-flash \
   --system "You are an innovation consultant. Help me brainstorm solutions" \
   --temperature 0.9
 
 # Design feedback
-umwelten chat \
+npx umwelten chat \
   --provider openrouter --model openai/gpt-4o \
   --system "You are a UX designer. Provide feedback on my design ideas"
 ```
@@ -297,19 +297,19 @@ umwelten chat \
 
 ```bash
 # Debugging session
-umwelten chat \
+npx umwelten chat \
   --provider ollama --model codestral:latest \
   --system "You are a senior software engineer helping with debugging" \
   --tools code_execution
 
 # Business analysis
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --system "You are a business analyst. Help me analyze market opportunities" \
   --tools web_search
 
 # Research assistance
-umwelten chat \
+npx umwelten chat \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --system "You are a research assistant. Help me find and analyze information" \
   --tools web_search
@@ -319,18 +319,18 @@ umwelten chat \
 
 ```bash
 # Code review session
-umwelten chat \
+npx umwelten chat \
   --provider ollama --model codestral:latest \
   --system "You are a senior developer conducting a code review" \
   --file ./my-code.js
 
 # Architecture discussion
-umwelten chat \
+npx umwelten chat \
   --provider google --model gemini-2.0-flash \
   --system "You are a software architect. Help me design system architecture"
 
 # Testing strategy
-umwelten chat \
+npx umwelten chat \
   --provider openrouter --model openai/gpt-4o \
   --system "You are a QA engineer. Help me develop testing strategies"
 ```
@@ -375,16 +375,16 @@ umwelten chat \
 
 ```bash
 # Test chat functionality
-umwelten chat --provider google --model gemini-2.0-flash --timeout 10000
+npx umwelten chat --provider google --model gemini-2.0-flash --timeout 10000
 
 # Check available tools
-umwelten tools list
+npx umwelten tools list
 
 # Test memory system
-umwelten chat --provider ollama --model gemma3:latest --memory
+npx umwelten chat --provider ollama --model gemma3:latest --memory
 
 # Verify file attachments
-umwelten chat --provider google --model gemini-2.0-flash --file ./test.txt
+npx umwelten chat --provider google --model gemini-2.0-flash --file ./test.txt
 ```
 
 ## Next Steps

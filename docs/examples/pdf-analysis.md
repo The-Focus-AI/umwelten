@@ -9,7 +9,7 @@ This example demonstrates how to analyze PDF documents using Umwelten's vision-c
 Test how well models can identify and categorize PDF documents:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Identify the type of document, key sections, and summarize the main content of this PDF. Include document structure, purpose, and target audience." \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --id "pdf-identify-test" \
@@ -22,7 +22,7 @@ umwelten eval run \
 Test native PDF parsing and information extraction capabilities:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this PDF document and extract key information, including document type, main topics, structured data, and any notable formatting or visual elements" \
   --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
   --id "pdf-parsing-test" \
@@ -34,7 +34,7 @@ umwelten eval run \
 Compare how models handle different types of PDF documents:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this document and categorize it as one of: research paper, business report, legal document, technical manual, financial statement, or other. Explain your reasoning and extract key metadata." \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b,google:gemini-2.5-flash" \
   --id "pdf-categorization" \
@@ -49,7 +49,7 @@ umwelten eval run \
 Extract specific information with structured output:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract structured information from this PDF document" \
   --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
   --id "pdf-structured-extract" \
@@ -63,7 +63,7 @@ umwelten eval run \
 Specialized analysis for research documents:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this research paper and extract: title, authors, abstract, research methodology, key findings, conclusions, and citation information. Also identify the research field and assess the paper's significance." \
   --models "google:gemini-2.5-pro-exp-03-25,google:gemini-2.0-flash" \
   --id "research-paper-analysis" \
@@ -77,7 +77,7 @@ umwelten eval run \
 Extract financial information from reports:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this financial document and extract key financial metrics, trends, and insights. Include revenue, expenses, profit margins, and any forward-looking statements." \
   --models "google:gemini-2.0-flash" \
   --id "financial-analysis" \
@@ -90,7 +90,7 @@ umwelten eval run \
 Analyze legal documents and contracts:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Review this legal document and identify: document type, parties involved, key terms and conditions, obligations, deadlines, and any potential areas of concern or ambiguity." \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "legal-document-review" \
@@ -106,7 +106,7 @@ umwelten eval run \
 Analyze multiple documents in a batch:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this PDF document and provide a comprehensive summary including document type, key topics, and main conclusions" \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --id "pdf-batch-analysis" \
@@ -121,7 +121,7 @@ umwelten eval batch \
 Classify and organize document libraries:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Classify this document and extract metadata for cataloging" \
   --models "google:gemini-2.0-flash" \
   --id "document-classification" \
@@ -139,7 +139,7 @@ umwelten eval batch \
 Watch document analysis in real-time:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Perform a detailed content analysis of this PDF, including structure, key arguments, evidence presented, and overall quality assessment" \
   --models "google:gemini-2.5-pro-exp-03-25,google:gemini-2.0-flash" \
   --id "detailed-pdf-analysis" \
@@ -343,7 +343,7 @@ Visual Elements: 12 charts/graphs, branded formatting
 ### Document Triage
 ```bash
 # Quick classification for large document sets
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Classify this document: urgent/important/routine/archive" \
   --models "google:gemini-2.0-flash" \
   --schema "priority, category, confidence int" \
@@ -353,7 +353,7 @@ umwelten eval batch \
 ### Content Summarization
 ```bash
 # Executive summaries for long documents
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Create a 200-word executive summary of this document" \
   --models "google:gemini-2.0-flash" \
   --attach "./reports/long-report.pdf"
@@ -362,7 +362,7 @@ umwelten eval run \
 ### Data Mining
 ```bash
 # Extract specific data points across documents
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract all dates, dollar amounts, and key metrics" \
   --schema "dates array, amounts array, metrics array" \
   --directory "./financial" --file-pattern "*.pdf"

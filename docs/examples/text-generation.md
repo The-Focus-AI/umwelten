@@ -9,7 +9,7 @@ This example demonstrates basic text generation and model comparison using Umwel
 Compare how different models handle the same prompt:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum computing in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "quantum-explanation" \
@@ -21,7 +21,7 @@ umwelten eval run \
 Add context and control creativity:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum entanglement and its practical applications" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "quantum-detailed" \
@@ -34,7 +34,7 @@ umwelten eval run \
 Watch responses generate in real-time:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a comprehensive explanation of artificial intelligence, covering its history, current applications, and future potential" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
   --id "ai-comprehensive" \
@@ -50,7 +50,7 @@ umwelten eval run \
 Test analytical capabilities across models:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Compare Python, JavaScript, and Rust for web development. Include performance, learning curve, and ecosystem considerations." \
   --models "ollama:gemma3:12b,ollama:llama3.2:latest,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "lang-comparison" \
@@ -64,7 +64,7 @@ umwelten eval run \
 Test technical writing capabilities:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a technical specification for a REST API that manages user accounts, including authentication, CRUD operations, and error handling" \
   --models "ollama:codestral:latest,google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "api-spec" \
@@ -78,7 +78,7 @@ Test creative writing at different temperatures:
 
 ```bash
 # High creativity
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a short science fiction story about first contact with an alien civilization" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash" \
   --id "scifi-creative" \
@@ -86,7 +86,7 @@ umwelten eval run \
   --temperature 1.5
 
 # Low creativity (more structured)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a short science fiction story about first contact with an alien civilization" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash" \
   --id "scifi-structured" \
@@ -101,7 +101,7 @@ umwelten eval run \
 Continue from where you left off if interrupted:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a detailed analysis of renewable energy technologies and their impact on climate change" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "renewable-energy" \
@@ -114,7 +114,7 @@ umwelten eval run \
 Set appropriate timeouts for complex prompts:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a comprehensive business plan for a sustainable technology startup, including market analysis, financial projections, and implementation timeline" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "business-plan" \
@@ -128,29 +128,29 @@ umwelten eval run \
 
 ```bash
 # Markdown report
-umwelten eval report --id quantum-explanation --format markdown
+npx umwelten eval report --id quantum-explanation --format markdown
 
 # HTML report with rich formatting
-umwelten eval report --id lang-comparison --format html --output comparison-report.html
+npx umwelten eval report --id lang-comparison --format html --output comparison-report.html
 
 # CSV export for further analysis
-umwelten eval report --id ai-comprehensive --format csv --output ai-analysis.csv
+npx umwelten eval report --id ai-comprehensive --format csv --output ai-analysis.csv
 
 # JSON for programmatic processing
-umwelten eval report --id renewable-energy --format json
+npx umwelten eval report --id renewable-energy --format json
 ```
 
 ### List and Discover Evaluations
 
 ```bash
 # List all evaluations
-umwelten eval list
+npx umwelten eval list
 
 # Show detailed information
-umwelten eval list --details
+npx umwelten eval list --details
 
 # JSON format for scripting
-umwelten eval list --json
+npx umwelten eval list --json
 ```
 
 ## Expected Output Examples

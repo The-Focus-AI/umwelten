@@ -9,7 +9,7 @@ This example shows how to analyze images using Umwelten's vision-capable models.
 Analyze a single image across multiple vision models:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this image and provide a summary of the content." \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest,ollama:gemma3:12b" \
   --id "image-analysis" \
@@ -22,7 +22,7 @@ umwelten eval run \
 Ask specific questions about image content:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "What objects do you see in this image? Describe the colors, lighting, and overall mood." \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "detailed-image-analysis" \
@@ -34,7 +34,7 @@ umwelten eval run \
 Test OCR capabilities:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract and transcribe any text visible in this image. If no text is present, describe what you see instead." \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --id "text-extraction" \
@@ -48,7 +48,7 @@ umwelten eval run \
 Test different vision models on the same image:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Describe this image in detail, including objects, colors, composition, and any notable features." \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b,ollama:qwen2.5vl:latest" \
   --id "vision-model-comparison" \
@@ -60,10 +60,10 @@ umwelten eval run \
 
 ```bash
 # Create detailed markdown report
-umwelten eval report --id vision-model-comparison --format markdown
+npx umwelten eval report --id vision-model-comparison --format markdown
 
 # Export HTML report with embedded images
-umwelten eval report --id vision-model-comparison --format html --output vision-report.html
+npx umwelten eval report --id vision-model-comparison --format html --output vision-report.html
 ```
 
 ## Interactive Mode
@@ -73,7 +73,7 @@ umwelten eval report --id vision-model-comparison --format html --output vision-
 Watch models analyze images in real-time:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Provide a detailed artistic analysis of this image, including composition, color theory, and emotional impact." \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "artistic-analysis" \
@@ -86,7 +86,7 @@ umwelten eval run \
 ### Scene Understanding
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this scene: What's happening? Who are the people? What's the setting? What time of day might it be?" \
   --models "google:gemini-2.0-flash" \
   --id "scene-understanding" \
@@ -96,7 +96,7 @@ umwelten eval run \
 ### Technical Analysis
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this image from a photography perspective: lighting, composition, depth of field, and technical quality." \
   --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
   --id "photo-technical-analysis" \
@@ -107,7 +107,7 @@ umwelten eval run \
 ### Safety and Content Analysis
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze this image for content appropriateness and describe any safety concerns or notable elements." \
   --models "google:gemini-2.0-flash" \
   --id "content-safety-analysis" \

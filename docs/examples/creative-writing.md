@@ -10,7 +10,7 @@ Replicate the original `cat-poem.ts` script functionality:
 
 ```bash
 # Evaluate cat poem generation across multiple models
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a short poem about a cat." \
   --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
   --id "cat-poem" \
@@ -22,10 +22,10 @@ umwelten eval run \
 
 ```bash
 # View results in markdown format
-umwelten eval report --id cat-poem --format markdown
+npx umwelten eval report --id cat-poem --format markdown
 
 # Export to HTML for sharing
-umwelten eval report --id cat-poem --format html --output cat-poems.html
+npx umwelten eval report --id cat-poem --format html --output cat-poems.html
 ```
 
 ## Temperature Effects
@@ -36,7 +36,7 @@ Compare how temperature affects creativity (replaces `temperature.ts`):
 
 ```bash
 # High temperature (more creative/random)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-high" \
@@ -44,7 +44,7 @@ umwelten eval run \
   --temperature 2.0
 
 # Low temperature (more focused/predictable)  
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-low" \
@@ -52,7 +52,7 @@ umwelten eval run \
   --temperature 0.5
 
 # Medium temperature (balanced)
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-medium" \
@@ -64,9 +64,9 @@ umwelten eval run \
 
 ```bash
 # Generate individual reports
-umwelten eval report --id temperature-high --format markdown
-umwelten eval report --id temperature-low --format markdown  
-umwelten eval report --id temperature-medium --format markdown
+npx umwelten eval report --id temperature-high --format markdown
+npx umwelten eval report --id temperature-low --format markdown  
+npx umwelten eval report --id temperature-medium --format markdown
 ```
 
 ## Advanced Creative Writing
@@ -74,7 +74,7 @@ umwelten eval report --id temperature-medium --format markdown
 ### Story Generation with Multiple Models
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a creative short story about an AI that learns to paint" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "ai-painter-story" \
@@ -88,7 +88,7 @@ umwelten eval run \
 Extract structured information from generated poems:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a haiku about the ocean, then analyze its structure" \
   --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
   --id "structured-haiku" \
@@ -101,7 +101,7 @@ umwelten eval run \
 Watch stories generate in real-time:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a dramatic short story with dialogue" \
   --models "ollama:gemma3:27b,google:gemini-2.0-flash" \
   --id "dramatic-story" \

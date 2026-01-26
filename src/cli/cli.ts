@@ -9,6 +9,7 @@ import { chatCommand } from './chat.js';
 import { addToolsCommand } from './tools.js';
 import { evalCommand } from './eval.js';
 import { sessionsCommand } from './sessions.js';
+import { telegramCommand } from './telegram.js';
 
 // Get the version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -29,6 +30,7 @@ program.addCommand(runCommand);
 program.addCommand(chatCommand);
 program.addCommand(evalCommand);
 program.addCommand(sessionsCommand);
+program.addCommand(telegramCommand);
 addToolsCommand(program);
 
 program.parse(); 

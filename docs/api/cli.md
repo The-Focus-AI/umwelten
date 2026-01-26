@@ -36,18 +36,18 @@ List available models across all providers.
 
 ```bash
 # List all models
-umwelten models
+npx umwelten models
 
 # List models by provider
-umwelten models --provider google
-umwelten models --provider openrouter
+npx umwelten models --provider google
+npx umwelten models --provider openrouter
 
 # JSON output
-umwelten models --json
+npx umwelten models --json
 
 # Filter by capability
-umwelten models --capability vision
-umwelten models --capability coding
+npx umwelten models --capability vision
+npx umwelten models --capability coding
 ```
 
 **Options**:
@@ -62,19 +62,19 @@ Execute a single prompt with a model.
 
 ```bash
 # Basic usage
-umwelten run "Explain quantum computing"
+npx umwelten run "Explain quantum computing"
 
 # Specify model
-umwelten run "Write a Python function" --model gpt-4
+npx umwelten run "Write a Python function" --model gpt-4
 
 # With system prompt
-umwelten run "Analyze this code" --system "You are a code reviewer"
+npx umwelten run "Analyze this code" --system "You are a code reviewer"
 
 # Structured output
-umwelten run "Extract person info" --schema person-schema.json
+npx umwelten run "Extract person info" --schema person-schema.json
 
 # File attachment
-umwelten run "Analyze this image" --file image.jpg
+npx umwelten run "Analyze this image" --file image.jpg
 ```
 
 **Options**:
@@ -92,16 +92,16 @@ Interactive chat mode with AI models.
 
 ```bash
 # Start interactive chat
-umwelten chat
+npx umwelten chat
 
 # Chat with specific model
-umwelten chat --model gemini-2.0-flash
+npx umwelten chat --model gemini-2.0-flash
 
 # Chat with memory enabled
-umwelten chat --memory
+npx umwelten chat --memory
 
 # Chat with system prompt
-umwelten chat --system "You are a helpful coding assistant"
+npx umwelten chat --system "You are a helpful coding assistant"
 ```
 
 **Options**:
@@ -110,6 +110,43 @@ umwelten chat --system "You are a helpful coding assistant"
 - `--system <prompt>`: System prompt
 - `--temperature <number>`: Model temperature
 - `--max-tokens <number>`: Maximum tokens per response
+
+#### `telegram` Command
+
+Start a Telegram bot for interactive AI conversations.
+
+```bash
+# Basic usage (requires TELEGRAM_BOT_TOKEN env or --token)
+npx umwelten telegram --provider google --model gemini-2.5-flash-preview-05-20
+
+# With specific token
+npx umwelten telegram --provider google --model gemini-2.5-flash-preview-05-20 --token "your-bot-token"
+
+# With memory enabled
+npx umwelten telegram --provider openrouter --model anthropic/claude-sonnet-4 --memory
+
+# With tools enabled
+npx umwelten telegram --provider google --model gemini-2.5-flash-preview-05-20 --tools calculator,statistics,randomNumber
+```
+
+**Options**:
+- `--token <token>`: Telegram bot token (or set `TELEGRAM_BOT_TOKEN` environment variable)
+- `--memory`: Enable memory-augmented conversations
+- `--tools <tools>`: Comma-separated list of tools to enable (calculator, statistics, randomNumber)
+- `--provider <provider>`: AI provider to use (required)
+- `--model <model>`: Model to use (required)
+
+**Telegram Commands**:
+- `/start` - Start a new conversation
+- `/reset` - Clear conversation history
+- `/help` - Show help message
+
+**Features**:
+- Multi-turn conversations with context
+- Media support (photos, documents, audio, video)
+- Markdown formatting in responses
+- Typing indicators during AI processing
+- Automatic message splitting for long responses
 
 ### Evaluation Commands
 
@@ -121,19 +158,19 @@ Run model evaluations and assessments.
 
 ```bash
 # Run basic evaluation
-umwelten eval --model gpt-4 --task coding
+npx umwelten eval --model gpt-4 --task coding
 
 # Run multiple models
-umwelten eval --models gpt-4,gemini-2.0-flash --task reasoning
+npx umwelten eval --models gpt-4,gemini-2.0-flash --task reasoning
 
 # Custom evaluation script
-umwelten eval --script custom-eval.js
+npx umwelten eval --script custom-eval.js
 
 # Batch evaluation
-umwelten eval --batch input-files/ --output results/
+npx umwelten eval --batch input-files/ --output results/
 
 # Evaluation with specific metrics
-umwelten eval --metrics accuracy,latency,cost
+npx umwelten eval --metrics accuracy,latency,cost
 ```
 
 **Options**:
@@ -156,13 +193,13 @@ Connect to an MCP server.
 
 ```bash
 # Connect to local server
-umwelten mcp connect --server "node server.js"
+npx umwelten mcp connect --server "node server.js"
 
 # Connect with specific protocol
-umwelten mcp connect --server "ws://localhost:3000" --protocol websocket
+npx umwelten mcp connect --server "ws://localhost:3000" --protocol websocket
 
 # Connect with authentication
-umwelten mcp connect --server "https://api.example.com" --token "your-token"
+npx umwelten mcp connect --server "https://api.example.com" --token "your-token"
 ```
 
 **Options**:
@@ -177,13 +214,13 @@ Test MCP tools.
 
 ```bash
 # Test calculator tool
-umwelten mcp test-tool calculator --params '{"operation":"add","a":5,"b":3}'
+npx umwelten mcp test-tool calculator --params '{"operation":"add","a":5,"b":3}'
 
 # Test web search tool
-umwelten mcp test-tool web-search --params '{"query":"latest AI developments"}'
+npx umwelten mcp test-tool web-search --params '{"query":"latest AI developments"}'
 
 # Test file reading tool
-umwelten mcp test-tool read-file --params '{"path":"/path/to/file.txt"}'
+npx umwelten mcp test-tool read-file --params '{"path":"/path/to/file.txt"}'
 ```
 
 **Options**:
@@ -197,13 +234,13 @@ Read resources through MCP.
 
 ```bash
 # Read file resource
-umwelten mcp read-resource file:///path/to/file.txt
+npx umwelten mcp read-resource file:///path/to/file.txt
 
 # Read URL resource
-umwelten mcp read-resource https://example.com/api/data
+npx umwelten mcp read-resource https://example.com/api/data
 
 # Read with specific encoding
-umwelten mcp read-resource file:///path/to/file.txt --encoding utf-8
+npx umwelten mcp read-resource file:///path/to/file.txt --encoding utf-8
 ```
 
 **Options**:
@@ -220,16 +257,16 @@ List and manage available tools.
 
 ```bash
 # List all tools
-umwelten tools list
+npx umwelten tools list
 
 # Run interactive tool demo
-umwelten tools demo
+npx umwelten tools demo
 
 # Demo with custom prompt
-umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number"
+npx umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number"
 
 # Demo with step limit
-umwelten tools demo --max-steps 3
+npx umwelten tools demo --max-steps 3
 ```
 
 **Options**:

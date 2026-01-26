@@ -9,7 +9,7 @@ This example demonstrates how to use Umwelten for complex analytical and reasoni
 This replicates the functionality of the `frankenstein.ts` script:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Who is the monster in Mary Shelley's Frankenstein? Analyze the moral complexity of both Victor Frankenstein and his creature, considering their actions, motivations, and the consequences of their choices." \
   --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-2.0-flash,google:gemini-2.5-flash" \
   --id "frankenstein-analysis" \
@@ -21,7 +21,7 @@ umwelten eval run \
 Compare different works and themes:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Compare the themes of isolation and alienation in Mary Shelley's Frankenstein and Emily Dickinson's poetry. How do both authors explore the human condition through their respective mediums?" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "isolation-themes" \
@@ -34,7 +34,7 @@ umwelten eval run \
 Apply contemporary critical theories:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze George Orwell's 1984 through the lens of modern surveillance capitalism. What parallels exist between Orwell's dystopia and contemporary digital privacy concerns?" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,ollama:llama3.2:latest" \
   --id "orwell-modern-analysis" \
@@ -49,7 +49,7 @@ umwelten eval run \
 Test reasoning capabilities with ethical scenarios:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "A self-driving car must choose between hitting one person or swerving to hit five people. Analyze this trolley problem variant from utilitarian, deontological, and virtue ethics perspectives. What factors should influence the car's programming?" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "trolley-problem-ai" \
@@ -62,7 +62,7 @@ umwelten eval run \
 Evaluate understanding of complex scientific concepts:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain the relationship between quantum mechanics and general relativity. Why is finding a theory of quantum gravity so challenging, and what are the leading approaches (string theory, loop quantum gravity, etc.)?" \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o,ollama:deepseek-r1:32b" \
   --id "quantum-gravity" \
@@ -75,7 +75,7 @@ umwelten eval run \
 Test historical reasoning and cause-effect understanding:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze the multiple causes of World War I. How did the assassination of Archduke Franz Ferdinand trigger such a massive conflict? Evaluate the role of imperialism, nationalism, alliances, and militarism." \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,ollama:gemma3:27b" \
   --id "wwi-causes" \
@@ -90,7 +90,7 @@ umwelten eval run \
 Extract structured reasoning patterns:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze the following argument and identify its structure: 'Climate change is primarily caused by human activities because atmospheric CO2 levels have increased dramatically since industrialization, and this correlates with global temperature rises.'" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "argument-analysis" \
@@ -103,7 +103,7 @@ umwelten eval run \
 Test complex reasoning chains:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "A company's revenue decreased by 15% this quarter, but their profit margin increased by 3%. Their main competitor gained 8% market share. Analyze what this suggests about the company's strategy, market conditions, and future prospects. Provide specific recommendations." \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "business-analysis" \
@@ -119,7 +119,7 @@ umwelten eval run \
 Watch complex reasoning develop in real-time:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze the philosophical implications of artificial general intelligence (AGI). If machines can think, feel, and make decisions like humans, what does this mean for consciousness, free will, and moral responsibility?" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "agi-philosophy" \
@@ -232,7 +232,7 @@ Shelley's genius is showing how monstrosity is created, not born. Victor's scien
 Guide models through step-by-step reasoning:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Using the Socratic method, examine this statement: 'Artificial intelligence will never truly understand human emotions because it lacks consciousness.' Break down each assumption and explore counterarguments systematically." \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
   --id "socratic-ai-emotions" \
@@ -244,7 +244,7 @@ umwelten eval run \
 Test understanding of complex cause-and-effect relationships:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Trace the causal chain from social media algorithm design to political polarization. Identify key mechanisms, feedback loops, and potential intervention points." \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "social-media-polarization" \
@@ -257,7 +257,7 @@ umwelten eval run \
 Challenge models with logical paradoxes:
 
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Analyze the Ship of Theseus paradox in the context of personal identity and consciousness. If we gradually replace all neurons in a brain with functionally identical artificial ones, is the resulting consciousness the same person?" \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "ship-theseus-consciousness" \

@@ -19,10 +19,10 @@ Use tools in chat sessions:
 
 ```bash
 # Chat with calculator and statistics tools
-umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics
 
 # Use with premium models
-umwelten chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
+npx umwelten chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
 ```
 
 ### List Available Tools
@@ -31,7 +31,7 @@ See what tools are available:
 
 ```bash
 # List all tools
-umwelten tools list
+npx umwelten tools list
 
 # Output shows:
 # 📋 calculator
@@ -51,7 +51,7 @@ Performs basic arithmetic operations with flexible input formats.
 **Usage Examples**:
 ```bash
 # Direct calculation
-umwelten chat --provider ollama --model qwen3:latest --tools calculator
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator
 # User: "What is 15 * 27?"
 
 # Expression parsing
@@ -76,7 +76,7 @@ Calculates comprehensive statistics for numerical data.
 
 **Usage Examples**:
 ```bash
-umwelten chat --provider ollama --model qwen3:latest --tools statistics
+npx umwelten chat --provider ollama --model qwen3:latest --tools statistics
 # User: "Calculate statistics for [10, 20, 30, 40, 50]"
 ```
 
@@ -98,7 +98,7 @@ Generates random numbers within specified ranges.
 
 **Usage Examples**:
 ```bash
-umwelten chat --provider ollama --model qwen3:latest --tools randomNumber
+npx umwelten chat --provider ollama --model qwen3:latest --tools randomNumber
 # User: "Generate a random number between 1 and 100"
 ```
 
@@ -117,13 +117,13 @@ Test tool functionality with the built-in demo:
 
 ```bash
 # Run interactive tool demo
-umwelten tools demo
+npx umwelten tools demo
 
 # Custom demo with specific prompt
-umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number between 1 and 50"
+npx umwelten tools demo --prompt "Calculate 25 * 4, then generate a random number between 1 and 50"
 
 # Demo with step limit
-umwelten tools demo --max-steps 3
+npx umwelten tools demo --max-steps 3
 ```
 
 ## Creating Custom Tools
@@ -200,7 +200,7 @@ Combine multiple tools for complex tasks:
 
 ```bash
 # Use multiple tools in one session
-umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
 
 # Example conversation:
 # User: "Calculate 15 + 27, then generate a random number between 1 and 100, 
@@ -213,7 +213,7 @@ Umwelten uses the AI SDK's `stopWhen` functionality for proper multi-step tool c
 
 ```bash
 # Tools demo with step control
-umwelten tools demo --max-steps 5 --provider openrouter --model openai/gpt-4o-mini
+npx umwelten tools demo --max-steps 5 --provider openrouter --model openai/gpt-4o-mini
 
 # The model will execute up to 5 steps:
 # 1. Calculate 15 + 27 = 42
@@ -296,11 +296,11 @@ execute: async (params) => {
 **Tool not found**:
 ```bash
 # Check if tool is registered
-umwelten tools list
+npx umwelten tools list
 
 # Verify tool name spelling
-umwelten chat --tools calculator  # ✅ Correct
-umwelten chat --tools Calculator  # ❌ Wrong case
+npx umwelten chat --tools calculator  # ✅ Correct
+npx umwelten chat --tools Calculator  # ❌ Wrong case
 ```
 
 **Tool execution errors**:
@@ -318,7 +318,7 @@ umwelten chat --tools Calculator  # ❌ Wrong case
 Enable debug logging:
 
 ```bash
-DEBUG=1 umwelten chat --provider ollama --model qwen3:latest --tools calculator
+DEBUG=1 npx umwelten chat --provider ollama --model qwen3:latest --tools calculator
 ```
 
 ## Integration with Other Features
@@ -328,7 +328,7 @@ DEBUG=1 umwelten chat --provider ollama --model qwen3:latest --tools calculator
 Combine tools with memory for persistent context:
 
 ```bash
-umwelten chat --provider ollama --model qwen3:latest --tools calculator --memory
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator --memory
 ```
 
 ### Structured Output
@@ -336,7 +336,7 @@ umwelten chat --provider ollama --model qwen3:latest --tools calculator --memory
 Use tools with structured output:
 
 ```bash
-umwelten chat --provider ollama --model qwen3:latest --tools calculator --output-format json
+npx umwelten chat --provider ollama --model qwen3:latest --tools calculator --output-format json
 ```
 
 ### Batch Processing
@@ -344,7 +344,7 @@ umwelten chat --provider ollama --model qwen3:latest --tools calculator --output
 Tools work with batch processing:
 
 ```bash
-umwelten run "Calculate 10 * 5" --provider ollama --model qwen3:latest --tools calculator
+npx umwelten run "Calculate 10 * 5" --provider ollama --model qwen3:latest --tools calculator
 ```
 
 ## Next Steps

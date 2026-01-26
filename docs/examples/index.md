@@ -126,7 +126,7 @@ Here are some quick examples to get you started:
 
 ### Basic Evaluation
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Explain quantum computing in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
   --id "quantum-explanation"
@@ -134,7 +134,7 @@ umwelten eval run \
 
 ### With Structured Output
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Extract person info: John is 25 and works as a developer" \
   --models "google:gemini-2.0-flash" \
   --id "person-extraction" \
@@ -143,7 +143,7 @@ umwelten eval run \
 
 ### Batch Processing
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this image and describe key features" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-batch" \
@@ -155,10 +155,10 @@ umwelten eval batch \
 ### Generate Reports
 ```bash
 # Markdown report
-umwelten eval report --id quantum-explanation --format markdown
+npx umwelten eval report --id quantum-explanation --format markdown
 
 # HTML report with export
-umwelten eval report --id image-batch --format html --output report.html
+npx umwelten eval report --id image-batch --format html --output report.html
 ```
 
 ## Common Patterns
@@ -167,16 +167,16 @@ umwelten eval report --id image-batch --format html --output report.html
 Compare model outputs at different creativity levels:
 ```bash
 # High creativity
-umwelten eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 1.5 --id "creative-high"
+npx umwelten eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 1.5 --id "creative-high"
 
 # Low creativity  
-umwelten eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 0.2 --id "creative-low"
+npx umwelten eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 0.2 --id "creative-low"
 ```
 
 ### Cost Comparison
 Evaluate cost vs. quality trade-offs:
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Write a detailed analysis of renewable energy trends" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o" \
   --id "cost-comparison" \
@@ -186,7 +186,7 @@ umwelten eval run \
 ### Multi-modal Evaluation
 Test vision capabilities across models:
 ```bash
-umwelten eval run \
+npx umwelten eval run \
   --prompt "Describe this image in detail and identify any text" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "vision-test" \

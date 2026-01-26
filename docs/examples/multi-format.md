@@ -13,7 +13,7 @@ Multi-format processing allows you to handle diverse file types in a single work
 Process different file formats with a single command:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this file and describe its content, format, and key information" \
   --models "google:gemini-2.0-flash" \
   --id "multi-format-analysis" \
@@ -28,7 +28,7 @@ Use different prompts based on detected file types:
 
 ```bash
 # Images
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Describe this image including objects, people, setting, and visual elements" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "image-analysis" \
@@ -37,7 +37,7 @@ umwelten eval batch \
   --concurrent
 
 # Documents  
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract key information: title, summary, main points, and document type" \
   --models "google:gemini-2.0-flash" \
   --id "document-analysis" \
@@ -53,7 +53,7 @@ umwelten eval batch \
 Extract consistent data across different file formats:
 
 ```bash
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this file and extract structured metadata" \
   --models "google:gemini-2.0-flash" \
   --id "multi-format-structured" \
@@ -69,7 +69,7 @@ Different approaches for different formats:
 
 ```bash
 # Vision models for images
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract visual information and any text content" \
   --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
   --id "visual-content" \
@@ -79,7 +79,7 @@ umwelten eval batch \
   --concurrent
 
 # Text models for documents  
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract document structure and content analysis" \
   --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
   --id "document-content" \
@@ -95,7 +95,7 @@ umwelten eval batch \
 
 ```bash
 # High-quality image analysis
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Provide detailed visual analysis including composition, colors, and subjects" \
   --models "google:gemini-2.0-flash" \
   --id "detailed-images" \
@@ -110,7 +110,7 @@ umwelten eval batch \
 
 ```bash
 # Comprehensive document analysis
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract and analyze document content with context and implications" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-documents" \
@@ -125,7 +125,7 @@ umwelten eval batch \
 
 ```bash
 # Code and text file analysis
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Analyze this text file for content type, quality, and key insights" \
   --models "ollama:codestral:latest,google:gemini-2.0-flash" \
   --id "text-analysis" \
@@ -140,7 +140,7 @@ umwelten eval batch \
 
 ```bash
 # Catalog mixed media library
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Create catalog entry for this file" \
   --models "google:gemini-2.0-flash" \
   --id "asset-cataloging" \
@@ -154,7 +154,7 @@ umwelten eval batch \
 
 ```bash
 # Analyze content for migration planning
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Assess this file for content migration: complexity, dependencies, and recommendations" \
   --models "google:gemini-2.0-flash" \
   --id "migration-assessment" \
@@ -168,7 +168,7 @@ umwelten eval batch \
 
 ```bash
 # Process mixed research materials
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Extract research-relevant information and classify by academic discipline" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "research-processing" \
@@ -194,13 +194,13 @@ umwelten eval batch \
 
 ```bash
 # Conservative approach for mixed formats
-umwelten eval batch \
+npx umwelten eval batch \
   --models "google:gemini-2.0-flash" \
   --max-concurrency 3 \
   --timeout 45000
 
 # Aggressive processing for simple tasks  
-umwelten eval batch \
+npx umwelten eval batch \
   --models "ollama:gemma3:12b" \
   --max-concurrency 8 \
   --timeout 30000
@@ -212,27 +212,27 @@ umwelten eval batch \
 
 ```bash
 # Comprehensive analysis report
-umwelten eval report --id multi-format-analysis --format html --output multi-format-report.html
+npx umwelten eval report --id multi-format-analysis --format html --output multi-format-report.html
 
 # Export structured data for analysis
-umwelten eval report --id multi-format-structured --format csv --output metadata.csv
+npx umwelten eval report --id multi-format-structured --format csv --output metadata.csv
 
 # Compare processing across formats
-umwelten eval report --id multi-format-analysis --format json | jq '.results[] | {file: .file, format: .format, processing_time: .timing.total}'
+npx umwelten eval report --id multi-format-analysis --format json | jq '.results[] | {file: .file, format: .format, processing_time: .timing.total}'
 ```
 
 ### Analysis Patterns
 
 ```bash
 # Analyze processing time by file type
-umwelten eval report --id multi-format-analysis --format json | jq '
+npx umwelten eval report --id multi-format-analysis --format json | jq '
   .results | 
   group_by(.file | split(".") | last) | 
   map({format: .[0].file | split(".") | last, avg_time: (map(.timing.total) | add / length)})
 '
 
 # Success rates by format
-umwelten eval report --id multi-format-analysis --format json | jq '
+npx umwelten eval report --id multi-format-analysis --format json | jq '
   .results | 
   group_by(.file | split(".") | last) | 
   map({format: .[0].file | split(".") | last, success_rate: (map(select(.success == true)) | length) / length})
@@ -245,7 +245,7 @@ umwelten eval report --id multi-format-analysis --format json | jq '
 
 ```bash
 # Robust processing with fallbacks
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Process this file, handling any format-specific challenges" \
   --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
   --id "robust-multi-format" \
@@ -260,7 +260,7 @@ umwelten eval batch \
 
 ```bash
 # Handle large files with extended timeouts
-umwelten eval batch \
+npx umwelten eval batch \
   --prompt "Process large file with patience" \
   --models "google:gemini-2.0-flash" \
   --id "large-files" \
@@ -304,15 +304,15 @@ umwelten eval batch \
 
 ```bash
 # Test single file from each format
-umwelten run --models "google:gemini-2.0-flash" --file "./test.pdf" "Analyze this document"
-umwelten run --models "google:gemini-2.0-flash" --file "./test.jpg" "Analyze this image"  
-umwelten run --models "google:gemini-2.0-flash" --file "./test.txt" "Analyze this text"
+npx umwelten run --models "google:gemini-2.0-flash" --file "./test.pdf" "Analyze this document"
+npx umwelten run --models "google:gemini-2.0-flash" --file "./test.jpg" "Analyze this image"  
+npx umwelten run --models "google:gemini-2.0-flash" --file "./test.txt" "Analyze this text"
 
 # Check file format distribution
 find ./directory -name "*.*" | sed 's/.*\.//' | sort | uniq -c
 
 # Monitor processing progress
-umwelten eval list --details | grep multi-format
+npx umwelten eval list --details | grep multi-format
 ```
 
 ## Next Steps
