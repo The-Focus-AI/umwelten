@@ -85,6 +85,10 @@ Users can send these commands to your bot in Telegram:
 | `/reset` | Clear conversation history |
 | `/help` | Show available commands |
 
+### Online / offline status
+
+The bot shows as **online** in Telegram while the process is running (long-polling is active) and **offline** after you stop it (Ctrl+C or process exit). Telegram infers this from the connection; there is no Bot API to set status explicitly. For a quick offline transition, use a clean shutdown (SIGINT/SIGTERM) so the adapter can stop polling and exit.
+
 ## Features
 
 ### Markdown Formatting
