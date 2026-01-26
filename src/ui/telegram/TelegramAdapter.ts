@@ -18,6 +18,15 @@ export class TelegramAdapter {
   private config: TelegramAdapterConfig;
   private typingIntervals: Map<number, NodeJS.Timeout> = new Map();
 
+  private logMessage(direction: "←" | "→", ctx: Context, content: string) {
+    const user = ctx.from;
+    const username = user?.username ? `@${user.username}` : user?.first_name || "unknown";
+    const chatId = ctx.chat?.id || "?";
+    const timestamp = new Date().toISOString().slice(11, 19);
+    const preview = content.length > 100 ? content.slice(0, 100) + "..." : content;
+    console.log(`[${timestamp}] ${direction} [${chatId}] ${username}: ${preview}`);
+  }
+
   constructor(config: TelegramAdapterConfig) {
     this.config = config;
     this.bot = new Bot<MyContext>(config.token);
@@ -84,37 +93,45 @@ export class TelegramAdapter {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
 
+    this.logMessage("←", ctx, "/start");
+
     // Delete existing interaction to start fresh
     this.interactions.delete(chatId);
 
-    await ctx.reply(
-      "Hello! I'm ready to chat. Send me a message or share media.\n\n" +
+    const reply = "Hello! I'm ready to chat. Send me a message or share media.\n\n" +
       "Commands:\n" +
       "/reset - Clear conversation history\n" +
-      "/help - Show this help message"
-    );
+      "/help - Show this help message";
+    await ctx.reply(reply);
+    this.logMessage("→", ctx, reply);
   }
 
   private async handleReset(ctx: Context) {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
 
+    this.logMessage("←", ctx, "/reset");
+
     // Delete the interaction to reset (recreated on next message)
     this.interactions.delete(chatId);
-    await ctx.reply("Conversation cleared. Send a message to start a new conversation.");
+    const reply = "Conversation cleared. Send a message to start a new conversation.";
+    await ctx.reply(reply);
+    this.logMessage("→", ctx, reply);
   }
 
   private async handleHelp(ctx: Context) {
-    await ctx.reply(
-      "I'm an AI assistant. Here's what I can do:\n\n" +
+    this.logMessage("←", ctx, "/help");
+
+    const reply = "I'm an AI assistant. Here's what I can do:\n\n" +
       "- Send me text messages and I'll respond\n" +
       "- Share photos, documents, audio, or video for analysis\n" +
       "- Multi-turn conversations (I remember context)\n\n" +
       "Commands:\n" +
       "/start - Start a new conversation\n" +
       "/reset - Clear conversation history\n" +
-      "/help - Show this help message"
-    );
+      "/help - Show this help message";
+    await ctx.reply(reply);
+    this.logMessage("→", ctx, reply);
   }
 
   private async handleText(ctx: Context) {
@@ -122,17 +139,23 @@ export class TelegramAdapter {
     const text = ctx.message?.text;
     if (!chatId || !text) return;
 
+    this.logMessage("←", ctx, text);
+
     const interaction = this.getInteraction(chatId);
     this.startTypingIndicator(ctx);
 
     try {
       interaction.addMessage({ role: "user", content: text });
       const response = await interaction.generateText();
+      const responseText = response.content as string;
 
-      await this.sendFormattedMessage(ctx, response.content as string);
+      await this.sendFormattedMessage(ctx, responseText);
+      this.logMessage("→", ctx, responseText);
     } catch (error) {
       console.error("Error processing message:", error);
-      await ctx.reply("Sorry, I encountered an error. Please try again or use /reset to start over.");
+      const errorMsg = "Sorry, I encountered an error. Please try again or use /reset to start over.";
+      await ctx.reply(errorMsg);
+      this.logMessage("→", ctx, errorMsg);
     } finally {
       this.stopTypingIndicator(chatId);
     }
@@ -141,6 +164,14 @@ export class TelegramAdapter {
   private async handleMedia(ctx: Context) {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
+
+    const caption = (ctx.message as any)?.caption;
+    const mediaType = ctx.message?.photo ? "photo" :
+                      ctx.message?.document ? "document" :
+                      ctx.message?.audio ? "audio" :
+                      ctx.message?.voice ? "voice" :
+                      ctx.message?.video ? "video" : "media";
+    this.logMessage("←", ctx, `[${mediaType}]${caption ? ` ${caption}` : ""}`);
 
     const interaction = this.getInteraction(chatId);
     this.startTypingIndicator(ctx);
@@ -154,17 +185,20 @@ export class TelegramAdapter {
       await interaction.addAttachmentFromPath(filePath);
 
       // Add caption as additional context if provided
-      const caption = (ctx.message as any)?.caption;
       if (caption) {
         interaction.addMessage({ role: "user", content: caption });
       }
 
       const response = await interaction.generateText();
+      const responseText = response.content as string;
 
-      await this.sendFormattedMessage(ctx, response.content as string);
+      await this.sendFormattedMessage(ctx, responseText);
+      this.logMessage("→", ctx, responseText);
     } catch (error) {
       console.error("Error processing media:", error);
-      await ctx.reply("Sorry, I couldn't process that file. Please try again or use /reset.");
+      const errorMsg = "Sorry, I couldn't process that file. Please try again or use /reset.";
+      await ctx.reply(errorMsg);
+      this.logMessage("→", ctx, errorMsg);
     } finally {
       this.stopTypingIndicator(chatId);
     }
@@ -248,6 +282,11 @@ export class TelegramAdapter {
     return chunks;
   }
 
+  /**
+   * Start long-polling. The bot appears "online" in Telegram while this process
+   * is running; when stop() is called and the process exits, Telegram shows it
+   * as offline. There is no Bot API to set status explicitly.
+   */
   async start() {
     console.log("Starting Telegram bot...");
     console.log(`Model: ${this.config.modelDetails.name} (${this.config.modelDetails.provider})`);
@@ -260,6 +299,7 @@ export class TelegramAdapter {
     await this.bot.start();
   }
 
+  /** Stop polling and exit; the bot will appear offline in Telegram. */
   async stop() {
     // Stop all typing indicators
     for (const [chatId] of this.typingIntervals) {
