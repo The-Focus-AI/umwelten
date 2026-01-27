@@ -1,0 +1,15 @@
+{
+  "name": "jeeves-bot-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "tsx cli.ts",
+    "telegram": "tsx telegram.ts"
+  },
+  "dependencies": {
+    "@tavily/core": "^0.7.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
+  }
+}
