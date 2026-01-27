@@ -12,3 +12,6 @@ export * from './image-tools.js';
 
 // Math tools (from examples)
 export * from './examples/math.js';
+
+// URL tools (wget, markify)
+export * from './url-tools.js';

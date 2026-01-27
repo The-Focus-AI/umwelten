@@ -1,8 +1,30 @@
+import TurndownService from "turndown";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { ModelDetails } from "../cognition/types.js";
 import { Interaction } from "../interaction/interaction.js";
 
 const markifyUrl = process.env.MARKIFY_URL || "https://markify.fly.dev";
+
+let builtInTurndown: TurndownService | null = null;
+
+function getBuiltInTurndown(): TurndownService {
+  if (!builtInTurndown) {
+    builtInTurndown = new TurndownService({
+      headingStyle: "atx",
+      codeBlockStyle: "fenced",
+    });
+  }
+  return builtInTurndown;
+}
+
+/**
+ * Convert HTML to markdown using the built-in Turndown library.
+ * No network or env vars required.
+ */
+export function fromHtmlBuiltIn(html: string): string {
+  const service = getBuiltInTurndown();
+  return service.turndown(html);
+}
 
 export async function fromHtmlViaModel(html: string, model: ModelDetails) {
   const stimulus = new Stimulus({
@@ -24,13 +46,16 @@ export async function fromHtmlViaModel(html: string, model: ModelDetails) {
   return response.content;
 }
 
-export async function fromHtmlViaMarkify(html: string) {
+export async function fromHtmlViaMarkify(html: string): Promise<string> {
   const response = await fetch(`${markifyUrl}/html2markdown`, {
     method: "POST",
     headers: {
-        "Content-Type": "application/json",
+      "Content-Type": "text/html",
     },
     body: html,
   });
+  if (!response.ok) {
+    throw new Error(`Markify service error: ${response.status} ${response.statusText}`);
+  }
   return response.text();
 }

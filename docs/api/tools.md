@@ -256,6 +256,66 @@ const result = await randomNumber.execute({
 // Returns: { value: 73, range: { min: 1, max: 100 }, type: "integer" }
 ```
 
+### Wget Tool
+
+**Name**: `wget`
+
+**Description**: Fetch a URL and return the raw response (status, content-type, and body as text). Useful for APIs, plain text, or when you need unprocessed page content. Response size and time limits apply.
+
+**Input Schema**:
+```typescript
+const wgetSchema = z.object({
+  url: z.string().url().describe("The URL to fetch")
+});
+```
+
+**Usage**:
+```typescript
+import { wgetTool } from '../stimulus/tools/url-tools.js';
+
+// In a Stimulus or Interaction
+stimulus.addTool('wget', wgetTool);
+
+// Tool will be called by the model when needed
+// Returns: { url, statusCode, contentType, content, truncated? }
+```
+
+**Features**:
+- Timeout protection (default 20 seconds)
+- Size limits (default 2MB max)
+- Automatic content-type detection
+- Handles non-text responses gracefully
+
+### Markify Tool
+
+**Name**: `markify`
+
+**Description**: Fetch a URL and convert the page to readable markdown. Uses built-in Turndown conversion (no external service required). Optionally set `MARKIFY_URL` to use the Markify service instead.
+
+**Input Schema**:
+```typescript
+const markifySchema = z.object({
+  url: z.string().url().describe("The URL to fetch and convert to markdown")
+});
+```
+
+**Usage**:
+```typescript
+import { markifyTool } from '../stimulus/tools/url-tools.js';
+
+// In a Stimulus or Interaction
+stimulus.addTool('markify', markifyTool);
+
+// Tool will be called by the model when needed
+// Returns: { url, markdown } or { url, error, markdown: "" }
+```
+
+**Features**:
+- Built-in HTML-to-markdown conversion (Turndown)
+- No external service required by default
+- Optional Markify service support via `MARKIFY_URL` env var
+- Automatically handles HTML content
+
 ## CLI Integration
 
 ### Tools Command
