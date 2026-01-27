@@ -3,6 +3,7 @@ import { Stimulus } from "../stimulus/stimulus.js";
 import { TelegramAdapter } from "../ui/telegram/TelegramAdapter.js";
 import { addCommonOptions, parseCommonOptions } from "./commonOptions.js";
 import { calculatorTool, statisticsTool, randomNumberTool } from "../stimulus/tools/index.js";
+import path from "path";
 
 export const telegramCommand = addCommonOptions(
   new Command("telegram")
@@ -10,6 +11,7 @@ export const telegramCommand = addCommonOptions(
     .option("--token <token>", "Telegram bot token (or set TELEGRAM_BOT_TOKEN env)")
     .option("--memory", "Enable memory-augmented conversations")
     .option("--tools <tools>", "Comma-separated list of tools to enable (calculator,statistics,randomNumber)")
+    .option("--media-dir <dir>", "Directory for storing media files (default: ./telegram-media)")
 ).action(async (options: any) => {
   const { provider, model } = parseCommonOptions(options);
 
@@ -67,10 +69,14 @@ export const telegramCommand = addCommonOptions(
   };
 
   try {
+    // Default media directory in project root
+    const mediaDir = options.mediaDir || path.join(process.cwd(), "telegram-media");
+    
     const adapter = new TelegramAdapter({
       token,
       modelDetails,
       stimulus,
+      mediaDir,
     });
 
     // Handle graceful shutdown

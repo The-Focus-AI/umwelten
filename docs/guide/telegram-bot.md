@@ -118,6 +118,22 @@ Users can send various media types to the bot:
 | Video | Frame analysis | Video content description |
 | Voice | Same as audio | Voice message processing |
 
+#### Media Storage
+
+Media files are stored on disk in a configurable directory:
+
+- **Default location**: `./telegram-media/` (relative to current working directory)
+- **Custom location**: Use `--media-dir <path>` to specify a different directory
+
+```bash
+# Use custom media directory
+npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --media-dir /path/to/media
+```
+
+Files are named using Telegram's `file_unique_id` with appropriate extensions (`.jpg`, `.mp4`, `.ogg`, etc.). The directory is created automatically when the first media file is received.
+
+**Note**: Files larger than 20MB are rejected (Telegram Bot API limit).
+
 #### Example Interactions
 
 ```
@@ -185,6 +201,7 @@ Options:
   --token <token>            Bot token (or TELEGRAM_BOT_TOKEN env)
   --memory                   Enable memory-augmented conversations
   --tools <tools>            Comma-separated tools (calculator,statistics,randomNumber)
+  --media-dir <dir>          Directory for storing media files (default: ./telegram-media)
   -p, --provider <provider>  Model provider (google, ollama, openrouter, etc.)
   -m, --model <model>        Model name
   -h, --help                 Show help
@@ -293,6 +310,7 @@ Response → Telegram
 3. **Media processing fails**
    - Check file size (max 20MB download)
    - Ensure the model supports the media type
+   - Verify the media directory is writable (check `--media-dir` path)
    - Try with a different file
 
 4. **Slow responses**

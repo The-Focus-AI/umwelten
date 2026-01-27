@@ -3,6 +3,8 @@ import { hydrateFiles, FileFlavor } from "@grammyjs/files";
 import { Interaction } from "../../interaction/interaction.js";
 import { Stimulus } from "../../stimulus/stimulus.js";
 import { ModelDetails } from "../../cognition/types.js";
+import path from "path";
+import fs from "fs/promises";
 
 type MyContext = FileFlavor<Context>;
 
@@ -10,6 +12,7 @@ export interface TelegramAdapterConfig {
   token: string;
   modelDetails: ModelDetails;
   stimulus: Stimulus;
+  mediaDir: string; // Directory where media files will be stored
 }
 
 export class TelegramAdapter {
@@ -147,10 +150,17 @@ export class TelegramAdapter {
     try {
       interaction.addMessage({ role: "user", content: text });
       const response = await interaction.generateText();
-      const responseText = response.content as string;
+      const responseText = this.messageContentForTelegram(response.content as string);
 
-      await this.sendFormattedMessage(ctx, responseText);
-      this.logMessage("→", ctx, responseText);
+      if (!responseText) {
+        await ctx.reply(
+          "I looked into that but don't have a clear result to show. Try rephrasing or use /reset to start over."
+        );
+        this.logMessage("→", ctx, "(no content – sent fallback)");
+      } else {
+        await this.sendFormattedMessage(ctx, responseText);
+        this.logMessage("→", ctx, responseText);
+      }
     } catch (error) {
       console.error("Error processing message:", error);
       const errorMsg = "Sorry, I encountered an error. Please try again or use /reset to start over.";
@@ -177,9 +187,60 @@ export class TelegramAdapter {
     this.startTypingIndicator(ctx);
 
     try {
+      // Check file size for documents (Telegram Bot API limit is 20MB for downloads)
+      if (ctx.message?.document) {
+        const doc = ctx.message.document;
+        if (doc.file_size && doc.file_size > 20 * 1024 * 1024) {
+          await ctx.reply(
+            "File too large for processing (max 20MB). Please compress or split the file."
+          );
+          this.logMessage("→", ctx, "File too large");
+          return;
+        }
+      }
+
       // Get file from message
       const file = await ctx.getFile();
-      const filePath = await file.download();
+      
+      // Determine file extension and unique ID
+      let fileUniqueId: string;
+      let extension: string;
+      
+      if (ctx.message?.photo) {
+        const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Highest resolution
+        fileUniqueId = photo.file_unique_id;
+        extension = "jpg";
+      } else if (ctx.message?.document) {
+        const doc = ctx.message.document;
+        fileUniqueId = doc.file_unique_id;
+        extension = path.extname(doc.file_name || "").slice(1) || "bin";
+      } else if (ctx.message?.audio) {
+        const audio = ctx.message.audio;
+        fileUniqueId = audio.file_unique_id;
+        extension = path.extname(audio.file_name || "").slice(1) || "mp3";
+      } else if (ctx.message?.voice) {
+        const voice = ctx.message.voice;
+        fileUniqueId = voice.file_unique_id;
+        extension = "ogg";
+      } else if (ctx.message?.video) {
+        const video = ctx.message.video;
+        fileUniqueId = video.file_unique_id;
+        extension = "mp4";
+      } else {
+        fileUniqueId = `file_${Date.now()}`;
+        extension = "bin";
+      }
+
+      // Create media directory if it doesn't exist
+      await fs.mkdir(this.config.mediaDir, { recursive: true });
+
+      // Construct file path
+      const fileName = `${fileUniqueId}.${extension}`;
+      const filePath = path.join(this.config.mediaDir, fileName);
+
+      // Download and save file to disk
+      await file.download(filePath);
+      console.log(`Saved ${mediaType} file to: ${filePath}`);
 
       // Use existing attachment handling
       await interaction.addAttachmentFromPath(filePath);
@@ -190,10 +251,17 @@ export class TelegramAdapter {
       }
 
       const response = await interaction.generateText();
-      const responseText = response.content as string;
+      const responseText = this.messageContentForTelegram(response.content as string);
 
-      await this.sendFormattedMessage(ctx, responseText);
-      this.logMessage("→", ctx, responseText);
+      if (!responseText) {
+        await ctx.reply(
+          "I looked into that but don't have a clear result to show. Try rephrasing or use /reset to start over."
+        );
+        this.logMessage("→", ctx, "(no content – sent fallback)");
+      } else {
+        await this.sendFormattedMessage(ctx, responseText);
+        this.logMessage("→", ctx, responseText);
+      }
     } catch (error) {
       console.error("Error processing media:", error);
       const errorMsg = "Sorry, I couldn't process that file. Please try again or use /reset.";
@@ -205,25 +273,45 @@ export class TelegramAdapter {
   }
 
   /**
+   * Extract user-facing message content for Telegram: no tools, no reasoning blocks.
+   * Returns trimmed string or empty if there's nothing to show.
+   */
+  private messageContentForTelegram(content: string): string {
+    if (!content || typeof content !== "string") return "";
+    let text = content.trim();
+    if (!text) return "";
+    // Strip reasoning/thinking blocks that might be embedded (e.g. <think>...</think> or similar)
+    text = text
+      .replace(/\s*<think>[\s\S]*?<\/think>\s*/gi, "")
+      .replace(/\s*\[REASONING[^\]]*\][\s\S]*?(?=\n\n|$)/gi, "")
+      .trim();
+    return text || "";
+  }
+
+  /**
    * Send a message with Markdown formatting, falling back to plain text if parsing fails
    */
   private async sendFormattedMessage(ctx: Context, content: string): Promise<void> {
+    if (!content || !content.trim()) return;
+
     // Split long messages (Telegram max is 4096 chars)
     const chunks = content.length > 4096 ? this.splitMessage(content, 4096) : [content];
 
     for (const chunk of chunks) {
+      const trimmed = chunk.trim();
+      if (!trimmed) continue;
       try {
         // Try sending with Markdown formatting
-        await ctx.reply(chunk, { parse_mode: "Markdown" });
+        await ctx.reply(trimmed, { parse_mode: "Markdown" });
       } catch (error: any) {
         // If Markdown parsing fails, try HTML
         if (error?.description?.includes("parse")) {
           try {
-            const htmlContent = this.markdownToHtml(chunk);
+            const htmlContent = this.markdownToHtml(trimmed);
             await ctx.reply(htmlContent, { parse_mode: "HTML" });
           } catch {
             // Fall back to plain text
-            await ctx.reply(chunk);
+            await ctx.reply(trimmed);
           }
         } else {
           // Re-throw non-parsing errors
