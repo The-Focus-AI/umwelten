@@ -188,6 +188,10 @@ interface SessionAdapter {
 - [ ] Add SSE for live run updates
 - [ ] Implement session continuation from monitor
 
+### Completed: Jeeves Bot Example
+
+- [x] Add `examples/jeeves-bot/`: config (config.ts, config.json), file tools (read_file, write_file, list_directory), agent tools (list/add/update/remove), session tools (sessions_list, show, messages, stats), Jeeves Stimulus, CLI runner (REPL + one-shot), Telegram runner, README.
+
 ### Backlog
 - [ ] Test LLM-based container configuration with valid OpenRouter API key
 - [ ] Add environment variables for OpenRouter LLM configuration in Dagger
