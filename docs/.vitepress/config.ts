@@ -58,7 +58,8 @@ export default defineConfig({
             { text: 'Cost Analysis', link: '/guide/cost-analysis' },
             { text: 'Reports & Analysis', link: '/guide/reports' },
             { text: 'Memory & Tools', link: '/guide/memory-tools' },
-            { text: 'Session Management & Search', link: '/guide/session-management' }
+            { text: 'Session Management & Search', link: '/guide/session-management' },
+            { text: 'Context Management', link: '/guide/context-management' }
           ]
         }
       ],

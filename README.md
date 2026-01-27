@@ -90,6 +90,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - **📈 Comprehensive Reports**: Multiple formats (MD, HTML, JSON, CSV) with `--short` option
 - **🔧 Advanced Tool Calling**: Multi-step tool execution with proper `stopWhen` control
 - **🔎 Session Management & Search**: LLM-powered indexing and semantic search of Claude conversations
+- **📏 Context Management**: Track context size and intelligently compact conversations using LLM-based strategies
 - **🔍 Enhanced Documentation**: VitePress site with local search and keyboard shortcuts
 
 ## 📚 Documentation
@@ -109,6 +110,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - 🔧 [Tool Calling](https://umwelten.thefocus.ai/guide/tool-calling) - Multi-step tool execution
 - 🔄 [Concurrent Processing](https://umwelten.thefocus.ai/guide/concurrent-processing) - Parallel execution
 - 🔎 [Session Management & Search](https://umwelten.thefocus.ai/guide/session-management) - Index and search Claude conversations
+- 📏 [Context Management](https://umwelten.thefocus.ai/guide/context-management) - Track size and compact conversations
 
 ### Examples & Migration
 

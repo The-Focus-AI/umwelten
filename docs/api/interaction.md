@@ -193,14 +193,67 @@ console.log('Runner type:', runner.constructor.name);
 
 **Returns**: The model runner instance
 
-##### `clear(): void`
+##### `clearContext(): void`
 
-Clear all stimuli, messages, and attachments from the interaction.
+Clear all messages from the interaction (resets conversation history).
 
 ```typescript
-interaction.clear();
-console.log('Interaction cleared');
+interaction.clearContext();
+console.log('Context cleared');
 ```
+
+##### `setCheckpoint(): void`
+
+Set a checkpoint at the current message count. Used with `compactContext()` to mark where a "thread" starts.
+
+```typescript
+interaction.setCheckpoint();
+// Later, compactContext will condense from this point
+```
+
+##### `getCheckpoint(): number | undefined`
+
+Get the current checkpoint index (message index after which the "current thread" starts).
+
+```typescript
+const checkpoint = interaction.getCheckpoint();
+if (checkpoint) {
+  console.log(`Checkpoint at message ${checkpoint}`);
+}
+```
+
+**Returns**: Checkpoint index (1 = first message after system), or undefined if not set
+
+##### `compactContext(strategyId: string, options?: { fromCheckpoint?: boolean; strategyOptions?: Record<string, unknown> }): Promise<{ segmentStart: number; segmentEnd: number; replacementCount: number } | null>`
+
+Compact the conversation context by replacing a segment with a condensed summary. Uses pluggable compaction strategies (e.g., `through-line-and-facts` to summarize to main narrative + key facts).
+
+```typescript
+// Set checkpoint before a long conversation
+interaction.setCheckpoint();
+
+// ... have conversation ...
+
+// Compact from checkpoint to end of last flow
+const result = await interaction.compactContext('through-line-and-facts', {
+  fromCheckpoint: true
+});
+
+if (result) {
+  console.log(`Compacted segment [${result.segmentStart}..${result.segmentEnd}] into ${result.replacementCount} message(s)`);
+}
+```
+
+**Parameters**:
+- `strategyId`: Compaction strategy to use (e.g., `'through-line-and-facts'`, `'truncate'`)
+- `options.fromCheckpoint`: If true, start segment at checkpoint (default: true)
+- `options.strategyOptions`: Strategy-specific options
+
+**Returns**: Promise resolving to segment bounds and replacement count, or null if no segment or strategy not found
+
+**Available strategies**:
+- `through-line-and-facts`: LLM-based; summarizes segment to through-line and key facts, omits in-call details
+- `truncate`: Non-LLM; replaces segment with a placeholder message
 
 ##### `clone(): Interaction`
 

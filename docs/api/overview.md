@@ -24,6 +24,7 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 ### Advanced Features
 - **[MCP Integration](/MCP_IMPLEMENTATION_SUMMARY)**: Model Context Protocol implementation for tool integration
 - **[Memory System](/api/memory-system)**: Conversation memory and fact extraction
+- **[Context Management](/guide/context-management)**: Track context size and intelligently compact conversations
 - **[Rate Limiting](/api/rate-limiting)**: Managing API rate limits and costs
 
 ## Core Concepts
@@ -302,7 +303,7 @@ The `Interaction` class manages conversations:
 
 ```typescript
 class Interaction {
-  constructor(model: ModelDetails, systemPrompt?: string);
+  constructor(model: ModelDetails, stimulus: Stimulus);
   
   // Add messages
   addMessage(message: { role: 'user' | 'assistant', content: string }): void;
@@ -310,6 +311,11 @@ class Interaction {
   // Add file attachments
   addAttachmentFromPath(filePath: string): Promise<void>;
   addAttachment(content: Buffer, mimeType: string, filename?: string): void;
+  
+  // Context management
+  setCheckpoint(): void;
+  getCheckpoint(): number | undefined;
+  compactContext(strategyId: string, options?: CompactionOptions): Promise<CompactionResult | null>;
   
   // Get conversation data
   getMessages(): Message[];

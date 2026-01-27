@@ -180,6 +180,7 @@ src/
 ├── cognition/          # Model runners and cognitive processes
 ├── interaction/        # Model-environment interactions
 ├── stimulus/           # Environmental inputs and triggers
+├── context/            # Context size tracking and compaction strategies
 ├── providers/          # AI provider implementations
 ├── evaluation/         # Model evaluation framework
 ├── memory/             # Memory and knowledge storage

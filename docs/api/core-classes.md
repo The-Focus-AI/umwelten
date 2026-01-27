@@ -262,6 +262,32 @@ const model = interaction.getModel();
 console.log(`Using ${model.provider}:${model.name}`);
 ```
 
+#### Context Management
+
+Manage conversation context size and compaction:
+
+```typescript
+// Set checkpoint before a long conversation
+interaction.setCheckpoint();
+
+// ... have conversation ...
+
+// Compact from checkpoint to end of last flow
+const result = await interaction.compactContext('through-line-and-facts', {
+  fromCheckpoint: true
+});
+
+if (result) {
+  console.log(`Compacted segment [${result.segmentStart}..${result.segmentEnd}]`);
+  console.log(`Replaced with ${result.replacementCount} message(s)`);
+}
+
+// Get current checkpoint
+const checkpoint = interaction.getCheckpoint();
+```
+
+See [Context Management](/guide/context-management) for detailed documentation.
+
 ### Supported File Types
 
 The `Interaction` class supports various file formats:
