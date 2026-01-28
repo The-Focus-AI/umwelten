@@ -51,6 +51,7 @@ runs/*
 temp/ 
 output/
 input/
+test-output/
 
 docker-temp*
 
