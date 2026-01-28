@@ -12,7 +12,8 @@ export interface TelegramAdapterConfig {
   token: string;
   modelDetails: ModelDetails;
   stimulus: Stimulus;
-  mediaDir: string; // Directory where media files will be stored
+  mediaDir?: string; // Deprecated: Directory where media files will be stored (use getSessionMediaDir instead)
+  getSessionMediaDir?: (chatId: number) => Promise<string>; // Function to get session-specific media directory
 }
 
 export class TelegramAdapter {
@@ -50,6 +51,7 @@ export class TelegramAdapter {
     this.bot.on("message:audio", (ctx) => this.handleMedia(ctx));
     this.bot.on("message:voice", (ctx) => this.handleMedia(ctx));
     this.bot.on("message:video", (ctx) => this.handleMedia(ctx));
+    this.bot.on("message:video_note", (ctx) => this.handleMedia(ctx));
 
     // Error handling
     this.bot.catch((err) => {
@@ -59,8 +61,13 @@ export class TelegramAdapter {
 
   private getInteraction(chatId: number): Interaction {
     if (!this.interactions.has(chatId)) {
-      // Clone stimulus for each chat
+      // Clone stimulus for each chat - need to copy tools separately since they're not in options
       const stimulus = new Stimulus(this.config.stimulus.options);
+      // Copy tools from the original stimulus (tools are stored separately, not in options)
+      const originalTools = this.config.stimulus.getTools();
+      for (const [name, tool] of Object.entries(originalTools)) {
+        stimulus.addTool(name, tool);
+      }
       this.interactions.set(chatId, new Interaction(this.config.modelDetails, stimulus));
     }
     return this.interactions.get(chatId)!;
@@ -149,10 +156,58 @@ export class TelegramAdapter {
 
     try {
       interaction.addMessage({ role: "user", content: text });
-      const response = await interaction.generateText();
+      
+      // Use streamText() like the CLI does - it properly handles tool calls and continues
+      const response = await interaction.streamText();
+      
+      // Debug logging
+      console.log('[TELEGRAM DEBUG] Response content:', response.content);
+      console.log('[TELEGRAM DEBUG] Response content type:', typeof response.content);
+      console.log('[TELEGRAM DEBUG] Response content length:', typeof response.content === 'string' ? response.content.length : 'N/A');
+      console.log('[TELEGRAM DEBUG] Metadata keys:', Object.keys(response.metadata || {}));
+      
+      // Check for tool calls in metadata
+      if (response.metadata && (response.metadata as any).toolCalls) {
+        const toolCalls = (response.metadata as any).toolCalls;
+        console.log('[TELEGRAM DEBUG] Tool calls found:', Array.isArray(toolCalls) ? toolCalls.length : 'not an array');
+        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+          toolCalls.forEach((call: any, i: number) => {
+            console.log(`[TELEGRAM DEBUG] Tool call ${i}:`, call.toolName || call.name, call.input || call.args);
+          });
+        }
+      }
+      
       const responseText = this.messageContentForTelegram(response.content as string);
+      console.log('[TELEGRAM DEBUG] Processed responseText:', responseText || '(empty)');
+
+      // If we have tool calls but no text, the model might need to continue after tool results
+      // Check if we should wait for a follow-up response
+      if (!responseText && response.metadata && (response.metadata as any).toolCalls) {
+        const toolCalls = (response.metadata as any).toolCalls;
+        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+          console.log('[TELEGRAM DEBUG] Empty content after tool calls, attempting to continue conversation');
+          // The Vercel AI SDK should have already continued, but if it didn't, 
+          // the tool results should be in the interaction messages
+          // Try one more streamText call to see if we get a response
+          try {
+            const followUpResponse = await interaction.streamText();
+            const followUpText = this.messageContentForTelegram(followUpResponse.content as string);
+            console.log('[TELEGRAM DEBUG] Follow-up response content:', followUpText || '(empty)');
+            console.log('[TELEGRAM DEBUG] Follow-up processed responseText:', followUpText || '(empty)');
+            
+            if (followUpText) {
+              await this.sendFormattedMessage(ctx, followUpText);
+              this.logMessage("→", ctx, followUpText);
+              return;
+            }
+          } catch (followUpError) {
+            console.error('[TELEGRAM DEBUG] Follow-up streamText error:', followUpError);
+          }
+        }
+      }
 
       if (!responseText) {
+        console.log('[TELEGRAM DEBUG] No response text after all attempts, sending fallback');
         await ctx.reply(
           "I looked into that but don't have a clear result to show. Try rephrasing or use /reset to start over."
         );
@@ -173,21 +228,27 @@ export class TelegramAdapter {
 
   private async handleMedia(ctx: Context) {
     const chatId = ctx.chat?.id;
-    if (!chatId) return;
+    if (!chatId) {
+      console.error("[TELEGRAM] handleMedia called but no chatId");
+      return;
+    }
 
     const caption = (ctx.message as any)?.caption;
     const mediaType = ctx.message?.photo ? "photo" :
                       ctx.message?.document ? "document" :
                       ctx.message?.audio ? "audio" :
                       ctx.message?.voice ? "voice" :
-                      ctx.message?.video ? "video" : "media";
+                      ctx.message?.video ? "video" :
+                      ctx.message?.video_note ? "video_note" : "media";
+    
+    console.log(`[TELEGRAM] handleMedia called for ${mediaType}, chatId: ${chatId}`);
     this.logMessage("←", ctx, `[${mediaType}]${caption ? ` ${caption}` : ""}`);
 
     const interaction = this.getInteraction(chatId);
     this.startTypingIndicator(ctx);
 
     try {
-      // Check file size for documents (Telegram Bot API limit is 20MB for downloads)
+      // Check file size for documents and videos (Telegram Bot API limit is 20MB for downloads)
       if (ctx.message?.document) {
         const doc = ctx.message.document;
         if (doc.file_size && doc.file_size > 20 * 1024 * 1024) {
@@ -198,9 +259,31 @@ export class TelegramAdapter {
           return;
         }
       }
+      
+      if (ctx.message?.video) {
+        const video = ctx.message.video;
+        if (video.file_size && video.file_size > 20 * 1024 * 1024) {
+          await ctx.reply(
+            "Video too large for processing (max 20MB). Please compress or use a shorter video."
+          );
+          this.logMessage("→", ctx, "Video too large");
+          return;
+        }
+      }
+      
+      if (ctx.message?.video_note) {
+        const videoNote = ctx.message.video_note;
+        if (videoNote.file_size && videoNote.file_size > 20 * 1024 * 1024) {
+          await ctx.reply(
+            "Video note too large for processing (max 20MB)."
+          );
+          this.logMessage("→", ctx, "Video note too large");
+          return;
+        }
+      }
 
       // Get file from message
-      const file = await ctx.getFile();
+      const file = await ctx.getFile() as any;
       
       // Determine file extension and unique ID
       let fileUniqueId: string;
@@ -225,32 +308,105 @@ export class TelegramAdapter {
       } else if (ctx.message?.video) {
         const video = ctx.message.video;
         fileUniqueId = video.file_unique_id;
-        extension = "mp4";
+        // Try to get extension from mime_type if available, otherwise default to mp4
+        if (video.mime_type) {
+          const mimeExt = video.mime_type.split('/')[1]?.split(';')[0];
+          extension = mimeExt || "mp4";
+        } else {
+          extension = "mp4";
+        }
+        console.log(`[TELEGRAM] Video detected: ${video.width}x${video.height}, duration: ${video.duration}s, size: ${video.file_size} bytes, mime: ${video.mime_type || 'unknown'}`);
+      } else if (ctx.message?.video_note) {
+        const videoNote = ctx.message.video_note;
+        fileUniqueId = videoNote.file_unique_id;
+        extension = "mp4"; // Video notes are always MP4
+        console.log(`[TELEGRAM] Video note detected: ${videoNote.length}x${videoNote.length}, duration: ${videoNote.duration}s, size: ${videoNote.file_size} bytes`);
       } else {
         fileUniqueId = `file_${Date.now()}`;
         extension = "bin";
       }
 
+      // Get session-specific media directory
+      const mediaDir = this.config.getSessionMediaDir 
+        ? await this.config.getSessionMediaDir(chatId)
+        : (this.config.mediaDir || path.join(process.cwd(), 'telegram-media'));
+      
       // Create media directory if it doesn't exist
-      await fs.mkdir(this.config.mediaDir, { recursive: true });
+      await fs.mkdir(mediaDir, { recursive: true });
 
       // Construct file path
       const fileName = `${fileUniqueId}.${extension}`;
-      const filePath = path.join(this.config.mediaDir, fileName);
+      const filePath = path.join(mediaDir, fileName);
 
       // Download and save file to disk
-      await file.download(filePath);
-      console.log(`Saved ${mediaType} file to: ${filePath}`);
+      await (file as any).download(filePath);
+      console.log(`[TELEGRAM] Saved ${mediaType} to: ${path.resolve(filePath)} (session mediaDir: ${path.resolve(mediaDir)})`);
+
+      // Check if this is an audio file and if the provider supports it
+      const isAudio = mediaType === "voice" || mediaType === "audio";
+      const isVideo = mediaType === "video" || mediaType === "video_note";
+      const provider = this.config.modelDetails.provider;
+      const supportsAudio = provider === "google" || provider === "openai" || provider === "anthropic";
+      const supportsVideo = provider === "google" || provider === "openai" || provider === "anthropic";
+      
+      if (isAudio && !supportsAudio) {
+        // For unsupported audio, just send a text message instead of trying to process the file
+        const audioType = mediaType === "voice" ? "voice message" : "audio file";
+        const message = `I received your ${audioType}, but the current model (${provider}) doesn't support audio processing. Please send a text message or use a provider that supports audio (Google, OpenAI, or Anthropic).`;
+        await ctx.reply(message);
+        this.logMessage("→", ctx, message);
+        return;
+      }
+
+      if (isVideo && !supportsVideo) {
+        // For unsupported video, inform the user
+        const message = `I received your video, but the current model (${provider}) doesn't support video processing. Please use a provider that supports video (Google, OpenAI, or Anthropic).`;
+        await ctx.reply(message);
+        this.logMessage("→", ctx, message);
+        return;
+      }
+
+      // Check file size before processing (some providers have limits)
+      const stats = await fs.stat(filePath);
+      const fileSizeMB = stats.size / (1024 * 1024);
+      console.log(`[TELEGRAM] Processing ${mediaType} file: ${path.basename(filePath)} (${fileSizeMB.toFixed(2)} MB)`);
+      
+      // Warn if file is very large (some providers may have issues with large files)
+      if (fileSizeMB > 10) {
+        console.warn(`[TELEGRAM] Warning: Large ${mediaType} file (${fileSizeMB.toFixed(2)} MB) - processing may be slow or fail`);
+      }
+
+      // Get MIME type for video if available
+      let mimeType: string | undefined;
+      if (ctx.message?.video?.mime_type) {
+        mimeType = ctx.message.video.mime_type;
+      } else if (ctx.message?.video_note) {
+        mimeType = "video/mp4"; // Video notes are always MP4
+      } else if (ctx.message?.document?.mime_type) {
+        mimeType = ctx.message.document.mime_type;
+      } else if (ctx.message?.audio?.mime_type) {
+        mimeType = ctx.message.audio.mime_type;
+      }
 
       // Use existing attachment handling
-      await interaction.addAttachmentFromPath(filePath);
+      try {
+        await interaction.addAttachmentFromPath(filePath, mimeType);
+        console.log(`[TELEGRAM] Successfully attached ${mediaType} file to interaction${mimeType ? ` (${mimeType})` : ''}`);
+      } catch (attachError: any) {
+        console.error(`[TELEGRAM] Error attaching ${mediaType} file:`, attachError);
+        const errorMsg = `Sorry, I couldn't process the ${mediaType} file. ${attachError.message || 'Unknown error'}`;
+        await ctx.reply(errorMsg);
+        this.logMessage("→", ctx, errorMsg);
+        return;
+      }
 
       // Add caption as additional context if provided
       if (caption) {
         interaction.addMessage({ role: "user", content: caption });
       }
 
-      const response = await interaction.generateText();
+      // Use streamText() like the CLI does - it properly handles tool calls and continues
+      const response = await interaction.streamText();
       const responseText = this.messageContentForTelegram(response.content as string);
 
       if (!responseText) {
@@ -262,11 +418,19 @@ export class TelegramAdapter {
         await this.sendFormattedMessage(ctx, responseText);
         this.logMessage("→", ctx, responseText);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing media:", error);
-      const errorMsg = "Sorry, I couldn't process that file. Please try again or use /reset.";
-      await ctx.reply(errorMsg);
-      this.logMessage("→", ctx, errorMsg);
+      
+      // Check if it's an unsupported functionality error for audio
+      if (error?.functionality?.includes('audio') || error?.message?.includes('audio')) {
+        const errorMsg = "I received your audio/voice message, but the current model doesn't support audio processing. Please send a text message or use a provider that supports audio (Google, OpenAI, or Anthropic).";
+        await ctx.reply(errorMsg);
+        this.logMessage("→", ctx, errorMsg);
+      } else {
+        const errorMsg = "Sorry, I couldn't process that file. Please try again or use /reset.";
+        await ctx.reply(errorMsg);
+        this.logMessage("→", ctx, errorMsg);
+      }
     } finally {
       this.stopTypingIndicator(chatId);
     }
