@@ -41,6 +41,7 @@ interface CursorComposerData {
   allComposers?: Array<{
     composerId: string;
     createdAt?: number;
+    updatedAt?: number;
     unifiedMode?: string;
     isArchived?: boolean;
   }>;
@@ -203,21 +204,22 @@ export class CursorAdapter implements SessionAdapter {
   }
 
   async getSessionEntry(sessionId: string): Promise<NormalizedSessionEntry | null> {
-    // sessionId format: cursor:{workspaceHash}
-    const workspaceHash = sessionId.replace(/^cursor:/, '');
-    const workspacePath = join(this.cursorStoragePath, workspaceHash);
+    const parsed = this.parseCursorSessionId(sessionId);
+    if (!parsed) return null;
 
     try {
-      const sessions = await this.readWorkspaceSessions(workspacePath);
-      return sessions[0] || null;
+      const sessions = await this.readWorkspaceSessions(parsed.workspacePath);
+      return sessions.find((s) => s.id === sessionId) || null;
     } catch {
       return null;
     }
   }
 
   async getSession(sessionId: string): Promise<NormalizedSession | null> {
-    const workspaceHash = sessionId.replace(/^cursor:/, '');
-    const workspacePath = join(this.cursorStoragePath, workspaceHash);
+    const parsed = this.parseCursorSessionId(sessionId);
+    if (!parsed) return null;
+
+    const { workspacePath, workspaceHash, composerId } = parsed;
     const dbPath = join(workspacePath, 'state.vscdb');
 
     try {
@@ -225,7 +227,6 @@ export class CursorAdapter implements SessionAdapter {
       const db = new Database(dbPath, { readonly: true });
 
       try {
-        // Get prompts (user messages)
         const promptsRow = db
           .prepare('SELECT value FROM ItemTable WHERE key = ?')
           .get('aiService.prompts') as { value: Buffer | string } | undefined;
@@ -234,7 +235,6 @@ export class CursorAdapter implements SessionAdapter {
           ? JSON.parse(promptsRow.value.toString())
           : [];
 
-        // Get composer data for metadata
         const composerRow = db
           .prepare('SELECT value FROM ItemTable WHERE key = ?')
           .get('composer.composerData') as { value: Buffer | string } | undefined;
@@ -243,27 +243,51 @@ export class CursorAdapter implements SessionAdapter {
           ? JSON.parse(composerRow.value.toString())
           : {};
 
-        // Resolve project path
         const projectPath = await this.resolveWorkspaceProject(workspacePath);
+        const composers = (composerData.allComposers || []).filter((c) => c.composerId);
 
-        // Convert prompts to normalized messages
+        if (composerId) {
+          const composer = composers.find((c) => c.composerId === composerId);
+          if (!composer) {
+            db.close();
+            return null;
+          }
+          const ts = composer.updatedAt ?? composer.createdAt;
+          const created = composer.createdAt
+            ? new Date(composer.createdAt).toISOString()
+            : new Date().toISOString();
+          const modified = ts ? new Date(ts).toISOString() : created;
+
+          return {
+            id: sessionId,
+            source: this.source,
+            sourceId: composerId,
+            projectPath,
+            workspacePath,
+            created,
+            modified,
+            messages: [],
+            messageCount: 0,
+            firstPrompt: '',
+            metrics: { userMessages: 0, assistantMessages: 0, toolCalls: 0 },
+            sourceData: { workspaceHash, composerId },
+          };
+        }
+
         const messages = this.convertPrompts(prompts);
-
-        // Get timestamps from composer data
-        const composers = composerData.allComposers || [];
         const firstComposer = composers[0];
         const created = firstComposer?.createdAt
           ? new Date(firstComposer.createdAt).toISOString()
           : new Date().toISOString();
 
         const metrics: SessionMetrics = {
-          userMessages: messages.filter(m => m.role === 'user').length,
-          assistantMessages: messages.filter(m => m.role === 'assistant').length,
+          userMessages: messages.filter((m) => m.role === 'user').length,
+          assistantMessages: messages.filter((m) => m.role === 'assistant').length,
           toolCalls: 0,
         };
 
         return {
-          id: `cursor:${workspaceHash}`,
+          id: sessionId,
           source: this.source,
           sourceId: workspaceHash,
           projectPath,
@@ -274,10 +298,7 @@ export class CursorAdapter implements SessionAdapter {
           messageCount: messages.length,
           firstPrompt: prompts[0]?.text || '',
           metrics,
-          sourceData: {
-            workspaceHash,
-            composerCount: composers.length,
-          },
+          sourceData: { workspaceHash, composerCount: composers.length },
         };
       } finally {
         db.close();
@@ -298,6 +319,22 @@ export class CursorAdapter implements SessionAdapter {
   }
 
   // ---- Private helper methods ----
+
+  /**
+   * Parse cursor session id: cursor:{workspaceHash} or cursor:{workspaceHash}:{composerId}
+   */
+  private parseCursorSessionId(
+    sessionId: string
+  ): { workspacePath: string; workspaceHash: string; composerId?: string } | null {
+    if (!sessionId.startsWith('cursor:')) return null;
+    const rest = sessionId.slice(7);
+    const parts = rest.split(':');
+    if (parts.length < 1 || !parts[0]) return null;
+    const workspaceHash = parts[0];
+    const composerId = parts.length > 1 ? parts.slice(1).join(':') : undefined;
+    const workspacePath = join(this.cursorStoragePath, workspaceHash);
+    return { workspacePath, workspaceHash, composerId };
+  }
 
   private async findWorkspacesForProject(projectPath: string): Promise<string[]> {
     const matching: string[] = [];
@@ -356,28 +393,14 @@ export class CursorAdapter implements SessionAdapter {
       const db = new Database(dbPath, { readonly: true });
 
       try {
-        // Check if there are any prompts
         const promptsRow = db
           .prepare('SELECT value FROM ItemTable WHERE key = ?')
           .get('aiService.prompts') as { value: Buffer | string } | undefined;
 
-        if (!promptsRow) {
-          db.close();
-          return sessions;
-        }
+        const prompts: CursorPrompt[] = promptsRow
+          ? JSON.parse(promptsRow.value.toString())
+          : [];
 
-        const prompts: CursorPrompt[] = JSON.parse(promptsRow.value.toString());
-
-        // Skip workspaces with no chat history
-        if (!prompts || prompts.length === 0) {
-          db.close();
-          return sessions;
-        }
-
-        const workspaceHash = basename(workspacePath);
-        const projectPath = await this.resolveWorkspaceProject(workspacePath);
-
-        // Get composer data for timestamps
         const composerRow = db
           .prepare('SELECT value FROM ItemTable WHERE key = ?')
           .get('composer.composerData') as { value: Buffer | string } | undefined;
@@ -386,23 +409,45 @@ export class CursorAdapter implements SessionAdapter {
           ? JSON.parse(composerRow.value.toString())
           : {};
 
-        const composers = composerData.allComposers || [];
-        const firstComposer = composers[0];
+        const workspaceHash = basename(workspacePath);
+        const projectPath = await this.resolveWorkspaceProject(workspacePath);
 
-        const created = firstComposer?.createdAt
-          ? new Date(firstComposer.createdAt).toISOString()
-          : new Date().toISOString();
+        const composers = (composerData.allComposers || [])
+          .filter((c) => c.composerId)
+          .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
 
-        sessions.push({
-          id: `cursor:${workspaceHash}`,
-          source: this.source,
-          sourceId: workspaceHash,
-          projectPath,
-          created,
-          modified: created,
-          messageCount: prompts.length,
-          firstPrompt: prompts[0]?.text?.slice(0, 200) || '',
-        });
+        if (composers.length > 0) {
+          for (const composer of composers) {
+            const ts = composer.updatedAt ?? composer.createdAt;
+            const created = composer.createdAt
+              ? new Date(composer.createdAt).toISOString()
+              : new Date().toISOString();
+            const modified = ts ? new Date(ts).toISOString() : created;
+
+            sessions.push({
+              id: `cursor:${workspaceHash}:${composer.composerId}`,
+              source: this.source,
+              sourceId: composer.composerId,
+              projectPath,
+              created,
+              modified,
+              messageCount: 0,
+              firstPrompt: '',
+            });
+          }
+        } else if (prompts.length > 0) {
+          const created = new Date().toISOString();
+          sessions.push({
+            id: `cursor:${workspaceHash}`,
+            source: this.source,
+            sourceId: workspaceHash,
+            projectPath,
+            created,
+            modified: created,
+            messageCount: prompts.length,
+            firstPrompt: prompts[0]?.text?.slice(0, 200) || '',
+          });
+        }
       } finally {
         db.close();
       }

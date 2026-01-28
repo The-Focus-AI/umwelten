@@ -5,6 +5,10 @@ import { BaseProvider } from "./base.js";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 
 // GitHub Models API base URL
+// NOTE: This is the GitHub Models API (models.github.ai), NOT GitHub Copilot.
+// GitHub Copilot (the IDE tool) has different model access including Anthropic models.
+// The GitHub Models API only includes models from: OpenAI, Meta, DeepSeek, AI21 Labs, 
+// Cohere, Mistral AI, xAI, and Microsoft. Anthropic models are NOT available through this API.
 const DEFAULT_BASE_URL = "https://models.github.ai/inference";
 
 export class GitHubModelsProvider extends BaseProvider {
@@ -18,6 +22,8 @@ export class GitHubModelsProvider extends BaseProvider {
   }
 
   // List available models from GitHub Models
+  // Fetches from: https://models.github.ai/catalog/models
+  // Requires GITHUB_TOKEN environment variable (use dotenvx run to load from .env)
   async listModels(): Promise<ModelDetails[]> {
     const response = await fetch('https://models.github.ai/catalog/models', {
       headers: {

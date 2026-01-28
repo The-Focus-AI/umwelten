@@ -18,12 +18,23 @@ function getBuiltInTurndown(): TurndownService {
 }
 
 /**
+ * Strip <style> and <script> blocks so Turndown doesn't emit CSS/JS as raw text.
+ * Improves markdown quality for JS-heavy pages (e.g. Substack, SPA).
+ */
+function stripNonContent(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+}
+
+/**
  * Convert HTML to markdown using the built-in Turndown library.
- * No network or env vars required.
+ * Strips <style> and <script> before conversion. No network or env vars required.
  */
 export function fromHtmlBuiltIn(html: string): string {
+  const cleaned = stripNonContent(html);
   const service = getBuiltInTurndown();
-  return service.turndown(html);
+  return service.turndown(cleaned);
 }
 
 export async function fromHtmlViaModel(html: string, model: ModelDetails) {

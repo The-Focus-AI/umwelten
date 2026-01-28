@@ -15,6 +15,7 @@ const TEXT_TYPES = new Set([
   "application/javascript",
   "application/xml",
   "application/xhtml+xml",
+  "application/rss+xml",
 ]);
 
 function isTextContentType(contentType: string | null): boolean {

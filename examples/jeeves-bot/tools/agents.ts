@@ -5,10 +5,10 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { loadConfig, saveConfig, getAgentById } from '../config.js';
-import type { AgentEntry } from '../config.js';
+import type { AgentEntry, HabitatCommands } from '../config.js';
 
 export const agentsListTool = tool({
-  description: 'List all configured agents (id, name, projectPath, gitRemote).',
+  description: 'List all configured agents (habitats): id, name, projectPath, gitRemote, commands.',
   inputSchema: z.object({}).optional(),
   execute: async () => {
     const config = await loadConfig();
@@ -19,6 +19,7 @@ export const agentsListTool = tool({
         projectPath: a.projectPath,
         gitRemote: a.gitRemote ?? null,
         secretsRefs: a.secrets?.length ? a.secrets : undefined,
+        commands: a.commands ?? undefined,
       })),
       count: config.agents.length,
     };
@@ -33,17 +34,18 @@ const addAgentSchema = z.object({
   projectPath: z.string().describe('Absolute path to the project (git clone path)'),
   gitRemote: z.string().optional().describe('Git remote URL'),
   secrets: z.array(z.string()).optional().describe('List of secret keys (e.g. env var names); values are not stored'),
+  commands: z.record(z.string(), z.string()).optional().describe('Optional commands to interact with this habitat (e.g. { "cli": "pnpm run cli", "run": "pnpm start" })'),
 });
 
 export const agentsAddTool = tool({
-  description: 'Add a new agent. projectPath must be the absolute path where Claude Code stores sessions for that project.',
+  description: 'Add a new agent (habitat). projectPath must be the absolute path where Claude Code stores external interactions for that project.',
   inputSchema: addAgentSchema,
-  execute: async ({ id, name, projectPath, gitRemote, secrets }) => {
+  execute: async ({ id, name, projectPath, gitRemote, secrets, commands }) => {
     const config = await loadConfig();
     if (config.agents.some(a => a.id === id || a.name === name)) {
       return { error: 'AGENT_EXISTS', message: `An agent with id or name "${id}" / "${name}" already exists.` };
     }
-    const entry: AgentEntry = { id, name, projectPath, gitRemote, secrets };
+    const entry: AgentEntry = { id, name, projectPath, gitRemote, secrets, commands: commands as HabitatCommands | undefined };
     config.agents.push(entry);
     await saveConfig(config);
     return { added: entry, message: `Agent "${name}" (${id}) added.` };
@@ -56,12 +58,13 @@ const updateAgentSchema = z.object({
   projectPath: z.string().optional().describe('New project path'),
   gitRemote: z.string().optional().describe('New git remote URL'),
   secrets: z.array(z.string()).optional().describe('New secret key list'),
+  commands: z.record(z.string(), z.string()).optional().describe('New commands map for this habitat'),
 });
 
 export const agentsUpdateTool = tool({
   description: 'Update an existing agent by id or name.',
   inputSchema: updateAgentSchema,
-  execute: async ({ agentId, name, projectPath, gitRemote, secrets }) => {
+  execute: async ({ agentId, name, projectPath, gitRemote, secrets, commands }) => {
     const config = await loadConfig();
     const agent = getAgentById(config, agentId);
     if (!agent) {
@@ -71,6 +74,7 @@ export const agentsUpdateTool = tool({
     if (projectPath !== undefined) agent.projectPath = projectPath;
     if (gitRemote !== undefined) agent.gitRemote = gitRemote;
     if (secrets !== undefined) agent.secrets = secrets;
+    if (commands !== undefined) agent.commands = commands as HabitatCommands;
     await saveConfig(config);
     return { updated: agent, message: `Agent "${agent.name}" updated.` };
   },
