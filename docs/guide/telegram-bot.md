@@ -120,19 +120,22 @@ Users can send various media types to the bot:
 
 #### Media Storage
 
-Media files are stored on disk in a configurable directory:
+Media files are stored on disk in session-specific directories:
 
-- **Default location**: `./telegram-media/` (relative to current working directory)
-- **Custom location**: Use `--media-dir <path>` to specify a different directory
+- **Jeeves Bot**: `{JEEVES_SESSIONS_DIR}/telegram-{chatId}/media/` (configurable via `JEEVES_SESSIONS_DIR` env var)
+- **CLI**: `./telegram-media/` (relative to current working directory) or use `--media-dir <path>`
 
 ```bash
-# Use custom media directory
+# Use custom media directory (CLI only)
 npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --media-dir /path/to/media
 ```
 
 Files are named using Telegram's `file_unique_id` with appropriate extensions (`.jpg`, `.mp4`, `.ogg`, etc.). The directory is created automatically when the first media file is received.
 
-**Note**: Files larger than 20MB are rejected (Telegram Bot API limit).
+**Note**: 
+- Files larger than 20MB are rejected (Telegram Bot API limit)
+- Videos and video notes are supported (provider must support video processing: Google, OpenAI, or Anthropic)
+- Audio/voice messages require a provider that supports audio (Google, OpenAI, or Anthropic)
 
 #### Example Interactions
 

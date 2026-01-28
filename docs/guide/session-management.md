@@ -1,10 +1,12 @@
-# Session Management & Search
+# External Interactions & Search
 
-Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history. This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
+Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history (**external interactions**—read-only data from Claude Code, Cursor, etc.). This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
+
+**CLI command**: `umwelten external-interactions` (formerly `sessions`).
 
 ## Supported Sources
 
-Umwelten supports sessions from multiple AI coding tools through a unified adapter system:
+Umwelten supports external interactions from multiple AI coding tools through a unified adapter system:
 
 | Source | Storage Format | Location |
 |--------|---------------|----------|
@@ -15,25 +17,25 @@ More sources (Windsurf, Aider) are planned for future releases.
 
 ## Overview
 
-The session management system consists of three main features:
+The external-interactions system consists of three main features:
 
-1. **Session Listing & Inspection** - View and explore sessions from Claude Code or Cursor
+1. **Listing & Inspection** - View and explore external interactions from Claude Code or Cursor
 2. **LLM-Based Indexing** - Automatically extract topics, tags, and key learnings using AI
-3. **Intelligent Search** - Find relevant sessions using semantic search and filters
+3. **Intelligent Search** - Find relevant external interactions using semantic search and filters
 
 ## Quick Start
 
-### List Recent Sessions
+### List recent external interactions
 
 ```bash
-# List all sessions for the current project (auto-detects source)
-pnpm run cli sessions list
+# List external interactions for the current project (auto-detects source)
+pnpm run cli external-interactions list
 
-# Show details for a specific session
-pnpm run cli sessions show abc1234
+# Show details for a specific external interaction
+pnpm run cli external-interactions show abc1234
 
-# Export a session to markdown
-pnpm run cli sessions export abc1234 --output session.md
+# Export to markdown
+pnpm run cli external-interactions export abc1234 --output interaction.md
 ```
 
 ## Multi-Source Support

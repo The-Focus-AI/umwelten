@@ -12,17 +12,24 @@ npx umwelten models
 
 # List with JSON output for programmatic use
 npx umwelten models  --json
+
+# Use dotenvx to load environment variables from .env
+dotenvx run -- npx umwelten models
 ```
 
 ### Filter by Provider
 
 ```bash
 # Filter by specific provider
-npx umwelten models --provider openrouter      # requires OPENROUTER_API_KEY
+# Use dotenvx to ensure API keys are loaded from .env
+dotenvx run -- npx umwelten models --provider openrouter      # requires OPENROUTER_API_KEY
 npx umwelten models  --provider ollama
-npx umwelten models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
+dotenvx run -- npx umwelten models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
 npx umwelten models  --provider lmstudio
-npx umwelten models  --provider github-models  # GITHUB_TOKEN
+dotenvx run -- npx umwelten models  --provider github-models  # GITHUB_TOKEN
+
+# Or using pnpm cli (for local development)
+dotenvx run -- pnpm run cli models --provider github-models
 ```
 
 ### Filter by Cost
@@ -169,6 +176,16 @@ Found 150+ models
 - Requires GitHub Personal Access Token with `models` scope
 - Access to models from OpenAI, Meta, DeepSeek, and other providers
 - OpenAI-compatible API interface
+- Models are fetched from `https://models.github.ai/catalog/models`
+- Use `dotenvx run` to load `GITHUB_TOKEN` from `.env`:
+  ```bash
+  dotenvx run -- npx umwelten models --provider github-models
+  ```
+
+**Note**: GitHub Models API (`models.github.ai`) is different from **GitHub Copilot** (the IDE tool). 
+- GitHub Copilot has access to Anthropic/Claude models (see [GitHub Copilot supported models](https://docs.github.com/en/copilot/reference/ai-models/supported-models))
+- GitHub Models API currently does **not** include Anthropic models - it only includes models from OpenAI, Meta, DeepSeek, AI21 Labs, Cohere, Mistral AI, xAI, and Microsoft
+- To access Anthropic models, use the OpenRouter provider instead
 
 ## Next Steps
 

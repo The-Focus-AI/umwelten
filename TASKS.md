@@ -190,7 +190,14 @@ interface SessionAdapter {
 
 ### Completed: Jeeves Bot Example
 
-- [x] Add `examples/jeeves-bot/`: config (config.ts, config.json), file tools (read_file, write_file, list_directory), agent tools (list/add/update/remove), session tools (sessions_list, show, messages, stats), Jeeves Stimulus, CLI runner (REPL + one-shot), Telegram runner, README.
+- [x] Add `examples/jeeves-bot/`: config (config.ts, config.json), file tools (read_file, write_file, list_directory, ripgrep), agent tools (list/add/update/remove), external-interaction tools (external_interactions_list, show, messages, stats), run_bash with experiences, Jeeves Stimulus, CLI runner (REPL + one-shot), Telegram runner, README.
+
+### Completed: Terminology refactor (Habitat model)
+
+- [x] **Dagger**: Rename session → **experience**. `run_bash` uses `experienceId`, experience actions (start/continue/commit/discard), `-dagger-experiences` directory.
+- [x] **External interactions**: Rename "sessions" (Claude Code, Cursor) → **external interactions**. Jeeves tools: `external_interactions_list`, `external_interactions_show`, `external_interactions_messages`, `external_interactions_stats`. CLI: `umwelten external-interactions` (list, show, messages, tools, stats, export, format, index, search, analyze). User-facing copy updated throughout.
+- [x] **Concepts**: **Interaction** = active conversation (umwelten). **External interaction** = read-only history from other tools (Claude Code, Cursor). **Experience** = execution state (Dagger run_bash). **Habitat** = agent + tools + interactions + memory + experiences.
+- [x] **Habitat / agents**: Optional `commands` on agent config (e.g. `{ "cli": "pnpm run cli", "run": "pnpm start" }`). Agents listed with `commands`. README and Jeeves docs describe Habitat model; agents frame as habitats.
 
 ### Backlog
 - [ ] Test LLM-based container configuration with valid OpenRouter API key

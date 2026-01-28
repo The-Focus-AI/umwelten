@@ -8,8 +8,10 @@
 
 **Jeeves Bot** (`examples/jeeves-bot/telegram.ts`):
 ```
-{jeeves-bot-directory}/jeeves-bot-data-dir/media/
+{JEEVES_SESSIONS_DIR}/telegram-{chatId}/media/
 ```
+
+Where `JEEVES_SESSIONS_DIR` is configurable in `.env` (default: `~/.jeeves-sessions`). Each Telegram chat gets its own session directory.
 
 **CLI** (`npx umwelten telegram`):
 - Default: `{current_working_directory}/telegram-media/`

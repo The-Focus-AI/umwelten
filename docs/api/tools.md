@@ -260,7 +260,7 @@ const result = await randomNumber.execute({
 
 **Name**: `wget`
 
-**Description**: Fetch a URL and return the raw response (status, content-type, and body as text). Useful for APIs, plain text, or when you need unprocessed page content. Response size and time limits apply.
+**Description**: Fetch a URL and return the raw response (status, content-type, and body as text). Useful for APIs, plain text, or when you need unprocessed page content. Large content (>500 lines or >1KB) is automatically saved to the session directory and a file path is returned instead of inline content.
 
 **Input Schema**:
 ```typescript
@@ -277,7 +277,8 @@ import { wgetTool } from '../stimulus/tools/url-tools.js';
 stimulus.addTool('wget', wgetTool);
 
 // Tool will be called by the model when needed
-// Returns: { url, statusCode, contentType, content, truncated? }
+// Returns: { url, statusCode, contentType, content, truncated? } for small files
+//          { url, statusCode, contentType, filePath, lineCount, sizeBytes, message } for large files
 ```
 
 **Features**:
@@ -285,12 +286,14 @@ stimulus.addTool('wget', wgetTool);
 - Size limits (default 2MB max)
 - Automatic content-type detection
 - Handles non-text responses gracefully
+- Auto-saves large content to session directory
+- Returns file path and metadata for large files
 
 ### Markify Tool
 
 **Name**: `markify`
 
-**Description**: Fetch a URL and convert the page to readable markdown. Uses built-in Turndown conversion (no external service required). Optionally set `MARKIFY_URL` to use the Markify service instead.
+**Description**: Fetch a URL and convert the page to readable markdown. Uses built-in Turndown conversion (no external service required). Large content (>500 lines or >1KB) is automatically saved to the session directory. Optionally set `MARKIFY_URL` to use the Markify service instead.
 
 **Input Schema**:
 ```typescript
@@ -307,7 +310,8 @@ import { markifyTool } from '../stimulus/tools/url-tools.js';
 stimulus.addTool('markify', markifyTool);
 
 // Tool will be called by the model when needed
-// Returns: { url, markdown } or { url, error, markdown: "" }
+// Returns: { url, markdown } or { url, error, markdown: "" } for small files
+//          { url, filePath, lineCount, sizeBytes, message } for large files
 ```
 
 **Features**:
@@ -315,6 +319,36 @@ stimulus.addTool('markify', markifyTool);
 - No external service required by default
 - Optional Markify service support via `MARKIFY_URL` env var
 - Automatically handles HTML content
+- Auto-saves large content to session directory
+- Returns file path and metadata for large files
+
+### Parse Feed Tool
+
+**Name**: `parse_feed`
+
+**Description**: Fetch a URL and parse it as XML, RSS, or Atom. Returns feed title/link/description and a list of items (title, link, description, pubDate). Use for RSS feeds, Atom feeds, or XML with item-like entries.
+
+**Input Schema**:
+```typescript
+const parseFeedSchema = z.object({
+  url: z.string().url().describe("The URL of the XML, RSS, or Atom feed to fetch and parse"),
+  limit: z.number().int().min(1).max(200).optional().describe("Max number of feed items to return (default 50)")
+});
+```
+
+**Usage**:
+```typescript
+import { parseFeedTool } from '../stimulus/tools/url-tools.js';
+
+stimulus.addTool('parse_feed', parseFeedTool);
+
+// Returns: { url, format, feed, items, itemCount, truncated? } or { url, error, items: [], itemCount: 0 }
+```
+
+**Features**:
+- RSS 2.0 and Atom feed normalization
+- Generic XML with `item`/`entry`-like elements
+- Optional `limit` (default 50, max 200) for large feeds
 
 ## CLI Integration
 
