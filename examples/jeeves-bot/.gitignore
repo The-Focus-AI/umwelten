@@ -1,5 +1,15 @@
 # Jeeves bot work directory - contains agent config, memories, facts, journal, etc.
-jeeves-bot-data-dir/
+# This will match any directory named with the work dir pattern
+**/jeeves-bot-data-dir/
+**/.jeeves/
+**/jeeves-work/
 
-# Dagger session directories - temporary isolated containers for run_bash
-jeeves-bot-data-dir-dagger-sessions/
+# Sessions directory - contains all interactions, media files, downloaded content
+**/jeeves-sessions/
+**/.jeeves-sessions/
+**/jeeves-bot-sessions/
+**/jeeves-bot-data-dir-sessions/
+
+# Dagger experience directories - temporary isolated containers for run_bash
+**/jeeves-bot-data-dir-dagger-experiences/
+**/*-dagger-experiences/

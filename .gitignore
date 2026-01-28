@@ -65,3 +65,14 @@ umwelten-*.tgz
 .bv/
 
 .dagger-cache/
+
+# Jeeves bot directories
+**/jeeves-bot-data-dir/
+**/.jeeves/
+**/jeeves-work/
+**/jeeves-sessions/
+**/.jeeves-sessions/
+**/jeeves-bot-sessions/
+**/jeeves-bot-data-dir-sessions/
+**/jeeves-bot-data-dir-dagger-experiences/
+**/*-dagger-experiences/
