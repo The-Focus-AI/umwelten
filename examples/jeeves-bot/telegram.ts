@@ -6,6 +6,7 @@
 
 import { TelegramAdapter } from '../../src/ui/telegram/TelegramAdapter.js';
 import { createJeevesStimulus } from './stimulus.js';
+import { getOrCreateSession } from './session-manager.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -37,16 +38,25 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Ensure work and sessions directories exist
+  const { ensureWorkDir, ensureSessionsDir } = await import('./config.js');
+  const workDir = await ensureWorkDir();
+  const sessionsDir = await ensureSessionsDir();
+  console.log(`[JEEVES] Work directory: ${workDir}`);
+  console.log(`[JEEVES] Sessions directory: ${sessionsDir}`);
+
   const stimulus = await createJeevesStimulus();
   
-  // Use jeeves-bot-data-dir/media for storing Telegram media files
-  const mediaDir = path.join(__dirname, 'jeeves-bot-data-dir', 'media');
-  
+  // Use session directories for storing Telegram media files
+  // Each chat gets its own session directory
   const adapter = new TelegramAdapter({
     token,
     modelDetails: { name: model, provider },
     stimulus,
-    mediaDir,
+    getSessionMediaDir: async (chatId: number) => {
+      const { sessionDir } = await getOrCreateSession('telegram', chatId);
+      return path.join(sessionDir, 'media');
+    },
   });
 
   process.on('SIGINT', async () => {

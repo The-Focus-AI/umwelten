@@ -12,12 +12,22 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Commands to interact with this habitat (e.g. run CLI, start server).
+ * Keys are arbitrary (e.g. "run", "cli", "install"); values are shell commands.
+ */
+export interface HabitatCommands {
+  [key: string]: string;
+}
+
 export interface AgentEntry {
   id: string;
   name: string;
   projectPath: string;
   gitRemote?: string;
   secrets?: string[];
+  /** Commands to run or interact with this habitat (e.g. `{ "cli": "pnpm run cli", "run": "pnpm start" }`). */
+  commands?: HabitatCommands;
 }
 
 export interface JeevesConfig {
@@ -26,16 +36,43 @@ export interface JeevesConfig {
 
 /** Default work dir when JEEVES_WORK_DIR is not set (e.g. ~/.jeeves). */
 const DEFAULT_WORK_DIR = join(homedir(), '.jeeves');
+/** Default sessions dir when JEEVES_SESSIONS_DIR is not set (e.g. ~/.jeeves-sessions). */
+const DEFAULT_SESSIONS_DIR = join(homedir(), '.jeeves-sessions');
 
 /**
  * Main work folder for the bot. The bot reads and writes its own files and agent config here.
+ * If JEEVES_WORK_DIR is a relative path, it's resolved relative to process.cwd().
  */
 export function getWorkDir(): string {
   const env = process.env.JEEVES_WORK_DIR;
   if (env) {
+    // resolve() handles both absolute and relative paths
+    // Relative paths are resolved relative to process.cwd()
     return resolve(env);
   }
   return DEFAULT_WORK_DIR;
+}
+
+/**
+ * Sessions directory for storing all interactions, media files, and downloaded content.
+ * Each session gets its own subdirectory.
+ * If JEEVES_SESSIONS_DIR is a relative path, it's resolved relative to process.cwd().
+ */
+export function getSessionsDir(): string {
+  const env = process.env.JEEVES_SESSIONS_DIR;
+  if (env) {
+    // resolve() handles both absolute and relative paths
+    // Relative paths are resolved relative to process.cwd()
+    return resolve(env);
+  }
+  return DEFAULT_SESSIONS_DIR;
+}
+
+/** Ensure the sessions directory exists. */
+export async function ensureSessionsDir(): Promise<string> {
+  const sessionsDir = getSessionsDir();
+  await mkdir(sessionsDir, { recursive: true });
+  return sessionsDir;
 }
 
 function getConfigPath(): string {
@@ -105,7 +142,7 @@ export function getAllowedRoots(config: JeevesConfig): string[] {
   return config.agents.map(a => a.projectPath).filter(Boolean);
 }
 
-/** Roots allowed for all file tools: work dir first, then agent project paths. */
+/** Roots allowed for all file tools: work dir, sessions dir, then agent project paths. */
 export function getFileAllowedRoots(config: JeevesConfig): string[] {
-  return [getWorkDir(), ...getAllowedRoots(config)];
+  return [getWorkDir(), getSessionsDir(), ...getAllowedRoots(config)];
 }

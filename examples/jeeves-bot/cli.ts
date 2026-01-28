@@ -50,8 +50,15 @@ async function oneShotRun(interaction: Interaction, prompt: string, quiet: boole
     const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
     console.log(text);
   } else {
+    process.stdout.write('Jeeves: ');
     const response = await interaction.streamText();
-    if (response.content) process.stdout.write('\n');
+    // Print final result to ensure it's visible
+    const finalText = typeof response.content === 'string' ? response.content : String(response.content ?? '');
+    if (finalText && !finalText.trim().endsWith('\n')) {
+      process.stdout.write('\n');
+    }
+    // Also print the final result explicitly to verify it worked
+    console.log('\n[Final Result]:', finalText || '(empty)');
   }
   console.log(formatContextSize(interaction.getMessages()));
 }
@@ -128,8 +135,14 @@ async function repl(interaction: Interaction, quiet: boolean): Promise<void> {
           const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
           console.log(text);
         } else {
-          await interaction.streamText();
-          process.stdout.write('\n');
+          const response = await interaction.streamText();
+          // Print final result to ensure it's visible
+          const finalText = typeof response.content === 'string' ? response.content : String(response.content ?? '');
+          if (finalText && !finalText.trim().endsWith('\n')) {
+            process.stdout.write('\n');
+          }
+          // Also print the final result explicitly to verify it worked
+          console.log('[Final Result]:', finalText || '(empty)');
         }
         console.log(formatContextSize(interaction.getMessages()));
       } catch (err) {
@@ -144,6 +157,16 @@ async function repl(interaction: Interaction, quiet: boolean): Promise<void> {
 
 async function main(): Promise<void> {
   const { provider, model, oneShot, quiet } = parseArgs();
+  
+  // Ensure work and sessions directories exist
+  const { ensureWorkDir, ensureSessionsDir } = await import('./config.js');
+  const workDir = await ensureWorkDir();
+  const sessionsDir = await ensureSessionsDir();
+  if (!quiet) {
+    console.log(`[JEEVES] Work directory: ${workDir}`);
+    console.log(`[JEEVES] Sessions directory: ${sessionsDir}`);
+  }
+  
   const stimulus = await createJeevesStimulus();
   const modelDetails = { name: model, provider };
   const interaction = new Interaction(modelDetails, stimulus);
