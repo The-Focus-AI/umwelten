@@ -65,15 +65,15 @@ function ensureAllowed(resolved: string, allowedRoots: string[]): void {
 }
 
 /**
- * Get the base directory for Dagger experiences (separate from work directory)
+ * Get the base directory for Dagger experiences.
+ * Stored in a sibling of workDir (e.g. ~/.jeeves-dagger-experiences) to avoid
+ * cp(workDir, workDir/.dagger-experiences/...) which Node rejects as "copy to subdirectory of self".
  */
 function getExperiencesBaseDir(): string {
   const workDir = getWorkDir();
-  // Store experiences in a sibling directory to avoid circular copies
-  // e.g., if workDir is ~/.jeeves, experiences go to ~/.jeeves-dagger-experiences
-  const workDirName = workDir.split('/').pop() || '.jeeves';
-  const parentDir = workDir.replace(new RegExp(`/${workDirName}$`), '');
-  return join(parentDir, `${workDirName}-dagger-experiences`);
+  const workDirName = workDir.split(/[/\\]/).filter(Boolean).pop() || '.jeeves';
+  const parent = resolve(workDir, '..');
+  return join(parent, `${workDirName}-dagger-experiences`);
 }
 
 function getExperienceDir(experienceId: string): string {
@@ -129,12 +129,13 @@ async function startExperience(
   await cp(sourcePath, experienceDir, {
     recursive: true,
     filter: (src) => {
-      const parts = src.split('/');
-      return !parts.some(part =>
-        part === '.git' ||
-        part === 'node_modules' ||
-        part === '.dagger-experiences' ||
-        part.endsWith('-dagger-experiences')
+      const parts = src.split(/[/\\]/);
+      return !parts.some(
+        (part) =>
+          part === '.git' ||
+          part === 'node_modules' ||
+          part === '.dagger-experiences' ||
+          part.endsWith('-dagger-experiences')
       );
     },
   });
@@ -171,7 +172,7 @@ async function commitExperience(experienceId: string): Promise<ExperienceMetadat
   await cp(experienceDir, metadata.sourcePath, {
     recursive: true,
     filter: (src) => {
-      const name = src.split('/').pop() || '';
+      const name = src.split(/[/\\]/).pop() || '';
       return name !== 'meta.json';
     },
   });
@@ -284,6 +285,7 @@ export const runBashTool = tool({
 
       const experienceDir = getExperienceDir(finalExperienceId);
 
+      let startedThisRequest = false;
       if (action === 'start') {
         if (await experienceExists(finalExperienceId)) {
           return {
@@ -292,6 +294,7 @@ export const runBashTool = tool({
           };
         }
         await startExperience(finalExperienceId, sourcePath, agentId);
+        startedThisRequest = true;
       } else if (action === 'discard') {
         if (!(await experienceExists(finalExperienceId))) {
           return {
@@ -302,7 +305,7 @@ export const runBashTool = tool({
         await discardExperience(finalExperienceId);
         return {
           experienceId: finalExperienceId,
-          action: 'discarded',
+          status: 'discarded',
           message: `Experience ${finalExperienceId} discarded.`,
         };
       } else if (action === 'commit') {
@@ -315,15 +318,21 @@ export const runBashTool = tool({
         const metadata = await commitExperience(finalExperienceId);
         return {
           experienceId: finalExperienceId,
-          action: 'committed',
+          status: 'committed',
           message: `Experience ${finalExperienceId} committed to ${metadata.sourcePath}.`,
         };
+      }
+
+      let status: 'new' | 'continued';
+      if (startedThisRequest) {
+        status = 'new';
+        await continueExperience(finalExperienceId);
+      } else if (!(await experienceExists(finalExperienceId))) {
+        await startExperience(finalExperienceId, sourcePath, agentId);
+        status = 'new';
       } else {
-        if (!(await experienceExists(finalExperienceId))) {
-          await startExperience(finalExperienceId, sourcePath, agentId);
-        } else {
-          await continueExperience(finalExperienceId);
-        }
+        await continueExperience(finalExperienceId);
+        status = 'continued';
       }
 
       const result = await executeInDagger(command, experienceDir, image, timeout, workdir);
@@ -331,6 +340,7 @@ export const runBashTool = tool({
       if (result.exitCode === 124) {
         return {
           experienceId: finalExperienceId,
+          status,
           stdout: result.stdout,
           stderr: result.stderr || `Execution timed out after ${timeout} seconds`,
           exitCode: result.exitCode,
@@ -340,6 +350,7 @@ export const runBashTool = tool({
 
       return {
         experienceId: finalExperienceId,
+        status,
         stdout: result.stdout,
         stderr: result.stderr,
         exitCode: result.exitCode,

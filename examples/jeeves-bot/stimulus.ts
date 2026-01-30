@@ -24,6 +24,8 @@ import {
 import {
   sessionsListTool,
   sessionsShowTool,
+  sessionsMessagesTool,
+  sessionsStatsTool,
   sessionsReadFileTool,
 } from './tools/sessions.js';
 import { tavilySearchTool } from './tools/tavily.js';
@@ -97,7 +99,7 @@ export async function createJeevesStimulus(): Promise<Stimulus> {
       'You are a helpful butler-style assistant. Be concise and precise. Use current_time when the user asks for the time, date, or "now". Use the search tool when the user asks for current information, facts, or to look something up on the web.',
       'For fetching web content, PREFER using markify over wget. Use markify to convert webpages to readable markdown - it produces cleaner, more useful content. Only use wget when you specifically need raw HTML/API responses or when markify fails.',
       'Use parse_feed for RSS, Atom, or XML feed URLs. It returns feed metadata and a list of items (title, link, description, pubDate). Use it when the user asks about feed contents, recent posts, or to fetch and summarize items from a feed.',
-      'File operations: by default paths are relative to the Jeeves work directory (where the bot stores its data). Use list_directory with path "." to list the work dir. Use agentId only when the user explicitly refers to an agent or project. Use read_file with offset and limit to read portions of large files. Use ripgrep to search for patterns across files efficiently. Use sessions_list to see all sessions, sessions_show to view session details, and sessions_read_file to access files in session directories.',
+      'File operations: by default paths are relative to the Jeeves work directory (where the bot stores its data). Use list_directory with path "." to list the work dir. Use agentId only when the user explicitly refers to an agent or project. Use read_file with offset and limit to read portions of large files. Use ripgrep to search for patterns across files efficiently. Use sessions_list to see all sessions, sessions_show to view session details, sessions_messages to get user/assistant messages, sessions_stats for message counts, and sessions_read_file to access files in session directories.',
       'When listing or showing external interactions, always identify the agent by id or name first.',
       'Secrets in agent config are references only (e.g. env var names); never store or echo secret values.',
       'For current date or time, use the current_time tool instead of guessing.',
@@ -125,6 +127,8 @@ export async function createJeevesStimulus(): Promise<Stimulus> {
 
   stimulus.addTool('sessions_list', sessionsListTool);
   stimulus.addTool('sessions_show', sessionsShowTool);
+  stimulus.addTool('sessions_messages', sessionsMessagesTool);
+  stimulus.addTool('sessions_stats', sessionsStatsTool);
   stimulus.addTool('sessions_read_file', sessionsReadFileTool);
 
   stimulus.addTool('current_time', currentTimeTool);

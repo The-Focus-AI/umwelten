@@ -122,3 +122,29 @@ export async function getSessionMetadata(sessionId: string): Promise<SessionMeta
     return null;
   }
 }
+
+/**
+ * Update session metadata (merge partial updates, shallow-merge metadata).
+ */
+export async function updateSessionMetadata(
+  sessionId: string,
+  updates: Partial<Pick<SessionMetadata, 'lastUsed'>> & { metadata?: Record<string, unknown> }
+): Promise<void> {
+  const sessionDir = await getSessionDir(sessionId);
+  if (!sessionDir) return;
+
+  const metaPath = join(sessionDir, 'meta.json');
+  let metadata: SessionMetadata;
+  try {
+    const content = await readFile(metaPath, 'utf-8');
+    metadata = JSON.parse(content) as SessionMetadata;
+  } catch {
+    return;
+  }
+
+  if (updates.lastUsed !== undefined) metadata.lastUsed = updates.lastUsed;
+  if (updates.metadata !== undefined) {
+    metadata.metadata = { ...metadata.metadata, ...updates.metadata };
+  }
+  await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
+}

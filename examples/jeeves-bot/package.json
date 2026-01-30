@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "cli": "tsx cli.ts",
-    "telegram": "tsx telegram.ts"
+    "telegram": "tsx telegram.ts",
+    "verify-sessions": "tsx verify-sessions-store-reload.ts"
   },
   "dependencies": {
     "@tavily/core": "^0.7.1"

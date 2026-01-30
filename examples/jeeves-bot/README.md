@@ -149,6 +149,26 @@ Files are named using Telegram's `file_unique_id` with appropriate extensions. T
 
 **Note**: The sessions directory (`JEEVES_SESSIONS_DIR`) is configurable in `.env` (default: `~/.jeeves-sessions`). Each Telegram chat gets its own session directory, keeping media files organized per conversation.
 
+### CLI sessions
+
+Each CLI run (one-shot or REPL) creates a session under `JEEVES_SESSIONS_DIR` (e.g. `cli-{timestamp}-{id}`). The session directory contains `meta.json` (sessionId, type, created, lastUsed, `metadata.firstPrompt`, `metadata.messageCount`) and **`transcript.jsonl`** — Claude-style JSONL with **full tool call history**:
+
+- **User messages**: `type: "user"` with text content
+- **Assistant messages**: `type: "assistant"` with text or `tool_use` content blocks
+- **Tool results**: `type: "user"` with `tool_result` content blocks (tool call ID, output, is_error)
+
+**Transcript format (JSONL)** — One JSON object per line, Claude-style. Each entry has `type`, `uuid`, `timestamp`, and `message: { role, content }`. Tool calls use `content: [{ "type": "tool_use", "id", "name", "input" }]`; tool results use `content: [{ "type": "tool_result", "tool_use_id", "content", "is_error" }]`. Full tool call history (inputs and outputs) is persisted so `sessions_show`, `sessions_messages`, and `sessions_stats` reflect the complete interaction.
+
+Session tools use **session-parser** (`parseSessionFile`, `summarizeSession`, `extractConversation`, `extractTextContent`) and mirror **external-interactions** (list, show, messages, stats, read_file):
+
+- **`sessions_list`**: List sessions (sessionId, shortId, firstPrompt, messageCount, created, modified).
+- **`sessions_show`**: Summary for a session (full or short prefix match); tokens/cost when present.
+- **`sessions_messages`**: User/assistant messages (interleaved by timestamp).
+- **`sessions_stats`**: Message counts, token usage, cost, duration (same shape as external-interactions).
+- **`sessions_read_file`**: Read any file in a session dir (e.g. `transcript.jsonl`, media).
+
+Interactions are stored directly to disk and reloaded from disk. Run `pnpm run verify-sessions` to confirm store-and-reload behavior.
+
 ## run_bash: Dagger Container Execution
 
 The `run_bash` tool executes bash commands in isolated Dagger-managed containers with experience-based state management. This allows you to chain commands together while keeping changes isolated from your original files until you're ready to commit them.
@@ -157,7 +177,7 @@ The `run_bash` tool executes bash commands in isolated Dagger-managed containers
 
 Each `run_bash` call can be part of an **experience** that maintains state between commands:
 
-- **Isolated directories**: Each experience gets its own directory in a separate experiences directory (outside the work directory to avoid circular copies)
+- **Isolated directories**: Each experience gets its own directory in a sibling folder `<parent>/<workDirName>-dagger-experiences/<experienceId>/` (outside the work directory to avoid circular copies)
 - **Stateful chaining**: Commands in the same experience see changes from previous commands
 - **Safe experimentation**: Changes don't affect original files until you commit
 - **Multiple experiences**: Run concurrent isolated experiences
@@ -212,9 +232,14 @@ run_bash({
 - **Dagger CLI**: Must be installed and available in PATH. Install from [dagger.io/install](https://docs.dagger.io/install/)
 - **Container runtime**: Docker, Podman, or nerdctl must be running
 
+### Limitations
+
+- **Non-interactive**: Commands run as one-off executions. No interactive shells or prompts (e.g. `vim`, `npm init`).
+- **One-off executions**: Each `run_bash` call runs a single command. Chain commands in the same experience to build up state, or use `;` / `&&` in a single command where appropriate.
+
 ### Experience Storage
 
-Experiences are stored in a **separate directory** outside the work directory to avoid circular copy issues. The experiences directory is located at `<parent-of-work-dir>/<work-dir-name>-dagger-experiences/`. For example, if your work directory is `~/.jeeves`, experiences are stored in `~/.jeeves-dagger-experiences/`.
+Experiences are stored in a **sibling directory** of the work directory to avoid circular copies: `<parent>/<workDirName>-dagger-experiences/<experienceId>/`. For example, if your work directory is `~/.jeeves`, experiences are stored in `~/.jeeves-dagger-experiences/<experienceId>/`.
 
 Each experience directory contains:
 - A copy of the source directory (work dir or agent project)
