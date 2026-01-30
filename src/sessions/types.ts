@@ -12,11 +12,20 @@ export interface SessionsIndex {
 }
 
 /**
- * Single session entry in the sessions index
+ * Session source for adapter-based sessions (must match normalized-types SessionSource)
+ */
+export type SessionSourceForEntry = 'claude-code' | 'cursor' | 'windsurf' | 'aider' | 'unknown';
+
+/**
+ * Single session entry in the sessions index.
+ * File-based (Claude): fullPath and fileMtime set; content is read from JSONL.
+ * Adapter-based (Cursor, etc.): source set, no fullPath; content is loaded via adapter.getSession().
  */
 export interface SessionIndexEntry {
   sessionId: string;
-  fullPath: string;
+  /** Path to session JSONL file (Claude Code only). Omitted for adapter-based sources. */
+  fullPath?: string;
+  /** File mtime (Claude) or last-modified timestamp in ms (adapter sessions). */
   fileMtime: number;
   firstPrompt: string;
   messageCount: number;
@@ -25,6 +34,8 @@ export interface SessionIndexEntry {
   gitBranch: string;
   projectPath: string;
   isSidechain: boolean;
+  /** Required when fullPath is omitted; used to load content via adapter. */
+  source?: SessionSourceForEntry;
 }
 
 /**

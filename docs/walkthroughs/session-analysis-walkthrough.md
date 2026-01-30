@@ -1,10 +1,10 @@
 # Session Analysis Walkthrough
 
-This walkthrough demonstrates how to use the session management tools to understand what work has been done in a Claude Code project.
+This walkthrough demonstrates how to use the session management tools to understand what work has been done in a project (Claude Code and Cursor).
 
 ## Scenario
 
-You have a project where you've been working with Claude Code for a while, and you want to:
+You have a project where you've been working with Claude Code and/or Cursor, and you want to:
 - See what sessions exist
 - Understand the topics you've worked on
 - Find specific solutions you implemented
@@ -12,9 +12,15 @@ You have a project where you've been working with Claude Code for a while, and y
 
 ## Step 1: List Sessions
 
-First, let's see what Claude Code sessions exist for a project:
+First, list sessions for a project. Sessions from **Claude Code** and **Cursor** are both shown.
 
 ```bash
+# Current directory
+pnpm run cli sessions list
+
+# A different project (e.g. sibling repo)
+pnpm run cli sessions list -p ../thefocus-landing
+# or
 pnpm run cli sessions list --project /path/to/your/project
 ```
 
@@ -185,13 +191,18 @@ pnpm run cli sessions tools 2c0e713c --tool Edit
 
 ## Step 5: Index Sessions with LLM Analysis
 
-Now the powerful part - use an LLM to analyze all your sessions and extract structured metadata:
+Index **all** sessions (Claude Code and Cursor) so search covers everything you list:
 
 ```bash
-dotenvx run -- pnpm run cli sessions index --project /path/to/your/project
+# Current project
+dotenvx run -- pnpm run cli sessions index
+
+# Different project
+dotenvx run -- pnpm run cli sessions index -p ../thefocus-landing
 ```
 
 This will:
+- Discover sessions from all sources (Claude Code + Cursor)
 - Process each session using Gemini 3 Flash (fast and cheap)
 - Extract topics, tags, key learnings, solution types
 - Build a searchable index
@@ -205,13 +216,13 @@ Once indexed, you can search semantically:
 
 ```bash
 # Find sessions about a specific topic
-dotenvx run -- pnpm run cli sessions search "authentication" --project /path/to/your/project
+dotenvx run -- pnpm run cli sessions search "authentication" -p /path/to/your/project
 
 # Filter by tags
-dotenvx run -- pnpm run cli sessions search "debugging" --tags typescript,testing --project /path/to/your/project
+dotenvx run -- pnpm run cli sessions search "debugging" --tags typescript,testing -p /path/to/your/project
 
 # Find successful solutions
-dotenvx run -- pnpm run cli sessions search --success yes --type feature --project /path/to/your/project
+dotenvx run -- pnpm run cli sessions search --success yes --type feature -p /path/to/your/project
 ```
 
 **Example Output:**

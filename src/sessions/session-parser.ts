@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
+import type { ContentBlock } from './types.js';
 import type {
   SessionMessage,
   UserMessageEntry,
@@ -289,4 +290,92 @@ export function extractTextContent(content: string | ContentBlock[]): string[] {
   }
 
   return texts;
+}
+
+/**
+ * Metadata extracted from a session file without loading full messages.
+ * Used when discovering sessions from directory (files not in sessions-index.json).
+ */
+export interface SessionFileMetadata {
+  firstPrompt: string;
+  messageCount: number;
+  created: string;
+  modified: string;
+  gitBranch: string;
+  isSidechain: boolean;
+}
+
+const UUID_JSONL_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
+
+function extractFirstUserText(msg: { message: { content: string | ContentBlock[] } }): string {
+  const content = msg.message.content;
+  if (typeof content === 'string') {
+    return content.slice(0, 500);
+  }
+  const textBlock = content.find((b: { type: string }) => b.type === 'text') as { text?: string } | undefined;
+  return textBlock?.text ? textBlock.text.slice(0, 500) : '';
+}
+
+/**
+ * Stream a session JSONL file and extract minimal metadata (first prompt, count, timestamps, git branch).
+ * Use this when building session index entries from files not listed in sessions-index.json.
+ */
+export async function parseSessionFileMetadata(filePath: string): Promise<SessionFileMetadata | null> {
+  const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
+  const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
+
+  let firstPrompt = '';
+  let messageCount = 0;
+  let created = '';
+  let modified = '';
+  let gitBranch = '';
+  let isSidechain = false;
+
+  try {
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      const msg = parseJSONLLine(line) as SessionMessage | null;
+      if (!msg) continue;
+
+      const ts = msg.timestamp || '';
+      if (ts) {
+        if (!created) created = ts;
+        modified = ts;
+      }
+      if ('gitBranch' in msg && typeof (msg as { gitBranch?: string }).gitBranch === 'string') {
+        if (!gitBranch) gitBranch = (msg as { gitBranch: string }).gitBranch;
+      }
+      if ('isSidechain' in msg && typeof (msg as { isSidechain?: boolean }).isSidechain === 'boolean') {
+        isSidechain = (msg as { isSidechain: boolean }).isSidechain;
+      }
+
+      if (msg.type === 'user') {
+        messageCount++;
+        if (!firstPrompt) firstPrompt = extractFirstUserText(msg as UserMessageEntry);
+      } else if (msg.type === 'assistant') {
+        messageCount++;
+      }
+    }
+  } finally {
+    fileStream.destroy();
+  }
+
+  if (!created) created = modified || new Date().toISOString();
+  if (!modified) modified = created;
+
+  return {
+    firstPrompt: firstPrompt || '(no prompt)',
+    messageCount,
+    created,
+    modified,
+    gitBranch: gitBranch || 'main',
+    isSidechain,
+  };
+}
+
+/**
+ * Check if a filename looks like a session JSONL (UUID.jsonl), not a subagent file (agent-*.jsonl).
+ */
+export function isSessionJsonlFilename(name: string): boolean {
+  return UUID_JSONL_REGEX.test(name) && !name.startsWith('agent-');
 }

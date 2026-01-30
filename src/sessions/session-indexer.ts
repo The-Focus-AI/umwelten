@@ -1,8 +1,10 @@
 import { ModelDetails } from '../cognition/types.js';
-import { getProjectSessions } from './session-store.js';
+import { getAdapterRegistry } from './adapters/index.js';
+import { getProjectSessionsIncludingFromDirectory } from './session-store.js';
 import { summarizeSession, parseSessionFile, extractToolCalls } from './session-parser.js';
-import { analyzeSessionWithRetry } from './session-analyzer.js';
+import { analyzeSessionWithRetry, analyzeSessionFromNormalizedSession } from './session-analyzer.js';
 import type { SessionIndexEntry } from './types.js';
+import type { NormalizedSession } from './normalized-types.js';
 import type {
   SessionAnalysisIndex,
   SessionAnalysisEntry,
@@ -52,8 +54,8 @@ export async function discoverNewSessions(
   projectPath: string,
   force: boolean = false
 ): Promise<{ allSessions: SessionIndexEntry[]; sessionsToIndex: SessionIndexEntry[] }> {
-  // Get all sessions for the project
-  const allSessions = await getProjectSessions(projectPath);
+  // Get all sessions (index + directory-discovered) so we index everything listable
+  const allSessions = await getProjectSessionsIncludingFromDirectory(projectPath);
 
   // Load existing analysis index if it exists
   let analysisIndex: SessionAnalysisIndex | null = null;
@@ -74,9 +76,12 @@ export async function discoverNewSessions(
 }
 
 /**
- * Create metadata for a session
+ * Create metadata for a file-based session (Claude Code JSONL).
  */
 async function createSessionMetadata(session: SessionIndexEntry): Promise<SessionMetadata> {
+  if (!session.fullPath) {
+    throw new Error('createSessionMetadata requires session.fullPath');
+  }
   const messages = await parseSessionFile(session.fullPath);
   const summary = summarizeSession(messages);
   const toolCalls = extractToolCalls(messages);
@@ -93,7 +98,22 @@ async function createSessionMetadata(session: SessionIndexEntry): Promise<Sessio
 }
 
 /**
- * Process a batch of sessions concurrently
+ * Create metadata for an adapter-based session (Cursor, etc.).
+ */
+function createSessionMetadataFromNormalized(session: NormalizedSession): SessionMetadata {
+  return {
+    firstPrompt: session.firstPrompt,
+    gitBranch: session.gitBranch ?? '',
+    created: session.created,
+    duration: session.duration,
+    messageCount: session.messageCount,
+    toolCallCount: session.metrics?.toolCalls ?? 0,
+    estimatedCost: session.metrics?.estimatedCost ?? 0,
+  };
+}
+
+/**
+ * Process a batch of sessions concurrently (file-based and adapter-based).
  */
 export async function batchAnalyzeSessions(
   sessions: SessionIndexEntry[],
@@ -101,6 +121,7 @@ export async function batchAnalyzeSessions(
   verbose: boolean = false
 ): Promise<SessionAnalysisEntry[]> {
   const results: SessionAnalysisEntry[] = [];
+  const registry = getAdapterRegistry();
 
   // Process all sessions in parallel using Promise.all
   const promises = sessions.map(async (session) => {
@@ -109,18 +130,36 @@ export async function batchAnalyzeSessions(
     }
 
     try {
-      // Analyze session with retry
-      const analysisResult = await analyzeSessionWithRetry(session, model);
+      let analysisResult: { analysis: SessionAnalysisEntry['analysis']; relatedFiles: string[] } | null;
+      let metadata: SessionMetadata;
 
-      if (!analysisResult) {
-        // Analysis failed after retries
-        return null;
+      if (session.fullPath) {
+        // File-based (Claude Code): read from JSONL
+        analysisResult = await analyzeSessionWithRetry(session, model);
+        if (!analysisResult) return null;
+        metadata = await createSessionMetadata(session);
+      } else {
+        // Adapter-based (Cursor, etc.): load via adapter
+        const source = session.source ?? 'unknown';
+        const adapter = registry.get(source);
+        if (!adapter) {
+          console.error(`No adapter for source "${source}", skipping session ${session.sessionId}`);
+          return null;
+        }
+        const normalizedSession = await adapter.getSession(session.sessionId);
+        if (!normalizedSession) {
+          console.error(`Adapter could not load session ${session.sessionId}`);
+          return null;
+        }
+        analysisResult = await analyzeSessionFromNormalizedSession(
+          normalizedSession,
+          session.sessionId,
+          session.fileMtime,
+          model
+        );
+        metadata = createSessionMetadataFromNormalized(normalizedSession);
       }
 
-      // Create metadata
-      const metadata = await createSessionMetadata(session);
-
-      // Create analysis entry
       const entry: SessionAnalysisEntry = {
         sessionId: session.sessionId,
         sessionMtime: session.fileMtime,
@@ -233,15 +272,37 @@ export async function indexProject(
     name: modelName,
   };
 
-  // Discover sessions to index
-  if (verbose) {
-    console.log('Discovering sessions to index...');
-  }
+  // Use override list (from adapters, same as list) or discover from session-store
+  let allSessions: SessionIndexEntry[];
+  let sessionsToIndex: SessionIndexEntry[];
 
-  const { allSessions, sessionsToIndex } = await discoverNewSessions(projectPath, force);
-
-  if (verbose) {
-    console.log(`Found ${allSessions.length} total sessions, ${sessionsToIndex.length} to index`);
+  if (options.sessionsOverride !== undefined) {
+    allSessions = options.sessionsOverride;
+    // Still need to filter by needsReindexing
+    let analysisIndex: SessionAnalysisIndex | null = null;
+    if (await hasAnalysisIndex(projectPath)) {
+      try {
+        analysisIndex = await readAnalysisIndex(projectPath);
+      } catch {
+        // ignore
+      }
+    }
+    sessionsToIndex = allSessions.filter(session =>
+      needsReindexing(session, analysisIndex, force)
+    );
+    if (verbose) {
+      console.log(`Using ${allSessions.length} sessions (from list), ${sessionsToIndex.length} to index`);
+    }
+  } else {
+    if (verbose) {
+      console.log('Discovering sessions to index...');
+    }
+    const discovered = await discoverNewSessions(projectPath, force);
+    allSessions = discovered.allSessions;
+    sessionsToIndex = discovered.sessionsToIndex;
+    if (verbose) {
+      console.log(`Found ${allSessions.length} total sessions, ${sessionsToIndex.length} to index`);
+    }
   }
 
   if (sessionsToIndex.length === 0) {

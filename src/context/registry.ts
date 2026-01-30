@@ -25,7 +25,7 @@ export function registerCompactionStrategy(s: CompactionStrategy): void {
 }
 
 export async function getCompactionStrategy(id: string): Promise<CompactionStrategy | undefined> {
-  if (BUILTIN_IDS.includes(id)) {
+  if ((BUILTIN_IDS as readonly string[]).includes(id)) {
     await ensureBuiltins();
   }
   return strategies.get(id);

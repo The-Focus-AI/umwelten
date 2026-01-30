@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SessionIndexEntry } from './types.js';
 
 /**
  * Analysis data extracted from a session by LLM
@@ -88,6 +89,8 @@ export interface IndexOptions {
   force?: boolean; // Force reindexing all sessions
   batchSize?: number; // Number of sessions to process concurrently
   verbose?: boolean; // Show detailed progress
+  /** When set, use this list instead of discovering from session-store (so index sees same sessions as list). */
+  sessionsOverride?: SessionIndexEntry[];
 }
 
 /**

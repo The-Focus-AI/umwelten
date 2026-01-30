@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import {
   hasSessionsIndex,
+  getProjectSessionsIncludingFromDirectory,
   getProjectSessions,
   hasAnalysisIndex,
 } from '../sessions/session-store.js';
@@ -22,8 +23,8 @@ import type { SearchOptions } from '../sessions/analysis-types.js';
 import { getAdapterRegistry } from '../sessions/adapters/index.js';
 import type { NormalizedSessionEntry, SessionSource } from '../sessions/normalized-types.js';
 
-export const sessionsCommand = new Command('external-interactions')
-  .description('View and analyze external interactions (Claude Code, Cursor)');
+export const sessionsCommand = new Command('sessions')
+  .description('View and analyze sessions (Claude Code, Cursor)');
 
 // Helper functions
 function formatDate(dateStr: string): string {
@@ -110,9 +111,9 @@ function getSourceLabel(source: SessionSource): string {
 // List subcommand
 sessionsCommand
   .command('list')
-  .description('List external interactions for a project (auto-detects Claude Code and Cursor)')
+  .description('List sessions for a project (auto-detects Claude Code and Cursor)')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--limit <number>', 'Number of external interactions to show', '10')
+  .option('--limit <number>', 'Number of sessions to show', '10')
   .option('--branch <branch>', 'Filter by git branch')
   .option('--sort <field>', 'Sort by field (created, modified, messages)', 'modified')
   .option('--source <source>', 'Filter by source (claude-code, cursor, all)', 'all')
@@ -237,12 +238,12 @@ sessionsCommand
 
       // Display results
       if (limitedSessions.length === 0) {
-        console.log(chalk.yellow('\nNo external interactions found.'));
+        console.log(chalk.yellow('\nNo sessions found.'));
 
         // Show which sources were checked
         const checkedSources = Object.keys(sourceCounts).join(', ');
         console.log(chalk.dim(`\nChecked sources: ${checkedSources}`));
-        console.log(chalk.dim('Make sure this is a project directory with external interactions (Claude Code, Cursor).'));
+        console.log(chalk.dim('Make sure this is a project directory with sessions (Claude Code, Cursor).'));
         return;
       }
 
@@ -256,7 +257,7 @@ sessionsCommand
         .join(', ');
 
       console.log(
-        chalk.bold(`\nFound ${allSessions.length} external interactions (showing ${limitedSessions.length})`)
+        chalk.bold(`\nFound ${allSessions.length} sessions (showing ${limitedSessions.length})`)
       );
       if (Object.keys(sourceCounts).length > 1 || sourceFilter === 'all') {
         console.log(chalk.dim(`Sources: ${sourcesSummary}`));
@@ -307,10 +308,10 @@ sessionsCommand
 
       console.log(table.toString());
 
-      console.log(chalk.dim('\nTip: Use "external-interactions show <id>" to view details'));
+      console.log(chalk.dim('\nTip: Use "sessions show <id>" to view details'));
       console.log(chalk.dim('     Use --source claude-code or --source cursor to filter'));
     } catch (error) {
-      console.error(chalk.red('Error listing external interactions:'), error);
+      console.error(chalk.red('Error listing sessions:'), error);
       process.exit(1);
     }
   });
@@ -323,8 +324,8 @@ interface ShowOptions {
 
 sessionsCommand
   .command('show')
-  .description('Show details for a specific external interaction')
-  .argument('<session-id>', 'External interaction ID to display')
+  .description('Show details for a specific session')
+  .argument('<session-id>', 'Session ID to display')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--json', 'Output in JSON format')
   .action(async (sessionId: string, options: ShowOptions) => {
@@ -334,7 +335,7 @@ sessionsCommand
       // Check if sessions index exists
       if (!(await hasSessionsIndex(projectPath))) {
         console.error(
-          chalk.red(`No external interactions found for project: ${projectPath}`)
+          chalk.red(`No sessions found for project: ${projectPath}`)
         );
         process.exit(1);
       }
@@ -346,9 +347,9 @@ sessionsCommand
       );
 
       if (!session) {
-        console.error(chalk.red(`External interaction not found: ${sessionId}`));
+        console.error(chalk.red(`Session not found: ${sessionId}`));
         console.log(
-          chalk.dim('\nTip: Use "external-interactions list" to see available external interactions')
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
         process.exit(1);
       }
@@ -386,7 +387,7 @@ sessionsCommand
       }
 
       // Display formatted output
-      console.log(chalk.bold(`\nExternal interaction: ${chalk.cyan(session.sessionId)}\n`));
+      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}\n`));
 
       const table = new Table({
         colWidths: [25, 50],
@@ -432,10 +433,10 @@ sessionsCommand
       console.log(chalk.dim(truncatePrompt(session.firstPrompt, 100)));
 
       console.log(
-        chalk.dim('\nTip: Use "external-interactions messages <id>" to view the conversation')
+        chalk.dim('\nTip: Use "sessions messages <id>" to view the conversation')
       );
       console.log(
-        chalk.dim('     Use "external-interactions tools <id>" to view tool calls')
+        chalk.dim('     Use "sessions tools <id>" to view tool calls')
       );
     } catch (error) {
       console.error(chalk.red('Error showing session:'), error);
@@ -454,8 +455,8 @@ interface MessagesOptions {
 
 sessionsCommand
   .command('messages')
-  .description('Display conversation messages from an external interaction')
-  .argument('<session-id>', 'External interaction ID to display messages from')
+  .description('Display conversation messages from a session')
+  .argument('<session-id>', 'Session ID to display messages from')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--user-only', 'Show only user messages')
   .option('--assistant-only', 'Show only assistant messages')
@@ -468,7 +469,7 @@ sessionsCommand
       // Check if sessions index exists
       if (!(await hasSessionsIndex(projectPath))) {
         console.error(
-          chalk.red(`No external interactions found for project: ${projectPath}`)
+          chalk.red(`No sessions found for project: ${projectPath}`)
         );
         process.exit(1);
       }
@@ -480,9 +481,9 @@ sessionsCommand
       );
 
       if (!session) {
-        console.error(chalk.red(`External interaction not found: ${sessionId}`));
+        console.error(chalk.red(`Session not found: ${sessionId}`));
         console.log(
-          chalk.dim('\nTip: Use "external-interactions list" to see available external interactions')
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
         process.exit(1);
       }
@@ -607,7 +608,7 @@ sessionsCommand
         return;
       }
 
-      console.log(chalk.bold(`\nExternal interaction: ${chalk.cyan(session.sessionId)}`));
+      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
 
       let displayedCount = 0;
       for (const msg of filteredMessages) {
@@ -662,7 +663,7 @@ sessionsCommand
 
       if (displayedCount === 0) {
         console.log(chalk.yellow('No text messages found in this session.'));
-        console.log(chalk.dim('This external interaction may contain only tool calls. Use "external-interactions tools <id>" to view them.'));
+        console.log(chalk.dim('This session may contain only tool calls. Use "sessions tools <id>" to view them.'));
       } else {
         console.log(chalk.dim(`Displayed ${displayedCount} message(s)\n`));
       }
@@ -691,8 +692,8 @@ interface ToolsOptions {
 
 sessionsCommand
   .command('tools')
-  .description('Show tool calls from an external interaction')
-  .argument('<session-id>', 'External interaction ID to extract tool calls from')
+  .description('Show tool calls from a session')
+  .argument('<session-id>', 'Session ID to extract tool calls from')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--tool <name>', 'Filter by tool name')
   .option('--json', 'Output in JSON format')
@@ -703,7 +704,7 @@ sessionsCommand
       // Check if sessions index exists
       if (!(await hasSessionsIndex(projectPath))) {
         console.error(
-          chalk.red(`No external interactions found for project: ${projectPath}`)
+          chalk.red(`No sessions found for project: ${projectPath}`)
         );
         process.exit(1);
       }
@@ -715,9 +716,9 @@ sessionsCommand
       );
 
       if (!session) {
-        console.error(chalk.red(`External interaction not found: ${sessionId}`));
+        console.error(chalk.red(`Session not found: ${sessionId}`));
         console.log(
-          chalk.dim('\nTip: Use "external-interactions list" to see available external interactions')
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
         process.exit(1);
       }
@@ -748,7 +749,7 @@ sessionsCommand
         return;
       }
 
-      console.log(chalk.bold(`\nExternal interaction: ${chalk.cyan(session.sessionId)}`));
+      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
       console.log(chalk.dim(`Found ${toolCalls.length} tool call(s)\n`));
 
       const table = new Table({
@@ -823,8 +824,8 @@ interface StatsOptions {
 
 sessionsCommand
   .command('stats')
-  .description('Show token usage statistics and costs for an external interaction')
-  .argument('<session-id>', 'External interaction ID to analyze')
+  .description('Show token usage statistics and costs for a session')
+  .argument('<session-id>', 'Session ID to analyze')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--json', 'Output in JSON format')
   .action(async (sessionId: string, options: StatsOptions) => {
@@ -834,7 +835,7 @@ sessionsCommand
       // Check if sessions index exists
       if (!(await hasSessionsIndex(projectPath))) {
         console.error(
-          chalk.red(`No external interactions found for project: ${projectPath}`)
+          chalk.red(`No sessions found for project: ${projectPath}`)
         );
         process.exit(1);
       }
@@ -846,9 +847,9 @@ sessionsCommand
       );
 
       if (!session) {
-        console.error(chalk.red(`External interaction not found: ${sessionId}`));
+        console.error(chalk.red(`Session not found: ${sessionId}`));
         console.log(
-          chalk.dim('\nTip: Use "external-interactions list" to see available external interactions')
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
         process.exit(1);
       }
@@ -914,7 +915,7 @@ sessionsCommand
 
       // Display formatted output
       console.log(chalk.bold(`\nToken Usage & Cost Statistics`));
-      console.log(chalk.dim(`External interaction: ${chalk.cyan(session.sessionId)}\n`));
+      console.log(chalk.dim(`Session: ${chalk.cyan(session.sessionId)}\n`));
 
       // Token Usage Table
       const tokenTable = new Table({
@@ -986,7 +987,7 @@ sessionsCommand
       console.log(cacheStatsTable.toString());
 
       // Overview
-      console.log(chalk.bold('\nExternal interaction overview\n'));
+      console.log(chalk.bold('\nSession overview\n'));
 
       const overviewTable = new Table({
         colWidths: [35, 25],
@@ -1006,7 +1007,7 @@ sessionsCommand
       console.log(overviewTable.toString());
 
       console.log(
-        chalk.dim('\nTip: Use "external-interactions show <id>" to view full details')
+        chalk.dim('\nTip: Use "sessions show <id>" to view full details')
       );
       console.log(
         chalk.dim('     Use --json to get structured output')
@@ -1028,7 +1029,7 @@ interface FormatOptions {
 
 sessionsCommand
   .command('format')
-  .description('Format JSONL external interaction stream from stdin to readable text with rich metrics')
+  .description('Format JSONL session stream from stdin to readable text with rich metrics')
   .option('--assistant-only', 'Show only assistant messages')
   .option('--user-only', 'Show only user messages')
   .option('--no-tools', 'Hide tool calls and execution details')
@@ -1042,8 +1043,8 @@ sessionsCommand
       // Check if stdin is being piped
       if (stdin.isTTY) {
         console.error(chalk.red('Error: This command requires input from stdin'));
-        console.log(chalk.dim('\nUsage: claude -p "prompt" --output-format stream-json | umwelten external-interactions format'));
-        console.log(chalk.dim('       cat session.jsonl | umwelten external-interactions format'));
+        console.log(chalk.dim('\nUsage: claude -p "prompt" --output-format stream-json | umwelten sessions format'));
+        console.log(chalk.dim('       cat session.jsonl | umwelten sessions format'));
         process.exit(1);
       }
 
@@ -1094,7 +1095,7 @@ sessionsCommand
 
             if (!isShort && !options.userOnly && !options.assistantOnly) {
               console.log(chalk.dim('━'.repeat(80)));
-              console.log(chalk.cyan.bold('📡 External interaction started'));
+              console.log(chalk.cyan.bold('📡 Session started'));
               console.log(chalk.dim(`ID: ${message.session_id?.split('-')[0] || 'unknown'}`));
               console.log(chalk.dim(`Model: ${message.model || 'unknown'}`));
               console.log(chalk.dim(`CWD: ${message.cwd || 'unknown'}`));
@@ -1272,7 +1273,7 @@ sessionsCommand
       // SHORT TABLE VIEW
       if (isShort) {
         if (finalResult) {
-          console.log(chalk.bold.cyan('\n📊 External interaction summary (short)\n'));
+          console.log(chalk.bold.cyan('\n📊 Session summary (short)\n'));
 
           const summaryTable = new Table({
             head: ['Metric', 'Value'],
@@ -1284,7 +1285,7 @@ sessionsCommand
           });
 
           summaryTable.push(
-            ['External interaction ID', sessionMetadata?.session_id?.split('-')[0] || 'unknown'],
+            ['Session ID', sessionMetadata?.session_id?.split('-')[0] || 'unknown'],
             ['Model', sessionMetadata?.model || 'unknown'],
             ['Duration', `${(actualDuration / 1000).toFixed(1)}s (API: ${(apiDuration / 1000).toFixed(1)}s)`],
             ['Turns', numTurns.toString()],
@@ -1363,7 +1364,7 @@ sessionsCommand
       // DETAILED VIEW
       else if (messageCount > 0 || toolCalls.length > 0) {
         console.log(chalk.dim('\n' + '━'.repeat(80)));
-        console.log(chalk.cyan.bold('📊 External interaction summary'));
+        console.log(chalk.cyan.bold('📊 Session summary'));
         console.log(chalk.dim('━'.repeat(80)));
 
         if (actualDuration > 0) {
@@ -1471,8 +1472,8 @@ interface ExportOptions {
 
 sessionsCommand
   .command('export')
-  .description('Export external interaction to markdown or JSON format')
-  .argument('<session-id>', 'External interaction ID to export')
+  .description('Export session to markdown or JSON format')
+  .argument('<session-id>', 'Session ID to export')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('-f, --format <format>', 'Output format (markdown, json)', 'markdown')
   .option('-o, --output <file>', 'Output file (prints to stdout if not specified)')
@@ -1485,7 +1486,7 @@ sessionsCommand
       // Check if sessions index exists
       if (!(await hasSessionsIndex(projectPath))) {
         console.error(
-          chalk.red(`No external interactions found for project: ${projectPath}`)
+          chalk.red(`No sessions found for project: ${projectPath}`)
         );
         process.exit(1);
       }
@@ -1497,9 +1498,9 @@ sessionsCommand
       );
 
       if (!session) {
-        console.error(chalk.red(`External interaction not found: ${sessionId}`));
+        console.error(chalk.red(`Session not found: ${sessionId}`));
         console.log(
-          chalk.dim('\nTip: Use "external-interactions list" to see available external interactions')
+          chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
         process.exit(1);
       }
@@ -1566,7 +1567,7 @@ sessionsCommand
         const lines: string[] = [];
 
         // Header
-        lines.push(`# External interaction: ${session.sessionId}`);
+        lines.push(`# Session: ${session.sessionId}`);
         lines.push('');
 
         // Metadata section
@@ -1684,7 +1685,7 @@ interface IndexCommandOptions {
 
 sessionsCommand
   .command('index')
-  .description('Index external interactions using LLM analysis for intelligent search')
+  .description('Index sessions using LLM analysis for intelligent search')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('-m, --model <model>', 'Model for analysis (format: provider:model)', 'google:gemini-3-flash-preview')
   .option('--force', 'Force reindex all sessions', false)
@@ -1694,19 +1695,74 @@ sessionsCommand
     try {
       const projectPath = resolve(options.project);
 
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No external interactions found for project: ${projectPath}`)
-        );
-        console.log(
-          chalk.dim('\nTip: This project has no Claude Code sessions to index.')
-        );
+      // Use same discovery as list (adapters) so index sees every session list shows
+      const registry = getAdapterRegistry();
+      const adapters = registry.getAll();
+      const allNormalized: NormalizedSessionEntry[] = [];
+      for (const adapter of adapters) {
+        if (!adapter) continue;
+        try {
+          const result = await adapter.discoverSessions({
+            projectPath,
+            sortBy: 'modified',
+            sortOrder: 'desc',
+          });
+          allNormalized.push(...result.sessions);
+        } catch {
+          // Source not available for this project
+        }
+      }
+
+      // Build indexable entries for all sources: Claude (file-based) and Cursor/others (adapter-based)
+      const sessionsOverride: SessionIndexEntry[] = allNormalized.map(s => {
+        const hasFullPath =
+          s.source === 'claude-code' &&
+          s.sourceData != null &&
+          typeof (s.sourceData as any).fullPath === 'string' &&
+          typeof (s.sourceData as any).fileMtime === 'number';
+
+        const fileMtime = hasFullPath
+          ? (s.sourceData as any).fileMtime
+          : new Date(s.modified).getTime();
+        const sessionId = hasFullPath ? s.sourceId : s.id;
+
+        return {
+          sessionId,
+          ...(hasFullPath && {
+            fullPath: (s.sourceData as any).fullPath,
+          }),
+          fileMtime,
+          firstPrompt: s.firstPrompt ?? '',
+          messageCount: s.messageCount ?? 0,
+          created: s.created ?? '',
+          modified: s.modified ?? '',
+          gitBranch: s.gitBranch ?? 'main',
+          projectPath: s.projectPath ?? projectPath,
+          isSidechain: s.isSidechain ?? false,
+          ...(!hasFullPath && { source: s.source }),
+        };
+      });
+
+      if (sessionsOverride.length === 0) {
+        console.error(chalk.red(`No sessions found for project: ${projectPath}`));
         process.exit(1);
       }
 
-      console.log(chalk.bold('Indexing Claude Code sessions...'));
+      const bySource = sessionsOverride.reduce(
+        (acc, s) => {
+          const src = s.fullPath ? 'claude-code' : (s.source ?? 'unknown');
+          acc[src] = (acc[src] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+      const sourceSummary = Object.entries(bySource)
+        .map(([k, n]) => `${n} ${k}`)
+        .join(', ');
+
+      console.log(chalk.bold('Indexing sessions...'));
       console.log(chalk.dim(`Project: ${projectPath}`));
+      console.log(chalk.dim(`Sessions: ${sessionsOverride.length} (${sourceSummary})`));
       console.log(chalk.dim(`Model: ${options.model}`));
       console.log('');
 
@@ -1718,6 +1774,7 @@ sessionsCommand
         force: options.force,
         batchSize,
         verbose: options.verbose,
+        sessionsOverride,
       });
 
       console.log('');
@@ -1754,7 +1811,7 @@ interface SearchCommandOptions {
 
 sessionsCommand
   .command('search')
-  .description('Search indexed external interactions by keywords, tags, topics, or filters')
+  .description('Search indexed sessions by keywords, tags, topics, or filters')
   .argument('[query]', 'Search query (optional)')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('--tags <tags>', 'Filter by tags (comma-separated)')
@@ -1814,7 +1871,7 @@ interface AnalyzeCommandOptions {
 
 sessionsCommand
   .command('analyze')
-  .description('Aggregate analysis across all indexed external interactions')
+  .description('Aggregate analysis across all indexed sessions')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
   .option('-t, --type <type>', 'Analysis type: topics, tools, patterns, timeline', 'topics')
   .option('--json', 'Output as JSON', false)

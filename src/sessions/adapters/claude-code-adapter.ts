@@ -33,7 +33,7 @@ import {
   getClaudeProjectPath,
   getSessionsIndexPath,
   hasSessionsIndex,
-  readSessionsIndex,
+  getProjectSessionsIncludingFromDirectory,
 } from '../session-store.js';
 import {
   parseSessionFile,
@@ -112,8 +112,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       };
     }
 
-    const index = await readSessionsIndex(projectPath);
-    let entries = index.entries;
+    let entries = await getProjectSessionsIncludingFromDirectory(projectPath);
 
     // Apply filters
     if (options?.gitBranch) {
@@ -180,8 +179,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
 
     for (const projectPath of projects) {
       try {
-        const index = await readSessionsIndex(projectPath);
-        const entry = index.entries.find(
+        const entries = await getProjectSessionsIncludingFromDirectory(projectPath);
+        const entry = entries.find(
           e => e.sessionId === originalId || e.sessionId.startsWith(originalId)
         );
         if (entry) {
@@ -205,8 +204,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
 
     for (const projectPath of projects) {
       try {
-        const index = await readSessionsIndex(projectPath);
-        const entry = index.entries.find(
+        const entries = await getProjectSessionsIncludingFromDirectory(projectPath);
+        const entry = entries.find(
           e => e.sessionId === originalId || e.sessionId.startsWith(originalId)
         );
 
@@ -246,6 +245,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       messageCount: entry.messageCount,
       firstPrompt: entry.firstPrompt,
       isSidechain: entry.isSidechain,
+      sourceData: { fullPath: entry.fullPath, fileMtime: entry.fileMtime },
     };
   }
 

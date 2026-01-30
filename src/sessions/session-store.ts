@@ -1,9 +1,13 @@
 import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
-import { readFile, access, writeFile } from 'node:fs/promises';
+import { readFile, access, writeFile, readdir, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type { SessionsIndex, SessionIndexEntry } from './types.js';
 import type { SessionAnalysisIndex } from './analysis-types.js';
+import {
+  parseSessionFileMetadata,
+  isSessionJsonlFilename,
+} from './session-parser.js';
 
 /**
  * Get the path to Claude's sessions directory for a given project
@@ -63,11 +67,99 @@ export async function readSessionsIndex(projectPath: string): Promise<SessionsIn
 }
 
 /**
- * Get all session entries for a given project
+ * Get session entries from the sessions-index.json only (no directory scan).
+ * Use getProjectSessionsIncludingFromDirectory to include .jsonl files not in the index.
  */
 export async function getProjectSessions(projectPath: string): Promise<SessionIndexEntry[]> {
   const index = await readSessionsIndex(projectPath);
   return index.entries;
+}
+
+/**
+ * List full paths to session JSONL files in the project directory (UUID.jsonl, excluding agent-*.jsonl).
+ * Does not require sessions-index.json to exist.
+ */
+export async function discoverSessionFilesInProject(projectPath: string): Promise<string[]> {
+  const dir = getClaudeProjectPath(projectPath);
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const sessionFiles = names.filter(
+    (name) => isSessionJsonlFilename(name)
+  );
+  return sessionFiles.map((name) => join(dir, name));
+}
+
+/**
+ * Build a SessionIndexEntry from a session JSONL file by streaming it for metadata.
+ * Used for files that exist on disk but are not listed in sessions-index.json.
+ */
+export async function buildSessionEntryFromFile(
+  filePath: string,
+  projectPath: string
+): Promise<SessionIndexEntry | null> {
+  const name = basename(filePath, '.jsonl');
+  if (!name || name.includes('.')) return null;
+  let fileMtime: number;
+  try {
+    const st = await stat(filePath);
+    fileMtime = st.mtimeMs;
+  } catch {
+    return null;
+  }
+  const meta = await parseSessionFileMetadata(filePath);
+  if (!meta) return null;
+  return {
+    sessionId: name,
+    fullPath: filePath,
+    fileMtime,
+    firstPrompt: meta.firstPrompt,
+    messageCount: meta.messageCount,
+    created: meta.created,
+    modified: meta.modified,
+    gitBranch: meta.gitBranch,
+    projectPath,
+    isSidechain: meta.isSidechain,
+  };
+}
+
+/**
+ * Get all session entries for a project by merging sessions-index.json with any
+ * session .jsonl files in the project directory that are not in the index.
+ * This ensures sessions created in Claude Code but not yet written to the index
+ * (or when the index is stale) are still listed.
+ */
+export async function getProjectSessionsIncludingFromDirectory(
+  projectPath: string
+): Promise<SessionIndexEntry[]> {
+  let indexEntries: SessionIndexEntry[] = [];
+  try {
+    const index = await readSessionsIndex(projectPath);
+    indexEntries = index.entries;
+  } catch {
+    // No index or invalid - continue with directory discovery only
+  }
+
+  const knownIds = new Set(indexEntries.map((e) => e.sessionId));
+  const files = await discoverSessionFilesInProject(projectPath);
+  const discovered: SessionIndexEntry[] = [];
+
+  for (const filePath of files) {
+    const sessionId = basename(filePath, '.jsonl');
+    if (knownIds.has(sessionId)) continue;
+    const entry = await buildSessionEntryFromFile(filePath, projectPath);
+    if (entry) {
+      discovered.push(entry);
+      knownIds.add(sessionId);
+    }
+  }
+
+  const merged = [...indexEntries, ...discovered];
+  merged.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
+  return merged;
 }
 
 /**

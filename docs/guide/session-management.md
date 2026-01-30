@@ -1,8 +1,8 @@
-# External Interactions & Search
+# Session Management & Search
 
-Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history (**external interactions**—read-only data from Claude Code, Cursor, etc.). This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
+Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history (**sessions**—read-only data from Claude Code, Cursor, etc.). This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
 
-**CLI command**: `umwelten external-interactions` (formerly `sessions`).
+**CLI command**: `sessions` (e.g. `pnpm run cli sessions list`).
 
 ## Supported Sources
 
@@ -17,25 +17,28 @@ More sources (Windsurf, Aider) are planned for future releases.
 
 ## Overview
 
-The external-interactions system consists of three main features:
+The session system consists of three main features:
 
-1. **Listing & Inspection** - View and explore external interactions from Claude Code or Cursor
-2. **LLM-Based Indexing** - Automatically extract topics, tags, and key learnings using AI
-3. **Intelligent Search** - Find relevant external interactions using semantic search and filters
+1. **Listing & Inspection** - View and explore sessions from Claude Code or Cursor
+2. **LLM-Based Indexing** - Automatically extract topics, tags, and key learnings using AI (indexes **all** sources: Claude Code and Cursor)
+3. **Intelligent Search** - Find relevant sessions using keyword search and filters
 
 ## Quick Start
 
-### List recent external interactions
+### List recent sessions
 
 ```bash
-# List external interactions for the current project (auto-detects source)
-pnpm run cli external-interactions list
+# List sessions for the current project (auto-detects Claude Code + Cursor)
+pnpm run cli sessions list
 
-# Show details for a specific external interaction
-pnpm run cli external-interactions show abc1234
+# List sessions for a different project (e.g. sibling directory)
+pnpm run cli sessions list -p ../other-project
+
+# Show details for a specific session
+pnpm run cli sessions show abc1234
 
 # Export to markdown
-pnpm run cli external-interactions export abc1234 --output interaction.md
+pnpm run cli sessions export abc1234 --output session.md
 ```
 
 ## Multi-Source Support
@@ -187,12 +190,14 @@ interface NormalizedMessage {
 
 ### Index Sessions
 
+Indexing runs on **all sources** (Claude Code and Cursor) so search covers every session you list.
+
 ```bash
-# Index all sessions in the current project using Gemini 3 Flash (default)
+# Index all sessions in the current project (Claude + Cursor)
 dotenvx run -- pnpm run cli sessions index
 
 # Index sessions for a different project
-dotenvx run -- pnpm run cli sessions index --project /path/to/project
+dotenvx run -- pnpm run cli sessions index -p ../other-project
 
 # Force reindex all sessions
 dotenvx run -- pnpm run cli sessions index --force
@@ -234,10 +239,10 @@ dotenvx run -- pnpm run cli sessions analyze --type patterns
 
 ### `sessions list`
 
-List all Claude Code sessions for a project.
+List sessions for a project (Claude Code and Cursor).
 
 **Options:**
-- `-p, --project <path>` - Project path (defaults to current directory)
+- `-p, --project <path>` - Project path (defaults to current directory). Use this to list/index/search a different repo (e.g. `-p ../other-project`).
 - `-l, --limit <n>` - Maximum number of sessions to display (default: 10)
 - `-b, --branch <branch>` - Filter by git branch
 - `--json` - Output as JSON
@@ -411,21 +416,15 @@ dotenvx run -- pnpm run cli sessions index --model google:gemini-2.0-flash-exp
 
 **Output:**
 ```
-Indexing Claude Code sessions...
+Indexing sessions...
 Project: /Users/user/project
+Sessions: 90 (33 claude-code, 57 cursor)
 Model: google:gemini-3-flash-preview
-
-Discovering sessions to index...
-Found 27 total sessions, 12 to index
-
-Processing batch 1/3 (5 sessions)...
-  Analyzing abc1234...
-  Analyzing def5678...
-  Batch 1 complete: 5 analyzed, 0 failed
 
 ✓ Indexing complete
   Indexed: 12 sessions
-  Skipped: 15 sessions (already indexed)
+  Skipped: 78 sessions (already indexed)
+
 ```
 
 ### What Gets Extracted

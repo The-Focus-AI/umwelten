@@ -40,6 +40,13 @@
 
 ---
 
+## Completed: Index All Session Sources
+
+- [x] Make SessionIndexEntry support adapter-based sessions (optional fullPath, source)
+- [x] Add session-analyzer support for NormalizedSession (markdown + analysis)
+- [x] Add createSessionMetadataFromNormalized; indexer branches on fullPath vs adapter
+- [x] CLI builds sessionsOverride for all adapters (Cursor + Claude); index runs on all sources
+
 ## Current: Session Normalization (Multi-Source Support)
 
 Goal: Support sessions from Claude Code, Cursor, Windsurf, and other AI coding tools via a normalized format.
