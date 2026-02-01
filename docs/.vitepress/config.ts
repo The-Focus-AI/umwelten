@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Running Prompts', link: '/guide/running-prompts' },
             { text: 'Interactive Chat', link: '/guide/interactive-chat' },
             { text: 'Telegram Bot', link: '/guide/telegram-bot' },
+            { text: 'Jeeves Bot', link: '/guide/jeeves-bot' },
             { text: 'Web Interface', link: '/guide/web' },
             { text: 'Tool Calling', link: '/guide/tool-calling' },
             { text: 'Model Evaluation', link: '/guide/model-evaluation' },

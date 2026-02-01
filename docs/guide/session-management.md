@@ -41,6 +41,51 @@ pnpm run cli sessions show abc1234
 pnpm run cli sessions export abc1234 --output session.md
 ```
 
+## Session browser and TUI
+
+You can explore sessions interactively with the **session browser** or the **session TUI**.
+
+### Session browser (`sessions browse`)
+
+The browser is a full-screen TUI that shows a searchable list of sessions. Each card shows the first message, and when you have run [indexing](#index-sessions), it also shows the AI-generated summary, key learnings, topics, tools used, and success indicator. Use it to quickly find a session, then open it in detail elsewhere.
+
+```bash
+# Start the session browser (default: current project)
+pnpm run cli sessions browse
+
+# Browse sessions for another project
+pnpm run cli sessions browse -p ../other-project
+```
+
+**In the browser:**
+- **Type** to search (uses the analysis index when present; otherwise filters by first message text).
+- **↑ / ↓** to move selection.
+- **Enter** to choose the selected session and exit. The CLI then prints the command to view the full session, e.g. `umwelten sessions show <id>`.
+
+If you haven’t indexed yet, cards show “Not indexed” and you can still filter by first message. Run `sessions index` to enable summaries and richer search.
+
+### Session TUI (`sessions tui`)
+
+The TUI can show a **live stream** (stdin JSONL), a **session file**, or a **session by ID** (from the adapter list). Use it to scroll through messages and tool calls for one conversation.
+
+```bash
+# Interactive TUI: overview, then choose a session or open a file
+pnpm run cli sessions tui
+
+# Open a specific session by ID (from sessions list)
+pnpm run cli sessions tui --session abc1234
+pnpm run cli sessions tui abc1234
+
+# Open a session from a JSONL file path
+pnpm run cli sessions tui --file /path/to/session.jsonl
+pnpm run cli sessions tui /path/to/session.jsonl
+
+# Project path (default: current directory)
+pnpm run cli sessions tui -p ../other-project
+```
+
+When you pass a session ID, the TUI loads that session from the configured adapters (Claude Code, Cursor). When you pass a file path, it reads that JSONL file directly. With no arguments, the TUI starts in overview mode (you can then open a session or file from there).
+
 ## Multi-Source Support
 
 ### Working with Claude Code Sessions

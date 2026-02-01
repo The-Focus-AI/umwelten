@@ -132,11 +132,11 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
     if (input) {
       const lower = input.toLowerCase();
       if (lower === 'o') {
-      const selected = sessions[selectedIndex];
-      if (selected) {
-        onSelectSession(selected.session.id);
-        exit();
-      }
+        const selected = sessions[selectedIndex];
+        if (selected) {
+          onSelectSession(selected.session.id);
+          exit();
+        }
         return;
       }
     }
@@ -187,6 +187,10 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
         onBack={() => {
           setViewMode('browse');
           setSelectedSession(null);
+        }}
+        onOpenAndExit={() => {
+          onSelectSession(selectedSession.session.id);
+          exit();
         }}
       />
     );
@@ -242,7 +246,7 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
       {/* Footer: hints + open command */}
       <Box marginTop={1} flexDirection="column">
         <Text color="gray">
-          <Text color="cyan">↑/↓</Text> select · <Text color="cyan">Enter</Text> chat · type to search · <Text color="yellow">i</Text> index
+          <Text color="cyan">↑/↓</Text> select · <Text color="cyan">Enter</Text> chat · <Text color="cyan">o</Text> open & exit · type to search · <Text color="yellow">i</Text> index
         </Text>
         {sessions[selectedIndex] && (
           <Text color="gray">  → umwelten sessions show {sessions[selectedIndex].session.id}</Text>

@@ -62,12 +62,15 @@ export interface ChatDetailViewProps {
   projectPath: string;
   sessionEntry: NormalizedSessionEntry;
   onBack: () => void;
+  /** Called when user presses 'o' to open and exit (e.g. print CLI command). */
+  onOpenAndExit?: () => void;
 }
 
 export function ChatDetailView({
   projectPath,
   sessionEntry,
   onBack,
+  onOpenAndExit,
 }: ChatDetailViewProps): React.ReactElement {
   const [messages, setMessages] = useState<NormalizedMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +105,10 @@ export function ChatDetailView({
     const lower = input.toLowerCase();
     if (lower === 'b') {
       onBack();
+      return;
+    }
+    if (lower === 'o') {
+      onOpenAndExit?.();
       return;
     }
     if (key.return) {
@@ -194,7 +201,7 @@ export function ChatDetailView({
 
       <Box marginTop={1}>
         <Text color="gray">
-          <Text color="cyan">↑/↓</Text> move · <Text color="cyan">Enter</Text> expand/collapse · <Text color="gray">Esc</Text> back
+          <Text color="cyan">↑/↓</Text> move · <Text color="cyan">Enter</Text> expand · <Text color="gray">Esc</Text> back · <Text color="cyan">o</Text> open & exit
         </Text>
       </Box>
     </Box>
