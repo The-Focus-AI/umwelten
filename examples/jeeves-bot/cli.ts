@@ -2,7 +2,7 @@
 /**
  * Jeeves CLI: REPL or one-shot. Use --provider and --model or env JEEVES_PROVIDER, JEEVES_MODEL.
  * Default: google / gemini-2.0-flash.
- * Commands: /exit, /quit, /context, /checkpoint, /compact [strategyId], /compact help
+ * Commands: /exit, /quit, /onboard, /context, /checkpoint, /compact [strategyId], /compact help
  * CLI runs create a session under JEEVES_SESSIONS_DIR (cli-{timestamp}-{id}) and persist a transcript.
  */
 
@@ -179,7 +179,7 @@ async function repl(
 ): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   console.log('Jeeves at your service. Type a message and press Enter.');
-  console.log('Commands: /exit, /quit, /time, /context, /checkpoint, /compact [strategyId], /compact help\n');
+  console.log('Commands: /exit, /quit, /onboard, /time, /context, /checkpoint, /compact [strategyId], /compact help\n');
 
   const ask = () => {
     rl.question('You: ', async (line) => {
@@ -206,6 +206,16 @@ async function repl(
         });
         rl.close();
         process.exit(0);
+      }
+      if (input === '/onboard') {
+        const { getWorkDir } = await import('./config.js');
+        const { runOnboarding, printOnboardingResult } = await import('./onboard.js');
+        const wd = getWorkDir();
+        const result = await runOnboarding(wd);
+        printOnboardingResult(result);
+        console.log('');
+        ask();
+        return;
       }
       if (input === '/time') {
         const now = new Date();
@@ -290,6 +300,18 @@ async function main(): Promise<void> {
   const { ensureWorkDir, ensureSessionsDir, getSessionsDir } = await import('./config.js');
   const workDir = await ensureWorkDir();
   await ensureSessionsDir();
+
+  const { isWorkDirOnboarded, runOnboarding, printOnboardingResult } = await import('./onboard.js');
+  if (!(await isWorkDirOnboarded(workDir))) {
+    if (!quiet) {
+      console.log('[JEEVES] Work directory not fully set up. Running onboarding…');
+    }
+    const result = await runOnboarding(workDir);
+    if (!quiet) {
+      printOnboardingResult(result);
+    }
+  }
+
   const { sessionId, sessionDir } = await getOrCreateSession('cli');
   if (!quiet) {
     console.log(`[JEEVES] Work directory: ${workDir}`);

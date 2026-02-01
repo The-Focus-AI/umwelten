@@ -2,6 +2,13 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { ModelOptions } from "../cognition/types.js";
 import { Tool } from "ai";
+import type { SkillDefinition } from "./skills/types.js";
+import {
+  SkillsRegistry,
+  loadSkillsFromDirectory,
+  loadSkillFromGit,
+  createSkillTool,
+} from "./skills/index.js";
 
 export type StimulusOptions = {
   id?: string;
@@ -25,17 +32,26 @@ export type StimulusOptions = {
   presencePenalty?: number;
   // NEW: Runner configuration
   runnerType?: 'base' | 'memory';
-  // NEW: Additional context
+  // Additional context
   systemContext?: string;
+  // Skills (optional): direct list and/or load from dirs / git
+  skills?: SkillDefinition[];
+  skillsDirs?: string[];
+  skillsFromGit?: string[];
 }
 
 export class Stimulus {
   public options: StimulusOptions;
   private tools: Record<string, Tool> = {};
+  private skillsRegistry: SkillsRegistry | null = null;
 
   constructor(options?: StimulusOptions) {
     this.options = options || { role: "helpful assistant" };
     this.tools = options?.tools || {};
+    if (options?.skills?.length) {
+      this.skillsRegistry = new SkillsRegistry();
+      this.skillsRegistry.addSkills(options.skills);
+    }
   }
 
   // Getters for common properties
@@ -152,6 +168,33 @@ export class Stimulus {
     return this.options.runnerType || 'base';
   }
 
+  /** Load skills from options.skillsDirs and options.skillsFromGit; merge into registry. No-op if only options.skills was set (already built in constructor). */
+  async loadSkills(): Promise<void> {
+    const { skillsDirs, skillsFromGit } = this.options;
+    if (!skillsDirs?.length && !skillsFromGit?.length) return;
+    if (!this.skillsRegistry) this.skillsRegistry = new SkillsRegistry();
+    if (this.options.skills?.length) this.skillsRegistry.addSkills(this.options.skills);
+    for (const dir of skillsDirs ?? []) {
+      const skills = await loadSkillsFromDirectory(dir);
+      this.skillsRegistry.addSkills(skills);
+    }
+    for (const repo of skillsFromGit ?? []) {
+      const skill = await loadSkillFromGit(repo);
+      if (skill) this.skillsRegistry.addSkills([skill]);
+    }
+  }
+
+  getSkillsRegistry(): SkillsRegistry | null {
+    return this.skillsRegistry;
+  }
+
+  /** Add the skill tool so the agent can activate skills by name. No-op if registry is empty. */
+  addSkillsTool(): void {
+    if (this.skillsRegistry?.hasSkills()) {
+      this.addTool('skill', createSkillTool(this.skillsRegistry));
+    }
+  }
+
   // Enhanced prompt generation
   getPrompt(): string {
     let prompt = [];
@@ -196,11 +239,17 @@ export class Stimulus {
       }
     }
     
-    // NEW: Add system context if provided
+    // Add system context if provided
     if (this.options.systemContext) {
       prompt.push(`\n# Additional Context\n${this.options.systemContext}`);
     }
-    
+
+    // Add skills metadata (progressive disclosure) if registry has skills
+    if (this.skillsRegistry?.hasSkills()) {
+      const skillsBlock = this.skillsRegistry.getSkillsMetadataPrompt();
+      if (skillsBlock) prompt.push(`\n${skillsBlock}`);
+    }
+
     return prompt.join("\n");
   }
 }

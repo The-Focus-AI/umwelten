@@ -24,7 +24,7 @@ cp env.example .env
 # Edit .env and set at least JEEVES_WORK_DIR and any API keys / Telegram token.
 ```
 
-Load it before running (e.g. `set -a && source .env && set +a`, or use [dotenv](https://www.npmjs.com/package/dotenv)/[dotenvx](https://github.com/dotenvx/dotenvx)).
+Load it before running (e.g. `set -a && source .env && set +a`, or use [dotenv](https://www.npmjs.com/package/dotenv)/[dotenvx](https://github.com/dotenvx/dotenvx)). For a quick local test without touching `~/.jeeves`, see [Testing the work directory](#testing-the-work-directory).
 
 - **JEEVES_WORK_DIR**: Main work folder for agent config, memories, facts, and journal. Default if unset: `~/.jeeves`. Use an absolute path (or path relative to the current working directory).
 - **JEEVES_SESSIONS_DIR**: Sessions directory for storing all interactions, media files, and downloaded content. Each session gets its own subdirectory. Default if unset: `~/.jeeves-sessions`. Media from Telegram, large downloads from `wget` or `markify` go here.
@@ -35,9 +35,36 @@ Load it before running (e.g. `set -a && source .env && set +a`, or use [dotenv](
 - **TELEGRAM_BOT_TOKEN**, **JEEVES_PROVIDER**, **JEEVES_MODEL**, and provider API keys – see `env.example`.
 - **TAVILY_API_KEY** (optional): Enables the web search tool. Get a key at [app.tavily.com](https://app.tavily.com); without it, the search tool will report that the key is missing.
 
-## Butler persona and learning (JEEVES_PROMPT.md)
+## Work directory layout
 
-The file `JEEVES_PROMPT.md` in this directory is loaded on every startup and defines a butler persona that learns about the person it assists. It instructs the bot to maintain three files in the **work directory** (paths relative to work dir, no `agentId`):
+Everything the bot needs (and can edit) lives under the work directory (`JEEVES_WORK_DIR`):
+
+| Path | Purpose |
+|------|---------|
+| **config.json** | Agents and optional `skillsDirs`, `skillsFromGit`, `toolsDir`, `stimulusFile`. |
+| **AGENT.md** | Extra personality or project-specific instructions (loaded after main prompt). |
+| **STIMULUS.md** or **prompts/** | Main persona: role, objective, instructions, system context. Single file with YAML frontmatter, or multiple files in `prompts/` (e.g. `prompts/main.md`). If missing, a built-in default is used. |
+| **tools/** | Optional. Each subdirectory with `TOOL.md` (and optional `handler.ts` or `handler.js`) defines one tool. Handlers default-export a Vercel AI SDK Tool. |
+| **skills/** | Optional. Each subdirectory with `SKILL.md` is a skill (Agent Skills spec). Config can also list `skillsFromGit` to load skills from Git. |
+| **memories.md**, **facts.md**, **private journal.md** | Maintained by the bot (see below). |
+
+The bot's file tools are sandboxed to the work directory and configured agent projects, so the bot can read and edit STIMULUS.md, AGENT.md, config.json, tools, and skills in the work dir. Changes to prompts, tools, or skills take effect on the next session (or restart).
+
+### Onboarding
+
+On first run (or when the work dir is missing **config.json** or **STIMULUS.md**), the CLI runs an **onboarding** step that creates:
+
+- **config.json** (with `agents: []`, `skillsDirs: ["./skills"]`, `toolsDir: "tools"`) if not present
+- **STIMULUS.md** (copy of the example persona from the package) if not present
+- **skills/** and **tools/** directories if not present
+
+So everything the bot needs lives in the work dir. You can run onboarding again anytime with **`/onboard`** in the REPL to recreate any missing files or directories (existing files are left unchanged).
+
+## Butler persona and learning (STIMULUS.md)
+
+The main persona is loaded from the **work directory**: `<JEEVES_WORK_DIR>/STIMULUS.md` (or `config.stimulusFile`, or `prompts/main.md` / `prompts/*.md`). If none exist, a built-in default is used. You can copy `examples/jeeves-bot/JEEVES_PROMPT.md` to your work dir as `STIMULUS.md` to customize. STIMULUS.md can use YAML frontmatter for `role`, `objective`, `instructions` (array or string), and `maxToolSteps`; the body is the system context (persona and file-maintenance instructions).
+
+The persona instructs the bot to maintain three files in the work directory (paths relative to work dir, no `agentId`):
 
 | File | Purpose |
 |------|---------|
@@ -45,12 +72,17 @@ The file `JEEVES_PROMPT.md` in this directory is loaded on every startup and def
 | **facts.md** | Short, scannable summary of what the bot knows about the person (work, preferences, people, projects). Updated after adding memories or when the summary is outdated. |
 | **private journal.md** | Daily reflections on interactions so the bot can serve the user better later. One section per day; not shared unless the user explicitly asks. |
 
-You can edit `JEEVES_PROMPT.md` to change how the butler behaves or how these files are maintained. AGENT.md (in the work dir) is loaded after it and can override or add to this behavior.
+AGENT.md (in the work dir) is loaded after the main prompt and can override or add to this behavior.
 
 ## Config
 
 - **Config file**: `<JEEVES_WORK_DIR>/config.json` (or `JEEVES_CONFIG_PATH` if set).
-- **Shape**: `{ "agents": [ { "id": "...", "name": "...", "projectPath": "/absolute/path", "gitRemote": "https://...", "secrets": ["ENV_VAR_NAME"], "commands": { "cli": "pnpm run cli", "run": "pnpm start" } } ] }`
+- **Shape**: `{ "agents": [ ... ], "skillsDirs": ["./skills"], "skillsFromGit": ["owner/repo"], "toolsDir": "tools", "stimulusFile": "STIMULUS.md" }`
+  - **agents** (required): Array of agent entries (id, name, projectPath, optional gitRemote, secrets, commands).
+  - **skillsDirs** (optional): Paths relative to work dir; each dir contains subdirs with `SKILL.md`. Default `["./skills"]` if present.
+  - **skillsFromGit** (optional): Git repo URLs or `owner/repo` for skills (cloned into cache).
+  - **toolsDir** (optional): Path relative to work dir for tool subdirs (each with TOOL.md and optional handler). Default `"tools"`.
+  - **stimulusFile** (optional): Path relative to work dir for main prompt file (e.g. `"STIMULUS.md"` or `"prompts/main.md"`).
 - **Secrets**: `secrets` are references only (e.g. env var names). Jeeves does not store secret values; keep actual secrets in the environment or a secrets manager.
 - **Commands**: optional `commands` map (e.g. `cli`, `run`) for how to interact with that habitat. Not used by tools yet; reserved for future “spin up” / run behavior.
 
@@ -66,6 +98,93 @@ You can edit `JEEVES_PROMPT.md` to change how the butler behaves or how these fi
 - **Default (no `agentId`)**: Paths are relative to the **Jeeves work directory** (`JEEVES_WORK_DIR` or `~/.jeeves`). Use `list_directory` with path `"."` to list the work dir; read/write files there (e.g. `notes.md`, `scratch.txt`).
 - **With `agentId`**: Paths are relative to that agent’s `projectPath`. Use this when the user asks about a specific agent or project.
 - File tools only allow paths under the work directory or under a configured agent project. Requests outside those roots return `OUTSIDE_ALLOWED_PATH`. No agents need to be configured to use the work directory.
+
+## Testing the work directory
+
+Use a local directory to verify prompts, tools, and skills load from the work dir without touching `~/.jeeves`. **Onboarding runs automatically** on first run: if the work dir is missing config.json or STIMULUS.md, the CLI creates them (plus skills/ and tools/).
+
+### 1. Create a test work directory
+
+From the **repository root**:
+
+```bash
+# Create work dir (gitignored as jeeves-bot-data-dir)
+mkdir -p examples/jeeves-bot/jeeves-bot-data-dir
+cd examples/jeeves-bot
+```
+
+(You can skip manually creating config.json and STIMULUS.md; onboarding will create them on first run.)
+
+### 2. Set env and run the CLI
+
+From **examples/jeeves-bot** (with `.env` that has `GOOGLE_GENERATIVE_AI_API_KEY` or your provider key and `JEEVES_WORK_DIR`):
+
+```bash
+# Use the test work dir
+export JEEVES_WORK_DIR="$(pwd)/jeeves-bot-data-dir"
+
+# One-shot: list work dir (bot will list . and show config.json, STIMULUS.md, etc.)
+pnpm run cli -- "list directory"
+
+# Or interactive REPL
+pnpm run cli
+```
+
+From the **repository root** (no need to cd into jeeves-bot):
+
+```bash
+export JEEVES_WORK_DIR="$(pwd)/examples/jeeves-bot/jeeves-bot-data-dir"
+# Load provider key if not in env
+export GOOGLE_GENERATIVE_AI_API_KEY="your-key"
+
+pnpm exec tsx examples/jeeves-bot/cli.ts "list directory"
+pnpm exec tsx examples/jeeves-bot/cli.ts "what time is it?"
+```
+
+### 3. Optional: test skills and tools from the work dir
+
+**Skills** — add a local skill:
+
+```bash
+mkdir -p jeeves-bot-data-dir/skills/hello-skill
+cat > jeeves-bot-data-dir/skills/hello-skill/SKILL.md << 'EOF'
+---
+name: hello-skill
+description: Say hello and remind the user of this skill. Use when the user says hello or asks who you are.
+---
+When activated, greet the user and mention you have a custom skill from the work directory.
+EOF
+```
+
+Ensure `config.json` has skills loaded from the work dir (default when `skills/` exists):
+
+```bash
+cat jeeves-bot-data-dir/config.json
+# If you want to be explicit: {"agents":[],"skillsDirs":["./skills"]}
+```
+
+Restart the CLI and ask: "Say hello" or "What skills do you have?" — the bot should list and use `hello-skill`.
+
+**Tools** — add a work-dir tool (optional; requires a handler that exports a Vercel AI SDK `Tool`):
+
+```bash
+mkdir -p jeeves-bot-data-dir/tools/echo-tool
+cat > jeeves-bot-data-dir/tools/echo-tool/TOOL.md << 'EOF'
+---
+name: echo_tool
+description: Echo the user message back. Use when the user asks to echo or repeat something.
+EOF
+# Handler would go in tools/echo-tool/handler.ts (default export a tool from "ai").
+# Without a handler, this tool is not loaded; add handler.ts to test.
+```
+
+### 4. Verify what the bot sees
+
+- "List directory" (no `agentId`) — should show the work dir: `config.json`, `STIMULUS.md`, `skills/`, etc.
+- "What's in config.json?" — bot can read and summarize it.
+- "What time is it?" — uses built-in `current_time` tool.
+
+Use `jeeves-bot-data-dir` for local testing; switch `JEEVES_WORK_DIR` back to `~/.jeeves` or another path for normal use.
 
 ## CLI
 
@@ -98,6 +217,7 @@ pnpm exec tsx cli.ts "list agents"
 ### Commands
 
 - **`/exit`** or **`/quit`** – Exit the REPL.
+- **`/onboard`** – Run the onboarding wizard again: ensure work dir has config.json, STIMULUS.md, skills/, and tools/ (creates only what’s missing).
 - **`/time`** – Show current date and time (full format).
 - **`/context`** – Print current context size.
 - **`/checkpoint`** – Mark the current point as the start of this thread. Use before a long run so you can compact later.

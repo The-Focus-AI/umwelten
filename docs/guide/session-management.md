@@ -203,7 +203,7 @@ dotenvx run -- pnpm run cli sessions index -p ../other-project
 dotenvx run -- pnpm run cli sessions index --force
 
 # Use a different model
-dotenvx run -- pnpm run cli sessions index --model google:gemini-2.0-flash-exp
+dotenvx run -- pnpm run cli sessions index --model google:gemini-3-flash-preview
 ```
 
 ### Search Sessions
@@ -411,7 +411,7 @@ dotenvx run -- pnpm run cli sessions index --verbose
 dotenvx run -- pnpm run cli sessions index --force
 
 # Use a different model
-dotenvx run -- pnpm run cli sessions index --model google:gemini-2.0-flash-exp
+dotenvx run -- pnpm run cli sessions index --model google:gemini-3-flash-preview
 ```
 
 **Output:**
@@ -693,7 +693,7 @@ Choose different models for analysis based on your needs:
 --model google:gemini-3-flash-preview
 
 # More capable
---model google:gemini-2.0-flash-exp
+--model google:gemini-3-flash-preview
 
 # Most capable (expensive)
 --model google:gemini-2.0-pro-exp

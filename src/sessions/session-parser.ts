@@ -1,15 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
-import type { ContentBlock } from './types.js';
 import type {
+  ContentBlock,
   SessionMessage,
   UserMessageEntry,
   AssistantMessageEntry,
   ToolCall,
   TokenUsage,
   ToolUseContent,
-  ContentBlock,
 } from './types.js';
 
 /**

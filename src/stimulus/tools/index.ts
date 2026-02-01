@@ -15,3 +15,6 @@ export * from './examples/math.js';
 
 // URL tools (wget, markify)
 export * from './url-tools.js';
+
+// Work-dir tool loader (TOOL.md + optional handler)
+export * from './loader.js';

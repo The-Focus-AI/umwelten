@@ -143,6 +143,9 @@ export async function sessionToAnalysisMarkdown(session: SessionIndexEntry): Pro
 async function collectSessionMessages(session: SessionIndexEntry): Promise<{
   collected: { role: string; texts: string[] }[];
 }> {
+  if (!session.fullPath) {
+    return { collected: [] };
+  }
   const messages = await parseSessionFile(session.fullPath);
   const conversationMessages = messages.filter(m => m.type === 'user' || m.type === 'assistant');
 
@@ -350,7 +353,8 @@ export async function analyzeSession(
   session: SessionIndexEntry,
   model: ModelDetails
 ): Promise<{analysis: SessionAnalysis; relatedFiles: string[]}> {
-  if (!session.fullPath) {
+  const fullPath = session.fullPath;
+  if (!fullPath) {
     throw new Error('analyzeSession requires session.fullPath (file-based sessions only). Use analyzeSessionFromNormalizedSession for adapter sessions.');
   }
   const chunks = await sessionToAnalysisMarkdownChunks(session);
@@ -382,7 +386,7 @@ export async function analyzeSession(
   }
 
   // Get tool calls to extract related files (from full session, not chunks)
-  const messages = await parseSessionFile(session.fullPath);
+  const messages = await parseSessionFile(fullPath);
   const toolCalls = extractToolCalls(messages);
 
   const relatedFiles: string[] = [];

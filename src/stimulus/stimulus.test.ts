@@ -211,4 +211,37 @@ describe('Enhanced Stimulus', () => {
     expect(prompt).toContain("Maximum tool steps: 3");
   });
 });
-  
+
+describe('Stimulus skills', () => {
+  it('should include skills metadata in prompt when skills are provided', () => {
+    const stimulus = new Stimulus({
+      role: "assistant",
+      skills: [
+        { name: "deploy", description: "Deploy the app", instructions: "Run deploy script.", path: "/fake/deploy" },
+      ],
+    });
+    const prompt = stimulus.getPrompt();
+    expect(prompt).toContain("Available Skills");
+    expect(prompt).toContain("deploy");
+    expect(prompt).toContain("Deploy the app");
+  });
+
+  it('getSkillsRegistry returns registry when skills are set', () => {
+    const stimulus = new Stimulus({
+      skills: [{ name: "x", description: "X skill", instructions: "Do X.", path: "/fake/x" }],
+    });
+    const reg = stimulus.getSkillsRegistry();
+    expect(reg).not.toBeNull();
+    expect(reg!.listSkills()).toHaveLength(1);
+    expect(reg!.activateSkill("x")).toBe("Do X.");
+  });
+
+  it('addSkillsTool adds skill tool when registry has skills', () => {
+    const stimulus = new Stimulus({
+      skills: [{ name: "y", description: "Y skill", instructions: "Do Y.", path: "/fake/y" }],
+    });
+    stimulus.addSkillsTool();
+    const tools = stimulus.getTools();
+    expect(tools["skill"]).toBeDefined();
+  });
+});

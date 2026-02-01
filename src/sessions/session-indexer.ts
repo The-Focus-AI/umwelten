@@ -247,7 +247,7 @@ export async function indexProject(
 ): Promise<{ indexed: number; skipped: number; failed: number }> {
   const {
     projectPath,
-    model: modelString = 'google:gemini-2.0-flash-exp',
+    model: modelString = 'google:gemini-3-flash-preview',
     force = false,
     batchSize = 5,
     verbose = false,

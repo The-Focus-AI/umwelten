@@ -209,7 +209,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           e => e.sessionId === originalId || e.sessionId.startsWith(originalId)
         );
 
-        if (entry) {
+        if (entry?.fullPath) {
           // Parse the full session file
           const messages = await parseSessionFile(entry.fullPath);
           return this.toNormalizedSession(entry, messages);

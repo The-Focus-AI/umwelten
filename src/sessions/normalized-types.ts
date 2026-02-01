@@ -160,6 +160,8 @@ export interface NormalizedSessionEntry {
   firstPrompt: string;
   metrics?: SessionMetrics;
   isSidechain?: boolean;
+  /** Preserve source-specific data (e.g. fullPath for Claude Code, workspaceHash for Cursor). */
+  sourceData?: Record<string, unknown>;
 }
 
 /**

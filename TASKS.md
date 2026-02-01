@@ -37,6 +37,26 @@
 - [x] Implement sessions index command (LLM-powered)
 - [x] Implement sessions search command
 - [x] Implement sessions analyze command
+- [x] Implement sessions tui command (interactive TUI: overview, live stream, file, session by ID)
+
+## Completed: Session TUI (Interactive Session Viewer)
+
+- [x] Add fullscreen-ink and @inkjs/ui dependencies
+- [x] Create stream-json to NormalizedMessage converter (src/ui/tui/stream-to-normalized.ts)
+- [x] Create file-session reader with optional watch (src/ui/tui/file-session.ts)
+- [x] Create TUI components: Message, ToolCallDetails, MessageList, SessionSidebar, ChatView
+- [x] Create TUI App with state (live/file/session/overview, filter toggles h/r/u)
+- [x] Add sessions tui CLI (umwelten sessions tui [file-or-session-id] -p, --file, --session)
+- [x] Wire overview mode (session list from adapters), session load by ID, live stdin stream
+- [x] Liveness display for live (alive/stale/ended) and file (reading/writing/ended)
+
+## Completed: Session Browser
+
+- [x] Browser data: load sessions (adapters) + analysis index, merge by sessionId/sourceId
+- [x] searchBrowserSessions: use searchSessions when index exists, filter by firstPrompt when not
+- [x] SessionCard: first message, summary, key learnings, topics, tools, solution type, success
+- [x] BrowserView: search bar, scrollable list, Enter to open detail (exit + return session ID)
+- [x] sessions browse CLI; after exit prints "umwelten sessions show <id>" when session selected
 
 ---
 
@@ -198,6 +218,14 @@ interface SessionAdapter {
 ### Completed: Jeeves Bot Example
 
 - [x] Add `examples/jeeves-bot/`: config (config.ts, config.json), file tools (read_file, write_file, list_directory, ripgrep), agent tools (list/add/update/remove), external-interaction tools (external_interactions_list, show, messages, stats), run_bash with experiences, Jeeves Stimulus, CLI runner (REPL + one-shot), Telegram runner, README.
+
+### Completed: Work directory Jeeves config (unified work dir)
+
+- [x] Extend config.json with optional skillsDirs, skillsFromGit, toolsDir, stimulusFile (examples/jeeves-bot/config.ts).
+- [x] Add work-dir prompt loader: load STIMULUS.md (or prompts/) and AGENT.md from work dir; parse frontmatter; built-in default when missing (examples/jeeves-bot/load-prompts.ts).
+- [x] Add tools directory loader: TOOL.md + optional handler.ts/handler.js or type: script (src/stimulus/tools/loader.ts); export from src/stimulus/tools/index.ts.
+- [x] Refactor createJeevesStimulus to bootstrap from work dir: load prompts, register built-in tools, load work-dir tools, resolve skillsDirs relative to work dir, load skills and add skill tool (examples/jeeves-bot/stimulus.ts).
+- [x] Document work-dir layout (STIMULUS.md, tools/, skills/, config.json) and that the bot can edit everything there (examples/jeeves-bot/README.md).
 
 ### Completed: Terminology refactor (Habitat model)
 

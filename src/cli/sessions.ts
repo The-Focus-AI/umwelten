@@ -354,6 +354,11 @@ sessionsCommand
         process.exit(1);
       }
 
+      if (!session.fullPath) {
+        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        process.exit(1);
+      }
+
       // Parse the session file to get detailed information
       const { parseSessionFile, summarizeSession } = await import('../sessions/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
@@ -485,6 +490,11 @@ sessionsCommand
         console.log(
           chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
+        process.exit(1);
+      }
+
+      if (!session.fullPath) {
+        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
         process.exit(1);
       }
 
@@ -723,6 +733,11 @@ sessionsCommand
         process.exit(1);
       }
 
+      if (!session.fullPath) {
+        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        process.exit(1);
+      }
+
       // Parse the session file and extract tool calls
       const { parseSessionFile, extractToolCalls } = await import('../sessions/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
@@ -851,6 +866,11 @@ sessionsCommand
         console.log(
           chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
+        process.exit(1);
+      }
+
+      if (!session.fullPath) {
+        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
         process.exit(1);
       }
 
@@ -1461,6 +1481,81 @@ sessionsCommand
     }
   });
 
+// TUI subcommand
+interface TuiOptions {
+  project: string;
+  file?: string;
+  session?: string;
+}
+
+sessionsCommand
+  .command('tui')
+  .description('Interactive session TUI: overview, live stream, file, or session by ID')
+  .argument('[file-or-session-id]', 'Session JSONL file path or session ID to open')
+  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('--file <path>', 'Open session from JSONL file path')
+  .option('--session <id>', 'Open session by ID (from sessions list)')
+  .action(async (fileOrSessionId: string | undefined, options: TuiOptions) => {
+    try {
+      const { stdin } = await import('node:process');
+      const projectPath = resolve(options.project);
+      const hasStdin = !stdin.isTTY;
+
+      let filePath: string | undefined = options.file;
+      let sessionId: string | undefined = options.session;
+
+      if (fileOrSessionId) {
+        if (options.file) filePath = options.file;
+        else if (options.session) sessionId = options.session;
+        else if (fileOrSessionId.includes('/') || fileOrSessionId.endsWith('.jsonl')) {
+          filePath = resolve(fileOrSessionId);
+        } else {
+          sessionId = fileOrSessionId;
+        }
+      }
+
+      const { runSessionTui } = await import('../ui/tui/index.js');
+      await runSessionTui({
+        projectPath,
+        filePath,
+        sessionId,
+        hasStdin,
+      });
+    } catch (error) {
+      console.error(chalk.red('Error starting TUI:'), error);
+      process.exit(1);
+    }
+  });
+
+// Browse subcommand (session browser: search, first messages, index summary)
+interface BrowseOptions {
+  project: string;
+}
+
+sessionsCommand
+  .command('browse')
+  .description('Session browser: search, first messages, and index summary (Enter to open detail)')
+  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .action(async (options: BrowseOptions) => {
+    try {
+      const projectPath = resolve(options.project);
+      const { runBrowserTui } = await import('../ui/tui/browser/index.js');
+      const selectedId = await runBrowserTui({
+        projectPath,
+        onSelectSession: id => {
+          // selectedId is returned; print after TUI exits
+        },
+      });
+      if (selectedId) {
+        console.log(chalk.dim('\nTo view full session:'));
+        console.log(chalk.cyan(`  umwelten sessions show ${selectedId}`));
+      }
+    } catch (error) {
+      console.error(chalk.red('Error starting browser:'), error);
+      process.exit(1);
+    }
+  });
+
 // Export subcommand
 interface ExportOptions {
   project: string;
@@ -1502,6 +1597,11 @@ sessionsCommand
         console.log(
           chalk.dim('\nTip: Use "sessions list" to see available sessions')
         );
+        process.exit(1);
+      }
+
+      if (!session.fullPath) {
+        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
         process.exit(1);
       }
 
