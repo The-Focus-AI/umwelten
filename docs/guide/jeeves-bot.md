@@ -1,6 +1,6 @@
 # Jeeves Bot
 
-Jeeves is a butler-style assistant that runs on the CLI and over Telegram. It can read and write files, manage **agents** (projects with Claude Code / Cursor data), and inspect **external interactions** (conversation history) for those agents. This page gives a high-level view of how Jeeves handles **subagents**, **secrets**, and **sandboxing**. For setup, CLI commands, and work-directory layout, see the [Jeeves README](../../examples/jeeves-bot/README.md) in the repo.
+Jeeves is a butler-style assistant that runs on the CLI and over Telegram. It can read and write files, manage **agents** (projects with Claude Code / Cursor data), and inspect **external interactions** (conversation history) for those agents. This page gives a high-level view of how Jeeves handles **subagents**, **secrets**, and **sandboxing**. For setup, CLI commands, and work-directory layout, see the [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md) on GitHub.
 
 ## Overview
 
@@ -57,4 +57,4 @@ So code execution is sandboxed by containers and by experience-based copies; the
 
 ---
 
-For step-by-step setup, env vars, work-directory layout, CLI/Telegram usage, and tool reference, see the [Jeeves Bot README](../../examples/jeeves-bot/README.md).
+For step-by-step setup, env vars, work-directory layout, CLI/Telegram usage, and tool reference, see the [Jeeves Bot README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md) on GitHub.

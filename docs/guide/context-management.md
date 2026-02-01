@@ -216,7 +216,7 @@ registerCompactionStrategy(myStrategy);
 
 ### With Jeeves Bot
 
-Jeeves automatically shows context size and supports `/checkpoint` and `/compact` commands. See the [Jeeves README](../../examples/jeeves-bot/README.md) for details.
+Jeeves automatically shows context size and supports `/checkpoint` and `/compact` commands. See the [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md) for details.
 
 ### With Custom Applications
 
