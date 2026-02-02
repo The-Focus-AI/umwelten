@@ -60,6 +60,13 @@ export async function loadBrowserData(projectPath: string): Promise<BrowserDataR
     return { session, analysis };
   });
 
+  // Sort by timestamp (modified, then created) descending so all sources are in one order
+  sessions.sort((a, b) => {
+    const ta = new Date(a.session.modified ?? a.session.created ?? 0).getTime();
+    const tb = new Date(b.session.modified ?? b.session.created ?? 0).getTime();
+    return tb - ta;
+  });
+
   return { sessions, hasIndex };
 }
 

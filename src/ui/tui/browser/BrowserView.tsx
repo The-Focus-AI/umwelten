@@ -19,6 +19,7 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
   const [initialSessions, setInitialSessions] = useState<BrowserSession[]>([]);
   const [searchResults, setSearchResults] = useState<BrowserSession[] | null>(null);
   const [query, setQuery] = useState('');
+  const [searchMode, setSearchMode] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasIndex, setHasIndex] = useState(false);
@@ -117,10 +118,35 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
   useInput((input, key) => {
     if (viewMode === 'chat') return;
     if (indexing) return;
-    if (key.backspace || key.delete) {
-      setQuery(q => q.slice(0, -1));
+
+    // Search mode: / to enter; type to filter; Enter to apply; Esc to cancel
+    if (searchMode) {
+      if (key.escape) {
+        setSearchMode(false);
+        return;
+      }
+      if (key.return) {
+        setSearchMode(false);
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setQuery(q => q.slice(0, -1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setQuery(q => q + input);
+        return;
+      }
       return;
     }
+
+    // / to start search
+    if (input === '/') {
+      setSearchMode(true);
+      return;
+    }
+
+    if (key.backspace || key.delete) return;
     if (key.return) {
       const selected = sessions[selectedIndex];
       if (selected) {
@@ -129,26 +155,15 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
       }
       return;
     }
-    if (input) {
-      const lower = input.toLowerCase();
-      if (lower === 'o') {
-        const selected = sessions[selectedIndex];
-        if (selected) {
-          onSelectSession(selected.session.id);
-          exit();
-        }
-        return;
+    const lower = input?.toLowerCase();
+    if (lower === 'o') {
+      const selected = sessions[selectedIndex];
+      if (selected) {
+        onSelectSession(selected.session.id);
+        exit();
       }
-    }
-    if (key.upArrow) {
-      setSelectedIndex(i => (i <= 0 ? sessions.length - 1 : i - 1));
       return;
     }
-    if (key.downArrow) {
-      setSelectedIndex(i => (i >= sessions.length - 1 ? 0 : i + 1));
-      return;
-    }
-    const lower = input.toLowerCase();
     if (lower === 'i') {
       setIndexing(true);
       setIndexStatus('Indexing sessions...');
@@ -166,8 +181,13 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
         .finally(() => setIndexing(false));
       return;
     }
-    if (input && !key.ctrl && !key.meta) {
-      setQuery(q => q + input);
+    if (key.upArrow) {
+      setSelectedIndex(i => (i <= 0 ? sessions.length - 1 : i - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setSelectedIndex(i => (i >= sessions.length - 1 ? 0 : i + 1));
+      return;
     }
   });
 
@@ -183,7 +203,7 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
     return (
       <ChatDetailView
         projectPath={projectPath}
-        sessionEntry={selectedSession.session}
+        browserSession={selectedSession}
         onBack={() => {
           setViewMode('browse');
           setSelectedSession(null);
@@ -221,8 +241,17 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
             <Text color="green">{indexStatus}</Text>
           </>
         )}
-        <Text color="gray"> · Search: </Text>
-        <Text color="white">{query || '(type to filter)'}</Text>
+        {searchMode ? (
+          <>
+            <Text color="yellow"> Search: </Text>
+            <Text color="white">{query}</Text>
+            <Text color="gray"> (Enter to apply, Esc to cancel)</Text>
+          </>
+        ) : (
+          <Text color="gray"> </Text>
+          <Text color="cyan">/</Text>
+          <Text color="gray"> search</Text>
+        )}
       </Box>
 
       {/* List — one line per session */}
@@ -246,7 +275,7 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
       {/* Footer: hints + open command */}
       <Box marginTop={1} flexDirection="column">
         <Text color="gray">
-          <Text color="cyan">↑/↓</Text> select · <Text color="cyan">Enter</Text> chat · <Text color="cyan">o</Text> open & exit · type to search · <Text color="yellow">i</Text> index
+          <Text color="cyan">↑/↓</Text> select · <Text color="cyan">Enter</Text> chat · <Text color="cyan">o</Text> open & exit · <Text color="cyan">/</Text> search · <Text color="yellow">i</Text> index
         </Text>
         {sessions[selectedIndex] && (
           <Text color="gray">  → umwelten sessions show {sessions[selectedIndex].session.id}</Text>

@@ -58,6 +58,16 @@
 - [x] BrowserView: search bar, scrollable list, Enter to open detail (exit + return session ID)
 - [x] sessions browse CLI; after exit prints "umwelten sessions show <id>" when session selected
 
+## Completed: Browse Conversation Viewer (Beats + Summary/Learnings)
+
+- [x] Conversation beats: group messages into turns (user + assistant/tools until next user)
+- [x] conversation-beats.ts: messagesToBeats(), formatBeatToolSummary(), ConversationBeat type
+- [x] ChatDetailView: beats list with user preview, "N tools, M min", assistant preview
+- [x] ChatDetailView: summary and learnings at top (when indexed), more prominent
+- [x] ChatDetailView: Space to expand/collapse beat, Enter to expand message; arrow keys to move
+- [x] SessionDetailPanel: more summary and learnings (200/220 chars), wrap
+- [x] ChatDetailView receives full BrowserSession (analysis) for summary/learnings display
+
 ---
 
 ## Completed: Index All Session Sources
@@ -203,6 +213,11 @@ interface SessionAdapter {
 ---
 
 ## Planned
+
+### Browse: Subconversations and learnings traceability
+- [ ] Indexing: detect or tag subconversations (e.g. runs of beats between clear user prompts) for tree view
+- [ ] TUI: show Session → Subconversations → Beats tree (indent or collapsible sections)
+- [ ] Analysis: optional per-beat or per-subconversation learnings; link learnings to beat/subconversation in UI
 
 ### Phase 3: Agent Monitor (Scheduled Runs)
 - [ ] Create monitor repo add/list/remove commands
