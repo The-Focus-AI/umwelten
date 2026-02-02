@@ -110,7 +110,7 @@ export async function buildSessionEntryFromFile(
   } catch {
     return null;
   }
-  const meta = await parseSessionFileMetadata(filePath);
+  const meta = await parseSessionFileMetadata(filePath, fileMtime);
   if (!meta) return null;
   return {
     sessionId: name,

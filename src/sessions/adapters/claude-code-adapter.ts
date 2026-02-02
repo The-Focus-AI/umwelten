@@ -37,6 +37,7 @@ import {
 } from '../session-store.js';
 import {
   parseSessionFile,
+  parseSessionFileMetadata,
   extractToolCalls,
   calculateTokenUsage,
   calculateCost,
@@ -113,6 +114,21 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     }
 
     let entries = await getProjectSessionsIncludingFromDirectory(projectPath);
+
+    // Enrich firstPrompt for entries that have empty firstPrompt but have a file (e.g. from index)
+    await Promise.all(
+      entries.map(async (e) => {
+        if (
+          (e.firstPrompt === '' || e.firstPrompt === '(no prompt)') &&
+          e.fullPath
+        ) {
+          const meta = await parseSessionFileMetadata(e.fullPath, e.fileMtime);
+          if (meta?.firstPrompt && meta.firstPrompt !== '(no prompt)') {
+            e.firstPrompt = meta.firstPrompt;
+          }
+        }
+      })
+    );
 
     // Apply filters
     if (options?.gitBranch) {

@@ -306,20 +306,50 @@ export interface SessionFileMetadata {
 
 const UUID_JSONL_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
 
+/** True if message content is only tool_result blocks (no user-visible text). */
+function isToolResultOnlyContent(content: string | ContentBlock[]): boolean {
+  if (typeof content === 'string') return false;
+  if (content.length === 0) return true;
+  const hasText = content.some(b => b.type === 'text');
+  const onlyToolResult = content.every(b => b.type === 'tool_result');
+  return !hasText && onlyToolResult;
+}
+
+/**
+ * Extract first user-visible text from a user message for use as firstPrompt.
+ * Uses extractTextContent for standard text blocks; also checks any block with a .text or string .content for alternate formats.
+ */
 function extractFirstUserText(msg: { message: { content: string | ContentBlock[] } }): string {
   const content = msg.message.content;
   if (typeof content === 'string') {
-    return content.slice(0, 500);
+    return content.trim().slice(0, 500);
   }
-  const textBlock = content.find((b: { type: string }) => b.type === 'text') as { text?: string } | undefined;
-  return textBlock?.text ? textBlock.text.slice(0, 500) : '';
+  const texts = extractTextContent(content);
+  const joined = texts.join('\n').trim();
+  if (joined.length > 0) return joined.slice(0, 500);
+  for (const block of content) {
+    if (block && typeof block === 'object') {
+      const b = block as Record<string, unknown>;
+      if (typeof b.text === 'string' && b.text.trim().length > 0) {
+        return b.text.trim().slice(0, 500);
+      }
+      if (typeof b.content === 'string' && b.content.trim().length > 0) {
+        return b.content.trim().slice(0, 500);
+      }
+    }
+  }
+  return '';
 }
 
 /**
  * Stream a session JSONL file and extract minimal metadata (first prompt, count, timestamps, git branch).
  * Use this when building session index entries from files not listed in sessions-index.json.
+ * When the file has no message timestamps, created/modified use fallbackMtimeMs (e.g. file mtime) instead of "now".
  */
-export async function parseSessionFileMetadata(filePath: string): Promise<SessionFileMetadata | null> {
+export async function parseSessionFileMetadata(
+  filePath: string,
+  fallbackMtimeMs?: number
+): Promise<SessionFileMetadata | null> {
   const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
   const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
 
@@ -350,7 +380,10 @@ export async function parseSessionFileMetadata(filePath: string): Promise<Sessio
 
       if (msg.type === 'user') {
         messageCount++;
-        if (!firstPrompt) firstPrompt = extractFirstUserText(msg as UserMessageEntry);
+        if (!firstPrompt && !isToolResultOnlyContent((msg as UserMessageEntry).message.content)) {
+          const text = extractFirstUserText(msg as UserMessageEntry);
+          if (text) firstPrompt = text;
+        }
       } else if (msg.type === 'assistant') {
         messageCount++;
       }
@@ -359,7 +392,10 @@ export async function parseSessionFileMetadata(filePath: string): Promise<Sessio
     fileStream.destroy();
   }
 
-  if (!created) created = modified || new Date().toISOString();
+  const fallbackIso = fallbackMtimeMs != null
+    ? new Date(fallbackMtimeMs).toISOString()
+    : new Date().toISOString();
+  if (!created) created = modified || fallbackIso;
   if (!modified) modified = created;
 
   return {

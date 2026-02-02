@@ -2,11 +2,10 @@
  * Cursor session adapter
  *
  * Reads sessions from Cursor's SQLite storage format.
- * Location: ~/Library/Application Support/Cursor/User/workspaceStorage/{hash}/state.vscdb
- *
- * Cursor stores chat data in ItemTable:
- * - aiService.prompts - Array of user prompts [{text, commandType}, ...]
- * - composer.composerData - Metadata about composers/sessions
+ * - Workspace: ~/Library/Application Support/Cursor/User/workspaceStorage/{hash}/state.vscdb
+ *   ItemTable: aiService.prompts, composer.composerData
+ * - Global:    ~/Library/Application Support/Cursor/User/globalStorage/state.vscdb
+ *   cursorDiskKV: composerData:{composerId}, bubbleId:{composerId}:{bubbleId}
  */
 
 import { homedir, platform } from 'node:os';
@@ -78,6 +77,80 @@ export class CursorAdapter implements SessionAdapter {
 
   getSourceLocation(): string {
     return this.cursorStoragePath;
+  }
+
+  /** Path to globalStorage state.vscdb (composer content lives here). */
+  private getGlobalStorageDbPath(): string {
+    return join(this.cursorStoragePath, '..', 'globalStorage', 'state.vscdb');
+  }
+
+  /** Extract first non-empty text from Cursor richText JSON (Lexical editor format). */
+  private extractTextFromRichText(richTextJson: string): string {
+    const visit = (node: unknown): string => {
+      if (!node || typeof node !== 'object') return '';
+      const n = node as Record<string, unknown>;
+      if (typeof n.text === 'string' && n.text.trim().length > 0) {
+        return n.text.trim().slice(0, 500);
+      }
+      const children = n.children;
+      if (Array.isArray(children)) {
+        for (const c of children) {
+          const t = visit(c);
+          if (t) return t;
+        }
+      }
+      return '';
+    };
+    try {
+      const root = JSON.parse(richTextJson) as { root?: unknown };
+      return visit(root?.root) || '';
+    } catch {
+      return '';
+    }
+  }
+
+  /** Read first prompt and message count for a composer from globalStorage (cursorDiskKV). */
+  private async getComposerPromptAndCount(composerId: string): Promise<{ firstPrompt: string; messageCount: number } | null> {
+    const globalPath = this.getGlobalStorageDbPath();
+    try {
+      await access(globalPath, constants.R_OK);
+    } catch {
+      return null;
+    }
+    try {
+      const db = new Database(globalPath, { readonly: true });
+      try {
+        const row = db
+          .prepare('SELECT value FROM cursorDiskKV WHERE key = ?')
+          .get(`composerData:${composerId}`) as { value: Buffer | string } | undefined;
+        if (!row) return null;
+        const data = JSON.parse(row.value.toString()) as {
+          fullConversationHeadersOnly?: Array<{ bubbleId: string; type: number }>;
+        };
+        const headers = data.fullConversationHeadersOnly;
+        if (!Array.isArray(headers) || headers.length === 0) {
+          return { firstPrompt: '', messageCount: 0 };
+        }
+        const firstUser = headers.find((h) => h.type === 1);
+        let firstPrompt = '';
+        if (firstUser?.bubbleId) {
+          const bubbleRow = db
+            .prepare('SELECT value FROM cursorDiskKV WHERE key = ?')
+            .get(`bubbleId:${composerId}:${firstUser.bubbleId}`) as { value: Buffer | string } | undefined;
+          if (bubbleRow) {
+            const bubble = JSON.parse(bubbleRow.value.toString()) as { richText?: string };
+            if (typeof bubble.richText === 'string') {
+              firstPrompt = this.extractTextFromRichText(bubble.richText);
+            }
+          }
+        }
+        return { firstPrompt, messageCount: headers.length };
+      } finally {
+        db.close();
+      }
+    } catch {
+      return null;
+    }
   }
 
   async canHandle(projectPath: string): Promise<boolean> {
@@ -424,6 +497,14 @@ export class CursorAdapter implements SessionAdapter {
               : new Date().toISOString();
             const modified = ts ? new Date(ts).toISOString() : created;
 
+            let messageCount = 0;
+            let firstPrompt = '';
+            const enriched = await this.getComposerPromptAndCount(composer.composerId);
+            if (enriched) {
+              messageCount = enriched.messageCount;
+              firstPrompt = enriched.firstPrompt;
+            }
+
             sessions.push({
               id: `cursor:${workspaceHash}:${composer.composerId}`,
               source: this.source,
@@ -431,8 +512,8 @@ export class CursorAdapter implements SessionAdapter {
               projectPath,
               created,
               modified,
-              messageCount: 0,
-              firstPrompt: '',
+              messageCount,
+              firstPrompt,
             });
           }
         } else if (prompts.length > 0) {
