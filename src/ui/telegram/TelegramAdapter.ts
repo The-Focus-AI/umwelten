@@ -159,55 +159,27 @@ export class TelegramAdapter {
       
       // Use streamText() like the CLI does - it properly handles tool calls and continues
       const response = await interaction.streamText();
-      
-      // Debug logging
-      console.log('[TELEGRAM DEBUG] Response content:', response.content);
-      console.log('[TELEGRAM DEBUG] Response content type:', typeof response.content);
-      console.log('[TELEGRAM DEBUG] Response content length:', typeof response.content === 'string' ? response.content.length : 'N/A');
-      console.log('[TELEGRAM DEBUG] Metadata keys:', Object.keys(response.metadata || {}));
-      
-      // Check for tool calls in metadata
-      if (response.metadata && (response.metadata as any).toolCalls) {
-        const toolCalls = (response.metadata as any).toolCalls;
-        console.log('[TELEGRAM DEBUG] Tool calls found:', Array.isArray(toolCalls) ? toolCalls.length : 'not an array');
-        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-          toolCalls.forEach((call: any, i: number) => {
-            console.log(`[TELEGRAM DEBUG] Tool call ${i}:`, call.toolName || call.name, call.input || call.args);
-          });
-        }
-      }
-      
       const responseText = this.messageContentForTelegram(response.content as string);
-      console.log('[TELEGRAM DEBUG] Processed responseText:', responseText || '(empty)');
 
       // If we have tool calls but no text, the model might need to continue after tool results
-      // Check if we should wait for a follow-up response
       if (!responseText && response.metadata && (response.metadata as any).toolCalls) {
         const toolCalls = (response.metadata as any).toolCalls;
         if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-          console.log('[TELEGRAM DEBUG] Empty content after tool calls, attempting to continue conversation');
-          // The Vercel AI SDK should have already continued, but if it didn't, 
-          // the tool results should be in the interaction messages
-          // Try one more streamText call to see if we get a response
           try {
             const followUpResponse = await interaction.streamText();
             const followUpText = this.messageContentForTelegram(followUpResponse.content as string);
-            console.log('[TELEGRAM DEBUG] Follow-up response content:', followUpText || '(empty)');
-            console.log('[TELEGRAM DEBUG] Follow-up processed responseText:', followUpText || '(empty)');
-            
             if (followUpText) {
               await this.sendFormattedMessage(ctx, followUpText);
               this.logMessage("→", ctx, followUpText);
               return;
             }
-          } catch (followUpError) {
-            console.error('[TELEGRAM DEBUG] Follow-up streamText error:', followUpError);
+          } catch {
+            // Fall through to fallback message
           }
         }
       }
 
       if (!responseText) {
-        console.log('[TELEGRAM DEBUG] No response text after all attempts, sending fallback');
         await ctx.reply(
           "I looked into that but don't have a clear result to show. Try rephrasing or use /reset to start over."
         );
@@ -437,19 +409,44 @@ export class TelegramAdapter {
   }
 
   /**
-   * Extract user-facing message content for Telegram: no tools, no reasoning blocks.
+   * Extract user-facing message content for Telegram: no tools, no reasoning blocks,
+   * no internal update announcements (memories.md, facts.md, private journal).
    * Returns trimmed string or empty if there's nothing to show.
    */
   private messageContentForTelegram(content: string): string {
     if (!content || typeof content !== "string") return "";
     let text = content.trim();
     if (!text) return "";
-    // Strip reasoning/thinking blocks that might be embedded (e.g. <think>...</think> or similar)
+    // Strip reasoning/thinking blocks
     text = text
       .replace(/\s*<think>[\s\S]*?<\/think>\s*/gi, "")
       .replace(/\s*\[REASONING[^\]]*\][\s\S]*?(?=\n\n|$)/gi, "")
       .trim();
+    // Remove lines that only announce internal file updates (memories, facts, journal)
+    const updatePatterns = [
+      /^\s*(I've?|I have)\s+(added|updated|appended|written to|saved to)\s+(your\s+)?(memories\.md|facts\.md|private\s+journal\.md|journal)\s*[.!]?\s*$/gim,
+      /^\s*(Added|Updated|Appended)\s+(to\s+)?(memories\.md|facts\.md|private\s+journal\.md)\s*[.!]?\s*$/gim,
+      /^\s*(Memories|Facts|Private\s+journal)\s+(have\s+been\s+)?updated\.?\s*$/gim,
+      /^\s*\[?(Updated?|Wrote)\s+(memories|facts|private\s+journal)[^\]]*\]?\s*$/gim,
+    ];
+    let prev = "";
+    while (prev !== text) {
+      prev = text;
+      for (const re of updatePatterns) {
+        text = text.replace(re, "");
+      }
+      text = text.replace(/\n{3,}/g, "\n\n").trim();
+    }
     return text || "";
+  }
+
+  /**
+   * Convert markdown that Telegram doesn't support (e.g. # headings) into supported formatting.
+   * Telegram Markdown only supports *bold*, _italic_, `code`, [link](url) — not # headings.
+   */
+  private normalizeForTelegram(content: string): string {
+    return content
+      .replace(/^#{1,6}\s+(.+)$/gm, "*$1*"); // headings -> bold
   }
 
   /**
@@ -457,6 +454,8 @@ export class TelegramAdapter {
    */
   private async sendFormattedMessage(ctx: Context, content: string): Promise<void> {
     if (!content || !content.trim()) return;
+
+    content = this.normalizeForTelegram(content);
 
     // Split long messages (Telegram max is 4096 chars)
     const chunks = content.length > 4096 ? this.splitMessage(content, 4096) : [content];
@@ -490,7 +489,9 @@ export class TelegramAdapter {
    */
   private markdownToHtml(text: string): string {
     return text
-      // Code blocks (must be first)
+      // Headings (Telegram has no <h1>, use bold)
+      .replace(/^#{1,6}\s+(.+)$/gm, "<b>$1</b>")
+      // Code blocks (must be before inline code)
       .replace(/```(\w*)\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>")
       // Inline code
       .replace(/`([^`]+)`/g, "<code>$1</code>")

@@ -3,7 +3,7 @@
   "version": "0.4.5",
   "type": "module",
   "bin": {
-    "umwelten": "dist/cli/cli.js"
+    "umwelten": "dist/cli/entry.js"
   },
   "description": "A tool for systematically evaluating language models",
   "scripts": {
@@ -13,7 +13,7 @@
     "test:coverage": "vitest run --coverage --reporter=verbose",
     "lint": "eslint src --ext .ts,.tsx",
     "build": "tsc",
-    "cli": "tsx src/cli/cli.ts",
+    "cli": "NODE_OPTIONS='--no-deprecation' tsx src/cli/entry.ts",
     "prepublishOnly": "npm run build",
     "prepack": "npm run build",
     "docs:dev": "vitepress dev docs",

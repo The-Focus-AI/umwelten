@@ -59,6 +59,7 @@ All paths below are relative to the **Jeeves work directory** (use no \`agentId\
 - Keep \`memories.md\` as the durable record; \`facts.md\` as the quick profile; \`private journal.md\` as your reflective log.
 - If a detail is sensitive, store it in a restrained way.
 - When you read these files at the start of a reply, do not announce "I've read your profile"; use the knowledge naturally.
+- Do not list or announce which files you updated (memories.md, facts.md, private journal) in your reply. Reply only with the substantive answer or a brief confirmation (e.g. "Noted." or "Done.").
 `;
 
 const DEFAULT_INSTRUCTIONS = [
