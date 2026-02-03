@@ -116,8 +116,22 @@ export class Interaction {
     }
   }
 
+  /** Optional callback invoked whenever messages change (e.g. so CLI can append transcript). */
+  onTranscriptUpdate?: (messages: CoreMessage[]) => void;
+
+  setOnTranscriptUpdate(callback: (messages: CoreMessage[]) => void): void {
+    this.onTranscriptUpdate = callback;
+  }
+
   addMessage(message: CoreMessage): void {
     this.messages.push(message);
+  }
+
+  /** Call after adding message(s) so transcript can be written incrementally. */
+  notifyTranscriptUpdate(): void {
+    if (this.onTranscriptUpdate) {
+      this.onTranscriptUpdate(this.getMessages());
+    }
   }
 
   async addAttachmentFromPath(
