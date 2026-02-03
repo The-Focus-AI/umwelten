@@ -12,6 +12,7 @@ import {
   clearRateLimitState,
 } from "../rate-limit/rate-limit.js";
 import {
+  type CoreMessage,
   LanguageModel,
   generateText,
   generateObject,
@@ -165,9 +166,13 @@ export class BaseModelRunner implements ModelRunner {
       ...interaction.options,
     };
 
+    let generateMessages = interaction.getMessages();
+    if (interaction.modelDetails.provider === 'google') {
+      generateMessages = this.ensureGoogleThoughtSignatures(generateMessages);
+    }
     const generateOptions: any = {
       model: model,
-      messages: interaction.getMessages(),
+      messages: generateMessages,
       temperature: interaction.modelDetails.temperature,
       topP: interaction.modelDetails.topP,
       topK: interaction.modelDetails.topK,
@@ -206,6 +211,42 @@ export class BaseModelRunner implements ModelRunner {
     });
   }
 
+  /**
+   * Ensure assistant messages with tool-call parts have thought_signature on the first
+   * tool-call when using Google (Gemini 3). Uses dummy signature when missing so the API
+   * accepts the request. See https://ai.google.dev/gemini-api/docs/thought-signatures
+   */
+  private ensureGoogleThoughtSignatures(messages: CoreMessage[]): CoreMessage[] {
+    return messages.map((msg) => {
+      if (msg.role !== 'assistant' || !Array.isArray(msg.content)) return msg;
+      const content = msg.content as unknown as Array<Record<string, unknown>>;
+      const hasToolCall = content.some((p) => p?.type === 'tool-call');
+      if (!hasToolCall) return msg;
+      let firstToolCallInStep = true;
+      const newContent = content.map((part) => {
+        if (part?.type !== 'tool-call') return part;
+        const existing = (part.experimental_providerMetadata as Record<string, unknown>)?.['google'] as Record<string, unknown> | undefined;
+        const hasSignature = existing && typeof existing.thought_signature === 'string' && existing.thought_signature.length > 0;
+        if (hasSignature || !firstToolCallInStep) {
+          firstToolCallInStep = false;
+          return part;
+        }
+        firstToolCallInStep = false;
+        return {
+          ...part,
+          experimental_providerMetadata: {
+            ...((part.experimental_providerMetadata as Record<string, unknown>) ?? {}),
+            google: {
+              ...((existing ?? {}) as object),
+              thought_signature: (existing?.thought_signature as string) ?? 'skip_thought_signature_validator',
+            },
+          },
+        };
+      });
+      return { ...msg, content: newContent } as unknown as CoreMessage;
+    });
+  }
+
   async makeStreamOptions(interaction: Interaction): Promise<any> {
     const { startTime, model, modelIdString } = 
       await this.startUp(interaction);
@@ -215,9 +256,14 @@ export class BaseModelRunner implements ModelRunner {
         ...interaction.options,
       };
 
+      let messages = interaction.getMessages();
+      if (interaction.modelDetails.provider === 'google') {
+        messages = this.ensureGoogleThoughtSignatures(messages);
+      }
+
       const streamOptions: any = {
         model: model,
-        messages: interaction.getMessages(),
+        messages,
         temperature: interaction.modelDetails.temperature,
         topP: interaction.modelDetails.topP,
         topK: interaction.modelDetails.topK,
@@ -263,12 +309,14 @@ export class BaseModelRunner implements ModelRunner {
       let fullText = '';
       let reasoningText = '';
       let reasoningDetails: any[] = [];
-      
+      const pendingToolCalls: any[] = [];
+
       if (response.fullStream) {
         for await (const event of response.fullStream) {
-          switch ((event as any).type) {
+          const ev = event as any;
+          switch (ev.type) {
             case 'text-delta':
-              const textDelta = (event as any).textDelta || (event as any).text;
+              const textDelta = ev.textDelta || ev.text;
               if (textDelta !== undefined && textDelta !== null) {
                 process.stdout.write(textDelta);
                 fullText += textDelta;
@@ -278,7 +326,7 @@ export class BaseModelRunner implements ModelRunner {
               console.log('\n🧠 [REASONING START]');
               break;
             case 'reasoning-delta':
-              const reasoningDelta = (event as any).delta;
+              const reasoningDelta = ev.delta;
               if (reasoningDelta !== undefined && reasoningDelta !== null) {
                 process.stdout.write(`\x1b[36m${reasoningDelta}\x1b[0m`); // Cyan color for reasoning
                 reasoningText += reasoningDelta;
@@ -288,22 +336,67 @@ export class BaseModelRunner implements ModelRunner {
               console.log('\n🧠 [REASONING END]');
               break;
             case 'reasoning':
-              // Handle single reasoning chunk (AI SDK 4.0 style)
-              const reasoningChunk = (event as any).text;
+              const reasoningChunk = ev.text;
               if (reasoningChunk !== undefined && reasoningChunk !== null) {
                 console.log('\n🧠 [REASONING]:', reasoningChunk);
                 reasoningText += reasoningChunk;
               }
               break;
             case 'tool-call':
-              console.log(`\n[TOOL CALL] ${(event as any).toolName} called with:`, (event as any).input);
+              console.log(`\n[TOOL CALL] ${ev.toolName} called with:`, ev.input);
+              // Capture provider metadata (e.g. Google thought_signature) so we can send it back next turn
+              const providerMeta =
+                ev.experimental_providerMetadata ?? ev.providerMetadata ?? undefined;
+              pendingToolCalls.push({
+                toolCallId: ev.toolCallId ?? ev.id,
+                toolName: ev.toolName ?? ev.name,
+                input: ev.input ?? ev.args ?? {},
+                experimental_providerMetadata: providerMeta,
+              });
               break;
             case 'tool-result':
-              console.log(`\n[TOOL RESULT] ${(event as any).toolName} result:`, (event as any).output);
+              console.log(`\n[TOOL RESULT] ${ev.toolName} result:`, ev.output);
+              if (pendingToolCalls.length > 0) {
+                interaction.addMessage({
+                  role: 'assistant',
+                  content: pendingToolCalls.map((tc: any, idx: number) => {
+                    const part: Record<string, unknown> = {
+                      type: 'tool-call',
+                      toolCallId: tc.toolCallId ?? tc.id,
+                      toolName: tc.toolName ?? tc.name,
+                      args: tc.input ?? tc.args ?? {},
+                    };
+                    // First tool call in step must have thought_signature for Gemini 3
+                    if (tc.experimental_providerMetadata != null) {
+                      part.experimental_providerMetadata = tc.experimental_providerMetadata;
+                    }
+                    return part;
+                  }),
+                } as unknown as CoreMessage);
+                pendingToolCalls.length = 0;
+                interaction.notifyTranscriptUpdate?.();
+              }
+              const out = ev.result ?? ev.output;
+              const output =
+                ev.isError === true
+                  ? { type: 'error-text' as const, value: typeof out === 'string' ? out : JSON.stringify(out ?? '') }
+                  : typeof out === 'string'
+                    ? { type: 'text' as const, value: out }
+                    : { type: 'json' as const, value: out };
+              interaction.addMessage({
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolCallId: ev.toolCallId ?? ev.id,
+                    toolName: ev.toolName ?? ev.name ?? '',
+                    output,
+                  },
+                ],
+              } as unknown as CoreMessage);
+              interaction.notifyTranscriptUpdate?.();
               break;
-            // Ignore other event types (error, finish, etc.)
             default:
-              // console.log(`[DEBUG] Unknown event type: ${(event as any).type}`, event as any);
               break;
           }
         }
@@ -661,18 +754,20 @@ export class BaseModelRunner implements ModelRunner {
 
     // For generateObject, content is the actual object, not a string
     const contentString = typeof content === 'string' ? content : JSON.stringify(content);
-    
-    interaction.addMessage({
-      role: "assistant",
-      content: contentString,
-    });
 
-    // Handle tool calls and results (they might be promises)
-    // For streaming responses, tool calls are in response.steps rather than response.toolCalls
+    // SDK ToolResultPart expects output: { type: 'text'|'json'|'error-text', value }
+    function toToolResultOutput(result: unknown, isError?: boolean): { type: 'text' | 'json' | 'error-text'; value: string | unknown } {
+      if (isError) {
+        return { type: 'error-text', value: typeof result === 'string' ? result : JSON.stringify(result ?? '') };
+      }
+      return typeof result === 'string' ? { type: 'text', value: result } : { type: 'json', value: result };
+    }
+
+    // Resolve tool calls and results (they might be promises)
     let toolCalls: any[] = [];
     let toolResults: any[] = [];
+    let steps: any[] = [];
 
-    // Try to get tool calls from response.toolCalls first (non-streaming)
     if (response.toolCalls) {
       const resolvedCalls = await response.toolCalls;
       if (Array.isArray(resolvedCalls) && resolvedCalls.length > 0) {
@@ -685,20 +780,138 @@ export class BaseModelRunner implements ModelRunner {
         toolResults = resolvedResults;
       }
     }
-
-    // For streaming responses, extract from steps (Vercel AI SDK pattern)
-    if (toolCalls.length === 0 && response.steps) {
-      const steps = await response.steps;
-      if (Array.isArray(steps)) {
-        for (const step of steps) {
-          if (step.toolCalls && Array.isArray(step.toolCalls)) {
-            toolCalls.push(...step.toolCalls);
-          }
-          if (step.toolResults && Array.isArray(step.toolResults)) {
-            toolResults.push(...step.toolResults);
+    if (response.steps) {
+      const resolvedSteps = await response.steps;
+      if (Array.isArray(resolvedSteps)) {
+        steps = resolvedSteps;
+        if (toolCalls.length === 0) {
+          for (const step of steps) {
+            if (step.toolCalls && Array.isArray(step.toolCalls)) {
+              toolCalls.push(...step.toolCalls);
+            }
+            if (step.toolResults && Array.isArray(step.toolResults)) {
+              toolResults.push(...step.toolResults);
+            }
           }
         }
       }
+    }
+
+    // If we already added tool messages during streamText (streaming), only add final assistant text
+    const messages = interaction.getMessages();
+    const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user');
+    const afterLastUser = messages.slice(lastUserIdx + 1);
+    const alreadyHasToolMessages = afterLastUser.some((m) => m.role === 'tool');
+
+    if (alreadyHasToolMessages) {
+      if (contentString) {
+        interaction.addMessage({ role: 'assistant', content: contentString });
+        interaction.notifyTranscriptUpdate?.();
+      }
+    } else if (steps.length > 0) {
+    // Append full conversation to interaction.messages (Claude Code style: user, assistant+tool_use, tool results, ..., final assistant)
+      for (const step of steps) {
+        const stepCalls = step.toolCalls && Array.isArray(step.toolCalls) ? step.toolCalls : [];
+        const stepResults = step.toolResults && Array.isArray(step.toolResults) ? step.toolResults : [];
+        const stepText = step.text != null ? (typeof step.text === 'string' ? step.text : String(step.text)) : '';
+        if (stepCalls.length > 0) {
+          interaction.addMessage({
+            role: 'assistant',
+            content: stepText
+              ? [
+                  { type: 'text', text: stepText },
+                  ...stepCalls.map((tc: any) => ({
+                    type: 'tool-call',
+                    toolCallId: tc.toolCallId ?? tc.id,
+                    toolName: tc.toolName ?? tc.name,
+                    args: tc.input ?? tc.args ?? {},
+                  })),
+                ]
+              : stepCalls.map((tc: any) => ({
+                  type: 'tool-call',
+                  toolCallId: tc.toolCallId ?? tc.id,
+                  toolName: tc.toolName ?? tc.name,
+                  args: tc.input ?? tc.args ?? {},
+                })),
+          });
+          interaction.notifyTranscriptUpdate?.();
+        } else if (stepText) {
+          interaction.addMessage({ role: 'assistant', content: stepText });
+          interaction.notifyTranscriptUpdate?.();
+        }
+        if (stepResults.length > 0) {
+          const resultMap = new Map(stepResults.map((tr: any) => [tr.toolCallId ?? tr.id, tr]));
+          for (const tc of stepCalls) {
+            const id = tc.toolCallId ?? tc.id;
+            const tr = resultMap.get(id) as any;
+            if (tr != null) {
+              const out = tr.result ?? tr.output;
+              interaction.addMessage({
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolCallId: id,
+                    toolName: tr.toolName ?? tc.toolName ?? '',
+                    output: toToolResultOutput(out, tr.isError ?? false),
+                  },
+                ],
+              } as unknown as CoreMessage);
+              interaction.notifyTranscriptUpdate?.();
+            }
+          }
+        }
+      }
+      // Final assistant text only if last step had no text (e.g. last step was tool-only)
+      const lastStep = steps[steps.length - 1];
+      const lastStepText = lastStep?.text != null ? String(lastStep.text) : '';
+      if (contentString && lastStepText !== contentString) {
+        interaction.addMessage({ role: 'assistant', content: contentString });
+        interaction.notifyTranscriptUpdate?.();
+      }
+    } else if (toolCalls.length > 0) {
+      interaction.addMessage({
+        role: 'assistant',
+        content: toolCalls.map((tc: any) => ({
+          type: 'tool-call',
+          toolCallId: tc.toolCallId ?? tc.id,
+          toolName: tc.toolName ?? tc.name,
+          args: tc.input ?? tc.args ?? {},
+        })),
+      } as unknown as CoreMessage);
+      interaction.notifyTranscriptUpdate?.();
+      const resultMap = new Map(
+        (toolResults as any[]).map((tr: any) => [tr.toolCallId ?? tr.id, tr])
+      );
+      for (const tc of toolCalls) {
+        const id = tc.toolCallId ?? tc.id;
+        const tr = resultMap.get(id) as any;
+        if (tr != null) {
+          const out = tr.result ?? tr.output;
+          interaction.addMessage({
+            role: 'tool',
+            content: [
+              {
+                type: 'tool-result',
+                toolCallId: id,
+                toolName: (tr as any).toolName ?? (tc as any).toolName ?? '',
+                output: toToolResultOutput(out, tr.isError ?? false),
+              },
+            ],
+          } as unknown as CoreMessage);
+          interaction.notifyTranscriptUpdate?.();
+        }
+      }
+      if (contentString) {
+        interaction.addMessage({ role: 'assistant', content: contentString });
+        interaction.notifyTranscriptUpdate?.();
+      }
+    } else {
+      interaction.addMessage({
+        role: 'assistant',
+        content: contentString,
+      });
+      interaction.notifyTranscriptUpdate?.();
     }
 
     const modelResponse: ModelResponse = {
