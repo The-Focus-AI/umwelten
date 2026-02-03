@@ -8,8 +8,58 @@ import type { SkillDefinition } from './types.js';
 
 const SKILL_MD = 'SKILL.md';
 
+/** Directories to skip when recursively scanning for SKILL.md (e.g. .git, node_modules). */
+const SKIP_DIRS = new Set(['.git', 'node_modules', 'vendor', '.venv']);
+
+/**
+ * Recursively find all directories under root that contain SKILL.md.
+ * Used so repos with nested skills (e.g. .claude/skills/browser-automation) are discovered.
+ */
+async function findSkillDirsRecursive(rootDir: string): Promise<string[]> {
+  const found: string[] = [];
+  async function walk(dir: string): Promise<void> {
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (SKIP_DIRS.has(entry.name)) continue;
+        const childPath = join(dir, entry.name);
+        const skillMdPath = join(childPath, SKILL_MD);
+        try {
+          await readFile(skillMdPath, 'utf-8');
+          found.push(childPath);
+        } catch {
+          await walk(childPath);
+        }
+      }
+    } catch {
+      // ignore unreadable dirs
+    }
+  }
+  await walk(rootDir);
+  return found;
+}
+
+/**
+ * Discover all skills in a directory: SKILL.md at root (if present) plus any nested directory that contains SKILL.md.
+ * Used after cloning a repo into the work/session cache so one repo can contribute multiple skills
+ * (e.g. .claude/skills/browser-automation in chrome-driver).
+ */
+export async function discoverSkillsInDirectory(dir: string): Promise<SkillDefinition[]> {
+  const skills: SkillDefinition[] = [];
+  const rootSkill = await loadSkillFromPath(dir);
+  if (rootSkill) skills.push(rootSkill);
+  const nestedDirs = await findSkillDirsRecursive(dir);
+  for (const skillDir of nestedDirs) {
+    const skill = await loadSkillFromPath(skillDir);
+    if (skill && !skills.some((existing) => existing.name === skill.name)) skills.push(skill);
+  }
+  return skills;
+}
+
 /**
  * Load a single skill from a directory that contains SKILL.md.
+ * If frontmatter has no `name`, uses the directory's basename (e.g. browser-automation).
  * @internal
  */
 export async function loadSkillFromPath(skillDir: string): Promise<SkillDefinition | null> {
@@ -18,17 +68,18 @@ export async function loadSkillFromPath(skillDir: string): Promise<SkillDefiniti
     const content = await readFile(skillMdPath, 'utf-8');
     const { data, content: body } = matter(content);
 
-    if (!data.name || typeof data.name !== 'string') {
-      console.warn(`Skill at ${skillDir}: missing or invalid 'name' field`);
-      return null;
-    }
+    const skillName =
+      data.name && typeof data.name === 'string'
+        ? data.name
+        : (skillDir.replace(/[/\\]+$/, '').split(/[/\\]/).pop() ?? 'skill');
+
     if (!data.description || typeof data.description !== 'string') {
       console.warn(`Skill at ${skillDir}: missing or invalid 'description' field`);
       return null;
     }
 
     return {
-      name: data.name,
+      name: skillName,
       description: data.description,
       instructions: body.trim(),
       path: skillDir,
@@ -86,16 +137,21 @@ function slugFromRepo(repo: string): string {
 }
 
 /**
- * Load a single skill from a git repo: clone into cache (or use existing), then parse SKILL.md at repo root.
+ * Load skills from a git repo: clone into the given cache root (work or session dir), then discover
+ * all skills (SKILL.md at repo root plus subdirs with SKILL.md). No global cache; cacheRoot must
+ * be provided (e.g. <workDir>/repos).
  */
-export async function loadSkillFromGit(repo: string): Promise<SkillDefinition | null> {
+export async function loadSkillsFromGit(repo: string, cacheRoot: string): Promise<SkillDefinition[]> {
   if (!isGitUrl(repo)) {
-    console.warn(`loadSkillFromGit: not a git URL or owner/repo: ${repo}`);
-    return null;
+    console.warn(`loadSkillsFromGit: not a git URL or owner/repo: ${repo}`);
+    return [];
+  }
+  if (!cacheRoot || cacheRoot.trim() === '') {
+    console.warn('loadSkillsFromGit: cacheRoot is required (e.g. work dir/repos); no global cache.');
+    return [];
   }
   const url = normalizeGitUrl(repo);
   const slug = slugFromRepo(repo);
-  const cacheRoot = join(homedir(), '.umwelten', 'skills-cache');
   const cacheDir = join(cacheRoot, slug);
 
   try {
@@ -103,9 +159,9 @@ export async function loadSkillFromGit(repo: string): Promise<SkillDefinition | 
       await mkdir(cacheRoot, { recursive: true });
       execSync(`git clone --depth 1 "${url}" "${cacheDir}"`, { stdio: 'pipe' });
     }
-    return loadSkillFromPath(cacheDir);
+    return discoverSkillsInDirectory(cacheDir);
   } catch (err) {
-    console.warn(`loadSkillFromGit failed for ${repo}:`, err instanceof Error ? err.message : err);
-    return null;
+    console.warn(`loadSkillsFromGit failed for ${repo}:`, err instanceof Error ? err.message : err);
+    return [];
   }
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadSkillFromPath, loadSkillsFromDirectory } from './loader.js';
+import { loadSkillFromPath, loadSkillsFromDirectory, discoverSkillsInDirectory } from './loader.js';
 
 describe('skills loader', () => {
   let tmpDir: string;
@@ -50,7 +50,7 @@ Do step 1. Then step 2.
     expect(result!.path).toBe(skillDir);
   });
 
-  it('loadSkillFromPath returns null when name is missing', async () => {
+  it('loadSkillFromPath uses dir basename when name is missing in frontmatter', async () => {
     const skillDir = join(tmpDir, 'bad-skill');
     await mkdir(skillDir, { recursive: true });
     await writeFile(
@@ -64,7 +64,9 @@ Body
       'utf-8'
     );
     const result = await loadSkillFromPath(skillDir);
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.name).toBe('bad-skill');
+    expect(result!.description).toBe('No name here');
   });
 
   it('loadSkillsFromDirectory returns empty array for empty dir', async () => {
@@ -91,5 +93,54 @@ Instructions for ${name}.
     const result = await loadSkillsFromDirectory(tmpDir);
     expect(result).toHaveLength(2);
     expect(result.map((s) => s.name).sort()).toEqual(['skill-a', 'skill-b']);
+  });
+
+  it('discoverSkillsInDirectory returns root SKILL.md plus subdir skills', async () => {
+    await writeFile(
+      join(tmpDir, 'SKILL.md'),
+      `---
+name: root-skill
+description: Root skill
+---
+
+Root instructions.
+`,
+      'utf-8'
+    );
+    const subDir = join(tmpDir, 'sub-skill');
+    await mkdir(subDir, { recursive: true });
+    await writeFile(
+      join(subDir, 'SKILL.md'),
+      `---
+name: sub-skill
+description: Sub skill
+---
+
+Sub instructions.
+`,
+      'utf-8'
+    );
+    const result = await discoverSkillsInDirectory(tmpDir);
+    expect(result).toHaveLength(2);
+    expect(result.map((s) => s.name).sort()).toEqual(['root-skill', 'sub-skill']);
+  });
+
+  it('discoverSkillsInDirectory finds nested SKILL.md (e.g. .claude/skills/browser-automation)', async () => {
+    const nestedDir = join(tmpDir, '.claude', 'skills', 'browser-automation');
+    await mkdir(nestedDir, { recursive: true });
+    await writeFile(
+      join(nestedDir, 'SKILL.md'),
+      `---
+description: Nested skill with no name (uses dir basename)
+---
+
+Nested instructions.
+`,
+      'utf-8'
+    );
+    const result = await discoverSkillsInDirectory(tmpDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('browser-automation');
+    expect(result[0].description).toContain('Nested skill');
   });
 });

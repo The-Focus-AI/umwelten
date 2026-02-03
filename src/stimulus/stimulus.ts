@@ -6,7 +6,7 @@ import type { SkillDefinition } from "./skills/types.js";
 import {
   SkillsRegistry,
   loadSkillsFromDirectory,
-  loadSkillFromGit,
+  loadSkillsFromGit,
   createSkillTool,
 } from "./skills/index.js";
 
@@ -38,6 +38,8 @@ export type StimulusOptions = {
   skills?: SkillDefinition[];
   skillsDirs?: string[];
   skillsFromGit?: string[];
+  /** Root directory for cloning git repos (work or session dir). Required for skillsFromGit; no global cache. */
+  skillsCacheRoot?: string;
 }
 
 export class Stimulus {
@@ -168,9 +170,9 @@ export class Stimulus {
     return this.options.runnerType || 'base';
   }
 
-  /** Load skills from options.skillsDirs and options.skillsFromGit; merge into registry. No-op if only options.skills was set (already built in constructor). */
+  /** Load skills from options.skillsDirs and options.skillsFromGit; merge into registry. No-op if only options.skills was set (already built in constructor). Git repos are cloned into options.skillsCacheRoot (work/session scoped); no global cache. */
   async loadSkills(): Promise<void> {
-    const { skillsDirs, skillsFromGit } = this.options;
+    const { skillsDirs, skillsFromGit, skillsCacheRoot } = this.options;
     if (!skillsDirs?.length && !skillsFromGit?.length) return;
     if (!this.skillsRegistry) this.skillsRegistry = new SkillsRegistry();
     if (this.options.skills?.length) this.skillsRegistry.addSkills(this.options.skills);
@@ -178,9 +180,15 @@ export class Stimulus {
       const skills = await loadSkillsFromDirectory(dir);
       this.skillsRegistry.addSkills(skills);
     }
-    for (const repo of skillsFromGit ?? []) {
-      const skill = await loadSkillFromGit(repo);
-      if (skill) this.skillsRegistry.addSkills([skill]);
+    if (skillsFromGit?.length) {
+      if (!skillsCacheRoot?.trim()) {
+        console.warn('skillsFromGit is set but skillsCacheRoot is missing; skipping git skills. Set skillsCacheRoot (e.g. work dir/repos) to clone repos.');
+      } else {
+        for (const repo of skillsFromGit) {
+          const skills = await loadSkillsFromGit(repo, skillsCacheRoot);
+          if (skills.length) this.skillsRegistry.addSkills(skills);
+        }
+      }
     }
   }
 
