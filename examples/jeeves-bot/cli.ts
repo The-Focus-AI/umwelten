@@ -283,7 +283,22 @@ async function repl(
           console.log('[Final Result]:', finalText || '(empty)');
         }
         console.log(formatContextSize(interaction.getMessages()));
-        await updateSessionMetadata(sessionId, { lastUsed: new Date().toISOString() });
+        const messages = interaction.getMessages();
+        await writeSessionTranscript(sessionDir, messages);
+        const firstUser = messages.find((m) => m.role === 'user');
+        const firstPrompt = firstUser ? formatMessageContent(firstUser.content).slice(0, 200) : undefined;
+        const userCount = messages.filter((m) => m.role === 'user').length;
+        const assistantCount = messages.filter((m) => m.role === 'assistant').length;
+        const toolCount = messages.filter((m) => m.role === 'tool').length;
+        await updateSessionMetadata(sessionId, {
+          lastUsed: new Date().toISOString(),
+          ...((firstPrompt || userCount + assistantCount + toolCount > 0) && {
+            metadata: {
+              ...(firstPrompt && { firstPrompt }),
+              messageCount: userCount + assistantCount + toolCount,
+            },
+          }),
+        });
       } catch (err) {
         console.error('Error:', err);
       }
@@ -322,6 +337,10 @@ async function main(): Promise<void> {
   const stimulus = await createJeevesStimulus();
   const modelDetails = { name: model, provider };
   const interaction = new Interaction(modelDetails, stimulus);
+  // Append transcript as messages come in (after each tool call, tool result, final text)
+  interaction.setOnTranscriptUpdate((messages) => {
+    void writeSessionTranscript(sessionDir, messages);
+  });
 
   if (oneShot) {
     await oneShotRun(interaction, oneShot, quiet, sessionId, sessionDir);

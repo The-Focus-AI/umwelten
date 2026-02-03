@@ -71,17 +71,29 @@ function extractContentBlocks(content: CoreMessage['content']): ContentBlock[] {
       continue;
     }
 
-    // Tool result in user/tool message
+    // Tool result in user/tool message (SDK uses output: { type, value }; we support result/output or output.value)
     if (part.type === 'tool-result') {
       const resultOrOutput = part.result ?? part.output;
+      let contentStr: string;
+      let isError = part.isError ?? false;
+      if (
+        resultOrOutput &&
+        typeof resultOrOutput === 'object' &&
+        'type' in resultOrOutput &&
+        'value' in resultOrOutput
+      ) {
+        const o = resultOrOutput as { type: string; value: unknown };
+        isError = o.type === 'error-text' || o.type === 'error-json';
+        contentStr = typeof o.value === 'string' ? o.value : JSON.stringify(o.value ?? '');
+      } else {
+        contentStr =
+          typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
+      }
       const toolResult: ToolResultContent = {
         type: 'tool_result',
         tool_use_id: part.toolCallId || '',
-        content:
-          typeof resultOrOutput === 'string'
-            ? resultOrOutput
-            : JSON.stringify(resultOrOutput ?? ''),
-        is_error: part.isError ?? false,
+        content: contentStr,
+        is_error: isError,
       };
       blocks.push(toolResult);
       continue;
