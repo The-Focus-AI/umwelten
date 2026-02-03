@@ -70,7 +70,7 @@ const DEFAULT_INSTRUCTIONS = [
   'When listing or showing external interactions, always identify the agent by id or name first.',
   'Secrets in agent config are references only (e.g. env var names); never store or echo secret values.',
   'For current date or time, use the current_time tool instead of guessing.',
-  'Use run_bash to execute bash commands in isolated Dagger containers. Use experienceId to chain commands. Use action "commit" to export changes back to the original directory, or "discard" to delete the experience without exporting.',
+  'run_bash: Execute bash in Dagger containers. If you omit experienceId, each call gets a NEW workspace (a fresh copy of the work dir); later calls cannot see previous commands\' output or installed state. For multi-step workflows (e.g. install deps, then run a script, then run another), choose ONE stable experienceId (e.g. "annas-search" or "chrome-extract") and pass the SAME experienceId for every run_bash call in that task so state accumulates. Use action "commit" to export the experience back to the work dir, or "discard" to delete it.',
   'Maintain memories.md, facts.md, and private journal.md in the work directory as described in your additional context (read that section carefully and follow it each conversation).',
 ];
 

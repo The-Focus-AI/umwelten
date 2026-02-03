@@ -33,7 +33,8 @@ export interface AgentEntry {
 /**
  * Optional work-dir paths (relative to work dir).
  * - skillsDirs: directories containing SKILL.md subdirs
- * - skillsFromGit: git repo URLs or owner/repo for skills
+ * - skillsFromGit: git repo URLs or owner/repo for skills (cloned into skillsCacheDir)
+ * - skillsCacheDir: directory under work dir where git repos are cloned (default "repos"); no global cache
  * - toolsDir: directory containing tool subdirs (each with TOOL.md and optional handler)
  * - stimulusFile: path to STIMULUS.md or main prompt file (e.g. "STIMULUS.md" or "prompts/main.md")
  */
@@ -41,6 +42,7 @@ export interface JeevesConfig {
   agents: AgentEntry[];
   skillsDirs?: string[];
   skillsFromGit?: string[];
+  skillsCacheDir?: string;
   toolsDir?: string;
   stimulusFile?: string;
 }

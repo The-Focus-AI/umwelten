@@ -77,12 +77,19 @@ AGENT.md (in the work dir) is loaded after the main prompt and can override or a
 ## Config
 
 - **Config file**: `<JEEVES_WORK_DIR>/config.json` (or `JEEVES_CONFIG_PATH` if set).
-- **Shape**: `{ "agents": [ ... ], "skillsDirs": ["./skills"], "skillsFromGit": ["owner/repo"], "toolsDir": "tools", "stimulusFile": "STIMULUS.md" }`
-  - **agents** (required): Array of agent entries (id, name, projectPath, optional gitRemote, secrets, commands).
-  - **skillsDirs** (optional): Paths relative to work dir; each dir contains subdirs with `SKILL.md`. Default `["./skills"]` if present.
-  - **skillsFromGit** (optional): Git repo URLs or `owner/repo` for skills (cloned into cache).
-  - **toolsDir** (optional): Path relative to work dir for tool subdirs (each with TOOL.md and optional handler). Default `"tools"`.
-  - **stimulusFile** (optional): Path relative to work dir for main prompt file (e.g. `"STIMULUS.md"` or `"prompts/main.md"`).
+
+### What each key does
+
+| Key | What it does |
+|-----|----------------|
+| **agents** | (required) List of habitats: `id`, `name`, `projectPath`, optional `gitRemote`, `secrets`, `commands`. File tools can read/write under each agent’s `projectPath`. |
+| **skillsDirs** | Paths relative to work dir (e.g. `["./skills"]`). Each path is a directory whose **immediate subdirs** may contain `SKILL.md`; each such subdir becomes one skill. |
+| **skillsFromGit** | Git URLs or `owner/repo` (e.g. `"The-Focus-AI/chrome-driver"`). Each repo is **cloned into** `<workDir>/<skillsCacheDir>/<slug>` (no global cache). Skills are **discovered** in the clone: **SKILL.md at repo root** and **any nested directory** that contains `SKILL.md` (e.g. `.claude/skills/browser-automation`). One repo can contribute multiple skills. |
+| **skillsCacheDir** | Directory under work dir where git repos are cloned (default `"repos"`). Scoped to this work/session only. |
+| **toolsDir** | Path relative to work dir for tool subdirs (each with TOOL.md and optional handler). Default `"tools"`. |
+| **stimulusFile** | Path relative to work dir for main prompt (e.g. `"STIMULUS.md"` or `"prompts/main.md"`). |
+
+- **Shape**: `{ "agents": [ ... ], "skillsDirs": ["./skills"], "skillsFromGit": ["owner/repo"], "skillsCacheDir": "repos", "toolsDir": "tools", "stimulusFile": "STIMULUS.md" }`
 - **Secrets**: `secrets` are references only (e.g. env var names). Jeeves does not store secret values; keep actual secrets in the environment or a secrets manager.
 - **Commands**: optional `commands` map (e.g. `cli`, `run`) for how to interact with that habitat. Not used by tools yet; reserved for future “spin up” / run behavior.
 
@@ -316,12 +323,12 @@ Each `run_bash` call can be part of an **experience** that maintains state betwe
 run_bash({ command: 'echo "hello" > test.txt' })
 ```
 
-**Chained commands (same experience):**
+**Chained commands (same experience):** Use one stable `experienceId` for the whole workflow so each call sees the previous state.
 ```
 # Command 1: Create file
 run_bash({ command: 'echo "hello" > test.txt', experienceId: 'my-experience' })
 
-# Command 2: Read the file (sees previous changes)
+# Command 2: Read the file (sees previous changes—same experienceId)
 run_bash({ command: 'cat test.txt', experienceId: 'my-experience' })
 
 # Command 3: Commit changes back
@@ -341,7 +348,7 @@ run_bash({
 
 - `command` (required): Bash command or script to execute
 - `agentId` (optional): Use agent's project path instead of work directory
-- `experienceId` (optional): Experience identifier for chaining commands. Auto-generated if omitted.
+- `experienceId` (optional): Experience identifier for chaining. **Use the same value for every run_bash in a multi-step workflow** so later commands see earlier state. If omitted, each call gets a new workspace (previous state is lost).
 - `action` (optional): `start` | `continue` | `commit` | `discard` (default: `continue`)
 - `image` (optional): Base container image (default: `ubuntu:22.04`)
 - `timeout` (optional): Execution timeout in seconds (default: 300)

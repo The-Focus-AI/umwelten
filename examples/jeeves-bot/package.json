@@ -5,7 +5,8 @@
   "scripts": {
     "cli": "tsx cli.ts",
     "telegram": "tsx telegram.ts",
-    "verify-sessions": "tsx verify-sessions-store-reload.ts"
+    "verify-sessions": "tsx verify-sessions-store-reload.ts",
+    "verify-skills": "tsx verify-skills-load.ts"
   },
   "dependencies": {
     "@tavily/core": "^0.7.1"

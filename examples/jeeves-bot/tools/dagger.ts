@@ -21,7 +21,7 @@ const runBashSchema = z.object({
   experienceId: z
     .string()
     .optional()
-    .describe('Experience identifier for chaining commands. If provided, uses isolated experience directory. If omitted, generates a new experience ID.'),
+    .describe('Required for chaining: use the SAME experienceId for every run_bash in a multi-step workflow so later commands see earlier changes (installed deps, created files). If omitted, each call gets a new workspace and previous state is lost.'),
   action: z
     .enum(['start', 'continue', 'commit', 'discard'])
     .optional()
@@ -268,7 +268,7 @@ async function executeInDagger(
 
 export const runBashTool = tool({
   description:
-    'Execute bash commands in a Dagger-managed container with experience-based state management. Supports chaining commands by maintaining isolated experience directories. Use experienceId to chain commands together.',
+    'Execute bash in a Dagger container. Pass the same experienceId for every call in a multi-step workflow so state accumulates (later commands see files and installs from earlier commands). Omitting experienceId creates a new workspace each time—do not omit when chaining steps.',
   inputSchema: runBashSchema,
   execute: async ({ command, agentId, experienceId, action, image, timeout, workdir }) => {
     const config = await loadConfig();
@@ -341,6 +341,7 @@ export const runBashTool = tool({
         return {
           experienceId: finalExperienceId,
           status,
+          hint: 'Reuse this experienceId on retry so the next command sees current state.',
           stdout: result.stdout,
           stderr: result.stderr || `Execution timed out after ${timeout} seconds`,
           exitCode: result.exitCode,
@@ -351,6 +352,7 @@ export const runBashTool = tool({
       return {
         experienceId: finalExperienceId,
         status,
+        ...(status === 'new' && { hint: 'Reuse this experienceId for the next run_bash call in this workflow so the next command sees this state.' }),
         stdout: result.stdout,
         stderr: result.stderr,
         exitCode: result.exitCode,

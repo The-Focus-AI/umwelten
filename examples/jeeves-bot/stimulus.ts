@@ -78,10 +78,11 @@ export async function createJeevesStimulus(): Promise<Stimulus> {
     stimulus.addTool(name, tool);
   }
 
-  // Skills: resolve skillsDirs relative to work dir; load from dirs and git
+  // Skills: resolve skillsDirs relative to work dir; git repos clone into work dir (no global cache)
   const skillsDirsResolved = (config.skillsDirs ?? ['./skills']).map((d) => join(workDir, d));
   stimulus.options.skillsDirs = skillsDirsResolved;
   stimulus.options.skillsFromGit = config.skillsFromGit ?? [];
+  stimulus.options.skillsCacheRoot = join(workDir, config.skillsCacheDir ?? 'repos');
   await stimulus.loadSkills();
   stimulus.addSkillsTool();
 

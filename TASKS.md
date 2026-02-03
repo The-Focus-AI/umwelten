@@ -230,6 +230,16 @@ interface SessionAdapter {
 - [ ] Add SSE for live run updates
 - [ ] Implement session continuation from monitor
 
+### Completed: Jeeves skills scoped to work/session (no global cache)
+
+- [x] Remove any ~/.umwelten directory for skills; scope all skill-from-git cloning to work (or session) dir.
+- [x] Loader: loadSkillsFromGit(repo, cacheRoot) clones into cacheRoot (e.g. <workDir>/repos); no global cache; returns SkillDefinition[].
+- [x] Discover skills in cloned repo: SKILL.md at root plus subdirs with SKILL.md (discoverSkillsInDirectory); one repo can contribute multiple skills.
+- [x] Stimulus: add skillsCacheRoot to options; require it when skillsFromGit is set; pass to loadSkillsFromGit.
+- [x] Jeeves config: add skillsCacheDir (default "repos"); stimulus sets skillsCacheRoot = join(workDir, skillsCacheDir).
+- [x] README: skillsFromGit clones into work dir; skillsCacheDir; no ~/.umwelten reference.
+- [x] Tests: discoverSkillsInDirectory test; loader + stimulus tests pass.
+
 ### Completed: Jeeves Bot Example
 
 - [x] Add `examples/jeeves-bot/`: config (config.ts, config.json), file tools (read_file, write_file, list_directory, ripgrep), agent tools (list/add/update/remove), external-interaction tools (external_interactions_list, show, messages, stats), run_bash with experiences, Jeeves Stimulus, CLI runner (REPL + one-shot), Telegram runner, README.

@@ -1,3 +1,5 @@
 {
-  "agents": []
+  "agents": [],
+  "skillsDirs": ["./skills"],
+  "skillsFromGit": ["The-Focus-AI/torrent-skill"]
 }
