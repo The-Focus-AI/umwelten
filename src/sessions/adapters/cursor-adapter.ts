@@ -331,6 +331,15 @@ export class CursorAdapter implements SessionAdapter {
             : new Date().toISOString();
           const modified = ts ? new Date(ts).toISOString() : created;
 
+          // Load message count and first prompt from globalStorage (same as list view)
+          let messageCount = 0;
+          let firstPrompt = '';
+          const enriched = await this.getComposerPromptAndCount(composerId);
+          if (enriched) {
+            messageCount = enriched.messageCount;
+            firstPrompt = enriched.firstPrompt;
+          }
+
           return {
             id: sessionId,
             source: this.source,
@@ -340,8 +349,8 @@ export class CursorAdapter implements SessionAdapter {
             created,
             modified,
             messages: [],
-            messageCount: 0,
-            firstPrompt: '',
+            messageCount,
+            firstPrompt,
             metrics: { userMessages: 0, assistantMessages: 0, toolCalls: 0 },
             sourceData: { workspaceHash, composerId },
           };
@@ -514,6 +523,7 @@ export class CursorAdapter implements SessionAdapter {
               modified,
               messageCount,
               firstPrompt,
+              metrics: { userMessages: 0, assistantMessages: 0, toolCalls: 0 },
             });
           }
         } else if (prompts.length > 0) {
