@@ -10,6 +10,9 @@ import type {
   TokenUsage,
   ToolUseContent,
 } from './types.js';
+import type { NormalizedMessage, NormalizedTokenUsage } from './normalized-types.js';
+import { messagesToBeats } from './conversation-beats.js';
+import type { ConversationBeat } from './conversation-beats.js';
 
 /**
  * Parse a single line of JSONL into a SessionMessage
@@ -190,6 +193,94 @@ export function calculateCost(usage: TokenUsage): number {
 }
 
 /**
+ * Size breakdown (character counts) for session content.
+ * System prompt is not in transcript; Jeeves may store systemPromptChars in meta.json.
+ */
+export interface SessionSizeBreakdown {
+  systemPromptChars?: number;
+  userChars: number;
+  reasoningChars: number;
+  toolCallChars: number;
+  toolResponseChars: number;
+  assistantChars: number;
+}
+
+/**
+ * Compute size breakdown for session messages (character counts).
+ */
+export function computeSizeBreakdown(messages: SessionMessage[]): SessionSizeBreakdown {
+  let userChars = 0;
+  let reasoningChars = 0;
+  let toolCallChars = 0;
+  let toolResponseChars = 0;
+  let assistantChars = 0;
+
+  for (const msg of messages) {
+    if (msg.type === 'user') {
+      const content = (msg as UserMessageEntry).message.content;
+      if (typeof content === 'string') {
+        userChars += content.length;
+      } else if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type === 'text' && 'text' in block) {
+            userChars += block.text.length;
+          } else if (block.type === 'tool_result') {
+            const c = block.content;
+            toolResponseChars += typeof c === 'string' ? c.length : JSON.stringify(c).length;
+          }
+        }
+      }
+    } else if (msg.type === 'assistant') {
+      const entry = msg as AssistantMessageEntry;
+      if (entry.reasoning) {
+        reasoningChars += entry.reasoning.length;
+      }
+      const content = entry.message.content;
+      if (typeof content === 'string') {
+        assistantChars += content.length;
+      } else if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type === 'text' && 'text' in block) {
+            assistantChars += block.text.length;
+          } else if (block.type === 'tool_use') {
+            toolCallChars += JSON.stringify(block.input).length;
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    userChars,
+    reasoningChars,
+    toolCallChars,
+    toolResponseChars,
+    assistantChars,
+  };
+}
+
+/**
+ * Extract reasoning/thinking from an assistant message entry (Jeeves persists this from runner).
+ */
+export function extractReasoning(entry: AssistantMessageEntry): string | undefined {
+  return entry.reasoning;
+}
+
+/**
+ * Extract all reasoning strings from session messages (for size breakdown / summaries).
+ */
+export function extractAllReasoning(messages: SessionMessage[]): string[] {
+  const out: string[] = [];
+  for (const m of messages) {
+    if (m.type === 'assistant') {
+      const r = (m as AssistantMessageEntry).reasoning;
+      if (r != null && r !== '') out.push(r);
+    }
+  }
+  return out;
+}
+
+/**
  * Get a summary of the session
  */
 export interface SessionSummary {
@@ -202,6 +293,12 @@ export interface SessionSummary {
   firstMessage?: string;
   lastMessage?: string;
   duration?: number; // milliseconds
+  /** Number of assistant messages that have reasoning. */
+  reasoningCount?: number;
+  /** Total character length of all reasoning content. */
+  totalReasoningChars?: number;
+  /** Character counts by category (user, reasoning, tool call/response, assistant). */
+  sizeBreakdown?: SessionSizeBreakdown;
 }
 
 export function summarizeSession(messages: SessionMessage[]): SessionSummary {
@@ -250,6 +347,10 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
     }
   }
 
+  const reasoningStrings = extractAllReasoning(messages);
+  const totalReasoningChars = reasoningStrings.reduce((sum, s) => sum + s.length, 0);
+  const sizeBreakdown = computeSizeBreakdown(messages);
+
   return {
     totalMessages: messages.length,
     userMessages: conversation.user.length,
@@ -260,6 +361,9 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
     firstMessage,
     lastMessage,
     duration,
+    reasoningCount: reasoningStrings.length,
+    totalReasoningChars: totalReasoningChars > 0 ? totalReasoningChars : undefined,
+    sizeBreakdown,
   };
 }
 
@@ -289,6 +393,121 @@ export function extractTextContent(content: string | ContentBlock[]): string[] {
   }
 
   return texts;
+}
+
+function contentToText(content: string | ContentBlock[]): string {
+  return extractTextContent(content).join('\n');
+}
+
+function isToolResultOnlyMessage(content: string | ContentBlock[]): boolean {
+  if (typeof content === 'string') return false;
+  if (content.length === 0) return true;
+  const hasText = content.some(b => b.type === 'text');
+  const onlyToolResult = content.every(b => b.type === 'tool_result');
+  return !hasText && onlyToolResult;
+}
+
+function extractToolCallsFromContent(
+  content: string | ContentBlock[]
+): Array<{ id: string; name: string; input: Record<string, unknown> }> {
+  if (typeof content === 'string') return [];
+  return content
+    .filter((b): b is ToolUseContent => b.type === 'tool_use')
+    .map(b => ({ id: b.id, name: b.name, input: b.input }));
+}
+
+function tokenUsageToNormalized(usage?: TokenUsage): NormalizedTokenUsage | undefined {
+  if (!usage) return undefined;
+  return {
+    input: usage.input_tokens,
+    output: usage.output_tokens,
+    cacheRead: usage.cache_read_input_tokens,
+    cacheWrite: usage.cache_creation_input_tokens,
+    total:
+      usage.input_tokens +
+      usage.output_tokens +
+      (usage.cache_read_input_tokens || 0) +
+      (usage.cache_creation_input_tokens || 0),
+  };
+}
+
+/**
+ * Convert SessionMessage[] (e.g. from transcript.jsonl) to NormalizedMessage[].
+ * Used for beats (messagesToBeats) and by Jeeves/umwelten when loading a session file.
+ */
+export function sessionMessagesToNormalized(messages: SessionMessage[]): NormalizedMessage[] {
+  const normalized: NormalizedMessage[] = [];
+
+  for (const msg of messages) {
+    if (msg.type === 'user') {
+      const userMsg = msg as UserMessageEntry;
+      if (isToolResultOnlyMessage(userMsg.message.content)) continue;
+      normalized.push({
+        id: userMsg.uuid || `user-${normalized.length}`,
+        role: 'user',
+        content: contentToText(userMsg.message.content),
+        timestamp: userMsg.timestamp,
+        sourceData: { type: 'user', uuid: userMsg.uuid },
+      });
+    } else if (msg.type === 'assistant') {
+      const assistantMsg = msg as AssistantMessageEntry;
+      const content = contentToText(assistantMsg.message.content);
+      const tokens = tokenUsageToNormalized(assistantMsg.message.usage);
+      const toolCalls = extractToolCallsFromContent(assistantMsg.message.content);
+
+      if (toolCalls.length > 0) {
+        if (content.trim()) {
+          normalized.push({
+            id: assistantMsg.uuid || `assistant-${normalized.length}`,
+            role: 'assistant',
+            content,
+            timestamp: assistantMsg.timestamp,
+            tokens,
+            model: assistantMsg.message.model,
+            sourceData: { type: 'assistant', uuid: assistantMsg.uuid },
+          });
+        }
+        for (const tc of toolCalls) {
+          normalized.push({
+            id: tc.id,
+            role: 'tool',
+            content: `Tool: ${tc.name}`,
+            timestamp: assistantMsg.timestamp,
+            tool: { name: tc.name, input: tc.input },
+            sourceData: { type: 'tool_use', toolUseId: tc.id },
+          });
+        }
+      } else {
+        normalized.push({
+          id: assistantMsg.uuid || `assistant-${normalized.length}`,
+          role: 'assistant',
+          content,
+          timestamp: assistantMsg.timestamp,
+          tokens,
+          model: assistantMsg.message.model,
+          sourceData: { type: 'assistant', uuid: assistantMsg.uuid },
+        });
+      }
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Get beats for a session (from file path or messages).
+ * Returns normalized messages and conversation beats (user turn + tools + assistant until next user).
+ */
+export async function getBeatsForSession(
+  sessionPathOrMessages: string | SessionMessage[]
+): Promise<{ beats: ConversationBeat[]; messages: NormalizedMessage[] }> {
+  const messages: SessionMessage[] =
+    typeof sessionPathOrMessages === 'string'
+      ? await parseSessionFile(sessionPathOrMessages)
+      : sessionPathOrMessages;
+  const normalized = sessionMessagesToNormalized(messages);
+  const beats = messagesToBeats(normalized);
+  return { beats, messages: normalized };
 }
 
 /**

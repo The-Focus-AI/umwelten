@@ -61,6 +61,20 @@ describe('messagesToBeats', () => {
     expect(beats[0].userPreview.length).toBeLessThanOrEqual(123);
     expect(beats[0].userPreview).toMatch(/\.\.\.$/);
   });
+
+  it('sets heuristic topic from first 50 chars of user message', () => {
+    const messages = [
+      user('u1', 'How do I fix the login bug in auth.ts?'),
+      assistant('a1', 'Check the validator.'),
+    ];
+    const beats = messagesToBeats(messages);
+    expect(beats[0].topic).toBe('How do I fix the login bug in auth.ts?');
+    expect(beats[0].topic!.length).toBeLessThanOrEqual(50);
+    const longUser = 'Explain the following: ' + 'word '.repeat(20);
+    const beats2 = messagesToBeats([user('u2', longUser), assistant('a2', 'Ok')]);
+    expect(beats2[0].topic).toBeDefined();
+    expect(beats2[0].topic!.length).toBe(50);
+  });
 });
 
 describe('formatBeatToolSummary', () => {

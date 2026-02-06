@@ -172,12 +172,15 @@ export interface UserMessageEntry extends BaseJSONLEntry {
 }
 
 /**
- * Assistant message entry in JSONL transcript
+ * Assistant message entry in JSONL transcript.
+ * reasoning: optional thinking/reasoning from the model (e.g. Gemini); persisted by Jeeves.
  */
 export interface AssistantMessageEntry extends BaseJSONLEntry {
   type: 'assistant';
   message: ClaudeMessage;
   requestId?: string;
+  /** Thinking/reasoning from the model when available (Jeeves persists from runner response). */
+  reasoning?: string;
 }
 
 /**

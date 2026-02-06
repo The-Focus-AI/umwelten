@@ -14,6 +14,8 @@ const USER_PREVIEW_CHARS = 120;
 const ASSISTANT_PREVIEW_CHARS = 180;
 /** Max lines to take from user/assistant for preview. */
 const PREVIEW_LINES = 2;
+/** Max characters for heuristic topic (first line of user message). */
+const TOPIC_HEURISTIC_CHARS = 50;
 
 function firstLines(s: string, maxLines: number, maxChars: number): string {
   const trimmed = s.trim();
@@ -28,6 +30,8 @@ export interface ConversationBeat {
   index: number;
   /** First ~2 lines of the user message. */
   userPreview: string;
+  /** Heuristic topic label (first TOPIC_HEURISTIC_CHARS of user message, single line). */
+  topic?: string;
   /** Number of tool calls in this turn. */
   toolCount: number;
   /** Total duration of tool calls in ms. */
@@ -77,9 +81,14 @@ export function messagesToBeats(messages: NormalizedMessage[]): ConversationBeat
     }
 
     const assistantPreview = firstLines(lastAssistantText, PREVIEW_LINES, ASSISTANT_PREVIEW_CHARS);
+    const topic =
+      (msg.content ?? '').trim().length > 0
+        ? (msg.content ?? '').trim().replace(/\s+/g, ' ').slice(0, TOPIC_HEURISTIC_CHARS)
+        : undefined;
     beats.push({
       index: beats.length,
       userPreview,
+      topic,
       toolCount,
       toolDurationMs,
       assistantPreview,
