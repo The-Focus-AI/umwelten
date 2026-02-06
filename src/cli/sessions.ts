@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { cwd } from 'node:process';
-import { resolve } from 'node:path';
+import { resolve, join, basename } from 'node:path';
+import { stat } from 'node:fs/promises';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import {
@@ -25,6 +26,65 @@ import type { NormalizedSessionEntry, SessionSource } from '../sessions/normaliz
 
 export const sessionsCommand = new Command('sessions')
   .description('View and analyze sessions (Claude Code, Cursor)');
+
+/**
+ * Resolve session for show/messages/stats: from project index, or from --file / --session-dir (Jeeves-style).
+ */
+async function resolveSessionEntry(
+  projectPath: string,
+  sessionId: string,
+  filePath?: string,
+  sessionDir?: string
+): Promise<SessionIndexEntry | null> {
+  if (filePath) {
+    const full = resolve(filePath);
+    try {
+      await stat(full);
+    } catch {
+      return null;
+    }
+    const dir = basename(resolve(full, '..'));
+    return {
+      sessionId: dir,
+      fullPath: full,
+      fileMtime: 0,
+      firstPrompt: '',
+      messageCount: 0,
+      created: '',
+      modified: '',
+      gitBranch: '',
+      projectPath: resolve(full, '..', '..'),
+      isSidechain: false,
+    };
+  }
+  if (sessionDir) {
+    const full = join(resolve(sessionDir), 'transcript.jsonl');
+    try {
+      await stat(full);
+    } catch {
+      return null;
+    }
+    const dirName = basename(resolve(sessionDir));
+    return {
+      sessionId: dirName,
+      fullPath: full,
+      fileMtime: 0,
+      firstPrompt: '',
+      messageCount: 0,
+      created: '',
+      modified: '',
+      gitBranch: '',
+      projectPath: resolve(sessionDir, '..'),
+      isSidechain: false,
+    };
+  }
+  if (!(await hasSessionsIndex(projectPath))) return null;
+  const sessions = await getProjectSessions(projectPath);
+  const session = sessions.find(
+    (s) => s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+  );
+  return session ?? null;
+}
 
 // Helper functions
 function formatDate(dateStr: string): string {
@@ -320,42 +380,42 @@ sessionsCommand
 interface ShowOptions {
   project: string;
   json?: boolean;
+  file?: string;
+  sessionDir?: string;
 }
 
 sessionsCommand
   .command('show')
   .description('Show details for a specific session')
-  .argument('<session-id>', 'Session ID to display')
+  .argument('[session-id]', 'Session ID (omit when using --file or --session-dir)')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('--file <path>', 'Load session from transcript JSONL path (e.g. Jeeves session)')
+  .option('--session-dir <path>', 'Load session from directory containing transcript.jsonl (e.g. JEEVES_SESSIONS_DIR/session-id)')
   .option('--json', 'Output in JSON format')
   .action(async (sessionId: string, options: ShowOptions) => {
     try {
       const projectPath = resolve(options.project);
-
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No sessions found for project: ${projectPath}`)
-        );
-        process.exit(1);
-      }
-
-      // Get all sessions and find matching one (support partial IDs)
-      const sessions = await getProjectSessions(projectPath);
-      const session = sessions.find(s =>
-        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      const session = await resolveSessionEntry(
+        projectPath,
+        sessionId ?? '',
+        options.file,
+        options.sessionDir
       );
 
       if (!session) {
-        console.error(chalk.red(`Session not found: ${sessionId}`));
-        console.log(
-          chalk.dim('\nTip: Use "sessions list" to see available sessions')
-        );
+        if (options.file || options.sessionDir) {
+          console.error(chalk.red('File or session directory not found.'));
+        } else {
+          console.error(chalk.red(`Session not found: ${sessionId}`));
+          console.log(
+            chalk.dim('\nTip: Use "sessions list" to see available sessions, or --file / --session-dir for Jeeves sessions')
+          );
+        }
         process.exit(1);
       }
 
       if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project or --file/--session-dir.'));
         process.exit(1);
       }
 
@@ -456,13 +516,17 @@ interface MessagesOptions {
   assistantOnly?: boolean;
   limit?: string;
   json?: boolean;
+  file?: string;
+  sessionDir?: string;
 }
 
 sessionsCommand
   .command('messages')
   .description('Display conversation messages from a session')
-  .argument('<session-id>', 'Session ID to display messages from')
+  .argument('[session-id]', 'Session ID (omit when using --file or --session-dir)')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('--file <path>', 'Load session from transcript JSONL path (e.g. Jeeves session)')
+  .option('--session-dir <path>', 'Load session from directory containing transcript.jsonl')
   .option('--user-only', 'Show only user messages')
   .option('--assistant-only', 'Show only assistant messages')
   .option('--limit <number>', 'Number of messages to show (most recent first)')
@@ -470,31 +534,27 @@ sessionsCommand
   .action(async (sessionId: string, options: MessagesOptions) => {
     try {
       const projectPath = resolve(options.project);
-
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No sessions found for project: ${projectPath}`)
-        );
-        process.exit(1);
-      }
-
-      // Get all sessions and find matching one (support partial IDs)
-      const sessions = await getProjectSessions(projectPath);
-      const session = sessions.find(s =>
-        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      const session = await resolveSessionEntry(
+        projectPath,
+        sessionId ?? '',
+        options.file,
+        options.sessionDir
       );
 
       if (!session) {
-        console.error(chalk.red(`Session not found: ${sessionId}`));
-        console.log(
-          chalk.dim('\nTip: Use "sessions list" to see available sessions')
-        );
+        if (options.file || options.sessionDir) {
+          console.error(chalk.red('File or session directory not found.'));
+        } else {
+          console.error(chalk.red(`Session not found: ${sessionId}`));
+          console.log(
+            chalk.dim('\nTip: Use "sessions list" or --file/--session-dir for Jeeves sessions')
+          );
+        }
         process.exit(1);
       }
 
       if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        console.error(chalk.red('Session file path not available (adapter session). Use --file/--session-dir.'));
         process.exit(1);
       }
 
@@ -835,42 +895,42 @@ sessionsCommand
 interface StatsOptions {
   project: string;
   json?: boolean;
+  file?: string;
+  sessionDir?: string;
 }
 
 sessionsCommand
   .command('stats')
   .description('Show token usage statistics and costs for a session')
-  .argument('<session-id>', 'Session ID to analyze')
+  .argument('[session-id]', 'Session ID (omit when using --file or --session-dir)')
   .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
+  .option('--file <path>', 'Load session from transcript JSONL path (e.g. Jeeves session)')
+  .option('--session-dir <path>', 'Load session from directory containing transcript.jsonl')
   .option('--json', 'Output in JSON format')
   .action(async (sessionId: string, options: StatsOptions) => {
     try {
       const projectPath = resolve(options.project);
-
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No sessions found for project: ${projectPath}`)
-        );
-        process.exit(1);
-      }
-
-      // Get all sessions and find matching one (support partial IDs)
-      const sessions = await getProjectSessions(projectPath);
-      const session = sessions.find(s =>
-        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      const session = await resolveSessionEntry(
+        projectPath,
+        sessionId ?? '',
+        options.file,
+        options.sessionDir
       );
 
       if (!session) {
-        console.error(chalk.red(`Session not found: ${sessionId}`));
-        console.log(
-          chalk.dim('\nTip: Use "sessions list" to see available sessions')
-        );
+        if (options.file || options.sessionDir) {
+          console.error(chalk.red('File or session directory not found.'));
+        } else {
+          console.error(chalk.red(`Session not found: ${sessionId}`));
+          console.log(
+            chalk.dim('\nTip: Use "sessions list" or --file/--session-dir for Jeeves sessions')
+          );
+        }
         process.exit(1);
       }
 
       if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        console.error(chalk.red('Session file path not available (adapter session). Use --file/--session-dir.'));
         process.exit(1);
       }
 
