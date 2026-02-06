@@ -140,16 +140,24 @@ function extractToolResultsFromInvocations(
  * Convert CoreMessage[] to Claude-style JSONL (one JSON object per line).
  * Handles user, assistant (with tool_use), and tool messages.
  * Timestamps preserve order (1ms apart).
+ * reasoningForLastAssistant: when set, attach to the last assistant entry (from runner response).
  */
 export function coreMessagesToJSONL(
   messages: CoreMessage[],
-  _sessionId?: string
+  _sessionId?: string,
+  reasoningForLastAssistant?: string
 ): string {
   const lines: string[] = [];
   const base = Date.now();
   let idx = 0;
+  const arr = messages as ExtendedCoreMessage[];
+  const lastAssistantIndex = arr.reduce(
+    (last, m, i) => (m.role === 'assistant' ? i : last),
+    -1
+  );
 
-  for (const m of messages as ExtendedCoreMessage[]) {
+  for (let i = 0; i < arr.length; i++) {
+    const m = arr[i];
     const timestamp = new Date(base + idx).toISOString();
     idx += 1;
     const uuid = randomUUID();
@@ -197,11 +205,15 @@ export function coreMessagesToJSONL(
           : deduped.length === 0
             ? ''
             : deduped;
+      const isLastAssistant = i === lastAssistantIndex;
       const ent: AssistantMessageEntry = {
         type: 'assistant',
         uuid,
         timestamp,
         message: { role: 'assistant', content },
+        ...(isLastAssistant &&
+          reasoningForLastAssistant != null &&
+          reasoningForLastAssistant !== '' && { reasoning: reasoningForLastAssistant }),
       };
       lines.push(JSON.stringify(ent));
 

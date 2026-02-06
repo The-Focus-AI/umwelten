@@ -59,8 +59,12 @@ function formatMessageContent(content: CoreMessage['content']): string {
   return String(content ?? '');
 }
 
-async function writeSessionTranscript(sessionDir: string, messages: CoreMessage[]): Promise<void> {
-  const jsonl = coreMessagesToJSONL(messages);
+async function writeSessionTranscript(
+  sessionDir: string,
+  messages: CoreMessage[],
+  reasoningForLastAssistant?: string
+): Promise<void> {
+  const jsonl = coreMessagesToJSONL(messages, undefined, reasoningForLastAssistant);
   await writeFile(join(sessionDir, 'transcript.jsonl'), jsonl, 'utf-8');
 }
 
@@ -162,7 +166,13 @@ async function oneShotRun(
 
   // Build full message history including tool calls from response metadata
   const msgs = buildFullMessagesFromResponse(prompt, response);
-  await writeSessionTranscript(sessionDir, msgs);
+  const reasoning =
+    typeof response.reasoning === 'string'
+      ? response.reasoning
+      : response.reasoning != null
+        ? String(response.reasoning)
+        : undefined;
+  await writeSessionTranscript(sessionDir, msgs, reasoning);
   const userCount = msgs.filter((m) => m.role === 'user').length;
   const assistantCount = msgs.filter((m) => m.role === 'assistant').length;
   const toolCount = msgs.filter((m) => m.role === 'tool').length;
@@ -268,12 +278,13 @@ async function repl(
       try {
         interaction.addMessage({ role: 'user', content: input });
         process.stdout.write('Jeeves: ');
+        let response: { content?: string; reasoning?: string };
         if (quiet) {
-          const response = await interaction.generateText();
+          response = await interaction.generateText();
           const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
           console.log(text);
         } else {
-          const response = await interaction.streamText();
+          response = await interaction.streamText();
           // Print final result to ensure it's visible
           const finalText = typeof response.content === 'string' ? response.content : String(response.content ?? '');
           if (finalText && !finalText.trim().endsWith('\n')) {
@@ -284,7 +295,13 @@ async function repl(
         }
         console.log(formatContextSize(interaction.getMessages()));
         const messages = interaction.getMessages();
-        await writeSessionTranscript(sessionDir, messages);
+        const reasoning =
+          typeof response.reasoning === 'string'
+            ? response.reasoning
+            : response.reasoning != null
+              ? String(response.reasoning)
+              : undefined;
+        await writeSessionTranscript(sessionDir, messages, reasoning);
         const firstUser = messages.find((m) => m.role === 'user');
         const firstPrompt = firstUser ? formatMessageContent(firstUser.content).slice(0, 200) : undefined;
         const userCount = messages.filter((m) => m.role === 'user').length;
@@ -310,6 +327,15 @@ async function repl(
 }
 
 async function main(): Promise<void> {
+  // Delegate to sessions CLI when: jeeves sessions <subcommand> (argv: node, tsx, cli.ts, sessions, ...)
+  const args = process.argv.slice(2);
+  const sessionsIdx = args.findIndex((a) => a === 'sessions');
+  if (sessionsIdx >= 0 && sessionsIdx <= 1) {
+    const { runSessionsCli } = await import('./sessions-cli.js');
+    await runSessionsCli(args.slice(sessionsIdx + 1));
+    process.exit(0);
+  }
+
   const { provider, model, oneShot, quiet } = parseArgs();
 
   const { ensureWorkDir, ensureSessionsDir, getSessionsDir } = await import('./config.js');
