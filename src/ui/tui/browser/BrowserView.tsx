@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Text, useApp, useFocus, useInput } from 'ink';
+import { Box, Text, useApp, useFocus, useInput, useStdout } from 'ink';
 import { SessionCard } from './SessionCard.js';
 import { SessionDetailPanel } from './SessionDetailPanel.js';
 import { ChatDetailView } from './ChatDetailView.js';
@@ -28,6 +28,8 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
   const [backgroundIndexing, setBackgroundIndexing] = useState(false);
 
   const sessions = query.trim() ? (searchResults ?? []) : initialSessions;
+  const { stdout } = useStdout();
+  const rows = Math.max(16, stdout?.rows ?? 24);
 
   const queryRef = useRef(query);
   queryRef.current = query;
@@ -182,11 +184,11 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
       return;
     }
     if (key.upArrow) {
-      setSelectedIndex(i => (i <= 0 ? sessions.length - 1 : i - 1));
+      setSelectedIndex(i => (i <= 0 ? 0 : i - 1));
       return;
     }
     if (key.downArrow) {
-      setSelectedIndex(i => (i >= sessions.length - 1 ? 0 : i + 1));
+      setSelectedIndex(i => (i >= sessions.length - 1 ? sessions.length - 1 : i + 1));
       return;
     }
   });
@@ -216,14 +218,19 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
     );
   }
 
-  const visibleStart = Math.max(0, Math.min(selectedIndex - 4, sessions.length - 8));
-  const visibleEnd = Math.min(sessions.length, visibleStart + 12);
+  const headerFooter = 3;
+  const contentHeight = rows - headerFooter;
+  const listHeight = Math.max(6, Math.floor(contentHeight / 2));
+  const detailHeight = contentHeight - listHeight;
+
+  const visibleStart = Math.max(0, Math.min(selectedIndex - 2, sessions.length - Math.floor(listHeight / 2)));
+  const visibleEnd = Math.min(sessions.length, visibleStart + Math.max(4, Math.floor(listHeight / 2)));
   const visible = sessions.slice(visibleStart, visibleEnd);
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      {/* One line: title, index status, search */}
-      <Box marginBottom={1}>
+    <Box flexDirection="column" paddingX={1} height={rows}>
+      {/* Header: one line */}
+      <Box marginBottom={1} flexShrink={0}>
         <Text bold color="cyan">Sessions</Text>
         <Text color="gray"> ({sessions.length}) · </Text>
         {hasIndex ? (
@@ -248,37 +255,48 @@ export function BrowserView({ projectPath, onSelectSession }: BrowserViewProps):
             <Text color="gray"> (Enter to apply, Esc to cancel)</Text>
           </>
         ) : (
-          <Text color="gray"> </Text>
-          <Text color="cyan">/</Text>
-          <Text color="gray"> search</Text>
+          <>
+            <Text color="gray"> </Text>
+            <Text color="cyan">/</Text>
+            <Text color="gray"> search</Text>
+          </>
         )}
       </Box>
 
-      {/* List — one line per session */}
-      <Box flexDirection="column">
+      {/* Top half: session list (2 lines per session) */}
+      <Box flexDirection="column" height={listHeight} overflow="hidden" flexShrink={0}>
         {visible.map((session, i) => (
           <SessionCard
             key={session.session.id}
             session={session}
             isSelected={visibleStart + i === selectedIndex}
+            listMode
+            promptMaxWidth={78}
           />
         ))}
       </Box>
 
-      {/* Bottom panel: detail for selected session */}
-      {sessions[selectedIndex] && (
-        <Box marginTop={1} flexDirection="column">
-          <SessionDetailPanel session={sessions[selectedIndex]} />
-        </Box>
-      )}
+      {/* Bottom half: detail panel */}
+      <Box flexDirection="column" height={detailHeight} overflow="hidden" paddingTop={1} flexShrink={0}>
+        {sessions[selectedIndex] ? (
+          <SessionDetailPanel
+            projectPath={projectPath}
+            session={sessions[selectedIndex]}
+          />
+        ) : (
+          <Box paddingY={1}>
+            <Text color="gray">Select a session (↑/↓) to see details below.</Text>
+          </Box>
+        )}
+      </Box>
 
-      {/* Footer: hints + open command */}
-      <Box marginTop={1} flexDirection="column">
+      {/* Footer */}
+      <Box flexShrink={0} marginTop={1}>
         <Text color="gray">
           <Text color="cyan">↑/↓</Text> select · <Text color="cyan">Enter</Text> chat · <Text color="cyan">o</Text> open & exit · <Text color="cyan">/</Text> search · <Text color="yellow">i</Text> index
         </Text>
         {sessions[selectedIndex] && (
-          <Text color="gray">  → umwelten sessions show {sessions[selectedIndex].session.id}</Text>
+          <Text color="gray">  umwelten sessions show {sessions[selectedIndex].session.id}</Text>
         )}
       </Box>
     </Box>
