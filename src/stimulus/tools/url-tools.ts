@@ -136,7 +136,7 @@ export const wgetTool = tool({
           filePath,
           lineCount: sizeCheck.lineCount,
           sizeBytes: sizeCheck.sizeBytes,
-          message: `Content is ${sizeCheck.reason}. Saved to session directory. Use read_file with offset/limit to read portions.`,
+          message: `Content is ${sizeCheck.reason}. Saved to session directory. Use read_file with path set to the filePath above (full path) to read; use offset/limit for portions.`,
           ...(result.truncated && { truncated: true }),
         };
       }
@@ -182,7 +182,7 @@ export const markifyTool = tool({
           filePath,
           lineCount: sizeCheck.lineCount,
           sizeBytes: sizeCheck.sizeBytes,
-          message: `Markdown is ${sizeCheck.reason}. Saved to session directory. Use read_file with offset/limit to read portions.`,
+          message: `Markdown is ${sizeCheck.reason}. Saved to session directory. Use read_file with path set to the filePath above (full path) to read; use offset/limit for portions.`,
         };
       }
       
