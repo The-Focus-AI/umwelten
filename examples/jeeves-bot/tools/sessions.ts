@@ -12,9 +12,12 @@ import { listSessions, getSessionDir } from '../session-manager.js';
 import {
   parseSessionFile,
   summarizeSession,
+  getBeatsForSession,
   extractConversation,
   extractTextContent,
+  extractReasoning,
 } from '../../../src/sessions/session-parser.js';
+import type { SessionMessage, AssistantMessageEntry, UserMessageEntry } from '../../../src/sessions/types.js';
 
 const sessionIdSchema = z
   .string()
@@ -110,9 +113,12 @@ export const sessionsShowTool = tool({
 
       const transcriptPath = join(sessionDir, 'transcript.jsonl');
       let summary: ReturnType<typeof summarizeSession>;
+      let beatCount: number;
       try {
         const messages = await parseSessionFile(transcriptPath);
         summary = summarizeSession(messages);
+        const { beats } = await getBeatsForSession(messages);
+        beatCount = beats.length;
       } catch {
         const firstPrompt = firstPromptFromMeta(entry);
         const messageCount = messageCountFromMeta(entry);
@@ -150,6 +156,10 @@ export const sessionsShowTool = tool({
         estimatedCost: summary.estimatedCost.toFixed(4),
         duration:
           summary.duration != null ? formatDuration(summary.duration) : undefined,
+        beatCount,
+        reasoningCount: summary.reasoningCount,
+        totalReasoningChars: summary.totalReasoningChars,
+        sizeBreakdown: summary.sizeBreakdown,
       };
     } catch (err) {
       return {
@@ -295,6 +305,97 @@ export const sessionsStatsTool = tool({
       return {
         error: err instanceof Error ? err.message : String(err),
       };
+    }
+  },
+});
+
+const sessionInspectSchema = z.object({
+  sessionId: sessionIdSchema,
+  messageIndexOrUuid: z
+    .string()
+    .describe('Message index (0-based) or UUID to inspect. Returns full content and tool response if applicable.'),
+});
+
+function getMessageByIndexOrUuid(
+  messages: SessionMessage[],
+  indexOrUuid: string
+): SessionMessage | null {
+  const idx = parseInt(indexOrUuid, 10);
+  if (!Number.isNaN(idx) && idx >= 0 && idx < messages.length) return messages[idx];
+  return messages.find((m) => (m as { uuid?: string }).uuid === indexOrUuid) ?? null;
+}
+
+export const sessionsInspectTool = tool({
+  description:
+    'Inspect one message in a Jeeves session by index or UUID. Returns full content (text, reasoning if any). If the message is an assistant tool call, includes the corresponding tool result(s).',
+  inputSchema: sessionInspectSchema,
+  execute: async ({ sessionId, messageIndexOrUuid }) => {
+    try {
+      const all = await listSessions();
+      const entry = all.find(
+        (s) => s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
+      );
+      if (!entry)
+        return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+
+      const sessionDir = await getSessionDir(entry.sessionId);
+      if (!sessionDir)
+        return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+
+      const transcriptPath = join(sessionDir, 'transcript.jsonl');
+      const messages = await parseSessionFile(transcriptPath);
+      const msg = getMessageByIndexOrUuid(messages, messageIndexOrUuid);
+      if (!msg)
+        return {
+          error: 'MESSAGE_NOT_FOUND',
+          sessionId: entry.sessionId,
+          messageIndexOrUuid,
+        };
+
+      const uuid = (msg as { uuid?: string }).uuid ?? '';
+      const result: Record<string, unknown> = {
+        sessionId: entry.sessionId,
+        messageIndexOrUuid,
+        uuid,
+        type: msg.type,
+      };
+
+      if (msg.type === 'user') {
+        const content = (msg as UserMessageEntry).message.content;
+        const texts = extractTextContent(content);
+        result.content = texts.join('\n');
+        if (typeof content !== 'string' && Array.isArray(content)) {
+          const toolResults = content.filter((b) => b.type === 'tool_result');
+          if (toolResults.length > 0)
+            result.toolResults = toolResults.map((tr) => ({
+              tool_use_id: tr.tool_use_id,
+              content:
+                typeof tr.content === 'string'
+                  ? tr.content.slice(0, 2000)
+                  : JSON.stringify(tr.content).slice(0, 2000),
+              is_error: tr.is_error,
+            }));
+        }
+      } else if (msg.type === 'assistant') {
+        const am = msg as AssistantMessageEntry;
+        const reasoning = extractReasoning(am);
+        if (reasoning) result.reasoning = reasoning.slice(0, 5000);
+        const content = am.message.content;
+        const texts = extractTextContent(content);
+        result.content = texts.join('\n');
+        if (typeof content !== 'string' && Array.isArray(content)) {
+          const toolCalls = content.filter((b) => b.type === 'tool_use');
+          if (toolCalls.length > 0)
+            result.toolCalls = toolCalls.map((tc) => ({
+              id: tc.id,
+              name: tc.name,
+              input: tc.input,
+            }));
+        }
+      }
+      return result;
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
     }
   },
 });

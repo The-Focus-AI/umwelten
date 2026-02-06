@@ -27,6 +27,7 @@ import {
   sessionsShowTool,
   sessionsMessagesTool,
   sessionsStatsTool,
+  sessionsInspectTool,
   sessionsReadFileTool,
 } from './tools/sessions.js';
 import { tavilySearchTool } from './tools/tavily.js';
@@ -62,6 +63,7 @@ export async function createJeevesStimulus(): Promise<Stimulus> {
   stimulus.addTool('sessions_show', sessionsShowTool);
   stimulus.addTool('sessions_messages', sessionsMessagesTool);
   stimulus.addTool('sessions_stats', sessionsStatsTool);
+  stimulus.addTool('sessions_inspect', sessionsInspectTool);
   stimulus.addTool('sessions_read_file', sessionsReadFileTool);
 
   stimulus.addTool('current_time', currentTimeTool);

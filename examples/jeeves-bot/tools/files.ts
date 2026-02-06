@@ -5,7 +5,7 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { resolve, normalize, relative, join } from 'node:path';
+import { resolve, normalize, relative, join, sep } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tool } from 'ai';
@@ -35,17 +35,19 @@ const pathSchema = z.object({
     .describe('Optional maximum number of lines to read. If not provided, reads to the end of the file.'),
 });
 
+/**
+ * Resolve path for file tools. When no agentId, leading "/" is treated as the work dir (chroot-style)
+ * so "/" = work dir, "/repos" = work dir/repos. Real absolute paths under an allowed root are still
+ * accepted (e.g. full filePath from markify).
+ */
 function resolvePath(
   rawPath: string,
   agentId: string | undefined,
-  config: JeevesConfig
+  config: JeevesConfig,
+  allowedRoots: string[]
 ): string {
-  // If path is already absolute, return it as-is (after normalizing)
-  if (rawPath.startsWith('/') || rawPath.startsWith('\\') || (process.platform === 'win32' && /^[A-Za-z]:/.test(rawPath))) {
-    return normalize(resolve(rawPath));
-  }
-  
-  // Otherwise, resolve relative to agent project or work directory
+  const workDir = getWorkDir();
+
   if (agentId) {
     const agent = getAgentById(config, agentId);
     if (!agent) {
@@ -53,7 +55,27 @@ function resolvePath(
     }
     return resolve(agent.projectPath, rawPath);
   }
-  return resolve(getWorkDir(), rawPath);
+
+  // Leading "/" (but not "//") = virtual root = work dir (so "/repos" → workDir/repos)
+  if (rawPath.startsWith('/') && !rawPath.startsWith('//')) {
+    const asAbsolute = normalize(resolve(rawPath));
+    for (const root of allowedRoots) {
+      const rootNorm = normalize(root);
+      const rel = relative(rootNorm, asAbsolute);
+      if (rel === '' || (!rel.startsWith('..') && rel !== '..')) {
+        return asAbsolute;
+      }
+    }
+    const underWork = rawPath.slice(1) || '.';
+    return resolve(workDir, underWork);
+  }
+
+  // Other absolute paths (e.g. Windows C:\, or full host path)
+  if (rawPath.startsWith('\\') || (process.platform === 'win32' && /^[A-Za-z]:/.test(rawPath))) {
+    return normalize(resolve(rawPath));
+  }
+
+  return resolve(workDir, rawPath);
 }
 
 function ensureAllowed(resolved: string, allowedRoots: string[]): void {
@@ -79,7 +101,7 @@ export function createReadFileTool() {
       const config = await loadConfig();
       const roots = getFileAllowedRoots(config);
       try {
-        const resolved = resolvePath(rawPath, agentId, config);
+        const resolved = resolvePath(rawPath, agentId, config, roots);
         ensureAllowed(resolved, roots);
         const fullContent = await readFile(resolved, 'utf-8');
         console.log(`[JEEVES] Read file: ${resolved} (${fullContent.length} bytes)`);
@@ -131,7 +153,7 @@ export function createWriteFileTool() {
       const config = await loadConfig();
       const roots = getFileAllowedRoots(config);
       try {
-        const resolved = resolvePath(rawPath, agentId, config);
+        const resolved = resolvePath(rawPath, agentId, config, roots);
         ensureAllowed(resolved, roots);
         await mkdir(resolve(resolved, '..'), { recursive: true });
         await writeFile(resolved, content, 'utf-8');
@@ -158,7 +180,7 @@ export function createListDirectoryTool() {
       const config = await loadConfig();
       const roots = getFileAllowedRoots(config);
       try {
-        const resolved = resolvePath(rawPath, agentId, config);
+        const resolved = resolvePath(rawPath, agentId, config, roots);
         ensureAllowed(resolved, roots);
         const entries = await readdir(resolved, { withFileTypes: true });
         const list = entries.map(e => ({ name: e.name, isDir: e.isDirectory() }));
@@ -211,7 +233,7 @@ export function createRipgrepTool() {
       const config = await loadConfig();
       const roots = getFileAllowedRoots(config);
       try {
-        const resolved = resolvePath(rawPath, agentId, config);
+        const resolved = resolvePath(rawPath, agentId, config, roots);
         ensureAllowed(resolved, roots);
         
         // Build ripgrep arguments (safe - no shell injection)

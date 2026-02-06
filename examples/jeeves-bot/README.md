@@ -102,9 +102,11 @@ AGENT.md (in the work dir) is loaded after the main prompt and can override or a
 
 ## Path and safety rules
 
-- **Default (no `agentId`)**: Paths are relative to the **Jeeves work directory** (`JEEVES_WORK_DIR` or `~/.jeeves`). Use `list_directory` with path `"."` to list the work dir; read/write files there (e.g. `notes.md`, `scratch.txt`).
+- **Default (no `agentId`)**: Paths are relative to the **Jeeves work directory** (`JEEVES_WORK_DIR` or `~/.jeeves`). Use `list_directory` with path `"."` to list the work dir; use path `"repos"` to see git-cloned skills. Never use host paths like `/home/jeeves` for file tools.
 - **With `agentId`**: Paths are relative to that agent’s `projectPath`. Use this when the user asks about a specific agent or project.
-- File tools only allow paths under the work directory or under a configured agent project. Requests outside those roots return `OUTSIDE_ALLOWED_PATH`. No agents need to be configured to use the work directory.
+- **run_bash**: Inside the container the work dir is mounted at **`/workspace`**. Use **`pathRoot: "slash"`** to treat `/` as the work directory (e.g. `/repos` → `/workspace/repos`; system paths like `/bin`, `/usr` are left unchanged). Git-cloned skills live under **`/workspace/repos/<owner>_<repo>/`** (or `/repos/...` when pathRoot is slash). Do not use `CLAUDE_PLUGIN_ROOT` or `/home/jeeves`.
+- **markify / wget**: When they save large content they return a `filePath` (full path under the sessions directory). Use **`read_file` with that exact `filePath`** to read the file; paths relative to the work dir will not find it.
+- File tools allow paths under the work directory, sessions directory, or configured agent projects. Requests outside those roots return `OUTSIDE_ALLOWED_PATH`.
 
 ## Testing the work directory
 
@@ -353,11 +355,20 @@ run_bash({
 - `image` (optional): Base container image (default: `ubuntu:22.04`)
 - `timeout` (optional): Execution timeout in seconds (default: 300)
 - `workdir` (optional): Working directory inside container (default: `/workspace`)
+- `pathRoot` (optional): `"workspace"` (default) or `"slash"`. When `"slash"`, leading `/` in the command is translated to `/workspace` so you can use `/repos`, `/facts.md`, etc.; system paths (`/bin`, `/usr`, etc.) are not translated. Paths inside quoted strings may be translated; use `/workspace/...` explicitly in strings if you need the literal path.
 
 ### Requirements
 
 - **Dagger CLI**: Must be installed and available in PATH. Install from [dagger.io/install](https://docs.dagger.io/install/)
 - **Container runtime**: Docker, Podman, or nerdctl must be running
+
+### Runtime (Perl, Chrome)
+
+- **Default image** (`ubuntu:22.04`) includes Perl but **not** Chrome/Chromium.
+- **Perl scripts** (e.g. chrome-driver’s `bin/extract`) run as long as the script and its `lib/` are in the experience; no extra install needed for Perl.
+- **Chrome-dependent scripts** (chrome-driver’s `extract`, `navigate`, etc.) need Chrome in the container. In the **first** run_bash for that experience, install it with the **same** experienceId, then run the script in the next call, e.g.:
+  - `run_bash({ command: 'apt-get update && apt-get install -y chromium-browser', experienceId: 'chrome-task', ... })`
+  - `run_bash({ command: './bin/extract "https://..."', experienceId: 'chrome-task', ... })`
 
 ### Limitations
 

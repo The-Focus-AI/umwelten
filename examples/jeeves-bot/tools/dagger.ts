@@ -9,6 +9,7 @@ import { join, resolve, normalize, relative } from 'node:path';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { dag, connection, type Container } from '@dagger.io/dagger';
+import { buildTimeoutBashExecArgs } from '../../../src/evaluation/dagger-exec-args.js';
 import { loadConfig, getWorkDir, getAgentById, getFileAllowedRoots } from '../config.js';
 import type { JeevesConfig } from '../config.js';
 
@@ -30,6 +31,13 @@ const runBashSchema = z.object({
   image: z.string().optional().default('ubuntu:22.04').describe('Base container image (default: ubuntu:22.04)'),
   timeout: z.number().optional().default(300).describe('Execution timeout in seconds (default: 300)'),
   workdir: z.string().optional().default('/workspace').describe('Working directory inside container (default: /workspace)'),
+  pathRoot: z
+    .enum(['workspace', 'slash'])
+    .optional()
+    .default('workspace')
+    .describe(
+      "When 'slash', leading / in the command is translated to /workspace (so /repos → /workspace/repos). System paths like /bin, /usr are left unchanged. Default 'workspace' does no translation."
+    ),
 });
 
 interface ExperienceMetadata {
@@ -187,6 +195,18 @@ async function discardExperience(experienceId: string): Promise<void> {
   await rm(experienceDir, { recursive: true });
 }
 
+/**
+ * When pathRoot is 'slash', translate leading / to /workspace in the command
+ * so that /repos → /workspace/repos. System paths (/bin, /usr, etc.) are left unchanged.
+ * Does not parse quoted strings; paths inside quotes may be translated.
+ */
+function translateSlashToWorkspace(command: string): string {
+  return command.replace(
+    /(^|[\s;|&(])\/((?!workspace\/)(?!workspace$)(?!bin\/)(?!bin$)(?!usr\/)(?!usr$)(?!etc\/)(?!etc$)(?!lib\/)(?!lib$)(?!lib64\/)(?!lib64$)(?!sbin\/)(?!sbin$)(?!opt\/)(?!opt$)(?!root\/)(?!root$)(?!home\/)(?!home$)(?!tmp\/)(?!tmp$)(?!var\/)(?!var$)(?!run\/)(?!run$)(?!dev\/)(?!dev$)(?!proc\/)(?!proc$)(?!sys\/)(?!sys$)[a-zA-Z0-9_.-]+(?:\/[^\s;|&)'"]*)?)/g,
+    (_, prefix, path) => `${prefix}/workspace/${path}`
+  );
+}
+
 async function executeInDagger(
   command: string,
   experienceDir: string,
@@ -211,13 +231,9 @@ async function executeInDagger(
           .withDirectory(containerWorkdir, hostDir)
           .withWorkdir(containerWorkdir);
 
-        const timeoutCmd = [
-          'sh',
-          '-c',
-          `timeout ${timeout} bash -c ${JSON.stringify(command)} 2>&1 || (exit_code=$?; [ $exit_code -eq 124 ] && echo "Execution timed out" && exit 124; exit $exit_code)`,
-        ];
-
-        container = container.withExec(timeoutCmd);
+        // Use array form so command is one argv—no shell escaping; preserves $VAR, quotes, etc.
+        const execArgs = buildTimeoutBashExecArgs(command, timeout);
+        container = container.withExec(execArgs);
 
         try {
           stdout = await container.stdout();
@@ -268,9 +284,9 @@ async function executeInDagger(
 
 export const runBashTool = tool({
   description:
-    'Execute bash in a Dagger container. Pass the same experienceId for every call in a multi-step workflow so state accumulates (later commands see files and installs from earlier commands). Omitting experienceId creates a new workspace each time—do not omit when chaining steps.',
+    'Execute bash in a Dagger container. Use one experienceId per task and pass the EXACT SAME experienceId on every call (do not use task-2, task-3, etc.—each new ID starts a new workspace). Set pathRoot to "slash" to treat / as the work directory (e.g. /repos → /workspace/repos). Default image ubuntu:22.04 has Perl but not Chrome; for chrome-driver install Chrome in the first step with the same experienceId, then run the script.',
   inputSchema: runBashSchema,
-  execute: async ({ command, agentId, experienceId, action, image, timeout, workdir }) => {
+  execute: async ({ command, agentId, experienceId, action, image, timeout, workdir, pathRoot }) => {
     const config = await loadConfig();
     const roots = getFileAllowedRoots(config);
 
@@ -335,7 +351,8 @@ export const runBashTool = tool({
         status = 'continued';
       }
 
-      const result = await executeInDagger(command, experienceDir, image, timeout, workdir);
+      const effectiveCommand = pathRoot === 'slash' ? translateSlashToWorkspace(command) : command;
+      const result = await executeInDagger(effectiveCommand, experienceDir, image, timeout, workdir);
 
       if (result.exitCode === 124) {
         return {
@@ -349,10 +366,17 @@ export const runBashTool = tool({
         };
       }
 
+      const hint =
+        result.exitCode !== 0
+          ? 'Retry with the SAME experienceId after fixing the command or installing deps (e.g. Chrome for chrome-driver scripts). Do not create a new experienceId.'
+          : status === 'new'
+            ? 'Reuse this exact experienceId for the next run_bash call in this workflow. Do not use experienceId-2 or similar.'
+            : undefined;
+
       return {
         experienceId: finalExperienceId,
         status,
-        ...(status === 'new' && { hint: 'Reuse this experienceId for the next run_bash call in this workflow so the next command sees this state.' }),
+        ...(hint && { hint }),
         stdout: result.stdout,
         stderr: result.stderr,
         exitCode: result.exitCode,
