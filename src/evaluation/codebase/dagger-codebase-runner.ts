@@ -9,6 +9,7 @@
  */
 
 import { dag, connection, type Container } from '@dagger.io/dagger';
+import { buildTimeoutBashExecArgs } from '../dagger-exec-args.js';
 import { detectProjectType } from './context-provider.js';
 import type {
   CodebaseConfig,
@@ -299,15 +300,9 @@ export class DaggerCodebaseRunner {
     const failures: string[] = [];
 
     try {
-      // Build timeout command
-      const timeoutCmd = [
-        'sh',
-        '-c',
-        `timeout ${effectiveTimeout} ${command} 2>&1 || exit $?`,
-      ];
-
-      // Execute command
-      container = container.withExec(timeoutCmd);
+      // Use array form so command is one argv—no shell escaping
+      const execArgs = buildTimeoutBashExecArgs(command, effectiveTimeout);
+      container = container.withExec(execArgs);
 
       try {
         stdout = await container.stdout();
