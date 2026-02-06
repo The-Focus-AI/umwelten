@@ -68,6 +68,18 @@
 - [x] SessionDetailPanel: more summary and learnings (200/220 chars), wrap
 - [x] ChatDetailView receives full BrowserSession (analysis) for summary/learnings display
 
+### Completed: Jeeves Session Debug and CLI (plan)
+
+- [x] Reasoning: add `reasoning?` to AssistantMessageEntry; jeeves-jsonl + CLI capture; session-parser extractReasoning/summary
+- [x] Size breakdown: SessionSizeBreakdown, computeSizeBreakdown(), SessionSummary.sizeBreakdown
+- [x] SessionMessage → NormalizedMessage (session-parser); getBeatsForSession() for Jeeves transcript
+- [x] Jeeves sessions CLI: list, show (sizes), beats, messages, message (inspect), pull, replay
+- [x] Bot tools: sessions_show with sizeBreakdown/beatCount; sessions_inspect (single message)
+- [x] umwelten sessions: --file / --session-dir for show/messages/stats (load Jeeves session by path)
+- [x] Browse: SessionCard compact stats (msg · tools · $); SessionDetailPanel Stats row + beats (load messages for selected session)
+- [x] Topic per beat: heuristic topic (first 50 chars) on ConversationBeat; jeeves sessions beats --topic FILTER
+- [x] Replay: jeeves sessions replay &lt;pulled.json&gt; [--provider] [--model]; examples/jeeves-bot/replay.ts
+
 ---
 
 ## Completed: Index All Session Sources
