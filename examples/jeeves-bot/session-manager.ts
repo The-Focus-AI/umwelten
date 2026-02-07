@@ -16,9 +16,12 @@ export interface SessionMetadata {
   metadata?: Record<string, any>;
 }
 
+const CURRENT_FILE = 'current.json';
+
 /**
  * Get or create a session directory for the current interaction.
- * For Telegram, uses chatId. For CLI, uses a timestamp-based ID.
+ * For Telegram, uses chatId and optional current-thread (so /reset creates a new session).
+ * For CLI, uses a timestamp-based ID (new session every run).
  */
 export async function getOrCreateSession(
   type: 'telegram' | 'cli' | 'other',
@@ -29,7 +32,46 @@ export async function getOrCreateSession(
 
   let sessionId: string;
   if (type === 'telegram' && identifier !== undefined) {
-    sessionId = `telegram-${identifier}`;
+    const chatId = String(identifier);
+    const baseId = `telegram-${chatId}`;
+    const baseDir = join(sessionsDir, baseId);
+    try {
+      const currentPath = join(baseDir, CURRENT_FILE);
+      const raw = await readFile(currentPath, 'utf-8');
+      const { sessionId: currentId } = JSON.parse(raw) as { sessionId: string };
+      if (currentId && currentId.startsWith(baseId)) {
+        const threadDir = join(sessionsDir, currentId);
+        try {
+          const st = await stat(threadDir);
+          if (st.isDirectory()) {
+            sessionId = currentId;
+            const sessionDir = threadDir;
+            const metaPath = join(sessionDir, 'meta.json');
+            let metadata: SessionMetadata;
+            try {
+              const existing = await readFile(metaPath, 'utf-8');
+              metadata = JSON.parse(existing);
+              metadata.lastUsed = new Date().toISOString();
+            } catch {
+              metadata = {
+                sessionId,
+                created: new Date().toISOString(),
+                lastUsed: new Date().toISOString(),
+                type: 'telegram',
+                chatId: Number(identifier),
+              };
+            }
+            await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
+            return { sessionId, sessionDir };
+          }
+        } catch {
+          // thread dir missing, fall through to use base
+        }
+      }
+    } catch {
+      // no current.json or invalid, fall through
+    }
+    sessionId = baseId;
   } else if (type === 'cli') {
     sessionId = `cli-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   } else {
@@ -38,6 +80,15 @@ export async function getOrCreateSession(
 
   const sessionDir = join(sessionsDir, sessionId);
   await mkdir(sessionDir, { recursive: true });
+
+  // For Telegram base dir, write current.json so next time we use this dir
+  if (type === 'telegram' && identifier !== undefined && sessionId === `telegram-${identifier}`) {
+    await writeFile(
+      join(sessionDir, CURRENT_FILE),
+      JSON.stringify({ sessionId }, null, 2),
+      'utf-8'
+    );
+  }
 
   // Create or update metadata
   const metaPath = join(sessionDir, 'meta.json');
@@ -56,6 +107,38 @@ export async function getOrCreateSession(
     };
   }
   await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
+
+  return { sessionId, sessionDir };
+}
+
+/**
+ * Create a new Telegram thread (new session dir) for this chat and set it as current.
+ * Call this on /reset or /start so the next messages go to a new transcript.
+ */
+export async function createNewTelegramThread(chatId: number): Promise<{ sessionId: string; sessionDir: string }> {
+  await ensureSessionsDir();
+  const sessionsDir = getSessionsDir();
+  const baseId = `telegram-${chatId}`;
+  const sessionId = `${baseId}-${Date.now()}`;
+  const sessionDir = join(sessionsDir, sessionId);
+  await mkdir(sessionDir, { recursive: true });
+
+  const metadata: SessionMetadata = {
+    sessionId,
+    created: new Date().toISOString(),
+    lastUsed: new Date().toISOString(),
+    type: 'telegram',
+    chatId,
+  };
+  await writeFile(join(sessionDir, 'meta.json'), JSON.stringify(metadata, null, 2), 'utf-8');
+
+  const baseDir = join(sessionsDir, baseId);
+  await mkdir(baseDir, { recursive: true });
+  await writeFile(
+    join(baseDir, CURRENT_FILE),
+    JSON.stringify({ sessionId }, null, 2),
+    'utf-8'
+  );
 
   return { sessionId, sessionDir };
 }

@@ -10,14 +10,21 @@ import { tavily } from '@tavily/core';
 const apiKey = process.env.TAVILY_API_KEY;
 
 const searchSchema = z.object({
-  query: z.string().describe('Search query for the web'),
+  query: z.string().min(1, 'query is required').describe('Search query for the web'),
   max_results: z.number().min(1).max(20).optional().default(5).describe('Max results to return (1-20)'),
 });
 
 export const tavilySearchTool = tool({
-  description: 'Search the web for current information. Use for facts, recent events, or when the user asks to look something up.',
+  description: 'Search the web for current information. Use for facts, recent events, or when the user asks to look something up. Always provide a non-empty query.',
   inputSchema: searchSchema,
   execute: async ({ query, max_results }) => {
+    const trimmed = typeof query === 'string' ? query.trim() : '';
+    if (!trimmed) {
+      return {
+        error: 'Search requires a non-empty query. Please call search again with a specific search query (e.g. what you want to look up).',
+        results: [],
+      };
+    }
     if (!apiKey) {
       return {
         error: 'TAVILY_API_KEY is not set. Add it to your .env in the Jeeves directory.',
@@ -26,7 +33,7 @@ export const tavilySearchTool = tool({
     }
     try {
       const client = tavily({ apiKey });
-      const response = await client.search(query, {
+      const response = await client.search(trimmed, {
         maxResults: max_results,
         searchDepth: 'basic',
         includeAnswer: false,

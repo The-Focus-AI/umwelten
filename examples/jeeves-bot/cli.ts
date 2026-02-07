@@ -7,14 +7,13 @@
  */
 
 import { createInterface } from 'node:readline';
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { CoreMessage } from 'ai';
-import { coreMessagesToJSONL } from './jeeves-jsonl.js';
-import { Interaction } from '../../src/interaction/interaction.js';
+// import { writeSessionTranscript } from './jeeves-jsonl.js'; 
+import { Interaction } from '../../src/interaction/core/interaction.js';
+import { InteractionStore } from '../../src/interaction/persistence/interaction-store.js';
 import { estimateContextSize, listCompactionStrategies } from '../../src/context/index.js';
 import { createJeevesStimulus } from './stimulus.js';
-import { getOrCreateSession, updateSessionMetadata } from './session-manager.js';
+// import { getOrCreateSession, updateSessionMetadata } from './session-manager.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
@@ -59,91 +58,23 @@ function formatMessageContent(content: CoreMessage['content']): string {
   return String(content ?? '');
 }
 
-async function writeSessionTranscript(
-  sessionDir: string,
-  messages: CoreMessage[],
-  reasoningForLastAssistant?: string
-): Promise<void> {
-  const jsonl = coreMessagesToJSONL(messages, undefined, reasoningForLastAssistant);
-  await writeFile(join(sessionDir, 'transcript.jsonl'), jsonl, 'utf-8');
-}
-
 /**
- * Build full message array from ModelResponse metadata (toolCalls, toolResults).
- * Vercel AI SDK uses: input (not args), output (not result).
+ * Persist interaction state using InteractionStore
  */
-function buildFullMessagesFromResponse(
-  prompt: string,
-  response: { content?: string; metadata?: { toolCalls?: any[]; toolResults?: any[] } }
-): CoreMessage[] {
-  const messages: CoreMessage[] = [];
-  messages.push({ role: 'user', content: prompt });
-
-  const toolCalls = response.metadata?.toolCalls || [];
-  const toolResults = response.metadata?.toolResults || [];
-  const finalText = response.content || '';
-
-  // If we have tool calls, reconstruct the conversation
-  if (toolCalls.length > 0) {
-    // Group tool results by toolCallId
-    const resultMap = new Map<string, any>();
-    for (const tr of toolResults) {
-      resultMap.set(tr.toolCallId, tr);
-    }
-
-    // Process each tool call
-    for (const tc of toolCalls) {
-      // Assistant message with tool call (use input, not args)
-      messages.push({
-        role: 'assistant',
-        content: [
-          {
-            type: 'tool-call',
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: tc.input || tc.args || {},
-          },
-        ],
-      });
-
-      // Tool result message (use output, not result)
-      const result = resultMap.get(tc.toolCallId);
-      if (result) {
-        messages.push({
-          role: 'tool',
-          content: [
-            {
-              type: 'tool-result',
-              toolCallId: result.toolCallId,
-              toolName: result.toolName,
-              result: result.output || result.result,
-              isError: result.isError ?? false,
-            },
-          ],
-        } as CoreMessage);
-      }
-    }
-
-    // Add final assistant text if present
-    if (finalText) {
-      messages.push({ role: 'assistant', content: finalText });
-    }
-  } else {
-    // No tool calls, just user and assistant
-    if (finalText) {
-      messages.push({ role: 'assistant', content: finalText });
-    }
+async function saveInteraction(store: InteractionStore, interaction: Interaction): Promise<void> {
+  try {
+    const normalized = interaction.toNormalizedSession();
+    await store.saveSession(normalized);
+  } catch (err) {
+    console.error('Failed to save session:', err);
   }
-
-  return messages;
 }
 
 async function oneShotRun(
   interaction: Interaction,
+  store: InteractionStore,
   prompt: string,
-  quiet: boolean,
-  sessionId: string,
-  sessionDir: string
+  quiet: boolean
 ): Promise<void> {
   interaction.addMessage({ role: 'user', content: prompt });
   let response;
@@ -164,28 +95,17 @@ async function oneShotRun(
   }
   console.log(formatContextSize(interaction.getMessages()));
 
-  // Build full message history including tool calls from response metadata
-  const msgs = buildFullMessagesFromResponse(prompt, response);
-  const reasoning =
-    typeof response.reasoning === 'string'
-      ? response.reasoning
-      : response.reasoning != null
-        ? String(response.reasoning)
-        : undefined;
-  await writeSessionTranscript(sessionDir, msgs, reasoning);
-  const userCount = msgs.filter((m) => m.role === 'user').length;
-  const assistantCount = msgs.filter((m) => m.role === 'assistant').length;
-  const toolCount = msgs.filter((m) => m.role === 'tool').length;
-  await updateSessionMetadata(sessionId, {
-    metadata: { firstPrompt: prompt.slice(0, 200), messageCount: userCount + assistantCount + toolCount },
-  });
+  // Interaction handles message history internally now, including tool calls from response if runner supports it.
+  // Although `buildFullMessagesFromResponse` might be needed if the runner doesn't auto-append tool calls?
+  // Interaction.runner generally DOES append them.
+
+  await saveInteraction(store, interaction);
 }
 
 async function repl(
   interaction: Interaction,
-  quiet: boolean,
-  sessionId: string,
-  sessionDir: string
+  store: InteractionStore,
+  quiet: boolean
 ): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   console.log('Jeeves at your service. Type a message and press Enter.');
@@ -199,21 +119,7 @@ async function repl(
         return;
       }
       if (input === '/exit' || input === '/quit') {
-        const messages = interaction.getMessages();
-        await writeSessionTranscript(sessionDir, messages);
-        const firstUser = messages.find((m) => m.role === 'user');
-        const firstPrompt = firstUser ? formatMessageContent(firstUser.content).slice(0, 200) : undefined;
-        const userCount = messages.filter((m) => m.role === 'user').length;
-        const assistantCount = messages.filter((m) => m.role === 'assistant').length;
-        await updateSessionMetadata(sessionId, {
-          lastUsed: new Date().toISOString(),
-          ...((firstPrompt || userCount + assistantCount > 0) && {
-            metadata: {
-              ...(firstPrompt && { firstPrompt }),
-              messageCount: userCount + assistantCount,
-            },
-          }),
-        });
+        await saveInteraction(store, interaction);
         rl.close();
         process.exit(0);
       }
@@ -294,28 +200,8 @@ async function repl(
           console.log('[Final Result]:', finalText || '(empty)');
         }
         console.log(formatContextSize(interaction.getMessages()));
-        const messages = interaction.getMessages();
-        const reasoning =
-          typeof response.reasoning === 'string'
-            ? response.reasoning
-            : response.reasoning != null
-              ? String(response.reasoning)
-              : undefined;
-        await writeSessionTranscript(sessionDir, messages, reasoning);
-        const firstUser = messages.find((m) => m.role === 'user');
-        const firstPrompt = firstUser ? formatMessageContent(firstUser.content).slice(0, 200) : undefined;
-        const userCount = messages.filter((m) => m.role === 'user').length;
-        const assistantCount = messages.filter((m) => m.role === 'assistant').length;
-        const toolCount = messages.filter((m) => m.role === 'tool').length;
-        await updateSessionMetadata(sessionId, {
-          lastUsed: new Date().toISOString(),
-          ...((firstPrompt || userCount + assistantCount + toolCount > 0) && {
-            metadata: {
-              ...(firstPrompt && { firstPrompt }),
-              messageCount: userCount + assistantCount + toolCount,
-            },
-          }),
-        });
+
+        await saveInteraction(store, interaction);
       } catch (err) {
         console.error('Error:', err);
       }
@@ -353,7 +239,10 @@ async function main(): Promise<void> {
     }
   }
 
-  const { sessionId, sessionDir } = await getOrCreateSession('cli');
+  // const { sessionId, sessionDir } = await getOrCreateSession('cli');
+  const sessionId = `cli-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  const store = new InteractionStore({ basePath: getSessionsDir() });
+
   if (!quiet) {
     console.log(`[JEEVES] Work directory: ${workDir}`);
     console.log(`[JEEVES] Sessions directory: ${getSessionsDir()}`);
@@ -362,18 +251,21 @@ async function main(): Promise<void> {
 
   const stimulus = await createJeevesStimulus();
   const modelDetails = { name: model, provider };
-  const interaction = new Interaction(modelDetails, stimulus);
+
+  // Create interaction with explict ID
+  const interaction = new Interaction(modelDetails, stimulus, { id: sessionId, source: 'native', sourceId: sessionId });
+
   // Append transcript as messages come in (after each tool call, tool result, final text)
   interaction.setOnTranscriptUpdate((messages) => {
-    void writeSessionTranscript(sessionDir, messages);
+    void saveInteraction(store, interaction);
   });
 
   if (oneShot) {
-    await oneShotRun(interaction, oneShot, quiet, sessionId, sessionDir);
+    await oneShotRun(interaction, store, oneShot, quiet);
     process.exit(0);
   }
 
-  await repl(interaction, quiet, sessionId, sessionDir);
+  await repl(interaction, store, quiet);
 }
 
 main().catch((err) => {

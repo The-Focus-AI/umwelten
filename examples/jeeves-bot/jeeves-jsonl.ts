@@ -5,6 +5,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { CoreMessage } from 'ai';
 import type {
   UserMessageEntry,
@@ -260,4 +262,16 @@ export function coreMessagesToJSONL(
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Write transcript JSONL to session directory. Used by both CLI and Telegram.
+ */
+export async function writeSessionTranscript(
+  sessionDir: string,
+  messages: CoreMessage[],
+  reasoningForLastAssistant?: string
+): Promise<void> {
+  const jsonl = coreMessagesToJSONL(messages, undefined, reasoningForLastAssistant);
+  await writeFile(join(sessionDir, 'transcript.jsonl'), jsonl, 'utf-8');
 }

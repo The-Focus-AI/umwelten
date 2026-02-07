@@ -6,7 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import type { CoreMessage } from 'ai';
 import type { NormalizedMessage } from '../../src/sessions/normalized-types.js';
-import { Interaction } from '../../src/interaction/interaction.js';
+import { Interaction } from '../../src/interaction/core/interaction.js';
 import { createJeevesStimulus } from './stimulus.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';

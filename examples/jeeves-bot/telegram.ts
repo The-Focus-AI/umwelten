@@ -6,7 +6,8 @@
 
 import { TelegramAdapter } from '../../src/ui/telegram/TelegramAdapter.js';
 import { createJeevesStimulus } from './stimulus.js';
-import { getOrCreateSession } from './session-manager.js';
+import { getOrCreateSession, createNewTelegramThread } from './session-manager.js';
+import { writeSessionTranscript } from './jeeves-jsonl.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -47,8 +48,8 @@ async function main(): Promise<void> {
 
   const stimulus = await createJeevesStimulus();
   
-  // Use session directories for storing Telegram media files
-  // Each chat gets its own session directory
+  // Use session directories for storing Telegram media files and transcripts
+  // Each chat gets its own session directory (telegram-{chatId})
   const adapter = new TelegramAdapter({
     token,
     modelDetails: { name: model, provider },
@@ -56,6 +57,13 @@ async function main(): Promise<void> {
     getSessionMediaDir: async (chatId: number) => {
       const { sessionDir } = await getOrCreateSession('telegram', chatId);
       return path.join(sessionDir, 'media');
+    },
+    getSessionDir: async (chatId: number) => {
+      return getOrCreateSession('telegram', chatId);
+    },
+    writeTranscript: writeSessionTranscript,
+    startNewThread: async (chatId: number) => {
+      await createNewTelegramThread(chatId);
     },
   });
 

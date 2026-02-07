@@ -4,7 +4,7 @@
  */
 
 import { createJeevesStimulus } from './stimulus.js';
-import { Interaction } from '../../src/interaction/interaction.js';
+import { Interaction } from '../../src/interaction/core/interaction.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'ollama';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gpt-oss:latest';
