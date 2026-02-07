@@ -1,6 +1,6 @@
 import { BaseModelRunner } from "../cognition/runner.js";
 import { ModelDetails, ModelResponse } from "../cognition/types.js";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { FunctionEvaluationRunner } from "./evaluate.js";
 import { calculateCost, CostBreakdown } from "../costs/costs.js";

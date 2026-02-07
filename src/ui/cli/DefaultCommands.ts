@@ -1,5 +1,5 @@
 import { CLICommand } from "./CommandRegistry.js";
-import { Interaction } from "../../interaction/interaction.js";
+import { Interaction } from "../../interaction/core/interaction.js";
 
 /**
  * Default CLI commands that can be registered with the CommandRegistry

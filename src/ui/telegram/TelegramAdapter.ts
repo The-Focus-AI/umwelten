@@ -1,6 +1,6 @@
 import { Bot, Context } from "grammy";
 import { hydrateFiles, FileFlavor } from "@grammyjs/files";
-import { Interaction } from "../../interaction/interaction.js";
+import { Interaction } from "../../interaction/core/interaction.js";
 import { Stimulus } from "../../stimulus/stimulus.js";
 import { ModelDetails } from "../../cognition/types.js";
 import path from "path";
@@ -14,6 +14,10 @@ export interface TelegramAdapterConfig {
   stimulus: Stimulus;
   mediaDir?: string; // Deprecated: Directory where media files will be stored (use getSessionMediaDir instead)
   getSessionMediaDir?: (chatId: number) => Promise<string>; // Function to get session-specific media directory
+  getSessionDir?: (chatId: number) => Promise<{ sessionId: string; sessionDir: string }>; // For transcript persistence
+  writeTranscript?: (sessionDir: string, messages: import("ai").CoreMessage[], reasoning?: string) => Promise<void>;
+  /** Called when user sends /reset or /start so a new session directory is created for the next messages */
+  startNewThread?: (chatId: number) => Promise<void>;
 }
 
 export class TelegramAdapter {
@@ -105,7 +109,9 @@ export class TelegramAdapter {
 
     this.logMessage("←", ctx, "/start");
 
-    // Delete existing interaction to start fresh
+    if (this.config.startNewThread) {
+      await this.config.startNewThread(chatId);
+    }
     this.interactions.delete(chatId);
 
     const reply = "Hello! I'm ready to chat. Send me a message or share media.\n\n" +
@@ -122,7 +128,9 @@ export class TelegramAdapter {
 
     this.logMessage("←", ctx, "/reset");
 
-    // Delete the interaction to reset (recreated on next message)
+    if (this.config.startNewThread) {
+      await this.config.startNewThread(chatId);
+    }
     this.interactions.delete(chatId);
     const reply = "Conversation cleared. Send a message to start a new conversation.";
     await ctx.reply(reply);
@@ -154,6 +162,13 @@ export class TelegramAdapter {
     const interaction = this.getInteraction(chatId);
     this.startTypingIndicator(ctx);
 
+    if (this.config.getSessionDir && this.config.writeTranscript) {
+      const { sessionDir } = await this.config.getSessionDir(chatId);
+      interaction.setOnTranscriptUpdate((messages) => {
+        void this.config.writeTranscript!(sessionDir, messages);
+      });
+    }
+
     try {
       interaction.addMessage({ role: "user", content: text });
       
@@ -171,6 +186,16 @@ export class TelegramAdapter {
             if (followUpText) {
               await this.sendFormattedMessage(ctx, followUpText);
               this.logMessage("→", ctx, followUpText);
+              if (this.config.getSessionDir && this.config.writeTranscript) {
+                const { sessionDir } = await this.config.getSessionDir(chatId);
+                const reasoning =
+                  typeof followUpResponse.reasoning === "string"
+                    ? followUpResponse.reasoning
+                    : followUpResponse.reasoning != null
+                      ? String(followUpResponse.reasoning)
+                      : undefined;
+                await this.config.writeTranscript(sessionDir, interaction.getMessages(), reasoning);
+              }
               return;
             }
           } catch {
@@ -187,6 +212,17 @@ export class TelegramAdapter {
       } else {
         await this.sendFormattedMessage(ctx, responseText);
         this.logMessage("→", ctx, responseText);
+      }
+
+      if (this.config.getSessionDir && this.config.writeTranscript) {
+        const { sessionDir } = await this.config.getSessionDir(chatId);
+        const reasoning =
+          typeof response.reasoning === "string"
+            ? response.reasoning
+            : response.reasoning != null
+              ? String(response.reasoning)
+              : undefined;
+        await this.config.writeTranscript(sessionDir, interaction.getMessages(), reasoning);
       }
     } catch (error) {
       console.error("Error processing message:", error);
@@ -377,6 +413,13 @@ export class TelegramAdapter {
         interaction.addMessage({ role: "user", content: caption });
       }
 
+      if (this.config.getSessionDir && this.config.writeTranscript) {
+        const { sessionDir } = await this.config.getSessionDir(chatId);
+        interaction.setOnTranscriptUpdate((messages) => {
+          void this.config.writeTranscript!(sessionDir, messages);
+        });
+      }
+
       // Use streamText() like the CLI does - it properly handles tool calls and continues
       const response = await interaction.streamText();
       const responseText = this.messageContentForTelegram(response.content as string);
@@ -389,6 +432,17 @@ export class TelegramAdapter {
       } else {
         await this.sendFormattedMessage(ctx, responseText);
         this.logMessage("→", ctx, responseText);
+      }
+
+      if (this.config.getSessionDir && this.config.writeTranscript) {
+        const { sessionDir } = await this.config.getSessionDir(chatId);
+        const reasoning =
+          typeof response.reasoning === "string"
+            ? response.reasoning
+            : response.reasoning != null
+              ? String(response.reasoning)
+              : undefined;
+        await this.config.writeTranscript(sessionDir, interaction.getMessages(), reasoning);
       }
     } catch (error: any) {
       console.error("Error processing media:", error);
@@ -441,21 +495,22 @@ export class TelegramAdapter {
   }
 
   /**
-   * Convert markdown that Telegram doesn't support (e.g. # headings) into supported formatting.
-   * Telegram Markdown only supports *bold*, _italic_, `code`, [link](url) — not # headings.
+   * Convert markdown to Telegram-compatible format.
+   * Telegram Markdown uses *bold* (not **), _italic_, `code`, [link](url).
+   * Headings and **bold** need conversion.
    */
   private normalizeForTelegram(content: string): string {
     return content
+      .replace(/\*\*(.+?)\*\*/g, "*$1*") // **bold** -> *bold*
       .replace(/^#{1,6}\s+(.+)$/gm, "*$1*"); // headings -> bold
   }
 
   /**
-   * Send a message with Markdown formatting, falling back to plain text if parsing fails
+   * Send a message with Markdown formatting, falling back to plain text if parsing fails.
+   * Uses HTML as primary (handles **bold**, # headings, code blocks reliably).
    */
   private async sendFormattedMessage(ctx: Context, content: string): Promise<void> {
     if (!content || !content.trim()) return;
-
-    content = this.normalizeForTelegram(content);
 
     // Split long messages (Telegram max is 4096 chars)
     const chunks = content.length > 4096 ? this.splitMessage(content, 4096) : [content];
@@ -464,20 +519,23 @@ export class TelegramAdapter {
       const trimmed = chunk.trim();
       if (!trimmed) continue;
       try {
-        // Try sending with Markdown formatting
-        await ctx.reply(trimmed, { parse_mode: "Markdown" });
+        // Try HTML first (handles **bold**, # headings, code blocks reliably)
+        const htmlContent = this.markdownToHtml(trimmed);
+        await ctx.reply(htmlContent, { parse_mode: "HTML" });
       } catch (error: any) {
-        // If Markdown parsing fails, try HTML
-        if (error?.description?.includes("parse")) {
+        // If HTML fails (e.g. unescaped <>&), try Markdown with normalized content
+        if (error?.description?.includes("parse") || error?.message?.includes("parse")) {
           try {
-            const htmlContent = this.markdownToHtml(trimmed);
-            await ctx.reply(htmlContent, { parse_mode: "HTML" });
-          } catch {
-            // Fall back to plain text
-            await ctx.reply(trimmed);
+            const normalized = this.normalizeForTelegram(trimmed);
+            await ctx.reply(normalized, { parse_mode: "Markdown" });
+          } catch (markdownError: any) {
+            if (markdownError?.description?.includes("parse") || markdownError?.message?.includes("parse")) {
+              await ctx.reply(trimmed);
+            } else {
+              throw markdownError;
+            }
           }
         } else {
-          // Re-throw non-parsing errors
           throw error;
         }
       }
@@ -485,26 +543,40 @@ export class TelegramAdapter {
   }
 
   /**
-   * Convert basic Markdown to HTML for Telegram
+   * Convert basic Markdown to HTML for Telegram. Escapes HTML entities in raw text.
+   * Uses escapePlainText for final pass to avoid double-escaping (e.g. &amp; -> &amp;amp;).
    */
   private markdownToHtml(text: string): string {
-    return text
-      // Headings (Telegram has no <h1>, use bold)
-      .replace(/^#{1,6}\s+(.+)$/gm, "<b>$1</b>")
-      // Code blocks (must be before inline code)
-      .replace(/```(\w*)\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>")
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // For plain text: escape < > and raw & only (not &amp; &lt; etc.) to avoid double-escaping
+    const escapePlainText = (s: string) =>
+      s
+        .replace(/&(?!amp;|lt;|gt;|quot;|#\d+;|#x[0-9a-fA-F]+;)/gi, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    const out = text
+      // Code blocks first (preserve content, escape it)
+      .replace(/```(\w*)\n([\s\S]*?)```/g, (_, _lang, code) => `<pre><code>${escape(code)}</code></pre>`)
       // Inline code
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      // Bold
-      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
-      .replace(/__(.+?)__/g, "<b>$1</b>")
-      // Italic
-      .replace(/\*(.+?)\*/g, "<i>$1</i>")
-      .replace(/_(.+?)_/g, "<i>$1</i>")
+      .replace(/`([^`]+)`/g, (_, code) => `<code>${escape(code)}</code>`)
+      // Bold (** and __)
+      .replace(/\*\*(.+?)\*\*/g, (_, t) => `<b>${escape(t)}</b>`)
+      .replace(/__(.+?)__/g, (_, t) => `<b>${escape(t)}</b>`)
+      // Headings (use bold)
+      .replace(/^#{1,6}\s+(.+)$/gm, (_, t) => `<b>${escape(t)}</b>`)
+      // Italic - single * not part of **
+      .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, (_, t) => `<i>${escape(t)}</i>`)
+      .replace(/(?<![_*])_([^_\n]+)_(?![_*])/g, (_, t) => `<i>${escape(t)}</i>`)
       // Strikethrough
-      .replace(/~~(.+?)~~/g, "<s>$1</s>")
+      .replace(/~~(.+?)~~/g, (_, t) => `<s>${escape(t)}</s>`)
       // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => `<a href="${escape(href)}">${escape(label)}</a>`);
+
+    // Escape plain text between/outside tags; use escapePlainText to avoid double-escaping &amp; etc.
+    return out.split(/(<[^>]+>)/).map((part) => (part.startsWith("<") ? part : escapePlainText(part))).join("");
   }
 
   private splitMessage(text: string, maxLength: number): string[] {

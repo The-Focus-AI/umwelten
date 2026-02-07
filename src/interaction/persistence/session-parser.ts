@@ -9,10 +9,10 @@ import type {
   ToolCall,
   TokenUsage,
   ToolUseContent,
-} from './types.js';
-import type { NormalizedMessage, NormalizedTokenUsage } from './normalized-types.js';
-import { messagesToBeats } from './conversation-beats.js';
-import type { ConversationBeat } from './conversation-beats.js';
+} from '../types/types.js';
+import type { NormalizedMessage, NormalizedTokenUsage } from '../types/normalized-types.js';
+import { messagesToBeats } from '../analysis/conversation-beats.js';
+import type { ConversationBeat } from '../analysis/conversation-beats.js';
 
 /**
  * Parse a single line of JSONL into a SessionMessage
@@ -548,7 +548,7 @@ function extractFirstUserText(msg: { message: { content: string | ContentBlock[]
   if (joined.length > 0) return joined.slice(0, 500);
   for (const block of content) {
     if (block && typeof block === 'object') {
-      const b = block as Record<string, unknown>;
+      const b = block as unknown as Record<string, unknown>;
       if (typeof b.text === 'string' && b.text.trim().length > 0) {
         return b.text.trim().slice(0, 500);
       }

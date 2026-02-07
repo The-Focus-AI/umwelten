@@ -13,7 +13,7 @@ import {
   toggleStatsCommand,
   exitCommand
 } from './DefaultCommands.js';
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 
 // Create real interaction for testing

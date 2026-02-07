@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box, Text, useStdout } from 'ink';
-import type { NormalizedMessage } from '../../../sessions/normalized-types.js';
+import type { NormalizedMessage } from '../../../interaction/types/normalized-types.js';
 import { Message } from './Message.js';
 
 export interface MessageListProps {

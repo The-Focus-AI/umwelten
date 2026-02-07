@@ -1,4 +1,4 @@
-import { Interaction } from "../../interaction/interaction.js";
+import { Interaction } from "../../interaction/core/interaction.js";
 
 /**
  * Represents a CLI command that can be executed

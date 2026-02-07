@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { CLIInterface } from "../ui/index.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';

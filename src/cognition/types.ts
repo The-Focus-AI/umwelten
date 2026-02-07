@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LanguageModel } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
-import { Interaction } from '../interaction/interaction.js';
+import { Interaction } from '../interaction/core/interaction.js';
 
 export interface ModelRoute {
   name: string; // Base model identifier

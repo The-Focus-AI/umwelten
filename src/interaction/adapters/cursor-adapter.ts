@@ -23,7 +23,7 @@ import type {
   SessionMetrics,
   SessionDiscoveryOptions,
   SessionDiscoveryResult,
-} from '../normalized-types.js';
+} from '../types/normalized-types.js';
 
 /**
  * Cursor prompt entry from aiService.prompts

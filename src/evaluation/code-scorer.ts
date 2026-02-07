@@ -2,7 +2,7 @@ import { EvaluationScorer } from './scorer.js';
 import { ModelResponse, ScoreResponse, ModelDetails } from '../cognition/types.js';
 import { extractAllCodeBlocks, getCodeForLanguage, fixCommonCodeErrors, ensureConsoleOutput } from './code-extractor.js';
 import { DaggerRunner } from './dagger-runner.js';
-import { Interaction } from '../interaction/interaction.js';
+import { Interaction } from '../interaction/core/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 import fs from 'fs';
 import path from 'path';

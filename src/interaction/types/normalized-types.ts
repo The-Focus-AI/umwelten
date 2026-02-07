@@ -16,6 +16,7 @@ export type SessionSource =
   | 'cursor'
   | 'windsurf'
   | 'aider'
+  | 'native'
   | 'unknown';
 
 /**

@@ -6,9 +6,9 @@
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { watch } from 'node:fs';
-import type { NormalizedMessage } from '../../sessions/normalized-types.js';
-import { parseJSONLLine } from '../../sessions/session-parser.js';
-import type { SessionMessage } from '../../sessions/types.js';
+import type { NormalizedMessage } from '../../interaction/types/normalized-types.js';
+import { parseJSONLLine } from '../../interaction/persistence/session-parser.js';
+import type { SessionMessage } from '../../interaction/types/types.js';
 import { streamLineToEvent } from './stream-to-normalized.js';
 
 export type FileSessionLiveness = 'reading' | 'writing' | 'ended';

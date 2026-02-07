@@ -14,7 +14,7 @@ export interface SessionsIndex {
 /**
  * Session source for adapter-based sessions (must match normalized-types SessionSource)
  */
-export type SessionSourceForEntry = 'claude-code' | 'cursor' | 'windsurf' | 'aider' | 'unknown';
+export type SessionSourceForEntry = 'claude-code' | 'cursor' | 'windsurf' | 'aider' | 'native' | 'unknown';
 
 /**
  * Single session entry in the sessions index.

@@ -12,7 +12,7 @@ import type {
   NormalizedMessage,
   SessionDiscoveryOptions,
   SessionDiscoveryResult,
-} from '../normalized-types.js';
+} from '../types/normalized-types.js';
 
 /**
  * Session adapter interface - implemented by each source

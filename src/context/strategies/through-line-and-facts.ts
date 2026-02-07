@@ -5,7 +5,7 @@
 
 import type { CoreMessage } from "ai";
 import { Stimulus } from "../../stimulus/stimulus.js";
-import { Interaction } from "../../interaction/interaction.js";
+import { Interaction } from "../../interaction/core/interaction.js";
 import { serializeSegment } from "../serialize-messages.js";
 import type { CompactionInput, CompactionResult, CompactionStrategy } from "../types.js";
 

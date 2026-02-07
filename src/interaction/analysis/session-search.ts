@@ -4,7 +4,7 @@ import type {
   SearchOptions,
   ScoredSearchResult,
 } from './analysis-types.js';
-import { readAnalysisIndex } from './session-store.js';
+import { readAnalysisIndex } from '../persistence/session-store.js';
 
 /**
  * Filter entries by tags

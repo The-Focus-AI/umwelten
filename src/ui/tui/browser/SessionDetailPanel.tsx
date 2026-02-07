@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text } from 'ink';
-import { messagesToBeats, formatBeatToolSummary, type ConversationBeat } from '../../../sessions/conversation-beats.js';
-import type { NormalizedMessage } from '../../../sessions/normalized-types.js';
+import { messagesToBeats, formatBeatToolSummary, type ConversationBeat } from '../../../interaction/analysis/conversation-beats.js';
+import type { NormalizedMessage } from '../../../interaction/types/normalized-types.js';
 import type { BrowserSession } from './browser-data.js';
 import { loadSessionMessages } from './browser-data.js';
 

@@ -9,9 +9,9 @@ import {
   getProjectSessionsIncludingFromDirectory,
   getProjectSessions,
   hasAnalysisIndex,
-} from '../sessions/session-store.js';
-import type { SessionIndexEntry } from '../sessions/types.js';
-import { indexProject } from '../sessions/session-indexer.js';
+} from '../interaction/persistence/session-store.js';
+import type { SessionIndexEntry } from '../interaction/types/types.js';
+import { indexProject } from '../interaction/persistence/session-indexer.js';
 import {
   searchSessions,
   formatSearchResults,
@@ -19,10 +19,10 @@ import {
   getTopTopics,
   getTopTools,
   getPatterns,
-} from '../sessions/session-search.js';
-import type { SearchOptions } from '../sessions/analysis-types.js';
-import { getAdapterRegistry } from '../sessions/adapters/index.js';
-import type { NormalizedSessionEntry, SessionSource } from '../sessions/normalized-types.js';
+} from '../interaction/analysis/session-search.js';
+import type { SearchOptions } from '../interaction/analysis/analysis-types.js';
+import { getAdapterRegistry } from '../interaction/adapters/index.js';
+import type { NormalizedSessionEntry, SessionSource } from '../interaction/types/normalized-types.js';
 
 export const sessionsCommand = new Command('sessions')
   .description('View and analyze sessions (Claude Code, Cursor)');
@@ -420,7 +420,7 @@ sessionsCommand
       }
 
       // Parse the session file to get detailed information
-      const { parseSessionFile, summarizeSession } = await import('../sessions/session-parser.js');
+      const { parseSessionFile, summarizeSession } = await import('../interaction/persistence/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
       const summary = summarizeSession(messages);
 
@@ -559,7 +559,7 @@ sessionsCommand
       }
 
       // Parse the session file
-      const { parseSessionFile, extractTextContent } = await import('../sessions/session-parser.js');
+      const { parseSessionFile, extractTextContent } = await import('../interaction/persistence/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
 
       // Helper to check if a message has displayable text content
@@ -799,7 +799,7 @@ sessionsCommand
       }
 
       // Parse the session file and extract tool calls
-      const { parseSessionFile, extractToolCalls } = await import('../sessions/session-parser.js');
+      const { parseSessionFile, extractToolCalls } = await import('../interaction/persistence/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
       let toolCalls = extractToolCalls(messages);
 
@@ -935,7 +935,7 @@ sessionsCommand
       }
 
       // Parse the session file to get detailed information
-      const { parseSessionFile, summarizeSession } = await import('../sessions/session-parser.js');
+      const { parseSessionFile, summarizeSession } = await import('../interaction/persistence/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
       const summary = summarizeSession(messages);
 
@@ -1666,7 +1666,7 @@ sessionsCommand
       }
 
       // Parse the session file
-      const { parseSessionFile, summarizeSession, extractToolCalls, extractTextContent } = await import('../sessions/session-parser.js');
+      const { parseSessionFile, summarizeSession, extractToolCalls, extractTextContent } = await import('../interaction/persistence/session-parser.js');
       const messages = await parseSessionFile(session.fullPath);
       const summary = summarizeSession(messages);
       const toolCalls = extractToolCalls(messages);
@@ -2072,7 +2072,7 @@ sessionsCommand
           console.log('');
 
           // Calculate total sessions for percentage
-          const { readAnalysisIndex } = await import('../sessions/session-store.js');
+          const { readAnalysisIndex } = await import('../interaction/persistence/session-store.js');
           const index = await readAnalysisIndex(projectPath);
           const totalSessions = index.entries.length;
 

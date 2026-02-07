@@ -1,6 +1,6 @@
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 import { EvaluationCache } from '../caching/cache-service.js';
 
 // Pipeline-specific result type (different from EvaluationResult in types/)

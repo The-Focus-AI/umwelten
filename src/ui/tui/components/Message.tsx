@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { NormalizedMessage } from '../../../sessions/normalized-types.js';
+import type { NormalizedMessage } from '../../../interaction/types/normalized-types.js';
 import { ToolCallDetails } from './ToolCallDetails.js';
 
 const roleColors = {

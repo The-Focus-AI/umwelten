@@ -3,13 +3,13 @@
  * Can run index from browser to update analysis as you browse.
  */
 
-import type { NormalizedSessionEntry, NormalizedMessage } from '../../../sessions/normalized-types.js';
-import type { SessionAnalysisEntry } from '../../../sessions/analysis-types.js';
-import type { SessionIndexEntry } from '../../../sessions/types.js';
-import { getAdapterRegistry } from '../../../sessions/adapters/index.js';
-import { hasAnalysisIndex, readAnalysisIndex } from '../../../sessions/session-store.js';
-import { searchSessions } from '../../../sessions/session-search.js';
-import { indexProject } from '../../../sessions/session-indexer.js';
+import type { NormalizedSessionEntry, NormalizedMessage } from '../../../interaction/types/normalized-types.js';
+import type { SessionAnalysisEntry } from '../../../interaction/analysis/analysis-types.js';
+import type { SessionIndexEntry } from '../../../interaction/types/types.js';
+import { getAdapterRegistry } from '../../../interaction/adapters/index.js';
+import { hasAnalysisIndex, readAnalysisIndex } from '../../../interaction/persistence/session-store.js';
+import { searchSessions } from '../../../interaction/analysis/session-search.js';
+import { indexProject } from '../../../interaction/persistence/session-indexer.js';
 
 export interface BrowserSession {
   /** Normalized session (always present) */

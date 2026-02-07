@@ -20,7 +20,7 @@ import type {
   SessionMetrics,
   SessionDiscoveryOptions,
   SessionDiscoveryResult,
-} from '../normalized-types.js';
+} from '../types/normalized-types.js';
 import type {
   SessionIndexEntry,
   SessionMessage,
@@ -28,13 +28,13 @@ import type {
   AssistantMessageEntry,
   ContentBlock,
   TokenUsage,
-} from '../types.js';
+} from '../types/types.js';
 import {
   getClaudeProjectPath,
   getSessionsIndexPath,
   hasSessionsIndex,
   getProjectSessionsIncludingFromDirectory,
-} from '../session-store.js';
+} from '../persistence/session-store.js';
 import {
   parseSessionFile,
   parseSessionFileMetadata,
@@ -42,7 +42,7 @@ import {
   calculateTokenUsage,
   calculateCost,
   extractTextContent,
-} from '../session-parser.js';
+} from '../persistence/session-parser.js';
 
 /**
  * Claude Code session adapter implementation

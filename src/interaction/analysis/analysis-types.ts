@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { SessionIndexEntry } from './types.js';
+import type { SessionIndexEntry } from '../types/types.js';
 
 /**
  * Analysis data extracted from a session by LLM

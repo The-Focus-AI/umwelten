@@ -1,4 +1,4 @@
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { ModelResponse, ModelRunner } from "./types.js";
 import { z } from "zod";
 

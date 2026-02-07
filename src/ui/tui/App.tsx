@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { ChatView } from './components/ChatView.js';
 import type { SessionSidebarItem } from './components/SessionSidebar.js';
-import type { NormalizedMessage } from '../../sessions/normalized-types.js';
-import type { NormalizedSessionEntry, NormalizedSession } from '../../sessions/normalized-types.js';
+import type { NormalizedMessage } from '../../interaction/types/normalized-types.js';
+import type { NormalizedSessionEntry, NormalizedSession } from '../../interaction/types/normalized-types.js';
 import { sessionEntryToSidebarItem } from './components/SessionSidebar.js';
 import { readSessionFile } from './file-session.js';
 

@@ -5,7 +5,7 @@ import {
   SessionSidebar,
   type SessionSidebarItem,
 } from './SessionSidebar.js';
-import type { NormalizedMessage } from '../../../sessions/normalized-types.js';
+import type { NormalizedMessage } from '../../../interaction/types/normalized-types.js';
 
 export type ActivePane = 'messages' | 'sessions';
 

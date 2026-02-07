@@ -1,17 +1,17 @@
-import { ModelDetails } from '../cognition/types.js';
-import { getAdapterRegistry } from './adapters/index.js';
+import { ModelDetails } from '../../cognition/types.js';
+import { getAdapterRegistry } from '../adapters/index.js';
 import { getProjectSessionsIncludingFromDirectory } from './session-store.js';
 import { summarizeSession, parseSessionFile, extractToolCalls } from './session-parser.js';
-import { analyzeSessionWithRetry, analyzeSessionFromNormalizedSession } from './session-analyzer.js';
-import type { SessionIndexEntry } from './types.js';
-import type { NormalizedSession } from './normalized-types.js';
+import { analyzeSessionWithRetry, analyzeSessionFromNormalizedSession } from '../analysis/session-analyzer.js';
+import type { SessionIndexEntry } from '../types/types.js';
+import type { NormalizedSession } from '../types/normalized-types.js';
 import type {
   SessionAnalysisIndex,
   SessionAnalysisEntry,
   IndexOptions,
   AnalysisModelDetails,
   SessionMetadata,
-} from './analysis-types.js';
+} from '../analysis/analysis-types.js';
 import {
   hasAnalysisIndex,
   readAnalysisIndex,

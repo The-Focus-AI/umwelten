@@ -1,7 +1,7 @@
 import TurndownService from "turndown";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { ModelDetails } from "../cognition/types.js";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 
 const markifyUrl = process.env.MARKIFY_URL || "https://markify.fly.dev";
 

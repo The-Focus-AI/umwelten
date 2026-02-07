@@ -24,7 +24,7 @@ import {
 } from "ai";
 import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { z } from "zod";
 
 export interface ModelRunnerConfig {

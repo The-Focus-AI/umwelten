@@ -2,7 +2,7 @@
  * Tool Scorer - scores tool usage quality using heuristics and AI evaluation
  */
 
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 import { BaseModelRunner } from '../../cognition/runner.js';
 import { ModelDetails } from '../../cognition/types.js';
 import { Stimulus } from '../../stimulus/stimulus.js';

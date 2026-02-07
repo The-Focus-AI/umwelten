@@ -1,5 +1,5 @@
 import readline from "readline";
-import { Interaction } from "../../interaction/interaction.js";
+import { Interaction } from "../../interaction/core/interaction.js";
 import { CommandRegistry, CLICommand } from "./CommandRegistry.js";
 
 /**

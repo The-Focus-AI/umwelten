@@ -1,14 +1,14 @@
-import { BaseModelRunner } from '../cognition/runner.js';
-import { ModelDetails, ModelResponse } from '../cognition/types.js';
-import { Interaction } from '../interaction/interaction.js';
-import { Stimulus } from '../stimulus/stimulus.js';
+import { BaseModelRunner } from '../../cognition/runner.js';
+import { ModelDetails, ModelResponse } from '../../cognition/types.js';
+import { Interaction } from '../core/interaction.js';
+import { Stimulus } from '../../stimulus/stimulus.js';
 import {
   parseSessionFile,
   extractTextContent,
   extractToolCalls,
-} from './session-parser.js';
-import type { NormalizedSession, NormalizedMessage } from './normalized-types.js';
-import type { SessionIndexEntry, ContentBlock } from './types.js';
+} from '../persistence/session-parser.js';
+import type { NormalizedSession, NormalizedMessage } from '../types/normalized-types.js';
+import type { SessionIndexEntry, ContentBlock } from '../types/types.js';
 import type { SessionAnalysis, AnalysisResponse } from './analysis-types.js';
 import { AnalysisSchema } from './analysis-types.js';
 

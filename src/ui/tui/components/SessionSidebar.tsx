@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { NormalizedSessionEntry } from '../../../sessions/normalized-types.js';
+import type { NormalizedSessionEntry } from '../../../interaction/types/normalized-types.js';
 
 export type LiveLiveness = 'alive' | 'stale' | 'ended';
 export type FileLiveness = 'reading' | 'writing' | 'ended';

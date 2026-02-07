@@ -3,14 +3,14 @@
  * Same JSONL shape as session files; shared logic for TUI and format command.
  */
 
-import type { NormalizedMessage, NormalizedTokenUsage } from '../../sessions/normalized-types.js';
+import type { NormalizedMessage, NormalizedTokenUsage } from '../../interaction/types/normalized-types.js';
 import type {
   UserMessageEntry,
   AssistantMessageEntry,
   ContentBlock,
   TokenUsage,
-} from '../../sessions/types.js';
-import { extractTextContent } from '../../sessions/session-parser.js';
+} from '../../interaction/types/types.js';
+import { extractTextContent } from '../../interaction/persistence/session-parser.js';
 
 export interface StreamInit {
   type: 'init';

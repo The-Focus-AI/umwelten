@@ -6,7 +6,7 @@
  * with expand/collapse to drill into messages.
  */
 
-import type { NormalizedMessage } from './normalized-types.js';
+import type { NormalizedMessage } from '../types/normalized-types.js';
 
 /** Max characters for user preview (about 2 lines). */
 const USER_PREVIEW_CHARS = 120;

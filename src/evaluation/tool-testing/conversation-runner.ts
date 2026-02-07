@@ -2,7 +2,7 @@
  * Conversation Runner - executes multi-step tool conversation scenarios
  */
 
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 import { BaseModelRunner } from '../../cognition/runner.js';
 import { ModelDetails } from '../../cognition/types.js';
 import { ToolValidator } from './tool-validator.js';

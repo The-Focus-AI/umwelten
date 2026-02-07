@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { getModel } from '../providers/index.js';
 import { ModelDetails } from '../cognition/types.js';
 import { BaseModelRunner } from '../cognition/runner.js';
-import { Interaction } from '../interaction/interaction.js';
+import { Interaction } from '../interaction/core/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import path from 'path';

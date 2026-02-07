@@ -2,7 +2,7 @@ import { EvaluationStrategy, EvaluationResult, EvaluationMetadata } from '../typ
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationCache } from '../caching/cache-service.js';
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 import path from 'path';
 
 export interface MatrixDimension {

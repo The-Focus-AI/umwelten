@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
 import { getModel } from "../providers/index.js";

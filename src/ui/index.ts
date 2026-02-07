@@ -1,5 +1,5 @@
 // Interaction classes
-export { Interaction } from '../interaction/interaction.js';
+export { Interaction } from '../interaction/core/interaction.js';
 
 // Interface classes
 export { CLIInterface } from './cli/CLIInterface.js';

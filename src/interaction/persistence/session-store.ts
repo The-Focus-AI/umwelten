@@ -2,8 +2,8 @@ import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
 import { readFile, access, writeFile, readdir, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import type { SessionsIndex, SessionIndexEntry } from './types.js';
-import type { SessionAnalysisIndex } from './analysis-types.js';
+import type { SessionsIndex, SessionIndexEntry } from '../types/types.js';
+import type { SessionAnalysisIndex } from '../analysis/analysis-types.js';
 import {
   parseSessionFileMetadata,
   isSessionJsonlFilename,

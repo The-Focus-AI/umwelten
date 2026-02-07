@@ -1,5 +1,5 @@
 import { ModelDetails } from "../cognition/types.js";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
 import { FactSchema, factsSchema } from "./types.js";
