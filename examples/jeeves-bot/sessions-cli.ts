@@ -4,18 +4,18 @@
  */
 
 import { join } from 'node:path';
-import { listSessions, getSessionDir } from './session-manager.js';
+import { createJeevesHabitat } from './habitat.js';
 import {
   parseSessionFile,
   summarizeSession,
   getBeatsForSession,
   sessionMessagesToNormalized,
-  computeSizeBreakdown,
   extractTextContent,
   extractReasoning,
-} from '../../src/sessions/session-parser.js';
-import type { SessionMessage, AssistantMessageEntry, UserMessageEntry } from '../../src/sessions/types.js';
-import { formatBeatToolSummary } from '../../src/sessions/conversation-beats.js';
+} from '../../src/interaction/persistence/session-parser.js';
+import type { SessionMessage, AssistantMessageEntry, UserMessageEntry } from '../../src/interaction/types/types.js';
+import { formatBeatToolSummary } from '../../src/interaction/analysis/conversation-beats.js';
+import type { Habitat } from '../../src/habitat/index.js';
 
 const TRANSCRIPT = 'transcript.jsonl';
 
@@ -29,19 +29,17 @@ function formatDuration(ms: number): string {
   return `${s}s`;
 }
 
-function resolveSession(sessionId: string): Promise<{ sessionId: string; sessionDir: string } | null> {
-  return (async () => {
-    const all = await listSessions();
-    const entry = all.find((s) => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
-    if (!entry) return null;
-    const sessionDir = await getSessionDir(entry.sessionId);
-    if (!sessionDir) return null;
-    return { sessionId: entry.sessionId, sessionDir };
-  })();
+async function resolveSession(habitat: Habitat, sessionId: string): Promise<{ sessionId: string; sessionDir: string } | null> {
+  const all = await habitat.listSessions();
+  const entry = all.find((s) => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
+  if (!entry) return null;
+  const sessionDir = await habitat.getSessionDir(entry.sessionId);
+  if (!sessionDir) return null;
+  return { sessionId: entry.sessionId, sessionDir };
 }
 
-async function cmdList(limit: number): Promise<void> {
-  const sessions = await listSessions();
+async function cmdList(habitat: Habitat, limit: number): Promise<void> {
+  const sessions = await habitat.listSessions();
   const slice = sessions.slice(0, limit);
   console.log(`Sessions (${slice.length} of ${sessions.length}):\n`);
   for (const s of slice) {
@@ -52,8 +50,8 @@ async function cmdList(limit: number): Promise<void> {
   }
 }
 
-async function cmdShow(sessionId: string, json: boolean): Promise<void> {
-  const resolved = await resolveSession(sessionId);
+async function cmdShow(habitat: Habitat, sessionId: string, json: boolean): Promise<void> {
+  const resolved = await resolveSession(habitat, sessionId);
   if (!resolved) {
     console.error(`Session not found: ${sessionId}`);
     process.exit(1);
@@ -103,8 +101,8 @@ async function cmdShow(sessionId: string, json: boolean): Promise<void> {
   }
 }
 
-async function cmdBeats(sessionId: string, topicFilter?: string): Promise<void> {
-  const resolved = await resolveSession(sessionId);
+async function cmdBeats(habitat: Habitat, sessionId: string, topicFilter?: string): Promise<void> {
+  const resolved = await resolveSession(habitat, sessionId);
   if (!resolved) {
     console.error(`Session not found: ${sessionId}`);
     process.exit(1);
@@ -133,8 +131,8 @@ async function cmdBeats(sessionId: string, topicFilter?: string): Promise<void> 
   });
 }
 
-async function cmdMessages(sessionId: string, limit: number): Promise<void> {
-  const resolved = await resolveSession(sessionId);
+async function cmdMessages(habitat: Habitat, sessionId: string, limit: number): Promise<void> {
+  const resolved = await resolveSession(habitat, sessionId);
   if (!resolved) {
     console.error(`Session not found: ${sessionId}`);
     process.exit(1);
@@ -159,8 +157,8 @@ function getMessageByIndexOrUuid(messages: SessionMessage[], indexOrUuid: string
   return messages.find((m) => (m as { uuid?: string }).uuid === indexOrUuid) ?? null;
 }
 
-async function cmdMessage(sessionId: string, indexOrUuid: string): Promise<void> {
-  const resolved = await resolveSession(sessionId);
+async function cmdMessage(habitat: Habitat, sessionId: string, indexOrUuid: string): Promise<void> {
+  const resolved = await resolveSession(habitat, sessionId);
   if (!resolved) {
     console.error(`Session not found: ${sessionId}`);
     process.exit(1);
@@ -211,8 +209,8 @@ async function cmdMessage(sessionId: string, indexOrUuid: string): Promise<void>
   }
 }
 
-async function cmdPull(sessionId: string, beatIndex: number, outputPath?: string): Promise<void> {
-  const resolved = await resolveSession(sessionId);
+async function cmdPull(habitat: Habitat, sessionId: string, beatIndex: number, outputPath?: string): Promise<void> {
+  const resolved = await resolveSession(habitat, sessionId);
   if (!resolved) {
     console.error(`Session not found: ${sessionId}`);
     process.exit(1);
@@ -261,10 +259,12 @@ Commands:
     return;
   }
 
+  const habitat = await createJeevesHabitat();
+
   if (sub === 'list') {
     const limitIdx = argv.indexOf('--limit');
     const limit = limitIdx >= 0 && argv[limitIdx + 1] ? parseInt(argv[limitIdx + 1], 10) : 20;
-    await cmdList(limit);
+    await cmdList(habitat, limit);
     return;
   }
 
@@ -275,7 +275,7 @@ Commands:
       process.exit(1);
     }
     const json = argv.includes('--json');
-    await cmdShow(sessionId, json);
+    await cmdShow(habitat, sessionId, json);
     return;
   }
 
@@ -287,7 +287,7 @@ Commands:
     }
     const topicIdx = argv.indexOf('--topic');
     const topicFilter = topicIdx >= 0 && argv[topicIdx + 1] ? argv[topicIdx + 1] : undefined;
-    await cmdBeats(sessionId, topicFilter);
+    await cmdBeats(habitat, sessionId, topicFilter);
     return;
   }
 
@@ -299,7 +299,7 @@ Commands:
     }
     const limitIdx = argv.indexOf('--limit');
     const limit = limitIdx >= 0 && argv[limitIdx + 1] ? parseInt(argv[limitIdx + 1], 10) : 50;
-    await cmdMessages(sessionId, limit);
+    await cmdMessages(habitat, sessionId, limit);
     return;
   }
 
@@ -310,7 +310,7 @@ Commands:
       console.error('Usage: jeeves sessions message <session-id> <index|uuid>');
       process.exit(1);
     }
-    await cmdMessage(sessionId, indexOrUuid);
+    await cmdMessage(habitat, sessionId, indexOrUuid);
     return;
   }
 
@@ -328,7 +328,7 @@ Commands:
     }
     const outputIdx = argv.indexOf('--output');
     const outputPath = outputIdx >= 0 && argv[outputIdx + 1] ? argv[outputIdx + 1] : undefined;
-    await cmdPull(sessionId, beatIndex, outputPath);
+    await cmdPull(habitat, sessionId, beatIndex, outputPath);
     return;
   }
 

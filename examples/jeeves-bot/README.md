@@ -385,6 +385,51 @@ Each experience directory contains:
 
 Experiences persist until explicitly committed or discarded. Consider cleaning up old experiences periodically.
 
+## HabitatAgents (sub-agent delegation)
+
+Jeeves can delegate project-specific questions to **HabitatAgents** — sub-agents with persistent memory. Each HabitatAgent is built from a managed project's files (README, CLAUDE.md, package.json) and gets its own persistent session so it remembers what it learned.
+
+### Agent runner tools
+
+- **`agent_clone(gitUrl, name, id?)`** — Clone a git repo into `repos/{id}/` and register it as an agent.
+- **`agent_ask(agentId, message)`** — Send a message to a sub-agent. It uses tools (read_file, ripgrep, list_directory) scoped to its project via `agentId`. Returns the response.
+- **`agent_logs(agentId, pattern?, tail?, filter?)`** — Read log files using configured `logPatterns`. Supports tail (default 50 lines), filter (string match), and JSONL parsing.
+- **`agent_status(agentId)`** — Quick health check: reads `statusFile`, lists recent log files, shows commands and secret references.
+
+### Agent config for logs and status
+
+Add `logPatterns` and `statusFile` to an agent entry in `config.json`:
+
+```json
+{
+  "id": "twitter-feed",
+  "name": "Twitter Feed",
+  "projectPath": "/path/to/twitter-feed",
+  "logPatterns": [
+    { "pattern": "logs/*.jsonl", "format": "jsonl" },
+    { "pattern": "logs/*.log", "format": "plain" }
+  ],
+  "statusFile": "status.md"
+}
+```
+
+### Example workflow
+
+```
+User: "Add twitter-feed from git@github.com:org/twitter-feed.git"
+  → agent_clone clones repo, registers agent
+
+User: "Explore the twitter-feed project"
+  → agent_ask delegates to HabitatAgent; sub-agent reads README, package.json, etc.
+  → sub-agent remembers this context for future questions
+
+User: "What happened with twitter-feed today?"
+  → agent_ask delegates; sub-agent reads logs and status file
+  → "3 syncs, 147 tweets, 2 rate limit warnings"
+```
+
+For full documentation, see [Habitat Agents](https://umwelten.thefocus.ai/guide/habitat-agents).
+
 ## External interactions (read-only)
 
 External interactions are **Claude Code** or **Cursor** conversation histories. Claude Code stores them under `~/.claude/projects/<encoded-path>/`. Jeeves only reads them (list, show, messages, stats). It does not create or modify them. To “continue” or send prompts you would use the Claude API/CLI or Cursor directly.

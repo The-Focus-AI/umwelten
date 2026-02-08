@@ -1,7 +1,6 @@
 /**
- * Convert Jeeves CoreMessage[] to Claude-style JSONL.
+ * Convert CoreMessage[] to Claude-style JSONL for session transcript persistence.
  * Handles user messages, assistant messages with tool_use blocks, and tool results.
- * Session transcript is stored as transcript.jsonl and read via session-parser.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -15,17 +14,17 @@ import type {
   TextContent,
   ToolUseContent,
   ToolResultContent,
-} from '../../src/sessions/types.js';
+} from '../interaction/types/types.js';
 
 type VercelContentPart = {
   type?: string;
   text?: string;
   toolName?: string;
   toolCallId?: string;
-  args?: unknown;      // Vercel AI SDK may use either
-  input?: unknown;     // field name depending on version
-  result?: unknown;    // Vercel AI SDK may use either
-  output?: unknown;    // field name depending on version
+  args?: unknown;
+  input?: unknown;
+  result?: unknown;
+  output?: unknown;
   isError?: boolean;
 };
 
@@ -54,13 +53,11 @@ function extractContentBlocks(content: CoreMessage['content']): ContentBlock[] {
   for (const part of content as VercelContentPart[]) {
     if (!part || typeof part !== 'object') continue;
 
-    // Text part
     if (part.type === 'text' && typeof part.text === 'string') {
       blocks.push({ type: 'text', text: part.text });
       continue;
     }
 
-    // Tool invocation (tool call) in assistant message
     if (part.type === 'tool-call' || part.type === 'tool-invocation') {
       const argsOrInput = part.args ?? part.input ?? {};
       const toolUse: ToolUseContent = {
@@ -73,7 +70,6 @@ function extractContentBlocks(content: CoreMessage['content']): ContentBlock[] {
       continue;
     }
 
-    // Tool result in user/tool message (SDK uses output: { type, value }; we support result/output or output.value)
     if (part.type === 'tool-result') {
       const resultOrOutput = part.result ?? part.output;
       let contentStr: string;
@@ -88,8 +84,7 @@ function extractContentBlocks(content: CoreMessage['content']): ContentBlock[] {
         isError = o.type === 'error-text' || o.type === 'error-json';
         contentStr = typeof o.value === 'string' ? o.value : JSON.stringify(o.value ?? '');
       } else {
-        contentStr =
-          typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
+        contentStr = typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
       }
       const toolResult: ToolResultContent = {
         type: 'tool_result',
@@ -101,7 +96,6 @@ function extractContentBlocks(content: CoreMessage['content']): ContentBlock[] {
       continue;
     }
 
-    // Legacy: plain text object
     if ('text' in part && typeof part.text === 'string') {
       blocks.push({ type: 'text', text: part.text });
     }
@@ -140,9 +134,7 @@ function extractToolResultsFromInvocations(
 
 /**
  * Convert CoreMessage[] to Claude-style JSONL (one JSON object per line).
- * Handles user, assistant (with tool_use), and tool messages.
- * Timestamps preserve order (1ms apart).
- * reasoningForLastAssistant: when set, attach to the last assistant entry (from runner response).
+ * @param reasoningForLastAssistant - When set, attach reasoning to the last assistant entry.
  */
 export function coreMessagesToJSONL(
   messages: CoreMessage[],
@@ -164,10 +156,7 @@ export function coreMessagesToJSONL(
     idx += 1;
     const uuid = randomUUID();
 
-    if (m.role === 'system') {
-      // Skip system messages (not stored in Claude transcript)
-      continue;
-    }
+    if (m.role === 'system') continue;
 
     if (m.role === 'user') {
       const blocks = extractContentBlocks(m.content);
@@ -186,13 +175,9 @@ export function coreMessagesToJSONL(
     }
 
     if (m.role === 'assistant') {
-      // Extract content blocks from content array
       const contentBlocks = extractContentBlocks(m.content);
-      // Also extract tool calls from toolInvocations array (Vercel AI SDK style)
       const toolUseBlocks = extractToolInvocationsAsBlocks(m.toolInvocations);
-      // Merge: text blocks first, then tool_use blocks
       const allBlocks: ContentBlock[] = [...contentBlocks, ...toolUseBlocks];
-      // Dedupe tool_use by id
       const seenIds = new Set<string>();
       const deduped = allBlocks.filter((b) => {
         if (b.type !== 'tool_use') return true;
@@ -219,7 +204,6 @@ export function coreMessagesToJSONL(
       };
       lines.push(JSON.stringify(ent));
 
-      // If toolInvocations have results, emit a user message with tool_result blocks
       const toolResults = extractToolResultsFromInvocations(m.toolInvocations);
       if (toolResults.length > 0) {
         const resultUuid = randomUUID();
@@ -237,12 +221,9 @@ export function coreMessagesToJSONL(
     }
 
     if (m.role === 'tool') {
-      // Tool results as a user message with tool_result content
       const blocks = extractContentBlocks(m.content);
-      // If blocks are not already tool_result, wrap them
       const resultBlocks: ContentBlock[] = blocks.map((b) => {
         if (b.type === 'tool_result') return b;
-        // Convert text to tool_result (need toolCallId from somewhere)
         return {
           type: 'tool_result',
           tool_use_id: (m as unknown as { toolCallId?: string }).toolCallId || '',
@@ -265,7 +246,7 @@ export function coreMessagesToJSONL(
 }
 
 /**
- * Write transcript JSONL to session directory. Used by both CLI and Telegram.
+ * Write transcript JSONL to a session directory.
  */
 export async function writeSessionTranscript(
   sessionDir: string,

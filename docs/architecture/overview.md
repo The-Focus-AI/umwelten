@@ -57,6 +57,7 @@ src/
 ├── providers/           # AI provider integrations
 ├── cognition/          # Model interfaces and runners
 ├── interaction/        # Model-environment interactions
+├── habitat/           # Habitat system (agents, tools, sessions, sub-agents)
 └── memory/            # Memory and knowledge storage
 
 scripts/                # Exploratory test implementations

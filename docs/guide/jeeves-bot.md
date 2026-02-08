@@ -55,6 +55,19 @@ The `run_bash` tool runs bash commands inside **Dagger-managed containers**:
 
 So code execution is sandboxed by containers and by experience-based copies; the bot cannot arbitrarily run commands on the host or outside the allowed roots.
 
+## HabitatAgents: delegating to sub-agents
+
+Beyond reading files and external interactions, Jeeves can delegate questions to **HabitatAgents** — sub-agents with persistent memory that understand a specific project. A HabitatAgent is created from a managed project's files (README, CLAUDE.md, package.json) and gets its own persistent session, so it remembers what it learned across conversations.
+
+Tools for working with HabitatAgents:
+
+- **`agent_clone(gitUrl, name)`** — clone a repo and register it as an agent
+- **`agent_ask(agentId, message)`** — send a question to a sub-agent (it uses tools like read_file, ripgrep with its agentId)
+- **`agent_logs(agentId, ...)`** — read log files using configured patterns
+- **`agent_status(agentId)`** — quick health check (status file, recent logs, commands)
+
+For full documentation, see [Habitat Agents](./habitat-agents.md).
+
 ---
 
 For step-by-step setup, env vars, work-directory layout, CLI/Telegram usage, and tool reference, see the [Jeeves Bot README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md) on GitHub.

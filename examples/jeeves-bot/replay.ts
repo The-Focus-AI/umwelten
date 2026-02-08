@@ -5,9 +5,9 @@
 
 import { readFile } from 'node:fs/promises';
 import type { CoreMessage } from 'ai';
-import type { NormalizedMessage } from '../../src/sessions/normalized-types.js';
+import type { NormalizedMessage } from '../../src/interaction/types/normalized-types.js';
 import { Interaction } from '../../src/interaction/core/interaction.js';
-import { createJeevesStimulus } from './stimulus.js';
+import { createJeevesHabitat } from './habitat.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
@@ -129,7 +129,9 @@ export async function runReplay(
   if (!payload.messages || !Array.isArray(payload.messages)) {
     throw new Error('Invalid pulled JSON: expected "messages" array');
   }
-  const stimulus = await createJeevesStimulus();
+
+  const habitat = await createJeevesHabitat();
+  const stimulus = await habitat.getStimulus();
   const interaction = new Interaction({ provider, name: model }, stimulus);
   const coreMessages = normalizedToCoreMessages(payload.messages, true);
   for (const msg of coreMessages) {

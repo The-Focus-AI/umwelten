@@ -1,6 +1,7 @@
 /**
  * Jeeves Dagger tool: run_bash - Execute bash commands in Dagger containers with experience-based state management.
  * Supports isolated experience directories that maintain state between commands.
+ * Accepts a habitat context instead of using global config functions.
  */
 
 import { cp, rm, mkdir, readFile, writeFile, access } from 'node:fs/promises';
@@ -10,8 +11,15 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { dag, connection, type Container } from '@dagger.io/dagger';
 import { buildTimeoutBashExecArgs } from '../../../src/evaluation/dagger-exec-args.js';
-import { loadConfig, getWorkDir, getAgentById, getFileAllowedRoots } from '../config.js';
-import type { JeevesConfig } from '../config.js';
+import type { AgentEntry } from '../../../src/habitat/types.js';
+import type { Tool } from 'ai';
+
+/** Interface for the habitat context that the dagger tool needs. */
+export interface DaggerToolContext {
+  readonly workDir: string;
+  getAgent(idOrName: string): AgentEntry | undefined;
+  getAllowedRoots(): string[];
+}
 
 const runBashSchema = z.object({
   command: z.string().describe('Bash command or script to execute'),
@@ -48,15 +56,15 @@ interface ExperienceMetadata {
   agentId?: string;
 }
 
-function resolvePath(agentId: string | undefined, config: JeevesConfig): string {
+function resolveSourcePath(agentId: string | undefined, ctx: DaggerToolContext): string {
   if (agentId) {
-    const agent = getAgentById(config, agentId);
+    const agent = ctx.getAgent(agentId);
     if (!agent) {
       throw new Error(`AGENT_NOT_FOUND: ${agentId}`);
     }
     return resolve(agent.projectPath);
   }
-  return getWorkDir();
+  return ctx.workDir;
 }
 
 function ensureAllowed(resolved: string, allowedRoots: string[]): void {
@@ -69,7 +77,7 @@ function ensureAllowed(resolved: string, allowedRoots: string[]): void {
     }
     if (normalized === rootNorm) return;
   }
-  throw new Error('OUTSIDE_ALLOWED_PATH: path is not under the Jeeves work directory or any configured agent project');
+  throw new Error('OUTSIDE_ALLOWED_PATH: path is not under the work directory or any configured agent project');
 }
 
 /**
@@ -77,28 +85,27 @@ function ensureAllowed(resolved: string, allowedRoots: string[]): void {
  * Stored in a sibling of workDir (e.g. ~/.jeeves-dagger-experiences) to avoid
  * cp(workDir, workDir/.dagger-experiences/...) which Node rejects as "copy to subdirectory of self".
  */
-function getExperiencesBaseDir(): string {
-  const workDir = getWorkDir();
-  const workDirName = workDir.split(/[/\\]/).filter(Boolean).pop() || '.jeeves';
+function getExperiencesBaseDir(workDir: string): string {
+  const workDirName = workDir.split(/[/\\]/).filter(Boolean).pop() || '.habitat';
   const parent = resolve(workDir, '..');
   return join(parent, `${workDirName}-dagger-experiences`);
 }
 
-function getExperienceDir(experienceId: string): string {
-  return join(getExperiencesBaseDir(), experienceId);
+function getExperienceDir(workDir: string, experienceId: string): string {
+  return join(getExperiencesBaseDir(workDir), experienceId);
 }
 
-function getExperienceMetaPath(experienceId: string): string {
-  return join(getExperienceDir(experienceId), 'meta.json');
+function getExperienceMetaPath(workDir: string, experienceId: string): string {
+  return join(getExperienceDir(workDir, experienceId), 'meta.json');
 }
 
 async function generateExperienceId(): Promise<string> {
   return `experience-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
-async function experienceExists(experienceId: string): Promise<boolean> {
+async function experienceExists(workDir: string, experienceId: string): Promise<boolean> {
   try {
-    const metaPath = getExperienceMetaPath(experienceId);
+    const metaPath = getExperienceMetaPath(workDir, experienceId);
     await access(metaPath, constants.R_OK);
     return true;
   } catch {
@@ -106,9 +113,9 @@ async function experienceExists(experienceId: string): Promise<boolean> {
   }
 }
 
-async function loadExperienceMetadata(experienceId: string): Promise<ExperienceMetadata | null> {
+async function loadExperienceMetadata(workDir: string, experienceId: string): Promise<ExperienceMetadata | null> {
   try {
-    const metaPath = getExperienceMetaPath(experienceId);
+    const metaPath = getExperienceMetaPath(workDir, experienceId);
     const content = await readFile(metaPath, 'utf-8');
     return JSON.parse(content) as ExperienceMetadata;
   } catch {
@@ -116,20 +123,21 @@ async function loadExperienceMetadata(experienceId: string): Promise<ExperienceM
   }
 }
 
-async function saveExperienceMetadata(metadata: ExperienceMetadata): Promise<void> {
-  const experienceDir = getExperienceDir(metadata.experienceId);
+async function saveExperienceMetadata(workDir: string, metadata: ExperienceMetadata): Promise<void> {
+  const experienceDir = getExperienceDir(workDir, metadata.experienceId);
   await mkdir(experienceDir, { recursive: true });
-  const metaPath = getExperienceMetaPath(metadata.experienceId);
+  const metaPath = getExperienceMetaPath(workDir, metadata.experienceId);
   await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
 }
 
 async function startExperience(
+  workDir: string,
   experienceId: string,
   sourcePath: string,
   agentId?: string
 ): Promise<void> {
-  const experienceDir = getExperienceDir(experienceId);
-  const experiencesBaseDir = getExperiencesBaseDir();
+  const experienceDir = getExperienceDir(workDir, experienceId);
+  const experiencesBaseDir = getExperiencesBaseDir(workDir);
 
   await mkdir(experiencesBaseDir, { recursive: true });
   await mkdir(experienceDir, { recursive: true });
@@ -148,7 +156,7 @@ async function startExperience(
     },
   });
 
-  await saveExperienceMetadata({
+  await saveExperienceMetadata(workDir, {
     experienceId,
     sourcePath,
     created: new Date().toISOString(),
@@ -157,25 +165,25 @@ async function startExperience(
   });
 }
 
-async function continueExperience(experienceId: string): Promise<ExperienceMetadata> {
-  const metadata = await loadExperienceMetadata(experienceId);
+async function continueExperience(workDir: string, experienceId: string): Promise<ExperienceMetadata> {
+  const metadata = await loadExperienceMetadata(workDir, experienceId);
   if (!metadata) {
     throw new Error(`EXPERIENCE_NOT_FOUND: Experience ${experienceId} does not exist`);
   }
 
   metadata.lastUsed = new Date().toISOString();
-  await saveExperienceMetadata(metadata);
+  await saveExperienceMetadata(workDir, metadata);
 
   return metadata;
 }
 
-async function commitExperience(experienceId: string): Promise<ExperienceMetadata> {
-  const metadata = await loadExperienceMetadata(experienceId);
+async function commitExperience(workDir: string, experienceId: string): Promise<ExperienceMetadata> {
+  const metadata = await loadExperienceMetadata(workDir, experienceId);
   if (!metadata) {
     throw new Error(`EXPERIENCE_NOT_FOUND: Experience ${experienceId} does not exist`);
   }
 
-  const experienceDir = getExperienceDir(experienceId);
+  const experienceDir = getExperienceDir(workDir, experienceId);
 
   await cp(experienceDir, metadata.sourcePath, {
     recursive: true,
@@ -190,8 +198,8 @@ async function commitExperience(experienceId: string): Promise<ExperienceMetadat
   return metadata;
 }
 
-async function discardExperience(experienceId: string): Promise<void> {
-  const experienceDir = getExperienceDir(experienceId);
+async function discardExperience(workDir: string, experienceId: string): Promise<void> {
+  const experienceDir = getExperienceDir(workDir, experienceId);
   await rm(experienceDir, { recursive: true });
 }
 
@@ -282,122 +290,127 @@ async function executeInDagger(
   return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
 }
 
-export const runBashTool = tool({
-  description:
-    'Execute bash in a Dagger container. Use one experienceId per task and pass the EXACT SAME experienceId on every call (do not use task-2, task-3, etc.—each new ID starts a new workspace). Set pathRoot to "slash" to treat / as the work directory (e.g. /repos → /workspace/repos). Default image ubuntu:22.04 has Perl but not Chrome; for chrome-driver install Chrome in the first step with the same experienceId, then run the script.',
-  inputSchema: runBashSchema,
-  execute: async ({ command, agentId, experienceId, action, image, timeout, workdir, pathRoot }) => {
-    const config = await loadConfig();
-    const roots = getFileAllowedRoots(config);
+/**
+ * Create a run_bash tool that closes over a habitat context.
+ */
+export function createRunBashTool(ctx: DaggerToolContext): Tool {
+  return tool({
+    description:
+      'Execute bash in a Dagger container. Use one experienceId per task and pass the EXACT SAME experienceId on every call (do not use task-2, task-3, etc.—each new ID starts a new workspace). Set pathRoot to "slash" to treat / as the work directory (e.g. /repos → /workspace/repos). Default image ubuntu:22.04 has Perl but not Chrome; for chrome-driver install Chrome in the first step with the same experienceId, then run the script.',
+    inputSchema: runBashSchema,
+    execute: async ({ command, agentId, experienceId, action, image, timeout, workdir, pathRoot }) => {
+      const roots = ctx.getAllowedRoots();
+      const workDir = ctx.workDir;
 
-    try {
-      const sourcePath = resolvePath(agentId, config);
-      ensureAllowed(sourcePath, roots);
+      try {
+        const sourcePath = resolveSourcePath(agentId, ctx);
+        ensureAllowed(sourcePath, roots);
 
-      let finalExperienceId = experienceId;
-      if (!finalExperienceId) {
-        finalExperienceId = await generateExperienceId();
-      }
+        let finalExperienceId = experienceId;
+        if (!finalExperienceId) {
+          finalExperienceId = await generateExperienceId();
+        }
 
-      const experienceDir = getExperienceDir(finalExperienceId);
+        const experienceDir = getExperienceDir(workDir, finalExperienceId);
 
-      let startedThisRequest = false;
-      if (action === 'start') {
-        if (await experienceExists(finalExperienceId)) {
+        let startedThisRequest = false;
+        if (action === 'start') {
+          if (await experienceExists(workDir, finalExperienceId)) {
+            return {
+              error: 'EXPERIENCE_EXISTS',
+              message: `Experience ${finalExperienceId} already exists. Use 'continue' to use it or 'discard' to delete it.`,
+            };
+          }
+          await startExperience(workDir, finalExperienceId, sourcePath, agentId);
+          startedThisRequest = true;
+        } else if (action === 'discard') {
+          if (!(await experienceExists(workDir, finalExperienceId))) {
+            return {
+              error: 'EXPERIENCE_NOT_FOUND',
+              message: `Experience ${finalExperienceId} does not exist.`,
+            };
+          }
+          await discardExperience(workDir, finalExperienceId);
           return {
-            error: 'EXPERIENCE_EXISTS',
-            message: `Experience ${finalExperienceId} already exists. Use 'continue' to use it or 'discard' to delete it.`,
+            experienceId: finalExperienceId,
+            status: 'discarded',
+            message: `Experience ${finalExperienceId} discarded.`,
+          };
+        } else if (action === 'commit') {
+          if (!(await experienceExists(workDir, finalExperienceId))) {
+            return {
+              error: 'EXPERIENCE_NOT_FOUND',
+              message: `Experience ${finalExperienceId} does not exist.`,
+            };
+          }
+          const metadata = await commitExperience(workDir, finalExperienceId);
+          return {
+            experienceId: finalExperienceId,
+            status: 'committed',
+            message: `Experience ${finalExperienceId} committed to ${metadata.sourcePath}.`,
           };
         }
-        await startExperience(finalExperienceId, sourcePath, agentId);
-        startedThisRequest = true;
-      } else if (action === 'discard') {
-        if (!(await experienceExists(finalExperienceId))) {
+
+        let status: 'new' | 'continued';
+        if (startedThisRequest) {
+          status = 'new';
+          await continueExperience(workDir, finalExperienceId);
+        } else if (!(await experienceExists(workDir, finalExperienceId))) {
+          await startExperience(workDir, finalExperienceId, sourcePath, agentId);
+          status = 'new';
+        } else {
+          await continueExperience(workDir, finalExperienceId);
+          status = 'continued';
+        }
+
+        const effectiveCommand = pathRoot === 'slash' ? translateSlashToWorkspace(command) : command;
+        const result = await executeInDagger(effectiveCommand, experienceDir, image, timeout, workdir);
+
+        if (result.exitCode === 124) {
           return {
-            error: 'EXPERIENCE_NOT_FOUND',
-            message: `Experience ${finalExperienceId} does not exist.`,
+            experienceId: finalExperienceId,
+            status,
+            hint: 'Reuse this experienceId on retry so the next command sees current state.',
+            stdout: result.stdout,
+            stderr: result.stderr || `Execution timed out after ${timeout} seconds`,
+            exitCode: result.exitCode,
+            timedOut: true,
           };
         }
-        await discardExperience(finalExperienceId);
-        return {
-          experienceId: finalExperienceId,
-          status: 'discarded',
-          message: `Experience ${finalExperienceId} discarded.`,
-        };
-      } else if (action === 'commit') {
-        if (!(await experienceExists(finalExperienceId))) {
-          return {
-            error: 'EXPERIENCE_NOT_FOUND',
-            message: `Experience ${finalExperienceId} does not exist.`,
-          };
-        }
-        const metadata = await commitExperience(finalExperienceId);
-        return {
-          experienceId: finalExperienceId,
-          status: 'committed',
-          message: `Experience ${finalExperienceId} committed to ${metadata.sourcePath}.`,
-        };
-      }
 
-      let status: 'new' | 'continued';
-      if (startedThisRequest) {
-        status = 'new';
-        await continueExperience(finalExperienceId);
-      } else if (!(await experienceExists(finalExperienceId))) {
-        await startExperience(finalExperienceId, sourcePath, agentId);
-        status = 'new';
-      } else {
-        await continueExperience(finalExperienceId);
-        status = 'continued';
-      }
+        const hint =
+          result.exitCode !== 0
+            ? 'Retry with the SAME experienceId after fixing the command or installing deps (e.g. Chrome for chrome-driver scripts). Do not create a new experienceId.'
+            : status === 'new'
+              ? 'Reuse this exact experienceId for the next run_bash call in this workflow. Do not use experienceId-2 or similar.'
+              : undefined;
 
-      const effectiveCommand = pathRoot === 'slash' ? translateSlashToWorkspace(command) : command;
-      const result = await executeInDagger(effectiveCommand, experienceDir, image, timeout, workdir);
-
-      if (result.exitCode === 124) {
         return {
           experienceId: finalExperienceId,
           status,
-          hint: 'Reuse this experienceId on retry so the next command sees current state.',
+          ...(hint && { hint }),
           stdout: result.stdout,
-          stderr: result.stderr || `Execution timed out after ${timeout} seconds`,
+          stderr: result.stderr,
           exitCode: result.exitCode,
-          timedOut: true,
+          success: result.exitCode === 0,
         };
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          if (err.message.startsWith('AGENT_NOT_FOUND')) {
+            return { error: err.message };
+          }
+          if (err.message.startsWith('OUTSIDE_ALLOWED_PATH')) {
+            return { error: err.message };
+          }
+          if (err.message.startsWith('EXPERIENCE_NOT_FOUND')) {
+            return { error: err.message };
+          }
+          if (err.message.startsWith('EXPERIENCE_EXISTS')) {
+            return { error: err.message };
+          }
+        }
+        return { error: String(err) };
       }
-
-      const hint =
-        result.exitCode !== 0
-          ? 'Retry with the SAME experienceId after fixing the command or installing deps (e.g. Chrome for chrome-driver scripts). Do not create a new experienceId.'
-          : status === 'new'
-            ? 'Reuse this exact experienceId for the next run_bash call in this workflow. Do not use experienceId-2 or similar.'
-            : undefined;
-
-      return {
-        experienceId: finalExperienceId,
-        status,
-        ...(hint && { hint }),
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-        success: result.exitCode === 0,
-      };
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.startsWith('AGENT_NOT_FOUND')) {
-          return { error: err.message };
-        }
-        if (err.message.startsWith('OUTSIDE_ALLOWED_PATH')) {
-          return { error: err.message };
-        }
-        if (err.message.startsWith('EXPERIENCE_NOT_FOUND')) {
-          return { error: err.message };
-        }
-        if (err.message.startsWith('EXPERIENCE_EXISTS')) {
-          return { error: err.message };
-        }
-      }
-      return { error: String(err) };
-    }
-  },
-});
+    },
+  });
+}

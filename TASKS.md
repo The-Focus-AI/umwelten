@@ -89,6 +89,35 @@
 - [x] Add createSessionMetadataFromNormalized; indexer branches on fullPath vs adapter
 - [x] CLI builds sessionsOverride for all adapters (Cursor + Claude); index runs on all sources
 
+## Completed: Habitat Module (Central Agent System)
+
+Goal: Extract the "Habitat" concept from `examples/jeeves-bot/` into `src/habitat/` as the central system that any UI (CLI, Telegram, TUI, web) starts from. Manages work directory, sessions, config, stimulus, tools, skills, and known agents.
+
+### New files in src/habitat/
+- [x] `types.ts` — HabitatConfig, HabitatOptions, AgentEntry, HabitatSessionMetadata, OnboardingResult
+- [x] `config.ts` — Parameterized config load/save, env-prefix resolution, state file management
+- [x] `session-manager.ts` — HabitatSessionManager class (sessions dir, thread tracking)
+- [x] `load-prompts.ts` — Generalized prompt loading from work dir (STIMULUS.md, AGENT.md, memory files)
+- [x] `onboard.ts` — Generalized onboarding (config.json, STIMULUS.md, skills/, tools/)
+- [x] `transcript.ts` — CoreMessage[] → JSONL transcript persistence
+- [x] `tool-sets.ts` — ToolSet interface + standard tool sets (file, time, URL, agent, session, external interaction)
+- [x] `tools/file-tools.ts` — Sandboxed read_file, write_file, list_directory, ripgrep
+- [x] `tools/time-tools.ts` — current_time
+- [x] `tools/agent-tools.ts` — agents_list, agents_add, agents_update, agents_remove
+- [x] `tools/session-tools.ts` — sessions_list, sessions_show, sessions_messages, etc.
+- [x] `tools/external-interaction-tools.ts` — external_interactions_list, show, messages, stats
+- [x] `habitat.ts` — Main Habitat class with static create() factory, createInteraction(), stimulus/config/session management
+- [x] `index.ts` — Re-exports
+- [x] `habitat.test.ts` — 27 tests (create, config, agents, model defaults, sessions, stimulus, onboarding, secrets, state files)
+
+### Jeeves refactored to thin wrapper
+- [x] Created `examples/jeeves-bot/habitat.ts` — `createJeevesHabitat()` sets envPrefix='JEEVES', adds Tavily + Dagger tools
+- [x] Refactored cli.ts, telegram.ts, replay.ts, sessions-cli.ts, test-telegram-stream.ts, verify-skills-load.ts to use Habitat
+- [x] Refactored tools/dagger.ts to factory pattern closing over Habitat context
+- [x] Deleted 11 superseded files (config.ts, stimulus.ts, session-manager.ts, load-prompts.ts, onboard.ts, jeeves-jsonl.ts, tools/files.ts, tools/time.ts, tools/agents.ts, tools/sessions.ts, tools/external-interactions.ts)
+
+---
+
 ## Current: Session Normalization (Multi-Source Support)
 
 Goal: Support sessions from Claude Code, Cursor, Windsurf, and other AI coding tools via a normalized format.
@@ -221,6 +250,22 @@ interface SessionAdapter {
 - [x] `umwelten-pta` - Implement CursorAdapter for SQLite session reading (uses ItemTable with aiService.prompts)
 - [x] `umwelten-z6p` - Create adapter registry with auto-detection
 - [x] `umwelten-5hh` - Update sessions CLI with --source flag and interleaved display
+
+---
+
+## Completed: Agent Runner (HabitatAgent as Stimulus + Interaction)
+
+Goal: Enable Jeeves to manage sub-agents for external projects (twitter-feed, newsletter-feed, etc). A HabitatAgent = Stimulus (built from the managed project's files) + persistent Interaction.
+
+### New files
+- [x] `src/habitat/habitat-agent.ts` — buildAgentStimulus() + HabitatAgent class
+- [x] `src/habitat/tools/agent-runner-tools.ts` — agent_clone, agent_logs, agent_status, agent_ask tools
+- [x] `src/habitat/tools/agent-runner-tools.test.ts` — 16 tests (all passing)
+
+### Modified files
+- [x] `src/habitat/habitat.ts` — added habitatAgents map + getOrCreateHabitatAgent()
+- [x] `src/habitat/tool-sets.ts` — added agentRunnerToolSet to standardToolSets
+- [x] `src/habitat/index.ts` — export HabitatAgent, buildAgentStimulus, agentRunnerToolSet
 
 ---
 

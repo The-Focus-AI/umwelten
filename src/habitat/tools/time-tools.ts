@@ -1,5 +1,5 @@
 /**
- * Jeeves current time tool. Returns the current date and time, optionally in a given timezone.
+ * Habitat time tool: returns current date and time, optionally in a given timezone.
  */
 
 import { tool } from 'ai';
@@ -26,7 +26,7 @@ export const currentTimeTool = tool({
         ? now.toLocaleString('en-US', { timeZone: timezone })
         : now.toLocaleString();
       const dateOnly = timezone
-        ? now.toLocaleDateString('en-CA', { timeZone: timezone }) // YYYY-MM-DD
+        ? now.toLocaleDateString('en-CA', { timeZone: timezone })
         : now.toLocaleDateString('en-CA');
       return {
         iso,

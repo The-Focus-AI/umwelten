@@ -8,12 +8,13 @@
 
 import { createInterface } from 'node:readline';
 import type { CoreMessage } from 'ai';
-// import { writeSessionTranscript } from './jeeves-jsonl.js'; 
 import { Interaction } from '../../src/interaction/core/interaction.js';
 import { InteractionStore } from '../../src/interaction/persistence/interaction-store.js';
 import { estimateContextSize, listCompactionStrategies } from '../../src/context/index.js';
-import { createJeevesStimulus } from './stimulus.js';
-// import { getOrCreateSession, updateSessionMetadata } from './session-manager.js';
+import { writeSessionTranscript } from '../../src/habitat/transcript.js';
+import { createJeevesHabitat } from './habitat.js';
+import type { Habitat } from '../../src/habitat/index.js';
+import type { OnboardingResult } from '../../src/habitat/types.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
@@ -48,16 +49,6 @@ function formatContextSize(messages: CoreMessage[]): string {
   return `[Context: ${size.messageCount} messages, ~${kTokens} tokens]`;
 }
 
-function formatMessageContent(content: CoreMessage['content']): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((p) => (typeof p === 'object' && p !== null && 'text' in p ? (p as { text: string }).text : JSON.stringify(p)))
-      .join('\n');
-  }
-  return String(content ?? '');
-}
-
 /**
  * Persist interaction state using InteractionStore
  */
@@ -68,6 +59,17 @@ async function saveInteraction(store: InteractionStore, interaction: Interaction
   } catch (err) {
     console.error('Failed to save session:', err);
   }
+}
+
+function printOnboardingResult(result: OnboardingResult): void {
+  console.log('[JEEVES] Onboarding: work directory is set up.');
+  if (result.created.length > 0) {
+    console.log('[JEEVES] Created:', result.created.join(', '));
+  }
+  if (result.skipped.length > 0) {
+    console.log('[JEEVES] Already present:', result.skipped.join(', '));
+  }
+  console.log('[JEEVES] Work directory:', result.workDir);
 }
 
 async function oneShotRun(
@@ -85,19 +87,13 @@ async function oneShotRun(
   } else {
     process.stdout.write('Jeeves: ');
     response = await interaction.streamText();
-    // Print final result to ensure it's visible
     const finalText = typeof response.content === 'string' ? response.content : String(response.content ?? '');
     if (finalText && !finalText.trim().endsWith('\n')) {
       process.stdout.write('\n');
     }
-    // Also print the final result explicitly to verify it worked
     console.log('\n[Final Result]:', finalText || '(empty)');
   }
   console.log(formatContextSize(interaction.getMessages()));
-
-  // Interaction handles message history internally now, including tool calls from response if runner supports it.
-  // Although `buildFullMessagesFromResponse` might be needed if the runner doesn't auto-append tool calls?
-  // Interaction.runner generally DOES append them.
 
   await saveInteraction(store, interaction);
 }
@@ -105,6 +101,7 @@ async function oneShotRun(
 async function repl(
   interaction: Interaction,
   store: InteractionStore,
+  habitat: Habitat,
   quiet: boolean
 ): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -124,10 +121,7 @@ async function repl(
         process.exit(0);
       }
       if (input === '/onboard') {
-        const { getWorkDir } = await import('./config.js');
-        const { runOnboarding, printOnboardingResult } = await import('./onboard.js');
-        const wd = getWorkDir();
-        const result = await runOnboarding(wd);
+        const result = await habitat.onboard();
         printOnboardingResult(result);
         console.log('');
         ask();
@@ -191,12 +185,10 @@ async function repl(
           console.log(text);
         } else {
           response = await interaction.streamText();
-          // Print final result to ensure it's visible
           const finalText = typeof response.content === 'string' ? response.content : String(response.content ?? '');
           if (finalText && !finalText.trim().endsWith('\n')) {
             process.stdout.write('\n');
           }
-          // Also print the final result explicitly to verify it worked
           console.log('[Final Result]:', finalText || '(empty)');
         }
         console.log(formatContextSize(interaction.getMessages()));
@@ -213,7 +205,7 @@ async function repl(
 }
 
 async function main(): Promise<void> {
-  // Delegate to sessions CLI when: jeeves sessions <subcommand> (argv: node, tsx, cli.ts, sessions, ...)
+  // Delegate to sessions CLI when: jeeves sessions <subcommand>
   const args = process.argv.slice(2);
   const sessionsIdx = args.findIndex((a) => a === 'sessions');
   if (sessionsIdx >= 0 && sessionsIdx <= 1) {
@@ -224,39 +216,39 @@ async function main(): Promise<void> {
 
   const { provider, model, oneShot, quiet } = parseArgs();
 
-  const { ensureWorkDir, ensureSessionsDir, getSessionsDir } = await import('./config.js');
-  const workDir = await ensureWorkDir();
-  await ensureSessionsDir();
+  const habitat = await createJeevesHabitat();
 
-  const { isWorkDirOnboarded, runOnboarding, printOnboardingResult } = await import('./onboard.js');
-  if (!(await isWorkDirOnboarded(workDir))) {
+  if (!(await habitat.isOnboarded())) {
     if (!quiet) {
       console.log('[JEEVES] Work directory not fully set up. Running onboarding…');
     }
-    const result = await runOnboarding(workDir);
+    const result = await habitat.onboard();
     if (!quiet) {
       printOnboardingResult(result);
     }
   }
 
-  // const { sessionId, sessionDir } = await getOrCreateSession('cli');
-  const sessionId = `cli-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-  const store = new InteractionStore({ basePath: getSessionsDir() });
+  const store = habitat.getStore();
+  const { sessionId, sessionDir } = await habitat.getOrCreateSession('cli');
 
   if (!quiet) {
-    console.log(`[JEEVES] Work directory: ${workDir}`);
-    console.log(`[JEEVES] Sessions directory: ${getSessionsDir()}`);
+    console.log(`[JEEVES] Work directory: ${habitat.workDir}`);
+    console.log(`[JEEVES] Sessions directory: ${habitat.sessionsDir}`);
     console.log(`[JEEVES] Session: ${sessionId}`);
   }
 
-  const stimulus = await createJeevesStimulus();
+  const stimulus = await habitat.getStimulus();
   const modelDetails = { name: model, provider };
 
-  // Create interaction with explict ID
-  const interaction = new Interaction(modelDetails, stimulus, { id: sessionId, source: 'native', sourceId: sessionId });
+  const interaction = new Interaction(modelDetails, stimulus, {
+    id: sessionId,
+    source: 'native',
+    sourceId: sessionId,
+  });
 
-  // Append transcript as messages come in (after each tool call, tool result, final text)
+  // Wire both transcript JSONL and normalized session persistence
   interaction.setOnTranscriptUpdate((messages) => {
+    void writeSessionTranscript(sessionDir, messages);
     void saveInteraction(store, interaction);
   });
 
@@ -265,7 +257,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  await repl(interaction, store, quiet);
+  await repl(interaction, store, habitat, quiet);
 }
 
 main().catch((err) => {

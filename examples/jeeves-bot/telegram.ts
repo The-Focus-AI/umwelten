@@ -4,15 +4,10 @@
  * Optionally set --provider and --model (default: google / gemini-2.0-flash).
  */
 
-import { TelegramAdapter } from '../../src/ui/telegram/TelegramAdapter.js';
-import { createJeevesStimulus } from './stimulus.js';
-import { getOrCreateSession, createNewTelegramThread } from './session-manager.js';
-import { writeSessionTranscript } from './jeeves-jsonl.js';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { TelegramAdapter } from '../../src/ui/telegram/TelegramAdapter.js';
+import { writeSessionTranscript } from '../../src/habitat/transcript.js';
+import { createJeevesHabitat } from './habitat.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
@@ -39,15 +34,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Ensure work and sessions directories exist
-  const { ensureWorkDir, ensureSessionsDir } = await import('./config.js');
-  const workDir = await ensureWorkDir();
-  const sessionsDir = await ensureSessionsDir();
-  console.log(`[JEEVES] Work directory: ${workDir}`);
-  console.log(`[JEEVES] Sessions directory: ${sessionsDir}`);
+  const habitat = await createJeevesHabitat();
+  console.log(`[JEEVES] Work directory: ${habitat.workDir}`);
+  console.log(`[JEEVES] Sessions directory: ${habitat.sessionsDir}`);
 
-  const stimulus = await createJeevesStimulus();
-  
+  const stimulus = await habitat.getStimulus();
+
   // Use session directories for storing Telegram media files and transcripts
   // Each chat gets its own session directory (telegram-{chatId})
   const adapter = new TelegramAdapter({
@@ -55,15 +47,15 @@ async function main(): Promise<void> {
     modelDetails: { name: model, provider },
     stimulus,
     getSessionMediaDir: async (chatId: number) => {
-      const { sessionDir } = await getOrCreateSession('telegram', chatId);
+      const { sessionDir } = await habitat.getOrCreateSession('telegram', chatId);
       return path.join(sessionDir, 'media');
     },
     getSessionDir: async (chatId: number) => {
-      return getOrCreateSession('telegram', chatId);
+      return habitat.getOrCreateSession('telegram', chatId);
     },
     writeTranscript: writeSessionTranscript,
     startNewThread: async (chatId: number) => {
-      await createNewTelegramThread(chatId);
+      await habitat.startNewThread('telegram', chatId);
     },
   });
 

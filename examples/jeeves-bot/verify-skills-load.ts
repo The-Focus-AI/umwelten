@@ -6,13 +6,12 @@
  *   JEEVES_WORK_DIR="$(pwd)/jeeves-bot-data-dir" pnpm exec tsx verify-skills-load.ts
  */
 
-import { createJeevesStimulus } from './stimulus.js';
-import { getWorkDir } from './config.js';
+import { createJeevesHabitat } from './habitat.js';
 
 async function main() {
-  const workDir = getWorkDir();
-  console.log('Work dir:', workDir);
-  const stimulus = await createJeevesStimulus();
+  const habitat = await createJeevesHabitat();
+  console.log('Work dir:', habitat.workDir);
+  const stimulus = await habitat.getStimulus();
   const registry = stimulus.getSkillsRegistry();
   if (!registry) {
     console.log('No skills registry.');

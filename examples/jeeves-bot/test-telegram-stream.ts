@@ -3,7 +3,7 @@
  * Test script to debug Telegram streamText issue
  */
 
-import { createJeevesStimulus } from './stimulus.js';
+import { createJeevesHabitat } from './habitat.js';
 import { Interaction } from '../../src/interaction/core/interaction.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'ollama';
@@ -11,8 +11,9 @@ const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gpt-oss:latest';
 
 async function testStreamText() {
   console.log('Testing streamText with tool calls...\n');
-  
-  const stimulus = await createJeevesStimulus();
+
+  const habitat = await createJeevesHabitat();
+  const stimulus = await habitat.getStimulus();
   const interaction = new Interaction(
     { name: DEFAULT_MODEL, provider: DEFAULT_PROVIDER },
     stimulus
