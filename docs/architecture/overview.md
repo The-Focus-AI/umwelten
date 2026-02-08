@@ -2,6 +2,8 @@
 
 ## High-Level Architecture
 
+![Umwelten Systems Architecture](./umwelten-architecture-labs.png)
+
 The umwelten project implements a **stimulus-centric evaluation system** that focuses on creating reusable infrastructure for testing AI models. The architecture is built around the concept of "Umwelt" - the perceptual world that models operate within.
 
 ## Core Philosophy
