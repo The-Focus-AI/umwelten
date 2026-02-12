@@ -10,6 +10,7 @@ import { addToolsCommand } from './tools.js';
 import { evalCommand } from './eval.js';
 import { sessionsCommand } from './sessions.js';
 import { telegramCommand } from './telegram.js';
+import { habitatCommand } from './habitat.js';
 
 // Get the version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -31,6 +32,7 @@ program.addCommand(chatCommand);
 program.addCommand(evalCommand);
 program.addCommand(sessionsCommand);
 program.addCommand(telegramCommand);
+program.addCommand(habitatCommand);
 addToolsCommand(program);
 
 program.parse(); 
