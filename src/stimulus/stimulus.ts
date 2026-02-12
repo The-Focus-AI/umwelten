@@ -196,6 +196,14 @@ export class Stimulus {
     return this.skillsRegistry;
   }
 
+  /** Get or create the skills registry. Useful when adding skills externally. */
+  getOrCreateSkillsRegistry(): SkillsRegistry {
+    if (!this.skillsRegistry) {
+      this.skillsRegistry = new SkillsRegistry();
+    }
+    return this.skillsRegistry;
+  }
+
   /** Add the skill tool so the agent can activate skills by name. No-op if registry is empty. */
   addSkillsTool(): void {
     if (this.skillsRegistry?.hasSkills()) {
