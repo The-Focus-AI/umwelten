@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Jeeves CLI: REPL or one-shot. Use --provider and --model or env JEEVES_PROVIDER, JEEVES_MODEL.
- * Default: google / gemini-2.0-flash.
+ * Default: google / gemini-3-flash-preview.
  * Commands: /exit, /quit, /onboard, /context, /checkpoint, /compact [strategyId], /compact help
  * CLI runs create a session under JEEVES_SESSIONS_DIR (cli-{timestamp}-{id}) and persist a transcript.
  */
@@ -17,7 +17,7 @@ import type { Habitat } from '../../src/habitat/index.js';
 import type { OnboardingResult } from '../../src/habitat/types.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
-const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
+const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-3-flash-preview';
 
 function parseArgs(): { provider: string; model: string; oneShot?: string; quiet: boolean } {
   const args = process.argv.slice(2);

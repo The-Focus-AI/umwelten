@@ -758,7 +758,7 @@ const evalBatchCommand = new Command('batch')
           console.error('   - File pattern matches your files');
         } else if (error.message.includes('Invalid model format')) {
           console.error('\n💡 Invalid model format. Use:');
-          console.error('   --models "provider:model" (e.g., "google:gemini-2.0-flash")');
+          console.error('   --models "provider:model" (e.g., "google:gemini-3-flash-preview")');
         }
         
         if (process.env.NODE_ENV === 'development' && error.stack) {

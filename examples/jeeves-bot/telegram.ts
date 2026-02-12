@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Jeeves Telegram bot. Requires TELEGRAM_BOT_TOKEN (or --token).
- * Optionally set --provider and --model (default: google / gemini-2.0-flash).
+ * Optionally set --provider and --model (default: google / gemini-3-flash-preview).
  */
 
 import path from 'path';
@@ -10,7 +10,7 @@ import { writeSessionTranscript } from '../../src/habitat/transcript.js';
 import { createJeevesHabitat } from './habitat.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
-const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
+const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-3-flash-preview';
 
 function parseArgs(): { provider: string; model: string; token?: string } {
   const args = process.argv.slice(2);

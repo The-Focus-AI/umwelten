@@ -5,8 +5,10 @@ import { BaseProvider } from "./base.js";
 
 // Google Gemini pricing in USD per 1 million tokens (to match cost calculation format)
 const GEMINI_PRICING = {
+  "gemini-3-flash-preview": { promptTokens: 0.15, completionTokens: 0.60 },
   "gemini-2.5-pro": { promptTokens: 1.25, completionTokens: 10 },
   "gemini-2.5-pro-exp-03-25": { promptTokens: 2.5, completionTokens: 15 },
+  "gemini-2.5-flash": { promptTokens: 0.15, completionTokens: 0.60 },
   "gemini-2.0-flash": { promptTokens: 0.075, completionTokens: 0.30 },
   "gemini-1.5-pro": { promptTokens: 1.25, completionTokens: 5 },
   "gemini-1.5-pro-exp-03-25": { promptTokens: 2.5, completionTokens: 10 },

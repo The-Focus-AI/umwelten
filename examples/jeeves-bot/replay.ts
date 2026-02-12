@@ -10,7 +10,7 @@ import { Interaction } from '../../src/interaction/core/interaction.js';
 import { createJeevesHabitat } from './habitat.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
-const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-2.0-flash';
+const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-3-flash-preview';
 
 export interface PulledPayload {
   sessionId: string;
