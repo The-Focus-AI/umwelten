@@ -269,6 +269,54 @@ Goal: Enable Jeeves to manage sub-agents for external projects (twitter-feed, ne
 
 ---
 
+## Completed: Skills Sharing + Auto-Discovery for HabitatAgents
+
+Goal: Sub-agents (HabitatAgents) get habitat skills (shared) + agent-local skills, and `agent_clone` auto-discovers project capabilities.
+
+- [x] `src/habitat/habitat.ts` — Add `getSkills()` method to expose loaded skills from stimulus registry
+- [x] `src/stimulus/stimulus.ts` — Add `getOrCreateSkillsRegistry()` for external skill injection
+- [x] `src/habitat/habitat-agent.ts` — Load habitat skills + agent-local skills into sub-agent stimulus in `buildAgentStimulus()`
+- [x] `src/habitat/tools/agent-runner-tools.ts` — Add `discoverAgentCapabilities()` auto-discovery after `agent_clone` (package.json scripts, shell scripts, logs/, status files)
+- [x] `src/habitat/tools/agent-runner-tools.test.ts` — Add 10 tests for `discoverAgentCapabilities`
+- [x] `examples/jeeves-bot/env.example` — Clarify `~/.jeeves` default and dev pitfalls
+- [x] `src/cli/habitat.ts` — New `umwelten habitat` CLI command with REPL, one-shot, /agents, /skills, /tools, /context, /compact
+- [x] `src/cli/cli.ts` — Register habitat command
+
+---
+
+## Completed: Habitat as Top-Level Container
+
+Goal: Flip the architecture so Habitat is the top-level "world" at `~/habitats` (configurable via env), and interfaces like CLI REPL, Telegram, TUI, etc. run *inside* it, sharing config, agents, skills, and sessions.
+
+### Tool loader factory support
+- [x] `src/stimulus/tools/loader.ts` — `loadToolFromPath` and `loadToolsFromDirectory` accept optional `context` param; handler default export can be a factory function `(context) => Tool`
+- [x] `src/habitat/habitat.ts` — Pass `habitat` as context to `loadToolsFromDirectory` so factory-pattern tools get access to workDir, getAgent, getAllowedRoots
+
+### Builtin tools (work-dir format)
+- [x] `src/habitat/builtin-tools/search/TOOL.md` + `handler.ts` — Tavily web search (direct Tool export, reads `TAVILY_API_KEY` from env)
+- [x] `src/habitat/builtin-tools/run_bash/TOOL.md` + `handler.ts` — Dagger run_bash (factory export, needs habitat context)
+
+### Default ~/habitats + telegram subcommand
+- [x] `src/cli/habitat.ts` — Default work dir `~/habitats`, sessions `~/habitats-sessions`; extract `createHabitatFromOptions()` shared helper
+- [x] `src/cli/habitat.ts` — Add `umwelten habitat telegram` subcommand with `--token` option; lazy-imports TelegramAdapter
+
+### Onboarding seeds builtin tools
+- [x] `src/habitat/onboard.ts` — On first onboarding, copies builtin tools (search, run_bash) from `src/habitat/builtin-tools/` into new habitat's `tools/` directory
+
+### Documentation
+- [x] `docs/guide/habitat.md` — Comprehensive Habitat guide (overview, CLI, tools, interfaces, config, programmatic usage, migration from Jeeves)
+- [x] `docs/walkthroughs/habitat-setup-walkthrough.md` — Step-by-step walkthrough (14 steps: install → onboard → persona → tools → agents → telegram)
+- [x] `docs/.vitepress/config.ts` — Added Habitat to sidebar (Core Features + Walkthroughs)
+- [x] `docs/index.md` — Added Habitat feature blurb, documentation link, architecture entry
+- [x] `docs/guide/habitat-agents.md` — Updated paths (~/habitats), added Habitat links
+- [x] `docs/guide/jeeves-bot.md` — Added note recommending `umwelten habitat`, migration info
+- [x] `docs/guide/telegram-bot.md` — Added tip about `umwelten habitat telegram`
+- [x] `docs/guide/habitat-testing.md` — Added tip about using `umwelten habitat` for testing
+- [x] `docs/walkthroughs/index.md` — Added Habitat Setup walkthrough entry
+- [x] `README.md` — Added Habitat link to documentation section
+
+---
+
 ## Planned
 
 ### Browse: Subconversations and learnings traceability
