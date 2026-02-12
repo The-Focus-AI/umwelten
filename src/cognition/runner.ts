@@ -212,6 +212,45 @@ export class BaseModelRunner implements ModelRunner {
   }
 
   /**
+   * Normalize messages to AI SDK ModelMessage shape so they pass standardizePrompt validation.
+   * Converts legacy/UI-style fields: args→input, experimental_providerMetadata→providerOptions.
+   * Outputs only schema-allowed keys for tool-call and tool-result parts to avoid strict validation failures.
+   */
+  private normalizeToModelMessages(messages: CoreMessage[]): CoreMessage[] {
+    return messages.map((msg) => {
+      if (msg.role !== 'assistant' && msg.role !== 'tool') return msg;
+      if (!Array.isArray(msg.content)) return msg;
+      const content = msg.content as unknown as Array<Record<string, unknown>>;
+      const newContent = content.map((part) => {
+        if (part?.type === 'tool-call') {
+          const input = part.input ?? part.args ?? {};
+          const providerOptions = part.providerOptions ?? part.experimental_providerMetadata;
+          return {
+            type: 'tool-call' as const,
+            toolCallId: String(part.toolCallId ?? ''),
+            toolName: String(part.toolName ?? ''),
+            input,
+            ...(providerOptions != null && { providerOptions }),
+            ...(typeof part.providerExecuted === 'boolean' && { providerExecuted: part.providerExecuted }),
+          };
+        }
+        if (part?.type === 'tool-result') {
+          const provOpts = part.providerOptions ?? part.experimental_providerMetadata;
+          return {
+            type: 'tool-result' as const,
+            toolCallId: String(part.toolCallId ?? ''),
+            toolName: String(part.toolName ?? ''),
+            output: part.output,
+            ...(provOpts != null && { providerOptions: provOpts }),
+          };
+        }
+        return part;
+      });
+      return { ...msg, content: newContent } as unknown as CoreMessage;
+    });
+  }
+
+  /**
    * Ensure assistant messages with tool-call parts have thought_signature on the first
    * tool-call when using Google (Gemini 3). Uses dummy signature when missing so the API
    * accepts the request. See https://ai.google.dev/gemini-api/docs/thought-signatures
@@ -225,7 +264,8 @@ export class BaseModelRunner implements ModelRunner {
       let firstToolCallInStep = true;
       const newContent = content.map((part) => {
         if (part?.type !== 'tool-call') return part;
-        const existing = (part.experimental_providerMetadata as Record<string, unknown>)?.['google'] as Record<string, unknown> | undefined;
+        const meta = (part.providerOptions ?? part.experimental_providerMetadata) as Record<string, unknown> | undefined;
+        const existing = meta?.['google'] as Record<string, unknown> | undefined;
         const hasSignature = existing && typeof existing.thought_signature === 'string' && existing.thought_signature.length > 0;
         if (hasSignature || !firstToolCallInStep) {
           firstToolCallInStep = false;
@@ -234,8 +274,8 @@ export class BaseModelRunner implements ModelRunner {
         firstToolCallInStep = false;
         return {
           ...part,
-          experimental_providerMetadata: {
-            ...((part.experimental_providerMetadata as Record<string, unknown>) ?? {}),
+          providerOptions: {
+            ...(meta ?? {}),
             google: {
               ...((existing ?? {}) as object),
               thought_signature: (existing?.thought_signature as string) ?? 'skip_thought_signature_validator',
@@ -257,6 +297,7 @@ export class BaseModelRunner implements ModelRunner {
       };
 
       let messages = interaction.getMessages();
+      messages = this.normalizeToModelMessages(messages);
       if (interaction.modelDetails.provider === 'google') {
         messages = this.ensureGoogleThoughtSignatures(messages);
       }
@@ -359,16 +400,16 @@ export class BaseModelRunner implements ModelRunner {
               if (pendingToolCalls.length > 0) {
                 interaction.addMessage({
                   role: 'assistant',
-                  content: pendingToolCalls.map((tc: any, idx: number) => {
+                  content: pendingToolCalls.map((tc: any) => {
                     const part: Record<string, unknown> = {
                       type: 'tool-call',
                       toolCallId: tc.toolCallId ?? tc.id,
                       toolName: tc.toolName ?? tc.name,
-                      args: tc.input ?? tc.args ?? {},
+                      input: tc.input ?? tc.args ?? {},
                     };
-                    // First tool call in step must have thought_signature for Gemini 3
+                    // providerOptions is the ModelMessage schema field (e.g. for Gemini thought_signature)
                     if (tc.experimental_providerMetadata != null) {
-                      part.experimental_providerMetadata = tc.experimental_providerMetadata;
+                      part.providerOptions = tc.experimental_providerMetadata;
                     }
                     return part;
                   }),

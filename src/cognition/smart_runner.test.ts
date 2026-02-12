@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { SmartModelRunner, RunnerHook, RunnerAbort, RunnerModification } from "./smart_runner.js";
 import { BaseModelRunner } from "./runner.js";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { InMemoryMemoryStore } from "../memory/memory_store.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 
