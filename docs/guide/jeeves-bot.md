@@ -1,11 +1,23 @@
 # Jeeves Bot
 
-Jeeves is a butler-style assistant that runs on the CLI and over Telegram. It can read and write files, manage **agents** (projects with Claude Code / Cursor data), and inspect **external interactions** (conversation history) for those agents. This page gives a high-level view of how Jeeves handles **subagents**, **secrets**, and **sandboxing**. For setup, CLI commands, and work-directory layout, see the [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md) on GitHub.
+Jeeves is a butler-style assistant that runs on the CLI and over Telegram. It was the original example of a [Habitat](./habitat.md)-based agent. Now that Habitat is a first-class top-level concept, Jeeves serves as a reference example of how to customize a Habitat with a specific persona and tools.
+
+::: tip Prefer `umwelten habitat` for new setups
+You no longer need a separate Jeeves wrapper. The `umwelten habitat` command does everything Jeeves does, with any work directory. See the [Habitat guide](./habitat.md) and the [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md).
+
+```bash
+# Use the Jeeves data dir directly with the habitat command
+umwelten habitat -w examples/jeeves-bot/jeeves-bot-data-dir -p google -m gemini-3-flash-preview
+
+# Or as a Telegram bot
+umwelten habitat telegram -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3-flash-preview
+```
+:::
 
 ## Overview
 
-- **CLI**: Interactive REPL or one-shot commands from `examples/jeeves-bot` (or via `pnpm exec tsx examples/jeeves-bot/cli.ts`).
-- **Telegram**: Long-running bot; one process per deployment. Media and transcripts are stored under `JEEVES_SESSIONS_DIR`.
+- **CLI**: Interactive REPL or one-shot commands. Can be run via `examples/jeeves-bot/cli.ts` or via `umwelten habitat -w ~/.jeeves --env-prefix JEEVES`.
+- **Telegram**: Long-running bot. Can be run via `examples/jeeves-bot/telegram.ts` or via `umwelten habitat telegram -w ~/.jeeves --env-prefix JEEVES`.
 - **Work directory**: All config, prompts, tools, and skills live under `JEEVES_WORK_DIR` (default `~/.jeeves`). The bot can edit everything there; file access is sandboxed to the work dir and configured agent project roots.
 
 ## How Jeeves manages subagents (agents and habitats)
@@ -71,3 +83,9 @@ For full documentation, see [Habitat Agents](./habitat-agents.md).
 ---
 
 For step-by-step setup, env vars, work-directory layout, CLI/Telegram usage, and tool reference, see the [Jeeves Bot README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md) on GitHub.
+
+## See Also
+
+- [Habitat](./habitat.md) — The top-level container concept (recommended for new setups)
+- [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md) — Step-by-step guide to building a new agent
+- [Habitat Agents](./habitat-agents.md) — Sub-agent delegation

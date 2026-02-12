@@ -111,6 +111,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - 🔄 [Concurrent Processing](https://umwelten.thefocus.ai/guide/concurrent-processing) - Parallel execution
 - 🔎 [External Interactions](https://umwelten.thefocus.ai/guide/session-management) - List, index, and search external interactions (Claude Code, Cursor)
 - 📏 [Context Management](https://umwelten.thefocus.ai/guide/context-management) - Track size and compact conversations
+- 🏠 [Habitat](https://umwelten.thefocus.ai/guide/habitat) - Top-level agent container with tools, skills, sub-agents, and multi-interface support (CLI, Telegram)
 - 🤖 [Habitat Agents](https://umwelten.thefocus.ai/guide/habitat-agents) - Delegate to persistent sub-agents that manage projects
 
 ### Examples & Migration

@@ -2,6 +2,23 @@
 
 Practical, step-by-step guides demonstrating real-world usage of umwelten features.
 
+## Habitat
+
+### [Setting Up an Agent in Habitat](./habitat-setup-walkthrough.md)
+
+Build a complete agent environment from scratch with a custom persona, tools, sub-agents, and multiple interfaces:
+
+- Create and customize a habitat work directory
+- Write a custom persona (STIMULUS.md)
+- Add tools (direct export and factory pattern)
+- Register and delegate to sub-agents
+- Run as CLI REPL and Telegram bot
+- Configure environment variables and model defaults
+
+**Time Required:** 15-20 minutes
+**Prerequisites:** Node.js 20+, pnpm, a provider API key
+**Optional:** Telegram bot token, Tavily API key
+
 ## Session Management
 
 ### [Session Analysis Walkthrough](./session-analysis-walkthrough.md)

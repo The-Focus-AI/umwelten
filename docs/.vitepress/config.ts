@@ -42,10 +42,11 @@ export default defineConfig({
             { text: 'Model Discovery', link: '/guide/model-discovery' },
             { text: 'Running Prompts', link: '/guide/running-prompts' },
             { text: 'Interactive Chat', link: '/guide/interactive-chat' },
-            { text: 'Telegram Bot', link: '/guide/telegram-bot' },
-            { text: 'Jeeves Bot', link: '/guide/jeeves-bot' },
+            { text: 'Habitat', link: '/guide/habitat' },
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },
+            { text: 'Telegram Bot', link: '/guide/telegram-bot' },
+            { text: 'Jeeves Bot', link: '/guide/jeeves-bot' },
             { text: 'Web Interface', link: '/guide/web' },
             { text: 'Tool Calling', link: '/guide/tool-calling' },
             { text: 'Model Evaluation', link: '/guide/model-evaluation' },
@@ -114,6 +115,7 @@ export default defineConfig({
           text: 'Practical Walkthroughs',
           items: [
             { text: 'Overview', link: '/walkthroughs/' },
+            { text: 'Habitat Setup', link: '/walkthroughs/habitat-setup-walkthrough' },
             { text: 'Session Analysis Walkthrough', link: '/walkthroughs/session-analysis-walkthrough' },
             { text: 'TRMNL Project Analysis', link: '/walkthroughs/trmnl-project-analysis' }
           ]

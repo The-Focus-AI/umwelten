@@ -2,6 +2,16 @@
 
 Run an AI assistant as a Telegram bot, enabling mobile conversations with full support for text, images, documents, and tool calling.
 
+::: tip Habitat Telegram
+For a full-featured Telegram bot with tools, skills, sub-agents, and persistent sessions, use the [Habitat](./habitat.md) telegram subcommand:
+
+```bash
+umwelten habitat telegram -p google -m gemini-3-flash-preview
+```
+
+The standalone `umwelten telegram` command (documented below) is a simpler option for basic conversations without the full habitat environment.
+:::
+
 ## Overview
 
 The Telegram adapter provides a complete chat interface through Telegram, featuring:

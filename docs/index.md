@@ -16,6 +16,7 @@ Umwelten is a comprehensive AI model evaluation and interaction tool that implem
 
 It provides:
 
+- **Habitat**: The top-level container for agents — tools, skills, sessions, memory, and sub-agents in one place. Run as CLI, Telegram bot, or any interface.
 - **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models
 - **Semantic Architecture**: Cognition, Interaction, and Stimulus frameworks
 - **Evaluation Framework**: Systematic model assessment and comparison
@@ -153,6 +154,10 @@ Model Context Protocol support:
 
 Learn how to install, configure, and use Umwelten for basic tasks.
 
+### [Habitat](/guide/habitat)
+
+Set up a complete agent environment with tools, skills, sub-agents, and multiple interfaces (CLI, Telegram).
+
 ### [Tool Calling](/guide/tool-calling)
 
 Learn how to use and create tools to enhance AI model capabilities.
@@ -177,6 +182,7 @@ Guidance for migrating from other tools and upgrading between versions.
 
 ```
 src/
+├── habitat/            # Top-level agent container (config, tools, sessions, agents)
 ├── cognition/          # Model runners and cognitive processes
 ├── interaction/        # Model-environment interactions
 ├── stimulus/           # Environmental inputs and triggers

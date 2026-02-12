@@ -1,12 +1,12 @@
 # Habitat Agents
 
-A **HabitatAgent** is a sub-agent that manages a specific project on behalf of the main habitat. It combines a **Stimulus** (built from the project's own files) with a **persistent Interaction** (its own session with memory). This lets the main agent delegate project-specific questions to a sub-agent that understands that project's codebase, logs, and configuration.
+A **HabitatAgent** is a sub-agent that manages a specific project on behalf of the main [Habitat](./habitat.md). It combines a **Stimulus** (built from the project's own files) with a **persistent Interaction** (its own session with memory). This lets the main agent delegate project-specific questions to a sub-agent that understands that project's codebase, logs, and configuration.
 
 ## Concepts
 
 ### How it fits the Habitat model
 
-The Habitat system already works like this:
+A [Habitat](./habitat.md) is the top-level container for everything an agent needs. The Habitat system works like this:
 
 1. `loadStimulusOptionsFromWorkDir()` reads STIMULUS.md + AGENT.md + memory files to build a Stimulus
 2. `Habitat.createInteraction()` creates an Interaction with that Stimulus + tools + persistent session
@@ -15,10 +15,10 @@ The Habitat system already works like this:
 A HabitatAgent follows the same pattern, but the Stimulus is built from the **managed project's** directory (its README, CLAUDE.md, package.json, etc.) instead of from the Habitat's own work directory. The tools are the same tools the habitat has, scoped via `agentId`.
 
 ```
-Habitat (e.g. Jeeves)
-  ├── Stimulus (from ~/.jeeves/STIMULUS.md)
-  ├── Tools (read_file, ripgrep, run_bash, agents_*, ...)
-  ├── Interaction (Jeeves's own conversation)
+Habitat (~/habitats)
+  ├── Stimulus (from ~/habitats/STIMULUS.md)
+  ├── Tools (read_file, ripgrep, search, run_bash, agents_*, ...)
+  ├── Interaction (habitat's own conversation)
   │
   └── HabitatAgents (per managed project)
        ├── twitter-feed
@@ -73,7 +73,7 @@ agent_clone({
   gitUrl: "git@github.com:org/twitter-feed.git",
   name: "Twitter Feed"
 })
-// → clones to ~/.jeeves/repos/twitter-feed, registers agent
+// → clones to ~/habitats/repos/twitter-feed, registers agent
 ```
 
 ### agent_logs
@@ -299,6 +299,8 @@ Sub-agents are cached in a `Map<string, HabitatAgent>` on the Habitat instance. 
 
 ## Related
 
-- [Jeeves Bot](./jeeves-bot.md) — The primary consumer of HabitatAgents
+- [Habitat](./habitat.md) — The top-level container that manages agents, tools, and interfaces
+- [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md) — Step-by-step guide to setting up a habitat with sub-agents
+- [Jeeves Bot](./jeeves-bot.md) — Example of a Habitat-based agent
 - [Stimulus System](../architecture/stimulus-system.md) — How Stimulus objects work
 - [Session Management](./session-management.md) — How sessions and transcripts are persisted

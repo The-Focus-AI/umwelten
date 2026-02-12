@@ -2,6 +2,20 @@
 
 This guide covers how to test the Habitat system end-to-end, from automated unit tests to manual verification of agent runner workflows.
 
+::: tip Using `umwelten habitat` directly
+The manual tests below use the Jeeves example (`pnpm --filter jeeves-bot run cli`). You can also test with the generic habitat command, which defaults to `~/habitats`:
+
+```bash
+# Start a habitat REPL
+umwelten habitat -p google -m gemini-3-flash-preview
+
+# Or point at any work directory
+umwelten habitat -w /tmp/test-habitat -p google -m gemini-3-flash-preview
+```
+
+See the [Habitat guide](./habitat.md) for details.
+:::
+
 ## Automated Tests
 
 ### Running the test suite
