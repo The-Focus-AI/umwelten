@@ -31,10 +31,14 @@ export interface ToolDefinitionMeta {
 
 /**
  * Load a single tool from a directory that contains TOOL.md.
- * If handler.ts or handler.js exists, dynamic-import its default export (must be a Tool).
+ * If handler.ts or handler.js exists, dynamic-import its default export.
+ *   - If the export is a Tool (has .execute), use it directly.
+ *   - If the export is a function (factory), call it with the context to get a Tool.
  * If type: script and script path are set, create a tool that runs the script with args.
+ * @param toolDir - Path to the tool directory
+ * @param context - Optional context object passed to factory-pattern handlers
  */
-export async function loadToolFromPath(toolDir: string): Promise<{ name: string; tool: Tool } | null> {
+export async function loadToolFromPath(toolDir: string, context?: unknown): Promise<{ name: string; tool: Tool } | null> {
   const toolMdPath = join(toolDir, TOOL_MD);
   let content: string;
   try {
@@ -65,12 +69,25 @@ export async function loadToolFromPath(toolDir: string): Promise<{ name: string;
     try {
       const url = pathToFileURL(resolve(handlerPath)).href;
       const module = await import(url);
-      const toolInstance = module?.default;
-      if (!toolInstance || typeof (toolInstance as Tool).execute !== 'function') {
-        console.warn(`Tool at ${toolDir}: handler default export is not a Tool (missing execute)`);
-        return null;
+      const exported = module?.default;
+
+      if (exported && typeof (exported as Tool).execute === 'function') {
+        // Direct Tool export (existing behavior)
+        return { name: toolName, tool: exported as Tool };
       }
-      return { name: toolName, tool: toolInstance as Tool };
+
+      if (typeof exported === 'function') {
+        // Factory pattern: handler exports (context) => Tool
+        const toolInstance = exported(context);
+        if (!toolInstance || typeof (toolInstance as Tool).execute !== 'function') {
+          console.warn(`Tool at ${toolDir}: factory function did not return a Tool (missing execute)`);
+          return null;
+        }
+        return { name: toolName, tool: toolInstance as Tool };
+      }
+
+      console.warn(`Tool at ${toolDir}: handler default export is not a Tool or factory function`);
+      return null;
     } catch (err) {
       console.warn(`Tool at ${toolDir}: failed to load handler:`, err instanceof Error ? err.message : err);
       return null;
@@ -127,10 +144,12 @@ async function fileExists(path: string): Promise<boolean> {
  * (and optional handler.ts/handler.js or type: script) becomes one tool.
  * @param workDir - Absolute path to the work directory
  * @param toolsDirRelative - Path to tools dir relative to workDir (e.g. "./tools")
+ * @param context - Optional context object passed to factory-pattern handlers
  */
 export async function loadToolsFromDirectory(
   workDir: string,
-  toolsDirRelative: string = 'tools'
+  toolsDirRelative: string = 'tools',
+  context?: unknown
 ): Promise<Record<string, Tool>> {
   const toolsDir = resolve(workDir, toolsDirRelative);
   const result: Record<string, Tool> = {};
@@ -139,7 +158,7 @@ export async function loadToolsFromDirectory(
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const toolDir = join(toolsDir, entry.name);
-      const loaded = await loadToolFromPath(toolDir);
+      const loaded = await loadToolFromPath(toolDir, context);
       if (loaded) result[loaded.name] = loaded.tool;
     }
   } catch {
