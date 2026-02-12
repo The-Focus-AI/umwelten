@@ -9,6 +9,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Stimulus, StimulusOptions } from '../stimulus/stimulus.js';
 import { Interaction } from '../interaction/core/interaction.js';
+import { discoverSkillsInDirectory } from '../stimulus/skills/loader.js';
 import type { AgentEntry } from './types.js';
 import type { Habitat } from './habitat.js';
 import { fileExists } from './config.js';
@@ -112,6 +113,21 @@ export async function buildAgentStimulus(
   for (const [name, tool] of Object.entries(habitatTools)) {
     stimulus.addTool(name, tool);
   }
+
+  // Load habitat's shared skills (from git, local skills dirs)
+  const habitatSkills = habitat.getSkills();
+  if (habitatSkills.length > 0) {
+    stimulus.getOrCreateSkillsRegistry().addSkills(habitatSkills);
+  }
+
+  // Discover skills in the agent's own repo (e.g. .claude/skills/)
+  const agentSkills = await discoverSkillsInDirectory(agent.projectPath);
+  if (agentSkills.length > 0) {
+    stimulus.getOrCreateSkillsRegistry().addSkills(agentSkills);
+  }
+
+  // Add the skills activation tool if any skills were loaded
+  stimulus.addSkillsTool();
 
   return stimulus;
 }

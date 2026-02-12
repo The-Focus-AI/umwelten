@@ -10,6 +10,7 @@ import { Stimulus } from '../stimulus/stimulus.js';
 import { Interaction } from '../interaction/core/interaction.js';
 import { InteractionStore } from '../interaction/persistence/interaction-store.js';
 import { loadToolsFromDirectory } from '../stimulus/tools/loader.js';
+import type { SkillDefinition } from '../stimulus/skills/types.js';
 import type { ModelDetails } from '../cognition/types.js';
 import type {
   HabitatConfig,
@@ -122,7 +123,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     if (!opts.skipWorkDirTools) {
       const toolsDirRelative = config.toolsDir ?? 'tools';
       try {
-        const workDirTools = await loadToolsFromDirectory(workDir, toolsDirRelative);
+        const workDirTools = await loadToolsFromDirectory(workDir, toolsDirRelative, habitat);
         for (const [name, tool] of Object.entries(workDirTools)) {
           habitat.addTool(name, tool);
         }
@@ -275,6 +276,15 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
   addToolSet(toolSet: ToolSet): void {
     const tools = toolSet.createTools(this);
     this.addTools(tools);
+  }
+
+  /**
+   * Get the loaded skills from the habitat's stimulus.
+   * Returns an empty array if stimulus hasn't been built yet or skills are disabled.
+   */
+  getSkills(): SkillDefinition[] {
+    const registry = this.stimulus?.getSkillsRegistry();
+    return registry ? registry.listSkills() : [];
   }
 
   // ── Session management ──────────────────────────────────────────

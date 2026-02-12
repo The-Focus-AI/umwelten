@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAgentRunnerTools, type AgentRunnerToolsContext } from './agent-runner-tools.js';
+import { createAgentRunnerTools, discoverAgentCapabilities, type AgentRunnerToolsContext } from './agent-runner-tools.js';
 import type { AgentEntry, LogPattern } from '../types.js';
 
 describe('agent-runner-tools', () => {
@@ -296,6 +296,129 @@ describe('agent-runner-tools', () => {
 
       expect(result.error).toBe('AGENT_ASK_FAILED');
       expect(result.message).toBe('Model error');
+    });
+  });
+
+  describe('discoverAgentCapabilities', () => {
+    it('should discover commands from package.json scripts', async () => {
+      await writeFile(join(agentProjectDir, 'package.json'), JSON.stringify({
+        name: 'test-project',
+        scripts: {
+          start: 'node index.js',
+          dev: 'nodemon index.js',
+          test: 'vitest',
+          build: 'tsc',
+          lint: 'eslint .',
+          custom: 'echo custom',  // not in interesting scripts
+        },
+      }));
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.commands).toBeDefined();
+      expect(agent.commands!.start).toBe('node index.js');
+      expect(agent.commands!.dev).toBe('nodemon index.js');
+      expect(agent.commands!.test).toBe('vitest');
+      expect(agent.commands!.build).toBe('tsc');
+      expect(agent.commands!.lint).toBe('eslint .');
+      expect(agent.commands!['custom']).toBeUndefined();
+    });
+
+    it('should discover shell scripts in root', async () => {
+      await writeFile(join(agentProjectDir, 'run.sh'), '#!/bin/bash\necho hello');
+      await writeFile(join(agentProjectDir, 'setup.sh'), '#!/bin/bash\necho setup');
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.commands).toBeDefined();
+      expect(agent.commands!.run).toBe('./run.sh');
+      expect(agent.commands!.setup).toBe('./setup.sh');
+    });
+
+    it('should discover Makefile', async () => {
+      await writeFile(join(agentProjectDir, 'Makefile'), 'all:\n\techo hello');
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.commands).toBeDefined();
+      expect(agent.commands!.Makefile).toBe('make');
+    });
+
+    it('should discover logs directory', async () => {
+      await mkdir(join(agentProjectDir, 'logs'), { recursive: true });
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.logPatterns).toBeDefined();
+      expect(agent.logPatterns).toEqual([
+        { pattern: 'logs/*.log', format: 'plain' },
+        { pattern: 'logs/*.jsonl', format: 'jsonl' },
+      ]);
+    });
+
+    it('should not override existing logPatterns', async () => {
+      await mkdir(join(agentProjectDir, 'logs'), { recursive: true });
+
+      const existing: LogPattern[] = [{ pattern: 'output/*.log', format: 'plain' }];
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir, logPatterns: existing };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.logPatterns).toEqual(existing);
+    });
+
+    it('should discover STATUS.md', async () => {
+      await writeFile(join(agentProjectDir, 'STATUS.md'), '# Status\nRunning');
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.statusFile).toBe('STATUS.md');
+    });
+
+    it('should prefer STATUS.md over status.md', async () => {
+      await writeFile(join(agentProjectDir, 'STATUS.md'), 'upper');
+      await writeFile(join(agentProjectDir, 'status.md'), 'lower');
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.statusFile).toBe('STATUS.md');
+    });
+
+    it('should not override existing statusFile', async () => {
+      await writeFile(join(agentProjectDir, 'STATUS.md'), 'status');
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir, statusFile: 'custom-status.md' };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.statusFile).toBe('custom-status.md');
+    });
+
+    it('should handle empty project gracefully', async () => {
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.commands).toBeUndefined();
+      expect(agent.logPatterns).toBeUndefined();
+      expect(agent.statusFile).toBeUndefined();
+    });
+
+    it('should merge package.json scripts with shell scripts', async () => {
+      await writeFile(join(agentProjectDir, 'package.json'), JSON.stringify({
+        scripts: { start: 'node index.js', test: 'vitest' },
+      }));
+      await writeFile(join(agentProjectDir, 'deploy.sh'), '#!/bin/bash\necho deploy');
+
+      const agent: AgentEntry = { id: 'test', name: 'Test', projectPath: agentProjectDir };
+      await discoverAgentCapabilities(agent);
+
+      expect(agent.commands!.start).toBe('node index.js');
+      expect(agent.commands!.test).toBe('vitest');
+      expect(agent.commands!.deploy).toBe('./deploy.sh');
     });
   });
 });

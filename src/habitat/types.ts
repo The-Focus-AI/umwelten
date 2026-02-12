@@ -47,7 +47,7 @@ export interface HabitatConfig {
   name?: string;
   /** Default LLM provider (e.g. "google", "openai"). */
   defaultProvider?: string;
-  /** Default model name (e.g. "gemini-2.0-flash"). */
+  /** Default model name (e.g. "gemini-3-flash-preview"). */
   defaultModel?: string;
   /** Known agents (references to other habitats). */
   agents: AgentEntry[];
