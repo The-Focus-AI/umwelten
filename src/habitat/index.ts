@@ -26,7 +26,13 @@ export {
   sessionToolSet,
   externalInteractionToolSet,
   agentRunnerToolSet,
+  runProjectToolSet,
+  secretsToolSet,
+  searchToolSet,
 } from './tool-sets.js';
+
+export { createRunProjectTool } from './tools/run-project/index.js';
+export type { RunProjectContext, ProjectRequirements, SkillRepo } from './tools/run-project/types.js';
 
 export { HabitatSessionManager } from './session-manager.js';
 

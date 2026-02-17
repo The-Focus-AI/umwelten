@@ -37,6 +37,8 @@ export interface AgentEntry {
   logPatterns?: LogPattern[];
   /** Relative path to a status file (e.g. "status.md"). */
   statusFile?: string;
+  /** Git repos for skills this agent needs (e.g. "Focus-AI/chrome-driver"). */
+  skillsFromGit?: string[];
 }
 
 /**

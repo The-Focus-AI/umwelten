@@ -189,7 +189,7 @@ export class HabitatAgent {
     this.interaction.notifyTranscriptUpdate();
 
     // Extract text response
-    const text = response.text ?? '';
+    const text = response.content ?? '';
     return text;
   }
 

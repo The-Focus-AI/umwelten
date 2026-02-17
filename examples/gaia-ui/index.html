@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaia - Habitat Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Hack&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base: #0d1117;
+  --bg-sidebar: #161b22;
+  --bg-card: #1c2333;
+  --bg-input: #0d1117;
+  --bg-hover: #21262d;
+  --border: #30363d;
+  --border-light: #484f58;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --green-accent: #4a7c59;
+  --green-bright: #7ee787;
+  --amber: #d4a72c;
+  --cyan: #58a6ff;
+  --purple: #bc8cff;
+  --red: #f85149;
+  --sidebar-width: 280px;
+  --font-serif: 'Crimson Pro', Georgia, serif;
+  --font-mono: 'Hack', 'Fira Code', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+/* ── Layout ───────────────────────────────────────────── */
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-logo {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.sidebar-logo:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-logo h1 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--green-bright);
+  letter-spacing: 2px;
+  line-height: 1;
+}
+
+.sidebar-logo .subtitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin-top: 2px;
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  padding: 12px 16px 6px;
+}
+
+/* Agent list (sidebar) */
+.agent-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px;
+}
+
+.agent-sidebar-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  margin-bottom: 2px;
+  transition: background 0.15s;
+}
+
+.agent-sidebar-item:hover {
+  background: var(--bg-hover);
+}
+
+.agent-sidebar-item.active {
+  background: var(--bg-hover);
+  border-left-color: var(--green-bright);
+}
+
+.agent-sidebar-item .agent-sidebar-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-sidebar-item .agent-sidebar-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.agent-sidebar-item .agent-sidebar-status {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green-bright);
+  vertical-align: middle;
+}
+
+.agent-sidebar-item .agent-sidebar-status.idle { background: var(--amber); }
+.agent-sidebar-item .agent-sidebar-status.offline { background: var(--text-muted); }
+
+.agent-sidebar-item .agent-session-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Agent's sessions (nested under agent in sidebar) */
+.agent-sessions {
+  padding: 2px 0 6px 16px;
+  display: none;
+}
+
+.agent-sidebar-item.active + .agent-sessions {
+  display: block;
+}
+
+.agent-session-item {
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 1px;
+  transition: background 0.15s;
+  font-size: 12px;
+}
+
+.agent-session-item:hover {
+  background: var(--bg-hover);
+}
+
+.agent-session-item.active {
+  background: var(--bg-hover);
+  border-left: 2px solid var(--cyan);
+  padding-left: 8px;
+}
+
+.agent-session-item .session-type-icon {
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.agent-session-item .session-preview {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+  display: inline;
+}
+
+.agent-session-item .session-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* ── Main Content ─────────────────────────────────────── */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Agent Dashboard (main view) ──────────────────────── */
+.agent-dashboard {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-header h2 {
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.provider-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--green-accent);
+  color: var(--green-bright);
+}
+
+/* Agent overview grid */
+.agent-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.agent-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.agent-card:hover {
+  border-color: var(--green-accent);
+  background: var(--bg-hover);
+}
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.agent-card-name {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.agent-card .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.agent-card-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-card-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.agent-card-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-card-stat .stat-label { color: var(--text-muted); }
+.agent-card-stat .stat-value { color: var(--text-primary); font-weight: 600; }
+
+/* Dashboard info grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dash-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.dash-card-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-card-title .count {
+  font-size: 10px;
+  background: var(--green-accent);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Status dots */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.online { background: var(--green-bright); box-shadow: 0 0 4px var(--green-bright); }
+.status-dot.idle { background: var(--amber); }
+.status-dot.offline { background: var(--text-muted); }
+
+/* Tool tags */
+.tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* Stimulus preview */
+.stimulus-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+}
+
+.stimulus-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(transparent, var(--bg-card));
+}
+
+/* Memory files */
+.memory-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.memory-file .icon { color: var(--amber); }
+
+/* Skills list */
+.skill-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.skill-row:last-child { border-bottom: none; }
+
+.skill-name { color: var(--cyan); }
+.skill-desc { color: var(--text-muted); margin-left: 8px; }
+
+/* Agent list in card */
+.agent-list-card .agent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-list-card .agent-row:last-child { border-bottom: none; }
+
+.agent-row .agent-name {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.agent-row .agent-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Sessions summary */
+.session-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ── Agent Detail View ────────────────────────────────── */
+.agent-detail-view {
+  padding: 24px;
+}
+
+.agent-detail-view .agent-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.agent-detail-view .agent-detail-header .back-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.agent-detail-view .agent-detail-header .back-btn:hover {
+  background: var(--bg-hover);
+}
+
+.agent-detail-view .agent-detail-header h2 {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--text-primary);
+}
+
+.agent-detail-view .agent-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.agent-detail-view .detail-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.agent-detail-view .detail-card .detail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.agent-detail-view .detail-card .detail-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.agent-detail-view .detail-card .detail-value a {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
+.agent-detail-view .detail-card .detail-value a:hover {
+  text-decoration: underline;
+}
+
+.agent-detail-view .command-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-detail-view .command-tag {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--cyan);
+}
+
+/* ── Conversation Beats ───────────────────────────────── */
+.beat-session-group {
+  margin-bottom: 12px;
+}
+
+.beat-session-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.beat-session-label .session-icon {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.beat-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.beat-item:hover {
+  background: var(--bg-hover);
+}
+
+.beat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.beat-dot.topic-status { background: var(--cyan); }
+.beat-dot.topic-logs { background: var(--amber); }
+.beat-dot.topic-delegation { background: var(--purple); }
+.beat-dot.topic-digest { background: var(--green-bright); }
+.beat-dot.topic-research { background: var(--cyan); }
+.beat-dot.topic-ops { background: var(--red); }
+.beat-dot.topic-general { background: var(--text-secondary); }
+
+.beat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.beat-title {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.beat-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.beat-tag {
+  font-size: 9px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.beat-arrow {
+  color: var(--text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.beat-item:hover .beat-arrow {
+  opacity: 1;
+}
+
+/* ── Insights & Patterns Card ─────────────────────────── */
+.insight-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.insight-item:last-child { border-bottom: none; }
+
+.insight-icon {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+.insight-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.insight-source {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.insight-source:hover {
+  color: var(--cyan);
+}
+
+/* Beats card spans full width */
+.dash-card.beats-card {
+  grid-column: 1 / -1;
+}
+
+.beats-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Message highlight when jumped to */
+.chat-message.highlighted {
+  background: rgba(122, 231, 135, 0.06);
+  border-radius: 4px;
+  animation: highlight-fade 2s ease-out forwards;
+}
+
+@keyframes highlight-fade {
+  0% { background: rgba(122, 231, 135, 0.12); }
+  100% { background: transparent; }
+}
+
+/* ── Ask Gaia Panel ───────────────────────────────────── */
+.ask-gaia-panel {
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  padding: 0 32px 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 48px;
+  height: 200px;
+  transition: height 0.15s ease;
+  position: relative;
+}
+
+.ask-gaia-panel.expanded {
+  height: 50vh;
+}
+
+.ask-gaia-panel.collapsed {
+  height: 48px;
+  overflow: hidden;
+}
+
+/* Drag handle */
+.gaia-resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gaia-resize-handle::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-light);
+}
+
+.gaia-resize-handle:hover::after {
+  background: var(--green-bright);
+}
+
+.ask-gaia-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  flex-shrink: 0;
+}
+
+.ask-gaia-panel .panel-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--green-bright);
+  cursor: pointer;
+  user-select: none;
+}
+
+.gaia-expand-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.gaia-expand-btn:hover {
+  color: var(--green-bright);
+  border-color: var(--green-accent);
+}
+
+.ask-gaia-messages {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  min-height: 0;
+}
+
+.gaia-msg {
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.gaia-msg.user-msg { color: var(--cyan); }
+.gaia-msg.assistant-msg { color: var(--green-bright); }
+
+.ask-gaia-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ask-gaia-input-row .prompt-label {
+  color: var(--green-bright);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ask-gaia-input-row input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.ask-gaia-input-row input:focus {
+  border-color: var(--green-accent);
+}
+
+/* ── Session Chat View ────────────────────────────────── */
+.session-view {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.session-view.active {
+  display: flex;
+}
+
+.session-header {
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.back-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.session-header .session-type-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.session-header .session-id {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.session-header .session-info {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Chat area */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 32px;
+  position: relative;
+}
+
+/* Scanline overlay */
+.chat-area::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+.chat-message {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-left: 3px solid transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-message.role-user { border-left-color: var(--cyan); }
+.chat-message.role-assistant { border-left-color: var(--green-bright); }
+.chat-message.role-system { border-left-color: var(--amber); }
+.chat-message.role-tool { border-left-color: var(--purple); }
+
+.msg-role {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.role-user .msg-role { color: var(--cyan); }
+.role-assistant .msg-role { color: var(--green-bright); }
+.role-system .msg-role { color: var(--amber); }
+.role-tool .msg-role { color: var(--purple); }
+
+.msg-content {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.msg-content p { margin-bottom: 8px; }
+.msg-content p:last-child { margin-bottom: 0; }
+
+.msg-content strong { color: var(--text-primary); font-weight: 600; }
+
+.msg-content code {
+  background: var(--bg-base);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--amber);
+}
+
+.msg-content pre {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  margin: 8px 0;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.msg-content pre code {
+  background: none;
+  padding: 0;
+  color: var(--text-primary);
+}
+
+.msg-content blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  color: var(--text-secondary);
+  margin: 8px 0;
+}
+
+.msg-content ul, .msg-content ol {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+
+.msg-content li { margin-bottom: 4px; }
+
+/* Tool calls */
+.tool-call-block {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.tool-call-header:hover {
+  background: var(--bg-hover);
+}
+
+.tool-call-chevron {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  width: 12px;
+  text-align: center;
+}
+
+.tool-call-block.expanded .tool-call-chevron {
+  transform: rotate(90deg);
+}
+
+.tool-call-name {
+  font-size: 12px;
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.tool-call-status {
+  font-size: 10px;
+  color: var(--green-bright);
+  margin-left: auto;
+}
+
+.tool-call-body {
+  display: none;
+  border-top: 1px solid var(--border);
+}
+
+.tool-call-block.expanded .tool-call-body {
+  display: block;
+}
+
+.tool-call-section {
+  padding: 8px 12px;
+}
+
+.tool-call-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.tool-call-section pre {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.tool-call-section + .tool-call-section {
+  border-top: 1px solid var(--border);
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: none;
+  padding: 10px 14px;
+  border-left: 3px solid var(--green-bright);
+  margin-bottom: 16px;
+}
+
+.typing-indicator.visible { display: block; }
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green-bright);
+  opacity: 0.4;
+  animation: pulse 1.4s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulse {
+  0%, 80%, 100% { opacity: 0.4; transform: scale(1); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Chat input */
+.chat-input-area {
+  padding: 12px 32px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-input-area .prompt-label {
+  color: var(--green-bright);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.chat-input-area input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+}
+
+.chat-input-area input:focus {
+  border-color: var(--green-accent);
+}
+
+/* ── Utility ──────────────────────────────────────────── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ── Sidebar ──────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo" data-action="go-home">
+      <h1>Gaia</h1>
+      <div class="subtitle">habitat manager</div>
+    </div>
+
+    <div class="sidebar-section-label">Agents</div>
+    <div class="agent-sidebar-list" id="agent-sidebar-list"></div>
+  </aside>
+
+  <!-- ── Main Content ─────────────────────────── -->
+  <div class="main-content">
+    <!-- Agent Dashboard (default view) -->
+    <div class="agent-dashboard" id="agent-dashboard"></div>
+    <div class="ask-gaia-panel" id="ask-gaia-panel">
+      <div class="gaia-resize-handle" id="gaia-resize-handle"></div>
+      <div class="panel-header">
+        <div class="panel-label" id="gaia-toggle-label">Ask Gaia</div>
+        <button class="gaia-expand-btn" id="gaia-expand-btn" title="Expand / Collapse">expand</button>
+      </div>
+      <div class="ask-gaia-messages" id="gaia-messages"></div>
+      <div class="ask-gaia-input-row">
+        <span class="prompt-label">gaia&gt;</span>
+        <input type="text" id="gaia-input" placeholder="Ask about this habitat..." data-action="gaia-chat">
+      </div>
+    </div>
+
+    <!-- Session View -->
+    <div class="session-view" id="session-view">
+      <div class="session-header" id="session-header"></div>
+      <div class="chat-area" id="chat-area"></div>
+      <div class="chat-input-area">
+        <span class="prompt-label">gaia&gt;</span>
+        <input type="text" id="chat-input" placeholder="Send a message..." data-action="session-chat">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── API Layer ──────────────────────────────────────────────
+const IS_SERVED = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+const API_BASE = IS_SERVED ? '' : null;
+
+async function apiFetch(path) {
+  if (!API_BASE && API_BASE !== '') return null;
+  try {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// ── Mock Data ──────────────────────────────────────────────
+
+const MOCK_HABITAT = {
+  name: 'Jeeves',
+  provider: 'google',
+  model: 'gemini-2.5-flash-preview',
+  agents: [
+    { id: 'twitter-feed', name: 'twitter-feed', path: '../twitter-feed', status: 'online', gitRemote: 'git@github.com:user/twitter-feed.git', commands: ['start', 'stop', 'restart'], logPatterns: ['logs/*.log'], statusFile: '.status.json' },
+    { id: 'newsletter-feed', name: 'newsletter-feed', path: '../newsletter-feed', status: 'idle', gitRemote: 'git@github.com:user/newsletter-feed.git', commands: ['start', 'stop'], logPatterns: ['logs/*.log'] },
+    { id: 'trmnl-image', name: 'trmnl-image', path: '../trmnl-image', status: 'offline', gitRemote: null, commands: ['generate'], logPatterns: [] }
+  ],
+  tools: [
+    'read', 'write', 'list', 'ripgrep', 'current_time', 'wget', 'markify',
+    'parse_feed', 'agent_list', 'agent_add', 'agent_update', 'agent_remove',
+    'session_list', 'session_show', 'session_messages', 'session_stats',
+    'agent_clone', 'agent_logs', 'agent_status', 'agent_ask',
+    'interaction_list', 'interaction_show'
+  ],
+  skills: [
+    { name: '/summarize', description: 'Summarize recent agent activity' },
+    { name: '/digest', description: 'Generate a daily digest from all feeds' },
+    { name: '/health', description: 'Check system health and agent status' }
+  ],
+  stimulus: `You are Jeeves, a personal digital butler managing a constellation of specialized agents.\n\nYour primary responsibilities:\n- Monitor and coordinate sub-agents (twitter-feed, newsletter-feed, trmnl-image)\n- Respond to user queries about agent status and collected data\n- Generate daily digests combining information from all feeds\n- Maintain a calm, competent demeanor befitting a proper butler`,
+  memoryFiles: ['memories.md', 'facts.md', 'daily-log.md']
+};
+
+const MOCK_SESSIONS = {
+  'twitter-feed': [
+    { sessionId: 'ses-tf-001', type: 'cli', created: '2025-01-15T09:23:00Z', lastUsed: '2025-01-15T10:45:00Z', preview: 'Show me the status of all agents', messageCount: 14 },
+    { sessionId: 'ses-tf-002', type: 'telegram', created: '2025-01-15T14:10:00Z', lastUsed: '2025-01-15T14:32:00Z', preview: 'What did the twitter feed find today?', messageCount: 8 },
+  ],
+  'newsletter-feed': [
+    { sessionId: 'ses-nf-001', type: 'cli', created: '2025-01-15T11:00:00Z', lastUsed: '2025-01-15T11:30:00Z', preview: 'Find recent papers on mixture of experts', messageCount: 10 },
+    { sessionId: 'ses-nf-002', type: 'web', created: '2025-01-14T16:00:00Z', lastUsed: '2025-01-14T16:20:00Z', preview: 'Summarize the attention mechanism paper', messageCount: 6 }
+  ],
+  'trmnl-image': [
+    { sessionId: 'ses-ti-001', type: 'cli', created: '2025-01-15T07:00:00Z', lastUsed: '2025-01-15T07:45:00Z', preview: 'Generate dashboard image', messageCount: 12 },
+    { sessionId: 'ses-ti-002', type: 'api', created: '2025-01-15T06:00:00Z', lastUsed: '2025-01-15T06:02:00Z', preview: '{"action":"generate_image"}', messageCount: 4 }
+  ]
+};
+
+// All sessions flat (for mock — in live mode we use the API)
+const MOCK_ALL_SESSIONS = Object.values(MOCK_SESSIONS).flat();
+
+// Rich conversation for twitter-feed session 1
+const MOCK_SESSION_MESSAGES = {
+  'ses-tf-001': [
+    { role: 'system', content: 'Habitat session started. Type: cli. Agent: Jeeves.' },
+    { role: 'user', content: 'Show me the status of all agents' },
+    {
+      role: 'assistant',
+      content: 'Let me check on all your agents right away.',
+      toolCalls: [
+        { name: 'agent_status', input: '{\n  "agent_id": "twitter-feed"\n}', output: '{\n  "id": "twitter-feed",\n  "status": "running",\n  "uptime": "4h 23m",\n  "lastActivity": "2025-01-15T09:20:12Z",\n  "stats": {\n    "tweetsProcessed": 142,\n    "matchesFound": 7,\n    "errorsLast24h": 0\n  }\n}' },
+        { name: 'agent_status', input: '{\n  "agent_id": "newsletter-feed"\n}', output: '{\n  "id": "newsletter-feed",\n  "status": "idle",\n  "uptime": "12h 05m",\n  "lastActivity": "2025-01-15T06:00:00Z",\n  "stats": {\n    "newslettersProcessed": 3,\n    "nextScheduled": "2025-01-15T18:00:00Z"\n  }\n}' },
+        { name: 'agent_status', input: '{\n  "agent_id": "trmnl-image"\n}', output: '{\n  "id": "trmnl-image",\n  "status": "stopped",\n  "lastActivity": "2025-01-14T22:00:00Z",\n  "error": "Image generation API rate limit exceeded"\n}' }
+      ]
+    },
+    {
+      role: 'assistant',
+      content: 'Here is the current status of your agents, sir:\n\n**twitter-feed** \u2014 **Running**\n- Uptime: 4h 23m\n- Processed **142 tweets** today, found **7 matches**\n- No errors in the last 24 hours\n\n**newsletter-feed** \u2014 **Idle**\n- Uptime: 12h 05m\n- Processed 3 newsletters this morning\n- Next scheduled run: 6:00 PM today\n\n**trmnl-image** \u2014 **Stopped**\n- Last active: yesterday at 10:00 PM\n- Error: `Image generation API rate limit exceeded`\n\n> I recommend restarting the trmnl-image agent after the rate limit resets, which is typically at midnight UTC.'
+    },
+    { role: 'user', content: 'Can you get the latest logs from twitter-feed?' },
+    {
+      role: 'assistant',
+      content: 'Of course. Let me fetch the recent logs.',
+      toolCalls: [
+        { name: 'agent_logs', input: '{\n  "agent_id": "twitter-feed",\n  "lines": 20,\n  "format": "jsonl"\n}', output: '{"ts":"09:18:42","level":"info","msg":"Processing batch 47","tweets":5}\n{"ts":"09:18:43","level":"info","msg":"Match found","query":"AI agents","tweet_id":"1879234567"}\n{"ts":"09:19:01","level":"info","msg":"Processing batch 48","tweets":3}\n{"ts":"09:19:15","level":"info","msg":"Match found","query":"multi-agent systems","tweet_id":"1879234891"}\n{"ts":"09:20:12","level":"info","msg":"Batch complete","total_processed":142,"matches":7}' }
+      ]
+    },
+    {
+      role: 'assistant',
+      content: 'Here are the latest logs from **twitter-feed**:\n\nThe agent is running smoothly. In the most recent batches:\n\n- **09:18:42** \u2014 Processed batch 47 (5 tweets)\n- **09:18:43** \u2014 Match found for query `AI agents`\n- **09:19:01** \u2014 Processed batch 48 (3 tweets)\n- **09:19:15** \u2014 Match found for query `multi-agent systems`\n- **09:20:12** \u2014 Batch processing complete: **142 total**, **7 matches**\n\nAll operations nominal. No warnings or errors in the recent log window.'
+    },
+    { role: 'user', content: 'Ask the twitter-feed agent to summarize what it found today' },
+    {
+      role: 'assistant',
+      content: 'I\'ll delegate that question to the twitter-feed agent directly.',
+      toolCalls: [
+        { name: 'agent_ask', input: '{\n  "agent_id": "twitter-feed",\n  "message": "Please provide a summary of all matches found today."\n}', output: '{\n  "response": "Today I found 7 matching tweets across your tracked topics:\\n\\n1. **AI Agents** (4 matches):\\n   - Thread on autonomous agent architectures by @karpathy\\n   - New paper: ReAct Agents with Tool Use from DeepMind\\n\\n2. **Multi-Agent Systems** (2 matches):\\n   - Blog post on swarm intelligence applied to LLMs\\n   - Open-source framework release: AgentScope v0.2\\n\\n3. **Habitat/Umwelten** (1 match):\\n   - Community mention of the umwelten framework"\n}' }
+      ]
+    },
+    {
+      role: 'assistant',
+      content: 'The twitter-feed agent reports **7 matches** today across your tracked topics:\n\n**AI Agents** (4 matches)\n- Thread on autonomous agent architectures by @karpathy\n- New paper: "ReAct Agents with Tool Use" from DeepMind\n\n**Multi-Agent Systems** (2 matches)\n- Blog post on swarm intelligence applied to LLMs\n- Open-source framework release: AgentScope v0.2\n\n**Habitat/Umwelten** (1 match)\n- Community mention of the umwelten framework\n\nShall I have the agent fetch the full details on any of these, sir?'
+    }
+  ]
+};
+
+// ── Conversation Beats (mock) ───────────────────────────────
+
+const SESSION_BEATS = {
+  'ses-tf-001': [
+    { title: 'Checked status of all 3 agents', topic: 'status', msgIndex: 1, tools: ['agent_status'], tags: ['monitoring'] },
+    { title: 'twitter-feed running, newsletter idle, trmnl-image stopped', topic: 'status', msgIndex: 3, tags: ['issue'] },
+    { title: 'Fetched twitter-feed logs \u2014 batch processing nominal', topic: 'logs', msgIndex: 4, tools: ['agent_logs'], tags: ['logs'] },
+    { title: 'Delegated to twitter-feed: daily summary of 7 matches', topic: 'delegation', msgIndex: 6, tools: ['agent_ask'], tags: ['AI agents'] },
+  ],
+  'ses-tf-002': [
+    { title: 'Asked about twitter feed findings', topic: 'delegation', msgIndex: 1, tags: ['twitter'] },
+    { title: 'Reviewed AI agent architecture tweets', topic: 'digest', msgIndex: 2, tags: ['AI agents'] }
+  ]
+};
+
+// ── State ──────────────────────────────────────────────────
+
+let state = {
+  habitat: null,         // habitat config (single habitat)
+  agents: [],            // agent list with sessions attached
+  selectedAgent: null,   // agent id or null (dashboard)
+  selectedSession: null, // session index within agent or null
+  gaiaMessages: [],
+  sessionChatMessages: {},
+  isLive: false
+};
+
+// ── Session Type Icons ─────────────────────────────────────
+
+const SESSION_ICONS = {
+  cli: '$',
+  telegram: '\u2708',
+  web: '\u25CE',
+  api: '{}',
+  tui: '>'
+};
+
+// ── Utilities ──────────────────────────────────────────────
+
+function formatTime(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 86400000) {
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function simpleMarkdown(text) {
+  let result = text;
+
+  // Code blocks
+  result = result.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
+  });
+
+  // Inline code
+  result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Bold
+  result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic
+  result = result.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+
+  // Blockquotes
+  result = result.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Unordered lists
+  result = result.replace(/^- (.+)$/gm, '<li>$1</li>');
+  result = result.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
+
+  // Ordered lists
+  result = result.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+  // Paragraphs
+  const parts = result.split(/\n\n+/);
+  result = parts.map(p => {
+    p = p.trim();
+    if (!p) return '';
+    if (p.startsWith('<pre>') || p.startsWith('<ul>') || p.startsWith('<ol>') || p.startsWith('<blockquote>')) return p;
+    p = p.replace(/\n/g, '<br>');
+    return `<p>${p}</p>`;
+  }).join('');
+
+  return result;
+}
+
+function getAgent(agentId) {
+  return state.agents.find(a => a.id === agentId);
+}
+
+function getAgentSessions(agentId) {
+  const agent = getAgent(agentId);
+  return agent ? (agent.sessions || []) : [];
+}
+
+// ── Render: Sidebar ────────────────────────────────────────
+
+function renderSidebar() {
+  const container = document.getElementById('agent-sidebar-list');
+  let html = '';
+
+  for (const agent of state.agents) {
+    const isActive = state.selectedAgent === agent.id;
+    const sessions = agent.sessions || [];
+    const sessionCount = sessions.length;
+
+    html += `
+      <div class="agent-sidebar-item ${isActive ? 'active' : ''}"
+           data-action="select-agent" data-agent-id="${agent.id}">
+        <div class="agent-sidebar-name">
+          <span class="agent-sidebar-status ${agent.status || 'online'}"></span>
+          ${escapeHtml(agent.name)}
+          <span class="agent-session-count">${sessionCount}</span>
+        </div>
+        <div class="agent-sidebar-path">${escapeHtml(agent.path || '')}</div>
+      </div>
+      <div class="agent-sessions" ${isActive ? 'style="display:block"' : ''}>
+        ${sessions.map((s, i) => `
+          <div class="agent-session-item ${state.selectedAgent === agent.id && state.selectedSession === i ? 'active' : ''}"
+               data-action="select-session" data-agent-id="${agent.id}" data-index="${i}">
+            <div>
+              <span class="session-type-icon">${SESSION_ICONS[s.type] || '?'}</span>
+              <span class="session-preview">${escapeHtml(s.preview || s.sessionId)}</span>
+            </div>
+            <div class="session-meta">
+              <span>${formatTime(s.lastUsed)}</span>
+              <span>${s.messageCount} msgs</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+// ── Render: Agent Dashboard (main overview) ────────────────
+
+function renderAgentDashboard() {
+  const dashboard = document.getElementById('agent-dashboard');
+  const h = state.habitat;
+
+  const totalSessions = state.agents.reduce((sum, a) => sum + (a.sessions || []).length, 0);
+
+  let agentCards = '';
+  for (const agent of state.agents) {
+    const sessions = agent.sessions || [];
+    agentCards += `
+      <div class="agent-card" data-action="select-agent" data-agent-id="${agent.id}">
+        <div class="agent-card-header">
+          <span class="status-dot ${agent.status || 'online'}"></span>
+          <span class="agent-card-name">${escapeHtml(agent.name)}</span>
+        </div>
+        <div class="agent-card-path">${escapeHtml(agent.path || '')}</div>
+        <div class="agent-card-stats">
+          <div class="agent-card-stat">
+            <span class="stat-label">sessions</span>
+            <span class="stat-value">${sessions.length}</span>
+          </div>
+          <div class="agent-card-stat">
+            <span class="stat-label">status</span>
+            <span class="stat-value">${agent.status || 'online'}</span>
+          </div>
+          ${agent.gitRemote ? `<div class="agent-card-stat"><span class="stat-label">git</span><span class="stat-value">connected</span></div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  dashboard.innerHTML = `
+    <div class="dashboard-header">
+      <h2>${escapeHtml(h?.name || 'Habitat')}</h2>
+      <span class="provider-badge">${h?.provider || 'unknown'} / ${h?.model || 'unknown'}</span>
+    </div>
+
+    <div class="agent-overview-grid">
+      ${agentCards}
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Tools Card -->
+      <div class="dash-card">
+        <div class="dash-card-title">
+          Tools <span class="count">${(h?.tools || []).length}</span>
+        </div>
+        <div class="tool-tags">
+          ${(h?.tools || []).map(t => `<span class="tool-tag">${escapeHtml(typeof t === 'string' ? t : t.name || '')}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- Skills Card -->
+      <div class="dash-card">
+        <div class="dash-card-title">
+          Skills <span class="count">${(h?.skills || []).length}</span>
+        </div>
+        ${(h?.skills || []).map(s => `
+          <div class="skill-row">
+            <span class="skill-name">${escapeHtml(s.name)}</span>
+            <span class="skill-desc">${escapeHtml(s.description)}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Stimulus Card -->
+      <div class="dash-card">
+        <div class="dash-card-title">Stimulus</div>
+        <div class="stimulus-preview">${escapeHtml(h?.stimulus || '').replace(/\\n/g, '<br>')}</div>
+      </div>
+
+      <!-- Memory Files Card -->
+      ${(h?.memoryFiles || []).length > 0 ? `
+      <div class="dash-card">
+        <div class="dash-card-title">
+          Memory Files <span class="count">${h.memoryFiles.length}</span>
+        </div>
+        ${h.memoryFiles.map(f => `
+          <div class="memory-file">
+            <span class="icon">\u25C8</span>
+            <span>${escapeHtml(typeof f === 'string' ? f : f.name || '')}</span>
+          </div>
+        `).join('')}
+      </div>` : ''}
+
+      <!-- Sessions Summary Card -->
+      <div class="dash-card">
+        <div class="dash-card-title">
+          Sessions <span class="count">${totalSessions}</span>
+        </div>
+        ${state.agents.map(agent => `
+          <div class="session-summary-row">
+            <span class="status-dot ${agent.status || 'online'}" style="width:6px;height:6px"></span>
+            <span>${escapeHtml(agent.name)}</span>
+            <span style="margin-left:auto;color:var(--text-muted)">${(agent.sessions || []).length} sessions</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ── Render: Agent Detail (when agent selected, no session) ─
+
+function renderAgentDetail() {
+  const agent = getAgent(state.selectedAgent);
+  if (!agent) return;
+
+  const sessions = agent.sessions || [];
+  const dashboard = document.getElementById('agent-dashboard');
+
+  let beatsHtml = '';
+  if (!state.isLive) {
+    // Mock beats
+    let totalBeats = 0;
+    let columns = '';
+    for (const session of sessions) {
+      const beats = SESSION_BEATS[session.sessionId];
+      if (!beats || beats.length === 0) continue;
+      totalBeats += beats.length;
+      const sIdx = sessions.indexOf(session);
+      columns += `
+        <div class="beat-session-group">
+          <div class="beat-session-label">
+            <span class="session-icon">${SESSION_ICONS[session.type] || '?'}</span>
+            ${session.sessionId} \u00B7 ${formatTime(session.lastUsed)}
+          </div>
+          ${beats.map(b => `
+            <div class="beat-item" data-action="jump-to-beat" data-agent-id="${agent.id}" data-session="${sIdx}" data-msg="${b.msgIndex}">
+              <span class="beat-dot topic-${b.topic}"></span>
+              <div class="beat-content">
+                <div class="beat-title">${escapeHtml(b.title)}</div>
+                <div class="beat-meta">
+                  ${b.tools ? b.tools.map(t => `<span class="beat-tag">${t}</span>`).join('') : ''}
+                  ${b.tags.map(t => `<span class="beat-tag">${t}</span>`).join('')}
+                </div>
+              </div>
+              <span class="beat-arrow">\u2192</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    if (totalBeats > 0) {
+      beatsHtml = `
+        <div class="dash-card beats-card" style="margin-bottom:16px">
+          <div class="dash-card-title">
+            Conversation Beats <span class="count">${totalBeats}</span>
+          </div>
+          <div class="beats-columns">${columns}</div>
+        </div>
+      `;
+    }
+  }
+
+  dashboard.innerHTML = `
+    <div class="dashboard-header">
+      <h2>${escapeHtml(agent.name)}</h2>
+      <span class="provider-badge">${agent.status || 'online'}</span>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Agent Info Card -->
+      <div class="dash-card">
+        <div class="dash-card-title">Info</div>
+        <div style="font-size:12px;color:var(--text-secondary)">
+          <div style="margin-bottom:6px"><strong style="color:var(--text-muted)">Path:</strong> ${escapeHtml(agent.path || 'N/A')}</div>
+          ${agent.gitRemote ? `<div style="margin-bottom:6px"><strong style="color:var(--text-muted)">Git:</strong> <span style="color:var(--cyan)">${escapeHtml(agent.gitRemote)}</span></div>` : ''}
+          ${agent.statusFile ? `<div><strong style="color:var(--text-muted)">Status File:</strong> ${escapeHtml(agent.statusFile)}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Commands Card -->
+      ${(agent.commands || []).length > 0 ? `
+      <div class="dash-card">
+        <div class="dash-card-title">Commands <span class="count">${agent.commands.length}</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${agent.commands.map(c => `<span style="font-size:12px;padding:4px 10px;border-radius:4px;background:var(--bg-base);border:1px solid var(--border);color:var(--cyan)">${escapeHtml(c)}</span>`).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Sessions Card -->
+      <div class="dash-card">
+        <div class="dash-card-title">Sessions <span class="count">${sessions.length}</span></div>
+        ${sessions.map((s, i) => `
+          <div class="session-summary-row" style="cursor:pointer" data-action="select-session" data-agent-id="${agent.id}" data-index="${i}">
+            <span class="session-type-icon" style="display:inline-block;width:18px;text-align:center;font-size:12px;color:var(--text-muted)">${SESSION_ICONS[s.type] || '?'}</span>
+            <span>${escapeHtml((s.preview || '').substring(0, 40))}${(s.preview || '').length > 40 ? '...' : ''}</span>
+            <span style="margin-left:auto;color:var(--text-muted)">${s.messageCount} msgs</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Log Patterns Card -->
+      ${(agent.logPatterns || []).length > 0 ? `
+      <div class="dash-card">
+        <div class="dash-card-title">Log Patterns</div>
+        ${agent.logPatterns.map(p => `<div style="font-size:12px;color:var(--text-secondary);padding:2px 0">${escapeHtml(p)}</div>`).join('')}
+      </div>` : ''}
+    </div>
+
+    <!-- Conversation Beats -->
+    <div id="beats-container">${beatsHtml}</div>
+  `;
+
+  // Load live beats if in live mode
+  if (state.isLive) {
+    renderLiveBeatsForAgent(agent).then(html => {
+      const container = document.getElementById('beats-container');
+      if (container) container.innerHTML = html;
+    });
+  }
+}
+
+// ── Render: Session View ───────────────────────────────────
+
+function renderToolCall(tc) {
+  return `
+    <div class="tool-call-block" data-action="toggle-tool-call">
+      <div class="tool-call-header">
+        <span class="tool-call-chevron">\u25B6</span>
+        <span class="tool-call-name">${escapeHtml(tc.name)}</span>
+        <span class="tool-call-status">\u2713 completed</span>
+      </div>
+      <div class="tool-call-body">
+        <div class="tool-call-section">
+          <div class="tool-call-section-label">Input</div>
+          <pre>${escapeHtml(tc.input)}</pre>
+        </div>
+        <div class="tool-call-section">
+          <div class="tool-call-section-label">Output</div>
+          <pre>${escapeHtml(tc.output)}</pre>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderMessage(msg, index) {
+  let content = '';
+
+  if (msg.toolCalls && msg.toolCalls.length > 0) {
+    content += `<div class="msg-content">${simpleMarkdown(msg.content)}</div>`;
+    content += msg.toolCalls.map(renderToolCall).join('');
+  } else {
+    content = `<div class="msg-content">${simpleMarkdown(msg.content)}</div>`;
+  }
+
+  return `
+    <div class="chat-message role-${msg.role}" data-msg-index="${index}">
+      <div class="msg-role">${msg.role}</div>
+      ${content}
+    </div>
+  `;
+}
+
+function getSessionMessages(agentId, sessionIndex) {
+  const sessions = getAgentSessions(agentId);
+  if (!sessions[sessionIndex]) return [];
+  const session = sessions[sessionIndex];
+
+  // Check mock messages
+  if (MOCK_SESSION_MESSAGES[session.sessionId]) {
+    return MOCK_SESSION_MESSAGES[session.sessionId];
+  }
+
+  // Placeholder
+  const agent = getAgent(agentId);
+  return [
+    { role: 'system', content: `Habitat session started. Type: ${session.type}. Agent: ${agent?.name || agentId}.` },
+    { role: 'user', content: session.preview },
+    { role: 'assistant', content: `I'll look into that for you. Let me check the current state of things.` },
+    { role: 'assistant', content: `Based on my analysis, everything looks good. Is there anything specific you'd like me to investigate further?` }
+  ];
+}
+
+function renderSessionView() {
+  const sessions = getAgentSessions(state.selectedAgent);
+  const session = sessions[state.selectedSession];
+  const agent = getAgent(state.selectedAgent);
+  const messages = getSessionMessages(state.selectedAgent, state.selectedSession);
+
+  const extraKey = `${state.selectedAgent}-${state.selectedSession}`;
+  const extras = state.sessionChatMessages[extraKey] || [];
+
+  // Header
+  const header = document.getElementById('session-header');
+  header.innerHTML = `
+    <button class="back-btn" data-action="back-to-agent">\u2190 ${escapeHtml(agent?.name || 'Back')}</button>
+    <span class="session-type-badge">${SESSION_ICONS[session.type] || '?'} ${session.type}</span>
+    <span class="session-id">${session.sessionId}</span>
+    <span class="session-info">${formatTime(session.created)} \u00B7 ${messages.length + extras.length} messages</span>
+  `;
+
+  // Messages
+  const chatArea = document.getElementById('chat-area');
+  const allMessages = [...messages, ...extras];
+  chatArea.innerHTML = allMessages.map((m, i) => renderMessage(m, i)).join('') +
+    '<div class="typing-indicator" id="typing-indicator"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+// ── View Switching ─────────────────────────────────────────
+
+function updateGaiaPanel() {
+  const label = document.getElementById('gaia-toggle-label');
+  const input = document.getElementById('gaia-input');
+  const promptLabel = input.parentElement.querySelector('.prompt-label');
+  if (state.selectedAgent) {
+    const agent = getAgent(state.selectedAgent);
+    const name = agent ? agent.name : state.selectedAgent;
+    label.textContent = `Ask ${name}`;
+    input.placeholder = `Chat with ${name}...`;
+    promptLabel.textContent = `${(agent?.name || state.selectedAgent).split(/[-_]/).pop()}>`;
+  } else {
+    label.textContent = 'Ask Gaia';
+    input.placeholder = 'Ask about this habitat...';
+    promptLabel.textContent = 'gaia>';
+  }
+}
+
+function showDashboardView() {
+  state.selectedAgent = null;
+  state.selectedSession = null;
+  document.getElementById('agent-dashboard').style.display = '';
+  document.getElementById('ask-gaia-panel').style.display = '';
+  document.getElementById('session-view').classList.remove('active');
+  renderAgentDashboard();
+  renderSidebar();
+  updateGaiaPanel();
+}
+
+function showAgentView(agentId) {
+  state.selectedAgent = agentId;
+  state.selectedSession = null;
+  document.getElementById('agent-dashboard').style.display = '';
+  document.getElementById('ask-gaia-panel').style.display = '';
+  document.getElementById('session-view').classList.remove('active');
+  renderAgentDetail();
+  renderSidebar();
+  updateGaiaPanel();
+}
+
+async function showSessionView(agentId, sessionIndex) {
+  state.selectedAgent = agentId;
+  state.selectedSession = sessionIndex;
+  document.getElementById('agent-dashboard').style.display = 'none';
+  document.getElementById('ask-gaia-panel').style.display = 'none';
+  document.getElementById('session-view').classList.add('active');
+
+  if (state.isLive) {
+    await renderSessionViewLive();
+  } else {
+    renderSessionView();
+  }
+  renderSidebar();
+}
+
+// ── Jump to beat ───────────────────────────────────────────
+
+async function jumpToBeat(agentId, sessionIndex, msgIndex) {
+  await showSessionView(agentId, sessionIndex);
+
+  setTimeout(() => {
+    const chatArea = document.getElementById('chat-area');
+    let target = chatArea.querySelector(`[data-msg-index="${msgIndex}"]`);
+    if (!target) {
+      const allMsgs = chatArea.querySelectorAll('.chat-message');
+      if (msgIndex < allMsgs.length) target = allMsgs[msgIndex];
+      else if (allMsgs.length > 0) target = allMsgs[allMsgs.length - 1];
+    }
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('highlighted');
+    }
+  }, 100);
+}
+
+// ── Event Handling ─────────────────────────────────────────
+
+document.addEventListener('click', async (e) => {
+  // Go home (click logo)
+  const logo = e.target.closest('[data-action="go-home"]');
+  if (logo) {
+    showDashboardView();
+    return;
+  }
+
+  // Select agent
+  const agentItem = e.target.closest('[data-action="select-agent"]');
+  if (agentItem) {
+    const agentId = agentItem.dataset.agentId;
+    if (state.selectedAgent === agentId && !state.selectedSession) {
+      // Already viewing this agent, go to dashboard
+      showDashboardView();
+    } else {
+      showAgentView(agentId);
+    }
+    return;
+  }
+
+  // Select session
+  const sessionItem = e.target.closest('[data-action="select-session"]');
+  if (sessionItem) {
+    const agentId = sessionItem.dataset.agentId;
+    const index = parseInt(sessionItem.dataset.index);
+    await showSessionView(agentId, index);
+    return;
+  }
+
+  // Jump to beat
+  const beatItem = e.target.closest('[data-action="jump-to-beat"]');
+  if (beatItem) {
+    const agentId = beatItem.dataset.agentId;
+    const sessionIndex = parseInt(beatItem.dataset.session);
+    const msgIndex = parseInt(beatItem.dataset.msg);
+    await jumpToBeat(agentId, sessionIndex, msgIndex);
+    return;
+  }
+
+  // Back to agent detail
+  const backBtn = e.target.closest('[data-action="back-to-agent"]');
+  if (backBtn) {
+    if (state.selectedAgent) {
+      showAgentView(state.selectedAgent);
+    } else {
+      showDashboardView();
+    }
+    return;
+  }
+
+  // Back to dashboard
+  const dashBtn = e.target.closest('[data-action="back-to-dashboard"]');
+  if (dashBtn) {
+    showDashboardView();
+    return;
+  }
+
+  // Toggle tool call
+  const toolCallHeader = e.target.closest('.tool-call-header');
+  if (toolCallHeader) {
+    const block = toolCallHeader.closest('.tool-call-block');
+    block.classList.toggle('expanded');
+    return;
+  }
+});
+
+// ── Gaia panel resize / expand ─────────────────────────────
+{
+  const panel = document.getElementById('ask-gaia-panel');
+  const handle = document.getElementById('gaia-resize-handle');
+  const expandBtn = document.getElementById('gaia-expand-btn');
+  const label = document.getElementById('gaia-toggle-label');
+
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+
+  handle.addEventListener('mousedown', (e) => {
+    dragging = true;
+    startY = e.clientY;
+    startH = panel.offsetHeight;
+    panel.style.transition = 'none';
+    panel.classList.remove('expanded', 'collapsed');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const delta = startY - e.clientY;
+    const newH = Math.max(48, Math.min(window.innerHeight * 0.85, startH + delta));
+    panel.style.height = newH + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    panel.style.transition = '';
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    updateExpandBtn();
+  });
+
+  function updateExpandBtn() {
+    const h = panel.offsetHeight;
+    if (h > window.innerHeight * 0.4) {
+      expandBtn.textContent = 'collapse';
+    } else {
+      expandBtn.textContent = 'expand';
+    }
+  }
+
+  expandBtn.addEventListener('click', () => {
+    panel.classList.remove('collapsed');
+    if (panel.classList.contains('expanded')) {
+      panel.classList.remove('expanded');
+      panel.style.height = '200px';
+      expandBtn.textContent = 'expand';
+    } else {
+      panel.classList.add('expanded');
+      panel.style.height = '';
+      expandBtn.textContent = 'collapse';
+    }
+  });
+
+  label.addEventListener('click', () => {
+    if (panel.classList.contains('collapsed')) {
+      panel.classList.remove('collapsed');
+      panel.style.height = '200px';
+      expandBtn.textContent = 'expand';
+    }
+  });
+}
+
+// ── Gaia chat input (SSE streaming) ────────────────────────
+let gaiaSessionId = null;
+// Track separate session IDs per agent (null key = habitat manager)
+const agentSessionIds = {};
+
+function parseSSE(text) {
+  const events = [];
+  const lines = text.split('\n');
+  let currentEvent = null;
+  let currentData = null;
+  for (const line of lines) {
+    if (line.startsWith('event: ')) {
+      currentEvent = line.slice(7);
+    } else if (line.startsWith('data: ')) {
+      currentData = line.slice(6);
+    } else if (line === '' && currentEvent && currentData) {
+      try { events.push({ event: currentEvent, data: JSON.parse(currentData) }); } catch {}
+      currentEvent = null;
+      currentData = null;
+    }
+  }
+  return events;
+}
+
+document.getElementById('gaia-input').addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const input = e.target;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.disabled = true;
+
+  state.gaiaMessages.push({ role: 'user', text });
+  const messagesEl = document.getElementById('gaia-messages');
+  messagesEl.innerHTML += `<div class="gaia-msg user-msg">&gt; ${escapeHtml(text)}</div>`;
+
+  const streamEl = document.createElement('div');
+  streamEl.className = 'gaia-msg assistant-msg msg-content';
+  streamEl.textContent = '';
+  messagesEl.appendChild(streamEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  let streamedText = '';
+
+  try {
+    const agentId = state.selectedAgent || null;
+    const sessionKey = agentId || '__habitat__';
+    const payload = { message: text };
+    if (agentSessionIds[sessionKey]) payload.sessionId = agentSessionIds[sessionKey];
+    if (agentId) payload.agentId = agentId;
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+
+      for (const part of parts) {
+        const events = parseSSE(part + '\n\n');
+        for (const { event, data } of events) {
+          switch (event) {
+            case 'session':
+              agentSessionIds[sessionKey] = data.sessionId;
+              gaiaSessionId = data.sessionId;
+              break;
+            case 'text':
+              streamedText += data.text;
+              streamEl.innerHTML = simpleMarkdown(streamedText);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+              break;
+            case 'tool-call': {
+              const tcEl = document.createElement('div');
+              tcEl.className = 'gaia-msg assistant-msg';
+              tcEl.style.cssText = 'color:var(--cyan);font-size:11px;';
+              tcEl.textContent = `\u2192 ${data.name}(${JSON.stringify(data.input).slice(0, 100)})`;
+              streamEl.before(tcEl);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+              break;
+            }
+            case 'tool-result': {
+              const trEl = document.createElement('div');
+              trEl.className = 'gaia-msg assistant-msg';
+              trEl.style.cssText = `color:${data.isError ? 'var(--red)' : 'var(--text-muted)'};font-size:11px;`;
+              const preview = (data.output || '').slice(0, 200);
+              trEl.textContent = `  \u2190 ${data.name}: ${preview}`;
+              streamEl.before(trEl);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+              break;
+            }
+            case 'done':
+              streamEl.innerHTML = simpleMarkdown(data.content || streamedText);
+              state.gaiaMessages.push({ role: 'assistant', text: data.content || streamedText });
+              break;
+            case 'error':
+              streamEl.style.color = 'var(--red)';
+              streamEl.textContent = 'Error: ' + data.error;
+              break;
+          }
+        }
+      }
+    }
+
+    if (!streamedText && !streamEl.textContent) {
+      streamEl.remove();
+    }
+  } catch (err) {
+    streamEl.style.color = 'var(--red)';
+    streamEl.textContent = 'Network error: ' + err.message;
+  }
+
+  input.disabled = false;
+  input.focus();
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+});
+
+// Session chat input
+document.getElementById('chat-input').addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const input = e.target;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.disabled = true;
+
+  const extraKey = `${state.selectedAgent}-${state.selectedSession}`;
+  if (!state.sessionChatMessages[extraKey]) {
+    state.sessionChatMessages[extraKey] = [];
+  }
+
+  state.sessionChatMessages[extraKey].push({ role: 'user', content: text });
+
+  const chatArea = document.getElementById('chat-area');
+  const indicator = document.getElementById('typing-indicator');
+
+  const userMsgHtml = renderMessage({ role: 'user', content: text });
+  indicator.insertAdjacentHTML('beforebegin', userMsgHtml);
+
+  indicator.classList.add('visible');
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  try {
+    const payload = { message: text };
+    if (gaiaSessionId) payload.sessionId = gaiaSessionId;
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let streamedText = '';
+
+    const streamDiv = document.createElement('div');
+    streamDiv.className = 'message assistant';
+    streamDiv.innerHTML = '<div class="msg-role">assistant</div><div class="msg-content"></div>';
+    indicator.before(streamDiv);
+    const contentEl = streamDiv.querySelector('.msg-content');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+
+      for (const part of parts) {
+        const events = parseSSE(part + '\n\n');
+        for (const { event, data } of events) {
+          switch (event) {
+            case 'session':
+              gaiaSessionId = data.sessionId;
+              break;
+            case 'text':
+              streamedText += data.text;
+              contentEl.innerHTML = simpleMarkdown(streamedText);
+              chatArea.scrollTop = chatArea.scrollHeight;
+              break;
+            case 'tool-call': {
+              const tc = document.createElement('div');
+              tc.className = 'tool-call-block';
+              tc.innerHTML = `<div class="tool-call-header"><span class="tool-name">${escapeHtml(data.name)}</span></div>`;
+              streamDiv.before(tc);
+              chatArea.scrollTop = chatArea.scrollHeight;
+              break;
+            }
+            case 'tool-result': {
+              const tr = document.createElement('div');
+              tr.className = 'tool-call-block';
+              tr.style.cssText = `color:${data.isError ? 'var(--red)' : 'var(--text-muted)'};font-size:11px;padding:4px 12px;`;
+              tr.textContent = `${data.name}: ${(data.output || '').slice(0, 200)}`;
+              streamDiv.before(tr);
+              chatArea.scrollTop = chatArea.scrollHeight;
+              break;
+            }
+            case 'done':
+              contentEl.innerHTML = simpleMarkdown(data.content || streamedText);
+              state.sessionChatMessages[extraKey].push({ role: 'assistant', content: data.content || streamedText });
+              break;
+            case 'error':
+              contentEl.style.color = 'var(--red)';
+              contentEl.textContent = 'Error: ' + data.error;
+              break;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    const errEl = document.createElement('div');
+    errEl.className = 'message assistant';
+    errEl.innerHTML = `<div class="msg-role">assistant</div><div class="msg-content" style="color:var(--red)">Network error: ${escapeHtml(err.message)}</div>`;
+    indicator.before(errEl);
+  }
+
+  indicator.classList.remove('visible');
+  input.disabled = false;
+  input.focus();
+  chatArea.scrollTop = chatArea.scrollHeight;
+});
+
+// ── Live Data Loading ──────────────────────────────────────
+
+async function loadLiveData() {
+  if (!IS_SERVED) return false;
+
+  const habitatData = await apiFetch('/api/habitat');
+  if (!habitatData) return false;
+
+  const sessionsData = await apiFetch('/api/sessions');
+  if (!sessionsData) return false;
+
+  // Build habitat
+  state.habitat = {
+    name: habitatData.name || 'Habitat',
+    provider: habitatData.provider || 'unknown',
+    model: habitatData.model || 'unknown',
+    tools: habitatData.tools || [],
+    skills: (habitatData.skills || []).map(s => ({ name: s.name, description: s.description })),
+    stimulus: habitatData.stimulus || '',
+    memoryFiles: habitatData.memoryFiles?.files || []
+  };
+
+  // Build agents with sessions
+  const agents = (habitatData.agents || []).map(a => ({
+    id: a.id,
+    name: a.name,
+    path: a.projectPath,
+    status: 'online',
+    gitRemote: a.gitRemote,
+    commands: a.commands || [],
+    logPatterns: a.logPatterns || [],
+    statusFile: a.statusFile,
+    sessions: [] // will be populated below
+  }));
+
+  // All sessions (assigned to agents or to a "habitat" agent)
+  const allSessions = (sessionsData.sessions || []).map(s => ({
+    sessionId: s.sessionId,
+    type: s.type || 'cli',
+    created: s.created,
+    lastUsed: s.lastUsed,
+    preview: s.firstPrompt || s.sessionId,
+    messageCount: s.messageCount || 0
+  }));
+
+  // For now, assign all sessions to a virtual "habitat" agent if there are no real agents,
+  // or distribute to the first agent (since we don't have session-to-agent mapping yet)
+  if (agents.length === 0) {
+    agents.push({
+      id: 'habitat',
+      name: state.habitat.name,
+      path: habitatData.workDir || '',
+      status: 'online',
+      sessions: allSessions
+    });
+  } else {
+    // Assign all sessions to the habitat-level agent (first agent gets them all for now)
+    // In a future version, sessions could be mapped to specific agents
+    agents[0].sessions = allSessions;
+  }
+
+  state.agents = agents;
+  state.isLive = true;
+
+  return true;
+}
+
+function loadMockData() {
+  state.habitat = MOCK_HABITAT;
+  state.agents = MOCK_HABITAT.agents.map(a => ({
+    ...a,
+    sessions: MOCK_SESSIONS[a.id] || []
+  }));
+  state.isLive = false;
+}
+
+// ── Live session loading ───────────────────────────────────
+
+const liveSessionCache = {};
+
+async function loadLiveSessionMessages(sessionId) {
+  if (!IS_SERVED) return null;
+  const cacheKey = `msgs-${sessionId}`;
+  if (liveSessionCache[cacheKey]) return liveSessionCache[cacheKey];
+
+  const data = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`);
+  if (!data || !data.messages) return null;
+
+  const messages = data.messages.map(m => {
+    const msg = { role: m.role, content: m.content || '' };
+    if (m.toolCalls && m.toolCalls.length > 0) {
+      msg.toolCalls = m.toolCalls.map(tc => ({
+        name: tc.name,
+        input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input, null, 2),
+        output: tc.output || '(no output captured)'
+      }));
+    }
+    return msg;
+  });
+
+  liveSessionCache[cacheKey] = messages;
+  return messages;
+}
+
+async function loadLiveSessionBeats(sessionId) {
+  if (!IS_SERVED) return null;
+  const cacheKey = `beats-${sessionId}`;
+  if (liveSessionCache[cacheKey]) return liveSessionCache[cacheKey];
+
+  const data = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/beats`);
+  if (!data || !data.beats) return null;
+
+  liveSessionCache[cacheKey] = data.beats;
+  return data.beats;
+}
+
+async function renderSessionViewLive() {
+  const sessions = getAgentSessions(state.selectedAgent);
+  const session = sessions[state.selectedSession];
+  const agent = getAgent(state.selectedAgent);
+
+  const liveMessages = await loadLiveSessionMessages(session.sessionId);
+
+  const extraKey = `${state.selectedAgent}-${state.selectedSession}`;
+  const extras = state.sessionChatMessages[extraKey] || [];
+  const messages = liveMessages || [];
+
+  const header = document.getElementById('session-header');
+  header.innerHTML = `
+    <button class="back-btn" data-action="back-to-agent">\u2190 ${escapeHtml(agent?.name || 'Back')}</button>
+    <span class="session-type-badge">${SESSION_ICONS[session.type] || '?'} ${session.type}</span>
+    <span class="session-id">${session.sessionId}</span>
+    <span class="session-info">${formatTime(session.created)} \u00B7 ${messages.length + extras.length} messages</span>
+  `;
+
+  const chatArea = document.getElementById('chat-area');
+  const allMessages = [...messages, ...extras];
+  chatArea.innerHTML = allMessages.map((m, i) => renderMessage(m, i)).join('') +
+    '<div class="typing-indicator" id="typing-indicator"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+async function renderLiveBeatsForAgent(agent) {
+  const sessions = agent.sessions || [];
+  if (sessions.length === 0) return '';
+
+  let totalBeats = 0;
+  let columns = '';
+
+  for (let sIdx = 0; sIdx < sessions.length; sIdx++) {
+    const session = sessions[sIdx];
+    const beats = await loadLiveSessionBeats(session.sessionId);
+    if (!beats || beats.length === 0) continue;
+
+    totalBeats += beats.length;
+    columns += `
+      <div class="beat-session-group">
+        <div class="beat-session-label">
+          <span class="session-icon">${SESSION_ICONS[session.type] || '?'}</span>
+          ${session.sessionId.slice(0, 20)}... \u00B7 ${formatTime(session.lastUsed)}
+        </div>
+        ${beats.map(b => `
+          <div class="beat-item" data-action="jump-to-beat" data-agent-id="${agent.id}" data-session="${sIdx}" data-msg="${b.index}">
+            <span class="beat-dot topic-general"></span>
+            <div class="beat-content">
+              <div class="beat-title">${escapeHtml(b.userPreview || b.topic || 'Untitled beat')}</div>
+              <div class="beat-meta">
+                ${b.toolCount > 0 ? `<span class="beat-tag">${b.toolCount} tool${b.toolCount > 1 ? 's' : ''}</span>` : ''}
+              </div>
+            </div>
+            <span class="beat-arrow">\u2192</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (totalBeats === 0) return '';
+
+  return `
+    <div class="dash-card beats-card" style="margin-bottom:16px">
+      <div class="dash-card-title">
+        Conversation Beats <span class="count">${totalBeats}</span>
+      </div>
+      <div class="beats-columns">${columns}</div>
+    </div>
+  `;
+}
+
+// ── Initial Render ─────────────────────────────────────────
+
+async function init() {
+  const isLive = await loadLiveData();
+  if (!isLive) {
+    console.log('[gaia] Using mock data (open via umwelten habitat web for live data)');
+    loadMockData();
+  } else {
+    console.log('[gaia] Connected to live habitat API');
+  }
+
+  renderSidebar();
+  renderAgentDashboard();
+}
+
+init();
+</script>
+</body>
+</html>

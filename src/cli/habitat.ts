@@ -358,6 +358,55 @@ async function telegramAction(options: HabitatCLIOptions & { token?: string }): 
   await adapter.start();
 }
 
+// ── Web (Gaia) action ────────────────────────────────────────────────
+
+async function webAction(options: HabitatCLIOptions & { port?: string }): Promise<void> {
+  const habitat = await createHabitatFromOptions(options);
+
+  // Persist CLI-provided provider/model into config so createInteraction can use them
+  const modelDetails = resolveModelDetails(habitat, options);
+  if (modelDetails && !habitat.getDefaultModelDetails()) {
+    await habitat.updateConfig({
+      defaultProvider: modelDetails.provider,
+      defaultModel: modelDetails.name,
+    });
+  }
+
+  const config = habitat.getConfig();
+
+  const toolCount = Object.keys(habitat.getTools()).length;
+  const agentCount = habitat.getAgents().length;
+  const skillCount = habitat.getSkills().length;
+  console.log(`[gaia] Habitat: ${config.name ?? 'unnamed'}`);
+  console.log(`[gaia] Provider: ${config.defaultProvider ?? 'not set'}, Model: ${config.defaultModel ?? 'not set'}`);
+  console.log(`[gaia] Work dir: ${habitat.getWorkDir()}`);
+  console.log(`[gaia] ${toolCount} tools, ${skillCount} skills, ${agentCount} agents`);
+
+  const { startGaiaServer } = await import('../habitat/gaia-server.js');
+
+  const port = options.port ? parseInt(options.port, 10) : 3000;
+  let actualPort: number;
+  try {
+    const server = await startGaiaServer({ habitat, port });
+    actualPort = server.port;
+  } catch (err) {
+    console.error(`[gaia] ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+
+  console.log(`[gaia] Habitat manager running at http://localhost:${actualPort}`);
+  console.log(`[gaia] Press Ctrl+C to stop\n`);
+
+  // Keep process alive
+  process.on('SIGINT', () => {
+    console.log('\n[gaia] Shutting down...');
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    process.exit(0);
+  });
+}
+
 // ── Shared options (applied to parent and inherited by subcommands) ───
 
 function addSharedOptions(cmd: Command): Command {
@@ -392,3 +441,83 @@ addSharedOptions(telegramSubcommand)
   });
 
 habitatCommand.addCommand(telegramSubcommand);
+
+// Web (Gaia) subcommand
+const webSubcommand = new Command('web')
+  .description('Start Gaia — the habitat manager web UI.');
+addSharedOptions(webSubcommand)
+  .option('--port <port>', 'HTTP port (default: 3000)')
+  .action(async (options: HabitatCLIOptions & { port?: string }) => {
+    await webAction(options);
+  });
+
+habitatCommand.addCommand(webSubcommand);
+
+// Secrets subcommand
+const secretsSubcommand = new Command('secrets')
+  .description('Manage habitat secrets (API keys, tokens).');
+
+secretsSubcommand
+  .command('list')
+  .description('List secret names in the habitat store')
+  .option('-w, --work-dir <path>', 'Work directory (default: ~/habitats)')
+  .option('--env-prefix <prefix>', 'Environment variable prefix (default: HABITAT)')
+  .option('--skip-onboard', 'Skip automatic onboarding')
+  .action(async (options: HabitatCLIOptions) => {
+    const habitat = await createHabitatFromOptions({ ...options, skipOnboard: options.skipOnboard });
+    const names = habitat.listSecretNames();
+    if (names.length === 0) {
+      console.log('No secrets stored. Use "umwelten habitat secrets set <name> <value>" to add one.');
+    } else {
+      console.log(`Secrets (${names.length}):`);
+      for (const name of names) {
+        console.log(`  ${name}`);
+      }
+    }
+  });
+
+secretsSubcommand
+  .command('set <name> [value]')
+  .description('Set a secret. Value can be passed as argument or via --from-op.')
+  .option('--from-op <path>', 'Fetch value from 1Password CLI: op read <path>')
+  .option('-w, --work-dir <path>', 'Work directory (default: ~/habitats)')
+  .option('--env-prefix <prefix>', 'Environment variable prefix (default: HABITAT)')
+  .option('--skip-onboard', 'Skip automatic onboarding')
+  .action(async (name: string, value: string | undefined, options: HabitatCLIOptions & { fromOp?: string }) => {
+    let secretValue = value;
+
+    if (options.fromOp) {
+      // Fetch from 1Password CLI
+      const { execSync } = await import('node:child_process');
+      try {
+        secretValue = execSync(`op read "${options.fromOp}"`, { encoding: 'utf-8' }).trim();
+      } catch (err) {
+        console.error(`Failed to read from 1Password: ${err instanceof Error ? err.message : err}`);
+        console.error('Make sure the `op` CLI is installed and you are signed in.');
+        process.exit(1);
+      }
+    }
+
+    if (!secretValue) {
+      console.error('No value provided. Pass the value as an argument or use --from-op.');
+      process.exit(1);
+    }
+
+    const habitat = await createHabitatFromOptions({ ...options, skipOnboard: options.skipOnboard });
+    await habitat.setSecret(name, secretValue);
+    console.log(`Secret "${name}" set.`);
+  });
+
+secretsSubcommand
+  .command('remove <name>')
+  .description('Remove a secret from the habitat store')
+  .option('-w, --work-dir <path>', 'Work directory (default: ~/habitats)')
+  .option('--env-prefix <prefix>', 'Environment variable prefix (default: HABITAT)')
+  .option('--skip-onboard', 'Skip automatic onboarding')
+  .action(async (name: string, options: HabitatCLIOptions) => {
+    const habitat = await createHabitatFromOptions({ ...options, skipOnboard: options.skipOnboard });
+    await habitat.removeSecret(name);
+    console.log(`Secret "${name}" removed.`);
+  });
+
+habitatCommand.addCommand(secretsSubcommand);

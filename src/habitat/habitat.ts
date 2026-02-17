@@ -45,15 +45,19 @@ import type { AgentToolsContext } from './tools/agent-tools.js';
 import type { SessionToolsContext } from './tools/session-tools.js';
 import type { ExternalInteractionToolsContext } from './tools/external-interaction-tools.js';
 import type { AgentRunnerToolsContext } from './tools/agent-runner-tools.js';
+import type { SecretsToolsContext } from './tools/secrets-tools.js';
+import type { SearchToolsContext } from './tools/search-tools.js';
 import { HabitatAgent } from './habitat-agent.js';
+import { loadSecrets, saveSecrets } from './secrets.js';
 
-export class Habitat implements FileToolsContext, AgentToolsContext, SessionToolsContext, ExternalInteractionToolsContext, AgentRunnerToolsContext {
+export class Habitat implements FileToolsContext, AgentToolsContext, SessionToolsContext, ExternalInteractionToolsContext, AgentRunnerToolsContext, SecretsToolsContext, SearchToolsContext {
   readonly workDir: string;
   readonly sessionsDir: string;
   readonly configPath: string;
   readonly envPrefix: string;
 
   private config: HabitatConfig;
+  private secrets: Record<string, string>;
   private sessionManager: HabitatSessionManager;
   private store: InteractionStore;
   private stimulus: Stimulus | null = null;
@@ -67,6 +71,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     configPath: string,
     envPrefix: string,
     config: HabitatConfig,
+    secrets: Record<string, string>,
     store: InteractionStore,
     sessionManager: HabitatSessionManager,
     options: HabitatOptions
@@ -76,6 +81,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     this.configPath = configPath;
     this.envPrefix = envPrefix;
     this.config = config;
+    this.secrets = secrets;
     this.store = store;
     this.sessionManager = sessionManager;
     this.options = options;
@@ -103,23 +109,31 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     // 3. Load config
     const config = opts.config ?? await loadConfig(configPath);
 
-    // 4. Create supporting objects
+    // 4. Load secrets and populate process.env (secrets fill gaps, never override)
+    const secrets = await loadSecrets(workDir);
+    for (const [key, value] of Object.entries(secrets)) {
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    }
+
+    // 5. Create supporting objects
     const store = new InteractionStore({ basePath: sessionsDir });
     const sessionManager = new HabitatSessionManager(sessionsDir);
 
     const habitat = new Habitat(
       workDir, sessionsDir, configPath, envPrefix,
-      config, store, sessionManager, opts
+      config, secrets, store, sessionManager, opts
     );
 
-    // 5. Register standard tool sets (unless skipped)
+    // 6. Register standard tool sets (unless skipped)
     if (!opts.skipBuiltinTools) {
       for (const toolSet of standardToolSets) {
         habitat.addToolSet(toolSet);
       }
     }
 
-    // 6. Load work-dir tools (unless skipped)
+    // 7. Load work-dir tools (unless skipped)
     if (!opts.skipWorkDirTools) {
       const toolsDirRelative = config.toolsDir ?? 'tools';
       try {
@@ -132,7 +146,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
       }
     }
 
-    // 7. Call custom tool registration callback
+    // 8. Call custom tool registration callback
     if (opts.registerCustomTools) {
       await opts.registerCustomTools(habitat);
     }
@@ -407,14 +421,28 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     );
   }
 
-  // ── Secrets (reference-only) ────────────────────────────────────
+  // ── Secrets ─────────────────────────────────────────────────────
 
   isSecretAvailable(name: string): boolean {
-    return process.env[name] !== undefined;
+    return this.secrets[name] !== undefined || process.env[name] !== undefined;
   }
 
   getSecret(name: string): string | undefined {
-    return process.env[name];
+    return this.secrets[name] ?? process.env[name];
+  }
+
+  async setSecret(name: string, value: string): Promise<void> {
+    this.secrets[name] = value;
+    await saveSecrets(this.workDir, this.secrets);
+  }
+
+  async removeSecret(name: string): Promise<void> {
+    delete this.secrets[name];
+    await saveSecrets(this.workDir, this.secrets);
+  }
+
+  listSecretNames(): string[] {
+    return Object.keys(this.secrets);
   }
 
   // ── Work dir file management ────────────────────────────────────

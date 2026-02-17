@@ -379,8 +379,18 @@ export class Interaction {
             if (part.type === 'image') return '[Image]';
             if (part.type === 'file') return '[File]';
             if (part.type === 'tool-result') {
-              // For user messages containing tool results (Vercel SDK style sometimes)
-              return typeof part.result === 'string' ? part.result : JSON.stringify(part.result);
+              // AI SDK uses `output` (with { type, value } shape), legacy uses `result`
+              const resultOrOutput = part.result ?? part.output;
+              if (
+                resultOrOutput &&
+                typeof resultOrOutput === 'object' &&
+                'type' in resultOrOutput &&
+                'value' in resultOrOutput
+              ) {
+                const o = resultOrOutput as { type: string; value: unknown };
+                return typeof o.value === 'string' ? o.value : JSON.stringify(o.value ?? '');
+              }
+              return typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
             }
             return '';
           }).join('\n');
@@ -492,7 +502,21 @@ export class Interaction {
           contentStr = msg.content.map(c => {
             const part = c as any;
             if (part.type === 'tool-result') {
-              return `[Tool Result: ${part.toolName || 'unknown'}]\n${JSON.stringify(part.result)}`;
+              // AI SDK uses `output` (with { type, value } shape), legacy uses `result`
+              const resultOrOutput = part.result ?? part.output;
+              let valueStr: string;
+              if (
+                resultOrOutput &&
+                typeof resultOrOutput === 'object' &&
+                'type' in resultOrOutput &&
+                'value' in resultOrOutput
+              ) {
+                const o = resultOrOutput as { type: string; value: unknown };
+                valueStr = typeof o.value === 'string' ? o.value : JSON.stringify(o.value ?? '');
+              } else {
+                valueStr = typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
+              }
+              return `[Tool Result: ${part.toolName || 'unknown'}]\n${valueStr}`;
             }
             return JSON.stringify(c);
           }).join('\n');

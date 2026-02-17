@@ -3,6 +3,7 @@ import { mkdtemp, rm, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Habitat } from './habitat.js';
+import { saveSecrets } from './secrets.js';
 
 describe('Habitat', () => {
   let tempDir: string;
@@ -100,14 +101,26 @@ describe('Habitat', () => {
       });
 
       const tools = habitat.getTools();
-      expect(tools.read_file).toBeDefined();
-      expect(tools.write_file).toBeDefined();
-      expect(tools.list_directory).toBeDefined();
-      expect(tools.ripgrep).toBeDefined();
-      expect(tools.current_time).toBeDefined();
+      // Management tools should be present (from standardToolSets)
       expect(tools.agents_list).toBeDefined();
+      expect(tools.agent_clone).toBeDefined();
+      expect(tools.agent_logs).toBeDefined();
+      expect(tools.agent_status).toBeDefined();
+      expect(tools.agent_ask).toBeDefined();
       expect(tools.sessions_list).toBeDefined();
       expect(tools.external_interactions_list).toBeDefined();
+      expect(tools.run_project).toBeDefined();
+      expect(tools.secrets_set).toBeDefined();
+      expect(tools.secrets_remove).toBeDefined();
+      expect(tools.secrets_list).toBeDefined();
+      expect(tools.search).toBeDefined();
+
+      // File/time tools should NOT be present (removed from standardToolSets)
+      expect(tools.read_file).toBeUndefined();
+      expect(tools.write_file).toBeUndefined();
+      expect(tools.list_directory).toBeUndefined();
+      expect(tools.ripgrep).toBeUndefined();
+      expect(tools.current_time).toBeUndefined();
     });
 
     it('should skip built-in tools when requested', async () => {
@@ -358,6 +371,99 @@ describe('Habitat', () => {
       // PATH is always set
       expect(habitat.isSecretAvailable('PATH')).toBe(true);
       expect(habitat.isSecretAvailable('DEFINITELY_NOT_SET_XYZZY')).toBe(false);
+    });
+
+    it('should prefer secret store over process.env', async () => {
+      await mkdir(workDir, { recursive: true });
+      await saveSecrets(workDir, { PATH: 'store-value' });
+
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      // Store value should take precedence over env
+      expect(habitat.getSecret('PATH')).toBe('store-value');
+    });
+
+    it('should fall back to process.env when not in store', async () => {
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      // PATH is in env but not in store
+      expect(habitat.getSecret('PATH')).toBe(process.env.PATH);
+    });
+
+    it('should set and persist secrets', async () => {
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      await habitat.setSecret('MY_TEST_KEY', 'my-test-value');
+      expect(habitat.getSecret('MY_TEST_KEY')).toBe('my-test-value');
+      expect(habitat.isSecretAvailable('MY_TEST_KEY')).toBe(true);
+
+      // Verify it was persisted to disk
+      const raw = await readFile(join(workDir, 'secrets.json'), 'utf-8');
+      const stored = JSON.parse(raw);
+      expect(stored.MY_TEST_KEY).toBe('my-test-value');
+    });
+
+    it('should remove secrets', async () => {
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      await habitat.setSecret('TEMP_KEY', 'temp-value');
+      expect(habitat.getSecret('TEMP_KEY')).toBe('temp-value');
+
+      await habitat.removeSecret('TEMP_KEY');
+      expect(habitat.getSecret('TEMP_KEY')).toBeUndefined();
+      expect(habitat.isSecretAvailable('TEMP_KEY')).toBe(false);
+    });
+
+    it('should list secret names without values', async () => {
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      await habitat.setSecret('KEY_A', 'value-a');
+      await habitat.setSecret('KEY_B', 'value-b');
+
+      const names = habitat.listSecretNames();
+      expect(names).toContain('KEY_A');
+      expect(names).toContain('KEY_B');
+      expect(names).toHaveLength(2);
+    });
+
+    it('should load secrets from disk on create', async () => {
+      await mkdir(workDir, { recursive: true });
+      await saveSecrets(workDir, { PRELOADED: 'from-disk' });
+
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      expect(habitat.getSecret('PRELOADED')).toBe('from-disk');
+      expect(habitat.listSecretNames()).toContain('PRELOADED');
     });
   });
 

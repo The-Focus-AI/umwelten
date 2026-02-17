@@ -86,6 +86,7 @@ const PROJECT_TYPE_MARKERS = {
   go: ['go.mod', 'go.sum'],
   maven: ['pom.xml'],
   gradle: ['build.gradle', 'build.gradle.kts', 'settings.gradle'],
+  shell: ['run.sh', 'setup.sh', 'Makefile'],
 };
 
 /**

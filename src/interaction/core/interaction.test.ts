@@ -216,6 +216,89 @@ describe('New Interaction Constructor', () => {
       expect(normalized.source).toBe('native'); // Assuming 'native' for internal interactions
     });
 
+    it('should normalize tool result messages with output field', () => {
+      const stimulus = new Stimulus({ role: "assistant" });
+      const interaction = new Interaction(mockModel, stimulus);
+
+      interaction.addMessage({ role: 'user', content: 'what is 2 + 2?' });
+      interaction.addMessage({
+        role: 'assistant',
+        content: [
+          { type: 'tool-call', toolCallId: 'call-1', toolName: 'calculator', args: { operation: 'add', a: 2, b: 2 } },
+        ] as any,
+      });
+      // AI SDK tool result message with `output` field (not `result`)
+      interaction.addMessage({
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'calculator',
+            output: { type: 'json', value: { operation: 'add', operands: [2, 2], result: 4 } },
+          },
+        ],
+      } as any);
+
+      const normalized = interaction.toNormalizedSession();
+
+      // Find the tool result message (role: 'user' with sourceData.type === 'tool_result_message')
+      const toolResultMsg = normalized.messages.find(
+        m => m.sourceData?.type === 'tool_result_message'
+      );
+      expect(toolResultMsg).toBeDefined();
+      expect(toolResultMsg!.content).not.toContain('undefined');
+      expect(toolResultMsg!.content).toContain('calculator');
+      expect(toolResultMsg!.content).toContain('4');
+    });
+
+    it('should normalize tool result messages with result field (legacy)', () => {
+      const stimulus = new Stimulus({ role: "assistant" });
+      const interaction = new Interaction(mockModel, stimulus);
+
+      interaction.addMessage({ role: 'user', content: 'hello' });
+      // Legacy format where tool result is in `result` field directly
+      interaction.addMessage({
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-2',
+            toolName: 'search',
+            result: 'Found 3 results for your query',
+          },
+        ],
+      } as any);
+
+      const normalized = interaction.toNormalizedSession();
+      const toolResultMsg = normalized.messages.find(
+        m => m.sourceData?.type === 'tool_result_message'
+      );
+      expect(toolResultMsg).toBeDefined();
+      expect(toolResultMsg!.content).not.toContain('undefined');
+      expect(toolResultMsg!.content).toContain('search');
+      expect(toolResultMsg!.content).toContain('Found 3 results');
+    });
+
+    it('should normalize tool result with string content', () => {
+      const stimulus = new Stimulus({ role: "assistant" });
+      const interaction = new Interaction(mockModel, stimulus);
+
+      interaction.addMessage({ role: 'user', content: 'test' });
+      // Tool result message with plain string content
+      interaction.addMessage({
+        role: 'tool',
+        content: 'Tool completed successfully',
+      } as any);
+
+      const normalized = interaction.toNormalizedSession();
+      const toolResultMsg = normalized.messages.find(
+        m => m.sourceData?.type === 'tool_result_message'
+      );
+      expect(toolResultMsg).toBeDefined();
+      expect(toolResultMsg!.content).toBe('Tool completed successfully');
+    });
+
     it('should hydrate from normalized session', () => {
       const normalized = {
         id: 'test-id',

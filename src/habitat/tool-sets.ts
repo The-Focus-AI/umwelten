@@ -10,6 +10,9 @@ import { createAgentTools } from './tools/agent-tools.js';
 import { createSessionTools } from './tools/session-tools.js';
 import { createExternalInteractionTools } from './tools/external-interaction-tools.js';
 import { createAgentRunnerTools } from './tools/agent-runner-tools.js';
+import { createRunProjectTool } from './tools/run-project/index.js';
+import { createSecretsTools } from './tools/secrets-tools.js';
+import { createSearchTools } from './tools/search-tools.js';
 import { wgetTool, markifyTool, parseFeedTool } from '../stimulus/tools/url-tools.js';
 
 /**
@@ -71,13 +74,35 @@ export const agentRunnerToolSet: ToolSet = {
   createTools: (habitat) => createAgentRunnerTools(habitat),
 };
 
-/** All standard tool sets that a typical habitat includes. */
+/** Smart container execution: auto-detects project type, installs deps, injects API keys. */
+export const runProjectToolSet: ToolSet = {
+  name: 'run-project',
+  description: 'Execute commands in smart auto-provisioned Dagger containers',
+  createTools: (habitat) => ({ run_project: createRunProjectTool(habitat) }),
+};
+
+/** Secrets management: set, remove, list secrets in the habitat store. */
+export const secretsToolSet: ToolSet = {
+  name: 'secrets',
+  description: 'Manage secrets (API keys, tokens) in the habitat secret store',
+  createTools: (habitat) => createSecretsTools(habitat),
+};
+
+/** Web search via Tavily. Reads TAVILY_API_KEY from habitat secrets or env. */
+export const searchToolSet: ToolSet = {
+  name: 'search',
+  description: 'Search the web for current information',
+  createTools: (habitat) => createSearchTools(habitat),
+};
+
+/** All standard tool sets that a typical habitat includes.
+ *  Focused on agent management — file/url/time tools are left to sub-agents. */
 export const standardToolSets: ToolSet[] = [
-  fileToolSet,
-  timeToolSet,
-  urlToolSet,
   agentToolSet,
   sessionToolSet,
   externalInteractionToolSet,
   agentRunnerToolSet,
+  runProjectToolSet,
+  secretsToolSet,
+  searchToolSet,
 ];

@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Habitat } from '../../src/habitat/index.js';
 import { tavilySearchTool } from './tools/tavily.js';
-import { createRunBashTool } from './tools/dagger.js';
+import { createRunProjectTool } from '../../src/habitat/tools/run-project/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,7 +19,7 @@ export async function createJeevesHabitat(): Promise<Habitat> {
     stimulusTemplatePath: join(__dirname, 'JEEVES_PROMPT.md'),
     registerCustomTools: async (habitat) => {
       habitat.addTool('search', tavilySearchTool);
-      habitat.addTool('run_bash', createRunBashTool(habitat));
+      habitat.addTool('run_project', createRunProjectTool(habitat));
     },
   });
 }

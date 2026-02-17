@@ -60,20 +60,12 @@ export function createAgentRunnerTools(ctx: AgentRunnerToolsContext): Record<str
         gitRemote: gitUrl,
       };
 
-      // Auto-discover capabilities from the cloned project
-      await discoverAgentCapabilities(agent);
-
       await ctx.addAgent(agent);
 
       return {
         cloned: true,
-        agent: {
-          id: agentId, name, projectPath, gitRemote: gitUrl,
-          commands: agent.commands,
-          logPatterns: agent.logPatterns,
-          statusFile: agent.statusFile,
-        },
-        message: `Cloned ${gitUrl} to ${projectPath} and registered as agent "${name}" (${agentId}).`,
+        agent: { id: agentId, name, projectPath, gitRemote: gitUrl },
+        message: `Cloned ${gitUrl} to ${projectPath} and registered as agent "${name}" (${agentId}). Use run_project to explore the project.`,
       };
     },
   });
@@ -331,80 +323,3 @@ function globToRegex(glob: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-/**
- * Auto-discover capabilities from a cloned project.
- * Scans for package.json scripts, shell scripts, log directories, and status files.
- * Mutates the AgentEntry in place.
- */
-export async function discoverAgentCapabilities(agent: AgentEntry): Promise<void> {
-  const projectPath = agent.projectPath;
-
-  // 1. Read package.json → extract scripts as commands
-  try {
-    const pkgContent = await readFile(join(projectPath, 'package.json'), 'utf-8');
-    const pkg = JSON.parse(pkgContent);
-    if (pkg.scripts && typeof pkg.scripts === 'object') {
-      const interestingScripts = ['start', 'dev', 'test', 'build', 'serve', 'lint'];
-      const commands: Record<string, string> = {};
-      for (const key of interestingScripts) {
-        if (pkg.scripts[key]) {
-          commands[key] = pkg.scripts[key];
-        }
-      }
-      if (Object.keys(commands).length > 0) {
-        agent.commands = { ...commands, ...agent.commands };
-      }
-    }
-  } catch {
-    // No package.json or invalid JSON
-  }
-
-  // 2. Look for shell scripts in root
-  try {
-    const entries = await readdir(projectPath, { withFileTypes: true });
-    const shellScripts = entries.filter(
-      e => e.isFile() && (e.name.endsWith('.sh') || e.name === 'Makefile')
-    );
-    if (shellScripts.length > 0) {
-      if (!agent.commands) agent.commands = {};
-      for (const script of shellScripts) {
-        const key = script.name.replace(/\.sh$/, '');
-        if (!agent.commands[key]) {
-          agent.commands[key] = script.name === 'Makefile' ? 'make' : `./${script.name}`;
-        }
-      }
-    }
-  } catch {
-    // Can't read directory
-  }
-
-  // 3. Check if logs/ dir exists → add default logPatterns
-  try {
-    const logsStat = await stat(join(projectPath, 'logs'));
-    if (logsStat.isDirectory()) {
-      if (!agent.logPatterns) {
-        agent.logPatterns = [
-          { pattern: 'logs/*.log', format: 'plain' },
-          { pattern: 'logs/*.jsonl', format: 'jsonl' },
-        ];
-      }
-    }
-  } catch {
-    // No logs directory
-  }
-
-  // 4. Check for status file
-  if (!agent.statusFile) {
-    for (const candidate of ['STATUS.md', 'status.md']) {
-      try {
-        const s = await stat(join(projectPath, candidate));
-        if (s.isFile()) {
-          agent.statusFile = candidate;
-          break;
-        }
-      } catch {
-        // Not found
-      }
-    }
-  }
-}

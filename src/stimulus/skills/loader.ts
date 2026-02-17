@@ -121,7 +121,7 @@ function isGitUrl(s: string): boolean {
   return /^https?:\/\//.test(s) || s.startsWith('git@') || /^[^/]+\/[^/]+$/.test(s) && !s.includes(' ');
 }
 
-function normalizeGitUrl(repo: string): string {
+export function normalizeGitUrl(repo: string): string {
   const t = repo.trim();
   if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('git@')) return t;
   // owner/repo -> https://github.com/owner/repo

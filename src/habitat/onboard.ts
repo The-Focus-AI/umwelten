@@ -1,20 +1,16 @@
 /**
  * Habitat onboarding: ensure the work directory has config.json, STIMULUS.md, skills/, tools/.
- * Optionally seeds builtin tools (search, run_bash) into the tools/ directory.
  * Safe to run multiple times -- only creates what's missing.
+ *
+ * Note: builtin tools (search, run_project, secrets) are registered via standardToolSets
+ * in tool-sets.ts, not seeded into the tools/ directory. The tools/ directory is for
+ * user-defined custom tools only.
  */
 
-import { readFile, writeFile, mkdir, access, cp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 import type { OnboardingResult } from './types.js';
-
-/** Path to the builtin-tools directory in this package. */
-const BUILTIN_TOOLS_DIR = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  'builtin-tools'
-);
 
 const DEFAULT_CONFIG_JSON = JSON.stringify(
   {
@@ -127,38 +123,5 @@ export async function runOnboarding(
     }
   }
 
-  // Seed builtin tools into tools/ (only if tools dir was just created or is empty)
-  await seedBuiltinTools(join(workDir, 'tools'), created, skipped);
-
   return { workDir, created, skipped };
-}
-
-/**
- * Copy builtin tool templates (search, run_bash) into a tools/ directory.
- * Only copies tools whose subdirectory doesn't already exist.
- */
-async function seedBuiltinTools(
-  toolsDir: string,
-  created: string[],
-  skipped: string[]
-): Promise<void> {
-  const builtinTools = ['search', 'run_bash'];
-
-  for (const toolName of builtinTools) {
-    const targetDir = join(toolsDir, toolName);
-    const sourceDir = join(BUILTIN_TOOLS_DIR, toolName);
-
-    try {
-      await access(targetDir, constants.R_OK);
-      skipped.push(`tools/${toolName}/`);
-    } catch {
-      try {
-        await access(sourceDir, constants.R_OK);
-        await cp(sourceDir, targetDir, { recursive: true });
-        created.push(`tools/${toolName}/`);
-      } catch {
-        // Builtin tool source not available (e.g. in a bundled distribution)
-      }
-    }
-  }
 }
