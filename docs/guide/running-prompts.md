@@ -17,7 +17,7 @@ The `run` command supports multiple providers, file attachments, and various con
 Run a simple prompt with any model:
 
 ```bash
-npx umwelten run --provider ollama --model gemma3:latest "Explain the concept of quantum entanglement."
+dotenvx run -- pnpm run cli -- run --provider ollama --model gemma3:latest "Explain the concept of quantum entanglement."
 ```
 
 ### Provider-Specific Examples
@@ -25,37 +25,37 @@ npx umwelten run --provider ollama --model gemma3:latest "Explain the concept of
 #### Google Models
 ```bash
 # Gemini 2.0 Flash (fast and cost-effective)
-npx umwelten run --provider google --model gemini-2.0-flash "Write a summary of renewable energy trends in 2024"
+dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Write a summary of renewable energy trends in 2024"
 
 # Gemini 2.5 Pro (highest quality)
-npx umwelten run --provider google --model gemini-2.5-pro-exp-03-25 "Analyze the implications of artificial general intelligence"
+dotenvx run -- pnpm run cli -- run --provider google --model gemini-2.5-pro-exp-03-25 "Analyze the implications of artificial general intelligence"
 ```
 
 #### Ollama Models (Local)
 ```bash
 # Gemma3 models
-npx umwelten run --provider ollama --model gemma3:12b "Compare Python and JavaScript for web development"
+dotenvx run -- pnpm run cli -- run --provider ollama --model gemma3:12b "Compare Python and JavaScript for web development"
 
 # Code-specific models
-npx umwelten run --provider ollama --model codestral:latest "Write a function to implement binary search in TypeScript"
+dotenvx run -- pnpm run cli -- run --provider ollama --model codestral:latest "Write a function to implement binary search in TypeScript"
 
 # Vision models
-npx umwelten run --provider ollama --model qwen2.5vl:latest "Describe this image" --file ./photo.jpg
+dotenvx run -- pnpm run cli -- run --provider ollama --model qwen2.5vl:latest "Describe this image" --file ./photo.jpg
 ```
 
 #### OpenRouter Models
 ```bash
 # GPT-4o (premium quality)
-npx umwelten run --provider openrouter --model openai/gpt-4o "Provide a detailed business analysis of the current AI market"
+dotenvx run -- pnpm run cli -- run --provider openrouter --model openai/gpt-4o "Provide a detailed business analysis of the current AI market"
 
 # Claude 3.7 Sonnet
-npx umwelten run --provider openrouter --model anthropic/claude-3.7-sonnet:thinking "Analyze the ethical implications of AI in healthcare"
+dotenvx run -- pnpm run cli -- run --provider openrouter --model anthropic/claude-3.7-sonnet:thinking "Analyze the ethical implications of AI in healthcare"
 ```
 
 #### LM Studio (Local)
 ```bash
 # Local model (ensure LM Studio server is running)
-npx umwelten run --provider lmstudio --model mistralai/devstral-small-2505 "Help me debug this Python code"
+dotenvx run -- pnpm run cli -- run --provider lmstudio --model mistralai/devstral-small-2505 "Help me debug this Python code"
 ```
 
 ## Advanced Prompt Configuration
@@ -66,13 +66,13 @@ Set the AI's role and behavior:
 
 ```bash
 # Technical expert role
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --system "You are a senior software architect with expertise in distributed systems" \
   "Design a scalable microservices architecture for an e-commerce platform"
 
 # Creative writing role
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama --model gemma3:27b \
   --system "You are a creative writer specializing in science fiction short stories" \
   "Write a story about first contact with an alien civilization"
@@ -84,20 +84,20 @@ Adjust creativity and randomness:
 
 ```bash
 # Very focused and deterministic (0.0-0.3)
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --temperature 0.1 \
   "Write technical documentation for this API endpoint"
 
 # Balanced creativity (0.4-0.7)
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama --model gemma3:12b \
   --temperature 0.6 \
   "Brainstorm innovative solutions for urban transportation"
 
 # Highly creative (0.8-2.0)
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --temperature 1.5 \
   "Write an abstract poem about the nature of consciousness"
 ```
@@ -108,16 +108,16 @@ Set appropriate timeouts for different types of prompts:
 
 ```bash
 # Quick responses (default: 30 seconds)
-npx umwelten run --provider ollama --model gemma3:12b "What is 2+2?"
+dotenvx run -- pnpm run cli -- run --provider ollama --model gemma3:12b "What is 2+2?"
 
 # Complex analysis (longer timeout)
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --timeout 60000 \
   "Provide a comprehensive analysis of global climate change impacts"
 
 # Extended processing (very long timeout)
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider openrouter --model openai/gpt-4o \
   --timeout 120000 \
   "Write a detailed business plan for a sustainable technology startup"
@@ -135,20 +135,20 @@ npx umwelten run \
 
 ```bash
 # Basic image description
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --file ./photo.jpg \
   "Describe what you see in this image"
 
 # Technical image analysis
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama --model qwen2.5vl:latest \
   --file ./screenshot.png \
   "Identify the user interface elements and their functions"
 
 # Multiple images
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --file ./before.jpg --file ./after.jpg \
   "Compare these two images and describe the differences"
 ```
@@ -157,13 +157,13 @@ npx umwelten run \
 
 ```bash
 # PDF summarization
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --file ./research-paper.pdf \
   "Summarize the key findings and methodology of this research paper"
 
 # Document question-answering
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --file ./contract.pdf \
   "What are the main obligations of each party in this contract?"
@@ -175,13 +175,13 @@ npx umwelten run \
 
 ```bash
 # Blog post writing
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --system "You are a technology blogger with expertise in AI and machine learning" \
   "Write a 500-word blog post about the future of AI in healthcare"
 
 # Social media content
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama --model gemma3:12b \
   --temperature 0.8 \
   "Create 5 engaging LinkedIn posts about productivity tips for remote workers"
@@ -191,14 +191,14 @@ npx umwelten run \
 
 ```bash
 # Code review
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama --model codestral:latest \
   --system "You are a senior software engineer conducting a code review" \
   --file ./my-function.py \
   "Review this Python function and suggest improvements"
 
 # Code explanation
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider openrouter --model openai/gpt-4o \
   --file ./complex-algorithm.js \
   "Explain how this algorithm works and its time complexity"
@@ -208,13 +208,13 @@ npx umwelten run \
 
 ```bash
 # Market research
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --system "You are a market research analyst" \
   "Analyze the current trends in the electric vehicle market and provide insights for the next 5 years"
 
 # Academic research assistance
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --file ./research-data.pdf \
   "Identify the key themes and gaps in this literature review"
@@ -224,14 +224,14 @@ npx umwelten run \
 
 ```bash
 # Concept explanation
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama --model gemma3:27b \
   --system "You are a patient teacher explaining complex concepts simply" \
   "Explain quantum mechanics to a high school student"
 
 # Problem solving
-npx umwelten run \
-  --provider google --model gemini-2.0-flash \
+dotenvx run -- pnpm run cli -- run \
+  --provider google --model gemini-3-flash-preview \
   --system "You are a math tutor who shows step-by-step solutions" \
   "Solve this calculus problem: Find the derivative of x^3 + 2x^2 - 5x + 1"
 ```
@@ -299,13 +299,13 @@ npx umwelten run \
 
 ```bash
 # Test connection to provider
-npx umwelten models list --provider google
+dotenvx run -- pnpm run cli -- models list --provider google
 
 # Check available models
-npx umwelten models list --provider ollama
+dotenvx run -- pnpm run cli -- models list --provider ollama
 
 # Test simple prompt first
-npx umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
+dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
 ```
 
 ## Next Steps

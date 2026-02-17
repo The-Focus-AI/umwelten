@@ -18,12 +18,12 @@ The Interaction package manages the complete lifecycle of model interactions, in
 The primary class for managing model-environment interactions and conversations. Now requires both `modelDetails` and a `Stimulus` object.
 
 ```typescript
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { Stimulus } from '../src/stimulus/stimulus.js';
 import { ModelDetails } from '../src/cognition/types.js';
 
 const model: ModelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google'
 };
 
@@ -277,7 +277,7 @@ import { z } from 'zod';
 
 const calculatorTool = tool({
   description: "Performs basic arithmetic operations",
-  inputSchema: z.object({
+  parameters: z.object({
     operation: z.enum(["add", "subtract", "multiply", "divide"]),
     a: z.number(),
     b: z.number()
@@ -438,12 +438,12 @@ interface StimulusOptions {
 ### Basic Interaction
 
 ```typescript
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { Stimulus } from '../src/stimulus/stimulus.js';
 import { ModelDetails } from '../src/cognition/types.js';
 
 const model: ModelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google'
 };
 
@@ -477,10 +477,10 @@ console.log('Response:', response.content);
 ### File Attachments
 
 ```typescript
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { Stimulus } from '../src/stimulus/stimulus.js';
 
-const model = { name: 'gemini-2.0-flash', provider: 'google' };
+const model = { name: 'gemini-3-flash-preview', provider: 'google' };
 
 // Create stimulus for file analysis
 const stimulus = new Stimulus({
@@ -520,7 +520,7 @@ import { z } from 'zod';
 // Define tools
 const calculatorTool = tool({
   description: "Performs basic arithmetic operations",
-  inputSchema: z.object({
+  parameters: z.object({
     operation: z.enum(["add", "subtract", "multiply", "divide"]),
     a: z.number(),
     b: z.number()
@@ -661,9 +661,7 @@ try {
 // Handle model generation errors
 try {
   const response = await interaction.streamText();
-  if (response.finishReason === 'error') {
-    console.error('Model generation failed');
-  }
+  console.log('Response:', response.content);
 } catch (error) {
   console.error('Generation error:', error.message);
 }
@@ -838,7 +836,7 @@ const detailedResponse = await interaction.streamText();
 The Interaction class now manages its own model runner internally:
 
 ```typescript
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { Stimulus } from '../src/stimulus/stimulus.js';
 
 const stimulus = new Stimulus({

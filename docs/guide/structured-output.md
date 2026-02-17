@@ -13,7 +13,7 @@ Structured output validation ensures consistent data extraction across different
 Quick and easy schema definition:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract person information from this text: Henry is 38 years old and lives in Phoenix" \
   --models "ollama:gemma3:12b" \
   --id "person-extraction" \
@@ -25,7 +25,7 @@ npx umwelten eval run \
 Pre-defined schemas for common use cases:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract contact information from this text: Irene works at DataCorp, her email is irene@datacorp.com and phone is 555-9876" \
   --models "ollama:gemma3:12b" \
   --id "contact-extraction" \
@@ -37,9 +37,9 @@ npx umwelten eval run \
 Standard JSON Schema format:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze the financial data and extract key metrics" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "financial-analysis" \
   --schema-file "./schemas/financial_metrics.json"
 ```
@@ -49,7 +49,7 @@ npx umwelten eval run \
 Complex validation with TypeScript support:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Process the order data and validate structure" \
   --models "openrouter:openai/gpt-4o" \
   --id "order-processing" \
@@ -91,15 +91,15 @@ npx umwelten eval run \
 ### Using Templates
 ```bash
 # Person extraction
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract person details from this bio" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --schema-template person
 
 # Event extraction
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract event details from this announcement" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --schema-template event
 ```
 
@@ -130,9 +130,9 @@ export const ImageFeatureSchema = z.object({
 Use with Umwelten:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image and extract structured features" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "image-structured" \
   --attach "./image.jpg" \
   --zod-schema "./schemas/image-features.ts" \
@@ -265,12 +265,12 @@ npx umwelten eval run \
 ### Multi-step Validation
 ```bash
 # First: Extract with simple schema
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --schema "title, summary, category" \
   --id "initial-extract"
 
 # Second: Validate with complex schema
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --zod-schema "./complex-schema.ts" \
   --id "detailed-validation"
 ```
@@ -278,7 +278,7 @@ npx umwelten eval run \
 ### Confidence-based Filtering
 ```bash
 # Extract with confidence scores
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Only include fields you're confident about (>0.8)" \
   --zod-schema "./confidence-schema.ts" \
   --strict-validation
@@ -287,9 +287,9 @@ npx umwelten eval run \
 ### Batch Structured Processing
 ```bash
 # Process multiple documents with same schema
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract structured data from this document" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --directory "./documents" \
   --schema "title, date, category, summary" \
   --concurrent
@@ -305,7 +305,7 @@ For interactive applications that need immediate partial results:
 
 ```typescript
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { z } from 'zod';
 
 const schema = z.object({

@@ -359,7 +359,7 @@ import { z } from 'zod';
 // Custom database query tool
 const databaseTool = {
   description: "Query a database and return results",
-  inputSchema: z.object({
+  parameters: z.object({
     query: z.string().describe("SQL query to execute"),
     database: z.string().describe("Database name")
   }),

@@ -49,15 +49,15 @@ export GOOGLE_GENERATIVE_AI_API_KEY="AIza..."
 ```
 
 **Available Models**:
-- `gemini-2.0-flash` - Fast and cost-effective
+- `gemini-3-flash-preview` - Fast and cost-effective
 - `gemini-2.5-pro-exp-03-25` - Highest quality reasoning
 - `gemini-1.5-flash-8b` - Ultra-fast for simple tasks
 
 **Configuration Example**:
 ```bash
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider google \
-  --model gemini-2.0-flash \
+  --model gemini-3-flash-preview \
   --temperature 0.7 \
   "Your prompt here"
 ```
@@ -83,7 +83,7 @@ ollama pull codestral:latest  # Code model
 **Configuration**:
 ```bash
 # Default configuration (localhost:11434)
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider ollama \
   --model gemma3:12b \
   "Your prompt here"
@@ -118,7 +118,7 @@ Configure LM Studio for local model hosting:
 # Default configuration (localhost:1234)
 export LMSTUDIO_BASE_URL="http://localhost:1234"
 
-npx umwelten run \
+dotenvx run -- pnpm run cli -- run \
   --provider lmstudio \
   --model your-loaded-model \
   "Your prompt here"
@@ -134,7 +134,7 @@ Create persistent configuration files for repeated settings:
 ```json
 {
   "defaultProvider": "google",
-  "defaultModel": "gemini-2.0-flash",
+  "defaultModel": "gemini-3-flash-preview",
   "defaultTemperature": 0.7,
   "defaultTimeout": 30000,
   "outputDirectory": "~/umwelten-results",
@@ -146,7 +146,7 @@ Create persistent configuration files for repeated settings:
 ```json
 {
   "models": [
-    "google:gemini-2.0-flash",
+    "google:gemini-3-flash-preview",
     "ollama:gemma3:12b"
   ],
   "defaultSchema": "title, summary, key_points array",
@@ -176,7 +176,7 @@ MAX_CONCURRENCY=2
 # .env.production
 GOOGLE_GENERATIVE_AI_API_KEY=your-prod-key
 OPENROUTER_API_KEY=your-prod-openrouter-key
-DEFAULT_MODELS="google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini"
+DEFAULT_MODELS="google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini"
 DEFAULT_TIMEOUT=60000
 MAX_CONCURRENCY=8
 ```
@@ -189,13 +189,13 @@ Set appropriate timeouts based on task complexity:
 
 ```bash
 # Simple tasks (30 seconds default)
-npx umwelten run --timeout 30000 "Simple question"
+dotenvx run -- pnpm run cli -- run --timeout 30000 "Simple question"
 
 # Complex analysis (2 minutes)
-npx umwelten eval run --timeout 120000 --prompt "Complex analysis task"
+dotenvx run -- pnpm run cli -- eval run --timeout 120000 --prompt "Complex analysis task"
 
 # Large file processing (5 minutes)
-npx umwelten eval run --timeout 300000 --file large-document.pdf "Analyze document"
+dotenvx run -- pnpm run cli -- eval run --timeout 300000 --file large-document.pdf "Analyze document"
 ```
 
 #### Concurrency Settings
@@ -204,13 +204,13 @@ Optimize concurrent processing based on your resources:
 
 ```bash
 # Conservative (good for API rate limits)
-npx umwelten eval batch --max-concurrency 2
+dotenvx run -- pnpm run cli -- eval batch --max-concurrency 2
 
 # Balanced (default for most use cases)
-npx umwelten eval batch --max-concurrency 5
+dotenvx run -- pnpm run cli -- eval batch --max-concurrency 5
 
 # Aggressive (high-performance systems)
-npx umwelten eval batch --max-concurrency 10
+dotenvx run -- pnpm run cli -- eval batch --max-concurrency 10
 ```
 
 ## Output Configuration
@@ -224,7 +224,7 @@ Configure where evaluations are stored:
 export UMWELTEN_OUTPUT_DIR="/path/to/output"
 
 # Command line override
-npx umwelten eval run --output-dir "./custom-output" "Your prompt"
+dotenvx run -- pnpm run cli -- eval run --output-dir "./custom-output" "Your prompt"
 ```
 
 ### Output Format Preferences
@@ -233,16 +233,16 @@ Set default output formats:
 
 ```bash
 # JSON (default)
-npx umwelten eval report --id evaluation-name
+dotenvx run -- pnpm run cli -- eval report --id evaluation-name
 
 # HTML with styling
-npx umwelten eval report --id evaluation-name --format html
+dotenvx run -- pnpm run cli -- eval report --id evaluation-name --format html
 
 # CSV for analysis
-npx umwelten eval report --id evaluation-name --format csv
+dotenvx run -- pnpm run cli -- eval report --id evaluation-name --format csv
 
 # Markdown for documentation
-npx umwelten eval report --id evaluation-name --format markdown
+dotenvx run -- pnpm run cli -- eval report --id evaluation-name --format markdown
 ```
 
 ## Security Configuration
@@ -259,7 +259,7 @@ export GOOGLE_GENERATIVE_AI_API_KEY="your-key"
 echo "*.env" >> .gitignore
 
 # Bad: Direct command line (visible in history)
-npx umwelten run --api-key "your-key" "prompt"  # DON'T DO THIS
+dotenvx run -- pnpm run cli -- run --api-key "your-key" "prompt"  # DON'T DO THIS
 ```
 
 ### Local vs Remote Execution
@@ -269,10 +269,10 @@ Configure based on data sensitivity:
 ```bash
 # Sensitive data: Use local models only
 export DEFAULT_PROVIDER="ollama"
-npx umwelten eval run --models "ollama:gemma3:12b" "Sensitive analysis"
+dotenvx run -- pnpm run cli -- eval run --models "ollama:gemma3:12b" "Sensitive analysis"
 
 # Public data: Use any provider
-npx umwelten eval run --models "google:gemini-2.0-flash" "Public analysis"
+dotenvx run -- pnpm run cli -- eval run --models "google:gemini-3-flash-preview" "Public analysis"
 ```
 
 ## Troubleshooting Configuration
@@ -283,12 +283,12 @@ Check your current configuration:
 
 ```bash
 # Test API connectivity
-npx umwelten models list --provider google
-npx umwelten models list --provider ollama
-npx umwelten models list --provider openrouter
+dotenvx run -- pnpm run cli -- models list --provider google
+dotenvx run -- pnpm run cli -- models list --provider ollama
+dotenvx run -- pnpm run cli -- models list --provider openrouter
 
 # Test basic functionality
-npx umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
+dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
 ```
 
 ### Common Configuration Issues
@@ -300,7 +300,7 @@ npx umwelten run --provider google --model gemini-2.0-flash "Hello, world!"
 echo $GOOGLE_GENERATIVE_AI_API_KEY
 
 # Test API key validity
-npx umwelten run --provider google --model gemini-2.0-flash "Test"
+dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Test"
 ```
 
 #### Network Issues
@@ -336,18 +336,18 @@ MAX_CONCURRENCY=2
 
 # config/staging.env
 GOOGLE_GENERATIVE_AI_API_KEY=staging-key
-DEFAULT_MODELS="google:gemini-2.0-flash"
+DEFAULT_MODELS="google:gemini-3-flash-preview"
 MAX_CONCURRENCY=4
 
 # config/production.env
 GOOGLE_GENERATIVE_AI_API_KEY=prod-key
 OPENROUTER_API_KEY=prod-openrouter-key
-DEFAULT_MODELS="google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini"
+DEFAULT_MODELS="google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini"
 MAX_CONCURRENCY=8
 
 # Load specific environment
 source config/production.env
-npx umwelten eval batch --directory ./data
+dotenvx run -- pnpm run cli -- eval batch --directory ./data
 ```
 
 ### Team Configuration
@@ -357,7 +357,7 @@ npx umwelten eval batch --directory ./data
 {
   "team": {
     "models": [
-      "google:gemini-2.0-flash",
+      "google:gemini-3-flash-preview",
       "ollama:gemma3:12b"
     ],
     "defaultSchema": "analysis, confidence number, key_points array",
@@ -370,7 +370,7 @@ npx umwelten eval batch --directory ./data
 }
 
 # Use shared configuration
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --config shared-config.json \
   --directory ./team-data
 ```
@@ -387,8 +387,8 @@ env:
 steps:
   - name: Run Evaluation
     run: |
-      npx umwelten eval batch \
-        --models "google:gemini-2.0-flash" \
+      dotenvx run -- pnpm run cli -- eval batch \
+        --models "google:gemini-3-flash-preview" \
         --directory "./test-data" \
         --max-concurrency 2 \
         --timeout 90000

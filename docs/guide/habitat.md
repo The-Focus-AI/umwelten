@@ -160,7 +160,7 @@ Handlers can be:
 
    export default tool({
      description: 'My tool',
-     inputSchema: z.object({ query: z.string() }),
+     parameters: z.object({ query: z.string() }),
      execute: async ({ query }) => { return { result: query }; },
    });
    ```
@@ -174,7 +174,7 @@ Handlers can be:
    export default function(context: { workDir: string; getAgent: Function; getAllowedRoots: Function }): Tool {
      return tool({
        description: 'My contextual tool',
-       inputSchema: z.object({ command: z.string() }),
+       parameters: z.object({ command: z.string() }),
        execute: async ({ command }) => {
          // Can use context.workDir, context.getAgent(), etc.
          return { result: command };

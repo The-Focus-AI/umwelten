@@ -1,98 +1,50 @@
----
-title: TypeScript API Reference
-description: Comprehensive reference for Umwelten's TypeScript API for building custom evaluations and integrations
-keywords: [TypeScript, API, reference, custom evaluations, model interaction, programmatic access, integrations, BaseModelRunner, Interaction, schemas, Zod, structured output, file attachments, streaming]
----
-
 # TypeScript API Reference
 
-Comprehensive reference for Umwelten's TypeScript API, showing how to build custom evaluations, interact with models programmatically, and extend functionality. Use this API to create custom scripts and integrations like those in the `scripts/` directory.
+Comprehensive reference for Umwelten's TypeScript API, showing how to build custom evaluations, interact with models programmatically, and extend functionality.
 
 ## Quick Navigation
 
-### 🆕 New Interaction + Interface Pattern
-- **[Interaction + Interface Pattern](/api/interaction-interface-pattern)**: Unified API for CLI, web, and agent contexts
-- **[Interaction + Interface Examples](/examples/interaction-interface-examples)**: Comprehensive usage examples
-
 ### Core APIs
-- **[Cognition Module](/api/cognition)**: Core model execution, runners, and streaming capabilities
-- **[Core Classes](/api/core-classes)**: Essential classes for model interaction and evaluation
-- **[Model Integration](/api/model-integration)**: Working with different AI model providers
+- **[Stimulus + Interaction Pattern](/api/interaction-interface-pattern)**: The core pattern — Stimulus defines behavior, Interaction manages conversations
+- **[Cognition Module](/api/cognition)**: Model execution runners (generateText, streamText, generateObject, streamObject)
+- **[Core Classes](/api/core-classes)**: Essential classes — BaseModelRunner, Interaction, EvaluationRunner
+- **[Providers](/api/providers)**: Working with Google, OpenRouter, Ollama, LM Studio, GitHub Models
+- **[Tools](/api/tools)**: Stimulus tools and Habitat tool sets
+- **[Memory System](/api/memory)**: Conversation memory and fact extraction
 - **[Evaluation Framework](/api/evaluation-framework)**: Building custom evaluation logic and runners
 - **[Schema Validation](/api/schemas)**: Zod schemas and structured output validation
 
-### Advanced Features
-- **[MCP Integration](/MCP_IMPLEMENTATION_SUMMARY)**: Model Context Protocol implementation for tool integration
-- **[Memory System](/api/memory-system)**: Conversation memory and fact extraction
-- **[Context Management](/guide/context-management)**: Track context size and intelligently compact conversations
-- **[Rate Limiting](/api/rate-limiting)**: Managing API rate limits and costs
+### Infrastructure
+- **[Habitat](/guide/habitat)**: Managed agent environments with tools, sessions, and persistence
+- **[CLI](/api/cli)**: Command-line interface (models, chat, eval, habitat, telegram)
 
 ## Core Concepts
 
-### 🆕 New Interaction + Interface Pattern (Recommended)
+### Stimulus + Interaction Pattern
 
-The new pattern provides pre-configured interactions and clean interface separation:
+Everything starts with a **Stimulus** (configuration) and an **Interaction** (conversation):
 
 ```typescript
-import { ChatInteraction, CLIInterface, EvaluationInteraction } from 'umwelten';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 
-// Chat with memory and tools
-const chatInteraction = new ChatInteraction({
-  name: "llama3.2:latest",
-  provider: "ollama"
+// Stimulus defines what the AI should do
+const stimulus = new Stimulus({
+  role: "helpful AI assistant",
+  objective: "be conversational and helpful",
+  instructions: ["Be concise", "Use tools when needed"],
+  tools: { calculator: calculatorTool },
+  runnerType: 'memory',    // automatic fact extraction
+  maxToolSteps: 5
 });
 
-// Use with CLI interface
-const cliInterface = new CLIInterface();
-await cliInterface.startChat(chatInteraction);
-
-// Or use programmatically
-const response = await chatInteraction.chat("What's the weather in New York?");
-
-// Evaluation with structured output
-const evalInteraction = new EvaluationInteraction(
-  { name: "gpt-4", provider: "openrouter" },
-  "Analyze this code and provide a score from 1-10"
+// Interaction manages the conversation
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
 );
 
-const score = await evalInteraction.evaluateWithSchema(scoreSchema);
-```
-
-**Benefits:**
-- ✅ Pre-configured interactions (Chat, Evaluation, Agent)
-- ✅ Multiple interfaces (CLI, Web, Agent)
-- ✅ Built-in tools and memory
-- ✅ Same API works across environments
-- ✅ Type-safe and well-documented
-
-### Basic Model Interaction (Legacy)
-
-The simplest way to interact with a model:
-
-```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
-import { ModelDetails } from '../src/cognition/types.js';
-
-// Define your model
-const model: ModelDetails = {
-  name: 'gemini-2.0-flash',
-  provider: 'google'
-};
-
-// Create conversation with system prompt
-const conversation = new Interaction(model, "You are a helpful assistant.");
-
-// Add user message
-conversation.addMessage({
-  role: 'user',
-  content: 'Explain quantum computing in simple terms.'
-});
-
-// Generate response
-const runner = new BaseModelRunner();
-const response = await runner.generateText(conversation);
-
+const response = await interaction.chat("What's the weather like?");
 console.log(response.content);
 ```
 
@@ -102,10 +54,9 @@ Extract structured data using Zod schemas:
 
 ```typescript
 import { z } from 'zod';
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 
-// Define your schema
 const PersonSchema = z.object({
   name: z.string().describe('Full name of the person'),
   age: z.number().int().describe('Age in years'),
@@ -113,20 +64,26 @@ const PersonSchema = z.object({
   skills: z.array(z.string()).describe('List of key skills')
 });
 
-// Create conversation
-const model = { name: 'gemini-2.0-flash', provider: 'google' };
-const conversation = new Interaction(model, 'Extract person information from text.');
-conversation.addMessage({
+const stimulus = new Stimulus({
+  role: "information extraction system",
+  objective: "extract person information from text"
+});
+
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+
+interaction.addMessage({
   role: 'user',
   content: 'John Smith is a 35-year-old software engineer with expertise in TypeScript, React, and Node.js.'
 });
 
-// Extract structured data
-const runner = new BaseModelRunner();
-const response = await runner.streamObject(conversation, PersonSchema);
-
-// response.structuredOutput contains validated data matching PersonSchema
-console.log(response.structuredOutput);
+// generateObject returns structured data as JSON in response.content
+const response = await interaction.generateObject(PersonSchema);
+const person = JSON.parse(response.content);
+console.log(person.name);    // "John Smith"
+console.log(person.skills);  // ["TypeScript", "React", "Node.js"]
 ```
 
 ### File Attachments
@@ -134,18 +91,21 @@ console.log(response.structuredOutput);
 Process files with model analysis:
 
 ```typescript
-import { Interaction } from '../src/interaction/interaction.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 
-const model = { name: 'gemini-2.0-flash', provider: 'google' };
-const conversation = new Interaction(model, 'Analyze the attached image.');
+const stimulus = new Stimulus({
+  role: "image analyst",
+  objective: "analyze attached images"
+});
 
-// Add image attachment
-await conversation.addAttachmentFromPath('./image.jpg');
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
 
-const runner = new BaseModelRunner();
-const response = await runner.generateText(conversation);
-
+await interaction.addAttachmentFromPath('./image.jpg');
+const response = await interaction.chat("Describe what you see in this image");
 console.log(response.content);
 ```
 
@@ -153,30 +113,22 @@ console.log(response.content);
 
 ### Simple Evaluation Function
 
-Create reusable evaluation functions:
-
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
-import { Interaction } from '../src/interaction/interaction.js';
-import { evaluate } from '../src/evaluation/evaluate.js';
 
 export async function analyzeText(model: ModelDetails, text: string): Promise<ModelResponse> {
-  const systemPrompt = "You are an expert text analyst.";
-  const userPrompt = `Analyze the following text and provide insights: ${text}`;
-
-  const conversation = new Interaction(model, systemPrompt);
-  conversation.addMessage({
-    role: 'user',
-    content: userPrompt
+  const stimulus = new Stimulus({
+    role: "expert text analyst",
+    objective: "analyze text and provide insights"
   });
 
-  const runner = new BaseModelRunner();
-  return runner.generateText(conversation);
+  const interaction = new Interaction(model, stimulus);
+  return interaction.chat(`Analyze the following text and provide insights: ${text}`);
 }
 
-// Use the evaluation function
-const model = { name: 'gemini-2.0-flash', provider: 'google' };
+const model = { name: "gemini-3-flash-preview", provider: "google" };
 const result = await analyzeText(model, "Sample text to analyze");
 console.log(result.content);
 ```
@@ -188,11 +140,10 @@ Build sophisticated evaluation workflows:
 ```typescript
 import { EvaluationRunner } from '../src/evaluation/runner.js';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
-import { Interaction } from '../src/interaction/interaction.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 import { z } from 'zod';
 
-// Define schema for structured output
 const AnalysisSchema = z.object({
   sentiment: z.enum(['positive', 'negative', 'neutral']),
   confidence: z.number().min(0).max(1),
@@ -206,141 +157,135 @@ class TextAnalysisRunner extends EvaluationRunner {
   }
 
   async getTextData(): Promise<string> {
-    // Cache expensive data loading
     return this.getCachedFile('input-text', async () => {
-      // Load or fetch your text data
       return "Text content to analyze";
     });
   }
 
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
     const text = await this.getTextData();
-    
-    const conversation = new Interaction(model, 'Analyze text sentiment and extract key information.');
-    conversation.addMessage({
-      role: 'user',
-      content: `Analyze this text: ${text}`
+
+    const stimulus = new Stimulus({
+      role: "text analyst",
+      objective: "analyze text sentiment and extract key information"
     });
 
+    const interaction = new Interaction(model, stimulus);
+    interaction.addMessage({ role: 'user', content: `Analyze this text: ${text}` });
+
     const runner = new BaseModelRunner();
-    return runner.streamObject(conversation, AnalysisSchema);
+    return runner.streamObject(interaction, AnalysisSchema);
   }
 }
 
-// Run evaluation across multiple models
 const runner = new TextAnalysisRunner();
-
-await runner.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await runner.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 await runner.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
-await runner.evaluate({ name: 'openai/gpt-4o-mini', provider: 'openrouter' });
 ```
 
 ## Working with Different Providers
 
-### Provider Configuration
-
 ```typescript
 import { ModelDetails } from '../src/cognition/types.js';
 
-// Google Gemini models
+// Google Gemini (requires GOOGLE_GENERATIVE_AI_API_KEY)
 const googleModel: ModelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google'
-  // Requires: GOOGLE_GENERATIVE_AI_API_KEY environment variable
 };
 
-// Ollama local models
+// Ollama local models (requires Ollama server at localhost:11434)
 const ollamaModel: ModelDetails = {
   name: 'gemma3:12b',
   provider: 'ollama'
-  // Requires: Ollama server running (default: http://localhost:11434)
 };
 
-// OpenRouter hosted models
+// OpenRouter hosted models (requires OPENROUTER_API_KEY)
 const openRouterModel: ModelDetails = {
   name: 'openai/gpt-4o-mini',
   provider: 'openrouter'
-  // Requires: OPENROUTER_API_KEY environment variable
 };
 
-// LM Studio local models
+// GitHub Models (requires GITHUB_TOKEN)
+const githubModel: ModelDetails = {
+  name: 'gpt-4o-mini',
+  provider: 'github-models'
+};
+
+// LM Studio local models (requires LM Studio at localhost:1234)
 const lmStudioModel: ModelDetails = {
   name: 'local-model-name',
   provider: 'lmstudio'
-  // Requires: LM Studio server running (default: http://localhost:1234)
 };
 ```
 
-## Essential Interfaces and Types
+## Essential Types
 
-### ModelDetails Interface
+### ModelResponse
 
-```typescript
-interface ModelDetails {
-  name: string;        // Model identifier
-  provider: string;    // Provider name: 'google', 'ollama', 'openrouter', 'lmstudio'
-  temperature?: number; // Creativity setting (0-2)
-  maxTokens?: number;   // Maximum response tokens
-}
-```
-
-### ModelResponse Interface
+Every generation method returns a `ModelResponse`:
 
 ```typescript
 interface ModelResponse {
-  content: string;           // Generated text content
-  usage?: TokenUsage;        // Token usage statistics
-  structuredOutput?: any;    // Validated structured output (when using schemas)
-  model: string;            // Model that generated the response
-  finishReason?: string;    // Why generation stopped
-  cost?: CostInfo;          // Cost information (if available)
+  content: string;              // The text response (or JSON string for structured output)
+  metadata: {
+    startTime: Date;
+    endTime: Date;
+    tokenUsage: {
+      promptTokens: number;
+      completionTokens: number;
+      total?: number;
+    };
+    cost?: {                    // Cost breakdown (when available)
+      promptCost: number;
+      completionCost: number;
+      totalCost: number;
+      usage: TokenUsage;
+    };
+    provider: string;
+    model: string;
+  };
+  reasoning?: string;           // Chain-of-thought (if model supports it)
+  reasoningDetails?: Array<{
+    type: 'text' | 'redacted';
+    text?: string;
+    data?: string;
+    signature?: string;
+  }>;
 }
 ```
 
-### Interaction Class
-
-The `Interaction` class manages conversations:
+### ModelDetails
 
 ```typescript
-class Interaction {
-  constructor(model: ModelDetails, stimulus: Stimulus);
-  
-  // Add messages
-  addMessage(message: { role: 'user' | 'assistant', content: string }): void;
-  
-  // Add file attachments
-  addAttachmentFromPath(filePath: string): Promise<void>;
-  addAttachment(content: Buffer, mimeType: string, filename?: string): void;
-  
-  // Context management
-  setCheckpoint(): void;
-  getCheckpoint(): number | undefined;
-  compactContext(strategyId: string, options?: CompactionOptions): Promise<CompactionResult | null>;
-  
-  // Get conversation data
-  getMessages(): Message[];
-  getModel(): ModelDetails;
-}
-```
-
-### BaseModelRunner Class
-
-Core class for model execution:
-
-```typescript
-class BaseModelRunner {
-  // Generate text response
-  generateText(interaction: Interaction): Promise<ModelResponse>;
-  
-  // Generate structured output with schema validation
-  streamObject<T>(interaction: Interaction, schema: ZodSchema<T>): Promise<ModelResponse>;
-  
-  // Stream responses (for real-time output)
-  streamText(interaction: Interaction): AsyncIterable<string>;
+interface ModelDetails {
+  name: string;          // Model identifier (e.g., 'gemini-3-flash-preview')
+  provider: string;      // Provider ('google', 'ollama', 'openrouter', 'lmstudio', 'github-models')
+  temperature?: number;  // Creativity setting (0-2)
+  topP?: number;         // Nucleus sampling
+  topK?: number;         // Top-K sampling
+  numCtx?: number;       // Context token count (Ollama)
+  description?: string;
+  contextLength?: number;
+  costs?: {
+    promptTokens: number;       // Cost per million prompt tokens
+    completionTokens: number;   // Cost per million completion tokens
+  };
 }
 ```
 
 ## Common Patterns
+
+### Cost Tracking
+
+```typescript
+const response = await interaction.chat("Hello");
+
+if (response.metadata.cost) {
+  console.log(`Request cost: $${response.metadata.cost.totalCost}`);
+  console.log(`Tokens: ${response.metadata.tokenUsage.total}`);
+}
+```
 
 ### Error Handling
 
@@ -349,79 +294,52 @@ import { BaseModelRunner } from '../src/cognition/runner.js';
 
 try {
   const runner = new BaseModelRunner();
-  const response = await runner.generateText(conversation);
-  
-  if (response.finishReason === 'error') {
-    console.error('Model generation failed');
-    return;
-  }
-  
+  const response = await runner.generateText(interaction);
   console.log(response.content);
 } catch (error) {
-  console.error('API call failed:', error.message);
-  // Handle authentication, network, or rate limiting errors
+  if (error.message.includes('Invalid model details')) {
+    console.error('Model not found on provider');
+  } else if (error.message.includes('Rate limit exceeded')) {
+    console.error('Rate limit exceeded, wait and retry');
+  } else {
+    console.error('API call failed:', error.message);
+  }
 }
 ```
 
 ### Batch Processing
 
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
+import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 
 async function processBatch(texts: string[], model: ModelDetails): Promise<ModelResponse[]> {
-  const runner = new BaseModelRunner();
   const results: ModelResponse[] = [];
-  
+
   for (const text of texts) {
-    const conversation = new Interaction(model, 'Analyze this text.');
-    conversation.addMessage({
-      role: 'user',
-      content: text
+    const stimulus = new Stimulus({
+      role: "text processor",
+      objective: "analyze text"
     });
-    
+
+    const interaction = new Interaction(model, stimulus);
+
     try {
-      const response = await runner.generateText(conversation);
+      const response = await interaction.chat(text);
       results.push(response);
     } catch (error) {
-      console.error(`Failed to process text: ${text.substring(0, 50)}...`);
-      // Continue with next item or implement retry logic
+      console.error(`Failed to process: ${text.substring(0, 50)}...`);
     }
   }
-  
+
   return results;
 }
 ```
-
-### Cost Tracking
-
-```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-
-const runner = new BaseModelRunner();
-let totalCost = 0;
-
-const response = await runner.generateText(conversation);
-
-if (response.metadata?.cost) {
-  totalCost += response.metadata.cost.totalCost;
-  console.log(`Request cost: $${response.metadata.cost.totalCost}`);
-  console.log(`Total cost: $${totalCost}`);
-}
-```
-
-## Real-World Examples
-
-All the patterns above are demonstrated in the `scripts/` directory:
-
-- **[image-feature-extract.ts](../scripts/image-feature-extract.ts)**: Structured output with image analysis
-- **[google-pricing.ts](../scripts/google-pricing.ts)**: Custom evaluation runner with caching
-- **[frankenstein.ts](../scripts/frankenstein.ts)**: Simple model comparison
-- **[pdf-parsing.ts](../scripts/pdf-parsing.ts)**: File processing with structured output
 
 ## Next Steps
 
 - Explore [Core Classes](/api/core-classes) for detailed class documentation
 - See [Evaluation Framework](/api/evaluation-framework) for building custom evaluations
 - Check [Schema Validation](/api/schemas) for advanced Zod schema patterns
-- Review [MCP Integration](/MCP_IMPLEMENTATION_SUMMARY) for tool integration
+- Review [Tools](/api/tools) for adding tool capabilities

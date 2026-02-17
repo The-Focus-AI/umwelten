@@ -9,9 +9,9 @@ This example demonstrates how to process multiple images concurrently using Umwe
 Process all images in a directory with the same prompt across multiple models:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image and describe key features including: objects, colors, composition, and any notable characteristics." \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-batch-analysis" \
   --directory "input/images" \
   --file-pattern "*.{jpg,jpeg,png}" \
@@ -24,9 +24,9 @@ npx umwelten eval batch \
 This is the complete CLI equivalent of the original `image-feature-batch.ts` script:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image and extract features including: able_to_parse (boolean), image_description (string), contain_text (boolean), color_palette (warm/cool/monochrome/earthy/pastel/vibrant/neutral/unknown), aesthetic_style (realistic/cartoon/abstract/clean/vintage/moody/minimalist/unknown), time_of_day (day/night/unknown), scene_type (indoor/outdoor/unknown), people_count (number), dress_style (fancy/casual/unknown). Return as JSON with confidence scores." \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-feature-batch" \
   --directory "input/images" \
   --file-pattern "*.jpeg" \
@@ -39,9 +39,9 @@ npx umwelten eval batch \
 Use structured output validation for consistent results:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract structured image features with confidence scores" \
-  --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
+  --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "structured-image-batch" \
   --directory "input/images" \
   --file-pattern "*.{jpg,jpeg,png,webp}" \
@@ -59,18 +59,18 @@ Target specific file types or naming patterns:
 
 ```bash
 # Process only high-resolution images
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this high-resolution image for technical quality" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "high-res-batch" \
   --directory "photos/high-res" \
   --file-pattern "*_4k.jpg" \
   --concurrent
 
 # Process screenshots separately
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this screenshot and extract any visible text or UI elements" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "screenshot-batch" \
   --directory "screenshots" \
   --file-pattern "screenshot_*.png" \
@@ -82,9 +82,9 @@ npx umwelten eval batch \
 Process images in subdirectories:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Categorize this image by content type and quality" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "recursive-image-batch" \
   --directory "media" \
   --file-pattern "**/*.{jpg,png}" \
@@ -97,9 +97,9 @@ npx umwelten eval batch \
 Process a limited number of files for testing:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image for content moderation" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "moderation-test" \
   --directory "user-uploads" \
   --file-pattern "*.jpg" \
@@ -114,9 +114,9 @@ npx umwelten eval batch \
 Watch batch processing progress in real-time:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract detailed metadata from this image" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "metadata-extraction" \
   --directory "photo-library" \
   --file-pattern "*.{jpg,jpeg}" \
@@ -131,21 +131,21 @@ npx umwelten eval batch \
 
 ```bash
 # Generate detailed markdown report
-npx umwelten eval report --id image-feature-batch --format markdown
+dotenvx run -- pnpm run cli -- eval report --id image-feature-batch --format markdown
 ```
 
 ### HTML Report with Embedded Previews
 
 ```bash
 # Generate HTML report with rich formatting
-npx umwelten eval report --id structured-image-batch --format html --output batch-report.html
+dotenvx run -- pnpm run cli -- eval report --id structured-image-batch --format html --output batch-report.html
 ```
 
 ### CSV Export for Analysis
 
 ```bash
 # Export structured data for further analysis
-npx umwelten eval report --id structured-image-batch --format csv --output image-data.csv
+dotenvx run -- pnpm run cli -- eval report --id structured-image-batch --format csv --output image-data.csv
 ```
 
 ## Expected Output Structure
@@ -156,13 +156,13 @@ npx umwelten eval report --id structured-image-batch --format csv --output image
 output/evaluations/image-feature-batch/
 ├── responses/
 │   ├── image1.jpg/
-│   │   ├── google_gemini-2.0-flash.json
+│   │   ├── google_gemini-3-flash-preview.json
 │   │   └── ollama_qwen2.5vl_latest.json
 │   ├── image2.jpg/
-│   │   ├── google_gemini-2.0-flash.json
+│   │   ├── google_gemini-3-flash-preview.json
 │   │   └── ollama_qwen2.5vl_latest.json
 │   └── image3.jpg/
-│       ├── google_gemini-2.0-flash.json
+│       ├── google_gemini-3-flash-preview.json
 │       └── ollama_qwen2.5vl_latest.json
 └── reports/
     ├── results.md
@@ -212,7 +212,7 @@ output/evaluations/image-feature-batch/
     }
   },
   "metadata": {
-    "model": "gemini-2.0-flash",
+    "model": "gemini-3-flash-preview",
     "provider": "google",
     "filename": "playground_scene.jpg",
     "startTime": "2025-01-27T18:30:15.123Z",
@@ -247,7 +247,7 @@ output/evaluations/image-feature-batch/
 
 | Model | Provider | Images Processed | Avg Time/Image | Total Cost | Success Rate |
 |-------|----------|------------------|----------------|------------|--------------|
-| gemini-2.0-flash | google | 25 | 3.2s | $0.001254 | 100% |
+| gemini-3-flash-preview | google | 25 | 3.2s | $0.001254 | 100% |
 | qwen2.5vl:latest | ollama | 25 | 4.8s | Free | 96% |
 
 ## Processing Performance
@@ -300,9 +300,9 @@ output/evaluations/image-feature-batch/
 Resume batch processing from where it left off:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Continue batch processing" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "image-feature-batch" \
   --directory "input/images" \
   --file-pattern "*.jpg" \
@@ -316,7 +316,7 @@ Use model-specific strengths:
 
 ```bash
 # Detailed analysis with expensive model
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Provide comprehensive artistic and technical analysis" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-analysis" \
@@ -325,9 +325,9 @@ npx umwelten eval batch \
   --file-limit 5
 
 # Quick categorization with fast model  
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Categorize: portrait/landscape/object/abstract" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "quick-categorization" \
   --directory "mixed-images" \
   --file-pattern "*.jpg" \
@@ -340,9 +340,9 @@ npx umwelten eval batch \
 Robust processing with validation:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract image features with validation" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "robust-batch" \
   --directory "user-uploads" \
   --file-pattern "*.{jpg,png}" \

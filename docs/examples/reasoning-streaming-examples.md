@@ -27,7 +27,7 @@ npx tsx src/test/test-ollama-tokens.ts
 Testing reasoning with a simple coding task:
 
 ```typescript
-import { Interaction } from '../interaction/interaction.js';
+import { Interaction } from '../interaction/core/interaction.js';
 import { BaseModelRunner } from '../cognition/runner.js';
 
 async function testSimpleReasoning() {
@@ -68,7 +68,7 @@ testSimpleReasoning().catch(console.error);
 Testing with a more challenging generation task:
 
 ```typescript
-import { Interaction } from '../interaction/interaction.js';
+import { Interaction } from '../interaction/core/interaction.js';
 import { BaseModelRunner } from '../cognition/runner.js';
 
 async function testComplexReasoning() {
@@ -109,7 +109,7 @@ testComplexReasoning().catch(console.error);
 Comparing reasoning capabilities across different models:
 
 ```typescript
-import { Interaction } from '../interaction/interaction.js';
+import { Interaction } from '../interaction/core/interaction.js';
 import { BaseModelRunner } from '../cognition/runner.js';
 
 async function compareModels() {

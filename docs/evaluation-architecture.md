@@ -162,7 +162,7 @@ import { EvaluationCache } from '../src/evaluation/caching/cache-service.js';
 
 const models = [
   { name: 'gemma3:27b', provider: 'ollama' },
-  { name: 'gemini-2.0-flash', provider: 'google' }
+  { name: 'gemini-3-flash-preview', provider: 'google' }
 ];
 
 const cache = new EvaluationCache('cat-poem');

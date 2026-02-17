@@ -43,11 +43,12 @@ const optionalSchema = "name, email?, phone?, address?";
 
 ```typescript
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 
 // Simple person extraction
-const model = { name: 'gemini-2.0-flash', provider: 'google' };
-const conversation = new Interaction(model, 'Extract person information');
+const model = { name: 'gemini-3-flash-preview', provider: 'google' };
+const stimulus = new Stimulus({ role: "information extractor" });
+const conversation = new Interaction(model, stimulus);
 
 conversation.addMessage({
   role: 'user',
@@ -85,7 +86,7 @@ TypeScript-first validation with rich type inference and runtime safety.
 ```typescript
 import { z } from 'zod';
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 
 // Define schema
 const PersonSchema = z.object({
@@ -101,7 +102,8 @@ const PersonSchema = z.object({
 type Person = z.infer<typeof PersonSchema>;
 
 // Use schema with model
-const conversation = new Interaction(model, 'Extract structured person data');
+const stimulus = new Stimulus({ role: "data extractor", objective: "extract structured person data" });
+const conversation = new Interaction(model, stimulus);
 conversation.addMessage({
   role: 'user',
   content: 'Jane Doe is a 28-year-old graphic designer from Portland who loves rock climbing and painting.'
@@ -110,8 +112,8 @@ conversation.addMessage({
 const runner = new BaseModelRunner();
 const response = await runner.streamObject(conversation, PersonSchema);
 
-// response.structuredOutput is fully typed as Person
-const person: Person = response.structuredOutput;
+// JSON.parse(response.content) is fully typed as Person
+const person: Person = JSON.parse(response.content);
 console.log(person.name);     // string
 console.log(person.age);      // number
 console.log(person.hobbies);  // string[]
@@ -355,7 +357,8 @@ Usage with file-based schemas:
 // Import schema from file
 import { DocumentAnalysisSchema } from './schemas/document-analysis.js';
 
-const conversation = new Interaction(model, 'Analyze this document');
+const stimulus = new Stimulus({ role: "document analyst" });
+const conversation = new Interaction(model, stimulus);
 await conversation.addAttachmentFromPath('./document.pdf');
 conversation.addMessage({
   role: 'user',
@@ -363,7 +366,7 @@ conversation.addMessage({
 });
 
 const response = await runner.streamObject(conversation, DocumentAnalysisSchema);
-const analysis: DocumentAnalysis = response.structuredOutput;
+const analysis: DocumentAnalysis = JSON.parse(response.content);
 ```
 
 ### JSON Schema Files
@@ -484,7 +487,7 @@ import { z } from 'zod';
 
 try {
   const response = await runner.streamObject(conversation, StrictSchema);
-  console.log('Validation successful:', response.structuredOutput);
+  console.log('Validation successful:', JSON.parse(response.content));
 } catch (error) {
   if (error instanceof z.ZodError) {
     console.error('Schema validation failed:');
@@ -639,11 +642,12 @@ describe('PersonSchema', () => {
 ```typescript
 // Test actual model responses against schema
 async function testSchemaWithModel(schema: z.ZodSchema, testPrompts: string[]) {
-  const model = { name: 'gemini-2.0-flash', provider: 'google' };
+  const model = { name: 'gemini-3-flash-preview', provider: 'google' };
   const runner = new BaseModelRunner();
   
   for (const prompt of testPrompts) {
-    const conversation = new Interaction(model, 'Extract structured data');
+    const stimulus = new Stimulus({ role: "data extractor" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({ role: 'user', content: prompt });
     
     try {
@@ -651,7 +655,7 @@ async function testSchemaWithModel(schema: z.ZodSchema, testPrompts: string[]) {
       console.log(`✓ Schema validation passed for: ${prompt.substring(0, 50)}...`);
       
       // Validate the structure
-      const parsed = schema.parse(response.structuredOutput);
+      const parsed = schema.parse(JSON.parse(response.content));
       console.log('Extracted data:', parsed);
       
     } catch (error) {

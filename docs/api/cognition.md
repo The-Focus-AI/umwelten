@@ -45,7 +45,11 @@ Generate a text response from the model.
 
 ```typescript
 const runner = new BaseModelRunner();
-const interaction = new Interaction(modelDetails, "You are a helpful assistant");
+const stimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "answer questions clearly"
+});
+const interaction = new Interaction(modelDetails, stimulus);
 interaction.addMessage({
   role: 'user',
   content: 'Explain quantum computing'
@@ -72,7 +76,11 @@ const TaskSchema = z.object({
 });
 
 const runner = new BaseModelRunner();
-const interaction = new Interaction(modelDetails, "You are a task manager");
+const stimulus = new Stimulus({
+  role: "task manager",
+  objective: "create and manage tasks"
+});
+const interaction = new Interaction(modelDetails, stimulus);
 interaction.setOutputFormat(TaskSchema);
 interaction.addMessage({
   role: 'user',
@@ -99,7 +107,11 @@ const RecipeSchema = z.object({
 });
 
 const runner = new BaseModelRunner();
-const interaction = new Interaction(modelDetails, "You are a recipe generator");
+const stimulus = new Stimulus({
+  role: "recipe generator",
+  objective: "create recipes"
+});
+const interaction = new Interaction(modelDetails, stimulus);
 interaction.setOutputFormat(RecipeSchema);
 interaction.addMessage({
   role: 'user',
@@ -123,7 +135,11 @@ Stream text responses for real-time output.
 
 ```typescript
 const runner = new BaseModelRunner();
-const interaction = new Interaction(modelDetails, "You are a storyteller");
+const stimulus = new Stimulus({
+  role: "storyteller",
+  objective: "tell engaging stories"
+});
+const interaction = new Interaction(modelDetails, stimulus);
 interaction.addMessage({
   role: 'user',
   content: 'Tell me a story about a brave knight'
@@ -379,16 +395,21 @@ try {
 ### Basic Text Generation
 ```typescript
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
 const runner = new BaseModelRunner();
 const modelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google',
   temperature: 0.7
 };
 
-const interaction = new Interaction(modelDetails, 'You are a helpful assistant');
+const stimulus = new Stimulus({
+  role: "helpful assistant",
+  objective: "explain concepts clearly"
+});
+const interaction = new Interaction(modelDetails, stimulus);
 interaction.addMessage({
   role: 'user',
   content: 'Explain machine learning in simple terms'
@@ -401,7 +422,8 @@ console.log(response.content);
 ### Structured Output with Streaming
 ```typescript
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { z } from 'zod';
 
 const ProductSchema = z.object({
@@ -413,12 +435,16 @@ const ProductSchema = z.object({
 
 const runner = new BaseModelRunner();
 const modelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google',
   temperature: 0.1
 };
 
-const interaction = new Interaction(modelDetails, 'You are a product analyzer');
+const stimulus = new Stimulus({
+  role: "product analyzer",
+  objective: "analyze products and extract features"
+});
+const interaction = new Interaction(modelDetails, stimulus);
 interaction.setOutputFormat(ProductSchema);
 interaction.addMessage({
   role: 'user',

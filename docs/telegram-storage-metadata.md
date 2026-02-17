@@ -13,7 +13,7 @@
 
 Where `JEEVES_SESSIONS_DIR` is configurable in `.env` (default: `~/.jeeves-sessions`). Each Telegram chat gets its own session directory. CLI runs create `cli-{timestamp}-{id}` subdirectories with `meta.json` and `transcript.jsonl` (Claude-style JSONL including full tool call history); see [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md#cli-sessions) § CLI sessions.
 
-**CLI** (`npx umwelten telegram`):
+**CLI** (`dotenvx run -- pnpm run cli -- telegram`):
 - Default: `{current_working_directory}/telegram-media/`
 - Custom: Use `--media-dir <path>` to specify a different location
 

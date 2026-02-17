@@ -19,9 +19,9 @@ Enable concurrent processing for any evaluation:
 
 ```bash
 # Basic concurrent evaluation
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum computing" \
-  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "quantum-comparison" \
   --concurrent
 ```
@@ -32,9 +32,9 @@ Process multiple files concurrently:
 
 ```bash
 # Process images concurrently
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image and describe key features" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-analysis" \
   --directory "input/images" \
   --file-pattern "*.jpg" \
@@ -49,9 +49,9 @@ Control the level of concurrency to optimize performance:
 
 ```bash
 # Set maximum concurrency (default: 5)
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "batch-test" \
   --directory "input/files" \
   --file-pattern "*.txt" \
@@ -66,9 +66,9 @@ Different providers have different rate limits and capabilities:
 #### Google Models
 ```bash
 # Google models handle high concurrency well
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
-  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
+  --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --id "google-comparison" \
   --concurrent \
   --max-concurrency 20
@@ -77,7 +77,7 @@ npx umwelten eval run \
 #### OpenRouter Models
 ```bash
 # OpenRouter has rate limits - use moderate concurrency
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --id "openrouter-comparison" \
@@ -88,7 +88,7 @@ npx umwelten eval run \
 #### Ollama Models (Local)
 ```bash
 # Local models - concurrency limited by hardware
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "ollama:gemma3:12b,ollama:codestral:latest" \
   --id "ollama-comparison" \
@@ -104,9 +104,9 @@ Compare multiple models on the same prompt:
 
 ```bash
 # Evaluate 5 models concurrently
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a function to calculate fibonacci numbers in Python" \
-  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-2.0-flash,openai/gpt-4o,anthropic/claude-3.7-sonnet" \
+  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview,openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --id "fibonacci-comparison" \
   --concurrent \
   --max-concurrency 5
@@ -118,9 +118,9 @@ Process large datasets efficiently:
 
 ```bash
 # Process 100+ images concurrently
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image and extract: objects, colors, text, people" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "large-image-dataset" \
   --directory "input/dataset" \
   --file-pattern "*.jpg" \
@@ -135,9 +135,9 @@ Combine local and cloud models:
 
 ```bash
 # Mix local and cloud models for cost optimization
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain machine learning concepts" \
-  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "mixed-provider-eval" \
   --concurrent \
   --max-concurrency 5
@@ -151,9 +151,9 @@ Monitor concurrent operations in real-time:
 
 ```bash
 # Enable verbose output for progress tracking
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "progress-test" \
   --directory "input/files" \
   --file-pattern "*.txt" \
@@ -168,17 +168,17 @@ Track performance improvements:
 ```bash
 # Compare sequential vs concurrent performance
 echo "Sequential processing:"
-time npx umwelten eval batch \
+time dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "sequential-test" \
   --directory "input/files" \
   --file-pattern "*.txt"
 
 echo "Concurrent processing:"
-time npx umwelten eval batch \
+time dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "concurrent-test" \
   --directory "input/files" \
   --file-pattern "*.txt" \
@@ -194,7 +194,7 @@ Begin with lower concurrency and increase gradually:
 
 ```bash
 # Start with 2-3 concurrent operations
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2,model3" \
   --id "conservative-test" \
@@ -202,7 +202,7 @@ npx umwelten eval run \
   --max-concurrency 2
 
 # Increase if performance is good
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2,model3" \
   --id "optimized-test" \
@@ -216,19 +216,19 @@ Respect provider-specific rate limits:
 
 ```bash
 # Google: High concurrency (20+)
-npx umwelten eval run \
-  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
+dotenvx run -- pnpm run cli -- eval run \
+  --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --concurrent \
   --max-concurrency 20
 
 # OpenRouter: Moderate concurrency (5-10)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --models "openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --concurrent \
   --max-concurrency 5
 
 # Ollama: Limited by hardware (2-5)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --models "ollama:gemma3:12b,ollama:codestral:latest" \
   --concurrent \
   --max-concurrency 3
@@ -243,9 +243,9 @@ Keep an eye on system resources:
 htop  # or top
 
 # Check for memory leaks or excessive CPU usage
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "resource-test" \
   --directory "input/files" \
   --file-pattern "*.txt" \
@@ -259,9 +259,9 @@ Concurrent operations can fail - handle them properly:
 
 ```bash
 # Use resume capability for large batch operations
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "resume-test" \
   --directory "input/files" \
   --file-pattern "*.txt" \
@@ -278,7 +278,7 @@ Handle provider rate limits:
 
 ```bash
 # If you hit rate limits, reduce concurrency
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --id "rate-limit-test" \
@@ -292,9 +292,9 @@ Handle network connectivity problems:
 
 ```bash
 # Use retry logic for network issues
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "network-test" \
   --concurrent \
   --max-concurrency 3 \
@@ -307,7 +307,7 @@ Handle memory constraints:
 
 ```bash
 # Reduce concurrency if memory usage is high
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "ollama:gemma3:12b" \
   --id "memory-test" \
@@ -344,9 +344,9 @@ Chain multiple concurrent operations:
 
 ```bash
 # Step 1: Process images concurrently
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract text from this image" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "text-extraction" \
   --directory "input/images" \
   --file-pattern "*.jpg" \
@@ -354,9 +354,9 @@ npx umwelten eval batch \
   --max-concurrency 10
 
 # Step 2: Process extracted text concurrently
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this extracted text" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "text-analysis" \
   --directory "output/text-extraction" \
   --file-pattern "*.txt" \
@@ -370,9 +370,9 @@ Distribute load across different providers:
 
 ```bash
 # Balance load between local and cloud models
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
-  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "load-balanced" \
   --concurrent \
   --max-concurrency 6  # 2 per provider
@@ -391,7 +391,7 @@ npx umwelten eval run \
 
 ```bash
 # Enable verbose output for debugging
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2,model3" \
   --id "debug-test" \

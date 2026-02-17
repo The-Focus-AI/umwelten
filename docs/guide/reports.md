@@ -20,16 +20,16 @@ Generate reports from completed evaluations:
 
 ```bash
 # Basic report generation
-npx umwelten eval report --id "your-evaluation-id"
+dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id"
 
 # Specify output format
-npx umwelten eval report --id "your-evaluation-id" --format markdown
+dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id" --format markdown
 
 # Save to file
-npx umwelten eval report --id "your-evaluation-id" --format html --output report.html
+dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id" --format html --output report.html
 
 # Generate short summary (without full response content)
-npx umwelten eval report --id "your-evaluation-id" --short
+dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id" --short
 ```
 
 ### Available Report Formats
@@ -38,16 +38,16 @@ Umwelten supports multiple output formats:
 
 ```bash
 # Markdown (default) - Good for documentation
-npx umwelten eval report --id "evaluation-id" --format markdown
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format markdown
 
 # HTML - Interactive web reports
-npx umwelten eval report --id "evaluation-id" --format html
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format html
 
 # JSON - Machine-readable data
-npx umwelten eval report --id "evaluation-id" --format json
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format json
 
 # CSV - Spreadsheet-friendly data
-npx umwelten eval report --id "evaluation-id" --format csv
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format csv
 ```
 
 ### Report Options
@@ -65,10 +65,10 @@ Get an overview of your evaluation results:
 
 ```bash
 # Generate summary report
-npx umwelten eval report --id "quantum-explanation" --format markdown
+dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --format markdown
 
 # Generate short summary
-npx umwelten eval report --id "quantum-explanation" --short
+dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --short
 
 # Output includes:
 # - Evaluation metadata (prompt, models, timestamp)
@@ -84,16 +84,16 @@ Compare multiple models on the same task:
 
 ```bash
 # Compare models on a single prompt
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum computing in simple terms" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash,openai/gpt-4o" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openai/gpt-4o" \
   --id "quantum-comparison"
 
 # Generate comparison report
-npx umwelten eval report --id "quantum-comparison" --format html --output comparison.html
+dotenvx run -- pnpm run cli -- eval report --id "quantum-comparison" --format html --output comparison.html
 
 # Generate short comparison summary
-npx umwelten eval report --id "quantum-comparison" --short
+dotenvx run -- pnpm run cli -- eval report --id "quantum-comparison" --short
 ```
 
 ### Batch Processing Reports
@@ -102,19 +102,19 @@ Analyze results from batch operations:
 
 ```bash
 # Process batch of files
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image and describe key features" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-batch" \
   --directory "input/images" \
   --file-pattern "*.jpg" \
   --concurrent
 
 # Generate batch report
-npx umwelten eval report --id "image-batch" --format markdown --output batch-analysis.md
+dotenvx run -- pnpm run cli -- eval report --id "image-batch" --format markdown --output batch-analysis.md
 
 # Generate short batch summary
-npx umwelten eval report --id "image-batch" --short
+dotenvx run -- pnpm run cli -- eval report --id "image-batch" --short
 ```
 
 ## Report Content Examples
@@ -123,7 +123,7 @@ npx umwelten eval report --id "image-batch" --short
 
 #### Full Report (Default)
 ```bash
-npx umwelten eval report --id "quantum-explanation" --format markdown
+dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --format markdown
 ```
 
 Includes:
@@ -135,7 +135,7 @@ Includes:
 
 #### Short Report
 ```bash
-npx umwelten eval report --id "quantum-explanation" --short
+dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --short
 ```
 
 Includes:
@@ -161,13 +161,13 @@ Includes:
 | Model | Response Time | Cost | Quality Score | Status |
 |-------|---------------|------|---------------|--------|
 | ollama:gemma3:12b | 1.2s | $0.0000 | 7.2/10 | ✅ Success |
-| google:gemini-2.0-flash | 2.1s | $0.0123 | 8.5/10 | ✅ Success |
+| google:gemini-3-flash-preview | 2.1s | $0.0123 | 8.5/10 | ✅ Success |
 | openai/gpt-4o | 3.5s | $0.0111 | 9.1/10 | ✅ Success |
 
 ## Cost Analysis
 - **Total Cost**: $0.0234
 - **Cost per Model**: $0.0078 average
-- **Most Expensive**: google:gemini-2.0-flash ($0.0123)
+- **Most Expensive**: google:gemini-3-flash-preview ($0.0123)
 - **Most Cost-Effective**: ollama:gemma3:12b (Free)
 
 ## Detailed Responses
@@ -180,13 +180,13 @@ HTML reports include interactive features:
 
 ```bash
 # Generate interactive HTML report
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format html \
   --output interactive-report.html
 
 # Generate short HTML report
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format html \
   --short \
@@ -210,7 +210,7 @@ Machine-readable JSON format:
     "id": "quantum-explanation",
     "prompt": "Explain quantum computing in simple terms",
     "timestamp": "2024-01-27T10:30:00Z",
-    "models": ["ollama:gemma3:12b", "google:gemini-2.0-flash", "openai/gpt-4o"]
+    "models": ["ollama:gemma3:12b", "google:gemini-3-flash-preview", "openai/gpt-4o"]
   },
   "results": [
     {
@@ -237,13 +237,13 @@ Machine-readable JSON format:
 
 ```bash
 # Generate cost-focused report
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format markdown \
   --output cost-analysis.md
 
 # Generate short cost summary
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --short \
   --output cost-summary.md
@@ -253,18 +253,18 @@ npx umwelten eval report \
 
 ```bash
 # Compare costs across providers
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash,openai/gpt-4o" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openai/gpt-4o" \
   --id "cost-comparison"
 
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "cost-comparison" \
   --format markdown \
   --output cost-optimization.md
 
 # Generate short cost comparison
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "cost-comparison" \
   --short \
   --output cost-comparison-summary.md
@@ -276,13 +276,13 @@ npx umwelten eval report \
 
 ```bash
 # Analyze performance patterns
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format markdown \
   --output performance-analysis.md
 
 # Generate short performance summary
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --short \
   --output performance-summary.md
@@ -294,13 +294,13 @@ For evaluations with quality scoring:
 
 ```bash
 # Generate quality-focused report
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "code-evaluation" \
   --format markdown \
   --output quality-analysis.md
 
 # Generate short quality summary
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "code-evaluation" \
   --short \
   --output quality-summary.md
@@ -312,22 +312,22 @@ npx umwelten eval report \
 
 ```bash
 # Process large batch
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "large-dataset" \
   --directory "input/images" \
   --file-pattern "*.jpg" \
   --concurrent
 
 # Generate comprehensive batch report
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "large-dataset" \
   --format html \
   --output batch-analysis.html
 
 # Generate short batch summary
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "large-dataset" \
   --short \
   --output batch-summary.md
@@ -349,13 +349,13 @@ Batch reports include:
 
 ```bash
 # Export to spreadsheet
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format csv \
   --output data.csv
 
 # Export short summary to CSV
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format csv \
   --short \
@@ -368,13 +368,13 @@ npx umwelten eval report \
 
 ```bash
 # Get JSON data for API integration
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format json \
   --output data.json
 
 # Get short JSON summary
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format json \
   --short \
@@ -389,13 +389,13 @@ npx umwelten eval report \
 
 ```bash
 # Good: Descriptive ID
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum computing" \
   --models "model1,model2,model3" \
   --id "quantum-explanation-comparison-2024"
 
 # Bad: Generic ID
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum computing" \
   --models "model1,model2,model3" \
   --id "test1"
@@ -405,28 +405,28 @@ npx umwelten eval run \
 
 ```bash
 # Generate report right after evaluation
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2" \
   --id "evaluation-id"
 
-npx umwelten eval report --id "evaluation-id" --format markdown
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format markdown
 ```
 
 ### 3. Use Appropriate Formats
 
 ```bash
 # Documentation: Markdown
-npx umwelten eval report --id "evaluation-id" --format markdown
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format markdown
 
 # Presentations: HTML
-npx umwelten eval report --id "evaluation-id" --format html
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format html
 
 # Data Analysis: JSON/CSV
-npx umwelten eval report --id "evaluation-id" --format json
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format json
 
 # Quick summaries: Short format
-npx umwelten eval report --id "evaluation-id" --short
+dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --short
 ```
 
 ### 4. Organize Reports by Project
@@ -436,13 +436,13 @@ npx umwelten eval report --id "evaluation-id" --short
 mkdir -p reports/quantum-computing
 
 # Generate full reports
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "quantum-*" \
   --format markdown \
   --output reports/quantum-computing/detailed-analysis.md
 
 # Generate short summaries
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "quantum-*" \
   --short \
   --output reports/quantum-computing/summary.md
@@ -452,12 +452,12 @@ npx umwelten eval report \
 
 ```bash
 # Quick overview of all evaluations
-npx umwelten eval list | while read -r id; do
-  npx umwelten eval report --id "$id" --short --format markdown
+dotenvx run -- pnpm run cli -- eval list | while read -r id; do
+  dotenvx run -- pnpm run cli -- eval report --id "$id" --short --format markdown
 done
 
 # Generate short summaries for presentations
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --short \
   --format html \
@@ -468,7 +468,7 @@ npx umwelten eval report \
 
 ### Common Issues
 
-1. **"Evaluation not found"**: Check evaluation ID with `npx umwelten eval list`
+1. **"Evaluation not found"**: Check evaluation ID with `dotenvx run -- pnpm run cli -- eval list`
 2. **"No data to report"**: Ensure evaluation completed successfully
 3. **"Format not supported"**: Use supported formats (markdown, html, json, csv)
 4. **"Output file error"**: Check file permissions and directory existence
@@ -477,13 +477,13 @@ npx umwelten eval report \
 
 ```bash
 # Enable verbose output
-npx umwelten eval report \
+dotenvx run -- pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format markdown \
   --verbose
 
 # Check evaluation status
-npx umwelten eval list --id "evaluation-id"
+dotenvx run -- pnpm run cli -- eval list --id "evaluation-id"
 ```
 
 ## Programmatic Reporting with Reporter

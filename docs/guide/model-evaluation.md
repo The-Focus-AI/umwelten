@@ -11,9 +11,9 @@ Model evaluation is at the heart of Umwelten's functionality. The `eval` command
 ### Simple Model Comparison
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain machine learning in simple terms" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "ml-explanation" \
   --concurrent
 ```
@@ -21,9 +21,9 @@ npx umwelten eval run \
 ### With System Context
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum computing applications" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "quantum-apps" \
   --system "You are a physics professor explaining to undergraduate students" \
   --temperature 0.3
@@ -36,9 +36,9 @@ npx umwelten eval run \
 Watch evaluations in real-time:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a creative story about AI" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "ai-story" \
   --ui \
   --concurrent
@@ -49,9 +49,9 @@ npx umwelten eval run \
 Test multimodal capabilities:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this document and extract key insights" \
-  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
+  --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --id "document-analysis" \
   --attach "./documents/report.pdf" \
   --concurrent
@@ -80,29 +80,29 @@ npx umwelten eval run \
 
 ```bash
 # Markdown report (default)
-npx umwelten eval report --id ml-explanation
+dotenvx run -- pnpm run cli -- eval report --id ml-explanation
 
 # HTML report with rich formatting
-npx umwelten eval report --id quantum-apps --format html --output report.html
+dotenvx run -- pnpm run cli -- eval report --id quantum-apps --format html --output report.html
 
 # CSV export for analysis
-npx umwelten eval report --id ai-story --format csv --output results.csv
+dotenvx run -- pnpm run cli -- eval report --id ai-story --format csv --output results.csv
 
 # JSON for programmatic use
-npx umwelten eval report --id document-analysis --format json
+dotenvx run -- pnpm run cli -- eval report --id document-analysis --format json
 ```
 
 ### List Evaluations
 
 ```bash
 # List all evaluations
-npx umwelten eval list
+dotenvx run -- pnpm run cli -- eval list
 
 # Show detailed information
-npx umwelten eval list --details
+dotenvx run -- pnpm run cli -- eval list --details
 
 # JSON format for scripting
-npx umwelten eval list --json
+dotenvx run -- pnpm run cli -- eval list --json
 ```
 
 ## Best Practices

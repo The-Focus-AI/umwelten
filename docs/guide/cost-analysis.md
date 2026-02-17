@@ -52,29 +52,29 @@ Umwelten provides transparent cost tracking and analysis across all supported pr
 
 ```bash
 # List all models with costs
-npx umwelten models list
+dotenvx run -- pnpm run cli -- models list
 
 # View detailed cost breakdown
-npx umwelten models costs
+dotenvx run -- pnpm run cli -- models costs
 
 # Sort by cost
-npx umwelten models costs --sort-by total
+dotenvx run -- pnpm run cli -- models costs --sort-by total
 
 # Filter by provider
-npx umwelten models list --provider google
+dotenvx run -- pnpm run cli -- models list --provider google
 ```
 
 ### Evaluation Cost Reports
 
 ```bash
 # Generate cost report for evaluation
-npx umwelten eval report --id my-evaluation --format json | jq '.cost'
+dotenvx run -- pnpm run cli -- eval report --id my-evaluation --format json | jq '.cost'
 
 # Export cost data for analysis
-npx umwelten eval report --id cost-analysis --format csv --output costs.csv
+dotenvx run -- pnpm run cli -- eval report --id cost-analysis --format csv --output costs.csv
 
 # View all evaluation costs
-npx umwelten eval list --details
+dotenvx run -- pnpm run cli -- eval list --details
 ```
 
 ## Cost Optimization Strategies
@@ -85,19 +85,19 @@ Choose the right model tier for your use case:
 
 ```bash
 # Budget tier (Free)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Simple question" \
   --models "ollama:gemma3:12b" \
   --id "budget-test"
 
 # Standard tier (Cost-effective)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Standard analysis" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "standard-test"
 
 # Premium tier (High quality)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Complex reasoning task" \
   --models "openrouter:openai/gpt-4o" \
   --id "premium-test"
@@ -109,15 +109,15 @@ Optimize prompts to reduce token usage:
 
 ```bash
 # Inefficient: Verbose prompt
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Please provide a very detailed, comprehensive, extensive analysis with multiple examples and thorough explanations..." \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "verbose-prompt"
 
 # Efficient: Concise prompt
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze X focusing on key points A, B, C. Include 2 examples. 300 words max." \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "concise-prompt"
 ```
 
@@ -127,15 +127,15 @@ Specify desired output length to control costs:
 
 ```bash
 # Short response (lower cost)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Summarize quantum computing in 50 words" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "short-response"
 
 # Controlled length response
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain machine learning (200-300 words)" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "controlled-response"
 ```
 
@@ -145,13 +145,13 @@ Use cheaper models for initial processing, expensive models for refinement:
 
 ```bash
 # First pass: Quick screening with cheap model
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Is this document relevant to AI research? (yes/no with brief reason)" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "screening-pass"
 
 # Second pass: Detailed analysis only for relevant documents
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Provide detailed analysis of this AI research document" \
   --models "openrouter:openai/gpt-4o" \
   --id "detailed-analysis"
@@ -163,37 +163,37 @@ npx umwelten eval run \
 
 ```bash
 # Compare costs for basic text generation
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a 200-word product description for a smart watch" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o,ollama:gemma3:12b" \
   --id "product-description-cost" \
   --concurrent
 
 # Generate cost comparison report
-npx umwelten eval report --id product-description-cost --format markdown
+dotenvx run -- pnpm run cli -- eval report --id product-description-cost --format markdown
 ```
 
 ### Complex Analysis Comparison
 
 ```bash
 # Compare costs for detailed analysis
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze the business implications of artificial intelligence in healthcare, including opportunities, challenges, and regulatory considerations" \
-  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "healthcare-ai-analysis" \
   --concurrent
 
 # Export detailed cost analysis
-npx umwelten eval report --id healthcare-ai-analysis --format csv --output healthcare-costs.csv
+dotenvx run -- pnpm run cli -- eval report --id healthcare-ai-analysis --format csv --output healthcare-costs.csv
 ```
 
 ### Batch Processing Cost Analysis
 
 ```bash
 # Process multiple documents and track costs
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Summarize this document in 100 words" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "document-batch-costs" \
   --directory "./documents" \
   --file-pattern "*.pdf" \
@@ -201,7 +201,7 @@ npx umwelten eval batch \
   --file-limit 20
 
 # Analyze batch processing costs
-npx umwelten eval report --id document-batch-costs --format json
+dotenvx run -- pnpm run cli -- eval report --id document-batch-costs --format json
 ```
 
 ## Budget Management
@@ -212,13 +212,13 @@ Before running large evaluations, estimate costs:
 
 ```bash
 # Test with a small sample first
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Your planned prompt" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "cost-estimate-test"
 
 # Check cost from the test
-npx umwelten eval report --id cost-estimate-test --format json | jq '.cost'
+dotenvx run -- pnpm run cli -- eval report --id cost-estimate-test --format json | jq '.cost'
 
 # Extrapolate: If 1 evaluation costs $0.001, then 1000 evaluations ≈ $1.00
 ```
@@ -229,8 +229,8 @@ Track spending over time:
 
 ```bash
 # Export all evaluation costs
-for eval_id in $(npx umwelten eval list --json | jq -r '.[].id'); do
-  npx umwelten eval report --id "$eval_id" --format json >> all-costs.jsonl
+for eval_id in $(dotenvx run -- pnpm run cli -- eval list --json | jq -r '.[].id'); do
+  dotenvx run -- pnpm run cli -- eval report --id "$eval_id" --format json >> all-costs.jsonl
 done
 
 # Analyze total spending
@@ -243,13 +243,13 @@ Implement budget controls in your workflows:
 
 ```bash
 # Use file limits for testing
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --file-limit 10 \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "budget-controlled-test"
 
 # Use cheaper models for development
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --models "ollama:gemma3:12b" \
   --id "development-test"
 ```
@@ -260,9 +260,9 @@ npx umwelten eval run \
 
 ```bash
 # Cost comparison for content creation
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a 500-word article about sustainable technology trends" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o" \
   --id "content-creation-costs" \
   --concurrent
 
@@ -276,9 +276,9 @@ npx umwelten eval run \
 
 ```bash
 # Cost-effective document processing
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract key information: title, date, summary, classification" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "document-analysis-cost" \
   --directory "./sample-docs" \
   --file-pattern "*.pdf" \
@@ -293,9 +293,9 @@ npx umwelten eval batch \
 
 ```bash
 # Cost analysis for support responses
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Provide helpful customer support response to this inquiry: 'How do I reset my password?'" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "support-response-cost" \
   --concurrent
 
@@ -332,16 +332,16 @@ npx umwelten eval run \
 # Instead of repeating instructions, use templates
 
 # Inefficient: Repeat context each time
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "You are a technical writer. Write clearly and concisely. Use bullet points. Explain [TOPIC]" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "inefficient"
 
 # Efficient: Use system message for context
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --system "You are a technical writer. Write clearly and concisely. Use bullet points." \
   --prompt "Explain [TOPIC]" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "efficient"
 ```
 
@@ -352,13 +352,13 @@ npx umwelten eval run \
 # Test different concurrency levels and batch sizes
 
 # Small batches (safer, lower concurrency)
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --file-limit 50 \
   --max-concurrency 2 \
   --id "small-batch-test"
 
 # Large batches (riskier, higher concurrency)
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --file-limit 200 \
   --max-concurrency 5 \
   --id "large-batch-test"
@@ -380,10 +380,10 @@ case "$TASK_COMPLEXITY-$BUDGET" in
     MODEL="ollama:gemma3:12b"
     ;;
   "simple-medium"|"medium-low")
-    MODEL="google:gemini-2.0-flash"
+    MODEL="google:gemini-3-flash-preview"
     ;;
   "medium-medium"|"complex-low")
-    MODEL="google:gemini-2.0-flash"
+    MODEL="google:gemini-3-flash-preview"
     ;;
   "medium-high"|"complex-medium")
     MODEL="openrouter:openai/gpt-4o-mini"
@@ -393,7 +393,7 @@ case "$TASK_COMPLEXITY-$BUDGET" in
     ;;
 esac
 
-npx umwelten eval run --models "$MODEL" --prompt "$3" --id "$4"
+dotenvx run -- pnpm run cli -- eval run --models "$MODEL" --prompt "$3" --id "$4"
 ```
 
 ## Cost Reporting and Analytics
@@ -402,20 +402,20 @@ npx umwelten eval run --models "$MODEL" --prompt "$3" --id "$4"
 
 ```bash
 # Monthly cost summary
-npx umwelten eval list --json | jq '
+dotenvx run -- pnpm run cli -- eval list --json | jq '
   map(select(.date | startswith("2025-01"))) | 
   map(.cost.totalCost) | 
   add
 '
 
 # Cost by model type
-npx umwelten eval list --json | jq '
+dotenvx run -- pnpm run cli -- eval list --json | jq '
   group_by(.models[0]) | 
   map({model: .[0].models[0], total_cost: map(.cost.totalCost) | add})
 '
 
 # Average cost per evaluation
-npx umwelten eval list --json | jq '
+dotenvx run -- pnpm run cli -- eval list --json | jq '
   map(.cost.totalCost) | 
   add / length
 '
@@ -425,7 +425,7 @@ npx umwelten eval list --json | jq '
 
 ```bash
 # Export to CSV for spreadsheet analysis
-npx umwelten eval list --json | jq -r '
+dotenvx run -- pnpm run cli -- eval list --json | jq -r '
   ["ID", "Date", "Model", "Cost", "Tokens"] as $headers |
   $headers,
   (.[] | [.id, .date, .models[0], .cost.totalCost, .cost.usage.total])
@@ -433,7 +433,7 @@ npx umwelten eval list --json | jq -r '
 ' > evaluation-costs.csv
 
 # Export to format suitable for BI tools
-npx umwelten eval list --json | jq '[.[] | {
+dotenvx run -- pnpm run cli -- eval list --json | jq '[.[] | {
   id, 
   date, 
   model: .models[0], 

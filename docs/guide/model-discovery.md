@@ -8,13 +8,13 @@ Umwelten provides comprehensive model discovery features to help you find and co
 
 ```bash
 # List all available models
-npx umwelten models 
+dotenvx run -- pnpm run cli -- models 
 
 # List with JSON output for programmatic use
-npx umwelten models  --json
+dotenvx run -- pnpm run cli -- models  --json
 
 # Use dotenvx to load environment variables from .env
-dotenvx run -- npx umwelten models
+dotenvx run -- dotenvx run -- pnpm run cli -- models
 ```
 
 ### Filter by Provider
@@ -22,11 +22,11 @@ dotenvx run -- npx umwelten models
 ```bash
 # Filter by specific provider
 # Use dotenvx to ensure API keys are loaded from .env
-dotenvx run -- npx umwelten models --provider openrouter      # requires OPENROUTER_API_KEY
-npx umwelten models  --provider ollama
-dotenvx run -- npx umwelten models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
-npx umwelten models  --provider lmstudio
-dotenvx run -- npx umwelten models  --provider github-models  # GITHUB_TOKEN
+dotenvx run -- dotenvx run -- pnpm run cli -- models --provider openrouter      # requires OPENROUTER_API_KEY
+dotenvx run -- pnpm run cli -- models  --provider ollama
+dotenvx run -- dotenvx run -- pnpm run cli -- models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
+dotenvx run -- pnpm run cli -- models  --provider lmstudio
+dotenvx run -- dotenvx run -- pnpm run cli -- models  --provider github-models  # GITHUB_TOKEN
 
 # Or using pnpm cli (for local development)
 dotenvx run -- pnpm run cli models --provider github-models
@@ -36,29 +36,29 @@ dotenvx run -- pnpm run cli models --provider github-models
 
 ```bash
 # Show only free models
-npx umwelten models --free
+dotenvx run -- pnpm run cli -- models --free
 
 # Sort by cost (ascending by default)
-npx umwelten models --sort cost
+dotenvx run -- pnpm run cli -- models --sort cost
 ```
 
 ### Search Models
 
 ```bash
 # Search for specific models
-npx umwelten models --search "gpt-4"
-npx umwelten models --search "gemini"
-npx umwelten models --search "llama"
+dotenvx run -- pnpm run cli -- models --search "gpt-4"
+dotenvx run -- pnpm run cli -- models --search "gemini"
+dotenvx run -- pnpm run cli -- models --search "llama"
 ```
 
 ### Sorting Options
 
 ```bash
 # Sort by different fields
-npx umwelten models --sort addedDate --desc
-npx umwelten models --sort contextLength
-npx umwelten models --sort cost
-npx umwelten models --sort name
+dotenvx run -- pnpm run cli -- models --sort addedDate --desc
+dotenvx run -- pnpm run cli -- models --sort contextLength
+dotenvx run -- pnpm run cli -- models --sort cost
+dotenvx run -- pnpm run cli -- models --sort name
 ```
 
 ## Model Information
@@ -69,17 +69,17 @@ Get comprehensive information about a specific model:
 
 ```bash
 # Basic model info (finds first match across all providers)
-npx umwelten models --view info --id <model-id>
+dotenvx run -- pnpm run cli -- models --view info --id <model-id>
 
 # Examples
-npx umwelten models --view info --id openai/gpt-4o
-npx umwelten models --view info --id gemini-2.0-flash
-npx umwelten models --view info --id gemma3:12b
+dotenvx run -- pnpm run cli -- models --view info --id openai/gpt-4o
+dotenvx run -- pnpm run cli -- models --view info --id gemini-3-flash-preview
+dotenvx run -- pnpm run cli -- models --view info --id gemma3:12b
 
 # Get info for a specific provider's version of a model
-npx umwelten models --provider github-models --view info --id openai/gpt-4.1
-npx umwelten models --provider openrouter --view info --id openai/gpt-4o
-npx umwelten models --provider google --view info --id gemini-2.0-flash
+dotenvx run -- pnpm run cli -- models --provider github-models --view info --id openai/gpt-4.1
+dotenvx run -- pnpm run cli -- models --provider openrouter --view info --id openai/gpt-4o
+dotenvx run -- pnpm run cli -- models --provider google --view info --id gemini-3-flash-preview
 ```
 
 ### Cost Analysis
@@ -88,12 +88,12 @@ View cost breakdown across all models:
 
 ```bash
 # View all model costs
-npx umwelten models costs
+dotenvx run -- pnpm run cli -- models costs
 
 # Sort by different cost metrics
-npx umwelten models costs --sort-by prompt
-npx umwelten models costs --sort-by completion
-npx umwelten models costs --sort-by total
+dotenvx run -- pnpm run cli -- models costs --sort-by prompt
+dotenvx run -- pnpm run cli -- models costs --sort-by completion
+dotenvx run -- pnpm run cli -- models costs --sort-by total
 ```
 
 The costs command shows:
@@ -117,7 +117,7 @@ Found 150+ models
 ├───────────────────┼────────────┼─────────┼───────────────┼────────────────┼────────┤
 │ openai/gpt-4o     │ openrouter │ 128K    │ $2.5000       │ $10.0000       │ 5/12/24│
 │ openai/gpt-4o-mini│ openrouter │ 128K    │ $0.1500       │ $0.6000        │ 7/17/24│
-│ gemini-2.0-flash  │ google     │ 1M      │ $0.0750       │ $0.3000        │ 12/11/24│
+│ gemini-3-flash-preview  │ google     │ 1M      │ $0.0750       │ $0.3000        │ 12/11/24│
 │ gemma3:12b        │ ollama     │ 8K      │ Free          │ Free           │ 7/15/25│
 └───────────────────┴────────────┴─────────┴───────────────┴────────────────┴────────┘
 ```
@@ -179,7 +179,7 @@ Found 150+ models
 - Models are fetched from `https://models.github.ai/catalog/models`
 - Use `dotenvx run` to load `GITHUB_TOKEN` from `.env`:
   ```bash
-  dotenvx run -- npx umwelten models --provider github-models
+  dotenvx run -- dotenvx run -- pnpm run cli -- models --provider github-models
   ```
 
 **Note**: GitHub Models API (`models.github.ai`) is different from **GitHub Copilot** (the IDE tool). 

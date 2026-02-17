@@ -284,6 +284,117 @@ Goal: Sub-agents (HabitatAgents) get habitat skills (shared) + agent-local skill
 
 ---
 
+## Current: Gaia — Habitat Manager Web UI
+
+Goal: Web-based UI for browsing habitats, inspecting sessions/agents/tools, viewing conversation beats, and jumping to specific points in session transcripts.
+
+### Server (`src/habitat/gaia-server.ts`)
+- [x] HTTP server using Node built-in `http` module (no new deps)
+- [x] `GET /api/habitat` — config, agents, tools, skills, stimulus, memory
+- [x] `GET /api/sessions` — list sessions with metadata
+- [x] `GET /api/sessions/:id` — session summary (counts, beats, cost)
+- [x] `GET /api/sessions/:id/messages` — full conversation with tool calls inline
+- [x] `GET /api/sessions/:id/beats` — conversation beats (uses existing `getBeatsForSession`)
+- [x] `GET /` — serves Gaia UI HTML
+- [x] CORS support, EADDRINUSE error handling
+
+### CLI (`src/cli/habitat.ts`)
+- [x] `umwelten habitat web` subcommand with `--port` option
+- [x] Lazy imports gaia-server (no load-time penalty for other commands)
+
+### UI (`examples/gaia-ui/index.html`)
+- [x] Dual-mode: live API data when served, mock data when opened as file
+- [x] Conversation beats on habitat dashboard (clickable, jump to session message)
+- [x] Insights & patterns card (mock data, will be LLM-generated later)
+- [x] Session chat view with tool call expand/collapse
+- [x] Ask Gaia panel with pattern-aware responses
+
+### Completed: Ask Gaia Chat → Real LLM
+- [x] `POST /api/chat` endpoint in `gaia-server.ts` — accepts `{ message, sessionId? }`, creates Interaction with habitat Stimulus+tools, streams response via LLM, persists transcript
+- [x] `readBody()` helper for raw `http.createServer` JSON body parsing
+- [x] Interaction cache (`Map<sessionId, { interaction, sessionDir }>`) for multi-turn conversation context
+- [x] UI chat handler (`index.html`) wired to `/api/chat` when `IS_SERVED`, with thinking indicator, tool call display, sessionId tracking; mock fallback for standalone file viewing
+- [x] `webAction` in `habitat.ts` persists CLI-provided `--provider`/`--model` to config for `createInteraction()` to use
+
+### Completed: Direct Sub-Agent Chat + Tool Stripping
+- [x] Strip habitat agent to management-only tools — removed file-operations, time, url-operations from `standardToolSets` (keeps agent-management, session-management, external-interactions, agent-runner)
+- [x] Add `agentId` param to `POST /api/chat` — routes to sub-agent's Interaction via `getOrCreateHabitatAgent(agentId)` with full streaming SSE support
+- [x] Update Ask Gaia panel to be context-aware — shows "Ask {agent name}" when agent selected, tracks separate session IDs per agent vs habitat
+
+### Completed: Agent Lifecycle Integration Test
+- [x] Fix `habitat.test.ts` regression — update assertions for management-only tools (agents_list, agent_clone, etc.); assert removed tools (read_file, write_file, etc.) are NOT present
+- [x] Fix `gaia-server.ts` port 0 bug — return actual OS-assigned port from `server.address().port` instead of configured `port`
+- [x] Create `agent-lifecycle.integration.test.ts` — 8-step end-to-end test with zero mocks:
+  1. Agent clone via `agent_clone` tool (real git clone of `trmnl-image-agent` to temp dir)
+  2. Stimulus building from cloned project files (CLAUDE.md, README.md)
+  3. HabitatAgent creation & caching (identity check via `===`)
+  4. Real LLM conversation (Google gemini-2.0-flash, fallback to interaction messages for tool-only responses)
+  5. Tool use — LLM invokes `list_directory` with agentId scoping
+  6. Dagger container execution (start/continue/discard, graceful SDK version skip)
+  7. Session transcript persistence (JSONL validation with manual flush fallback)
+  8. Gaia server HTTP API (habitat, sessions, chat validation, CORS, port 0)
+
+### Completed: Smart `run_project` Tool (replaces `run_bash`)
+- [x] `src/habitat/tools/run-project/types.ts` — ProjectRequirements, ExperienceMetadata, RunProjectContext, RunProjectResult types
+- [x] `src/habitat/tools/run-project/experience.ts` — Experience lifecycle management (extracted from jeeves-bot/tools/dagger.ts)
+- [x] `src/habitat/tools/run-project/project-analyzer.ts` — Static project analysis: detect type (npm/pip/cargo/go/shell), scan scripts for tools (imagemagick, claude-cli, chrome-driver, git, npx, curl, jq, etc.), parse CLAUDE.md and .env for env var names, in-memory cache
+- [x] `src/habitat/tools/run-project/skill-provisioner.ts` — Detect skill/plugin references in scripts, map chrome-driver → chromium+perl+plugin mounts, generic plugin handling
+- [x] `src/habitat/tools/run-project/index.ts` — createRunProjectTool factory: auto-detect project, provision container, inject env vars, mount skills, execute with timeout
+- [x] `src/habitat/builtin-tools/run_project/` — TOOL.md + handler.ts (factory pattern)
+- [x] `src/habitat/tool-sets.ts` — Added runProjectToolSet to standardToolSets
+- [x] `src/habitat/onboard.ts` — Seeds run_project instead of run_bash
+- [x] `src/habitat/index.ts` — Export createRunProjectTool, runProjectToolSet, RunProjectContext, ProjectRequirements
+- [x] `src/evaluation/codebase/context-provider.ts` — Added 'shell' project type marker (run.sh, setup.sh, Makefile)
+- [x] `examples/jeeves-bot/habitat.ts` — Switch from createRunBashTool to createRunProjectTool
+- [x] `src/habitat/agent-lifecycle.integration.test.ts` — Updated to use run_project (auto-start, no explicit 'start' action)
+- [x] `src/habitat/habitat.test.ts` — Added run_project assertion to built-in tools test
+- [x] `examples/jeeves-bot/tools/dagger.ts` — Added @deprecated notice
+- [x] Deleted `src/habitat/builtin-tools/run_bash/` (replaced by run_project)
+- [x] Unit tests: 29 tests (10 experience + 19 project-analyzer) — all passing
+
+### Completed: Habitat Secret Manager
+- [x] `src/habitat/secrets.ts` — `loadSecrets()` / `saveSecrets()` for `secrets.json` (0600 perms)
+- [x] `src/habitat/tools/secrets-tools.ts` — AI tools: `secrets_set`, `secrets_remove`, `secrets_list`
+- [x] `src/habitat/habitat.ts` — Added `secrets` field, load on create(), `setSecret()` / `removeSecret()` / `listSecretNames()`, `getSecret()` prefers store over env; populate `process.env` from secrets on create (fills gaps, never overrides)
+- [x] `src/habitat/tool-sets.ts` — Added `secretsToolSet` to `standardToolSets`
+- [x] `src/habitat/index.ts` — Export `secretsToolSet`
+- [x] `src/cli/habitat.ts` — `umwelten habitat secrets` subcommand (list, set, remove, `--from-op` for 1Password)
+- [x] `src/habitat/secrets.test.ts` — 6 tests (load/save/permissions)
+- [x] `src/habitat/habitat.test.ts` — 7 secrets tests (store priority, set/remove/list, load from disk)
+
+### Completed: Builtin Tools Cleanup + Search ToolSet
+- [x] Removed `src/habitat/builtin-tools/` directory entirely (broken copy-to-workdir pattern)
+- [x] Removed `seedBuiltinTools()` from `onboard.ts` — tools/ is now user-defined only
+- [x] Created `src/habitat/tools/search-tools.ts` — Tavily web search as a proper ToolSet
+- [x] Added `searchToolSet` to `standardToolSets` in `tool-sets.ts`
+- [x] Added `SearchToolsContext` interface to `habitat.ts`
+
+### Completed: Git-Based Skill Provisioning for run_project
+- [x] `src/habitat/tools/run-project/types.ts` — Added `SkillRepo` interface, replaced `hostMounts: HostMount[]` with `skillRepos: SkillRepo[]` in `ProjectRequirements`, added `skillRepos` to `RunProjectResult.detectedRequirements`, removed `HostMount` type
+- [x] `src/habitat/tools/run-project/skill-provisioner.ts` — Rewritten: `KNOWN_SKILLS` now maps to git repos (`Focus-AI/chrome-driver`, `The-Focus-AI/nano-banana-cli`), returns `skillRepos` instead of `hostMounts`, removed `findPluginDir()` and `handleGenericPlugin()` host filesystem lookups, added `resolveSkillRepo()` for agent-declared skills, re-exports `normalizeGitUrl` from stimulus/skills/loader
+- [x] `src/habitat/tools/run-project/project-analyzer.ts` — Switched from `hostMounts` to `skillRepos` accumulation with dedup
+- [x] `src/habitat/tools/run-project/index.ts` — Replaced host mount loop with git clone inside container (`git clone --depth 1`), added `/tmp` cache volume (`run-project-tmp`) for multi-step pipelines, merges agent's `skillsFromGit` if present, auto-adds `git` to apt packages when skills need cloning
+- [x] `src/habitat/types.ts` — Added `skillsFromGit?: string[]` to `AgentEntry`
+- [x] `src/habitat/index.ts` — Exported `SkillRepo` type
+- [x] `src/stimulus/skills/loader.ts` — Exported `normalizeGitUrl()` (was module-private)
+- [x] `src/stimulus/skills/index.ts` — Re-exported `normalizeGitUrl`
+- [x] `src/habitat/tools/run-project/skill-provisioner.test.ts` — 11 new tests (detect known/unknown/multiple plugins, resolveSkillRepo, normalizeGitUrl)
+- [x] `src/habitat/tools/run-project/project-analyzer.test.ts` — 2 new tests (skill detection integration)
+
+### Completed: Fix Normalized Session Serializer (tool results showed `undefined`)
+- [x] Fixed `src/interaction/core/interaction.ts` line 495 — `toNormalizedSession()` was accessing `part.result` but AI SDK uses `part.output` (with `{ type, value }` shape). Now uses `part.result ?? part.output` and unwraps the value correctly, matching the existing pattern in `transcript.ts` `extractContentBlocks()`
+- [x] Fixed same bug in user message handler (line 381)
+- [x] Added 3 new tests in `interaction.test.ts`: tool results with `output` field, legacy `result` field, and plain string content
+- [x] Verified: normalized session JSONL now contains full tool result JSON (zero `undefined` occurrences)
+
+### Planned
+- [ ] LLM-powered insights extraction (analyze session beats → generate patterns)
+- [ ] SSE for live session updates
+- [ ] Multi-habitat support (serve multiple habitats in one UI)
+- [ ] Agent status polling (live status dots)
+
+---
+
 ## Completed: Habitat as Top-Level Container
 
 Goal: Flip the architecture so Habitat is the top-level "world" at `~/habitats` (configurable via env), and interfaces like CLI REPL, Telegram, TUI, etc. run *inside* it, sharing config, agents, skills, and sessions.
@@ -314,6 +425,49 @@ Goal: Flip the architecture so Habitat is the top-level "world" at `~/habitats` 
 - [x] `docs/guide/habitat-testing.md` — Added tip about using `umwelten habitat` for testing
 - [x] `docs/walkthroughs/index.md` — Added Habitat Setup walkthrough entry
 - [x] `README.md` — Added Habitat link to documentation section
+
+---
+
+## Completed: Documentation Audit and Fix
+
+Goal: Audit all docs against actual codebase and fix everything that was wrong, outdated, or fabricated.
+
+### Systemic issues found and fixed across all docs
+- `new Interaction(model, "string")` → `new Interaction(model, stimulus)` with Stimulus object (15+ occurrences)
+- `interaction/interaction.js` → `interaction/core/interaction.js` (8+ occurrences)
+- `gemini-2.0-flash` → `gemini-3-flash-preview` (30+ files)
+- `response.structuredOutput` → `JSON.parse(response.content)` (10+ occurrences)
+- `response.finishReason` references removed (doesn't exist on ModelResponse)
+- `GOOGLE_API_KEY` → `GOOGLE_GENERATIVE_AI_API_KEY`
+- `inputSchema` → `parameters` (correct Vercel AI SDK tool property)
+- `npx umwelten` → `dotenvx run -- pnpm run cli --`
+- `npm install` → `pnpm install`
+- Removed fabricated classes (SimpleEvaluation, MatrixEvaluation, BatchEvaluation, ComplexPipeline, ChatInteraction, EvaluationInteraction, LiteraryAnalysisTemplate, etc.)
+
+### Files completely rewritten (from scratch)
+- [x] `docs/api/memory.md`
+- [x] `docs/api/interaction-interface-pattern.md`
+- [x] `docs/api/providers.md`
+- [x] `docs/api/tools.md`
+- [x] `docs/api/overview.md`
+- [x] `docs/api/core-classes.md`
+- [x] `docs/api/cli.md`
+- [x] `docs/guide/getting-started.md`
+- [x] `docs/index.md`
+- [x] `docs/architecture/overview.md`
+
+### Files fixed with targeted edits
+- [x] `docs/api/cognition.md` — Interaction constructor fixes, import paths, model names
+- [x] `docs/api/interaction.md` — import paths, model names, finishReason removed, inputSchema → parameters
+- [x] `docs/api/evaluation-framework.md` — import paths, model names, ~15 constructor fixes
+- [x] `docs/api/schemas.md` — import paths, model names, structuredOutput → JSON.parse
+- [x] `docs/api/model-integration.md` — import paths, model names, ~9 constructor fixes, added github-models
+
+### Bulk mechanical fixes across remaining docs
+- [x] `docs/guide/` — model names, CLI patterns, import paths across 16 files
+- [x] `docs/examples/` — model names, CLI patterns, import paths across 22 files
+- [x] `docs/architecture/` — model names, fabricated class references across 3 files
+- [x] Misc root docs — migration-guide, evaluation-architecture, MCP summary, etc.
 
 ---
 

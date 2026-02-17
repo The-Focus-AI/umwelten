@@ -87,7 +87,7 @@ The example uses `LiteraryAnalysisTemplate` which provides:
 ```typescript
 const allModels = await getAvailableModels();
 const models = allModels
-  .filter(model => ['gpt-4', 'gpt-3.5-turbo', 'gemini-2.0-flash'].includes(model.name))
+  .filter(model => ['gpt-4', 'gpt-3.5-turbo', 'gemini-3-flash-preview'].includes(model.name))
   .slice(0, 2);
 ```
 
@@ -190,7 +190,7 @@ const result = await evaluation.run({
 ```
 🎭 Simple Evaluation Example: Literary Analysis
 ==================================================
-📚 Using 2 models: gpt-4, gemini-2.0-flash
+📚 Using 2 models: gpt-4, gemini-3-flash-preview
 🤖 Selected model: gpt-4 (openrouter)
 
 📊 Evaluation Results:

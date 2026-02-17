@@ -10,9 +10,9 @@ Replicate the original `cat-poem.ts` script functionality:
 
 ```bash
 # Evaluate cat poem generation across multiple models
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat." \
-  --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25" \
+  --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --id "cat-poem" \
   --system "You are a helpful assistant that writes short poems about cats." \
   --temperature 0.5
@@ -22,10 +22,10 @@ npx umwelten eval run \
 
 ```bash
 # View results in markdown format
-npx umwelten eval report --id cat-poem --format markdown
+dotenvx run -- pnpm run cli -- eval report --id cat-poem --format markdown
 
 # Export to HTML for sharing
-npx umwelten eval report --id cat-poem --format html --output cat-poems.html
+dotenvx run -- pnpm run cli -- eval report --id cat-poem --format html --output cat-poems.html
 ```
 
 ## Temperature Effects
@@ -36,7 +36,7 @@ Compare how temperature affects creativity (replaces `temperature.ts`):
 
 ```bash
 # High temperature (more creative/random)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-high" \
@@ -44,7 +44,7 @@ npx umwelten eval run \
   --temperature 2.0
 
 # Low temperature (more focused/predictable)  
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-low" \
@@ -52,7 +52,7 @@ npx umwelten eval run \
   --temperature 0.5
 
 # Medium temperature (balanced)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-medium" \
@@ -64,9 +64,9 @@ npx umwelten eval run \
 
 ```bash
 # Generate individual reports
-npx umwelten eval report --id temperature-high --format markdown
-npx umwelten eval report --id temperature-low --format markdown  
-npx umwelten eval report --id temperature-medium --format markdown
+dotenvx run -- pnpm run cli -- eval report --id temperature-high --format markdown
+dotenvx run -- pnpm run cli -- eval report --id temperature-low --format markdown  
+dotenvx run -- pnpm run cli -- eval report --id temperature-medium --format markdown
 ```
 
 ## Advanced Creative Writing
@@ -74,9 +74,9 @@ npx umwelten eval report --id temperature-medium --format markdown
 ### Story Generation with Multiple Models
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a creative short story about an AI that learns to paint" \
-  --models "ollama:gemma3:27b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "ollama:gemma3:27b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "ai-painter-story" \
   --system "You are a creative writer who specializes in science fiction short stories." \
   --temperature 1.2 \
@@ -88,9 +88,9 @@ npx umwelten eval run \
 Extract structured information from generated poems:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a haiku about the ocean, then analyze its structure" \
-  --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "structured-haiku" \
   --schema "poem, syllable_count int, theme, mood" \
   --temperature 0.8
@@ -101,9 +101,9 @@ npx umwelten eval run \
 Watch stories generate in real-time:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a dramatic short story with dialogue" \
-  --models "ollama:gemma3:27b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:27b,google:gemini-3-flash-preview" \
   --id "dramatic-story" \
   --temperature 1.3 \
   --ui
@@ -177,7 +177,7 @@ Curled up cozy at my feet.
 |-------|----------|----------------|-------------------|-----------|---------------|
 | gemma3:27b | ollama | 285 | 24/71/95 | 8420 | Free |
 | gemma3:12b | ollama | 245 | 24/61/85 | 3210 | Free |
-| gemini-2.0-flash | google | 310 | 24/78/102 | 2100 | $0.000031 |
+| gemini-3-flash-preview | google | 310 | 24/78/102 | 2100 | $0.000031 |
 | gemini-2.5-pro-exp-03-25 | google | 298 | 24/75/99 | 4200 | $0.000087 |
 
 ## Statistics

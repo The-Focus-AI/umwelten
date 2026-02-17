@@ -96,7 +96,7 @@ Umwelten provides comprehensive CLI commands for MCP operations:
 Connect to an MCP server and list available capabilities:
 
 ```bash
-npx umwelten mcp connect -c "node mcp-server.js" --args arg1 arg2
+dotenvx run -- pnpm run cli -- mcp connect -c "node mcp-server.js" --args arg1 arg2
 ```
 
 #### Test Tool
@@ -104,7 +104,7 @@ npx umwelten mcp connect -c "node mcp-server.js" --args arg1 arg2
 Test a specific tool from an MCP server:
 
 ```bash  
-npx umwelten mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}'
+dotenvx run -- pnpm run cli -- mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}'
 ```
 
 #### Read Resource
@@ -112,7 +112,7 @@ npx umwelten mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}
 Read a resource from an MCP server:
 
 ```bash
-npx umwelten mcp read-resource -c "node server.js" -u "file:///path/to/resource"
+dotenvx run -- pnpm run cli -- mcp read-resource -c "node server.js" -u "file:///path/to/resource"
 ```
 
 #### Create Test Server
@@ -120,7 +120,7 @@ npx umwelten mcp read-resource -c "node server.js" -u "file:///path/to/resource"
 Create a test MCP server with example tools and resources:
 
 ```bash
-npx umwelten mcp create-server --with-tools --with-resources
+dotenvx run -- pnpm run cli -- mcp create-server --with-tools --with-resources
 ```
 
 #### List Commands
@@ -128,7 +128,7 @@ npx umwelten mcp create-server --with-tools --with-resources
 Show usage examples and available commands:
 
 ```bash
-npx umwelten mcp list
+dotenvx run -- pnpm run cli -- mcp list
 ```
 
 ## Integration with Umwelten
@@ -247,8 +247,8 @@ await server.start(new StdioTransport());
 ## Getting Started
 
 1. **Install Dependencies**: MCP support is included with Umwelten
-2. **Explore Commands**: Use `npx umwelten mcp list` to see available commands
-3. **Connect to Server**: Try `npx umwelten mcp connect` with an existing MCP server
+2. **Explore Commands**: Use `dotenvx run -- pnpm run cli -- mcp list` to see available commands
+3. **Connect to Server**: Try `dotenvx run -- pnpm run cli -- mcp connect` with an existing MCP server
 4. **Build Custom Server**: Use the server framework to expose your tools
 
 For more information about the Model Context Protocol, visit [modelcontextprotocol.io](https://modelcontextprotocol.io/).

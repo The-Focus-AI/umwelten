@@ -13,9 +13,9 @@ Batch processing allows you to evaluate multiple files with the same prompt acro
 Process all files in a directory:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this document and provide a summary" \
-  --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "document-analysis" \
   --directory "./documents" \
   --file-pattern "*.pdf" \
@@ -28,18 +28,18 @@ Use glob patterns to target specific files:
 
 ```bash
 # Process only JPEG images
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Describe this image in detail" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-descriptions" \
   --directory "./photos" \
   --file-pattern "*.{jpg,jpeg}" \
   --concurrent
 
 # Process files with specific naming patterns
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this report" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "monthly-reports" \
   --directory "./reports" \
   --file-pattern "report_2024_*.pdf"
@@ -50,9 +50,9 @@ npx umwelten eval batch \
 Process files in subdirectories:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Categorize this document by type and content" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "document-categorization" \
   --directory "./document-library" \
   --file-pattern "**/*.{pdf,docx,txt}" \
@@ -67,9 +67,9 @@ Optimize processing speed with concurrency settings:
 
 ```bash
 # High concurrency for fast processing
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract key information from this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "high-speed-processing" \
   --directory "./files" \
   --file-pattern "*.pdf" \
@@ -77,7 +77,7 @@ npx umwelten eval batch \
   --max-concurrency 8
 
 # Conservative concurrency to avoid rate limits
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Detailed analysis of this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-analysis" \
@@ -93,9 +93,9 @@ Control the number of files processed:
 
 ```bash
 # Process only the first 10 files (for testing)
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this document" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "test-batch" \
   --directory "./large-collection" \
   --file-pattern "*.pdf" \
@@ -103,9 +103,9 @@ npx umwelten eval batch \
   --concurrent
 
 # Process all files (default behavior)
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Full analysis" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "complete-batch" \
   --directory "./documents" \
   --file-pattern "*.pdf" \
@@ -117,9 +117,9 @@ npx umwelten eval batch \
 Continue from where you left off:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Continue processing from where we left off" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "large-document-batch" \
   --directory "./documents" \
   --file-pattern "*.pdf" \
@@ -134,9 +134,9 @@ npx umwelten eval batch \
 Apply structured output schemas to batch processing:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract structured metadata from this document" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "metadata-extraction" \
   --directory "./documents" \
   --file-pattern "*.pdf" \
@@ -149,9 +149,9 @@ npx umwelten eval batch \
 Use TypeScript schemas for complex validation:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this image and extract detailed features" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-feature-batch" \
   --directory "./images" \
   --file-pattern "*.{jpg,png}" \
@@ -167,9 +167,9 @@ npx umwelten eval batch \
 Watch batch processing progress in real-time:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file and extract insights" \
-  --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "interactive-batch" \
   --directory "./documents" \
   --file-pattern "*.pdf" \
@@ -184,16 +184,16 @@ npx umwelten eval batch \
 
 ```bash
 # PDF documents
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Summarize this PDF document in 200 words" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "pdf-summaries" \
   --directory "./pdfs" \
   --file-pattern "*.pdf" \
   --concurrent
 
 # Text files
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze the sentiment and key themes in this text" \
   --models "ollama:gemma3:12b" \
   --id "text-analysis" \
@@ -206,18 +206,18 @@ npx umwelten eval batch \
 
 ```bash
 # Photo analysis
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Describe this photo including objects, setting, and mood" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "photo-descriptions" \
   --directory "./photos" \
   --file-pattern "*.{jpg,jpeg,png}" \
   --concurrent
 
 # Screenshot analysis
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Identify the type of application or website in this screenshot" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "screenshot-classification" \
   --directory "./screenshots" \
   --file-pattern "screenshot_*.png" \
@@ -228,9 +228,9 @@ npx umwelten eval batch \
 
 ```bash
 # All supported file types
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this file and determine its content type and key information" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "mixed-media-analysis" \
   --directory "./mixed-files" \
   --file-pattern "*.{pdf,jpg,png,txt,md}" \
@@ -247,13 +247,13 @@ Batch processing creates organized output directories:
 output/evaluations/batch-id/
 ├── responses/
 │   ├── file1.pdf/
-│   │   ├── google_gemini-2.0-flash.json
+│   │   ├── google_gemini-3-flash-preview.json
 │   │   └── ollama_gemma3_12b.json
 │   ├── file2.pdf/
-│   │   ├── google_gemini-2.0-flash.json
+│   │   ├── google_gemini-3-flash-preview.json
 │   │   └── ollama_gemma3_12b.json
 │   └── file3.pdf/
-│       ├── google_gemini-2.0-flash.json
+│       ├── google_gemini-3-flash-preview.json
 │       └── ollama_gemma3_12b.json
 └── reports/
     ├── results.md
@@ -265,16 +265,16 @@ output/evaluations/batch-id/
 
 ```bash
 # Comprehensive markdown report
-npx umwelten eval report --id document-analysis --format markdown
+dotenvx run -- pnpm run cli -- eval report --id document-analysis --format markdown
 
 # HTML report with rich formatting
-npx umwelten eval report --id image-descriptions --format html --output batch-report.html
+dotenvx run -- pnpm run cli -- eval report --id image-descriptions --format html --output batch-report.html
 
 # CSV export for data analysis
-npx umwelten eval report --id metadata-extraction --format csv --output batch-results.csv
+dotenvx run -- pnpm run cli -- eval report --id metadata-extraction --format csv --output batch-results.csv
 
 # JSON for programmatic processing
-npx umwelten eval report --id interactive-batch --format json
+dotenvx run -- pnpm run cli -- eval report --id interactive-batch --format json
 ```
 
 ## Performance Optimization
@@ -306,9 +306,9 @@ npx umwelten eval report --id interactive-batch --format json
 
 ```bash
 # With timeout and validation
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this file with error handling" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "robust-batch" \
   --directory "./files" \
   --file-pattern "*.pdf" \
@@ -321,9 +321,9 @@ npx umwelten eval batch \
 
 ```bash
 # Resume after fixing issues
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Continue processing after resolving errors" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "robust-batch" \
   --directory "./files" \
   --file-pattern "*.pdf" \
@@ -337,9 +337,9 @@ npx umwelten eval batch \
 
 ```bash
 # Categorize and tag documents
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Categorize this document and extract tags" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "document-library" \
   --directory "./library" \
   --file-pattern "**/*.{pdf,docx}" \
@@ -351,9 +351,9 @@ npx umwelten eval batch \
 
 ```bash
 # Screen content for appropriateness
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this content for safety and appropriateness" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "content-moderation" \
   --directory "./user-uploads" \
   --file-pattern "*.{jpg,png,pdf}" \
@@ -365,9 +365,9 @@ npx umwelten eval batch \
 
 ```bash
 # Extract structured data from forms
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract form data from this document" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "form-extraction" \
   --directory "./forms" \
   --file-pattern "*.pdf" \
@@ -381,20 +381,20 @@ npx umwelten eval batch \
 
 ```bash
 # Show all batch evaluations
-npx umwelten eval list --details
+dotenvx run -- pnpm run cli -- eval list --details
 
 # Filter for batch evaluations only
-npx umwelten eval list --json | jq '.[] | select(.type == "batch")'
+dotenvx run -- pnpm run cli -- eval list --json | jq '.[] | select(.type == "batch")'
 ```
 
 ### Performance Analysis
 
 ```bash
 # Generate performance report
-npx umwelten eval report --id large-batch --format json > performance.json
+dotenvx run -- pnpm run cli -- eval report --id large-batch --format json > performance.json
 
 # Analyze timing and costs
-npx umwelten eval report --id document-batch --format csv --output analysis.csv
+dotenvx run -- pnpm run cli -- eval report --id document-batch --format csv --output analysis.csv
 ```
 
 ## Best Practices
@@ -431,9 +431,9 @@ npx umwelten eval report --id document-batch --format csv --output analysis.csv
 
 ```bash
 # Test single file from batch
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Test prompt" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "debug-single" \
   --attach "./problematic-file.pdf"
 
@@ -441,7 +441,7 @@ npx umwelten eval run \
 ls ./directory/*.pdf | head -10
 
 # Check batch status
-npx umwelten eval list --details | grep batch-id
+dotenvx run -- pnpm run cli -- eval list --details | grep batch-id
 ```
 
 ## Next Steps

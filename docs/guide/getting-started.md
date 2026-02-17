@@ -2,12 +2,12 @@
 
 ## Quick Start
 
-Welcome to umwelten! This guide will help you get up and running with the evaluation framework in just a few minutes.
+Welcome to umwelten! This guide will help you get up and running in just a few minutes.
 
 ## Prerequisites
 
-- Node.js 20+ 
-- pnpm (recommended) or npm
+- Node.js 20+
+- pnpm (recommended)
 - API keys for your chosen AI providers
 
 ## Installation
@@ -29,219 +29,190 @@ cp env.template .env
 # Edit .env with your API keys
 ```
 
+Required env vars depend on your provider:
+```bash
+# Google Gemini (recommended for getting started)
+GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+
+# OpenRouter (for OpenAI, Anthropic, etc.)
+OPENROUTER_API_KEY=your_key_here
+
+# GitHub Models (free tier)
+GITHUB_TOKEN=your_token_here
+
+# Local providers (Ollama, LM Studio) need no env vars
+```
+
 4. **Build the project**
 ```bash
 pnpm build
 ```
 
-## Running Examples
-
-The easiest way to get started is by running the example scripts:
-
-```bash
-# Simple evaluation example
-pnpm tsx scripts/examples/simple-evaluation-example.ts
-
-# Matrix evaluation (compare multiple models)
-pnpm tsx scripts/examples/matrix-evaluation-example.ts
-
-# Batch evaluation (process multiple inputs)
-pnpm tsx scripts/examples/batch-evaluation-example.ts
-
-# Complex pipeline (multi-step evaluation)
-pnpm tsx scripts/examples/complex-pipeline-example.ts
-
-# Comprehensive analysis
-pnpm tsx scripts/examples/comprehensive-analysis-example.ts
-```
-
 ## CLI Usage
 
-You can also use the umwelten CLI directly:
+All CLI commands should be prefixed with `dotenvx run --` to load API keys from `.env`:
 
 ```bash
-# List available models
-pnpm cli models
+# List available models from a provider
+dotenvx run -- pnpm run cli -- models --provider google
 
-# Run a simple evaluation
-pnpm cli run "Hello, world!" --model gpt-4
+# Run a simple prompt
+dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
 
 # Interactive chat
-pnpm cli chat --memory
+dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
-# Run evaluation with specific model
-pnpm cli eval run --prompt "Explain quantum computing" --models "gpt-4,claude-3"
+# Chat with memory (remembers facts across messages)
+dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+```
+
+## Your First Script
+
+Create a file `my-first-script.ts`:
+
+```typescript
+import { Stimulus } from './src/stimulus/stimulus.js';
+import { Interaction } from './src/interaction/core/interaction.js';
+
+const stimulus = new Stimulus({
+  role: "creative writer",
+  objective: "write engaging short stories",
+  instructions: [
+    "Write vivid, imaginative stories",
+    "Keep stories under 200 words"
+  ],
+  temperature: 0.8
+});
+
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+
+const response = await interaction.chat("Write a short story about a robot learning to paint");
+
+console.log("Story:", response.content);
+console.log("Tokens used:", response.metadata.tokenUsage.total);
+if (response.metadata.cost) {
+  console.log("Cost:", `$${response.metadata.cost.totalCost}`);
+}
+```
+
+Run it:
+```bash
+dotenvx run -- pnpm tsx my-first-script.ts
+```
+
+## Structured Output
+
+Extract structured data using Zod schemas:
+
+```typescript
+import { z } from 'zod';
+import { Stimulus } from './src/stimulus/stimulus.js';
+import { Interaction } from './src/interaction/core/interaction.js';
+
+const BookSchema = z.object({
+  title: z.string(),
+  author: z.string(),
+  year: z.number(),
+  genre: z.string(),
+  summary: z.string()
+});
+
+const stimulus = new Stimulus({
+  role: "librarian",
+  objective: "extract book information from text"
+});
+
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+
+interaction.addMessage({
+  role: 'user',
+  content: 'Tell me about "1984" by George Orwell'
+});
+
+const response = await interaction.generateObject(BookSchema);
+const book = JSON.parse(response.content);
+console.log(book.title);   // "1984"
+console.log(book.author);  // "George Orwell"
 ```
 
 ## Your First Evaluation
 
-Let's create a simple evaluation to test a model's creative writing capabilities.
-
-### 1. Create a Basic Script
-
-Create a new file `my-first-evaluation.ts`:
+Compare how different models handle the same task:
 
 ```typescript
-import { ModelDetails } from "./src/cognition/types.js";
-import { Interaction } from "./src/interaction/interaction.js";
-import { LiteraryAnalysisTemplate } from "./src/stimulus/templates/creative-templates.js";
-import { SimpleEvaluation } from "./src/evaluation/strategies/simple-evaluation.js";
+import { EvaluationRunner } from './src/evaluation/runner.js';
+import { ModelDetails, ModelResponse } from './src/cognition/types.js';
+import { BaseModelRunner } from './src/cognition/runner.js';
+import { Stimulus } from './src/stimulus/stimulus.js';
+import { Interaction } from './src/interaction/core/interaction.js';
 
-// Create evaluation
-const evaluation = new SimpleEvaluation({
-  id: "my-first-evaluation",
-  name: "My First Evaluation",
-  description: "A simple creative writing test"
-});
-
-// Define test case
-const testCase = {
-  id: "creative-writing-test",
-  name: "Creative Writing Test",
-  stimulus: LiteraryAnalysisTemplate,
-  input: {
-    prompt: "Write a short story about a robot learning to paint"
+class CreativeWritingEval extends EvaluationRunner {
+  constructor() {
+    super('creative-writing-test');
   }
-};
 
-// Run evaluation
-const result = await evaluation.run({
-  model: {
-    name: "gpt-4",
-    provider: "openrouter",
-    costs: {
-      promptTokens: 0.0001,
-      completionTokens: 0.0001
-    },
-    maxTokens: 1000,
-    temperature: 0.7
-  },
-  testCases: [testCase]
-});
+  async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
+    const stimulus = new Stimulus({
+      role: "creative writer",
+      objective: "write engaging stories",
+      temperature: 0.8
+    });
 
-console.log("Evaluation completed!");
-console.log("Response:", result.responses[0]?.content);
+    const interaction = new Interaction(model, stimulus);
+    interaction.addMessage({
+      role: 'user',
+      content: 'Write a haiku about the ocean'
+    });
+
+    const runner = new BaseModelRunner();
+    return runner.generateText(interaction);
+  }
+}
+
+const evaluation = new CreativeWritingEval();
+
+// Compare across providers
+await evaluation.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
+await evaluation.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
+
+// Results are saved in output/evaluations/creative-writing-test/
 ```
 
-### 2. Run the Evaluation
+## Using Habitat
+
+For a full agent environment with tools, sessions, and persistence:
 
 ```bash
-npx tsx my-first-evaluation.ts
+# Start the habitat REPL
+dotenvx run -- pnpm run cli -- habitat
+
+# Start as a Telegram bot
+dotenvx run -- pnpm run cli -- habitat telegram
 ```
 
-## Understanding the Results
+The habitat provides:
+- Agent management (sub-agents with their own skills)
+- Session persistence
+- Tool sets (file operations, search, secrets, code execution)
+- Skills sharing between agents
 
-The evaluation returns a result object with:
+## Custom Stimulus
 
-- **Responses**: Model responses for each test case
-- **Metrics**: Performance data (time, tokens, cost)
-- **Metadata**: Additional information about the evaluation
-
-```typescript
-console.log("Response:", result.responses[0]?.content);
-console.log("Tokens used:", result.metrics?.totalTokens);
-console.log("Cost:", result.metrics?.totalCost);
-console.log("Time taken:", result.metrics?.totalTime);
-```
-
-## Next Steps
-
-### 1. Try Different Models
+Create reusable stimulus configurations:
 
 ```typescript
-const models = [
-  { name: "gpt-4", provider: "openrouter" },
-  { name: "claude-3", provider: "openrouter" },
-  { name: "gemini-pro", provider: "google" }
-];
+import { Stimulus } from './src/stimulus/stimulus.js';
 
-for (const model of models) {
-  const result = await evaluation.run({ model, testCases: [testCase] });
-  console.log(`${model.name}: ${result.responses[0]?.content?.substring(0, 100)}...`);
-}
-```
-
-### 2. Use Different Stimulus Templates
-
-```typescript
-import { PoetryGenerationTemplate } from "./src/stimulus/templates/creative-templates.js";
-import { CodeGenerationTemplate } from "./src/stimulus/templates/coding-templates.js";
-
-// Creative writing
-const creativeTest = {
-  id: "poetry-test",
-  name: "Poetry Generation",
-  stimulus: PoetryGenerationTemplate,
-  input: { prompt: "Write a haiku about the ocean" }
-};
-
-// Code generation
-const codingTest = {
-  id: "code-test",
-  name: "Code Generation",
-  stimulus: CodeGenerationTemplate,
-  input: { prompt: "Write a Python function to calculate fibonacci numbers" }
-};
-```
-
-### 3. Compare Multiple Models
-
-```typescript
-import { MatrixEvaluation } from "./src/evaluation/strategies/matrix-evaluation.js";
-
-const matrixEvaluation = new MatrixEvaluation({
-  id: "model-comparison",
-  name: "Model Comparison",
-  description: "Compare multiple models on the same task"
-});
-
-const result = await matrixEvaluation.run({
-  models: [
-    { name: "gpt-4", provider: "openrouter" },
-    { name: "claude-3", provider: "openrouter" },
-    { name: "gemini-pro", provider: "google" }
-  ],
-  testCases: [testCase]
-});
-```
-
-## Common Patterns
-
-### 1. Batch Processing
-
-```typescript
-import { BatchEvaluation } from "./src/evaluation/strategies/batch-evaluation.js";
-
-const batchEvaluation = new BatchEvaluation({
-  id: "batch-processing",
-  name: "Batch Processing",
-  description: "Process multiple inputs with the same model"
-});
-
-const testCases = [
-  { id: "test-1", stimulus: myStimulus, input: { prompt: "Input 1" } },
-  { id: "test-2", stimulus: myStimulus, input: { prompt: "Input 2" } },
-  { id: "test-3", stimulus: myStimulus, input: { prompt: "Input 3" } }
-];
-
-const result = await batchEvaluation.run({
-  model: { name: "gpt-4", provider: "openrouter" },
-  testCases
-});
-```
-
-### 2. Custom Stimulus
-
-```typescript
-import { Stimulus } from "./src/stimulus/stimulus.js";
-
-const customStimulus = new Stimulus({
-  id: "custom-stimulus",
-  name: "Custom Stimulus",
-  description: "A custom stimulus for specific needs",
-  
-  role: "expert analyst",
-  objective: "analyze data and provide insights",
+// Analytical stimulus
+const analyticalStimulus = new Stimulus({
+  role: "data analyst",
+  objective: "analyze data and provide actionable insights",
   instructions: [
     "Examine the data carefully",
     "Identify key patterns and trends",
@@ -249,98 +220,88 @@ const customStimulus = new Stimulus({
   ],
   output: [
     "Structured analysis report",
-    "Key findings and insights",
-    "Recommendations for next steps"
+    "Key findings",
+    "Recommendations"
   ],
-  
-  temperature: 0.7,
-  maxTokens: 1500,
-  runnerType: 'base'
+  temperature: 0.3,
+  maxTokens: 1500
+});
+
+// Creative stimulus
+const creativeStimulus = new Stimulus({
+  role: "creative writer",
+  objective: "write engaging content",
+  instructions: [
+    "Be creative and original",
+    "Use vivid language"
+  ],
+  temperature: 0.9,
+  maxTokens: 2000
 });
 ```
 
-### 3. Using Tools
+## Using Tools
+
+Add tools to give the AI capabilities:
 
 ```typescript
-import { PDFTools } from "./src/stimulus/tools/pdf-tools.js";
+import { tool } from 'ai';
+import { z } from 'zod';
+import { Stimulus } from './src/stimulus/stimulus.js';
+import { Interaction } from './src/interaction/core/interaction.js';
 
-const stimulusWithTools = new Stimulus({
-  // ... other properties
-  tools: {
-    extractText: PDFTools.extractText,
-    extractMetadata: PDFTools.extractMetadata
+const calculatorTool = tool({
+  description: "Performs basic arithmetic",
+  parameters: z.object({
+    operation: z.enum(["add", "subtract", "multiply", "divide"]),
+    a: z.number(),
+    b: z.number()
+  }),
+  execute: async ({ operation, a, b }) => {
+    switch (operation) {
+      case 'add': return { result: a + b };
+      case 'subtract': return { result: a - b };
+      case 'multiply': return { result: a * b };
+      case 'divide': return { result: a / b };
+    }
   }
 });
-```
 
-## Configuration
+const stimulus = new Stimulus({
+  role: "math tutor",
+  tools: { calculator: calculatorTool },
+  toolInstructions: ["Use the calculator for arithmetic"],
+  maxToolSteps: 5
+});
 
-### Environment Variables
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
 
-```bash
-# OpenRouter API key
-OPENROUTER_API_KEY=your_openrouter_key
-
-# Google API key
-GOOGLE_API_KEY=your_google_key
-
-# Ollama base URL (optional)
-OLLAMA_BASE_URL=http://localhost:11434
-
-# LM Studio base URL (optional)
-LMSTUDIO_BASE_URL=http://localhost:1234
-```
-
-### Model Configuration
-
-```typescript
-const model: ModelDetails = {
-  name: "gpt-4",
-  provider: "openrouter",
-  costs: {
-    promptTokens: 0.0001,
-    completionTokens: 0.0001
-  },
-  maxTokens: 1000,
-  temperature: 0.7,
-  // ... other model-specific settings
-};
+const response = await interaction.chat("What is 42 * 17?");
+console.log(response.content);
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### API Key Errors
+- Verify your API keys in `.env`
+- Make sure to use `dotenvx run --` prefix when running commands
+- Google uses `GOOGLE_GENERATIVE_AI_API_KEY` (not `GOOGLE_API_KEY`)
 
-#### API Key Errors
-- Verify your API keys are set correctly
-- Check the provider documentation for key format
-- Ensure the key has the necessary permissions
+### Model Not Found
+- Run `dotenvx run -- pnpm run cli -- models --provider <provider>` to see available models
+- Model names must exactly match the provider's naming
 
-#### Model Not Found
-- Verify the model name is correct
-- Check if the model is available in your region
-- Ensure you have access to the model
-
-#### Rate Limit Errors
-- The framework automatically handles rate limits
-- Consider using caching to reduce API calls
-- Implement delays between requests if needed
-
-### Getting Help
-
-- Check the [API Reference](../api/README.md)
-- Look at [examples](../examples/README.md)
-- Review [troubleshooting guide](troubleshooting.md)
-- Open an issue on GitHub
+### Rate Limit Errors
+- The framework has built-in rate limiting
+- Consider using caching in evaluations (`getCachedFile()`)
+- Add delays between requests if needed
 
 ## What's Next?
 
-Now that you have the basics, explore:
-
-1. **[Creating Evaluations](creating-evaluations.md)** - Learn how to create more complex evaluations
-2. **[Writing Scripts](writing-scripts.md)** - Best practices for writing test scripts
-3. **[Stimulus Templates](stimulus-templates.md)** - Using and creating stimulus templates
-4. **[Tool Integration](tool-integration.md)** - Integrating external tools
-5. **[Advanced Features](advanced-features.md)** - Complex evaluation patterns
-
-Happy evaluating! 🚀
+1. **[Habitat Guide](/guide/habitat)** - Set up a full agent environment
+2. **[Tools](/api/tools)** - Learn about stimulus tools and habitat tool sets
+3. **[API Reference](/api/overview)** - Full TypeScript API documentation
+4. **[Evaluation Framework](/api/evaluation-framework)** - Build sophisticated evaluations

@@ -267,7 +267,7 @@ import { z } from 'zod';
 
 export default tool({
   description: 'Check if a URL is reachable. Returns status code and response time.',
-  inputSchema: z.object({
+  parameters: z.object({
     url: z.string().url().describe('The URL to check'),
   }),
   execute: async ({ url }) => {
@@ -333,7 +333,7 @@ import type { Tool } from 'ai';
 export default function(ctx: { getAgent: (id: string) => any }): Tool {
   return tool({
     description: 'Get package.json info for a registered agent project',
-    inputSchema: z.object({
+    parameters: z.object({
       agentId: z.string().describe('Agent ID to look up'),
     }),
     execute: async ({ agentId }) => {

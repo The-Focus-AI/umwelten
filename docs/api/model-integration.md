@@ -12,6 +12,7 @@ Umwelten supports four major AI model providers, each with different characteris
 | **Ollama** | Local | Free | Development, privacy | Local server |
 | **OpenRouter** | API | Pay-per-token | Premium models | API Key |
 | **LM Studio** | Local | Free | Custom models | Local server |
+| **GitHub Models** | API | Free tier | Azure-hosted models | GitHub Token |
 
 ## Google Gemini Models
 
@@ -34,7 +35,7 @@ import { ModelDetails } from '../src/cognition/types.js';
 
 // Fast and cost-effective
 const flashModel: ModelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google',
   temperature: 0.7
 };
@@ -59,13 +60,15 @@ const flash8bModel: ModelDetails = {
 Google models excel at image and document analysis:
 
 ```typescript
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 import { BaseModelRunner } from '../src/cognition/runner.js';
 
 // Image analysis
+const visionStimulus = new Stimulus({ role: "expert image analyst" });
 const visionAnalysis = new Interaction(
-  { name: 'gemini-2.0-flash', provider: 'google' },
-  'You are an expert image analyst.'
+  { name: 'gemini-3-flash-preview', provider: 'google' },
+  visionStimulus
 );
 
 await visionAnalysis.addAttachmentFromPath('./image.jpg');
@@ -84,9 +87,10 @@ Google models support very long contexts (up to 2M tokens):
 
 ```typescript
 // Process large documents
+const docStimulus = new Stimulus({ role: "document analyst", objective: "analyze documents comprehensively" });
 const longContext = new Interaction(
-  { name: 'gemini-2.0-flash', provider: 'google' },
-  'Analyze this entire document comprehensively.'
+  { name: 'gemini-3-flash-preview', provider: 'google' },
+  docStimulus
 );
 
 await longContext.addAttachmentFromPath('./large-report.pdf');
@@ -103,7 +107,7 @@ const response = await runner.generateText(longContext);
 ```typescript
 // Use Flash for cost-sensitive applications
 const costEffective: ModelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google',
   maxTokens: 500,  // Limit output length to control costs
   temperature: 0.1 // Lower temperature for consistent, focused responses
@@ -199,7 +203,8 @@ async function freeAnalysis(texts: string[]): Promise<void> {
   
   // Process unlimited texts without cost concerns
   for (const text of texts) {
-    const conversation = new Interaction(model, 'Analyze this text');
+    const stimulus = new Stimulus({ role: "text analyst" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({ role: 'user', content: text });
     
     const response = await runner.generateText(conversation);
@@ -214,7 +219,8 @@ async function privateDocumentAnalysis(documentPath: string): Promise<void> {
     provider: 'ollama'
   };
   
-  const conversation = new Interaction(model, 'Analyze this sensitive document.');
+  const stimulus = new Stimulus({ role: "document analyst" });
+  const conversation = new Interaction(model, stimulus);
   await conversation.addAttachmentFromPath(documentPath); // Never leaves your machine
   
   const runner = new BaseModelRunner();
@@ -315,7 +321,8 @@ async function smartModelSelection(task: string, complexity: 'simple' | 'medium'
       break;
   }
   
-  const conversation = new Interaction(model, 'You are an expert analyst.');
+  const stimulus = new Stimulus({ role: "expert analyst" });
+  const conversation = new Interaction(model, stimulus);
   conversation.addMessage({ role: 'user', content: task });
   
   const runner = new BaseModelRunner();
@@ -344,7 +351,8 @@ async function costAwareProcessing(tasks: string[]): Promise<void> {
       break;
     }
     
-    const conversation = new Interaction(model, 'Process this task efficiently.');
+    const stimulus = new Stimulus({ role: "task processor" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({ role: 'user', content: task });
     
     const response = await runner.generateText(conversation);
@@ -417,7 +425,8 @@ const codeModel: ModelDetails = {
 };
 
 async function codeGeneration(prompt: string): Promise<string> {
-  const conversation = new Interaction(codeModel, 'You are an expert programmer.');
+  const stimulus = new Stimulus({ role: "expert programmer" });
+  const conversation = new Interaction(codeModel, stimulus);
   conversation.addMessage({ role: 'user', content: prompt });
   
   const runner = new BaseModelRunner();
@@ -441,7 +450,8 @@ async function cascadedAnalysis(content: string): Promise<{ screening: string, d
     provider: 'ollama'
   };
   
-  const screening = new Interaction(screeningModel, 'Quick content screening');
+  const screeningStimulus = new Stimulus({ role: "content screener" });
+  const screening = new Interaction(screeningModel, screeningStimulus);
   screening.addMessage({
     role: 'user',
     content: `Is this content worth detailed analysis? Respond briefly: ${content}`
@@ -461,7 +471,8 @@ async function cascadedAnalysis(content: string): Promise<{ screening: string, d
       provider: 'openrouter'
     };
     
-    const detailed = new Interaction(detailedModel, 'Comprehensive content analysis');
+    const detailedStimulus = new Stimulus({ role: "content analyst", objective: "comprehensive analysis" });
+    const detailed = new Interaction(detailedModel, detailedStimulus);
     detailed.addMessage({
       role: 'user',
       content: `Provide detailed analysis: ${content}`
@@ -484,7 +495,7 @@ Implement robust fallback between providers:
 ```typescript
 async function robustGeneration(prompt: string): Promise<ModelResponse> {
   const fallbackChain: ModelDetails[] = [
-    { name: 'gemini-2.0-flash', provider: 'google' },      // Try Google first
+    { name: 'gemini-3-flash-preview', provider: 'google' },      // Try Google first
     { name: 'openai/gpt-4o-mini', provider: 'openrouter' }, // Fallback to OpenRouter
     { name: 'gemma3:12b', provider: 'ollama' }              // Final fallback to local
   ];
@@ -493,7 +504,8 @@ async function robustGeneration(prompt: string): Promise<ModelResponse> {
   
   for (const model of fallbackChain) {
     try {
-      const conversation = new Interaction(model, 'Generate response');
+      const stimulus = new Stimulus({ role: "assistant" });
+      const conversation = new Interaction(model, stimulus);
       conversation.addMessage({ role: 'user', content: prompt });
       
       const response = await runner.generateText(conversation);
@@ -515,7 +527,7 @@ async function robustGeneration(prompt: string): Promise<ModelResponse> {
 ```typescript
 async function benchmarkProviders(prompt: string): Promise<void> {
   const models: ModelDetails[] = [
-    { name: 'gemini-2.0-flash', provider: 'google' },
+    { name: 'gemini-3-flash-preview', provider: 'google' },
     { name: 'gemma3:12b', provider: 'ollama' },
     { name: 'openai/gpt-4o-mini', provider: 'openrouter' }
   ];
@@ -527,7 +539,8 @@ async function benchmarkProviders(prompt: string): Promise<void> {
     const startTime = Date.now();
     
     try {
-      const conversation = new Interaction(model, 'Respond to this prompt');
+      const stimulus = new Stimulus({ role: "assistant" });
+      const conversation = new Interaction(model, stimulus);
       conversation.addMessage({ role: 'user', content: prompt });
       
       const response = await runner.generateText(conversation);
@@ -561,7 +574,7 @@ async function benchmarkProviders(prompt: string): Promise<void> {
 ```typescript
 // Optimize for Google's strengths
 const googleBestPractices: ModelDetails = {
-  name: 'gemini-2.0-flash',
+  name: 'gemini-3-flash-preview',
   provider: 'google',
   temperature: 0.7,
   // Google handles long contexts well - don't artificially limit

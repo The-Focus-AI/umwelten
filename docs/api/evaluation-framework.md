@@ -20,7 +20,8 @@ The `EvaluationRunner` provides a robust foundation for building repeatable, cac
 import { EvaluationRunner } from '../src/evaluation/runner.js';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
 class SimpleEvaluationRunner extends EvaluationRunner {
   constructor() {
@@ -29,7 +30,11 @@ class SimpleEvaluationRunner extends EvaluationRunner {
 
   // Main evaluation logic - required override
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const conversation = new Interaction(model, 'You are an expert analyst.');
+    const stimulus = new Stimulus({
+      role: "expert analyst",
+      objective: "analyze topics thoroughly"
+    });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: 'Analyze the current state of artificial intelligence.'
@@ -44,7 +49,7 @@ class SimpleEvaluationRunner extends EvaluationRunner {
 const evaluation = new SimpleEvaluationRunner();
 
 // Run across multiple models
-await evaluation.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await evaluation.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 await evaluation.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
 await evaluation.evaluate({ name: 'openai/gpt-4o-mini', provider: 'openrouter' });
 ```
@@ -82,7 +87,8 @@ class WebAnalysisRunner extends EvaluationRunner {
     // This will use cached data on subsequent runs
     const data = await this.getProcessedData();
     
-    const conversation = new Interaction(model, 'Analyze this web data');
+    const stimulus = new Stimulus({ role: "web data analyst" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: `Analyze this data: ${JSON.stringify(data)}`
@@ -108,7 +114,8 @@ class DocumentAnalysisRunner extends EvaluationRunner {
   }
 
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const conversation = new Interaction(model, 'You are a document analyst.');
+    const stimulus = new Stimulus({ role: "document analyst" });
+    const conversation = new Interaction(model, stimulus);
     
     // Add document attachment
     await conversation.addAttachmentFromPath(this.documentPath);
@@ -125,10 +132,10 @@ class DocumentAnalysisRunner extends EvaluationRunner {
 
 // Usage with different documents
 const pdfAnalysis = new DocumentAnalysisRunner('./report.pdf');
-await pdfAnalysis.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await pdfAnalysis.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 
 const imageAnalysis = new DocumentAnalysisRunner('./chart.png');
-await imageAnalysis.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await imageAnalysis.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 ```
 
 ### Structured Output Evaluation
@@ -165,7 +172,8 @@ class StructuredAnalysisRunner extends EvaluationRunner {
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
     const inputData = await this.getInputData();
     
-    const conversation = new Interaction(model, 'You are an expert data analyst.');
+    const stimulus = new Stimulus({ role: "expert data analyst" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: `Analyze this content and provide structured insights: ${inputData}`
@@ -189,11 +197,13 @@ For quick, one-off evaluations without the full framework:
 import { evaluate } from '../src/evaluation/evaluate.js';
 import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
 import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from '../src/stimulus/stimulus.js';
 
 // Define evaluation function
 async function quickSummary(model: ModelDetails): Promise<ModelResponse> {
-  const conversation = new Interaction(model, 'Provide concise summaries.');
+  const stimulus = new Stimulus({ role: "summarizer", objective: "provide concise summaries" });
+  const conversation = new Interaction(model, stimulus);
   conversation.addMessage({
     role: 'user',
     content: 'Summarize the key benefits of renewable energy in 2 sentences.'
@@ -208,7 +218,7 @@ await evaluate(
   quickSummary,                                           // Evaluation function
   'renewable-energy-summary',                             // Evaluation ID
   'google-flash',                                         // Result identifier
-  { name: 'gemini-2.0-flash', provider: 'google' }      // Model details
+  { name: 'gemini-3-flash-preview', provider: 'google' }      // Model details
 );
 ```
 
@@ -251,7 +261,8 @@ class PricingAnalysisRunner extends EvaluationRunner {
       }))
     });
 
-    const conversation = new Interaction(model, 'Extract pricing information from HTML.');
+    const stimulus = new Stimulus({ role: "pricing data extractor" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: html
@@ -264,7 +275,7 @@ class PricingAnalysisRunner extends EvaluationRunner {
 
 // Run pricing analysis
 const pricing = new PricingAnalysisRunner('https://ai.google.dev/gemini-api/docs/pricing');
-await pricing.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await pricing.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 await pricing.evaluate({ name: 'openai/gpt-4o-mini', provider: 'openrouter' });
 ```
 
@@ -305,7 +316,8 @@ class ImageFeatureRunner extends EvaluationRunner {
   }
 
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const conversation = new Interaction(model, 'You are an expert image analyst.');
+    const stimulus = new Stimulus({ role: "expert image analyst" });
+    const conversation = new Interaction(model, stimulus);
     
     await conversation.addAttachmentFromPath(this.imagePath);
     
@@ -321,7 +333,7 @@ class ImageFeatureRunner extends EvaluationRunner {
 
 // Analyze different images with multiple models
 const imageAnalysis = new ImageFeatureRunner('./test-image.jpg');
-await imageAnalysis.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await imageAnalysis.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 await imageAnalysis.evaluate({ name: 'qwen2.5vl:latest', provider: 'ollama' });
 ```
 
@@ -343,7 +355,8 @@ class BatchDocumentRunner extends EvaluationRunner {
     for (const [index, documentPath] of this.documentPaths.entries()) {
       console.log(`Processing document ${index + 1}/${this.documentPaths.length}: ${documentPath}`);
       
-      const conversation = new Interaction(model, 'Analyze this document.');
+      const stimulus = new Stimulus({ role: "document analyst" });
+      const conversation = new Interaction(model, stimulus);
       await conversation.addAttachmentFromPath(documentPath);
       conversation.addMessage({
         role: 'user',
@@ -367,7 +380,7 @@ class BatchDocumentRunner extends EvaluationRunner {
 // Process multiple documents
 const documents = ['./doc1.pdf', './doc2.pdf', './doc3.pdf'];
 const batchProcessor = new BatchDocumentRunner(documents);
-await batchProcessor.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await batchProcessor.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 ```
 
 ## Advanced Patterns
@@ -390,7 +403,8 @@ class ModelComparisonRunner extends EvaluationRunner {
     const runner = new BaseModelRunner();
 
     for (const [index, prompt] of this.testPrompts.entries()) {
-      const conversation = new Interaction(model, 'Respond accurately and concisely.');
+      const stimulus = new Stimulus({ role: "analyst", objective: "respond accurately and concisely" });
+      const conversation = new Interaction(model, stimulus);
       conversation.addMessage({ role: 'user', content: prompt });
 
       const startTime = Date.now();
@@ -446,7 +460,7 @@ const testPrompts = [
 ];
 
 const comparison = new ModelComparisonRunner(testPrompts);
-await comparison.evaluate({ name: 'gemini-2.0-flash', provider: 'google' });
+await comparison.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
 await comparison.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
 await comparison.evaluate({ name: 'openai/gpt-4o-mini', provider: 'openrouter' });
 ```
@@ -465,7 +479,8 @@ class IterativeRefinementRunner extends EvaluationRunner {
     const runner = new BaseModelRunner();
     
     // Initial analysis
-    const initial = new Interaction(model, 'Provide initial analysis.');
+    const initialStimulus = new Stimulus({ role: "analyst", objective: "provide initial analysis" });
+    const initial = new Interaction(model, initialStimulus);
     initial.addMessage({
       role: 'user',
       content: 'Analyze the current state of AI development.'
@@ -474,7 +489,8 @@ class IterativeRefinementRunner extends EvaluationRunner {
     const initialResponse = await runner.generateText(initial);
     
     // Refinement based on initial response
-    const refinement = new Interaction(model, 'Refine and improve analysis.');
+    const refinementStimulus = new Stimulus({ role: "analyst", objective: "refine and improve analysis" });
+    const refinement = new Interaction(model, refinementStimulus);
     refinement.addMessage({
       role: 'user',
       content: `Here was your initial analysis: ${initialResponse.content}`
@@ -521,7 +537,7 @@ The evaluation framework automatically organizes results:
 ```
 output/evaluations/evaluation-id/
 ├── responses/
-│   ├── google_gemini-2.0-flash.json     # Raw model response
+│   ├── google_gemini-3-flash-preview.json     # Raw model response
 │   ├── ollama_gemma3_12b.json
 │   └── openrouter_openai_gpt-4o-mini.json
 ├── cached-data/                          # getCachedFile() results
@@ -559,7 +575,8 @@ class CustomResultsRunner extends EvaluationRunner {
   }
 
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const conversation = new Interaction(model, 'Write a comprehensive analysis.');
+    const stimulus = new Stimulus({ role: "analyst", objective: "write comprehensive analysis" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: 'Analyze the future of artificial intelligence.'
@@ -588,7 +605,8 @@ class ParallelEvaluationRunner extends EvaluationRunner {
   }
 
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const conversation = new Interaction(model, 'Provide analysis.');
+    const stimulus = new Stimulus({ role: "analyst" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: 'Analyze current market trends.'
@@ -602,7 +620,7 @@ class ParallelEvaluationRunner extends EvaluationRunner {
 // Run multiple models concurrently
 const parallel = new ParallelEvaluationRunner();
 await parallel.evaluateMultiple([
-  { name: 'gemini-2.0-flash', provider: 'google' },
+  { name: 'gemini-3-flash-preview', provider: 'google' },
   { name: 'gemma3:12b', provider: 'ollama' },
   { name: 'openai/gpt-4o-mini', provider: 'openrouter' }
 ]);
@@ -635,7 +653,8 @@ class ResourceManagedRunner extends EvaluationRunner {
   }
 
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const conversation = new Interaction(model, 'Provide resource-efficient analysis.');
+    const stimulus = new Stimulus({ role: "analyst" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({
       role: 'user',
       content: 'Analyze this efficiently.'
@@ -707,7 +726,8 @@ class TestableRunner extends EvaluationRunner {
   async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
     const processedInput = this.processInput('Raw Input Data');
     
-    const conversation = new Interaction(model, 'Process data');
+    const stimulus = new Stimulus({ role: "data processor" });
+    const conversation = new Interaction(model, stimulus);
     conversation.addMessage({ role: 'user', content: processedInput });
 
     const runner = new BaseModelRunner();

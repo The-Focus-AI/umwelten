@@ -13,7 +13,7 @@ Complex structured output goes beyond simple field extraction to handle nested r
 Extract hierarchical data with nested objects:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this research paper and extract detailed structured information" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./research-paper.pdf" \
@@ -78,7 +78,7 @@ const DocumentAnalysis = z.object({
 ```
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract detailed structured data from this document based on its type" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "complex-document-analysis" \
@@ -93,7 +93,7 @@ npx umwelten eval batch \
 ### Hierarchical Content Analysis
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract comprehensive hierarchical structure from this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./technical-manual.pdf" \
@@ -104,7 +104,7 @@ npx umwelten eval run \
 ### Complex Relationship Mapping
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Map complex relationships and dependencies in this content" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "relationship-mapping" \
@@ -184,7 +184,7 @@ const FinancialAnalysis = z.object({
 ```
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Perform comprehensive financial analysis with detailed validation" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "financial-analysis" \
@@ -264,7 +264,7 @@ const LegalContract = z.object({
 ```
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract comprehensive legal structure and analyze contract terms" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "legal-contract-analysis" \
@@ -278,7 +278,7 @@ npx umwelten eval batch \
 ### Scientific Paper Analysis
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract detailed scientific methodology and findings with statistical validation" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "scientific-analysis" \
@@ -294,7 +294,7 @@ npx umwelten eval batch \
 
 ```bash
 # First pass: Determine document structure
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this document and suggest an optimal data extraction schema based on its content and structure" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./unknown-document.pdf" \
@@ -302,7 +302,7 @@ npx umwelten eval run \
   --id "schema-analysis"
 
 # Second pass: Apply suggested schema
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract data using the previously suggested schema structure" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./unknown-document.pdf" \
@@ -315,7 +315,7 @@ npx umwelten eval run \
 ### Cross-Document Relationship Analysis
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract entities and relationships that can be connected across documents" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "cross-doc-analysis" \
@@ -328,7 +328,7 @@ npx umwelten eval batch \
 ### Multi-Dimensional Analysis
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Perform multi-dimensional analysis considering temporal, spatial, and categorical dimensions" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "multidim-analysis" \
@@ -343,7 +343,7 @@ npx umwelten eval batch \
 ### Complex Validation Rules
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract data with comprehensive validation and cross-field checking" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "validated-extraction" \
@@ -358,15 +358,15 @@ npx umwelten eval batch \
 
 ```bash
 # First extraction with basic schema
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Perform initial data extraction" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --file "./complex-document.pdf" \
   --schema "basic_info: {title, type, summary}, extracted_data: {key_points array, entities array}, confidence int: 1-10" \
   --id "initial-extraction"
 
 # Refinement pass with enhanced schema
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Refine the previous extraction with more detailed analysis" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./complex-document.pdf" \
@@ -380,7 +380,7 @@ npx umwelten eval run \
 
 ```bash
 # Use premium models for complex extraction
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract complex nested data structures with high accuracy" \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "premium-complex-extraction" \
@@ -396,7 +396,7 @@ npx umwelten eval batch \
 
 ```bash
 # Process large complex documents with resource management
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract complex data while managing memory efficiently" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "resource-managed-extraction" \
@@ -414,7 +414,7 @@ npx umwelten eval batch \
 
 ```bash
 # Generate comprehensive analysis reports
-npx umwelten eval report --id complex-document-analysis --format json > complex-results.json
+dotenvx run -- pnpm run cli -- eval report --id complex-document-analysis --format json > complex-results.json
 
 # Analyze nested structure completeness
 jq '.results[] | {
@@ -429,7 +429,7 @@ jq '.results[] | {
 
 ```bash
 # Find patterns across complex extractions
-npx umwelten eval report --id cross-doc-analysis --format json | jq '
+dotenvx run -- pnpm run cli -- eval report --id cross-doc-analysis --format json | jq '
   [.results[].response.entities[]] |
   group_by(.type) |
   map({
@@ -475,13 +475,13 @@ npx umwelten eval report --id cross-doc-analysis --format json | jq '
 
 ```bash
 # Test schema components individually
-npx umwelten run --models "google:gemini-2.5-pro-exp-03-25" --schema "simple_version: {title, summary}" --file "./test.pdf"
+dotenvx run -- pnpm run cli -- run --models "google:gemini-2.5-pro-exp-03-25" --schema "simple_version: {title, summary}" --file "./test.pdf"
 
 # Validate schema syntax
 node -e "const schema = require('./schemas/complex-schema.ts'); console.log('Schema valid');"
 
 # Check extraction time and resource usage
-time npx umwelten eval run --models "google:gemini-2.5-pro-exp-03-25" --zod-schema "./schemas/complex.ts" --file "./test.pdf"
+time dotenvx run -- pnpm run cli -- eval run --models "google:gemini-2.5-pro-exp-03-25" --zod-schema "./schemas/complex.ts" --file "./test.pdf"
 ```
 
 ## Next Steps

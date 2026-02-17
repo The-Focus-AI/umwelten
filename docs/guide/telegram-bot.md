@@ -37,20 +37,20 @@ The Telegram adapter provides a complete chat interface through Telegram, featur
    export TELEGRAM_BOT_TOKEN="your_token_here"
 
    # Option 2: Pass as command-line argument
-   npx umwelten telegram --token "your_token_here" ...
+   dotenvx run -- pnpm run cli -- telegram --token "your_token_here" ...
    ```
 
 ### Basic Usage
 
 ```bash
 # Start with Google Gemini
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 
 # Start with local Ollama model
-npx umwelten telegram -p ollama -m gemma3:12b
+dotenvx run -- pnpm run cli -- telegram -p ollama -m gemma3:12b
 
 # Start with OpenRouter
-npx umwelten telegram -p openrouter -m anthropic/claude-3.5-sonnet
+dotenvx run -- pnpm run cli -- telegram -p openrouter -m anthropic/claude-3.5-sonnet
 ```
 
 ### Provider-Specific Examples
@@ -58,31 +58,31 @@ npx umwelten telegram -p openrouter -m anthropic/claude-3.5-sonnet
 #### Google Models
 ```bash
 # Fast and cost-effective
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 
 # High-quality analytical
-npx umwelten telegram -p google -m gemini-2.5-pro-preview-05-06
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 ```
 
 #### Ollama (Local)
 ```bash
 # General conversation
-npx umwelten telegram -p ollama -m gemma3:12b
+dotenvx run -- pnpm run cli -- telegram -p ollama -m gemma3:12b
 
 # Code-focused
-npx umwelten telegram -p ollama -m codestral:latest
+dotenvx run -- pnpm run cli -- telegram -p ollama -m codestral:latest
 
 # Vision-capable
-npx umwelten telegram -p ollama -m qwen2.5vl:latest
+dotenvx run -- pnpm run cli -- telegram -p ollama -m qwen2.5vl:latest
 ```
 
 #### OpenRouter
 ```bash
 # Claude
-npx umwelten telegram -p openrouter -m anthropic/claude-3.5-sonnet
+dotenvx run -- pnpm run cli -- telegram -p openrouter -m anthropic/claude-3.5-sonnet
 
 # GPT-4o
-npx umwelten telegram -p openrouter -m openai/gpt-4o
+dotenvx run -- pnpm run cli -- telegram -p openrouter -m openai/gpt-4o
 ```
 
 ## Bot Commands
@@ -137,7 +137,7 @@ Media files are stored on disk in session-specific directories:
 
 ```bash
 # Use custom media directory (CLI only)
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --media-dir /path/to/media
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview --media-dir /path/to/media
 ```
 
 Files are named using Telegram's `file_unique_id` with appropriate extensions (`.jpg`, `.mp4`, `.ogg`, etc.). The directory is created automatically when the first media file is received.
@@ -172,13 +172,13 @@ Enable tools for enhanced capabilities:
 
 ```bash
 # Calculator tool for math
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --tools calculator
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview --tools calculator
 
 # Statistics tool for data analysis
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --tools statistics
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview --tools statistics
 
 # Multiple tools
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --tools calculator,statistics,randomNumber
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview --tools calculator,statistics,randomNumber
 ```
 
 #### Available Tools
@@ -194,7 +194,7 @@ npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --tools calcul
 Enable persistent memory to maintain context across conversations:
 
 ```bash
-npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20 --memory
+dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview --memory
 ```
 
 With memory enabled, the bot will:
@@ -208,7 +208,7 @@ With memory enabled, the bot will:
 ### Full Command Reference
 
 ```bash
-npx umwelten telegram [options]
+dotenvx run -- pnpm run cli -- telegram [options]
 
 Options:
   --token <token>            Bot token (or TELEGRAM_BOT_TOKEN env)
@@ -238,7 +238,7 @@ For production deployment, use a process manager:
 
 ```bash
 # Using pm2
-pm2 start "npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20" --name telegram-bot
+pm2 start "dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview" --name telegram-bot
 
 # Using systemd (create /etc/systemd/system/telegram-bot.service)
 [Unit]
@@ -250,7 +250,7 @@ Type=simple
 User=your-user
 Environment=TELEGRAM_BOT_TOKEN=your_token
 Environment=GOOGLE_GENERATIVE_AI_API_KEY=your_key
-ExecStart=/usr/local/bin/npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20
+ExecStart=/usr/local/bin/dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 Restart=always
 
 [Install]
@@ -335,7 +335,7 @@ Response → Telegram
 
 ```bash
 # Run with debug logging
-DEBUG=1 npx umwelten telegram -p google -m gemini-2.5-flash-preview-05-20
+DEBUG=1 dotenvx run -- pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 ```
 
 ## Next Steps

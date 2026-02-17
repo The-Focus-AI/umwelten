@@ -9,9 +9,9 @@ This example demonstrates how to extract structured data from images using Zod s
 Extract basic image features using Umwelten's DSL schema syntax:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image and extract structured features" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-features-simple" \
   --attach "./input/images/sample.jpg" \
   --schema "description, contains_text bool, color_palette, scene_type"
@@ -22,9 +22,9 @@ npx umwelten eval run \
 Use the full Zod schema from the original script for comprehensive feature extraction:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image and extract detailed features with confidence scores" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-features-detailed" \
   --attach "./path/to/image.jpg" \
   --zod-schema "./schemas/image-feature-schema.ts"
@@ -83,9 +83,9 @@ export const ImageFeatureSchema = z.object({
 ### Single Image Analysis
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image and extract all the specified features with confidence scores" \
-  --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
+  --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "structured-image-analysis" \
   --attach "./test-image.jpg" \
   --zod-schema "./schemas/image-feature-schema.ts" \
@@ -96,9 +96,9 @@ npx umwelten eval run \
 ### Multiple Models Comparison
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract structured image features with confidence scores" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest,google:gemini-1.5-flash-8b" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest,google:gemini-1.5-flash-8b" \
   --id "multi-model-features" \
   --attach "./sample-photo.jpg" \
   --zod-schema "./schemas/image-feature-schema.ts" \
@@ -174,9 +174,9 @@ When using `--validate-output`, you'll get validation feedback:
 Process multiple images with structured feature extraction:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract structured image features with confidence scores" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-features-batch" \
   --directory "input/images" \
   --file-pattern "*.{jpg,jpeg,png}" \
@@ -190,7 +190,7 @@ npx umwelten eval batch \
 ### Generate Comprehensive Report
 
 ```bash
-npx umwelten eval report --id multi-model-features --format html --output features-report.html
+dotenvx run -- pnpm run cli -- eval report --id multi-model-features --format html --output features-report.html
 ```
 
 ### Sample Report with Structured Data
@@ -204,7 +204,7 @@ npx umwelten eval report --id multi-model-features --format html --output featur
 
 | Model | Provider | Validation | Confidence Avg | Time (ms) | Cost |
 |-------|----------|------------|----------------|-----------|------|
-| gemini-2.0-flash | google | ✅ Passed | 0.91 | 3400 | $0.000052 |
+| gemini-3-flash-preview | google | ✅ Passed | 0.91 | 3400 | $0.000052 |
 | gemini-1.5-flash-8b | google | ✅ Passed | 0.88 | 2900 | $0.000041 |
 | qwen2.5vl:latest | ollama | ✅ Passed | 0.84 | 4200 | Free |
 
@@ -232,9 +232,9 @@ npx umwelten eval report --id multi-model-features --format html --output featur
 
 ```bash
 # Only accept results with high confidence
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract image features (only provide features you're very confident about)" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "high-confidence-features" \
   --attach "./image.jpg" \
   --zod-schema "./schemas/image-feature-schema.ts" \
@@ -246,9 +246,9 @@ npx umwelten eval run \
 Use built-in templates for common patterns:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract basic image information" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "template-features" \
   --attach "./photo.jpg" \
   --schema-template "image_analysis" # If this template exists
@@ -280,7 +280,7 @@ npx umwelten eval run \
 
 ```bash
 # Disable strict validation for experimental models
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --zod-schema "./schemas/image-feature-schema.ts" \
   --validate-output false \
   # ... other options

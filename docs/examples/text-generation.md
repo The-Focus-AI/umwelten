@@ -9,9 +9,9 @@ This example demonstrates basic text generation and model comparison using Umwel
 Compare how different models handle the same prompt:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum computing in simple terms" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "quantum-explanation" \
   --concurrent
 ```
@@ -21,9 +21,9 @@ npx umwelten eval run \
 Add context and control creativity:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain quantum entanglement and its practical applications" \
-  --models "ollama:gemma3:27b,google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "ollama:gemma3:27b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "quantum-detailed" \
   --system "You are a physics professor explaining complex concepts to undergraduate students. Use analogies and examples." \
   --temperature 0.3
@@ -34,9 +34,9 @@ npx umwelten eval run \
 Watch responses generate in real-time:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a comprehensive explanation of artificial intelligence, covering its history, current applications, and future potential" \
-  --models "ollama:gemma3:12b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "ai-comprehensive" \
   --system "You are a technology expert writing for a general audience" \
   --ui \
@@ -50,9 +50,9 @@ npx umwelten eval run \
 Test analytical capabilities across models:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Compare Python, JavaScript, and Rust for web development. Include performance, learning curve, and ecosystem considerations." \
-  --models "ollama:gemma3:12b,ollama:llama3.2:latest,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "ollama:gemma3:12b,ollama:llama3.2:latest,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "lang-comparison" \
   --system "You are a senior software engineer with experience in multiple programming languages" \
   --concurrent \
@@ -64,9 +64,9 @@ npx umwelten eval run \
 Test technical writing capabilities:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a technical specification for a REST API that manages user accounts, including authentication, CRUD operations, and error handling" \
-  --models "ollama:codestral:latest,google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "ollama:codestral:latest,google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "api-spec" \
   --system "You are a senior API architect writing clear, comprehensive technical specifications" \
   --temperature 0.2
@@ -78,17 +78,17 @@ Test creative writing at different temperatures:
 
 ```bash
 # High creativity
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a short science fiction story about first contact with an alien civilization" \
-  --models "ollama:gemma3:27b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:27b,google:gemini-3-flash-preview" \
   --id "scifi-creative" \
   --system "You are a creative science fiction writer known for imaginative scenarios" \
   --temperature 1.5
 
 # Low creativity (more structured)
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a short science fiction story about first contact with an alien civilization" \
-  --models "ollama:gemma3:27b,google:gemini-2.0-flash" \
+  --models "ollama:gemma3:27b,google:gemini-3-flash-preview" \
   --id "scifi-structured" \
   --system "You are a science fiction writer focused on realistic, scientifically grounded scenarios" \
   --temperature 0.3
@@ -101,9 +101,9 @@ npx umwelten eval run \
 Continue from where you left off if interrupted:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a detailed analysis of renewable energy technologies and their impact on climate change" \
-  --models "ollama:gemma3:27b,google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "ollama:gemma3:27b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "renewable-energy" \
   --resume \
   --concurrent
@@ -114,9 +114,9 @@ npx umwelten eval run \
 Set appropriate timeouts for complex prompts:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Write a comprehensive business plan for a sustainable technology startup, including market analysis, financial projections, and implementation timeline" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "business-plan" \
   --timeout 60000 \
   --concurrent
@@ -128,29 +128,29 @@ npx umwelten eval run \
 
 ```bash
 # Markdown report
-npx umwelten eval report --id quantum-explanation --format markdown
+dotenvx run -- pnpm run cli -- eval report --id quantum-explanation --format markdown
 
 # HTML report with rich formatting
-npx umwelten eval report --id lang-comparison --format html --output comparison-report.html
+dotenvx run -- pnpm run cli -- eval report --id lang-comparison --format html --output comparison-report.html
 
 # CSV export for further analysis
-npx umwelten eval report --id ai-comprehensive --format csv --output ai-analysis.csv
+dotenvx run -- pnpm run cli -- eval report --id ai-comprehensive --format csv --output ai-analysis.csv
 
 # JSON for programmatic processing
-npx umwelten eval report --id renewable-energy --format json
+dotenvx run -- pnpm run cli -- eval report --id renewable-energy --format json
 ```
 
 ### List and Discover Evaluations
 
 ```bash
 # List all evaluations
-npx umwelten eval list
+dotenvx run -- pnpm run cli -- eval list
 
 # Show detailed information
-npx umwelten eval list --details
+dotenvx run -- pnpm run cli -- eval list --details
 
 # JSON format for scripting
-npx umwelten eval list --json
+dotenvx run -- pnpm run cli -- eval list --json
 ```
 
 ## Expected Output Examples
@@ -204,7 +204,7 @@ However, quantum computers are still experimental and face significant technical
 
 | Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) | Cost Estimate |
 |-------|----------|----------------|-------------------|-----------|---------------|
-| gemini-2.0-flash | google | 1240 | 15/248/263 | 2100 | $0.000078 |
+| gemini-3-flash-preview | google | 1240 | 15/248/263 | 2100 | $0.000078 |
 | gemma3:12b | ollama | 1180 | 15/236/251 | 8400 | Free |
 | gpt-4o-mini | openrouter | 1320 | 15/264/279 | 3200 | $0.000042 |
 

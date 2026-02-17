@@ -9,9 +9,9 @@ This example shows how to analyze images using Umwelten's vision-capable models.
 Analyze a single image across multiple vision models:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image and provide a summary of the content." \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest,ollama:gemma3:12b" \
   --id "image-analysis" \
   --attach "./input/images/test-image.jpg" \
   --concurrent
@@ -22,9 +22,9 @@ npx umwelten eval run \
 Ask specific questions about image content:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "What objects do you see in this image? Describe the colors, lighting, and overall mood." \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "detailed-image-analysis" \
   --attach "./path/to/image.png"
 ```
@@ -34,9 +34,9 @@ npx umwelten eval run \
 Test OCR capabilities:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Extract and transcribe any text visible in this image. If no text is present, describe what you see instead." \
-  --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
+  --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "text-extraction" \
   --attach "./document-photo.jpg"
 ```
@@ -48,9 +48,9 @@ npx umwelten eval run \
 Test different vision models on the same image:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Describe this image in detail, including objects, colors, composition, and any notable features." \
-  --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b,ollama:qwen2.5vl:latest" \
   --id "vision-model-comparison" \
   --attach "./test-image.jpg" \
   --concurrent
@@ -60,10 +60,10 @@ npx umwelten eval run \
 
 ```bash
 # Create detailed markdown report
-npx umwelten eval report --id vision-model-comparison --format markdown
+dotenvx run -- pnpm run cli -- eval report --id vision-model-comparison --format markdown
 
 # Export HTML report with embedded images
-npx umwelten eval report --id vision-model-comparison --format html --output vision-report.html
+dotenvx run -- pnpm run cli -- eval report --id vision-model-comparison --format html --output vision-report.html
 ```
 
 ## Interactive Mode
@@ -73,9 +73,9 @@ npx umwelten eval report --id vision-model-comparison --format html --output vis
 Watch models analyze images in real-time:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Provide a detailed artistic analysis of this image, including composition, color theory, and emotional impact." \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "artistic-analysis" \
   --attach "./artwork.jpg" \
   --ui
@@ -86,9 +86,9 @@ npx umwelten eval run \
 ### Scene Understanding
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this scene: What's happening? Who are the people? What's the setting? What time of day might it be?" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "scene-understanding" \
   --attach "./scene-photo.jpg"
 ```
@@ -96,9 +96,9 @@ npx umwelten eval run \
 ### Technical Analysis
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image from a photography perspective: lighting, composition, depth of field, and technical quality." \
-  --models "google:gemini-2.0-flash,google:gemini-1.5-flash-8b" \
+  --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "photo-technical-analysis" \
   --attach "./photograph.jpg" \
   --concurrent
@@ -107,9 +107,9 @@ npx umwelten eval run \
 ### Safety and Content Analysis
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this image for content appropriateness and describe any safety concerns or notable elements." \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "content-safety-analysis" \
   --attach "./user-upload.jpg"
 ```
@@ -159,7 +159,7 @@ The image has warm lighting conditions, likely taken during late afternoon. The 
 
 | Model | Provider | Response Length | Tokens (P/C/Total) | Time (ms) | Cost Estimate |
 |-------|----------|----------------|-------------------|-----------|---------------|
-| gemini-2.0-flash | google | 485 | 12/122/134 | 3200 | $0.000041 |
+| gemini-3-flash-preview | google | 485 | 12/122/134 | 3200 | $0.000041 |
 | gemini-1.5-flash-8b | google | 390 | 12/98/110 | 2800 | $0.000033 |
 | qwen2.5vl:latest | ollama | 425 | 12/107/119 | 4100 | Free |
 

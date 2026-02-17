@@ -27,7 +27,7 @@ This guide helps you migrate from the existing evaluation patterns to the new St
 #### Before
 ```typescript
 // scripts/cat-poem.ts
-import { Interaction } from "../src/interaction/interaction.js";
+import { Interaction } from "../src/interaction/core/interaction.js";
 import { Stimulus } from "../src/stimulus/stimulus.js";
 
 const poemStimulus = new Stimulus({
@@ -47,7 +47,7 @@ export async function catPoem(model: ModelDetails): Promise<ModelResponse> {
 // Usage
 const models = [
   { name: "gemma3:27b", provider: "ollama" },
-  { name: "gemini-2.0-flash", provider: "google" }
+  { name: "gemini-3-flash-preview", provider: "google" }
 ];
 
 for (const model of models) {
@@ -65,7 +65,7 @@ import { EvaluationCache } from '../src/evaluation/caching/cache-service.js';
 
 const models = [
   { name: "gemma3:27b", provider: "ollama" },
-  { name: "gemini-2.0-flash", provider: "google" }
+  { name: "gemini-3-flash-preview", provider: "google" }
 ];
 
 const cache = new EvaluationCache('cat-poem-evaluation');
@@ -123,7 +123,7 @@ import { EvaluationCache } from '../src/evaluation/caching/cache-service.js';
 
 const models = [
   { name: 'gpt-4o-mini', provider: 'openrouter' },
-  { name: 'gemini-2.0-flash', provider: 'google' }
+  { name: 'gemini-3-flash-preview', provider: 'google' }
 ];
 
 const cache = new EvaluationCache('google-pricing-evaluation');

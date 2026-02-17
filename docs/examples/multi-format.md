@@ -13,9 +13,9 @@ Multi-format processing allows you to handle diverse file types in a single work
 Process different file formats with a single command:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this file and describe its content, format, and key information" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "multi-format-analysis" \
   --directory "./mixed-files" \
   --file-pattern "*.{pdf,jpg,png,txt,md,docx}" \
@@ -28,18 +28,18 @@ Use different prompts based on detected file types:
 
 ```bash
 # Images
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Describe this image including objects, people, setting, and visual elements" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-analysis" \
   --directory "./content" \
   --file-pattern "*.{jpg,jpeg,png,webp,gif}" \
   --concurrent
 
 # Documents  
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract key information: title, summary, main points, and document type" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "document-analysis" \
   --directory "./content" \
   --file-pattern "*.{pdf,docx,txt,md}" \
@@ -53,9 +53,9 @@ npx umwelten eval batch \
 Extract consistent data across different file formats:
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this file and extract structured metadata" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "multi-format-structured" \
   --directory "./documents" \
   --file-pattern "*.{pdf,jpg,png,txt}" \
@@ -69,9 +69,9 @@ Different approaches for different formats:
 
 ```bash
 # Vision models for images
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract visual information and any text content" \
-  --models "google:gemini-2.0-flash,ollama:qwen2.5vl:latest" \
+  --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "visual-content" \
   --directory "./mixed-media" \
   --file-pattern "*.{jpg,png,webp}" \
@@ -79,9 +79,9 @@ npx umwelten eval batch \
   --concurrent
 
 # Text models for documents  
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract document structure and content analysis" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "document-content" \
   --directory "./mixed-media" \
   --file-pattern "*.{pdf,txt,md}" \
@@ -95,9 +95,9 @@ npx umwelten eval batch \
 
 ```bash
 # High-quality image analysis
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Provide detailed visual analysis including composition, colors, and subjects" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "detailed-images" \
   --directory "./photos" \
   --file-pattern "*.{jpg,jpeg,png}" \
@@ -110,7 +110,7 @@ npx umwelten eval batch \
 
 ```bash
 # Comprehensive document analysis
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract and analyze document content with context and implications" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-documents" \
@@ -125,9 +125,9 @@ npx umwelten eval batch \
 
 ```bash
 # Code and text file analysis
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this text file for content type, quality, and key insights" \
-  --models "ollama:codestral:latest,google:gemini-2.0-flash" \
+  --models "ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "text-analysis" \
   --directory "./texts" \
   --file-pattern "*.{txt,md,js,py,ts}" \
@@ -140,9 +140,9 @@ npx umwelten eval batch \
 
 ```bash
 # Catalog mixed media library
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Create catalog entry for this file" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "asset-cataloging" \
   --directory "./digital-assets" \
   --file-pattern "*.{jpg,png,pdf,mp4,docx}" \
@@ -154,9 +154,9 @@ npx umwelten eval batch \
 
 ```bash
 # Analyze content for migration planning
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Assess this file for content migration: complexity, dependencies, and recommendations" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "migration-assessment" \
   --directory "./legacy-content" \
   --file-pattern "*.{pdf,doc,xls,ppt,jpg,png}" \
@@ -168,7 +168,7 @@ npx umwelten eval batch \
 
 ```bash
 # Process mixed research materials
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract research-relevant information and classify by academic discipline" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "research-processing" \
@@ -184,8 +184,8 @@ npx umwelten eval batch \
 
 | Format | Recommended Model | Rationale |
 |--------|------------------|-----------|
-| Images | google:gemini-2.0-flash | Best vision capabilities |
-| PDFs | google:gemini-2.0-flash | Strong document understanding |
+| Images | google:gemini-3-flash-preview | Best vision capabilities |
+| PDFs | google:gemini-3-flash-preview | Strong document understanding |
 | Text | ollama:gemma3:12b | Cost-effective for simple text |
 | Code | ollama:codestral:latest | Specialized code understanding |
 | Complex Docs | google:gemini-2.5-pro | Advanced reasoning needed |
@@ -194,13 +194,13 @@ npx umwelten eval batch \
 
 ```bash
 # Conservative approach for mixed formats
-npx umwelten eval batch \
-  --models "google:gemini-2.0-flash" \
+dotenvx run -- pnpm run cli -- eval batch \
+  --models "google:gemini-3-flash-preview" \
   --max-concurrency 3 \
   --timeout 45000
 
 # Aggressive processing for simple tasks  
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --models "ollama:gemma3:12b" \
   --max-concurrency 8 \
   --timeout 30000
@@ -212,27 +212,27 @@ npx umwelten eval batch \
 
 ```bash
 # Comprehensive analysis report
-npx umwelten eval report --id multi-format-analysis --format html --output multi-format-report.html
+dotenvx run -- pnpm run cli -- eval report --id multi-format-analysis --format html --output multi-format-report.html
 
 # Export structured data for analysis
-npx umwelten eval report --id multi-format-structured --format csv --output metadata.csv
+dotenvx run -- pnpm run cli -- eval report --id multi-format-structured --format csv --output metadata.csv
 
 # Compare processing across formats
-npx umwelten eval report --id multi-format-analysis --format json | jq '.results[] | {file: .file, format: .format, processing_time: .timing.total}'
+dotenvx run -- pnpm run cli -- eval report --id multi-format-analysis --format json | jq '.results[] | {file: .file, format: .format, processing_time: .timing.total}'
 ```
 
 ### Analysis Patterns
 
 ```bash
 # Analyze processing time by file type
-npx umwelten eval report --id multi-format-analysis --format json | jq '
+dotenvx run -- pnpm run cli -- eval report --id multi-format-analysis --format json | jq '
   .results | 
   group_by(.file | split(".") | last) | 
   map({format: .[0].file | split(".") | last, avg_time: (map(.timing.total) | add / length)})
 '
 
 # Success rates by format
-npx umwelten eval report --id multi-format-analysis --format json | jq '
+dotenvx run -- pnpm run cli -- eval report --id multi-format-analysis --format json | jq '
   .results | 
   group_by(.file | split(".") | last) | 
   map({format: .[0].file | split(".") | last, success_rate: (map(select(.success == true)) | length) / length})
@@ -245,9 +245,9 @@ npx umwelten eval report --id multi-format-analysis --format json | jq '
 
 ```bash
 # Robust processing with fallbacks
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process this file, handling any format-specific challenges" \
-  --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "robust-multi-format" \
   --directory "./problematic-files" \
   --file-pattern "*.{pdf,jpg,txt}" \
@@ -260,9 +260,9 @@ npx umwelten eval batch \
 
 ```bash
 # Handle large files with extended timeouts
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process large file with patience" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "large-files" \
   --directory "./large-files" \
   --file-pattern "*.{pdf,jpg}" \
@@ -304,15 +304,15 @@ npx umwelten eval batch \
 
 ```bash
 # Test single file from each format
-npx umwelten run --models "google:gemini-2.0-flash" --file "./test.pdf" "Analyze this document"
-npx umwelten run --models "google:gemini-2.0-flash" --file "./test.jpg" "Analyze this image"  
-npx umwelten run --models "google:gemini-2.0-flash" --file "./test.txt" "Analyze this text"
+dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" --file "./test.pdf" "Analyze this document"
+dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" --file "./test.jpg" "Analyze this image"  
+dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" --file "./test.txt" "Analyze this text"
 
 # Check file format distribution
 find ./directory -name "*.*" | sed 's/.*\.//' | sort | uniq -c
 
 # Monitor processing progress
-npx umwelten eval list --details | grep multi-format
+dotenvx run -- pnpm run cli -- eval list --details | grep multi-format
 ```
 
 ## Next Steps

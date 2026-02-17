@@ -11,9 +11,9 @@ Multi-language processing enables you to work with content in various languages,
 ### Automatic Language Detection
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Detect the language of this content and provide a confidence score" \
-  --models "google:gemini-2.0-flash,ollama:gemma3:12b" \
+  --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "language-detection" \
   --directory "./multilingual-content" \
   --file-pattern "*.{txt,pdf}" \
@@ -24,15 +24,15 @@ npx umwelten eval batch \
 ### Language-Specific Analysis
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze this text in its original language, then provide an English summary" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --file "./spanish-document.pdf" \
   --id "spanish-analysis"
 
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "この日本語の文書を分析し、英語で要約してください" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --file "./japanese-text.txt" \
   --id "japanese-analysis"
 ```
@@ -42,9 +42,9 @@ npx umwelten eval run \
 ### Document Translation
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Translate this document to English while preserving formatting and context" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "document-translation" \
   --directory "./foreign-documents" \
   --file-pattern "*.{pdf,txt}" \
@@ -54,9 +54,9 @@ npx umwelten eval batch \
 ### Multi-Target Translation
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Translate this English text to Spanish, French, German, and Japanese" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "multi-target-translation" \
   --schema "spanish, french, german, japanese"
 ```
@@ -64,7 +64,7 @@ npx umwelten eval run \
 ### Context-Aware Translation
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Translate this technical document to English, preserving technical terminology and context" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./technical-manual-german.pdf" \
@@ -77,9 +77,9 @@ npx umwelten eval run \
 ### Sentiment Analysis Across Languages
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze the sentiment of this content regardless of language and provide reasoning" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "multilingual-sentiment" \
   --directory "./reviews-international" \
   --file-pattern "*.txt" \
@@ -90,7 +90,7 @@ npx umwelten eval batch \
 ### Cultural Context Analysis
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this content for cultural references, idioms, and context that might not translate directly" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "cultural-analysis" \
@@ -106,7 +106,7 @@ npx umwelten eval batch \
 
 ```bash
 # Process contracts in multiple languages
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract key terms, obligations, and dates from this business document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "international-contracts" \
@@ -120,7 +120,7 @@ npx umwelten eval batch \
 
 ```bash
 # Analyze research papers in various languages
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract methodology, findings, and conclusions from this academic paper" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "multilingual-research" \
@@ -134,9 +134,9 @@ npx umwelten eval batch \
 
 ```bash
 # Analyze international news articles
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Summarize this news article and identify key events, people, and implications" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "international-news" \
   --directory "./news-articles" \
   --file-pattern "*.{txt,pdf}" \
@@ -149,7 +149,7 @@ npx umwelten eval batch \
 ### Translation Quality Assessment
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Compare these two translations of the same source text and assess quality, accuracy, and fluency" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./translation-comparison.txt" \
@@ -160,9 +160,9 @@ npx umwelten eval run \
 ### Code Comment Translation
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Translate code comments to English while preserving technical accuracy" \
-  --models "ollama:codestral:latest,google:gemini-2.0-flash" \
+  --models "ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "code-translation" \
   --directory "./international-code" \
   --file-pattern "*.{py,js,java,cpp}" \
@@ -172,9 +172,9 @@ npx umwelten eval batch \
 ### Multilingual Customer Support
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this customer inquiry and provide response in the same language" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "multilingual-support" \
   --directory "./customer-inquiries" \
   --file-pattern "*.txt" \
@@ -188,9 +188,9 @@ npx umwelten eval batch \
 
 ```bash
 # Test different models on the same multilingual content
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Summarize this content in English" \
-  --models "google:gemini-2.0-flash,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --file "./chinese-article.txt" \
   --id "chinese-model-comparison" \
   --concurrent
@@ -201,9 +201,9 @@ npx umwelten eval run \
 ```bash
 # Test model performance across different languages
 for lang in spanish french german japanese chinese arabic; do
-  npx umwelten eval run \
+  dotenvx run -- pnpm run cli -- eval run \
     --prompt "Analyze this ${lang} text and provide insights in English" \
-    --models "google:gemini-2.0-flash" \
+    --models "google:gemini-3-flash-preview" \
     --file "./${lang}-sample.txt" \
     --id "${lang}-processing-test"
 done
@@ -214,9 +214,9 @@ done
 ### Consistent Cross-Language Schema
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract structured information from this document regardless of language" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "multilingual-extraction" \
   --directory "./international-documents" \
   --file-pattern "*.pdf" \
@@ -227,9 +227,9 @@ npx umwelten eval batch \
 ### Language Metadata Enrichment
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze this content and provide detailed language metadata" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "language-metadata" \
   --directory "./texts" \
   --file-pattern "*.txt" \
@@ -243,7 +243,7 @@ npx umwelten eval batch \
 
 ```bash
 # Start multilingual chat session
-npx umwelten chat --provider google --model gemini-2.0-flash
+dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Within chat:
 > "Please respond in Spanish: ¿Cómo está el clima hoy?"
@@ -254,9 +254,9 @@ npx umwelten chat --provider google --model gemini-2.0-flash
 ### Translation Chat Assistant
 
 ```bash
-npx umwelten chat \
+dotenvx run -- pnpm run cli -- chat \
   --provider google \
-  --model gemini-2.0-flash \
+  --model gemini-3-flash-preview \
   --system "You are a professional translator. Help users translate text between languages while preserving meaning and context."
 ```
 
@@ -266,9 +266,9 @@ npx umwelten chat \
 
 | Language Family | Recommended Model | Notes |
 |----------------|------------------|-------|
-| European Languages | google:gemini-2.0-flash | Excellent coverage, cost-effective |
+| European Languages | google:gemini-3-flash-preview | Excellent coverage, cost-effective |
 | East Asian Languages | google:gemini-2.5-pro | Better handling of complex scripts |
-| Arabic/Hebrew | google:gemini-2.0-flash | Strong RTL language support |
+| Arabic/Hebrew | google:gemini-3-flash-preview | Strong RTL language support |
 | Programming Languages | ollama:codestral:latest | Code context preservation |
 | Technical Translation | openrouter:openai/gpt-4o | Highest accuracy for specialized content |
 
@@ -276,14 +276,14 @@ npx umwelten chat \
 
 ```bash
 # Group by language family for efficiency
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process European language content" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --directory "./european-texts" \
   --file-pattern "*{en,es,fr,de,it}*.txt" \
   --concurrent
 
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Process Asian language content" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --directory "./asian-texts" \
@@ -296,7 +296,7 @@ npx umwelten eval batch \
 ### International Legal Documents
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Extract legal obligations and key clauses from this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "legal-multilingual" \
@@ -310,9 +310,9 @@ npx umwelten eval batch \
 ### E-commerce Product Descriptions
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Translate this product description to English and extract key product features" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "product-translation" \
   --directory "./product-descriptions" \
   --file-pattern "*.txt" \
@@ -323,9 +323,9 @@ npx umwelten eval batch \
 ### Social Media Content Analysis
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Analyze sentiment and extract hashtags from this social media content" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --id "social-multilingual" \
   --directory "./social-posts" \
   --file-pattern "*.txt" \
@@ -338,7 +338,7 @@ npx umwelten eval batch \
 ### Translation Validation
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Check this translation for accuracy, fluency, and cultural appropriateness" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./translation-to-check.txt" \
@@ -349,7 +349,7 @@ npx umwelten eval run \
 ### Cross-Language Consistency
 
 ```bash
-npx umwelten eval batch \
+dotenvx run -- pnpm run cli -- eval batch \
   --prompt "Ensure consistent terminology and style across these translated documents" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "consistency-check" \
@@ -365,7 +365,7 @@ npx umwelten eval batch \
 
 ```bash
 # Generate language statistics
-npx umwelten eval report --id multilingual-extraction --format json | jq '
+dotenvx run -- pnpm run cli -- eval report --id multilingual-extraction --format json | jq '
   .results | 
   group_by(.response.source_language) | 
   map({language: .[0].response.source_language, count: length}) | 
@@ -378,17 +378,17 @@ npx umwelten eval report --id multilingual-extraction --format json | jq '
 
 ```bash
 # Analyze translation quality across different models
-npx umwelten eval report --id translation-comparison --format csv --output translation-metrics.csv
+dotenvx run -- pnpm run cli -- eval report --id translation-comparison --format csv --output translation-metrics.csv
 ```
 
 ### Cross-Language Report Generation
 
 ```bash
 # Generate reports in multiple languages
-npx umwelten eval report --id multilingual-analysis --format markdown --output report-en.md
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval report --id multilingual-analysis --format markdown --output report-en.md
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Translate this English report to Spanish while preserving structure" \
-  --models "google:gemini-2.0-flash" \
+  --models "google:gemini-3-flash-preview" \
   --file "./report-en.md" \
   --id "spanish-report"
 ```
@@ -426,10 +426,10 @@ npx umwelten eval run \
 
 ```bash
 # Test language detection
-npx umwelten run --models "google:gemini-2.0-flash" "Detect the language: Bonjour, comment allez-vous?"
+dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" "Detect the language: Bonjour, comment allez-vous?"
 
 # Test basic translation  
-npx umwelten run --models "google:gemini-2.0-flash" "Translate to English: Hola, ¿cómo estás?"
+dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" "Translate to English: Hola, ¿cómo estás?"
 
 # Check file encoding
 file -i ./multilingual-document.txt

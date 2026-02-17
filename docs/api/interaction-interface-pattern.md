@@ -1,185 +1,246 @@
 # Stimulus-Driven Interaction Pattern
 
-The new Stimulus-driven Interaction pattern provides a unified way to work with AI models across different environments using self-contained environmental context. This pattern eliminates the need for specialized interaction classes by using configurable `Stimulus` objects.
+The core pattern in umwelten: a **Stimulus** defines what the AI should do, an **Interaction** manages the conversation, and a **UI** (CLI, Telegram, TUI, web) handles input/output.
 
-## 🏗️ Architecture Overview
+## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Stimulus      │    │   Interaction   │    │   Environment   │
-│                 │    │                 │    │                 │
-│ • Role & Context│◄──►│ • Single Class  │◄──►│ • Command Line  │
-│ • Tools & Config│    │ • Stimulus-Driven│    │ • Web Browser   │
-│ • Instructions  │    │ • Self-Managing │    │ • Autonomous Agent│
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+Stimulus              Interaction              UI
+(config)              (conversation)           (I/O)
+ role, objective  -->  messages, runner  -->    CLI / Telegram / TUI / Web
+ tools, options       model, stimulus
+ instructions         generateText / chat
 ```
 
-## 🎯 Stimulus Types
+## Stimulus
 
-### Chat Stimulus
-
-Pre-configured for conversational AI with memory and common tools.
+A `Stimulus` is a configuration object — it defines the personality, tools, and model options but doesn't run anything.
 
 ```typescript
 import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/interaction.js';
 
-const chatStimulus = new Stimulus({
+const stimulus = new Stimulus({
   role: "helpful AI assistant",
-  objective: "be conversational, engaging, and helpful",
+  objective: "be conversational and helpful",
   instructions: [
     "Always respond with text content first",
-    "Only use tools when you need specific information",
-    "Be conversational and engaging"
-  ],
-  tools: { calculator: calculatorTool, weather: weatherTool },
-  runnerType: 'memory',
-  maxToolSteps: 5
-});
-
-const interaction = new Interaction(model, chatStimulus);
-
-// Features:
-// ✅ Conversational system prompt
-// ✅ Memory-enabled runner
-// ✅ Common chat tools (calculator, weather, etc.)
-// ✅ Multi-step tool calling (max 5 steps)
-```
-
-### Evaluation Stimulus
-
-Optimized for model evaluation with structured output support.
-
-```typescript
-const evaluationStimulus = new Stimulus({
-  role: "evaluation system",
-  objective: "provide accurate responses for evaluation",
-  instructions: [
-    "Be precise and factual",
-    "Follow evaluation criteria exactly",
-    "Provide structured responses when requested"
+    "Only use tools when you need specific information"
   ],
   tools: { calculator: calculatorTool },
-  runnerType: 'base',  // No memory needed for evaluations
-  temperature: 0.1,    // Low temperature for consistency
-  maxTokens: 1000
+  runnerType: 'base',       // 'base' (default) or 'memory' (auto fact extraction)
+  temperature: 0.7,
+  maxTokens: 2048,
+  maxToolSteps: 5
 });
-
-const interaction = new Interaction(model, evaluationStimulus);
-
-// Features:
-// ✅ Evaluation-focused system prompt
-// ✅ Base runner (no memory needed)
-// ✅ Evaluation-specific tools
-// ✅ Structured output support
 ```
 
-### Agent Stimulus
-
-Designed for autonomous agents with comprehensive tool sets.
+### StimulusOptions
 
 ```typescript
-const agentStimulus = new Stimulus({
-  role: "autonomous agent",
-  objective: "analyze data, generate reports, and make recommendations",
-  instructions: [
-    "Think step by step",
-    "Use all available tools effectively",
-    "Provide comprehensive analysis",
-    "Make actionable recommendations"
-  ],
-  tools: { 
-    calculator: calculatorTool, 
-    statistics: statisticsTool,
-    fileAnalysis: fileAnalysisTool 
-  },
-  runnerType: 'memory',  // Memory for learning
-  maxToolSteps: 10,      // Extended capabilities
-  temperature: 0.7
-});
+interface StimulusOptions {
+  id?: string;
+  name?: string;
+  description?: string;
+  role?: string;                    // System role
+  objective?: string;               // What the AI should accomplish
+  instructions?: string[];          // Specific behavioral instructions
+  reasoning?: string;               // Reasoning style guidance
+  output?: string[];                // Output format instructions
+  examples?: (string | { input: string; output: string })[];
 
-const interaction = new Interaction(model, agentStimulus);
+  // Tools
+  tools?: Record<string, Tool>;     // Vercel AI SDK tools
+  toolInstructions?: string[];      // Tool usage guidance
+  maxToolSteps?: number;            // Max tool call rounds
 
-// Features:
-// ✅ Agent-focused system prompt
-// ✅ Memory-enabled runner for learning
-// ✅ Comprehensive tool set
-// ✅ Extended multi-step capabilities (max 10 steps)
-```
+  // Model options
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
 
-## 🖥️ Interface Types
+  // Runner
+  runnerType?: 'base' | 'memory';   // 'memory' enables automatic fact extraction
 
-### CLIInterface
+  // Context
+  systemContext?: string;            // Additional system context
 
-Readline-based command-line interface that works with any Interaction.
-
-```typescript
-import { CLIInterface } from '../src/ui/cli/CLIInterface.js';
-
-const cliInterface = new CLIInterface();
-
-// Start interactive chat with any interaction
-await cliInterface.startChat(interaction);
-
-// Start agent session with any interaction
-await cliInterface.startAgent(interaction);
-```
-
-**Special Commands:**
-- `/?` - Show help
-- `/reset` - Clear conversation history
-- `/history` - Show chat history
-- `exit` or `quit` - End session
-
-### WebInterface
-
-React-compatible interface with hooks and state management.
-
-```typescript
-import { WebInterface } from '../src/ui/cli/CLIInterface.js';
-
-// Direct usage with any interaction
-const webInterface = new WebInterface(interaction);
-const response = await webInterface.sendMessage("Hello!");
-
-// React component usage
-function ChatComponent() {
-  const [interaction] = useState(() => {
-    const stimulus = new Stimulus({
-      role: "helpful assistant",
-      objective: "provide helpful responses"
-    });
-    return new Interaction(model, stimulus);
-  });
-  
-  const handleSendMessage = async (message: string) => {
-    interaction.addMessage({ role: 'user', content: message });
-    const response = await interaction.streamText();
-    console.log('Response:', response.content);
-  };
-  
-  return (
-    <div>
-      <button onClick={() => handleSendMessage("Hello!")}>
-        Send Message
-      </button>
-    </div>
-  );
+  // Skills
+  skills?: SkillDefinition[];       // Direct skill definitions
+  skillsDirs?: string[];            // Load skills from directories
+  skillsFromGit?: string[];         // Load skills from git repos
+  skillsCacheRoot?: string;         // Root dir for cloning skill repos
 }
 ```
 
-## 🔧 Built-in Tools
+## Interaction
 
-### Common Tools
-- **Calculator** - Mathematical expressions
-- **Weather** - Real-time weather data
-- **Statistics** - Statistical analysis
-- **Random Number** - Generate random numbers
-- **File Analysis** - File content and metadata
+The `Interaction` class holds the conversation state: messages, model, stimulus, and runner. Create one per conversation.
 
-### Tool Integration
+```typescript
+import { Interaction } from '../src/interaction/core/interaction.js';
 
-Tools are defined using the Vercel AI SDK `tool` function and added to stimuli:
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+```
+
+### Core Methods
+
+```typescript
+// Add a message and get a response
+const response = await interaction.chat("What's the weather like?");
+console.log(response.content);                    // The text response
+console.log(response.metadata.tokenUsage);         // { promptTokens, completionTokens, total }
+console.log(response.metadata.cost?.totalCost);    // Cost in dollars
+
+// Lower-level methods
+const response = await interaction.generateText();  // Generate without adding a user message
+const response = await interaction.streamText();     // Stream (returns full ModelResponse when done)
+const response = await interaction.generateObject(zodSchema);  // Structured output
+const response = await interaction.streamObject(zodSchema);    // Stream structured output
+
+// Message management
+interaction.addMessage({ role: "user", content: "Hello" });
+interaction.getMessages();                          // CoreMessage[]
+
+// Attachments
+await interaction.addAttachmentFromPath("/path/to/file.pdf");
+
+// Context management
+await interaction.compactContext();                 // Compact long conversations
+
+// Output format
+interaction.setOutputFormat(zodSchema);
+interaction.setMaxSteps(10);
+```
+
+### ModelResponse
+
+Every generation method returns:
+
+```typescript
+interface ModelResponse {
+  content: string;                    // The text response
+  metadata: {
+    startTime: Date;
+    endTime: Date;
+    tokenUsage: {
+      promptTokens: number;
+      completionTokens: number;
+      total?: number;
+    };
+    provider: string;
+    model: string;
+    cost: {
+      promptCost: number;
+      completionCost: number;
+      totalCost: number;
+      usage: TokenUsage;
+    };
+  };
+  reasoning?: string;                 // Chain-of-thought (if supported)
+  reasoningDetails?: Array<{
+    type: 'text' | 'redacted';
+    text?: string;
+    data?: string;
+    signature?: string;
+  }>;
+}
+```
+
+## Common Patterns
+
+### Chat Assistant
+
+```typescript
+const stimulus = new Stimulus({
+  role: "helpful AI assistant",
+  objective: "be conversational, engaging, and helpful",
+  instructions: ["Be concise", "Use tools when needed"],
+  tools: { calculator: calculatorTool },
+  runnerType: 'memory',    // Remember facts across messages
+  maxToolSteps: 5
+});
+
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+
+const r1 = await interaction.chat("Hi, I'm Sarah. I'm a data scientist.");
+const r2 = await interaction.chat("What do you remember about me?");
+// Memory runner will have extracted facts from the first message
+```
+
+### Evaluation
+
+```typescript
+const stimulus = new Stimulus({
+  role: "evaluation system",
+  objective: "provide precise, structured responses",
+  runnerType: 'base',
+  temperature: 0.1,
+  maxTokens: 1000
+});
+
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+
+interaction.addMessage({ role: "user", content: "Analyze this code..." });
+const response = await interaction.generateObject(analysisSchema);
+```
+
+### Autonomous Agent
+
+```typescript
+const stimulus = new Stimulus({
+  role: "autonomous research agent",
+  objective: "analyze data and generate comprehensive reports",
+  instructions: [
+    "Think step by step",
+    "Use all available tools effectively",
+    "Provide actionable recommendations"
+  ],
+  tools: {
+    wget: wgetTool,
+    markify: markifyTool,
+    calculator: calculatorTool
+  },
+  runnerType: 'memory',
+  maxToolSteps: 10,
+  temperature: 0.7
+});
+
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus
+);
+
+const response = await interaction.chat("Research the latest trends in AI safety");
+```
+
+## Using with Habitat
+
+For managed agent environments, use `Habitat` instead of creating interactions directly:
+
+```typescript
+import { Habitat } from '../src/habitat/index.js';
+
+const habitat = await Habitat.create({ workDir: './my-agent' });
+const interaction = await habitat.createInteraction(sessionId);
+const response = await interaction.chat("Hello!");
+```
+
+Habitat automatically registers tools (file operations, search, agent management, etc.) and loads stimulus configuration from the work directory.
+
+## Defining Tools
+
+Tools use the Vercel AI SDK `tool()` function:
 
 ```typescript
 import { tool } from 'ai';
@@ -187,138 +248,44 @@ import { z } from 'zod';
 
 const calculatorTool = tool({
   description: "Performs basic arithmetic operations",
-  inputSchema: z.object({
+  parameters: z.object({
     operation: z.enum(["add", "subtract", "multiply", "divide"]),
     a: z.number(),
     b: z.number()
   }),
   execute: async ({ operation, a, b }) => {
-    // Tool implementation
+    switch (operation) {
+      case 'add': return { result: a + b };
+      case 'subtract': return { result: a - b };
+      case 'multiply': return { result: a * b };
+      case 'divide': return { result: a / b };
+    }
   }
 });
 
+// Pass tools via Stimulus
 const stimulus = new Stimulus({
   role: "math tutor",
   tools: { calculator: calculatorTool },
-  toolInstructions: ["Use calculator for arithmetic operations"]
+  toolInstructions: ["Use the calculator for arithmetic"]
 });
 ```
 
-## 📝 Usage Examples
+## UI Integration
 
-### CLI Chat with Tools
+The `Interaction` is UI-agnostic. Different UIs consume it:
+
+- **CLI**: `src/ui/cli/CLIInterface.ts` — readline-based REPL
+- **Telegram**: `src/ui/telegram/TelegramAdapter.ts` — Telegram bot
+- **TUI**: `src/ui/tui/` — React Ink terminal UI
+- **Web**: `src/ui/WebInterface.ts` — web interface
+
+The CLI habitat command provides the standard entry point:
 
 ```bash
-# Interactive chat
-pnpm cli chat --provider ollama --model llama3.2:latest
+# Start habitat REPL
+dotenvx run -- pnpm run cli -- habitat
 
-# Tools demonstration
-pnpm cli tools demo --provider ollama --model llama3.2:latest
+# Start habitat as Telegram bot
+dotenvx run -- pnpm run cli -- habitat telegram
 ```
-
-### Programmatic Usage
-
-```typescript
-// Create stimulus for chat
-const chatStimulus = new Stimulus({
-  role: "helpful assistant",
-  objective: "be conversational and helpful",
-  tools: { calculator: calculatorTool, weather: weatherTool },
-  runnerType: 'memory'
-});
-
-const interaction = new Interaction(model, chatStimulus);
-interaction.addMessage({ role: 'user', content: "Hello!" });
-const response = await interaction.streamText();
-
-// With CLI interface
-const cliInterface = new CLIInterface();
-await cliInterface.startChat(interaction);
-
-// Evaluation with structured output
-const evaluationStimulus = new Stimulus({
-  role: "evaluation system",
-  objective: "provide accurate evaluations",
-  runnerType: 'base',
-  temperature: 0.1
-});
-
-const evalInteraction = new Interaction(model, evaluationStimulus);
-const score = await evalInteraction.streamObject(scoreSchema);
-```
-
-### Web Integration
-
-```typescript
-// Next.js API route
-export async function POST(request: Request) {
-  const { message } = await request.json();
-  
-  const chatInteraction = new ChatInteraction({
-    name: "gpt-4",
-    provider: "openrouter"
-  });
-  
-  const response = await chatInteraction.chat(message);
-  return Response.json({ response });
-}
-
-// React component
-function ChatPage() {
-  const chatInteraction = new ChatInteraction(modelDetails);
-  const { sendMessage, messages, isLoading } = useWebInterface(chatInteraction);
-  
-  return (
-    <div>
-      {messages.map(msg => (
-        <Message key={msg.timestamp} message={msg} />
-      ))}
-      <MessageInput onSend={sendMessage} disabled={isLoading} />
-    </div>
-  );
-}
-```
-
-## 🎯 Benefits
-
-### 1. **Unified API**
-Same interaction works across CLI, web, and agent contexts.
-
-### 2. **Pre-configured**
-Each interaction type comes with appropriate tools, prompts, and settings.
-
-### 3. **Clean Separation**
-Interaction handles AI logic, Interface handles I/O.
-
-### 4. **Easy Extension**
-Simple to create new interaction types or interfaces.
-
-### 5. **Type Safety**
-Full TypeScript support with clear interfaces.
-
-### 6. **Memory Integration**
-Automatic memory management for learning and context.
-
-## 🔄 Migration from Old Pattern
-
-### Before (Old Pattern)
-```typescript
-const interaction = new Interaction(modelDetails, "You are a helpful assistant.");
-const runner = new BaseModelRunner();
-const response = await runner.streamText(interaction);
-```
-
-### After (New Stimulus-Driven Pattern)
-```typescript
-const stimulus = new Stimulus({
-  role: "helpful assistant",
-  objective: "provide helpful responses",
-  instructions: ["Be clear and concise", "Provide examples when helpful"]
-});
-
-const interaction = new Interaction(modelDetails, stimulus);
-interaction.addMessage({ role: 'user', content: "Hello!" });
-const response = await interaction.streamText();
-```
-
-The new pattern provides better semantic organization and eliminates the need for specialized interaction classes! 🎉

@@ -46,7 +46,7 @@ Perfect for conversational AI with memory and tools:
 
 ```typescript
 import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/interaction.js';
+import { Interaction } from '../src/interaction/core/interaction.js';
 
 const chatStimulus = new Stimulus({
   role: "helpful AI assistant",
@@ -281,7 +281,7 @@ LMSTUDIO_BASE_URL=http://localhost:1234
 ```typescript
 // Google Gemini models
 const googleModel = {
-  name: "gemini-2.0-flash",
+  name: "gemini-3-flash-preview",
   provider: "google"
 };
 
@@ -307,7 +307,7 @@ import { z } from 'zod';
 
 const customTool = {
   description: "Query a database and return results",
-  inputSchema: z.object({
+  parameters: z.object({
     query: z.string().describe("SQL query to execute"),
     database: z.string().describe("Database name")
   }),

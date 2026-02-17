@@ -9,9 +9,9 @@ This example demonstrates how to use Umwelten for complex analytical and reasoni
 This replicates the functionality of the `frankenstein.ts` script:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Who is the monster in Mary Shelley's Frankenstein? Analyze the moral complexity of both Victor Frankenstein and his creature, considering their actions, motivations, and the consequences of their choices." \
-  --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-2.0-flash,google:gemini-2.5-flash" \
+  --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-3-flash-preview,google:gemini-2.5-flash" \
   --id "frankenstein-analysis" \
   --system "You are a literary critic that writes about books with deep analytical insight and scholarly perspective."
 ```
@@ -21,9 +21,9 @@ npx umwelten eval run \
 Compare different works and themes:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Compare the themes of isolation and alienation in Mary Shelley's Frankenstein and Emily Dickinson's poetry. How do both authors explore the human condition through their respective mediums?" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "isolation-themes" \
   --system "You are a comparative literature scholar specializing in 19th-century American and British literature" \
   --concurrent
@@ -34,9 +34,9 @@ npx umwelten eval run \
 Apply contemporary critical theories:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze George Orwell's 1984 through the lens of modern surveillance capitalism. What parallels exist between Orwell's dystopia and contemporary digital privacy concerns?" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,ollama:llama3.2:latest" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,ollama:llama3.2:latest" \
   --id "orwell-modern-analysis" \
   --system "You are a contemporary literary critic who specializes in connecting classic literature to modern social and technological issues" \
   --temperature 0.4
@@ -49,9 +49,9 @@ npx umwelten eval run \
 Test reasoning capabilities with ethical scenarios:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "A self-driving car must choose between hitting one person or swerving to hit five people. Analyze this trolley problem variant from utilitarian, deontological, and virtue ethics perspectives. What factors should influence the car's programming?" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "trolley-problem-ai" \
   --system "You are a moral philosopher with expertise in applied ethics and artificial intelligence" \
   --concurrent
@@ -62,7 +62,7 @@ npx umwelten eval run \
 Evaluate understanding of complex scientific concepts:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Explain the relationship between quantum mechanics and general relativity. Why is finding a theory of quantum gravity so challenging, and what are the leading approaches (string theory, loop quantum gravity, etc.)?" \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o,ollama:deepseek-r1:32b" \
   --id "quantum-gravity" \
@@ -75,9 +75,9 @@ npx umwelten eval run \
 Test historical reasoning and cause-effect understanding:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze the multiple causes of World War I. How did the assassination of Archduke Franz Ferdinand trigger such a massive conflict? Evaluate the role of imperialism, nationalism, alliances, and militarism." \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o-mini,ollama:gemma3:27b" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,ollama:gemma3:27b" \
   --id "wwi-causes" \
   --system "You are a historian specializing in early 20th-century European politics and international relations" \
   --concurrent
@@ -90,9 +90,9 @@ npx umwelten eval run \
 Extract structured reasoning patterns:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze the following argument and identify its structure: 'Climate change is primarily caused by human activities because atmospheric CO2 levels have increased dramatically since industrialization, and this correlates with global temperature rises.'" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "argument-analysis" \
   --schema "premise, conclusion, logical_structure, fallacies array, strength_rating int: 1-10, reasoning_type" \
   --system "You are a logic and critical thinking expert who analyzes argument structures"
@@ -103,9 +103,9 @@ npx umwelten eval run \
 Test complex reasoning chains:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "A company's revenue decreased by 15% this quarter, but their profit margin increased by 3%. Their main competitor gained 8% market share. Analyze what this suggests about the company's strategy, market conditions, and future prospects. Provide specific recommendations." \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "business-analysis" \
   --system "You are a business analyst with expertise in financial analysis and strategic consulting" \
   --temperature 0.3 \
@@ -119,9 +119,9 @@ npx umwelten eval run \
 Watch complex reasoning develop in real-time:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze the philosophical implications of artificial general intelligence (AGI). If machines can think, feel, and make decisions like humans, what does this mean for consciousness, free will, and moral responsibility?" \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "agi-philosophy" \
   --system "You are a philosopher of mind who specializes in consciousness, AI ethics, and the intersection of technology and human experience" \
   --ui \
@@ -187,7 +187,7 @@ Shelley's genius is showing how monstrosity is created, not born. Victor's scien
 
 | Model | Provider | Response Length | Reasoning Depth | Time (ms) | Cost |
 |-------|----------|----------------|-----------------|-----------|------|
-| gemini-2.0-flash | google | 1450 | High | 3200 | $0.000089 |
+| gemini-3-flash-preview | google | 1450 | High | 3200 | $0.000089 |
 | gemma3:27b | ollama | 1380 | High | 12400 | Free |
 | gemma3:12b | ollama | 980 | Medium | 6800 | Free |
 | gemini-2.5-flash | google | 1520 | Very High | 4100 | $0.000156 |
@@ -232,9 +232,9 @@ Shelley's genius is showing how monstrosity is created, not born. Victor's scien
 Guide models through step-by-step reasoning:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Using the Socratic method, examine this statement: 'Artificial intelligence will never truly understand human emotions because it lacks consciousness.' Break down each assumption and explore counterarguments systematically." \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "socratic-ai-emotions" \
   --system "You are a philosophy teacher who uses the Socratic method to examine assumptions and explore ideas through questioning"
 ```
@@ -244,9 +244,9 @@ npx umwelten eval run \
 Test understanding of complex cause-and-effect relationships:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Trace the causal chain from social media algorithm design to political polarization. Identify key mechanisms, feedback loops, and potential intervention points." \
-  --models "google:gemini-2.0-flash,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o,ollama:gemma3:27b" \
   --id "social-media-polarization" \
   --system "You are a social scientist who specializes in technology's impact on society and political behavior" \
   --concurrent
@@ -257,7 +257,7 @@ npx umwelten eval run \
 Challenge models with logical paradoxes:
 
 ```bash
-npx umwelten eval run \
+dotenvx run -- pnpm run cli -- eval run \
   --prompt "Analyze the Ship of Theseus paradox in the context of personal identity and consciousness. If we gradually replace all neurons in a brain with functionally identical artificial ones, is the resulting consciousness the same person?" \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "ship-theseus-consciousness" \
