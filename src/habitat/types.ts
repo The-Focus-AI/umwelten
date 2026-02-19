@@ -17,8 +17,13 @@ export interface LogPattern {
   /** Glob pattern relative to project root, e.g. "logs/*.jsonl" */
   pattern: string;
   /** Format of the log files. */
-  format: 'jsonl' | 'plain';
+  format: "jsonl" | "plain";
 }
+
+/**
+ * MCP server status for an agent.
+ */
+export type AgentMCPStatus = "running" | "stopped" | "error" | "starting";
 
 /**
  * A known agent -- a reference to another habitat.
@@ -39,6 +44,14 @@ export interface AgentEntry {
   statusFile?: string;
   /** Git repos for skills this agent needs (e.g. "Focus-AI/chrome-driver"). */
   skillsFromGit?: string[];
+  /** Port where agent's MCP server runs (auto-assigned). */
+  mcpPort?: number;
+  /** Whether MCP server is enabled for this agent. */
+  mcpEnabled?: boolean;
+  /** Current MCP server status. */
+  mcpStatus?: AgentMCPStatus;
+  /** Last error message if mcpStatus is 'error'. */
+  mcpError?: string;
 }
 
 /**
@@ -112,7 +125,13 @@ export interface HabitatOptions {
 /**
  * Session type identifiers.
  */
-export type HabitatSessionType = 'cli' | 'telegram' | 'web' | 'tui' | 'api' | string;
+export type HabitatSessionType =
+  | "cli"
+  | "telegram"
+  | "web"
+  | "tui"
+  | "api"
+  | string;
 
 /**
  * Session metadata stored in meta.json within each session directory.
