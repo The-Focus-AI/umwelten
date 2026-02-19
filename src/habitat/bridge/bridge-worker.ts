@@ -2,10 +2,15 @@
  * Bridge Worker Thread
  *
  * Runs the Dagger bridge service in a separate thread so it doesn't block the CLI.
+ * Uses the TypeScript MCP server with official @modelcontextprotocol/sdk.
  */
 
 import { parentPort, workerData } from "worker_threads";
 import { dag, connection } from "@dagger.io/dagger";
+import { readFileSync, existsSync } from "fs";
+import { createWriteStream } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 interface WorkerData {
   id: string;
@@ -15,6 +20,7 @@ interface WorkerData {
   aptPackages?: string[];
   secrets?: Array<{ name: string; value: string }>; // Secrets passed securely
   setupCommands?: string[]; // Commands to run after apt install
+  logFilePath?: string; // Path to write logs to
 }
 
 const {
@@ -25,17 +31,25 @@ const {
   aptPackages = [],
   secrets = [],
   setupCommands = [],
+  logFilePath,
 } = workerData as WorkerData;
 
-// Structured logging to parent thread
+// Create log file stream if path provided
+const logStream = logFilePath
+  ? createWriteStream(logFilePath, { flags: "a" })
+  : null;
+
+// Structured logging to parent thread and file
 const log = (step: string, message: string, data?: unknown) => {
   const timestamp = new Date().toISOString();
   const logEntry = { timestamp, step, message, data };
   parentPort?.postMessage({ type: "log", step, message, data });
-  console.log(
-    `[${timestamp}] [BridgeWorker:${id}] [${step}] ${message}`,
-    data ? JSON.stringify(data) : "",
-  );
+  const logLine = `[${timestamp}] [BridgeWorker:${id}] [${step}] ${message}${data ? " " + JSON.stringify(data) : ""}\n`;
+  console.log(logLine.trim());
+  // Also write to log file
+  if (logStream) {
+    logStream.write(logLine);
+  }
 };
 
 log("INIT", "Bridge worker starting", {
@@ -90,114 +104,48 @@ connection(
       log("SETUP", "Setup commands completed");
     }
 
-    // Step 3: Setup bridge server files
-    log("SERVER", "Creating bridge server files", { port });
-    container = container.withExec(["mkdir", "-p", "/opt/bridge"]).withNewFile(
-      "/opt/bridge/server.js",
-      `
-const http = require('http');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const fs = require('fs').promises;
-const path = require('path');
+    // Step 3: Setup bridge server files using TypeScript MCP server
+    log("SERVER", "Setting up TypeScript MCP server", { port });
 
-const execAsync = promisify(exec);
-const PORT = ${port};
+    // Find the server.ts file
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
 
-// Load secrets from environment at startup (injected securely by Dagger)
-const SECRETS = {
-  GITHUB_TOKEN: process.env.GITHUB_TOKEN || null,
-};
+    const possibleServerPaths = [
+      join(__dirname, "server.ts"),
+      join(process.cwd(), "src/habitat/bridge/server.ts"),
+    ];
 
-const logBuffer = [];
-function log(level, message) {
-  const entry = { timestamp: new Date().toISOString(), level, message };
-  logBuffer.push(entry);
-  if (logBuffer.length > 1000) logBuffer.shift();
-  console.error(\`[\${entry.timestamp}] \${level}: \${message}\`);
-}
-
-const tools = {
-  'git/clone': async ({ repoUrl, path }) => {
-    const targetPath = path || '/workspace';
-    // SECURITY: Never use variables in exec strings. Use env option only.
-    // DO NOT: execAsync(\`git clone --depth 1 "\${repoUrl}" "\${targetPath}"\`)
-    // DO: Pass env securely without interpolation
-    const env = SECRETS.GITHUB_TOKEN 
-      ? { ...process.env, GIT_ASKPASS: 'echo', GIT_USERNAME: 'token', GIT_PASSWORD: SECRETS.GITHUB_TOKEN } 
-      : process.env;
-    const { stdout, stderr } = await execAsync('git clone --depth 1 "' + repoUrl + '" "' + targetPath + '"', { env, timeout: 60000 });
-    return { content: [{ type: 'text', text: \`Successfully cloned \${repoUrl}\` }], metadata: { stdout, stderr } };
-  },
-  'fs/read': async ({ path: inputPath }) => {
-    const resolved = path.isAbsolute(inputPath) ? inputPath : path.join('/workspace', inputPath);
-    if (!resolved.startsWith('/workspace') && !resolved.startsWith('/opt')) throw new Error('Access denied');
-    const content = await fs.readFile(resolved, 'utf-8');
-    return { content: [{ type: 'text', text: content }], metadata: { path: resolved, size: content.length } };
-  },
-  'fs/write': async ({ path: inputPath, content }) => {
-    const resolved = path.isAbsolute(inputPath) ? inputPath : path.join('/workspace', inputPath);
-    if (!resolved.startsWith('/workspace') && !resolved.startsWith('/opt')) throw new Error('Access denied');
-    await fs.mkdir(path.dirname(resolved), { recursive: true });
-    await fs.writeFile(resolved, content, 'utf-8');
-    return { content: [{ type: 'text', text: \`Wrote \${content.length} bytes\` }], metadata: { path: resolved, bytes: content.length } };
-  },
-  'fs/list': async ({ path: inputPath }) => {
-    const resolved = path.isAbsolute(inputPath || '/workspace') ? (inputPath || '/workspace') : path.join('/workspace', inputPath || '/workspace');
-    if (!resolved.startsWith('/workspace') && !resolved.startsWith('/opt')) throw new Error('Access denied');
-    const entries = await fs.readdir(resolved, { withFileTypes: true });
-    const formatted = entries.map(e => ({ name: e.name, type: e.isDirectory() ? 'directory' : 'file' }));
-    return { content: [{ type: 'text', text: formatted.map(e => \`\${e.type === 'directory' ? '[D]' : '[F]'} \${e.name}\`).join('\\n') }], metadata: { path: resolved, entries: formatted } };
-  },
-  'fs/exists': async ({ path: inputPath }) => {
-    const resolved = path.isAbsolute(inputPath) ? inputPath : path.join('/workspace', inputPath);
-    if (!resolved.startsWith('/workspace') && !resolved.startsWith('/opt')) throw new Error('Access denied');
-    try { await fs.access(resolved); return { content: [{ type: 'text', text: \`Exists: \${resolved}\` }], metadata: { exists: true, path: resolved } }; } catch { return { content: [{ type: 'text', text: \`Not found: \${resolved}\` }], metadata: { exists: false, path: resolved } }; }
-  },
-  'fs/stat': async ({ path: inputPath }) => {
-    const resolved = path.isAbsolute(inputPath) ? inputPath : path.join('/workspace', inputPath);
-    if (!resolved.startsWith('/workspace') && !resolved.startsWith('/opt')) throw new Error('Access denied');
-    const stats = await fs.stat(resolved);
-    return { content: [{ type: 'text', text: \`\${resolved}: \${stats.size} bytes, \${stats.isDirectory() ? 'directory' : 'file'}\` }], metadata: { path: resolved, size: stats.size, isDirectory: stats.isDirectory(), isFile: stats.isFile(), modified: stats.mtime.toISOString(), created: stats.birthtime.toISOString() } };
-  },
-  'exec/run': async ({ command, cwd, timeout }) => {
-    const workingDir = cwd || '/workspace';
-    const resolvedCwd = path.isAbsolute(workingDir) ? workingDir : path.join('/workspace', workingDir);
-    if (!resolvedCwd.startsWith('/workspace') && !resolvedCwd.startsWith('/opt')) throw new Error('Access denied');
-    // SECURITY WARNING: Never use shell variables or export in exec commands
-    // BAD: execAsync('export TOKEN=secret && curl -H "Authorization: $TOKEN"')
-    // GOOD: Pass secrets via env option only
-    const { stdout, stderr } = await execAsync(command, { cwd: resolvedCwd, timeout: timeout || 60000, env: process.env });
-    const content = [{ type: 'text', text: stdout || '(no stdout)' }];
-    if (stderr) content.push({ type: 'text', text: \`STDERR:\n\${stderr}\` });
-    return { content, metadata: { command, cwd: resolvedCwd } };
-  },
-  'bridge/health': async () => ({ content: [{ type: 'text', text: 'Bridge is healthy' }], metadata: { status: 'healthy', timestamp: new Date().toISOString(), uptime: process.uptime(), workspace: '/workspace' } }),
-  'bridge/logs': async ({ lines }) => ({ content: [{ type: 'text', text: logBuffer.slice(-(lines || 100)).map(l => \`[\${l.timestamp}] \${l.level}: \${l.message}\`).join('\\n') }], metadata: { total: logBuffer.length } }),
-};
-
-const server = http.createServer(async (req, res) => {
-  if (req.method !== 'POST' || req.url !== '/mcp') { res.writeHead(404); res.end(); return; }
-  let body = '';
-  req.on('data', chunk => body += chunk);
-  req.on('end', async () => {
-    try {
-      const { id, method, params } = JSON.parse(body);
-      const handler = tools[method];
-      if (!handler) { res.writeHead(200); res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32601, message: \`Method not found: \${method}\` } })); return; }
-      const result = await handler(params || {});
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ jsonrpc: '2.0', id, result }));
-    } catch (error) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ jsonrpc: '2.0', id: 0, error: { code: -32000, message: error.message } }));
+    let serverPath: string | null = null;
+    for (const path of possibleServerPaths) {
+      if (existsSync(path)) {
+        serverPath = path;
+        break;
+      }
     }
-  });
-});
 
-server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
-`,
-    );
+    if (!serverPath) {
+      throw new Error(
+        `Could not find bridge server.ts. Tried: ${possibleServerPaths.join(", ")}`,
+      );
+    }
+
+    log("SERVER", "Reading server file", { path: serverPath });
+    const serverCode = readFileSync(serverPath, "utf-8");
+
+    // Copy server code into container
+    container = container
+      .withExec(["mkdir", "-p", "/opt/bridge"])
+      .withNewFile("/opt/bridge/server.ts", serverCode);
+
+    // Install Node.js dependencies for MCP server
+    log("SERVER", "Installing MCP SDK dependencies");
+    container = container.withExec([
+      "sh",
+      "-c",
+      "cd /opt/bridge && npm init -y && npm install @modelcontextprotocol/sdk zod typescript tsx --save",
+    ]);
+    log("SERVER", "Dependencies installed");
 
     // Step 4: Clone the repo
     log("GIT", "Cloning repository", { repoUrl, target: "/workspace" });
@@ -217,11 +165,11 @@ server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
     log("SERVICE", "Port exposed", { port });
 
     const service = container
-      .withEntrypoint(["node", "/opt/bridge/server.js"])
+      .withEntrypoint(["npx", "tsx", "/opt/bridge/server.ts", `--port=${port}`])
       .asService();
     log("SERVICE", "Service created from container");
 
-    // Step 5: Start service in background (non-blocking) so we can signal when ready
+    // Step 6: Start service in background (non-blocking) so we can signal when ready
     log("SERVICE", "Starting Dagger service (non-blocking)", {
       portMapping: { frontend: port, backend: port },
     });
@@ -240,7 +188,7 @@ server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
         });
       });
 
-    // Step 6: Poll until service is actually reachable (not just a fixed delay)
+    // Step 7: Poll until service is actually reachable
     const MAX_WAIT_MS = 60000; // 60 seconds max
     const POLL_INTERVAL = 500; // Check every 500ms
     const startTime = Date.now();
@@ -252,21 +200,30 @@ server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
 
     while (!isReady && Date.now() - startTime < MAX_WAIT_MS) {
       try {
+        // Try to connect with proper MCP initialize request
         const response = await fetch(`http://localhost:${port}/mcp`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json, text/event-stream",
+          },
           body: JSON.stringify({
             jsonrpc: "2.0",
             id: 1,
-            method: "bridge/health",
-            params: {},
+            method: "initialize",
+            params: {
+              protocolVersion: "2024-11-05",
+              capabilities: {},
+              clientInfo: { name: "health-check", version: "1.0" },
+            },
           }),
-          signal: AbortSignal.timeout(1000), // 1 second timeout per check
+          signal: AbortSignal.timeout(1000),
         });
 
         if (response.ok) {
-          const data = await response.json();
-          if (data.result && data.result.metadata?.status === "healthy") {
+          const text = await response.text();
+          // Check if response contains a successful initialize result
+          if (text.includes("serverInfo") && text.includes("habitat-bridge")) {
             isReady = true;
             log("WAIT", "Service is healthy and reachable!", {
               elapsedMs: Date.now() - startTime,
@@ -286,19 +243,28 @@ server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
       throw new Error(`Service failed to become ready after ${MAX_WAIT_MS}ms`);
     }
 
-    // Step 7: Signal ready to parent
+    // Step 8: Signal ready to parent
     log("SIGNAL", "Signaling ready to parent", { port });
     parentPort?.postMessage({ type: "ready", port });
     log("SIGNAL", "Ready signal sent to parent");
 
-    // Step 8: Keep worker alive by waiting for the service promise
+    // Step 9: Keep worker alive by waiting for the service promise
     log("KEEPALIVE", "Entering keep-alive state (waiting for service)");
     await servicePromise;
     log("KEEPALIVE", "Service promise resolved (container stopped)");
+
+    // Close log stream
+    if (logStream) {
+      logStream.end();
+    }
   },
   { LogOutput: process.stderr },
 ).catch((err: any) => {
   log("FATAL", "Worker failed", { error: err.message || String(err) });
   parentPort?.postMessage({ type: "error", error: err.message || String(err) });
+  // Close log stream on error
+  if (logStream) {
+    logStream.end();
+  }
   process.exit(1);
 });
