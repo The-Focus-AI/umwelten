@@ -34,8 +34,8 @@ const PROJECT_BASE_IMAGES: Record<string, string> = {
   go: "golang:1.21",
   maven: "maven:3.9-eclipse-temurin-17",
   gradle: "gradle:8.5-jdk17",
-  shell: "ubuntu:22.04",
-  unknown: "ubuntu:22.04",
+  shell: "node:20", // Shell scripts often need node for bridge server
+  unknown: "node:20", // Default to node image since bridge server requires node
 };
 
 // Project type markers (same as existing context-provider.ts)

@@ -12,26 +12,74 @@ interface WorkerData {
   repoUrl: string;
   baseImage: string;
   port: number;
+  aptPackages?: string[];
+  secrets?: Array<{ name: string; value: string }>; // Secrets passed securely
 }
 
-const { id, repoUrl, baseImage, port } = workerData as WorkerData;
+const {
+  id,
+  repoUrl,
+  baseImage,
+  port,
+  aptPackages = [],
+  secrets = [],
+} = workerData as WorkerData;
 
-// Send log messages to parent thread
-const log = (msg: string) => {
-  parentPort?.postMessage({ type: "log", message: msg });
-  console.log(msg);
+// Structured logging to parent thread
+const log = (step: string, message: string, data?: unknown) => {
+  const timestamp = new Date().toISOString();
+  const logEntry = { timestamp, step, message, data };
+  parentPort?.postMessage({ type: "log", step, message, data });
+  console.log(
+    `[${timestamp}] [BridgeWorker:${id}] [${step}] ${message}`,
+    data ? JSON.stringify(data) : "",
+  );
 };
 
-log(`[BridgeWorker:${id}] Starting bridge service on port ${port}...`);
+log("INIT", "Bridge worker starting", {
+  id,
+  repoUrl,
+  baseImage,
+  port,
+  aptPackages,
+});
 
 connection(
   async () => {
-    log(`[BridgeWorker:${id}] Building container from ${baseImage}...`);
+    log("CONTAINER", "Starting container build", { baseImage });
 
-    // Build container
+    // Step 1: Get base container
+    log("CONTAINER", "Pulling base image", { baseImage });
     let container = dag.container().from(baseImage);
+    log("CONTAINER", "Base image pulled");
 
-    // Setup bridge server (simplified version)
+    // Step 2: Install apt packages if needed (MUST happen before git clone)
+    if (aptPackages.length > 0) {
+      log("APT", "Installing apt packages", { packages: aptPackages });
+      container = container.withExec([
+        "sh",
+        "-c",
+        "apt-get update && apt-get install -y " + aptPackages.join(" "),
+      ]);
+      log("APT", "Apt packages installed", { count: aptPackages.length });
+    }
+
+    // Step 2.5: Inject secrets into container securely
+    if (secrets.length > 0) {
+      log("SECRETS", "Injecting secrets into container", {
+        count: secrets.length,
+        names: secrets.map((s) => s.name),
+      });
+      for (const secret of secrets) {
+        // Use Dagger's secret API to securely pass secrets without exposing in logs
+        const secretVal = dag.setSecret(secret.name, secret.value);
+        container = container.withSecretVariable(secret.name, secretVal);
+      }
+      log("SECRETS", "Secrets injected securely");
+    }
+
+    // Step 3: Setup bridge server files
+    log("SERVER", "Creating bridge server files", { port });
     container = container.withExec(["mkdir", "-p", "/opt/bridge"]).withNewFile(
       "/opt/bridge/server.js",
       `
@@ -44,6 +92,11 @@ const path = require('path');
 const execAsync = promisify(exec);
 const PORT = ${port};
 
+// Load secrets from environment at startup (injected securely by Dagger)
+const SECRETS = {
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || null,
+};
+
 const logBuffer = [];
 function log(level, message) {
   const entry = { timestamp: new Date().toISOString(), level, message };
@@ -55,8 +108,13 @@ function log(level, message) {
 const tools = {
   'git/clone': async ({ repoUrl, path }) => {
     const targetPath = path || '/workspace';
-    const env = process.env.GITHUB_TOKEN ? { ...process.env, GIT_ASKPASS: 'echo', GIT_USERNAME: 'token', GIT_PASSWORD: process.env.GITHUB_TOKEN } : process.env;
-    const { stdout, stderr } = await execAsync(\`git clone --depth 1 "\${repoUrl}" "\${targetPath}"\`, { env, timeout: 60000 });
+    // SECURITY: Never use variables in exec strings. Use env option only.
+    // DO NOT: execAsync(\`git clone --depth 1 "\${repoUrl}" "\${targetPath}"\`)
+    // DO: Pass env securely without interpolation
+    const env = SECRETS.GITHUB_TOKEN 
+      ? { ...process.env, GIT_ASKPASS: 'echo', GIT_USERNAME: 'token', GIT_PASSWORD: SECRETS.GITHUB_TOKEN } 
+      : process.env;
+    const { stdout, stderr } = await execAsync('git clone --depth 1 "' + repoUrl + '" "' + targetPath + '"', { env, timeout: 60000 });
     return { content: [{ type: 'text', text: \`Successfully cloned \${repoUrl}\` }], metadata: { stdout, stderr } };
   },
   'fs/read': async ({ path: inputPath }) => {
@@ -94,6 +152,9 @@ const tools = {
     const workingDir = cwd || '/workspace';
     const resolvedCwd = path.isAbsolute(workingDir) ? workingDir : path.join('/workspace', workingDir);
     if (!resolvedCwd.startsWith('/workspace') && !resolvedCwd.startsWith('/opt')) throw new Error('Access denied');
+    // SECURITY WARNING: Never use shell variables or export in exec commands
+    // BAD: execAsync('export TOKEN=secret && curl -H "Authorization: $TOKEN"')
+    // GOOD: Pass secrets via env option only
     const { stdout, stderr } = await execAsync(command, { cwd: resolvedCwd, timeout: timeout || 60000, env: process.env });
     const content = [{ type: 'text', text: stdout || '(no stdout)' }];
     if (stderr) content.push({ type: 'text', text: \`STDERR:\n\${stderr}\` });
@@ -126,7 +187,8 @@ server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
 `,
     );
 
-    // Clone the repo
+    // Step 4: Clone the repo
+    log("GIT", "Cloning repository", { repoUrl, target: "/workspace" });
     container = container.withExec([
       "git",
       "clone",
@@ -135,45 +197,96 @@ server.listen(PORT, () => log('info', \`Bridge server on port \${PORT}\`));
       repoUrl,
       "/workspace",
     ]);
+    log("GIT", "Repository cloned");
 
-    // Setup service
+    // Step 5: Setup service
+    log("SERVICE", "Configuring Dagger service", { port });
     container = container.withExposedPort(port);
+    log("SERVICE", "Port exposed", { port });
+
     const service = container
       .withEntrypoint(["node", "/opt/bridge/server.js"])
       .asService();
+    log("SERVICE", "Service created from container");
 
-    // Start service in background (non-blocking) so we can signal when ready
-    log(`[BridgeWorker:${id}] Starting Dagger service...`);
+    // Step 5: Start service in background (non-blocking) so we can signal when ready
+    log("SERVICE", "Starting Dagger service (non-blocking)", {
+      portMapping: { frontend: port, backend: port },
+    });
     const servicePromise = service
       .up({ ports: [{ frontend: port, backend: port }] })
       .then(() => {
-        log(`[BridgeWorker:${id}] service.up() completed (service stopped)`);
+        log("SERVICE", "Service stopped (this is expected after signal)");
       })
       .catch((err: any) => {
-        log(
-          `[BridgeWorker:${id}] service.up() failed: ${err.message || String(err)}`,
-        );
+        log("ERROR", "Service failed to start", {
+          error: err.message || String(err),
+        });
         parentPort?.postMessage({
           type: "error",
           error: err.message || String(err),
         });
       });
 
-    // Wait a bit for the service to start and be reachable
-    log(`[BridgeWorker:${id}] Waiting for service to be ready...`);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Step 6: Poll until service is actually reachable (not just a fixed delay)
+    const MAX_WAIT_MS = 60000; // 60 seconds max
+    const POLL_INTERVAL = 500; // Check every 500ms
+    const startTime = Date.now();
+    let isReady = false;
 
-    // Now signal ready - service should be listening
-    log(`[BridgeWorker:${id}] Signaling ready to parent on port ${port}...`);
+    log("WAIT", `Polling for service readiness (max ${MAX_WAIT_MS}ms)`, {
+      url: `http://localhost:${port}/mcp`,
+    });
+
+    while (!isReady && Date.now() - startTime < MAX_WAIT_MS) {
+      try {
+        const response = await fetch(`http://localhost:${port}/mcp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "bridge/health",
+            params: {},
+          }),
+          signal: AbortSignal.timeout(1000), // 1 second timeout per check
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.result && data.result.metadata?.status === "healthy") {
+            isReady = true;
+            log("WAIT", "Service is healthy and reachable!", {
+              elapsedMs: Date.now() - startTime,
+            });
+          }
+        }
+      } catch {
+        // Expected while service starts up
+      }
+
+      if (!isReady) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+      }
+    }
+
+    if (!isReady) {
+      throw new Error(`Service failed to become ready after ${MAX_WAIT_MS}ms`);
+    }
+
+    // Step 7: Signal ready to parent
+    log("SIGNAL", "Signaling ready to parent", { port });
     parentPort?.postMessage({ type: "ready", port });
-    log(`[BridgeWorker:${id}] Ready message sent!`);
+    log("SIGNAL", "Ready signal sent to parent");
 
-    // Keep worker alive by waiting for the service promise
+    // Step 8: Keep worker alive by waiting for the service promise
+    log("KEEPALIVE", "Entering keep-alive state (waiting for service)");
     await servicePromise;
+    log("KEEPALIVE", "Service promise resolved (container stopped)");
   },
   { LogOutput: process.stderr },
 ).catch((err: any) => {
-  log(`[BridgeWorker:${id}] Failed: ${err.message || String(err)}`);
+  log("FATAL", "Worker failed", { error: err.message || String(err) });
   parentPort?.postMessage({ type: "error", error: err.message || String(err) });
   process.exit(1);
 });

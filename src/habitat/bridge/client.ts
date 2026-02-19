@@ -9,6 +9,7 @@ export interface BridgeConnectionOptions {
   host: string;
   port: number;
   timeout?: number;
+  id?: string; // For logging
 }
 
 export interface BridgeToolResult {
@@ -23,16 +24,33 @@ export interface BridgeHealth {
   workspace: string;
 }
 
+// Simple logger for client
+function log(
+  id: string | undefined,
+  step: string,
+  message: string,
+  data?: unknown,
+) {
+  const timestamp = new Date().toISOString();
+  const idStr = id ? `[${id}] ` : "";
+  console.log(
+    `[${timestamp}] [BridgeClient] ${idStr}[${step}] ${message}`,
+    data ? JSON.stringify(data) : "",
+  );
+}
+
 export class HabitatBridgeClient {
   private connected = false;
   private options: BridgeConnectionOptions;
   private requestId = 0;
+  private id: string | undefined;
 
   constructor(options: BridgeConnectionOptions) {
     this.options = {
       timeout: 30000,
       ...options,
     };
+    this.id = options.id;
   }
 
   private getUrl(): string {
@@ -43,6 +61,9 @@ export class HabitatBridgeClient {
     method: string,
     params: Record<string, unknown>,
   ): Promise<unknown> {
+    const reqId = ++this.requestId;
+    log(this.id, "RPC", `Calling ${method}`, { reqId, params });
+
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -50,12 +71,16 @@ export class HabitatBridgeClient {
     );
 
     try {
+      log(this.id, "RPC", `Sending request to ${this.getUrl()}`, {
+        reqId,
+        method,
+      });
       const response = await fetch(this.getUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jsonrpc: "2.0",
-          id: ++this.requestId,
+          id: reqId,
           method,
           params,
         }),
@@ -63,6 +88,10 @@ export class HabitatBridgeClient {
       });
 
       clearTimeout(timeoutId);
+      log(this.id, "RPC", `Received response`, {
+        reqId,
+        status: response.status,
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -76,11 +105,17 @@ export class HabitatBridgeClient {
       };
 
       if (data.error) {
+        log(this.id, "RPC", `RPC error`, { reqId, error: data.error.message });
         throw new Error(data.error.message);
       }
 
+      log(this.id, "RPC", `Success`, { reqId, hasResult: !!data.result });
       return data.result;
     } catch (error) {
+      log(this.id, "RPC", `Failed`, {
+        reqId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new Error(
         `RPC call failed: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -88,15 +123,22 @@ export class HabitatBridgeClient {
   }
 
   async connect(): Promise<void> {
+    log(this.id, "CONNECT", "Attempting connection");
     if (this.connected) {
+      log(this.id, "CONNECT", "Already connected");
       return;
     }
 
     try {
       // Test connection with health check
+      log(this.id, "CONNECT", "Testing with health check");
       await this.health();
       this.connected = true;
+      log(this.id, "CONNECT", "Connection established");
     } catch (error) {
+      log(this.id, "CONNECT", "Connection failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new Error(
         `Failed to connect to bridge: ${error instanceof Error ? error.message : String(error)}`,
       );

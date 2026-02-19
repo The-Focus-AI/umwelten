@@ -29,6 +29,8 @@ const DEFAULT_INSTRUCTIONS = [
   "When cloning an agent with agent_clone, it automatically starts a BridgeAgent in a Dagger container - no model configuration needed.",
   "IMPORTANT: agent_ask requires a configured model for the sub-agent. If no model is configured, use bridge_create instead for containerized execution.",
   "Bridge agents run in containers without needing LLM configuration - they use the Bridge MCP server for file/exec operations.",
+  "SECURITY CRITICAL: Never use export, variables, or template literals in exec commands. BAD: exec('export TOKEN=secret && curl -H $TOKEN'). GOOD: Pass secrets via the env parameter only. Variables in command strings can leak in logs and process listings.",
+  "Bridge containers inject secrets via environment variables securely - they are never exposed in command strings or logs.",
 ];
 
 function normalizeInstructions(value: unknown): string[] {

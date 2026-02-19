@@ -11,10 +11,29 @@ import { Worker } from "worker_threads";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
+// Logger utility for structured logging
+function log(id: string, step: string, message: string, data?: unknown) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    component: "BridgeLifecycle",
+    id,
+    step,
+    message,
+    data,
+  };
+  console.log(
+    `[${timestamp}] [BridgeLifecycle:${id}] [${step}] ${message}`,
+    data ? JSON.stringify(data) : "",
+  );
+  return logEntry;
+}
+
 export interface BridgeProvisioning {
   baseImage: string;
   aptPackages: string[];
   gitRepos: Array<{ name: string; url: string; path: string }>;
+  secrets?: Array<{ name: string; value: string }>; // Secrets to inject securely
 }
 
 export interface BridgeInstance {
@@ -38,20 +57,36 @@ export class BridgeLifecycle {
     repoUrl: string,
     provisioning: BridgeProvisioning,
   ): Promise<BridgeInstance> {
-    console.log(
-      `[BridgeLifecycle:${id}] Creating bridge with base image: ${provisioning.baseImage}`,
-    );
+    log(id, "INIT", "Creating bridge", {
+      baseImage: provisioning.baseImage,
+      aptPackages: provisioning.aptPackages.length,
+      gitRepos: provisioning.gitRepos.length,
+    });
 
     // Allocate port
     const port = this.allocatePort();
-    console.log(`[BridgeLifecycle:${id}] Allocated port: ${port}`);
+    log(id, "PORT", "Allocated port", { port });
 
     // Start worker thread to run Dagger service in background
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
     const workerPath = join(__dirname, "bridge-worker.ts");
 
-    console.log(`[BridgeLifecycle:${id}] Spawning worker thread...`);
+    log(id, "WORKER", "Spawning worker thread", { workerPath });
+
+    // Collect secrets from environment (by name)
+    const secrets: Array<{ name: string; value: string }> = [];
+    if (provisioning.secrets) {
+      for (const secret of provisioning.secrets) {
+        if (secret.value) {
+          secrets.push(secret);
+        }
+      }
+    }
+    // Also check for common secrets
+    if (process.env.GITHUB_TOKEN) {
+      secrets.push({ name: "GITHUB_TOKEN", value: process.env.GITHUB_TOKEN });
+    }
 
     const worker = new Worker(workerPath, {
       workerData: {
@@ -59,21 +94,21 @@ export class BridgeLifecycle {
         repoUrl,
         baseImage: provisioning.baseImage,
         port,
+        aptPackages: provisioning.aptPackages,
+        secrets,
       },
       execArgv: ["-r", "tsx"], // Enable TypeScript support in worker
     });
 
+    log(id, "WORKER", "Worker thread spawned, waiting for ready signal");
+
     // Wait for worker to signal ready or error (with timeout)
     const WORKER_TIMEOUT = 60000; // 60 seconds (increased for Dagger startup)
-    console.log(
-      `[BridgeLifecycle:${id}] Waiting for worker ready signal (timeout: ${WORKER_TIMEOUT}ms)...`,
-    );
+    log(id, "WAIT", "Waiting for worker ready", { timeoutMs: WORKER_TIMEOUT });
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        console.error(
-          `[BridgeLifecycle:${id}] Worker startup timeout - terminating`,
-        );
+        log(id, "TIMEOUT", "Worker startup timeout - terminating");
         worker.terminate();
         reject(new Error(`Worker startup timed out after ${WORKER_TIMEOUT}ms`));
       }, WORKER_TIMEOUT);
@@ -85,31 +120,37 @@ export class BridgeLifecycle {
           port?: number;
           error?: string;
           message?: string;
+          step?: string;
+          data?: unknown;
         }) => {
           if (msg.type === "log") {
-            // Forward worker logs
-            console.log(`[Worker:${id}] ${msg.message}`);
+            // Forward structured worker logs
+            console.log(
+              `[${new Date().toISOString()}] [Worker:${id}] [${msg.step || "LOG"}] ${msg.message}`,
+              msg.data ? JSON.stringify(msg.data) : "",
+            );
             return;
           }
 
           clearTimeout(timeout);
           if (msg.type === "ready") {
-            console.log(
-              `[BridgeLifecycle:${id}] Worker reports ready on port ${msg.port}`,
-            );
+            log(id, "READY", "Worker reports ready", { port: msg.port });
             resolve();
           } else if (msg.type === "error") {
+            log(id, "ERROR", "Worker reported error", { error: msg.error });
             reject(new Error(msg.error || "Worker failed"));
           }
         },
       );
 
       worker.once("error", (err) => {
+        log(id, "ERROR", "Worker error event", { error: err.message });
         clearTimeout(timeout);
         reject(err);
       });
 
       worker.once("exit", (code) => {
+        log(id, "EXIT", "Worker exited", { code });
         clearTimeout(timeout);
         if (code !== 0) {
           reject(new Error(`Worker exited with code ${code}`));
@@ -118,21 +159,23 @@ export class BridgeLifecycle {
     });
 
     // Create client
-    const client = new HabitatBridgeClient({
+    log(id, "CLIENT", "Creating bridge client", {
       host: "localhost",
       port,
       timeout: 5000,
     });
+    const client = new HabitatBridgeClient({
+      host: "localhost",
+      port,
+      timeout: 5000,
+      id, // Pass ID for logging
+    });
 
     // Wait for service to be reachable (with retries)
-    console.log(
-      `[BridgeLifecycle:${id}] Waiting for service to be reachable on port ${port}...`,
-    );
+    log(id, "HEALTH", "Waiting for service to be reachable", { port });
     await this.waitForServiceReady(client, id, port);
 
-    console.log(
-      `[BridgeLifecycle:${id}] Bridge container ready on port ${port}`,
-    );
+    log(id, "SUCCESS", "Bridge container ready", { port, provisioning });
 
     const instance: BridgeInstance = {
       id,
@@ -144,6 +187,9 @@ export class BridgeLifecycle {
     };
 
     this.bridges.set(id, instance);
+    log(id, "TRACK", "Bridge instance tracked", {
+      totalBridges: this.bridges.size,
+    });
     return instance;
   }
 
@@ -151,42 +197,52 @@ export class BridgeLifecycle {
    * Destroy a bridge instance
    */
   async destroyBridge(id: string): Promise<void> {
+    log(id, "DESTROY", "Destroying bridge");
     const instance = this.bridges.get(id);
     if (!instance) {
+      log(id, "DESTROY", "Bridge not found, nothing to destroy");
       return;
     }
 
     // Disconnect client
+    log(id, "DESTROY", "Disconnecting client");
     await instance.client.disconnect();
 
     // Stop service
     // Note: Dagger doesn't have a direct stop method, but the service will be garbage collected
     // when the container is destroyed
+    log(id, "DESTROY", "Service will be garbage collected");
 
     // Remove from tracking
     this.bridges.delete(id);
-  }
-
-  /**
-   * Get a bridge instance by ID
-   */
-  getBridge(id: string): BridgeInstance | undefined {
-    return this.bridges.get(id);
+    log(id, "DESTROY", "Bridge removed from tracking", {
+      remainingBridges: this.bridges.size,
+    });
   }
 
   /**
    * Check if a bridge is healthy
    */
   async isHealthy(id: string): Promise<boolean> {
+    log(id, "HEALTH", "Checking bridge health");
     const instance = this.bridges.get(id);
     if (!instance) {
+      log(id, "HEALTH", "Bridge not found");
       return false;
     }
 
     try {
       const health = await instance.client.health();
-      return health.status === "healthy";
-    } catch {
+      const isHealthy = health.status === "healthy";
+      log(
+        id,
+        "HEALTH",
+        `Health check result: ${isHealthy ? "healthy" : "unhealthy"}`,
+        { status: health.status },
+      );
+      return isHealthy;
+    } catch (err: any) {
+      log(id, "HEALTH", "Health check failed", { error: err.message });
       return false;
     }
   }
@@ -195,13 +251,17 @@ export class BridgeLifecycle {
    * Get logs from a bridge
    */
   async getLogs(id: string, lines?: number): Promise<string[]> {
+    log(id, "LOGS", "Getting bridge logs", { lines });
     const instance = this.bridges.get(id);
     if (!instance) {
+      log(id, "LOGS", "Bridge not found");
       return [];
     }
 
     try {
-      return await instance.client.getLogs(lines);
+      const logs = await instance.client.getLogs(lines);
+      log(id, "LOGS", `Retrieved ${logs.length} log lines`);
+      return logs;
     } catch {
       return [];
     }
