@@ -197,10 +197,9 @@ export class Habitat
   // ── Model defaults ──────────────────────────────────────────────
 
   getDefaultModelDetails(): ModelDetails | undefined {
-    const provider =
-      this.config.defaultProvider ?? process.env[`${this.envPrefix}_PROVIDER`];
-    const model =
-      this.config.defaultModel ?? process.env[`${this.envPrefix}_MODEL`];
+    // Use config.json defaults only - no env var fallbacks
+    const provider = this.config.defaultProvider;
+    const model = this.config.defaultModel;
     if (provider && model) return { name: model, provider };
     return undefined;
   }
