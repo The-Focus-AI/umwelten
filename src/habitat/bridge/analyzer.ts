@@ -49,7 +49,7 @@ const PROJECT_TYPE_MARKERS: Record<string, string[]> = {
 };
 
 // Tool detection patterns (same as existing project-analyzer.ts)
-const TOOL_PATTERNS: Array<{
+export const TOOL_PATTERNS: Array<{
   pattern: RegExp;
   tool: string;
   aptPackages?: string[];
@@ -115,6 +115,22 @@ const TOOL_PATTERNS: Array<{
     aptPackages: [], // Comes with node
   },
 ];
+
+// Map tool names to their primary apt package for quick lookup
+export const TOOL_PACKAGES: Record<string, string | undefined> = {
+  imagemagick: "imagemagick",
+  jq: "jq",
+  curl: "curl",
+  wget: "wget",
+  git: "git",
+  python: "python3",
+  ffmpeg: "ffmpeg",
+  sqlite3: "sqlite3",
+  chrome: "chromium",
+  "claude-cli": undefined, // npm global
+  "1password-cli": undefined, // custom install
+  npx: undefined, // comes with node
+};
 
 // Known skills mapping (same as existing skill-provisioner.ts)
 const KNOWN_SKILLS: Record<

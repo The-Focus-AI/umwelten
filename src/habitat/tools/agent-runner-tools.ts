@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { Tool } from "ai";
 import type { AgentEntry, LogPattern } from "../types.js";
 import { BridgeAgent } from "../bridge/agent.js";
+import { BridgeAnalyzer, TOOL_PACKAGES } from "../bridge/analyzer.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,6 +21,7 @@ export interface AgentRunnerToolsContext {
   getWorkDir(): string;
   getAgent(idOrName: string): AgentEntry | undefined;
   addAgent(agent: AgentEntry): Promise<void>;
+  updateAgent(idOrName: string, updates: Partial<AgentEntry>): Promise<void>;
   getOrCreateHabitatAgent(
     agentId: string,
   ): Promise<{ ask(message: string): Promise<string> }>;
@@ -507,11 +509,184 @@ export function createAgentRunnerTools(
     },
   });
 
+  // ── agent_analyze ─────────────────────────────────────────────────────
+  /** Analyze an agent to determine what it needs to run successfully */
+  const agentAnalyzeTool = tool({
+    description:
+      "Analyze an agent's project to detect dependencies, tools, and configuration issues. Returns a detailed report of what the agent needs.",
+    inputSchema: z.object({
+      agentId: z.string().describe("ID of the agent to analyze"),
+      deep: z
+        .boolean()
+        .optional()
+        .describe(
+          "Perform deep analysis including script content scanning (default: true)",
+        ),
+    }),
+    execute: async ({ agentId, deep = true }) => {
+      const agent = ctx.getAgent(agentId);
+      if (!agent) {
+        return {
+          error: "AGENT_NOT_FOUND",
+          message: `No agent found: ${agentId}`,
+        };
+      }
+
+      try {
+        // Start a bridge to analyze the agent
+        const bridgeAgent = new BridgeAgent({
+          id: `${agentId}-analyze`,
+          repoUrl: agent.gitRemote || "",
+          maxIterations: 1,
+        });
+
+        await bridgeAgent.start();
+        const client = await bridgeAgent.getClient();
+        const analyzer = new BridgeAnalyzer(client);
+
+        // Run analysis
+        const analysis = await analyzer.analyze("/workspace");
+
+        // Check for common issues
+        const issues: string[] = [];
+
+        // Check if scripts reference tools not available
+        const missingTools = analysis.detectedTools.filter((t) => {
+          const pkg = TOOL_PACKAGES[t];
+          return pkg && !analysis.aptPackages.includes(pkg);
+        });
+
+        if (missingTools.length > 0) {
+          issues.push(`Missing tools: ${missingTools.join(", ")}`);
+        }
+
+        // Check for environment variables
+        if (analysis.envVarNames.length > 0) {
+          const missingEnv = analysis.envVarNames.filter(
+            (e) => !process.env[e],
+          );
+          if (missingEnv.length > 0) {
+            issues.push(`Missing env vars: ${missingEnv.join(", ")}`);
+          }
+        }
+
+        // Cleanup
+        await bridgeAgent.destroy();
+
+        return {
+          agentId,
+          projectType: analysis.projectType,
+          detectedTools: analysis.detectedTools,
+          requiredPackages: analysis.aptPackages,
+          envVarNames: analysis.envVarNames,
+          skills: analysis.skillRepos.map((s) => s.name),
+          setupCommands: analysis.setupCommands,
+          issues,
+          recommendations:
+            issues.length > 0
+              ? [
+                  `Install packages: ${analysis.aptPackages.join(", ")}`,
+                  `Set env vars: ${analysis.envVarNames.join(", ")}`,
+                  "Consider adding setup commands to agent config",
+                ]
+              : ["Agent appears ready to run"],
+        };
+      } catch (err: any) {
+        return {
+          error: "ANALYSIS_FAILED",
+          message: err.message || String(err),
+        };
+      }
+    },
+  });
+
+  // ── agent_heal ─────────────────────────────────────────────────────────
+  /** Attempt to heal an agent by installing dependencies and updating config */
+  const agentHealTool = tool({
+    description:
+      "Heal an agent by detecting issues and creating a plan to fix them. Updates the agent's bridge configuration with correct dependencies.",
+    inputSchema: z.object({
+      agentId: z.string().describe("ID of the agent to heal"),
+      autoFix: z
+        .boolean()
+        .optional()
+        .describe("Automatically apply fixes (default: true)"),
+    }),
+    execute: async ({ agentId, autoFix = true }) => {
+      const agent = ctx.getAgent(agentId);
+      if (!agent) {
+        return {
+          error: "AGENT_NOT_FOUND",
+          message: `No agent found: ${agentId}`,
+        };
+      }
+
+      try {
+        // First, analyze what the agent needs
+        const bridgeAgent = new BridgeAgent({
+          id: `${agentId}-heal`,
+          repoUrl: agent.gitRemote || "",
+          maxIterations: 1,
+        });
+
+        await bridgeAgent.start();
+        const client = await bridgeAgent.getClient();
+        const analyzer = new BridgeAnalyzer(client);
+        const analysis = await analyzer.analyze("/workspace");
+
+        const fixes: string[] = [];
+
+        // Check for missing tools
+        if (analysis.aptPackages.length > 0) {
+          fixes.push(`Will install: ${analysis.aptPackages.join(", ")}`);
+        }
+
+        // Check for missing env vars
+        const missingEnv = analysis.envVarNames.filter((e) => !process.env[e]);
+        if (missingEnv.length > 0) {
+          fixes.push(`Will prompt for env vars: ${missingEnv.join(", ")}`);
+        }
+
+        // Update agent with detected skills if autoFix
+        if (autoFix && analysis.skillRepos.length > 0) {
+          await ctx.updateAgent(agentId, {
+            skillsFromGit: analysis.skillRepos.map((s) => s.gitRepo),
+          });
+
+          fixes.push("Updated agent configuration with detected skills");
+        }
+
+        // Cleanup temp bridge
+        await bridgeAgent.destroy();
+
+        return {
+          agentId,
+          healed: fixes.length > 0,
+          fixes,
+          analysis: {
+            projectType: analysis.projectType,
+            detectedTools: analysis.detectedTools,
+            requiredPackages: analysis.aptPackages,
+            envVarNames: analysis.envVarNames,
+          },
+          nextSteps: [
+            "Run 'bridge_start' to start the agent with correct dependencies",
+            "Check agent_stimulus to verify the agent has healing instructions",
+          ],
+        };
+      } catch (err: any) {
+        return { error: "HEAL_FAILED", message: err.message || String(err) };
+      }
+    },
+  });
+
   return {
     agent_clone: agentCloneTool,
     agent_logs: agentLogsTool,
     agent_status: agentStatusTool,
     agent_ask: agentAskTool,
+    agent_analyze: agentAnalyzeTool,
+    agent_heal: agentHealTool,
     bridge_start: bridgeStartTool,
     bridge_ls: bridgeLsTool,
     bridge_read: bridgeReadTool,
