@@ -506,10 +506,18 @@ export class BaseModelRunner implements ModelRunner {
               if (
                 reasoningDelta !== undefined &&
                 reasoningDelta !== null &&
-                reasoningDelta !== ""
+                reasoningDelta !== "" &&
+                typeof reasoningDelta === "string"
               ) {
-                process.stdout.write(`\x1b[36m${reasoningDelta}\x1b[0m`); // Cyan color for reasoning
-                reasoningText += reasoningDelta;
+                // Only write printable ASCII characters to avoid garbled output
+                const cleanDelta = reasoningDelta.replace(
+                  /[^\x20-\x7E\s]/g,
+                  "",
+                );
+                if (cleanDelta) {
+                  process.stdout.write(`\x1b[36m${cleanDelta}\x1b[0m`); // Cyan color for reasoning
+                  reasoningText += cleanDelta;
+                }
               }
               break;
             case "reasoning-end":

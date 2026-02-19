@@ -5,14 +5,14 @@
  * the agent's projectPath instead of the habitat's work dir.
  */
 
-import { readFile, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { Stimulus, StimulusOptions } from '../stimulus/stimulus.js';
-import { Interaction } from '../interaction/core/interaction.js';
-import { discoverSkillsInDirectory } from '../stimulus/skills/loader.js';
-import type { AgentEntry } from './types.js';
-import type { Habitat } from './habitat.js';
-import { fileExists } from './config.js';
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { Stimulus, StimulusOptions } from "../stimulus/stimulus.js";
+import { Interaction } from "../interaction/core/interaction.js";
+import { discoverSkillsInDirectory } from "../stimulus/skills/loader.js";
+import type { AgentEntry } from "./types.js";
+import type { Habitat } from "./habitat.js";
+import { fileExists } from "./config.js";
 
 /**
  * Build a Stimulus from a managed project's files.
@@ -21,14 +21,14 @@ import { fileExists } from './config.js';
  */
 export async function buildAgentStimulus(
   agent: AgentEntry,
-  habitat: Habitat
+  habitat: Habitat,
 ): Promise<Stimulus> {
   const projectPath = agent.projectPath;
   const contextParts: string[] = [];
 
   // Read CLAUDE.md or README.md for project context
-  const claudeMd = await readProjectFile(projectPath, 'CLAUDE.md');
-  const readmeMd = await readProjectFile(projectPath, 'README.md');
+  const claudeMd = await readProjectFile(projectPath, "CLAUDE.md");
+  const readmeMd = await readProjectFile(projectPath, "README.md");
 
   if (claudeMd) {
     contextParts.push(`# CLAUDE.md\n\n${claudeMd}`);
@@ -38,16 +38,20 @@ export async function buildAgentStimulus(
   }
 
   // Read package.json for project metadata
-  const packageJson = await readProjectFile(projectPath, 'package.json');
+  const packageJson = await readProjectFile(projectPath, "package.json");
   if (packageJson) {
     try {
       const pkg = JSON.parse(packageJson);
       const summary = [
         `# Project: ${pkg.name || agent.name}`,
-        pkg.description ? `Description: ${pkg.description}` : '',
-        pkg.scripts ? `Scripts: ${Object.keys(pkg.scripts).join(', ')}` : '',
-        pkg.dependencies ? `Dependencies: ${Object.keys(pkg.dependencies).join(', ')}` : '',
-      ].filter(Boolean).join('\n');
+        pkg.description ? `Description: ${pkg.description}` : "",
+        pkg.scripts ? `Scripts: ${Object.keys(pkg.scripts).join(", ")}` : "",
+        pkg.dependencies
+          ? `Dependencies: ${Object.keys(pkg.dependencies).join(", ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
       contextParts.push(summary);
     } catch {
       // Invalid JSON, skip
@@ -55,19 +59,24 @@ export async function buildAgentStimulus(
   }
 
   // Read .claude/settings.json if present
-  const claudeSettings = await readProjectFile(projectPath, '.claude/settings.json');
+  const claudeSettings = await readProjectFile(
+    projectPath,
+    ".claude/settings.json",
+  );
   if (claudeSettings) {
     contextParts.push(`# .claude/settings.json\n\n${claudeSettings}`);
   }
 
   // Read .claude/commands/ directory if present
-  const commandsDir = join(projectPath, '.claude', 'commands');
+  const commandsDir = join(projectPath, ".claude", "commands");
   try {
     const entries = await readdir(commandsDir, { withFileTypes: true });
-    const mdFiles = entries.filter(e => e.isFile() && e.name.endsWith('.md'));
+    const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".md"));
     if (mdFiles.length > 0) {
-      const commandNames = mdFiles.map(e => e.name.replace('.md', ''));
-      contextParts.push(`# Available Claude Commands\n\n${commandNames.join(', ')}`);
+      const commandNames = mdFiles.map((e) => e.name.replace(".md", ""));
+      contextParts.push(
+        `# Available Claude Commands\n\n${commandNames.join(", ")}`,
+      );
     }
   } catch {
     // No commands directory
@@ -77,29 +86,29 @@ export async function buildAgentStimulus(
   if (agent.commands) {
     const cmdList = Object.entries(agent.commands)
       .map(([k, v]) => `- ${k}: \`${v}\``)
-      .join('\n');
+      .join("\n");
     contextParts.push(`# Configured Commands\n\n${cmdList}`);
   }
 
   if (agent.logPatterns?.length) {
     const logList = agent.logPatterns
-      .map(lp => `- ${lp.pattern} (${lp.format})`)
-      .join('\n');
+      .map((lp) => `- ${lp.pattern} (${lp.format})`)
+      .join("\n");
     contextParts.push(`# Log Patterns\n\n${logList}`);
   }
 
-  const systemContext = contextParts.join('\n\n---\n\n');
+  const systemContext = contextParts.join("\n\n---\n\n");
 
   const stimulusOptions: StimulusOptions = {
     role: `habitat agent for ${agent.name}`,
     objective: `understand and manage the ${agent.name} project`,
     instructions: [
       `You are a sub-agent managing the "${agent.name}" project at ${agent.projectPath}.`,
-      'Use read_file, list_directory, and ripgrep with agentId to explore the project.',
-      'Use agent_logs to read log files for this project.',
+      "Use read_file, list_directory, and ripgrep with agentId to explore the project.",
+      "Use agent_logs to read log files for this project.",
       `When using file tools, always pass agentId="${agent.id}".`,
-      'Provide concise, actionable analysis when asked about the project.',
-      'Remember context from previous conversations about this project.',
+      "Provide concise, actionable analysis when asked about the project.",
+      "Remember context from previous conversations about this project.",
     ],
     maxToolSteps: 30,
     systemContext,
@@ -142,38 +151,68 @@ export class HabitatAgent {
   private interaction: Interaction;
   private sessionId: string;
   private sessionDir: string;
+  private habitat: Habitat;
 
   private constructor(
     agent: AgentEntry,
     stimulus: Stimulus,
     interaction: Interaction,
     sessionId: string,
-    sessionDir: string
+    sessionDir: string,
+    habitat: Habitat,
   ) {
     this.agent = agent;
     this.stimulus = stimulus;
     this.interaction = interaction;
     this.sessionId = sessionId;
     this.sessionDir = sessionDir;
+    this.habitat = habitat;
   }
 
   /**
    * Create or resume a HabitatAgent.
    * Loads stimulus from the project, creates or resumes a persistent session.
    */
-  static async create(habitat: Habitat, agentEntry: AgentEntry): Promise<HabitatAgent> {
+  static async create(
+    habitat: Habitat,
+    agentEntry: AgentEntry,
+  ): Promise<HabitatAgent> {
     const stimulus = await buildAgentStimulus(agentEntry, habitat);
 
     const sessionId = `habitat-agent-${agentEntry.id}`;
     const { interaction, sessionDir } = await habitat.createInteraction({
       sessionId,
-      sessionType: 'habitat-agent',
+      sessionType: "habitat-agent",
     });
 
     // Replace the habitat's stimulus with the agent-specific one
     interaction.setStimulus(stimulus);
 
-    return new HabitatAgent(agentEntry, stimulus, interaction, sessionId, sessionDir);
+    return new HabitatAgent(
+      agentEntry,
+      stimulus,
+      interaction,
+      sessionId,
+      sessionDir,
+      habitat,
+    );
+  }
+
+  /**
+   * Get the MCP server port from agent config.
+   */
+  getMCPPort(): number | undefined {
+    return this.agent.mcpPort;
+  }
+
+  /**
+   * Get the MCP endpoint URL.
+   */
+  getMCPEndpoint(): string | undefined {
+    if (this.agent.mcpPort) {
+      return `http://localhost:${this.agent.mcpPort}/mcp`;
+    }
+    return undefined;
   }
 
   /**
@@ -181,7 +220,7 @@ export class HabitatAgent {
    * The agent uses tools to reason about the project.
    */
   async ask(message: string): Promise<string> {
-    this.interaction.addMessage({ role: 'user', content: message });
+    this.interaction.addMessage({ role: "user", content: message });
 
     const response = await this.interaction.generateText();
 
@@ -189,7 +228,7 @@ export class HabitatAgent {
     this.interaction.notifyTranscriptUpdate();
 
     // Extract text response
-    const text = response.content ?? '';
+    const text = response.content ?? "";
     return text;
   }
 
@@ -206,11 +245,14 @@ export class HabitatAgent {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-async function readProjectFile(projectPath: string, relativePath: string): Promise<string | null> {
+async function readProjectFile(
+  projectPath: string,
+  relativePath: string,
+): Promise<string | null> {
   const fullPath = join(projectPath, relativePath);
-  if (!await fileExists(fullPath)) return null;
+  if (!(await fileExists(fullPath))) return null;
   try {
-    const content = await readFile(fullPath, 'utf-8');
+    const content = await readFile(fullPath, "utf-8");
     return content.trim() || null;
   } catch {
     return null;

@@ -8,6 +8,7 @@ export type {
   HabitatConfig,
   HabitatOptions,
   AgentEntry,
+  AgentMCPStatus,
   HabitatCommands,
   HabitatSessionMetadata,
   HabitatSessionType,
@@ -35,3 +36,9 @@ export { HabitatSessionManager } from "./session-manager.js";
 export { coreMessagesToJSONL, writeSessionTranscript } from "./transcript.js";
 
 export { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
+
+export { AgentDiscovery, isMCPServerRunning } from "./agent-discovery.js";
+export type {
+  DiscoveredAgent,
+  AgentDiscoveryOptions,
+} from "./agent-discovery.js";
