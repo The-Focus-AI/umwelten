@@ -7,12 +7,17 @@ A **Habitat** is the top-level container for everything an agent needs: work dir
 ```
 ~/habitats/                     <- the habitat work directory
   config.json                   <- agents, skills, model defaults
+  secrets.json                  <- encrypted API keys and tokens
   STIMULUS.md                   <- base persona / system prompt
   repos/                        <- cloned agents + git skills
   skills/                       <- local skills
   tools/                        <- work-dir tools
     search/TOOL.md + handler.ts
     run_bash/TOOL.md + handler.ts
+  agents/                       <- bridge agent state and logs
+    {agentId}/
+      logs/bridge.log           <- persistent container logs
+      state.json                <- port, pid, status
   memories.md, facts.md, ...    <- memory files
 ```
 
@@ -376,72 +381,163 @@ Habitat.create()
 | `src/habitat/builtin-tools/`   | Reference tool implementations              |
 | `src/cli/habitat.ts`           | CLI command with REPL + telegram subcommand |
 
-## Habitat Bridge System (Experimental)
+## Habitat Bridge System (Multi-Agent)
 
-The **Habitat Bridge System** provides persistent agent containers using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). Unlike the experience-based `run_project` tool, Bridge Agents run continuously inside Dagger containers with full MCP-based communication.
+The **Habitat Bridge System** provides persistent agent containers using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). Unlike the experience-based `run_project` tool, Bridge Agents run continuously inside Dagger containers with full MCP-based communication. The system now supports **20-75+ concurrent agents** with state persistence and logging.
 
 ### Bridge vs Sub-Agent
 
-| Feature           | HabitatAgent (Sub-Agent) | BridgeAgent (Container) |
-| ----------------- | ------------------------ | ----------------------- |
-| **Location**      | Host filesystem          | Inside Dagger container |
-| **Communication** | Direct function calls    | MCP over HTTP           |
-| **Persistence**   | Process-based            | Container-based         |
-| **Provisioning**  | Manual (pre-configured)  | Auto-detected from repo |
-| **Use case**      | Local project management | Remote repo execution   |
+| Feature           | HabitatAgent (Sub-Agent) | BridgeAgent (Container)       |
+| ----------------- | ------------------------ | ----------------------------- |
+| **Location**      | Host filesystem          | Inside Dagger container       |
+| **Communication** | Direct function calls    | MCP over HTTP                 |
+| **Persistence**   | Process-based            | Container-based + state files |
+| **Provisioning**  | Manual (pre-configured)  | Auto-detected from repo       |
+| **Concurrency**   | Single instance          | 20-75+ concurrent agents      |
+| **Logging**       | Console output           | Persistent log files          |
+| **Use case**      | Local project management | Remote repo execution         |
 
-### Creating a Bridge Agent
+### Creating Multiple Bridge Agents
 
 ```typescript
 const habitat = await Habitat.create();
 
-// Create bridge agent for remote repository
-const bridgeAgent = await habitat.createBridgeAgent(
-  "my-project", // agent ID
-  "https://github.com/user/repo.git", // repo to clone
+// Create multiple bridge agents concurrently
+const frontend = await habitat.createBridgeAgent(
+  "frontend-app",
+  "https://github.com/org/frontend.git",
 );
 
-// The bridge automatically provisions itself:
-// 1. Starts with ubuntu:22.04 + git
-// 2. Clones repo and analyzes it
-// 3. Detects project type (npm, pip, cargo, etc.)
-// 4. Destroys and recreates with correct base image
-// 5. Installs detected apt packages and skills
-// 6. Runs setup commands (npm install, etc.)
-// 7. Ready for use!
+const backend = await habitat.createBridgeAgent(
+  "backend-api",
+  "https://github.com/org/backend.git",
+);
 
-// Get client to interact with container
-const client = await bridgeAgent.getClient();
+const ml = await habitat.createBridgeAgent(
+  "ml-pipeline",
+  "https://github.com/org/ml-repo.git",
+);
 
-// Use the client
+// Each gets a unique port (10000, 10001, 10002, ...)
+console.log("Frontend port:", frontend.getPort()); // 10000
+console.log("Backend port:", backend.getPort()); // 10001
+console.log("ML port:", ml.getPort()); // 10002
+```
+
+### Managing Multiple Agents
+
+```typescript
+// List all running agents
+const agentIds = habitat.listBridgeAgents();
+console.log("Running agents:", agentIds);
+// ["frontend-app", "backend-api", "ml-pipeline"]
+
+// Get specific agent
+const agent = habitat.getBridgeAgent("frontend-app");
+const client = await agent.getClient();
+
+// Interact with agent
 const files = await client.listDirectory("/workspace");
-const content = await client.readFile("/workspace/README.md");
 const result = await client.execute("npm test");
 
-// Check health and logs
-const health = await client.health();
-const logs = await client.getLogs(100);
-
-// When done
-await habitat.destroyBridgeAgent("my-project");
+// Stop specific agent
+await habitat.destroyBridgeAgent("frontend-app");
 ```
+
+### State Persistence
+
+Each agent's state is persisted to disk:
+
+```typescript
+// Load persisted state
+const state = await habitat.loadBridgeState("frontend-app");
+console.log({
+  agentId: state.agentId,
+  port: state.port,
+  status: state.status, // 'running', 'stopped', 'error'
+  createdAt: state.createdAt,
+  lastHealthCheck: state.lastHealthCheck,
+});
+```
+
+State is stored in `~/.habitat/agents/{agentId}/state.json`:
+
+```json
+{
+  "agentId": "frontend-app",
+  "port": 10000,
+  "pid": 12345,
+  "status": "running",
+  "createdAt": "2026-02-19T21:10:25.189Z",
+  "lastHealthCheck": "2026-02-19T21:11:30.500Z",
+  "repoUrl": "https://github.com/org/frontend.git"
+}
+```
+
+### Persistent Logging
+
+Each agent writes logs to its own file:
+
+```typescript
+// Read logs from file
+const { readFile } = await import("node:fs/promises");
+const logPath = `${habitat.getAgentDir("frontend-app")}/logs/bridge.log`;
+const logs = await readFile(logPath, "utf-8");
+console.log("Recent logs:", logs.split("\n").slice(-50).join("\n"));
+```
+
+Log location: `~/.habitat/agents/{agentId}/logs/bridge.log`
+
+### Directory Structure
+
+```
+~/.habitat/
+├── config.json
+├── secrets.json
+└── agents/
+    ├── frontend-app/
+    │   ├── logs/
+    │   │   └── bridge.log      # Persistent logs
+    │   └── state.json          # Port, PID, status
+    ├── backend-api/
+    │   ├── logs/
+    │   │   └── bridge.log
+    │   └── state.json
+    └── ml-pipeline/
+        ├── logs/
+        │   └── bridge.log
+        └── state.json
+```
+
+### Port Management
+
+Ports are allocated from the range 10000-20000:
+
+- Each agent gets a unique port
+- Port pool prevents conflicts
+- Ports released when agents destroyed
+- Supports up to 10,000 concurrent agents
 
 ### Key Features
 
+- **Multi-Agent Support**: Run 20-75+ agents concurrently
 - **Iterative Provisioning**: Automatically detects requirements and rebuilds until ready
 - **Official MCP SDK**: Uses `@modelcontextprotocol/sdk` with Streamable HTTP transport
-- **Dynamic Ports**: Each bridge gets unique port (8080, 8081, etc.)
+- **State Persistence**: Agent state saved to disk, survives restarts
+- **Persistent Logging**: Each agent has its own log file
+- **Dynamic Ports**: Port range 10000-20000 with conflict detection
 - **Git Integration**: Uses `GITHUB_TOKEN` for private repositories
-- **Session Persistence**: Messages stored on host, bridge is stateless
 
 ### When to Use Bridge Agents
 
 Use Bridge Agents when you need:
 
+- **Multiple concurrent agents**: Manage many projects simultaneously
 - **Remote repository execution**: Work with repos that don't exist on the host
 - **Isolated environments**: Each agent has its own container with specific dependencies
 - **Auto-provisioning**: No manual configuration—everything detected from code
-- **Long-running processes**: Container stays alive for ongoing work
+- **Long-running processes**: Containers stay alive for ongoing work
+- **Persistent state and logs**: Track agent status and history across restarts
 
 For local project management, use [Habitat Agents](./habitat-agents.md) instead.
 
@@ -453,6 +549,10 @@ pnpm run build:bridge
 
 # Output: dist/bridge/server.js (ready to copy into containers)
 ```
+
+### Complete Walkthrough
+
+See the [Habitat Bridge Walkthrough](../walkthroughs/habitat-bridge-walkthrough.md) for a complete guide to managing multiple agents.
 
 ## Related
 

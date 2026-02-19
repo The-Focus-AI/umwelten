@@ -2,13 +2,14 @@
 
 A **HabitatAgent** is a sub-agent that manages a specific project on behalf of the main [Habitat](./habitat.md). It combines a **Stimulus** (built from the project's own files) with a **persistent Interaction** (its own session with memory). This lets the main agent delegate project-specific questions to a sub-agent that understands that project's codebase, logs, and configuration.
 
-::: tip Two Agent Types
-Umwelten has **two** agent systems for different use cases:
+::: tip Three Agent Types
+Umwelten has **three** agent systems for different use cases:
 
 - **HabitatAgent** (this guide): Local sub-agents for projects on the host filesystem
-- **BridgeAgent**: Remote agents that run inside Dagger containers with auto-provisioning
+- **BridgeAgent**: Remote agents that run inside Dagger containers with auto-provisioning (single instance)
+- **Multi-BridgeAgent**: Multiple concurrent BridgeAgents with state persistence and logging
 
-Use HabitatAgents for local project management. Use [Bridge Agents](./habitat.md#habitat-bridge-system-experimental) for remote repositories requiring containerized execution.
+Use HabitatAgents for local project management. Use [Bridge Agents](../walkthroughs/habitat-bridge-walkthrough.md) for remote repositories requiring containerized execution. Use Multi-BridgeAgent system for managing 20-75+ concurrent agents.
 :::
 
 ## Concepts
