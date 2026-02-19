@@ -280,6 +280,28 @@ async function repl(
       try {
         interaction.addMessage({ role: "user", content: input });
         process.stdout.write("Habitat: ");
+
+        // Set up keyboard listener to abort stream on Escape key
+        const abortController = new AbortController();
+        let streamAborted = false;
+
+        const keypressHandler = (
+          str: string,
+          key: { name?: string; ctrl?: boolean; meta?: boolean },
+        ) => {
+          if (key.name === "escape" || (key.ctrl && key.name === "c")) {
+            abortController.abort();
+            streamAborted = true;
+            process.stdout.write("\n[Stream aborted by user]\n");
+          }
+        };
+
+        // Enable raw mode to capture keypresses immediately
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(true);
+          process.stdin.on("keypress", keypressHandler);
+        }
+
         const response = await interaction.streamText();
         const text =
           typeof response.content === "string"
@@ -288,10 +310,22 @@ async function repl(
         if (text && !text.trim().endsWith("\n")) {
           process.stdout.write("\n");
         }
+
+        // Clean up keypress handler
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(false);
+          process.stdin.removeListener("keypress", keypressHandler);
+        }
+
         console.log(formatContextSize(interaction.getMessages()));
         await saveInteraction(store, interaction);
       } catch (err) {
-        console.error("Error:", err);
+        if (err instanceof Error && err.name === "AbortError") {
+          // Stream was aborted, this is expected
+          console.log("\n");
+        } else {
+          console.error("Error:", err);
+        }
       }
       console.log("");
       ask();

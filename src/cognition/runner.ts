@@ -404,7 +404,10 @@ export class BaseModelRunner implements ModelRunner {
     });
   }
 
-  async makeStreamOptions(interaction: Interaction): Promise<any> {
+  async makeStreamOptions(
+    interaction: Interaction,
+    signal?: AbortSignal,
+  ): Promise<any> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
 
     const mergedOptions = {
@@ -425,6 +428,7 @@ export class BaseModelRunner implements ModelRunner {
       topP: interaction.modelDetails.topP,
       topK: interaction.modelDetails.topK,
       ...mergedOptions,
+      abortSignal: signal,
       onError: (err: any) => {
         console.error(`[onError] streamText:`, err);
       },
@@ -463,11 +467,14 @@ export class BaseModelRunner implements ModelRunner {
     return streamOptions;
   }
 
-  async streamText(interaction: Interaction): Promise<ModelResponse> {
+  async streamText(
+    interaction: Interaction,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse> {
     const { startTime, modelIdString } = await this.startUp(interaction);
 
     try {
-      const streamOptions = await this.makeStreamOptions(interaction);
+      const streamOptions = await this.makeStreamOptions(interaction, signal);
 
       const response = await streamText(streamOptions);
 

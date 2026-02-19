@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LanguageModel } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
-import { Interaction } from '../interaction/core/interaction.js';
+import { Interaction } from "../interaction/core/interaction.js";
 
 export interface ModelRoute {
   name: string; // Base model identifier
@@ -100,7 +100,6 @@ export const ModelOptionsSchema = z.object({
 
 export type ModelOptions = z.infer<typeof ModelOptionsSchema>;
 
-
 export const ResponseMetadataSchema = z.object({
   startTime: z.date(),
   endTime: z.date(),
@@ -114,31 +113,46 @@ export const ModelResponseSchema = z.object({
   content: z.string(),
   metadata: ResponseMetadataSchema,
   reasoning: z.string().optional(),
-  reasoningDetails: z.array(z.object({
-    type: z.enum(['text', 'redacted']),
-    text: z.string().optional(),
-    data: z.string().optional(),
-    signature: z.string().optional(),
-  })).optional(),
+  reasoningDetails: z
+    .array(
+      z.object({
+        type: z.enum(["text", "redacted"]),
+        text: z.string().optional(),
+        data: z.string().optional(),
+        signature: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export type ModelResponse = z.infer<typeof ModelResponseSchema>;
 
 export const ScoreSchema = z.object({
-  evals: z.array(z.object({
-    key: z.string().describe("Key that we are looking for"),
+  evals: z.array(
+    z.object({
+      key: z.string().describe("Key that we are looking for"),
       value: z.string().describe("Value that is found)"),
-      score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
-    })
-  )
+      score: z
+        .number()
+        .describe(
+          "Score of 1 if the content was identified and 0 if it was not",
+        ),
+    }),
+  ),
 });
 
 export const ScoreResponseSchema = z.object({
-  evals: z.array(z.object({
-    key: z.string().describe("Key that we are looking for"),
-    value: z.string().describe("Value that is found)"),
-    score: z.number().describe("Score of 1 if the content was identified and 0 if it was not"),
-  })),
+  evals: z.array(
+    z.object({
+      key: z.string().describe("Key that we are looking for"),
+      value: z.string().describe("Value that is found)"),
+      score: z
+        .number()
+        .describe(
+          "Score of 1 if the content was identified and 0 if it was not",
+        ),
+    }),
+  ),
   metadata: ResponseMetadataSchema,
 });
 
@@ -146,7 +160,7 @@ export type ScoreResponse = z.infer<typeof ScoreResponseSchema>;
 
 export interface ModelRunner {
   generateText(interaction: any): Promise<ModelResponse>;
-  streamText(interaction: any): Promise<ModelResponse>;
+  streamText(interaction: any, signal?: AbortSignal): Promise<ModelResponse>;
   generateObject(interaction: any, schema: z.ZodSchema): Promise<ModelResponse>;
   streamObject(interaction: any, schema: z.ZodSchema): Promise<ModelResponse>;
   // generateImage(interaction: any): Promise<ModelResponse>;

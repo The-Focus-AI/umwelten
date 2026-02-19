@@ -6,7 +6,9 @@ import { z } from "zod";
  * Types for runner hooks
  */
 
-export type RunnerHook = (interaction: Interaction) => Promise<void | RunnerAbort | RunnerModification>;
+export type RunnerHook = (
+  interaction: Interaction,
+) => Promise<void | RunnerAbort | RunnerModification>;
 
 export class RunnerAbort {
   constructor(public reason: string) {}
@@ -42,8 +44,8 @@ export class SmartModelRunner implements ModelRunner {
 
   private async runHooks(
     hooks: RunnerHook[],
-    interaction: Interaction
-  ): Promise<{ok: boolean, interaction: Interaction}> {
+    interaction: Interaction,
+  ): Promise<{ ok: boolean; interaction: Interaction }> {
     let ctx = interaction;
     for (const hook of hooks) {
       const result = await hook(ctx);
@@ -65,7 +67,7 @@ export class SmartModelRunner implements ModelRunner {
     const mainResult = await this.baseRunner.generateText(ctx);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
+    await Promise.all(this.duringHooks.map((hook) => hook(ctx)));
 
     // After hooks
     const afterResult = await this.runHooks(this.afterHooks, ctx);
@@ -74,17 +76,20 @@ export class SmartModelRunner implements ModelRunner {
     return mainResult;
   }
 
-  async streamText(interaction: Interaction): Promise<ModelResponse> {
+  async streamText(
+    interaction: Interaction,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse> {
     // Before hooks
     const beforeResult = await this.runHooks(this.beforeHooks, interaction);
     if (!beforeResult.ok) throw new Error("Aborted by before hook");
     let ctx = beforeResult.interaction;
 
     // Main model run
-    const mainResult = await this.baseRunner.streamText(ctx);
+    const mainResult = await this.baseRunner.streamText(ctx, signal);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
+    await Promise.all(this.duringHooks.map((hook) => hook(ctx)));
 
     // After hooks
     const afterResult = await this.runHooks(this.afterHooks, ctx);
@@ -93,7 +98,10 @@ export class SmartModelRunner implements ModelRunner {
     return mainResult;
   }
 
-  async generateObject(interaction: Interaction, schema: z.ZodSchema): Promise<ModelResponse> {
+  async generateObject(
+    interaction: Interaction,
+    schema: z.ZodSchema,
+  ): Promise<ModelResponse> {
     // Before hooks
     const beforeResult = await this.runHooks(this.beforeHooks, interaction);
     if (!beforeResult.ok) throw new Error("Aborted by before hook");
@@ -103,7 +111,7 @@ export class SmartModelRunner implements ModelRunner {
     const mainResult = await this.baseRunner.generateObject(ctx, schema);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
+    await Promise.all(this.duringHooks.map((hook) => hook(ctx)));
 
     // After hooks
     const afterResult = await this.runHooks(this.afterHooks, ctx);
@@ -112,7 +120,10 @@ export class SmartModelRunner implements ModelRunner {
     return mainResult;
   }
 
-  async streamObject(interaction: Interaction, schema: z.ZodSchema): Promise<ModelResponse> {
+  async streamObject(
+    interaction: Interaction,
+    schema: z.ZodSchema,
+  ): Promise<ModelResponse> {
     // Before hooks
     const beforeResult = await this.runHooks(this.beforeHooks, interaction);
     if (!beforeResult.ok) throw new Error("Aborted by before hook");
@@ -122,7 +133,7 @@ export class SmartModelRunner implements ModelRunner {
     const mainResult = await this.baseRunner.streamObject(ctx, schema);
 
     // During hooks (parallel/side tasks)
-    await Promise.all(this.duringHooks.map(hook => hook(ctx)));
+    await Promise.all(this.duringHooks.map((hook) => hook(ctx)));
 
     // After hooks
     const afterResult = await this.runHooks(this.afterHooks, ctx);

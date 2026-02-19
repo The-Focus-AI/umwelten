@@ -1,5 +1,10 @@
 import { CoreMessage } from "ai";
-import { ModelDetails, ModelOptions, ModelRunner, ModelResponse } from "../../cognition/types.js";
+import {
+  ModelDetails,
+  ModelOptions,
+  ModelRunner,
+  ModelResponse,
+} from "../../cognition/types.js";
 import { BaseModelRunner } from "../../cognition/runner.js";
 import { createMemoryRunner } from "../../memory/memory_runner.js";
 import { InMemoryMemoryStore } from "../../memory/memory_store.js";
@@ -13,12 +18,12 @@ import { Stimulus } from "../../stimulus/stimulus.js";
 import { getCompactionSegment } from "../../context/segment.js";
 import { getCompactionStrategy } from "../../context/registry.js";
 
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import {
   NormalizedSession,
   NormalizedMessage,
   SessionSource,
-  SessionMetrics
+  SessionMetrics,
 } from "../types/normalized-types.js";
 
 export class Interaction {
@@ -35,7 +40,7 @@ export class Interaction {
   protected runner: ModelRunner;
   public userId: string = "default";
   public modelDetails: ModelDetails;
-  public stimulus: Stimulus;  // NEW: Required stimulus
+  public stimulus: Stimulus; // NEW: Required stimulus
   public options?: ModelOptions;
   public outputFormat?: z.ZodSchema;
   public tools?: Record<string, any>;
@@ -45,14 +50,14 @@ export class Interaction {
 
   constructor(
     modelDetails: ModelDetails,
-    stimulus: Stimulus,  // NEW: Required parameter
+    stimulus: Stimulus, // NEW: Required parameter
     options?: {
       id?: string;
       created?: Date;
       updated?: Date;
       source?: SessionSource;
       sourceId?: string;
-    }
+    },
   ) {
     this.modelDetails = modelDetails;
     this.stimulus = stimulus;
@@ -61,8 +66,8 @@ export class Interaction {
     this.metadata = {
       created: options?.created || new Date(),
       updated: options?.updated || new Date(),
-      source: options?.source || 'native',
-      sourceId: options?.sourceId || this.id
+      source: options?.source || "native",
+      sourceId: options?.sourceId || this.id,
     };
 
     // Apply stimulus context immediately
@@ -122,14 +127,17 @@ export class Interaction {
     return this.stimulus;
   }
 
-
   setSystemPrompt(prompt: string): void {
-    console.warn("setSystemPrompt is deprecated. Use setStimulus with a new Stimulus object instead.");
+    console.warn(
+      "setSystemPrompt is deprecated. Use setStimulus with a new Stimulus object instead.",
+    );
 
     if (this.messages[0].role === "system") {
       this.messages[0].content = prompt;
     } else {
-      console.warn("System prompt not found, adding to the beginning of the messages");
+      console.warn(
+        "System prompt not found, adding to the beginning of the messages",
+      );
       this.messages.unshift({
         role: "system",
         content: prompt,
@@ -138,13 +146,13 @@ export class Interaction {
     this.metadata.updated = new Date();
   }
 
-  protected createRunner(runnerType: 'base' | 'memory'): ModelRunner {
+  protected createRunner(runnerType: "base" | "memory"): ModelRunner {
     switch (runnerType) {
-      case 'memory':
+      case "memory":
         return createMemoryRunner({
           baseRunner: new BaseModelRunner(),
           llmModel: this.modelDetails.name,
-          memoryStore: new InMemoryMemoryStore()
+          memoryStore: new InMemoryMemoryStore(),
         });
       default:
         return new BaseModelRunner();
@@ -172,7 +180,7 @@ export class Interaction {
 
   async addAttachmentFromPath(
     attachment: string,
-    mime_type?: string
+    mime_type?: string,
   ): Promise<void> {
     let data = attachment;
 
@@ -191,7 +199,10 @@ export class Interaction {
       this.addMessage({
         role: "user",
         content: [
-          { type: "text", text: `I've shared an image named ${filename} for you to analyze.` },
+          {
+            type: "text",
+            text: `I've shared an image named ${filename} for you to analyze.`,
+          },
           { type: "image", image: data as string },
         ],
       });
@@ -199,7 +210,10 @@ export class Interaction {
       this.addMessage({
         role: "user",
         content: [
-          { type: "text", text: `I've shared a file named ${filename} for you to analyze.` },
+          {
+            type: "text",
+            text: `I've shared a file named ${filename} for you to analyze.`,
+          },
           {
             type: "file",
             data: data as string,
@@ -281,8 +295,15 @@ export class Interaction {
    */
   async compactContext(
     strategyId: string,
-    options?: { fromCheckpoint?: boolean; strategyOptions?: Record<string, unknown> }
-  ): Promise<{ segmentStart: number; segmentEnd: number; replacementCount: number } | null> {
+    options?: {
+      fromCheckpoint?: boolean;
+      strategyOptions?: Record<string, unknown>;
+    },
+  ): Promise<{
+    segmentStart: number;
+    segmentEnd: number;
+    replacementCount: number;
+  } | null> {
     const fromCheckpoint = options?.fromCheckpoint ?? true;
     const segment = getCompactionSegment(this.messages, {
       fromCheckpoint,
@@ -305,7 +326,8 @@ export class Interaction {
     const before = this.messages.slice(0, segment.start);
     const after = this.messages.slice(segment.end + 1);
     this.messages = before.concat(result.replacementMessages).concat(after);
-    this.checkpointMessageIndex = segment.start + result.replacementMessages.length;
+    this.checkpointMessageIndex =
+      segment.start + result.replacementMessages.length;
     this.metadata.updated = new Date();
 
     return {
@@ -321,9 +343,9 @@ export class Interaction {
     return await this.runner.generateText(this);
   }
 
-  async streamText(): Promise<ModelResponse> {
+  async streamText(signal?: AbortSignal): Promise<ModelResponse> {
     this.metadata.updated = new Date();
-    return await this.runner.streamText(this);
+    return await this.runner.streamText(this, signal);
   }
 
   async generateObject(schema: z.ZodSchema): Promise<ModelResponse> {
@@ -355,67 +377,80 @@ export class Interaction {
       const id = `${this.id}-${i}`;
       const timestamp = new Date().toISOString(); // TODO: Store timestamps in Interaction messages
 
-      if (msg.role === 'system') {
+      if (msg.role === "system") {
         // System messages are generally not included in the normalized 'transcript' for display,
         // but often useful to allow hydration. NormalizedSession usually focuses on the conversation.
-        // We can include it or store it in sourceData. 
+        // We can include it or store it in sourceData.
         // Let's include it for completeness if the format allows, or skip if strict.
         // NormalizedMessage allows 'system' role.
         normalizedMessages.push({
           id,
-          role: 'system',
-          content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-          timestamp
+          role: "system",
+          content:
+            typeof msg.content === "string"
+              ? msg.content
+              : JSON.stringify(msg.content),
+          timestamp,
         });
         continue;
       }
 
-      if (msg.role === 'user') {
-        const contentStr = typeof msg.content === 'string'
-          ? msg.content
-          : msg.content.map(c => {
-            const part = c as any;
-            if (part.type === 'text') return part.text;
-            if (part.type === 'image') return '[Image]';
-            if (part.type === 'file') return '[File]';
-            if (part.type === 'tool-result') {
-              // AI SDK uses `output` (with { type, value } shape), legacy uses `result`
-              const resultOrOutput = part.result ?? part.output;
-              if (
-                resultOrOutput &&
-                typeof resultOrOutput === 'object' &&
-                'type' in resultOrOutput &&
-                'value' in resultOrOutput
-              ) {
-                const o = resultOrOutput as { type: string; value: unknown };
-                return typeof o.value === 'string' ? o.value : JSON.stringify(o.value ?? '');
-              }
-              return typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
-            }
-            return '';
-          }).join('\n');
+      if (msg.role === "user") {
+        const contentStr =
+          typeof msg.content === "string"
+            ? msg.content
+            : msg.content
+                .map((c) => {
+                  const part = c as any;
+                  if (part.type === "text") return part.text;
+                  if (part.type === "image") return "[Image]";
+                  if (part.type === "file") return "[File]";
+                  if (part.type === "tool-result") {
+                    // AI SDK uses `output` (with { type, value } shape), legacy uses `result`
+                    const resultOrOutput = part.result ?? part.output;
+                    if (
+                      resultOrOutput &&
+                      typeof resultOrOutput === "object" &&
+                      "type" in resultOrOutput &&
+                      "value" in resultOrOutput
+                    ) {
+                      const o = resultOrOutput as {
+                        type: string;
+                        value: unknown;
+                      };
+                      return typeof o.value === "string"
+                        ? o.value
+                        : JSON.stringify(o.value ?? "");
+                    }
+                    return typeof resultOrOutput === "string"
+                      ? resultOrOutput
+                      : JSON.stringify(resultOrOutput ?? "");
+                  }
+                  return "";
+                })
+                .join("\n");
 
         normalizedMessages.push({
           id,
-          role: 'user',
+          role: "user",
           content: contentStr,
-          timestamp
+          timestamp,
         });
         continue;
       }
 
-      if (msg.role === 'assistant') {
-        let contentStr = '';
+      if (msg.role === "assistant") {
+        let contentStr = "";
         const toolCalls: any[] = [];
 
-        if (typeof msg.content === 'string') {
+        if (typeof msg.content === "string") {
           contentStr = msg.content;
         } else if (Array.isArray(msg.content)) {
           // Extract text and tool calls from content blocks
           for (const part of msg.content as any[]) {
-            if (part.type === 'text') {
+            if (part.type === "text") {
               contentStr += part.text;
-            } else if (part.type === 'tool-call') {
+            } else if (part.type === "tool-call") {
               toolCalls.push(part);
             }
           }
@@ -431,24 +466,24 @@ export class Interaction {
         // Usually we only add if there IS text.
         normalizedMessages.push({
           id,
-          role: 'assistant',
+          role: "assistant",
           content: contentStr,
           timestamp,
-          // tokens: ... 
+          // tokens: ...
         });
 
         // 2. Add Tool Call Messages (Role: Tool from normalized perspective, but usually they are 'assistant' tool_use blocks)
         // NormalizedMessage separates them for easier linear reading.
         // In NormalizedMessage definition: role='tool' usually means tool RESULT?
-        // Let's check NormalizedMessage definition. 
+        // Let's check NormalizedMessage definition.
         // role: 'tool' -> "Tool call details (when role === 'tool')" ... wait, role='tool' usually means "Output from tool".
         // BUT NormalizedMessage has `tool?: { ... }` which implies it describes the tool usage?
-        // Checking NormalizedMessage doc: "Tool call details (when role === 'tool')" 
+        // Checking NormalizedMessage doc: "Tool call details (when role === 'tool')"
         // AND "content" is plain text.
         // Let's look at session-parser: it creates role='tool' for tool CAILS (tool_use).
         // And for tool RESULTS, it seems to put them in User messages? No.
 
-        // session-parser.ts: 
+        // session-parser.ts:
         // Assistant Message -> Normalized (assistant)
         // If toolCalls -> Normalized (role='tool', content=`Tool: ${name}`, tool={name, input})  <-- THIS IS A TOOL CALL
 
@@ -458,24 +493,24 @@ export class Interaction {
         for (let j = 0; j < toolCalls.length; j++) {
           const tc = toolCalls[j];
           const toolId = tc.toolCallId || tc.id || `call-${j}`;
-          const toolName = tc.toolName || tc.name || 'unknown';
+          const toolName = tc.toolName || tc.name || "unknown";
           const toolInput = tc.args || tc.input || {};
 
           normalizedMessages.push({
             id: toolId,
-            role: 'tool', // Represents the CALL
+            role: "tool", // Represents the CALL
             content: `Tool: ${toolName}`, // Descriptive text
             timestamp,
             tool: {
               name: toolName,
-              input: toolInput
-            }
+              input: toolInput,
+            },
           });
         }
         continue;
       }
 
-      if (msg.role === 'tool') {
+      if (msg.role === "tool") {
         // This represents the RESULT of a tool call
         // In normalized types, where do results go?
         // session-parser.ts puts IsToolResultOnlyMessage -> skips?
@@ -495,55 +530,71 @@ export class Interaction {
         // If normalization skips them, we lose data.
         // Let's map them to 'user' role with [Tool Result] content for now to be safe and visible.
 
-        let contentStr = '';
-        if (typeof msg.content === 'string') {
+        let contentStr = "";
+        if (typeof msg.content === "string") {
           contentStr = msg.content;
         } else {
-          contentStr = msg.content.map(c => {
-            const part = c as any;
-            if (part.type === 'tool-result') {
-              // AI SDK uses `output` (with { type, value } shape), legacy uses `result`
-              const resultOrOutput = part.result ?? part.output;
-              let valueStr: string;
-              if (
-                resultOrOutput &&
-                typeof resultOrOutput === 'object' &&
-                'type' in resultOrOutput &&
-                'value' in resultOrOutput
-              ) {
-                const o = resultOrOutput as { type: string; value: unknown };
-                valueStr = typeof o.value === 'string' ? o.value : JSON.stringify(o.value ?? '');
-              } else {
-                valueStr = typeof resultOrOutput === 'string' ? resultOrOutput : JSON.stringify(resultOrOutput ?? '');
+          contentStr = msg.content
+            .map((c) => {
+              const part = c as any;
+              if (part.type === "tool-result") {
+                // AI SDK uses `output` (with { type, value } shape), legacy uses `result`
+                const resultOrOutput = part.result ?? part.output;
+                let valueStr: string;
+                if (
+                  resultOrOutput &&
+                  typeof resultOrOutput === "object" &&
+                  "type" in resultOrOutput &&
+                  "value" in resultOrOutput
+                ) {
+                  const o = resultOrOutput as { type: string; value: unknown };
+                  valueStr =
+                    typeof o.value === "string"
+                      ? o.value
+                      : JSON.stringify(o.value ?? "");
+                } else {
+                  valueStr =
+                    typeof resultOrOutput === "string"
+                      ? resultOrOutput
+                      : JSON.stringify(resultOrOutput ?? "");
+                }
+                return `[Tool Result: ${part.toolName || "unknown"}]\n${valueStr}`;
               }
-              return `[Tool Result: ${part.toolName || 'unknown'}]\n${valueStr}`;
-            }
-            return JSON.stringify(c);
-          }).join('\n');
+              return JSON.stringify(c);
+            })
+            .join("\n");
         }
 
         normalizedMessages.push({
           id,
-          role: 'user', // Tool results often treated as user inputs in LLM view
+          role: "user", // Tool results often treated as user inputs in LLM view
           content: contentStr,
           timestamp,
-          sourceData: { type: 'tool_result_message' }
+          sourceData: { type: "tool_result_message" },
         });
       }
     }
 
     // Calculate basic metrics
-    const userMessages = normalizedMessages.filter(m => m.role === 'user').length;
-    const assistantMessages = normalizedMessages.filter(m => m.role === 'assistant').length;
-    const toolCallMessages = normalizedMessages.filter(m => m.role === 'tool').length;
+    const userMessages = normalizedMessages.filter(
+      (m) => m.role === "user",
+    ).length;
+    const assistantMessages = normalizedMessages.filter(
+      (m) => m.role === "assistant",
+    ).length;
+    const toolCallMessages = normalizedMessages.filter(
+      (m) => m.role === "tool",
+    ).length;
 
     // Find first user prompt
-    const firstUserMsg = normalizedMessages.find(m => m.role === 'user');
-    const firstPrompt = firstUserMsg ? firstUserMsg.content.slice(0, 100) : '(New Session)';
+    const firstUserMsg = normalizedMessages.find((m) => m.role === "user");
+    const firstPrompt = firstUserMsg
+      ? firstUserMsg.content.slice(0, 100)
+      : "(New Session)";
 
     return {
       id: this.id,
-      source: this.metadata.source || 'native',
+      source: this.metadata.source || "native",
       sourceId: this.metadata.sourceId || this.id,
       created: this.metadata.created.toISOString(),
       modified: this.metadata.updated.toISOString(),
@@ -553,8 +604,8 @@ export class Interaction {
       metrics: {
         userMessages,
         assistantMessages,
-        toolCalls: toolCallMessages
-      }
+        toolCalls: toolCallMessages,
+      },
     };
   }
 
@@ -564,14 +615,14 @@ export class Interaction {
   static fromNormalizedSession(
     session: NormalizedSession,
     modelDetails: ModelDetails,
-    stimulus?: Stimulus
+    stimulus?: Stimulus,
   ): Interaction {
     // If no stimulus provided, create a default one based on role or system prompt if found
     if (!stimulus) {
-      const systemMsg = session.messages.find(m => m.role === 'system');
+      const systemMsg = session.messages.find((m) => m.role === "system");
       stimulus = new Stimulus({
-        role: 'assistant', // Default
-        systemContext: systemMsg ? systemMsg.content : undefined
+        role: "assistant", // Default
+        systemContext: systemMsg ? systemMsg.content : undefined,
       });
     }
 
@@ -580,16 +631,16 @@ export class Interaction {
       created: new Date(session.created),
       updated: new Date(session.modified),
       source: session.source,
-      sourceId: session.sourceId
+      sourceId: session.sourceId,
     });
 
     // Restore messages
     // Note: We skip the first message if it's a system prompt and we just applied it via stimulus
     // to avoid duplication, or we clear default messages and load all.
     // For now, let's clear initialization messages and load exact history.
-    interaction.messages = session.messages.map(m => ({
+    interaction.messages = session.messages.map((m) => ({
       role: m.role as any,
-      content: m.content
+      content: m.content,
     }));
 
     return interaction;
