@@ -373,21 +373,22 @@ export function createAgentRunnerTools(
       }
 
       try {
-        // Create a BridgeAgent for this agent - just start it, no internal analysis
+        // Create a BridgeAgent for this agent with iterative provisioning
         const bridgeAgent = new BridgeAgent({
           id: agentId,
           repoUrl: agent.gitRemote,
-          maxIterations: 1, // Just start, don't do iterative provisioning
+          maxIterations: 5, // Analyze and re-provision if needed
         });
 
-        // Start the bridge (this creates container and starts MCP server)
-        await bridgeAgent.start();
+        // Initialize with analysis and auto-provisioning
+        await bridgeAgent.initialize();
 
         // Store bridge agent in context for later use
         (ctx as any).activeBridge = bridgeAgent;
 
         // Get connection info
         const port = bridgeAgent.getPort();
+        const state = bridgeAgent.getState();
 
         return {
           bridgeId: agentId,
@@ -395,7 +396,10 @@ export function createAgentRunnerTools(
           mcpUrl: `http://localhost:${port}/mcp`,
           port: port,
           status: "running",
-          message: `Bridge MCP server started for ${agentId} at http://localhost:${port}/mcp. Use bridge_ls, bridge_read, bridge_exec to interact.`,
+          iterations: state.iteration,
+          detectedTools: state.analysis?.detectedTools || [],
+          aptPackages: state.analysis?.aptPackages || [],
+          message: `Bridge MCP server started for ${agentId} at http://localhost:${port}/mcp after ${state.iteration} iteration(s). Detected: ${state.analysis?.detectedTools.join(", ") || "none"}. Use bridge_ls, bridge_read, bridge_exec to interact.`,
         };
       } catch (err: any) {
         return {

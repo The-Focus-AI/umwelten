@@ -99,6 +99,21 @@ const TOOL_PATTERNS: Array<{
     tool: "chrome",
     aptPackages: ["chromium", "chromium-driver"],
   },
+  {
+    pattern: /\bclaude\b/,
+    tool: "claude-cli",
+    aptPackages: [], // Installed via npm globally
+  },
+  {
+    pattern: /\bop\s+(read|signin|vault)/,
+    tool: "1password-cli",
+    aptPackages: [], // Installed via custom script
+  },
+  {
+    pattern: /\bnpx\s+/,
+    tool: "npx",
+    aptPackages: [], // Comes with node
+  },
 ];
 
 // Known skills mapping (same as existing skill-provisioner.ts)
