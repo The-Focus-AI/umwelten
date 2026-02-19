@@ -49,6 +49,8 @@ import type { SecretsToolsContext } from "./tools/secrets-tools.js";
 import type { SearchToolsContext } from "./tools/search-tools.js";
 import { HabitatAgent } from "./habitat-agent.js";
 import { loadSecrets, saveSecrets } from "./secrets.js";
+import { BridgeAgent } from "./bridge/agent.js";
+import type { BridgeState } from "./bridge/state.js";
 
 export class Habitat
   implements
@@ -452,6 +454,69 @@ export class Habitat
   >();
 
   /**
+   * Get the directory path for an agent's state and logs
+   */
+  getAgentDir(agentId: string): string {
+    return join(this.workDir, "agents", agentId);
+  }
+
+  /**
+   * Ensure agent directory exists
+   */
+  async ensureAgentDir(agentId: string): Promise<void> {
+    const agentDir = this.getAgentDir(agentId);
+    await ensureDir(agentDir);
+    await ensureDir(join(agentDir, "logs"));
+  }
+
+  /**
+   * Save bridge state to disk
+   */
+  async saveBridgeState(agentId: string, state: BridgeState): Promise<void> {
+    await this.ensureAgentDir(agentId);
+    const statePath = join(this.getAgentDir(agentId), "state.json");
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(statePath, JSON.stringify(state, null, 2), "utf-8");
+  }
+
+  /**
+   * Load bridge state from disk
+   */
+  async loadBridgeState(agentId: string): Promise<BridgeState | null> {
+    const statePath = join(this.getAgentDir(agentId), "state.json");
+    try {
+      const { readFile } = await import("node:fs/promises");
+      const data = await readFile(statePath, "utf-8");
+      return JSON.parse(data) as BridgeState;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load all persisted bridge states
+   */
+  async loadAllBridgeStates(): Promise<BridgeState[]> {
+    const agentsDir = join(this.workDir, "agents");
+    try {
+      const { readdir } = await import("node:fs/promises");
+      const entries = await readdir(agentsDir, { withFileTypes: true });
+      const states: BridgeState[] = [];
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const state = await this.loadBridgeState(entry.name);
+          if (state) {
+            states.push(state);
+          }
+        }
+      }
+      return states;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Create a new Bridge Agent for remote repository execution.
    * Uses iterative provisioning to automatically detect and install requirements.
    *
@@ -466,17 +531,33 @@ export class Habitat
     // Import dynamically to avoid circular dependency issues
     const { BridgeAgent } = await import("./bridge/agent.js");
 
+    // Ensure agent directory exists
+    await this.ensureAgentDir(agentId);
+    const logFilePath = join(this.getAgentDir(agentId), "logs", "bridge.log");
+
     const bridgeAgent = new BridgeAgent({
       id: agentId,
       repoUrl,
       maxIterations: 10,
     });
 
-    // Initialize with iterative provisioning
-    await bridgeAgent.initialize();
+    // Initialize with iterative provisioning (passes logFilePath internally)
+    await bridgeAgent.initialize(logFilePath);
 
     // Store for later access
     this.bridgeAgents.set(agentId, bridgeAgent);
+
+    // Save state
+    const state: BridgeState = {
+      agentId,
+      repoUrl,
+      port: bridgeAgent.getPort(),
+      pid: process.pid,
+      status: "running",
+      createdAt: new Date().toISOString(),
+      lastHealthCheck: new Date().toISOString(),
+    };
+    await this.saveBridgeState(agentId, state);
 
     return bridgeAgent;
   }
@@ -491,6 +572,13 @@ export class Habitat
   }
 
   /**
+   * Get all bridge agents
+   */
+  getAllBridgeAgents(): import("./bridge/agent.js").BridgeAgent[] {
+    return Array.from(this.bridgeAgents.values());
+  }
+
+  /**
    * Destroy a Bridge Agent and clean up its resources.
    */
   async destroyBridgeAgent(agentId: string): Promise<void> {
@@ -499,10 +587,16 @@ export class Habitat
       await agent.destroy();
       this.bridgeAgents.delete(agentId);
     }
+    // Update state
+    const state = await this.loadBridgeState(agentId);
+    if (state) {
+      state.status = "stopped";
+      await this.saveBridgeState(agentId, state);
+    }
   }
 
   /**
-   * List all active Bridge Agents.
+   * List all active Bridge Agent IDs.
    */
   listBridgeAgents(): string[] {
     return Array.from(this.bridgeAgents.keys());
