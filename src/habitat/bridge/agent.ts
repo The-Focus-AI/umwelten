@@ -14,6 +14,7 @@ export interface BridgeAgentConfig {
   id: string;
   repoUrl: string;
   maxIterations?: number;
+  secrets?: Array<{ name: string; value: string }>; // Secrets to inject into container
 }
 
 export interface BridgeAgentState {
@@ -58,6 +59,16 @@ export class BridgeAgent {
   private currentPort: number = 0;
 
   /**
+   * Build provisioning config including secrets
+   */
+  private buildProvisioning(): BridgeProvisioning {
+    return {
+      ...this.state.currentProvisioning,
+      secrets: this.config.secrets,
+    };
+  }
+
+  /**
    * Start the bridge MCP server only - no internal analysis
    * This starts the container and makes it available for CLI client interaction
    */
@@ -70,7 +81,7 @@ export class BridgeAgent {
     const instance = await this.lifecycle.createBridge(
       this.config.id,
       this.config.repoUrl,
-      this.state.currentProvisioning,
+      this.buildProvisioning(),
     );
 
     this.currentClient = instance.client;
@@ -101,11 +112,11 @@ export class BridgeAgent {
       );
 
       try {
-        // Step 1: Create bridge with current provisioning
+        // Step 1: Create bridge with current provisioning (including secrets)
         const instance = await this.lifecycle.createBridge(
           this.config.id,
           this.config.repoUrl,
-          this.state.currentProvisioning,
+          this.buildProvisioning(),
         );
 
         this.currentClient = instance.client;

@@ -375,11 +375,27 @@ export function createAgentRunnerTools(
       }
 
       try {
+        // Collect secrets from agent's secretsRefs
+        const secrets: Array<{ name: string; value: string }> = [];
+        if (agent.secrets) {
+          for (const secretName of agent.secrets) {
+            const value = process.env[secretName];
+            if (value) {
+              secrets.push({ name: secretName, value });
+            } else {
+              console.warn(
+                `[bridge_start] Secret ${secretName} referenced but not found in environment`,
+              );
+            }
+          }
+        }
+
         // Create a BridgeAgent for this agent with iterative provisioning
         const bridgeAgent = new BridgeAgent({
           id: agentId,
           repoUrl: agent.gitRemote,
           maxIterations: 5, // Analyze and re-provision if needed
+          secrets, // Pass secrets to be injected into container
         });
 
         // Initialize with analysis and auto-provisioning
