@@ -73,7 +73,7 @@ export class BridgeAgent {
    * Start the bridge MCP server only - no internal analysis
    * This starts the container and makes it available for CLI client interaction
    */
-  async start(): Promise<void> {
+  async start(logFilePath?: string): Promise<void> {
     console.log(
       `[BridgeAgent:${this.config.id}] Starting bridge MCP server...`,
     );
@@ -83,6 +83,7 @@ export class BridgeAgent {
       this.config.id,
       this.config.repoUrl,
       this.buildProvisioning(),
+      logFilePath,
     );
 
     this.currentClient = instance.client;
@@ -101,7 +102,7 @@ export class BridgeAgent {
     return this.currentPort;
   }
 
-  async initialize(): Promise<void> {
+  async initialize(logFilePath?: string): Promise<void> {
     console.log(
       `[BridgeAgent:${this.config.id}] Starting iterative provisioning...`,
     );
@@ -118,6 +119,7 @@ export class BridgeAgent {
           this.config.id,
           this.config.repoUrl,
           this.buildProvisioning(),
+          logFilePath,
         );
 
         this.currentClient = instance.client;
