@@ -558,185 +558,138 @@ sessionsCommand
         process.exit(1);
       }
 
-      // Parse the session file
-      const { parseSessionFile, extractTextContent } = await import('../interaction/persistence/session-parser.js');
-      const messages = await parseSessionFile(session.fullPath);
+      // Parse and normalize messages (includes tool results and reasoning)
+      const { parseSessionFile, sessionMessagesToNormalized } = await import('../interaction/persistence/session-parser.js');
+      const rawMessages = await parseSessionFile(session.fullPath);
 
-      // Helper to check if a message has displayable text content
-      const getTextContent = (msg: any): string => {
-        if (msg.type !== 'user' && msg.type !== 'assistant') return '';
-        const content = msg.message?.content;
-        if (!content) return '';
-        if (typeof content === 'string') return content.trim();
-        if (Array.isArray(content)) {
-          const texts = content
-            .filter((block: any) => block.type === 'text' && block.text)
-            .map((block: any) => block.text.trim())
-            .filter((t: string) => t.length > 0);
-          return texts.join('\n');
-        }
-        return '';
-      };
+      let normalized = sessionMessagesToNormalized(rawMessages);
 
-      const hasTextContent = (msg: any): boolean => {
-        return getTextContent(msg).length > 0;
-      };
-
-      // Helper to extract tool_use blocks from a message
-      const getToolUseBlocks = (msg: any): any[] => {
-        if (msg.type !== 'assistant') return [];
-        const content = msg.message?.content;
-        if (!Array.isArray(content)) return [];
-        return content.filter((block: any) => block.type === 'tool_use');
-      };
-
-      const hasToolUse = (msg: any): boolean => {
-        return getToolUseBlocks(msg).length > 0;
-      };
-
-      // Helper to format tool input for display
-      const formatToolInput = (input: any): string => {
-        if (!input) return '';
-        if (typeof input === 'string') return input.slice(0, 100);
-
-        // For objects, show key fields
-        const keys = Object.keys(input);
-        if (keys.length === 0) return '';
-
-        const parts: string[] = [];
-        for (const key of keys.slice(0, 3)) { // Show first 3 keys
-          const value = input[key];
-          let displayValue: string;
-          if (typeof value === 'string') {
-            displayValue = value.length > 60 ? value.slice(0, 60) + '...' : value;
-          } else if (typeof value === 'object') {
-            displayValue = JSON.stringify(value).slice(0, 60) + (JSON.stringify(value).length > 60 ? '...' : '');
-          } else {
-            displayValue = String(value);
-          }
-          parts.push(`${key}: ${displayValue}`);
-        }
-        if (keys.length > 3) {
-          parts.push(`... +${keys.length - 3} more`);
-        }
-        return parts.join(', ');
-      };
-
-      // Helper to check if message is a tool result (user messages that are tool results)
-      const isToolResult = (msg: any): boolean => {
-        if (msg.type !== 'user') return false;
-        const content = msg.message?.content;
-        if (!Array.isArray(content)) return false;
-        return content.some((block: any) => block.type === 'tool_result');
-      };
-
-      // Filter messages to only user and assistant types WITH displayable content OR tool calls
-      // Exclude tool_result messages (those are shown in sessions tools)
-      let filteredMessages = messages.filter(
-        m => (m.type === 'user' || m.type === 'assistant') && (hasTextContent(m) || hasToolUse(m)) && !isToolResult(m)
-      );
-
-      // Apply user/assistant filters
+      // Apply role filters
       if (options.userOnly) {
-        filteredMessages = filteredMessages.filter(m => m.type === 'user');
+        normalized = normalized.filter(m => m.role === 'user');
       } else if (options.assistantOnly) {
-        filteredMessages = filteredMessages.filter(m => m.type === 'assistant');
+        normalized = normalized.filter(m => m.role === 'assistant' || m.role === 'tool');
       }
 
-      // Apply limit (show most recent first)
+      // Apply limit (most recent)
       if (options.limit) {
         const limit = parseInt(options.limit);
-        // Take the last N messages (most recent)
-        filteredMessages = filteredMessages.slice(-limit);
+        normalized = normalized.slice(-limit);
       }
 
-      // Output JSON if requested
+      // JSON output
       if (options.json) {
-        const output = filteredMessages.map(msg => {
-          if (msg.type === 'user' || msg.type === 'assistant') {
-            const content = msg.message.content;
-            const texts = extractTextContent(content);
-
-            return {
-              type: msg.type,
-              role: msg.message.role,
-              timestamp: msg.timestamp,
-              uuid: msg.uuid,
-              content: texts.join('\n'),
-              rawContent: content,
-            };
-          }
-          return msg;
-        });
+        const output = normalized.map(m => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          ...(m.tool && { tool: m.tool }),
+          ...(m.tokens && { tokens: m.tokens }),
+          ...(m.model && { model: m.model }),
+          ...(m.sourceData && { sourceData: m.sourceData }),
+        }));
         console.log(JSON.stringify(output, null, 2));
         return;
       }
 
-      // Display formatted output
-      if (filteredMessages.length === 0) {
+      if (normalized.length === 0) {
         console.log(chalk.yellow('\nNo messages found.'));
         return;
       }
 
       console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
 
-      let displayedCount = 0;
-      for (const msg of filteredMessages) {
-        if (msg.type !== 'user' && msg.type !== 'assistant') {
-          continue;
+      // Helper to format tool input for display
+      const formatToolInput = (input: Record<string, unknown> | undefined): string => {
+        if (!input) return '';
+        const keys = Object.keys(input);
+        if (keys.length === 0) return '';
+        const parts: string[] = [];
+        for (const key of keys.slice(0, 3)) {
+          const value = input[key];
+          let displayValue: string;
+          if (typeof value === 'string') {
+            displayValue = value.length > 60 ? value.slice(0, 60) + '...' : value;
+          } else if (typeof value === 'object') {
+            const json = JSON.stringify(value);
+            displayValue = json.length > 60 ? json.slice(0, 60) + '...' : json;
+          } else {
+            displayValue = String(value);
+          }
+          parts.push(`${key}: ${displayValue}`);
         }
+        if (keys.length > 3) parts.push(`... +${keys.length - 3} more`);
+        return parts.join(', ');
+      };
 
-        const content = msg.message.content;
-        const texts = extractTextContent(content);
-        const toolUses = getToolUseBlocks(msg);
+      const maxContentLen = 500;
 
-        // Collect non-empty text content first
-        const displayTexts = texts.map(t => t.trim()).filter(t => t.length > 0);
+      for (const msg of normalized) {
+        const timestamp = msg.timestamp ? formatDate(msg.timestamp) : '';
+        const tsPrefix = timestamp ? `[${timestamp}] ` : '';
 
-        // Skip messages with no displayable text AND no tool calls
-        if (displayTexts.length === 0 && toolUses.length === 0) {
-          continue;
-        }
-
-        displayedCount++;
-        const timestamp = msg.timestamp ? formatDate(msg.timestamp) : 'unknown';
-        const role = msg.type === 'user' ? chalk.green('User') : chalk.blue('Assistant');
-
-        console.log(chalk.bold(`[${timestamp}] ${role}:`));
-
-        // Display text content
-        for (const text of displayTexts) {
-          // Truncate very long messages for readability
-          const maxLength = 500;
-          if (text.length > maxLength) {
-            console.log(text.slice(0, maxLength) + '...');
-            console.log(chalk.dim(`(${text.length - maxLength} more characters)`));
+        if (msg.role === 'user') {
+          console.log(chalk.bold(`${tsPrefix}${chalk.green('User')}:`));
+          const text = msg.content.trim();
+          if (text.length > maxContentLen) {
+            console.log(text.slice(0, maxContentLen) + '...');
+            console.log(chalk.dim(`(${text.length - maxContentLen} more characters)`));
           } else {
             console.log(text);
           }
-        }
+          console.log('');
 
-        // Display tool calls inline
-        if (toolUses.length > 0) {
-          if (displayTexts.length > 0) {
-            console.log(''); // Add spacing if there was text before tools
+        } else if (msg.role === 'assistant') {
+          // Show reasoning/thinking if present
+          const reasoning = (msg.sourceData as Record<string, unknown> | undefined)?.reasoning as string | undefined;
+          if (reasoning) {
+            console.log(chalk.bold(`${tsPrefix}${chalk.yellow('Thinking')}:`));
+            const trimmed = reasoning.trim();
+            if (trimmed.length > maxContentLen) {
+              console.log(chalk.dim(trimmed.slice(0, maxContentLen) + '...'));
+              console.log(chalk.dim(`(${trimmed.length - maxContentLen} more characters)`));
+            } else {
+              console.log(chalk.dim(trimmed));
+            }
+            console.log('');
           }
-          for (const tool of toolUses) {
-            const toolName = tool.name || 'unknown';
-            const inputSummary = formatToolInput(tool.input);
-            console.log(chalk.magenta(`  ↳ ${toolName}`) + (inputSummary ? chalk.dim(` (${inputSummary})`) : ''));
-          }
-        }
 
-        console.log(''); // Empty line between messages
+          const text = msg.content.trim();
+          if (text) {
+            console.log(chalk.bold(`${tsPrefix}${chalk.blue('Assistant')}:`));
+            if (text.length > maxContentLen) {
+              console.log(text.slice(0, maxContentLen) + '...');
+              console.log(chalk.dim(`(${text.length - maxContentLen} more characters)`));
+            } else {
+              console.log(text);
+            }
+            console.log('');
+          }
+
+        } else if (msg.role === 'tool' && msg.tool) {
+          const inputSummary = formatToolInput(msg.tool.input);
+          console.log(
+            chalk.magenta(`  ↳ ${msg.tool.name}`) +
+            (inputSummary ? chalk.dim(` (${inputSummary})`) : '')
+          );
+
+          // Show tool result
+          if (msg.tool.output) {
+            const output = msg.tool.output.trim();
+            const errorPrefix = msg.tool.isError ? chalk.red('[ERROR] ') : '';
+            if (output.length > 200) {
+              console.log(chalk.dim(`    ${errorPrefix}→ ${output.slice(0, 200)}...`));
+              console.log(chalk.dim(`    (${output.length - 200} more characters)`));
+            } else {
+              console.log(chalk.dim(`    ${errorPrefix}→ ${output}`));
+            }
+          }
+          console.log('');
+        }
       }
 
-      if (displayedCount === 0) {
-        console.log(chalk.yellow('No text messages found in this session.'));
-        console.log(chalk.dim('This session may contain only tool calls. Use "sessions tools <id>" to view them.'));
-      } else {
-        console.log(chalk.dim(`Displayed ${displayedCount} message(s)\n`));
-      }
+      console.log(chalk.dim(`Displayed ${normalized.length} message(s)\n`));
 
       console.log(
         chalk.dim('Tip: Use --limit <number> to show specific number of messages')
@@ -745,7 +698,7 @@ sessionsCommand
         chalk.dim('     Use --user-only or --assistant-only to filter by role')
       );
       console.log(
-        chalk.dim('     Use --json to get full message content')
+        chalk.dim('     Use --json to get full message content including tool results')
       );
     } catch (error) {
       console.error(chalk.red('Error displaying messages:'), error);

@@ -19,6 +19,20 @@ Build a complete agent environment from scratch with a custom persona, tools, su
 **Prerequisites:** Node.js 20+, pnpm, a provider API key
 **Optional:** Telegram bot token, Tavily API key
 
+### [Habitat Bridge Walkthrough](./habitat-bridge-walkthrough.md)
+
+Use the Habitat Bridge System to manage remote repositories in isolated, auto-provisioned containers:
+
+- Create BridgeAgents with zero configuration
+- Automatic iterative provisioning (detects npm, pip, cargo, etc.)
+- Execute commands in persistent containers via MCP
+- Work with git repositories programmatically
+- Debug and monitor bridge containers
+
+**Time Required:** 10-15 minutes
+**Prerequisites:** Docker, Dagger CLI, GITHUB_TOKEN env var
+**Best For:** Remote repo execution, complex containerized workflows
+
 ## Session Management
 
 ### [Session Analysis Walkthrough](./session-analysis-walkthrough.md)

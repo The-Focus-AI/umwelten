@@ -1,9 +1,14 @@
-import { EventEmitter } from 'events';
-import { JSONRPCMessage, JSONRPCRequest, JSONRPCResponse, JSONRPCNotification } from './protocol.js';
+import { EventEmitter } from "events";
+import {
+  JSONRPCMessage,
+  JSONRPCRequest,
+  JSONRPCResponse,
+  JSONRPCNotification,
+} from "./protocol.js";
 
 /**
  * MCP Transport Layer Abstractions
- * 
+ *
  * This file defines the transport layer interfaces and base classes
  * for MCP communication over different protocols (stdio, SSE, WebSocket).
  */
@@ -40,7 +45,7 @@ export interface MCPTransport extends EventEmitter {
 }
 
 export interface TransportInfo {
-  type: 'stdio' | 'sse' | 'websocket';
+  type: "stdio" | "sse" | "websocket" | "tcp";
   connected: boolean;
   metadata?: Record<string, unknown>;
 }
@@ -50,21 +55,24 @@ export interface TransportInfo {
 // =============================================================================
 
 export interface MCPTransportEvents {
-  'message': (message: JSONRPCMessage) => void;
-  'connect': () => void;
-  'disconnect': () => void;
-  'error': (error: Error) => void;
+  message: (message: JSONRPCMessage) => void;
+  connect: () => void;
+  disconnect: () => void;
+  error: (error: Error) => void;
 }
 
 // =============================================================================
 // Base Transport Class
 // =============================================================================
 
-export abstract class BaseTransport extends EventEmitter implements MCPTransport {
+export abstract class BaseTransport
+  extends EventEmitter
+  implements MCPTransport
+{
   protected _connected: boolean = false;
   protected _info: TransportInfo;
 
-  constructor(type: TransportInfo['type']) {
+  constructor(type: TransportInfo["type"]) {
     super();
     this._info = {
       type,
@@ -90,20 +98,20 @@ export abstract class BaseTransport extends EventEmitter implements MCPTransport
   protected setConnected(connected: boolean): void {
     this._connected = connected;
     this._info.connected = connected;
-    
+
     if (connected) {
-      this.emit('connect');
+      this.emit("connect");
     } else {
-      this.emit('disconnect');
+      this.emit("disconnect");
     }
   }
 
   protected handleMessage(message: JSONRPCMessage): void {
-    this.emit('message', message);
+    this.emit("message", message);
   }
 
   protected handleError(error: Error): void {
-    this.emit('error', error);
+    this.emit("error", error);
   }
 }
 
@@ -121,51 +129,55 @@ export interface StdioTransportConfig {
 export class StdioTransport extends BaseTransport {
   private config: StdioTransportConfig;
   private process?: any; // Child process
-  private messageBuffer: string = '';
+  private messageBuffer: string = "";
 
   constructor(config: StdioTransportConfig) {
-    super('stdio');
+    super("stdio");
     this.config = config;
   }
 
   async start(): Promise<void> {
     if (this._connected) {
-      throw new Error('Transport already connected');
+      throw new Error("Transport already connected");
     }
 
     try {
-      const { spawn } = await import('child_process');
-      
+      const { spawn } = await import("child_process");
+
       this.process = spawn(this.config.command, this.config.args || [], {
         env: { ...process.env, ...this.config.env },
         cwd: this.config.cwd,
-        stdio: ['pipe', 'pipe', 'pipe'],
+        stdio: ["pipe", "pipe", "pipe"],
       });
 
-      this.process.on('error', (error: Error) => {
+      this.process.on("error", (error: Error) => {
         this.handleError(new Error(`Process error: ${error.message}`));
       });
 
-      this.process.on('exit', (code: number, signal: string) => {
+      this.process.on("exit", (code: number, signal: string) => {
         this.setConnected(false);
         if (code !== 0) {
-          this.handleError(new Error(`Process exited with code ${code}, signal ${signal}`));
+          this.handleError(
+            new Error(`Process exited with code ${code}, signal ${signal}`),
+          );
         }
       });
 
       // Handle stdout messages
-      this.process.stdout.on('data', (data: Buffer) => {
+      this.process.stdout.on("data", (data: Buffer) => {
         this.handleStdoutData(data.toString());
       });
 
-      this.process.stderr.on('data', (data: Buffer) => {
+      this.process.stderr.on("data", (data: Buffer) => {
         // Log stderr for debugging but don't treat as error
         console.error(`MCP Server stderr: ${data.toString()}`);
       });
 
       this.setConnected(true);
     } catch (error) {
-      throw new Error(`Failed to start stdio transport: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to start stdio transport: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -179,11 +191,11 @@ export class StdioTransport extends BaseTransport {
 
   async send(message: JSONRPCMessage): Promise<void> {
     if (!this._connected || !this.process) {
-      throw new Error('Transport not connected');
+      throw new Error("Transport not connected");
     }
 
-    const serialized = JSON.stringify(message) + '\n';
-    
+    const serialized = JSON.stringify(message) + "\n";
+
     return new Promise((resolve, reject) => {
       this.process.stdin.write(serialized, (error: Error | null) => {
         if (error) {
@@ -197,11 +209,11 @@ export class StdioTransport extends BaseTransport {
 
   private handleStdoutData(data: string): void {
     this.messageBuffer += data;
-    
+
     // Process complete messages (separated by newlines)
-    const lines = this.messageBuffer.split('\n');
-    this.messageBuffer = lines.pop() || ''; // Keep incomplete line in buffer
-    
+    const lines = this.messageBuffer.split("\n");
+    this.messageBuffer = lines.pop() || ""; // Keep incomplete line in buffer
+
     for (const line of lines) {
       if (line.trim()) {
         try {
@@ -233,7 +245,7 @@ export class SSETransport extends BaseTransport {
   private reconnectTimer?: NodeJS.Timeout;
 
   constructor(config: SSETransportConfig) {
-    super('sse');
+    super("sse");
     this.config = {
       reconnectInterval: 5000,
       maxReconnectAttempts: 5,
@@ -243,7 +255,7 @@ export class SSETransport extends BaseTransport {
 
   async start(): Promise<void> {
     if (this._connected) {
-      throw new Error('Transport already connected');
+      throw new Error("Transport already connected");
     }
 
     await this.connect();
@@ -265,14 +277,14 @@ export class SSETransport extends BaseTransport {
 
   async send(message: JSONRPCMessage): Promise<void> {
     if (!this._connected) {
-      throw new Error('Transport not connected');
+      throw new Error("Transport not connected");
     }
 
     // For SSE, we typically send messages via HTTP POST to a separate endpoint
-    const response = await fetch(this.config.url.replace('/sse', '/messages'), {
-      method: 'POST',
+    const response = await fetch(this.config.url.replace("/sse", "/messages"), {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...this.config.headers,
       },
       body: JSON.stringify(message),
@@ -289,7 +301,9 @@ export class SSETransport extends BaseTransport {
       // This would need a polyfill like 'eventsource' package
       const EventSource = (globalThis as any).EventSource;
       if (!EventSource) {
-        throw new Error('EventSource not available. Install eventsource package for Node.js');
+        throw new Error(
+          "EventSource not available. Install eventsource package for Node.js",
+        );
       }
 
       this.eventSource = new EventSource(this.config.url, {
@@ -307,7 +321,9 @@ export class SSETransport extends BaseTransport {
             const message = JSON.parse(event.data);
             this.handleMessage(message);
           } catch (error) {
-            this.handleError(new Error(`Failed to parse SSE message: ${event.data}`));
+            this.handleError(
+              new Error(`Failed to parse SSE message: ${event.data}`),
+            );
           }
         };
 
@@ -316,15 +332,16 @@ export class SSETransport extends BaseTransport {
           this.scheduleReconnect();
         };
       }
-
     } catch (error) {
-      throw new Error(`Failed to connect SSE transport: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to connect SSE transport: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= (this.config.maxReconnectAttempts || 5)) {
-      this.handleError(new Error('Max reconnection attempts reached'));
+      this.handleError(new Error("Max reconnection attempts reached"));
       return;
     }
 
@@ -356,7 +373,7 @@ export class WebSocketTransport extends BaseTransport {
   private reconnectTimer?: NodeJS.Timeout;
 
   constructor(config: WebSocketTransportConfig) {
-    super('websocket');
+    super("websocket");
     this.config = {
       reconnectInterval: 5000,
       maxReconnectAttempts: 5,
@@ -366,7 +383,7 @@ export class WebSocketTransport extends BaseTransport {
 
   async start(): Promise<void> {
     if (this._connected) {
-      throw new Error('Transport already connected');
+      throw new Error("Transport already connected");
     }
 
     await this.connect();
@@ -388,18 +405,18 @@ export class WebSocketTransport extends BaseTransport {
 
   async send(message: JSONRPCMessage): Promise<void> {
     if (!this._connected || !this.websocket) {
-      throw new Error('Transport not connected');
+      throw new Error("Transport not connected");
     }
 
     return new Promise((resolve, reject) => {
       const serialized = JSON.stringify(message);
-      
-             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-         this.websocket.send(serialized);
-         resolve();
-       } else {
-         reject(new Error('WebSocket not in OPEN state'));
-       }
+
+      if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+        this.websocket.send(serialized);
+        resolve();
+      } else {
+        reject(new Error("WebSocket not in OPEN state"));
+      }
     });
   }
 
@@ -407,50 +424,59 @@ export class WebSocketTransport extends BaseTransport {
     return new Promise((resolve, reject) => {
       try {
         // Note: WebSocket might need polyfill in Node.js
-        const WebSocketClass = (globalThis as any).WebSocket || require('ws');
-        
-        this.websocket = new WebSocketClass(this.config.url, this.config.protocols, {
-          headers: this.config.headers,
-        });
+        const WebSocketClass = (globalThis as any).WebSocket || require("ws");
 
-                 if (this.websocket) {
-           this.websocket.onopen = () => {
-             this.reconnectAttempts = 0;
-             this.setConnected(true);
-             resolve();
-           };
+        this.websocket = new WebSocketClass(
+          this.config.url,
+          this.config.protocols,
+          {
+            headers: this.config.headers,
+          },
+        );
 
-           this.websocket.onmessage = (event) => {
-             try {
-               const message = JSON.parse(event.data);
-               this.handleMessage(message);
-             } catch (error) {
-               this.handleError(new Error(`Failed to parse WebSocket message: ${event.data}`));
-             }
-           };
+        if (this.websocket) {
+          this.websocket.onopen = () => {
+            this.reconnectAttempts = 0;
+            this.setConnected(true);
+            resolve();
+          };
 
-           this.websocket.onclose = () => {
-             this.setConnected(false);
-             this.scheduleReconnect();
-           };
+          this.websocket.onmessage = (event) => {
+            try {
+              const message = JSON.parse(event.data);
+              this.handleMessage(message);
+            } catch (error) {
+              this.handleError(
+                new Error(`Failed to parse WebSocket message: ${event.data}`),
+              );
+            }
+          };
 
-           this.websocket.onerror = (error) => {
-             this.handleError(new Error(`WebSocket error: ${error}`));
-             reject(error);
-           };
-         } else {
-           reject(new Error('Failed to create WebSocket instance'));
-         }
+          this.websocket.onclose = () => {
+            this.setConnected(false);
+            this.scheduleReconnect();
+          };
 
+          this.websocket.onerror = (error) => {
+            this.handleError(new Error(`WebSocket error: ${error}`));
+            reject(error);
+          };
+        } else {
+          reject(new Error("Failed to create WebSocket instance"));
+        }
       } catch (error) {
-        reject(new Error(`Failed to create WebSocket: ${error instanceof Error ? error.message : String(error)}`));
+        reject(
+          new Error(
+            `Failed to create WebSocket: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
       }
     });
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= (this.config.maxReconnectAttempts || 5)) {
-      this.handleError(new Error('Max reconnection attempts reached'));
+      this.handleError(new Error("Max reconnection attempts reached"));
       return;
     }
 
@@ -467,18 +493,18 @@ export class WebSocketTransport extends BaseTransport {
 // Transport Factory
 // =============================================================================
 
-export type TransportConfig = 
-  | ({ type: 'stdio' } & StdioTransportConfig)
-  | ({ type: 'sse' } & SSETransportConfig)
-  | ({ type: 'websocket' } & WebSocketTransportConfig);
+export type TransportConfig =
+  | ({ type: "stdio" } & StdioTransportConfig)
+  | ({ type: "sse" } & SSETransportConfig)
+  | ({ type: "websocket" } & WebSocketTransportConfig);
 
 export function createTransport(config: TransportConfig): MCPTransport {
   switch (config.type) {
-    case 'stdio':
+    case "stdio":
       return new StdioTransport(config);
-    case 'sse':
+    case "sse":
       return new SSETransport(config);
-    case 'websocket':
+    case "websocket":
       return new WebSocketTransport(config);
     default:
       throw new Error(`Unsupported transport type: ${(config as any).type}`);

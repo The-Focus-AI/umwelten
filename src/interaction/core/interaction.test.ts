@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Interaction } from './interaction.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
-import { tool } from 'ai';
+import { tool, modelMessageSchema } from 'ai';
 import { z } from 'zod';
+import { BaseModelRunner } from '../../cognition/runner.js';
 
 // Mock calculator tool for testing using Vercel AI SDK pattern
 const calculatorTool = tool({
@@ -321,6 +322,46 @@ describe('New Interaction Constructor', () => {
       expect(interaction.getMessages()[0].content).toBe('test user');
       // Should derive stimulus from session content or defaults
       expect(interaction.getStimulus().role).toBe('assistant');
+    });
+
+    it('should produce messages that validate against SDK modelMessageSchema after tool-call round', () => {
+      const stimulus = new Stimulus({ role: "assistant" });
+      const interaction = new Interaction(mockModel, stimulus);
+      const messagesArraySchema = z.array(modelMessageSchema);
+
+      // Simulate what makeResult() writes to messages after a tool-call round
+      interaction.addMessage({ role: 'user', content: 'What is 2 + 2?' });
+      interaction.addMessage({
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'calculator',
+            input: { operation: 'add', a: 2, b: 2 },
+          },
+        ] as any,
+      });
+      interaction.addMessage({
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'calculator',
+            output: { type: 'json', value: { result: 4 } },
+          },
+        ],
+      } as any);
+      interaction.addMessage({ role: 'assistant', content: 'The answer is 4.' });
+      interaction.addMessage({ role: 'user', content: 'Thanks, now multiply by 3.' });
+
+      // Run through runner normalization (same as what generateText/streamText does)
+      const runner = new BaseModelRunner();
+      const normalize = (runner as any).normalizeToModelMessages.bind(runner);
+      const normalized = normalize(interaction.getMessages());
+      const parsed = messagesArraySchema.safeParse(normalized);
+      expect(parsed.success).toBe(true);
     });
   });
 });

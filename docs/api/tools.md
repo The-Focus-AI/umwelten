@@ -7,19 +7,19 @@ Tools in umwelten use the Vercel AI SDK `tool()` function. There are two categor
 Tools are defined with `tool()` from the `ai` package:
 
 ```typescript
-import { tool } from 'ai';
-import { z } from 'zod';
+import { tool } from "ai";
+import { z } from "zod";
 
 const myTool = tool({
   description: "Human-readable description for the model",
   parameters: z.object({
     param1: z.string().describe("What this parameter is for"),
-    param2: z.number().optional().describe("Optional numeric parameter")
+    param2: z.number().optional().describe("Optional numeric parameter"),
   }),
   execute: async ({ param1, param2 }) => {
     // Tool logic here — return value is sent back to the model
     return { result: `Processed ${param1}` };
-  }
+  },
 });
 ```
 
@@ -28,16 +28,16 @@ const myTool = tool({
 Pass tools when creating a Stimulus:
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from "../src/stimulus/stimulus.js";
 
 const stimulus = new Stimulus({
   role: "helpful assistant",
   tools: {
     calculator: calculatorTool,
-    weather: weatherTool
+    weather: weatherTool,
   },
   toolInstructions: ["Use calculator for math", "Use weather for forecasts"],
-  maxToolSteps: 5  // Max rounds of tool calls per interaction
+  maxToolSteps: 5, // Max rounds of tool calls per interaction
 });
 ```
 
@@ -50,7 +50,11 @@ Content processing tools meant for use in any Stimulus.
 ### URL Tools
 
 ```typescript
-import { wgetTool, markifyTool, parseFeedTool } from '../src/stimulus/tools/url-tools.js';
+import {
+  wgetTool,
+  markifyTool,
+  parseFeedTool,
+} from "../src/stimulus/tools/url-tools.js";
 ```
 
 #### `wget`
@@ -98,7 +102,7 @@ import * from '../src/stimulus/tools/image-tools.js';   // ImageAnalysis interfa
 ### Math Tools
 
 ```typescript
-import { calculatorTool } from '../src/stimulus/tools/examples/math.js';
+import { calculatorTool } from "../src/stimulus/tools/examples/math.js";
 ```
 
 ### Loading Custom Tools
@@ -106,9 +110,9 @@ import { calculatorTool } from '../src/stimulus/tools/examples/math.js';
 Load tools from a directory containing `TOOL.md` + optional `handler.ts` files:
 
 ```typescript
-import { loadToolsFromDirectory } from '../src/stimulus/tools/loader.js';
+import { loadToolsFromDirectory } from "../src/stimulus/tools/loader.js";
 
-const tools = await loadToolsFromDirectory('./my-tools');
+const tools = await loadToolsFromDirectory("./my-tools");
 // Each subdirectory with a TOOL.md becomes a tool
 ```
 
@@ -117,7 +121,7 @@ const tools = await loadToolsFromDirectory('./my-tools');
 Named collections of tools registered on a Habitat. These provide agent infrastructure capabilities.
 
 ```typescript
-import type { ToolSet } from '../src/habitat/tool-sets.js';
+import type { ToolSet } from "../src/habitat/tool-sets.js";
 
 interface ToolSet {
   name: string;
@@ -132,25 +136,24 @@ interface ToolSet {
 
 These are registered by default on every Habitat:
 
-| Tool Set | Name | Tools |
-|----------|------|-------|
-| `agentToolSet` | `agent-management` | list, add, update, remove agents |
-| `sessionToolSet` | `session-management` | list, show, inspect sessions |
-| `externalInteractionToolSet` | `external-interactions` | Read Claude Code/Cursor conversation history |
-| `agentRunnerToolSet` | `agent-runner` | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask` |
-| `runProjectToolSet` | `run-project` | `run_project` (Dagger smart containers) |
-| `secretsToolSet` | `secrets` | set, remove, list secrets |
-| `searchToolSet` | `search` | Web search via Tavily (`TAVILY_API_KEY`) |
+| Tool Set                     | Name                    | Tools                                                    |
+| ---------------------------- | ----------------------- | -------------------------------------------------------- |
+| `agentToolSet`               | `agent-management`      | list, add, update, remove agents                         |
+| `sessionToolSet`             | `session-management`    | list, show, inspect sessions                             |
+| `externalInteractionToolSet` | `external-interactions` | Read Claude Code/Cursor conversation history             |
+| `agentRunnerToolSet`         | `agent-runner`          | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask` |
+| `secretsToolSet`             | `secrets`               | set, remove, list secrets                                |
+| `searchToolSet`              | `search`                | Web search via Tavily (`TAVILY_API_KEY`)                 |
 
 #### Additional Tool Sets (registered manually)
 
 These must be registered explicitly via `habitat.registerCustomTools()`:
 
-| Tool Set | Name | Tools |
-|----------|------|-------|
+| Tool Set      | Name              | Tools                                                  |
+| ------------- | ----------------- | ------------------------------------------------------ |
 | `fileToolSet` | `file-operations` | `read_file`, `write_file`, `list_directory`, `ripgrep` |
-| `timeToolSet` | `time` | `current_time` |
-| `urlToolSet` | `url-operations` | `wget`, `markify`, `parse_feed` |
+| `timeToolSet` | `time`            | `current_time`                                         |
+| `urlToolSet`  | `url-operations`  | `wget`, `markify`, `parse_feed`                        |
 
 File/time/URL tools are typically given to sub-agents, not the top-level habitat.
 
@@ -182,10 +185,6 @@ Sandboxed file operations restricted to the habitat's allowed roots:
 - **`remove_secret`** — Remove a secret
 - **`list_secrets`** — List secret names (not values)
 
-#### Run Project (`src/habitat/tools/run-project/`)
-
-- **`run_project`** — Execute commands in auto-provisioned Dagger containers. Auto-detects project type, installs dependencies, injects API keys.
-
 #### Time Tools (`src/habitat/tools/time-tools.ts`)
 
 - **`current_time`** — Get current date/time with timezone support
@@ -195,21 +194,21 @@ Sandboxed file operations restricted to the habitat's allowed roots:
 ### Simple Tool
 
 ```typescript
-import { tool } from 'ai';
-import { z } from 'zod';
+import { tool } from "ai";
+import { z } from "zod";
 
 export const greetTool = tool({
   description: "Generate a personalized greeting",
   parameters: z.object({
     name: z.string().describe("Person's name"),
-    style: z.enum(["formal", "casual"]).default("casual")
+    style: z.enum(["formal", "casual"]).default("casual"),
   }),
   execute: async ({ name, style }) => {
     if (style === "formal") {
       return { greeting: `Good day, ${name}. How may I assist you?` };
     }
     return { greeting: `Hey ${name}! What's up?` };
-  }
+  },
 });
 ```
 
@@ -219,20 +218,20 @@ export const greetTool = tool({
 const stimulus = new Stimulus({
   role: "friendly greeter",
   tools: { greet: greetTool },
-  toolInstructions: ["Use the greet tool when asked to say hello"]
+  toolInstructions: ["Use the greet tool when asked to say hello"],
 });
 ```
 
 ### Creating a Custom ToolSet
 
 ```typescript
-import type { ToolSet } from '../src/habitat/tool-sets.js';
-import type { Habitat } from '../src/habitat/habitat.js';
-import type { Tool } from 'ai';
+import type { ToolSet } from "../src/habitat/tool-sets.js";
+import type { Habitat } from "../src/habitat/habitat.js";
+import type { Tool } from "ai";
 
 export const myToolSet: ToolSet = {
-  name: 'my-tools',
-  description: 'Custom tools for my use case',
+  name: "my-tools",
+  description: "Custom tools for my use case",
   createTools: (habitat: Habitat): Record<string, Tool> => ({
     my_tool: tool({
       description: "My custom tool",
@@ -240,9 +239,9 @@ export const myToolSet: ToolSet = {
       execute: async ({ input }) => {
         // Can access habitat.workDir, habitat config, etc.
         return { result: `Processed: ${input}` };
-      }
-    })
-  })
+      },
+    }),
+  }),
 };
 ```
 

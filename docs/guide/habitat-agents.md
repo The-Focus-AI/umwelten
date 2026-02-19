@@ -2,6 +2,15 @@
 
 A **HabitatAgent** is a sub-agent that manages a specific project on behalf of the main [Habitat](./habitat.md). It combines a **Stimulus** (built from the project's own files) with a **persistent Interaction** (its own session with memory). This lets the main agent delegate project-specific questions to a sub-agent that understands that project's codebase, logs, and configuration.
 
+::: tip Two Agent Types
+Umwelten has **two** agent systems for different use cases:
+
+- **HabitatAgent** (this guide): Local sub-agents for projects on the host filesystem
+- **BridgeAgent**: Remote agents that run inside Dagger containers with auto-provisioning
+
+Use HabitatAgents for local project management. Use [Bridge Agents](./habitat.md#habitat-bridge-system-experimental) for remote repositories requiring containerized execution.
+:::
+
 ## Concepts
 
 ### How it fits the Habitat model
@@ -35,15 +44,15 @@ Habitat (~/habitats)
 
 When a HabitatAgent is created, `buildAgentStimulus()` reads from the agent's `projectPath`:
 
-| File | What it provides |
-|------|-----------------|
-| `CLAUDE.md` | Project-specific AI instructions |
-| `README.md` | Project overview and documentation |
-| `package.json` | Name, description, scripts, dependencies |
-| `.claude/settings.json` | Claude Code settings |
-| `.claude/commands/` | Available Claude commands |
-| Agent config `commands` | Configured run/test/deploy commands |
-| Agent config `logPatterns` | Where to find log files |
+| File                       | What it provides                         |
+| -------------------------- | ---------------------------------------- |
+| `CLAUDE.md`                | Project-specific AI instructions         |
+| `README.md`                | Project overview and documentation       |
+| `package.json`             | Name, description, scripts, dependencies |
+| `.claude/settings.json`    | Claude Code settings                     |
+| `.claude/commands/`        | Available Claude commands                |
+| Agent config `commands`    | Configured run/test/deploy commands      |
+| Agent config `logPatterns` | Where to find log files                  |
 
 This context is combined into a Stimulus with role `"habitat agent for {name}"` and instructions about using tools with the correct `agentId`.
 
@@ -68,6 +77,7 @@ agent_clone(gitUrl, name, id?)
 - Derives `id` from `name` if not provided (lowercased, hyphenated)
 
 **Example:**
+
 ```
 agent_clone({
   gitUrl: "git@github.com:org/twitter-feed.git",
@@ -90,6 +100,7 @@ agent_logs(agentId, pattern?, tail?, filter?)
 - Parses JSONL files when format is `jsonl`
 
 **Example:**
+
 ```
 agent_logs({
   agentId: "twitter-feed",
@@ -108,6 +119,7 @@ agent_status(agentId)
 ```
 
 Returns:
+
 - Agent identity (id, name, projectPath)
 - Status file content (if `statusFile` is configured)
 - Recent log files with timestamps and sizes
@@ -115,6 +127,7 @@ Returns:
 - Secret references
 
 **Example:**
+
 ```
 agent_status({ agentId: "twitter-feed" })
 // → { id, name, statusFile: { content: "..." }, recentLogs: [...], commands: {...} }
@@ -134,6 +147,7 @@ agent_ask(agentId, message)
 - Returns the text response
 
 **Example:**
+
 ```
 agent_ask({
   agentId: "twitter-feed",
@@ -217,10 +231,10 @@ Add these fields to an agent entry in `config.json` to enable `agent_logs` and `
 
 Each `LogPattern` has:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `pattern` | `string` | Glob pattern relative to project root (e.g. `"logs/*.jsonl"`, `"**/*.log"`) |
-| `format` | `"jsonl"` \| `"plain"` | How to parse the log file. JSONL files are parsed line-by-line as JSON. |
+| Field     | Type                   | Description                                                                 |
+| --------- | ---------------------- | --------------------------------------------------------------------------- |
+| `pattern` | `string`               | Glob pattern relative to project root (e.g. `"logs/*.jsonl"`, `"**/*.log"`) |
+| `format`  | `"jsonl"` \| `"plain"` | How to parse the log file. JSONL files are parsed line-by-line as JSON.     |
 
 The glob supports `*` (any characters), `?` (single character), and `**` (recursive directory matching).
 
@@ -251,7 +265,7 @@ console.log(response);
 ### Building a stimulus from a project
 
 ```typescript
-import { buildAgentStimulus } from 'umwelten/habitat';
+import { buildAgentStimulus } from "umwelten/habitat";
 
 const stimulus = await buildAgentStimulus(agentEntry, habitat);
 console.log(stimulus.getPrompt()); // see the full system prompt
@@ -261,13 +275,13 @@ console.log(stimulus.getPrompt()); // see the full system prompt
 
 ### Key files
 
-| File | Purpose |
-|------|---------|
-| `src/habitat/habitat-agent.ts` | `buildAgentStimulus()` and `HabitatAgent` class |
+| File                                      | Purpose                                                        |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `src/habitat/habitat-agent.ts`            | `buildAgentStimulus()` and `HabitatAgent` class                |
 | `src/habitat/tools/agent-runner-tools.ts` | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask` tools |
-| `src/habitat/habitat.ts` | `getOrCreateHabitatAgent()` — lazy creation and caching |
-| `src/habitat/tool-sets.ts` | `agentRunnerToolSet` — registered in standard tool sets |
-| `src/habitat/types.ts` | `AgentEntry` with `logPatterns`, `statusFile` fields |
+| `src/habitat/habitat.ts`                  | `getOrCreateHabitatAgent()` — lazy creation and caching        |
+| `src/habitat/tool-sets.ts`                | `agentRunnerToolSet` — registered in standard tool sets        |
+| `src/habitat/types.ts`                    | `AgentEntry` with `logPatterns`, `statusFile` fields           |
 
 ### How agent_ask works internally
 

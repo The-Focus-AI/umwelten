@@ -518,6 +518,14 @@ Goal: Audit all docs against actual codebase and fix everything that was wrong, 
 - [x] **Concepts**: **Interaction** = active conversation (umwelten). **External interaction** = read-only history from other tools (Claude Code, Cursor). **Experience** = execution state (Dagger run_bash). **Habitat** = agent + tools + interactions + memory + experiences.
 - [x] **Habitat / agents**: Optional `commands` on agent config (e.g. `{ "cli": "pnpm run cli", "run": "pnpm start" }`). Agents listed with `commands`. README and Jeeves docs describe Habitat model; agents frame as habitats.
 
+### Completed: Fix REPL Crash After Tool Call + Multi-Turn Tests
+- [x] Fix `args` → `input` in `runner.ts` `makeResult()` (3 locations) — AI SDK v5 expects `input`, not `args`
+- [x] Add `normalizeToModelMessages()` to `generateText()`, `generateObject()`, `streamObject()` — previously only `streamText` path normalized
+- [x] Harden `normalizeToModelMessages()` output validation — guard `undefined`/`null`, raw string, raw object without `type`/`value`
+- [x] Add 7 new multi-turn tool-call tests to `runner.test.ts` (multi-turn simulation, legacy args, multiple rounds, output edge cases)
+- [x] Add tool message validation test to `interaction.test.ts`
+- [x] Rewrite `docs/walkthroughs/run-project-walkthrough.md` for natural language workflow
+
 ### Backlog
 - [ ] Test LLM-based container configuration with valid OpenRouter API key
 - [ ] Add environment variables for OpenRouter LLM configuration in Dagger

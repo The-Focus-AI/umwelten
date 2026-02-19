@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
-import { createInterface } from 'node:readline';
+import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
 import type {
   ContentBlock,
   SessionMessage,
@@ -9,10 +9,14 @@ import type {
   ToolCall,
   TokenUsage,
   ToolUseContent,
-} from '../types/types.js';
-import type { NormalizedMessage, NormalizedTokenUsage } from '../types/normalized-types.js';
-import { messagesToBeats } from '../analysis/conversation-beats.js';
-import type { ConversationBeat } from '../analysis/conversation-beats.js';
+  ToolResultContent,
+} from "../types/types.js";
+import type {
+  NormalizedMessage,
+  NormalizedTokenUsage,
+} from "../types/normalized-types.js";
+import { messagesToBeats } from "../analysis/conversation-beats.js";
+import type { ConversationBeat } from "../analysis/conversation-beats.js";
 
 /**
  * Parse a single line of JSONL into a SessionMessage
@@ -25,7 +29,7 @@ export function parseJSONLLine(line: string): SessionMessage | null {
   try {
     return JSON.parse(line) as SessionMessage;
   } catch (error) {
-    console.error('Failed to parse JSONL line:', error);
+    console.error("Failed to parse JSONL line:", error);
     return null;
   }
 }
@@ -33,9 +37,11 @@ export function parseJSONLLine(line: string): SessionMessage | null {
 /**
  * Read and parse a JSONL session file
  */
-export async function parseSessionFile(filePath: string): Promise<SessionMessage[]> {
-  const content = await readFile(filePath, 'utf-8');
-  const lines = content.split('\n');
+export async function parseSessionFile(
+  filePath: string,
+): Promise<SessionMessage[]> {
+  const content = await readFile(filePath, "utf-8");
+  const lines = content.split("\n");
 
   const messages: SessionMessage[] = [];
 
@@ -54,9 +60,9 @@ export async function parseSessionFile(filePath: string): Promise<SessionMessage
  */
 export async function streamParseSessionFile(
   filePath: string,
-  onMessage: (message: SessionMessage) => void | Promise<void>
+  onMessage: (message: SessionMessage) => void | Promise<void>,
 ): Promise<void> {
-  const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
+  const fileStream = createReadStream(filePath, { encoding: "utf-8" });
   const rl = createInterface({
     input: fileStream,
     crlfDelay: Infinity,
@@ -81,9 +87,9 @@ export function extractConversation(messages: SessionMessage[]): {
   const assistant: AssistantMessageEntry[] = [];
 
   for (const message of messages) {
-    if (message.type === 'user') {
+    if (message.type === "user") {
       user.push(message as UserMessageEntry);
-    } else if (message.type === 'assistant') {
+    } else if (message.type === "assistant") {
       assistant.push(message as AssistantMessageEntry);
     }
   }
@@ -98,7 +104,7 @@ export function extractToolCalls(messages: SessionMessage[]): ToolCall[] {
   const toolCalls: ToolCall[] = [];
 
   for (const message of messages) {
-    if (message.type !== 'assistant') {
+    if (message.type !== "assistant") {
       continue;
     }
 
@@ -108,14 +114,14 @@ export function extractToolCalls(messages: SessionMessage[]): ToolCall[] {
     // Content can be a string or array of ContentBlocks
     if (Array.isArray(content)) {
       for (const block of content) {
-        if (block.type === 'tool_use') {
+        if (block.type === "tool_use") {
           const toolUse = block as ToolUseContent;
           toolCalls.push({
             id: toolUse.id,
             name: toolUse.name,
             input: toolUse.input,
-            timestamp: message.timestamp || '',
-            messageUuid: message.uuid || '',
+            timestamp: message.timestamp || "",
+            messageUuid: message.uuid || "",
           });
         }
       }
@@ -141,7 +147,7 @@ export function calculateTokenUsage(messages: SessionMessage[]): TokenUsage {
   };
 
   for (const message of messages) {
-    if (message.type !== 'assistant') {
+    if (message.type !== "assistant") {
       continue;
     }
 
@@ -155,9 +161,11 @@ export function calculateTokenUsage(messages: SessionMessage[]): TokenUsage {
     totals.input_tokens += usage.input_tokens || 0;
     totals.output_tokens += usage.output_tokens || 0;
     totals.cache_creation_input_tokens =
-      (totals.cache_creation_input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
+      (totals.cache_creation_input_tokens || 0) +
+      (usage.cache_creation_input_tokens || 0);
     totals.cache_read_input_tokens =
-      (totals.cache_read_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+      (totals.cache_read_input_tokens || 0) +
+      (usage.cache_read_input_tokens || 0);
 
     if (usage.cache_creation) {
       totals.cache_creation!.ephemeral_5m_input_tokens =
@@ -186,8 +194,11 @@ export function calculateCost(usage: TokenUsage): number {
   const inputCost = (usage.input_tokens / 1_000_000) * INPUT_PRICE_PER_MTK;
   const outputCost = (usage.output_tokens / 1_000_000) * OUTPUT_PRICE_PER_MTK;
   const cacheWriteCost =
-    ((usage.cache_creation_input_tokens || 0) / 1_000_000) * CACHE_WRITE_PRICE_PER_MTK;
-  const cacheReadCost = ((usage.cache_read_input_tokens || 0) / 1_000_000) * CACHE_READ_PRICE_PER_MTK;
+    ((usage.cache_creation_input_tokens || 0) / 1_000_000) *
+    CACHE_WRITE_PRICE_PER_MTK;
+  const cacheReadCost =
+    ((usage.cache_read_input_tokens || 0) / 1_000_000) *
+    CACHE_READ_PRICE_PER_MTK;
 
   return inputCost + outputCost + cacheWriteCost + cacheReadCost;
 }
@@ -208,7 +219,9 @@ export interface SessionSizeBreakdown {
 /**
  * Compute size breakdown for session messages (character counts).
  */
-export function computeSizeBreakdown(messages: SessionMessage[]): SessionSizeBreakdown {
+export function computeSizeBreakdown(
+  messages: SessionMessage[],
+): SessionSizeBreakdown {
   let userChars = 0;
   let reasoningChars = 0;
   let toolCallChars = 0;
@@ -216,33 +229,34 @@ export function computeSizeBreakdown(messages: SessionMessage[]): SessionSizeBre
   let assistantChars = 0;
 
   for (const msg of messages) {
-    if (msg.type === 'user') {
+    if (msg.type === "user") {
       const content = (msg as UserMessageEntry).message.content;
-      if (typeof content === 'string') {
+      if (typeof content === "string") {
         userChars += content.length;
       } else if (Array.isArray(content)) {
         for (const block of content) {
-          if (block.type === 'text' && 'text' in block) {
+          if (block.type === "text" && "text" in block) {
             userChars += block.text.length;
-          } else if (block.type === 'tool_result') {
+          } else if (block.type === "tool_result") {
             const c = block.content;
-            toolResponseChars += typeof c === 'string' ? c.length : JSON.stringify(c).length;
+            toolResponseChars +=
+              typeof c === "string" ? c.length : JSON.stringify(c).length;
           }
         }
       }
-    } else if (msg.type === 'assistant') {
+    } else if (msg.type === "assistant") {
       const entry = msg as AssistantMessageEntry;
       if (entry.reasoning) {
         reasoningChars += entry.reasoning.length;
       }
       const content = entry.message.content;
-      if (typeof content === 'string') {
+      if (typeof content === "string") {
         assistantChars += content.length;
       } else if (Array.isArray(content)) {
         for (const block of content) {
-          if (block.type === 'text' && 'text' in block) {
+          if (block.type === "text" && "text" in block) {
             assistantChars += block.text.length;
-          } else if (block.type === 'tool_use') {
+          } else if (block.type === "tool_use") {
             toolCallChars += JSON.stringify(block.input).length;
           }
         }
@@ -262,7 +276,9 @@ export function computeSizeBreakdown(messages: SessionMessage[]): SessionSizeBre
 /**
  * Extract reasoning/thinking from an assistant message entry (Jeeves persists this from runner).
  */
-export function extractReasoning(entry: AssistantMessageEntry): string | undefined {
+export function extractReasoning(
+  entry: AssistantMessageEntry,
+): string | undefined {
   return entry.reasoning;
 }
 
@@ -272,9 +288,9 @@ export function extractReasoning(entry: AssistantMessageEntry): string | undefin
 export function extractAllReasoning(messages: SessionMessage[]): string[] {
   const out: string[] = [];
   for (const m of messages) {
-    if (m.type === 'assistant') {
+    if (m.type === "assistant") {
       const r = (m as AssistantMessageEntry).reasoning;
-      if (r != null && r !== '') out.push(r);
+      if (r != null && r !== "") out.push(r);
     }
   }
   return out;
@@ -313,7 +329,12 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
 
   // Calculate session duration
   let duration: number | undefined;
-  if (firstUserMsg && lastUserMsg && firstUserMsg.timestamp && lastUserMsg.timestamp) {
+  if (
+    firstUserMsg &&
+    lastUserMsg &&
+    firstUserMsg.timestamp &&
+    lastUserMsg.timestamp
+  ) {
     const start = new Date(firstUserMsg.timestamp).getTime();
     const end = new Date(lastUserMsg.timestamp).getTime();
     duration = end - start;
@@ -323,11 +344,11 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
   let firstMessage: string | undefined;
   if (firstUserMsg) {
     const content = firstUserMsg.message.content;
-    if (typeof content === 'string') {
+    if (typeof content === "string") {
       firstMessage = content;
     } else if (Array.isArray(content)) {
-      const textBlock = content.find(b => b.type === 'text');
-      if (textBlock && 'text' in textBlock) {
+      const textBlock = content.find((b) => b.type === "text");
+      if (textBlock && "text" in textBlock) {
         firstMessage = textBlock.text;
       }
     }
@@ -337,18 +358,21 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
   let lastMessage: string | undefined;
   if (lastUserMsg) {
     const content = lastUserMsg.message.content;
-    if (typeof content === 'string') {
+    if (typeof content === "string") {
       lastMessage = content;
     } else if (Array.isArray(content)) {
-      const textBlock = content.find(b => b.type === 'text');
-      if (textBlock && 'text' in textBlock) {
+      const textBlock = content.find((b) => b.type === "text");
+      if (textBlock && "text" in textBlock) {
         lastMessage = textBlock.text;
       }
     }
   }
 
   const reasoningStrings = extractAllReasoning(messages);
-  const totalReasoningChars = reasoningStrings.reduce((sum, s) => sum + s.length, 0);
+  const totalReasoningChars = reasoningStrings.reduce(
+    (sum, s) => sum + s.length,
+    0,
+  );
   const sizeBreakdown = computeSizeBreakdown(messages);
 
   return {
@@ -362,7 +386,8 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
     lastMessage,
     duration,
     reasoningCount: reasoningStrings.length,
-    totalReasoningChars: totalReasoningChars > 0 ? totalReasoningChars : undefined,
+    totalReasoningChars:
+      totalReasoningChars > 0 ? totalReasoningChars : undefined,
     sizeBreakdown,
   };
 }
@@ -370,24 +395,27 @@ export function summarizeSession(messages: SessionMessage[]): SessionSummary {
 /**
  * Filter messages by type
  */
-export function filterMessagesByType<T extends SessionMessage['type']>(
+export function filterMessagesByType<T extends SessionMessage["type"]>(
   messages: SessionMessage[],
-  type: T
+  type: T,
 ): Extract<SessionMessage, { type: T }>[] {
-  return messages.filter(m => m.type === type) as Extract<SessionMessage, { type: T }>[];
+  return messages.filter((m) => m.type === type) as Extract<
+    SessionMessage,
+    { type: T }
+  >[];
 }
 
 /**
  * Get all text content from a message
  */
 export function extractTextContent(content: string | ContentBlock[]): string[] {
-  if (typeof content === 'string') {
+  if (typeof content === "string") {
     return [content];
   }
 
   const texts: string[] = [];
   for (const block of content) {
-    if (block.type === 'text' && 'text' in block) {
+    if (block.type === "text" && "text" in block) {
       texts.push(block.text);
     }
   }
@@ -396,27 +424,29 @@ export function extractTextContent(content: string | ContentBlock[]): string[] {
 }
 
 function contentToText(content: string | ContentBlock[]): string {
-  return extractTextContent(content).join('\n');
+  return extractTextContent(content).join("\n");
 }
 
 function isToolResultOnlyMessage(content: string | ContentBlock[]): boolean {
-  if (typeof content === 'string') return false;
+  if (typeof content === "string") return false;
   if (content.length === 0) return true;
-  const hasText = content.some(b => b.type === 'text');
-  const onlyToolResult = content.every(b => b.type === 'tool_result');
+  const hasText = content.some((b) => b.type === "text");
+  const onlyToolResult = content.every((b) => b.type === "tool_result");
   return !hasText && onlyToolResult;
 }
 
 function extractToolCallsFromContent(
-  content: string | ContentBlock[]
+  content: string | ContentBlock[],
 ): Array<{ id: string; name: string; input: Record<string, unknown> }> {
-  if (typeof content === 'string') return [];
+  if (typeof content === "string") return [];
   return content
-    .filter((b): b is ToolUseContent => b.type === 'tool_use')
-    .map(b => ({ id: b.id, name: b.name, input: b.input }));
+    .filter((b): b is ToolUseContent => b.type === "tool_use")
+    .map((b) => ({ id: b.id, name: b.name, input: b.input }));
 }
 
-function tokenUsageToNormalized(usage?: TokenUsage): NormalizedTokenUsage | undefined {
+function tokenUsageToNormalized(
+  usage?: TokenUsage,
+): NormalizedTokenUsage | undefined {
   if (!usage) return undefined;
   return {
     input: usage.input_tokens,
@@ -432,60 +462,111 @@ function tokenUsageToNormalized(usage?: TokenUsage): NormalizedTokenUsage | unde
 }
 
 /**
+ * Build a map from tool_use_id to { content, is_error } by scanning user messages
+ * that carry tool_result blocks.
+ */
+function buildToolResultMap(
+  messages: SessionMessage[],
+): Map<string, { content: string; isError: boolean }> {
+  const map = new Map<string, { content: string; isError: boolean }>();
+  for (const msg of messages) {
+    if (msg.type !== "user") continue;
+    const userMsg = msg as UserMessageEntry;
+    const content = userMsg.message.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if ((block as ToolResultContent).type === "tool_result") {
+        const tr = block as ToolResultContent;
+        const text =
+          typeof tr.content === "string"
+            ? tr.content
+            : JSON.stringify(tr.content);
+        map.set(tr.tool_use_id, { content: text, isError: !!tr.is_error });
+      }
+    }
+  }
+  return map;
+}
+
+/**
  * Convert SessionMessage[] (e.g. from transcript.jsonl) to NormalizedMessage[].
  * Used for beats (messagesToBeats) and by Jeeves/umwelten when loading a session file.
+ *
+ * Includes thinking/reasoning, tool call inputs, and tool results.
  */
-export function sessionMessagesToNormalized(messages: SessionMessage[]): NormalizedMessage[] {
+export function sessionMessagesToNormalized(
+  messages: SessionMessage[],
+): NormalizedMessage[] {
   const normalized: NormalizedMessage[] = [];
+  const toolResults = buildToolResultMap(messages);
 
   for (const msg of messages) {
-    if (msg.type === 'user') {
+    if (msg.type === "user") {
       const userMsg = msg as UserMessageEntry;
       if (isToolResultOnlyMessage(userMsg.message.content)) continue;
       normalized.push({
         id: userMsg.uuid || `user-${normalized.length}`,
-        role: 'user',
+        role: "user",
         content: contentToText(userMsg.message.content),
         timestamp: userMsg.timestamp,
-        sourceData: { type: 'user', uuid: userMsg.uuid },
+        sourceData: { type: "user", uuid: userMsg.uuid },
       });
-    } else if (msg.type === 'assistant') {
+    } else if (msg.type === "assistant") {
       const assistantMsg = msg as AssistantMessageEntry;
       const content = contentToText(assistantMsg.message.content);
       const tokens = tokenUsageToNormalized(assistantMsg.message.usage);
-      const toolCalls = extractToolCallsFromContent(assistantMsg.message.content);
+      const toolCalls = extractToolCallsFromContent(
+        assistantMsg.message.content,
+      );
+      const reasoning = assistantMsg.reasoning;
 
       if (toolCalls.length > 0) {
         if (content.trim()) {
           normalized.push({
             id: assistantMsg.uuid || `assistant-${normalized.length}`,
-            role: 'assistant',
+            role: "assistant",
             content,
             timestamp: assistantMsg.timestamp,
             tokens,
             model: assistantMsg.message.model,
-            sourceData: { type: 'assistant', uuid: assistantMsg.uuid },
+            sourceData: {
+              type: "assistant",
+              uuid: assistantMsg.uuid,
+              ...(reasoning && { reasoning }),
+            },
           });
         }
         for (const tc of toolCalls) {
+          const result = toolResults.get(tc.id);
           normalized.push({
             id: tc.id,
-            role: 'tool',
+            role: "tool",
             content: `Tool: ${tc.name}`,
             timestamp: assistantMsg.timestamp,
-            tool: { name: tc.name, input: tc.input },
-            sourceData: { type: 'tool_use', toolUseId: tc.id },
+            tool: {
+              name: tc.name,
+              input: tc.input,
+              ...(result && {
+                output: result.content,
+                isError: result.isError,
+              }),
+            },
+            sourceData: { type: "tool_use", toolUseId: tc.id },
           });
         }
       } else {
         normalized.push({
           id: assistantMsg.uuid || `assistant-${normalized.length}`,
-          role: 'assistant',
+          role: "assistant",
           content,
           timestamp: assistantMsg.timestamp,
           tokens,
           model: assistantMsg.message.model,
-          sourceData: { type: 'assistant', uuid: assistantMsg.uuid },
+          sourceData: {
+            type: "assistant",
+            uuid: assistantMsg.uuid,
+            ...(reasoning && { reasoning }),
+          },
         });
       }
     }
@@ -499,10 +580,10 @@ export function sessionMessagesToNormalized(messages: SessionMessage[]): Normali
  * Returns normalized messages and conversation beats (user turn + tools + assistant until next user).
  */
 export async function getBeatsForSession(
-  sessionPathOrMessages: string | SessionMessage[]
+  sessionPathOrMessages: string | SessionMessage[],
 ): Promise<{ beats: ConversationBeat[]; messages: NormalizedMessage[] }> {
   const messages: SessionMessage[] =
-    typeof sessionPathOrMessages === 'string'
+    typeof sessionPathOrMessages === "string"
       ? await parseSessionFile(sessionPathOrMessages)
       : sessionPathOrMessages;
   const normalized = sessionMessagesToNormalized(messages);
@@ -523,14 +604,15 @@ export interface SessionFileMetadata {
   isSidechain: boolean;
 }
 
-const UUID_JSONL_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
+const UUID_JSONL_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;
 
 /** True if message content is only tool_result blocks (no user-visible text). */
 function isToolResultOnlyContent(content: string | ContentBlock[]): boolean {
-  if (typeof content === 'string') return false;
+  if (typeof content === "string") return false;
   if (content.length === 0) return true;
-  const hasText = content.some(b => b.type === 'text');
-  const onlyToolResult = content.every(b => b.type === 'tool_result');
+  const hasText = content.some((b) => b.type === "text");
+  const onlyToolResult = content.every((b) => b.type === "tool_result");
   return !hasText && onlyToolResult;
 }
 
@@ -538,26 +620,28 @@ function isToolResultOnlyContent(content: string | ContentBlock[]): boolean {
  * Extract first user-visible text from a user message for use as firstPrompt.
  * Uses extractTextContent for standard text blocks; also checks any block with a .text or string .content for alternate formats.
  */
-function extractFirstUserText(msg: { message: { content: string | ContentBlock[] } }): string {
+function extractFirstUserText(msg: {
+  message: { content: string | ContentBlock[] };
+}): string {
   const content = msg.message.content;
-  if (typeof content === 'string') {
+  if (typeof content === "string") {
     return content.trim().slice(0, 500);
   }
   const texts = extractTextContent(content);
-  const joined = texts.join('\n').trim();
+  const joined = texts.join("\n").trim();
   if (joined.length > 0) return joined.slice(0, 500);
   for (const block of content) {
-    if (block && typeof block === 'object') {
+    if (block && typeof block === "object") {
       const b = block as unknown as Record<string, unknown>;
-      if (typeof b.text === 'string' && b.text.trim().length > 0) {
+      if (typeof b.text === "string" && b.text.trim().length > 0) {
         return b.text.trim().slice(0, 500);
       }
-      if (typeof b.content === 'string' && b.content.trim().length > 0) {
+      if (typeof b.content === "string" && b.content.trim().length > 0) {
         return b.content.trim().slice(0, 500);
       }
     }
   }
-  return '';
+  return "";
 }
 
 /**
@@ -567,16 +651,16 @@ function extractFirstUserText(msg: { message: { content: string | ContentBlock[]
  */
 export async function parseSessionFileMetadata(
   filePath: string,
-  fallbackMtimeMs?: number
+  fallbackMtimeMs?: number,
 ): Promise<SessionFileMetadata | null> {
-  const fileStream = createReadStream(filePath, { encoding: 'utf-8' });
+  const fileStream = createReadStream(filePath, { encoding: "utf-8" });
   const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
 
-  let firstPrompt = '';
+  let firstPrompt = "";
   let messageCount = 0;
-  let created = '';
-  let modified = '';
-  let gitBranch = '';
+  let created = "";
+  let modified = "";
+  let gitBranch = "";
   let isSidechain = false;
 
   try {
@@ -585,25 +669,34 @@ export async function parseSessionFileMetadata(
       const msg = parseJSONLLine(line) as SessionMessage | null;
       if (!msg) continue;
 
-      const ts = msg.timestamp || '';
+      const ts = msg.timestamp || "";
       if (ts) {
         if (!created) created = ts;
         modified = ts;
       }
-      if ('gitBranch' in msg && typeof (msg as { gitBranch?: string }).gitBranch === 'string') {
+      if (
+        "gitBranch" in msg &&
+        typeof (msg as { gitBranch?: string }).gitBranch === "string"
+      ) {
         if (!gitBranch) gitBranch = (msg as { gitBranch: string }).gitBranch;
       }
-      if ('isSidechain' in msg && typeof (msg as { isSidechain?: boolean }).isSidechain === 'boolean') {
+      if (
+        "isSidechain" in msg &&
+        typeof (msg as { isSidechain?: boolean }).isSidechain === "boolean"
+      ) {
         isSidechain = (msg as { isSidechain: boolean }).isSidechain;
       }
 
-      if (msg.type === 'user') {
+      if (msg.type === "user") {
         messageCount++;
-        if (!firstPrompt && !isToolResultOnlyContent((msg as UserMessageEntry).message.content)) {
+        if (
+          !firstPrompt &&
+          !isToolResultOnlyContent((msg as UserMessageEntry).message.content)
+        ) {
           const text = extractFirstUserText(msg as UserMessageEntry);
           if (text) firstPrompt = text;
         }
-      } else if (msg.type === 'assistant') {
+      } else if (msg.type === "assistant") {
         messageCount++;
       }
     }
@@ -611,18 +704,19 @@ export async function parseSessionFileMetadata(
     fileStream.destroy();
   }
 
-  const fallbackIso = fallbackMtimeMs != null
-    ? new Date(fallbackMtimeMs).toISOString()
-    : new Date().toISOString();
+  const fallbackIso =
+    fallbackMtimeMs != null
+      ? new Date(fallbackMtimeMs).toISOString()
+      : new Date().toISOString();
   if (!created) created = modified || fallbackIso;
   if (!modified) modified = created;
 
   return {
-    firstPrompt: firstPrompt || '(no prompt)',
+    firstPrompt: firstPrompt || "(no prompt)",
     messageCount,
     created,
     modified,
-    gitBranch: gitBranch || 'main',
+    gitBranch: gitBranch || "main",
     isSidechain,
   };
 }
@@ -631,5 +725,5 @@ export async function parseSessionFileMetadata(
  * Check if a filename looks like a session JSONL (UUID.jsonl), not a subagent file (agent-*.jsonl).
  */
 export function isSessionJsonlFilename(name: string): boolean {
-  return UUID_JSONL_REGEX.test(name) && !name.startsWith('agent-');
+  return UUID_JSONL_REGEX.test(name) && !name.startsWith("agent-");
 }

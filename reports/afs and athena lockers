@@ -1,0 +1,43 @@
+## AFS — Andrew File System
+
+AFS came out of Carnegie Mellon's Andrew Project in the mid-1980s, which was solving the same class of problems as MIT's Project Athena but with different emphasis. The core question was: how do you give thousands of users on thousands of workstations a unified filesystem that feels local but lives on the network?
+
+The key ideas in AFS:
+
+**Cell-based namespace.** The entire filesystem lives under `/afs/` with cells (administrative domains) below that — `/afs/mit.edu/`, `/afs/cmu.edu/`, etc. This is a global namespace. A machine at MIT can transparently read files from CMU's AFS cell if permissions allow. There's no mounting individual NFS exports or knowing which server holds what — you just navigate the path and AFS figures out the rest.
+
+**Whole-file caching.** When you open a file, AFS copies the entire file to a local cache on your workstation's disk. All reads and writes happen against the local cache. When you close the file, changes get written back to the server. This is fundamentally different from NFS, which does block-level network I/O on every read/write. The result is that AFS performs almost identically whether the server is on your LAN or across the country — the latency hit is on open and close, not on every operation. This also means AFS keeps working (read-only) if the network goes down temporarily.
+
+**Callbacks for cache coherence.** When you cache a file, the server gives you a "callback" — a promise to notify you if anyone else modifies that file. As long as your callback is valid, you can trust your cached copy without checking with the server. This is what makes the whole-file caching model work at scale — you don't have to poll. The server only talks to you when something changes. This is, incidentally, the same pattern as Zephyr's notification model and modern WebSocket/SSE architectures.
+
+**Kerberos authentication throughout.** Every file access is authenticated. Your Kerberos ticket determines what you can read and write, enforced by the servers. This is how Athena lockers work without per-machine configuration — the permissions live on the AFS volume, your identity comes from Kerberos, and any workstation can mediate the two.
+
+**Volumes as the unit of administration.** Files are organized into volumes, which are the unit of replication, backup, migration, and quota management. An admin can move a volume from one server to another without any client knowing — the location database updates and clients transparently follow. This gives you live server migration, which was extraordinary for the 1980s.
+
+## How Lockers Sit on Top of AFS
+
+An Athena locker is essentially a well-known AFS volume with conventions around internal directory structure. A software locker like `matlab` would live at something like `/afs/athena.mit.edu/software/matlab` and contain a standard layout: `bin/`, `lib/`, `man/`, `etc/`. The `add` command would attach this path and prepend its `bin/` to your `$PATH`, its `lib/` to your library path, its `man/` to your `$MANPATH`, and so on using a "locker attach" metadata file that described how to integrate the locker into your environment.
+
+There were several flavors of locker: software lockers for applications, personal lockers (your home directory was an AFS volume), course lockers for class materials, and project/group lockers for shared workspaces. The permission model mapped naturally onto AFS ACLs — a course locker could give read access to all students and write access to staff, all managed through Kerberos principals and AFS protection groups.
+
+## The Combined Architecture
+
+When you step back, the full Athena stack is a remarkably coherent distributed system:
+
+**Kerberos** — who you are (identity and authentication)
+**AFS** — what you have (files, software, data)
+**Zephyr** — what you're told (notifications, messaging)
+**X11** — what you see (display, rendered wherever you sit)
+**Hesiod** — where things are (a DNS-based name service for looking up lockers, printers, user info)
+
+Every layer is decoupled from the physical workstation. You walk up to a machine, log in, and Kerberos authenticates you, Hesiod tells the system where your stuff is, AFS mounts your home directory and your `add`'d lockers, Zephyr starts delivering your notifications, and X11 renders your desktop. Walk away, log out, sit down at a different machine, and the entire experience reconstitutes.
+
+This is essentially a thin client architecture built a decade before the term existed, running on what were actually fairly beefy workstations (DECstations, later SGIs and PCs). The local hardware was powerful but treated as disposable and interchangeable.
+
+## The Legacy
+
+AFS itself lives on as OpenAFS, which is still in production at MIT, CMU, CERN, Morgan Stanley, and a handful of other institutions. It's increasingly creaky — the codebase is old, the kernel module is a pain to maintain across Linux versions, and modern distributed filesystems like CephFS or even plain S3 have overtaken it for new deployments. But the core ideas — global namespace, aggressive client caching with server callbacks, volume-level administration, integrated strong authentication — were profoundly ahead of their time.
+
+The modern analogs are scattered across multiple systems: Kerberos became the backbone of Active Directory, the global namespace concept lives on (poorly) in cloud storage paths, the caching model shows up in CDNs, the callback model is in every reactive system. But nobody has reassembled all of these into a single coherent stack the way Athena did. You either get enterprise identity management (Azure AD) or distributed filesystems (CephFS) or notification infrastructure (Kafka) or thin client computing (Citrix) — but not all of them as one unified, user-facing system.
+
+Which circles back to the broader thread: the 1988 Athena architecture had a more coherent answer to "how does a person interact with a distributed computing environment" than most of what we've built since. We decomposed it into specialized services that each work better in isolation but don't compose as cleanly. 

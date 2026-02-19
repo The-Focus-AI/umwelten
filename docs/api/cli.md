@@ -28,6 +28,7 @@ dotenvx run -- pnpm run cli -- models --provider google --json
 ```
 
 **Options**:
+
 - `--provider <provider>`: Filter by provider (google, openrouter, ollama, lmstudio, github-models)
 - `--json`: Output in JSON format
 
@@ -44,6 +45,7 @@ dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-prev
 ```
 
 **Options**:
+
 - `--provider <provider>`: AI provider (required)
 - `--model <model>`: Model to use (required)
 - `--file <file>`: File to attach
@@ -63,6 +65,7 @@ dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-pre
 ```
 
 **Options**:
+
 - `--provider <provider>`: AI provider (required)
 - `--model <model>`: Model to use (required)
 - `--memory`: Enable conversation memory (automatic fact extraction)
@@ -78,6 +81,7 @@ dotenvx run -- pnpm run cli -- eval --script scripts/google-pricing.ts
 ```
 
 **Options**:
+
 - `--script <file>`: Evaluation script to run
 
 ### `sessions`
@@ -105,17 +109,20 @@ dotenvx run -- pnpm run cli -- telegram --provider google --model gemini-3-flash
 ```
 
 **Options**:
+
 - `--provider <provider>`: AI provider (required)
 - `--model <model>`: Model to use (required)
 - `--token <token>`: Telegram bot token (or set `TELEGRAM_BOT_TOKEN`)
 - `--memory`: Enable memory-augmented conversations
 
 **Telegram Commands**:
+
 - `/start` - Start a new conversation
 - `/reset` - Clear conversation history
 - `/help` - Show help message
 
 **Features**:
+
 - Multi-turn conversations with context
 - Media support (photos, documents, audio, video)
 - Markdown formatting in responses
@@ -137,12 +144,14 @@ dotenvx run -- pnpm run cli -- habitat --work-dir ./my-agent
 ```
 
 **Options**:
+
 - `--work-dir <dir>`: Working directory for the habitat (default: current directory)
 
 The habitat provides a full agent environment with:
+
 - Agent management (list, add, update, remove sub-agents)
 - Session management (persistent conversations)
-- Tool sets (file operations, search, secrets, agent runner, run_project)
+- Tool sets (file operations, search, secrets, agent runner)
 - Skills sharing between agents
 - Onboarding for new habitats
 
@@ -162,6 +171,7 @@ dotenvx run -- pnpm run cli -- tools demo --prompt "Calculate 25 * 4"
 ```
 
 **Options**:
+
 - `--prompt <prompt>`: Custom prompt for demo
 - `--max-steps <steps>`: Maximum tool execution steps (default: 5)
 

@@ -1,27 +1,27 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, readFile, writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { Habitat } from './habitat.js';
-import { saveSecrets } from './secrets.js';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { Habitat } from "./habitat.js";
+import { saveSecrets } from "./secrets.js";
 
-describe('Habitat', () => {
+describe("Habitat", () => {
   let tempDir: string;
   let workDir: string;
   let sessionsDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), 'habitat-test-'));
-    workDir = join(tempDir, 'work');
-    sessionsDir = join(tempDir, 'sessions');
+    tempDir = await mkdtemp(join(tmpdir(), "habitat-test-"));
+    workDir = join(tempDir, "work");
+    sessionsDir = join(tempDir, "sessions");
   });
 
   afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  describe('create()', () => {
-    it('should create a habitat with explicit directories', async () => {
+  describe("create()", () => {
+    it("should create a habitat with explicit directories", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -31,10 +31,10 @@ describe('Habitat', () => {
 
       expect(habitat.workDir).toBe(workDir);
       expect(habitat.sessionsDir).toBe(sessionsDir);
-      expect(habitat.envPrefix).toBe('HABITAT');
+      expect(habitat.envPrefix).toBe("HABITAT");
     });
 
-    it('should create directories on init', async () => {
+    it("should create directories on init", async () => {
       await Habitat.create({
         workDir,
         sessionsDir,
@@ -42,30 +42,34 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      const { readdir } = await import('node:fs/promises');
+      const { readdir } = await import("node:fs/promises");
       // Directories should exist (no error)
       await readdir(workDir);
       await readdir(sessionsDir);
     });
 
-    it('should use custom env prefix', async () => {
+    it("should use custom env prefix", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
-        envPrefix: 'MYBOT',
+        envPrefix: "MYBOT",
         skipBuiltinTools: true,
         skipSkills: true,
       });
 
-      expect(habitat.envPrefix).toBe('MYBOT');
+      expect(habitat.envPrefix).toBe("MYBOT");
     });
 
-    it('should load config from disk', async () => {
+    it("should load config from disk", async () => {
       await mkdir(workDir, { recursive: true });
       await writeFile(
-        join(workDir, 'config.json'),
-        JSON.stringify({ agents: [], defaultProvider: 'google', defaultModel: 'gemini-2.0-flash' }),
-        'utf-8'
+        join(workDir, "config.json"),
+        JSON.stringify({
+          agents: [],
+          defaultProvider: "google",
+          defaultModel: "gemini-2.0-flash",
+        }),
+        "utf-8",
       );
 
       const habitat = await Habitat.create({
@@ -76,24 +80,24 @@ describe('Habitat', () => {
       });
 
       const config = habitat.getConfig();
-      expect(config.defaultProvider).toBe('google');
-      expect(config.defaultModel).toBe('gemini-2.0-flash');
+      expect(config.defaultProvider).toBe("google");
+      expect(config.defaultModel).toBe("gemini-2.0-flash");
       expect(config.agents).toEqual([]);
     });
 
-    it('should use provided config override', async () => {
+    it("should use provided config override", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
-        config: { agents: [], name: 'test-habitat' },
+        config: { agents: [], name: "test-habitat" },
         skipBuiltinTools: true,
         skipSkills: true,
       });
 
-      expect(habitat.getConfig().name).toBe('test-habitat');
+      expect(habitat.getConfig().name).toBe("test-habitat");
     });
 
-    it('should register built-in tools by default', async () => {
+    it("should register built-in tools by default", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -109,11 +113,13 @@ describe('Habitat', () => {
       expect(tools.agent_ask).toBeDefined();
       expect(tools.sessions_list).toBeDefined();
       expect(tools.external_interactions_list).toBeDefined();
-      expect(tools.run_project).toBeDefined();
       expect(tools.secrets_set).toBeDefined();
       expect(tools.secrets_remove).toBeDefined();
       expect(tools.secrets_list).toBeDefined();
       expect(tools.search).toBeDefined();
+
+      // run_project tool has been removed (replaced by Bridge system)
+      expect(tools.run_project).toBeUndefined();
 
       // File/time tools should NOT be present (removed from standardToolSets)
       expect(tools.read_file).toBeUndefined();
@@ -123,7 +129,7 @@ describe('Habitat', () => {
       expect(tools.current_time).toBeUndefined();
     });
 
-    it('should skip built-in tools when requested', async () => {
+    it("should skip built-in tools when requested", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -135,7 +141,7 @@ describe('Habitat', () => {
       expect(Object.keys(tools).length).toBe(0);
     });
 
-    it('should call registerCustomTools callback', async () => {
+    it("should call registerCustomTools callback", async () => {
       let callbackCalled = false;
       const habitat = await Habitat.create({
         workDir,
@@ -152,8 +158,8 @@ describe('Habitat', () => {
     });
   });
 
-  describe('config management', () => {
-    it('should save and reload config', async () => {
+  describe("config management", () => {
+    it("should save and reload config", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -161,14 +167,14 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.updateConfig({ name: 'updated-habitat' });
+      await habitat.updateConfig({ name: "updated-habitat" });
       const reloaded = await habitat.reloadConfig();
-      expect(reloaded.name).toBe('updated-habitat');
+      expect(reloaded.name).toBe("updated-habitat");
     });
   });
 
-  describe('agent management', () => {
-    it('should add and retrieve agents', async () => {
+  describe("agent management", () => {
+    it("should add and retrieve agents", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -177,18 +183,18 @@ describe('Habitat', () => {
       });
 
       await habitat.addAgent({
-        id: 'test-agent',
-        name: 'Test Agent',
-        projectPath: '/tmp/test-project',
+        id: "test-agent",
+        name: "Test Agent",
+        projectPath: "/tmp/test-project",
       });
 
       expect(habitat.getAgents()).toHaveLength(1);
-      expect(habitat.getAgent('test-agent')).toBeDefined();
-      expect(habitat.getAgent('Test Agent')).toBeDefined();
-      expect(habitat.getAgent('nonexistent')).toBeUndefined();
+      expect(habitat.getAgent("test-agent")).toBeDefined();
+      expect(habitat.getAgent("Test Agent")).toBeDefined();
+      expect(habitat.getAgent("nonexistent")).toBeUndefined();
     });
 
-    it('should update agents', async () => {
+    it("should update agents", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -196,13 +202,17 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.addAgent({ id: 'a1', name: 'Agent 1', projectPath: '/tmp/a1' });
-      await habitat.updateAgent('a1', { name: 'Updated Agent 1' });
+      await habitat.addAgent({
+        id: "a1",
+        name: "Agent 1",
+        projectPath: "/tmp/a1",
+      });
+      await habitat.updateAgent("a1", { name: "Updated Agent 1" });
 
-      expect(habitat.getAgent('a1')?.name).toBe('Updated Agent 1');
+      expect(habitat.getAgent("a1")?.name).toBe("Updated Agent 1");
     });
 
-    it('should remove agents', async () => {
+    it("should remove agents", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -210,14 +220,18 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.addAgent({ id: 'a1', name: 'Agent 1', projectPath: '/tmp/a1' });
-      const removed = await habitat.removeAgent('a1');
+      await habitat.addAgent({
+        id: "a1",
+        name: "Agent 1",
+        projectPath: "/tmp/a1",
+      });
+      const removed = await habitat.removeAgent("a1");
 
-      expect(removed?.id).toBe('a1');
+      expect(removed?.id).toBe("a1");
       expect(habitat.getAgents()).toHaveLength(0);
     });
 
-    it('should include agent project paths in allowed roots', async () => {
+    it("should include agent project paths in allowed roots", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -225,17 +239,21 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.addAgent({ id: 'a1', name: 'Agent 1', projectPath: '/tmp/a1-project' });
+      await habitat.addAgent({
+        id: "a1",
+        name: "Agent 1",
+        projectPath: "/tmp/a1-project",
+      });
 
       const roots = habitat.getAllowedRoots();
       expect(roots).toContain(workDir);
       expect(roots).toContain(sessionsDir);
-      expect(roots).toContain('/tmp/a1-project');
+      expect(roots).toContain("/tmp/a1-project");
     });
   });
 
-  describe('model defaults', () => {
-    it('should return undefined when no model configured', async () => {
+  describe("model defaults", () => {
+    it("should return undefined when no model configured", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -246,23 +264,27 @@ describe('Habitat', () => {
       expect(habitat.getDefaultModelDetails()).toBeUndefined();
     });
 
-    it('should return model details from config', async () => {
+    it("should return model details from config", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
-        config: { agents: [], defaultProvider: 'google', defaultModel: 'gemini-2.0-flash' },
+        config: {
+          agents: [],
+          defaultProvider: "google",
+          defaultModel: "gemini-2.0-flash",
+        },
         skipBuiltinTools: true,
         skipSkills: true,
       });
 
       const details = habitat.getDefaultModelDetails();
-      expect(details?.provider).toBe('google');
-      expect(details?.name).toBe('gemini-2.0-flash');
+      expect(details?.provider).toBe("google");
+      expect(details?.name).toBe("gemini-2.0-flash");
     });
   });
 
-  describe('session management', () => {
-    it('should create CLI sessions with unique IDs', async () => {
+  describe("session management", () => {
+    it("should create CLI sessions with unique IDs", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -270,14 +292,14 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      const s1 = await habitat.getOrCreateSession('cli');
-      const s2 = await habitat.getOrCreateSession('cli');
+      const s1 = await habitat.getOrCreateSession("cli");
+      const s2 = await habitat.getOrCreateSession("cli");
 
       expect(s1.sessionId).not.toBe(s2.sessionId);
       expect(s1.sessionId).toMatch(/^cli-/);
     });
 
-    it('should list sessions', async () => {
+    it("should list sessions", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -285,16 +307,16 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.getOrCreateSession('cli');
-      await habitat.getOrCreateSession('cli');
+      await habitat.getOrCreateSession("cli");
+      await habitat.getOrCreateSession("cli");
 
       const sessions = await habitat.listSessions();
       expect(sessions.length).toBe(2);
     });
   });
 
-  describe('stimulus', () => {
-    it('should build stimulus with default persona when no STIMULUS.md', async () => {
+  describe("stimulus", () => {
+    it("should build stimulus with default persona when no STIMULUS.md", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -304,15 +326,15 @@ describe('Habitat', () => {
 
       const stimulus = await habitat.getStimulus();
       const prompt = stimulus.getPrompt();
-      expect(prompt).toContain('assistant');
+      expect(prompt).toContain("assistant");
     });
 
-    it('should build stimulus from STIMULUS.md when present', async () => {
+    it("should build stimulus from STIMULUS.md when present", async () => {
       await mkdir(workDir, { recursive: true });
       await writeFile(
-        join(workDir, 'STIMULUS.md'),
-        '---\nrole: butler\nobjective: serve the user\n---\n# Custom Persona\n\nYou are a custom agent.',
-        'utf-8'
+        join(workDir, "STIMULUS.md"),
+        "---\nrole: butler\nobjective: serve the user\n---\n# Custom Persona\n\nYou are a custom agent.",
+        "utf-8",
       );
 
       const habitat = await Habitat.create({
@@ -324,13 +346,13 @@ describe('Habitat', () => {
 
       const stimulus = await habitat.getStimulus();
       const prompt = stimulus.getPrompt();
-      expect(prompt).toContain('butler');
-      expect(prompt).toContain('serve the user');
+      expect(prompt).toContain("butler");
+      expect(prompt).toContain("serve the user");
     });
   });
 
-  describe('onboarding', () => {
-    it('should report not onboarded for empty work dir', async () => {
+  describe("onboarding", () => {
+    it("should report not onboarded for empty work dir", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -341,7 +363,7 @@ describe('Habitat', () => {
       expect(await habitat.isOnboarded()).toBe(false);
     });
 
-    it('should onboard and then report onboarded', async () => {
+    it("should onboard and then report onboarded", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -350,17 +372,17 @@ describe('Habitat', () => {
       });
 
       const result = await habitat.onboard();
-      expect(result.created).toContain('config.json');
-      expect(result.created).toContain('STIMULUS.md (minimal)');
-      expect(result.created).toContain('skills/');
-      expect(result.created).toContain('tools/');
+      expect(result.created).toContain("config.json");
+      expect(result.created).toContain("STIMULUS.md (minimal)");
+      expect(result.created).toContain("skills/");
+      expect(result.created).toContain("tools/");
 
       expect(await habitat.isOnboarded()).toBe(true);
     });
   });
 
-  describe('secrets', () => {
-    it('should check secret availability from environment', async () => {
+  describe("secrets", () => {
+    it("should check secret availability from environment", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -369,13 +391,13 @@ describe('Habitat', () => {
       });
 
       // PATH is always set
-      expect(habitat.isSecretAvailable('PATH')).toBe(true);
-      expect(habitat.isSecretAvailable('DEFINITELY_NOT_SET_XYZZY')).toBe(false);
+      expect(habitat.isSecretAvailable("PATH")).toBe(true);
+      expect(habitat.isSecretAvailable("DEFINITELY_NOT_SET_XYZZY")).toBe(false);
     });
 
-    it('should prefer secret store over process.env', async () => {
+    it("should prefer secret store over process.env", async () => {
       await mkdir(workDir, { recursive: true });
-      await saveSecrets(workDir, { PATH: 'store-value' });
+      await saveSecrets(workDir, { PATH: "store-value" });
 
       const habitat = await Habitat.create({
         workDir,
@@ -385,10 +407,10 @@ describe('Habitat', () => {
       });
 
       // Store value should take precedence over env
-      expect(habitat.getSecret('PATH')).toBe('store-value');
+      expect(habitat.getSecret("PATH")).toBe("store-value");
     });
 
-    it('should fall back to process.env when not in store', async () => {
+    it("should fall back to process.env when not in store", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -397,10 +419,10 @@ describe('Habitat', () => {
       });
 
       // PATH is in env but not in store
-      expect(habitat.getSecret('PATH')).toBe(process.env.PATH);
+      expect(habitat.getSecret("PATH")).toBe(process.env.PATH);
     });
 
-    it('should set and persist secrets', async () => {
+    it("should set and persist secrets", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -408,17 +430,17 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.setSecret('MY_TEST_KEY', 'my-test-value');
-      expect(habitat.getSecret('MY_TEST_KEY')).toBe('my-test-value');
-      expect(habitat.isSecretAvailable('MY_TEST_KEY')).toBe(true);
+      await habitat.setSecret("MY_TEST_KEY", "my-test-value");
+      expect(habitat.getSecret("MY_TEST_KEY")).toBe("my-test-value");
+      expect(habitat.isSecretAvailable("MY_TEST_KEY")).toBe(true);
 
       // Verify it was persisted to disk
-      const raw = await readFile(join(workDir, 'secrets.json'), 'utf-8');
+      const raw = await readFile(join(workDir, "secrets.json"), "utf-8");
       const stored = JSON.parse(raw);
-      expect(stored.MY_TEST_KEY).toBe('my-test-value');
+      expect(stored.MY_TEST_KEY).toBe("my-test-value");
     });
 
-    it('should remove secrets', async () => {
+    it("should remove secrets", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -426,15 +448,15 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.setSecret('TEMP_KEY', 'temp-value');
-      expect(habitat.getSecret('TEMP_KEY')).toBe('temp-value');
+      await habitat.setSecret("TEMP_KEY", "temp-value");
+      expect(habitat.getSecret("TEMP_KEY")).toBe("temp-value");
 
-      await habitat.removeSecret('TEMP_KEY');
-      expect(habitat.getSecret('TEMP_KEY')).toBeUndefined();
-      expect(habitat.isSecretAvailable('TEMP_KEY')).toBe(false);
+      await habitat.removeSecret("TEMP_KEY");
+      expect(habitat.getSecret("TEMP_KEY")).toBeUndefined();
+      expect(habitat.isSecretAvailable("TEMP_KEY")).toBe(false);
     });
 
-    it('should list secret names without values', async () => {
+    it("should list secret names without values", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -442,18 +464,18 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.setSecret('KEY_A', 'value-a');
-      await habitat.setSecret('KEY_B', 'value-b');
+      await habitat.setSecret("KEY_A", "value-a");
+      await habitat.setSecret("KEY_B", "value-b");
 
       const names = habitat.listSecretNames();
-      expect(names).toContain('KEY_A');
-      expect(names).toContain('KEY_B');
+      expect(names).toContain("KEY_A");
+      expect(names).toContain("KEY_B");
       expect(names).toHaveLength(2);
     });
 
-    it('should load secrets from disk on create', async () => {
+    it("should load secrets from disk on create", async () => {
       await mkdir(workDir, { recursive: true });
-      await saveSecrets(workDir, { PRELOADED: 'from-disk' });
+      await saveSecrets(workDir, { PRELOADED: "from-disk" });
 
       const habitat = await Habitat.create({
         workDir,
@@ -462,13 +484,13 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      expect(habitat.getSecret('PRELOADED')).toBe('from-disk');
-      expect(habitat.listSecretNames()).toContain('PRELOADED');
+      expect(habitat.getSecret("PRELOADED")).toBe("from-disk");
+      expect(habitat.listSecretNames()).toContain("PRELOADED");
     });
   });
 
-  describe('state files', () => {
-    it('should read and write state files', async () => {
+  describe("state files", () => {
+    it("should read and write state files", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -476,12 +498,14 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.writeStateFile('custom-state.json', { counter: 42 });
-      const data = await habitat.readStateFile<{ counter: number }>('custom-state.json');
+      await habitat.writeStateFile("custom-state.json", { counter: 42 });
+      const data = await habitat.readStateFile<{ counter: number }>(
+        "custom-state.json",
+      );
       expect(data?.counter).toBe(42);
     });
 
-    it('should return null for missing state files', async () => {
+    it("should return null for missing state files", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -489,13 +513,13 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      const data = await habitat.readStateFile('nonexistent.json');
+      const data = await habitat.readStateFile("nonexistent.json");
       expect(data).toBeNull();
     });
   });
 
-  describe('work dir files', () => {
-    it('should read and write work dir files', async () => {
+  describe("work dir files", () => {
+    it("should read and write work dir files", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -503,12 +527,12 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      await habitat.writeWorkDirFile('notes.md', '# My Notes');
-      const content = await habitat.readWorkDirFile('notes.md');
-      expect(content).toBe('# My Notes');
+      await habitat.writeWorkDirFile("notes.md", "# My Notes");
+      const content = await habitat.readWorkDirFile("notes.md");
+      expect(content).toBe("# My Notes");
     });
 
-    it('should return null for missing files', async () => {
+    it("should return null for missing files", async () => {
       const habitat = await Habitat.create({
         workDir,
         sessionsDir,
@@ -516,7 +540,7 @@ describe('Habitat', () => {
         skipSkills: true,
       });
 
-      const content = await habitat.readWorkDirFile('nonexistent.md');
+      const content = await habitat.readWorkDirFile("nonexistent.md");
       expect(content).toBeNull();
     });
   });

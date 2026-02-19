@@ -1,84 +1,102 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ResultAnalyzer } from './result-analyzer.js';
-import { EvaluationResult, EvaluationMetadata } from '../types/evaluation-types.js';
-import { ModelDetails } from '../../cognition/types.js';
+import { describe, it, expect, beforeEach } from "vitest";
+import { ResultAnalyzer } from "./result-analyzer.js";
+import {
+  EvaluationResult,
+  EvaluationMetadata,
+} from "../types/evaluation-types.js";
+import { ModelDetails } from "../../cognition/types.js";
 
-describe('ResultAnalyzer', () => {
+describe("ResultAnalyzer", () => {
   let analyzer: ResultAnalyzer;
   let mockResults: EvaluationResult[];
 
   beforeEach(() => {
     analyzer = new ResultAnalyzer();
-    
+
     mockResults = [
       {
-        model: { name: 'model-a', provider: 'provider-x' },
+        model: { name: "model-a", provider: "provider-x" },
         response: {
-          content: 'Response 1',
+          content: "Response 1",
           metadata: {
             startTime: new Date(),
             endTime: new Date(),
             tokenUsage: { promptTokens: 10, completionTokens: 20 },
-            provider: 'provider-x',
-            model: 'model-a',
-            cost: { total: 0.01, prompt: 0.005, completion: 0.005 }
-          }
+            provider: "provider-x",
+            model: "model-a",
+            cost: {
+              totalCost: 0.01,
+              promptCost: 0.005,
+              completionCost: 0.005,
+              usage: { promptTokens: 10, completionTokens: 20 },
+            },
+          },
         },
         metadata: {
-          stimulusId: 'stimulus-1',
-          evaluationId: 'eval-1',
+          stimulusId: "stimulus-1",
+          evaluationId: "eval-1",
           timestamp: new Date(),
           duration: 1000,
-          cached: false
-        }
+          cached: false,
+        },
       },
       {
-        model: { name: 'model-b', provider: 'provider-y' },
+        model: { name: "model-b", provider: "provider-y" },
         response: {
-          content: 'Response 2',
+          content: "Response 2",
           metadata: {
             startTime: new Date(),
             endTime: new Date(),
             tokenUsage: { promptTokens: 15, completionTokens: 25 },
-            provider: 'provider-y',
-            model: 'model-b',
-            cost: { total: 0.02, prompt: 0.01, completion: 0.01 }
-          }
+            provider: "provider-y",
+            model: "model-b",
+            cost: {
+              totalCost: 0.02,
+              promptCost: 0.01,
+              completionCost: 0.01,
+              usage: { promptTokens: 15, completionTokens: 25 },
+            },
+          },
         },
         metadata: {
-          stimulusId: 'stimulus-1',
-          evaluationId: 'eval-1',
+          stimulusId: "stimulus-1",
+          evaluationId: "eval-1",
           timestamp: new Date(),
           duration: 2000,
-          cached: false
-        }
+          cached: false,
+        },
       },
       {
-        model: { name: 'model-a', provider: 'provider-x' },
+        model: { name: "model-a", provider: "provider-x" },
         response: {
-          content: '',
+          content: "",
           metadata: {
             startTime: new Date(),
             endTime: new Date(),
             tokenUsage: { promptTokens: 0, completionTokens: 0 },
-            provider: 'provider-x',
-            model: 'model-a',
-            cost: { total: 0, prompt: 0, completion: 0 }
-          }
+            provider: "provider-x",
+            model: "model-a",
+            cost: {
+              totalCost: 0,
+              promptCost: 0,
+              completionCost: 0,
+              usage: { promptTokens: 0, completionTokens: 0 },
+            },
+          },
         },
         metadata: {
-          stimulusId: 'stimulus-2',
-          evaluationId: 'eval-1',
+          stimulusId: "stimulus-2",
+          evaluationId: "eval-1",
           timestamp: new Date(),
           duration: 500,
           cached: false,
-          error: 'Model error'
-        }
-      }
+          error: "Model error",
+        },
+      },
     ];
   });
 
-  it('should calculate metrics correctly', () => {
+  it("should calculate metrics correctly", () => {
     const analysis = analyzer.analyze(mockResults);
 
     expect(analysis.metrics.totalEvaluations).toBe(3);
@@ -92,21 +110,25 @@ describe('ResultAnalyzer', () => {
     expect(analysis.metrics.errorRate).toBeCloseTo(33.33, 1);
   });
 
-  it('should analyze model performance correctly', () => {
+  it("should analyze model performance correctly", () => {
     const analysis = analyzer.analyze(mockResults);
 
     expect(analysis.modelPerformance).toHaveLength(2);
 
-    const modelA = analysis.modelPerformance.find(m => m.model.name === 'model-a');
+    const modelA = analysis.modelPerformance.find(
+      (m) => m.model.name === "model-a",
+    );
     expect(modelA).toBeDefined();
     expect(modelA!.evaluations).toBe(2);
     expect(modelA!.successRate).toBe(50); // 1 success out of 2
     expect(modelA!.averageDuration).toBe(1000); // Only successful evaluations: 1000
     expect(modelA!.totalCost).toBe(0.01);
     expect(modelA!.errors).toHaveLength(1);
-    expect(modelA!.errors[0]).toBe('Model error');
+    expect(modelA!.errors[0]).toBe("Model error");
 
-    const modelB = analysis.modelPerformance.find(m => m.model.name === 'model-b');
+    const modelB = analysis.modelPerformance.find(
+      (m) => m.model.name === "model-b",
+    );
     expect(modelB).toBeDefined();
     expect(modelB!.evaluations).toBe(1);
     expect(modelB!.successRate).toBe(100);
@@ -115,12 +137,14 @@ describe('ResultAnalyzer', () => {
     expect(modelB!.errors).toHaveLength(0);
   });
 
-  it('should analyze stimulus performance correctly', () => {
+  it("should analyze stimulus performance correctly", () => {
     const analysis = analyzer.analyze(mockResults);
 
     expect(analysis.stimulusPerformance).toHaveLength(2);
 
-    const stimulus1 = analysis.stimulusPerformance.find(s => s.stimulusId === 'stimulus-1');
+    const stimulus1 = analysis.stimulusPerformance.find(
+      (s) => s.stimulusId === "stimulus-1",
+    );
     expect(stimulus1).toBeDefined();
     expect(stimulus1!.evaluations).toBe(2);
     expect(stimulus1!.successRate).toBe(100);
@@ -128,7 +152,9 @@ describe('ResultAnalyzer', () => {
     expect(stimulus1!.totalCost).toBe(0.03);
     expect(stimulus1!.models).toHaveLength(2);
 
-    const stimulus2 = analysis.stimulusPerformance.find(s => s.stimulusId === 'stimulus-2');
+    const stimulus2 = analysis.stimulusPerformance.find(
+      (s) => s.stimulusId === "stimulus-2",
+    );
     expect(stimulus2).toBeDefined();
     expect(stimulus2!.evaluations).toBe(1);
     expect(stimulus2!.successRate).toBe(0);
@@ -137,56 +163,65 @@ describe('ResultAnalyzer', () => {
     expect(stimulus2!.models).toHaveLength(1);
   });
 
-  it('should extract errors correctly', () => {
+  it("should extract errors correctly", () => {
     const analysis = analyzer.analyze(mockResults);
 
     expect(analysis.errors).toHaveLength(1);
-    expect(analysis.errors[0].model.name).toBe('model-a');
-    expect(analysis.errors[0].stimulusId).toBe('stimulus-2');
-    expect(analysis.errors[0].error).toBe('Model error');
+    expect(analysis.errors[0].model.name).toBe("model-a");
+    expect(analysis.errors[0].stimulusId).toBe("stimulus-2");
+    expect(analysis.errors[0].error).toBe("Model error");
     expect(analysis.errors[0].timestamp).toBeInstanceOf(Date);
   });
 
-  it('should generate recommendations for low success rate', () => {
+  it("should generate recommendations for low success rate", () => {
     const analysis = analyzer.analyze(mockResults);
 
-    expect(analysis.recommendations.some(rec => rec.includes('Low success rate'))).toBe(true);
+    expect(
+      analysis.recommendations.some((rec) => rec.includes("Low success rate")),
+    ).toBe(true);
   });
 
-  it('should generate recommendations for common errors', () => {
+  it("should generate recommendations for common errors", () => {
     // Create test data with multiple identical errors
     const commonErrorResults = [
       ...mockResults,
       {
-        model: { name: 'model-c', provider: 'provider-z' },
+        model: { name: "model-c", provider: "provider-z" },
         response: {
-          content: '',
+          content: "",
           metadata: {
             startTime: new Date(),
             endTime: new Date(),
             tokenUsage: { promptTokens: 0, completionTokens: 0 },
-            provider: 'provider-z',
-            model: 'model-c',
-            cost: { total: 0, prompt: 0, completion: 0 }
-          }
+            provider: "provider-z",
+            model: "model-c",
+            cost: {
+              totalCost: 0,
+              promptCost: 0,
+              completionCost: 0,
+              usage: { promptTokens: 0, completionTokens: 0 },
+            },
+          },
         },
         metadata: {
-          stimulusId: 'stimulus-3',
-          evaluationId: 'eval-1',
+          stimulusId: "stimulus-3",
+          evaluationId: "eval-1",
           timestamp: new Date(),
           duration: 500,
           cached: false,
-          error: 'Model error' // Same error as the existing one
-        }
-      }
+          error: "Model error", // Same error as the existing one
+        },
+      },
     ];
 
     const analysis = analyzer.analyze(commonErrorResults);
 
-    expect(analysis.recommendations.some(rec => rec.includes('Common errors'))).toBe(true);
+    expect(
+      analysis.recommendations.some((rec) => rec.includes("Common errors")),
+    ).toBe(true);
   });
 
-  it('should handle empty results', () => {
+  it("should handle empty results", () => {
     const analysis = analyzer.analyze([]);
 
     expect(analysis.metrics.totalEvaluations).toBe(0);
@@ -199,46 +234,57 @@ describe('ResultAnalyzer', () => {
     expect(analysis.recommendations.length).toBeGreaterThanOrEqual(0);
   });
 
-  it('should handle all successful results', () => {
-    const successfulResults = mockResults.filter(r => !r.metadata.error);
+  it("should handle all successful results", () => {
+    const successfulResults = mockResults.filter((r) => !r.metadata.error);
     const analysis = analyzer.analyze(successfulResults);
 
     expect(analysis.metrics.successRate).toBe(100);
     expect(analysis.metrics.errorRate).toBe(0);
     expect(analysis.errors).toHaveLength(0);
     expect(analysis.recommendations).not.toContain(
-      expect.stringContaining('Low success rate')
+      expect.stringContaining("Low success rate"),
     );
   });
 
-  it('should handle high cost scenarios', () => {
-    const highCostResults = mockResults.map(r => ({
+  it("should handle high cost scenarios", () => {
+    const highCostResults = mockResults.map((r) => ({
       ...r,
       response: {
         ...r.response,
         metadata: {
           ...r.response.metadata,
-          cost: { total: 2, prompt: 1, completion: 1 }
-        }
-      }
+          cost: {
+            totalCost: 2,
+            promptCost: 1,
+            completionCost: 1,
+            usage: { promptTokens: 0, completionTokens: 0 },
+          },
+        },
+      },
     }));
 
     const analysis = analyzer.analyze(highCostResults);
 
-    expect(analysis.recommendations.some(rec => rec.includes('High total cost'))).toBe(true);
+    expect(
+      analysis.recommendations.some((rec) => rec.includes("High total cost")),
+    ).toBe(true);
   });
 
-  it('should handle high duration scenarios', () => {
-    const slowResults = mockResults.map(r => ({
+  it("should handle high duration scenarios", () => {
+    const slowResults = mockResults.map((r) => ({
       ...r,
       metadata: {
         ...r.metadata,
-        duration: 10000 // 10 seconds
-      }
+        duration: 10000, // 10 seconds
+      },
     }));
 
     const analysis = analyzer.analyze(slowResults);
 
-    expect(analysis.recommendations.some(rec => rec.includes('High average duration'))).toBe(true);
+    expect(
+      analysis.recommendations.some((rec) =>
+        rec.includes("High average duration"),
+      ),
+    ).toBe(true);
   });
 });

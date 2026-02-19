@@ -9,11 +9,13 @@ The umwelten project implements a **stimulus-centric evaluation and interaction 
 ## Core Philosophy
 
 ### Infrastructure-First Approach
+
 - **Reusable Infrastructure**: Generic evaluation strategies, stimulus templates, and tool integrations
 - **Composable Components**: Simple building blocks that can be combined for complex evaluations
 - **Clear Separation**: Infrastructure vs. specific test implementations
 
 ### Stimulus-Centric Design
+
 - **Stimulus as Primary Unit**: All cognitive testing revolves around `Stimulus` objects that define role, objective, instructions, tools, and temperature
 - **Template System**: Generic, reusable stimulus definitions for common tasks (creative writing, coding, analysis)
 - **Tool Integration**: Seamless integration of tools via Vercel AI SDK `tool()` definitions
@@ -25,7 +27,7 @@ The umwelten project implements a **stimulus-centric evaluation and interaction 
 The top-level container for agents — the "world" an agent lives in.
 
 - **Habitat class**: Factory-created via `Habitat.create()`, manages config, sessions, agents, tools, secrets
-- **Tool Sets**: Modular tool collections — agent management, session management, secrets, search, code execution (`run_project`)
+- **Tool Sets**: Modular tool collections — agent management, session management, secrets, search
 - **HabitatAgent**: Sub-agent system with its own Stimulus built from cloned project files
 - **Session Management**: Persistent sessions with JSONL transcript storage
 - **Secrets**: Encrypted secret storage with `secrets.json` (0600 permissions)
@@ -147,21 +149,25 @@ src/
 ## Design Principles
 
 ### 1. Simplicity Over Complexity
+
 - Start with minimal implementations
 - Add complexity only when necessary
 - Prefer composition over inheritance
 
 ### 2. Reusability
+
 - Generic templates for common tasks
 - Composable evaluation strategies
 - Shared tool integrations and skill system
 
 ### 3. Extensibility
+
 - Clear patterns for adding new capabilities
 - Plugin architecture for tools and providers
 - Skill system for sharing capabilities between agents
 
 ### 4. Maintainability
+
 - Clear separation of concerns
 - Well-documented interfaces
 - Comprehensive test coverage
@@ -169,6 +175,7 @@ src/
 ## Next Steps
 
 1. **Try the CLI**: Use the command-line interface
+
    ```bash
    # List models
    dotenvx run -- pnpm run cli -- models --provider google
@@ -181,6 +188,7 @@ src/
    ```
 
 2. **Start a Habitat**: Set up a full agent environment
+
    ```bash
    dotenvx run -- pnpm run cli -- habitat
    ```

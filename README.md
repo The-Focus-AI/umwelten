@@ -51,12 +51,12 @@ umwelten eval run \
 ### Programmatic Usage
 
 ```typescript
-import { ChatInteraction, CLIInterface, EvaluationInteraction } from 'umwelten';
+import { ChatInteraction, CLIInterface, EvaluationInteraction } from "umwelten";
 
 // Chat with memory and tools
 const chatInteraction = new ChatInteraction({
   name: "llama3.2:latest",
-  provider: "ollama"
+  provider: "ollama",
 });
 
 const cliInterface = new CLIInterface();
@@ -65,7 +65,7 @@ await cliInterface.startChat(chatInteraction);
 // Evaluation with structured output
 const evalInteraction = new EvaluationInteraction(
   { name: "gpt-4", provider: "openrouter" },
-  "Analyze this code and provide a score from 1-10"
+  "Analyze this code and provide a score from 1-10",
 );
 
 const response = await evalInteraction.evaluateWithSchema(scoreSchema);
@@ -74,6 +74,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 ## ✨ Key Features
 
 ### 🆕 New Interaction + Interface Pattern
+
 - **🎯 Pre-configured Interactions**: `ChatInteraction`, `EvaluationInteraction`, `AgentInteraction`
 - **🖥️ Multiple Interfaces**: CLI, Web, Agent interfaces for different environments
 - **🔧 Built-in Tools**: Weather, calculator, file analysis, and more
@@ -81,6 +82,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - **⚡ Simplified API**: Same interaction works across CLI, web, and agent contexts
 
 ### 🔧 Core Capabilities
+
 - **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio, GitHub Models
 - **📊 Structured Output**: DSL, JSON Schema, Zod validation with type coercion
 - **⚡ Batch Processing**: Concurrent file processing with intelligent error handling
@@ -91,6 +93,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - **🔧 Advanced Tool Calling**: Multi-step tool execution with proper `stopWhen` control
 - **🔎 External Interactions**: List, search, and analyze external interactions (Claude Code, Cursor conversation history)
 - **📏 Context Management**: Track context size and intelligently compact conversations using LLM-based strategies
+- **🚢 Habitat Bridge System**: Persistent agent containers with auto-provisioning via MCP
 - **🔍 Enhanced Documentation**: VitePress site with local search and keyboard shortcuts
 
 ## 📚 Documentation
@@ -113,6 +116,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 - 📏 [Context Management](https://umwelten.thefocus.ai/guide/context-management) - Track size and compact conversations
 - 🏠 [Habitat](https://umwelten.thefocus.ai/guide/habitat) - Top-level agent container with tools, skills, sub-agents, and multi-interface support (CLI, Telegram)
 - 🤖 [Habitat Agents](https://umwelten.thefocus.ai/guide/habitat-agents) - Delegate to persistent sub-agents that manage projects
+- 🚢 [Habitat Bridge](https://umwelten.thefocus.ai/guide/habitat-bridge) - Persistent agent containers with MCP-based communication and auto-provisioning
 
 ### Examples & Migration
 
@@ -124,11 +128,13 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 ## 🛠️ Installation
 
 ### Option 1: NPM (Recommended)
+
 ```bash
 npm install -g umwelten
 ```
 
 ### Option 2: From Source
+
 ```bash
 git clone https://github.com/The-Focus-AI/umwelten.git
 cd umwelten
@@ -152,6 +158,7 @@ export LMSTUDIO_BASE_URL=http://localhost:1234
 ## 🎯 Common Use Cases
 
 ### Model Comparison
+
 ```bash
 umwelten eval run \
   --prompt "Explain quantum computing in simple terms" \
@@ -161,6 +168,7 @@ umwelten eval run \
 ```
 
 ### Image Analysis
+
 ```bash
 umwelten eval run \
   --prompt "Describe this image in detail" \
@@ -170,6 +178,7 @@ umwelten eval run \
 ```
 
 ### Real-Time Streaming
+
 ```bash
 # Stream structured objects with real-time updates
 umwelten eval run \
@@ -181,6 +190,7 @@ umwelten eval run \
 ```
 
 ### Structured Data Extraction
+
 ```bash
 umwelten eval run \
   --prompt "Extract person info: John is 25 and works as a developer" \
@@ -190,6 +200,7 @@ umwelten eval run \
 ```
 
 ### Batch Processing
+
 ```bash
 umwelten eval batch \
   --prompt "Analyze this document" \
@@ -201,6 +212,7 @@ umwelten eval batch \
 ```
 
 ### Report Generation
+
 ```bash
 # Generate comprehensive report
 umwelten eval report --id "quantum-comparison" --format html --output report.html
@@ -213,6 +225,7 @@ umwelten eval report --id "quantum-comparison" --format json --short --output su
 ```
 
 ### Tool Calling with Multi-Step Execution
+
 ```bash
 # Tools demonstration with multi-step execution
 umwelten tools demo \
@@ -224,27 +237,30 @@ umwelten tools demo \
 
 ## 📊 Provider Support
 
-| Provider | Models | Features | Cost |
-|----------|--------|----------|------|
-| **Google** | Gemini 2.0/2.5, Flash | Vision, Large Context (2M tokens) | Low cost |
-| **Ollama** | Gemma, Llama, Qwen, etc. | Local processing, Privacy | Free |
-| **OpenRouter** | GPT-4, Claude, etc. | Wide model selection | Pay-per-use |
-| **LM Studio** | Any local model | Full privacy, No API key | Free |
-| **GitHub Models** | OpenAI, Meta, DeepSeek, etc. | Free during preview | Free |
+| Provider          | Models                       | Features                          | Cost        |
+| ----------------- | ---------------------------- | --------------------------------- | ----------- |
+| **Google**        | Gemini 2.0/2.5, Flash        | Vision, Large Context (2M tokens) | Low cost    |
+| **Ollama**        | Gemma, Llama, Qwen, etc.     | Local processing, Privacy         | Free        |
+| **OpenRouter**    | GPT-4, Claude, etc.          | Wide model selection              | Pay-per-use |
+| **LM Studio**     | Any local model              | Full privacy, No API key          | Free        |
+| **GitHub Models** | OpenAI, Meta, DeepSeek, etc. | Free during preview               | Free        |
 
 ## 🆕 Recent Enhancements
 
 ### 📊 Enhanced Report Generation
+
 - **`--short` Option**: Generate concise summaries without full response content
 - **Multiple Formats**: Markdown, HTML, JSON, CSV with short mode support
 - **Quick Overviews**: Perfect for presentations and executive summaries
 
 ### 🔧 Improved Tool Calling
+
 - **`stopWhen` Integration**: Proper multi-step tool execution using AI SDK best practices
 - **Better Control**: More precise control over tool calling sequences
 - **Enhanced Debugging**: Improved visibility into tool execution behavior
 
 ### 🔍 Enhanced Documentation
+
 - **VitePress Site**: Complete documentation with local search functionality
 - **Keyboard Shortcuts**: Cmd+K/Ctrl+K for quick search, Escape to close
 - **Smart Search**: Intelligent relevance scoring and fuzzy matching
@@ -272,4 +288,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**[📖 View Full Documentation](https://umwelten.thefocus.ai/)** | **[🚀 Examples](https://umwelten.thefocus.ai/examples/)** | **[🔄 Migration Guide](https://umwelten.thefocus.ai/migration/)** 
+**[📖 View Full Documentation](https://umwelten.thefocus.ai/)** | **[🚀 Examples](https://umwelten.thefocus.ai/examples/)** | **[🔄 Migration Guide](https://umwelten.thefocus.ai/migration/)**
