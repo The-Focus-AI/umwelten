@@ -4,12 +4,12 @@
  * plus optional memory files when config.memoryFiles.enabled is true.
  */
 
-import { readFile, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import matter from 'gray-matter';
-import type { StimulusOptions } from '../stimulus/stimulus.js';
-import type { HabitatConfig } from './types.js';
-import { fileExists } from './config.js';
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import matter from "gray-matter";
+import type { StimulusOptions } from "../stimulus/stimulus.js";
+import type { HabitatConfig } from "./types.js";
+import { fileExists } from "./config.js";
 
 const DEFAULT_STIMULUS_BODY = `# Persona
 
@@ -17,34 +17,47 @@ You are a helpful assistant. Edit STIMULUS.md in your work directory to customiz
 `;
 
 const DEFAULT_INSTRUCTIONS = [
-  'Be concise and precise.',
+  "Be concise and precise.",
   'Use current_time when the user asks for the time, date, or "now".',
-  'Use the search tool when the user asks for current information or to look something up on the web.',
-  'For fetching web content, prefer markify over wget. Use markify to convert webpages to readable markdown.',
-  'Use parse_feed for RSS, Atom, or XML feed URLs.',
+  "Use the search tool when the user asks for current information or to look something up on the web.",
+  "For fetching web content, prefer markify over wget. Use markify to convert webpages to readable markdown.",
+  "Use parse_feed for RSS, Atom, or XML feed URLs.",
   'File operations: paths are relative to the work directory (or to the agent project if agentId is set). Use list_directory with path "." to list the work dir.',
-  'When listing or showing external interactions, always identify the agent by id or name first.',
-  'Secrets in agent config are references only (env var names); never store or echo secret values.',
-  'For current date or time, use the current_time tool instead of guessing.',
+  "When listing or showing external interactions, always identify the agent by id or name first.",
+  "Secrets in agent config are references only (env var names); never store or echo secret values.",
+  "For current date or time, use the current_time tool instead of guessing.",
+  "When cloning an agent with agent_clone, it automatically starts a BridgeAgent in a Dagger container - no model configuration needed.",
+  "IMPORTANT: agent_ask requires a configured model for the sub-agent. If no model is configured, use bridge_create instead for containerized execution.",
+  "Bridge agents run in containers without needing LLM configuration - they use the Bridge MCP server for file/exec operations.",
 ];
 
 function normalizeInstructions(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value.filter((v): v is string => typeof v === 'string');
+    return value.filter((v): v is string => typeof v === "string");
   }
-  if (typeof value === 'string') {
-    return value.split('\n').map((s) => s.trim()).filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   return [];
 }
 
-async function loadStimulusFile(workDir: string, stimulusFile?: string): Promise<{ data: Record<string, unknown>; body: string } | null> {
+async function loadStimulusFile(
+  workDir: string,
+  stimulusFile?: string,
+): Promise<{ data: Record<string, unknown>; body: string } | null> {
   const candidates = stimulusFile
     ? [join(workDir, stimulusFile)]
-    : [join(workDir, 'STIMULUS.md'), join(workDir, 'prompts', 'main.md'), join(workDir, 'prompts', 'persona.md')];
+    : [
+        join(workDir, "STIMULUS.md"),
+        join(workDir, "prompts", "main.md"),
+        join(workDir, "prompts", "persona.md"),
+      ];
   for (const path of candidates) {
     if (await fileExists(path)) {
-      const content = await readFile(path, 'utf-8');
+      const content = await readFile(path, "utf-8");
       const { data, content: body } = matter(content);
       return { data: data as Record<string, unknown>, body: body.trim() };
     }
@@ -53,36 +66,42 @@ async function loadStimulusFile(workDir: string, stimulusFile?: string): Promise
 }
 
 async function loadPromptsDirectory(workDir: string): Promise<string> {
-  const promptsDir = join(workDir, 'prompts');
+  const promptsDir = join(workDir, "prompts");
   try {
     const entries = await readdir(promptsDir, { withFileTypes: true });
-    const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith('.md')).map((e) => e.name).sort();
+    const mdFiles = entries
+      .filter((e) => e.isFile() && e.name.endsWith(".md"))
+      .map((e) => e.name)
+      .sort();
     const parts: string[] = [];
     for (const name of mdFiles) {
-      const content = await readFile(join(promptsDir, name), 'utf-8');
+      const content = await readFile(join(promptsDir, name), "utf-8");
       const parsed = matter(content);
       parts.push(parsed.content.trim());
     }
-    return parts.join('\n\n---\n\n');
+    return parts.join("\n\n---\n\n");
   } catch {
-    return '';
+    return "";
   }
 }
 
 async function loadAgentMd(workDir: string): Promise<string | null> {
-  const path = join(workDir, 'AGENT.md');
+  const path = join(workDir, "AGENT.md");
   try {
-    const content = await readFile(path, 'utf-8');
+    const content = await readFile(path, "utf-8");
     return content.trim() || null;
   } catch {
     return null;
   }
 }
 
-async function loadMemoryFile(workDir: string, filename: string): Promise<string | null> {
+async function loadMemoryFile(
+  workDir: string,
+  filename: string,
+): Promise<string | null> {
   const path = join(workDir, filename);
   try {
-    const content = await readFile(path, 'utf-8');
+    const content = await readFile(path, "utf-8");
     return content.trim() || null;
   } catch {
     return null;
@@ -97,10 +116,10 @@ async function loadMemoryFile(workDir: string, filename: string): Promise<string
  */
 export async function loadStimulusOptionsFromWorkDir(
   workDir: string,
-  config: HabitatConfig
+  config: HabitatConfig,
 ): Promise<Partial<StimulusOptions> & { systemContext: string }> {
   const stimulusSource = await loadStimulusFile(workDir, config.stimulusFile);
-  let role = 'assistant';
+  let role = "assistant";
   let objective: string | undefined;
   let instructions = DEFAULT_INSTRUCTIONS;
   let maxToolSteps = 50;
@@ -108,9 +127,11 @@ export async function loadStimulusOptionsFromWorkDir(
 
   if (stimulusSource) {
     const { data, body } = stimulusSource;
-    if (data.role != null && typeof data.role === 'string') role = data.role;
-    if (data.objective != null && typeof data.objective === 'string') objective = data.objective;
-    if (data.maxToolSteps != null && typeof data.maxToolSteps === 'number') maxToolSteps = data.maxToolSteps;
+    if (data.role != null && typeof data.role === "string") role = data.role;
+    if (data.objective != null && typeof data.objective === "string")
+      objective = data.objective;
+    if (data.maxToolSteps != null && typeof data.maxToolSteps === "number")
+      maxToolSteps = data.maxToolSteps;
     const fromFile = normalizeInstructions(data.instructions);
     if (fromFile.length > 0) instructions = fromFile;
     stimulusBody = body || DEFAULT_STIMULUS_BODY;
@@ -133,8 +154,8 @@ export async function loadStimulusOptionsFromWorkDir(
         // For the last file in the list, show only recent entries (last 20 lines)
         const isLast = filename === memoryFileNames[memoryFileNames.length - 1];
         if (isLast && memoryFileNames.length > 1) {
-          const lines = content.split('\n');
-          const recent = lines.slice(-20).join('\n');
+          const lines = content.split("\n");
+          const recent = lines.slice(-20).join("\n");
           systemContextParts.push(`## ${filename}\n\n${recent}`);
         } else {
           systemContextParts.push(`## ${filename}\n\n${content}`);
@@ -143,7 +164,7 @@ export async function loadStimulusOptionsFromWorkDir(
     }
   }
 
-  const systemContext = systemContextParts.join('\n\n---\n\n');
+  const systemContext = systemContextParts.join("\n\n---\n\n");
 
   return {
     role,
