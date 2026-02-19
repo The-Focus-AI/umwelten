@@ -479,8 +479,8 @@ export class BaseModelRunner implements ModelRunner {
       if (response.fullStream) {
         for await (const event of response.fullStream) {
           const ev = event as any;
-          // Debug: Log all event types
-          if (process.env.DEBUG === "1" && ev.type !== "text-delta") {
+          // Debug: Log all event types (including text-delta for reasoning debug)
+          if (process.env.DEBUG === "1") {
             console.log(`[DEBUG] Event type: ${ev.type}`, ev);
           }
           switch (ev.type) {
@@ -495,8 +495,12 @@ export class BaseModelRunner implements ModelRunner {
               console.log("\n🧠 [REASONING START]");
               break;
             case "reasoning-delta":
-              const reasoningDelta = ev.delta;
-              if (reasoningDelta !== undefined && reasoningDelta !== null) {
+              const reasoningDelta = ev.delta ?? ev.textDelta ?? ev.text;
+              if (
+                reasoningDelta !== undefined &&
+                reasoningDelta !== null &&
+                reasoningDelta !== ""
+              ) {
                 process.stdout.write(`\x1b[36m${reasoningDelta}\x1b[0m`); // Cyan color for reasoning
                 reasoningText += reasoningDelta;
               }
