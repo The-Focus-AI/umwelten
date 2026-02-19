@@ -2,11 +2,13 @@ import { getOllamaModelUrl } from "./ollama.js";
 import { getOpenRouterModelUrl } from "./openrouter.js";
 import { getGoogleModelUrl } from "./google.js";
 import { getGitHubModelsModelUrl } from "./github-models.js";
+import { getFireworksModelUrl } from "./fireworks.js";
 import type { ModelDetails } from "../cognition/types.js";
 import { createGoogleProvider } from "./google.js";
 import { createOpenRouterProvider } from "./openrouter.js";
 import { createOllamaProvider } from "./ollama.js";
 import { createGitHubModelsProvider } from "./github-models.js";
+import { createFireworksProvider } from "./fireworks.js";
 import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
@@ -22,6 +24,8 @@ export function getModelUrl(model: ModelDetails): string | undefined {
       return getGoogleModelUrl(model.name);
     case "github-models":
       return getGitHubModelsModelUrl(model.name);
+    case "fireworks":
+      return getFireworksModelUrl(model.name);
     case "lmstudio":
       return undefined;
     default:
@@ -57,7 +61,7 @@ export async function getModelDetails(model: LanguageModel): Promise<ModelDetail
     const modelId = model.toString();
     
     // Try to find the model in our known providers
-    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'lmstudio'] as const;
+    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'fireworks', 'lmstudio'] as const;
     
     for (const providerName of providers) {
       try {
@@ -112,6 +116,12 @@ export async function getModelProvider(
         throw new Error("GITHUB_TOKEN environment variable is required");
       }
       return createGitHubModelsProvider(githubToken);
+    case "fireworks":
+      const fireworksKey = process.env.FIREWORKS_API_KEY;
+      if (!fireworksKey) {
+        throw new Error("FIREWORKS_API_KEY environment variable is required");
+      }
+      return createFireworksProvider(fireworksKey);
     case "ollama":
       return createOllamaProvider();
     case "lmstudio":

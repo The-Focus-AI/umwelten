@@ -259,5 +259,6 @@ const interaction = await habitat.createInteraction(sessionId);
 - `GOOGLE_GENERATIVE_AI_API_KEY` — Google Gemini (NOT `GOOGLE_API_KEY`)
 - `OPENROUTER_API_KEY` — OpenRouter
 - `GITHUB_TOKEN` — GitHub Models
+- `FIREWORKS_API_KEY` — Fireworks.ai
 - `TAVILY_API_KEY` — Web search tool
 - `MARKIFY_URL` — Optional external HTML-to-markdown service
