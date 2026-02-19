@@ -4,14 +4,14 @@
  * Any UI (CLI, Telegram, TUI, web) starts from a Habitat.
  */
 
-import { join } from 'node:path';
-import type { Tool } from 'ai';
-import { Stimulus } from '../stimulus/stimulus.js';
-import { Interaction } from '../interaction/core/interaction.js';
-import { InteractionStore } from '../interaction/persistence/interaction-store.js';
-import { loadToolsFromDirectory } from '../stimulus/tools/loader.js';
-import type { SkillDefinition } from '../stimulus/skills/types.js';
-import type { ModelDetails } from '../cognition/types.js';
+import { join } from "node:path";
+import type { Tool } from "ai";
+import { Stimulus } from "../stimulus/stimulus.js";
+import { Interaction } from "../interaction/core/interaction.js";
+import { InteractionStore } from "../interaction/persistence/interaction-store.js";
+import { loadToolsFromDirectory } from "../stimulus/tools/loader.js";
+import type { SkillDefinition } from "../stimulus/skills/types.js";
+import type { ModelDetails } from "../cognition/types.js";
 import type {
   HabitatConfig,
   HabitatOptions,
@@ -19,7 +19,7 @@ import type {
   HabitatSessionType,
   AgentEntry,
   OnboardingResult,
-} from './types.js';
+} from "./types.js";
 import {
   resolveWorkDir,
   resolveSessionsDir,
@@ -33,24 +33,33 @@ import {
   writeWorkDirFile,
   getAgentById,
   getFileAllowedRoots,
-} from './config.js';
-import { HabitatSessionManager } from './session-manager.js';
-import { loadStimulusOptionsFromWorkDir } from './load-prompts.js';
-import { isOnboarded, runOnboarding } from './onboard.js';
-import { writeSessionTranscript } from './transcript.js';
-import { standardToolSets } from './tool-sets.js';
-import type { ToolSet } from './tool-sets.js';
-import type { FileToolsContext } from './tools/file-tools.js';
-import type { AgentToolsContext } from './tools/agent-tools.js';
-import type { SessionToolsContext } from './tools/session-tools.js';
-import type { ExternalInteractionToolsContext } from './tools/external-interaction-tools.js';
-import type { AgentRunnerToolsContext } from './tools/agent-runner-tools.js';
-import type { SecretsToolsContext } from './tools/secrets-tools.js';
-import type { SearchToolsContext } from './tools/search-tools.js';
-import { HabitatAgent } from './habitat-agent.js';
-import { loadSecrets, saveSecrets } from './secrets.js';
+} from "./config.js";
+import { HabitatSessionManager } from "./session-manager.js";
+import { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
+import { isOnboarded, runOnboarding } from "./onboard.js";
+import { writeSessionTranscript } from "./transcript.js";
+import { standardToolSets } from "./tool-sets.js";
+import type { ToolSet } from "./tool-sets.js";
+import type { FileToolsContext } from "./tools/file-tools.js";
+import type { AgentToolsContext } from "./tools/agent-tools.js";
+import type { SessionToolsContext } from "./tools/session-tools.js";
+import type { ExternalInteractionToolsContext } from "./tools/external-interaction-tools.js";
+import type { AgentRunnerToolsContext } from "./tools/agent-runner-tools.js";
+import type { SecretsToolsContext } from "./tools/secrets-tools.js";
+import type { SearchToolsContext } from "./tools/search-tools.js";
+import { HabitatAgent } from "./habitat-agent.js";
+import { loadSecrets, saveSecrets } from "./secrets.js";
 
-export class Habitat implements FileToolsContext, AgentToolsContext, SessionToolsContext, ExternalInteractionToolsContext, AgentRunnerToolsContext, SecretsToolsContext, SearchToolsContext {
+export class Habitat
+  implements
+    FileToolsContext,
+    AgentToolsContext,
+    SessionToolsContext,
+    ExternalInteractionToolsContext,
+    AgentRunnerToolsContext,
+    SecretsToolsContext,
+    SearchToolsContext
+{
   readonly workDir: string;
   readonly sessionsDir: string;
   readonly configPath: string;
@@ -74,7 +83,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     secrets: Record<string, string>,
     store: InteractionStore,
     sessionManager: HabitatSessionManager,
-    options: HabitatOptions
+    options: HabitatOptions,
   ) {
     this.workDir = workDir;
     this.sessionsDir = sessionsDir;
@@ -95,7 +104,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
    */
   static async create(options?: HabitatOptions): Promise<Habitat> {
     const opts = options ?? {};
-    const envPrefix = opts.envPrefix ?? 'HABITAT';
+    const envPrefix = opts.envPrefix ?? "HABITAT";
 
     // 1. Resolve directories
     const workDir = resolveWorkDir(opts);
@@ -107,7 +116,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     await ensureDir(sessionsDir);
 
     // 3. Load config
-    const config = opts.config ?? await loadConfig(configPath);
+    const config = opts.config ?? (await loadConfig(configPath));
 
     // 4. Load secrets and populate process.env (secrets fill gaps, never override)
     const secrets = await loadSecrets(workDir);
@@ -122,8 +131,15 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     const sessionManager = new HabitatSessionManager(sessionsDir);
 
     const habitat = new Habitat(
-      workDir, sessionsDir, configPath, envPrefix,
-      config, secrets, store, sessionManager, opts
+      workDir,
+      sessionsDir,
+      configPath,
+      envPrefix,
+      config,
+      secrets,
+      store,
+      sessionManager,
+      opts,
     );
 
     // 6. Register standard tool sets (unless skipped)
@@ -135,9 +151,13 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
 
     // 7. Load work-dir tools (unless skipped)
     if (!opts.skipWorkDirTools) {
-      const toolsDirRelative = config.toolsDir ?? 'tools';
+      const toolsDirRelative = config.toolsDir ?? "tools";
       try {
-        const workDirTools = await loadToolsFromDirectory(workDir, toolsDirRelative, habitat);
+        const workDirTools = await loadToolsFromDirectory(
+          workDir,
+          toolsDirRelative,
+          habitat,
+        );
         for (const [name, tool] of Object.entries(workDirTools)) {
           habitat.addTool(name, tool);
         }
@@ -177,8 +197,10 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
   // ── Model defaults ──────────────────────────────────────────────
 
   getDefaultModelDetails(): ModelDetails | undefined {
-    const provider = this.config.defaultProvider ?? process.env[`${this.envPrefix}_PROVIDER`];
-    const model = this.config.defaultModel ?? process.env[`${this.envPrefix}_MODEL`];
+    const provider =
+      this.config.defaultProvider ?? process.env[`${this.envPrefix}_PROVIDER`];
+    const model =
+      this.config.defaultModel ?? process.env[`${this.envPrefix}_MODEL`];
     if (provider && model) return { name: model, provider };
     return undefined;
   }
@@ -198,7 +220,10 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     await this.saveConfig();
   }
 
-  async updateAgent(idOrName: string, updates: Partial<AgentEntry>): Promise<void> {
+  async updateAgent(
+    idOrName: string,
+    updates: Partial<AgentEntry>,
+  ): Promise<void> {
     const agent = this.getAgent(idOrName);
     if (!agent) return;
     Object.assign(agent, updates);
@@ -206,7 +231,9 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
   }
 
   async removeAgent(idOrName: string): Promise<AgentEntry | undefined> {
-    const idx = this.config.agents.findIndex(a => a.id === idOrName || a.name === idOrName);
+    const idx = this.config.agents.findIndex(
+      (a) => a.id === idOrName || a.name === idOrName,
+    );
     if (idx === -1) return undefined;
     const removed = this.config.agents.splice(idx, 1)[0];
     await this.saveConfig();
@@ -246,7 +273,10 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
   }
 
   private async buildStimulus(): Promise<Stimulus> {
-    const stimulusOptions = await loadStimulusOptionsFromWorkDir(this.workDir, this.config);
+    const stimulusOptions = await loadStimulusOptionsFromWorkDir(
+      this.workDir,
+      this.config,
+    );
     const stimulus = new Stimulus(stimulusOptions);
 
     // Register all habitat tools into the stimulus
@@ -256,10 +286,15 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
 
     // Load skills (unless skipped)
     if (!this.options.skipSkills) {
-      const skillsDirsResolved = (this.config.skillsDirs ?? ['./skills']).map((d) => join(this.workDir, d));
+      const skillsDirsResolved = (this.config.skillsDirs ?? ["./skills"]).map(
+        (d) => join(this.workDir, d),
+      );
       stimulus.options.skillsDirs = skillsDirsResolved;
       stimulus.options.skillsFromGit = this.config.skillsFromGit ?? [];
-      stimulus.options.skillsCacheRoot = join(this.workDir, this.config.skillsCacheDir ?? 'repos');
+      stimulus.options.skillsCacheRoot = join(
+        this.workDir,
+        this.config.skillsCacheDir ?? "repos",
+      );
       await stimulus.loadSkills();
       stimulus.addSkillsTool();
     }
@@ -305,14 +340,14 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
 
   async getOrCreateSession(
     type: HabitatSessionType,
-    identifier?: string | number
+    identifier?: string | number,
   ): Promise<{ sessionId: string; sessionDir: string }> {
     return this.sessionManager.getOrCreateSession(type, identifier);
   }
 
   async startNewThread(
     type: HabitatSessionType,
-    identifier: string | number
+    identifier: string | number,
   ): Promise<{ sessionId: string; sessionDir: string }> {
     return this.sessionManager.startNewThread(type, identifier);
   }
@@ -341,12 +376,16 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     sessionId?: string;
     sessionType?: HabitatSessionType;
     sessionIdentifier?: string | number;
-  }): Promise<{ interaction: Interaction; sessionId: string; sessionDir: string }> {
+  }): Promise<{
+    interaction: Interaction;
+    sessionId: string;
+    sessionDir: string;
+  }> {
     const modelDetails = options?.modelDetails ?? this.getDefaultModelDetails();
     if (!modelDetails) {
       throw new Error(
         `No model details provided and no default configured. ` +
-        `Set defaultProvider/defaultModel in config.json or ${this.envPrefix}_PROVIDER/${this.envPrefix}_MODEL env vars.`
+          `Set defaultProvider/defaultModel in config.json or ${this.envPrefix}_PROVIDER/${this.envPrefix}_MODEL env vars.`,
       );
     }
 
@@ -369,8 +408,8 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
       }
     } else {
       const session = await this.getOrCreateSession(
-        options?.sessionType ?? 'cli',
-        options?.sessionIdentifier
+        options?.sessionType ?? "cli",
+        options?.sessionIdentifier,
       );
       sessionId = session.sessionId;
       sessionDir = session.sessionDir;
@@ -378,7 +417,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
 
     const interaction = new Interaction(modelDetails, stimulus, {
       id: sessionId,
-      source: 'native',
+      source: "native",
       sourceId: sessionId,
     });
 
@@ -406,6 +445,70 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
     return this.habitatAgents.get(agentId)!;
   }
 
+  // ── Bridge Agent management ─────────────────────────────────────
+
+  private bridgeAgents = new Map<
+    string,
+    import("./bridge/agent.js").BridgeAgent
+  >();
+
+  /**
+   * Create a new Bridge Agent for remote repository execution.
+   * Uses iterative provisioning to automatically detect and install requirements.
+   *
+   * @param agentId - Unique identifier for this agent
+   * @param repoUrl - Git repository URL to clone and work with
+   * @returns The initialized BridgeAgent instance
+   */
+  async createBridgeAgent(
+    agentId: string,
+    repoUrl: string,
+  ): Promise<import("./bridge/agent.js").BridgeAgent> {
+    // Import dynamically to avoid circular dependency issues
+    const { BridgeAgent } = await import("./bridge/agent.js");
+
+    const bridgeAgent = new BridgeAgent({
+      id: agentId,
+      repoUrl,
+      maxIterations: 10,
+    });
+
+    // Initialize with iterative provisioning
+    await bridgeAgent.initialize();
+
+    // Store for later access
+    this.bridgeAgents.set(agentId, bridgeAgent);
+
+    return bridgeAgent;
+  }
+
+  /**
+   * Get an existing Bridge Agent by ID.
+   */
+  getBridgeAgent(
+    agentId: string,
+  ): import("./bridge/agent.js").BridgeAgent | undefined {
+    return this.bridgeAgents.get(agentId);
+  }
+
+  /**
+   * Destroy a Bridge Agent and clean up its resources.
+   */
+  async destroyBridgeAgent(agentId: string): Promise<void> {
+    const agent = this.bridgeAgents.get(agentId);
+    if (agent) {
+      await agent.destroy();
+      this.bridgeAgents.delete(agentId);
+    }
+  }
+
+  /**
+   * List all active Bridge Agents.
+   */
+  listBridgeAgents(): string[] {
+    return Array.from(this.bridgeAgents.keys());
+  }
+
   // ── Onboarding ──────────────────────────────────────────────────
 
   async isOnboarded(): Promise<boolean> {
@@ -417,7 +520,7 @@ export class Habitat implements FileToolsContext, AgentToolsContext, SessionTool
       this.workDir,
       this.configPath,
       this.envPrefix,
-      templatePath ?? this.options.stimulusTemplatePath
+      templatePath ?? this.options.stimulusTemplatePath,
     );
   }
 
