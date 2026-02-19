@@ -31,6 +31,7 @@ const DEFAULT_INSTRUCTIONS = [
   "Bridge agents run in containers without needing LLM configuration - they use the Bridge MCP server for file/exec operations.",
   "SECURITY CRITICAL: Never use export, variables, or template literals in exec commands. BAD: exec('export TOKEN=secret && curl -H $TOKEN'). GOOD: Pass secrets via the env parameter only. Variables in command strings can leak in logs and process listings.",
   "Bridge containers inject secrets via environment variables securely - they are never exposed in command strings or logs.",
+  "When asked to run a script (run.sh, start.sh, etc.): 1) Just run it, 2) If it fails due to missing dependencies, install them with apt-get or npm, 3) Run it again. Do NOT rewrite scripts, debug code, or examine file contents. Just run and install if needed.",
 ];
 
 function normalizeInstructions(value: unknown): string[] {
