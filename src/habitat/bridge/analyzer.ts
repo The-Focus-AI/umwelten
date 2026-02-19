@@ -101,13 +101,13 @@ export const TOOL_PATTERNS: Array<{
   },
   {
     pattern: /\bclaude\b/,
-    tool: "claude-cli",
-    aptPackages: [], // Installed via npm globally - handled in setupCommands
+    tool: "claude-code",
+    aptPackages: [], // Installed via official installer script
   },
   {
     pattern: /\bop\s+(read|signin|vault)/,
     tool: "1password-cli",
-    aptPackages: [], // Installed via custom script - handled in setupCommands
+    aptPackages: [], // Installed via apt repo
   },
   {
     pattern: /\bnpx\s+/,
@@ -116,9 +116,11 @@ export const TOOL_PATTERNS: Array<{
   },
 ];
 
-// Tools that need npm installation (not apt)
-const NPM_TOOLS: Record<string, string> = {
-  "claude-cli": "@anthropic-ai/claude-cli",
+// Tools that need official installation scripts (not apt, not npm)
+const OFFICIAL_INSTALLERS: Record<string, string> = {
+  "claude-code": "curl -fsSL https://claude.ai/install.sh | bash",
+  "1password-cli":
+    'apt-get install -y curl gpg && curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | tee /etc/apt/sources.list.d/1password.list && apt-get update && apt-get install -y 1password-cli',
 };
 
 // Tools that need custom installation scripts
@@ -207,13 +209,10 @@ export class BridgeAnalyzer {
     // Step 7: Determine setup commands based on project type
     const setupCommands = this.getSetupCommands(projectType);
 
-    // Step 8: Add setup commands for detected tools (npm, custom installs)
+    // Step 8: Add setup commands for detected tools (official installers)
     for (const tool of detectedTools) {
-      if (NPM_TOOLS[tool]) {
-        setupCommands.push(`npm install -g ${NPM_TOOLS[tool]}`);
-      }
-      if (CUSTOM_SETUP[tool]) {
-        setupCommands.push(CUSTOM_SETUP[tool]);
+      if (OFFICIAL_INSTALLERS[tool]) {
+        setupCommands.push(OFFICIAL_INSTALLERS[tool]);
       }
     }
 
