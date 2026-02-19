@@ -48,7 +48,9 @@ export interface BridgeInstance {
 
 export class BridgeLifecycle {
   private bridges = new Map<string, BridgeInstance>();
-  private portCounter = 8080;
+  private portCounter = 10000;
+  private usedPorts = new Set<number>();
+  private portRange = { min: 10000, max: 20000 };
 
   /**
    * Create a new bridge instance with the specified provisioning
@@ -57,11 +59,13 @@ export class BridgeLifecycle {
     id: string,
     repoUrl: string,
     provisioning: BridgeProvisioning,
+    logFilePath?: string,
   ): Promise<BridgeInstance> {
     log(id, "INIT", "Creating bridge", {
       baseImage: provisioning.baseImage,
       aptPackages: provisioning.aptPackages.length,
       gitRepos: provisioning.gitRepos.length,
+      logFilePath,
     });
 
     // Allocate port
@@ -73,7 +77,7 @@ export class BridgeLifecycle {
     const __dirname = dirname(__filename);
     const workerPath = join(__dirname, "bridge-worker.ts");
 
-    log(id, "WORKER", "Spawning worker thread", { workerPath });
+    log(id, "WORKER", "Spawning worker thread", { workerPath, logFilePath });
 
     // Collect secrets from environment (by name)
     const secrets: Array<{ name: string; value: string }> = [];
@@ -97,6 +101,7 @@ export class BridgeLifecycle {
         port,
         aptPackages: provisioning.aptPackages,
         secrets,
+        logFilePath,
       },
       execArgv: ["-r", "tsx"], // Enable TypeScript support in worker
     });
@@ -214,6 +219,10 @@ export class BridgeLifecycle {
     // when the container is destroyed
     log(id, "DESTROY", "Service will be garbage collected");
 
+    // Release port
+    this.releasePort(instance.port);
+    log(id, "DESTROY", "Port released", { port: instance.port });
+
     // Remove from tracking
     this.bridges.delete(id);
     log(id, "DESTROY", "Bridge removed from tracking", {
@@ -291,7 +300,20 @@ export class BridgeLifecycle {
   }
 
   private allocatePort(): number {
-    return this.portCounter++;
+    // Find next available port in range
+    for (let port = this.portRange.min; port <= this.portRange.max; port++) {
+      if (!this.usedPorts.has(port)) {
+        this.usedPorts.add(port);
+        return port;
+      }
+    }
+    throw new Error(
+      `No available ports in range ${this.portRange.min}-${this.portRange.max}`,
+    );
+  }
+
+  releasePort(port: number): void {
+    this.usedPorts.delete(port);
   }
 
   private async installGit(
