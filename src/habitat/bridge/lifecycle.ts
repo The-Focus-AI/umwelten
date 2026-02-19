@@ -34,6 +34,7 @@ export interface BridgeProvisioning {
   aptPackages: string[];
   gitRepos: Array<{ name: string; url: string; path: string }>;
   secrets?: Array<{ name: string; value: string }>; // Secrets to inject securely
+  setupCommands?: string[]; // Commands to run after apt install (npm install, etc.)
 }
 
 export interface BridgeInstance {

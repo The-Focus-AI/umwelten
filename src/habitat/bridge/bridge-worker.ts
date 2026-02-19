@@ -14,6 +14,7 @@ interface WorkerData {
   port: number;
   aptPackages?: string[];
   secrets?: Array<{ name: string; value: string }>; // Secrets passed securely
+  setupCommands?: string[]; // Commands to run after apt install
 }
 
 const {
@@ -23,6 +24,7 @@ const {
   port,
   aptPackages = [],
   secrets = [],
+  setupCommands = [],
 } = workerData as WorkerData;
 
 // Structured logging to parent thread
@@ -76,6 +78,16 @@ connection(
         container = container.withSecretVariable(secret.name, secretVal);
       }
       log("SECRETS", "Secrets injected securely");
+    }
+
+    // Step 2.6: Run setup commands (npm install, custom scripts)
+    if (setupCommands.length > 0) {
+      log("SETUP", `Running ${setupCommands.length} setup command(s)`);
+      for (const cmd of setupCommands) {
+        log("SETUP", `Executing: ${cmd}`);
+        container = container.withExec(["sh", "-c", cmd]);
+      }
+      log("SETUP", "Setup commands completed");
     }
 
     // Step 3: Setup bridge server files

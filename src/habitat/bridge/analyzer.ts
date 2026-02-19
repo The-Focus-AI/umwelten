@@ -102,12 +102,12 @@ export const TOOL_PATTERNS: Array<{
   {
     pattern: /\bclaude\b/,
     tool: "claude-cli",
-    aptPackages: [], // Installed via npm globally
+    aptPackages: [], // Installed via npm globally - handled in setupCommands
   },
   {
     pattern: /\bop\s+(read|signin|vault)/,
     tool: "1password-cli",
-    aptPackages: [], // Installed via custom script
+    aptPackages: [], // Installed via custom script - handled in setupCommands
   },
   {
     pattern: /\bnpx\s+/,
@@ -115,6 +115,17 @@ export const TOOL_PATTERNS: Array<{
     aptPackages: [], // Comes with node
   },
 ];
+
+// Tools that need npm installation (not apt)
+const NPM_TOOLS: Record<string, string> = {
+  "claude-cli": "@anthropic-ai/claude-cli",
+};
+
+// Tools that need custom installation scripts
+const CUSTOM_SETUP: Record<string, string> = {
+  "1password-cli":
+    "curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main' | tee /etc/apt/sources.list.d/1password.list && mkdir -p /etc/debsig/policies/AC2D62742012EA22/ && curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | tee /etc/debsig/policies/AC2D62742012EA22/1password.pol && mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22 && curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg && apt-get update && apt-get install -y 1password-cli",
+};
 
 // Map tool names to their primary apt package for quick lookup
 export const TOOL_PACKAGES: Record<string, string | undefined> = {
@@ -195,6 +206,16 @@ export class BridgeAnalyzer {
 
     // Step 7: Determine setup commands based on project type
     const setupCommands = this.getSetupCommands(projectType);
+
+    // Step 8: Add setup commands for detected tools (npm, custom installs)
+    for (const tool of detectedTools) {
+      if (NPM_TOOLS[tool]) {
+        setupCommands.push(`npm install -g ${NPM_TOOLS[tool]}`);
+      }
+      if (CUSTOM_SETUP[tool]) {
+        setupCommands.push(CUSTOM_SETUP[tool]);
+      }
+    }
 
     return {
       projectType,

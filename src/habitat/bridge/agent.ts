@@ -65,6 +65,7 @@ export class BridgeAgent {
     return {
       ...this.state.currentProvisioning,
       secrets: this.config.secrets,
+      setupCommands: this.state.currentProvisioning.setupCommands,
     };
   }
 
