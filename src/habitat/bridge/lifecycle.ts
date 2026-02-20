@@ -101,6 +101,7 @@ export class BridgeLifecycle {
         port,
         aptPackages: provisioning.aptPackages,
         secrets,
+        setupCommands: provisioning.setupCommands || [],
         logFilePath,
       },
       execArgv: ["-r", "tsx"], // Enable TypeScript support in worker
@@ -108,15 +109,27 @@ export class BridgeLifecycle {
 
     log(id, "WORKER", "Worker thread spawned, waiting for ready signal");
 
-    // Wait for worker to signal ready or error (with timeout)
-    const WORKER_TIMEOUT = 60000; // 60 seconds (increased for Dagger startup)
+    // Wait for worker to signal ready or error.
+    // Timeout must be longer than worker's internal 60s poll timeout so the
+    // worker can report a detailed error rather than us just saying "timed out".
+    const WORKER_TIMEOUT = 90000;
     log(id, "WAIT", "Waiting for worker ready", { timeoutMs: WORKER_TIMEOUT });
+
+    let lastWorkerStep = "INIT";
+    let lastWorkerMessage = "";
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        log(id, "TIMEOUT", "Worker startup timeout - terminating");
+        log(id, "TIMEOUT", "Worker startup timeout - terminating", {
+          lastStep: lastWorkerStep,
+          lastMessage: lastWorkerMessage,
+        });
         worker.terminate();
-        reject(new Error(`Worker startup timed out after ${WORKER_TIMEOUT}ms`));
+        reject(
+          new Error(
+            `Worker startup timed out after ${WORKER_TIMEOUT}ms. Last step: [${lastWorkerStep}] ${lastWorkerMessage}`,
+          ),
+        );
       }, WORKER_TIMEOUT);
 
       worker.on(
@@ -130,6 +143,8 @@ export class BridgeLifecycle {
           data?: unknown;
         }) => {
           if (msg.type === "log") {
+            lastWorkerStep = msg.step || "LOG";
+            lastWorkerMessage = msg.message || "";
             // Forward structured worker logs
             console.log(
               `[${new Date().toISOString()}] [Worker:${id}] [${msg.step || "LOG"}] ${msg.message}`,
@@ -150,16 +165,27 @@ export class BridgeLifecycle {
       );
 
       worker.once("error", (err) => {
-        log(id, "ERROR", "Worker error event", { error: err.message });
+        log(id, "ERROR", "Worker error event", {
+          error: err.message,
+          stack: err.stack,
+        });
         clearTimeout(timeout);
         reject(err);
       });
 
       worker.once("exit", (code) => {
-        log(id, "EXIT", "Worker exited", { code });
+        log(id, "EXIT", "Worker exited", {
+          code,
+          lastStep: lastWorkerStep,
+          lastMessage: lastWorkerMessage,
+        });
         clearTimeout(timeout);
         if (code !== 0) {
-          reject(new Error(`Worker exited with code ${code}`));
+          reject(
+            new Error(
+              `Worker exited with code ${code}. Last step: [${lastWorkerStep}] ${lastWorkerMessage}`,
+            ),
+          );
         }
       });
     });
@@ -313,7 +339,8 @@ export class BridgeLifecycle {
   }
 
   releasePort(port: number): void {
-    this.usedPorts.delete(port);
+    // Delay release so old Dagger containers have time to fully release the port
+    setTimeout(() => this.usedPorts.delete(port), 5000);
   }
 
   private async installGit(

@@ -52,6 +52,22 @@ export interface AgentEntry {
   mcpStatus?: AgentMCPStatus;
   /** Last error message if mcpStatus is 'error'. */
   mcpError?: string;
+  /** Cached provisioning from bridge analysis (persisted across sessions). */
+  bridgeProvisioning?: {
+    baseImage: string;
+    aptPackages: string[];
+    setupCommands: string[];
+    detectedTools: string[];
+    projectType: string;
+    skillRepos: Array<{
+      name: string;
+      gitRepo: string;
+      containerPath: string;
+      aptPackages: string[];
+    }>;
+    /** When this provisioning was last analyzed. */
+    analyzedAt: string;
+  };
 }
 
 /**

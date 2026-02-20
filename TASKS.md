@@ -526,6 +526,23 @@ Goal: Audit all docs against actual codebase and fix everything that was wrong, 
 - [x] Add tool message validation test to `interaction.test.ts`
 - [x] Rewrite `docs/walkthroughs/run-project-walkthrough.md` for natural language workflow
 
+### Completed: Bridge Agent — Switch to Pre-compiled Go Server
+- [x] Cross-compile Go binary for arm64 Linux (`GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build`)
+- [x] Verify Go MCP SDK StreamableHTTPHandler responds at `/mcp` path (responds to all paths)
+- [x] Update `bridge-worker.ts` — replace TypeScript server setup with Go binary mount via `dag.host().file()` + `withFile()` with `permissions: 0o755`
+- [x] Change entrypoint from `["npx", "tsx", "/opt/bridge/server.ts"]` to `["/opt/bridge/bridge-server", "--port", String(port)]`
+- [x] Remove unused `readFileSync` import, npm install step, tsx dependency
+- [x] Add VALIDATE step to bridge-worker.ts — force-executes Dagger pipeline before starting service to catch mount/clone errors early
+- [x] Add service crash detection in poll loop — stops polling immediately if Dagger service errors
+- [x] Add periodic poll error logging (every 5s) with last error in timeout message
+- [x] Switch worker logging from async `createWriteStream` to sync `appendFileSync` — survives worker termination
+- [x] Add timestamped log filenames (`bridge-{agentId}-{ISO-timestamp}.log`) — never overwrites
+- [x] Logs go to sessions dir (`habitat.sessionsDir/logs/`) not work dir
+- [x] `lifecycle.ts` — increase worker timeout to 90s, track lastWorkerStep/Message for better error context
+- [x] `lifecycle.ts` — delayed port release (5s) to avoid port collision between iterations
+- [x] `habitat.ts` CLI — creates log directory, passes logFilePath to bridgeAgent.initialize()
+- [x] Verify all existing tests pass (only pre-existing Ollama failures)
+
 ### Backlog
 - [ ] Test LLM-based container configuration with valid OpenRouter API key
 - [ ] Add environment variables for OpenRouter LLM configuration in Dagger

@@ -856,8 +856,9 @@ agentSubcommand
   )
   .option("--skip-onboard", "Skip automatic onboarding")
   .option("--port <port>", "Preferred port (auto-assigned if not specified)")
+  .option("--reanalyze", "Force re-analysis (ignore saved provisioning)")
   .action(
-    async (agentId: string, options: HabitatCLIOptions & { port?: string }) => {
+    async (agentId: string, options: HabitatCLIOptions & { port?: string; reanalyze?: boolean }) => {
       const habitat = await createHabitatFromOptions({
         ...options,
         skipOnboard: options.skipOnboard,
@@ -871,6 +872,7 @@ agentSubcommand
 
       // Start BridgeAgent MCP server (runs in Dagger container)
       const { BridgeAgent } = await import("../habitat/bridge/agent.js");
+      const { mkdirSync } = await import("node:fs");
 
       try {
         if (!agent.gitRemote) {
@@ -878,31 +880,54 @@ agentSubcommand
           process.exit(1);
         }
 
+        // Create logs directory in sessions dir with timestamped filename
+        const logsDir = path.join(habitat.sessionsDir, "logs");
+        mkdirSync(logsDir, { recursive: true });
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        const logFilePath = path.join(logsDir, `bridge-${agentId}-${ts}.log`);
+        console.log(`[habitat] Logs: ${logFilePath}`);
+
+        // Use saved provisioning if available (skip analysis on subsequent starts)
+        const saved = (!options.reanalyze && agent.bridgeProvisioning) || undefined;
+        if (saved) {
+          console.log(`[habitat] Using saved provisioning from ${saved.analyzedAt}`);
+        } else if (agent.bridgeProvisioning && options.reanalyze) {
+          console.log(`[habitat] Reanalyzing (ignoring saved provisioning)`);
+        }
+
         const bridgeAgent = new BridgeAgent({
           id: agentId,
           repoUrl: agent.gitRemote,
           maxIterations: 5,
+          savedProvisioning: saved,
         });
 
-        await bridgeAgent.initialize();
+        await bridgeAgent.initialize(logFilePath);
         const port = bridgeAgent.getPort();
         const state = bridgeAgent.getState();
 
-        // Update agent config
+        // Save provisioning results for next time
+        const provisioning = bridgeAgent.getSavedProvisioning();
         await habitat.updateAgent(agent.id, {
           mcpPort: port,
           mcpEnabled: true,
           mcpStatus: "running",
+          ...(provisioning ? { bridgeProvisioning: provisioning } : {}),
         });
 
         console.log(
-          `✅ Agent "${agent.name}" Bridge MCP server started on port ${port}`,
+          `\u2705 Agent "${agent.name}" Bridge MCP server started on port ${port}`,
         );
         console.log(`   Endpoint: http://localhost:${port}/mcp`);
+        console.log(`   Logs: ${logFilePath}`);
         console.log(`   Iterations: ${state.iteration}`);
         if (state.analysis) {
           console.log(
             `   Detected tools: ${state.analysis.detectedTools.join(", ")}`,
+          );
+        } else if (saved) {
+          console.log(
+            `   Detected tools: ${saved.detectedTools.join(", ")}`,
           );
         }
 
@@ -915,7 +940,7 @@ agentSubcommand
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        console.error(`❌ Failed to start MCP server: ${msg}`);
+        console.error(`\u274C Failed to start MCP server: ${msg}`);
         process.exit(1);
       }
     },
