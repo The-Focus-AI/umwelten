@@ -1,487 +1,221 @@
 # Habitat Bridge Walkthrough
 
-This walkthrough demonstrates the Habitat Bridge System for managing multiple remote repositories in isolated, auto-provisioned containers using the Model Context Protocol (MCP).
+The Habitat Bridge System runs agent repositories in isolated Dagger containers with an MCP server for communication.
 
-## Overview
+## How It Works
 
-The Habitat Bridge System creates persistent agent containers that can run concurrently. Unlike the experience-based `run_project` tool, Bridge Agents:
+```
+CLI: habitat agent start <agent-id>
+  → BridgeAgent
+    → BridgeLifecycle (spawns worker thread)
+      → bridge-worker.ts (builds Dagger container)
+        → Go MCP binary starts inside container
+          → Polls until MCP server responds at /mcp
+            → BridgeAnalyzer reads repo via MCP tools
+              → Discovers apt packages, project type, tools needed
+                → If packages missing: destroy, rebuild with packages
+                  → Saves provisioning to config.json
+                    → Ready
+```
 
-- Run continuously inside Dagger containers
-- Auto-detect and install dependencies (no manual configuration)
-- Communicate via MCP over HTTP
-- Support iterative provisioning (start basic → analyze → recreate with correct setup)
-- Support **multiple concurrent agents** (20-75+ on a single machine)
-- Persist state and logs to disk
+### First Run (Discovery)
+
+1. Start bare `node:20` container with Go MCP binary + clone repo
+2. `BridgeAnalyzer` calls MCP tools (`fs_read`, `fs_exists`, `fs_list`) to read repo files
+3. Detects project type, required apt packages, setup commands
+4. If packages needed: destroy container, rebuild with full provisioning
+5. Save discovered provisioning to `config.json` → agent is ready
+
+### Subsequent Runs (Instant)
+
+1. Load saved `bridgeProvisioning` from `config.json`
+2. Build container directly with all packages — **1 iteration, no analysis**
+3. Agent ready in seconds
+
+## Prerequisites
+
+- Docker running (Dagger uses Docker under the hood)
+- Agent registered in habitat config with `gitRemote` set
+
+## Starting an Agent
+
+```bash
+# Start with discovery (first time)
+dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
+
+# Subsequent starts use saved provisioning automatically
+dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
+
+# Force re-analysis (ignore saved provisioning)
+dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent --reanalyze
+```
+
+Output:
+
+```
+[habitat] Logs: /Users/you/habitats-sessions/logs/bridge-trmnl-image-agent-2026-02-19T...log
+[habitat] Using saved provisioning from 2026-02-19T00:50:00.000Z
+[BridgeAgent:trmnl-image-agent] Using saved provisioning (analyzed 2026-02-19T00:50:00.000Z)
+✅ Agent "TRMNL Image Agent" Bridge MCP server started on port 10000
+   Endpoint: http://localhost:10000/mcp
+   Logs: /Users/you/habitats-sessions/logs/bridge-trmnl-image-agent-2026-02-19T...log
+   Iterations: 1
+   Detected tools: jq, chrome, claude-code, curl, 1password-cli, npx, python, imagemagick, git
+Press Ctrl+C to stop the server
+```
 
 ## Architecture
 
 ```
-Habitat (Host)
-├── agents/
-│   ├── agent-1/
-│   │   ├── logs/bridge.log      # Persistent logs
-│   │   └── state.json           # Port, PID, status
-│   ├── agent-2/
-│   │   ├── logs/bridge.log
-│   │   └── state.json
-│   └── ... (up to 75+ agents)
-├── config.json                  # Agent configurations
-└── secrets.json                 # Encrypted secrets
+Host Machine
+├── ~/habitats/config.json          # Agent configs with saved bridgeProvisioning
+├── ~/habitats/secrets.json         # Encrypted secrets (GITHUB_TOKEN, etc.)
+└── ~/habitats-sessions/logs/       # Timestamped bridge log files
+    └── bridge-{agentId}-{timestamp}.log
+
+Dagger Container (per agent)
+├── /opt/bridge/bridge-server       # Pre-compiled Go MCP binary
+└── /workspace/                     # Cloned repository
 ```
 
-Each Bridge Agent:
+### Components
 
-- Gets a unique port (10000-20000 range)
-- Has its own Dagger container
-- Writes logs to `~/.habitat/agents/{agentId}/logs/bridge.log`
-- Persists state to `~/.habitat/agents/{agentId}/state.json`
+| Component | File | Role |
+|---|---|---|
+| **BridgeAgent** | `src/habitat/bridge/agent.ts` | Orchestrates provisioning loop |
+| **BridgeLifecycle** | `src/habitat/bridge/lifecycle.ts` | Spawns worker threads, manages ports |
+| **bridge-worker** | `src/habitat/bridge/bridge-worker.ts` | Builds Dagger container in worker thread |
+| **Go MCP Server** | `src/habitat/bridge/go-server/` | Static binary, MCP over HTTP |
+| **BridgeAnalyzer** | `src/habitat/bridge/analyzer.ts` | Reads repo via MCP to detect requirements |
+| **BridgeClient** | `src/habitat/bridge/client.ts` | MCP client for calling tools in container |
 
-## Prerequisites
-
-- Docker running
-- Dagger CLI installed
-- GitHub token configured (for private repos): `export GITHUB_TOKEN=ghp_...`
-- Umwelten built: `pnpm install && pnpm run build`
-
-## Quick Start
-
-### 1. Create a Habitat
-
-```typescript
-import { Habitat } from "umwelten/habitat";
-
-const habitat = await Habitat.create({
-  workDir: "~/habitats",
-});
-```
-
-### 2. Create Multiple Bridge Agents
-
-```typescript
-// Create multiple bridge agents concurrently
-const agent1 = await habitat.createBridgeAgent(
-  "frontend-app",
-  "https://github.com/org/frontend.git",
-);
-
-const agent2 = await habitat.createBridgeAgent(
-  "backend-api",
-  "https://github.com/org/backend.git",
-);
-
-const agent3 = await habitat.createBridgeAgent(
-  "ml-pipeline",
-  "https://github.com/org/ml-repo.git",
-);
-
-console.log("All agents ready!");
-console.log("Agent 1 port:", agent1.getPort()); // e.g., 10000
-console.log("Agent 2 port:", agent2.getPort()); // e.g., 10001
-console.log("Agent 3 port:", agent3.getPort()); // e.g., 10002
-```
-
-### 3. List All Running Agents
-
-```typescript
-// Get all bridge agent IDs
-const agentIds = habitat.listBridgeAgents();
-console.log("Running agents:", agentIds);
-// ["frontend-app", "backend-api", "ml-pipeline"]
-
-// Get all bridge agents with details
-const allAgents = habitat.getAllBridgeAgents();
-for (const agent of allAgents) {
-  console.log(`Agent: ${agent.getState().id}, Port: ${agent.getPort()}`);
-}
-```
-
-### 4. Interact with Specific Agents
-
-```typescript
-// Get a specific agent
-const frontendAgent = habitat.getBridgeAgent("frontend-app");
-const client = await frontendAgent.getClient();
-
-// List files
-const files = await client.listDirectory("/workspace");
-console.log(
-  "Frontend files:",
-  files.map((f) => f.name),
-);
-
-// Read a file
-const readme = await client.readFile("/workspace/README.md");
-
-// Execute commands
-const result = await client.execute("npm test");
-console.log("Test output:", result.stdout);
-```
-
-### 5. Automatic Provisioning
-
-The bridge automatically provisions itself through iterative analysis:
+### Container Build Order (Optimized for Caching)
 
 ```
-[BridgeAgent:frontend-app] Starting iterative provisioning...
-[BridgeAgent:frontend-app] Iteration 1: Creating with node:20
-[BridgeAgent:frontend-app] Cloning https://github.com/org/frontend.git
-[BridgeAgent:frontend-app] Analyzing repository...
-[BridgeAgent:frontend-app] Detected: {
-  projectType: 'npm',
-  tools: ['jest', 'eslint'],
-  aptPackages: [],
-  skills: []
-}
-[BridgeAgent:frontend-app] Running npm install...
-[BridgeAgent:frontend-app] Bridge ready on port 10000!
+1. Pull base image (node:20)           ← Cached by Dagger
+2. apt-get install packages            ← Cached if same packages
+3. Run setup commands (claude install)  ← Cached if same commands
+4. Mount npm cache volume              ← Persistent across builds
+5. Mount Go MCP binary from host       ← Cached if binary unchanged
+6. Inject secrets (GITHUB_TOKEN)        ← LATE — after cacheable layers
+7. git clone repo                       ← Always runs (repo may have changed)
 ```
 
-### 6. Check Agent Status
+Secrets are injected late so they don't invalidate Dagger's layer cache for the expensive install steps.
 
-```typescript
-// Load persisted state
-const state = await habitat.loadBridgeState("frontend-app");
-console.log({
-  agentId: state.agentId,
-  port: state.port,
-  status: state.status, // 'running', 'stopped', 'error'
-  createdAt: state.createdAt,
-  lastHealthCheck: state.lastHealthCheck,
-});
+## Saved Provisioning
 
-// Check health
-const client = await habitat.getBridgeAgent("frontend-app")?.getClient();
-const health = await client?.health();
-console.log("Health:", health);
-```
+After first run, the agent's config in `config.json` includes:
 
-### 7. View Logs
-
-```typescript
-// Read from log file
-const { readFile } = await import("node:fs/promises");
-const logPath = `${habitat.getAgentDir("frontend-app")}/logs/bridge.log`;
-const logs = await readFile(logPath, "utf-8");
-console.log("Recent logs:", logs.split("\n").slice(-50).join("\n"));
-```
-
-### 8. Stop and Cleanup
-
-```typescript
-// Stop a specific agent
-await habitat.destroyBridgeAgent("frontend-app");
-console.log("Frontend agent stopped");
-
-// Check remaining agents
-const remaining = habitat.listBridgeAgents();
-console.log("Remaining agents:", remaining);
-// ["backend-api", "ml-pipeline"]
-```
-
-## Complete Example: Multi-Agent Workflow
-
-Here's a complete script that manages multiple agents:
-
-```typescript
-import { Habitat } from "umwelten/habitat";
-
-async function manageMultipleAgents() {
-  const habitat = await Habitat.create();
-
-  const repos = [
-    { id: "web-frontend", url: "https://github.com/org/frontend.git" },
-    { id: "api-backend", url: "https://github.com/org/backend.git" },
-    { id: "data-processor", url: "https://github.com/org/processor.git" },
-  ];
-
-  try {
-    // Start all agents concurrently
-    console.log("Starting agents...");
-    for (const { id, url } of repos) {
-      await habitat.createBridgeAgent(id, url);
-      console.log(`✓ ${id} started`);
-    }
-
-    // List all running agents
-    const agentIds = habitat.listBridgeAgents();
-    console.log(`\n${agentIds.length} agents running:`);
-
-    for (const agentId of agentIds) {
-      const agent = habitat.getBridgeAgent(agentId);
-      const state = await habitat.loadBridgeState(agentId);
-      console.log(
-        `  - ${agentId}: port ${state?.port}, status ${state?.status}`,
-      );
-    }
-
-    // Interact with each agent
-    for (const agentId of agentIds) {
-      const agent = habitat.getBridgeAgent(agentId);
-      if (!agent) continue;
-
-      const client = await agent.getClient();
-
-      // Check health
-      const health = await client.health();
-      console.log(`\n${agentId}: ${health.status}`);
-
-      // List workspace
-      const files = await client.listDirectory("/workspace");
-      console.log(`  Files: ${files.length} items`);
-
-      // Read package.json if exists
-      try {
-        const pkgJson = await client.readFile("/workspace/package.json");
-        const pkg = JSON.parse(pkgJson);
-        console.log(`  Project: ${pkg.name}@${pkg.version}`);
-      } catch {
-        console.log("  No package.json");
-      }
-    }
-
-    // View logs for one agent
-    const logPath = `${habitat.getAgentDir("web-frontend")}/logs/bridge.log`;
-    console.log(`\nLogs for web-frontend:`);
-    console.log("  Location:", logPath);
-  } catch (error) {
-    console.error("Error:", error);
+```json
+{
+  "id": "trmnl-image-agent",
+  "name": "TRMNL Image Agent",
+  "gitRemote": "https://github.com/The-Focus-AI/trmnl-image-agent",
+  "bridgeProvisioning": {
+    "baseImage": "node:20",
+    "aptPackages": ["git", "jq", "chromium", "chromium-driver", "curl", "python3", "imagemagick"],
+    "setupCommands": ["curl -fsSL https://claude.ai/install.sh | bash"],
+    "detectedTools": ["jq", "chrome", "claude-code", "curl", "python", "imagemagick", "git"],
+    "projectType": "shell",
+    "skillRepos": [],
+    "analyzedAt": "2026-02-19T00:50:00.000Z"
   }
 }
-
-manageMultipleAgents();
 ```
 
-## Using Bridge Tools
-
-The Habitat CLI provides tools for managing bridge agents:
-
-### agent_clone
-
-Register and start a new bridge agent:
-
-```bash
-# In habitat CLI
-agent_clone gitUrl="https://github.com/org/repo.git" name="my-project"
-```
-
-### bridge_start
-
-Start a bridge for an existing agent:
-
-```bash
-bridge_start agentId="my-project"
-# Returns: port, mcpUrl, logFile path
-```
-
-### bridge_list
-
-List all running bridge agents:
-
-```bash
-bridge_list
-# Returns: count, bridges [{agentId, port, status, mcpUrl, logFile}]
-```
-
-### bridge_stop
-
-Stop a specific bridge agent:
-
-```bash
-bridge_stop agentId="my-project"
-```
-
-### bridge_ls, bridge_read, bridge_exec
-
-Interact with a specific agent:
-
-```bash
-# List files
-bridge_ls agentId="my-project" path="/workspace/src"
-
-# Read a file
-bridge_read agentId="my-project" path="/workspace/README.md"
-
-# Execute a command
-bridge_exec agentId="my-project" command="npm test"
-```
-
-## How Iterative Provisioning Works
-
-The bridge doesn't guess provisioning—it analyzes the actual repository:
-
-### Step 1: Start Basic
-
-```
-Container: node:20
-Installed: git, node, npm
-Repo: Cloned to /workspace
-```
-
-### Step 2: Analyze
-
-The bridge uses MCP file tools to examine the repository:
-
-- **Detect project type**: Looks for `package.json` (npm), `requirements.txt` (pip), `Cargo.toml` (cargo), etc.
-- **Scan scripts**: Reads `bin/` directory, shell scripts, `CLAUDE.md` for tool usage patterns
-- **Detect tools**: Regex patterns find references to `imagemagick`, `jq`, `ffmpeg`, etc.
-- **Find skills**: Looks for `~/.claude/plugins/cache/` references
-- **Extract env vars**: Parses `CLAUDE.md` and `.env` files for required variables
-
-### Step 3: Install Dependencies
-
-Once the correct base image is confirmed:
-
-```
-Base: node:20
-Installing: detected apt packages
-Cloning: skill repositories
-Running: npm install (or pip install, cargo fetch, etc.)
-```
-
-### Step 4: Ready!
-
-The bridge is now ready for use and will report its status as `healthy`.
+This means the next `habitat agent start` skips analysis entirely.
 
 ## MCP Tools Available
 
-The bridge exposes these tools via the MCP protocol:
+The Go binary exposes these tools via MCP StreamableHTTP at `/mcp`:
 
-### Git Tools
+| Tool | Description |
+|---|---|
+| `fs_read` | Read file contents |
+| `fs_write` | Write file contents |
+| `fs_list` | List directory entries |
+| `fs_exists` | Check if path exists |
+| `fs_stat` | Get file/directory metadata |
+| `exec_run` | Execute shell commands |
+| `git_clone` | Clone a repository |
+| `git_status` | Check working directory status |
+| `git_commit` | Commit changes |
+| `git_push` | Push to remote |
+| `bridge_health` | Check bridge status and uptime |
+| `bridge_logs` | Retrieve recent log entries |
 
-- `git_clone` - Clone a repository
-- `git_status` - Check working directory status
-- `git_commit` - Commit changes with a message
-- `git_push` - Push to remote
+All file operations are sandboxed to `/workspace` and `/opt`.
 
-### File System Tools
+## Interacting with a Running Agent
 
-- `fs_read` - Read file contents
-- `fs_write` - Write file contents
-- `fs_list` - List directory entries
-- `fs_exists` - Check if path exists
-- `fs_stat` - Get file/directory metadata
+Once the bridge is running, you can call its MCP endpoint directly:
 
-### Execution Tools
+```bash
+# Health check
+curl -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"bridge_health","arguments":{}}}'
 
-- `exec_run` - Execute commands with optional timeout and working directory
-
-### Bridge Lifecycle Tools
-
-- `bridge_health` - Check bridge status and uptime
-- `bridge_logs` - Retrieve recent log entries
-
-## State Persistence
-
-Each agent's state is persisted to disk:
-
-```typescript
-interface BridgeState {
-  agentId: string;
-  port: number;
-  pid: number;
-  status: "starting" | "running" | "stopped" | "error";
-  createdAt: string;
-  lastHealthCheck: string;
-  containerId?: string;
-  repoUrl: string;
-  error?: string;
-}
+# List files
+curl -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fs_list","arguments":{"path":"/workspace"}}}'
 ```
 
-State is saved:
+Or programmatically via the client:
 
-- When agent starts
-- When agent stops
-- When errors occur
+```typescript
+import { HabitatBridgeClient } from "../habitat/bridge/client.js";
 
-## Port Management
+const client = new HabitatBridgeClient({ host: "localhost", port: 10000 });
+await client.connect();
 
-Ports are allocated from the range 10000-20000:
-
-- Each agent gets a unique port
-- Ports are tracked in a `Set` to prevent conflicts
-- Ports are released when agents are destroyed
-- Supports up to 10,000 concurrent agents (theoretical limit)
+const files = await client.listDirectory("/workspace");
+const readme = await client.readFile("/workspace/README.md");
+const result = await client.execute("ls -la /workspace");
+```
 
 ## Logging
 
-Each agent writes logs to its own file:
+Logs are written to `~/habitats-sessions/logs/` with timestamped filenames that never overwrite:
 
 ```
-~/.habitat/agents/{agentId}/logs/bridge.log
+bridge-trmnl-image-agent-2026-02-19T00-46-34-000Z.log
 ```
 
-Logs include:
+Logs use synchronous `appendFileSync` so they survive worker thread termination between iterations.
 
-- Container startup messages
-- Git clone output
-- Dependency installation
-- MCP server startup
-- Health check results
+## Port Management
 
-## Error Handling and Debugging
+- Ports allocated from range 10000–20000
+- Each agent gets a unique port
+- Ports are released with a 5-second delay after container destruction (prevents reuse race conditions)
 
-### Check Bridge State
+## Troubleshooting
 
-```typescript
-const state = await habitat.loadBridgeState("my-project");
-console.log("Status:", state?.status);
-console.log("Last error:", state?.error);
-console.log("Port:", state?.port);
+### Container won't start
+
+Check the log file — it contains every step of the Dagger build pipeline:
+
+```bash
+cat ~/habitats-sessions/logs/bridge-trmnl-image-agent-*.log
 ```
 
-### View Container Logs
+### Port already in use
 
-```typescript
-const { readFile } = await import("node:fs/promises");
-const logPath = `${habitat.getAgentDir("my-project")}/logs/bridge.log`;
-const logs = await readFile(logPath, "utf-8");
-console.log(logs.split("\n").slice(-100).join("\n"));
-```
+The 5-second delayed port release handles most cases. If persistent, the port range (10000–20000) provides plenty of room.
 
-### Iteration Cap
+### Docker not running
 
-By default, the bridge will try up to 10 iterations to get the provisioning right. You can configure this:
-
-```typescript
-const bridgeAgent = await habitat.createBridgeAgent(
-  "my-project",
-  "https://github.com/user/repo.git",
-);
-// maxIterations is set internally
-```
+Dagger requires Docker. Start Docker Desktop or the Docker daemon.
 
 ## Comparison: Bridge vs run_project
 
-| Feature           | `run_project`            | BridgeAgent                            |
-| ----------------- | ------------------------ | -------------------------------------- |
-| **Provisioning**  | Pre-configured           | Auto-detected from repo                |
-| **Container**     | One-shot per command     | Persistent, long-running               |
-| **State**         | Experience directory     | Container filesystem + persisted state |
-| **Communication** | Dagger exec              | MCP over HTTP                          |
-| **Concurrency**   | Single execution         | 20-75+ concurrent agents               |
-| **Logging**       | Console output           | Persistent log files                   |
-| **Use case**      | Simple command execution | Complex ongoing work                   |
-| **Setup**         | Requires manifest/config | Zero configuration                     |
-
-## Security
-
-- **Sandboxed**: Bridge server only allows access to `/workspace` and `/opt`
-- **Git auth**: Uses `GITHUB_TOKEN` env var, never exposes credentials in logs
-- **Port isolation**: Each bridge gets unique port, no cross-bridge access
-- **Container isolation**: Full Docker/Dagger container isolation
-- **Log isolation**: Each agent has its own log file
-
-## Performance Considerations
-
-- **Memory**: Each container uses ~50-100MB RAM
-- **CPU**: Containers share CPU, no limits by default
-- **Disk**: Log files grow over time, monitor disk usage
-- **Network**: Each container has isolated network stack
-
-## Next Steps
-
-- Read the [Habitat Guide](./habitat.md) for more on the main habitat system
-- Learn about [Habitat Agents](./habitat-agents.md) for local project management
-- Check the [API reference](../api/bridge.md) for detailed method documentation
-- Build the bridge server: `pnpm run build:bridge`
+| Feature | `run_project` | Bridge Agent |
+|---|---|---|
+| Container | One-shot per command | Persistent, long-running |
+| Communication | Dagger exec | MCP over HTTP |
+| Provisioning | Pre-configured | Auto-detected, saved to config |
+| Server | None | Go binary (instant startup) |
+| Use case | Run a script | Ongoing agent work |

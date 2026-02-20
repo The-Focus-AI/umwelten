@@ -1,248 +1,203 @@
-# Habitat Bridge MCP Integration Test Walkthrough
+# Habitat Bridge MCP Test Walkthrough
 
-This guide walks you through running the Habitat Bridge MCP integration test, which demonstrates:
-
-1. Creating a Habitat
-2. Starting a BridgeAgent with the trmnl-image-agent repo
-3. Connecting to the MCP server running in a Dagger container
-4. Querying the repository for skills, environment variables, and package requirements
+This guide walks through testing the Bridge MCP system manually.
 
 ## Prerequisites
 
 - Docker running (for Dagger containers)
-- Environment variables set up (copy from `.env` if needed)
+- Environment variables: `dotenvx` configured with `.env`
 - Dependencies installed: `pnpm install`
+- An agent registered with `gitRemote` in `~/habitats/config.json`
 
-## Quick Start
-
-### 1. Run the Integration Test
+## Starting the Bridge
 
 ```bash
-# Run just the bridge MCP integration test
-dotenvx run -- pnpm test:run src/habitat/habitat-bridge-mcp.integration.test.ts
+dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
 ```
 
 This will:
 
-- Create a temporary Habitat
-- Clone the trmnl-image-agent repo into a Dagger container
-- Start an MCP server inside the container
-- Connect via HabitatBridgeClient
-- Analyze the repository structure
-- Query for environment variables and dependencies
-- Test tool execution (read/write files, execute commands)
-- Clean up all resources
+1. Create a Dagger container with `node:20` base image
+2. Install apt packages (jq, chromium, imagemagick, etc.)
+3. Run setup commands (claude install, etc.)
+4. Mount the pre-compiled Go MCP binary
+5. Clone the repository to `/workspace`
+6. Start the Go MCP server on a port (10000+)
+7. Poll until the MCP server responds to an `initialize` request
+8. Print the endpoint URL
 
-### 2. Expected Output
+## Testing MCP Tools
 
-The test runs through 6 steps:
+With the bridge running on port 10000:
 
-#### Step 1: BridgeAgent Creation
+### Health Check
 
-- Creates a BridgeAgent with ID `test-trmnl-bridge`
-- Clones `https://github.com/The-Focus-AI/trmnl-image-agent`
-- Starts iterative provisioning (usually 2-3 iterations)
-- Bridge becomes ready when provisioning is complete
-
-#### Step 2: MCP Server Connection
-
-- Gets a HabitatBridgeClient connected to the container
-- Verifies health check responds with "healthy" status
-- Confirms workspace is at `/workspace`
-
-#### Step 3: Repository Analysis
-
-- Lists all files in `/workspace`
-- Reads README.md to understand the project
-- Checks for package.json, requirements.txt, etc.
-- Looks for config files (.env.example, Dockerfile, etc.)
-
-#### Step 4: Environment and Requirements Analysis
-
-- Recursively scans all files in the repo
-- Groups files by extension
-- Greps for environment variable usage (`process.env`, etc.)
-- Detects what runtime/tools are needed
-
-#### Step 5: Tool Execution
-
-- Executes commands in the container (`pwd`, `ls -la`)
-- Tests file write/read operations
-- Retrieves bridge logs
-
-#### Step 6: Analysis Results Summary
-
-Prints a comprehensive summary including:
-
-```
-=== Bridge Agent Analysis Summary ===
-Agent ID: test-trmnl-bridge
-Repository: https://github.com/The-Focus-AI/trmnl-image-agent
-Iterations: 3
-Is Ready: true
-
-Project Type: shell
-Detected Tools: ['jq', 'chrome', 'claude-code', 'curl', '1password-cli', 'npx', 'python', 'imagemagick', 'git']
-APT Packages needed: ['jq', 'chromium', 'chromium-driver', 'curl', 'python3', 'imagemagick', 'git']
-Setup Commands: [
-  'curl -fsSL https://claude.ai/install.sh | bash',
-  'apt-get install -y curl gpg && ... 1password-cli installation ...'
-]
-Skills needed: []
-
-Provisioning:
-Base Image: node:20
-APT Packages: ['git', 'jq', 'chromium', 'chromium-driver', 'curl', 'python3', 'imagemagick', 'git']
-Git Repos: []
-
-Errors: [...]
+```bash
+curl -s -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "bridge_health",
+      "arguments": {}
+    }
+  }' | jq .
 ```
 
-## What the Test Discovers
+### List Files
 
-For the trmnl-image-agent project:
-
-### Project Type
-
-**Shell-based project** - Uses shell scripts rather than a traditional programming language framework
-
-### Required Tools
-
-- **jq** - JSON processing
-- **chromium + chromium-driver** - Browser automation
-- **curl** - HTTP requests
-- **python3** - Python runtime
-- **imagemagick** - Image manipulation
-- **git** - Version control
-- **claude-code** - Claude CLI (installed via curl)
-- **1password-cli** - 1Password CLI (installed via apt)
-
-### Setup Requirements
-
-The project needs:
-
-1. Node.js base image (node:20)
-2. Multiple APT packages installed
-3. External tools (claude-code, 1password-cli) installed via setup commands
-4. No additional git repositories (skills)
-
-## Understanding the Architecture
-
-### Components Tested
-
-1. **Habitat** (`src/habitat/habitat.ts`)
-   - Central system for managing agents
-   - Creates and tracks BridgeAgents
-
-2. **BridgeAgent** (`src/habitat/bridge/agent.ts`)
-   - Manages agent lifecycle
-   - Handles iterative provisioning
-   - Recreates container until requirements are met
-
-3. **BridgeLifecycle** (`src/habitat/bridge/lifecycle.ts`)
-   - Creates Dagger containers
-   - Manages container startup and health checks
-   - Handles cleanup
-
-4. **HabitatBridgeClient** (`src/habitat/bridge/client.ts`)
-   - Connects to MCP server via HTTP JSON-RPC
-   - Provides convenient methods (readFile, writeFile, execute, etc.)
-
-5. **Bridge Server** (`src/habitat/bridge/server.ts`)
-   - Runs inside Dagger container
-   - Exposes MCP protocol over HTTP
-   - Provides tools: git/_, fs/_, exec/run, bridge/\*
-
-### Test Flow
-
-```
-Test Suite
-    ↓
-Create Habitat
-    ↓
-Create BridgeAgent
-    ↓
-BridgeLifecycle.createBridge()
-    ↓
-Worker Thread spawns Dagger container
-    ↓
-Container starts with node:20
-    ↓
-Repo cloned to /workspace
-    ↓
-MCP server starts on port 8080
-    ↓
-HabitatBridgeClient connects
-    ↓
-BridgeAnalyzer analyzes repo
-    ↓
-[Iterative provisioning loop]
-    ↓
-Bridge ready - run tests
-    ↓
-Test tools and query repo
-    ↓
-Print analysis summary
-    ↓
-Cleanup
+```bash
+curl -s -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "fs_list",
+      "arguments": {"path": "/workspace"}
+    }
+  }' | jq .
 ```
 
-## Troubleshooting
+### Read a File
 
-### Test Times Out
+```bash
+curl -s -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "fs_read",
+      "arguments": {"path": "/workspace/README.md"}
+    }
+  }' | jq .
+```
 
-- **Cause**: Dagger container startup is slow
-- **Solution**: Tests have long timeouts (180s for creation). If it still fails, check Docker is running.
+### Execute a Command
 
-### Port Already in Use
+```bash
+curl -s -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+      "name": "exec_run",
+      "arguments": {"command": "ls -la /workspace/bin/"}
+    }
+  }' | jq .
+```
 
-- **Cause**: Previous test didn't clean up properly
-- **Solution**: The test handles this with iterative provisioning. You may see "address already in use" errors in iteration 2, but iteration 3 should succeed.
+### MCP Initialize (what the health check polls)
 
-### Docker Not Running
+```bash
+curl -s -X POST http://localhost:10000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "test", "version": "1.0"}
+    }
+  }'
+```
 
-- **Error**: "Cannot connect to Docker daemon"
-- **Solution**: Start Docker Desktop or Docker daemon
+Should return a response containing `serverInfo` with name `habitat-bridge`.
 
-### Missing Environment Variables
-
-- **Error**: API key errors (though this test doesn't use LLMs)
-- **Solution**: Copy `.env.template` to `.env` and fill in values
-
-## Next Steps
-
-After running this test, you can:
-
-1. **Create a BridgeAgent manually**:
+## Using the TypeScript Client
 
 ```typescript
-const habitat = await Habitat.create({ workDir: "./my-habitat" });
-const bridgeAgent = await habitat.createBridgeAgent(
-  "my-agent",
-  "https://github.com/user/repo",
-);
-const client = await bridgeAgent.getClient();
+import { HabitatBridgeClient } from "../habitat/bridge/client.js";
+
+const client = new HabitatBridgeClient({
+  host: "localhost",
+  port: 10000,
+  timeout: 5000,
+});
+
+await client.connect();
+
+// Health check
+const health = await client.health();
+console.log("Status:", health.status);
+
+// List workspace
 const files = await client.listDirectory("/workspace");
+console.log("Files:", files.map(f => f.name));
+
+// Read a file
+const readme = await client.readFile("/workspace/README.md");
+console.log("README:", readme.slice(0, 200));
+
+// Execute a command
+const result = await client.execute("node --version");
+console.log("Node:", result.stdout);
+
+// Check if file exists
+const exists = await client.fileExists("/workspace/package.json");
+console.log("Has package.json:", exists);
+
+await client.disconnect();
 ```
 
-2. **Use the bridge for code execution**:
+## What the Analyzer Discovers
 
-```typescript
-const result = await client.execute("npm test");
-console.log(result.stdout);
+For the `trmnl-image-agent` project, the `BridgeAnalyzer` finds:
+
+| Field | Value |
+|---|---|
+| Project type | `shell` |
+| Detected tools | jq, chrome, claude-code, curl, 1password-cli, npx, python, imagemagick, git |
+| APT packages | jq, chromium, chromium-driver, curl, python3, imagemagick, git |
+| Setup commands | claude install via curl, 1password-cli install |
+| Skills | none |
+
+This is saved to `config.json` under `bridgeProvisioning` so subsequent starts skip analysis.
+
+## Architecture
+
+```
+Host                                    Dagger Container
+─────                                   ────────────────
+CLI (habitat.ts)
+  → BridgeAgent (agent.ts)
+    → BridgeLifecycle (lifecycle.ts)
+      → Worker Thread (bridge-worker.ts)
+        → Builds container via Dagger SDK ──→ node:20 + apt packages
+        → Mounts Go binary ─────────────────→ /opt/bridge/bridge-server
+        → Clones repo ──────────────────────→ /workspace/
+        → Starts service ───────────────────→ bridge-server --port 10000
+      ← Polls http://localhost:10000/mcp
+    ← Worker signals "ready"
+  ← BridgeAnalyzer reads repo via MCP
+  ← Saves provisioning to config.json
 ```
 
-3. **Read and write files**:
+The Go MCP server (`bridge-server-linux`) is a static ARM64 binary compiled from `src/habitat/bridge/go-server/main.go`. It uses the official Go MCP SDK with StreamableHTTP transport — no Node.js or npm needed inside the container for the server itself.
 
-```typescript
-const content = await client.readFile("/workspace/README.md");
-await client.writeFile("/workspace/output.txt", "Hello from bridge!");
+## Logs
+
+Bridge logs go to `~/habitats-sessions/logs/` with timestamped filenames:
+
+```bash
+# View latest log
+ls -lt ~/habitats-sessions/logs/bridge-trmnl-image-agent-*.log | head -1 | xargs cat
 ```
 
 ## See Also
 
-- `src/habitat/bridge/agent.ts` - BridgeAgent implementation
-- `src/habitat/bridge/client.ts` - HabitatBridgeClient
-- `src/habitat/bridge/lifecycle.ts` - Container lifecycle management
-- `src/habitat/habitat.ts` - Habitat main class
-- `src/habitat/agent-lifecycle.integration.test.ts` - Full agent lifecycle test (with LLM)
+- `src/habitat/bridge/agent.ts` — BridgeAgent orchestration
+- `src/habitat/bridge/bridge-worker.ts` — Dagger container build
+- `src/habitat/bridge/analyzer.ts` — Repository analysis via MCP
+- `src/habitat/bridge/client.ts` — HabitatBridgeClient
+- `src/habitat/bridge/go-server/main.go` — Go MCP server source
