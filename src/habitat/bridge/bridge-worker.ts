@@ -2,7 +2,8 @@
  * Bridge Worker Thread
  *
  * Runs the Dagger bridge service in a separate thread so it doesn't block the CLI.
- * Uses a pre-compiled Go binary for the MCP server (fast startup, zero dependencies).
+ * Uses dag.llm() to build the container (reads repo, picks base image, installs deps).
+ * Falls back to heuristic build if LLM fails.
  */
 
 import { parentPort, workerData } from "worker_threads";
@@ -10,27 +11,26 @@ import { dag, connection } from "@dagger.io/dagger";
 import { existsSync, appendFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { buildContainerFromRepo } from "./container-builder.js";
+import type { SavedProvisioning } from "../types.js";
 
 interface WorkerData {
   id: string;
   repoUrl: string;
-  baseImage: string;
   port: number;
-  aptPackages?: string[];
-  secrets?: Array<{ name: string; value: string }>; // Secrets passed securely
-  setupCommands?: string[]; // Commands to run after apt install
-  logFilePath?: string; // Path to write logs to
+  secrets?: Array<{ name: string; value: string }>;
+  logFilePath?: string;
+  /** Previous provisioning hint for the LLM */
+  previousProvisioning?: SavedProvisioning;
 }
 
 const {
   id,
   repoUrl,
-  baseImage,
   port,
-  aptPackages = [],
   secrets = [],
-  setupCommands = [],
   logFilePath,
+  previousProvisioning,
 } = workerData as WorkerData;
 
 // Structured logging to parent thread and file.
@@ -52,53 +52,12 @@ const log = (step: string, message: string, data?: unknown) => {
 log("INIT", "Bridge worker starting", {
   id,
   repoUrl,
-  baseImage,
   port,
-  aptPackages,
 });
 
 connection(
   async () => {
-    log("CONTAINER", "Starting container build", { baseImage });
-
-    // Step 1: Get base container
-    log("CONTAINER", "Pulling base image", { baseImage });
-    let container = dag.container().from(baseImage);
-    log("CONTAINER", "Base image pulled");
-
-    // Step 2: Install apt packages (cacheable — no secrets yet)
-    if (aptPackages.length > 0) {
-      log("APT", "Installing apt packages", { packages: aptPackages });
-      container = container.withExec([
-        "sh",
-        "-c",
-        "apt-get update && apt-get install -y " + aptPackages.join(" "),
-      ]);
-      log("APT", "Apt packages installed", { count: aptPackages.length });
-    }
-
-    // Step 3: Run setup commands BEFORE secrets/clone (cacheable layer)
-    // This includes things like `curl ... | bash` for claude-code install.
-    // Must come before secrets injection so Dagger can cache the result.
-    if (setupCommands.length > 0) {
-      log("SETUP", `Running ${setupCommands.length} setup command(s)`);
-      for (const cmd of setupCommands) {
-        log("SETUP", `Executing: ${cmd}`);
-        container = container.withExec(["sh", "-c", cmd]);
-      }
-      log("SETUP", "Setup commands completed");
-    }
-
-    // Step 4: Mount cache volumes for expensive installs
-    // npm cache survives across container rebuilds
-    container = container.withMountedCache(
-      "/root/.npm",
-      dag.cacheVolume("bridge-npm-cache"),
-    );
-
-    // Step 5: Setup bridge server using pre-compiled Go binary
-    log("SERVER", "Setting up Go MCP server binary", { port });
-
+    // Find the Go MCP server binary
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
 
@@ -121,71 +80,56 @@ connection(
       );
     }
 
-    log("SERVER", "Mounting Go binary from host", { path: binaryPath });
-    const hostBinary = dag.host().file(binaryPath);
-
-    // Mount binary into container with execute permissions
-    container = container
-      .withExec(["mkdir", "-p", "/opt/bridge"])
-      .withFile("/opt/bridge/bridge-server", hostBinary, { permissions: 0o755 });
-
-    // Step 6: Inject secrets LATE — after all cacheable layers
-    // Secrets invalidate Dagger layer cache, so everything before this is cached.
-    if (secrets.length > 0) {
-      log("SECRETS", "Injecting secrets into container", {
-        count: secrets.length,
-        names: secrets.map((s) => s.name),
-      });
-      for (const secret of secrets) {
-        const secretVal = dag.setSecret(secret.name, secret.value);
-        container = container.withSecretVariable(secret.name, secretVal);
-      }
-      log("SECRETS", "Secrets injected securely");
-    }
-
-    // Step 7: Clone the repo (needs secrets for private repos via GITHUB_TOKEN)
-    log("GIT", "Cloning repository", { repoUrl, target: "/workspace" });
-    container = container.withExec([
-      "git",
-      "clone",
-      "--depth",
-      "1",
+    log("BUILD", "Building container from repo via LLM + fallback", {
       repoUrl,
-      "/workspace",
-    ]);
+      binaryPath,
+      hasSecrets: secrets.length > 0,
+      hasPreviousProvisioning: !!previousProvisioning,
+    });
 
-    // Step 4.5: Force-execute the pipeline to validate everything works.
-    // Dagger is lazy — without this, errors in mount/clone only surface
-    // when the service starts, making them hard to debug.
+    // Build the container (LLM tries first, falls back to heuristics)
+    const { container, provisioning } = await buildContainerFromRepo({
+      repoUrl,
+      secrets,
+      port,
+      goBinaryPath: binaryPath,
+      previousProvisioning,
+    });
+
+    log("BUILD", "Container built", {
+      baseImage: provisioning.baseImage,
+      buildSteps: provisioning.buildSteps,
+    });
+
+    // Send provisioning back to parent for persistence
+    parentPort?.postMessage({
+      type: "provisioning",
+      provisioning,
+    });
+
+    // Validate the container
     log("VALIDATE", "Executing pipeline to validate container setup...");
     try {
       const validateOutput = await container
-        .withExec(["sh", "-c", "file /opt/bridge/bridge-server && ls /workspace/ | head -5"])
+        .withExec([
+          "sh",
+          "-c",
+          "file /opt/bridge/bridge-server && ls /workspace/ | head -5",
+        ])
         .stdout();
-      log("VALIDATE", "Container setup validated", { output: validateOutput.trim() });
+      log("VALIDATE", "Container setup validated", {
+        output: validateOutput.trim(),
+      });
     } catch (validateErr: any) {
       const msg = validateErr.message || String(validateErr);
       log("VALIDATE", "Container setup FAILED", { error: msg });
-      // Try to get more details about what went wrong
-      try {
-        const stderr = await container.withExec(["sh", "-c", "ls -la /opt/bridge/ 2>&1; ls /workspace/ 2>&1 || true"]).stdout();
-        log("VALIDATE", "Debug info", { output: stderr.trim() });
-      } catch { /* ignore */ }
       throw new Error(`Container validation failed: ${msg}`);
     }
 
-    // Step 5: Setup service
-    log("SERVICE", "Configuring Dagger service", { port });
-    container = container.withExposedPort(port);
+    // Start the service (entrypoint is already set by container-builder)
+    log("SERVICE", "Starting Dagger service", { port });
+    const service = container.asService();
 
-    const service = container
-      .withEntrypoint(["/opt/bridge/bridge-server", "--port", String(port)])
-      .asService();
-    log("SERVICE", "Starting Dagger service", {
-      portMapping: { frontend: port, backend: port },
-    });
-
-    // Step 6: Start service in background (non-blocking) so we can poll for readiness
     let serviceError: string | null = null;
     const servicePromise = service
       .up({ ports: [{ frontend: port, backend: port }] })
@@ -198,7 +142,7 @@ connection(
         parentPort?.postMessage({ type: "error", error: serviceError });
       });
 
-    // Step 7: Poll until service is actually reachable
+    // Poll until service is actually reachable
     const MAX_WAIT_MS = 60000;
     const POLL_INTERVAL = 500;
     const startTime = Date.now();
@@ -210,7 +154,6 @@ connection(
     });
 
     while (!isReady && Date.now() - startTime < MAX_WAIT_MS) {
-      // If the service already crashed, stop polling immediately
       if (serviceError) {
         throw new Error(`Service crashed during startup: ${serviceError}`);
       }
@@ -237,21 +180,22 @@ connection(
 
         if (response.ok) {
           const text = await response.text();
-          if (text.includes("serverInfo") && text.includes("habitat-bridge")) {
+          if (
+            text.includes("serverInfo") &&
+            text.includes("habitat-bridge")
+          ) {
             isReady = true;
             log("WAIT", "Service is healthy and reachable!", {
               elapsedMs: Date.now() - startTime,
             });
           } else {
             lastPollError = `Unexpected response (status ${response.status}): ${text.slice(0, 200)}`;
-            log("WAIT", "Got response but not MCP initialize", { status: response.status, body: text.slice(0, 200) });
           }
         } else {
           lastPollError = `HTTP ${response.status}: ${response.statusText}`;
         }
       } catch (pollErr: any) {
         lastPollError = pollErr.message || String(pollErr);
-        // Only log every 5s to reduce noise
         if ((Date.now() - startTime) % 5000 < POLL_INTERVAL) {
           log("WAIT", "Poll attempt failed (expected during startup)", {
             error: lastPollError,
@@ -271,12 +215,11 @@ connection(
       );
     }
 
-    // Step 8: Signal ready to parent
+    // Signal ready to parent
     log("SIGNAL", "Signaling ready to parent", { port });
     parentPort?.postMessage({ type: "ready", port });
-    log("SIGNAL", "Ready signal sent to parent");
 
-    // Step 9: Keep worker alive by waiting for the service promise
+    // Keep worker alive by waiting for the service promise
     log("KEEPALIVE", "Entering keep-alive state (waiting for service)");
     await servicePromise;
     log("KEEPALIVE", "Service promise resolved (container stopped)");
@@ -284,6 +227,9 @@ connection(
   { LogOutput: process.stderr },
 ).catch((err: any) => {
   log("FATAL", "Worker failed", { error: err.message || String(err) });
-  parentPort?.postMessage({ type: "error", error: err.message || String(err) });
+  parentPort?.postMessage({
+    type: "error",
+    error: err.message || String(err),
+  });
   process.exit(1);
 });

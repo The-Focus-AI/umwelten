@@ -114,7 +114,7 @@ Set `stimulus.runnerType = 'memory'` for automatic fact extraction.
 
 The top-level system. Manages work directory, config, sessions, tools, agents, and secrets.
 
-- `habitat.ts` — `Habitat` class (static factory: `Habitat.create()`)
+- `habitat.ts` — `Habitat` class (static factory: `Habitat.create()`, `createAgentInteraction()`)
 - `habitat-agent.ts` — `HabitatAgent`, `buildAgentStimulus()` — sub-agents for managed projects
 - `session-manager.ts` — `HabitatSessionManager` — create/list/resume sessions
 - `config.ts` — Directory resolution, config loading, file utilities
@@ -124,6 +124,8 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `transcript.ts` — Export sessions to JSONL
 - `gaia-server.ts` — HTTP server for habitat API
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
+- `bridge/diagnosis-agent.ts` — LLM agent for read-only project inspection and provisioning detection
+- `bridge/monitor-agent.ts` — LLM agent for container health monitoring
 
 **Tool Sets** — named collections registered on a habitat:
 
@@ -135,7 +137,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 | `agentToolSet` | list/add/update/remove agents | Yes |
 | `sessionToolSet` | list/show/inspect sessions | Yes |
 | `externalInteractionToolSet` | read Claude Code/Cursor history | Yes |
-| `agentRunnerToolSet` | agent_clone, agent_logs, agent_status, agent_ask | Yes |
+| `agentRunnerToolSet` | agent_clone, agent_logs, agent_status, agent_ask, bridge_*, bridge_diagnose, bridge_monitor | Yes |
 | `runProjectToolSet` | run_project (Dagger smart containers) | Yes |
 | `secretsToolSet` | set/remove/list secrets | Yes |
 | `searchToolSet` | web search via Tavily | Yes |
@@ -149,7 +151,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `agent-tools.ts` — Agent CRUD
 - `session-tools.ts` — Session inspection
 - `external-interaction-tools.ts` — Claude Code/Cursor session reading
-- `agent-runner-tools.ts` — Clone repos, read logs, check status, delegate to sub-agents
+- `agent-runner-tools.ts` — Clone repos, read logs, check status, delegate to sub-agents, bridge_diagnose (LLM provisioning), bridge_monitor (LLM health check)
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
 - `secrets-tools.ts` — Manage secrets in the habitat store
 - `run-project/` — Smart Dagger container execution (auto-detect project type, install deps, inject API keys)

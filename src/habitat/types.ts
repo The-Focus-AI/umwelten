@@ -25,6 +25,20 @@ export interface LogPattern {
  */
 export type AgentMCPStatus = "running" | "stopped" | "error" | "starting";
 
+/** Provisioning data that gets persisted to config.json. */
+export interface SavedProvisioning {
+  /** What the LLM chose — informational, used as hint on next build. */
+  baseImage: string;
+  /** Build steps the LLM executed or we detected. */
+  buildSteps: string[];
+  /** Env var names the project needs. */
+  envVarNames: string[];
+  /** LLM reasoning for the build choices. */
+  reasoning: string;
+  /** When this provisioning was last analyzed. */
+  analyzedAt: string;
+}
+
 /**
  * A known agent -- a reference to another habitat.
  * Secrets are references only (env var names), never stored values.
@@ -53,21 +67,7 @@ export interface AgentEntry {
   /** Last error message if mcpStatus is 'error'. */
   mcpError?: string;
   /** Cached provisioning from bridge analysis (persisted across sessions). */
-  bridgeProvisioning?: {
-    baseImage: string;
-    aptPackages: string[];
-    setupCommands: string[];
-    detectedTools: string[];
-    projectType: string;
-    skillRepos: Array<{
-      name: string;
-      gitRepo: string;
-      containerPath: string;
-      aptPackages: string[];
-    }>;
-    /** When this provisioning was last analyzed. */
-    analyzedAt: string;
-  };
+  bridgeProvisioning?: SavedProvisioning;
 }
 
 /**
@@ -157,6 +157,10 @@ export interface HabitatSessionMetadata {
   created: string;
   lastUsed: string;
   type: HabitatSessionType;
+  /** LLM provider used for this session. */
+  provider?: string;
+  /** LLM model used for this session. */
+  model?: string;
   chatId?: number;
   metadata?: Record<string, unknown>;
 }

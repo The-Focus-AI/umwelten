@@ -44,12 +44,11 @@ async function main() {
   console.log(`  Agent ID: ${AGENT_ID}`);
   console.log("  Starting container (this may take 30-60 seconds)...\n");
 
-  const bridgeAgent = await habitat.createBridgeAgent(AGENT_ID, REPO_URL);
-  console.log(`  ✓ BridgeAgent created!`);
+  const bridgeAgent = await habitat.startBridge(AGENT_ID);
+  console.log(`  ✓ BridgeAgent started!`);
   console.log(
     `  ✓ Status: ${bridgeAgent.getState().isReady ? "READY" : "NOT READY"}`,
   );
-  console.log(`  ✓ Iterations: ${bridgeAgent.getState().iteration}`);
   console.log(`  ✓ Port: ${bridgeAgent.getPort()}\n`);
 
   // Step 3: Connect to the MCP server

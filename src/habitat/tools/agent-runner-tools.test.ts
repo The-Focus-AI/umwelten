@@ -27,8 +27,23 @@ describe('agent-runner-tools', () => {
     ctx = {
       getWorkDir: () => workDir,
       getAgent: (id) => agents.find(a => a.id === id || a.name === id),
+      getAgents: () => agents,
       addAgent: async (agent) => { agents.push(agent); },
+      updateAgent: async (id, updates) => {
+        const agent = agents.find(a => a.id === id);
+        if (agent) Object.assign(agent, updates);
+      },
       getOrCreateHabitatAgent: async () => mockHabitatAgent,
+      startBridge: async () => { throw new Error('Mock: no bridge in test'); },
+      getBridgeAgent: () => undefined,
+      getAllBridgeAgents: () => [],
+      destroyBridgeAgent: async () => {},
+      listBridgeAgents: () => [],
+      getAgentDir: (id: string) => join(workDir, 'agents', id),
+      ensureAgentDir: async () => {},
+      saveBridgeState: async () => {},
+      loadBridgeState: async () => null,
+      loadAllBridgeStates: async () => [],
     };
 
     tools = createAgentRunnerTools(ctx);
@@ -52,14 +67,16 @@ describe('agent-runner-tools', () => {
     });
 
     it('should derive id from name when not provided', async () => {
-      // This will fail the clone (no real git), but we can check the error
+      // This will fail the bridge creation (mock throws), but we can check the ID derivation
       const result = await tools.agent_clone.execute({
         gitUrl: 'https://invalid-url.example.com/repo.git',
         name: 'My Cool Agent',
       }, { messages: [], toolCallId: 'test' });
 
-      // The clone will fail, but the ID derivation logic works
-      expect(result.error).toBe('CLONE_FAILED');
+      // Registration succeeds, bridge fails — ID is derived from name
+      expect(result.registered).toBe(true);
+      expect(result.agent.id).toBe('my-cool-agent');
+      expect(result.bridgeError).toBeDefined();
     });
   });
 
@@ -299,4 +316,24 @@ describe('agent-runner-tools', () => {
     });
   });
 
+  describe('tool registration', () => {
+    it('should include all expected tools', () => {
+      expect(tools.agent_clone).toBeDefined();
+      expect(tools.agent_logs).toBeDefined();
+      expect(tools.agent_status).toBeDefined();
+      expect(tools.agent_ask).toBeDefined();
+      expect(tools.bridge_start).toBeDefined();
+      expect(tools.bridge_stop).toBeDefined();
+      expect(tools.bridge_list).toBeDefined();
+      expect(tools.bridge_ls).toBeDefined();
+      expect(tools.bridge_read).toBeDefined();
+      expect(tools.bridge_exec).toBeDefined();
+    });
+
+    it('should not include removed tools', () => {
+      expect(tools.bridge_diagnose).toBeUndefined();
+      expect(tools.bridge_apply_provisioning).toBeUndefined();
+      expect(tools.bridge_monitor).toBeUndefined();
+    });
+  });
 });

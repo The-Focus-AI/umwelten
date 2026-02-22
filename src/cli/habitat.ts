@@ -209,21 +209,7 @@ async function repl(
         }
 
         try {
-          if (!agent.gitRemote) {
-            console.log(`Agent "${agentId}" has no gitRemote configured.`);
-            console.log("");
-            ask();
-            return;
-          }
-
-          const { BridgeAgent } = await import("../habitat/bridge/agent.js");
-          const bridgeAgent = new BridgeAgent({
-            id: agentId,
-            repoUrl: agent.gitRemote,
-            maxIterations: 5,
-          });
-
-          await bridgeAgent.initialize();
+          const bridgeAgent = await habitat.startBridge(agentId);
           const port = bridgeAgent.getPort();
 
           console.log(
@@ -524,10 +510,19 @@ async function cliAction(
 
   printStartupInfo(habitat, modelDetails);
 
+  // Make the model available to tools without persisting to config
+  habitat.setRuntimeModelDetails(modelDetails);
+
   // Create session + interaction
   const store = habitat.getStore();
   const { sessionId, sessionDir } = await habitat.getOrCreateSession("cli");
   console.log(`[habitat] Session: ${sessionId}`);
+
+  // Record model in session metadata
+  await habitat.updateSessionMetadata(sessionId, {
+    provider: modelDetails.provider,
+    model: modelDetails.name,
+  });
 
   const stimulus = await habitat.getStimulus();
   const interaction = new Interaction(modelDetails, stimulus, {
@@ -623,13 +618,10 @@ async function webAction(
 ): Promise<void> {
   const habitat = await createHabitatFromOptions(options);
 
-  // Persist CLI-provided provider/model into config so createInteraction can use them
+  // Make the model available to tools without persisting to agent config
   const modelDetails = resolveModelDetails(habitat, options);
-  if (modelDetails && !habitat.getDefaultModelDetails()) {
-    await habitat.updateConfig({
-      defaultProvider: modelDetails.provider,
-      defaultModel: modelDetails.name,
-    });
+  if (modelDetails) {
+    habitat.setRuntimeModelDetails(modelDetails);
   }
 
   const config = habitat.getConfig();
@@ -761,7 +753,8 @@ secretsSubcommand
     } else {
       console.log(`Secrets (${names.length}):`);
       for (const name of names) {
-        console.log(`  ${name}`);
+        const value = habitat.getSecret(name);
+        console.log(`  ${name}=${value ?? '(not set)'}`);
       }
     }
   });
@@ -856,9 +849,8 @@ agentSubcommand
   )
   .option("--skip-onboard", "Skip automatic onboarding")
   .option("--port <port>", "Preferred port (auto-assigned if not specified)")
-  .option("--reanalyze", "Force re-analysis (ignore saved provisioning)")
   .action(
-    async (agentId: string, options: HabitatCLIOptions & { port?: string; reanalyze?: boolean }) => {
+    async (agentId: string, options: HabitatCLIOptions & { port?: string }) => {
       const habitat = await createHabitatFromOptions({
         ...options,
         skipOnboard: options.skipOnboard,
@@ -870,64 +862,30 @@ agentSubcommand
         process.exit(1);
       }
 
-      // Start BridgeAgent MCP server (runs in Dagger container)
-      const { BridgeAgent } = await import("../habitat/bridge/agent.js");
-      const { mkdirSync } = await import("node:fs");
-
       try {
-        if (!agent.gitRemote) {
-          console.error(`Agent "${agentId}" has no gitRemote configured.`);
-          process.exit(1);
-        }
-
-        // Create logs directory in sessions dir with timestamped filename
+        // Create logs directory with timestamped filename
+        const { mkdirSync } = await import("node:fs");
         const logsDir = path.join(habitat.sessionsDir, "logs");
         mkdirSync(logsDir, { recursive: true });
         const ts = new Date().toISOString().replace(/[:.]/g, "-");
         const logFilePath = path.join(logsDir, `bridge-${agentId}-${ts}.log`);
         console.log(`[habitat] Logs: ${logFilePath}`);
 
-        // Use saved provisioning if available (skip analysis on subsequent starts)
-        const saved = (!options.reanalyze && agent.bridgeProvisioning) || undefined;
-        if (saved) {
-          console.log(`[habitat] Using saved provisioning from ${saved.analyzedAt}`);
-        } else if (agent.bridgeProvisioning && options.reanalyze) {
-          console.log(`[habitat] Reanalyzing (ignoring saved provisioning)`);
+        if (agent.bridgeProvisioning) {
+          console.log(`[habitat] Using saved provisioning from ${agent.bridgeProvisioning.analyzedAt}`);
         }
 
-        const bridgeAgent = new BridgeAgent({
-          id: agentId,
-          repoUrl: agent.gitRemote,
-          maxIterations: 5,
-          savedProvisioning: saved,
-        });
-
-        await bridgeAgent.initialize(logFilePath);
+        const bridgeAgent = await habitat.startBridge(agentId, { logFilePath });
         const port = bridgeAgent.getPort();
-        const state = bridgeAgent.getState();
-
-        // Save provisioning results for next time
-        const provisioning = bridgeAgent.getSavedProvisioning();
-        await habitat.updateAgent(agent.id, {
-          mcpPort: port,
-          mcpEnabled: true,
-          mcpStatus: "running",
-          ...(provisioning ? { bridgeProvisioning: provisioning } : {}),
-        });
 
         console.log(
           `\u2705 Agent "${agent.name}" Bridge MCP server started on port ${port}`,
         );
         console.log(`   Endpoint: http://localhost:${port}/mcp`);
         console.log(`   Logs: ${logFilePath}`);
-        console.log(`   Iterations: ${state.iteration}`);
-        if (state.analysis) {
+        if (agent.bridgeProvisioning) {
           console.log(
-            `   Detected tools: ${state.analysis.detectedTools.join(", ")}`,
-          );
-        } else if (saved) {
-          console.log(
-            `   Detected tools: ${saved.detectedTools.join(", ")}`,
+            `   Build: ${agent.bridgeProvisioning.baseImage} (${agent.bridgeProvisioning.buildSteps.join(", ")})`,
           );
         }
 
@@ -936,6 +894,9 @@ agentSubcommand
         process.on("SIGINT", async () => {
           console.log("\nStopping Bridge MCP server...");
           await bridgeAgent.destroy();
+          await habitat.updateAgent(agent.id, {
+            mcpStatus: "stopped",
+          });
           process.exit(0);
         });
       } catch (error) {

@@ -23,10 +23,9 @@ async function main() {
   const bridgeAgent = new BridgeAgent({
     id: AGENT_ID,
     repoUrl: REPO_URL,
-    maxIterations: 5,
   });
 
-  await bridgeAgent.initialize();
+  await bridgeAgent.start();
   console.log(`✓ Bridge ready on port ${bridgeAgent.getPort()}\n`);
 
   // Step 2: Query scripts

@@ -19,7 +19,7 @@ export interface AgentToolsContext {
 
 export function createAgentTools(ctx: AgentToolsContext): Record<string, Tool> {
   const agentsListTool = tool({
-    description: 'List all configured agents (habitats): id, name, projectPath, gitRemote, commands.',
+    description: 'List all configured agents (habitats): id, name, projectPath, gitRemote, MCP status, commands.',
     inputSchema: z.object({}).optional(),
     execute: async () => {
       const config = ctx.getConfig();
@@ -29,8 +29,17 @@ export function createAgentTools(ctx: AgentToolsContext): Record<string, Tool> {
           name: a.name,
           projectPath: a.projectPath,
           gitRemote: a.gitRemote ?? null,
+          mcpPort: a.mcpPort ?? null,
+          mcpStatus: a.mcpStatus ?? null,
           secretsRefs: a.secrets?.length ? a.secrets : undefined,
           commands: a.commands ?? undefined,
+          hasProvisioning: !!a.bridgeProvisioning,
+          provisioningSummary: a.bridgeProvisioning ? {
+            baseImage: a.bridgeProvisioning.baseImage,
+            buildSteps: a.bridgeProvisioning.buildSteps,
+            envVarNames: a.bridgeProvisioning.envVarNames,
+            analyzedAt: a.bridgeProvisioning.analyzedAt,
+          } : undefined,
         })),
         count: config.agents.length,
       };
@@ -84,7 +93,10 @@ export function createAgentTools(ctx: AgentToolsContext): Record<string, Tool> {
       if (secrets !== undefined) updates.secrets = secrets;
       if (commands !== undefined) updates.commands = commands as HabitatCommands;
       await ctx.updateAgent(agentId, updates);
-      return { updated: { ...agent, ...updates }, message: `Agent "${agent.name}" updated.` };
+      return {
+        updated: { id: agent.id, name: updates.name ?? agent.name },
+        message: `Agent "${agent.name}" updated.`,
+      };
     },
   });
 
