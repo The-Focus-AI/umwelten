@@ -228,4 +228,23 @@ export class HabitatSessionManager {
     }
     await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
   }
+
+  /** Merge arbitrary fields into session metadata. */
+  async updateMetadata(
+    sessionId: string,
+    updates: Partial<HabitatSessionMetadata>,
+  ): Promise<void> {
+    const sessionDir = await this.getSessionDir(sessionId);
+    if (!sessionDir) return;
+
+    const metaPath = join(sessionDir, 'meta.json');
+    try {
+      const content = await readFile(metaPath, 'utf-8');
+      const metadata = JSON.parse(content) as HabitatSessionMetadata;
+      Object.assign(metadata, updates);
+      await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
+    } catch {
+      // meta.json doesn't exist yet — ignore
+    }
+  }
 }

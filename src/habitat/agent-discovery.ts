@@ -142,21 +142,30 @@ export class AgentDiscovery {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
+      // Connection refused / fetch failed means the server isn't running
+      const isUnreachable =
+        errorMessage.includes("fetch failed") ||
+        errorMessage.includes("ECONNREFUSED") ||
+        errorMessage.includes("ECONNRESET");
+
       const discovered: DiscoveredAgent = {
         agent,
-        status: "error",
+        status: isUnreachable ? "stopped" : "error",
         port: agent.mcpPort,
         endpoint,
-        error: errorMessage,
+        error: isUnreachable
+          ? `MCP server not reachable on port ${agent.mcpPort} (process may have exited)`
+          : errorMessage,
       };
 
       this.discoveredAgents.set(agent.id, discovered);
 
       // Update agent status in config
-      if (agent.mcpStatus !== "error") {
+      const newStatus = isUnreachable ? "stopped" : "error";
+      if (agent.mcpStatus !== newStatus) {
         await this.habitat.updateAgent(agent.id, {
-          mcpStatus: "error",
-          mcpError: errorMessage,
+          mcpStatus: newStatus as AgentMCPStatus,
+          mcpError: discovered.error,
         });
       }
 

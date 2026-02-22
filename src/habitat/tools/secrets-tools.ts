@@ -12,6 +12,7 @@ export interface SecretsToolsContext {
   setSecret(name: string, value: string): Promise<void>;
   removeSecret(name: string): Promise<void>;
   listSecretNames(): string[];
+  getSecret(name: string): string | undefined;
 }
 
 export function createSecretsTools(ctx: SecretsToolsContext): Record<string, Tool> {
@@ -39,11 +40,30 @@ export function createSecretsTools(ctx: SecretsToolsContext): Record<string, Too
   });
 
   const secretsListTool = tool({
-    description: 'List the names of all secrets in the habitat secret store. Never returns secret values.',
+    description: 'List all secrets in the habitat secret store. Shows names and whether they are set, but not values (for security).',
     inputSchema: z.object({}).optional(),
     execute: async () => {
       const names = ctx.listSecretNames();
-      return { names, count: names.length };
+      const secrets: Array<{ name: string; isSet: boolean }> = [];
+      for (const name of names) {
+        const value = ctx.getSecret(name);
+        secrets.push({ name, isSet: value !== undefined && value !== null });
+      }
+      return { secrets, count: secrets.length };
+    },
+  });
+
+  const secretsGetTool = tool({
+    description: 'Check if a specific secret exists in the habitat secret store. Returns whether it is set, but not the value (for security).',
+    inputSchema: z.object({
+      name: z.string().describe('Environment variable name to look up'),
+    }),
+    execute: async ({ name }) => {
+      const value = ctx.getSecret(name);
+      if (value === undefined) {
+        return { name, found: false, message: `Secret "${name}" not found in store or environment.` };
+      }
+      return { name, found: true, message: `Secret "${name}" is set.` };
     },
   });
 
@@ -51,5 +71,6 @@ export function createSecretsTools(ctx: SecretsToolsContext): Record<string, Too
     secrets_set: secretsSetTool,
     secrets_remove: secretsRemoveTool,
     secrets_list: secretsListTool,
+    secrets_get: secretsGetTool,
   };
 }
