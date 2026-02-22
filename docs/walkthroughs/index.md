@@ -21,17 +21,25 @@ Build a complete agent environment from scratch with a custom persona, tools, su
 
 ### [Habitat Bridge Walkthrough](./habitat-bridge-walkthrough.md)
 
-Use the Habitat Bridge System to manage remote repositories in isolated, auto-provisioned containers:
+Use the Habitat Bridge System to manage remote repositories in isolated containers:
 
-- Create BridgeAgents with zero configuration
-- Automatic iterative provisioning (detects npm, pip, cargo, etc.)
+- Three-phase design: Create, Start, Inspect
+- Saved provisioning for instant subsequent starts
 - Execute commands in persistent containers via MCP
 - Work with git repositories programmatically
 - Debug and monitor bridge containers
 
 **Time Required:** 10-15 minutes
-**Prerequisites:** Docker, Dagger CLI, GITHUB_TOKEN env var
+**Prerequisites:** Docker running (Dagger uses Docker)
 **Best For:** Remote repo execution, complex containerized workflows
+
+### [Bridge MCP Test](./habitat-bridge-mcp-test.md)
+
+Manual testing guide for the Bridge MCP system:
+
+- Start a bridge and test MCP tools with curl
+- Use the TypeScript client programmatically
+- Inspect saved provisioning and logs
 
 ## Session Management
 
@@ -72,7 +80,7 @@ This walkthrough demonstrates the actual output and insights you can gain from a
 Have an interesting use case or workflow? We'd love to feature it!
 
 1. Create a markdown file in `docs/walkthroughs/`
-2. Follow the format: Overview → Prerequisites → Step-by-step → Results
+2. Follow the format: Overview -> Prerequisites -> Step-by-step -> Results
 3. Include real commands and actual output where possible
 4. Submit a PR with your walkthrough
 

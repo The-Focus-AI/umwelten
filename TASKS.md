@@ -543,6 +543,147 @@ Goal: Audit all docs against actual codebase and fix everything that was wrong, 
 - [x] `habitat.ts` CLI — creates log directory, passes logFilePath to bridgeAgent.initialize()
 - [x] Verify all existing tests pass (only pre-existing Ollama failures)
 
+### Completed: Simplify Bridge Agent — Three Phases
+- [x] Extract `SavedProvisioning` type from inline in `types.ts` to named export
+- [x] Remove GITHUB_TOKEN hardcode from `lifecycle.ts`
+- [x] Delete dead methods from `lifecycle.ts` (installGit, installAptPackages, setupBridgeServer, waitForBridge)
+- [x] Simplify `BridgeAgent` to single `start()` method — removed `initialize()`, iteration loop, `checkProvisioningNeeds()`, `calculateNewProvisioning()`, `runSetupCommandsList()`
+- [x] Replace `createBridgeAgent()` with `startBridge()` in `habitat.ts` — simpler, no iteration
+- [x] Add `resolveAgentSecrets()` private helper in `habitat.ts`
+- [x] Delete `agent_analyze` and `agent_heal` tools from `agent-runner-tools.ts`
+- [x] Update `agent_clone` and `bridge_start` to use `startBridge()`
+- [x] Update `AgentRunnerToolsContext` interface (`createBridgeAgent` → `startBridge`)
+- [x] Update CLI `agent start` and REPL `/agent-start` to use `habitat.startBridge()`
+- [x] Update test mock context and `bridge/index.ts` exports
+- [x] Update scripts (`setup-bridge.ts`, `test-bridge-mcp.ts`)
+
+### Completed: Fix Bridge Session Bugs
+- [x] Fix `bridge_start` short-circuiting on externally-started bridges — was returning "already_running" without rebuilding with new secrets
+- [x] Fix `bridge_stop` not clearing `mcpPort` from config — next `bridge_start` now starts fresh
+- [x] Add `console.warn` for missing secrets in `resolveAgentSecrets()` — was silently skipping
+- [x] Stop exposing secret values via `secrets_list` and `secrets_get` tools — now returns `isSet: boolean` only
+- [x] Update DEFAULT_INSTRUCTIONS in `load-prompts.ts`:
+  - Added ABSOLUTELY FORBIDDEN rules against creating mock/dummy/fake scripts
+  - Added instruction to use `bridge_stop` then `bridge_start` after `secrets_set`
+  - Added instruction to use `sessions_list`/`sessions_show` for debugging
+  - Replaced `bridge_create` reference with correct `bridge_exec`/`bridge_read`/`bridge_ls`
+- [x] All 16 agent-runner-tools tests pass
+
+### Completed: Expose Bridge Provisioning + Claude Install Instructions
+- [x] Expose `bridgeProvisioning` in `agents_update` tool schema — LLM can now save aptPackages, setupCommands, detectedTools
+- [x] Show `hasProvisioning` and `provisioningSummary` in `agents_list` output — LLM can see when provisioning is missing
+- [x] Added Claude CLI install instruction: MUST use official script (`curl -fsSL https://claude.ai/install.sh | bash`), NEVER npm
+- [x] Added tool installation instruction: install real tools (jq, chromium, imagemagick, python3) not shims
+- [x] Added bridge provisioning workflow instruction: after discovering tools, save via `agents_update({ bridgeProvisioning: ... })` then `bridge_stop` + `bridge_start`
+- [x] Added bare container detection instruction: when `hasProvisioning=false`, warn user and offer to inspect project to discover required packages
+- [x] `agents_update` merges provisioning (preserves existing fields, adds new ones, timestamps with `analyzedAt`)
+- [x] TypeScript typecheck passes, all 16 agent-runner-tools tests pass
+
+### Completed: Bridge LLM Agent Lifecycle (Diagnosis + Monitor)
+- [x] `src/habitat/bridge/diagnosis-agent.ts` — LLM-based diagnosis agent with read-only bridge tools + `diagnose_complete` closure tool; `buildDiagnosisStimulus()`, `buildDiagnosisTools()`, `runDiagnosis()`
+- [x] `src/habitat/bridge/monitor-agent.ts` — LLM-based monitor agent with exec + `monitor_complete` closure tool; `buildMonitorStimulus()`, `buildMonitorTools()`, `runMonitor()`
+- [x] `src/habitat/tools/agent-runner-tools.ts` — Rewrote `bridge_diagnose` to use LLM diagnosis agent instead of static BridgeAnalyzer; added new `bridge_monitor` tool
+- [x] `src/habitat/habitat.ts` — Added `createAgentInteraction(stimulus)` for ephemeral interactions
+- [x] `src/habitat/tools/agent-runner-tools.ts` — Added `createAgentInteraction` and `getDefaultModelDetails` to `AgentRunnerToolsContext`
+- [x] `src/habitat/bridge/diagnosis-agent.test.ts` — 9 tests (tool set composition, schema validation, result capture)
+- [x] `src/habitat/bridge/monitor-agent.test.ts` — 11 tests (tool set with exec, schema validation, all status values)
+- [x] `src/habitat/tools/agent-runner-tools.test.ts` — Added 3 `bridge_monitor` tests (42 total, all passing)
+- [x] TypeScript typecheck passes, all 42 agent-runner-tools tests + 20 agent tests pass
+
+### Completed: Split bridge_diagnose Into Read-Only + Apply
+- [x] `bridge_diagnose` is now read-only — returns `{ diagnosis, proposedProvisioning, currentProvisioning }` without saving or restarting
+- [x] New `bridge_apply_provisioning` tool — full-replace (not additive merge), saves config, optionally restarts bridge
+- [x] Deleted `arrayUnion` and `mergeSkillRepos` helpers — no longer needed
+- [x] Tightened diagnosis-agent.ts prompt: "CRITICAL: only report what you find", removed hardcoded skill→package mappings, added "Common mistakes" section
+- [x] 4 new tests for `bridge_apply_provisioning` (exists, unknown agent, replace-not-merge, save-without-restart)
+
+### Completed: Habitat Supervisor — LLM-Driven Container Lifecycle
+- [x] Phase 0: Created spike script `scripts/spike-dagger-llm.ts` for validating dag.llm() with privileged env
+- [x] Phase 1: Created `src/habitat/bridge/container-builder.ts` — LLM container building via dag.llm()
+  - `buildContainerFromRepo()`, `buildContainerWithLLM()`, `buildContainerWithFallback()`
+  - LLM decides base image, apt packages, install commands; we always add Go binary, secrets, port, entrypoint
+  - Fallback heuristics when LLM fails (package.json→node:20, requirements.txt→python:3.11, etc.)
+  - Rewrote `bridge-worker.ts` to use container-builder instead of hardcoded pipeline
+  - Simplified `lifecycle.ts` BridgeProvisioning to just secrets + previousProvisioning
+  - Simplified `agent.ts` to work with new provisioning model
+- [x] Phase 2: Created `src/habitat/bridge/supervisor.ts` — BridgeSupervisor with build/health/rebuild loop
+  - Added SupervisorState, SupervisorStatus types to `state.ts`
+  - Health loop: HTTP poll every 10s, 3 consecutive failures → rebuild
+  - Max 3 build attempts before giving up with "error" status
+  - State persisted to `agents/{id}/supervisor.json` on every transition
+- [x] Phase 3: Wired supervisor into habitat and tools
+  - Replaced `bridgeAgents` Map with `supervisors` Map in `habitat.ts`
+  - Added `getSupervisor()`, `stopAllSupervisors()` to Habitat class
+  - Removed 3 tools from `agent-runner-tools.ts`: `bridge_diagnose`, `bridge_apply_provisioning`, `bridge_monitor`
+  - Updated `agent-tools.ts` provisioningSummary for new SavedProvisioning fields
+- [x] Phase 4: Deleted dead code
+  - Deleted: `analyzer.ts`, `llm-config-builder.ts`, `llm-config-builder.test.ts`, `diagnosis-agent.ts`, `diagnosis-agent.test.ts`, `monitor-agent.ts`, `monitor-agent.test.ts`
+  - Updated `bridge/index.ts` exports for supervisor, container-builder, state types
+- [x] Phase 5: Updated DEFAULT_INSTRUCTIONS in `load-prompts.ts`
+  - Simplified instructions: removed manual diagnosis/provisioning workflow
+  - Added supervisor-aware instructions (auto-build, auto-monitor, auto-rebuild)
+- [x] Phase 6: Updated types, CLI, and verified tests
+  - Changed SavedProvisioning: removed aptPackages/detectedTools/projectType/skillRepos, added buildSteps/envVarNames/reasoning
+  - Updated `cli/habitat.ts` for new provisioning display
+  - Updated `agent-runner-tools.test.ts` — 18/18 tests pass
+  - Overall: 55/68 test files pass (13 pre-existing failures, no new failures)
+
+---
+
+## Current: Habitat Agent/Tool Architecture Audit
+
+### Problem Analysis
+
+The habitat has **4 LLM agents**, each with different tool access. Several have more power than they should.
+
+### Agent Map
+
+#### 1. Main Habitat LLM (the REPL)
+- **Created by**: `src/cli/habitat.ts` via `habitat.createInteraction()`
+- **Talks to**: The user, in the REPL
+- **Tools** (from `standardToolSets` in `tool-sets.ts`):
+  - `agentToolSet` — list/add/update/remove agents
+  - `sessionToolSet` — list/show sessions
+  - `externalInteractionToolSet` — read Claude Code/Cursor history
+  - `agentRunnerToolSet` — `agent_clone`, `agent_logs`, `agent_status`, `agent_ask`, `bridge_start`, `bridge_stop`, `bridge_list`, `bridge_ls`, `bridge_read`, **`bridge_exec`**, `bridge_diagnose`, `bridge_apply_provisioning`, `bridge_monitor`
+  - `secretsToolSet` — set/remove/list secrets
+  - `searchToolSet` — web search via Tavily
+- **Does NOT have**: file tools, time tools, URL tools (those are for sub-agents only)
+
+#### 2. Diagnosis Agent (ephemeral, per-call)
+- **Created by**: `bridge_diagnose` tool → `runDiagnosis()` in `src/habitat/bridge/diagnosis-agent.ts`
+- **Tools**: `bridge_read`, `bridge_ls`, `bridge_health`, `bridge_logs`, `diagnose_complete`
+- **Read-only** — no exec, no write. This is correct.
+
+#### 3. Monitor Agent (ephemeral, per-call)
+- **Created by**: `bridge_monitor` tool → `runMonitor()` in `src/habitat/bridge/monitor-agent.ts`
+- **Tools**: `bridge_read`, `bridge_ls`, **`bridge_exec`**, `bridge_health`, `bridge_logs`, `monitor_complete`
+- **Has exec** — for `ps aux`, `which claude`, `df -h` etc. Intentional but worth noting.
+
+#### 4. HabitatAgent (persistent sub-agent)
+- **Created by**: `agent_ask` tool → `habitat.getOrCreateHabitatAgent()` → `HabitatAgent.create()` in `src/habitat/habitat-agent.ts`
+- **Tools**: Gets **ALL** of the habitat's registered tools (line 121: `habitat.getTools()`)
+- **Problem**: This means it has `bridge_exec`, `agent_clone`, `bridge_start`, everything the main habitat has.
+
+### Issues to Fix
+
+1. **`agent_clone` auto-starts bridge** (`agent-runner-tools.ts` line 158)
+   - Calls `ctx.startBridge(agentId)` immediately after registering
+   - User can't just register an agent without spinning up a Dagger container
+   - Should just register, let user explicitly `bridge_start` when ready
+
+2. **Main habitat LLM has `bridge_exec`** (`agent-runner-tools.ts` return object)
+   - Can run arbitrary commands in the container without asking the user
+   - Should be removed from default tool set or gated behind confirmation
+
+3. **HabitatAgent gets ALL habitat tools** (`habitat-agent.ts` line 121-124)
+   - `habitat.getTools()` gives it everything: exec, clone, start, secrets, etc.
+   - Sub-agents should get a restricted subset (read-only bridge tools + file tools)
+
+4. **Monitor agent has exec** (`monitor-agent.ts` line 82-95)
+   - Intentional for health checks (`ps aux`, `df -h`, `which claude`)
+   - Acceptable since monitor is ephemeral and purpose-built, but worth documenting
+
 ### Backlog
 - [ ] Test LLM-based container configuration with valid OpenRouter API key
 - [ ] Add environment variables for OpenRouter LLM configuration in Dagger

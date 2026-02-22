@@ -1,129 +1,123 @@
-# Habitat Bridge System - Implementation Summary
+# Habitat Bridge System
 
 ## Overview
 
-The Habitat Bridge System has been successfully implemented! It provides persistent agent containers with MCP-based communication, following the iterative provisioning architecture you requested.
+The Habitat Bridge System runs agent repositories in isolated Dagger containers with an MCP server for communication. It follows a three-phase design: **Create** (register agent), **Start** (launch container), **Inspect** (LLM uses tools to look inside).
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           HABITAT (Host)                            │
-│                                                                      │
-│  ┌──────────────────┐      ┌──────────────────────────────────────┐│
-│  │   BridgeAgent    │──────│   Iterative Provisioning Loop      ││
-│  │                  │      │                                      ││
-│  │  1. Start basic  │      │  while not ready:                   ││
-│  │  2. Analyze      │      │    createBridge()                   ││
-│  │  3. Destroy      │      │    analyze()                        ││
-│  │  4. Recreate     │      │    if needs update:                 ││
-│  │                  │      │      destroyBridge()                ││
-│  └──────────────────┘      │      continue with new provisioning ││
-│         │                  └──────────────────────────────────────┘│
-│         │                                                            │
-│         ▼                                                            │
-│  ┌──────────────────┐      ┌──────────────────────────────────────┐│
-│  │ BridgeLifecycle  │──────│  Dagger Container Management       ││
-│  │                  │      │                                      ││
-│  │  - createBridge  │      │  • Dynamic ports (8080, 8081...)   ││
-│  │  - destroyBridge │      │  • Git installation                ││
-│  │  - health checks │      │  • Apt package installation        ││
-│  │  - get logs      │      │  • Skill repo cloning              ││
-│  └──────────────────┘      │  • Bridge server setup             ││
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              │ HTTP + MCP Protocol
-                              │
-┌─────────────────────────────────────────────────────────────────────┐
-│                        DAGGER CONTAINER                             │
-│                                                                      │
-│  ┌────────────────────────────────────────────────────────────────┐│
-│  │                      Bridge Server                              ││
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    ││
-│  │  │  git/    │  │   fs/    │  │  exec/   │  │  bridge/     │    ││
-│  │  │  clone   │  │  read    │  │   run    │  │  health      │    ││
-│  │  │  commit  │  │  write   │  │          │  │  logs        │    ││
-│  │  │  push    │  │  list    │  │          │  │              │    ││
-│  │  └──────────┘  └──────────┘  └──────────┘  └──────────────┘    ││
-│  │                                                                   ││
-│  │  Streamable HTTP Transport (official MCP SDK)                   ││
-│  └────────────────────────────────────────────────────────────────┘│
-│                                                                      │
-│  ┌────────────────────────────────────────────────────────────────┐│
-│  │                    /workspace (Git Repository)                  ││
-│  │                                                                 ││
-│  │  All code lives here. Host only has logs and session data.     ││
-│  └────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────┘
+Host Machine
++-- ~/habitats/config.json          # Agent configs with saved bridgeProvisioning
++-- ~/habitats/secrets.json         # Encrypted secrets
++-- ~/habitats-sessions/logs/       # Timestamped bridge log files
+    +-- bridge-{agentId}-{timestamp}.log
+
+Dagger Container (per agent)
++-- /opt/bridge/bridge-server       # Pre-compiled Go MCP binary
++-- /workspace/                     # Cloned repository
 ```
 
-## Files Created
+## Three Phases
 
-### Core Bridge Files
+### Phase 1: Create — `agent_clone(gitUrl, name)`
 
-- `src/habitat/bridge/server.ts` - MCP bridge server (uses official SDK)
-- `src/habitat/bridge/client.ts` - MCP client for host to connect to bridge
-- `src/habitat/bridge/lifecycle.ts` - Dagger container lifecycle management
-- `src/habitat/bridge/analyzer.ts` - Repository analysis (reuses existing detection logic)
-- `src/habitat/bridge/agent.ts` - Iterative provisioning orchestrator
-- `src/habitat/bridge/index.ts` - Module exports
+Register agent in config. Nothing runs. Just metadata.
 
-### Supporting Files
+### Phase 2: Start — `bridge_start(agentId)` or `habitat agent start <id>`
 
-- `src/mcp/types/transport-tcp.ts` - TCP transport for MCP (alternative)
-- Updated `src/habitat/habitat.ts` - Integration with Habitat class
-- Updated `package.json` - Added `@modelcontextprotocol/sdk` and esbuild
+Start the container with whatever config exists. First time = bare `node:20`. With saved provisioning = packages, setup commands, etc. Returns when MCP server is reachable. No analysis, no iteration loop. Just start and return.
 
-## Key Features
+### Phase 3: Inspect — use bridge MCP tools to look inside
 
-### 1. Iterative Provisioning
+After the bridge is running, the LLM uses tools to inspect and iterate:
 
-- Starts with `ubuntu:22.04` + git
-- Analyzes repo via MCP file tools
-- Detects: project type (npm/pip/cargo/etc), tools (imagemagick/jq/etc), skills
-- Destroys and recreates with correct provisioning
-- No iteration cap - continues until ready
-- All decisions made by analyzing code, no manual configuration
+- `agent_status` — is bridge healthy, port, config
+- `agent_logs` — container/bridge logs
+- `bridge_ls`, `bridge_read`, `bridge_exec` — look inside the container
+- `bridge_health` — check MCP server status
 
-### 2. Official MCP SDK
+The LLM decides what needs updating, modifies the agent config (add packages, secrets, etc.), then restarts. **The LLM is the iteration loop.**
 
-- Uses `@modelcontextprotocol/sdk` v1.26.0
-- Streamable HTTP transport (easier debugging than sockets)
-- Tools: git/clone, git/status, git/commit, git/push
-- Tools: fs/read, fs/write, fs/list, fs/exists, fs/stat
-- Tools: exec/run, bridge/health, bridge/logs
+## LLM Agents
 
-### 3. Dynamic Ports
+The bridge system includes two LLM-based agents for automated provisioning and health monitoring. Each agent is a **Stimulus** (role + instructions + restricted tool set) that runs via an ephemeral **Interaction** using the habitat's default model.
 
-- Each bridge gets unique port (8080, 8081, etc.)
-- No conflicts between multiple agents
-- Exposed via Dagger port forwarding
+### Diagnosis Agent (`bridge_diagnose`)
 
-### 4. Git Integration
+**When:** After `agent_clone` or when `hasProvisioning=false`, or when the user asks to re-diagnose.
 
-- Uses `GITHUB_TOKEN` env var for private repos
-- Shallow clones (`--depth 1`) for speed
-- Supports HTTPS and SSH (via token auth)
+The diagnosis agent gets **read-only** access to the container (no exec) and a `diagnose_complete` tool to submit its findings:
 
-### 5. Session Persistence
+| Tool | Purpose |
+|---|---|
+| `bridge_read` | Read project files (package.json, CLAUDE.md, scripts) |
+| `bridge_ls` | List directories to understand project structure |
+| `bridge_health` | Check MCP server is up |
+| `bridge_logs` | Read container logs |
+| `diagnose_complete` | Submit structured findings (project type, packages, tools, env vars, skills) |
 
-- Session messages stored on host
-- Bridge is stateless
-- If bridge dies: recreate and continue conversation
-- Logs available for debugging via `bridge/logs` tool
+After the agent calls `diagnose_complete`, the tool code automatically:
+1. Merges findings with existing provisioning (additive)
+2. Determines base image from project type
+3. Saves to `agent.bridgeProvisioning`
+4. Stops and restarts the bridge with new config
 
-## Usage Example
+**Source:** `src/habitat/bridge/diagnosis-agent.ts`
+
+### Monitor Agent (`bridge_monitor`)
+
+**When:** On demand to check if an agent is healthy, stuck, or misconfigured.
+
+The monitor agent gets **exec access** (to check processes, installed tools) and a `monitor_complete` tool:
+
+| Tool | Purpose |
+|---|---|
+| `bridge_read` | Read files (sessions, logs, configs) |
+| `bridge_ls` | Find session dirs, log files |
+| `bridge_exec` | Check processes (`ps aux`), memory, disk, installed tools (`which`), env vars |
+| `bridge_health` | MCP server status |
+| `bridge_logs` | Container logs |
+| `monitor_complete` | Submit structured health report |
+
+The health report includes:
+- Overall health status (`healthy`, `degraded`, `unhealthy`, `unknown`)
+- Individual checks (MCP health, processes, env vars, tools)
+- Recent Claude Code session activity analysis
+- Issues found and recommendations
+
+**Source:** `src/habitat/bridge/monitor-agent.ts`
+
+## Components
+
+| Component | File | Role |
+|---|---|---|
+| **BridgeAgent** | `src/habitat/bridge/agent.ts` | Builds provisioning, calls lifecycle to start |
+| **BridgeLifecycle** | `src/habitat/bridge/lifecycle.ts` | Spawns worker threads, manages ports |
+| **bridge-worker** | `src/habitat/bridge/bridge-worker.ts` | Builds Dagger container in worker thread |
+| **Go MCP Server** | `src/habitat/bridge/go-server/` | Static binary, MCP over HTTP |
+| **BridgeClient** | `src/habitat/bridge/client.ts` | MCP client for calling tools in container |
+| **DiagnosisAgent** | `src/habitat/bridge/diagnosis-agent.ts` | LLM agent for project inspection |
+| **MonitorAgent** | `src/habitat/bridge/monitor-agent.ts` | LLM agent for health monitoring |
+
+## Usage
+
+### CLI
+
+```bash
+# Start a bridge (uses saved provisioning if available, bare node:20 otherwise)
+dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
+```
+
+### Programmatic
 
 ```typescript
 import { Habitat } from "./habitat/habitat.js";
 
 const habitat = await Habitat.create({ workDir: "./my-agent" });
 
-// Create bridge agent for remote repo
-const bridgeAgent = await habitat.createBridgeAgent(
-  "my-project-agent",
-  "https://github.com/user/repo.git",
-);
+// Start bridge for an agent that has gitRemote configured
+const bridgeAgent = await habitat.startBridge("my-project-agent");
 
 // Get the client to interact with the container
 const client = await bridgeAgent.getClient();
@@ -136,51 +130,110 @@ const result = await client.execute("npm test");
 // Check health
 const health = await client.health();
 
-// Get logs for debugging
-const logs = await client.getLogs(100);
-
 // When done
-await habitat.destroyBridgeAgent("my-project-agent");
+await bridgeAgent.destroy();
 ```
 
-## Build Command
+## Saved Provisioning
 
-```bash
-# Build the bridge server bundle
-pnpm run build:bridge
+After the LLM inspects and configures an agent, the config in `config.json` includes:
 
-# This creates:
-# dist/bridge/server.js (bundled, ready to copy into containers)
+```json
+{
+  "id": "trmnl-image-agent",
+  "name": "TRMNL Image Agent",
+  "gitRemote": "https://github.com/The-Focus-AI/trmnl-image-agent",
+  "bridgeProvisioning": {
+    "baseImage": "node:20",
+    "aptPackages": ["git", "jq", "chromium", "chromium-driver", "curl", "python3", "imagemagick"],
+    "setupCommands": ["curl -fsSL https://claude.ai/install.sh | bash"],
+    "detectedTools": ["jq", "chrome", "claude-code", "curl", "python", "imagemagick", "git"],
+    "projectType": "shell",
+    "skillRepos": [],
+    "analyzedAt": "2026-02-19T00:50:00.000Z"
+  }
+}
 ```
 
-## Detection Logic Reused
+This means the next `habitat agent start` builds the container with all packages immediately.
 
-The analyzer reuses existing detection logic from:
+## Container Build Order (Optimized for Caching)
 
-- `src/evaluation/codebase/context-provider.ts` - Project type detection
-- `src/habitat/tools/run-project/project-analyzer.ts` - Tool patterns, env var detection
-- `src/habitat/tools/run-project/skill-provisioner.ts` - Skill detection
+```
+1. Pull base image (node:20)           <- Cached by Dagger
+2. apt-get install packages            <- Cached if same packages
+3. Run setup commands (claude install)  <- Cached if same commands
+4. Mount npm cache volume              <- Persistent across builds
+5. Mount Go MCP binary from host       <- Cached if binary unchanged
+6. Inject secrets                       <- LATE -- after cacheable layers
+7. git clone repo                       <- Always runs (repo may have changed)
+```
 
-## Next Steps
+Secrets are injected late so they don't invalidate Dagger's layer cache for the expensive install steps. Secrets come only from the agent's `secrets` config — no implicit token injection.
 
-1. **Bundle the bridge server**: Run `pnpm run build:bridge`
-2. **Test with a sample repo**: Create a test script that uses `createBridgeAgent`
-3. **Add more tool patterns**: Extend TOOL_PATTERNS in analyzer.ts as needed
-4. **Optimize**: Cache analysis results to speed up recreations
-5. **Production**: Consider pre-building container images with common setups
+## MCP Tools Available
 
-## Design Decisions
+The Go binary exposes these tools via MCP StreamableHTTP at `/mcp`:
 
-1. **TCP over sockets**: Easier to debug with curl/browser
-2. **Official MCP SDK**: Standard, well-documented, actively maintained
-3. **No iteration cap**: Habitat agent decides when ready based on analysis
-4. **Git in every container**: Dynamically installed based on base image
-5. **Inline bridge server**: Currently in lifecycle.ts (simplified). For production, use the bundled version
-6. **100% auto-discovery**: No manifests, no manual config
+| Tool | Description |
+|---|---|
+| `fs_read` | Read file contents |
+| `fs_write` | Write file contents |
+| `fs_list` | List directory entries |
+| `fs_exists` | Check if path exists |
+| `fs_stat` | Get file/directory metadata |
+| `exec_run` | Execute shell commands |
+| `git_clone` | Clone a repository |
+| `git_status` | Check working directory status |
+| `git_commit` | Commit changes |
+| `git_push` | Push to remote |
+| `bridge_health` | Check bridge status and uptime |
+| `bridge_logs` | Retrieve recent log entries |
+
+All file operations are sandboxed to `/workspace` and `/opt`.
+
+## Habitat Tools for Bridge Interaction
+
+These tools are available to the LLM in the habitat:
+
+| Tool | Description |
+|---|---|
+| `bridge_start` | Start a bridge container for an agent |
+| `bridge_stop` | Stop a running bridge |
+| `bridge_list` | List all bridges and their status |
+| `bridge_ls` | List files in a bridge container |
+| `bridge_read` | Read a file from a bridge container |
+| `bridge_exec` | Execute a command in a bridge container |
+| `bridge_diagnose` | Run LLM diagnosis agent to detect needed packages/tools, save provisioning, restart |
+| `bridge_monitor` | Run LLM monitor agent to assess container health, check activity, report issues |
+| `agent_status` | Check agent health, port, config |
+| `agent_logs` | Read agent log files |
+
+## Port Management
+
+- Ports allocated from range 10000-20000
+- Each agent gets a unique port
+- Ports are released with a 5-second delay after container destruction (prevents reuse race conditions)
+
+## Logging
+
+Logs are written to `~/habitats-sessions/logs/` with timestamped filenames that never overwrite:
+
+```
+bridge-trmnl-image-agent-2026-02-19T00-46-34-000Z.log
+```
+
+Logs use synchronous `appendFileSync` so they survive worker thread termination.
 
 ## Security
 
 - Bridge server only allows access to `/workspace` and `/opt`
-- Git auth uses GITHUB_TOKEN env var
+- Secrets come only from the agent's configured `secrets` array — no implicit token injection
 - Dynamic port allocation per agent
 - Sandboxed container execution via Dagger
+
+## Related
+
+- [Habitat Bridge Walkthrough](../walkthroughs/habitat-bridge-walkthrough.md) — Complete walkthrough
+- [Habitat Agents](./habitat-agents.md) — Local sub-agents (HabitatAgent)
+- [Habitat](./habitat.md) — Top-level container

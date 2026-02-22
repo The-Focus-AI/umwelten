@@ -2,14 +2,13 @@
 
 A **HabitatAgent** is a sub-agent that manages a specific project on behalf of the main [Habitat](./habitat.md). It combines a **Stimulus** (built from the project's own files) with a **persistent Interaction** (its own session with memory). This lets the main agent delegate project-specific questions to a sub-agent that understands that project's codebase, logs, and configuration.
 
-::: tip Three Agent Types
-Umwelten has **three** agent systems for different use cases:
+::: tip Two Agent Types
+Umwelten has **two** agent systems for different use cases:
 
 - **HabitatAgent** (this guide): Local sub-agents for projects on the host filesystem
-- **BridgeAgent**: Remote agents that run inside Dagger containers with auto-provisioning (single instance)
-- **Multi-BridgeAgent**: Multiple concurrent BridgeAgents with state persistence and logging
+- **BridgeAgent**: Remote agents that run inside Dagger containers via MCP
 
-Use HabitatAgents for local project management. Use [Bridge Agents](../walkthroughs/habitat-bridge-walkthrough.md) for remote repositories requiring containerized execution. Use Multi-BridgeAgent system for managing 20-75+ concurrent agents.
+Use HabitatAgents for local project management. Use [Bridge Agents](./habitat-bridge.md) for remote repositories requiring containerized execution.
 :::
 
 ## Concepts
@@ -26,19 +25,19 @@ A HabitatAgent follows the same pattern, but the Stimulus is built from the **ma
 
 ```
 Habitat (~/habitats)
-  ├── Stimulus (from ~/habitats/STIMULUS.md)
-  ├── Tools (read_file, ripgrep, search, run_bash, agents_*, ...)
-  ├── Interaction (habitat's own conversation)
-  │
-  └── HabitatAgents (per managed project)
-       ├── twitter-feed
-       │   ├── Stimulus (built from twitter-feed's project files)
-       │   ├── Tools (same tools, scoped to agentId="twitter-feed")
-       │   └── Interaction (persistent session)
-       ├── newsletter-feed
-       │   └── ...
-       └── trmnl-image
-           └── ...
+  +-- Stimulus (from ~/habitats/STIMULUS.md)
+  +-- Tools (read_file, ripgrep, search, run_bash, agents_*, ...)
+  +-- Interaction (habitat's own conversation)
+  |
+  +-- HabitatAgents (per managed project)
+       +-- twitter-feed
+       |   +-- Stimulus (built from twitter-feed's project files)
+       |   +-- Tools (same tools, scoped to agentId="twitter-feed")
+       |   +-- Interaction (persistent session)
+       +-- newsletter-feed
+       |   +-- ...
+       +-- trmnl-image
+           +-- ...
 ```
 
 ### What a HabitatAgent knows
@@ -84,7 +83,7 @@ agent_clone({
   gitUrl: "git@github.com:org/twitter-feed.git",
   name: "Twitter Feed"
 })
-// → clones to ~/habitats/repos/twitter-feed, registers agent
+// -> clones to ~/habitats/repos/twitter-feed, registers agent
 ```
 
 ### agent_logs
@@ -108,7 +107,7 @@ agent_logs({
   tail: 100,
   filter: "ERROR"
 })
-// → returns last 100 lines containing "ERROR" from the most recent log
+// -> returns last 100 lines containing "ERROR" from the most recent log
 ```
 
 ### agent_status
@@ -131,7 +130,7 @@ Returns:
 
 ```
 agent_status({ agentId: "twitter-feed" })
-// → { id, name, statusFile: { content: "..." }, recentLogs: [...], commands: {...} }
+// -> { id, name, statusFile: { content: "..." }, recentLogs: [...], commands: {...} }
 ```
 
 ### agent_ask
@@ -154,7 +153,7 @@ agent_ask({
   agentId: "twitter-feed",
   message: "Explore this project. What env vars does it need? Where are the logs?"
 })
-// → sub-agent reads README, CLAUDE.md, package.json, runs ripgrep for process.env, etc.
+// -> sub-agent reads README, CLAUDE.md, package.json, runs ripgrep for process.env, etc.
 ```
 
 ## Workflows
@@ -165,15 +164,15 @@ agent_ask({
 User: "Add twitter-feed from git@github.com:org/twitter-feed.git"
 
 1. agent_clone(gitUrl, name="twitter-feed")
-   → clones to repos/twitter-feed, registers agent
+   -> clones to repos/twitter-feed, registers agent
 
 2. agent_ask(agentId="twitter-feed",
      "Explore this project. Read README, CLAUDE.md, package.json, .env.example.
       What env vars does it need? What commands can I run? Where are the logs?")
-   → sub-agent reads project files, returns structured analysis
+   -> sub-agent reads project files, returns structured analysis
 
 3. agents_update(id="twitter-feed", commands={...}, logPatterns=[...])
-   → update agent config with discovered info
+   -> update agent config with discovered info
 ```
 
 ### Monitoring
@@ -183,8 +182,8 @@ User: "What happened with twitter-feed today?"
 
 1. agent_ask(agentId="twitter-feed",
      "Check the recent logs and status file. What happened today?")
-   → sub-agent (remembers project structure from onboarding) reads logs/status
-   → "3 syncs, 147 tweets, 2 rate limit warnings"
+   -> sub-agent (remembers project structure from onboarding) reads logs/status
+   -> "3 syncs, 147 tweets, 2 rate limit warnings"
 ```
 
 ### Diagnosing issues
@@ -194,9 +193,9 @@ User: "Newsletter sync is failing, fix it"
 
 1. agent_ask(agentId="newsletter-feed",
      "Sync is failing. Check logs, find the error, diagnose and suggest a fix.")
-   → sub-agent reads recent logs, sees auth error
-   → reads auth flow source code
-   → "Gmail OAuth token expired. Run: npx tsx scripts/auth.ts"
+   -> sub-agent reads recent logs, sees auth error
+   -> reads auth flow source code
+   -> "Gmail OAuth token expired. Run: npx tsx scripts/auth.ts"
 ```
 
 ## Configuration
@@ -288,26 +287,26 @@ console.log(stimulus.getPrompt()); // see the full system prompt
 
 ```
 agent_ask("twitter-feed", "check the logs")
-  │
-  ├─ habitat.getOrCreateHabitatAgent("twitter-feed")
-  │    ├─ buildAgentStimulus(agent, habitat)
-  │    │    ├─ reads CLAUDE.md, README.md, package.json from agent.projectPath
-  │    │    ├─ creates Stimulus with project-specific context
-  │    │    └─ registers habitat's tools into the stimulus
-  │    │
-  │    └─ habitat.createInteraction({ sessionId: "habitat-agent-twitter-feed" })
-  │         ├─ creates/resumes persistent session
-  │         ├─ wires transcript persistence
-  │         └─ sets the agent-specific stimulus
-  │
-  └─ habitatAgent.ask("check the logs")
-       ├─ adds user message to interaction
-       ├─ calls generateText() — model reasons and uses tools
-       │    ├─ agent_logs(agentId="twitter-feed", ...)
-       │    ├─ read_file(path="...", agentId="twitter-feed")
-       │    └─ ...
-       ├─ persists transcript to disk
-       └─ returns text response
+  |
+  +-- habitat.getOrCreateHabitatAgent("twitter-feed")
+  |    +-- buildAgentStimulus(agent, habitat)
+  |    |    +-- reads CLAUDE.md, README.md, package.json from agent.projectPath
+  |    |    +-- creates Stimulus with project-specific context
+  |    |    +-- registers habitat's tools into the stimulus
+  |    |
+  |    +-- habitat.createInteraction({ sessionId: "habitat-agent-twitter-feed" })
+  |         +-- creates/resumes persistent session
+  |         +-- wires transcript persistence
+  |         +-- sets the agent-specific stimulus
+  |
+  +-- habitatAgent.ask("check the logs")
+       +-- adds user message to interaction
+       +-- calls generateText() -- model reasons and uses tools
+       |    +-- agent_logs(agentId="twitter-feed", ...)
+       |    +-- read_file(path="...", agentId="twitter-feed")
+       |    +-- ...
+       +-- persists transcript to disk
+       +-- returns text response
 ```
 
 Sub-agents are cached in a `Map<string, HabitatAgent>` on the Habitat instance. The same sub-agent is reused across multiple `agent_ask` calls, preserving conversation context.
@@ -315,6 +314,7 @@ Sub-agents are cached in a `Map<string, HabitatAgent>` on the Habitat instance. 
 ## Related
 
 - [Habitat](./habitat.md) — The top-level container that manages agents, tools, and interfaces
+- [Bridge Agents](./habitat-bridge.md) — Remote agents in Dagger containers
 - [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md) — Step-by-step guide to setting up a habitat with sub-agents
 - [Jeeves Bot](./jeeves-bot.md) — Example of a Habitat-based agent
 - [Stimulus System](../architecture/stimulus-system.md) — How Stimulus objects work

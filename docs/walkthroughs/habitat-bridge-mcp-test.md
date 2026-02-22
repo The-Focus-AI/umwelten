@@ -17,14 +17,13 @@ dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
 
 This will:
 
-1. Create a Dagger container with `node:20` base image
-2. Install apt packages (jq, chromium, imagemagick, etc.)
-3. Run setup commands (claude install, etc.)
-4. Mount the pre-compiled Go MCP binary
-5. Clone the repository to `/workspace`
-6. Start the Go MCP server on a port (10000+)
-7. Poll until the MCP server responds to an `initialize` request
-8. Print the endpoint URL
+1. Load saved provisioning from `config.json` (or use bare `node:20` on first start)
+2. Build Dagger container with base image + apt packages + setup commands
+3. Mount the pre-compiled Go MCP binary
+4. Clone the repository to `/workspace`
+5. Start the Go MCP server on a port (10000+)
+6. Poll until the MCP server responds to an `initialize` request
+7. Print the endpoint URL
 
 ## Testing MCP Tools
 
@@ -150,37 +149,43 @@ console.log("Has package.json:", exists);
 await client.disconnect();
 ```
 
-## What the Analyzer Discovers
+## Saved Provisioning
 
-For the `trmnl-image-agent` project, the `BridgeAnalyzer` finds:
+After an LLM inspects and configures an agent, `config.json` includes the provisioning data:
 
-| Field | Value |
-|---|---|
-| Project type | `shell` |
-| Detected tools | jq, chrome, claude-code, curl, 1password-cli, npx, python, imagemagick, git |
-| APT packages | jq, chromium, chromium-driver, curl, python3, imagemagick, git |
-| Setup commands | claude install via curl, 1password-cli install |
-| Skills | none |
+```json
+{
+  "id": "trmnl-image-agent",
+  "bridgeProvisioning": {
+    "baseImage": "node:20",
+    "aptPackages": ["jq", "chromium", "chromium-driver", "curl", "python3", "imagemagick", "git"],
+    "setupCommands": ["curl -fsSL https://claude.ai/install.sh | bash"],
+    "detectedTools": ["jq", "chrome", "claude-code", "curl", "python", "imagemagick", "git"],
+    "projectType": "shell",
+    "skillRepos": [],
+    "analyzedAt": "2026-02-19T00:50:00.000Z"
+  }
+}
+```
 
-This is saved to `config.json` under `bridgeProvisioning` so subsequent starts skip analysis.
+Subsequent starts use this saved provisioning to build the container with all packages immediately.
 
 ## Architecture
 
 ```
 Host                                    Dagger Container
-─────                                   ────────────────
+-----                                   ----------------
 CLI (habitat.ts)
-  → BridgeAgent (agent.ts)
-    → BridgeLifecycle (lifecycle.ts)
-      → Worker Thread (bridge-worker.ts)
-        → Builds container via Dagger SDK ──→ node:20 + apt packages
-        → Mounts Go binary ─────────────────→ /opt/bridge/bridge-server
-        → Clones repo ──────────────────────→ /workspace/
-        → Starts service ───────────────────→ bridge-server --port 10000
-      ← Polls http://localhost:10000/mcp
-    ← Worker signals "ready"
-  ← BridgeAnalyzer reads repo via MCP
-  ← Saves provisioning to config.json
+  -> Habitat.startBridge(agentId)
+    -> BridgeAgent.start()
+      -> BridgeLifecycle (spawns worker thread)
+        -> bridge-worker.ts (builds container) --> node:20 + apt packages
+        -> Mounts Go binary -----------------> /opt/bridge/bridge-server
+        -> Clones repo ---------------------> /workspace/
+        -> Starts service ------------------> bridge-server --port 10000
+      <- Polls http://localhost:10000/mcp
+    <- Worker signals "ready"
+  <- Returns BridgeAgent with port + client
 ```
 
 The Go MCP server (`bridge-server-linux`) is a static ARM64 binary compiled from `src/habitat/bridge/go-server/main.go`. It uses the official Go MCP SDK with StreamableHTTP transport — no Node.js or npm needed inside the container for the server itself.
@@ -196,8 +201,11 @@ ls -lt ~/habitats-sessions/logs/bridge-trmnl-image-agent-*.log | head -1 | xargs
 
 ## See Also
 
-- `src/habitat/bridge/agent.ts` — BridgeAgent orchestration
+- `src/habitat/bridge/agent.ts` — BridgeAgent (simple start, no iteration loop)
+- `src/habitat/bridge/diagnosis-agent.ts` — LLM agent for project inspection and provisioning
+- `src/habitat/bridge/monitor-agent.ts` — LLM agent for health monitoring
 - `src/habitat/bridge/bridge-worker.ts` — Dagger container build
-- `src/habitat/bridge/analyzer.ts` — Repository analysis via MCP
 - `src/habitat/bridge/client.ts` — HabitatBridgeClient
 - `src/habitat/bridge/go-server/main.go` — Go MCP server source
+- `src/habitat/habitat.ts` — `startBridge()`, `createAgentInteraction()`
+- `src/habitat/tools/agent-runner-tools.ts` — `bridge_diagnose`, `bridge_monitor` tools

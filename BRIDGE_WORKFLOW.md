@@ -4,74 +4,54 @@
 
 **NEVER clone repos to host computer. Everything happens inside Dagger containers.**
 
-## Standard Operating Procedure
+## Three Phases
 
-### Step 1: Start Basic Container
+### Phase 1: Create — `agent_clone(gitUrl, name)`
 
-- Use base image (node:20 for most projects)
-- Clone repo into container at /workspace
-- Start MCP bridge server
+Register agent in config. Nothing runs yet. Just metadata.
 
-### Step 2: Analyze Scripts
+### Phase 2: Start — `bridge_start(agentId)` or `habitat agent start <id>`
 
-- Use bridge client to list files in /workspace/bin/
-- Read each script to detect:
-  - Command usage (jq, curl, imagemagick, etc.)
-  - Environment variables needed
-  - File dependencies
-  - Shebang lines (#!/bin/bash, #!/usr/bin/env python3, etc.)
+Start the container with whatever config exists:
+- First time = bare `node:20`
+- With saved provisioning = packages, setup commands, etc.
+- Returns when MCP server is reachable
+- **No analysis, no iteration loop.** Just start and return.
 
-### Step 3: Determine Requirements
+### Phase 3: Inspect — LLM uses bridge MCP tools
 
-- Map detected commands to apt packages
-- Identify npm packages needed
-- List environment variables
-- Check for specific versions
+After the bridge is running, the LLM uses tools to inspect and iterate:
 
-### Step 4: Reprovision Container
+1. `agent_status` — is bridge healthy, port, config
+2. `agent_logs` — container/bridge logs
+3. `bridge_ls`, `bridge_read`, `bridge_exec` — look inside the container
+4. `bridge_health` — check MCP server status
 
-- Stop current bridge
-- Create new provisioning config with:
-  - Correct apt packages
-  - Setup commands (npm install, etc.)
-  - Required secrets
-- Start new bridge with updated config
+The LLM decides what needs updating, modifies the agent config (add packages, secrets, etc.), then restarts. **The LLM is the iteration loop.**
 
-### Step 5: Verify & Run
+## First Start (Bare Container)
 
-- Confirm all tools are available
-- Run scripts
-- Monitor output
-- Install any missed dependencies if needed
+1. Start bare `node:20` container with Go MCP binary + clone repo
+2. Agent is ready — LLM can inspect via bridge tools
+3. LLM reads repo files, determines what's needed
+4. LLM updates agent config with packages/commands, restarts
 
-## Current Task: trmnl-image-agent
+## Subsequent Starts (Saved Provisioning)
 
-### Scripts to Analyze
+1. Load saved `bridgeProvisioning` from `config.json`
+2. Build container directly with all packages
+3. Agent ready in seconds
 
-1. run.sh - Main entry point
-2. bin/fetch-weather-raw
-3. bin/fetch-mohawk
-4. bin/fetch-sun-moon
-5. bin/parse-data
-6. bin/generate-image
-7. bin/process-image
-8. bin/update-display
+## Container Build Order
 
-### Requirements Detected So Far
+```
+1. Pull base image (node:20)           <- Cached by Dagger
+2. apt-get install packages            <- Cached if same packages
+3. Run setup commands (claude install)  <- Cached if same commands
+4. Mount npm cache volume              <- Persistent across builds
+5. Mount Go MCP binary from host       <- Cached if binary unchanged
+6. Inject secrets                       <- LATE — after cacheable layers
+7. git clone repo                       <- Always runs (repo may have changed)
+```
 
-From previous run logs:
-
-- jq (JSON parsing)
-- chromium + chromium-driver (headless browser)
-- curl (HTTP requests)
-- imagemagick (image processing)
-- git (already in node:20)
-- Optional: claude-code, 1password-cli (may not be needed for core functionality)
-
-### Next Steps
-
-1. Start bridge with node:20
-2. Read run.sh to see workflow
-3. Read each bin/ script to check requirements
-4. Reprovision with correct apt packages
-5. Run run.sh
+Secrets are injected late so they don't invalidate Dagger's layer cache for the expensive install steps. Secrets come only from the agent's `secrets` config — no implicit token injection.
