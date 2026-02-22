@@ -11,7 +11,7 @@ import { dag, connection } from "@dagger.io/dagger";
 import { existsSync, appendFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { buildContainerFromRepo } from "./container-builder.js";
+import { buildContainerFromRepo } from "./container-builder.ts";
 import type { SavedProvisioning } from "../types.js";
 
 interface WorkerData {
