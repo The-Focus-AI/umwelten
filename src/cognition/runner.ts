@@ -132,11 +132,18 @@ export class BaseModelRunner implements ModelRunner {
       throw new Error("Rate limit exceeded - backoff in progress");
     }
 
-    // Wrap the model with reasoning middleware to extract reasoning tokens
-    const model = wrapLanguageModel({
-      model: baseModel as any, // Type assertion to handle LanguageModelV1/V2 compatibility
-      middleware: extractReasoningMiddleware({ tagName: "think" }),
-    });
+    // Wrap the model with reasoning middleware to extract reasoning tokens.
+    // Skip for Google models — they handle reasoning natively via thinkingConfig/includeThoughts.
+    // The extractReasoningMiddleware looks for <think> XML tags which interferes with native reasoning.
+    let model: any;
+    if (params.interaction.modelDetails.provider === "google") {
+      model = baseModel;
+    } else {
+      model = wrapLanguageModel({
+        model: baseModel as any,
+        middleware: extractReasoningMiddleware({ tagName: "think" }),
+      });
+    }
 
     return { model, modelIdString };
   }
@@ -185,6 +192,18 @@ export class BaseModelRunner implements ModelRunner {
     // Enable usage accounting for OpenRouter
     if (interaction.modelDetails.provider === "openrouter") {
       generateOptions.usage = { include: true };
+    }
+
+    // Enable thinking/reasoning for Google Gemini models
+    if (interaction.modelDetails.provider === "google") {
+      generateOptions.providerOptions = {
+        ...generateOptions.providerOptions,
+        google: {
+          thinkingConfig: {
+            includeThoughts: true,
+          },
+        },
+      };
     }
 
     // Add tools if available
@@ -444,6 +463,18 @@ export class BaseModelRunner implements ModelRunner {
       interaction.modelDetails.provider === "google"
     ) {
       streamOptions.usage = { include: true };
+    }
+
+    // Enable thinking/reasoning for Google Gemini models
+    if (interaction.modelDetails.provider === "google") {
+      streamOptions.providerOptions = {
+        ...streamOptions.providerOptions,
+        google: {
+          thinkingConfig: {
+            includeThoughts: true,
+          },
+        },
+      };
     }
 
     if (interaction.hasTools()) {
@@ -829,6 +860,18 @@ export class BaseModelRunner implements ModelRunner {
         generateOptions.usage = { include: true };
       }
 
+      // Enable thinking/reasoning for Google Gemini models
+      if (interaction.modelDetails.provider === "google") {
+        generateOptions.providerOptions = {
+          ...generateOptions.providerOptions,
+          google: {
+            thinkingConfig: {
+              includeThoughts: true,
+            },
+          },
+        };
+      }
+
       if (interaction.hasTools()) {
         generateOptions.tools = interaction.getVercelTools();
         if (interaction.maxSteps) {
@@ -898,6 +941,18 @@ export class BaseModelRunner implements ModelRunner {
         interaction.modelDetails.provider === "google"
       ) {
         streamOptions.usage = { include: true };
+      }
+
+      // Enable thinking/reasoning for Google Gemini models
+      if (interaction.modelDetails.provider === "google") {
+        streamOptions.providerOptions = {
+          ...streamOptions.providerOptions,
+          google: {
+            thinkingConfig: {
+              includeThoughts: true,
+            },
+          },
+        };
       }
 
       if (interaction.hasTools()) {
