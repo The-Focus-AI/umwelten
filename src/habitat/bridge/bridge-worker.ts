@@ -115,7 +115,7 @@ connection(
         .withExec([
           "sh",
           "-c",
-          "file /opt/bridge/bridge-server && ls /workspace/ | head -5",
+          "test -x /opt/bridge/bridge-server && ls /workspace/ | head -5",
         ])
         .stdout();
       log("VALIDATE", "Container setup validated", {
