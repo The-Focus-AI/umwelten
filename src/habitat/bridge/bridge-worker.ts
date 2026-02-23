@@ -8,9 +8,10 @@
 
 import { parentPort, workerData } from "worker_threads";
 import { dag, connection } from "@dagger.io/dagger";
-import { existsSync, appendFileSync } from "fs";
+import { existsSync, appendFileSync, createWriteStream } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { Writable } from "stream";
 import { buildContainerFromRepo } from "./container-builder.ts";
 import type { SavedProvisioning } from "../types.js";
 
@@ -224,7 +225,23 @@ connection(
     await servicePromise;
     log("KEEPALIVE", "Service promise resolved (container stopped)");
   },
-  { LogOutput: process.stderr },
+  {
+    LogOutput: logFilePath
+      ? new Writable({
+          write(chunk, _encoding, callback) {
+            // Write to stderr (visible in terminal)
+            process.stderr.write(chunk);
+            // Also append to log file
+            try {
+              appendFileSync(logFilePath, chunk);
+            } catch {
+              // ignore write errors
+            }
+            callback();
+          },
+        })
+      : process.stderr,
+  },
 ).catch((err: any) => {
   log("FATAL", "Worker failed", { error: err.message || String(err) });
   parentPort?.postMessage({

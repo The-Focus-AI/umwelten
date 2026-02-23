@@ -74,6 +74,10 @@ export class BridgeSupervisor {
 
     if (this.state.status === "running") {
       this.startHealthLoop();
+    } else if (this.state.status === "error") {
+      throw new Error(
+        this.state.lastError || `Build failed after ${this.state.buildAttempts} attempts`,
+      );
     }
   }
 
@@ -191,6 +195,8 @@ export class BridgeSupervisor {
       log(this.config.agentId, "Container running", { port });
     } catch (err: any) {
       log(this.config.agentId, "Build failed", { error: err.message });
+      // Null out the failed bridge agent so getBridgeAgent() doesn't return an unstarted one
+      this.bridgeAgent = null;
       await this.setState("error", {
         lastError: err.message,
       });

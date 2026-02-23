@@ -680,6 +680,11 @@ export class Habitat
       await supervisor.stop();
       this.supervisors.delete(agentId);
     }
+    // Clear port from config so bridge_list doesn't try to connect
+    await this.updateAgent(agentId, {
+      mcpPort: undefined,
+      mcpStatus: "stopped",
+    });
     // Update state
     const state = await this.loadBridgeState(agentId);
     if (state) {
