@@ -1,8 +1,8 @@
 /**
- * LLM-driven container builder using Dagger's dag.llm() with privileged env.
+ * LLM-driven container builder using Dagger's dag.llm() with env.
  *
- * The LLM reads the repo, picks a base image, installs deps, and produces
- * a container. We then add our fixed layers (Go binary, secrets, port, entrypoint).
+ * The LLM reads the repo, configures a base container (install deps, copy repo),
+ * and produces a container. We then add our fixed layers (Go binary, secrets, port, entrypoint).
  *
  * If dag.llm() fails, falls back to a simple heuristic-based build.
  */
@@ -24,33 +24,48 @@ export interface ContainerBuildResult {
   provisioning: SavedProvisioning;
 }
 
-const SYSTEM_PROMPT = `You are a container configuration expert. Your job is to read a project repository and build a working container for it.
-
-Rules:
-- Read the repo files to understand the project type
-- Pick the most appropriate base image (e.g. node:20, python:3.11, ubuntu:22.04, rust:1.75, golang:1.22)
-- Always install git via apt-get
-- Install all project dependencies (npm install, pip install, cargo build, etc.)
-- Set the working directory to /workspace
-- Copy the repo contents to /workspace
-- Do NOT configure any entrypoint or exposed ports — that will be done separately after you finish
-- Do NOT start or run the project — just install dependencies so it's ready to run`;
-
 function buildPrompt(previousProvisioning?: SavedProvisioning): string {
-  let prompt =
-    "Build a container for the project in the 'repo' directory input. Read the top-level files first (package.json, requirements.txt, Cargo.toml, go.mod, etc.) to understand the project type, then pick a base image and install all dependencies. Copy the repo to /workspace and set it as the working directory.";
+  let prompt = `You are configuring a container to run a project.
 
-  if (previousProvisioning) {
-    prompt += `\n\nHint: A previous build used base image "${previousProvisioning.baseImage}" with these build steps: ${JSON.stringify(previousProvisioning.buildSteps)}. You may use this as a starting point or choose differently based on what you see in the repo.`;
+STEP 1: List the top-level files in $repo using the entries tool.
+STEP 2: Determine the project type from these rules (check in order):
+  - package.json or package-lock.json → Node.js project
+  - requirements.txt or pyproject.toml or setup.py → Python project
+  - Cargo.toml → Rust project
+  - go.mod → Go project
+  - If NONE of the above files exist, this is a shell/script project. Do NOT install python or node.
+
+STEP 3: Read the README.md (if it exists) to understand what the project does and what tools it needs.
+
+STEP 4: Configure $builder:
+  - Run "apt-get update" first
+  - Install git via apt-get (always)
+  - For Node.js: install nodejs and npm via apt-get, then run "npm install" in /workspace
+  - For Python: install python3 and python3-pip via apt-get
+  - For shell/script projects: install ONLY what the README or scripts explicitly mention (e.g. imagemagick, jq, curl)
+  - Copy $repo into /workspace using withDirectory
+  - Set working directory to /workspace
+
+CRITICAL: Do NOT install python3 unless you found requirements.txt, pyproject.toml, or setup.py.
+Do NOT install nodejs unless you found package.json.
+Do NOT configure an entrypoint or expose ports.
+Do NOT run the project — just install dependencies.`;
+
+  if (
+    previousProvisioning?.reasoning &&
+    previousProvisioning.reasoning !== "" &&
+    !previousProvisioning.reasoning.startsWith("Fallback build:")
+  ) {
+    prompt += `\n\nHint from a previous successful build: ${previousProvisioning.reasoning.slice(0, 500)}`;
   }
 
   return prompt;
 }
 
 /**
- * Build a container from a git repo using dag.llm() with privileged env.
+ * Build a container from a git repo using dag.llm() with env.
  *
- * The LLM reads the repo, picks a base image, installs deps.
+ * The LLM reads the repo, configures a base container, installs deps.
  * We then add our fixed layers: Go binary, secrets, port, entrypoint.
  */
 export async function buildContainerWithLLM(
@@ -59,33 +74,38 @@ export async function buildContainerWithLLM(
 ): Promise<ContainerBuildResult> {
   const { secrets, port, goBinaryPath, previousProvisioning } = options;
 
-  // Create privileged env with repo as input, Container as output
+  // Create env following the documented pattern:
+  // - Directory input for the repo (LLM reads it)
+  // - Container input as base builder (LLM modifies it)
+  // - Container output for the result
   const env = dag
-    .env({ privileged: true })
+    .env()
     .withDirectoryInput(
       "repo",
       repo,
-      "The project repository to containerize. Read its files to determine project type and dependencies.",
+      "The project repository. List its entries first to determine the project type.",
+    )
+    .withContainerInput(
+      "builder",
+      dag.container().from("ubuntu:22.04").withWorkdir("/workspace"),
+      "The base container. Install dependencies and copy $repo to /workspace.",
     )
     .withContainerOutput(
       "result",
-      "The configured container with the correct base image, all dependencies installed, repo copied to /workspace, and working directory set to /workspace.",
+      "The configured container with dependencies installed and repo at /workspace.",
     );
 
-  // Run the LLM loop
-  let llm = dag
+  // Create LLM with env — extracting the output triggers the work implicitly
+  const work = dag
     .llm()
     .withEnv(env)
-    .withSystemPrompt(SYSTEM_PROMPT)
-    .withPrompt(buildPrompt(previousProvisioning))
-    .loop();
+    .withPrompt(buildPrompt(previousProvisioning));
 
-  // Extract the container from the env output
-  const resultBinding = llm.env().output("result");
-  let container = resultBinding.asContainer();
+  // Extract the container from the env output (this triggers the LLM loop)
+  let container = work.env().output("result").asContainer();
 
   // Get the LLM's reasoning for logging/saving
-  const reply = await llm.lastReply();
+  const reply = await work.lastReply();
 
   // Apply our fixed layers on top (these never change, LLM doesn't decide them)
 
@@ -110,10 +130,10 @@ export async function buildContainerWithLLM(
 
   // Build provisioning record from what the LLM did
   const provisioning: SavedProvisioning = {
-    baseImage: "llm-selected", // We don't know the exact image, but it's in the reply
+    baseImage: "llm-selected",
     buildSteps: ["LLM-built container via dag.llm()"],
     envVarNames: secrets.map((s) => s.name),
-    reasoning: reply.slice(0, 1000),
+    reasoning: (reply || "").slice(0, 1000),
     analyzedAt: new Date().toISOString(),
   };
 
