@@ -507,14 +507,27 @@ export function createAgentRunnerTools(
       const inMemoryBridge = ctx.getBridgeAgent(agentId);
       if (inMemoryBridge) {
         const port = inMemoryBridge.getPort();
-        return {
-          bridgeId: agentId,
-          repoUrl: agent.gitRemote,
-          mcpUrl: `http://localhost:${port}/mcp`,
-          port,
-          status: "already_running",
-          message: `Bridge MCP server for ${agentId} is already running at http://localhost:${port}/mcp. To restart with updated config/secrets, use bridge_stop first then bridge_start.`,
-        };
+        // Verify the bridge is actually alive (port > 0 and reachable)
+        if (port > 0) {
+          try {
+            const client = await inMemoryBridge.getClient();
+            await client.health();
+            return {
+              bridgeId: agentId,
+              repoUrl: agent.gitRemote,
+              mcpUrl: `http://localhost:${port}/mcp`,
+              port,
+              status: "already_running",
+              message: `Bridge MCP server for ${agentId} is already running at http://localhost:${port}/mcp. To restart with updated config/secrets, use bridge_stop first then bridge_start.`,
+            };
+          } catch {
+            // Bridge exists in memory but is dead — clean it up and restart
+            await ctx.destroyBridgeAgent(agentId);
+          }
+        } else {
+          // Port 0 means it never started properly — clean up
+          await ctx.destroyBridgeAgent(agentId);
+        }
       }
 
       // Check for externally-started bridge (from CLI) — stop it so we can restart with current config
@@ -658,20 +671,49 @@ export function createAgentRunnerTools(
       "List all bridge agents and their connection status. Checks actual MCP server connectivity.",
     inputSchema: z.object({}),
     execute: async () => {
-      // Check ALL agents that have mcpPort configured — not just in-memory ones.
-      // Bridge agents started from a separate CLI process won't be in memory.
-      const { AgentDiscovery } = await import("../agent-discovery.js");
-      const discovery = new AgentDiscovery({ habitat: ctx as any });
-
       const allAgents = ctx.getAgents();
       const bridges = [];
 
       for (const agent of allAgents) {
         if (!agent.mcpPort && !agent.gitRemote) continue;
 
-        if (agent.mcpPort) {
-          // Agent has a configured port — check if it's actually reachable
+        // First check in-memory bridge (started in this process)
+        const inMemoryBridge = ctx.getBridgeAgent(agent.id);
+        if (inMemoryBridge) {
+          const port = inMemoryBridge.getPort();
+          if (port > 0) {
+            // Verify it's actually alive
+            try {
+              const client = await inMemoryBridge.getClient();
+              await client.health();
+              bridges.push({
+                agentId: agent.id,
+                name: agent.name,
+                port,
+                status: "running",
+                mcpUrl: `http://localhost:${port}/mcp`,
+              });
+              continue;
+            } catch {
+              // In-memory but dead
+              bridges.push({
+                agentId: agent.id,
+                name: agent.name,
+                status: "unhealthy",
+                port,
+                gitRemote: agent.gitRemote,
+              });
+              continue;
+            }
+          }
+        }
+
+        // Check external bridge via config port
+        if (agent.mcpPort && agent.mcpPort > 0) {
+          const { AgentDiscovery } = await import("../agent-discovery.js");
+          const discovery = new AgentDiscovery({ habitat: ctx as any });
           const discovered = await discovery.discoverAgent(agent);
+          discovery.stop();
           bridges.push({
             agentId: agent.id,
             name: agent.name,
@@ -691,8 +733,6 @@ export function createAgentRunnerTools(
           });
         }
       }
-
-      discovery.stop();
 
       return {
         count: bridges.length,
