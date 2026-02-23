@@ -44,6 +44,8 @@ export interface BridgeInstance {
   /** Provisioning data from the LLM build (for persistence) */
   savedProvisioning?: import("../types.js").SavedProvisioning;
   createdAt: Date;
+  /** Worker thread running the Dagger connection — must be terminated on destroy */
+  worker: Worker;
 }
 
 export class BridgeLifecycle {
@@ -217,6 +219,7 @@ export class BridgeLifecycle {
       provisioning,
       savedProvisioning: workerProvisioning,
       createdAt: new Date(),
+      worker,
     };
 
     this.bridges.set(id, instance);
@@ -241,13 +244,17 @@ export class BridgeLifecycle {
     log(id, "DESTROY", "Disconnecting client");
     await instance.client.disconnect();
 
-    // Stop service
-    // Note: Dagger doesn't have a direct stop method, but the service will be garbage collected
-    // when the container is destroyed
-    log(id, "DESTROY", "Service will be garbage collected");
+    // Terminate the worker thread — this kills the Dagger connection,
+    // which stops the container and frees the port
+    log(id, "DESTROY", "Terminating worker thread");
+    await instance.worker.terminate();
+    log(id, "DESTROY", "Worker thread terminated");
 
-    // Release port
-    this.releasePort(instance.port);
+    // Wait for the port to actually free up after the worker/container dies
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Release port immediately (no delayed release needed — worker is dead)
+    this.usedPorts.delete(instance.port);
     log(id, "DESTROY", "Port released", { port: instance.port });
 
     // Remove from tracking

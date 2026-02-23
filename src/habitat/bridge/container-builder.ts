@@ -28,35 +28,49 @@ function buildPrompt(previousProvisioning?: SavedProvisioning): string {
   let prompt = `You are configuring a container to run a project.
 
 STEP 1: List the top-level files in $repo using the entries tool.
-STEP 2: Determine the project type from these rules (check in order):
-  - package.json or package-lock.json → Node.js project
-  - requirements.txt or pyproject.toml or setup.py → Python project
+
+STEP 2: Read ALL shell scripts (.sh files at top level) AND list+read ALL files in bin/ directory.
+  For every script you read, note which command-line tools it calls. Examples:
+  - curl, wget → install curl or wget
+  - jq → install jq
+  - magick, convert → install imagemagick
+  - python3, python → install python3
+  - node, npx, npm → install nodejs npm
+  - claude → install Claude CLI via: curl -fsSL https://claude.ai/install.sh | sh
+  - bc → install bc
+  - chromium, chromium-browser, google-chrome → install chromium-browser
+  You MUST read the scripts — do not guess what tools are needed.
+
+STEP 3: Read README.md and CLAUDE.md (if they exist) for additional tool requirements.
+  Pay attention to "Prerequisites", "Requirements", "Install" sections.
+
+STEP 4: Also check for standard project markers:
+  - package.json → Node.js project: install nodejs npm, run "npm install" in /workspace
+  - requirements.txt or pyproject.toml or setup.py → Python project: install python3 python3-pip
   - Cargo.toml → Rust project
   - go.mod → Go project
-  - If NONE of the above files exist, this is a shell/script project. Do NOT install python or node.
 
-STEP 3: Read the README.md (if it exists) to understand what the project does and what tools it needs.
-
-STEP 4: Configure $builder:
+STEP 5: Configure $builder with EVERYTHING the project needs:
   - Run "apt-get update" first
-  - Install git via apt-get (always)
-  - For Node.js: install nodejs and npm via apt-get, then run "npm install" in /workspace
-  - For Python: install python3 and python3-pip via apt-get
-  - For shell/script projects: install ONLY what the README or scripts explicitly mention (e.g. imagemagick, jq, curl)
+  - Install git via apt-get (always needed)
+  - Install ALL tools you discovered from reading scripts in steps 2-4
+  - If Claude CLI is needed: run "curl -fsSL https://claude.ai/install.sh | sh"
+  - If npx is needed but no package.json exists: install nodejs npm via apt-get
   - Copy $repo into /workspace using withDirectory
   - Set working directory to /workspace
 
-CRITICAL: Do NOT install python3 unless you found requirements.txt, pyproject.toml, or setup.py.
-Do NOT install nodejs unless you found package.json.
-Do NOT configure an entrypoint or expose ports.
-Do NOT run the project — just install dependencies.`;
+CRITICAL RULES:
+- You MUST read the actual script files to find what tools they use. Do NOT guess.
+- Install a tool ONLY if you found it referenced in a script or documentation file.
+- Do NOT configure an entrypoint or expose ports.
+- Do NOT run the project — just install dependencies.`;
 
   if (
     previousProvisioning?.reasoning &&
     previousProvisioning.reasoning !== "" &&
     !previousProvisioning.reasoning.startsWith("Fallback build:")
   ) {
-    prompt += `\n\nHint from a previous successful build: ${previousProvisioning.reasoning.slice(0, 500)}`;
+    prompt += `\n\nIMPORTANT — A previous successful build installed these tools. Use this as a strong starting point and install AT LEAST these same packages:\n${previousProvisioning.reasoning.slice(0, 500)}`;
   }
 
   return prompt;
@@ -83,7 +97,7 @@ export async function buildContainerWithLLM(
     .withDirectoryInput(
       "repo",
       repo,
-      "The project repository. List its entries first to determine the project type.",
+      "The project repository. List its entries first, then read ALL scripts (.sh files and bin/ directory) to find tool dependencies.",
     )
     .withContainerInput(
       "builder",
