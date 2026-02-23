@@ -19,6 +19,7 @@ import {
   extractConversation,
   extractTextContent,
   extractReasoning,
+  sessionMessagesToNormalized,
 } from '../../interaction/persistence/session-parser.js';
 
 /** Interface for the habitat context that session tools need. */
@@ -166,25 +167,25 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
         } catch {
           return { sessionId: entry.sessionId, messages: [] };
         }
-        const { user, assistant } = extractConversation(messages);
-        const out: { role: string; content: string }[] = [];
-        let ui = 0, ai = 0;
+        const normalized = sessionMessagesToNormalized(messages);
         const max = limit ?? 1e9;
-        while ((ui < user.length || ai < assistant.length) && out.length < max) {
-          const u = user[ui];
-          const a = assistant[ai];
-          const uTime = u ? new Date(u.timestamp ?? 0).getTime() : Infinity;
-          const aTime = a ? new Date(a.timestamp ?? 0).getTime() : Infinity;
-          if (uTime <= aTime && ui < user.length) {
-            const content = u!.message.content;
-            const texts = extractTextContent(typeof content === 'string' ? content : content);
-            out.push({ role: 'user', content: texts.join('\n') || '(no text)' });
-            ui++;
-          } else if (ai < assistant.length) {
-            const content = a!.message.content;
-            const texts = extractTextContent(typeof content === 'string' ? content : content);
-            out.push({ role: 'assistant', content: texts.join('\n') || '(no text)' });
-            ai++;
+        const out: { role: string; content: string; tool?: string }[] = [];
+        for (const msg of normalized) {
+          if (out.length >= max) break;
+          if (msg.role === 'tool' && msg.tool) {
+            const inputSummary = msg.tool.input
+              ? Object.entries(msg.tool.input).slice(0, 3).map(([k, v]) => {
+                  const vs = typeof v === 'string' ? v : JSON.stringify(v);
+                  return `${k}: ${vs.length > 60 ? vs.slice(0, 60) + '...' : vs}`;
+                }).join(', ')
+              : '';
+            out.push({
+              role: 'tool',
+              content: `[${msg.tool.name}] ${inputSummary}`.trim(),
+              tool: msg.tool.name,
+            });
+          } else {
+            out.push({ role: msg.role, content: msg.content || '(no text)' });
           }
         }
         return { sessionId: entry.sessionId, messages: out };

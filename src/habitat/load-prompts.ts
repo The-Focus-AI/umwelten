@@ -49,7 +49,7 @@ const DEFAULT_INSTRUCTIONS = [
 
   // Installing tools in bridge containers
   "CRITICAL — INSTALLING CLAUDE CLI: When a project needs the `claude` CLI, ALWAYS install it with the official script: `curl -fsSL https://claude.ai/install.sh | bash`. NEVER install via npm (`npm install -g @anthropic/claude-cli` or similar). The official script is the only supported method.",
-  "When you discover missing tools in a bridge container, install the REAL tool. Common installations: claude CLI (`curl -fsSL https://claude.ai/install.sh | bash`), jq (`apt-get install -y jq`), chromium (`apt-get install -y chromium`), imagemagick (`apt-get install -y imagemagick`), python3 (`apt-get install -y python3`).",
+  "When you discover missing tools in a bridge container (from actual error output), install only what the error says is missing. Do NOT preemptively install packages. Only install a tool after a script fails because that specific tool is not found.",
 
   // Session and debugging tools
   "Use sessions_list and sessions_show to review previous conversation history when debugging issues or understanding what happened in past interactions.",
