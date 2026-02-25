@@ -104,28 +104,43 @@ export class BridgeLifecycle {
     log(id, "WORKER", "Worker thread spawned, waiting for ready signal");
 
     // Wait for worker to signal ready or error.
-    // Timeout must be longer than worker's internal 60s poll timeout so the
-    // worker can report a detailed error rather than us just saying "timed out".
-    const WORKER_TIMEOUT = 90000;
-    log(id, "WAIT", "Waiting for worker ready", { timeoutMs: WORKER_TIMEOUT });
+    // LLM provisioning can legitimately take minutes, so use an activity-based
+    // watchdog instead of a short fixed timeout.
+    const INITIAL_TIMEOUT_MS = 120000;
+    const ACTIVITY_TIMEOUT_MS = 300000;
+    log(id, "WAIT", "Waiting for worker ready", {
+      initialTimeoutMs: INITIAL_TIMEOUT_MS,
+      activityTimeoutMs: ACTIVITY_TIMEOUT_MS,
+    });
 
     let lastWorkerStep = "INIT";
     let lastWorkerMessage = "";
     let workerProvisioning: import("../types.js").SavedProvisioning | undefined;
 
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        log(id, "TIMEOUT", "Worker startup timeout - terminating", {
-          lastStep: lastWorkerStep,
-          lastMessage: lastWorkerMessage,
-        });
-        worker.terminate();
-        reject(
-          new Error(
-            `Worker startup timed out after ${WORKER_TIMEOUT}ms. Last step: [${lastWorkerStep}] ${lastWorkerMessage}`,
-          ),
-        );
-      }, WORKER_TIMEOUT);
+      let watchdog: ReturnType<typeof setTimeout> | null = null;
+
+      const resetWatchdog = (timeoutMs: number) => {
+        if (watchdog) {
+          clearTimeout(watchdog);
+        }
+        watchdog = setTimeout(() => {
+          log(id, "TIMEOUT", "Worker startup timeout - terminating", {
+            lastStep: lastWorkerStep,
+            lastMessage: lastWorkerMessage,
+            timeoutMs,
+          });
+          worker.terminate();
+          reject(
+            new Error(
+              `Worker startup timed out after ${timeoutMs}ms. Last step: [${lastWorkerStep}] ${lastWorkerMessage}`,
+            ),
+          );
+        }, timeoutMs);
+      };
+
+      // Give worker enough time to boot and begin provisioning.
+      resetWatchdog(INITIAL_TIMEOUT_MS);
 
       worker.on(
         "message",
@@ -141,6 +156,7 @@ export class BridgeLifecycle {
           if (msg.type === "log") {
             lastWorkerStep = msg.step || "LOG";
             lastWorkerMessage = msg.message || "";
+            resetWatchdog(ACTIVITY_TIMEOUT_MS);
             // Forward structured worker logs
             console.log(
               `[${new Date().toISOString()}] [Worker:${id}] [${msg.step || "LOG"}] ${msg.message}`,
@@ -151,11 +167,15 @@ export class BridgeLifecycle {
 
           if (msg.type === "provisioning") {
             workerProvisioning = msg.provisioning;
+            resetWatchdog(ACTIVITY_TIMEOUT_MS);
             log(id, "PROVISIONING", "Worker sent provisioning data");
             return; // Don't clear timeout — still waiting for ready
           }
 
-          clearTimeout(timeout);
+          if (watchdog) {
+            clearTimeout(watchdog);
+            watchdog = null;
+          }
           if (msg.type === "ready") {
             log(id, "READY", "Worker reports ready", { port: msg.port });
             resolve();
@@ -171,7 +191,10 @@ export class BridgeLifecycle {
           error: err.message,
           stack: err.stack,
         });
-        clearTimeout(timeout);
+        if (watchdog) {
+          clearTimeout(watchdog);
+          watchdog = null;
+        }
         reject(err);
       });
 
@@ -181,7 +204,10 @@ export class BridgeLifecycle {
           lastStep: lastWorkerStep,
           lastMessage: lastWorkerMessage,
         });
-        clearTimeout(timeout);
+        if (watchdog) {
+          clearTimeout(watchdog);
+          watchdog = null;
+        }
         if (code !== 0) {
           reject(
             new Error(

@@ -3,7 +3,6 @@
  *
  * Runs the Dagger bridge service in a separate thread so it doesn't block the CLI.
  * Uses dag.llm() to build the container (reads repo, picks base image, installs deps).
- * Falls back to heuristic build if LLM fails.
  */
 
 import { parentPort, workerData } from "worker_threads";
@@ -12,7 +11,6 @@ import { existsSync, appendFileSync, createWriteStream } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { Writable } from "stream";
-import { buildContainerFromRepo } from "./container-builder.ts";
 import type { SavedProvisioning } from "../types.js";
 
 interface WorkerData {
@@ -58,6 +56,11 @@ log("INIT", "Bridge worker starting", {
 
 connection(
   async () => {
+    // Resolve container-builder for both tsx (dev) and built js runtimes.
+    const tsBuilderModule = "./container-builder" + ".ts";
+    const { buildContainerFromRepo } = await import(tsBuilderModule)
+      .catch(() => import("./container-builder.js"));
+
     // Find the Go MCP server binary
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
@@ -81,14 +84,14 @@ connection(
       );
     }
 
-    log("BUILD", "Building container from repo via LLM + fallback", {
+  log("BUILD", "Building container from repo via LLM", {
       repoUrl,
       binaryPath,
       hasSecrets: secrets.length > 0,
       hasPreviousProvisioning: !!previousProvisioning,
     });
 
-    // Build the container (LLM tries first, falls back to heuristics)
+    // Build the container via LLM provisioning
     const { container, provisioning } = await buildContainerFromRepo({
       repoUrl,
       secrets,

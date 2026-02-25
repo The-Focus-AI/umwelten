@@ -19,5 +19,5 @@ export {
   BridgeHealth,
 } from "./client.js";
 export { BridgeSupervisor, SupervisorConfig } from "./supervisor.js";
-export { buildContainerFromRepo, buildContainerWithLLM, buildContainerWithFallback } from "./container-builder.js";
+export { buildContainerFromRepo, buildContainerWithLLM } from "./container-builder.js";
 export type { SupervisorState, SupervisorStatus, BridgeState } from "./state.js";

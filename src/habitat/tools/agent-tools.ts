@@ -23,14 +23,32 @@ export function createAgentTools(ctx: AgentToolsContext): Record<string, Tool> {
     inputSchema: z.object({}).optional(),
     execute: async () => {
       const config = ctx.getConfig();
-      return {
-        agents: config.agents.map(a => ({
+      const { AgentDiscovery } = await import('../agent-discovery.js');
+      const discovery = new AgentDiscovery({ habitat: ctx as any });
+
+      const agents = await Promise.all(config.agents.map(async (a) => {
+        let mcpStatus: string | null = a.mcpStatus ?? null;
+        let mcpError: string | undefined;
+
+        if (a.mcpPort && a.mcpPort > 0) {
+          try {
+            const discovered = await discovery.discoverAgent(a);
+            mcpStatus = discovered.status;
+            mcpError = discovered.error;
+          } catch (err) {
+            mcpStatus = "error";
+            mcpError = err instanceof Error ? err.message : String(err);
+          }
+        }
+
+        return {
           id: a.id,
           name: a.name,
           projectPath: a.projectPath,
           gitRemote: a.gitRemote ?? null,
           mcpPort: a.mcpPort ?? null,
-          mcpStatus: a.mcpStatus ?? null,
+          mcpStatus,
+          mcpError,
           secretsRefs: a.secrets?.length ? a.secrets : undefined,
           commands: a.commands ?? undefined,
           hasProvisioning: !!a.bridgeProvisioning,
@@ -40,7 +58,13 @@ export function createAgentTools(ctx: AgentToolsContext): Record<string, Tool> {
             envVarNames: a.bridgeProvisioning.envVarNames,
             analyzedAt: a.bridgeProvisioning.analyzedAt,
           } : undefined,
-        })),
+        };
+      }));
+
+      discovery.stop();
+
+      return {
+        agents,
         count: config.agents.length,
       };
     },

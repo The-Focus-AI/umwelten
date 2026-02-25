@@ -2,9 +2,7 @@
 /**
  * Spike 02: Simplest possible dag.llm() container build.
  *
- * Usage:
- *   npx tsx src/habitat/bridge/spikes/02-llm-container-build.ts        # deterministic, cache-friendly path (default)
- *   npx tsx src/habitat/bridge/spikes/02-llm-container-build.ts --llm  # experimental dag.llm() path
+ * Usage: npx tsx src/habitat/bridge/spikes/02-llm-container-build.ts
  */
 
 import { dag, connection } from "@dagger.io/dagger";
@@ -37,7 +35,6 @@ function withClaudeAuthEnv(
 // Force line-by-line Dagger progress output in terminals where the default
 // renderer may not stream visibly.
 process.env.DAGGER_PROGRESS ??= "plain";
-const useLLM = process.argv.includes("--llm");
 
 try {
   await connection(
@@ -53,52 +50,31 @@ try {
         ]);
       container = withClaudeAuthEnv(container);
 
-      if (useLLM) {
-        logStep("Using experimental dag.llm() mode.");
-        logStep("Creating LLM environment with builder input and result output.");
-        const env = dag
-          .env()
-          .withContainerInput(
-            "builder",
-            container,
-            "The base container to configure. Keep node:lts and do not use apt-get.",
-          )
-          .withContainerOutput("result", "The configured container.");
+      logStep("Creating LLM environment with builder input and result output.");
+      const env = dag
+        .env()
+        .withContainerInput(
+          "builder",
+          container,
+          "The base container to configure. Keep node:lts and do not use apt-get.",
+        )
+        .withContainerOutput("result", "The configured container.");
 
-        const prompt = [
-          "Install Claude CLI in the builder container.",
-          "Do NOT use ubuntu and do NOT run apt-get.",
-          "Use this flow:",
-          "- fetch install script using Node's fetch API and write /tmp/install-claude.sh",
-          "- run: bash /tmp/install-claude.sh",
-          "- if Claude is installed to ~/.local/bin/claude, make it available on PATH (e.g. symlink to /usr/local/bin/claude)",
-          "Return the configured container in result.",
-        ].join("\n");
+      const prompt = [
+        "Install Claude CLI in the builder container.",
+        "Do NOT use ubuntu and do NOT run apt-get.",
+        "Use this flow:",
+        "- fetch install script using Node's fetch API and write /tmp/install-claude.sh",
+        "- run: bash /tmp/install-claude.sh",
+        "- if Claude is installed to ~/.local/bin/claude, make it available on PATH (e.g. symlink to /usr/local/bin/claude)",
+        "Return the configured container in result.",
+      ].join("\n");
 
-        const work = dag.llm().withEnv(env).withPrompt(prompt);
-        logStep("Fetching model reply.");
-        const reply = await work.lastReply();
-        console.log("[02-llm-container-build] Reply:", reply || "(no reply)");
-        container = work.env().output("result").asContainer();
-      } else {
-        logStep("Using deterministic cached recipe (default).");
-        container = container
-          .withExec([
-            "sh",
-            "-lc",
-            "node -e \"fetch('https://claude.ai/install.sh').then(r=>r.text()).then(t=>require('node:fs').writeFileSync('/tmp/install-claude.sh', t))\"",
-          ])
-          .withExec([
-            "sh",
-            "-lc",
-            "bash /tmp/install-claude.sh",
-          ])
-          .withExec([
-            "sh",
-            "-lc",
-            "if [ -x /root/.local/bin/claude ]; then ln -sf /root/.local/bin/claude /usr/local/bin/claude; fi; if [ -x /home/node/.local/bin/claude ]; then ln -sf /home/node/.local/bin/claude /usr/local/bin/claude; fi",
-          ]);
-      }
+      const work = dag.llm().withEnv(env).withPrompt(prompt);
+      logStep("Fetching model reply.");
+      const reply = await work.lastReply();
+      console.log("[02-llm-container-build] Reply:", reply || "(no reply)");
+      container = work.env().output("result").asContainer();
 
       logStep("Verifying node and executing claude.");
       const output = await container
