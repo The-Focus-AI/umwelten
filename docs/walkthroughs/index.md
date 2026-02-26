@@ -68,9 +68,24 @@ Real example of analyzing a project using session management tools:
 
 This walkthrough demonstrates the actual output and insights you can gain from analyzing your own projects.
 
+## Evaluation
+
+### [Building a Multi-Model Evaluation with LLM Judging](./car-wash-evaluation.md)
+
+Build a complete evaluation pipeline from scratch — the "Car Wash Test" that benchmarks 131 models on common-sense reasoning:
+
+- Define model lists across Google, OpenRouter, and Ollama
+- Configure Stimulus and SimpleEvaluation with caching
+- Build an LLM judge with Zod-validated structured output
+- Run-based caching for resumable, comparable evaluations
+- Analyze and categorize results (correct / lucky / failed)
+
+**Time Required:** 30 minutes to build, 15 minutes to run
+**Prerequisites:** Node.js 20+, pnpm, Google + OpenRouter API keys
+**Cost:** ~$0.50 for a full 131-model run
+
 ## Coming Soon
 
-- **Multi-Model Evaluation** - Compare different LLMs on the same task
 - **Batch Processing Workflows** - Process large document sets efficiently
 - **Cost Optimization Strategies** - Minimize API costs while maximizing quality
 - **Custom Tool Integration** - Build and integrate your own tools

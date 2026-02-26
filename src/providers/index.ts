@@ -133,6 +133,9 @@ export async function getModelProvider(
   }
 }
 
+// Known OpenRouter model variant suffixes (e.g. `:thinking`, `:free`, `:extended`)
+const VARIANT_SUFFIX_RE = /:(thinking|free|extended|nitro|floor)$/;
+
 export async function validateModel(
   modelDetails: ModelDetails
 ): Promise<ModelDetails | undefined> {
@@ -142,9 +145,26 @@ export async function validateModel(
   }
   try {
     const models = await modelProvider.listModels();
-    return models.find(
+    // Try exact match first
+    const exact = models.find(
       (model: ModelDetails) => model.name === modelDetails.name
     );
+    if (exact) return exact;
+
+    // For variant suffixes (e.g. "model:thinking"), validate the base model
+    // but return the original details so the variant is preserved for the API call
+    const variantMatch = modelDetails.name.match(VARIANT_SUFFIX_RE);
+    if (variantMatch) {
+      const baseName = modelDetails.name.replace(VARIANT_SUFFIX_RE, '');
+      const baseModel = models.find(
+        (model: ModelDetails) => model.name === baseName
+      );
+      if (baseModel) {
+        return { ...modelDetails };
+      }
+    }
+
+    return undefined;
   } catch (error) {
     console.error("Error checking model validity:", error);
     return undefined;

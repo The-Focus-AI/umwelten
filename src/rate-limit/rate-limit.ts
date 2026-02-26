@@ -171,4 +171,11 @@ export function getRateLimitState(modelId: string): RateLimitState | undefined {
  */
 export function clearRateLimitState(modelId: string): void {
   rateLimitStates.delete(modelId);
+}
+
+/**
+ * Clear all rate limit state
+ */
+export function clearAllRateLimitStates(): void {
+  rateLimitStates.clear();
 } 

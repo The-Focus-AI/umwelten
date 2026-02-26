@@ -152,14 +152,17 @@ export class BaseModelRunner implements ModelRunner {
     usage: any,
     params: { modelDetails: ModelDetails },
   ): any {
-    return usage &&
-      usage.promptTokens !== undefined &&
-      usage.completionTokens !== undefined
+    // Normalize token field names — Vercel AI SDK uses inputTokens/outputTokens
+    const promptTokens =
+      usage?.promptTokens ?? usage?.inputTokens ?? usage?.prompt_tokens ?? usage?.input_tokens;
+    const completionTokens =
+      usage?.completionTokens ?? usage?.outputTokens ?? usage?.completion_tokens ?? usage?.output_tokens;
+
+    return usage && promptTokens !== undefined && completionTokens !== undefined
       ? calculateCost(params.modelDetails, {
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          total:
-            usage.totalTokens || usage.promptTokens + usage.completionTokens,
+          promptTokens,
+          completionTokens,
+          total: usage.totalTokens || promptTokens + completionTokens,
         })
       : null;
   }
@@ -1054,13 +1057,9 @@ export class BaseModelRunner implements ModelRunner {
       this.config.rateLimitConfig,
     );
 
-    // console.log('usage', usage);
-
     const costBreakdown = this.calculateCostBreakdown(usage, {
       modelDetails: interaction.modelDetails,
     });
-
-    // console.log('cost breakdown', costBreakdown);
 
     // Handle different token usage formats (Vercel AI SDK uses inputTokens/outputTokens, Ollama uses inputTokens/outputTokens)
     const promptTokens =

@@ -256,6 +256,35 @@ const habitat = await Habitat.create({ workDir: './my-agent' });
 const interaction = await habitat.createInteraction(sessionId);
 ```
 
+## CLI Quick Reference
+
+Use the CLI at runtime — don't import TypeScript modules directly for discovery tasks.
+
+```bash
+# List/search models (use this to find model names for evaluations)
+dotenvx run -- pnpm run cli models --search gpt-5
+dotenvx run -- pnpm run cli models --provider openrouter --json
+dotenvx run -- pnpm run cli models --provider ollama
+
+# Run evaluations
+dotenvx run -- pnpm run cli eval run \
+  --prompt "Your prompt" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
+  --id "my-eval" --concurrent
+
+# Generate reports from evaluations
+dotenvx run -- pnpm run cli eval report --id my-eval --format markdown
+
+# List existing evaluations
+dotenvx run -- pnpm run cli eval list --details
+
+# Run a one-shot prompt
+dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview --prompt "Hello"
+
+# Scripted evaluations (e.g. car wash test)
+dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
+```
+
 ## Environment Variables
 
 - `GOOGLE_GENERATIVE_AI_API_KEY` — Google Gemini (NOT `GOOGLE_API_KEY`)
