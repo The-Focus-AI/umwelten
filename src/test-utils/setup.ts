@@ -16,6 +16,7 @@ export function skipIfNoEnvVar(key: string, message?: string): void {
 export const hasOpenRouterKey = () => hasRequiredEnvVar('OPENROUTER_API_KEY')
 export const hasGoogleKey = () => hasRequiredEnvVar('GOOGLE_GENERATIVE_AI_API_KEY')
 export const hasGitHubToken = () => hasRequiredEnvVar('GITHUB_TOKEN')
+export const hasMinimaxKey = () => hasRequiredEnvVar('MINIMAX_API_KEY')
 
 // Service availability checks
 export async function checkOllamaConnection(host = 'http://localhost:11434'): Promise<boolean> {

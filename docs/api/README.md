@@ -53,7 +53,7 @@ const result = await evaluation.run({
 ```typescript
 interface ModelDetails {
   name: string;
-  provider: 'openrouter' | 'google' | 'ollama' | 'lmstudio';
+  provider: 'openrouter' | 'google' | 'ollama' | 'lmstudio' | 'github-models' | 'fireworks' | 'minimax';
   costs: {
     promptTokens: number;
     completionTokens: number;
@@ -235,8 +235,16 @@ const config = new Config({
       baseUrl: 'https://openrouter.ai/api/v1'
     },
     google: {
-      apiKey: process.env.GOOGLE_API_KEY,
+      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta'
+    },
+    fireworks: {
+      apiKey: process.env.FIREWORKS_API_KEY,
+      baseUrl: 'https://api.fireworks.ai/inference/v1'
+    },
+    minimax: {
+      apiKey: process.env.MINIMAX_API_KEY,
+      baseUrl: 'https://api.minimax.io/v1'
     }
   },
   evaluation: {

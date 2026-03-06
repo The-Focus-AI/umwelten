@@ -4,6 +4,7 @@ import { createGoogleProvider } from "../providers/google.js";
 import { createLMStudioProvider } from "../providers/lmstudio.js";
 import { createGitHubModelsProvider } from "../providers/github-models.js";
 import { createFireworksProvider } from "../providers/fireworks.js";
+import { createMiniMaxProvider } from "../providers/minimax.js";
 import type { ModelDetails } from "./types.js";
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
@@ -22,6 +23,14 @@ export async function getAllModels(): Promise<ModelDetails[]> {
         : []),
       ...(process.env.FIREWORKS_API_KEY
         ? [createFireworksProvider(process.env.FIREWORKS_API_KEY)]
+        : []),
+      ...(process.env.MINIMAX_API_KEY
+        ? [
+            createMiniMaxProvider(
+              process.env.MINIMAX_API_KEY,
+              process.env.MINIMAX_BASE_URL,
+            ),
+          ]
         : []),
     ];
 

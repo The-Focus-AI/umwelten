@@ -168,7 +168,7 @@ export interface ModelRunner {
 
 export interface ModelSearchOptions {
   query: string; // Search term
-  provider?: "openrouter" | "ollama" | "google" | "all"; // Filter by provider
+  provider?: "openrouter" | "ollama" | "google" | "github-models" | "fireworks" | "minimax" | "lmstudio" | "all"; // Filter by provider
   sortBy?: "name" | "addedDate" | "contextLength" | "cost"; // Sort results
   sortOrder?: "asc" | "desc"; // Sort direction
   onlyFree?: boolean; // Only show free models

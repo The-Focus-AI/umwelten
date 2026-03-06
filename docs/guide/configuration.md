@@ -15,11 +15,23 @@ export GOOGLE_GENERATIVE_AI_API_KEY="your-google-api-key"
 # OpenRouter (required for OpenRouter models)
 export OPENROUTER_API_KEY="your-openrouter-api-key"
 
+# GitHub Models (required for GitHub Models)
+export GITHUB_TOKEN="your-github-token"
+
+# Fireworks (required for Fireworks models)
+export FIREWORKS_API_KEY="your-fireworks-api-key"
+
+# MiniMax (required for MiniMax models)
+export MINIMAX_API_KEY="your-minimax-api-key"
+
 # Ollama (optional, defaults to localhost)
 export OLLAMA_HOST="http://localhost:11434"
 
 # LM Studio (optional, defaults to localhost)
 export LMSTUDIO_BASE_URL="http://localhost:1234"
+
+# MiniMax base URL override (optional)
+export MINIMAX_BASE_URL="https://api.minimax.io/v1"
 ```
 
 ### Using .env Files
@@ -30,8 +42,12 @@ Create a `.env` file in your project directory:
 # .env
 GOOGLE_GENERATIVE_AI_API_KEY=your-google-api-key
 OPENROUTER_API_KEY=your-openrouter-api-key
+GITHUB_TOKEN=your-github-token
+FIREWORKS_API_KEY=your-fireworks-api-key
+MINIMAX_API_KEY=your-minimax-api-key
 OLLAMA_HOST=http://localhost:11434
 LMSTUDIO_BASE_URL=http://localhost:1234
+MINIMAX_BASE_URL=https://api.minimax.io/v1
 ```
 
 Umwelten automatically loads `.env` files from:
@@ -104,6 +120,40 @@ export OPENROUTER_API_KEY="sk-or-v1-..."
 - `openai/gpt-4o` - Highest quality (premium)
 - `openai/gpt-4o-mini` - Balanced cost/quality
 - `anthropic/claude-3.7-sonnet:thinking` - Excellent analysis
+
+### GitHub Models
+
+Authenticate with a GitHub Personal Access Token:
+
+```bash
+export GITHUB_TOKEN="ghp_..."
+```
+
+Use GitHub Models when you want hosted OpenAI-compatible inference with a GitHub account.
+
+### Fireworks
+
+Get your API key from [Fireworks](https://fireworks.ai/):
+
+```bash
+export FIREWORKS_API_KEY="fw_..."
+```
+
+Fireworks is useful for direct hosted access to OSS and partner models through an OpenAI-compatible API.
+
+### MiniMax
+
+Get your API key from [MiniMax](https://platform.minimax.io/):
+
+```bash
+export MINIMAX_API_KEY="your-minimax-api-key"
+```
+
+**Direct Models**:
+- `MiniMax-M2.5` - Best overall quality/value balance
+- `MiniMax-M2.5-highspeed` - Faster low-latency variant
+- `MiniMax-M2.1` - Strong coding and reasoning
+- `MiniMax-M2` - General-purpose M2 family model
 
 ### LM Studio
 
@@ -286,6 +336,9 @@ Check your current configuration:
 dotenvx run -- pnpm run cli -- models list --provider google
 dotenvx run -- pnpm run cli -- models list --provider ollama
 dotenvx run -- pnpm run cli -- models list --provider openrouter
+dotenvx run -- pnpm run cli -- models list --provider github-models
+dotenvx run -- pnpm run cli -- models list --provider fireworks
+dotenvx run -- pnpm run cli -- models list --provider minimax
 
 # Test basic functionality
 dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
@@ -342,7 +395,8 @@ MAX_CONCURRENCY=4
 # config/production.env
 GOOGLE_GENERATIVE_AI_API_KEY=prod-key
 OPENROUTER_API_KEY=prod-openrouter-key
-DEFAULT_MODELS="google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini"
+MINIMAX_API_KEY=prod-minimax-key
+DEFAULT_MODELS="google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,minimax:MiniMax-M2.5"
 MAX_CONCURRENCY=8
 
 # Load specific environment
@@ -382,6 +436,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 env:
   GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
   OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
   UMWELTEN_OUTPUT_DIR: "./ci-results"
 
 steps:

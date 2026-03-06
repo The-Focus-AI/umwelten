@@ -91,7 +91,7 @@ function formatContextLength(tokens: number | undefined): string {
   return tokens.toString();
 }
 
-type Provider = 'openrouter' | 'ollama' | 'google' | 'all';
+type Provider = 'openrouter' | 'ollama' | 'google' | 'github-models' | 'fireworks' | 'minimax' | 'lmstudio' | 'all';
 type SortField = 'name' | 'addedDate' | 'contextLength' | 'cost';
 type ViewMode = 'list' | 'info' | 'costs';
 
@@ -169,7 +169,7 @@ function formatDate(date: Date | undefined): string {
 export const modelsCommand = new Command('models')
   .description('List and search available models')
   .option('-s, --search <query>', 'Search for models by name or description')
-  .option('-p, --provider <provider>', 'Filter by provider (openrouter, ollama, google, github-models, all)', 'all')
+  .option('-p, --provider <provider>', 'Filter by provider (openrouter, ollama, google, github-models, fireworks, minimax, lmstudio, all)', 'all')
   .option('--sort <field>', 'Sort by field (name, addedDate, contextLength, cost). If not specified, uses provider default ordering')
   .option('--desc', 'Sort in descending order')
   .option('--free', 'Show only free models')

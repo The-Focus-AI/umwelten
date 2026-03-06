@@ -10,8 +10,8 @@
  */
 
 import { dag, connection } from "@dagger.io/dagger";
-import { buildContainerFromRepo } from "../container-builder.ts";
-import { HabitatBridgeClient } from "../client.ts";
+import { buildContainerFromRepo } from "../container-builder.js";
+import { HabitatBridgeClient } from "../client.js";
 import { existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";

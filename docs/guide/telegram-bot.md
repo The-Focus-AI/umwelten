@@ -230,6 +230,8 @@ export TELEGRAM_BOT_TOKEN="your_bot_token"
 export GOOGLE_GENERATIVE_AI_API_KEY="your_key"
 export OPENROUTER_API_KEY="your_key"
 export GITHUB_TOKEN="your_token"
+export FIREWORKS_API_KEY="your_key"
+export MINIMAX_API_KEY="your_key"
 ```
 
 ### Running as a Service
@@ -270,7 +272,7 @@ Interaction + Stimulus (reused)
     ↓
 ModelRunner (reused)
     ↓
-Provider (Google/Ollama/OpenRouter)
+Provider (Google/Ollama/OpenRouter/GitHub Models/Fireworks/MiniMax/LM Studio)
     ↓
 Response → Telegram
 ```

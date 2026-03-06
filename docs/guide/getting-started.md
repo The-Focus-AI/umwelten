@@ -40,6 +40,12 @@ OPENROUTER_API_KEY=your_key_here
 # GitHub Models (free tier)
 GITHUB_TOKEN=your_token_here
 
+# Fireworks
+FIREWORKS_API_KEY=your_key_here
+
+# MiniMax
+MINIMAX_API_KEY=your_key_here
+
 # Local providers (Ollama, LM Studio) need no env vars
 ```
 

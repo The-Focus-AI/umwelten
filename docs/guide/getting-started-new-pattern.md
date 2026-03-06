@@ -267,10 +267,19 @@ Create a `.env` file with your API keys:
 OPENROUTER_API_KEY=your_openrouter_key
 
 # Google API key
-GOOGLE_API_KEY=your_google_key
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_key
+
+# GitHub Models token
+GITHUB_TOKEN=your_github_token
+
+# Fireworks API key
+FIREWORKS_API_KEY=your_fireworks_key
+
+# MiniMax API key
+MINIMAX_API_KEY=your_minimax_key
 
 # Ollama base URL (optional)
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434
 
 # LM Studio base URL (optional)
 LMSTUDIO_BASE_URL=http://localhost:1234

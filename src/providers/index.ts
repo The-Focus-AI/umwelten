@@ -3,6 +3,11 @@ import { getOpenRouterModelUrl } from "./openrouter.js";
 import { getGoogleModelUrl } from "./google.js";
 import { getGitHubModelsModelUrl } from "./github-models.js";
 import { getFireworksModelUrl } from "./fireworks.js";
+import {
+  createMiniMaxProvider,
+  getMiniMaxCanonicalModelName,
+  getMiniMaxModelUrl,
+} from "./minimax.js";
 import type { ModelDetails } from "../cognition/types.js";
 import { createGoogleProvider } from "./google.js";
 import { createOpenRouterProvider } from "./openrouter.js";
@@ -26,6 +31,8 @@ export function getModelUrl(model: ModelDetails): string | undefined {
       return getGitHubModelsModelUrl(model.name);
     case "fireworks":
       return getFireworksModelUrl(model.name);
+    case "minimax":
+      return getMiniMaxModelUrl(model.name);
     case "lmstudio":
       return undefined;
     default:
@@ -61,7 +68,7 @@ export async function getModelDetails(model: LanguageModel): Promise<ModelDetail
     const modelId = model.toString();
     
     // Try to find the model in our known providers
-    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'fireworks', 'lmstudio'] as const;
+    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'fireworks', 'minimax', 'lmstudio'] as const;
     
     for (const providerName of providers) {
       try {
@@ -122,6 +129,12 @@ export async function getModelProvider(
         throw new Error("FIREWORKS_API_KEY environment variable is required");
       }
       return createFireworksProvider(fireworksKey);
+    case "minimax":
+      const minimaxKey = process.env.MINIMAX_API_KEY;
+      if (!minimaxKey) {
+        throw new Error("MINIMAX_API_KEY environment variable is required");
+      }
+      return createMiniMaxProvider(minimaxKey, process.env.MINIMAX_BASE_URL);
     case "ollama":
       return createOllamaProvider();
     case "lmstudio":
@@ -160,6 +173,16 @@ export async function validateModel(
         (model: ModelDetails) => model.name === baseName
       );
       if (baseModel) {
+        return { ...modelDetails };
+      }
+    }
+
+    if (modelDetails.provider === "minimax") {
+      const canonicalName = getMiniMaxCanonicalModelName(modelDetails.name);
+      const canonicalModel = models.find(
+        (model: ModelDetails) => model.name === canonicalName
+      );
+      if (canonicalModel) {
         return { ...modelDetails };
       }
     }

@@ -453,7 +453,7 @@ await runner.evaluate({ name: 'openai/gpt-4o-mini', provider: 'openrouter' });
 ```typescript
 interface ModelDetails {
   name: string;          // Model identifier (e.g., 'gemini-3-flash-preview')
-  provider: string;      // Provider ('google', 'ollama', 'openrouter', 'lmstudio', 'github-models')
+  provider: string;      // Provider ('google', 'ollama', 'openrouter', 'lmstudio', 'github-models', 'fireworks', 'minimax')
   temperature?: number;  // Creativity/randomness (0-2)
   topP?: number;         // Nucleus sampling parameter
   topK?: number;         // Top-K sampling parameter

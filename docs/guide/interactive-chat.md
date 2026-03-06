@@ -65,6 +65,24 @@ dotenvx run -- pnpm run cli -- chat --provider openrouter --model anthropic/clau
 dotenvx run -- pnpm run cli -- chat --provider openrouter --model openai/gpt-4o-mini
 ```
 
+#### MiniMax Models
+```bash
+# Direct MiniMax chat
+dotenvx run -- pnpm run cli -- chat --provider minimax --model MiniMax-M2.5
+
+# Faster MiniMax low-latency chat
+dotenvx run -- pnpm run cli -- chat --provider minimax --model MiniMax-M2.5-highspeed
+```
+
+#### Fireworks Models
+```bash
+# Discover available Fireworks model IDs first
+dotenvx run -- pnpm run cli -- models --provider fireworks
+
+# Then start chat with a Fireworks model
+dotenvx run -- pnpm run cli -- chat --provider fireworks --model <fireworks-model-id>
+```
+
 #### LM Studio (Local)
 ```bash
 # Local model chat (ensure LM Studio server is running)

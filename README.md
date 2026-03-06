@@ -1,6 +1,6 @@
 # Umwelten - AI Model Evaluation Tool
 
-A command-line tool for systematic AI model evaluation across providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models) with structured output validation, batch processing, and comprehensive cost analysis.
+A command-line tool for systematic AI model evaluation across providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models, Fireworks, MiniMax) with structured output validation, batch processing, and comprehensive cost analysis.
 
 ## 🎯 New: Stimulus-Centric Evaluation Architecture
 
@@ -83,7 +83,7 @@ const response = await evalInteraction.evaluateWithSchema(scoreSchema);
 
 ### 🔧 Core Capabilities
 
-- **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio, GitHub Models
+- **🌐 Multi-Provider Support**: Google, Ollama, OpenRouter, LM Studio, GitHub Models, Fireworks, MiniMax
 - **📊 Structured Output**: DSL, JSON Schema, Zod validation with type coercion
 - **⚡ Batch Processing**: Concurrent file processing with intelligent error handling
 - **💰 Cost Transparency**: Real-time cost calculations with accurate pricing
@@ -149,10 +149,13 @@ npm run build
 export GOOGLE_GENERATIVE_AI_API_KEY=your_google_api_key
 export OPENROUTER_API_KEY=your_openrouter_api_key
 export GITHUB_TOKEN=your_github_personal_access_token
+export FIREWORKS_API_KEY=your_fireworks_api_key
+export MINIMAX_API_KEY=your_minimax_api_key
 
 # Optional (for local models)
 export OLLAMA_HOST=http://localhost:11434
 export LMSTUDIO_BASE_URL=http://localhost:1234
+# export MINIMAX_BASE_URL=https://api.minimax.io/v1
 ```
 
 ## 🎯 Common Use Cases
@@ -244,6 +247,8 @@ umwelten tools demo \
 | **OpenRouter**    | GPT-4, Claude, etc.          | Wide model selection              | Pay-per-use |
 | **LM Studio**     | Any local model              | Full privacy, No API key          | Free        |
 | **GitHub Models** | OpenAI, Meta, DeepSeek, etc. | Free during preview               | Free        |
+| **Fireworks**     | Hosted OSS + partner models  | OpenAI-compatible direct access   | Pay-per-use |
+| **MiniMax**       | MiniMax M2/M2.1/M2.5         | Direct provider access            | Pay-per-use |
 
 ## 🆕 Recent Enhancements
 

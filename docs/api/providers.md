@@ -11,6 +11,8 @@ The providers module gives unified access to multiple LLM backends through a com
 | Ollama | `ollama` | (none) | Yes |
 | LM Studio | `lmstudio` | (none) | Yes |
 | GitHub Models | `github-models` | `GITHUB_TOKEN` | No |
+| Fireworks | `fireworks` | `FIREWORKS_API_KEY` | No |
+| MiniMax | `minimax` | `MINIMAX_API_KEY` | No |
 
 ## BaseProvider
 
@@ -46,11 +48,15 @@ import { createOpenRouterProvider } from '../src/providers/openrouter.js';
 import { createOllamaProvider } from '../src/providers/ollama.js';
 import { createLMStudioProvider } from '../src/providers/lmstudio.js';
 import { createGitHubModelsProvider } from '../src/providers/github-models.js';
+import { createFireworksProvider } from '../src/providers/fireworks.js';
+import { createMiniMaxProvider } from '../src/providers/minimax.js';
 
 // Cloud providers (require API keys)
 const google = createGoogleProvider(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
 const openrouter = createOpenRouterProvider(process.env.OPENROUTER_API_KEY!);
 const github = createGitHubModelsProvider(process.env.GITHUB_TOKEN!);
+const fireworks = createFireworksProvider(process.env.FIREWORKS_API_KEY!);
+const minimax = createMiniMaxProvider(process.env.MINIMAX_API_KEY!);
 
 // Local providers (no API key)
 const ollama = createOllamaProvider();
@@ -205,6 +211,15 @@ OPENROUTER_API_KEY=your_key_here
 
 # GitHub Models (REQUIRED for github-models provider)
 GITHUB_TOKEN=your_token_here
+
+# Fireworks (REQUIRED for fireworks provider)
+FIREWORKS_API_KEY=your_key_here
+
+# MiniMax (REQUIRED for minimax provider)
+MINIMAX_API_KEY=your_key_here
+
+# Optional MiniMax override
+MINIMAX_BASE_URL=https://api.minimax.io/v1
 
 # Local providers need no env vars — they connect to localhost by default
 # Ollama: http://localhost:11434

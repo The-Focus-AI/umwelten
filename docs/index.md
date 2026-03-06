@@ -1,7 +1,7 @@
 ---
 title: Umwelten - AI Model Interaction and Evaluation
 description: A command-line tool to interact with and systematically evaluate AI models across providers
-keywords: [AI, evaluation, models, command-line, tool, providers, Google, OpenRouter, Ollama, LM Studio, GitHub Models, semantic architecture, cognition, interaction, stimulus, memory system, MCP integration, structured output, Zod, TypeScript, habitat, agents]
+keywords: [AI, evaluation, models, command-line, tool, providers, Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax, semantic architecture, cognition, interaction, stimulus, memory system, MCP integration, structured output, Zod, TypeScript, habitat, agents]
 ---
 
 # Umwelten
@@ -15,7 +15,7 @@ An "Umwelt" is the perceptual world in which an organism exists - its unique sen
 Umwelten provides:
 
 - **Habitat**: The top-level container for agents — tools, skills, sessions, memory, and sub-agents in one place. Run as CLI, Telegram bot, or web UI.
-- **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models
+- **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax
 - **Semantic Architecture**: Cognition, Interaction, and Stimulus frameworks
 - **Evaluation Framework**: Systematic model assessment and comparison
 - **Memory System**: Persistent conversation memory and fact extraction
@@ -98,6 +98,8 @@ Connect to multiple AI providers seamlessly:
 - **Ollama**: Local model execution
 - **LM Studio**: Local REST API models
 - **GitHub Models**: Free access to AI models during preview
+- **Fireworks**: OpenAI-compatible hosted inference
+- **MiniMax**: Direct access to MiniMax M2 family models
 
 ### Evaluation Framework
 

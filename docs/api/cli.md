@@ -22,6 +22,8 @@ List available models across providers.
 dotenvx run -- pnpm run cli -- models --provider google
 dotenvx run -- pnpm run cli -- models --provider openrouter
 dotenvx run -- pnpm run cli -- models --provider ollama
+dotenvx run -- pnpm run cli -- models --provider minimax
+dotenvx run -- pnpm run cli -- models --provider fireworks
 
 # JSON output
 dotenvx run -- pnpm run cli -- models --provider google --json
@@ -29,7 +31,7 @@ dotenvx run -- pnpm run cli -- models --provider google --json
 
 **Options**:
 
-- `--provider <provider>`: Filter by provider (google, openrouter, ollama, lmstudio, github-models)
+- `--provider <provider>`: Filter by provider (`google`, `openrouter`, `ollama`, `lmstudio`, `github-models`, `fireworks`, `minimax`)
 - `--json`: Output in JSON format
 
 ### `run`
@@ -205,6 +207,12 @@ OPENROUTER_API_KEY=your_key
 
 # Required for GitHub Models provider
 GITHUB_TOKEN=your_token
+
+# Required for Fireworks provider
+FIREWORKS_API_KEY=your_key
+
+# Required for MiniMax provider
+MINIMAX_API_KEY=your_key
 
 # Required for Telegram bot
 TELEGRAM_BOT_TOKEN=your_token

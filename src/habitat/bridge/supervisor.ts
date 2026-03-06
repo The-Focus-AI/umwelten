@@ -72,9 +72,11 @@ export class BridgeSupervisor {
     this.stopping = false;
     await this.build();
 
-    if (this.state.status === "running") {
+    const status: SupervisorStatus = this.getState().status;
+
+    if (status === "running") {
       this.startHealthLoop();
-    } else if (this.state.status === "error") {
+    } else if (status === "error") {
       throw new Error(
         this.state.lastError || `Build failed after ${this.state.buildAttempts} attempts`,
       );

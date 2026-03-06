@@ -1,6 +1,6 @@
 # Model Discovery
 
-Umwelten provides comprehensive model discovery features to help you find and compare models across all supported providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models).
+Umwelten provides comprehensive model discovery features to help you find and compare models across all supported providers (Google, Ollama, OpenRouter, LM Studio, GitHub Models, Fireworks, MiniMax).
 
 ## Listing Models
 
@@ -27,6 +27,8 @@ dotenvx run -- pnpm run cli -- models  --provider ollama
 dotenvx run -- dotenvx run -- pnpm run cli -- models  --provider google         # GOOGLE_GENERATIVE_AI_API_KEY
 dotenvx run -- pnpm run cli -- models  --provider lmstudio
 dotenvx run -- dotenvx run -- pnpm run cli -- models  --provider github-models  # GITHUB_TOKEN
+dotenvx run -- dotenvx run -- pnpm run cli -- models  --provider fireworks      # FIREWORKS_API_KEY
+dotenvx run -- dotenvx run -- pnpm run cli -- models  --provider minimax        # MINIMAX_API_KEY
 
 # Or using pnpm cli (for local development)
 dotenvx run -- pnpm run cli models --provider github-models
@@ -98,7 +100,7 @@ dotenvx run -- pnpm run cli -- models costs --sort-by total
 
 The costs command shows:
 - **Model**: Model identifier
-- **Provider**: Which service hosts the model (ollama, openrouter, google, github-models, lmstudio)
+- **Provider**: Which service hosts the model (ollama, openrouter, google, github-models, fireworks, minimax, lmstudio)
 - **Prompt**: Cost per 1M input tokens
 - **Completion**: Cost per 1M output tokens  
 - **Total**: Combined cost per 1M tokens
@@ -186,6 +188,18 @@ Found 150+ models
 - GitHub Copilot has access to Anthropic/Claude models (see [GitHub Copilot supported models](https://docs.github.com/en/copilot/reference/ai-models/supported-models))
 - GitHub Models API currently does **not** include Anthropic models - it only includes models from OpenAI, Meta, DeepSeek, AI21 Labs, Cohere, Mistral AI, xAI, and Microsoft
 - To access Anthropic models, use the OpenRouter provider instead
+
+### Fireworks
+- Hosted inference via an OpenAI-compatible API
+- Good for direct access to OSS and partner-hosted models
+- Requires `FIREWORKS_API_KEY`
+- Use `models --provider fireworks` to discover currently available model IDs
+
+### MiniMax
+- Direct access to MiniMax models such as `MiniMax-M2.5` and `MiniMax-M2.1`
+- Requires `MINIMAX_API_KEY`
+- Supports direct provider usage instead of routing through OpenRouter
+- Use `models --provider minimax` to inspect the currently available MiniMax catalog
 
 ## Next Steps
 

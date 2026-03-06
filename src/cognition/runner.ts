@@ -192,8 +192,11 @@ export class BaseModelRunner implements ModelRunner {
       },
     };
 
-    // Enable usage accounting for OpenRouter
-    if (interaction.modelDetails.provider === "openrouter") {
+    // Enable usage accounting for providers that expose token usage via AI SDK metadata
+    if (
+      interaction.modelDetails.provider === "openrouter" ||
+      interaction.modelDetails.provider === "minimax"
+    ) {
       generateOptions.usage = { include: true };
     }
 
@@ -463,7 +466,8 @@ export class BaseModelRunner implements ModelRunner {
     if (
       interaction.modelDetails.provider === "openrouter" ||
       interaction.modelDetails.provider === "github-models" ||
-      interaction.modelDetails.provider === "google"
+      interaction.modelDetails.provider === "google" ||
+      interaction.modelDetails.provider === "minimax"
     ) {
       streamOptions.usage = { include: true };
     }
@@ -705,9 +709,10 @@ export class BaseModelRunner implements ModelRunner {
         }
       }
 
-      // For OpenRouter and Google, usage is in _totalUsage.status.value or steps[0].usage
+      // For OpenRouter, MiniMax, and Google, usage is in _totalUsage.status.value or steps[0].usage
       if (
         interaction.modelDetails.provider === "openrouter" ||
+        interaction.modelDetails.provider === "minimax" ||
         interaction.modelDetails.provider === "google"
       ) {
         const responseAny = response as any;
@@ -858,8 +863,11 @@ export class BaseModelRunner implements ModelRunner {
         },
       };
 
-      // Enable usage accounting for OpenRouter
-      if (interaction.modelDetails.provider === "openrouter") {
+      // Enable usage accounting for providers that expose token usage via AI SDK metadata
+      if (
+        interaction.modelDetails.provider === "openrouter" ||
+        interaction.modelDetails.provider === "minimax"
+      ) {
         generateOptions.usage = { include: true };
       }
 
@@ -941,7 +949,8 @@ export class BaseModelRunner implements ModelRunner {
       if (
         interaction.modelDetails.provider === "openrouter" ||
         interaction.modelDetails.provider === "github-models" ||
-        interaction.modelDetails.provider === "google"
+        interaction.modelDetails.provider === "google" ||
+        interaction.modelDetails.provider === "minimax"
       ) {
         streamOptions.usage = { include: true };
       }

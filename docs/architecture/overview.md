@@ -72,7 +72,7 @@ Systematic model assessment and comparison.
 
 AI provider implementations using Vercel AI SDK.
 
-- **Supported**: Google, OpenRouter, Ollama, LM Studio, GitHub Models
+- **Supported**: Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax
 - **Factory Pattern**: `createGoogleProvider()`, `createOpenRouterProvider()`, etc.
 - **Cost Tracking**: Per-provider cost calculation via `src/costs/`
 

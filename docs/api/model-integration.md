@@ -4,7 +4,7 @@ Comprehensive guide to working with different AI model providers programmaticall
 
 ## Provider Overview
 
-Umwelten supports four major AI model providers, each with different characteristics:
+Umwelten supports multiple AI model providers, each with different characteristics:
 
 | Provider | Type | Cost | Best For | Authentication |
 |----------|------|------|----------|----------------|
@@ -13,6 +13,8 @@ Umwelten supports four major AI model providers, each with different characteris
 | **OpenRouter** | API | Pay-per-token | Premium models | API Key |
 | **LM Studio** | Local | Free | Custom models | Local server |
 | **GitHub Models** | API | Free tier | Azure-hosted models | GitHub Token |
+| **Fireworks** | API | Pay-per-token | Hosted OSS and partner models | API Key |
+| **MiniMax** | API | Pay-per-token | MiniMax M2 family | API Key |
 
 ## Google Gemini Models
 
