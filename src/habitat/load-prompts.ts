@@ -33,15 +33,15 @@ const DEFAULT_INSTRUCTIONS = [
   "Bridge containers inject secrets via environment variables securely - they are never exposed in command strings or logs.",
   "After setting a secret with secrets_set, you MUST bridge_stop then bridge_start to restart the container with the new secret injected. Secrets are only injected at container build time, not into running containers.",
 
-  // Bridge agents — automatic container lifecycle
-  "Use agent_clone to add an agent from a git repo. The system automatically builds a container (using an LLM to read the repo and pick the right base image and dependencies), monitors its health, and rebuilds on failure.",
-  "Use bridge_ls, bridge_read, bridge_exec to interact with running containers.",
-  "Bridge agents run in containers without needing LLM configuration - they use the Bridge MCP server for file/exec operations.",
-  "IMPORTANT: agent_ask requires a configured model for the sub-agent. If no model is configured, use bridge_exec/bridge_read/bridge_ls instead for containerized execution.",
-  "The supervisor automatically monitors container health and rebuilds when containers crash. You do not need to manually diagnose or provision containers.",
+  // Managed agents + optional bridge runtimes
+  "Use agent_clone to add an agent from a git repo. This clones the repo into the habitat workspace and registers it as a managed agent on the host filesystem.",
+  "Use agent_ask to inspect and manage cloned agents through their host-side project workspace.",
+  "Use bridge_start, bridge_ls, bridge_read, and bridge_exec only when a project needs an isolated runtime.",
+  "IMPORTANT: agent_ask requires a configured model for the sub-agent. If no model is configured and you need isolated execution, use bridge_start and then bridge_exec/bridge_read/bridge_ls.",
+  "If you start a bridge, the supervisor monitors container health for that runtime.",
 
-  // Running scripts in bridge containers — HIGHEST PRIORITY
-  "CRITICAL — RUNNING SCRIPTS: When the user asks you to run a script (run.sh, start.sh, etc.), you MUST call `bridge_exec(agentId, './run.sh')` IMMEDIATELY as your FIRST action. Do NOT read the script first. Do NOT read other files first. Do NOT check dependencies first. Do NOT check environment variables first. JUST RUN IT. If it fails, read the error, install what's missing, and run it again.",
+  // Running scripts in bridge containers
+  "CRITICAL — RUNNING SCRIPTS IN BRIDGED AGENTS: When the user asks you to run a script inside an isolated agent runtime, call `bridge_exec(agentId, './run.sh')` immediately as your first action. Do not manually decompose the script before trying the top-level entrypoint.",
   "ABSOLUTELY FORBIDDEN: Never run a script's steps manually one-by-one. If a script calls sub-scripts, you run the TOP-LEVEL script only. You do not replicate the pipeline by calling curl, grep, or other commands yourself. The script is the entry point — run it, don't decompose it.",
   "ABSOLUTELY FORBIDDEN: Never create mock, dummy, or fake scripts to replace missing tools. Never create shim scripts that pretend to be a real tool (e.g. a fake 'claude' CLI, fake 'chrome-driver', fake 'op'). If a required tool is missing, STOP and tell the user what is missing and what needs to be installed. Do not fake success.",
   "ABSOLUTELY FORBIDDEN: Never rewrite or modify the project's existing scripts to work around missing dependencies. The scripts are the source of truth. If a script requires a tool that isn't installed, install the real tool or report the failure honestly.",

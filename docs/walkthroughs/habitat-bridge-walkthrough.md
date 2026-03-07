@@ -28,7 +28,6 @@ The LLM will call `agent_clone(gitUrl, name)` which:
 1. Registers the agent in `config.json`
 2. Starts the `BridgeSupervisor` which:
    - Uses `dag.llm()` to read the repo and build a container
-   - Falls back to heuristic build if LLM fails (detects package.json → node:20, etc.)
    - Adds the Go MCP binary, secrets, port, entrypoint
    - Polls until the MCP server responds
    - Starts a health check loop (every 10 seconds)
@@ -151,19 +150,8 @@ dotenvx run -- pnpm run cli habitat agent start <agent-id>
       → BridgeAgent.start()
         → BridgeLifecycle (spawns worker thread)
           → bridge-worker.ts
-            → buildContainerFromRepo() [dag.llm() + fallback]
+            → buildContainerFromRepo() [dag.llm()]
               → Go MCP binary starts inside container
                 → Polls until MCP server responds
                   → Supervisor starts health loop
 ```
-
-## Comparison: Bridge vs run_project
-
-| Feature | `run_project` | Bridge Agent |
-|---|---|---|
-| Container | One-shot per command | Persistent, long-running |
-| Communication | Dagger exec | MCP over HTTP |
-| Building | Hardcoded project type detection | LLM reads repo + heuristic fallback |
-| Monitoring | None | Supervisor with health checks |
-| Rebuild | Manual | Automatic on failure |
-| Use case | Run a script | Ongoing agent work |

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Habitat Bridge System runs agent repositories in isolated Dagger containers with an MCP server for communication. An LLM reads the repo, picks the right base image and dependencies, and a supervisor monitors the container and rebuilds it automatically when things break.
+The Habitat Bridge System is an optional runtime for managed agents. The normal path is to clone a project into the habitat workspace and inspect it with `agent_ask`; when the project needs isolation, a bridge runs that managed workspace inside a Dagger container with an MCP server for communication.
 
 ## Architecture
 
@@ -22,7 +22,7 @@ Dagger Container (per agent)
 
 ### 1. Clone — `agent_clone(gitUrl, name)`
 
-Register agent in config and start building the container. The supervisor takes over automatically.
+Clone the repo into `agents/<id>/repo` and register the agent in config. Nothing starts yet.
 
 ### 2. Build — LLM-driven container building
 
@@ -32,8 +32,6 @@ The system uses Dagger's `dag.llm()` with a privileged environment to read the r
 2. Picks the right base image (node:20, python:3.11, rust:1.75, etc.)
 3. Installs all dependencies
 4. Copies repo to `/workspace`
-
-If `dag.llm()` fails, a heuristic fallback detects project type from file markers and builds accordingly.
 
 After the LLM builds the container, fixed layers are always added on top:
 - Go MCP server binary at `/opt/bridge/bridge-server`
@@ -74,7 +72,7 @@ These tools are available to the LLM in the habitat REPL:
 
 | Tool | Description |
 |---|---|
-| `agent_clone` | Clone a git repo, register as agent, start supervisor |
+| `agent_clone` | Clone a git repo into the habitat workspace and register it |
 | `agent_status` | Check agent health, port, config |
 | `agent_logs` | Read agent log files |
 | `agent_ask` | Send a message to a sub-agent (requires model config) |
@@ -111,7 +109,7 @@ All file operations are sandboxed to `/workspace` and `/opt`.
 | Component | File | Role |
 |---|---|---|
 | **BridgeSupervisor** | `src/habitat/bridge/supervisor.ts` | Build → health loop → rebuild cycle |
-| **container-builder** | `src/habitat/bridge/container-builder.ts` | LLM container building via dag.llm() + fallback |
+| **container-builder** | `src/habitat/bridge/container-builder.ts` | LLM container building via dag.llm() |
 | **BridgeAgent** | `src/habitat/bridge/agent.ts` | Wraps lifecycle, tracks provisioning |
 | **BridgeLifecycle** | `src/habitat/bridge/lifecycle.ts` | Spawns worker threads, manages ports |
 | **bridge-worker** | `src/habitat/bridge/bridge-worker.ts` | Builds Dagger container in worker thread |

@@ -1,14 +1,33 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import { createAgentRunnerTools, type AgentRunnerToolsContext } from './agent-runner-tools.js';
 import type { AgentEntry, LogPattern } from '../types.js';
+
+const execFileAsync = promisify(execFile);
+
+async function createGitRepo(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, 'README.md'), '# Test Repo\n');
+  await execFileAsync('git', ['init'], { cwd: dir });
+  await execFileAsync('git', ['config', 'user.email', 'test@example.com'], {
+    cwd: dir,
+  });
+  await execFileAsync('git', ['config', 'user.name', 'Test User'], {
+    cwd: dir,
+  });
+  await execFileAsync('git', ['add', '.'], { cwd: dir });
+  await execFileAsync('git', ['commit', '-m', 'Initial commit'], { cwd: dir });
+}
 
 describe('agent-runner-tools', () => {
   let tempDir: string;
   let workDir: string;
   let agentProjectDir: string;
+  let sourceRepoDir: string;
   let agents: AgentEntry[];
   let mockHabitatAgent: { ask: ReturnType<typeof vi.fn> };
   let ctx: AgentRunnerToolsContext;
@@ -18,8 +37,10 @@ describe('agent-runner-tools', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'agent-runner-test-'));
     workDir = join(tempDir, 'work');
     agentProjectDir = join(tempDir, 'project');
+    sourceRepoDir = join(tempDir, 'source-repo');
     await mkdir(workDir, { recursive: true });
     await mkdir(agentProjectDir, { recursive: true });
+    await createGitRepo(sourceRepoDir);
 
     agents = [];
     mockHabitatAgent = { ask: vi.fn().mockResolvedValue('Mock agent response') };
@@ -67,16 +88,33 @@ describe('agent-runner-tools', () => {
     });
 
     it('should derive id from name when not provided', async () => {
-      // This will fail the bridge creation (mock throws), but we can check the ID derivation
       const result = await tools.agent_clone.execute({
-        gitUrl: 'https://invalid-url.example.com/repo.git',
+        gitUrl: sourceRepoDir,
         name: 'My Cool Agent',
       }, { messages: [], toolCallId: 'test' });
 
-      // Registration succeeds, bridge fails — ID is derived from name
       expect(result.registered).toBe(true);
+      expect(result.cloned).toBe(true);
       expect(result.agent.id).toBe('my-cool-agent');
-      expect(result.bridgeError).toBeDefined();
+      expect(result.agent.projectPath).toBe(
+        join(workDir, 'agents', 'my-cool-agent', 'repo')
+      );
+
+      const readme = await readFile(
+        join(workDir, 'agents', 'my-cool-agent', 'repo', 'README.md'),
+        'utf-8'
+      );
+      expect(readme).toContain('Test Repo');
+    });
+
+    it('should return clone error when git clone fails', async () => {
+      const result = await tools.agent_clone.execute({
+        gitUrl: '/path/that/does/not/exist',
+        name: 'Broken Agent',
+      }, { messages: [], toolCallId: 'test' });
+
+      expect(result.error).toBe('AGENT_CLONE_FAILED');
+      expect(agents).toHaveLength(0);
     });
   });
 

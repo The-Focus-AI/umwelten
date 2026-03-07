@@ -2,7 +2,7 @@
  * Habitat onboarding: ensure the work directory has config.json, STIMULUS.md, skills/, tools/.
  * Safe to run multiple times -- only creates what's missing.
  *
- * Note: builtin tools (search, run_project, secrets) are registered via standardToolSets
+ * Note: builtin tools (search, secrets, agent management) are registered via standardToolSets
  * in tool-sets.ts, not seeded into the tools/ directory. The tools/ directory is for
  * user-defined custom tools only.
  */

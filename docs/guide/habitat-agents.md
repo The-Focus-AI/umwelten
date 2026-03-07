@@ -8,7 +8,7 @@ Umwelten has **two** agent systems for different use cases:
 - **HabitatAgent** (this guide): Local sub-agents for projects on the host filesystem
 - **BridgeAgent**: Remote agents that run inside Dagger containers via MCP
 
-Use HabitatAgents for local project management. Use [Bridge Agents](./habitat-bridge.md) for remote repositories requiring containerized execution.
+Use HabitatAgents for normal project management. Use [Bridge Agents](./habitat-bridge.md) only when a managed project needs an isolated runtime.
 :::
 
 ## Concepts
@@ -72,9 +72,10 @@ Clone a git repository and register it as a managed agent.
 agent_clone(gitUrl, name, id?)
 ```
 
-- Clones the repo into `{workDir}/repos/{id}/`
+- Clones the repo into `{workDir}/agents/{id}/repo/`
 - Registers the agent via `habitat.addAgent()`
 - Derives `id` from `name` if not provided (lowercased, hyphenated)
+- Does not start a bridge automatically
 
 **Example:**
 
@@ -83,7 +84,7 @@ agent_clone({
   gitUrl: "git@github.com:org/twitter-feed.git",
   name: "Twitter Feed"
 })
-// -> clones to ~/habitats/repos/twitter-feed, registers agent
+// -> clones to ~/habitats/agents/twitter-feed/repo, registers agent
 ```
 
 ### agent_logs
@@ -164,7 +165,7 @@ agent_ask({
 User: "Add twitter-feed from git@github.com:org/twitter-feed.git"
 
 1. agent_clone(gitUrl, name="twitter-feed")
-   -> clones to repos/twitter-feed, registers agent
+   -> clones to agents/twitter-feed/repo, registers agent
 
 2. agent_ask(agentId="twitter-feed",
      "Explore this project. Read README, CLAUDE.md, package.json, .env.example.
@@ -173,6 +174,9 @@ User: "Add twitter-feed from git@github.com:org/twitter-feed.git"
 
 3. agents_update(id="twitter-feed", commands={...}, logPatterns=[...])
    -> update agent config with discovered info
+
+4. bridge_start(agentId="twitter-feed")
+   -> optional, only if you need an isolated runtime for execution
 ```
 
 ### Monitoring

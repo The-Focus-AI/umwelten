@@ -3,7 +3,7 @@
  * These tools let the main habitat agent manage sub-agents (HabitatAgents).
  */
 
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, rm, stat } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -107,7 +107,7 @@ export function createAgentRunnerTools(
 
   const agentCloneTool = tool({
     description:
-      "Register a git repository as a managed agent and start it in a Bridge container. The repo is cloned INSIDE the container, not on the host filesystem.",
+      "Clone a git repository into the habitat workspace and register it as a managed agent. Use bridge_start later only if the project needs an isolated runtime.",
     inputSchema: z.object({
       gitUrl: z
         .string()
@@ -137,39 +137,39 @@ export function createAgentRunnerTools(
         };
       }
 
-      // Register agent metadata (no local clone - repo will be in container)
+      await ctx.ensureAgentDir(agentId);
+      const projectPath = join(ctx.getAgentDir(agentId), "repo");
+
+      try {
+        await execFileAsync("git", ["clone", gitUrl, projectPath], {
+          maxBuffer: 10 * 1024 * 1024,
+          timeout: 5 * 60 * 1000,
+        });
+      } catch (cloneErr: any) {
+        await rm(projectPath, { recursive: true, force: true }).catch(() => {});
+        return {
+          error: "AGENT_CLONE_FAILED",
+          message: cloneErr.message || String(cloneErr),
+          agent: { id: agentId, name, gitRemote: gitUrl, projectPath },
+        };
+      }
+
+      // Register agent metadata with the host-side project path
       const agent: AgentEntry = {
         id: agentId,
         name,
-        projectPath: `/workspace`, // Path inside container, not local
+        projectPath,
         gitRemote: gitUrl,
       };
 
       await ctx.addAgent(agent);
 
-      // Start the bridge container
-      try {
-        const bridgeAgent = await ctx.startBridge(agentId);
-        const port = bridgeAgent.getPort();
-
-        return {
-          registered: true,
-          agent: { id: agentId, name, gitRemote: gitUrl },
-          bridge: {
-            status: "running",
-            port,
-            mcpUrl: `http://localhost:${port}/mcp`,
-          },
-          message: `Agent "${name}" (${agentId}) registered and bridge started on port ${port}. Use bridge_ls, bridge_read, bridge_exec to inspect.`,
-        };
-      } catch (bridgeErr: any) {
-        return {
-          registered: true,
-          agent: { id: agentId, name, gitRemote: gitUrl },
-          bridgeError: bridgeErr.message || String(bridgeErr),
-          message: `Agent "${name}" (${agentId}) registered, but bridge start failed: ${bridgeErr.message}. Use bridge_start to retry.`,
-        };
-      }
+      return {
+        registered: true,
+        cloned: true,
+        agent: { id: agentId, name, gitRemote: gitUrl, projectPath },
+        message: `Agent "${name}" (${agentId}) cloned to ${projectPath} and registered. Use agent_ask to inspect it, or bridge_start if you need an isolated runtime.`,
+      };
     },
   });
 
@@ -875,4 +875,3 @@ function globToRegex(glob: string): RegExp {
     .replace(/\?/g, ".");
   return new RegExp(`^${escaped}$`);
 }
-

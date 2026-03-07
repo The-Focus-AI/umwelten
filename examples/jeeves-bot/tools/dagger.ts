@@ -1,9 +1,6 @@
 /**
- * @deprecated Use `src/habitat/tools/run-project/` instead.
- * This run_bash tool is superseded by run_project which adds smart container
- * provisioning (auto-detect project type, install deps, inject API keys, mount skills).
- *
- * Jeeves Dagger tool: run_bash - Execute bash commands in Dagger containers with experience-based state management.
+ * Legacy Jeeves Dagger tool: run_bash.
+ * Executes bash commands in Dagger containers with experience-based state management.
  * Supports isolated experience directories that maintain state between commands.
  * Accepts a habitat context instead of using global config functions.
  */

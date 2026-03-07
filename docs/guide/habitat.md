@@ -9,13 +9,14 @@ A **Habitat** is the top-level container for everything an agent needs: work dir
   config.json                   <- agents, skills, model defaults
   secrets.json                  <- encrypted API keys and tokens
   STIMULUS.md                   <- base persona / system prompt
-  repos/                        <- cloned agents + git skills
+  repos/                        <- git-cloned skill repositories
   skills/                       <- local skills
   tools/                        <- work-dir tools
     search/TOOL.md + handler.ts
     run_bash/TOOL.md + handler.ts
-  agents/                       <- bridge agent state and logs
+  agents/                       <- managed agent workspaces + runtime state
     {agentId}/
+      repo/                     <- cloned project workspace
       logs/bridge.log           <- persistent container logs
       state.json                <- port, pid, status
   memories.md, facts.md, ...    <- memory files
@@ -104,7 +105,8 @@ The telegram subcommand also accepts:
 | `AGENT.md`           | Additional context appended after the main prompt               |
 | `tools/`             | Each subdirectory with `TOOL.md` (+ optional handler) is a tool |
 | `skills/`            | Each subdirectory with `SKILL.md` is a skill                    |
-| `repos/`             | Git-cloned agents and skill repositories                        |
+| `repos/`             | Git-cloned skill repositories                                   |
+| `agents/`            | Managed agent workspaces plus runtime state/logs                |
 | `memories.md`        | Running list of things the user shared                          |
 | `facts.md`           | Summary of known facts                                          |
 | `private journal.md` | Daily reflections (optional)                                    |
@@ -383,7 +385,7 @@ Habitat.create()
 
 ## Habitat Bridge System
 
-The **Habitat Bridge System** runs agent repositories in isolated Dagger containers with an MCP server for communication. It follows a three-phase design: **Create** (register agent), **Start** (launch container), **Inspect** (LLM uses tools to look inside).
+The **Habitat Bridge System** is an optional runtime for managed agents that need isolated execution. It follows a three-phase design: **Create** (clone + register agent), **Start** (launch container), **Inspect** (LLM uses tools to look inside).
 
 ### Bridge vs Sub-Agent
 
@@ -397,7 +399,7 @@ The **Habitat Bridge System** runs agent repositories in isolated Dagger contain
 
 ### Three Phases
 
-1. **Create** — `agent_clone(gitUrl, name)`: Register agent in config. Nothing runs.
+1. **Create** — `agent_clone(gitUrl, name)`: Clone the repo into `agents/<id>/repo` and register the agent. Nothing runs.
 2. **Start** — `bridge_start(agentId)`: Start container with saved provisioning (or bare `node:20`). Returns when MCP server is reachable. No analysis, no iteration loop.
 3. **Inspect** — LLM uses `agent_status`, `agent_logs`, `bridge_ls`, `bridge_read`, `bridge_exec` to look inside the container and iterate.
 

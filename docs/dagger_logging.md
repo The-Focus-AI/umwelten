@@ -74,7 +74,7 @@ Mostly yes, with two caveats:
 
 1. Keep `DAGGER_PROGRESS=plain` in spikes and debugging scripts.
 2. Ensure provider secrets are set for the Dagger session before relying on `dag.llm()`.
-3. For deterministic bridge builds, keep fallback builder path as the production-safe default.
+3. Keep the bridge build path single-purpose. Do not maintain a second deterministic fallback path unless it becomes the canonical runtime model.
 4. Improve verification to check:
    - `which claude`
    - `/root/.local/bin/claude`
