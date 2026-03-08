@@ -12,6 +12,7 @@ import { Interaction } from "../interaction/core/interaction.js";
 import { discoverSkillsInDirectory } from "../stimulus/skills/loader.js";
 import type { AgentEntry } from "./types.js";
 import type { Habitat } from "./habitat.js";
+import { getAgentMemoryPath } from "./agent-paths.js";
 import { fileExists } from "./config.js";
 import { createFileTools } from "./tools/file-tools.js";
 
@@ -48,7 +49,9 @@ export async function buildAgentStimulus(
     contextParts.push(`# README.md\n\n${readmeMd}`);
   }
 
-  const memoryMd = await readOptionalFile(join(habitat.getAgentDir(agent.id), "MEMORY.md"));
+  const memoryMd = await readOptionalFile(
+    getAgentMemoryPath(agent, habitat.getAgentDir.bind(habitat)),
+  );
   if (memoryMd) {
     contextParts.push(`# MEMORY.md\n\n${memoryMd}`);
   }

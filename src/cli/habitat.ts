@@ -15,10 +15,16 @@ import { Command } from "commander";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import type { CoreMessage } from "ai";
-import { Habitat } from "../habitat/index.js";
+import { Habitat, getAgentMemoryPath } from "../habitat/index.js";
+import type { AgentEntry } from "../habitat/index.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { InteractionStore } from "../interaction/persistence/interaction-store.js";
 import { writeSessionTranscript } from "../habitat/transcript.js";
+import { fileExists } from "../habitat/config.js";
+import {
+  configureManagedAgent,
+  registerManagedAgentDirectory,
+} from "../habitat/tools/agent-runner-tools.js";
 import {
   estimateContextSize,
   listCompactionStrategies,
@@ -34,6 +40,13 @@ interface HabitatCLIOptions {
   sessionsDir?: string;
   envPrefix?: string;
   skipOnboard?: boolean;
+}
+
+interface LocalAgentCLIOptions extends HabitatCLIOptions {
+  project?: string;
+  name?: string;
+  id?: string;
+  skipConfigure?: boolean;
 }
 
 /**
@@ -142,10 +155,15 @@ async function repl(
   interaction: Interaction,
   store: InteractionStore,
   habitat: Habitat,
+  options?: {
+    banner?: string;
+  },
 ): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-  console.log("Habitat agent ready. Type a message and press Enter.");
+  console.log(
+    options?.banner ?? "Habitat agent ready. Type a message and press Enter.",
+  );
   console.log(
     "Commands: /exit, /agents, /agent-start <id>, /agent-stop <id>, /agent-status [id], /skills, /tools, /context, /onboard, /compact [strategy], /compact help\n",
   );
@@ -545,6 +563,113 @@ async function cliAction(
   await repl(interaction, store, habitat);
 }
 
+async function ensureLocalAgent(
+  habitat: Habitat,
+  options: LocalAgentCLIOptions,
+): Promise<{
+  agent: AgentEntry;
+  memoryPath: string;
+  registrationMessage: string;
+  configureMessage?: string;
+}> {
+  const projectPath = path.resolve(options.project ?? process.cwd());
+  const memoryPath = path.join(projectPath, "MEMORY.md");
+
+  const registration = await registerManagedAgentDirectory(habitat, {
+    projectPath,
+    name: options.name,
+    id: options.id,
+    memoryPath,
+  });
+
+  let agent = habitat.getAgent(registration.agent.id) ?? registration.agent;
+  let configureMessage: string | undefined;
+
+  if (!options.skipConfigure) {
+    const missingMemory = !(await fileExists(memoryPath));
+    const missingCommands = !agent.commands?.run && !agent.commands?.setup;
+
+    if (missingMemory || missingCommands) {
+      const result = await configureManagedAgent(habitat, agent.id, {
+        saveMemory: true,
+      });
+      configureMessage = result.message;
+      agent = habitat.getAgent(agent.id) ?? agent;
+    }
+  }
+
+  return {
+    agent,
+    memoryPath,
+    registrationMessage: registration.message,
+    configureMessage,
+  };
+}
+
+async function localAction(
+  promptParts: string[],
+  options: LocalAgentCLIOptions,
+): Promise<void> {
+  const oneShot =
+    promptParts.length > 0 ? promptParts.join(" ").trim() : undefined;
+
+  const habitat = await createHabitatFromOptions(options);
+  const modelDetails = resolveModelDetails(habitat, options);
+
+  if (!modelDetails) {
+    console.error(
+      "No model configured. Provide --provider and --model, or add defaultProvider/defaultModel to config.json.",
+    );
+    process.exit(1);
+  }
+
+  printStartupInfo(habitat, modelDetails);
+  habitat.setRuntimeModelDetails(modelDetails);
+
+  const localAgent = await ensureLocalAgent(habitat, options);
+  const memoryPath = getAgentMemoryPath(
+    localAgent.agent,
+    habitat.getAgentDir.bind(habitat),
+  );
+
+  console.log(
+    `[habitat] Local agent: ${localAgent.agent.name} (${localAgent.agent.id})`,
+  );
+  console.log(`[habitat] Project: ${localAgent.agent.projectPath}`);
+  console.log(`[habitat] Memory: ${memoryPath}`);
+  console.log(`[habitat] ${localAgent.registrationMessage}`);
+  if (localAgent.configureMessage) {
+    console.log(`[habitat] ${localAgent.configureMessage}`);
+  }
+
+  const habitatAgent = await habitat.getOrCreateHabitatAgent(localAgent.agent.id);
+  const interaction = habitatAgent.getInteraction();
+  const store = habitat.getStore();
+
+  await habitat.updateSessionMetadata(habitatAgent.getSessionId(), {
+    provider: modelDetails.provider,
+    model: modelDetails.name,
+    metadata: {
+      mode: "local-agent",
+      agentId: localAgent.agent.id,
+      projectPath: localAgent.agent.projectPath,
+    },
+  });
+
+  console.log(`[habitat] Session: ${habitatAgent.getSessionId()}`);
+
+  if (oneShot) {
+    await oneShotRun(interaction, store, oneShot);
+    process.exit(0);
+  }
+
+  await repl(interaction, store, habitat, {
+    banner:
+      `Local agent ready for ${localAgent.agent.name}. ` +
+      "You are talking directly to that project sub-agent.",
+  });
+}
+
 // ── Telegram action ───────────────────────────────────────────────────
 
 async function telegramAction(
@@ -725,6 +850,42 @@ addSharedOptions(webSubcommand)
   });
 
 habitatCommand.addCommand(webSubcommand);
+
+// Local agent subcommand
+const localSubcommand = new Command("local")
+  .alias("here")
+  .description(
+    "Talk directly to a managed sub-agent rooted at the current directory (or --project).",
+  );
+addSharedOptions(localSubcommand)
+  .argument("[prompt...]", "One-shot prompt for the local agent (omit for REPL mode)")
+  .option(
+    "--project <path>",
+    "Project directory to register/use (default: current working directory)",
+  )
+  .option("--name <name>", "Display name for the local agent")
+  .option("--id <id>", "Stable agent id to use for the local agent")
+  .option("--skip-configure", "Skip automatic configure on first attach")
+  .action(
+    async (
+      promptParts: string[],
+      optionsOrCommand: LocalAgentCLIOptions | Command,
+      maybeCommand?: Command,
+    ) => {
+      const command =
+        maybeCommand instanceof Command
+          ? maybeCommand
+          : optionsOrCommand instanceof Command
+            ? optionsOrCommand
+            : undefined;
+      const options = command
+        ? (command.optsWithGlobals() as LocalAgentCLIOptions)
+        : (optionsOrCommand as LocalAgentCLIOptions);
+      await localAction(promptParts, options);
+    },
+  );
+
+habitatCommand.addCommand(localSubcommand);
 
 // Secrets subcommand
 const secretsSubcommand = new Command("secrets").description(

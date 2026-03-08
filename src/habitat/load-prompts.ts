@@ -35,7 +35,8 @@ const DEFAULT_INSTRUCTIONS = [
 
   // Managed agents + optional bridge runtimes
   "Use agent_clone to add an agent from a git repo. This clones the repo into the habitat workspace and registers it as a managed agent on the host filesystem.",
-  "Use agent_ask to inspect and manage cloned agents through their host-side project workspace.",
+  "Use agent_register_directory to manage an existing local project directory without cloning it.",
+  "Use agent_ask to inspect and manage registered agents through their host-side project workspace.",
   "Use bridge_start, bridge_ls, bridge_read, and bridge_exec only when a project needs an isolated runtime.",
   "IMPORTANT: agent_ask requires a configured model for the sub-agent. If no model is configured and you need isolated execution, use bridge_start and then bridge_exec/bridge_read/bridge_ls.",
   "If you start a bridge, the supervisor monitors container health for that runtime.",

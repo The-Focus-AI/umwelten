@@ -1,5 +1,6 @@
 /**
- * Agent runner tools: agent_clone, agent_logs, agent_status, agent_ask.
+ * Agent runner tools: agent_register_directory, agent_clone, agent_logs,
+ * agent_status, agent_ask.
  * These tools let the main habitat agent manage sub-agents (HabitatAgents).
  */
 
@@ -11,8 +12,10 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import type { AgentEntry, LogPattern } from "../types.js";
+import { getAgentMemoryPath } from "../agent-paths.js";
 import { HabitatBridgeClient } from "../bridge/client.js";
 import { Interaction } from "../../interaction/core/interaction.js";
+import { Stimulus } from "../../stimulus/stimulus.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -110,6 +113,179 @@ export interface AgentRunnerToolsContext {
   loadAllBridgeStates(): Promise<import("../bridge/state.js").BridgeState[]>;
 }
 
+function deriveAgentId(seed: string): string {
+  return seed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function deriveAgentName(projectPath: string): string {
+  const leaf = projectPath
+    .split(/[\\/]/)
+    .filter(Boolean)
+    .pop();
+  return leaf || "Local Agent";
+}
+
+function getUniqueAgentId(
+  ctx: AgentRunnerToolsContext,
+  baseId: string,
+): string {
+  if (!ctx.getAgent(baseId)) {
+    return baseId;
+  }
+
+  let suffix = 2;
+  while (ctx.getAgent(`${baseId}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseId}-${suffix}`;
+}
+
+export async function registerManagedAgentDirectory(
+  ctx: AgentRunnerToolsContext,
+  options: {
+    projectPath: string;
+    name?: string;
+    id?: string;
+    memoryPath?: string;
+    gitRemote?: string;
+  },
+): Promise<{
+  registered: boolean;
+  reused: boolean;
+  agent: AgentEntry;
+  message: string;
+}> {
+  const resolvedProjectPath = resolve(options.projectPath);
+  const projectStats = await stat(resolvedProjectPath).catch(() => null);
+
+  if (!projectStats?.isDirectory()) {
+    throw new Error(`PROJECT_PATH_NOT_FOUND: ${resolvedProjectPath}`);
+  }
+
+  const existingByPath = ctx
+    .getAgents()
+    .find((agent) => resolve(agent.projectPath) === resolvedProjectPath);
+
+  if (existingByPath) {
+    const updates: Partial<AgentEntry> = {};
+    if (options.memoryPath && existingByPath.memoryPath !== resolve(options.memoryPath)) {
+      updates.memoryPath = resolve(options.memoryPath);
+    }
+    if (options.gitRemote && existingByPath.gitRemote !== options.gitRemote) {
+      updates.gitRemote = options.gitRemote;
+    }
+    if (Object.keys(updates).length > 0) {
+      await ctx.updateAgent(existingByPath.id, updates);
+      Object.assign(existingByPath, updates);
+    }
+
+    return {
+      registered: false,
+      reused: true,
+      agent: existingByPath,
+      message: `Agent "${existingByPath.name}" (${existingByPath.id}) already manages ${resolvedProjectPath}.`,
+    };
+  }
+
+  const requestedId =
+    options.id ?? deriveAgentId(options.name ?? deriveAgentName(resolvedProjectPath));
+  const existingById = ctx.getAgent(requestedId);
+  if (existingById) {
+    if (options.id) {
+      throw new Error(`AGENT_ID_EXISTS: ${requestedId}`);
+    }
+  }
+
+  const agentId = existingById ? getUniqueAgentId(ctx, requestedId) : requestedId;
+  const agent: AgentEntry = {
+    id: agentId,
+    name: options.name ?? deriveAgentName(resolvedProjectPath),
+    projectPath: resolvedProjectPath,
+    memoryPath: options.memoryPath ? resolve(options.memoryPath) : undefined,
+    gitRemote: options.gitRemote,
+  };
+
+  await ctx.addAgent(agent);
+
+  return {
+    registered: true,
+    reused: false,
+    agent,
+    message: `Registered ${resolvedProjectPath} as agent "${agent.name}" (${agent.id}).`,
+  };
+}
+
+export async function configureManagedAgent(
+  ctx: AgentRunnerToolsContext,
+  agentId: string,
+  options?: { saveMemory?: boolean },
+): Promise<{
+  agentId: string;
+  configured: true;
+  contract: AgentConfigureContract;
+  updated: {
+    commands: AgentEntry["commands"];
+    secrets: string[];
+    logPatterns: LogPattern[];
+  };
+  memoryPath?: string;
+  message: string;
+}> {
+  const agent = ctx.getAgent(agentId);
+  if (!agent) {
+    throw new Error(`AGENT_NOT_FOUND: ${agentId}`);
+  }
+
+  const saveMemory = options?.saveMemory ?? true;
+  const habitatAgent = await ctx.getOrCreateHabitatAgent(agent.id);
+  const baseInteraction = habitatAgent.getInteraction();
+  const interaction = new Interaction(
+    baseInteraction.modelDetails,
+    buildAgentConfigureStimulus(baseInteraction.getStimulus()),
+  );
+  interaction.setTools({});
+
+  const contract = await analyzeAgentConfiguration(interaction);
+
+  const commands = { ...(agent.commands ?? {}) };
+  if (contract.setupCommand) commands.setup = contract.setupCommand;
+  if (contract.runCommand) commands.run = contract.runCommand;
+
+  const secrets = collectAgentSecretRefs(agent, contract);
+
+  await ctx.updateAgent(agent.id, {
+    commands: Object.keys(commands).length > 0 ? commands : undefined,
+    secrets: secrets.length > 0 ? secrets : undefined,
+    logPatterns:
+      contract.logPatterns.length > 0 ? contract.logPatterns : agent.logPatterns,
+  });
+
+  let memoryPath: string | undefined;
+  if (saveMemory) {
+    await ctx.ensureAgentDir(agent.id);
+    memoryPath = getAgentMemoryPath(agent, ctx.getAgentDir.bind(ctx));
+    await writeFile(memoryPath, renderAgentMemory(agent, contract), "utf-8");
+  }
+
+  return {
+    agentId: agent.id,
+    configured: true,
+    contract,
+    updated: {
+      commands: Object.keys(commands).length > 0 ? commands : undefined,
+      secrets,
+      logPatterns: contract.logPatterns,
+    },
+    memoryPath,
+    message:
+      `Configured agent ${agent.id}. ` +
+      `Saved run contract${memoryPath ? ` to ${memoryPath}` : ""}.`,
+  };
+}
+
 export function createAgentRunnerTools(
   ctx: AgentRunnerToolsContext,
 ): Record<string, Tool> {
@@ -164,6 +340,51 @@ export function createAgentRunnerTools(
     return null;
   }
 
+  // ── agent_register_directory ───────────────────────────────────────
+
+  const agentRegisterDirectoryTool = tool({
+    description:
+      "Register an existing local directory as a managed agent without cloning it. Use this for repo-local agents you want Habitat to inspect and manage directly.",
+    inputSchema: z.object({
+      projectPath: z.string().describe("Local directory to register as a managed agent"),
+      name: z
+        .string()
+        .optional()
+        .describe("Display name for the agent (defaults to the directory name)"),
+      id: z
+        .string()
+        .optional()
+        .describe("Unique agent ID (defaults to a slug derived from the name or directory)"),
+      memoryInProject: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe("Whether to store MEMORY.md inside the project directory"),
+    }),
+    execute: async ({ projectPath, name, id, memoryInProject = true }) => {
+      try {
+        const resolvedProjectPath = resolve(projectPath);
+        return await registerManagedAgentDirectory(ctx, {
+          projectPath: resolvedProjectPath,
+          name,
+          id,
+          memoryPath: memoryInProject
+            ? join(resolvedProjectPath, "MEMORY.md")
+            : undefined,
+        });
+      } catch (err: any) {
+        const message = err.message || String(err);
+        if (message.startsWith("PROJECT_PATH_NOT_FOUND:")) {
+          return { error: "PROJECT_PATH_NOT_FOUND", message };
+        }
+        if (message.startsWith("AGENT_ID_EXISTS:")) {
+          return { error: "AGENT_ID_EXISTS", message };
+        }
+        return { error: "AGENT_REGISTER_DIRECTORY_FAILED", message };
+      }
+    },
+  });
+
   // ── agent_clone ────────────────────────────────────────────────────
 
   const agentCloneTool = tool({
@@ -182,12 +403,7 @@ export function createAgentRunnerTools(
         .describe("Unique agent ID (defaults to name, lowercased, hyphened)"),
     }),
     execute: async ({ gitUrl, name, id }) => {
-      const agentId =
-        id ??
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
+      const agentId = id ?? deriveAgentId(name);
 
       // Check if agent already exists
       const existing = ctx.getAgent(agentId);
@@ -546,7 +762,7 @@ export function createAgentRunnerTools(
         .boolean()
         .optional()
         .default(true)
-        .describe("Whether to write the configure result to agents/<id>/MEMORY.md"),
+        .describe("Whether to write the configure result to the agent's configured MEMORY.md path"),
     }),
     execute: async ({ agentId, saveMemory = true }) => {
       const agent = ctx.getAgent(agentId);
@@ -558,61 +774,13 @@ export function createAgentRunnerTools(
       }
 
       try {
-        const habitatAgent = await ctx.getOrCreateHabitatAgent(agent.id);
-        const baseInteraction = habitatAgent.getInteraction();
-        const interaction = new Interaction(
-          baseInteraction.modelDetails,
-          baseInteraction.getStimulus(),
-        );
-        interaction.setTools({});
-
-        const contract = await analyzeAgentConfiguration(interaction);
-
-        const commands = { ...(agent.commands ?? {}) };
-        if (contract.setupCommand) commands.setup = contract.setupCommand;
-        if (contract.runCommand) commands.run = contract.runCommand;
-
-        const secrets = collectAgentSecretRefs(agent, contract);
-
-        await ctx.updateAgent(agent.id, {
-          commands: Object.keys(commands).length > 0 ? commands : undefined,
-          secrets: secrets.length > 0 ? secrets : undefined,
-          logPatterns:
-            contract.logPatterns.length > 0
-              ? contract.logPatterns
-              : agent.logPatterns,
-        });
-
-        let memoryPath: string | undefined;
-        if (saveMemory) {
-          await ctx.ensureAgentDir(agent.id);
-          memoryPath = join(ctx.getAgentDir(agent.id), "MEMORY.md");
-          await writeFile(
-            memoryPath,
-            renderAgentMemory(agent, contract),
-            "utf-8",
-          );
-        }
-
-        return {
-          agentId: agent.id,
-          configured: true,
-          contract,
-          updated: {
-            commands: Object.keys(commands).length > 0 ? commands : undefined,
-            secrets,
-            logPatterns: contract.logPatterns,
-          },
-          memoryPath,
-          message:
-            `Configured agent ${agent.id}. ` +
-            `Saved run contract${memoryPath ? ` to ${memoryPath}` : ""}.`,
-        };
+        return await configureManagedAgent(ctx, agent.id, { saveMemory });
       } catch (err: any) {
-        return {
-          error: "AGENT_CONFIGURE_FAILED",
-          message: err.message || String(err),
-        };
+        const message = err.message || String(err);
+        if (message.startsWith("AGENT_NOT_FOUND:")) {
+          return { error: "AGENT_NOT_FOUND", message: `No agent found: ${agentId}` };
+        }
+        return { error: "AGENT_CONFIGURE_FAILED", message };
       }
     },
   });
@@ -935,6 +1103,7 @@ export function createAgentRunnerTools(
   });
 
   return {
+    agent_register_directory: agentRegisterDirectoryTool,
     agent_clone: agentCloneTool,
     agent_logs: agentLogsTool,
     agent_status: agentStatusTool,
@@ -1088,6 +1257,22 @@ function collectAgentSecretRefs(
   return Array.from(
     new Set([...(agent.secrets ?? []), ...collectContractSecretRefs(contract)]),
   );
+}
+
+function buildAgentConfigureStimulus(baseStimulus: Stimulus): Stimulus {
+  return new Stimulus({
+    role: "repository configuration analyst",
+    objective: "extract a run contract from the provided repository context",
+    instructions: [
+      "You are analyzing repository context that has already been collected for you.",
+      "Do not ask to inspect files, do not emit tool calls, and do not describe next steps.",
+      "Reason only over the provided system context and return the requested contract.",
+      "If something is uncertain, make the narrowest defensible inference and record it in notes.",
+    ],
+    systemContext: baseStimulus.options.systemContext,
+    maxToolSteps: 0,
+    temperature: 0,
+  });
 }
 
 async function analyzeAgentConfiguration(

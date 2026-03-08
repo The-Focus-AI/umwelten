@@ -94,4 +94,36 @@ describe("HabitatAgent", () => {
     expect(stimulus.getPrompt()).toContain("# MEMORY.md");
     expect(stimulus.getPrompt()).toContain("magick input output");
   });
+
+  it("loads MEMORY.md from the agent memoryPath when configured", async () => {
+    const habitat = await Habitat.create({
+      workDir,
+      sessionsDir,
+      config: {
+        agents: [],
+        defaultProvider: "google",
+        defaultModel: "gemini-3-flash-preview",
+      },
+      skipSkills: true,
+    });
+
+    const memoryPath = join(agentProjectDir, "MEMORY.md");
+    await writeFile(memoryPath, "# Local Memory\n\n- run: ./run.sh\n", "utf-8");
+
+    await habitat.addAgent({
+      id: "local-agent",
+      name: "Local Agent",
+      projectPath: agentProjectDir,
+      memoryPath,
+    });
+
+    const agentEntry = habitat.getAgent("local-agent");
+    expect(agentEntry).toBeDefined();
+
+    const habitatAgent = await HabitatAgent.create(habitat, agentEntry!);
+    const prompt = habitatAgent.getInteraction().getStimulus().getPrompt();
+
+    expect(prompt).toContain("# MEMORY.md");
+    expect(prompt).toContain("# Local Memory");
+  });
 });

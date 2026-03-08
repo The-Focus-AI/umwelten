@@ -47,6 +47,8 @@ export interface AgentEntry {
   id: string;
   name: string;
   projectPath: string;
+  /** Optional absolute path for the agent's semantic memory file. */
+  memoryPath?: string;
   gitRemote?: string;
   /** Secret references (env var names). Values are never stored. */
   secrets?: string[];

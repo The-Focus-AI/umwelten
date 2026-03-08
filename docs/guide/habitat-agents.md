@@ -87,6 +87,27 @@ agent_clone({
 // -> clones to ~/habitats/agents/twitter-feed/repo, registers agent
 ```
 
+### agent_register_directory
+
+Register an existing local project directory as a managed agent without cloning it.
+
+```
+agent_register_directory(projectPath, name?, id?, memoryInProject?)
+```
+
+- Registers the existing directory as `projectPath`
+- Defaults `MEMORY.md` to `<projectPath>/MEMORY.md`
+- Reuses the existing agent if that directory is already registered
+
+**Example:**
+
+```
+agent_register_directory({
+  projectPath: "/Users/wschenk/The-Focus-AI/youtube-feed"
+})
+// -> registers the repo in place and stores MEMORY.md in the repo root
+```
+
 ### agent_logs
 
 Read log files from a managed agent project.
@@ -159,7 +180,7 @@ agent_ask({
 
 ### agent_configure
 
-Inspect a managed agent repo, derive a structured run contract, update the agent config, and write `agents/<id>/MEMORY.md`.
+Inspect a managed agent repo, derive a structured run contract, update the agent config, and write the agent's configured `MEMORY.md`.
 
 ```
 agent_configure(agentId, saveMemory?)
@@ -169,7 +190,7 @@ agent_configure(agentId, saveMemory?)
 - Inspects actual runnable entrypoints first (`run.sh`, `setup.sh`, `bin/*`, etc.)
 - Captures explicit env vars plus implied auth requirements like Claude or GitHub credentials
 - Updates `commands`, `secrets`, and `logPatterns` in agent config when found
-- Writes a durable `MEMORY.md` next to the managed workspace
+- Writes a durable `MEMORY.md` at the agent's `memoryPath`
 
 **Example:**
 
@@ -178,6 +199,32 @@ agent_configure({
   agentId: "trmnl-image-agent"
 })
 // -> saves run contract, updates config, writes ~/habitats/agents/trmnl-image-agent/MEMORY.md
+```
+
+### Direct local mode
+
+If you want to talk directly to the project sub-agent instead of the top-level habitat manager, use the CLI local mode:
+
+```bash
+pnpm run cli -- habitat local -p minimax -m MiniMax-M2.5
+```
+
+- Uses the current working directory as the managed project by default
+- Registers the directory as a local managed agent if needed
+- Auto-runs `agent_configure` on first attach unless `--skip-configure` is set
+- Opens the session directly on that project's `HabitatAgent`
+
+Example from inside a repo:
+
+```bash
+cd ~/The-Focus-AI/youtube-feed
+pnpm run cli -- habitat local -p minimax -m MiniMax-M2.5
+```
+
+To target a different directory explicitly:
+
+```bash
+pnpm run cli -- habitat local --project ~/The-Focus-AI/youtube-feed -p minimax -m MiniMax-M2.5
 ```
 
 ## Workflows
@@ -199,6 +246,22 @@ User: "Add twitter-feed from git@github.com:org/twitter-feed.git"
 
 4. bridge_start(agentId="twitter-feed")
    -> optional, only if you need an isolated runtime for execution
+```
+
+### Working directly in a local repo
+
+```
+User: "Open the sub-agent for this repo"
+
+1. cd ~/The-Focus-AI/youtube-feed
+
+2. pnpm run cli -- habitat local -p minimax -m MiniMax-M2.5
+   -> registers the repo in place if needed
+   -> writes ~/The-Focus-AI/youtube-feed/MEMORY.md
+   -> opens the conversation directly on the youtube-feed sub-agent
+
+3. "What does this project need to run?"
+   -> the sub-agent answers directly from repo context and MEMORY.md
 ```
 
 ### Monitoring
@@ -237,6 +300,7 @@ Add these fields to an agent entry in `config.json` to enable `agent_logs` and `
       "id": "twitter-feed",
       "name": "Twitter Feed",
       "projectPath": "/path/to/twitter-feed",
+      "memoryPath": "/path/to/twitter-feed/MEMORY.md",
       "gitRemote": "git@github.com:org/twitter-feed.git",
       "commands": {
         "run": "pnpm start",

@@ -234,6 +234,7 @@ export class Habitat
     const agent = this.getAgent(idOrName);
     if (!agent) return;
     Object.assign(agent, updates);
+    this.habitatAgents.delete(agent.id);
     await this.saveConfig();
   }
 
@@ -243,6 +244,7 @@ export class Habitat
     );
     if (idx === -1) return undefined;
     const removed = this.config.agents.splice(idx, 1)[0];
+    this.habitatAgents.delete(removed.id);
     await this.saveConfig();
     return removed;
   }
@@ -457,6 +459,10 @@ export class Habitat
       this.habitatAgents.set(agentId, ha);
     }
     return this.habitatAgents.get(agentId)!;
+  }
+
+  invalidateHabitatAgent(agentId: string): void {
+    this.habitatAgents.delete(agentId);
   }
 
   /**

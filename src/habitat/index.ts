@@ -16,6 +16,7 @@ export type {
 } from "./types.js";
 
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
+export { getAgentMemoryPath } from "./agent-paths.js";
 
 export type { ToolSet } from "./tool-sets.js";
 export {

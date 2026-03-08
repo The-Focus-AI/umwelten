@@ -133,6 +133,40 @@ describe('agent-runner-tools', () => {
     });
   });
 
+  describe('agent_register_directory', () => {
+    it('should register an existing local directory and store memory in the project when requested', async () => {
+      const result = await tools.agent_register_directory.execute({
+        projectPath: agentProjectDir,
+        memoryInProject: true,
+      }, { messages: [], toolCallId: 'test' });
+
+      expect(result.registered).toBe(true);
+      expect(result.reused).toBe(false);
+      expect(result.agent.projectPath).toBe(agentProjectDir);
+      expect(result.agent.memoryPath).toBe(join(agentProjectDir, 'MEMORY.md'));
+      expect(agents[0]?.memoryPath).toBe(join(agentProjectDir, 'MEMORY.md'));
+    });
+
+    it('should reuse an existing agent for the same project path', async () => {
+      agents.push({
+        id: 'youtube-feed',
+        name: 'youtube-feed',
+        projectPath: agentProjectDir,
+      });
+
+      const result = await tools.agent_register_directory.execute({
+        projectPath: agentProjectDir,
+        memoryInProject: true,
+      }, { messages: [], toolCallId: 'test' });
+
+      expect(result.registered).toBe(false);
+      expect(result.reused).toBe(true);
+      expect(result.agent.id).toBe('youtube-feed');
+      expect(agents).toHaveLength(1);
+      expect(agents[0]?.memoryPath).toBe(join(agentProjectDir, 'MEMORY.md'));
+    });
+  });
+
   describe('agent_logs', () => {
     it('should return error for unknown agent', async () => {
       const result = await tools.agent_logs.execute({
@@ -371,7 +405,12 @@ describe('agent-runner-tools', () => {
 
   describe('agent_configure', () => {
     it('should configure an agent and persist MEMORY.md', async () => {
-      agents.push({ id: 'test-agent', name: 'Test Agent', projectPath: agentProjectDir });
+      agents.push({
+        id: 'test-agent',
+        name: 'Test Agent',
+        projectPath: agentProjectDir,
+        memoryPath: join(agentProjectDir, 'MEMORY.md'),
+      });
 
       const generateTextSpy = vi
         .spyOn(Interaction.prototype, 'generateText')
@@ -444,7 +483,7 @@ describe('agent-runner-tools', () => {
         ]);
 
         const memory = await readFile(
-          join(workDir, 'agents', 'test-agent', 'MEMORY.md'),
+          join(agentProjectDir, 'MEMORY.md'),
           'utf-8'
         );
         expect(memory).toContain('# Test Agent MEMORY');
@@ -513,6 +552,7 @@ describe('agent-runner-tools', () => {
 
   describe('tool registration', () => {
     it('should include all expected tools', () => {
+      expect(tools.agent_register_directory).toBeDefined();
       expect(tools.agent_clone).toBeDefined();
       expect(tools.agent_logs).toBeDefined();
       expect(tools.agent_status).toBeDefined();
