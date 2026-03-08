@@ -2,3 +2,4 @@
 node = "latest"
 "npm:@anthropic-ai/claude-code" = "latest"
 "npm:@beads/bd" = "latest"
+"npm:node-addon-api" = "latest"

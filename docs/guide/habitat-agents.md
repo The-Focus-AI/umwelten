@@ -62,7 +62,7 @@ Each HabitatAgent gets a dedicated session (`habitat-agent-{agentId}`) that pers
 
 ## Tools
 
-Four tools are available for working with managed agents. These are registered automatically as part of the standard tool sets.
+Five tools are available for working with managed agents. These are registered automatically as part of the standard tool sets.
 
 ### agent_clone
 
@@ -157,6 +157,29 @@ agent_ask({
 // -> sub-agent reads README, CLAUDE.md, package.json, runs ripgrep for process.env, etc.
 ```
 
+### agent_configure
+
+Inspect a managed agent repo, derive a structured run contract, update the agent config, and write `agents/<id>/MEMORY.md`.
+
+```
+agent_configure(agentId, saveMemory?)
+```
+
+- Uses a dedicated analysis pass that returns validated JSON instead of a freeform answer
+- Inspects actual runnable entrypoints first (`run.sh`, `setup.sh`, `bin/*`, etc.)
+- Captures explicit env vars plus implied auth requirements like Claude or GitHub credentials
+- Updates `commands`, `secrets`, and `logPatterns` in agent config when found
+- Writes a durable `MEMORY.md` next to the managed workspace
+
+**Example:**
+
+```
+agent_configure({
+  agentId: "trmnl-image-agent"
+})
+// -> saves run contract, updates config, writes ~/habitats/agents/trmnl-image-agent/MEMORY.md
+```
+
 ## Workflows
 
 ### Onboarding a new project
@@ -167,13 +190,12 @@ User: "Add twitter-feed from git@github.com:org/twitter-feed.git"
 1. agent_clone(gitUrl, name="twitter-feed")
    -> clones to agents/twitter-feed/repo, registers agent
 
-2. agent_ask(agentId="twitter-feed",
-     "Explore this project. Read README, CLAUDE.md, package.json, .env.example.
-      What env vars does it need? What commands can I run? Where are the logs?")
-   -> sub-agent reads project files, returns structured analysis
+2. agent_configure(agentId="twitter-feed")
+   -> inspects runnable entrypoints, updates config, writes MEMORY.md
 
-3. agents_update(id="twitter-feed", commands={...}, logPatterns=[...])
-   -> update agent config with discovered info
+3. agent_ask(agentId="twitter-feed",
+     "Summarize the run contract you discovered and tell me any open risks.")
+   -> sub-agent uses the repo plus MEMORY.md for follow-up analysis
 
 4. bridge_start(agentId="twitter-feed")
    -> optional, only if you need an isolated runtime for execution
@@ -282,7 +304,7 @@ console.log(stimulus.getPrompt()); // see the full system prompt
 | File                                      | Purpose                                                        |
 | ----------------------------------------- | -------------------------------------------------------------- |
 | `src/habitat/habitat-agent.ts`            | `buildAgentStimulus()` and `HabitatAgent` class                |
-| `src/habitat/tools/agent-runner-tools.ts` | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask` tools |
+| `src/habitat/tools/agent-runner-tools.ts` | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask`, `agent_configure` tools |
 | `src/habitat/habitat.ts`                  | `getOrCreateHabitatAgent()` — lazy creation and caching        |
 | `src/habitat/tool-sets.ts`                | `agentRunnerToolSet` — registered in standard tool sets        |
 | `src/habitat/types.ts`                    | `AgentEntry` with `logPatterns`, `statusFile` fields           |

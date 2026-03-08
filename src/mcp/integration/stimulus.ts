@@ -1,5 +1,6 @@
 import { MCPClient, createMCPClient, createStdioConfig } from '../client/client.js';
 import { MCPTool, MCPResource } from '../types/protocol.js';
+import { TransportConfig } from '../types/transport.js';
 import { ToolDefinition, ToolExecutionContext, ToolExecutionResult } from '../../stimulus/tools/types.js';
 import { z } from 'zod';
 
@@ -137,13 +138,38 @@ function jsonSchemaToZod(schema: any): z.ZodSchema {
 // MCP Stimulus Manager
 // =============================================================================
 
-export interface MCPStimulusConfig {
+export interface MCPStimulusBaseConfig {
   name: string;
   version: string;
+  autoConnect?: boolean;
+}
+
+export interface MCPStimulusStdioConfig extends MCPStimulusBaseConfig {
   serverCommand: string;
   serverArgs?: string[];
   serverEnv?: Record<string, string>;
-  autoConnect?: boolean;
+  serverCwd?: string;
+}
+
+export interface MCPStimulusTransportWrapperConfig extends MCPStimulusBaseConfig {
+  transport: TransportConfig;
+}
+
+export type MCPStimulusConfig =
+  | MCPStimulusStdioConfig
+  | MCPStimulusTransportWrapperConfig;
+
+function resolveTransportConfig(config: MCPStimulusConfig): TransportConfig {
+  if ('transport' in config) {
+    return config.transport;
+  }
+
+  return createStdioConfig(
+    config.serverCommand,
+    config.serverArgs,
+    config.serverEnv,
+    config.serverCwd,
+  );
 }
 
 /**
@@ -164,11 +190,6 @@ export class MCPStimulusManager {
     });
 
     // Set up event handlers
-    this.client.on('connected', () => {
-      this.connected = true;
-      this.refreshCapabilities();
-    });
-
     this.client.on('disconnected', () => {
       this.connected = false;
       this.availableTools = [];
@@ -188,13 +209,9 @@ export class MCPStimulusManager {
       return;
     }
 
-    const transportConfig = createStdioConfig(
-      this.config.serverCommand,
-      this.config.serverArgs,
-      this.config.serverEnv
-    );
-
-    await this.client.connect(transportConfig);
+    await this.client.connect(resolveTransportConfig(this.config));
+    this.connected = true;
+    await this.refreshCapabilities();
   }
 
   /**
@@ -353,16 +370,38 @@ export function createMCPStimulusManager(config: MCPStimulusConfig): MCPStimulus
  * Create a quick MCP connection for testing
  */
 export async function createQuickMCPConnection(
+  transport: TransportConfig,
+): Promise<MCPStimulusManager>;
+export async function createQuickMCPConnection(
   serverCommand: string,
-  serverArgs?: string[]
+  serverArgs?: string[],
+  serverEnv?: Record<string, string>,
+  serverCwd?: string,
+): Promise<MCPStimulusManager>;
+export async function createQuickMCPConnection(
+  serverCommandOrTransport: string | TransportConfig,
+  serverArgs?: string[],
+  serverEnv?: Record<string, string>,
+  serverCwd?: string,
 ): Promise<MCPStimulusManager> {
-  const manager = createMCPStimulusManager({
-    name: 'quick-mcp-client',
-    version: '1.0.0',
-    serverCommand,
-    serverArgs,
-    autoConnect: false,
-  });
+  const config = typeof serverCommandOrTransport === 'string'
+    ? {
+        name: 'quick-mcp-client',
+        version: '1.0.0',
+        serverCommand: serverCommandOrTransport,
+        serverArgs,
+        serverEnv,
+        serverCwd,
+        autoConnect: false,
+      }
+    : {
+        name: 'quick-mcp-client',
+        version: '1.0.0',
+        transport: serverCommandOrTransport,
+        autoConnect: false,
+      };
+
+  const manager = createMCPStimulusManager(config);
 
   await manager.connect();
   return manager;

@@ -163,6 +163,10 @@ Learn how to install, configure, and use Umwelten for basic tasks.
 
 Set up a complete agent environment with tools, skills, sub-agents, and multiple interfaces (CLI, Telegram, web).
 
+### [MCP Chat Example](/guide/mcp-chat)
+
+See a complete CLI chat example that connects to a hosted OAuth-protected MCP server (TezLab).
+
 ### [Tool Calling](/guide/tool-calling)
 
 Learn how to use and create tools to enhance AI model capabilities.

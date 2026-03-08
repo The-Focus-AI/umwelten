@@ -13,6 +13,7 @@ import { discoverSkillsInDirectory } from "../stimulus/skills/loader.js";
 import type { AgentEntry } from "./types.js";
 import type { Habitat } from "./habitat.js";
 import { fileExists } from "./config.js";
+import { createFileTools } from "./tools/file-tools.js";
 
 /**
  * Build a Stimulus from a managed project's files.
@@ -25,6 +26,16 @@ export async function buildAgentStimulus(
 ): Promise<Stimulus> {
   const projectPath = agent.projectPath;
   const contextParts: string[] = [];
+  const runtimeEntryFiles = [
+    "run.sh",
+    "setup.sh",
+    "start.sh",
+    "Dockerfile",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    ".env.example",
+    "Makefile",
+  ];
 
   // Read CLAUDE.md or README.md for project context
   const claudeMd = await readProjectFile(projectPath, "CLAUDE.md");
@@ -35,6 +46,18 @@ export async function buildAgentStimulus(
   }
   if (readmeMd) {
     contextParts.push(`# README.md\n\n${readmeMd}`);
+  }
+
+  const memoryMd = await readOptionalFile(join(habitat.getAgentDir(agent.id), "MEMORY.md"));
+  if (memoryMd) {
+    contextParts.push(`# MEMORY.md\n\n${memoryMd}`);
+  }
+
+  for (const file of runtimeEntryFiles) {
+    const content = await readProjectFile(projectPath, file);
+    if (content) {
+      contextParts.push(`# ${file}\n\n${content}`);
+    }
   }
 
   // Read package.json for project metadata
@@ -82,6 +105,29 @@ export async function buildAgentStimulus(
     // No commands directory
   }
 
+  // List available bin/ scripts so the agent knows where to inspect next.
+  const binDir = join(projectPath, "bin");
+  try {
+    const entries = await readdir(binDir, { withFileTypes: true });
+    const files = entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .sort();
+    if (files.length > 0) {
+      contextParts.push(`# bin/\n\n${files.join("\n")}`);
+
+      // Inline bin/* scripts because they often define the actual runtime contract.
+      for (const file of files) {
+        const content = await readProjectFile(projectPath, join("bin", file));
+        if (content) {
+          contextParts.push(`# bin/${file}\n\n${content}`);
+        }
+      }
+    }
+  } catch {
+    // No bin directory
+  }
+
   // Add agent config info
   if (agent.commands) {
     const cmdList = Object.entries(agent.commands)
@@ -105,6 +151,10 @@ export async function buildAgentStimulus(
     instructions: [
       `You are a sub-agent managing the "${agent.name}" project at ${agent.projectPath}.`,
       "Use read_file, list_directory, and ripgrep with agentId to explore the project.",
+      "Prefer host-side file tools first when inspecting the repo. Do not use bridge tools unless the user explicitly asks for an isolated runtime or host-side inspection is insufficient.",
+      "When asked how the project runs or what it needs, inspect the actual runnable entrypoints first (for example run.sh, setup.sh, start.sh, Makefile targets, Dockerfile, and bin/* scripts) and follow the scripts they invoke. Do not rely only on README or package manifests.",
+      "Treat every external executable invoked by those entrypoints as a potential dependency. Explicitly look for required CLIs, environment variables, host integrations, hardcoded absolute paths, and optional fallbacks.",
+      "Ignore incidental mentions in reports/, notes, or research documents unless those files are part of the actual runnable path.",
       "Use agent_logs to read log files for this project.",
       `When using file tools, always pass agentId="${agent.id}".`,
       "Provide concise, actionable analysis when asked about the project.",
@@ -115,6 +165,13 @@ export async function buildAgentStimulus(
   };
 
   const stimulus = new Stimulus(stimulusOptions);
+
+  // Sub-agents must always be able to inspect the managed repo directly,
+  // even if the top-level habitat was configured without file tools.
+  const fileTools = createFileTools(habitat);
+  for (const [name, tool] of Object.entries(fileTools)) {
+    stimulus.addTool(name, tool);
+  }
 
   // Register the habitat's tools into this stimulus
   // (they already support agentId scoping)
@@ -253,6 +310,16 @@ async function readProjectFile(
   if (!(await fileExists(fullPath))) return null;
   try {
     const content = await readFile(fullPath, "utf-8");
+    return content.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readOptionalFile(path: string): Promise<string | null> {
+  if (!(await fileExists(path))) return null;
+  try {
+    const content = await readFile(path, "utf-8");
     return content.trim() || null;
   } catch {
     return null;

@@ -141,7 +141,11 @@ The `MCPStimulusManager` provides easy integration with Umwelten's existing syst
 const manager = createMCPStimulusManager({
   name: 'evaluation-client',
   version: '1.0.0',
-  serverCommand: 'node external-mcp-server.js',
+  transport: {
+    type: 'stdio',
+    command: 'node',
+    args: ['external-mcp-server.js']
+  },
   autoConnect: true
 });
 
@@ -212,7 +216,11 @@ Connect to existing MCP servers to expand Umwelten's capabilities:
 const manager = createMCPStimulusManager({
   name: 'umwelten-client',
   version: '1.0.0',
-  serverCommand: 'node filesystem-mcp-server.js'
+  transport: {
+    type: 'stdio',
+    command: 'node',
+    args: ['filesystem-mcp-server.js']
+  }
 });
 
 await manager.connect();
@@ -220,6 +228,22 @@ await manager.connect();
 // Use filesystem tools in evaluations
 const tools = manager.getAvailableTools();
 const fileReader = manager.getTool('read-file');
+```
+
+Remote transports can also be configured directly:
+
+```typescript
+const remoteManager = createMCPStimulusManager({
+  name: 'remote-client',
+  version: '1.0.0',
+  transport: {
+    type: 'sse',
+    url: 'https://example.com/mcp/sse',
+    headers: {
+      Authorization: `Bearer ${process.env.MCP_ACCESS_TOKEN}`,
+    },
+  },
+});
 ```
 
 ### Custom Server Creation

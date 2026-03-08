@@ -28,6 +28,8 @@ Interfaces attach to the same Habitat:
 - `umwelten habitat telegram` — Telegram bot
 - Future: `umwelten habitat tui`, `umwelten habitat web`
 
+For a concrete remote-MCP app built on the same model, see [MCP Chat Example](./mcp-chat.md).
+
 One habitat, many interfaces. They share config, tools, skills, agents, and sessions.
 
 ## Quick Start
@@ -234,6 +236,7 @@ These tools are always registered (unless `skipBuiltinTools` is set):
 | `parse_feed`                    | Parse RSS/Atom/XML feeds                            |
 | `agents_list/add/update/remove` | Manage registered agents                            |
 | `agent_clone`                   | Clone a git repo and register it                    |
+| `agent_configure`               | Inspect a repo and persist its run contract         |
 | `agent_ask`                     | Delegate a question to a sub-agent                  |
 | `agent_logs`                    | Read agent log files                                |
 | `agent_status`                  | Agent health check                                  |

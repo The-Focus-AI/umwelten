@@ -95,9 +95,11 @@ export const searchToolSet: ToolSet = {
   createTools: (habitat) => createSearchTools(habitat),
 };
 
-/** All standard tool sets that a typical habitat includes.
- *  Focused on agent management — file/url/time tools are left to sub-agents. */
+/** All standard tool sets that a typical habitat includes. */
 export const standardToolSets: ToolSet[] = [
+  fileToolSet,
+  timeToolSet,
+  urlToolSet,
   agentToolSet,
   sessionToolSet,
   externalInteractionToolSet,

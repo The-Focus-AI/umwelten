@@ -1,12 +1,12 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { 
-  createMCPStimulusManager, 
   createQuickMCPConnection,
-  MCPStimulusConfig 
 } from '../mcp/integration/stimulus.js';
+import { createSSEConfig, createWebSocketConfig } from '../mcp/client/client.js';
 import { createMCPServer } from '../mcp/server/server.js';
 import { StdioTransport } from '../mcp/types/transport.js';
+import type { TransportConfig } from '../mcp/types/transport.js';
 
 /**
  * CLI Commands for MCP (Model Context Protocol) functionality
@@ -25,34 +25,109 @@ import { StdioTransport } from '../mcp/types/transport.js';
 export const mcpCommand = new Command('mcp')
   .description('Model Context Protocol (MCP) client and server commands');
 
+type MCPConnectionOptions = {
+  transport?: string;
+  command?: string;
+  args?: string[];
+  env?: string[];
+  url?: string;
+  header?: string[];
+  protocol?: string[];
+};
+
+function parseKeyValueOptions(values?: string[]): Record<string, string> {
+  const parsed: Record<string, string> = {};
+
+  for (const entry of values || []) {
+    const separatorIndex = entry.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = entry.slice(0, separatorIndex).trim();
+    const value = entry.slice(separatorIndex + 1);
+
+    if (key) {
+      parsed[key] = value;
+    }
+  }
+
+  return parsed;
+}
+
+function addConnectionOptions(command: Command): Command {
+  return command
+    .option('--transport <type>', 'Transport type: stdio, sse, websocket', 'stdio')
+    .option('-c, --command <command>', 'Server command to execute for stdio transport')
+    .option('-a, --args <args...>', 'Arguments to pass to the server command')
+    .option('-e, --env <env...>', 'Environment variables for stdio transport (KEY=VALUE format)')
+    .option('--url <url>', 'Remote server URL for sse/websocket transport')
+    .option('-H, --header <header...>', 'Headers for remote transports (KEY=VALUE format)')
+    .option('--protocol <protocol...>', 'WebSocket subprotocols');
+}
+
+function resolveTransportConfig(options: MCPConnectionOptions): TransportConfig {
+  const transport = (options.transport || 'stdio').toLowerCase();
+
+  switch (transport) {
+    case 'stdio':
+      if (!options.command) {
+        throw new Error('The --command option is required for stdio transport');
+      }
+
+      return {
+        type: 'stdio',
+        command: options.command,
+        args: options.args,
+        env: parseKeyValueOptions(options.env),
+      };
+
+    case 'sse':
+      if (!options.url) {
+        throw new Error('The --url option is required for sse transport');
+      }
+
+      return createSSEConfig(options.url, parseKeyValueOptions(options.header));
+
+    case 'websocket':
+      if (!options.url) {
+        throw new Error('The --url option is required for websocket transport');
+      }
+
+      return createWebSocketConfig(
+        options.url,
+        options.protocol,
+        parseKeyValueOptions(options.header),
+      );
+
+    default:
+      throw new Error(`Unsupported transport type: ${transport}`);
+  }
+}
+
+function describeConnection(options: MCPConnectionOptions): string {
+  const transport = (options.transport || 'stdio').toLowerCase();
+
+  if (transport === 'stdio') {
+    return `Transport: stdio\n${chalk.gray(`Command: ${options.command} ${(options.args || []).join(' ')}`)}`;
+  }
+
+  return `Transport: ${transport}\n${chalk.gray(`URL: ${options.url}`)}`;
+}
+
 // MCP Connect Command
-mcpCommand
+addConnectionOptions(
+  mcpCommand
   .command('connect')
   .description('Connect to an MCP server and list available tools/resources')
-  .requiredOption('-c, --command <command>', 'Server command to execute')
-  .option('-a, --args <args...>', 'Arguments to pass to the server command')
-  .option('-e, --env <env...>', 'Environment variables (KEY=VALUE format)')
   .option('--timeout <seconds>', 'Connection timeout in seconds', '30')
+)
   .action(async (options) => {
     try {
       console.log(chalk.blue('🔌 Connecting to MCP server...'));
-      console.log(chalk.gray(`Command: ${options.command} ${(options.args || []).join(' ')}`));
+      console.log(describeConnection(options));
 
-      // Parse environment variables
-      const env: Record<string, string> = {};
-      if (options.env) {
-        for (const envVar of options.env) {
-          const [key, value] = envVar.split('=', 2);
-          if (key && value) {
-            env[key] = value;
-          }
-        }
-      }
-
-      const manager = await createQuickMCPConnection(
-        options.command,
-        options.args
-      );
+      const manager = await createQuickMCPConnection(resolveTransportConfig(options));
 
       console.log(chalk.green('✅ Connected to MCP server!'));
 
@@ -103,21 +178,18 @@ mcpCommand
   });
 
 // MCP Test Tool Command
-mcpCommand
+addConnectionOptions(
+  mcpCommand
   .command('test-tool')
   .description('Test a specific tool from an MCP server')
-  .requiredOption('-c, --command <command>', 'Server command to execute')
   .requiredOption('-t, --tool <toolName>', 'Name of the tool to test')
-  .option('-a, --args <args...>', 'Arguments to pass to the server command')
   .option('-p, --params <params>', 'Tool parameters as JSON string', '{}')
+)
   .action(async (options) => {
     try {
       console.log(chalk.blue(`🧪 Testing tool "${options.tool}"...`));
 
-      const manager = await createQuickMCPConnection(
-        options.command,
-        options.args
-      );
+      const manager = await createQuickMCPConnection(resolveTransportConfig(options));
 
       // Parse tool parameters
       let toolParams: Record<string, any> = {};
@@ -177,20 +249,17 @@ mcpCommand
   });
 
 // MCP Read Resource Command
-mcpCommand
+addConnectionOptions(
+  mcpCommand
   .command('read-resource')
   .description('Read a resource from an MCP server')
-  .requiredOption('-c, --command <command>', 'Server command to execute')
   .requiredOption('-u, --uri <uri>', 'URI of the resource to read')
-  .option('-a, --args <args...>', 'Arguments to pass to the server command')
+)
   .action(async (options) => {
     try {
       console.log(chalk.blue(`📖 Reading resource "${options.uri}"...`));
 
-      const manager = await createQuickMCPConnection(
-        options.command,
-        options.args
-      );
+      const manager = await createQuickMCPConnection(resolveTransportConfig(options));
 
       const content = await manager.readResource(options.uri);
 
@@ -331,6 +400,9 @@ mcpCommand
     console.log(chalk.yellow('💡 Usage Examples:'));
     console.log(chalk.gray('  # Connect to a local MCP server'));
     console.log('  npm run cli mcp connect -c "node my-server.js"');
+    console.log('');
+    console.log(chalk.gray('  # Connect to a remote SSE MCP server'));
+    console.log('  npm run cli mcp connect --transport sse --url "https://example.com/sse" -H "Authorization=Bearer $TOKEN"');
     console.log('');
     console.log(chalk.gray('  # Test a tool with parameters'));
     console.log('  npm run cli mcp test-tool -c "node server.js" -t "add" -p \'{"a":5,"b":3}\'');

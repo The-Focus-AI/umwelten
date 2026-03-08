@@ -87,6 +87,7 @@
     "dotenv": "^17.2.3",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.2",
+    "node-addon-api": "^8.6.0",
     "prettier": "^3.7.4",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

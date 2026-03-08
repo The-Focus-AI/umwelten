@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Running Prompts', link: '/guide/running-prompts' },
             { text: 'Interactive Chat', link: '/guide/interactive-chat' },
             { text: 'Habitat', link: '/guide/habitat' },
+            { text: 'MCP Chat Example', link: '/guide/mcp-chat' },
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },
             { text: 'Telegram Bot', link: '/guide/telegram-bot' },

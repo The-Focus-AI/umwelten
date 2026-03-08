@@ -121,12 +121,15 @@ describe("Habitat", () => {
       // run_project tool has been removed (replaced by Bridge system)
       expect(tools.run_project).toBeUndefined();
 
-      // File/time tools should NOT be present (removed from standardToolSets)
-      expect(tools.read_file).toBeUndefined();
-      expect(tools.write_file).toBeUndefined();
-      expect(tools.list_directory).toBeUndefined();
-      expect(tools.ripgrep).toBeUndefined();
-      expect(tools.current_time).toBeUndefined();
+      // Host-side file/time/url tools should be available by default
+      expect(tools.read_file).toBeDefined();
+      expect(tools.write_file).toBeDefined();
+      expect(tools.list_directory).toBeDefined();
+      expect(tools.ripgrep).toBeDefined();
+      expect(tools.current_time).toBeDefined();
+      expect(tools.wget).toBeDefined();
+      expect(tools.markify).toBeDefined();
+      expect(tools.parse_feed).toBeDefined();
     });
 
     it("should skip built-in tools when requested", async () => {

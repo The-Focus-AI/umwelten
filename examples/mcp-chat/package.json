@@ -1,0 +1,8 @@
+{
+  "name": "mcp-chat-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "tsx cli.ts"
+  }
+}

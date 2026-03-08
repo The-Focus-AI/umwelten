@@ -3,7 +3,7 @@
  * These tools let the main habitat agent manage sub-agents (HabitatAgents).
  */
 
-import { readFile, readdir, rm, stat } from "node:fs/promises";
+import { readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve, relative } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -12,8 +12,69 @@ import { z } from "zod";
 import type { Tool } from "ai";
 import type { AgentEntry, LogPattern } from "../types.js";
 import { HabitatBridgeClient } from "../bridge/client.js";
+import { Interaction } from "../../interaction/core/interaction.js";
 
 const execFileAsync = promisify(execFile);
+
+const configureEnvVarSchema = z.object({
+  name: z.string(),
+  reason: z.string(),
+  required: z.boolean(),
+});
+
+const configureCliToolSchema = z.object({
+  name: z.string(),
+  reason: z.string(),
+  required: z.boolean(),
+});
+
+const configureAuthRequirementSchema = z.object({
+  system: z.string(),
+  reason: z.string(),
+  required: z.boolean(),
+  secretRefs: z.array(z.string()).default([]),
+  cliTools: z.array(z.string()).default([]),
+  notes: z.array(z.string()).default([]),
+});
+
+const configureHostIntegrationSchema = z.object({
+  name: z.string(),
+  reason: z.string(),
+  path: z.string().nullable().optional(),
+  required: z.boolean(),
+});
+
+const agentConfigureSchema = z.object({
+  purpose: z.string().describe("Concise description of what the project does"),
+  summary: z.string().describe("Short operational summary of how the project is run"),
+  entrypoints: z
+    .array(z.string())
+    .describe("Actual runnable entrypoints that define the execution path"),
+  setupCommand: z
+    .string()
+    .nullable()
+    .describe("Primary setup command, or null if not needed"),
+  runCommand: z
+    .string()
+    .nullable()
+    .describe("Primary run command, or null if not identified"),
+  requiredEnvVars: z.array(configureEnvVarSchema).default([]),
+  requiredCliTools: z.array(configureCliToolSchema).default([]),
+  authRequirements: z.array(configureAuthRequirementSchema).default([]),
+  hostIntegrations: z.array(configureHostIntegrationSchema).default([]),
+  logPatterns: z
+    .array(
+      z.object({
+        pattern: z.string(),
+        format: z.enum(["jsonl", "plain"]),
+      }),
+    )
+    .default([]),
+  recommendedRuntime: z.enum(["host", "bridge"]),
+  notes: z.array(z.string()).default([]),
+});
+
+type AgentConfigureContract = z.infer<typeof agentConfigureSchema>;
 
 /** Interface for the habitat context that agent runner tools need. */
 export interface AgentRunnerToolsContext {
@@ -24,7 +85,7 @@ export interface AgentRunnerToolsContext {
   updateAgent(idOrName: string, updates: Partial<AgentEntry>): Promise<void>;
   getOrCreateHabitatAgent(
     agentId: string,
-  ): Promise<{ ask(message: string): Promise<string> }>;
+  ): Promise<import("../habitat-agent.js").HabitatAgent>;
   // Bridge agent management (via supervisor)
   startBridge(
     agentId: string,
@@ -474,6 +535,88 @@ export function createAgentRunnerTools(
     },
   });
 
+  // ── agent_configure ─────────────────────────────────────────────────
+
+  const agentConfigureTool = tool({
+    description:
+      "Inspect a managed agent repo, infer its run contract, and persist the result into agent config and MEMORY.md.",
+    inputSchema: z.object({
+      agentId: z.string().describe("Agent ID or name"),
+      saveMemory: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe("Whether to write the configure result to agents/<id>/MEMORY.md"),
+    }),
+    execute: async ({ agentId, saveMemory = true }) => {
+      const agent = ctx.getAgent(agentId);
+      if (!agent) {
+        return {
+          error: "AGENT_NOT_FOUND",
+          message: `No agent found: ${agentId}`,
+        };
+      }
+
+      try {
+        const habitatAgent = await ctx.getOrCreateHabitatAgent(agent.id);
+        const baseInteraction = habitatAgent.getInteraction();
+        const interaction = new Interaction(
+          baseInteraction.modelDetails,
+          baseInteraction.getStimulus(),
+        );
+        interaction.setTools({});
+
+        const contract = await analyzeAgentConfiguration(interaction);
+
+        const commands = { ...(agent.commands ?? {}) };
+        if (contract.setupCommand) commands.setup = contract.setupCommand;
+        if (contract.runCommand) commands.run = contract.runCommand;
+
+        const secrets = collectAgentSecretRefs(agent, contract);
+
+        await ctx.updateAgent(agent.id, {
+          commands: Object.keys(commands).length > 0 ? commands : undefined,
+          secrets: secrets.length > 0 ? secrets : undefined,
+          logPatterns:
+            contract.logPatterns.length > 0
+              ? contract.logPatterns
+              : agent.logPatterns,
+        });
+
+        let memoryPath: string | undefined;
+        if (saveMemory) {
+          await ctx.ensureAgentDir(agent.id);
+          memoryPath = join(ctx.getAgentDir(agent.id), "MEMORY.md");
+          await writeFile(
+            memoryPath,
+            renderAgentMemory(agent, contract),
+            "utf-8",
+          );
+        }
+
+        return {
+          agentId: agent.id,
+          configured: true,
+          contract,
+          updated: {
+            commands: Object.keys(commands).length > 0 ? commands : undefined,
+            secrets,
+            logPatterns: contract.logPatterns,
+          },
+          memoryPath,
+          message:
+            `Configured agent ${agent.id}. ` +
+            `Saved run contract${memoryPath ? ` to ${memoryPath}` : ""}.`,
+        };
+      } catch (err: any) {
+        return {
+          error: "AGENT_CONFIGURE_FAILED",
+          message: err.message || String(err),
+        };
+      }
+    },
+  });
+
   // ── bridge_start ──────────────────────────────────────────────────────
   /** Start a Bridge MCP server for an agent in a Dagger container.
    *  This creates a container with the bridge MCP server running,
@@ -796,6 +939,7 @@ export function createAgentRunnerTools(
     agent_logs: agentLogsTool,
     agent_status: agentStatusTool,
     agent_ask: agentAskTool,
+    agent_configure: agentConfigureTool,
     bridge_start: bridgeStartTool,
     bridge_stop: bridgeStopTool,
     bridge_list: bridgeListTool,
@@ -806,6 +950,337 @@ export function createAgentRunnerTools(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+function renderAgentMemory(
+  agent: AgentEntry,
+  contract: {
+    purpose: string;
+    summary: string;
+    entrypoints: string[];
+    setupCommand: string | null;
+    runCommand: string | null;
+    requiredEnvVars: Array<{ name: string; reason: string; required: boolean }>;
+    requiredCliTools: Array<{ name: string; reason: string; required: boolean }>;
+    authRequirements: Array<{
+      system: string;
+      reason: string;
+      required: boolean;
+      secretRefs: string[];
+      cliTools: string[];
+      notes: string[];
+    }>;
+    hostIntegrations: Array<{
+      name: string;
+      reason: string;
+      path?: string | null;
+      required: boolean;
+    }>;
+    recommendedRuntime: "host" | "bridge";
+    notes: string[];
+  },
+): string {
+  const secretRefs = collectContractSecretRefs(contract);
+  const lines: string[] = [
+    `# ${agent.name} MEMORY`,
+    "",
+    `Updated: ${new Date().toISOString()}`,
+    "",
+    "## Purpose",
+    contract.purpose,
+    "",
+    "## Summary",
+    contract.summary,
+    "",
+    "## Recommended Runtime",
+    contract.recommendedRuntime,
+    "",
+    "## Entry Points",
+    ...contract.entrypoints.map((entrypoint) => `- ${entrypoint}`),
+    "",
+    "## Commands",
+    `- setup: ${contract.setupCommand ?? "(not identified)"}`,
+    `- run: ${contract.runCommand ?? "(not identified)"}`,
+    "",
+    "## Required Env Vars",
+    ...(contract.requiredEnvVars.length > 0
+      ? contract.requiredEnvVars.map(
+          (envVar) =>
+            `- ${envVar.name} (${envVar.required ? "required" : "optional"}): ${envVar.reason}`,
+        )
+      : ["- none identified"]),
+    "",
+    "## Secret Refs",
+    ...(secretRefs.length > 0
+      ? secretRefs.map((secretRef) => `- ${secretRef}`)
+      : ["- none identified"]),
+    "",
+    "## Required CLI Tools",
+    ...(contract.requiredCliTools.length > 0
+      ? contract.requiredCliTools.map(
+          (tool) =>
+            `- ${tool.name} (${tool.required ? "required" : "optional"}): ${tool.reason}`,
+        )
+      : ["- none identified"]),
+    "",
+    "## Auth Requirements",
+    ...(contract.authRequirements.length > 0
+      ? contract.authRequirements.flatMap((auth) => {
+          const detailParts: string[] = [];
+          if (auth.secretRefs.length > 0) {
+            detailParts.push(`secret refs: ${auth.secretRefs.join(", ")}`);
+          }
+          if (auth.cliTools.length > 0) {
+            detailParts.push(`tools: ${auth.cliTools.join(", ")}`);
+          }
+          const detailSuffix =
+            detailParts.length > 0 ? ` [${detailParts.join(" | ")}]` : "";
+          const noteLines =
+            auth.notes.length > 0
+              ? auth.notes.map((note) => `  note: ${note}`)
+              : [];
+          return [
+            `- ${auth.system} (${auth.required ? "required" : "optional"}): ${auth.reason}${detailSuffix}`,
+            ...noteLines,
+          ];
+        })
+      : ["- none identified"]),
+    "",
+    "## Host Integrations",
+    ...(contract.hostIntegrations.length > 0
+      ? contract.hostIntegrations.map((integration) => {
+          const pathPart = integration.path ? ` [path: ${integration.path}]` : "";
+          return `- ${integration.name} (${integration.required ? "required" : "optional"}): ${integration.reason}${pathPart}`;
+        })
+      : ["- none identified"]),
+    "",
+    "## Notes",
+    ...(contract.notes.length > 0
+      ? contract.notes.map((note) => `- ${note}`)
+      : ["- none"]),
+    "",
+  ];
+
+  return lines.join("\n");
+}
+
+function collectContractSecretRefs(
+  contract: Pick<AgentConfigureContract, "requiredEnvVars" | "authRequirements">,
+): string[] {
+  return Array.from(
+    new Set([
+      ...contract.requiredEnvVars
+        .filter((envVar) => envVar.required)
+        .map((envVar) => envVar.name.trim())
+        .filter(Boolean),
+      ...contract.authRequirements
+        .filter((auth) => auth.required)
+        .flatMap((auth) => auth.secretRefs)
+        .map((secretRef) => secretRef.trim())
+        .filter(Boolean),
+    ]),
+  );
+}
+
+function collectAgentSecretRefs(
+  agent: AgentEntry,
+  contract: AgentConfigureContract,
+): string[] {
+  return Array.from(
+    new Set([...(agent.secrets ?? []), ...collectContractSecretRefs(contract)]),
+  );
+}
+
+async function analyzeAgentConfiguration(
+  interaction: Interaction,
+): Promise<AgentConfigureContract> {
+  const prompt = buildAgentConfigurePrompt();
+  const modelDetails = { ...interaction.modelDetails, temperature: 0 };
+  const attempts = [
+    prompt,
+    [
+      prompt,
+      "",
+      "Your previous response was not valid JSON.",
+      "Return a single valid JSON object only. Do not add commentary, markdown fences, or trailing text.",
+    ].join("\n"),
+  ];
+
+  let lastRawText = "";
+
+  for (const attemptPrompt of attempts) {
+    const attemptInteraction = new Interaction(
+      modelDetails,
+      interaction.getStimulus(),
+    );
+    attemptInteraction.setTools({});
+    attemptInteraction.addMessage({
+      role: "user",
+      content: attemptPrompt,
+    });
+
+    const response = await attemptInteraction.generateText();
+    lastRawText = response.content;
+    const direct = tryParseAgentConfigureContract(lastRawText);
+    if (direct) return direct;
+
+    const repaired = await parseAgentConfigureContract(
+      lastRawText,
+      modelDetails,
+      interaction.getStimulus(),
+    ).catch(() => null);
+    if (repaired) return repaired;
+  }
+
+  throw new Error(
+    `Could not parse configure analysis into a valid run contract. Raw response:\n${lastRawText}`,
+  );
+}
+
+function buildAgentConfigurePrompt(): string {
+  return [
+    "Inspect this repository and produce a structured run contract.",
+    "",
+    "You must inspect the actual runnable entrypoints first (for example run.sh, setup.sh, start.sh, Makefile targets, Dockerfile, and bin/* scripts), follow the scripts they invoke, and determine how this project really runs.",
+    "",
+    "Ignore incidental mentions in reports/, notes, or research documents unless they are part of the runnable path.",
+    "",
+    "Return ONLY a single JSON object. Do not wrap it in markdown fences or explanatory text.",
+    "",
+    "Use this exact shape:",
+    '{',
+    '  "purpose": "string",',
+    '  "summary": "string",',
+    '  "entrypoints": ["string"],',
+    '  "setupCommand": "string or null",',
+    '  "runCommand": "string or null",',
+    '  "requiredEnvVars": [{"name": "ENV_VAR", "reason": "string", "required": true}],',
+    '  "requiredCliTools": [{"name": "tool", "reason": "string", "required": true}],',
+    '  "authRequirements": [{"system": "service", "reason": "string", "required": true, "secretRefs": ["ENV_VAR"], "cliTools": ["tool"], "notes": ["string"]}],',
+    '  "hostIntegrations": [{"name": "integration", "reason": "string", "path": "string or null", "required": true}],',
+    '  "logPatterns": [{"pattern": "logs/*.log", "format": "plain"}],',
+    '  "recommendedRuntime": "host",',
+    '  "notes": ["string"]',
+    '}',
+    "",
+    "Rules:",
+    "- Include auth requirements implied by the run path, not just explicit env vars.",
+    "- If scripts call claude, include a Claude auth requirement with likely secret refs such as ANTHROPIC_API_KEY and CLAUDE_CODE_OAUTH_TOKEN unless the repo clearly depends on a pre-authenticated host session.",
+    "- If the run path performs git push, include a git/GitHub auth requirement with likely secret refs such as GITHUB_TOKEN, and note if host SSH or a git credential helper could satisfy it instead.",
+    "- secretRefs must be env-var style names only.",
+    "- Use empty arrays instead of omitting fields.",
+    "- recommendedRuntime should be host when the repo relies on host paths, host auth, desktop tooling, or host-specific state.",
+  ].join("\n");
+}
+
+async function parseAgentConfigureContract(
+  rawText: string,
+  modelDetails: Interaction["modelDetails"],
+  stimulus: Interaction["stimulus"],
+): Promise<AgentConfigureContract> {
+  const direct = tryParseAgentConfigureContract(rawText);
+  if (direct) return direct;
+
+  const repairedText = await repairAgentConfigureContract(
+    rawText,
+    modelDetails,
+    stimulus,
+  );
+  const repaired = tryParseAgentConfigureContract(repairedText);
+  if (repaired) return repaired;
+
+  throw new Error(
+    "Could not parse configure analysis into a valid run contract.",
+  );
+}
+
+function tryParseAgentConfigureContract(
+  rawText: string,
+): AgentConfigureContract | null {
+  const candidates = [
+    rawText.trim(),
+    stripMarkdownCodeFence(rawText).trim(),
+    extractFirstJsonObject(rawText)?.trim() ?? "",
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      return agentConfigureSchema.parse(JSON.parse(candidate));
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return null;
+}
+
+async function repairAgentConfigureContract(
+  rawText: string,
+  modelDetails: Interaction["modelDetails"],
+  stimulus: Interaction["stimulus"],
+): Promise<string> {
+  const repairInteraction = new Interaction(modelDetails, stimulus);
+  repairInteraction.setTools({});
+  repairInteraction.addMessage({
+    role: "user",
+    content: [
+      "Reformat the following agent analysis into a single valid JSON object.",
+      "",
+      "Do not add new facts. Preserve the same conclusions, but return only valid JSON with the expected contract fields.",
+      "",
+      "Invalid analysis:",
+      rawText,
+    ].join("\n"),
+  });
+
+  const repaired = await repairInteraction.generateText();
+  return repaired.content;
+}
+
+function stripMarkdownCodeFence(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return fenced ? fenced[1] : text;
+}
+
+function extractFirstJsonObject(text: string): string | null {
+  const source = stripMarkdownCodeFence(text);
+  const start = source.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < source.length; i++) {
+    const char = source[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
 
 /**
  * Find files matching a glob-like pattern relative to a base directory.

@@ -11,6 +11,7 @@ import { evalCommand } from './eval.js';
 import { sessionsCommand } from './sessions.js';
 import { telegramCommand } from './telegram.js';
 import { habitatCommand } from './habitat.js';
+import { mcpCommand } from './mcp.js';
 
 // Get the version from package.json
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +34,7 @@ program.addCommand(evalCommand);
 program.addCommand(sessionsCommand);
 program.addCommand(telegramCommand);
 program.addCommand(habitatCommand);
+program.addCommand(mcpCommand);
 addToolsCommand(program);
 
 program.parse(); 

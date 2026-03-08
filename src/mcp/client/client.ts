@@ -388,12 +388,18 @@ export function isMCPError(error: any): error is Error & { code: MCPErrorCode; d
 /**
  * Create a stdio transport configuration for connecting to a local MCP server
  */
-export function createStdioConfig(command: string, args?: string[], env?: Record<string, string>) {
+export function createStdioConfig(
+  command: string,
+  args?: string[],
+  env?: Record<string, string>,
+  cwd?: string,
+) {
   return {
     type: 'stdio' as const,
     command,
     args,
     env,
+    cwd,
   };
 }
 
