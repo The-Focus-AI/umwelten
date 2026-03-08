@@ -1,12 +1,13 @@
 /**
  * Spike: Iterate on dag.llm() container builder prompt.
  *
- * Run with: dotenvx run -- npx tsx scripts/spike-dagger-llm.ts [repo-url]
+ * Run with: npx tsx scripts/spike-dagger-llm.ts [repo-url]
  *
  * Default repo: https://github.com/The-Focus-AI/trmnl-image-agent
  * (shell scripts + imagemagick project — no python, no node)
  */
 
+import '../src/env/load.js';
 import { dag, connection } from "@dagger.io/dagger";
 
 const REPO_URL =

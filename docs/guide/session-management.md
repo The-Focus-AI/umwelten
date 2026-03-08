@@ -2,7 +2,7 @@
 
 Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history (**sessions**—read-only data from Claude Code, Cursor, etc.). This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
 
-**CLI command**: `sessions` (e.g. `pnpm run cli sessions list`).
+**CLI command**: `sessions` (e.g. `pnpm run cli -- sessions list`).
 
 ## Supported Sources
 
@@ -29,16 +29,16 @@ The session system consists of three main features:
 
 ```bash
 # List sessions for the current project (auto-detects Claude Code + Cursor)
-pnpm run cli sessions list
+pnpm run cli -- sessions list
 
 # List sessions for a different project (e.g. sibling directory)
-pnpm run cli sessions list -p ../other-project
+pnpm run cli -- sessions list -p ../other-project
 
 # Show details for a specific session
-pnpm run cli sessions show abc1234
+pnpm run cli -- sessions show abc1234
 
 # Export to markdown
-pnpm run cli sessions export abc1234 --output session.md
+pnpm run cli -- sessions export abc1234 --output session.md
 ```
 
 ## Session browser and TUI
@@ -51,10 +51,10 @@ The browser is a full-screen TUI that shows a searchable list of sessions. Each 
 
 ```bash
 # Start the session browser (default: current project)
-pnpm run cli sessions browse
+pnpm run cli -- sessions browse
 
 # Browse sessions for another project
-pnpm run cli sessions browse -p ../other-project
+pnpm run cli -- sessions browse -p ../other-project
 ```
 
 **In the browser:**
@@ -70,18 +70,18 @@ The TUI can show a **live stream** (stdin JSONL), a **session file**, or a **ses
 
 ```bash
 # Interactive TUI: overview, then choose a session or open a file
-pnpm run cli sessions tui
+pnpm run cli -- sessions tui
 
 # Open a specific session by ID (from sessions list)
-pnpm run cli sessions tui --session abc1234
-pnpm run cli sessions tui abc1234
+pnpm run cli -- sessions tui --session abc1234
+pnpm run cli -- sessions tui abc1234
 
 # Open a session from a JSONL file path
-pnpm run cli sessions tui --file /path/to/session.jsonl
-pnpm run cli sessions tui /path/to/session.jsonl
+pnpm run cli -- sessions tui --file /path/to/session.jsonl
+pnpm run cli -- sessions tui /path/to/session.jsonl
 
 # Project path (default: current directory)
-pnpm run cli sessions tui -p ../other-project
+pnpm run cli -- sessions tui -p ../other-project
 ```
 
 When you pass a session ID, the TUI loads that session from the configured adapters (Claude Code, Cursor). When you pass a file path, it reads that JSONL file directly. With no arguments, the TUI starts in overview mode (you can then open a session or file from there).
@@ -94,7 +94,7 @@ Claude Code stores sessions as JSONL files in `~/.claude/projects/`. Each projec
 
 ```bash
 # List Claude Code sessions (default)
-pnpm run cli sessions list --source claude-code
+pnpm run cli -- sessions list --source claude-code
 
 # View where Claude Code stores sessions
 ls ~/.claude/projects/-Users-$(whoami)-my-project/
@@ -117,7 +117,7 @@ Cursor stores sessions in SQLite databases within VS Code's workspace storage. E
 
 ```bash
 # List Cursor sessions
-pnpm run cli sessions list --source cursor
+pnpm run cli -- sessions list --source cursor
 
 # View where Cursor stores sessions
 ls ~/Library/Application\ Support/Cursor/User/workspaceStorage/
@@ -135,17 +135,17 @@ ls ~/Library/Application\ Support/Cursor/User/workspaceStorage/
 **Why doesn’t my current Cursor session show up?**
 - The **current** Cursor chat for this project is the same session as the one listed for this workspace. You should see one Cursor row when you run `sessions list` from the project directory.
 - Message count and “First Prompt” can be **slightly stale**: Cursor writes to `state.vscdb` asynchronously (e.g. when you send messages or switch away), so the latest turn may not appear until Cursor has persisted it.
-- Run the CLI from the **project root** (e.g. `cd /path/to/your/project` then `pnpm run cli sessions list`) so the project path matches Cursor’s workspace path. Paths are normalized (resolved, no trailing slash), so using the same directory Cursor has open is sufficient.
+- Run the CLI from the **project root** (e.g. `cd /path/to/your/project` then `pnpm run cli -- sessions list`) so the project path matches Cursor’s workspace path. Paths are normalized (resolved, no trailing slash), so using the same directory Cursor has open is sufficient.
 
 ### Comparing Sources
 
 ```bash
 # List sessions from all sources
-pnpm run cli sessions list --source all
+pnpm run cli -- sessions list --source all
 
 # Compare session counts
-pnpm run cli sessions list --source claude-code --json | jq '.totalCount'
-pnpm run cli sessions list --source cursor --json | jq '.totalCount'
+pnpm run cli -- sessions list --source claude-code --json | jq '.totalCount'
+pnpm run cli -- sessions list --source cursor --json | jq '.totalCount'
 ```
 
 ### Programmatic Usage
@@ -239,45 +239,45 @@ Indexing runs on **all sources** (Claude Code and Cursor) so search covers every
 
 ```bash
 # Index all sessions in the current project (Claude + Cursor)
-dotenvx run -- pnpm run cli sessions index
+pnpm run cli -- sessions index
 
 # Index sessions for a different project
-dotenvx run -- pnpm run cli sessions index -p ../other-project
+pnpm run cli -- sessions index -p ../other-project
 
 # Force reindex all sessions
-dotenvx run -- pnpm run cli sessions index --force
+pnpm run cli -- sessions index --force
 
 # Use a different model
-dotenvx run -- pnpm run cli sessions index --model google:gemini-3-flash-preview
+pnpm run cli -- sessions index --model google:gemini-3-flash-preview
 ```
 
 ### Search Sessions
 
 ```bash
 # Search for sessions about React
-dotenvx run -- pnpm run cli sessions search "react hooks"
+pnpm run cli -- sessions search "react hooks"
 
 # Search with filters
-dotenvx run -- pnpm run cli sessions search "debugging" \
+pnpm run cli -- sessions search "debugging" \
   --tags typescript,testing \
   --type bug-fix \
   --limit 5
 
 # Get JSON output
-dotenvx run -- pnpm run cli sessions search "api" --json
+pnpm run cli -- sessions search "api" --json
 ```
 
 ### Analyze Patterns
 
 ```bash
 # View top topics across all sessions
-dotenvx run -- pnpm run cli sessions analyze --type topics
+pnpm run cli -- sessions analyze --type topics
 
 # View tool usage statistics
-dotenvx run -- pnpm run cli sessions analyze --type tools
+pnpm run cli -- sessions analyze --type tools
 
 # View solution patterns and success rates
-dotenvx run -- pnpm run cli sessions analyze --type patterns
+pnpm run cli -- sessions analyze --type patterns
 ```
 
 ## Session Listing Commands
@@ -294,7 +294,7 @@ List sessions for a project (Claude Code and Cursor).
 
 **Example:**
 ```bash
-pnpm run cli sessions list --limit 20 --branch main
+pnpm run cli -- sessions list --limit 20 --branch main
 ```
 
 **Output:**
@@ -319,7 +319,7 @@ Display detailed information about a specific session.
 
 **Example:**
 ```bash
-pnpm run cli sessions show c15a9952
+pnpm run cli -- sessions show c15a9952
 ```
 
 **Output:**
@@ -349,7 +349,7 @@ Export a session to markdown format.
 
 **Example:**
 ```bash
-pnpm run cli sessions export c15a9952 --output session.md
+pnpm run cli -- sessions export c15a9952 --output session.md
 ```
 
 ### `sessions messages <id>`
@@ -365,7 +365,7 @@ View the conversation messages in a session with inline tool calls.
 
 **Example:**
 ```bash
-pnpm run cli sessions messages c15a9952 --limit 10
+pnpm run cli -- sessions messages c15a9952 --limit 10
 ```
 
 **Output:**
@@ -407,10 +407,10 @@ View all tool calls made during a session in table format.
 **Example:**
 ```bash
 # View all tool calls
-pnpm run cli sessions tools c15a9952
+pnpm run cli -- sessions tools c15a9952
 
 # View only Bash commands
-pnpm run cli sessions tools c15a9952 --tool Bash
+pnpm run cli -- sessions tools c15a9952 --tool Bash
 ```
 
 **Output:**
@@ -447,16 +447,16 @@ Index sessions using LLM analysis for intelligent search.
 **Example:**
 ```bash
 # Index with default settings
-dotenvx run -- pnpm run cli sessions index
+pnpm run cli -- sessions index
 
 # Index with verbose output
-dotenvx run -- pnpm run cli sessions index --verbose
+pnpm run cli -- sessions index --verbose
 
 # Force reindex everything
-dotenvx run -- pnpm run cli sessions index --force
+pnpm run cli -- sessions index --force
 
 # Use a different model
-dotenvx run -- pnpm run cli sessions index --model google:gemini-3-flash-preview
+pnpm run cli -- sessions index --model google:gemini-3-flash-preview
 ```
 
 **Output:**
@@ -524,16 +524,16 @@ Search indexed sessions by keywords, tags, topics, or filters.
 **Example:**
 ```bash
 # Search for sessions about React
-dotenvx run -- pnpm run cli sessions search "react hooks"
+pnpm run cli -- sessions search "react hooks"
 
 # Search with multiple filters
-dotenvx run -- pnpm run cli sessions search "debugging" \
+pnpm run cli -- sessions search "debugging" \
   --tags typescript,testing \
   --type bug-fix \
   --success yes
 
 # Search for sessions using specific tools
-dotenvx run -- pnpm run cli sessions search --tool Dagger --limit 5
+pnpm run cli -- sessions search --tool Dagger --limit 5
 ```
 
 **Output:**
@@ -586,7 +586,7 @@ Aggregate analysis across all indexed sessions.
 View the most common topics across all sessions:
 
 ```bash
-dotenvx run -- pnpm run cli sessions analyze --type topics
+pnpm run cli -- sessions analyze --type topics
 ```
 
 **Output:**
@@ -605,7 +605,7 @@ Top Topics (20 found):
 View tool usage patterns and frequency:
 
 ```bash
-dotenvx run -- pnpm run cli sessions analyze --type tools
+pnpm run cli -- sessions analyze --type tools
 ```
 
 **Output:**
@@ -623,7 +623,7 @@ Tool Usage Analysis (20 tools):
 View solution types, success rates, and language breakdown:
 
 ```bash
-dotenvx run -- pnpm run cli sessions analyze --type patterns
+pnpm run cli -- sessions analyze --type patterns
 ```
 
 **Output:**
@@ -653,7 +653,7 @@ Languages:
 Quickly find how you solved a similar problem before:
 
 ```bash
-dotenvx run -- pnpm run cli sessions search "infinite loop" --tags react,hooks
+pnpm run cli -- sessions search "infinite loop" --tags react,hooks
 ```
 
 ### Learning Patterns
@@ -661,8 +661,8 @@ dotenvx run -- pnpm run cli sessions search "infinite loop" --tags react,hooks
 Identify what tools and approaches work best:
 
 ```bash
-dotenvx run -- pnpm run cli sessions analyze --type tools
-dotenvx run -- pnpm run cli sessions analyze --type patterns
+pnpm run cli -- sessions analyze --type tools
+pnpm run cli -- sessions analyze --type patterns
 ```
 
 ### Project Knowledge Base
@@ -671,10 +671,10 @@ Build a searchable knowledge base of project work:
 
 ```bash
 # Index sessions periodically (e.g., via cron)
-dotenvx run -- pnpm run cli sessions index
+pnpm run cli -- sessions index
 
 # Search across all work
-dotenvx run -- pnpm run cli sessions search "authentication"
+pnpm run cli -- sessions search "authentication"
 ```
 
 ### Success Analysis
@@ -682,7 +682,7 @@ dotenvx run -- pnpm run cli sessions search "authentication"
 Understand success patterns in your development workflow:
 
 ```bash
-dotenvx run -- pnpm run cli sessions search --success yes --type feature
+pnpm run cli -- sessions search --success yes --type feature
 ```
 
 ## Advanced Usage
@@ -701,7 +701,7 @@ PROJECTS=(
 
 for project in "${PROJECTS[@]}"; do
   echo "Indexing $project..."
-  dotenvx run -- pnpm run cli sessions index --project "$project"
+  pnpm run cli -- sessions index --project "$project"
 done
 ```
 
@@ -711,7 +711,7 @@ Set up a cron job to index sessions daily:
 
 ```cron
 # Run daily at 2 AM
-0 2 * * * cd /path/to/umwelten && dotenvx run -- pnpm run cli sessions index
+0 2 * * * cd /path/to/umwelten && pnpm run cli -- sessions index
 ```
 
 ### Custom Queries
@@ -720,7 +720,7 @@ Combine filters for precise searches:
 
 ```bash
 # Find successful React features from last month
-dotenvx run -- pnpm run cli sessions search "component" \
+pnpm run cli -- sessions search "component" \
   --tags react,typescript \
   --type feature \
   --success yes \
@@ -766,8 +766,8 @@ If you see "API key not found":
 # Ensure GOOGLE_GENERATIVE_AI_API_KEY is set
 export GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
 
-# Or use dotenvx to load from .env
-dotenvx run -- pnpm run cli sessions index
+# Or just keep the credentials in a local `.env` file
+pnpm run cli -- sessions index
 ```
 
 ### No Sessions Found

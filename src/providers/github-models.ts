@@ -23,7 +23,7 @@ export class GitHubModelsProvider extends BaseProvider {
 
   // List available models from GitHub Models
   // Fetches from: https://models.github.ai/catalog/models
-  // Requires GITHUB_TOKEN environment variable (use dotenvx run to load from .env)
+  // Requires GITHUB_TOKEN in the environment (typically loaded from a local .env file)
   async listModels(): Promise<ModelDetails[]> {
     const response = await fetch('https://models.github.ai/catalog/models', {
       headers: {

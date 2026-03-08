@@ -41,23 +41,23 @@ cp env.template .env
 
 ### CLI Usage
 
-All CLI commands need `dotenvx run --` to load API keys from `.env`:
+All CLI commands automatically load the nearest `.env` file:
 
 ```bash
 # List available models
-dotenvx run -- pnpm run cli -- models --provider google
+pnpm run cli -- models --provider google
 
 # Run a simple prompt
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
 
 # Interactive chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Chat with memory
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
 
 # Run evaluation across providers
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Make a space invader game in a single html file" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview,ollama:qwen3:latest" \
   --id "space-game" \
@@ -70,13 +70,13 @@ Start a full agent environment with tools, sessions, and sub-agents:
 
 ```bash
 # Start the habitat REPL
-dotenvx run -- pnpm run cli -- habitat
+pnpm run cli -- habitat
 
 # Start as a Telegram bot
-dotenvx run -- pnpm run cli -- habitat telegram
+pnpm run cli -- habitat telegram
 
 # Launch the web UI
-dotenvx run -- pnpm run cli -- habitat web
+pnpm run cli -- habitat web
 ```
 
 ## Core Features

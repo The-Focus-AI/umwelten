@@ -12,9 +12,10 @@
  * - Previous provisioning is fed back as an LLM hint to reduce re-planning
  *
  * Usage:
- *   dotenvx run -- npx tsx src/habitat/bridge/spikes/09-fast-startup.ts [repo-url]
+ *   npx tsx src/habitat/bridge/spikes/09-fast-startup.ts [repo-url]
  */
 
+import '../../../env/load.js';
 import { dag, connection } from "@dagger.io/dagger";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";

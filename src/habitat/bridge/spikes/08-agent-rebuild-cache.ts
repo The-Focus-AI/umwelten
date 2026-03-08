@@ -8,9 +8,10 @@
  * - Compare timings (second should be faster when cache is reused)
  *
  * Usage:
- *   dotenvx run -- npx tsx src/habitat/bridge/spikes/08-agent-rebuild-cache.ts [repo-url]
+ *   npx tsx src/habitat/bridge/spikes/08-agent-rebuild-cache.ts [repo-url]
  */
 
+import '../../../env/load.js';
 import { dag, connection } from "@dagger.io/dagger";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";

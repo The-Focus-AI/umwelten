@@ -6,9 +6,10 @@
  * No service startup in this spike.
  *
  * Usage:
- *   dotenvx run -- npx tsx src/habitat/bridge/spikes/07-agent-install-llm.ts [repo-url]
+ *   npx tsx src/habitat/bridge/spikes/07-agent-install-llm.ts [repo-url]
  */
 
+import '../../../env/load.js';
 import { dag, connection } from "@dagger.io/dagger";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";

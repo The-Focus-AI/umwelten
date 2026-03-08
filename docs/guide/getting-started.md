@@ -56,20 +56,20 @@ pnpm build
 
 ## CLI Usage
 
-All CLI commands should be prefixed with `dotenvx run --` to load API keys from `.env`:
+All CLI commands automatically load the nearest `.env` file:
 
 ```bash
 # List available models from a provider
-dotenvx run -- pnpm run cli -- models --provider google
+pnpm run cli -- models --provider google
 
 # Run a simple prompt
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
 
 # Interactive chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Chat with memory (remembers facts across messages)
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
 ```
 
 ## Your First Script
@@ -106,7 +106,7 @@ if (response.metadata.cost) {
 
 Run it:
 ```bash
-dotenvx run -- pnpm tsx my-first-script.ts
+pnpm tsx my-first-script.ts
 ```
 
 ## Structured Output
@@ -196,10 +196,10 @@ For a full agent environment with tools, sessions, and persistence:
 
 ```bash
 # Start the habitat REPL
-dotenvx run -- pnpm run cli -- habitat
+pnpm run cli -- habitat
 
 # Start as a Telegram bot
-dotenvx run -- pnpm run cli -- habitat telegram
+pnpm run cli -- habitat telegram
 ```
 
 The habitat provides:
@@ -293,11 +293,11 @@ console.log(response.content);
 
 ### API Key Errors
 - Verify your API keys in `.env`
-- Make sure to use `dotenvx run --` prefix when running commands
+- Make sure your API keys are available in a `.env` file
 - Google uses `GOOGLE_GENERATIVE_AI_API_KEY` (not `GOOGLE_API_KEY`)
 
 ### Model Not Found
-- Run `dotenvx run -- pnpm run cli -- models --provider <provider>` to see available models
+- Run `pnpm run cli -- models --provider <provider>` to see available models
 - Model names must exactly match the provider's naming
 
 ### Rate Limit Errors

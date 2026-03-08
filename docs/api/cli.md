@@ -5,8 +5,8 @@ The CLI provides the command-line interface for Umwelten, built with Commander.j
 ## Overview
 
 ```bash
-# Always run with dotenvx to load API keys from .env
-dotenvx run -- pnpm run cli -- <command> [options]
+# CLI commands automatically load the nearest `.env` file
+pnpm run cli -- <command> [options]
 ```
 
 Available commands: `models`, `run`, `chat`, `eval`, `sessions`, `telegram`, `habitat`, `tools`.
@@ -19,14 +19,14 @@ List available models across providers.
 
 ```bash
 # List all models from a provider
-dotenvx run -- pnpm run cli -- models --provider google
-dotenvx run -- pnpm run cli -- models --provider openrouter
-dotenvx run -- pnpm run cli -- models --provider ollama
-dotenvx run -- pnpm run cli -- models --provider minimax
-dotenvx run -- pnpm run cli -- models --provider fireworks
+pnpm run cli -- models --provider google
+pnpm run cli -- models --provider openrouter
+pnpm run cli -- models --provider ollama
+pnpm run cli -- models --provider minimax
+pnpm run cli -- models --provider fireworks
 
 # JSON output
-dotenvx run -- pnpm run cli -- models --provider google --json
+pnpm run cli -- models --provider google --json
 ```
 
 **Options**:
@@ -40,10 +40,10 @@ Execute a single prompt with a model.
 
 ```bash
 # Basic usage
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
 
 # With file attachment
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview --file image.jpg "Describe this image"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview --file image.jpg "Describe this image"
 ```
 
 **Options**:
@@ -60,10 +60,10 @@ Interactive chat mode with AI models.
 
 ```bash
 # Start interactive chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Chat with memory enabled
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
 ```
 
 **Options**:
@@ -79,7 +79,7 @@ Run model evaluations.
 
 ```bash
 # Run an evaluation script
-dotenvx run -- pnpm run cli -- eval --script scripts/google-pricing.ts
+pnpm run cli -- eval --script scripts/google-pricing.ts
 ```
 
 **Options**:
@@ -92,10 +92,10 @@ Manage conversation sessions.
 
 ```bash
 # List sessions
-dotenvx run -- pnpm run cli -- sessions list
+pnpm run cli -- sessions list
 
 # Show a specific session
-dotenvx run -- pnpm run cli -- sessions show <session-id>
+pnpm run cli -- sessions show <session-id>
 ```
 
 ### `telegram`
@@ -104,10 +104,10 @@ Start a Telegram bot for interactive AI conversations.
 
 ```bash
 # Start Telegram bot (requires TELEGRAM_BOT_TOKEN env var)
-dotenvx run -- pnpm run cli -- telegram --provider google --model gemini-3-flash-preview
+pnpm run cli -- telegram --provider google --model gemini-3-flash-preview
 
 # With memory enabled
-dotenvx run -- pnpm run cli -- telegram --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- telegram --provider google --model gemini-3-flash-preview --memory
 ```
 
 **Options**:
@@ -136,13 +136,13 @@ Managed agent environment with tools, sessions, and persistence.
 
 ```bash
 # Start habitat REPL
-dotenvx run -- pnpm run cli -- habitat
+pnpm run cli -- habitat
 
 # Start habitat as Telegram bot
-dotenvx run -- pnpm run cli -- habitat telegram
+pnpm run cli -- habitat telegram
 
 # Initialize a new habitat in a directory
-dotenvx run -- pnpm run cli -- habitat --work-dir ./my-agent
+pnpm run cli -- habitat --work-dir ./my-agent
 ```
 
 **Options**:
@@ -163,13 +163,13 @@ List and demo available tools.
 
 ```bash
 # List all tools
-dotenvx run -- pnpm run cli -- tools list
+pnpm run cli -- tools list
 
 # Run interactive tool demo
-dotenvx run -- pnpm run cli -- tools demo
+pnpm run cli -- tools demo
 
 # Demo with custom prompt
-dotenvx run -- pnpm run cli -- tools demo --prompt "Calculate 25 * 4"
+pnpm run cli -- tools demo --prompt "Calculate 25 * 4"
 ```
 
 **Options**:
@@ -226,6 +226,6 @@ TAVILY_API_KEY=your_key
 
 ## Usage Notes
 
-- Always prefix commands with `dotenvx run --` to load `.env` API keys
+- CLI commands load `.env` automatically; keep your API keys in a local `.env` file
 - Use `pnpm run cli --` to run during development (no build needed)
 - Local providers (Ollama, LM Studio) require their servers to be running

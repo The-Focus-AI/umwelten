@@ -10,12 +10,13 @@
  * with both responses/ and results/ so you can compare across runs.
  *
  * Usage:
- *   dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts          # local test (3 models), defaults to latest run
- *   dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts --all    # full suite, defaults to latest run (cached)
- *   dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts --all --new    # fresh run (new run number)
- *   dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts --all --run 4  # re-use specific run
+ *   pnpm tsx scripts/examples/car-wash-test.ts          # local test (3 models), defaults to latest run
+ *   pnpm tsx scripts/examples/car-wash-test.ts --all    # full suite, defaults to latest run (cached)
+ *   pnpm tsx scripts/examples/car-wash-test.ts --all --new    # fresh run (new run number)
+ *   pnpm tsx scripts/examples/car-wash-test.ts --all --run 4  # re-use specific run
  */
 
+import '../../src/env/load.js';
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
@@ -28,7 +29,7 @@ import { ModelDetails } from '../../src/cognition/types.js';
 
 // ── Models to evaluate ──────────────────────────────────────────────────────
 // Matching https://opper.ai/blog/car-wash-test as closely as possible.
-// Discover available models with: dotenvx run -- pnpm run cli models --search <query>
+// Discover available models with: pnpm run cli -- models --search <query>
 
 // Full model list — uncomment ALL_MODELS and set MODELS = ALL_MODELS to run the full suite.
 // For a quick local test, use the small MODELS array below.

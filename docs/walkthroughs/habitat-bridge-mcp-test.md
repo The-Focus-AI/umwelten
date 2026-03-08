@@ -5,14 +5,14 @@ This guide walks through testing the Bridge MCP system manually.
 ## Prerequisites
 
 - Docker running (for Dagger containers)
-- Environment variables: `dotenvx` configured with `.env`
+- Environment variables: available in a local `.env` file
 - Dependencies installed: `pnpm install`
 - An agent registered with `gitRemote` in `~/habitats/config.json`
 
 ## Starting the Bridge
 
 ```bash
-dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
+pnpm run cli -- habitat agent start trmnl-image-agent
 ```
 
 This will:

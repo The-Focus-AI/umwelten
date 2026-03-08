@@ -24,7 +24,7 @@ cp env.example .env
 # Edit .env and set at least JEEVES_WORK_DIR and any API keys / Telegram token.
 ```
 
-Load it before running (e.g. `set -a && source .env && set +a`, or use [dotenv](https://www.npmjs.com/package/dotenv)/[dotenvx](https://github.com/dotenvx/dotenvx)). For a quick local test without touching `~/.jeeves`, see [Testing the work directory](#testing-the-work-directory).
+Load it before running (for example `set -a && source .env && set +a`, or any equivalent `.env` loader). For a quick local test without touching `~/.jeeves`, see [Testing the work directory](#testing-the-work-directory).
 
 - **JEEVES_WORK_DIR**: Main work folder for agent config, memories, facts, and journal. Default if unset: `~/.jeeves`. Use an absolute path (or path relative to the current working directory).
 - **JEEVES_SESSIONS_DIR**: Sessions directory for storing all interactions, media files, and downloaded content. Each session gets its own subdirectory. Default if unset: `~/.jeeves-sessions`. Media from Telegram, large downloads from `wget` or `markify` go here.
