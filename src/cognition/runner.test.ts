@@ -3,7 +3,7 @@
  * Ensures messages after a tool round pass AI SDK standardizePrompt (ModelMessage[]).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { z } from 'zod';
 import type { CoreMessage } from 'ai';
 import { modelMessageSchema } from 'ai';
@@ -17,6 +17,24 @@ function normalizeViaRunner(messages: CoreMessage[]): CoreMessage[] {
   const runner = new BaseModelRunner();
   return (runner as unknown as { normalizeToModelMessages(m: CoreMessage[]): CoreMessage[] }).normalizeToModelMessages(messages);
 }
+
+function makeInteraction() {
+  return new Interaction(
+    {
+      provider: 'minimax',
+      name: 'MiniMax-M2.5',
+      costs: {
+        promptTokens: 0.3,
+        completionTokens: 1.2,
+      },
+    },
+    new Stimulus({ role: 'assistant' }),
+  );
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('Runner ModelMessage normalization', () => {
   it('normalizes assistant tool-call parts (args->input, experimental_providerMetadata->providerOptions)', () => {
@@ -399,5 +417,66 @@ describe('Runner ModelMessage normalization', () => {
     expect(agent.id).toBe('trmnl-image-agent');
     expect('secretsRefs' in agent).toBe(false);
     expect('commands' in agent).toBe(false);
+  });
+});
+
+describe('Runner token usage normalization', () => {
+  it('uses inputTokens/outputTokens without warning and calculates cost', async () => {
+    const runner = new BaseModelRunner();
+    const interaction = makeInteraction();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await runner.makeResult({
+      response: {},
+      content: 'Hello from MiniMax',
+      usage: {
+        inputTokens: 120,
+        outputTokens: 45,
+        totalTokens: 165,
+        reasoningTokens: 12,
+        cachedInputTokens: 5,
+      },
+      interaction,
+      startTime: new Date('2026-01-01T00:00:00.000Z'),
+      modelIdString: 'minimax/MiniMax-M2.5',
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(result.metadata.tokenUsage).toEqual({
+      promptTokens: 120,
+      completionTokens: 45,
+      total: 165,
+    });
+    expect(result.metadata.cost?.usage).toEqual({
+      promptTokens: 120,
+      completionTokens: 45,
+      total: 165,
+    });
+  });
+
+  it('preserves zero token values instead of treating them as missing', async () => {
+    const runner = new BaseModelRunner();
+    const interaction = makeInteraction();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await runner.makeResult({
+      response: {},
+      content: '',
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
+      interaction,
+      startTime: new Date('2026-01-01T00:00:00.000Z'),
+      modelIdString: 'minimax/MiniMax-M2.5',
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(result.metadata.tokenUsage).toEqual({
+      promptTokens: 0,
+      completionTokens: 0,
+      total: 0,
+    });
   });
 });

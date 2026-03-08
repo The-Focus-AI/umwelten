@@ -148,22 +148,47 @@ export class BaseModelRunner implements ModelRunner {
     return { model, modelIdString };
   }
 
+  private normalizeTokenUsage(
+    usage: any,
+  ): { promptTokens: number; completionTokens: number; total?: number } | null {
+    if (!usage) {
+      return null;
+    }
+
+    const promptTokens =
+      usage?.promptTokens ??
+      usage?.inputTokens ??
+      usage?.prompt_tokens ??
+      usage?.input_tokens;
+    const completionTokens =
+      usage?.completionTokens ??
+      usage?.outputTokens ??
+      usage?.completion_tokens ??
+      usage?.output_tokens;
+
+    if (promptTokens === undefined || completionTokens === undefined) {
+      return null;
+    }
+
+    return {
+      promptTokens,
+      completionTokens,
+      total:
+        usage?.totalTokens ??
+        usage?.total ??
+        usage?.total_tokens ??
+        promptTokens + completionTokens,
+    };
+  }
+
   private calculateCostBreakdown(
     usage: any,
     params: { modelDetails: ModelDetails },
   ): any {
-    // Normalize token field names — Vercel AI SDK uses inputTokens/outputTokens
-    const promptTokens =
-      usage?.promptTokens ?? usage?.inputTokens ?? usage?.prompt_tokens ?? usage?.input_tokens;
-    const completionTokens =
-      usage?.completionTokens ?? usage?.outputTokens ?? usage?.completion_tokens ?? usage?.output_tokens;
+    const normalizedUsage = this.normalizeTokenUsage(usage);
 
-    return usage && promptTokens !== undefined && completionTokens !== undefined
-      ? calculateCost(params.modelDetails, {
-          promptTokens,
-          completionTokens,
-          total: usage.totalTokens || promptTokens + completionTokens,
-        })
+    return normalizedUsage
+      ? calculateCost(params.modelDetails, normalizedUsage)
       : null;
   }
 
@@ -1070,23 +1095,9 @@ export class BaseModelRunner implements ModelRunner {
       modelDetails: interaction.modelDetails,
     });
 
-    // Handle different token usage formats (Vercel AI SDK uses inputTokens/outputTokens, Ollama uses inputTokens/outputTokens)
-    const promptTokens =
-      usage?.promptTokens ||
-      usage?.inputTokens ||
-      usage?.prompt_tokens ||
-      usage?.input_tokens;
-    const completionTokens =
-      usage?.completionTokens ||
-      usage?.outputTokens ||
-      usage?.completion_tokens ||
-      usage?.output_tokens;
+    const normalizedUsage = this.normalizeTokenUsage(usage);
 
-    if (
-      !usage ||
-      promptTokens === undefined ||
-      completionTokens === undefined
-    ) {
+    if (!normalizedUsage) {
       console.warn(
         `Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`,
       );
@@ -1282,10 +1293,9 @@ export class BaseModelRunner implements ModelRunner {
         startTime,
         endTime: new Date(),
         tokenUsage: {
-          promptTokens: promptTokens || 0,
-          completionTokens: completionTokens || 0,
-          total:
-            usage?.totalTokens || (promptTokens || 0) + (completionTokens || 0),
+          promptTokens: normalizedUsage?.promptTokens ?? 0,
+          completionTokens: normalizedUsage?.completionTokens ?? 0,
+          total: normalizedUsage?.total ?? 0,
         },
         cost: costBreakdown || undefined,
         // costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
