@@ -6,3 +6,6 @@ export { FunctionEvaluationRunner } from './evaluate.js';
 // API functions
 export { runEvaluation, generateReport, listEvaluations, runEvaluationWithProgress } from './api.js';
 export type { EvaluationConfig, EvaluationResult, EnhancedEvaluationConfig } from './api.js';
+
+// Ranking
+export * from './ranking/index.js';
