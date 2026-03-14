@@ -1,6 +1,6 @@
 {
   "name": "umwelten",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "bin": {
     "umwelten": "dist/cli/entry.js"
