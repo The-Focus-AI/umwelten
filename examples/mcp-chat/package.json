@@ -3,6 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "cli": "tsx cli.ts"
+    "cli": "tsx cli.ts",
+    "eval-rivian": "tsx eval-rivian.ts",
+    "eval-rivian:all": "tsx eval-rivian.ts --all",
+    "eval-rivian:new": "tsx eval-rivian.ts --all --new",
+    "report-rivian": "tsx report-rivian.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }

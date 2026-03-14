@@ -31,13 +31,13 @@ npx tsx src/habitat/bridge/spikes/02-llm-container-build.ts
 npx tsx src/habitat/bridge/spikes/04-service-startup.ts
 
 # Test focused LLM build + validation only
-dotenvx run -- npx tsx src/habitat/bridge/spikes/07-agent-install-llm.ts
+npx tsx src/habitat/bridge/spikes/07-agent-install-llm.ts
 
 # Test rebuild speed/cache behavior (same build twice)
-dotenvx run -- npx tsx src/habitat/bridge/spikes/08-agent-rebuild-cache.ts
+npx tsx src/habitat/bridge/spikes/08-agent-rebuild-cache.ts
 
 # Single-script "fast startup" flow
-dotenvx run -- npx tsx src/habitat/bridge/spikes/09-fast-startup.ts
+npx tsx src/habitat/bridge/spikes/09-fast-startup.ts
 
 # Use a different repo
 npx tsx src/habitat/bridge/spikes/02-llm-container-build.ts https://github.com/some/repo
