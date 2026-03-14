@@ -13,7 +13,7 @@ Batch processing allows you to evaluate multiple files with the same prompt acro
 Process all files in a directory:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this document and provide a summary" \
   --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "document-analysis" \
@@ -28,7 +28,7 @@ Use glob patterns to target specific files:
 
 ```bash
 # Process only JPEG images
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Describe this image in detail" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-descriptions" \
@@ -37,7 +37,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --concurrent
 
 # Process files with specific naming patterns
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this report" \
   --models "google:gemini-3-flash-preview" \
   --id "monthly-reports" \
@@ -50,7 +50,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 Process files in subdirectories:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Categorize this document by type and content" \
   --models "google:gemini-3-flash-preview" \
   --id "document-categorization" \
@@ -67,7 +67,7 @@ Optimize processing speed with concurrency settings:
 
 ```bash
 # High concurrency for fast processing
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract key information from this file" \
   --models "google:gemini-3-flash-preview" \
   --id "high-speed-processing" \
@@ -77,7 +77,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --max-concurrency 8
 
 # Conservative concurrency to avoid rate limits
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Detailed analysis of this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "detailed-analysis" \
@@ -93,7 +93,7 @@ Control the number of files processed:
 
 ```bash
 # Process only the first 10 files (for testing)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this document" \
   --models "google:gemini-3-flash-preview" \
   --id "test-batch" \
@@ -103,7 +103,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --concurrent
 
 # Process all files (default behavior)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Full analysis" \
   --models "google:gemini-3-flash-preview" \
   --id "complete-batch" \
@@ -117,7 +117,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 Continue from where you left off:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Continue processing from where we left off" \
   --models "google:gemini-3-flash-preview" \
   --id "large-document-batch" \
@@ -134,7 +134,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 Apply structured output schemas to batch processing:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract structured metadata from this document" \
   --models "google:gemini-3-flash-preview" \
   --id "metadata-extraction" \
@@ -149,7 +149,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 Use TypeScript schemas for complex validation:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this image and extract detailed features" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-feature-batch" \
@@ -167,7 +167,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 Watch batch processing progress in real-time:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process this file and extract insights" \
   --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "interactive-batch" \
@@ -184,7 +184,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # PDF documents
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Summarize this PDF document in 200 words" \
   --models "google:gemini-3-flash-preview" \
   --id "pdf-summaries" \
@@ -193,7 +193,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --concurrent
 
 # Text files
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze the sentiment and key themes in this text" \
   --models "ollama:gemma3:12b" \
   --id "text-analysis" \
@@ -206,7 +206,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Photo analysis
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Describe this photo including objects, setting, and mood" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "photo-descriptions" \
@@ -215,7 +215,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --concurrent
 
 # Screenshot analysis
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Identify the type of application or website in this screenshot" \
   --models "google:gemini-3-flash-preview" \
   --id "screenshot-classification" \
@@ -228,7 +228,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # All supported file types
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this file and determine its content type and key information" \
   --models "google:gemini-3-flash-preview" \
   --id "mixed-media-analysis" \
@@ -265,16 +265,16 @@ output/evaluations/batch-id/
 
 ```bash
 # Comprehensive markdown report
-dotenvx run -- pnpm run cli -- eval report --id document-analysis --format markdown
+pnpm run cli -- eval report --id document-analysis --format markdown
 
 # HTML report with rich formatting
-dotenvx run -- pnpm run cli -- eval report --id image-descriptions --format html --output batch-report.html
+pnpm run cli -- eval report --id image-descriptions --format html --output batch-report.html
 
 # CSV export for data analysis
-dotenvx run -- pnpm run cli -- eval report --id metadata-extraction --format csv --output batch-results.csv
+pnpm run cli -- eval report --id metadata-extraction --format csv --output batch-results.csv
 
 # JSON for programmatic processing
-dotenvx run -- pnpm run cli -- eval report --id interactive-batch --format json
+pnpm run cli -- eval report --id interactive-batch --format json
 ```
 
 ## Performance Optimization
@@ -306,7 +306,7 @@ dotenvx run -- pnpm run cli -- eval report --id interactive-batch --format json
 
 ```bash
 # With timeout and validation
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this file with error handling" \
   --models "google:gemini-3-flash-preview" \
   --id "robust-batch" \
@@ -321,7 +321,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Resume after fixing issues
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Continue processing after resolving errors" \
   --models "google:gemini-3-flash-preview" \
   --id "robust-batch" \
@@ -337,7 +337,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Categorize and tag documents
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Categorize this document and extract tags" \
   --models "google:gemini-3-flash-preview" \
   --id "document-library" \
@@ -351,7 +351,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Screen content for appropriateness
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this content for safety and appropriateness" \
   --models "google:gemini-3-flash-preview" \
   --id "content-moderation" \
@@ -365,7 +365,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Extract structured data from forms
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract form data from this document" \
   --models "google:gemini-3-flash-preview" \
   --id "form-extraction" \
@@ -381,20 +381,20 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Show all batch evaluations
-dotenvx run -- pnpm run cli -- eval list --details
+pnpm run cli -- eval list --details
 
 # Filter for batch evaluations only
-dotenvx run -- pnpm run cli -- eval list --json | jq '.[] | select(.type == "batch")'
+pnpm run cli -- eval list --json | jq '.[] | select(.type == "batch")'
 ```
 
 ### Performance Analysis
 
 ```bash
 # Generate performance report
-dotenvx run -- pnpm run cli -- eval report --id large-batch --format json > performance.json
+pnpm run cli -- eval report --id large-batch --format json > performance.json
 
 # Analyze timing and costs
-dotenvx run -- pnpm run cli -- eval report --id document-batch --format csv --output analysis.csv
+pnpm run cli -- eval report --id document-batch --format csv --output analysis.csv
 ```
 
 ## Best Practices
@@ -431,7 +431,7 @@ dotenvx run -- pnpm run cli -- eval report --id document-batch --format csv --ou
 
 ```bash
 # Test single file from batch
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Test prompt" \
   --models "google:gemini-3-flash-preview" \
   --id "debug-single" \
@@ -441,7 +441,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ls ./directory/*.pdf | head -10
 
 # Check batch status
-dotenvx run -- pnpm run cli -- eval list --details | grep batch-id
+pnpm run cli -- eval list --details | grep batch-id
 ```
 
 ## Next Steps

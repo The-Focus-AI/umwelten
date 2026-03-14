@@ -16,12 +16,12 @@ First, list sessions for a project. Sessions from **Claude Code** and **Cursor**
 
 ```bash
 # Current directory
-pnpm run cli sessions list
+pnpm run cli -- sessions list
 
 # A different project (e.g. sibling repo)
-pnpm run cli sessions list -p ../thefocus-landing
+pnpm run cli -- sessions list -p ../thefocus-landing
 # or
-pnpm run cli sessions list --project /path/to/your/project
+pnpm run cli -- sessions list --project /path/to/your/project
 ```
 
 **Example Output:**
@@ -56,7 +56,7 @@ This shows:
 To see details about a specific session:
 
 ```bash
-pnpm run cli sessions show 2c0e713c --project /path/to/your/project
+pnpm run cli -- sessions show 2c0e713c --project /path/to/your/project
 ```
 
 **Example Output:**
@@ -104,7 +104,7 @@ This displays:
 To see the actual messages exchanged in a session:
 
 ```bash
-pnpm run cli sessions messages 2c0e713c --project /path/to/your/project
+pnpm run cli -- sessions messages 2c0e713c --project /path/to/your/project
 ```
 
 **Example Output:**
@@ -141,16 +141,16 @@ Tool calls are displayed inline with messages, showing:
 
 ```bash
 # Show only user messages
-pnpm run cli sessions messages 2c0e713c --user-only
+pnpm run cli -- sessions messages 2c0e713c --user-only
 
 # Show only assistant responses
-pnpm run cli sessions messages 2c0e713c --assistant-only
+pnpm run cli -- sessions messages 2c0e713c --assistant-only
 
 # Show the last 5 messages
-pnpm run cli sessions messages 2c0e713c --limit 5
+pnpm run cli -- sessions messages 2c0e713c --limit 5
 
 # Get full JSON output (includes raw content)
-pnpm run cli sessions messages 2c0e713c --json
+pnpm run cli -- sessions messages 2c0e713c --json
 ```
 
 ## Step 4: View Tool Calls
@@ -158,7 +158,7 @@ pnpm run cli sessions messages 2c0e713c --json
 To see what tools were used in a session:
 
 ```bash
-pnpm run cli sessions tools 2c0e713c --project /path/to/your/project
+pnpm run cli -- sessions tools 2c0e713c --project /path/to/your/project
 ```
 
 **Example Output:**
@@ -183,10 +183,10 @@ Found 35 tool call(s)
 
 ```bash
 # Show only Bash commands
-pnpm run cli sessions tools 2c0e713c --tool Bash
+pnpm run cli -- sessions tools 2c0e713c --tool Bash
 
 # Show only file edits
-pnpm run cli sessions tools 2c0e713c --tool Edit
+pnpm run cli -- sessions tools 2c0e713c --tool Edit
 ```
 
 ## Step 5: Index Sessions with LLM Analysis
@@ -195,10 +195,10 @@ Index **all** sessions (Claude Code and Cursor) so search covers everything you 
 
 ```bash
 # Current project
-dotenvx run -- pnpm run cli sessions index
+pnpm run cli -- sessions index
 
 # Different project
-dotenvx run -- pnpm run cli sessions index -p ../thefocus-landing
+pnpm run cli -- sessions index -p ../thefocus-landing
 ```
 
 This will:
@@ -216,13 +216,13 @@ Once indexed, you can search semantically:
 
 ```bash
 # Find sessions about a specific topic
-dotenvx run -- pnpm run cli sessions search "authentication" -p /path/to/your/project
+pnpm run cli -- sessions search "authentication" -p /path/to/your/project
 
 # Filter by tags
-dotenvx run -- pnpm run cli sessions search "debugging" --tags typescript,testing -p /path/to/your/project
+pnpm run cli -- sessions search "debugging" --tags typescript,testing -p /path/to/your/project
 
 # Find successful solutions
-dotenvx run -- pnpm run cli sessions search --success yes --type feature -p /path/to/your/project
+pnpm run cli -- sessions search --success yes --type feature -p /path/to/your/project
 ```
 
 **Example Output:**
@@ -284,13 +284,13 @@ Discover trends across all your work:
 
 ```bash
 # What topics have you worked on most?
-dotenvx run -- pnpm run cli sessions analyze --type topics --project /path/to/your/project
+pnpm run cli -- sessions analyze --type topics --project /path/to/your/project
 
 # What tools/frameworks are you using?
-dotenvx run -- pnpm run cli sessions analyze --type tools --project /path/to/your/project
+pnpm run cli -- sessions analyze --type tools --project /path/to/your/project
 
 # What types of work are you doing? (features, bug fixes, etc.)
-dotenvx run -- pnpm run cli sessions analyze --type patterns --project /path/to/your/project
+pnpm run cli -- sessions analyze --type patterns --project /path/to/your/project
 ```
 
 **Example Topics Output:**
@@ -357,7 +357,7 @@ Languages:
 "How did I solve that React infinite loop issue last month?"
 
 ```bash
-dotenvx run -- pnpm run cli sessions search "infinite loop" --tags react --project /path/to/your/project
+pnpm run cli -- sessions search "infinite loop" --tags react --project /path/to/your/project
 ```
 
 ### Understanding Project Focus
@@ -365,7 +365,7 @@ dotenvx run -- pnpm run cli sessions search "infinite loop" --tags react --proje
 "What have I been working on most in this project?"
 
 ```bash
-dotenvx run -- pnpm run cli sessions analyze --type topics --project /path/to/your/project
+pnpm run cli -- sessions analyze --type topics --project /path/to/your/project
 ```
 
 ### Success Analysis
@@ -373,7 +373,7 @@ dotenvx run -- pnpm run cli sessions analyze --type topics --project /path/to/yo
 "What approaches have worked best?"
 
 ```bash
-dotenvx run -- pnpm run cli sessions search --success yes --limit 20 --project /path/to/your/project
+pnpm run cli -- sessions search --success yes --limit 20 --project /path/to/your/project
 ```
 
 ## Tips
@@ -386,7 +386,7 @@ dotenvx run -- pnpm run cli sessions search --success yes --limit 20 --project /
 
 3. **Combine Filters** - Mix search terms with filters for precise results:
    ```bash
-   dotenvx run -- pnpm run cli sessions search "performance" \
+   pnpm run cli -- sessions search "performance" \
      --tags typescript,optimization \
      --success yes \
      --type feature
@@ -394,7 +394,7 @@ dotenvx run -- pnpm run cli sessions search --success yes --limit 20 --project /
 
 4. **Export Sessions** - Save important sessions as markdown for documentation:
    ```bash
-   pnpm run cli sessions export <session-id> --output solution.md --project /path/to/your/project
+   pnpm run cli -- sessions export <session-id> --output solution.md --project /path/to/your/project
    ```
 
 ## Next Steps

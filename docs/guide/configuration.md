@@ -71,7 +71,7 @@ export GOOGLE_GENERATIVE_AI_API_KEY="AIza..."
 
 **Configuration Example**:
 ```bash
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --provider google \
   --model gemini-3-flash-preview \
   --temperature 0.7 \
@@ -99,7 +99,7 @@ ollama pull codestral:latest  # Code model
 **Configuration**:
 ```bash
 # Default configuration (localhost:11434)
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --provider ollama \
   --model gemma3:12b \
   "Your prompt here"
@@ -168,7 +168,7 @@ Configure LM Studio for local model hosting:
 # Default configuration (localhost:1234)
 export LMSTUDIO_BASE_URL="http://localhost:1234"
 
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --provider lmstudio \
   --model your-loaded-model \
   "Your prompt here"
@@ -239,13 +239,13 @@ Set appropriate timeouts based on task complexity:
 
 ```bash
 # Simple tasks (30 seconds default)
-dotenvx run -- pnpm run cli -- run --timeout 30000 "Simple question"
+pnpm run cli -- run --timeout 30000 "Simple question"
 
 # Complex analysis (2 minutes)
-dotenvx run -- pnpm run cli -- eval run --timeout 120000 --prompt "Complex analysis task"
+pnpm run cli -- eval run --timeout 120000 --prompt "Complex analysis task"
 
 # Large file processing (5 minutes)
-dotenvx run -- pnpm run cli -- eval run --timeout 300000 --file large-document.pdf "Analyze document"
+pnpm run cli -- eval run --timeout 300000 --file large-document.pdf "Analyze document"
 ```
 
 #### Concurrency Settings
@@ -254,13 +254,13 @@ Optimize concurrent processing based on your resources:
 
 ```bash
 # Conservative (good for API rate limits)
-dotenvx run -- pnpm run cli -- eval batch --max-concurrency 2
+pnpm run cli -- eval batch --max-concurrency 2
 
 # Balanced (default for most use cases)
-dotenvx run -- pnpm run cli -- eval batch --max-concurrency 5
+pnpm run cli -- eval batch --max-concurrency 5
 
 # Aggressive (high-performance systems)
-dotenvx run -- pnpm run cli -- eval batch --max-concurrency 10
+pnpm run cli -- eval batch --max-concurrency 10
 ```
 
 ## Output Configuration
@@ -274,7 +274,7 @@ Configure where evaluations are stored:
 export UMWELTEN_OUTPUT_DIR="/path/to/output"
 
 # Command line override
-dotenvx run -- pnpm run cli -- eval run --output-dir "./custom-output" "Your prompt"
+pnpm run cli -- eval run --output-dir "./custom-output" "Your prompt"
 ```
 
 ### Output Format Preferences
@@ -283,16 +283,16 @@ Set default output formats:
 
 ```bash
 # JSON (default)
-dotenvx run -- pnpm run cli -- eval report --id evaluation-name
+pnpm run cli -- eval report --id evaluation-name
 
 # HTML with styling
-dotenvx run -- pnpm run cli -- eval report --id evaluation-name --format html
+pnpm run cli -- eval report --id evaluation-name --format html
 
 # CSV for analysis
-dotenvx run -- pnpm run cli -- eval report --id evaluation-name --format csv
+pnpm run cli -- eval report --id evaluation-name --format csv
 
 # Markdown for documentation
-dotenvx run -- pnpm run cli -- eval report --id evaluation-name --format markdown
+pnpm run cli -- eval report --id evaluation-name --format markdown
 ```
 
 ## Security Configuration
@@ -309,7 +309,7 @@ export GOOGLE_GENERATIVE_AI_API_KEY="your-key"
 echo "*.env" >> .gitignore
 
 # Bad: Direct command line (visible in history)
-dotenvx run -- pnpm run cli -- run --api-key "your-key" "prompt"  # DON'T DO THIS
+pnpm run cli -- run --api-key "your-key" "prompt"  # DON'T DO THIS
 ```
 
 ### Local vs Remote Execution
@@ -319,10 +319,10 @@ Configure based on data sensitivity:
 ```bash
 # Sensitive data: Use local models only
 export DEFAULT_PROVIDER="ollama"
-dotenvx run -- pnpm run cli -- eval run --models "ollama:gemma3:12b" "Sensitive analysis"
+pnpm run cli -- eval run --models "ollama:gemma3:12b" "Sensitive analysis"
 
 # Public data: Use any provider
-dotenvx run -- pnpm run cli -- eval run --models "google:gemini-3-flash-preview" "Public analysis"
+pnpm run cli -- eval run --models "google:gemini-3-flash-preview" "Public analysis"
 ```
 
 ## Troubleshooting Configuration
@@ -333,15 +333,15 @@ Check your current configuration:
 
 ```bash
 # Test API connectivity
-dotenvx run -- pnpm run cli -- models list --provider google
-dotenvx run -- pnpm run cli -- models list --provider ollama
-dotenvx run -- pnpm run cli -- models list --provider openrouter
-dotenvx run -- pnpm run cli -- models list --provider github-models
-dotenvx run -- pnpm run cli -- models list --provider fireworks
-dotenvx run -- pnpm run cli -- models list --provider minimax
+pnpm run cli -- models list --provider google
+pnpm run cli -- models list --provider ollama
+pnpm run cli -- models list --provider openrouter
+pnpm run cli -- models list --provider github-models
+pnpm run cli -- models list --provider fireworks
+pnpm run cli -- models list --provider minimax
 
 # Test basic functionality
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
 ```
 
 ### Common Configuration Issues
@@ -353,7 +353,7 @@ dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-prev
 echo $GOOGLE_GENERATIVE_AI_API_KEY
 
 # Test API key validity
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Test"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview "Test"
 ```
 
 #### Network Issues
@@ -401,7 +401,7 @@ MAX_CONCURRENCY=8
 
 # Load specific environment
 source config/production.env
-dotenvx run -- pnpm run cli -- eval batch --directory ./data
+pnpm run cli -- eval batch --directory ./data
 ```
 
 ### Team Configuration
@@ -424,7 +424,7 @@ dotenvx run -- pnpm run cli -- eval batch --directory ./data
 }
 
 # Use shared configuration
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --config shared-config.json \
   --directory ./team-data
 ```
@@ -442,7 +442,7 @@ env:
 steps:
   - name: Run Evaluation
     run: |
-      dotenvx run -- pnpm run cli -- eval batch \
+      pnpm run cli -- eval batch \
         --models "google:gemini-3-flash-preview" \
         --directory "./test-data" \
         --max-concurrency 2 \

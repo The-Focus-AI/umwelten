@@ -63,8 +63,8 @@ const MODELS = process.argv.includes('--all') ? ALL_MODELS : LOCAL_TEST_MODELS;
 **Tip:** Discover available models with the CLI:
 
 ```bash
-dotenvx run -- pnpm run cli models --search gpt-5
-dotenvx run -- pnpm run cli models --provider ollama
+pnpm run cli -- models --search gpt-5
+pnpm run cli -- models --provider ollama
 ```
 
 ## Step 2: Set Up the Stimulus
@@ -357,16 +357,16 @@ This "correct for the right reason" distinction is important. A model that says 
 
 ```bash
 # Quick test with 3 models
-dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
+pnpm tsx scripts/examples/car-wash-test.ts
 
 # Full 131-model run (fresh)
-dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts --all --new
+pnpm tsx scripts/examples/car-wash-test.ts --all --new
 
 # Resume an interrupted run (reuses cached responses)
-dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts --all
+pnpm tsx scripts/examples/car-wash-test.ts --all
 
 # Re-run a specific previous run
-dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts --all --run 4
+pnpm tsx scripts/examples/car-wash-test.ts --all --run 4
 ```
 
 A full run takes about 15 minutes and costs ~$0.50. Most of the time is spent on rate-limited judge calls (1/second × 131 models ≈ 2 minutes) and slow models (some thinking models take 30–140 seconds).

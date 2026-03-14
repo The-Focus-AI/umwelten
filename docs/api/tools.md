@@ -249,8 +249,8 @@ export const myToolSet: ToolSet = {
 
 ```bash
 # List available tools
-dotenvx run -- pnpm run cli -- tools list
+pnpm run cli -- tools list
 
 # Use tools in chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 ```

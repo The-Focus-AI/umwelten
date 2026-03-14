@@ -10,7 +10,7 @@ Replicate the original `cat-poem.ts` script functionality:
 
 ```bash
 # Evaluate cat poem generation across multiple models
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat." \
   --models "ollama:gemma3:27b,ollama:gemma3:12b,google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --id "cat-poem" \
@@ -22,10 +22,10 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # View results in markdown format
-dotenvx run -- pnpm run cli -- eval report --id cat-poem --format markdown
+pnpm run cli -- eval report --id cat-poem --format markdown
 
 # Export to HTML for sharing
-dotenvx run -- pnpm run cli -- eval report --id cat-poem --format html --output cat-poems.html
+pnpm run cli -- eval report --id cat-poem --format html --output cat-poems.html
 ```
 
 ## Temperature Effects
@@ -36,7 +36,7 @@ Compare how temperature affects creativity (replaces `temperature.ts`):
 
 ```bash
 # High temperature (more creative/random)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-high" \
@@ -44,7 +44,7 @@ dotenvx run -- pnpm run cli -- eval run \
   --temperature 2.0
 
 # Low temperature (more focused/predictable)  
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-low" \
@@ -52,7 +52,7 @@ dotenvx run -- pnpm run cli -- eval run \
   --temperature 0.5
 
 # Medium temperature (balanced)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a short poem about a cat" \
   --models "ollama:gemma3:27b" \
   --id "temperature-medium" \
@@ -64,9 +64,9 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Generate individual reports
-dotenvx run -- pnpm run cli -- eval report --id temperature-high --format markdown
-dotenvx run -- pnpm run cli -- eval report --id temperature-low --format markdown  
-dotenvx run -- pnpm run cli -- eval report --id temperature-medium --format markdown
+pnpm run cli -- eval report --id temperature-high --format markdown
+pnpm run cli -- eval report --id temperature-low --format markdown  
+pnpm run cli -- eval report --id temperature-medium --format markdown
 ```
 
 ## Advanced Creative Writing
@@ -74,7 +74,7 @@ dotenvx run -- pnpm run cli -- eval report --id temperature-medium --format mark
 ### Story Generation with Multiple Models
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a creative short story about an AI that learns to paint" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "ai-painter-story" \
@@ -88,7 +88,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Extract structured information from generated poems:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a haiku about the ocean, then analyze its structure" \
   --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "structured-haiku" \
@@ -101,7 +101,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Watch stories generate in real-time:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a dramatic short story with dialogue" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview" \
   --id "dramatic-story" \

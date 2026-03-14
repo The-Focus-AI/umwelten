@@ -11,7 +11,7 @@ Multi-language processing enables you to work with content in various languages,
 ### Automatic Language Detection
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Detect the language of this content and provide a confidence score" \
   --models "google:gemini-3-flash-preview,ollama:gemma3:12b" \
   --id "language-detection" \
@@ -24,13 +24,13 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Language-Specific Analysis
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this text in its original language, then provide an English summary" \
   --models "google:gemini-3-flash-preview" \
   --file "./spanish-document.pdf" \
   --id "spanish-analysis"
 
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "この日本語の文書を分析し、英語で要約してください" \
   --models "google:gemini-3-flash-preview" \
   --file "./japanese-text.txt" \
@@ -42,7 +42,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Document Translation
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Translate this document to English while preserving formatting and context" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "document-translation" \
@@ -54,7 +54,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Multi-Target Translation
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Translate this English text to Spanish, French, German, and Japanese" \
   --models "google:gemini-3-flash-preview" \
   --id "multi-target-translation" \
@@ -64,7 +64,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Context-Aware Translation
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Translate this technical document to English, preserving technical terminology and context" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./technical-manual-german.pdf" \
@@ -77,7 +77,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Sentiment Analysis Across Languages
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze the sentiment of this content regardless of language and provide reasoning" \
   --models "google:gemini-3-flash-preview" \
   --id "multilingual-sentiment" \
@@ -90,7 +90,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Cultural Context Analysis
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this content for cultural references, idioms, and context that might not translate directly" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "cultural-analysis" \
@@ -106,7 +106,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Process contracts in multiple languages
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract key terms, obligations, and dates from this business document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "international-contracts" \
@@ -120,7 +120,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Analyze research papers in various languages
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract methodology, findings, and conclusions from this academic paper" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "multilingual-research" \
@@ -134,7 +134,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Analyze international news articles
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Summarize this news article and identify key events, people, and implications" \
   --models "google:gemini-3-flash-preview" \
   --id "international-news" \
@@ -149,7 +149,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Translation Quality Assessment
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Compare these two translations of the same source text and assess quality, accuracy, and fluency" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./translation-comparison.txt" \
@@ -160,7 +160,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Code Comment Translation
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Translate code comments to English while preserving technical accuracy" \
   --models "ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "code-translation" \
@@ -172,7 +172,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Multilingual Customer Support
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this customer inquiry and provide response in the same language" \
   --models "google:gemini-3-flash-preview" \
   --id "multilingual-support" \
@@ -188,7 +188,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Test different models on the same multilingual content
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Summarize this content in English" \
   --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --file "./chinese-article.txt" \
@@ -201,7 +201,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ```bash
 # Test model performance across different languages
 for lang in spanish french german japanese chinese arabic; do
-  dotenvx run -- pnpm run cli -- eval run \
+  pnpm run cli -- eval run \
     --prompt "Analyze this ${lang} text and provide insights in English" \
     --models "google:gemini-3-flash-preview" \
     --file "./${lang}-sample.txt" \
@@ -214,7 +214,7 @@ done
 ### Consistent Cross-Language Schema
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract structured information from this document regardless of language" \
   --models "google:gemini-3-flash-preview" \
   --id "multilingual-extraction" \
@@ -227,7 +227,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Language Metadata Enrichment
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this content and provide detailed language metadata" \
   --models "google:gemini-3-flash-preview" \
   --id "language-metadata" \
@@ -243,7 +243,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Start multilingual chat session
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Within chat:
 > "Please respond in Spanish: ¿Cómo está el clima hoy?"
@@ -254,7 +254,7 @@ dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-pre
 ### Translation Chat Assistant
 
 ```bash
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google \
   --model gemini-3-flash-preview \
   --system "You are a professional translator. Help users translate text between languages while preserving meaning and context."
@@ -276,14 +276,14 @@ dotenvx run -- pnpm run cli -- chat \
 
 ```bash
 # Group by language family for efficiency
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process European language content" \
   --models "google:gemini-3-flash-preview" \
   --directory "./european-texts" \
   --file-pattern "*{en,es,fr,de,it}*.txt" \
   --concurrent
 
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process Asian language content" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --directory "./asian-texts" \
@@ -296,7 +296,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### International Legal Documents
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract legal obligations and key clauses from this document" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "legal-multilingual" \
@@ -310,7 +310,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### E-commerce Product Descriptions
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Translate this product description to English and extract key product features" \
   --models "google:gemini-3-flash-preview" \
   --id "product-translation" \
@@ -323,7 +323,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Social Media Content Analysis
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze sentiment and extract hashtags from this social media content" \
   --models "google:gemini-3-flash-preview" \
   --id "social-multilingual" \
@@ -338,7 +338,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Translation Validation
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Check this translation for accuracy, fluency, and cultural appropriateness" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --file "./translation-to-check.txt" \
@@ -349,7 +349,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Cross-Language Consistency
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Ensure consistent terminology and style across these translated documents" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "consistency-check" \
@@ -365,7 +365,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Generate language statistics
-dotenvx run -- pnpm run cli -- eval report --id multilingual-extraction --format json | jq '
+pnpm run cli -- eval report --id multilingual-extraction --format json | jq '
   .results | 
   group_by(.response.source_language) | 
   map({language: .[0].response.source_language, count: length}) | 
@@ -378,15 +378,15 @@ dotenvx run -- pnpm run cli -- eval report --id multilingual-extraction --format
 
 ```bash
 # Analyze translation quality across different models
-dotenvx run -- pnpm run cli -- eval report --id translation-comparison --format csv --output translation-metrics.csv
+pnpm run cli -- eval report --id translation-comparison --format csv --output translation-metrics.csv
 ```
 
 ### Cross-Language Report Generation
 
 ```bash
 # Generate reports in multiple languages
-dotenvx run -- pnpm run cli -- eval report --id multilingual-analysis --format markdown --output report-en.md
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval report --id multilingual-analysis --format markdown --output report-en.md
+pnpm run cli -- eval run \
   --prompt "Translate this English report to Spanish while preserving structure" \
   --models "google:gemini-3-flash-preview" \
   --file "./report-en.md" \
@@ -426,10 +426,10 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Test language detection
-dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" "Detect the language: Bonjour, comment allez-vous?"
+pnpm run cli -- run --models "google:gemini-3-flash-preview" "Detect the language: Bonjour, comment allez-vous?"
 
 # Test basic translation  
-dotenvx run -- pnpm run cli -- run --models "google:gemini-3-flash-preview" "Translate to English: Hola, ¿cómo estás?"
+pnpm run cli -- run --models "google:gemini-3-flash-preview" "Translate to English: Hola, ¿cómo estás?"
 
 # Check file encoding
 file -i ./multilingual-document.txt

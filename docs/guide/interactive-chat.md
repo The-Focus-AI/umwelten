@@ -18,13 +18,13 @@ Start an interactive conversation:
 
 ```bash
 # Basic chat
-dotenvx run -- pnpm run cli -- chat --provider ollama --model gemma3:latest
+pnpm run cli -- chat --provider ollama --model gemma3:latest
 
 # Chat with premium model
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Chat with tools enabled
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
+pnpm run cli -- chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
 ```
 
 ### Provider-Specific Examples
@@ -32,61 +32,61 @@ dotenvx run -- pnpm run cli -- chat --provider openrouter --model openai/gpt-4o 
 #### Google Models
 ```bash
 # Fast and cost-effective chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # High-quality analytical chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-2.5-pro-exp-03-25
+pnpm run cli -- chat --provider google --model gemini-2.5-pro-exp-03-25
 
 # Vision-enabled chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./image.jpg
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./image.jpg
 ```
 
 #### Ollama Models (Local)
 ```bash
 # General conversation
-dotenvx run -- pnpm run cli -- chat --provider ollama --model gemma3:12b
+pnpm run cli -- chat --provider ollama --model gemma3:12b
 
 # Code-focused chat
-dotenvx run -- pnpm run cli -- chat --provider ollama --model codestral:latest
+pnpm run cli -- chat --provider ollama --model codestral:latest
 
 # Vision chat
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen2.5vl:latest --file ./screenshot.png
+pnpm run cli -- chat --provider ollama --model qwen2.5vl:latest --file ./screenshot.png
 ```
 
 #### OpenRouter Models
 ```bash
 # Premium quality chat
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model openai/gpt-4o
+pnpm run cli -- chat --provider openrouter --model openai/gpt-4o
 
 # Analytical chat
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model anthropic/claude-3.7-sonnet:thinking
+pnpm run cli -- chat --provider openrouter --model anthropic/claude-3.7-sonnet:thinking
 
 # Cost-effective chat
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model openai/gpt-4o-mini
+pnpm run cli -- chat --provider openrouter --model openai/gpt-4o-mini
 ```
 
 #### MiniMax Models
 ```bash
 # Direct MiniMax chat
-dotenvx run -- pnpm run cli -- chat --provider minimax --model MiniMax-M2.5
+pnpm run cli -- chat --provider minimax --model MiniMax-M2.5
 
 # Faster MiniMax low-latency chat
-dotenvx run -- pnpm run cli -- chat --provider minimax --model MiniMax-M2.5-highspeed
+pnpm run cli -- chat --provider minimax --model MiniMax-M2.5-highspeed
 ```
 
 #### Fireworks Models
 ```bash
 # Discover available Fireworks model IDs first
-dotenvx run -- pnpm run cli -- models --provider fireworks
+pnpm run cli -- models --provider fireworks
 
 # Then start chat with a Fireworks model
-dotenvx run -- pnpm run cli -- chat --provider fireworks --model <fireworks-model-id>
+pnpm run cli -- chat --provider fireworks --model <fireworks-model-id>
 ```
 
 #### LM Studio (Local)
 ```bash
 # Local model chat (ensure LM Studio server is running)
-dotenvx run -- pnpm run cli -- chat --provider lmstudio --model mistralai/devstral-small-2505
+pnpm run cli -- chat --provider lmstudio --model mistralai/devstral-small-2505
 ```
 
 ## Chat Commands
@@ -118,7 +118,7 @@ Enable persistent memory to maintain context across sessions:
 
 ```bash
 # Chat with memory for persistent facts
-dotenvx run -- pnpm run cli -- chat --provider ollama --model gemma3:latest --memory
+pnpm run cli -- chat --provider ollama --model gemma3:latest --memory
 ```
 
 The memory system automatically:
@@ -130,7 +130,7 @@ The memory system automatically:
 #### Memory Examples
 ```bash
 # Start a memory-enabled chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
 
 # During chat, the AI will remember:
 > "I'm a software developer working on a React project"
@@ -147,10 +147,10 @@ Enhance your chat with powerful tools:
 
 ```bash
 # Chat with specific tools
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model gpt-4o --tools calculator,statistics
+pnpm run cli -- chat --provider openrouter --model gpt-4o --tools calculator,statistics
 
 # Available tools (use 'umwelten tools list' to see all)
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --tools web_search,file_analysis
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --tools web_search,file_analysis
 ```
 
 #### Available Tools
@@ -161,23 +161,23 @@ dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-pre
 #### Tool Usage Examples
 ```bash
 # Math-focused chat
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model gpt-4o --tools calculator
+pnpm run cli -- chat --provider openrouter --model gpt-4o --tools calculator
 
 # Data analysis chat
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --tools statistics
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --tools statistics
 
 # Multi-tool chat
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
 ```
 
 #### Tool Demo
 Test tool functionality:
 ```bash
 # Interactive tool demo
-dotenvx run -- pnpm run cli -- tools demo
+pnpm run cli -- tools demo
 
 # Custom demo
-dotenvx run -- pnpm run cli -- tools demo --prompt "Calculate 15 + 27, then generate a random number"
+pnpm run cli -- tools demo --prompt "Calculate 15 + 27, then generate a random number"
 ```
 
 ### File Attachments in Chat
@@ -186,13 +186,13 @@ Start a chat with file context:
 
 ```bash
 # Start chat with a document
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-1.5-flash-latest --file ./document.pdf
+pnpm run cli -- chat --provider google --model gemini-1.5-flash-latest --file ./document.pdf
 
 # Start chat with an image
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen2.5vl:latest --file ./photo.jpg
+pnpm run cli -- chat --provider ollama --model qwen2.5vl:latest --file ./photo.jpg
 
 # Start chat with multiple files
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./report.pdf --file ./data.csv
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./report.pdf --file ./data.csv
 ```
 
 #### File Reference Examples
@@ -213,17 +213,17 @@ Set the AI's role and behavior for the entire conversation:
 
 ```bash
 # Technical expert role
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-3-flash-preview \
   --system "You are a senior software architect with expertise in distributed systems"
 
 # Creative writing role
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider ollama --model gemma3:27b \
   --system "You are a creative writer specializing in science fiction short stories"
 
 # Educational role
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --system "You are a patient teacher who explains complex concepts simply"
 ```
@@ -234,17 +234,17 @@ Adjust creativity and randomness for the conversation:
 
 ```bash
 # Very focused and deterministic (0.0-0.3)
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-3-flash-preview \
   --temperature 0.1
 
 # Balanced creativity (0.4-0.7)
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider ollama --model gemma3:12b \
   --temperature 0.6
 
 # Highly creative (0.8-2.0)
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-3-flash-preview \
   --temperature 1.5
 ```
@@ -255,15 +255,15 @@ Set appropriate timeouts for different types of conversations:
 
 ```bash
 # Quick responses (default: 30 seconds)
-dotenvx run -- pnpm run cli -- chat --provider ollama --model gemma3:12b --timeout 30000
+pnpm run cli -- chat --provider ollama --model gemma3:12b --timeout 30000
 
 # Complex analysis (longer timeout)
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --timeout 60000
 
 # Extended processing (very long timeout)
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider openrouter --model openai/gpt-4o \
   --timeout 120000
 ```
@@ -274,18 +274,18 @@ dotenvx run -- pnpm run cli -- chat \
 
 ```bash
 # Math tutoring session
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-3-flash-preview \
   --system "You are a math tutor who shows step-by-step solutions" \
   --tools calculator
 
 # Language learning
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider ollama --model gemma3:27b \
   --system "You are a Spanish language tutor. Respond in Spanish and help me practice"
 
 # Concept explanation
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --system "You are a patient teacher explaining complex concepts simply"
 ```
@@ -294,19 +294,19 @@ dotenvx run -- pnpm run cli -- chat \
 
 ```bash
 # Story writing collaboration
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider ollama --model gemma3:27b \
   --system "You are a creative writing partner. Help me develop characters and plot" \
   --temperature 0.8
 
 # Brainstorming session
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-3-flash-preview \
   --system "You are an innovation consultant. Help me brainstorm solutions" \
   --temperature 0.9
 
 # Design feedback
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider openrouter --model openai/gpt-4o \
   --system "You are a UX designer. Provide feedback on my design ideas"
 ```
@@ -315,19 +315,19 @@ dotenvx run -- pnpm run cli -- chat \
 
 ```bash
 # Debugging session
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider ollama --model codestral:latest \
   --system "You are a senior software engineer helping with debugging" \
   --tools code_execution
 
 # Business analysis
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-2.5-pro-exp-03-25 \
   --system "You are a business analyst. Help me analyze market opportunities" \
   --tools web_search
 
 # Research assistance
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider openrouter --model anthropic/claude-3.7-sonnet:thinking \
   --system "You are a research assistant. Help me find and analyze information" \
   --tools web_search
@@ -337,18 +337,18 @@ dotenvx run -- pnpm run cli -- chat \
 
 ```bash
 # Code review session
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider ollama --model codestral:latest \
   --system "You are a senior developer conducting a code review" \
   --file ./my-code.js
 
 # Architecture discussion
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider google --model gemini-3-flash-preview \
   --system "You are a software architect. Help me design system architecture"
 
 # Testing strategy
-dotenvx run -- pnpm run cli -- chat \
+pnpm run cli -- chat \
   --provider openrouter --model openai/gpt-4o \
   --system "You are a QA engineer. Help me develop testing strategies"
 ```
@@ -393,16 +393,16 @@ dotenvx run -- pnpm run cli -- chat \
 
 ```bash
 # Test chat functionality
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --timeout 10000
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --timeout 10000
 
 # Check available tools
-dotenvx run -- pnpm run cli -- tools list
+pnpm run cli -- tools list
 
 # Test memory system
-dotenvx run -- pnpm run cli -- chat --provider ollama --model gemma3:latest --memory
+pnpm run cli -- chat --provider ollama --model gemma3:latest --memory
 
 # Verify file attachments
-dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./test.txt
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./test.txt
 ```
 
 ## Next Steps

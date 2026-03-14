@@ -53,17 +53,17 @@ You don't need to manually diagnose or provision containers. The supervisor hand
 
 ```bash
 # Start the habitat REPL (interactive mode)
-dotenvx run -- pnpm run cli habitat --provider google --model gemini-3-flash-preview
+pnpm run cli -- habitat --provider google --model gemini-3-flash-preview
 
 # Start a bridge for a specific agent
-dotenvx run -- pnpm run cli habitat agent start <agent-id>
+pnpm run cli -- habitat agent start <agent-id>
 
 # Stop a bridge
-dotenvx run -- pnpm run cli habitat agent stop <agent-id>
+pnpm run cli -- habitat agent stop <agent-id>
 
 # Check status of all agents or one specific agent
-dotenvx run -- pnpm run cli habitat agent status
-dotenvx run -- pnpm run cli habitat agent status <agent-id>
+pnpm run cli -- habitat agent status
+pnpm run cli -- habitat agent status <agent-id>
 ```
 
 ## Habitat Tools

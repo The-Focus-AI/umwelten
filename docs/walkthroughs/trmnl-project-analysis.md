@@ -92,21 +92,21 @@ Here are some useful searches you can run on this project:
 
 ### Find Image Optimization Solutions
 ```bash
-dotenvx run -- pnpm run cli sessions search "image optimization" \
+pnpm run cli -- sessions search "image optimization" \
   --tags e-ink,trmnl \
   --project /Users/wschenk/The-Focus-AI/trmnl-image-agent
 ```
 
 ### Find Automation Workflows
 ```bash
-dotenvx run -- pnpm run cli sessions search "automation" \
+pnpm run cli -- sessions search "automation" \
   --success yes \
   --project /Users/wschenk/The-Focus-AI/trmnl-image-agent
 ```
 
 ### Find Git-Related Solutions
 ```bash
-dotenvx run -- pnpm run cli sessions search "git" \
+pnpm run cli -- sessions search "git" \
   --type feature \
   --project /Users/wschenk/The-Focus-AI/trmnl-image-agent
 ```

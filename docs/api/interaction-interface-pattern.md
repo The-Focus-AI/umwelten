@@ -284,8 +284,8 @@ The CLI habitat command provides the standard entry point:
 
 ```bash
 # Start habitat REPL
-dotenvx run -- pnpm run cli -- habitat
+pnpm run cli -- habitat
 
 # Start habitat as Telegram bot
-dotenvx run -- pnpm run cli -- habitat telegram
+pnpm run cli -- habitat telegram
 ```

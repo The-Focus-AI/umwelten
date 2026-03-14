@@ -18,7 +18,7 @@ pnpm uninstall -g umwelten
 pnpm install -g umwelten
 
 # Use with npx if global install isn't working
-dotenvx run -- pnpm run cli -- --help
+pnpm run cli -- --help
 
 # If using from source
 node dist/cli/cli.js --help
@@ -94,13 +94,13 @@ export LMSTUDIO_BASE_URL=http://localhost:1234
 **Solutions**:
 ```bash
 # Increase timeout (default: 30 seconds)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --timeout 60000 \
   --prompt "Complex analysis task" \
   --models "google:gemini-3-flash-preview"
 
 # For batch processing
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --timeout 45000 \
   --directory "./files" \
   --file-pattern "*.pdf"
@@ -113,18 +113,18 @@ dotenvx run -- pnpm run cli -- eval batch \
 **Solutions**:
 ```bash
 # Reduce concurrency
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "google:gemini-3-flash-preview" \
   --concurrent \
   --max-concurrency 1
 
 # Add delays between requests (batch processing)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --max-concurrency 2 \
   --directory "./files"
 
 # Switch to different provider temporarily
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "ollama:gemma3:12b" \
   --prompt "Your prompt"
 ```
@@ -136,17 +136,17 @@ dotenvx run -- pnpm run cli -- eval run \
 **Solutions**:
 ```bash
 # Process smaller batches
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --file-limit 50 \
   --directory "./large-collection"
 
 # Reduce concurrency
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --max-concurrency 1 \
   --directory "./files"
 
 # Use less memory-intensive models
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "google:gemini-3-flash-preview" \
   --prompt "Your prompt"
 ```
@@ -192,13 +192,13 @@ const finalObject = await result.object; // HANGS HERE
 **Common Errors and Solutions**:
 ```bash
 # "Model not found" - Check model name
-dotenvx run -- pnpm run cli -- models list --provider google
+pnpm run cli -- models list --provider google
 
 # "Quota exceeded" - Check API limits in Google AI Studio
 # "Safety filter triggered" - Adjust prompt content
 
 # Test with simple prompt first
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --provider google \
   --model gemini-3-flash-preview \
   "Hello, how are you?"
@@ -215,7 +215,7 @@ curl -H "Authorization: Bearer $OPENROUTER_API_KEY" \
   https://openrouter.ai/api/v1/models
 
 # Check available models
-dotenvx run -- pnpm run cli -- models list --provider openrouter
+pnpm run cli -- models list --provider openrouter
 
 # Some models require credits - check balance
 # Use alternative models if specific model unavailable
@@ -240,7 +240,7 @@ ollama pull gemma3:12b
 ollama run gemma3:12b "Hello"
 
 # Check model name format in Umwelten
-dotenvx run -- pnpm run cli -- models list --provider ollama
+pnpm run cli -- models list --provider ollama
 ```
 
 ## File Attachment Issues
@@ -264,7 +264,7 @@ file ./your-file.ext
 # For documents: convert to PDF
 
 # Test with known good file
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --provider google \
   --model gemini-3-flash-preview \
   --file ./test.jpg \
@@ -285,7 +285,7 @@ ls -lh ./large-file.pdf
 # For PDFs: split into smaller sections
 
 # Use timeout for large files
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --timeout 60000 \
   --file ./large-document.pdf \
   --prompt "Summarize this document"
@@ -298,7 +298,7 @@ dotenvx run -- pnpm run cli -- run \
 **Solutions**:
 ```bash
 # Use absolute paths
-dotenvx run -- pnpm run cli -- run \
+pnpm run cli -- run \
   --file "/full/path/to/file.jpg" \
   --prompt "Analyze this image"
 
@@ -319,13 +319,13 @@ chmod 644 ./file.jpg
 **Solutions**:
 ```bash
 # List all evaluations
-dotenvx run -- pnpm run cli -- eval list
+pnpm run cli -- eval list
 
 # Check evaluation directory
 ls -la output/evaluations/
 
 # Use correct evaluation ID
-dotenvx run -- pnpm run cli -- eval report --id "exact-evaluation-id"
+pnpm run cli -- eval report --id "exact-evaluation-id"
 ```
 
 ### Batch Processing Failures
@@ -335,7 +335,7 @@ dotenvx run -- pnpm run cli -- eval report --id "exact-evaluation-id"
 **Solutions**:
 ```bash
 # Use resume to continue from where it stopped
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --resume \
   --id "previous-batch-id"
 
@@ -343,7 +343,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 # Remove or fix files causing issues
 
 # Start with smaller batch to test
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --file-limit 5 \
   --directory "./test-files"
 ```
@@ -355,13 +355,13 @@ dotenvx run -- pnpm run cli -- eval batch \
 **Solutions**:
 ```bash
 # Test schema with simple example first
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Extract name: John Smith is 30 years old" \
   --schema "name, age int" \
   --models "google:gemini-3-flash-preview"
 
 # Use type coercion for lenient validation
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --schema "name, age int" \
   --coerce-types \
   --models "google:gemini-3-flash-preview"
@@ -379,12 +379,12 @@ node -e "require('./schemas/my-schema.ts')"
 **Solutions**:
 ```bash
 # Use faster models
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --prompt "Your prompt"
 
 # Enable concurrent processing
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "model1,model2,model3" \
   --concurrent \
   --max-concurrency 5
@@ -400,13 +400,13 @@ dotenvx run -- pnpm run cli -- eval run \
 **Solutions**:
 ```bash
 # Reduce batch sizes
-dotenvx run -- pnpm run cli -- eval batch --file-limit 20
+pnpm run cli -- eval batch --file-limit 20
 
 # Lower concurrency
-dotenvx run -- pnpm run cli -- eval batch --max-concurrency 2
+pnpm run cli -- eval batch --max-concurrency 2
 
 # Process files sequentially
-dotenvx run -- pnpm run cli -- eval batch # (without --concurrent)
+pnpm run cli -- eval batch # (without --concurrent)
 
 # Close other applications
 # Increase system memory if possible
@@ -458,17 +458,17 @@ date
 **Solutions**:
 ```bash
 # Check if evaluation exists
-dotenvx run -- pnpm run cli -- eval list | grep "your-eval-id"
+pnpm run cli -- eval list | grep "your-eval-id"
 
 # Try different report format
-dotenvx run -- pnpm run cli -- eval report --id "eval-id" --format json
-dotenvx run -- pnpm run cli -- eval report --id "eval-id" --format markdown
+pnpm run cli -- eval report --id "eval-id" --format json
+pnpm run cli -- eval report --id "eval-id" --format markdown
 
 # Check output directory permissions
 ls -la output/evaluations/
 
 # Generate report to specific location
-dotenvx run -- pnpm run cli -- eval report --id "eval-id" --output ./my-report.html
+pnpm run cli -- eval report --id "eval-id" --output ./my-report.html
 ```
 
 ### Missing Output Files
@@ -478,7 +478,7 @@ dotenvx run -- pnpm run cli -- eval report --id "eval-id" --output ./my-report.h
 **Solutions**:
 ```bash
 # Check evaluation completion
-dotenvx run -- pnpm run cli -- eval list --details
+pnpm run cli -- eval list --details
 
 # Look for partial results
 find output/evaluations/ -name "*.json" | head -5
@@ -496,19 +496,19 @@ touch output/test-write && rm output/test-write
 
 ```bash
 # Check version
-dotenvx run -- pnpm run cli -- --version
+pnpm run cli -- --version
 
 # Test basic functionality
-dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello world"
+pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello world"
 
 # List available models
-dotenvx run -- pnpm run cli -- models list
+pnpm run cli -- models list
 
 # Check evaluation history
-dotenvx run -- pnpm run cli -- eval list --details
+pnpm run cli -- eval list --details
 
 # Test with minimal example
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Test" \
   --models "google:gemini-3-flash-preview" \
   --id "debug-test"
@@ -518,7 +518,7 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Enable debug output (if available)
-NODE_ENV=debug dotenvx run -- pnpm run cli -- eval run ...
+NODE_ENV=debug pnpm run cli -- eval run ...
 
 # Check network requests
 # Use browser dev tools or network monitoring
@@ -569,13 +569,13 @@ When reporting issues, include:
 
 ```bash
 # System information
-dotenvx run -- pnpm run cli -- --version
+pnpm run cli -- --version
 node --version
 npm --version
 uname -a
 
 # Error reproduction
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "failing prompt" \
   --models "problematic-model" \
   --id "error-reproduction"
@@ -601,7 +601,7 @@ When something isn't working:
 - [ ] Check API keys are set correctly
 - [ ] Verify internet connection
 - [ ] Test with simple prompt first
-- [ ] Check model availability with `dotenvx run -- pnpm run cli -- models list`
+- [ ] Check model availability with `pnpm run cli -- models list`
 - [ ] Try different model or provider
 - [ ] Increase timeout if needed
 - [ ] Reduce concurrency if rate limited

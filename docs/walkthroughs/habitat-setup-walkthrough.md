@@ -48,7 +48,7 @@ export TELEGRAM_BOT_TOKEN="your-telegram-token"
 ## Step 3: First Run — Automatic Onboarding
 
 ```bash
-pnpm run cli habitat -p google -m gemini-3-flash-preview
+pnpm run cli -- habitat -p google -m gemini-3-flash-preview
 ```
 
 On first run, the habitat detects that `~/habitats` doesn't exist and runs onboarding:
@@ -161,13 +161,13 @@ Edit `~/habitats/config.json` to set default provider and model so you don't nee
 Now you can start with just:
 
 ```bash
-pnpm run cli habitat
+pnpm run cli -- habitat
 ```
 
 ## Step 7: Test the REPL
 
 ```bash
-pnpm run cli habitat
+pnpm run cli -- habitat
 ```
 
 Try a few things:
@@ -211,7 +211,7 @@ cat ~/habitats/memories.md
 Sub-agents are external projects that your habitat can monitor and interact with. Let's clone a project:
 
 ```bash
-pnpm run cli habitat
+pnpm run cli -- habitat
 ```
 
 ```
@@ -294,7 +294,7 @@ export default tool({
 Restart the habitat and check:
 
 ```bash
-pnpm run cli habitat
+pnpm run cli -- habitat
 ```
 
 ```
@@ -383,7 +383,7 @@ If you have a Telegram bot token:
 export TELEGRAM_BOT_TOKEN="123456789:AbCdefGhIJKlmNoPQRsTUVwxyZ"
 
 # Start the bot
-pnpm run cli habitat telegram -p google -m gemini-3-flash-preview
+pnpm run cli -- habitat telegram -p google -m gemini-3-flash-preview
 ```
 
 The bot uses the same habitat — same tools, skills, agents, persona:
@@ -411,10 +411,10 @@ You can point at any existing work directory:
 
 ```bash
 # Use a Jeeves-style data dir
-pnpm run cli habitat -w examples/jeeves-bot/jeeves-bot-data-dir -p google -m gemini-3-flash-preview
+pnpm run cli -- habitat -w examples/jeeves-bot/jeeves-bot-data-dir -p google -m gemini-3-flash-preview
 
 # Use a custom location
-pnpm run cli habitat -w ~/projects/my-assistant
+pnpm run cli -- habitat -w ~/projects/my-assistant
 ```
 
 Any directory with `config.json` + `STIMULUS.md` works. If the directory doesn't have them yet, onboarding creates them automatically.
@@ -432,14 +432,14 @@ export HABITAT_MODEL=gemini-3-flash-preview
 Now just run:
 
 ```bash
-pnpm run cli habitat
+pnpm run cli -- habitat
 ```
 
 You can change the prefix with `--env-prefix`:
 
 ```bash
 # Uses MYBOT_WORK_DIR, MYBOT_PROVIDER, etc.
-pnpm run cli habitat --env-prefix MYBOT
+pnpm run cli -- habitat --env-prefix MYBOT
 ```
 
 ## Putting It All Together

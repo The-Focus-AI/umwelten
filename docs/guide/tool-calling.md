@@ -19,10 +19,10 @@ Use tools in chat sessions:
 
 ```bash
 # Chat with calculator and statistics tools
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics
 
 # Use with premium models
-dotenvx run -- pnpm run cli -- chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
+pnpm run cli -- chat --provider openrouter --model openai/gpt-4o --tools calculator,statistics
 ```
 
 ### List Available Tools
@@ -31,7 +31,7 @@ See what tools are available:
 
 ```bash
 # List all tools
-dotenvx run -- pnpm run cli -- tools list
+pnpm run cli -- tools list
 
 # Output shows:
 # 📋 calculator
@@ -51,7 +51,7 @@ Performs basic arithmetic operations with flexible input formats.
 **Usage Examples**:
 ```bash
 # Direct calculation
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
 # User: "What is 15 * 27?"
 
 # Expression parsing
@@ -76,7 +76,7 @@ Calculates comprehensive statistics for numerical data.
 
 **Usage Examples**:
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools statistics
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools statistics
 # User: "Calculate statistics for [10, 20, 30, 40, 50]"
 ```
 
@@ -98,7 +98,7 @@ Generates random numbers within specified ranges.
 
 **Usage Examples**:
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools randomNumber
 # User: "Generate a random number between 1 and 100"
 ```
 
@@ -117,13 +117,13 @@ Test tool functionality with the built-in demo:
 
 ```bash
 # Run interactive tool demo
-dotenvx run -- pnpm run cli -- tools demo
+pnpm run cli -- tools demo
 
 # Custom demo with specific prompt
-dotenvx run -- pnpm run cli -- tools demo --prompt "Calculate 25 * 4, then generate a random number between 1 and 50"
+pnpm run cli -- tools demo --prompt "Calculate 25 * 4, then generate a random number between 1 and 50"
 
 # Demo with step limit
-dotenvx run -- pnpm run cli -- tools demo --max-steps 3
+pnpm run cli -- tools demo --max-steps 3
 ```
 
 ## Creating Custom Tools
@@ -200,7 +200,7 @@ Combine multiple tools for complex tasks:
 
 ```bash
 # Use multiple tools in one session
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
 
 # Example conversation:
 # User: "Calculate 15 + 27, then generate a random number between 1 and 100, 
@@ -213,7 +213,7 @@ Umwelten uses the AI SDK's `stopWhen` functionality for proper multi-step tool c
 
 ```bash
 # Tools demo with step control
-dotenvx run -- pnpm run cli -- tools demo --max-steps 5 --provider openrouter --model openai/gpt-4o-mini
+pnpm run cli -- tools demo --max-steps 5 --provider openrouter --model openai/gpt-4o-mini
 
 # The model will execute up to 5 steps:
 # 1. Calculate 15 + 27 = 42
@@ -296,11 +296,11 @@ execute: async (params) => {
 **Tool not found**:
 ```bash
 # Check if tool is registered
-dotenvx run -- pnpm run cli -- tools list
+pnpm run cli -- tools list
 
 # Verify tool name spelling
-dotenvx run -- pnpm run cli -- chat --tools calculator  # ✅ Correct
-dotenvx run -- pnpm run cli -- chat --tools Calculator  # ❌ Wrong case
+pnpm run cli -- chat --tools calculator  # ✅ Correct
+pnpm run cli -- chat --tools Calculator  # ❌ Wrong case
 ```
 
 **Tool execution errors**:
@@ -318,7 +318,7 @@ dotenvx run -- pnpm run cli -- chat --tools Calculator  # ❌ Wrong case
 Enable debug logging:
 
 ```bash
-DEBUG=1 dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
+DEBUG=1 pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
 ```
 
 ## Integration with Other Features
@@ -328,7 +328,7 @@ DEBUG=1 dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:late
 Combine tools with memory for persistent context:
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator --memory
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator --memory
 ```
 
 ### Structured Output
@@ -336,7 +336,7 @@ dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --too
 Use tools with structured output:
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator --output-format json
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator --output-format json
 ```
 
 ### Batch Processing
@@ -344,7 +344,7 @@ dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --too
 Tools work with batch processing:
 
 ```bash
-dotenvx run -- pnpm run cli -- run "Calculate 10 * 5" --provider ollama --model qwen3:latest --tools calculator
+pnpm run cli -- run "Calculate 10 * 5" --provider ollama --model qwen3:latest --tools calculator
 ```
 
 ## Next Steps

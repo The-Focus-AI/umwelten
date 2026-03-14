@@ -9,7 +9,7 @@ This example shows how to analyze images using Umwelten's vision-capable models.
 Analyze a single image across multiple vision models:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this image and provide a summary of the content." \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest,ollama:gemma3:12b" \
   --id "image-analysis" \
@@ -22,7 +22,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Ask specific questions about image content:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "What objects do you see in this image? Describe the colors, lighting, and overall mood." \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "detailed-image-analysis" \
@@ -34,7 +34,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Test OCR capabilities:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Extract and transcribe any text visible in this image. If no text is present, describe what you see instead." \
   --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "text-extraction" \
@@ -48,7 +48,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Test different vision models on the same image:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Describe this image in detail, including objects, colors, composition, and any notable features." \
   --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b,ollama:qwen2.5vl:latest" \
   --id "vision-model-comparison" \
@@ -60,10 +60,10 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Create detailed markdown report
-dotenvx run -- pnpm run cli -- eval report --id vision-model-comparison --format markdown
+pnpm run cli -- eval report --id vision-model-comparison --format markdown
 
 # Export HTML report with embedded images
-dotenvx run -- pnpm run cli -- eval report --id vision-model-comparison --format html --output vision-report.html
+pnpm run cli -- eval report --id vision-model-comparison --format html --output vision-report.html
 ```
 
 ## Interactive Mode
@@ -73,7 +73,7 @@ dotenvx run -- pnpm run cli -- eval report --id vision-model-comparison --format
 Watch models analyze images in real-time:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Provide a detailed artistic analysis of this image, including composition, color theory, and emotional impact." \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "artistic-analysis" \
@@ -86,7 +86,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Scene Understanding
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this scene: What's happening? Who are the people? What's the setting? What time of day might it be?" \
   --models "google:gemini-3-flash-preview" \
   --id "scene-understanding" \
@@ -96,7 +96,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Technical Analysis
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this image from a photography perspective: lighting, composition, depth of field, and technical quality." \
   --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "photo-technical-analysis" \
@@ -107,7 +107,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Safety and Content Analysis
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this image for content appropriateness and describe any safety concerns or notable elements." \
   --models "google:gemini-3-flash-preview" \
   --id "content-safety-analysis" \

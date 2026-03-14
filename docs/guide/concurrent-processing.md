@@ -19,7 +19,7 @@ Enable concurrent processing for any evaluation:
 
 ```bash
 # Basic concurrent evaluation
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing" \
   --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "quantum-comparison" \
@@ -32,7 +32,7 @@ Process multiple files concurrently:
 
 ```bash
 # Process images concurrently
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this image and describe key features" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-analysis" \
@@ -49,7 +49,7 @@ Control the level of concurrency to optimize performance:
 
 ```bash
 # Set maximum concurrency (default: 5)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "batch-test" \
@@ -66,7 +66,7 @@ Different providers have different rate limits and capabilities:
 #### Google Models
 ```bash
 # Google models handle high concurrency well
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --id "google-comparison" \
@@ -77,7 +77,7 @@ dotenvx run -- pnpm run cli -- eval run \
 #### OpenRouter Models
 ```bash
 # OpenRouter has rate limits - use moderate concurrency
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --id "openrouter-comparison" \
@@ -88,7 +88,7 @@ dotenvx run -- pnpm run cli -- eval run \
 #### Ollama Models (Local)
 ```bash
 # Local models - concurrency limited by hardware
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "ollama:gemma3:12b,ollama:codestral:latest" \
   --id "ollama-comparison" \
@@ -104,7 +104,7 @@ Compare multiple models on the same prompt:
 
 ```bash
 # Evaluate 5 models concurrently
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a function to calculate fibonacci numbers in Python" \
   --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview,openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --id "fibonacci-comparison" \
@@ -118,7 +118,7 @@ Process large datasets efficiently:
 
 ```bash
 # Process 100+ images concurrently
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this image and extract: objects, colors, text, people" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "large-image-dataset" \
@@ -135,7 +135,7 @@ Combine local and cloud models:
 
 ```bash
 # Mix local and cloud models for cost optimization
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain machine learning concepts" \
   --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "mixed-provider-eval" \
@@ -151,7 +151,7 @@ Monitor concurrent operations in real-time:
 
 ```bash
 # Enable verbose output for progress tracking
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "google:gemini-3-flash-preview" \
   --id "progress-test" \
@@ -168,7 +168,7 @@ Track performance improvements:
 ```bash
 # Compare sequential vs concurrent performance
 echo "Sequential processing:"
-time dotenvx run -- pnpm run cli -- eval batch \
+time pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "google:gemini-3-flash-preview" \
   --id "sequential-test" \
@@ -176,7 +176,7 @@ time dotenvx run -- pnpm run cli -- eval batch \
   --file-pattern "*.txt"
 
 echo "Concurrent processing:"
-time dotenvx run -- pnpm run cli -- eval batch \
+time pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "google:gemini-3-flash-preview" \
   --id "concurrent-test" \
@@ -194,7 +194,7 @@ Begin with lower concurrency and increase gradually:
 
 ```bash
 # Start with 2-3 concurrent operations
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2,model3" \
   --id "conservative-test" \
@@ -202,7 +202,7 @@ dotenvx run -- pnpm run cli -- eval run \
   --max-concurrency 2
 
 # Increase if performance is good
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2,model3" \
   --id "optimized-test" \
@@ -216,19 +216,19 @@ Respect provider-specific rate limits:
 
 ```bash
 # Google: High concurrency (20+)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
   --concurrent \
   --max-concurrency 20
 
 # OpenRouter: Moderate concurrency (5-10)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --concurrent \
   --max-concurrency 5
 
 # Ollama: Limited by hardware (2-5)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "ollama:gemma3:12b,ollama:codestral:latest" \
   --concurrent \
   --max-concurrency 3
@@ -243,7 +243,7 @@ Keep an eye on system resources:
 htop  # or top
 
 # Check for memory leaks or excessive CPU usage
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "google:gemini-3-flash-preview" \
   --id "resource-test" \
@@ -259,7 +259,7 @@ Concurrent operations can fail - handle them properly:
 
 ```bash
 # Use resume capability for large batch operations
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "google:gemini-3-flash-preview" \
   --id "resume-test" \
@@ -278,7 +278,7 @@ Handle provider rate limits:
 
 ```bash
 # If you hit rate limits, reduce concurrency
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "openai/gpt-4o,anthropic/claude-3.7-sonnet" \
   --id "rate-limit-test" \
@@ -292,7 +292,7 @@ Handle network connectivity problems:
 
 ```bash
 # Use retry logic for network issues
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "google:gemini-3-flash-preview" \
   --id "network-test" \
@@ -307,7 +307,7 @@ Handle memory constraints:
 
 ```bash
 # Reduce concurrency if memory usage is high
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Process this file" \
   --models "ollama:gemma3:12b" \
   --id "memory-test" \
@@ -344,7 +344,7 @@ Chain multiple concurrent operations:
 
 ```bash
 # Step 1: Process images concurrently
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract text from this image" \
   --models "google:gemini-3-flash-preview" \
   --id "text-extraction" \
@@ -354,7 +354,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --max-concurrency 10
 
 # Step 2: Process extracted text concurrently
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this extracted text" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "text-analysis" \
@@ -370,7 +370,7 @@ Distribute load across different providers:
 
 ```bash
 # Balance load between local and cloud models
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "ollama:gemma3:12b,ollama:codestral:latest,google:gemini-3-flash-preview" \
   --id "load-balanced" \
@@ -391,7 +391,7 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Enable verbose output for debugging
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2,model3" \
   --id "debug-test" \

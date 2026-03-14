@@ -1,285 +1,336 @@
-# Model Context Protocol (MCP) Integration
+# Connecting LLMs to the Real World with MCP
 
-Umwelten includes comprehensive support for the Model Context Protocol (MCP), enabling integration with external tools and resources through standardized interfaces.
+A walkthrough of building an AI chat interface that talks to your electric vehicle — using the Model Context Protocol to give an LLM access to live charging data, trip history, and battery health, without writing a single API integration by hand.
 
-## Overview
+**Time Required:** 20 minutes to build, 2 minutes to connect
+**Prerequisites:** Node.js 20+, pnpm, a Google or OpenRouter API key
+**Optional:** A TezLab account (free) for the EV data example
+**Cost:** ~$0.01 per conversation
 
-The MCP implementation provides two key components:
+## The Problem
 
-1. **MCP Client**: Connect to external MCP servers to consume tools and resources
-2. **MCP Server Framework**: Build custom MCP servers to expose Umwelten's capabilities to external applications
+You want an LLM to answer questions about your electric vehicle: *"How much did I spend on charging last month?"* or *"What's my battery health trend?"* The data lives behind an OAuth-protected API with 20+ endpoints, each returning different JSON structures.
 
-This integration significantly expands the tool and resource capabilities available for model evaluation and interaction.
+The traditional approach: read the API docs, write fetch calls for each endpoint, handle auth tokens, parse responses, build tool definitions, wire everything together. For 20 tools, that's a weekend of work.
+
+The MCP approach: connect to a server that already exposes those tools, and the LLM gets access to all of them in one line of code. The protocol handles tool discovery, schema validation, and data formatting. You write the chat loop.
 
 ## What is MCP?
 
-The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard for connecting AI applications with data sources and tools. It enables:
+The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI applications discover and call external tools through a single connection. Think of it as USB for LLM tools — plug in a server, and the model can see what's available and use it.
 
-- **Standardized Tool Integration**: Common interface for external tools
-- **Resource Access**: Read files, databases, and APIs through unified protocols  
-- **Prompt Templates**: Reusable prompt patterns from external sources
-- **Secure Sandboxing**: Controlled access to external capabilities
+An MCP server exposes three things:
 
-## Features
+| Capability | What It Does | Example |
+|------------|-------------|---------|
+| **Tools** | Functions the model can call | `get_charges`, `get_battery_health` |
+| **Resources** | Data the model can read | Config files, database records |
+| **Prompts** | Reusable prompt templates | Analysis patterns, report formats |
 
-## Core Components
+Umwelten implements both sides: a **client** for consuming external MCP servers, and a **server framework** for building your own.
 
-### MCP Client
+## Step 1: Connect to an MCP Server
 
-Connect to external MCP servers to access their tools and resources:
-
-- **Tool Discovery**: Automatically discover available tools from connected servers
-- **Resource Access**: Read files, databases, and other resources
-- **Prompt Templates**: Access reusable prompt patterns
-- **Type Safety**: Full TypeScript support with runtime validation
-- **Connection Management**: Automatic reconnection and error handling
-
-#### Basic Usage
+The example connects to TezLab's MCP server, which exposes EV data tools. The connection handles OAuth automatically — on first run, it opens your browser for sign-in and stores the token for future sessions.
 
 ```typescript
-const client = createMCPClient({
-  name: 'umwelten-client',
-  version: '1.0.0'
+import { TezLabMCPManager } from './tezlab-mcp.js';
+
+const tezlab = new TezLabMCPManager({
+  serverUrl: 'https://mcp.tezlabapp.com',
+  scope: 'mcp',                    // Read-only by default
+  allowCommands: false,             // No vehicle commands
 });
 
-await client.connect(createStdioConfig('node', ['mcp-server.js']));
+await tezlab.connect();
 
-const tools = await client.getAllTools();
-const result = await client.callTool({
-  name: 'calculator',
-  arguments: { operation: 'add', a: 5, b: 3 }
+// That's it. You now have 20+ EV data tools.
+console.log(tezlab.getToolNames());
+// → ['get_charges', 'get_drives', 'get_battery_health', 'get_efficiency', ...]
+```
+
+On first run, your browser opens to TezLab's sign-in page. After you authorize, the OAuth token is stored at `~/.umwelten/mcp-chat/tezlab-oauth.json` — outside the project directory so the LLM can't read it through file tools.
+
+## Step 2: Filter Tools by Safety
+
+Not all tools should be available to the model. The TezLab server exposes `send_vehicle_command` (honk horn, flash lights, unlock doors) alongside read-only data tools. We filter based on MCP annotations:
+
+```typescript
+function shouldIncludeTool(toolDef: MCPToolDescriptor, allowCommands: boolean): boolean {
+  if (allowCommands) return true;
+
+  // Explicitly block vehicle commands
+  if (toolDef.name === 'send_vehicle_command') return false;
+
+  // Respect MCP safety annotations
+  if (toolDef.annotations?.destructiveHint) return false;
+  if (toolDef.annotations?.readOnlyHint === false) return false;
+
+  return true;
+}
+```
+
+This is annotation-based filtering — it works with any MCP server, not just TezLab. If a server marks a tool as destructive, it gets filtered automatically. You opt in to danger, not out.
+
+## Step 3: Convert MCP Tools to Vercel AI SDK Format
+
+MCP tools use JSON Schema. The Vercel AI SDK (which Umwelten uses under the hood) expects Zod schemas. The conversion happens automatically:
+
+```typescript
+import { tool } from 'ai';
+import { z } from 'zod';
+
+// MCP tool definition (JSON Schema) → Vercel AI SDK tool (Zod)
+function toAiTool(toolDef: MCPToolDescriptor): Tool {
+  return tool({
+    description: toolDef.description || `TezLab MCP tool: ${toolDef.name}`,
+    inputSchema: jsonSchemaToZod(toolDef.inputSchema),
+    execute: async (params) => {
+      const result = await client.callTool({
+        name: toolDef.name,
+        arguments: params,
+      });
+      return { tool: toolDef.name, success: !result.isError, data: result.content };
+    },
+  });
+}
+```
+
+The `jsonSchemaToZod()` function handles strings, numbers, booleans, arrays, objects, enums, and constraints like `minLength` and `maximum`. Once converted, MCP tools are indistinguishable from locally defined tools — the model uses them the same way.
+
+## Step 4: Wire Tools into a Habitat
+
+A Habitat is Umwelten's agent container. It manages the work directory, sessions, and tool registration. Here's the full wiring:
+
+```typescript
+import { Habitat } from '../../src/habitat/index.js';
+import { currentTimeTool } from '../../src/habitat/tools/time-tools.js';
+
+const habitat = await Habitat.create({
+  envPrefix: 'MCP_CHAT',
+  stimulusTemplatePath: join(__dirname, 'MCP_CHAT_PROMPT.md'),
+  skipBuiltinTools: true,           // No file/shell tools — just MCP
+  skipWorkDirTools: true,
+  registerCustomTools: async (instance) => {
+    instance.addTool('current_time', currentTimeTool);
+    await tezlab.connect();          // Connect and discover tools
+    instance.addTools(tezlab.getTools());  // Register all MCP tools
+  },
 });
 ```
 
-### MCP Server Framework
+Three design decisions here:
 
-Build custom MCP servers to expose Umwelten's capabilities:
+1. **No file or shell tools.** The model can only use MCP tools and a clock. It can't read the filesystem, run commands, or access anything outside the MCP server.
+2. **Custom prompt template.** `MCP_CHAT_PROMPT.md` tells the model what tools it has and how to use them — loaded from a file, not hardcoded.
+3. **Late tool registration.** Tools are discovered at connect time, not compile time. If the MCP server adds new tools, they appear automatically.
 
-- **Builder Pattern**: Fluent API for easy server creation
-- **Tool Registration**: Expose existing tools through MCP interface
-- **Resource Serving**: Share evaluation results and data
-- **Multi-client Support**: Handle multiple concurrent connections
-- **Protocol Compliance**: Full MCP specification implementation
+## Step 5: Chat
 
-#### Basic Usage
+Create an interaction and start talking:
 
 ```typescript
+const session = habitat.sessionManager.createSession();
+const interaction = await habitat.createAgentInteraction(session.id);
+
+// The model now has access to all TezLab tools
+const response = await interaction.chat(
+  'How much did I spend on charging last month?'
+);
+// Model calls get_charges tool → gets real data → formats answer
+```
+
+The model sees tool descriptions like "Get a list of charging sessions with cost, energy, and location data" and decides which tools to call. It might call `get_charges` with a date range, then `get_aggregations` for summary stats, and compose a natural language answer from the results.
+
+## How the Transport Layer Works
+
+MCP supports multiple ways to connect client to server. Umwelten implements four transports:
+
+| Transport | Use Case | How It Works |
+|-----------|----------|-------------|
+| **stdio** | Local servers | Launches a child process, pipes JSON-RPC over stdin/stdout |
+| **SSE** | Remote HTTP servers | Server-Sent Events for streaming responses |
+| **WebSocket** | Full-duplex remote | Bidirectional WebSocket connection |
+| **TCP** | Container communication | Direct TCP socket for Dagger containers |
+
+The TezLab example uses `StreamableHTTPClientTransport` (SSE). A local MCP server would use stdio:
+
+```typescript
+// Remote server (SSE with OAuth)
+const remote = new StreamableHTTPClientTransport(
+  new URL('https://mcp.tezlabapp.com'),
+  { authProvider: oauthProvider }
+);
+
+// Local server (stdio)
+const local = createStdioConfig('node', ['my-local-mcp-server.js']);
+```
+
+Same client API, different transport. Your code doesn't change.
+
+## Building Your Own MCP Server
+
+The server framework uses a builder pattern. Here's a server that exposes Umwelten's evaluation capabilities:
+
+```typescript
+import { createMCPServer } from '../../src/mcp/server/server.js';
+
 const server = createMCPServer()
-  .withName('umwelten-server')
+  .withName('umwelten-evaluation-server')
   .withVersion('1.0.0')
-  .addTool('evaluate-model', {
-    description: 'Evaluate a model with a prompt',
+  .addTool('run-evaluation', {
+    description: 'Run a prompt against multiple LLMs and compare results',
     inputSchema: {
       type: 'object',
       properties: {
-        prompt: { type: 'string' },
-        model: { type: 'string' }
-      }
-    }
+        prompt: { type: 'string', description: 'The prompt to evaluate' },
+        models: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Model IDs to test (e.g. "google:gemini-3-flash-preview")',
+        },
+      },
+      required: ['prompt'],
+    },
   }, async (params) => {
-    // Tool implementation
-    return { content: [{ type: 'text', text: result }] };
+    const results = await runEvaluation(params);
+    return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+  })
+  .addResource('latest-results', {
+    uri: 'eval://latest',
+    name: 'Latest evaluation results',
+    description: 'Results from the most recent evaluation run',
+  }, async () => {
+    return { contents: [{ uri: 'eval://latest', text: loadLatestResults() }] };
   })
   .build();
 
 await server.start(transport);
 ```
 
-## CLI Integration
+The server automatically handles JSON-RPC 2.0, capability negotiation, and tool/resource listing. When you add or remove tools at runtime, it sends `notifications/tools/list_changed` to connected clients.
 
-Umwelten provides comprehensive CLI commands for MCP operations:
-
-### Available Commands
-
-#### Connect to MCP Server
-
-Connect to an MCP server and list available capabilities:
-
-```bash
-dotenvx run -- pnpm run cli -- mcp connect -c "node mcp-server.js" --args arg1 arg2
-```
-
-#### Test Tool
-
-Test a specific tool from an MCP server:
-
-```bash  
-dotenvx run -- pnpm run cli -- mcp test-tool -c "node server.js" -t "calculator" -p '{"a":5,"b":3}'
-```
-
-#### Read Resource
-
-Read a resource from an MCP server:
-
-```bash
-dotenvx run -- pnpm run cli -- mcp read-resource -c "node server.js" -u "file:///path/to/resource"
-```
-
-#### Create Test Server
-
-Create a test MCP server with example tools and resources:
-
-```bash
-dotenvx run -- pnpm run cli -- mcp create-server --with-tools --with-resources
-```
-
-#### List Commands
-
-Show usage examples and available commands:
-
-```bash
-dotenvx run -- pnpm run cli -- mcp list
-```
-
-## Integration with Umwelten
-
-### High-Level Manager
-
-The `MCPStimulusManager` provides easy integration with Umwelten's existing systems:
+You can also register existing Umwelten tools directly:
 
 ```typescript
+import { wgetTool } from '../../src/stimulus/tools/url-tools.js';
+
+// Converts Zod schema → JSON Schema automatically
+server.registerToolFromDefinition('wget', wgetTool);
+```
+
+## The Integration Bridge
+
+The `MCPStimulusManager` ties everything together — it manages the connection lifecycle and converts between MCP and Umwelten's internal tool format:
+
+```typescript
+import { createMCPStimulusManager } from '../../src/mcp/integration/stimulus.js';
+
 const manager = createMCPStimulusManager({
-  name: 'evaluation-client',
-  version: '1.0.0',
-  transport: {
-    type: 'stdio',
-    command: 'node',
-    args: ['external-mcp-server.js']
-  },
-  autoConnect: true
-});
-
-await manager.connect();
-
-// Use external tools in evaluations
-const tools = manager.getAvailableTools();
-const resources = manager.getAvailableResources();
-```
-
-### Tool Interoperability
-
-- **Unified Interface**: MCP tools work seamlessly with existing Umwelten tools
-- **Automatic Conversion**: Transparent conversion between tool formats
-- **Type Safety**: Full TypeScript support with runtime validation
-- **Context Preservation**: Tool metadata and execution context preserved
-
-## Technical Details
-
-### Protocol Support
-- **JSON-RPC 2.0**: Complete specification compliance
-- **MCP Protocol**: Full MCP specification implementation
-- **Multiple Transports**: stdio, SSE, and WebSocket support
-- **Error Handling**: Robust error codes and recovery mechanisms
-
-### Type Safety
-- **Full TypeScript**: Complete type safety throughout
-- **Zod Validation**: Runtime validation for all protocol messages
-- **Schema Conversion**: Automatic JSON Schema to Zod conversion
-- **Type Guards**: Helper functions for type checking
-
-## Architecture
-
-### File Structure
-
-```
-src/mcp/
-├── types/
-│   ├── protocol.ts      # MCP protocol types and schemas
-│   └── transport.ts     # Transport layer implementations
-├── client/
-│   └── client.ts        # MCP client implementation
-├── server/
-│   └── server.ts        # MCP server framework
-├── integration/
-│   └── stimulus.ts      # Integration with Interaction/Stimulus system
-└── cli/
-    └── mcp.ts          # CLI commands for MCP operations
-```
-
-### Core Features
-
-- **Protocol Compliance**: Full JSON-RPC 2.0 and MCP specification support
-- **Transport Options**: stdio, SSE, and WebSocket transport protocols
-- **Tool Discovery**: Automatic discovery and integration of external tools
-- **Resource Access**: Unified interface for external data sources
-- **Connection Management**: Robust reconnection with error recovery
-- **Backward Compatibility**: All existing functionality preserved
-
-## Use Cases
-
-### External Tool Integration
-
-Connect to existing MCP servers to expand Umwelten's capabilities:
-
-```typescript
-// Connect to filesystem MCP server
-const manager = createMCPStimulusManager({
-  name: 'umwelten-client',
-  version: '1.0.0',
-  transport: {
-    type: 'stdio',
-    command: 'node',
-    args: ['filesystem-mcp-server.js']
-  }
-});
-
-await manager.connect();
-
-// Use filesystem tools in evaluations
-const tools = manager.getAvailableTools();
-const fileReader = manager.getTool('read-file');
-```
-
-Remote transports can also be configured directly:
-
-```typescript
-const remoteManager = createMCPStimulusManager({
-  name: 'remote-client',
+  name: 'my-client',
   version: '1.0.0',
   transport: {
     type: 'sse',
     url: 'https://example.com/mcp/sse',
-    headers: {
-      Authorization: `Bearer ${process.env.MCP_ACCESS_TOKEN}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   },
 });
+
+await manager.connect();
+
+// MCP tools converted to Umwelten ToolDefinitions
+const tools = manager.getAvailableTools();
+
+// MCP resources injected as prompt context
+const context = await createMCPResourceContext(manager);
 ```
 
-### Custom Server Creation
+This is the key abstraction: MCP tools become regular Umwelten tools. They work in evaluations, chat sessions, and habitat agents without any special handling.
 
-Expose Umwelten's evaluation capabilities to external applications:
+## Security Model
 
-```typescript
-// Create evaluation server
-const server = createMCPServer()
-  .withName('umwelten-evaluation-server')
-  .addTool('run-evaluation', evaluationToolDef, evaluationHandler)
-  .addResource('evaluation-results', resultsDef, resultsHandler)
-  .build();
+The implementation enforces several safety boundaries:
 
-await server.start(new StdioTransport());
+| Boundary | How |
+|----------|-----|
+| **OAuth tokens stored outside work dir** | LLM can't read `~/.umwelten/mcp-chat/` through file tools |
+| **Read-only by default** | Vehicle commands require explicit `allowCommands: true` |
+| **Annotation-based filtering** | Respects `readOnlyHint` and `destructiveHint` from any MCP server |
+| **No file/shell tools in MCP chat** | `skipBuiltinTools: true` prevents filesystem access |
+| **Scope-limited OAuth** | `mcp` scope vs `mcp_commands` scope controls what the server exposes |
+| **Private file permissions** | Auth state written with `0o600` (owner-only read/write) |
+
+## Architecture
+
+```
+src/mcp/
+├── types/
+│   ├── protocol.ts        # Zod schemas for JSON-RPC 2.0 + MCP protocol
+│   ├── transport.ts        # Abstract transport + Stdio/SSE/WebSocket
+│   └── transport-tcp.ts    # TCP transport for container communication
+├── client/
+│   └── client.ts           # MCP client: connect, discover, call tools
+├── server/
+│   └── server.ts           # MCP server framework with builder pattern
+└── integration/
+    └── stimulus.ts         # Bridge: MCP tools ↔ Umwelten ToolDefinitions
 ```
 
-### Integration Scenarios
+## Patterns You Can Reuse
 
-- **IDE Extensions**: Expose model evaluation through MCP to code editors
-- **Data Analysis**: Connect to databases and APIs for enhanced context
-- **Automation**: Integrate with workflow systems and external tools
-- **Multi-Agent Systems**: Enable communication between different AI systems
+### Pattern 1: External Tool Integration via MCP
 
-## Getting Started
+Connect to any MCP server and use its tools in your LLM interactions. No API-specific code needed — just point at the server URL.
 
-1. **Install Dependencies**: MCP support is included with Umwelten
-2. **Explore Commands**: Use `dotenvx run -- pnpm run cli -- mcp list` to see available commands
-3. **Connect to Server**: Try `dotenvx run -- pnpm run cli -- mcp connect` with an existing MCP server
-4. **Build Custom Server**: Use the server framework to expose your tools
+```
+MCP Server → Client connects → Tools discovered → Registered in Habitat → Model uses them
+```
 
-For more information about the Model Context Protocol, visit [modelcontextprotocol.io](https://modelcontextprotocol.io/).
+### Pattern 2: Annotation-Based Safety
 
-## Next Steps
+Instead of maintaining a blocklist of dangerous tool names, read the MCP annotations. Works with any server without special cases.
 
-- Try integrating with existing MCP servers from the ecosystem
-- Build custom servers to expose Umwelten's capabilities
-- Explore advanced tool composition and resource management
-- Contribute to the growing MCP ecosystem
+### Pattern 3: Transport-Agnostic Clients
+
+Write your client code once. Swap between local (stdio), remote (SSE/WebSocket), and container (TCP) transports by changing config, not code.
+
+### Pattern 4: Bidirectional Schema Conversion
+
+Convert JSON Schema → Zod (for consuming MCP tools) and Zod → JSON Schema (for exposing tools as MCP). This bridges the gap between MCP's schema format and the Vercel AI SDK's expectations.
+
+### Pattern 5: Late Tool Discovery
+
+Don't hardcode tool lists. Connect at runtime, discover what's available, and register dynamically. If the server adds tools, your client picks them up automatically.
+
+## Running the Example
+
+```bash
+# Start the MCP chat with TezLab (opens browser for OAuth on first run)
+dotenvx run -- pnpm tsx examples/mcp-chat/cli.ts
+
+# Allow vehicle commands (honk, flash, unlock)
+MCP_CHAT_ALLOW_COMMANDS=true dotenvx run -- pnpm tsx examples/mcp-chat/cli.ts
+
+# Use a different model
+MCP_CHAT_PROVIDER=openrouter MCP_CHAT_MODEL=anthropic/claude-haiku-4.5 \
+  dotenvx run -- pnpm tsx examples/mcp-chat/cli.ts
+```
+
+Once connected, try:
+
+- *"How much did I spend on charging this month?"*
+- *"Show me my last 5 drives with efficiency data"*
+- *"What's my battery health trend?"*
+- *"Find chargers near my current location"*
+
+The model calls the appropriate TezLab MCP tools, gets real data back, and composes a natural language answer.
+
+## Full Source
+
+See [`examples/mcp-chat/`](../examples/mcp-chat/) for the complete implementation:
+
+- `tezlab-mcp.ts` — OAuth provider, MCP client, tool filtering and conversion
+- `habitat.ts` — Habitat wiring with MCP tools
+- `cli.ts` — Interactive chat REPL with `/tools`, `/context`, `/logout` commands
+
+For the core MCP library, see [`src/mcp/`](../src/mcp/).

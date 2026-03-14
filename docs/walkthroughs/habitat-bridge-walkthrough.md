@@ -6,12 +6,12 @@ This walkthrough shows how to run an agent repository in a supervised Dagger con
 
 - Docker running (Dagger uses Docker)
 - Go MCP binary compiled at `src/habitat/bridge/go-server/bridge-server-linux`
-- A habitat set up (run `dotenvx run -- pnpm run cli habitat` once to onboard)
+- A habitat set up (run `pnpm run cli -- habitat` once to onboard)
 
 ## Step 1: Start the Habitat REPL
 
 ```bash
-dotenvx run -- pnpm run cli habitat --provider google --model gemini-3-flash-preview
+pnpm run cli -- habitat --provider google --model gemini-3-flash-preview
 ```
 
 This starts an interactive session where the LLM has bridge tools available.
@@ -87,13 +87,13 @@ You can also manage bridges directly from the command line without the REPL:
 
 ```bash
 # Start a bridge for a registered agent
-dotenvx run -- pnpm run cli habitat agent start trmnl-image-agent
+pnpm run cli -- habitat agent start trmnl-image-agent
 
 # Check status
-dotenvx run -- pnpm run cli habitat agent status trmnl-image-agent
+pnpm run cli -- habitat agent status trmnl-image-agent
 
 # Stop
-dotenvx run -- pnpm run cli habitat agent stop trmnl-image-agent
+pnpm run cli -- habitat agent stop trmnl-image-agent
 ```
 
 The `agent start` command:
@@ -144,7 +144,7 @@ cat ~/habitats/agents/trmnl-image-agent/supervisor.json
 ## Architecture Summary
 
 ```
-dotenvx run -- pnpm run cli habitat agent start <agent-id>
+pnpm run cli -- habitat agent start <agent-id>
   → Habitat.startBridge(agentId)
     → BridgeSupervisor.start()
       → BridgeAgent.start()

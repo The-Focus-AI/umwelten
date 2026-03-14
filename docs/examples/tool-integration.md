@@ -14,7 +14,7 @@ This guide demonstrates practical applications of tool calling in different cont
 
 ```bash
 # Start chat with calculator tool
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
 ```
 
 **Example Conversation**:
@@ -34,7 +34,7 @@ The result of 15 * 27 is 405.
 **Scenario**: Parsing and evaluating mathematical expressions.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
 ```
 
 **Example Conversation**:
@@ -61,7 +61,7 @@ The result of 100 / 4 + 7 * 3 is 46.
 **Scenario**: Analyzing numerical datasets.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools statistics
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools statistics
 ```
 
 **Example Conversation**:
@@ -99,7 +99,7 @@ This appears to be a linear sequence with equal spacing between values.
 **Scenario**: Analyzing and comparing different datasets.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools statistics
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools statistics
 ```
 
 **Example Conversation**:
@@ -133,7 +133,7 @@ Model: I'll analyze both datasets and compare them.
 **Scenario**: Generating random numbers for various purposes.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools randomNumber
 ```
 
 **Example Conversation**:
@@ -152,7 +152,7 @@ The random number between 1 and 100 is: **73**
 **Scenario**: Generating multiple random numbers for different purposes.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools randomNumber
 ```
 
 **Example Conversation**:
@@ -182,7 +182,7 @@ Here are your three random numbers:
 **Scenario**: Combining multiple tools for complex calculations.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
 ```
 
 **Example Conversation**:
@@ -212,7 +212,7 @@ Model: I'll perform these three operations for you.
 **Scenario**: Generating data and analyzing it.
 
 ```bash
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics,randomNumber
 ```
 
 **Example Conversation**:
@@ -260,13 +260,13 @@ The numbers are fairly well distributed across the range, with a mean close to t
 
 ```bash
 # Run the default demo
-dotenvx run -- pnpm run cli -- tools demo
+pnpm run cli -- tools demo
 
 # Run with custom prompt
-dotenvx run -- pnpm run cli -- tools demo --prompt "Calculate 25 * 4, then generate a random number between 1 and 50"
+pnpm run cli -- tools demo --prompt "Calculate 25 * 4, then generate a random number between 1 and 50"
 
 # Run with step limit
-dotenvx run -- pnpm run cli -- tools demo --max-steps 3
+pnpm run cli -- tools demo --max-steps 3
 ```
 
 **Example Demo Output**:
@@ -346,7 +346,7 @@ registerTool('weather', weatherTool);
 import './weather-tool.js';
 
 # Use in chat
-dotenvx run -- pnpm run cli -- chat --provider ollama --model qwen3:latest --tools weather
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools weather
 ```
 
 **Example Conversation**:

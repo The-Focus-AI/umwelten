@@ -17,9 +17,9 @@ Navigate to any project directory and explore Claude session history:
 
 ```bash
 cd /path/to/project
-dotenvx run -- pnpm run cli -- sessions              # List all sessions
-dotenvx run -- pnpm run cli -- sessions show <id>    # View session details
-dotenvx run -- pnpm run cli -- sessions messages <id> # Show conversation
+pnpm run cli -- sessions              # List all sessions
+pnpm run cli -- sessions show <id>    # View session details
+pnpm run cli -- sessions messages <id> # Show conversation
 ```
 
 ### How Claude Stores Sessions
@@ -100,16 +100,16 @@ Example assistant message with tool use:
 
 ```bash
 # Session browsing
-dotenvx run -- pnpm run cli -- sessions                    # List sessions for current directory
-dotenvx run -- pnpm run cli -- sessions list               # Same as above
-dotenvx run -- pnpm run cli -- sessions show <id>          # Show session details
-dotenvx run -- pnpm run cli -- sessions messages <id>      # Show conversation messages
-dotenvx run -- pnpm run cli -- sessions tools <id>         # Show tool calls in session
-dotenvx run -- pnpm run cli -- sessions stats <id>         # Token usage, cost, duration
-dotenvx run -- pnpm run cli -- sessions export <id>        # Export to markdown/JSON
+pnpm run cli -- sessions                    # List sessions for current directory
+pnpm run cli -- sessions list               # Same as above
+pnpm run cli -- sessions show <id>          # Show session details
+pnpm run cli -- sessions messages <id>      # Show conversation messages
+pnpm run cli -- sessions tools <id>         # Show tool calls in session
+pnpm run cli -- sessions stats <id>         # Token usage, cost, duration
+pnpm run cli -- sessions export <id>        # Export to markdown/JSON
 
 # Live stream formatting
-claude -p "task" --output-format stream-json | dotenvx run -- pnpm run cli -- sessions format
+claude -p "task" --output-format stream-json | pnpm run cli -- sessions format
 ```
 
 ### Data Types
@@ -181,7 +181,7 @@ src/cli/
 ### Example Output
 
 ```
-$ dotenvx run -- pnpm run cli -- sessions
+$ pnpm run cli -- sessions
 
 Sessions for /Users/wschenk/The-Focus-AI/umwelten
 
@@ -190,7 +190,7 @@ ID                                   | Date       | Messages | Preview
 fb071297-cf86-4ff8-b0c7-3079fc8ffd9c | 2026-01-24 | 45       | Help me build a claude...
 da1854ce-0695-44c2-ab44-db501f3f9aa2 | 2026-01-23 | 12       | Fix the type errors...
 
-$ dotenvx run -- pnpm run cli -- sessions show fb071297
+$ pnpm run cli -- sessions show fb071297
 
 Session: fb071297-cf86-4ff8-b0c7-3079fc8ffd9c
 Project: /Users/wschenk/The-Focus-AI/umwelten
@@ -212,10 +212,10 @@ Add analysis capabilities on top of session browsing.
 ### CLI Commands
 
 ```bash
-dotenvx run -- pnpm run cli -- sessions search <query>       # Search across all sessions
-dotenvx run -- pnpm run cli -- sessions compare <id> <id>    # Compare two sessions
-dotenvx run -- pnpm run cli -- sessions summary              # Stats across all sessions
-dotenvx run -- pnpm run cli -- sessions cost [--since date]  # Cost tracking over time
+pnpm run cli -- sessions search <query>       # Search across all sessions
+pnpm run cli -- sessions compare <id> <id>    # Compare two sessions
+pnpm run cli -- sessions summary              # Stats across all sessions
+pnpm run cli -- sessions cost [--since date]  # Cost tracking over time
 ```
 
 ### Features
@@ -258,28 +258,28 @@ Automate Claude agent execution on repositories.
 
 ```bash
 # Repository management
-dotenvx run -- pnpm run cli -- monitor repo add <name> <url>
-dotenvx run -- pnpm run cli -- monitor repo list
-dotenvx run -- pnpm run cli -- monitor repo remove <name>
+pnpm run cli -- monitor repo add <name> <url>
+pnpm run cli -- monitor repo list
+pnpm run cli -- monitor repo remove <name>
 
 # Task management
-dotenvx run -- pnpm run cli -- monitor task create <repo> <name> --prompt "..."
-dotenvx run -- pnpm run cli -- monitor task list
-dotenvx run -- pnpm run cli -- monitor task enable/disable <id>
-dotenvx run -- pnpm run cli -- monitor task schedule <id> "0 9 * * *"
+pnpm run cli -- monitor task create <repo> <name> --prompt "..."
+pnpm run cli -- monitor task list
+pnpm run cli -- monitor task enable/disable <id>
+pnpm run cli -- monitor task schedule <id> "0 9 * * *"
 
 # Execution
-dotenvx run -- pnpm run cli -- monitor run <task-id>
-dotenvx run -- pnpm run cli -- monitor run --sandbox   # Dagger container
-dotenvx run -- pnpm run cli -- monitor run --host      # Host machine (for setup)
+pnpm run cli -- monitor run <task-id>
+pnpm run cli -- monitor run --sandbox   # Dagger container
+pnpm run cli -- monitor run --host      # Host machine (for setup)
 
 # Monitoring
-dotenvx run -- pnpm run cli -- monitor status
-dotenvx run -- pnpm run cli -- monitor logs <run-id>
-dotenvx run -- pnpm run cli -- monitor serve           # Web dashboard + scheduler
+pnpm run cli -- monitor status
+pnpm run cli -- monitor logs <run-id>
+pnpm run cli -- monitor serve           # Web dashboard + scheduler
 
 # Session continuation
-dotenvx run -- pnpm run cli -- monitor continue <session-id> <prompt>
+pnpm run cli -- monitor continue <session-id> <prompt>
 ```
 
 ### Architecture
@@ -348,12 +348,12 @@ interface MonitorRun {
 
 ### Workflow
 
-1. Add repo: `dotenvx run -- pnpm run cli -- monitor repo add my-app https://github.com/...`
-2. Create task: `dotenvx run -- pnpm run cli -- monitor task create my-app "daily-check" --prompt "Review and fix issues"`
-3. Set schedule: `dotenvx run -- pnpm run cli -- monitor task schedule <id> "0 9 * * *"`
+1. Add repo: `pnpm run cli -- monitor repo add my-app https://github.com/...`
+2. Create task: `pnpm run cli -- monitor task create my-app "daily-check" --prompt "Review and fix issues"`
+3. Set schedule: `pnpm run cli -- monitor task schedule <id> "0 9 * * *"`
 4. Scheduler runs: clones repo, runs Claude, commits to feature branch
-5. Review: `dotenvx run -- pnpm run cli -- sessions show <session-id>` or web dashboard
-6. Continue: `dotenvx run -- pnpm run cli -- monitor continue <session-id> "Also update tests"`
+5. Review: `pnpm run cli -- sessions show <session-id>` or web dashboard
+6. Continue: `pnpm run cli -- monitor continue <session-id> "Also update tests"`
 
 ### Isolation Modes
 

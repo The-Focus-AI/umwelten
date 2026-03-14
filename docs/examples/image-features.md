@@ -9,7 +9,7 @@ This example demonstrates how to extract structured data from images using Zod s
 Extract basic image features using Umwelten's DSL schema syntax:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this image and extract structured features" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-features-simple" \
@@ -22,7 +22,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Use the full Zod schema from the original script for comprehensive feature extraction:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this image and extract detailed features with confidence scores" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-features-detailed" \
@@ -83,7 +83,7 @@ export const ImageFeatureSchema = z.object({
 ### Single Image Analysis
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this image and extract all the specified features with confidence scores" \
   --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "structured-image-analysis" \
@@ -96,7 +96,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Multiple Models Comparison
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Extract structured image features with confidence scores" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest,google:gemini-1.5-flash-8b" \
   --id "multi-model-features" \
@@ -174,7 +174,7 @@ When using `--validate-output`, you'll get validation feedback:
 Process multiple images with structured feature extraction:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract structured image features with confidence scores" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-features-batch" \
@@ -190,7 +190,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Generate Comprehensive Report
 
 ```bash
-dotenvx run -- pnpm run cli -- eval report --id multi-model-features --format html --output features-report.html
+pnpm run cli -- eval report --id multi-model-features --format html --output features-report.html
 ```
 
 ### Sample Report with Structured Data
@@ -232,7 +232,7 @@ dotenvx run -- pnpm run cli -- eval report --id multi-model-features --format ht
 
 ```bash
 # Only accept results with high confidence
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Extract image features (only provide features you're very confident about)" \
   --models "google:gemini-3-flash-preview" \
   --id "high-confidence-features" \
@@ -246,7 +246,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Use built-in templates for common patterns:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Extract basic image information" \
   --models "google:gemini-3-flash-preview" \
   --id "template-features" \
@@ -280,7 +280,7 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Disable strict validation for experimental models
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --zod-schema "./schemas/image-feature-schema.ts" \
   --validate-output false \
   # ... other options

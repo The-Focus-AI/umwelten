@@ -9,7 +9,7 @@ This example demonstrates basic text generation and model comparison using Umwel
 Compare how different models handle the same prompt:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "quantum-explanation" \
@@ -21,7 +21,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Add context and control creativity:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum entanglement and its practical applications" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "quantum-detailed" \
@@ -34,7 +34,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Watch responses generate in real-time:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a comprehensive explanation of artificial intelligence, covering its history, current applications, and future potential" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "ai-comprehensive" \
@@ -50,7 +50,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Test analytical capabilities across models:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Compare Python, JavaScript, and Rust for web development. Include performance, learning curve, and ecosystem considerations." \
   --models "ollama:gemma3:12b,ollama:llama3.2:latest,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "lang-comparison" \
@@ -64,7 +64,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Test technical writing capabilities:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a technical specification for a REST API that manages user accounts, including authentication, CRUD operations, and error handling" \
   --models "ollama:codestral:latest,google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "api-spec" \
@@ -78,7 +78,7 @@ Test creative writing at different temperatures:
 
 ```bash
 # High creativity
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a short science fiction story about first contact with an alien civilization" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview" \
   --id "scifi-creative" \
@@ -86,7 +86,7 @@ dotenvx run -- pnpm run cli -- eval run \
   --temperature 1.5
 
 # Low creativity (more structured)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a short science fiction story about first contact with an alien civilization" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview" \
   --id "scifi-structured" \
@@ -101,7 +101,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Continue from where you left off if interrupted:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a detailed analysis of renewable energy technologies and their impact on climate change" \
   --models "ollama:gemma3:27b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "renewable-energy" \
@@ -114,7 +114,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Set appropriate timeouts for complex prompts:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a comprehensive business plan for a sustainable technology startup, including market analysis, financial projections, and implementation timeline" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
   --id "business-plan" \
@@ -128,29 +128,29 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Markdown report
-dotenvx run -- pnpm run cli -- eval report --id quantum-explanation --format markdown
+pnpm run cli -- eval report --id quantum-explanation --format markdown
 
 # HTML report with rich formatting
-dotenvx run -- pnpm run cli -- eval report --id lang-comparison --format html --output comparison-report.html
+pnpm run cli -- eval report --id lang-comparison --format html --output comparison-report.html
 
 # CSV export for further analysis
-dotenvx run -- pnpm run cli -- eval report --id ai-comprehensive --format csv --output ai-analysis.csv
+pnpm run cli -- eval report --id ai-comprehensive --format csv --output ai-analysis.csv
 
 # JSON for programmatic processing
-dotenvx run -- pnpm run cli -- eval report --id renewable-energy --format json
+pnpm run cli -- eval report --id renewable-energy --format json
 ```
 
 ### List and Discover Evaluations
 
 ```bash
 # List all evaluations
-dotenvx run -- pnpm run cli -- eval list
+pnpm run cli -- eval list
 
 # Show detailed information
-dotenvx run -- pnpm run cli -- eval list --details
+pnpm run cli -- eval list --details
 
 # JSON format for scripting
-dotenvx run -- pnpm run cli -- eval list --json
+pnpm run cli -- eval list --json
 ```
 
 ## Expected Output Examples

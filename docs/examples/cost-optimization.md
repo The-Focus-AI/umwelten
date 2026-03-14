@@ -9,7 +9,7 @@ This example demonstrates how to use Umwelten for cost-effective AI model evalua
 Test Google models for pricing and cost analysis:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a detailed analysis of machine learning trends in 2024, including key developments in LLMs, computer vision, and AI safety. Include specific examples and future predictions." \
   --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25,google:gemini-1.5-flash-8b" \
   --id "google-pricing-comparison" \
@@ -22,7 +22,7 @@ dotenvx run -- pnpm run cli -- eval run \
 Compare costs across different providers for the same task:
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze the competitive landscape for cloud computing services, focusing on AWS, Google Cloud, and Microsoft Azure. Include market share, pricing strategies, and key differentiators." \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o,ollama:gemma3:12b" \
   --id "provider-cost-comparison" \
@@ -34,10 +34,10 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Generate detailed cost report
-dotenvx run -- pnpm run cli -- eval report --id google-pricing-comparison --format markdown
+pnpm run cli -- eval report --id google-pricing-comparison --format markdown
 
 # Export cost data for further analysis  
-dotenvx run -- pnpm run cli -- eval report --id provider-cost-comparison --format csv --output cost-analysis.csv
+pnpm run cli -- eval report --id provider-cost-comparison --format csv --output cost-analysis.csv
 ```
 
 ## Cost Optimization Strategies
@@ -48,21 +48,21 @@ Compare different model tiers for the same task:
 
 ```bash
 # Premium tier
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Create a comprehensive business plan for a sustainable energy startup" \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "business-plan-premium" \
   --system "You are a business consultant with expertise in sustainable energy and startup development"
 
 # Standard tier
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Create a comprehensive business plan for a sustainable energy startup" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "business-plan-standard" \
   --system "You are a business consultant with expertise in sustainable energy and startup development"
 
 # Budget tier (free)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Create a comprehensive business plan for a sustainable energy startup" \
   --models "ollama:gemma3:27b,ollama:llama3.2:latest" \
   --id "business-plan-budget" \
@@ -75,13 +75,13 @@ Test how prompt length affects costs:
 
 ```bash
 # Detailed prompt (higher cost)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "You are a financial analyst. Please provide a comprehensive analysis of Tesla's stock performance over the past 5 years, including quarterly earnings, market trends, competitive positioning, regulatory environment, technological developments, executive leadership changes, and forward-looking projections. Include specific metrics, comparisons to competitors, and risk assessments." \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "detailed-prompt-cost"
 
 # Concise prompt (lower cost)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze Tesla's 5-year stock performance including earnings, market trends, competition, and future outlook." \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "concise-prompt-cost"
@@ -93,20 +93,20 @@ Compare costs of batch vs individual processing:
 
 ```bash
 # Individual processing (potentially higher cost due to overhead)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Summarize this document in 100 words" \
   --models "google:gemini-3-flash-preview" \
   --id "individual-doc-1" \
   --attach "./docs/doc1.pdf"
 
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Summarize this document in 100 words" \
   --models "google:gemini-3-flash-preview" \
   --id "individual-doc-2" \
   --attach "./docs/doc2.pdf"
 
 # Batch processing (more efficient)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Summarize this document in 100 words" \
   --models "google:gemini-3-flash-preview" \
   --id "batch-docs" \
@@ -123,21 +123,21 @@ Test how response length requirements affect costs:
 
 ```bash
 # Short response
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing in 50 words or less" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,ollama:gemma3:12b" \
   --id "short-response-cost" \
   --concurrent
 
 # Medium response  
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing in approximately 200 words" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,ollama:gemma3:12b" \
   --id "medium-response-cost" \
   --concurrent
 
 # Long response
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a comprehensive explanation of quantum computing (800-1000 words)" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,ollama:gemma3:12b" \
   --id "long-response-cost" \
@@ -150,14 +150,14 @@ Optimize for different context window needs:
 
 ```bash
 # Large context (higher cost)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze this entire document and provide insights" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "large-context-test" \
   --attach "./large-document.pdf"
 
 # Chunked processing (potentially lower cost)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze the executive summary and key findings sections" \
   --models "google:gemini-3-flash-preview" \
   --id "chunked-processing-test" \
@@ -170,7 +170,7 @@ Balance cost with output quality using temperature:
 
 ```bash
 # High quality, deterministic (may use more tokens for consistency)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a professional email responding to a customer complaint" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "high-quality-email" \
@@ -178,7 +178,7 @@ dotenvx run -- pnpm run cli -- eval run \
   --concurrent
 
 # Balanced creativity and cost
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a professional email responding to a customer complaint" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
   --id "balanced-email" \
@@ -282,19 +282,19 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Tier 1: Experimentation and Development (Free)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "ollama:gemma3:12b,ollama:llama3.2:latest" \
   --id "dev-testing" \
   --prompt "Test prompt for development"
 
 # Tier 2: Production Workloads (Low Cost)  
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "google:gemini-3-flash-preview,google:gemini-1.5-flash-8b" \
   --id "production-standard" \
   --prompt "Production prompt"
 
 # Tier 3: Premium Quality (High Cost)
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --models "google:gemini-2.5-pro-exp-03-25,openrouter:openai/gpt-4o" \
   --id "premium-quality" \
   --prompt "Critical quality prompt"
@@ -304,13 +304,13 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Cost-inefficient prompt
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Please provide a very detailed, comprehensive, extensive, and thorough analysis with multiple examples, extensive background information, detailed explanations, and comprehensive coverage of all aspects..." \
   --models "google:gemini-3-flash-preview" \
   --id "inefficient-prompt"
 
 # Cost-efficient prompt
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Analyze X focusing on key points A, B, C. Include 2-3 specific examples. Target length: 300 words." \
   --models "google:gemini-3-flash-preview" \
   --id "efficient-prompt"
@@ -320,7 +320,7 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Process 100 documents efficiently
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Summarize key points in 100 words" \
   --models "google:gemini-3-flash-preview" \
   --id "cost-efficient-batch" \
@@ -334,13 +334,13 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Use cheap model for first pass
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Quick analysis of this document" \
   --models "google:gemini-3-flash-preview" \
   --id "first-pass"
 
 # Use expensive model only for validation/refinement
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Detailed analysis building on initial findings" \
   --models "openrouter:openai/gpt-4o" \
   --id "validation-pass"
@@ -352,19 +352,19 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Option A: Premium models ($150/month)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --models "openrouter:openai/gpt-4o" \
   --prompt "Write a 500-word article about [topic]" \
   --id "premium-content"
 
 # Option B: Balanced approach ($15/month)  
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --models "google:gemini-3-flash-preview" \
   --prompt "Write a 500-word article about [topic]" \
   --id "balanced-content"
 
 # Option C: Free local processing ($0/month + hardware)
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --models "ollama:gemma3:27b" \
   --prompt "Write a 500-word article about [topic]" \
   --id "free-content"
@@ -374,7 +374,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # High-volume processing optimization
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Extract key information: title, date, summary" \
   --models "google:gemini-3-flash-preview" \
   --schema "title, date, summary, confidence int" \
@@ -389,7 +389,7 @@ dotenvx run -- pnpm run cli -- eval batch \
 
 ```bash
 # Mixed approach: cheap for screening, expensive for deep analysis
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Quick relevance assessment (relevant/not relevant)" \
   --models "google:gemini-3-flash-preview" \
   --id "paper-screening" \
@@ -397,7 +397,7 @@ dotenvx run -- pnpm run cli -- eval batch \
   --file-pattern "*.pdf"
 
 # Follow-up with detailed analysis for relevant papers only
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Detailed analysis of methodology, findings, and significance" \
   --models "google:gemini-2.5-pro-exp-03-25" \
   --id "deep-paper-analysis" \
@@ -410,21 +410,21 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # List all evaluations with cost information
-dotenvx run -- pnpm run cli -- eval list --details
+pnpm run cli -- eval list --details
 
 # Export cost data for analysis
-dotenvx run -- pnpm run cli -- eval report --id all --format csv --output monthly-costs.csv
+pnpm run cli -- eval report --id all --format csv --output monthly-costs.csv
 
 # Compare costs across time periods
-dotenvx run -- pnpm run cli -- eval report --id january-batch --format json > jan-costs.json
-dotenvx run -- pnpm run cli -- eval report --id february-batch --format json > feb-costs.json
+pnpm run cli -- eval report --id january-batch --format json > jan-costs.json
+pnpm run cli -- eval report --id february-batch --format json > feb-costs.json
 ```
 
 ### Budget Management
 
 ```bash
 # Set evaluation limits for cost control
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --file-limit 100 \
   --timeout 30000 \
   --models "google:gemini-3-flash-preview" \
