@@ -440,13 +440,48 @@ if (qualityScore < 0.7) {
 }
 ```
 
+### 5. Pairwise Ranking (Post-Processing)
+
+After generating responses with any strategy above, rank them head-to-head using the `PairwiseRanker`:
+
+```typescript
+import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+
+// Convert evaluation results to ranking entries
+const entries = evaluationResultsToRankingEntries(evalResult);
+
+const ranker = new PairwiseRanker(entries, {
+  judgeModel: { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
+  judgeInstructions: [
+    'Compare the two responses. Which is better overall?',
+    'Consider clarity, accuracy, completeness, and engagement.',
+    'Only say "tie" if genuinely equal.',
+  ],
+  pairingMode: 'swiss',  // or 'all' for round-robin
+  swissRounds: 5,
+  cacheDir: './output/rankings/my-ranking',
+});
+
+const output = await ranker.rank();
+// output.rankings: sorted by Elo descending
+```
+
+**When to use:**
+- Subjective quality comparisons (narrative, creative, style)
+- Producing a total ordering of many models from pairwise matchups
+- Validating or supplementing automated scoring
+- Tasks where relative preference is clearer than absolute scores
+
+See the [Pairwise Ranking Guide](/guide/pairwise-ranking) for detailed configuration and the [API Reference](/api/pairwise-ranking) for type definitions.
+
 ## Examples
 
-See the `scripts/examples/` directory for complete examples of different evaluation patterns.
+See the `scripts/examples/` directory for complete examples of different evaluation patterns, and `examples/mcp-chat/elo-rivian.ts` for a full pairwise ranking workflow.
 
 ## Related Documentation
 
 - [Writing Scripts](writing-scripts.md)
 - [Stimulus Templates](stimulus-templates.md)
 - [Tool Integration](tool-integration.md)
+- [Pairwise Ranking](pairwise-ranking.md)
 - [Best Practices](best-practices.md)

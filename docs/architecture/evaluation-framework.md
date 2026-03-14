@@ -257,6 +257,59 @@ The framework provides robust error handling:
 - Cost tracking and monitoring
 - Budget limits and alerts
 
+## 6. Pairwise Ranking (Post-Processing)
+
+Rank model responses via head-to-head LLM-judge comparisons with Elo ratings.
+
+Unlike the evaluation strategies above, the ranking module is a **post-processing step** — it consumes existing responses rather than generating them. This makes it composable with any evaluation strategy.
+
+```typescript
+import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+
+// Bridge from evaluation results
+const entries = evaluationResultsToRankingEntries(evalResult);
+
+const ranker = new PairwiseRanker(entries, {
+  judgeModel: { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
+  judgeInstructions: [
+    'Compare the two responses. Which is better overall?',
+    'Consider clarity, accuracy, and completeness.',
+  ],
+  pairingMode: 'swiss',  // or 'all' for round-robin
+  swissRounds: 5,
+  cacheDir: './output/rankings/my-ranking',
+});
+
+const output = await ranker.rank();
+// output.rankings: RankedModel[] sorted by Elo descending
+```
+
+**Key features:**
+- **Swiss tournament** (default) — efficient pairing by current rating, `O(rounds × n/2)` comparisons
+- **Round-robin** — all pairs, `O(n²)` comparisons, maximum accuracy
+- **Position bias mitigation** — random A/B flip for each comparison
+- **Incremental caching** — cached comparisons replay instantly on re-runs
+- **Bradley-Terry Elo** — configurable K-factor (default 32), initial rating (default 1500)
+- **Error resilience** — failed judge calls count as ties
+
+**Module structure:**
+```
+src/evaluation/ranking/
+├── types.ts            — RankingEntry, PairwiseResult, RankedModel, RankingOutput, PairwiseRankerConfig
+├── elo.ts              — expectedScore(), updateElo(), buildStandings()
+├── pairing.ts          — allPairs(), swissPairs()
+├── pairwise-ranker.ts  — PairwiseRanker class
+└── index.ts            — Re-exports
+```
+
+**Use Cases:**
+- Subjective quality ranking (narrative, creative writing, style)
+- Validating or supplementing automated scoring
+- Producing a total ordering of many models
+- Tasks where relative preference is clearer than absolute scores
+
+For detailed usage, see the [Pairwise Ranking Guide](../guide/pairwise-ranking.md).
+
 ## Best Practices
 
 ### 1. Choose the Right Strategy
@@ -265,6 +318,7 @@ The framework provides robust error handling:
 - Use `BatchEvaluation` for bulk processing
 - Use `ComplexPipeline` for advanced workflows
 - Use `ComprehensiveAnalyzer` for detailed analysis and optimization
+- Use `PairwiseRanker` for head-to-head ranking of existing responses
 
 ### 2. Design Effective Test Cases
 - Clear, specific prompts
@@ -292,8 +346,8 @@ The framework provides robust error handling:
 
 ## Examples
 
-See the `scripts/examples/` directory for complete examples of each evaluation strategy.
+See the `scripts/examples/` directory for complete examples of each evaluation strategy, and `examples/mcp-chat/elo-rivian.ts` for a full pairwise ranking workflow.
 
 ## API Reference
 
-For detailed API documentation, see the [API Reference](../api/evaluation-strategies.md).
+For detailed API documentation, see the [API Reference](../api/evaluation-strategies.md) and [Pairwise Ranking API](../api/pairwise-ranking.md).

@@ -736,8 +736,39 @@ class TestableRunner extends EvaluationRunner {
 }
 ```
 
+## Pairwise Ranking
+
+After generating responses with the evaluation framework, rank them head-to-head using an LLM judge:
+
+```typescript
+import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+
+// Convert EvaluationResult to RankingEntry[]
+const entries = evaluationResultsToRankingEntries(evalResult);
+
+const ranker = new PairwiseRanker(entries, {
+  judgeModel: { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
+  judgeInstructions: ['Compare the two responses. Which is better?'],
+  pairingMode: 'swiss',
+  swissRounds: 5,
+  cacheDir: './output/rankings',
+});
+
+const output = await ranker.rank();
+// output.rankings: RankedModel[] sorted by Elo descending
+```
+
+The ranker supports two pairing modes:
+- **Swiss tournament** (default) — efficient, pairs by current rating
+- **Round-robin** — all pairs, maximum accuracy
+
+Features include position bias mitigation (random A/B flip), incremental caching, and error resilience (failed judge calls count as ties).
+
+For the full API reference, see [Pairwise Ranking API](/api/pairwise-ranking).
+
 ## Next Steps
 
 - See [Schema Validation](/api/schemas) for structured output in evaluations
-- Check [Model Integration](/api/model-integration) for provider-specific evaluation strategies  
+- Check [Model Integration](/api/model-integration) for provider-specific evaluation strategies
 - Explore [Core Classes](/api/core-classes) for detailed API documentation
+- See [Pairwise Ranking Guide](/guide/pairwise-ranking) for head-to-head model comparison

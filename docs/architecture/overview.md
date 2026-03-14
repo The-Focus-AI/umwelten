@@ -67,6 +67,7 @@ Systematic model assessment and comparison.
 - **Caching**: Model response caching, file caching, and score caching to avoid redundant API calls
 - **Code Execution**: DaggerRunner for running generated code in isolated containers
 - **Analysis**: Result analysis and reporting
+- **Pairwise Ranking** (`ranking/`): Post-processing module for head-to-head LLM-judge comparisons with Elo ratings. Supports swiss tournament and round-robin pairing. See [Pairwise Ranking Guide](../guide/pairwise-ranking.md)
 
 ### 6. Provider Integration (`src/providers/`)
 
@@ -126,6 +127,7 @@ src/
 ├── evaluation/           # Evaluation framework
 │   ├── runner.ts         # EvaluationRunner base class
 │   ├── strategies/       # Evaluation strategy implementations
+│   ├── ranking/          # Pairwise Elo ranking (LLM-judge comparisons)
 │   ├── caching/          # Response and file caching
 │   ├── analysis/         # Result analysis and reporting
 │   ├── codebase/         # Codebase evaluation context
@@ -178,19 +180,19 @@ src/
 
    ```bash
    # List models
-   dotenvx run -- pnpm run cli -- models --provider google
+   pnpm run cli -- models --provider google
 
    # Run a prompt
-   dotenvx run -- pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
+   pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
 
    # Interactive chat
-   dotenvx run -- pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+   pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
    ```
 
 2. **Start a Habitat**: Set up a full agent environment
 
    ```bash
-   dotenvx run -- pnpm run cli -- habitat
+   pnpm run cli -- habitat
    ```
 
 3. **Create Your First Evaluation**: Follow the [getting started guide](../guide/getting-started.md)

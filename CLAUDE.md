@@ -164,6 +164,7 @@ Systematic model assessment and comparison.
 - `base.ts` — Abstract `Evaluation` — directory and cache management
 - `runner.ts` — Abstract `EvaluationRunner extends Evaluation` — adds model response caching
 - `strategies/` — `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`, `ComplexPipeline`
+- `ranking/` — Pairwise Elo ranking: `PairwiseRanker`, `expectedScore()`, `updateElo()`, `buildStandings()`, `allPairs()`, `swissPairs()`, `evaluationResultsToRankingEntries()`
 - `caching/` — Cache model responses, scores, file metadata
 - `dagger/` — Container-based code execution for evaluations
 - `analysis/` — `ResultAnalyzer`, `ReportGenerator` (multi-format)

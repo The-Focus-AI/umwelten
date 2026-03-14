@@ -79,6 +79,12 @@ Handle various document formats:
 - **[PDF Analysis](/examples/pdf-analysis)** - Test native PDF parsing capabilities
 - **[Multi-format Documents](/examples/multi-format)** - Work with different document types
 
+## Ranking & Comparison
+
+Head-to-head model comparison with statistical ranking:
+
+- **[Pairwise Ranking](/examples/pairwise-ranking)** - Elo-based ranking via LLM judge (swiss tournament or round-robin)
+
 ## Advanced Workflows
 
 Complex evaluation patterns and optimization:
@@ -126,7 +132,7 @@ Here are some quick examples to get you started:
 
 ### Basic Evaluation
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
   --id "quantum-explanation"
@@ -134,7 +140,7 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ### With Structured Output
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Extract person info: John is 25 and works as a developer" \
   --models "google:gemini-3-flash-preview" \
   --id "person-extraction" \
@@ -143,7 +149,7 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ### Batch Processing
 ```bash
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this image and describe key features" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-batch" \
@@ -155,10 +161,10 @@ dotenvx run -- pnpm run cli -- eval batch \
 ### Generate Reports
 ```bash
 # Markdown report
-dotenvx run -- pnpm run cli -- eval report --id quantum-explanation --format markdown
+pnpm run cli -- eval report --id quantum-explanation --format markdown
 
 # HTML report with export
-dotenvx run -- pnpm run cli -- eval report --id image-batch --format html --output report.html
+pnpm run cli -- eval report --id image-batch --format html --output report.html
 ```
 
 ## Common Patterns
@@ -167,16 +173,16 @@ dotenvx run -- pnpm run cli -- eval report --id image-batch --format html --outp
 Compare model outputs at different creativity levels:
 ```bash
 # High creativity
-dotenvx run -- pnpm run cli -- eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 1.5 --id "creative-high"
+pnpm run cli -- eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 1.5 --id "creative-high"
 
 # Low creativity  
-dotenvx run -- pnpm run cli -- eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 0.2 --id "creative-low"
+pnpm run cli -- eval run --prompt "Write a creative story" --models "ollama:gemma3:12b" --temperature 0.2 --id "creative-low"
 ```
 
 ### Cost Comparison
 Evaluate cost vs. quality trade-offs:
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Write a detailed analysis of renewable energy trends" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini,openrouter:openai/gpt-4o" \
   --id "cost-comparison" \
@@ -186,7 +192,7 @@ dotenvx run -- pnpm run cli -- eval run \
 ### Multi-modal Evaluation
 Test vision capabilities across models:
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Describe this image in detail and identify any text" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "vision-test" \

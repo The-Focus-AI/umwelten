@@ -20,16 +20,16 @@ Generate reports from completed evaluations:
 
 ```bash
 # Basic report generation
-dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id"
+pnpm run cli -- eval report --id "your-evaluation-id"
 
 # Specify output format
-dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id" --format markdown
+pnpm run cli -- eval report --id "your-evaluation-id" --format markdown
 
 # Save to file
-dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id" --format html --output report.html
+pnpm run cli -- eval report --id "your-evaluation-id" --format html --output report.html
 
 # Generate short summary (without full response content)
-dotenvx run -- pnpm run cli -- eval report --id "your-evaluation-id" --short
+pnpm run cli -- eval report --id "your-evaluation-id" --short
 ```
 
 ### Available Report Formats
@@ -38,16 +38,16 @@ Umwelten supports multiple output formats:
 
 ```bash
 # Markdown (default) - Good for documentation
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format markdown
+pnpm run cli -- eval report --id "evaluation-id" --format markdown
 
 # HTML - Interactive web reports
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format html
+pnpm run cli -- eval report --id "evaluation-id" --format html
 
 # JSON - Machine-readable data
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format json
+pnpm run cli -- eval report --id "evaluation-id" --format json
 
 # CSV - Spreadsheet-friendly data
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format csv
+pnpm run cli -- eval report --id "evaluation-id" --format csv
 ```
 
 ### Report Options
@@ -65,10 +65,10 @@ Get an overview of your evaluation results:
 
 ```bash
 # Generate summary report
-dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --format markdown
+pnpm run cli -- eval report --id "quantum-explanation" --format markdown
 
 # Generate short summary
-dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --short
+pnpm run cli -- eval report --id "quantum-explanation" --short
 
 # Output includes:
 # - Evaluation metadata (prompt, models, timestamp)
@@ -84,16 +84,16 @@ Compare multiple models on the same task:
 
 ```bash
 # Compare models on a single prompt
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing in simple terms" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openai/gpt-4o" \
   --id "quantum-comparison"
 
 # Generate comparison report
-dotenvx run -- pnpm run cli -- eval report --id "quantum-comparison" --format html --output comparison.html
+pnpm run cli -- eval report --id "quantum-comparison" --format html --output comparison.html
 
 # Generate short comparison summary
-dotenvx run -- pnpm run cli -- eval report --id "quantum-comparison" --short
+pnpm run cli -- eval report --id "quantum-comparison" --short
 ```
 
 ### Batch Processing Reports
@@ -102,7 +102,7 @@ Analyze results from batch operations:
 
 ```bash
 # Process batch of files
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this image and describe key features" \
   --models "google:gemini-3-flash-preview,ollama:qwen2.5vl:latest" \
   --id "image-batch" \
@@ -111,10 +111,10 @@ dotenvx run -- pnpm run cli -- eval batch \
   --concurrent
 
 # Generate batch report
-dotenvx run -- pnpm run cli -- eval report --id "image-batch" --format markdown --output batch-analysis.md
+pnpm run cli -- eval report --id "image-batch" --format markdown --output batch-analysis.md
 
 # Generate short batch summary
-dotenvx run -- pnpm run cli -- eval report --id "image-batch" --short
+pnpm run cli -- eval report --id "image-batch" --short
 ```
 
 ## Report Content Examples
@@ -123,7 +123,7 @@ dotenvx run -- pnpm run cli -- eval report --id "image-batch" --short
 
 #### Full Report (Default)
 ```bash
-dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --format markdown
+pnpm run cli -- eval report --id "quantum-explanation" --format markdown
 ```
 
 Includes:
@@ -135,7 +135,7 @@ Includes:
 
 #### Short Report
 ```bash
-dotenvx run -- pnpm run cli -- eval report --id "quantum-explanation" --short
+pnpm run cli -- eval report --id "quantum-explanation" --short
 ```
 
 Includes:
@@ -180,13 +180,13 @@ HTML reports include interactive features:
 
 ```bash
 # Generate interactive HTML report
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format html \
   --output interactive-report.html
 
 # Generate short HTML report
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format html \
   --short \
@@ -237,13 +237,13 @@ Machine-readable JSON format:
 
 ```bash
 # Generate cost-focused report
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format markdown \
   --output cost-analysis.md
 
 # Generate short cost summary
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --short \
   --output cost-summary.md
@@ -253,18 +253,18 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Compare costs across providers
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openai/gpt-4o" \
   --id "cost-comparison"
 
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "cost-comparison" \
   --format markdown \
   --output cost-optimization.md
 
 # Generate short cost comparison
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "cost-comparison" \
   --short \
   --output cost-comparison-summary.md
@@ -276,13 +276,13 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Analyze performance patterns
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format markdown \
   --output performance-analysis.md
 
 # Generate short performance summary
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --short \
   --output performance-summary.md
@@ -294,13 +294,13 @@ For evaluations with quality scoring:
 
 ```bash
 # Generate quality-focused report
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "code-evaluation" \
   --format markdown \
   --output quality-analysis.md
 
 # Generate short quality summary
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "code-evaluation" \
   --short \
   --output quality-summary.md
@@ -312,7 +312,7 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Process large batch
-dotenvx run -- pnpm run cli -- eval batch \
+pnpm run cli -- eval batch \
   --prompt "Analyze this image" \
   --models "google:gemini-3-flash-preview" \
   --id "large-dataset" \
@@ -321,13 +321,13 @@ dotenvx run -- pnpm run cli -- eval batch \
   --concurrent
 
 # Generate comprehensive batch report
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "large-dataset" \
   --format html \
   --output batch-analysis.html
 
 # Generate short batch summary
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "large-dataset" \
   --short \
   --output batch-summary.md
@@ -349,13 +349,13 @@ Batch reports include:
 
 ```bash
 # Export to spreadsheet
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format csv \
   --output data.csv
 
 # Export short summary to CSV
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format csv \
   --short \
@@ -368,13 +368,13 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Get JSON data for API integration
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format json \
   --output data.json
 
 # Get short JSON summary
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format json \
   --short \
@@ -389,13 +389,13 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Good: Descriptive ID
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing" \
   --models "model1,model2,model3" \
   --id "quantum-explanation-comparison-2024"
 
 # Bad: Generic ID
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Explain quantum computing" \
   --models "model1,model2,model3" \
   --id "test1"
@@ -405,28 +405,28 @@ dotenvx run -- pnpm run cli -- eval run \
 
 ```bash
 # Generate report right after evaluation
-dotenvx run -- pnpm run cli -- eval run \
+pnpm run cli -- eval run \
   --prompt "Your prompt" \
   --models "model1,model2" \
   --id "evaluation-id"
 
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format markdown
+pnpm run cli -- eval report --id "evaluation-id" --format markdown
 ```
 
 ### 3. Use Appropriate Formats
 
 ```bash
 # Documentation: Markdown
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format markdown
+pnpm run cli -- eval report --id "evaluation-id" --format markdown
 
 # Presentations: HTML
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format html
+pnpm run cli -- eval report --id "evaluation-id" --format html
 
 # Data Analysis: JSON/CSV
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --format json
+pnpm run cli -- eval report --id "evaluation-id" --format json
 
 # Quick summaries: Short format
-dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --short
+pnpm run cli -- eval report --id "evaluation-id" --short
 ```
 
 ### 4. Organize Reports by Project
@@ -436,13 +436,13 @@ dotenvx run -- pnpm run cli -- eval report --id "evaluation-id" --short
 mkdir -p reports/quantum-computing
 
 # Generate full reports
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "quantum-*" \
   --format markdown \
   --output reports/quantum-computing/detailed-analysis.md
 
 # Generate short summaries
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "quantum-*" \
   --short \
   --output reports/quantum-computing/summary.md
@@ -452,12 +452,12 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Quick overview of all evaluations
-dotenvx run -- pnpm run cli -- eval list | while read -r id; do
-  dotenvx run -- pnpm run cli -- eval report --id "$id" --short --format markdown
+pnpm run cli -- eval list | while read -r id; do
+  pnpm run cli -- eval report --id "$id" --short --format markdown
 done
 
 # Generate short summaries for presentations
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --short \
   --format html \
@@ -468,7 +468,7 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ### Common Issues
 
-1. **"Evaluation not found"**: Check evaluation ID with `dotenvx run -- pnpm run cli -- eval list`
+1. **"Evaluation not found"**: Check evaluation ID with `pnpm run cli -- eval list`
 2. **"No data to report"**: Ensure evaluation completed successfully
 3. **"Format not supported"**: Use supported formats (markdown, html, json, csv)
 4. **"Output file error"**: Check file permissions and directory existence
@@ -477,13 +477,13 @@ dotenvx run -- pnpm run cli -- eval report \
 
 ```bash
 # Enable verbose output
-dotenvx run -- pnpm run cli -- eval report \
+pnpm run cli -- eval report \
   --id "evaluation-id" \
   --format markdown \
   --verbose
 
 # Check evaluation status
-dotenvx run -- pnpm run cli -- eval list --id "evaluation-id"
+pnpm run cli -- eval list --id "evaluation-id"
 ```
 
 ## Programmatic Reporting with Reporter
@@ -554,6 +554,25 @@ const reporter = new Reporter({
 });
 ```
 
+## Pairwise Ranking Reports
+
+If you've used the `PairwiseRanker` to rank model responses, ranking results are saved to `rankings.json` in the cache directory. These include Elo ratings, win/loss/tie records, and individual match results.
+
+The Rivian example (`examples/mcp-chat/elo-rivian.ts`) also writes `elo-data.json` to the run's `report/` directory for integration with HTML reports.
+
+```json
+{
+  "mode": "swiss-5",
+  "comparisons": 30,
+  "judge": "openrouter:anthropic/claude-haiku-4.5",
+  "rankings": [
+    { "model": "gpt-4o", "elo": 1580, "wins": 4, "losses": 1, "ties": 0 }
+  ]
+}
+```
+
+For details on running pairwise rankings, see the [Pairwise Ranking Guide](/guide/pairwise-ranking).
+
 ## Next Steps
 
 Now that you understand reporting, explore:
@@ -562,3 +581,4 @@ Now that you understand reporting, explore:
 - 🔄 [Concurrent Processing](/guide/concurrent-processing) - Generate reports from concurrent evaluations
 - 📈 [Batch Processing](/guide/batch-processing) - Create reports from large-scale operations
 - 🔧 [Memory & Tools](/guide/memory-tools) - Integrate reports with memory and tools
+- ⚔️ [Pairwise Ranking](/guide/pairwise-ranking) - Head-to-head Elo ranking via LLM judge
