@@ -29,7 +29,6 @@ export class GoogleProvider extends BaseProvider {
 
     const allModels: any[] = [];
     let pageToken: string | undefined;
-    const baseDate = new Date("2024-01-01");
 
     // Fetch all pages of models
     do {
@@ -77,7 +76,7 @@ export class GoogleProvider extends BaseProvider {
           topK: model.topK,
           maxTemperature: model.maxTemperature,
         },
-        addedDate: baseDate,
+        // API does not return creation date; leave addedDate unset so UI shows "—"
         lastUpdated: new Date(),
       } as ModelDetails;
     });
