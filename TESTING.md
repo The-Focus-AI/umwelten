@@ -154,8 +154,8 @@ Verify:
 
 - [x] Request succeeds
 - [x] Response content is returned normally
-- [ ] No warning appears about missing prompt/completion token usage
-- [ ] With `--stats`, the Response Statistics block shows Duration, Tokens, and Cost (or N/A if provider doesn’t report usage)
+- [x] No warning appears about missing prompt/completion token usage
+- [x] With `--stats`, the Response Statistics block shows Duration, Tokens, and Cost (or N/A if provider doesn’t report usage)
 
 ### 2.3 Interactive chat
 
@@ -167,9 +167,9 @@ Send 2–3 prompts.
 
 Verify:
 
-- [ ] Chat starts successfully
-- [ ] Follow-up turns work
-- [ ] No false warning about missing usage stats appears during responses
+- [x] Chat starts successfully
+- [x] Follow-up turns work
+- [x] No false warning about missing usage stats appears during responses
 
 ### 2.4 Zero / edge-case token handling
 

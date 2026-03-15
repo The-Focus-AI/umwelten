@@ -119,6 +119,88 @@ function buildStaticCatalog(): ModelDetails[] {
   return MINIMAX_MODEL_CATALOG.map(mapCatalogEntryToModel);
 }
 
+/**
+ * MiniMax streaming sends delta.role as "" but the AI SDK expects "assistant".
+ * This fetch wraps streaming responses and normalizes role so validation passes.
+ */
+function createMiniMaxFetch(apiKey: string, baseUrl: string): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response = await fetch(input, init);
+    const contentType = response.headers.get("content-type") ?? "";
+    const isStream =
+      contentType.includes("text/event-stream") ||
+      contentType.includes("application/x-ndjson") ||
+      (response.body != null && init?.method === "POST" && contentType.includes("text/plain"));
+
+    if (!response.ok || !response.body || !isStream) {
+      return response;
+    }
+
+    let buffer = "";
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    const transformed = response.body.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          buffer += decoder.decode(chunk, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const payload = line.slice(6);
+              if (payload === "[DONE]") {
+                controller.enqueue(encoder.encode("data: [DONE]\n"));
+                continue;
+              }
+              try {
+                const obj = JSON.parse(payload) as {
+                  choices?: Array<{ delta?: { role?: string; content?: string }; index?: number }>;
+                };
+                if (obj?.choices?.[0]?.delta?.role === "") {
+                  obj.choices[0].delta.role = "assistant";
+                }
+                controller.enqueue(encoder.encode("data: " + JSON.stringify(obj) + "\n"));
+              } catch {
+                controller.enqueue(encoder.encode(line + "\n"));
+              }
+            } else {
+              controller.enqueue(encoder.encode(line + "\n"));
+            }
+          }
+        },
+        flush(controller) {
+          if (buffer) {
+            if (buffer.startsWith("data: ")) {
+              const payload = buffer.slice(6);
+              if (payload !== "[DONE]") {
+                try {
+                  const obj = JSON.parse(payload) as {
+                    choices?: Array<{ delta?: { role?: string }; index?: number }>;
+                  };
+                  if (obj?.choices?.[0]?.delta?.role === "") {
+                    obj.choices[0].delta.role = "assistant";
+                  }
+                  buffer = "data: " + JSON.stringify(obj) + "\n";
+                } catch {
+                  // leave buffer as-is
+                }
+              }
+            }
+            controller.enqueue(encoder.encode(buffer));
+          }
+        },
+      }),
+    );
+
+    return new Response(transformed, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  };
+}
+
 export class MiniMaxProvider extends BaseProvider {
   constructor(apiKey: string, baseUrl: string = DEFAULT_BASE_URL) {
     super(apiKey, baseUrl);
@@ -203,12 +285,14 @@ export class MiniMaxProvider extends BaseProvider {
   getLanguageModel(route: ModelRoute): LanguageModel {
     this.validateConfig();
 
+    const baseUrl = this.baseUrl || DEFAULT_BASE_URL;
     const provider = createOpenAICompatible({
       name: "minimax",
-      baseURL: this.baseUrl || DEFAULT_BASE_URL,
+      baseURL: baseUrl,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },
+      fetch: createMiniMaxFetch(this.apiKey, baseUrl),
     });
 
     return provider(route.name);
