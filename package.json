@@ -80,7 +80,7 @@
     "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.19.11",
+    "@dagger.io/dagger": "^0.20.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.4",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
