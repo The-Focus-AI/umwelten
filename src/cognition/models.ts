@@ -9,34 +9,37 @@ import type { ModelDetails } from "./types.js";
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
   try {
-    const providers = [
-      createOllamaProvider(),
-      createLMStudioProvider(),
+    const providerEntries: { label: string; listModels: () => Promise<ModelDetails[]> }[] = [
+      { label: "ollama", listModels: () => createOllamaProvider().listModels() },
+      { label: "lmstudio", listModels: () => createLMStudioProvider().listModels() },
       ...(process.env.OPENROUTER_API_KEY
-        ? [createOpenRouterProvider(process.env.OPENROUTER_API_KEY)]
+        ? [{ label: "openrouter", listModels: () => createOpenRouterProvider(process.env.OPENROUTER_API_KEY!).listModels() }]
         : []),
       ...(process.env.GOOGLE_GENERATIVE_AI_API_KEY
-        ? [createGoogleProvider(process.env.GOOGLE_GENERATIVE_AI_API_KEY)]
+        ? [{ label: "google", listModels: () => createGoogleProvider(process.env.GOOGLE_GENERATIVE_AI_API_KEY!).listModels() }]
         : []),
       ...(process.env.GITHUB_TOKEN
-        ? [createGitHubModelsProvider(process.env.GITHUB_TOKEN)]
+        ? [{ label: "github-models", listModels: () => createGitHubModelsProvider(process.env.GITHUB_TOKEN!).listModels() }]
         : []),
       ...(process.env.FIREWORKS_API_KEY
-        ? [createFireworksProvider(process.env.FIREWORKS_API_KEY)]
+        ? [{ label: "fireworks", listModels: () => createFireworksProvider(process.env.FIREWORKS_API_KEY!).listModels() }]
         : []),
       ...(process.env.MINIMAX_API_KEY
-        ? [
-            createMiniMaxProvider(
-              process.env.MINIMAX_API_KEY,
-              process.env.MINIMAX_BASE_URL,
-            ),
-          ]
+        ? [{ label: "minimax", listModels: () => createMiniMaxProvider(process.env.MINIMAX_API_KEY!, process.env.MINIMAX_BASE_URL).listModels() }]
         : []),
     ];
 
     const modelLists = await Promise.allSettled(
-      providers.map((provider) => provider.listModels())
+      providerEntries.map((entry) => entry.listModels())
     );
+
+    modelLists.forEach((result, i) => {
+      if (result.status === "rejected") {
+        const label = providerEntries[i]?.label ?? "provider";
+        const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        console.error(`Warning: Could not list ${label} models: ${msg}`);
+      }
+    });
 
     return modelLists
       .filter(

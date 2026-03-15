@@ -157,7 +157,7 @@ function displayModelInfo(model: ModelDetails) {
 }
 
 function formatDate(date: Date | undefined): string {
-  if (!date) return 'Unknown';
+  if (!date) return '—'; // Not provided by this provider
   // Format as MM/DD/YY
   return date.toLocaleDateString('en-US', {
     month: 'numeric',
