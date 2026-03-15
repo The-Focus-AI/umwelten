@@ -151,33 +151,62 @@ export class BaseModelRunner implements ModelRunner {
   private normalizeTokenUsage(
     usage: any,
   ): { promptTokens: number; completionTokens: number; total?: number } | null {
-    if (!usage) {
+    if (!usage || typeof usage !== "object") {
       return null;
     }
 
-    const promptTokens =
-      usage?.promptTokens ??
-      usage?.inputTokens ??
-      usage?.prompt_tokens ??
-      usage?.input_tokens;
-    const completionTokens =
-      usage?.completionTokens ??
-      usage?.outputTokens ??
-      usage?.completion_tokens ??
-      usage?.output_tokens;
+    const toNum = (v: unknown): number | undefined => {
+      if (v === undefined || v === null) return undefined;
+      const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : undefined;
+      return n !== undefined && !Number.isNaN(n) && n >= 0 ? n : undefined;
+    };
 
+    let promptTokens =
+      toNum(usage.promptTokens) ??
+      toNum(usage.inputTokens) ??
+      toNum(usage.prompt_tokens) ??
+      toNum(usage.input_tokens);
+    let completionTokens =
+      toNum(usage.completionTokens) ??
+      toNum(usage.outputTokens) ??
+      toNum(usage.completion_tokens) ??
+      toNum(usage.output_tokens);
+
+    const total =
+      toNum(usage.totalTokens) ??
+      toNum(usage.total) ??
+      toNum(usage.total_tokens) ??
+      (promptTokens !== undefined && completionTokens !== undefined
+        ? promptTokens + completionTokens
+        : undefined);
+
+    const reasoning = toNum(usage.reasoningTokens) ?? toNum(usage.reasoning_tokens);
+
+    // MiniMax and some providers return totalTokens/reasoningTokens but omit or zero inputTokens/outputTokens
     if (promptTokens === undefined || completionTokens === undefined) {
+      if (typeof total === "number" && total >= 0) {
+        const r = reasoning ?? 0;
+        promptTokens = promptTokens ?? r;
+        completionTokens = completionTokens ?? Math.max(0, total - (promptTokens ?? 0));
+      } else if (reasoning !== undefined && reasoning >= 0) {
+        promptTokens = promptTokens ?? reasoning;
+        completionTokens = completionTokens ?? toNum(usage.outputTokens) ?? 0;
+      } else {
+        promptTokens = promptTokens ?? 0;
+        completionTokens = completionTokens ?? 0;
+      }
+    }
+
+    const p = Number(promptTokens);
+    const c = Number(completionTokens);
+    if (Number.isNaN(p) || Number.isNaN(c) || p < 0 || c < 0) {
       return null;
     }
 
     return {
-      promptTokens,
-      completionTokens,
-      total:
-        usage?.totalTokens ??
-        usage?.total ??
-        usage?.total_tokens ??
-        promptTokens + completionTokens,
+      promptTokens: p,
+      completionTokens: c,
+      total: total ?? p + c,
     };
   }
 
@@ -257,10 +286,12 @@ export class BaseModelRunner implements ModelRunner {
 
     const response = await generateText(generateOptions);
 
+    const usage = await Promise.resolve(response.usage);
+
     return this.makeResult({
       response,
       content: await response.text,
-      usage: response.usage,
+      usage,
       interaction,
       startTime,
       modelIdString,
@@ -699,8 +730,8 @@ export class BaseModelRunner implements ModelRunner {
             : JSON.stringify(reasoningResult);
       }
 
-      // For Ollama, usage might be in different locations depending on response type
-      let usage = response.usage;
+      // Resolve usage (streamText can return usage as a Promise)
+      let usage = await Promise.resolve(response.usage);
 
       // Debug: Log the response structure for debugging
       if (process.env.DEBUG === "1") {
@@ -734,30 +765,47 @@ export class BaseModelRunner implements ModelRunner {
         }
       }
 
-      // For OpenRouter, MiniMax, and Google, usage is in _totalUsage.status.value or steps[0].usage
+      // For OpenRouter, MiniMax, and Google, usage is in _totalUsage (may be Promise) or steps[0].usage
       if (
         interaction.modelDetails.provider === "openrouter" ||
         interaction.modelDetails.provider === "minimax" ||
         interaction.modelDetails.provider === "google"
       ) {
         const responseAny = response as any;
-        // Check if usage is in _totalUsage.status.value
-        if (
-          responseAny._totalUsage &&
-          responseAny._totalUsage.status &&
-          responseAny._totalUsage.status.value
-        ) {
-          usage = responseAny._totalUsage.status.value;
+        const totalUsage = responseAny._totalUsage;
+        if (totalUsage != null) {
+          const resolvedTotal = await Promise.resolve(totalUsage);
+          if (resolvedTotal?.status?.value != null) {
+            const val = resolvedTotal.status.value;
+            if (typeof val === "object" && val !== null && Object.keys(val).length > 0) {
+              usage = val;
+            }
+          }
         }
-        // Check if usage is in steps[0].usage
-        else if (
-          responseAny._steps &&
-          responseAny._steps.status &&
-          responseAny._steps.status.value
+        if (
+          !usage ||
+          (typeof usage === "object" && JSON.stringify(usage) === "{}")
         ) {
-          const steps = responseAny._steps.status.value;
-          if (Array.isArray(steps) && steps[0] && steps[0].usage) {
-            usage = steps[0].usage;
+          const stepsVal = responseAny._steps;
+          if (stepsVal != null) {
+            const steps = await Promise.resolve(
+              stepsVal?.status?.value ?? stepsVal
+            );
+            const arr = Array.isArray(steps) ? steps : undefined;
+            if (arr?.[0]?.usage != null) {
+              usage = arr[0].usage;
+            }
+          }
+        }
+        // Force getter-backed usage into a plain object (spread invokes getters)
+        if (usage && typeof usage === "object" && Object.keys(usage).length > 0) {
+          try {
+            const spread = { ...usage };
+            if (Object.keys(spread).length > 0 && JSON.stringify(spread) !== "{}") {
+              usage = spread;
+            }
+          } catch {
+            // ignore
           }
         }
       }
@@ -836,12 +884,30 @@ export class BaseModelRunner implements ModelRunner {
         }
       }
 
-      // Debug: Log the final usage object after extraction
-      if (process.env.DEBUG === "1") {
-        console.log(
-          `[DEBUG] Usage object after extraction:`,
-          JSON.stringify(usage, null, 2),
-        );
+      // If extraction didn't find usage, use resolved response.usage (streaming may only set it here)
+      if (
+        (!usage || typeof usage !== "object" || (usage && Object.keys(usage).length === 0)) &&
+        response.usage != null
+      ) {
+        const resolved = await Promise.resolve(response.usage);
+        if (resolved && typeof resolved === "object" && Object.keys(resolved).length > 0) {
+          usage = resolved;
+        }
+      }
+
+      const debugUsage = process.env.DEBUG_USAGE === "1" || process.env.DEBUG === "1";
+      if (debugUsage) {
+        const responseAny = response as any;
+        console.error("[DEBUG_USAGE] streamText usage source:", {
+          hasUsage: !!usage,
+          usageKeys: usage ? Object.keys(usage) : [],
+          usageSnapshot:
+            usage && typeof usage === "object"
+              ? JSON.stringify(usage, null, 2)
+              : String(usage),
+          hasTotalUsage: !!responseAny._totalUsage?.status?.value,
+          hasSteps: !!responseAny._steps?.status?.value,
+        });
       }
 
       return this.makeResult({
@@ -927,10 +993,12 @@ export class BaseModelRunner implements ModelRunner {
 
       const response = await generateObject(generateOptions);
 
+      const usage = await Promise.resolve(response.usage);
+
       return this.makeResult({
         response,
         content: response.object,
-        usage: response.usage,
+        usage,
         interaction,
         startTime,
         modelIdString,
@@ -1083,6 +1151,37 @@ export class BaseModelRunner implements ModelRunner {
     startTime: Date;
     modelIdString: string;
   }) {
+    // Snapshot usage if it's a Proxy/getter object (has keys but JSON.stringify returns {})
+    if (usage && typeof usage === "object") {
+      const keys = Object.keys(usage);
+      if (keys.length > 0 && JSON.stringify(usage) === "{}") {
+        const known = [
+          "inputTokens",
+          "outputTokens",
+          "totalTokens",
+          "reasoningTokens",
+          "cachedInputTokens",
+          "promptTokens",
+          "completionTokens",
+          "prompt_tokens",
+          "completion_tokens",
+          "total_tokens",
+        ];
+        const snapshot: Record<string, unknown> = {};
+        for (const k of known) {
+          const v = (usage as Record<string, unknown>)[k];
+          if (v !== undefined && v !== null) snapshot[k] = v;
+        }
+        for (const k of keys) {
+          if (!(k in snapshot)) {
+            const v = (usage as Record<string, unknown>)[k];
+            if (v !== undefined && v !== null) snapshot[k] = v;
+          }
+        }
+        usage = snapshot;
+      }
+    }
+
     updateRateLimitState(
       modelIdString,
       true,
@@ -1097,11 +1196,32 @@ export class BaseModelRunner implements ModelRunner {
 
     const normalizedUsage = this.normalizeTokenUsage(usage);
 
+    const debugUsage = process.env.DEBUG_USAGE === "1" || process.env.DEBUG === "1";
+    if (debugUsage) {
+      console.error("[DEBUG_USAGE] makeResult usage:", {
+        rawKeys: usage ? Object.keys(usage) : [],
+        rawSnapshot:
+          usage && typeof usage === "object"
+            ? JSON.stringify(usage, null, 2)
+            : String(usage),
+        normalized: normalizedUsage
+          ? {
+              promptTokens: normalizedUsage.promptTokens,
+              completionTokens: normalizedUsage.completionTokens,
+              total: normalizedUsage.total,
+            }
+          : null,
+      });
+    }
+
     if (!normalizedUsage) {
       console.warn(
         `Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`,
       );
       console.warn(`Available usage fields:`, Object.keys(usage || {}));
+      if (debugUsage && usage && typeof usage === "object") {
+        console.warn(`Usage values:`, JSON.stringify(usage, null, 2));
+      }
     }
 
     // For generateObject, content is the actual object, not a string

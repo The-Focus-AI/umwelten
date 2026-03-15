@@ -16,8 +16,9 @@ export const runCommand = addCommonOptions(
     .description("Run a prompt through a model")
     .argument("<prompt>", "The prompt to send to the model"),
 ).action(async (prompt: string, options: any) => {
-  const { provider, model, attach, debug, systemPrompt, object, stats } =
+  const { provider, model, attach, debug, debugUsage, systemPrompt, object, stats } =
     parseCommonOptions(options);
+  if (debugUsage) process.env.DEBUG_USAGE = "1";
   try {
     const modelDetails: ModelDetails = {
       name: model,
@@ -140,11 +141,21 @@ export const runCommand = addCommonOptions(
           }
         }
       } else {
-        response = await runner.streamText(conversation);
-        if (response?.content) {
-          process.stdout.write(response.content + "\n");
+        if (stats) {
+          // Use generateText when --stats so we get reliable usage (streamText usage is getter-only and often empty for some providers)
+          response = await runner.generateText(conversation);
+          if (response?.content != null) {
+            process.stdout.write(String(response.content) + "\n");
+          } else {
+            process.stdout.write("[No response]\n");
+          }
         } else {
-          process.stdout.write("[No response]\n");
+          response = await runner.streamText(conversation);
+          if (!response?.content || !String(response.content).trim()) {
+            process.stdout.write("[No response]\n");
+          } else if (!String(response.content).endsWith("\n")) {
+            process.stdout.write("\n");
+          }
         }
       }
 
@@ -164,7 +175,7 @@ export const runCommand = addCommonOptions(
         if (response.metadata.cost) {
           console.log(`Cost: $${response.metadata.cost.totalCost.toFixed(6)}`);
         } else {
-          console.log(`Cost: $0.000000`);
+          console.log(`Cost: N/A (usage not reported by provider)`);
         }
         console.log("======================");
       }
