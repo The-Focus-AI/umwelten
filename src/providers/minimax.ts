@@ -292,7 +292,7 @@ export class MiniMaxProvider extends BaseProvider {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },
-      fetch: createMiniMaxFetch(this.apiKey, baseUrl),
+      fetch: createMiniMaxFetch(this.apiKey!, baseUrl),
     });
 
     return provider(route.name);
