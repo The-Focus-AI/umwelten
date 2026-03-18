@@ -12,6 +12,7 @@ import { createExternalInteractionTools } from "./tools/external-interaction-too
 import { createAgentRunnerTools } from "./tools/agent-runner-tools.js";
 import { createSecretsTools } from "./tools/secrets-tools.js";
 import { createSearchTools } from "./tools/search-tools.js";
+import { createSelfModifyTools } from "./tools/self-modify-tools.js";
 import {
   wgetTool,
   markifyTool,
@@ -95,6 +96,14 @@ export const searchToolSet: ToolSet = {
   createTools: (habitat) => createSearchTools(habitat),
 };
 
+/** Self-modification: create/remove/reload tools and skills at runtime. */
+export const selfModifyToolSet: ToolSet = {
+  name: "self-modify",
+  description:
+    "Create, remove, and reload custom tools and skills at runtime",
+  createTools: (habitat) => createSelfModifyTools(habitat),
+};
+
 /** All standard tool sets that a typical habitat includes. */
 export const standardToolSets: ToolSet[] = [
   fileToolSet,
@@ -106,4 +115,5 @@ export const standardToolSets: ToolSet[] = [
   agentRunnerToolSet,
   secretsToolSet,
   searchToolSet,
+  selfModifyToolSet,
 ];
