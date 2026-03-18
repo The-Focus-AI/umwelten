@@ -26,8 +26,8 @@ describe('Tool Integration Tests with Ollama', () => {
 
 
 
-  describe('Ollama qwen3:latest Tool Calling', () => {
-    it('should call calculator tool with qwen3:latest', async () => {
+  describe('Ollama phi4:latest Tool Calling', () => {
+    it('should call calculator tool with phi4:latest', async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -43,7 +43,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'qwen3:latest', provider: 'ollama' },
+        { name: 'phi4:latest', provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({
@@ -66,7 +66,7 @@ describe('Tool Integration Tests with Ollama', () => {
       expect(hasToolCall).toBe(true);
     }, 30000); // 30 second timeout for Ollama
 
-    it('should call statistics tool with qwen3:latest', async () => {
+    it('should call statistics tool with phi4:latest', async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -82,7 +82,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'qwen3:latest', provider: 'ollama' },
+        { name: 'phi4:latest', provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({
@@ -105,7 +105,7 @@ describe('Tool Integration Tests with Ollama', () => {
       expect(hasToolCall).toBe(true);
     }, 30000); // 30 second timeout for Ollama
 
-    it('should handle multiple tool calls in sequence with qwen3:latest', async () => {
+    it('should handle multiple tool calls in sequence with phi4:latest', async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -121,7 +121,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'qwen3:latest', provider: 'ollama' },
+        { name: 'phi4:latest', provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({

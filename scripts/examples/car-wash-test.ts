@@ -170,7 +170,17 @@ const ALL_MODELS: ModelDetails[] = [
   { name: 'minimax/minimax-m2.1', provider: 'openrouter' },
 
   // ── OpenRouter — Nvidia ───────────────────────────────────────────────────
+  { name: 'nvidia/nemotron-3-super-120b-a12b:free', provider: 'openrouter' },
+  { name: 'nvidia/nemotron-3-nano-30b-a3b:free', provider: 'openrouter' },
   { name: 'nvidia/nemotron-3-nano-30b-a3b', provider: 'openrouter' },
+  { name: 'nvidia/llama-3.3-nemotron-super-49b-v1.5', provider: 'openrouter' },
+  { name: 'nvidia/nemotron-nano-9b-v2:free', provider: 'openrouter' },
+
+  // ── DeepInfra — Nvidia Nemotron ─────────────────────────────────────────
+  { name: 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B', provider: 'deepinfra' },
+  { name: 'nvidia/Nemotron-3-Nano-30B-A3B', provider: 'deepinfra' },
+  { name: 'nvidia/Llama-3.3-Nemotron-Super-49B-v1.5', provider: 'deepinfra' },
+  { name: 'nvidia/NVIDIA-Nemotron-Nano-9B-v2', provider: 'deepinfra' },
 
   // ── OpenRouter — Google (Gemma) ───────────────────────────────────────────
   { name: 'google/gemma-3-27b-it', provider: 'openrouter' },

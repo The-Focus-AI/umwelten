@@ -76,11 +76,13 @@ Usage: `new Interaction(modelDetails, stimulus)` then `interaction.chat("message
 
 ### `src/providers/` — LLM Backends
 
-Unified access to 5 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
+Unified access to 7 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
 
 - `base.ts` — `BaseProvider` abstract class
 - `google.ts` — Gemini models (needs `GOOGLE_GENERATIVE_AI_API_KEY`)
 - `openrouter.ts` — OpenAI, Anthropic, etc. (needs `OPENROUTER_API_KEY`)
+- `deepinfra.ts` — DeepInfra models (needs `DEEPINFRA_API_KEY`)
+- `togetherai.ts` — Together AI models (needs `TOGETHER_API_KEY`)
 - `ollama.ts` — Local models (no key needed)
 - `lmstudio.ts` — Local REST API (no key needed)
 - `github-models.ts` — GitHub-hosted models (needs `GITHUB_TOKEN`)
@@ -292,5 +294,7 @@ dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
 - `OPENROUTER_API_KEY` — OpenRouter
 - `GITHUB_TOKEN` — GitHub Models
 - `FIREWORKS_API_KEY` — Fireworks.ai
+- `DEEPINFRA_API_KEY` — DeepInfra
+- `TOGETHER_API_KEY` — Together AI
 - `TAVILY_API_KEY` — Web search tool
 - `MARKIFY_URL` — Optional external HTML-to-markdown service

@@ -101,6 +101,18 @@ const ALL_MODELS: ModelDetails[] = [
   // ── Mistral Large 2512 (Dec 1 2025) — $0.50/$1.50 ────────────────────────
   { name: 'mistralai/mistral-large-2512', provider: 'openrouter' },
 
+  // ── NVIDIA Nemotron (OpenRouter) ────────────────────────────────────────
+  { name: 'nvidia/nemotron-3-super-120b-a12b:free', provider: 'openrouter' },     // Mar 2026  free
+  { name: 'nvidia/llama-3.3-nemotron-super-49b-v1.5', provider: 'openrouter' },
+  { name: 'nvidia/nemotron-3-nano-30b-a3b', provider: 'openrouter' },
+  { name: 'nvidia/nemotron-nano-9b-v2:free', provider: 'openrouter' },
+
+  // ── NVIDIA Nemotron (DeepInfra) — same models, different provider ──────
+  { name: 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B', provider: 'deepinfra' },
+  { name: 'nvidia/Nemotron-3-Nano-30B-A3B', provider: 'deepinfra' },
+  { name: 'nvidia/Llama-3.3-Nemotron-Super-49B-v1.5', provider: 'deepinfra' },
+  { name: 'nvidia/NVIDIA-Nemotron-Nano-9B-v2', provider: 'deepinfra' },
+
   // ── Meta Llama 4 (Apr 2025) — open-weight baseline ───────────────────────
   { name: 'meta-llama/llama-4-maverick', provider: 'openrouter' },  // $0.15/$0.60
   { name: 'meta-llama/llama-4-scout', provider: 'openrouter' },     // $0.08/$0.30

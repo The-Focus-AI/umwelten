@@ -218,7 +218,7 @@ describe('CLI Tools Command', () => {
           prompt: 'Calculate 25 + 15 using the calculator tool',
           maxSteps: '3',
           provider: 'ollama',
-          model: 'qwen3:latest'
+          model: 'phi4:latest'
         });
         
         // Verify the demo ran

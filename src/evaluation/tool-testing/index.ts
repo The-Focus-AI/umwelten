@@ -24,7 +24,7 @@
  *       validation: { contentContains: ['8'] }
  *     }
  *   ],
- *   models: [{ name: 'qwen3:latest', provider: 'ollama' }]
+ *   models: [{ name: 'phi4:latest', provider: 'ollama' }]
  * };
  *
  * const runner = new ConversationRunner({ verbose: true });

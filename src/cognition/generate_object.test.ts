@@ -113,7 +113,7 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
 
   describe("Qwen3 Model (14b)", () => {
     it("should generate a structured object with qwen3", async () => {
-      const modelDetails = createOllamaModelDetails("qwen3:latest");
+      const modelDetails = createOllamaModelDetails("phi4:latest");
       const stimulus = new Stimulus({ role: "assistant that creates structured profiles" });
 
       const interaction = new Interaction(modelDetails, stimulus);
@@ -157,7 +157,7 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
         })
       });
 
-      const modelDetails = createOllamaModelDetails("qwen3:latest");
+      const modelDetails = createOllamaModelDetails("phi4:latest");
       const stimulus = new Stimulus({ role: "AI research analyst" });
 
       const interaction = new Interaction(modelDetails, stimulus);

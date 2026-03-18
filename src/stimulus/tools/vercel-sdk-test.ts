@@ -72,7 +72,7 @@ async function testDirectVercelSDK() {
 
   try {
     const result = await generateText({
-      model: ollama('qwen3:latest'),
+      model: ollama('phi4:latest'),
       tools: {
         calculator: calculatorTool,
         statistics: statisticsTool,
