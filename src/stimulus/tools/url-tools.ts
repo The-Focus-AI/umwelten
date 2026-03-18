@@ -89,6 +89,18 @@ async function writeToSessionFile(content: string, prefix: string, extension: st
 
 const urlSchema = z.object({
   url: z.string().url().describe("The URL to fetch"),
+  headers: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("Optional HTTP headers to send (e.g. { \"X-API-Key\": \"abc123\", \"Authorization\": \"Bearer ...\" })"),
+  method: z
+    .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
+    .optional()
+    .describe("HTTP method (default GET)"),
+  body: z
+    .string()
+    .optional()
+    .describe("Request body (for POST/PUT/PATCH). Use JSON string for JSON APIs."),
 });
 
 const parseFeedSchema = z.object({
@@ -109,11 +121,11 @@ const parseFeedSchema = z.object({
  */
 export const wgetTool = tool({
   description:
-    "Fetch a URL and return the raw response (status, content-type, and body as text). Use for APIs, plain text, or when you need the unprocessed page content. Size and time limits apply. Files larger than 500 lines or 1KB are automatically saved to the session directory (path returned in 'filePath' field).",
+    "Fetch a URL and return the raw response (status, content-type, and body as text). Supports custom headers, HTTP methods, and request bodies for API calls. Size and time limits apply. Files larger than 500 lines or 1KB are automatically saved to the session directory (path returned in 'filePath' field).",
   inputSchema: urlSchema,
-  execute: async ({ url }) => {
+  execute: async ({ url, headers, method, body }) => {
     try {
-      const result = await fetchUrl(url);
+      const result = await fetchUrl(url, { headers, method, body });
       
       // Check if content is large (by lines or size)
       const sizeCheck = shouldSaveToFile(result.content);

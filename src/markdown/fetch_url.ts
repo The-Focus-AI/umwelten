@@ -37,6 +37,9 @@ export interface FetchUrlResult {
 export interface FetchUrlOptions {
   timeoutMs?: number;
   maxBytes?: number;
+  headers?: Record<string, string>;
+  method?: string;
+  body?: string;
 }
 
 /**
@@ -55,12 +58,15 @@ export async function fetchUrl(
 
   try {
     const response = await fetch(url, {
+      method: options.method ?? "GET",
       signal: controller.signal,
       headers: {
         "User-Agent":
           "Umwelten/1.0 (URL fetch; https://github.com/The-Focus-AI/umwelten)",
+        ...options.headers,
       },
       redirect: "follow",
+      ...(options.body ? { body: options.body } : {}),
     });
     clearTimeout(timeoutId);
 
