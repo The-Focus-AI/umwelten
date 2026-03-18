@@ -4,6 +4,8 @@ import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
 import { Interaction } from "../interaction/core/interaction.js";
 
+export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
+
 export interface ModelRoute {
   name: string; // Base model identifier
   provider: string; // Original provider
@@ -12,6 +14,7 @@ export interface ModelRoute {
   topP?: number; // Optional topP
   topK?: number; // Optional topK
   numCtx?: number; // Optional number of context tokens
+  reasoningEffort?: ReasoningEffort; // Optional thinking/reasoning effort level
 }
 
 export const ModelRouteSchema = z.object({
@@ -22,6 +25,7 @@ export const ModelRouteSchema = z.object({
   temperature: z.number().optional(),
   topP: z.number().optional(),
   topK: z.number().optional(),
+  reasoningEffort: z.enum(['none', 'low', 'medium', 'high']).optional(),
 });
 
 export interface ModelDetails extends ModelRoute {
@@ -168,7 +172,7 @@ export interface ModelRunner {
 
 export interface ModelSearchOptions {
   query: string; // Search term
-  provider?: "openrouter" | "ollama" | "google" | "github-models" | "fireworks" | "minimax" | "lmstudio" | "all"; // Filter by provider
+  provider?: "openrouter" | "ollama" | "google" | "github-models" | "fireworks" | "minimax" | "deepinfra" | "togetherai" | "lmstudio" | "all"; // Filter by provider
   sortBy?: "name" | "addedDate" | "contextLength" | "cost"; // Sort results
   sortOrder?: "asc" | "desc"; // Sort direction
   onlyFree?: boolean; // Only show free models

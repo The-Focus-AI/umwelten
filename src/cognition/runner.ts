@@ -3,6 +3,7 @@ import {
   ModelOptions,
   ModelResponse,
   ModelRunner,
+  ReasoningEffort,
 } from "./types.js";
 import { RateLimitConfig } from "../rate-limit/rate-limit.js";
 import {
@@ -37,6 +38,80 @@ const DEFAULT_CONFIG: ModelRunnerConfig = {
   maxRetries: 3,
   maxTokens: 4096, // Default safeguard
 };
+
+/**
+ * Build provider-specific reasoning/thinking options from a unified ReasoningEffort level.
+ * Returns providerOptions to merge into generateText/streamText/generateObject/streamObject calls.
+ */
+function buildReasoningProviderOptions(
+  provider: string,
+  effort?: ReasoningEffort,
+): Record<string, any> | undefined {
+  // Default: enable thinking for Google (backward compat), skip for others
+  if (provider === "google") {
+    if (effort === "none") {
+      return {
+        google: {
+          thinkingConfig: {
+            includeThoughts: false,
+          },
+        },
+      };
+    }
+    const budgetMap: Record<string, number> = {
+      low: 1024,
+      medium: 8192,
+      high: 24576,
+    };
+    return {
+      google: {
+        thinkingConfig: {
+          includeThoughts: true,
+          ...(effort && budgetMap[effort]
+            ? { thinkingBudget: budgetMap[effort] }
+            : {}),
+        },
+      },
+    };
+  }
+
+  if (!effort || effort === "none") return undefined;
+
+  if (provider === "openrouter") {
+    return {
+      openrouter: {
+        reasoning: { effort },
+      },
+    };
+  }
+
+  if (provider === "anthropic") {
+    const budgetMap: Record<string, number> = {
+      low: 2048,
+      medium: 8192,
+      high: 32768,
+    };
+    return {
+      anthropic: {
+        thinking: {
+          type: "enabled",
+          budget_tokens: budgetMap[effort] ?? 8192,
+        },
+      },
+    };
+  }
+
+  // DeepInfra and Together AI use OpenAI-compatible reasoning_effort
+  if (provider === "deepinfra" || provider === "togetherai") {
+    return {
+      [provider]: {
+        reasoning_effort: effort,
+      },
+    };
+  }
+
+  return undefined;
+}
 
 export class BaseModelRunner implements ModelRunner {
   private config: ModelRunnerConfig;
@@ -254,15 +329,15 @@ export class BaseModelRunner implements ModelRunner {
       generateOptions.usage = { include: true };
     }
 
-    // Enable thinking/reasoning for Google Gemini models
-    if (interaction.modelDetails.provider === "google") {
+    // Enable thinking/reasoning based on provider and reasoning effort
+    const reasoningOpts = buildReasoningProviderOptions(
+      interaction.modelDetails.provider,
+      interaction.modelDetails.reasoningEffort,
+    );
+    if (reasoningOpts) {
       generateOptions.providerOptions = {
         ...generateOptions.providerOptions,
-        google: {
-          thinkingConfig: {
-            includeThoughts: true,
-          },
-        },
+        ...reasoningOpts,
       };
     }
 
@@ -528,15 +603,15 @@ export class BaseModelRunner implements ModelRunner {
       streamOptions.usage = { include: true };
     }
 
-    // Enable thinking/reasoning for Google Gemini models
-    if (interaction.modelDetails.provider === "google") {
+    // Enable thinking/reasoning based on provider and reasoning effort
+    const reasoningOpts = buildReasoningProviderOptions(
+      interaction.modelDetails.provider,
+      interaction.modelDetails.reasoningEffort,
+    );
+    if (reasoningOpts) {
       streamOptions.providerOptions = {
         ...streamOptions.providerOptions,
-        google: {
-          thinkingConfig: {
-            includeThoughts: true,
-          },
-        },
+        ...reasoningOpts,
       };
     }
 
@@ -962,15 +1037,15 @@ export class BaseModelRunner implements ModelRunner {
         generateOptions.usage = { include: true };
       }
 
-      // Enable thinking/reasoning for Google Gemini models
-      if (interaction.modelDetails.provider === "google") {
+      // Enable thinking/reasoning based on provider and reasoning effort
+      const reasoningOpts = buildReasoningProviderOptions(
+        interaction.modelDetails.provider,
+        interaction.modelDetails.reasoningEffort,
+      );
+      if (reasoningOpts) {
         generateOptions.providerOptions = {
           ...generateOptions.providerOptions,
-          google: {
-            thinkingConfig: {
-              includeThoughts: true,
-            },
-          },
+          ...reasoningOpts,
         };
       }
 
@@ -1048,15 +1123,15 @@ export class BaseModelRunner implements ModelRunner {
         streamOptions.usage = { include: true };
       }
 
-      // Enable thinking/reasoning for Google Gemini models
-      if (interaction.modelDetails.provider === "google") {
+      // Enable thinking/reasoning based on provider and reasoning effort
+      const reasoningOpts2 = buildReasoningProviderOptions(
+        interaction.modelDetails.provider,
+        interaction.modelDetails.reasoningEffort,
+      );
+      if (reasoningOpts2) {
         streamOptions.providerOptions = {
           ...streamOptions.providerOptions,
-          google: {
-            thinkingConfig: {
-              includeThoughts: true,
-            },
-          },
+          ...reasoningOpts2,
         };
       }
 
