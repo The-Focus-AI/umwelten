@@ -14,6 +14,8 @@ import { createOpenRouterProvider } from "./openrouter.js";
 import { createOllamaProvider } from "./ollama.js";
 import { createGitHubModelsProvider } from "./github-models.js";
 import { createFireworksProvider } from "./fireworks.js";
+import { createDeepInfraProvider, getDeepInfraModelUrl } from "./deepinfra.js";
+import { createTogetherAIProvider, getTogetherAIModelUrl } from "./togetherai.js";
 import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
@@ -33,6 +35,10 @@ export function getModelUrl(model: ModelDetails): string | undefined {
       return getFireworksModelUrl(model.name);
     case "minimax":
       return getMiniMaxModelUrl(model.name);
+    case "deepinfra":
+      return getDeepInfraModelUrl(model.name);
+    case "togetherai":
+      return getTogetherAIModelUrl(model.name);
     case "lmstudio":
       return undefined;
     default:
@@ -68,7 +74,7 @@ export async function getModelDetails(model: LanguageModel): Promise<ModelDetail
     const modelId = model.toString();
     
     // Try to find the model in our known providers
-    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'fireworks', 'minimax', 'lmstudio'] as const;
+    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'fireworks', 'minimax', 'deepinfra', 'togetherai', 'lmstudio'] as const;
     
     for (const providerName of providers) {
       try {
@@ -135,6 +141,18 @@ export async function getModelProvider(
         throw new Error("MINIMAX_API_KEY environment variable is required");
       }
       return createMiniMaxProvider(minimaxKey, process.env.MINIMAX_BASE_URL);
+    case "deepinfra":
+      const deepinfraKey = process.env.DEEPINFRA_API_KEY;
+      if (!deepinfraKey) {
+        throw new Error("DEEPINFRA_API_KEY environment variable is required");
+      }
+      return createDeepInfraProvider(deepinfraKey);
+    case "togetherai":
+      const togetheraiKey = process.env.TOGETHER_API_KEY;
+      if (!togetheraiKey) {
+        throw new Error("TOGETHER_API_KEY environment variable is required");
+      }
+      return createTogetherAIProvider(togetheraiKey);
     case "ollama":
       return createOllamaProvider();
     case "lmstudio":
@@ -189,7 +207,9 @@ export async function validateModel(
 
     return undefined;
   } catch (error) {
+    // Network errors (timeouts, DNS, etc.) should not block the request —
+    // return the original model details so the actual API call can proceed.
     console.error("Error checking model validity:", error);
-    return undefined;
+    return { ...modelDetails };
   }
 }

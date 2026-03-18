@@ -5,6 +5,8 @@ import { createLMStudioProvider } from "../providers/lmstudio.js";
 import { createGitHubModelsProvider } from "../providers/github-models.js";
 import { createFireworksProvider } from "../providers/fireworks.js";
 import { createMiniMaxProvider } from "../providers/minimax.js";
+import { createDeepInfraProvider } from "../providers/deepinfra.js";
+import { createTogetherAIProvider } from "../providers/togetherai.js";
 import type { ModelDetails } from "./types.js";
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
@@ -26,6 +28,12 @@ export async function getAllModels(): Promise<ModelDetails[]> {
         : []),
       ...(process.env.MINIMAX_API_KEY
         ? [{ label: "minimax", listModels: () => createMiniMaxProvider(process.env.MINIMAX_API_KEY!, process.env.MINIMAX_BASE_URL).listModels() }]
+        : []),
+      ...(process.env.DEEPINFRA_API_KEY
+        ? [{ label: "deepinfra", listModels: () => createDeepInfraProvider(process.env.DEEPINFRA_API_KEY!).listModels() }]
+        : []),
+      ...(process.env.TOGETHER_API_KEY
+        ? [{ label: "togetherai", listModels: () => createTogetherAIProvider(process.env.TOGETHER_API_KEY!).listModels() }]
         : []),
     ];
 
