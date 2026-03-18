@@ -29,7 +29,11 @@ export class OpenRouterProvider extends BaseProvider {
       }
     });
     const data = await response.json()
-    
+
+    if (!response.ok || !Array.isArray(data?.data)) {
+      throw new Error(`OpenRouter API error: ${data?.error?.message || response.statusText || 'unexpected response format'}`);
+    }
+
     return data.data.map((model: any) => ({
       name: model.id,
       provider: 'openrouter' as const,
