@@ -43,6 +43,7 @@ import type { ToolSet } from "./tool-sets.js";
 import type { FileToolsContext } from "./tools/file-tools.js";
 import type { AgentToolsContext } from "./tools/agent-tools.js";
 import type { SessionToolsContext } from "./tools/session-tools.js";
+import { createCurrentSessionTool } from "./tools/session-tools.js";
 import type { ExternalInteractionToolsContext } from "./tools/external-interaction-tools.js";
 import type { AgentRunnerToolsContext } from "./tools/agent-runner-tools.js";
 import type { SecretsToolsContext } from "./tools/secrets-tools.js";
@@ -437,6 +438,17 @@ export class Habitat
       sourceId: sessionId,
     });
 
+    // Add current_session introspection tool
+    this.addTool(
+      "current_session",
+      createCurrentSessionTool({
+        sessionId,
+        sessionDir,
+        startedAt: new Date(),
+        getMessageCount: () => interaction.messages.length,
+      }),
+    );
+
     // Wire transcript persistence
     interaction.setOnTranscriptUpdate((messages) => {
       void writeSessionTranscript(sessionDir, messages);
@@ -750,11 +762,14 @@ export class Habitat
 
   async setSecret(name: string, value: string): Promise<void> {
     this.secrets[name] = value;
+    // Also inject into process.env so runtime tools see the new secret immediately
+    process.env[name] = value;
     await saveSecrets(this.workDir, this.secrets);
   }
 
   async removeSecret(name: string): Promise<void> {
     delete this.secrets[name];
+    delete process.env[name];
     await saveSecrets(this.workDir, this.secrets);
   }
 

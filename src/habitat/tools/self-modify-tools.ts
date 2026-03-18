@@ -27,6 +27,8 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
   const create_tool = tool({
     description:
       "Create a new tool in the habitat tools directory. " +
+      "Tools are executable TypeScript with access to process.env for API keys/secrets. " +
+      "For API integrations: read keys from process.env, use fetch() for HTTP. " +
       "Write a TOOL.md with frontmatter (name, description) and a handler.ts " +
       "that default-exports a Vercel AI SDK Tool. " +
       "After creation, call reload_tools to make it available immediately.",
@@ -70,7 +72,12 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
   const create_skill = tool({
     description:
       "Create a new skill in the habitat skills directory. " +
-      "Skills are markdown instructions the agent can activate via the skill tool.",
+      "Skills are SKILL.md instructions that teach the agent how to accomplish tasks. " +
+      "Skills can be instruction-only (workflows, checklists) or bundle scripts alongside the SKILL.md. " +
+      "To bundle scripts: after create_skill, use write_file to add scripts to the skill directory " +
+      "(e.g. skills/<name>/scripts/my-script.sh), then reference them in the instructions. " +
+      "For API integrations that need auth, prefer creating a tool (handler.ts with process.env access) " +
+      "or bundle a script that reads the env var — don't inline curl/wget with API key references.",
     inputSchema: z.object({
       name: z.string().describe("Skill name in kebab-case"),
       description: z.string().describe("When to use this skill (shown in skill list)"),
@@ -93,10 +100,34 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       ].join("\n");
       await writeFile(join(skillDir, "SKILL.md"), content);
 
+      // Analyze instructions for common anti-patterns and provide guidance
+      const hints: string[] = [];
+      if (/curl\s.*https?:\/\/|wget\s.*https?:\/\//.test(instructions)) {
+        hints.push(
+          "Skill instructions contain inline curl/wget commands. Consider creating a " +
+            "script at skills/" +
+            name +
+            "/scripts/ and referencing it instead. " +
+            "Scripts can read env vars directly (e.g. $MY_API_KEY in bash).",
+        );
+      }
+      if (
+        /\b[A-Z_]*(?:API[_-]?KEY|TOKEN)\b/.test(instructions) &&
+        !/\buse the .* tool\b/i.test(instructions)
+      ) {
+        hints.push(
+          "Skill mentions API keys but doesn't reference an existing tool. " +
+            "Check if a tool already handles this API (use list_custom_tools). " +
+            "If so, the skill should say 'use the <tool_name> tool' instead of " +
+            "describing how to call the API directly.",
+        );
+      }
+
       return {
         created: name,
         path: skillDir,
         message: `Skill '${name}' created. It will be available after reload_skills or in the next session.`,
+        ...(hints.length > 0 ? { hints } : {}),
       };
     },
   });

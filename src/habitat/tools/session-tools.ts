@@ -354,3 +354,33 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     sessions_read_file: sessionsReadFileTool,
   };
 }
+
+/**
+ * Create a `current_session` tool that lets the agent introspect its own session.
+ * Call this after session creation and add the tool to the habitat/stimulus.
+ */
+export function createCurrentSessionTool(info: {
+  sessionId: string;
+  sessionDir: string;
+  startedAt: Date;
+  getMessageCount: () => number;
+}): Tool {
+  return tool({
+    description:
+      'Get information about your current session: session ID, directory, uptime, and message count. ' +
+      'Use the returned sessionId with sessions_show, sessions_messages, sessions_inspect, etc. to reflect on your own conversation.',
+    inputSchema: z.object({}),
+    execute: async () => {
+      const now = new Date();
+      const uptimeMs = now.getTime() - info.startedAt.getTime();
+      return {
+        sessionId: info.sessionId,
+        sessionDir: info.sessionDir,
+        startedAt: info.startedAt.toISOString(),
+        uptime: formatDuration(uptimeMs),
+        uptimeMs,
+        messageCount: info.getMessageCount(),
+      };
+    },
+  });
+}

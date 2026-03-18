@@ -20,6 +20,7 @@ import type { AgentEntry } from "../habitat/index.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { InteractionStore } from "../interaction/persistence/interaction-store.js";
 import { writeSessionTranscript } from "../habitat/transcript.js";
+import { createCurrentSessionTool } from "../habitat/tools/session-tools.js";
 import { fileExists } from "../habitat/config.js";
 import {
   configureManagedAgent,
@@ -548,6 +549,17 @@ async function cliAction(
     source: "native",
     sourceId: sessionId,
   });
+
+  // Add current_session introspection tool
+  habitat.addTool(
+    "current_session",
+    createCurrentSessionTool({
+      sessionId,
+      sessionDir,
+      startedAt: new Date(),
+      getMessageCount: () => interaction.messages.length,
+    }),
+  );
 
   // Wire transcript persistence
   interaction.setOnTranscriptUpdate((messages) => {
