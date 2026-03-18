@@ -1,5 +1,6 @@
 import { Bot, Context } from "grammy";
 import { hydrateFiles, FileFlavor } from "@grammyjs/files";
+import { type CoreMessage } from "ai";
 import { Interaction } from "../../interaction/core/interaction.js";
 import { Stimulus } from "../../stimulus/stimulus.js";
 import { ModelDetails } from "../../cognition/types.js";
@@ -11,6 +12,8 @@ type MyContext = FileFlavor<Context>;
 export interface TelegramAdapterConfig {
   token: string;
   modelDetails: ModelDetails;
+  /** Optional vision-capable model used for image/video media. Falls back to modelDetails if not set. */
+  visionModelDetails?: ModelDetails;
   stimulus: Stimulus;
   mediaDir?: string; // Deprecated: Directory where media files will be stored (use getSessionMediaDir instead)
   getSessionMediaDir?: (chatId: number) => Promise<string>; // Function to get session-specific media directory
@@ -18,6 +21,8 @@ export interface TelegramAdapterConfig {
   writeTranscript?: (sessionDir: string, messages: import("ai").CoreMessage[], reasoning?: string) => Promise<void>;
   /** Called when user sends /reset or /start so a new session directory is created for the next messages */
   startNewThread?: (chatId: number) => Promise<void>;
+  /** Number of recent user+assistant message pairs to restore from transcript on restart (default 4) */
+  resumeMessagePairs?: number;
 }
 
 export class TelegramAdapter {
@@ -63,18 +68,91 @@ export class TelegramAdapter {
     });
   }
 
-  private getInteraction(chatId: number): Interaction {
+  private async getInteraction(chatId: number): Promise<Interaction> {
     if (!this.interactions.has(chatId)) {
-      // Clone stimulus for each chat - need to copy tools separately since they're not in options
-      const stimulus = new Stimulus(this.config.stimulus.options);
-      // Copy tools from the original stimulus (tools are stored separately, not in options)
-      const originalTools = this.config.stimulus.getTools();
-      for (const [name, tool] of Object.entries(originalTools)) {
-        stimulus.addTool(name, tool);
-      }
-      this.interactions.set(chatId, new Interaction(this.config.modelDetails, stimulus));
+      const interaction = this.createInteraction(this.config.modelDetails);
+      this.interactions.set(chatId, interaction);
+      await this.resumeFromTranscript(chatId, interaction);
     }
     return this.interactions.get(chatId)!;
+  }
+
+  private createInteraction(modelDetails: ModelDetails): Interaction {
+    // Clone stimulus - need to copy tools separately since they're not in options
+    const stimulus = new Stimulus(this.config.stimulus.options);
+    const originalTools = this.config.stimulus.getTools();
+    for (const [name, tool] of Object.entries(originalTools)) {
+      stimulus.addTool(name, tool);
+    }
+    stimulus.addInstruction("You are responding in Telegram. Never use markdown tables — they render poorly. Instead use bold labels on separate lines (e.g. \"**Name**: value\"). Keep formatting simple: bold, italic, code blocks, and links only.");
+    return new Interaction(modelDetails, stimulus);
+  }
+
+  /**
+   * Get or create a vision-capable interaction for media handling.
+   * If visionModelDetails is configured and differs from the main model,
+   * creates a separate one-shot interaction with the vision model.
+   * Otherwise falls back to the main interaction.
+   */
+  private async getVisionInteraction(chatId: number): Promise<{ interaction: Interaction; isVisionModel: boolean }> {
+    const vision = this.config.visionModelDetails;
+    if (vision && (vision.name !== this.config.modelDetails.name || vision.provider !== this.config.modelDetails.provider)) {
+      return { interaction: this.createInteraction(vision), isVisionModel: true };
+    }
+    return { interaction: await this.getInteraction(chatId), isVisionModel: false };
+  }
+
+  /**
+   * Load the last N user+assistant message pairs from a previous transcript into
+   * the interaction so the model has conversational context after a bot restart.
+   */
+  private async resumeFromTranscript(chatId: number, interaction: Interaction): Promise<void> {
+    if (!this.config.getSessionDir) return;
+
+    try {
+      const { sessionDir } = await this.config.getSessionDir(chatId);
+      const transcriptPath = path.join(sessionDir, "transcript.jsonl");
+      const content = await fs.readFile(transcriptPath, "utf-8").catch(() => "");
+      if (!content.trim()) return;
+
+      const lines = content.trim().split("\n");
+      // Parse JSONL entries and extract CoreMessages (skip tool_result/tool_use detail entries)
+      const messages: CoreMessage[] = [];
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.message?.role === "user" && typeof entry.message.content === "string") {
+            messages.push({ role: "user", content: entry.message.content });
+          } else if (entry.message?.role === "assistant" && typeof entry.message.content === "string") {
+            messages.push({ role: "assistant", content: entry.message.content });
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+
+      if (messages.length === 0) return;
+
+      // Take last N pairs (default 4 pairs = 8 messages)
+      const pairCount = this.config.resumeMessagePairs ?? 4;
+      const maxMessages = pairCount * 2;
+      const recent = messages.slice(-maxMessages);
+
+      // Ensure we start with a user message
+      while (recent.length > 0 && recent[0].role !== "user") {
+        recent.shift();
+      }
+
+      if (recent.length === 0) return;
+
+      for (const msg of recent) {
+        interaction.addMessage(msg);
+      }
+      console.log(`[TELEGRAM] Resumed ${recent.length} messages from previous session for chat ${chatId}`);
+    } catch (err) {
+      // Non-fatal — just start fresh
+      console.error(`[TELEGRAM] Could not resume transcript for chat ${chatId}:`, err);
+    }
   }
 
   private startTypingIndicator(ctx: Context) {
@@ -159,7 +237,7 @@ export class TelegramAdapter {
 
     this.logMessage("←", ctx, text);
 
-    const interaction = this.getInteraction(chatId);
+    const interaction = await this.getInteraction(chatId);
     this.startTypingIndicator(ctx);
 
     if (this.config.getSessionDir && this.config.writeTranscript) {
@@ -229,6 +307,15 @@ export class TelegramAdapter {
       const errorMsg = "Sorry, I encountered an error. Please try again or use /reset to start over.";
       await ctx.reply(errorMsg);
       this.logMessage("→", ctx, errorMsg);
+      // Persist transcript even on error so the user message is not lost
+      if (this.config.getSessionDir && this.config.writeTranscript) {
+        try {
+          const { sessionDir } = await this.config.getSessionDir(chatId);
+          await this.config.writeTranscript(sessionDir, interaction.getMessages());
+        } catch (writeErr) {
+          console.error("Error writing transcript after failure:", writeErr);
+        }
+      }
     } finally {
       this.stopTypingIndicator(chatId);
     }
@@ -252,7 +339,16 @@ export class TelegramAdapter {
     console.log(`[TELEGRAM] handleMedia called for ${mediaType}, chatId: ${chatId}`);
     this.logMessage("←", ctx, `[${mediaType}]${caption ? ` ${caption}` : ""}`);
 
-    const interaction = this.getInteraction(chatId);
+    const isVisual = mediaType === "photo" || mediaType === "video" || mediaType === "video_note";
+    const { interaction, isVisionModel } = isVisual
+      ? await this.getVisionInteraction(chatId)
+      : { interaction: await this.getInteraction(chatId), isVisionModel: false };
+
+    if (isVisionModel) {
+      const vm = this.config.visionModelDetails!;
+      console.log(`[TELEGRAM] Using vision model: ${vm.name} (${vm.provider})`);
+    }
+
     this.startTypingIndicator(ctx);
 
     try {
@@ -446,16 +542,31 @@ export class TelegramAdapter {
       }
     } catch (error: any) {
       console.error("Error processing media:", error);
-      
-      // Check if it's an unsupported functionality error for audio
-      if (error?.functionality?.includes('audio') || error?.message?.includes('audio')) {
-        const errorMsg = "I received your audio/voice message, but the current model doesn't support audio processing. Please send a text message or use a provider that supports audio (Google, OpenAI, or Anthropic).";
-        await ctx.reply(errorMsg);
-        this.logMessage("→", ctx, errorMsg);
+
+      const errMsg = error?.message ?? '';
+      const errBody = error?.responseBody ?? '';
+      const isAudioUnsupported = errMsg.includes('audio') || error?.functionality?.includes('audio');
+      const isImageUnsupported = errMsg.includes('image input') || errBody.includes('image input');
+
+      let errorMsg: string;
+      if (isImageUnsupported) {
+        errorMsg = "I received your image, but the current model doesn't support image input. I'll note the caption if you included one. Try a model that supports vision (Google Gemini, GPT-4o, Claude).";
+      } else if (isAudioUnsupported) {
+        errorMsg = "I received your audio/voice message, but the current model doesn't support audio processing. Please send a text message or use a provider that supports audio (Google, OpenAI, or Anthropic).";
       } else {
-        const errorMsg = "Sorry, I couldn't process that file. Please try again or use /reset.";
-        await ctx.reply(errorMsg);
-        this.logMessage("→", ctx, errorMsg);
+        errorMsg = "Sorry, I couldn't process that file. Please try again or use /reset.";
+      }
+      await ctx.reply(errorMsg);
+      this.logMessage("→", ctx, errorMsg);
+
+      // Persist transcript even on error so the user message is not lost
+      if (this.config.getSessionDir && this.config.writeTranscript) {
+        try {
+          const { sessionDir } = await this.config.getSessionDir(chatId);
+          await this.config.writeTranscript(sessionDir, interaction.getMessages());
+        } catch (writeErr) {
+          console.error("Error writing transcript after media failure:", writeErr);
+        }
       }
     } finally {
       this.stopTypingIndicator(chatId);
@@ -546,6 +657,46 @@ export class TelegramAdapter {
    * Convert basic Markdown to HTML for Telegram. Escapes HTML entities in raw text.
    * Uses escapePlainText for final pass to avoid double-escaping (e.g. &amp; -> &amp;amp;).
    */
+  /**
+   * Convert a markdown table into a vertical card layout for Telegram.
+   * Each data row becomes a block with "Header: value" lines.
+   * Works well on narrow mobile screens where wide tables break.
+   */
+  private markdownTableToCards(tableLines: string[]): string {
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // Parse rows, skip separator rows
+    const rows: string[][] = [];
+    for (const line of tableLines) {
+      const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+      if (/^[\s\-:|]+$/.test(trimmed)) continue;
+      rows.push(trimmed.split("|").map((c) => c.trim()));
+    }
+    if (rows.length === 0) return "";
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // If only a header row (no data), just bold it
+    if (dataRows.length === 0) {
+      return headers.map((h) => `<b>${escape(h)}</b>`).join(" · ");
+    }
+
+    // Build vertical cards: each row is a block with "Header: value" lines
+    const cards = dataRows.map((row) => {
+      const lines = headers
+        .map((h, i) => {
+          const val = row[i] || "—";
+          return `<b>${escape(h)}</b>: ${escape(val)}`;
+        })
+        .filter((l) => !l.endsWith(": —")); // skip empty columns
+      return lines.join("\n");
+    });
+
+    return cards.join("\n\n");
+  }
+
   private markdownToHtml(text: string): string {
     const escape = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -557,7 +708,18 @@ export class TelegramAdapter {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
-    const out = text
+    // First, extract markdown tables and replace with placeholders
+    const tablePlaceholders: string[] = [];
+    const tableRegex = /(?:^|\n)((?:\|.+\|[ \t]*\n){2,})/g;
+    const withTablePlaceholders = text.replace(tableRegex, (match, tableBlock: string) => {
+      const lines = tableBlock.trim().split("\n");
+      const html = this.markdownTableToCards(lines);
+      const idx = tablePlaceholders.length;
+      tablePlaceholders.push(html);
+      return `\n%%TABLE_${idx}%%\n`;
+    });
+
+    const out = withTablePlaceholders
       // Code blocks first (preserve content, escape it)
       .replace(/```(\w*)\n([\s\S]*?)```/g, (_, _lang, code) => `<pre><code>${escape(code)}</code></pre>`)
       // Inline code
@@ -575,8 +737,11 @@ export class TelegramAdapter {
       // Links
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => `<a href="${escape(href)}">${escape(label)}</a>`);
 
+    // Restore table placeholders
+    const withTables = out.replace(/%%TABLE_(\d+)%%/g, (_, idx) => tablePlaceholders[parseInt(idx)]);
+
     // Escape plain text between/outside tags; use escapePlainText to avoid double-escaping &amp; etc.
-    return out.split(/(<[^>]+>)/).map((part) => (part.startsWith("<") ? part : escapePlainText(part))).join("");
+    return withTables.split(/(<[^>]+>)/).map((part) => (part.startsWith("<") ? part : escapePlainText(part))).join("");
   }
 
   private splitMessage(text: string, maxLength: number): string[] {

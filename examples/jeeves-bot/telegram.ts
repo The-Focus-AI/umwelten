@@ -11,6 +11,8 @@ import { createJeevesHabitat } from './habitat.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-3-flash-preview';
+const VISION_PROVIDER = process.env.JEEVES_VISION_PROVIDER || 'google';
+const VISION_MODEL = process.env.JEEVES_VISION_MODEL || 'gemini-3-flash-preview';
 
 function parseArgs(): { provider: string; model: string; token?: string } {
   const args = process.argv.slice(2);
@@ -25,6 +27,18 @@ function parseArgs(): { provider: string; model: string; token?: string } {
   }
   return { provider, model, token: token || process.env.TELEGRAM_BOT_TOKEN };
 }
+
+// Prevent unhandled stream rejections from crashing the process
+// (e.g. Vercel AI SDK stream flush errors when the model rejects image input)
+process.on('unhandledRejection', (reason: any) => {
+  const msg = reason?.message ?? String(reason);
+  // Suppress known stream-teardown noise from AI SDK
+  if (msg.includes('No output generated') || msg.includes('No endpoints found')) {
+    console.error('[TELEGRAM] Suppressed stream error:', msg);
+    return;
+  }
+  console.error('[TELEGRAM] Unhandled rejection:', reason);
+});
 
 async function main(): Promise<void> {
   const { provider, model, token } = parseArgs();
@@ -45,6 +59,7 @@ async function main(): Promise<void> {
   const adapter = new TelegramAdapter({
     token,
     modelDetails: { name: model, provider },
+    visionModelDetails: { name: VISION_MODEL, provider: VISION_PROVIDER },
     stimulus,
     getSessionMediaDir: async (chatId: number) => {
       const { sessionDir } = await habitat.getOrCreateSession('telegram', chatId);
