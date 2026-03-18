@@ -147,6 +147,28 @@ describe('agent-runner-tools', () => {
       expect(agents[0]?.memoryPath).toBe(join(agentProjectDir, 'MEMORY.md'));
     });
 
+    it('should infer gitRemote from the local repo origin when available', async () => {
+      await createGitRepo(agentProjectDir);
+      await execFileAsync(
+        'git',
+        ['remote', 'add', 'origin', 'https://github.com/The-Focus-AI/trmnl-image-agent.git'],
+        { cwd: agentProjectDir },
+      );
+
+      const result = await tools.agent_register_directory.execute({
+        projectPath: agentProjectDir,
+        memoryInProject: true,
+      }, { messages: [], toolCallId: 'test' });
+
+      expect(result.registered).toBe(true);
+      expect(result.agent.gitRemote).toBe(
+        'https://github.com/The-Focus-AI/trmnl-image-agent.git',
+      );
+      expect(agents[0]?.gitRemote).toBe(
+        'https://github.com/The-Focus-AI/trmnl-image-agent.git',
+      );
+    });
+
     it('should reuse an existing agent for the same project path', async () => {
       agents.push({
         id: 'youtube-feed',

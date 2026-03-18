@@ -16,6 +16,17 @@ import { getAgentMemoryPath } from "./agent-paths.js";
 import { fileExists } from "./config.js";
 import { createFileTools } from "./tools/file-tools.js";
 
+const SUB_AGENT_TOOL_DENYLIST = new Set([
+  "agents_list",
+  "agents_add",
+  "agents_update",
+  "agents_remove",
+  "agent_register_directory",
+  "agent_clone",
+  "agent_ask",
+  "agent_configure",
+]);
+
 /**
  * Build a Stimulus from a managed project's files.
  * Reads CLAUDE.md, README.md, package.json, and .claude/ directory
@@ -155,7 +166,10 @@ export async function buildAgentStimulus(
       `You are a sub-agent managing the "${agent.name}" project at ${agent.projectPath}.`,
       "Use read_file, list_directory, and ripgrep with agentId to explore the project.",
       "Prefer host-side file tools first when inspecting the repo. Do not use bridge tools unless the user explicitly asks for an isolated runtime or host-side inspection is insufficient.",
+      `For project-scoped tools, use agentId="${agent.id}" whenever the tool requires it.`,
       "When asked how the project runs or what it needs, inspect the actual runnable entrypoints first (for example run.sh, setup.sh, start.sh, Makefile targets, Dockerfile, and bin/* scripts) and follow the scripts they invoke. Do not rely only on README or package manifests.",
+      "You do not have direct host shell execution. When the user asks you to run project commands or scripts, use bridge_start and then bridge_exec for this project when bridge tools are available.",
+      "Never delegate back into this same project with agent_ask. You are already the project sub-agent.",
       "Treat every external executable invoked by those entrypoints as a potential dependency. Explicitly look for required CLIs, environment variables, host integrations, hardcoded absolute paths, and optional fallbacks.",
       "Ignore incidental mentions in reports/, notes, or research documents unless those files are part of the actual runnable path.",
       "Use agent_logs to read log files for this project.",
@@ -180,6 +194,9 @@ export async function buildAgentStimulus(
   // (they already support agentId scoping)
   const habitatTools = habitat.getTools();
   for (const [name, tool] of Object.entries(habitatTools)) {
+    if (SUB_AGENT_TOOL_DENYLIST.has(name)) {
+      continue;
+    }
     stimulus.addTool(name, tool);
   }
 

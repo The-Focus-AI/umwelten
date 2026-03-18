@@ -143,6 +143,23 @@ function getUniqueAgentId(
   return `${baseId}-${suffix}`;
 }
 
+async function inferGitRemote(projectPath: string): Promise<string | undefined> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["-C", projectPath, "remote", "get-url", "origin"],
+      {
+        timeout: 5000,
+        maxBuffer: 1024 * 1024,
+      },
+    );
+    const gitRemote = stdout.trim();
+    return gitRemote || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function registerManagedAgentDirectory(
   ctx: AgentRunnerToolsContext,
   options: {
@@ -165,6 +182,8 @@ export async function registerManagedAgentDirectory(
     throw new Error(`PROJECT_PATH_NOT_FOUND: ${resolvedProjectPath}`);
   }
 
+  const gitRemote = options.gitRemote ?? (await inferGitRemote(resolvedProjectPath));
+
   const existingByPath = ctx
     .getAgents()
     .find((agent) => resolve(agent.projectPath) === resolvedProjectPath);
@@ -174,8 +193,8 @@ export async function registerManagedAgentDirectory(
     if (options.memoryPath && existingByPath.memoryPath !== resolve(options.memoryPath)) {
       updates.memoryPath = resolve(options.memoryPath);
     }
-    if (options.gitRemote && existingByPath.gitRemote !== options.gitRemote) {
-      updates.gitRemote = options.gitRemote;
+    if (gitRemote && existingByPath.gitRemote !== gitRemote) {
+      updates.gitRemote = gitRemote;
     }
     if (Object.keys(updates).length > 0) {
       await ctx.updateAgent(existingByPath.id, updates);
@@ -205,7 +224,7 @@ export async function registerManagedAgentDirectory(
     name: options.name ?? deriveAgentName(resolvedProjectPath),
     projectPath: resolvedProjectPath,
     memoryPath: options.memoryPath ? resolve(options.memoryPath) : undefined,
-    gitRemote: options.gitRemote,
+    gitRemote,
   };
 
   await ctx.addAgent(agent);
