@@ -623,19 +623,26 @@ export class TelegramAdapter {
   private async sendFormattedMessage(ctx: Context, content: string): Promise<void> {
     if (!content || !content.trim()) return;
 
-    // Split long messages (Telegram max is 4096 chars)
-    const chunks = content.length > 4096 ? this.splitMessage(content, 4096) : [content];
+    // Convert to HTML first, then split the HTML (not the markdown).
+    // This avoids the problem where markdown fits in 4096 but HTML expansion exceeds it.
+    const fullHtml = this.markdownToHtml(content.trim());
+    const htmlChunks = fullHtml.length > 4096 ? this.splitHtml(fullHtml, 4096) : [fullHtml];
 
-    for (const chunk of chunks) {
+    for (const chunk of htmlChunks) {
       const trimmed = chunk.trim();
       if (!trimmed) continue;
       try {
-        // Try HTML first (handles **bold**, # headings, code blocks reliably)
-        const htmlContent = this.markdownToHtml(trimmed);
-        await ctx.reply(htmlContent, { parse_mode: "HTML" });
+        await ctx.reply(trimmed, { parse_mode: "HTML" });
       } catch (error: any) {
-        // If HTML fails (e.g. unescaped <>&), try Markdown with normalized content
-        if (error?.description?.includes("parse") || error?.message?.includes("parse")) {
+        const desc = error?.description || error?.message || "";
+        if (desc.includes("too long")) {
+          // Message still too long — force-split into smaller pieces
+          const subChunks = this.splitHtml(trimmed, 2048);
+          for (const sub of subChunks) {
+            if (sub.trim()) await ctx.reply(sub.trim(), { parse_mode: "HTML" }).catch(() => ctx.reply(sub.trim()));
+          }
+        } else if (desc.includes("parse")) {
+          // HTML parse error — fall back to Markdown then plain text
           try {
             const normalized = this.normalizeForTelegram(trimmed);
             await ctx.reply(normalized, { parse_mode: "Markdown" });
@@ -651,6 +658,85 @@ export class TelegramAdapter {
         }
       }
     }
+  }
+
+  /**
+   * Split HTML content at a max length, trying to break at paragraph/newline boundaries.
+   * Closes any open HTML tags in each chunk and reopens them in the next.
+   */
+  private splitHtml(html: string, maxLength: number): string[] {
+    const chunks: string[] = [];
+    let remaining = html;
+
+    while (remaining.length > 0) {
+      if (remaining.length <= maxLength) {
+        chunks.push(remaining);
+        break;
+      }
+
+      // Try to split at a double newline (paragraph break)
+      let splitIndex = remaining.lastIndexOf("\n\n", maxLength);
+      if (splitIndex === -1 || splitIndex < maxLength / 3) {
+        // Try single newline
+        splitIndex = remaining.lastIndexOf("\n", maxLength);
+      }
+      if (splitIndex === -1 || splitIndex < maxLength / 3) {
+        // Try space
+        splitIndex = remaining.lastIndexOf(" ", maxLength);
+      }
+      if (splitIndex === -1 || splitIndex < maxLength / 3) {
+        // Force split — but avoid splitting inside an HTML tag
+        splitIndex = maxLength;
+        const lastOpenBracket = remaining.lastIndexOf("<", splitIndex);
+        const lastCloseBracket = remaining.lastIndexOf(">", splitIndex);
+        if (lastOpenBracket > lastCloseBracket) {
+          // We're inside a tag — split before it
+          splitIndex = lastOpenBracket;
+        }
+      }
+
+      let chunk = remaining.substring(0, splitIndex);
+      remaining = remaining.substring(splitIndex).trimStart();
+
+      // Close any unclosed tags in this chunk, reopen them in the next
+      const openTags = this.getUnclosedTags(chunk);
+      if (openTags.length > 0) {
+        chunk += openTags.map(t => `</${t}>`).reverse().join("");
+        remaining = openTags.map(t => `<${t}>`).join("") + remaining;
+      }
+
+      chunks.push(chunk);
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Find HTML tags that are opened but not closed in a string.
+   * Only tracks simple tags like b, i, code, pre, a (no attributes matching needed for closing).
+   */
+  private getUnclosedTags(html: string): string[] {
+    const tagStack: string[] = [];
+    const tagRegex = /<\/?([a-zA-Z]+)[^>]*>/g;
+    let match;
+
+    while ((match = tagRegex.exec(html)) !== null) {
+      const fullMatch = match[0];
+      const tagName = match[1].toLowerCase();
+
+      // Skip self-closing and void elements
+      if (fullMatch.endsWith("/>") || ["br", "hr", "img"].includes(tagName)) continue;
+
+      if (fullMatch.startsWith("</")) {
+        // Closing tag — pop from stack if it matches
+        const idx = tagStack.lastIndexOf(tagName);
+        if (idx !== -1) tagStack.splice(idx, 1);
+      } else {
+        tagStack.push(tagName);
+      }
+    }
+
+    return tagStack;
   }
 
   /**
@@ -742,34 +828,6 @@ export class TelegramAdapter {
 
     // Escape plain text between/outside tags; use escapePlainText to avoid double-escaping &amp; etc.
     return withTables.split(/(<[^>]+>)/).map((part) => (part.startsWith("<") ? part : escapePlainText(part))).join("");
-  }
-
-  private splitMessage(text: string, maxLength: number): string[] {
-    const chunks: string[] = [];
-    let remaining = text;
-
-    while (remaining.length > 0) {
-      if (remaining.length <= maxLength) {
-        chunks.push(remaining);
-        break;
-      }
-
-      // Try to split at a newline
-      let splitIndex = remaining.lastIndexOf("\n", maxLength);
-      if (splitIndex === -1 || splitIndex < maxLength / 2) {
-        // Try to split at a space
-        splitIndex = remaining.lastIndexOf(" ", maxLength);
-      }
-      if (splitIndex === -1 || splitIndex < maxLength / 2) {
-        // Force split
-        splitIndex = maxLength;
-      }
-
-      chunks.push(remaining.substring(0, splitIndex));
-      remaining = remaining.substring(splitIndex).trimStart();
-    }
-
-    return chunks;
   }
 
   /**

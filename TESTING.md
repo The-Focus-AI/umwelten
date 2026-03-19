@@ -4,7 +4,7 @@ Manual verification checklist for the recent changes on `main`.
 
 ## Scope
 
-This checklist covers all notable commits on `main` through `4edb489`:
+This checklist covers all notable commits on `main` through `2a7a60f`:
 
 **Features:**
 - `7b1daba` — Refactor habitat agents around workspace-first registration
@@ -13,6 +13,11 @@ This checklist covers all notable commits on `main` through `4edb489`:
 - `9310b11` — Add MiniMax provider support and refresh docs
 - `04601f4` — Add local workspace Habitat agents
 - `5af8e03` — feat(evaluation): add pairwise Elo ranking module
+- `3621ad4` — feat(providers): add DeepInfra and Together AI providers
+- `b57e08b` — feat(cognition): unified reasoning effort across providers
+- `576909f` — feat(habitat): self-modify tools for runtime tool/skill creation
+- `1211cf4` — feat(tools): add headers, method, body to wget tool
+- `c573abd` — feat(telegram): vision model, session resume, formatting improvements
 
 **Bug fixes:**
 - `233fafa` — fix(cognition): normalize input/output token usage for costs
@@ -20,6 +25,8 @@ This checklist covers all notable commits on `main` through `4edb489`:
 - `7620d4a` — fix(google): stop using fake addedDate for models
 - `aea6631` — fix(run): reliable usage/cost and stats; add `--debug-usage`
 - `4edb489` — fix(minimax): normalize streaming delta.role so chat works with AI SDK
+- `9372bac` — fix(habitat): sub-agent tool denylist and git remote inference
+- `8b76ae6` — fix(providers): resilient model validation and OpenRouter error handling
 
 **Docs / chores:**
 - `972c86e` — docs: remove dotenvx prefix from CLI examples
@@ -27,6 +34,7 @@ This checklist covers all notable commits on `main` through `4edb489`:
 - `c448d5d` — chore: bump version to 0.4.6
 - `f9de636` — docs: add pairwise ranking documentation
 - `ec82826` — feat(examples): add Rivian evaluation and report scripts
+- `2a7a60f` — chore: update docs, tests, and eval model lists
 
 ---
 
@@ -38,9 +46,12 @@ Before running the checklist, verify:
 - [ ] Root `.env` exists and contains the API keys you expect to use
 - [ ] `MINIMAX_API_KEY` is set if testing MiniMax
 - [ ] `GOOGLE_GENERATIVE_AI_API_KEY` or another provider key is set for Habitat / chat tests
+- [ ] `DEEPINFRA_API_KEY` is set if testing DeepInfra
+- [ ] `TOGETHER_API_KEY` is set if testing Together AI
 - [ ] Docker / Dagger prerequisites are available if testing bridge spikes
 - [ ] TezLab account/browser access is available if testing the MCP chat example
 - [ ] You have at least one real local repo available to test `habitat local`
+- [ ] Telegram bot token available if testing Telegram features
 
 Suggested quick sanity checks:
 
@@ -60,18 +71,20 @@ Run the full test suite first. Known pre-existing failures (Ollama not running l
 pnpm test:run
 ```
 
-Then run the ranking unit tests (no API keys needed):
+Then run the ranking unit tests and self-modify tool tests (no API keys needed):
 
 ```bash
 pnpm exec vitest run src/evaluation/ranking/ --reporter=verbose
+pnpm exec vitest run src/habitat/tools/self-modify-tools.test.ts --reporter=verbose
 ```
 
 Verify:
 
 - [ ] Total test count is ~774+ passed
-- [ ] Only pre-existing failures appear (Ollama text generation, OpenRouter auth, memory/determine_operations needing gemma3:12b)
+- [ ] Only pre-existing failures appear (Ollama text generation, OpenRouter auth, memory/determine_operations needing local models)
 - [ ] No new failures in `src/cli/`, `src/cognition/`, `src/providers/minimax*`
 - [ ] All 21 pairwise ranking tests pass (13 elo + 8 pairing)
+- [ ] Self-modify tools tests pass
 
 ---
 
@@ -88,6 +101,8 @@ pnpm run cli models
 # Provider-specific (require corresponding key in .env)
 pnpm run cli models --provider google
 pnpm run cli models --provider minimax
+pnpm run cli models --provider deepinfra
+pnpm run cli models --provider togetherai
 ```
 
 Verify:
@@ -95,7 +110,7 @@ Verify:
 - [ ] Commands work without `dotenvx run --`
 - [ ] Provider env vars are picked up automatically from `.env` (run from repo root so `.env` is found)
 - [ ] No extra dotenv banner/noise appears in normal output
-- [ ] If `--provider google` or `--provider minimax` shows 0 models, ensure that key is in repo-root `.env`
+- [ ] If a provider shows 0 models, ensure its key is in repo-root `.env`
 
 ### 1.2 CLI from nested directories
 
@@ -153,7 +168,7 @@ Verify:
 
 ## 2. CLI fixes and model listing
 
-Related commits: `09e9aea`, `7620d4a`
+Related commits: `09e9aea`, `7620d4a`, `8b76ae6`
 
 ### 2.1 Leading `--` stripping
 
@@ -190,6 +205,22 @@ Verify:
 
 - [ ] Google models show "—" for the date column (not "Unknown" or "1/1/24")
 - [ ] Models from providers that do report dates still show correct dates
+
+### 2.4 Resilient model validation
+
+Related commit: `8b76ae6`
+
+Model validation now falls through on network errors (timeouts) instead of blocking the request.
+
+```bash
+# If OpenRouter key is set, test that model listing doesn't crash on unexpected API responses
+pnpm run cli models --provider openrouter
+```
+
+Verify:
+
+- [ ] OpenRouter model listing doesn't crash on unexpected API shapes
+- [ ] If a provider is temporarily unreachable, the CLI degrades gracefully (proceeds with the request rather than failing at validation)
 
 ---
 
@@ -280,18 +311,93 @@ Verify:
 
 ---
 
-## 4. Local workspace Habitat agents
+## 4. DeepInfra and Together AI providers
 
-Related commit: `04601f4`
+Related commit: `3621ad4`
+
+### 4.1 Model listing
+
+```bash
+pnpm run cli models --provider deepinfra
+pnpm run cli models --provider togetherai
+```
+
+Verify:
+
+- [ ] DeepInfra models are listed (requires `DEEPINFRA_API_KEY`)
+- [ ] Together AI models are listed (requires `TOGETHER_API_KEY`)
+- [ ] Model names, context lengths, and pricing look sane
+- [ ] Both providers appear in `pnpm run cli models` (all-provider listing)
+
+### 4.2 Basic prompt with each provider
+
+```bash
+pnpm run cli run --provider deepinfra --model meta-llama/Llama-4-Scout-17B-16E-Instruct --stats "Say hello in one sentence."
+pnpm run cli run --provider togetherai --model meta-llama/Llama-4-Scout-17B-16E-Instruct --stats "Say hello in one sentence."
+```
+
+Verify:
+
+- [ ] Requests succeed
+- [ ] `--stats` shows token counts and cost
+- [ ] Response content is returned normally
+
+### 4.3 Reasoning effort support
+
+Both providers support `reasoning_effort` via the unified reasoning effort system.
+
+```bash
+pnpm run cli run --provider deepinfra --model meta-llama/Llama-4-Scout-17B-16E-Instruct "Explain quantum computing briefly."
+```
+
+Verify:
+
+- [ ] No errors when reasoning effort options are passed through
+
+---
+
+## 5. Unified reasoning effort
+
+Related commit: `b57e08b`
+
+`ReasoningEffort` (none/low/medium/high) is now a first-class option on `ModelRoute`, translated to provider-specific settings automatically.
+
+### 5.1 Google reasoning
+
+```bash
+pnpm run cli run --provider google --model gemini-3-flash-preview "What is 15 factorial?"
+```
+
+Verify:
+
+- [ ] Google models use `thinkingConfig` under the hood (no manual provider options needed)
+- [ ] No errors from reasoning configuration
+
+### 5.2 Cross-provider consistency
+
+Try the same prompt across providers that support reasoning:
+
+```bash
+pnpm run cli run --provider google --model gemini-3-flash-preview --stats "Plan a 3-day trip to Tokyo"
+pnpm run cli run --provider minimax --model MiniMax-M2.5 --stats "Plan a 3-day trip to Tokyo"
+```
+
+Verify:
+
+- [ ] Both complete without errors
+- [ ] No provider-specific reasoning configuration leaks into other providers
+
+---
+
+## 6. Local workspace Habitat agents
+
+Related commits: `04601f4`, `9372bac`
 
 This is one of the highest-risk areas because it changes how users can attach directly to a repo-local sub-agent.
 
-**Directory setup:** The CLI must be run from the **umwelten repo** (so `pnpm run cli` works). The **managed project** is either (1) the current working directory when you run the command, or (2) the path you pass with `--project`. So:
+**Directory setup:** The CLI must be run from the **umwelten repo** (so `pnpm run cli` works). The **managed project** is either (1) the current working directory when you run the command, or (2) the path you pass with `--project`.
 
-- To use **umwelten itself** as the test project: from the umwelten repo run the commands below with no `cd` and no `--project` — cwd is umwelten, so that becomes the managed project.
-- To use **another repo** as the project: run from the umwelten repo and pass `--project /path/to/other/repo`; you never need to `cd` into the other repo to run the CLI.
-
-### 4.1 Start local mode from inside a repo
+### 6.1 Start local mode from inside a repo
 
 From the umwelten repo (cwd = managed project):
 
@@ -307,10 +413,21 @@ Verify:
 - [ ] A `MEMORY.md` file is created in the project (or at the configured memory path)
 - [ ] The session opens directly on the project sub-agent
 - [ ] Asking "what does this project do?" uses repo context
-- [ ] Asking the local sub-agent to run a project script does not recurse through `agent_ask`
-- [ ] If the project is a git repo with `origin`, the registered agent captures `gitRemote` so bridge execution is available
+- [ ] If the project is a git repo with `origin`, the registered agent captures `gitRemote` automatically (from `9372bac`)
 
-### 4.2 One-shot local mode
+### 6.2 Sub-agent tool denylist
+
+Related commit: `9372bac`
+
+Sub-agents should NOT have access to agent management tools that could cause recursive delegation.
+
+Verify:
+
+- [ ] Sub-agent does NOT have `agent_ask`, `agent_clone`, or other agent management tools
+- [ ] Asking the local sub-agent to delegate to another agent does not recurse
+- [ ] Sub-agent still has file tools, time tools, and URL tools
+
+### 6.3 One-shot local mode
 
 From the umwelten repo:
 
@@ -323,7 +440,7 @@ Verify:
 - [ ] One-shot output works without entering REPL mode
 - [ ] Session metadata is still created correctly
 
-### 4.3 Re-run / idempotence
+### 6.4 Re-run / idempotence
 
 Run the same command twice (from umwelten repo):
 
@@ -336,7 +453,7 @@ Verify:
 - [ ] Existing agent registration is reused
 - [ ] Duplicate agents are not created for the same project path
 
-### 4.4 Explicit project path
+### 6.5 Explicit project path
 
 Run from umwelten repo, attach a different project:
 
@@ -350,7 +467,7 @@ Verify:
 - [ ] The correct project is attached
 - [ ] If the target repo has a git `origin`, the attached agent stores that remote in config
 
-### 4.5 Alias command
+### 6.6 Alias command
 
 From umwelten repo:
 
@@ -362,7 +479,7 @@ Verify:
 
 - [ ] `here` behaves the same as `local`
 
-### 4.6 Skip configure
+### 6.7 Skip configure
 
 From umwelten repo:
 
@@ -376,7 +493,7 @@ Verify:
 - [ ] Automatic configure is skipped
 - [ ] No unexpected memory/config write happens beyond registration
 
-### 4.7 Local mode with a non-MiniMax provider
+### 6.8 Local mode with a non-MiniMax provider
 
 From umwelten repo:
 
@@ -391,11 +508,57 @@ Verify:
 
 ---
 
-## 5. Habitat workspace-first registration / agent tools
+## 7. Habitat self-modify tools
+
+Related commit: `576909f`
+
+Agents can now create tools and skills at runtime. These tools are in `standardToolSets` so all habitats get them.
+
+### 7.1 Unit tests
+
+```bash
+pnpm exec vitest run src/habitat/tools/self-modify-tools.test.ts --reporter=verbose
+```
+
+Verify:
+
+- [ ] All self-modify tool tests pass
+
+### 7.2 Runtime tool creation in REPL
+
+In a Habitat REPL session:
+
+```bash
+pnpm run cli habitat -p google -m gemini-3-flash-preview
+```
+
+Ask the agent to create a custom tool (e.g., "create a tool that converts Celsius to Fahrenheit").
+
+Verify:
+
+- [ ] `create_tool` is available in `/tools` listing
+- [ ] Agent can create a tool at runtime
+- [ ] `list_custom_tools` shows the created tool
+- [ ] `reload_tools` picks up the new tool
+- [ ] The created tool is usable in subsequent prompts
+- [ ] `remove_custom_tool` removes it
+
+### 7.3 Runtime skill creation
+
+Ask the agent to create a custom skill.
+
+Verify:
+
+- [ ] `create_skill` is available
+- [ ] `reload_skills` picks up the new skill
+
+---
+
+## 8. Habitat workspace-first registration / agent tools
 
 Related commits: `04601f4`, `7b1daba`
 
-### 5.1 Base Habitat REPL still works
+### 8.1 Base Habitat REPL still works
 
 ```bash
 pnpm run cli habitat -p google -m gemini-3-flash-preview
@@ -406,7 +569,7 @@ Verify:
 - [ ] Habitat REPL starts normally
 - [ ] Existing slash commands still work (`/agents`, `/tools`, `/context`, `/onboard`)
 
-### 5.2 Agent registration behavior
+### 8.2 Agent registration behavior
 
 In the Habitat REPL, use the agent-related workflows that now depend on workspace-first behavior.
 
@@ -416,7 +579,7 @@ Verify:
 - [ ] Agent status/log lookups still work
 - [ ] Prompt/memory loading for managed agents still works
 
-### 5.3 Configure managed agent contract
+### 8.3 Configure managed agent contract
 
 Use either the tool flow or `habitat local` first-run flow on a real repo.
 
@@ -427,7 +590,7 @@ Verify:
 - [ ] Log patterns are preserved or inferred correctly
 - [ ] `MEMORY.md` content is written where expected
 
-### 5.4 Session continuity
+### 8.4 Session continuity
 
 Open the same local agent multiple times.
 
@@ -438,11 +601,76 @@ Verify:
 
 ---
 
-## 6. Pairwise Elo ranking
+## 9. Enhanced wget tool
+
+Related commit: `1211cf4`
+
+The `wget` tool now accepts custom HTTP headers, method (GET/POST/PUT/PATCH/DELETE), and request body.
+
+### 9.1 Basic fetch (regression)
+
+In a Habitat REPL or chat session with URL tools available:
+
+Verify:
+
+- [ ] Basic URL fetching still works (no regression)
+- [ ] `markify` and `parse_feed` tools still work
+
+### 9.2 Custom headers and methods
+
+Ask the agent to fetch a URL with custom headers, or use the tool directly:
+
+Verify:
+
+- [ ] `headers` parameter is accepted (object of key-value pairs)
+- [ ] `method` parameter is accepted (GET/POST/PUT/PATCH/DELETE)
+- [ ] `body` parameter is accepted for POST/PUT/PATCH
+- [ ] Authenticated API calls work when headers include auth tokens
+
+---
+
+## 10. Telegram improvements
+
+Related commit: `c573abd`
+
+### 10.1 Vision model support
+
+Verify:
+
+- [ ] Separate `--vision-model` option is accepted
+- [ ] Photo/video messages are routed to the vision model
+- [ ] Falls back to main model if vision model is not specified
+
+### 10.2 Session resume on restart
+
+Verify:
+
+- [ ] On bot restart, last 4 message pairs are loaded from transcript
+- [ ] Conversation context is preserved across restarts
+- [ ] Transcript persistence works even in error paths
+
+### 10.3 Formatting improvements
+
+Verify:
+
+- [ ] Markdown tables are converted to vertical card layout for narrow Telegram screens
+- [ ] Telegram-specific system instruction tells the model to avoid tables
+- [ ] No rendering artifacts in messages
+
+### 10.4 Stability
+
+Verify:
+
+- [ ] Unhandled rejection handler catches AI SDK stream teardown crashes
+- [ ] Bot doesn't crash on stream errors
+
+---
+
+## 11. Pairwise Elo ranking
 
 Related commits: `5af8e03`, `109bcac`, `f9de636`
 
-### 6.1 Unit tests
+### 11.1 Unit tests
 
 ```bash
 pnpm exec vitest run src/evaluation/ranking/ --reporter=verbose
@@ -453,7 +681,7 @@ Verify:
 - [ ] All 21 tests pass (elo math + pairing strategies)
 - [ ] No API keys or external services needed
 
-### 6.2 Example script (requires API keys)
+### 11.2 Example script (requires API keys)
 
 ```bash
 pnpm tsx examples/mcp-chat/elo-rivian.ts
@@ -466,7 +694,7 @@ Verify:
 - [ ] Final Elo standings are printed
 - [ ] Re-running uses cached comparisons (faster second run)
 
-### 6.3 API surface
+### 11.3 API surface
 
 ```typescript
 import { PairwiseRanker, expectedScore, updateElo, buildStandings, allPairs, swissPairs } from './src/evaluation/ranking';
@@ -479,11 +707,11 @@ Verify:
 
 ---
 
-## 7. TezLab MCP chat example
+## 12. TezLab MCP chat example
 
 Related commit: `6130866`
 
-### 7.1 First-run OAuth flow
+### 12.1 First-run OAuth flow
 
 ```bash
 pnpm exec tsx examples/mcp-chat/cli.ts
@@ -496,7 +724,7 @@ Verify:
 - [ ] TezLab tools are loaded after auth
 - [ ] Auth/token storage is written outside the work directory as intended
 
-### 7.2 Repeat launch with cached auth
+### 12.2 Repeat launch with cached auth
 
 Run again:
 
@@ -509,7 +737,7 @@ Verify:
 - [ ] It reuses stored credentials if valid
 - [ ] It does not unnecessarily force a new login
 
-### 7.3 REPL commands
+### 12.3 REPL commands
 
 Inside the MCP chat REPL test:
 
@@ -525,7 +753,7 @@ Verify:
 - [ ] `/help` no longer crashes
 - [ ] `/logout` clears auth state
 
-### 7.4 One-shot prompt mode
+### 12.4 One-shot prompt mode
 
 ```bash
 pnpm exec tsx examples/mcp-chat/cli.ts "Tell me the story of the last 10 days of my Tesla's activity."
@@ -537,7 +765,7 @@ Verify:
 - [ ] MCP tools are actually invoked
 - [ ] The command exits cleanly
 
-### 7.5 Quiet mode
+### 12.5 Quiet mode
 
 ```bash
 pnpm exec tsx examples/mcp-chat/cli.ts --quiet "Summarize my recent Tesla activity"
@@ -548,7 +776,7 @@ Verify:
 - [ ] Only final output is printed
 - [ ] No strange streaming artifacts appear
 
-### 7.6 Logout then re-auth
+### 12.6 Logout then re-auth
 
 ```bash
 pnpm exec tsx examples/mcp-chat/cli.ts --logout
@@ -562,11 +790,11 @@ Verify:
 
 ---
 
-## 8. Generic MCP CLI transport support
+## 13. Generic MCP CLI transport support
 
 Related commit: `6130866`
 
-### 8.1 Legacy stdio path
+### 13.1 Legacy stdio path
 
 ```bash
 pnpm run cli mcp list
@@ -578,7 +806,7 @@ Verify:
 
 - [ ] Existing stdio-based MCP workflows still work
 
-### 8.2 Remote transport argument parsing
+### 13.2 Remote transport argument parsing
 
 Exercise the new CLI flags with a known endpoint or a deliberate bad URL:
 
@@ -594,7 +822,7 @@ Verify:
 - [ ] `-H/--header` parsing works
 - [ ] Error messages are clean when the endpoint is invalid
 
-### 8.3 Transport integration into Stimulus / quick connection paths
+### 13.3 Transport integration into Stimulus / quick connection paths
 
 Verify manually through any existing MCP-backed flow you already trust.
 
@@ -603,9 +831,9 @@ Verify manually through any existing MCP-backed flow you already trust.
 
 ---
 
-## 9. Docs / examples smoke check
+## 14. Docs / examples smoke check
 
-Related commits: `9c963e5`, `6130866`, `9310b11`, `04601f4`, `972c86e`, `f9de636`
+Related commits: `9c963e5`, `6130866`, `9310b11`, `04601f4`, `972c86e`, `f9de636`, `2a7a60f`
 
 Spot-check these files for copy/paste accuracy:
 
@@ -619,6 +847,7 @@ Spot-check these files for copy/paste accuracy:
 - [ ] `docs/api/pairwise-ranking.md`
 - [ ] `docs/examples/pairwise-ranking.md`
 - [ ] `CHANGELOG.md`
+- [ ] `CLAUDE.md` (should mention DeepInfra and Together AI)
 
 Verify:
 
@@ -628,6 +857,7 @@ Verify:
 - [ ] MCP chat docs match the current example behavior
 - [ ] Pairwise ranking docs match the API and example code
 - [ ] CHANGELOG 0.4.6 entry covers all features in this checklist
+- [ ] DeepInfra and Together AI are documented in CLAUDE.md provider list
 
 ---
 
@@ -638,13 +868,16 @@ If doing a quick but meaningful pass, do these first:
 1. [ ] Run `pnpm test:run` — check no new failures
 2. [ ] `.env` auto-loading from repo root (`pnpm run cli models`)
 3. [ ] `models --provider minimax` — listing works
-4. [ ] `models --provider google` — dates show "—" not "1/1/24"
-5. [ ] One MiniMax prompt with `--stats` — verify token/cost reporting
-6. [ ] MiniMax `chat` — verify streaming works (no TypeValidationError)
-7. [ ] `habitat local` inside a real repo
-8. [ ] TezLab MCP chat first-run auth and one-shot prompt
-9. [ ] One stdio MCP regression check
-10. [ ] Pairwise ranking unit tests
+4. [ ] `models --provider deepinfra` — new provider lists models
+5. [ ] `models --provider togetherai` — new provider lists models
+6. [ ] `models --provider google` — dates show "—" not "1/1/24"
+7. [ ] One MiniMax prompt with `--stats` — verify token/cost reporting
+8. [ ] MiniMax `chat` — verify streaming works (no TypeValidationError)
+9. [ ] `habitat local` inside a real repo — verify sub-agent denylist
+10. [ ] Self-modify tools unit tests pass
+11. [ ] TezLab MCP chat first-run auth and one-shot prompt
+12. [ ] One stdio MCP regression check
+13. [ ] Pairwise ranking unit tests
 
 ---
 
