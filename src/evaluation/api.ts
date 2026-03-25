@@ -820,5 +820,9 @@ export async function runEvaluationWithProgress(config: EnhancedEvaluationConfig
   };
 }
 
+// Re-export combine API
+export { loadSuite, buildSuiteReport } from './combine/index.js';
+export type { EvalDimension, SuiteResult, ModelScorecard } from './combine/index.js';
+
 // Export utility functions that might be useful for other commands
 export { parseModel as parseModelString };

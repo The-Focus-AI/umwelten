@@ -7,6 +7,7 @@ import { createFireworksProvider } from "../providers/fireworks.js";
 import { createMiniMaxProvider } from "../providers/minimax.js";
 import { createDeepInfraProvider } from "../providers/deepinfra.js";
 import { createTogetherAIProvider } from "../providers/togetherai.js";
+import { createNvidiaProvider } from "../providers/nvidia.js";
 import type { ModelDetails } from "./types.js";
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
@@ -34,6 +35,9 @@ export async function getAllModels(): Promise<ModelDetails[]> {
         : []),
       ...(process.env.TOGETHER_API_KEY
         ? [{ label: "togetherai", listModels: () => createTogetherAIProvider(process.env.TOGETHER_API_KEY!).listModels() }]
+        : []),
+      ...(process.env.NVIDIA_API_KEY
+        ? [{ label: "nvidia", listModels: () => createNvidiaProvider(process.env.NVIDIA_API_KEY!).listModels() }]
         : []),
     ];
 

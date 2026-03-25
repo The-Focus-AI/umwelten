@@ -62,6 +62,7 @@ export default defineConfig({
             { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
             { text: 'Cost Analysis', link: '/guide/cost-analysis' },
             { text: 'Reports & Analysis', link: '/guide/reports' },
+            { text: 'Creating Evaluations', link: '/guide/creating-evaluations' },
             { text: 'Memory & Tools', link: '/guide/memory-tools' },
             { text: 'Session Management & Search', link: '/guide/session-management' },
             { text: 'Context Management', link: '/guide/context-management' }
@@ -118,7 +119,9 @@ export default defineConfig({
             { text: 'Overview', link: '/walkthroughs/' },
             { text: 'Habitat Setup', link: '/walkthroughs/habitat-setup-walkthrough' },
             { text: 'Session Analysis Walkthrough', link: '/walkthroughs/session-analysis-walkthrough' },
-            { text: 'TRMNL Project Analysis', link: '/walkthroughs/trmnl-project-analysis' }
+            { text: 'TRMNL Project Analysis', link: '/walkthroughs/trmnl-project-analysis' },
+            { text: 'Model Showdown', link: '/walkthroughs/model-showdown' },
+            { text: 'Model Showdown Results', link: '/walkthroughs/model-showdown-results' }
           ]
         }
       ],

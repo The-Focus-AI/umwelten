@@ -84,6 +84,31 @@ Build a complete evaluation pipeline from scratch — the "Car Wash Test" that b
 **Prerequisites:** Node.js 20+, pnpm, Google + OpenRouter API keys
 **Cost:** ~$0.50 for a full 131-model run
 
+### [Building a Multi-Dimension Model Showdown](./model-showdown.md)
+
+Build a comprehensive evaluation suite that tests models across 5 dimensions and generates a unified leaderboard with narrative analysis:
+
+- Define 5 evaluation dimensions (reasoning, knowledge, instruction, coding, MCP tool use)
+- Combine LLM-judged and deterministic scoring in one suite
+- Use the `eval combine` system for cross-evaluation aggregation
+- Generate narrative reports with per-dimension analysis and judge explanations
+- Compare cost efficiency and speed across providers
+
+**Time Required:** 30 minutes to build, 2–4 hours to run
+**Prerequisites:** Node.js 20+, pnpm, Google + OpenRouter + DeepInfra API keys
+**Cost:** ~$4.63 for a full 49-model run
+
+### [Model Showdown Results](./model-showdown-results.md)
+
+Detailed analysis of 49 models tested across 5 dimensions — reasoning, knowledge, instruction following, coding, and MCP tool use:
+
+- **49 models** across 4 providers + local Ollama, **41 with full 5-dim MCP scores**
+- Claude Sonnet 4.6 leads at 93.8% across all 5 dimensions
+- `openai/gpt-oss-120b` scores 89.9% for $0.01
+- Local `nemotron-3-nano:latest` on Ollama scores 84.0% for free
+- Deep dives into each dimension with judge explanations
+- Provider effect analysis: same weights, different results
+
 ## Coming Soon
 
 - **Batch Processing Workflows** - Process large document sets efficiently

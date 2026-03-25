@@ -8,7 +8,7 @@
 /**
  * Report types supported by the system
  */
-export type ReportType = 'tool-test' | 'code-generation' | 'evaluation' | 'batch';
+export type ReportType = 'tool-test' | 'code-generation' | 'evaluation' | 'batch' | 'suite';
 
 /**
  * A single row in a table section

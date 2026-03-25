@@ -554,6 +554,86 @@ const reporter = new Reporter({
 });
 ```
 
+## Suite Reports (eval combine)
+
+When you have multiple evaluations testing different capabilities, combine them into a unified report with `eval combine`.
+
+### The `eval combine` Command
+
+```bash
+# Console leaderboard with per-dimension scores
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts
+
+# Structured markdown with detailed breakdowns
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format md
+
+# JSON for programmatic use
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format json
+
+# Full narrative writeup — standalone article with methodology, analysis, judge explanations
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
+
+# Focus on specific models for comparison
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format md --focus nemotron qwen
+```
+
+### Suite Config Format
+
+The config file defines how to read and normalize scores from each evaluation:
+
+```typescript
+import type { EvalDimension } from '../src/evaluation/combine/types.js';
+
+export const MY_SUITE: EvalDimension[] = [
+  {
+    evalName: 'my-eval-reasoning',    // maps to output/evaluations/{evalName}/
+    label: 'Reasoning',               // human-readable name
+    maxScore: 20,                     // perfect score
+    extractScore: (r) => r.score ?? 0, // how to read a result JSON file
+    hasResultsSubdir: true,           // results in {task}/results/ vs {task}/
+  },
+];
+```
+
+### Report Formats
+
+| Format | Description |
+|--------|-------------|
+| `console` (default) | Colored terminal tables with leaderboard, cost, speed |
+| `md` / `markdown` | Structured markdown with tables for each section |
+| `json` | Machine-readable JSON |
+| `narrative` / `full` | Standalone prose markdown article with methodology, per-dimension analysis, judge explanations, and cost/speed breakdown |
+
+### Narrative Reports
+
+The `narrative` format generates a full writeup suitable for publishing or sharing:
+
+- **Overview** — models tested, providers, total cost
+- **Overall Leaderboard** — table with raw scores and combined percentage
+- **Key Findings** — best overall, best value, fastest
+- **Per-Dimension Sections** — methodology, test descriptions, results matrix, analysis, judge explanations
+- **Cost & Speed Analysis** — cost efficiency rankings, speed comparison
+- **Provider Comparison** — average scores by inference provider
+- **Methodology** — how scores are normalized and combined
+
+### Programmatic Usage
+
+```typescript
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../src/evaluation/combine/index.js';
+import { Reporter } from '../src/reporting/reporter.js';
+
+const result = loadSuite(MY_SUITE);
+
+// Structured report → console/markdown/json
+const report = buildSuiteReport(result, { title: 'My Results', focusModels: ['qwen'] });
+new Reporter().toConsole(report);
+
+// Narrative report → standalone markdown
+const markdown = buildNarrativeReport(result, { title: 'Full Analysis' });
+```
+
+For a complete example, see the [Model Showdown walkthrough](/walkthroughs/model-showdown).
+
 ## Pairwise Ranking Reports
 
 If you've used the `PairwiseRanker` to rank model responses, ranking results are saved to `rankings.json` in the cache directory. These include Elo ratings, win/loss/tie records, and individual match results.

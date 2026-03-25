@@ -148,6 +148,59 @@ for (const r of output.rankings) {
 
 See the full [Pairwise Ranking Guide](/guide/pairwise-ranking) for configuration details and the [Pairwise Ranking Example](/examples/pairwise-ranking) for a complete walkthrough.
 
+## Combining Multiple Evaluations
+
+When you have multiple evaluations that test different capabilities, use `eval combine` to aggregate them into a unified leaderboard.
+
+### Define a Suite Configuration
+
+Create a TypeScript file that defines how to read each evaluation's results:
+
+```typescript
+import type { EvalDimension } from '../src/evaluation/combine/types.js';
+
+export const MY_SUITE: EvalDimension[] = [
+  {
+    evalName: 'my-eval-reasoning',
+    label: 'Reasoning',
+    maxScore: 20,
+    extractScore: (r) => r.judge?.reasoning_quality ?? 0,
+    hasResultsSubdir: true,
+  },
+  {
+    evalName: 'my-eval-knowledge',
+    label: 'Knowledge',
+    maxScore: 30,
+    extractScore: (r) => r.correct ? 1 : 0,
+  },
+];
+```
+
+### Generate Combined Reports
+
+```bash
+# Console leaderboard
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts
+
+# Structured markdown
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format md
+
+# Full narrative writeup with methodology, analysis, and judge explanations
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
+
+# Focus on specific models
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format md --focus nemotron qwen
+```
+
+The combine system:
+- Reads result JSON files from each eval's `output/evaluations/{name}/runs/` directory
+- Extracts scores using the dimension's `extractScore` function
+- Normalizes each dimension to 0–100%, then averages across dimensions
+- Only includes models present in ALL dimensions
+- Preserves raw data for detailed per-task breakdowns and judge explanations
+
+For a complete walkthrough, see [Building a Multi-Dimension Model Showdown](/walkthroughs/model-showdown).
+
 ## Examples
 
 For comprehensive examples, see:
@@ -156,6 +209,7 @@ For comprehensive examples, see:
 - [Analysis & Reasoning](/examples/analysis-reasoning) - Complex reasoning tasks
 - [Cost Optimization](/examples/cost-optimization) - Budget-conscious evaluation
 - [Pairwise Ranking](/examples/pairwise-ranking) - Head-to-head Elo ranking via LLM judge
+- [Model Showdown](/walkthroughs/model-showdown) - Multi-dimension evaluation suite with combined reporting
 
 ## Next Steps
 
@@ -163,3 +217,4 @@ For comprehensive examples, see:
 - Explore [structured output](/guide/structured-output) for data extraction
 - Learn [cost analysis](/guide/cost-analysis) for budget optimization
 - Use [pairwise ranking](/guide/pairwise-ranking) for head-to-head model comparison
+- Build [multi-dimension suites](/walkthroughs/model-showdown) with combined reporting

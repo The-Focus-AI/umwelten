@@ -773,9 +773,95 @@ const evalBatchCommand = new Command('batch')
     }
   });
 
+const evalCombineCommand = new Command('combine')
+  .description('Combine results from multiple evaluations into a unified report')
+  .requiredOption('-c, --config <path>', 'Path to suite config file (TS/JS exporting EvalDimension[])')
+  .option('-f, --format <format>', 'Output format: console, md, json, narrative', 'console')
+  .option('--focus <models...>', 'Model name substrings for detailed comparison')
+  .option('-o, --output <file>', 'Write output to file')
+  .option('--title <title>', 'Report title')
+  .action(async (options) => {
+    try {
+      // Resolve config path
+      const configPath = path.resolve(options.config);
+      if (!fs.existsSync(configPath)) {
+        console.error(`❌ Error: Config file not found: ${options.config}`);
+        console.error(`   Resolved path: ${configPath}`);
+        process.exit(1);
+      }
+
+      // Dynamic import of config
+      const configModule = await import(configPath);
+      const dimensions = configModule.default || configModule.SHOWDOWN_SUITE || configModule.suite || configModule.dimensions;
+
+      if (!Array.isArray(dimensions) || dimensions.length === 0) {
+        console.error('❌ Error: Config must export an array of EvalDimension objects');
+        console.error('   Export as default, SHOWDOWN_SUITE, suite, or dimensions');
+        process.exit(1);
+      }
+
+      // Load suite
+      const { loadSuite, buildSuiteReport, buildNarrativeReport } = await import('../evaluation/combine/index.js');
+      const { Reporter } = await import('../reporting/reporter.js');
+
+      const result = loadSuite(dimensions);
+
+      if (result.scorecards.length === 0) {
+        console.error('❌ No models found across all evaluation dimensions');
+        console.error('   Make sure all referenced evaluations have been run');
+        process.exit(1);
+      }
+
+      let output: string;
+
+      if (options.format === 'narrative' || options.format === 'full' || options.format === 'writeup') {
+        output = buildNarrativeReport(result, { title: options.title });
+      } else {
+        const report = buildSuiteReport(result, {
+          title: options.title,
+          focusModels: options.focus,
+        });
+
+        const reporter = new Reporter();
+
+        if (options.format === 'md' || options.format === 'markdown') {
+          output = reporter.toMarkdown(report);
+        } else if (options.format === 'json') {
+          output = reporter.toJson(report);
+        } else {
+          // Console output
+          reporter.toConsole(report);
+          output = '';
+        }
+      }
+
+      if (options.output && output) {
+        const outputPath = path.resolve(options.output);
+        fs.writeFileSync(outputPath, output, 'utf8');
+        console.log(`\n✅ Report saved to: ${outputPath}`);
+      } else if (output) {
+        console.log(output);
+      }
+
+    } catch (error) {
+      console.error('\n❌ Suite combine failed:');
+      if (error instanceof Error) {
+        console.error(`   ${error.message}`);
+        if (process.env.NODE_ENV === 'development' && error.stack) {
+          console.error('\n🐛 Debug stack trace:');
+          console.error(error.stack);
+        }
+      } else {
+        console.error(`   ${String(error)}`);
+      }
+      process.exit(1);
+    }
+  });
+
 export const evalCommand = new Command('eval')
   .description('Evaluation commands')
   .addCommand(evalRunCommand)
   .addCommand(evalReportCommand)
   .addCommand(evalListCommand)
-  .addCommand(evalBatchCommand);
+  .addCommand(evalBatchCommand)
+  .addCommand(evalCombineCommand);

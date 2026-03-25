@@ -172,8 +172,38 @@ Systematic model assessment and comparison.
 - `analysis/` — `ResultAnalyzer`, `ReportGenerator` (multi-format)
 - `reporter.ts` — `EvaluationReporter` (incomplete, has TODOs)
 - `report-generator.ts` — `ReportGenerator` (static, Docker/code-analysis focused)
+- `combine/` — Multi-evaluation aggregation and combined reporting (see below)
 
 Note: there are 3 report generator classes here — this is known duplication to clean up.
+
+#### `src/evaluation/combine/` — Suite Aggregation
+
+Combine results from multiple evaluations into a unified leaderboard with cost/speed analysis.
+
+- `types.ts` — `EvalDimension`, `DimensionScore`, `ModelScorecard`, `SuiteResult`, `SuiteRunInfo`, `TaskResult`
+- `loader.ts` — `loadSuite(dimensions)`, `findLatestRunDir(evalName)`, `loadDimension(dim, runDir)` — reads result JSON files, extracts scores, normalizes to percentages
+- `report-builder.ts` — `buildSuiteReport(suite, options)` → `Report` with leaderboard, cost efficiency, speed, per-dimension detail tables
+- `narrative-report.ts` — `buildNarrativeReport(suite, options)` → standalone markdown writeup with methodology, test descriptions, analysis, and judge explanations
+- `index.ts` — Barrel exports
+
+**Suite config pattern** — define an `EvalDimension[]` array:
+```typescript
+import type { EvalDimension } from '../../src/evaluation/combine/index.js';
+export const MY_SUITE: EvalDimension[] = [
+  { evalName: 'my-eval-reasoning', label: 'Reasoning', maxScore: 20,
+    extractScore: (r) => r.score ?? 0, hasResultsSubdir: true },
+  { evalName: 'my-eval-knowledge', label: 'Knowledge', maxScore: 30,
+    extractScore: (r) => r.correct ? 1 : 0 },
+];
+```
+
+**Report formats:**
+- `console` — structured tables via `Reporter.toConsole()`
+- `md` / `markdown` — structured markdown via `Reporter.toMarkdown()`
+- `json` — structured JSON via `Reporter.toJson()`
+- `narrative` — full prose writeup with methodology, per-section analysis, cost/speed breakdown
+
+See `examples/model-showdown/` for a complete suite example.
 
 ### `src/costs/` — Cost Tracking
 
@@ -215,11 +245,12 @@ Parse DSL strings into Zod schemas, validate model output.
 
 ### `src/reporting/` — Unified Reporter
 
-Separate from evaluation reporters. For tool test results.
+General-purpose report rendering. Used by tool tests and evaluation suite reports.
 
 - `reporter.ts` — `Reporter` class with `fromToolTest()`, `toConsole()`, `toMarkdown()`, `toHtml()`, `toJson()`
 - `adapters/` — Adapt different result types to `Report`
 - `renderers/` — `ConsoleRenderer`, `MarkdownRenderer`
+- `types.ts` — `Report`, `ReportSection`, `ReportType` (`'tool-test' | 'code-generation' | 'evaluation' | 'batch' | 'suite'`)
 
 ### `src/cli/` — Command-Line Interface
 
@@ -277,6 +308,11 @@ dotenvx run -- pnpm run cli eval run \
 
 # Generate reports from evaluations
 dotenvx run -- pnpm run cli eval report --id my-eval --format markdown
+
+# Combine multiple evaluations into a unified report
+dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
+dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts --format narrative --output report.md
+dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts --format md --focus nemotron
 
 # List existing evaluations
 dotenvx run -- pnpm run cli eval list --details

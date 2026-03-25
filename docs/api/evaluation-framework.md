@@ -766,9 +766,72 @@ Features include position bias mitigation (random A/B flip), incremental caching
 
 For the full API reference, see [Pairwise Ranking API](/api/pairwise-ranking).
 
+## Multi-Evaluation Aggregation (Suite Combine)
+
+When you have multiple evaluations testing different capabilities, aggregate them into unified scorecards and reports using `src/evaluation/combine/`.
+
+### Core Types
+
+```typescript
+import type { EvalDimension, SuiteResult, ModelScorecard } from '../src/evaluation/combine/index.js';
+
+// Define dimensions
+const dimensions: EvalDimension[] = [
+  {
+    evalName: 'my-reasoning-eval',    // directory name
+    label: 'Reasoning',              // display label
+    maxScore: 20,                    // perfect score
+    extractScore: (r) => r.score,    // extract number from result JSON
+    hasResultsSubdir: true,          // {task}/results/ vs {task}/
+  },
+];
+```
+
+### Loading and Reporting
+
+```typescript
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../src/evaluation/combine/index.js';
+import { Reporter } from '../src/reporting/reporter.js';
+
+// Load all results from disk
+const result: SuiteResult = loadSuite(dimensions);
+// result.scorecards — per-model combined scores, sorted by combinedPct
+// result.runInfo — which run directories were used
+// result.taskResults — full raw data per task per model
+
+// Structured report (console, markdown, JSON)
+const report = buildSuiteReport(result, {
+  title: 'My Suite',
+  focusModels: ['qwen'],  // optional deep-dive filter
+});
+new Reporter().toConsole(report);
+
+// Narrative report (standalone markdown article)
+const markdown = buildNarrativeReport(result, {
+  title: 'Full Analysis',
+});
+```
+
+### Key Behaviors
+
+- **Model filtering:** Only models present in ALL dimensions are included in scorecards
+- **Score normalization:** Each dimension is normalized to 0–100%, then averaged
+- **Provider extraction:** Model keys like `gemini-3-flash-preview-google` are parsed to extract model name and provider
+- **Raw data preservation:** `SuiteResult.taskResults` contains the full JSON from every result file, enabling detailed breakdowns
+
+### CLI Access
+
+```bash
+pnpm run cli eval combine --config path/to/suite-config.ts
+pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
+```
+
+For a full walkthrough, see [Model Showdown](/walkthroughs/model-showdown).
+
 ## Next Steps
 
 - See [Schema Validation](/api/schemas) for structured output in evaluations
 - Check [Model Integration](/api/model-integration) for provider-specific evaluation strategies
 - Explore [Core Classes](/api/core-classes) for detailed API documentation
 - See [Pairwise Ranking Guide](/guide/pairwise-ranking) for head-to-head model comparison
+- Build [multi-dimension suites](/walkthroughs/model-showdown) with combined reporting

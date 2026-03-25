@@ -474,9 +474,43 @@ const output = await ranker.rank();
 
 See the [Pairwise Ranking Guide](/guide/pairwise-ranking) for detailed configuration and the [API Reference](/api/pairwise-ranking) for type definitions.
 
+### 6. Multi-Dimension Suites (eval combine)
+
+Run several evaluations independently, then combine them into a unified leaderboard using the `eval combine` system. Each evaluation becomes a "dimension" in the combined report.
+
+```typescript
+import type { EvalDimension } from '../src/evaluation/combine/types.js';
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../src/evaluation/combine/index.js';
+
+// Define how to read each eval's results
+const MY_SUITE: EvalDimension[] = [
+  { evalName: 'my-accuracy-eval', label: 'Accuracy', maxScore: 100,
+    extractScore: (r) => r.score ?? 0 },
+  { evalName: 'my-speed-eval', label: 'Speed', maxScore: 50,
+    extractScore: (r) => r.timingScore ?? 0, hasResultsSubdir: true },
+];
+
+// Load and report
+const result = loadSuite(MY_SUITE);
+const narrative = buildNarrativeReport(result, { title: 'My Combined Report' });
+```
+
+Or via the CLI:
+
+```bash
+dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
+```
+
+**When to use:**
+- Comparing models across fundamentally different capabilities
+- Producing a unified ranking from independent evaluations
+- Generating narrative reports with methodology and analysis
+
+See the [Model Showdown walkthrough](/walkthroughs/model-showdown) for a complete example.
+
 ## Examples
 
-See the `scripts/examples/` directory for complete examples of different evaluation patterns, and `examples/mcp-chat/elo-rivian.ts` for a full pairwise ranking workflow.
+See the `scripts/examples/` directory for complete examples of different evaluation patterns, `examples/mcp-chat/elo-rivian.ts` for a full pairwise ranking workflow, and `examples/model-showdown/` for a multi-dimension suite.
 
 ## Related Documentation
 
@@ -484,4 +518,5 @@ See the `scripts/examples/` directory for complete examples of different evaluat
 - [Stimulus Templates](stimulus-templates.md)
 - [Tool Integration](tool-integration.md)
 - [Pairwise Ranking](pairwise-ranking.md)
+- [Model Showdown](/walkthroughs/model-showdown)
 - [Best Practices](best-practices.md)
