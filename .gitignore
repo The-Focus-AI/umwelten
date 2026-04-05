@@ -62,13 +62,12 @@ docs/.vitepress/temp/
 
 umwelten-*.tgz
 
-# Beads (bd) and Letta – local state, lockfiles, per-dir settings
+# Optional local tooling (never commit)
 .beads/
+
+# Letta – local state, lockfiles, per-dir settings
 .letta/
 **/.letta/
-
-# bv (beads viewer) local config and caches
-.bv/
 
 .dagger-cache/
 

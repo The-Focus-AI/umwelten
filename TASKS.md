@@ -242,7 +242,7 @@ interface SessionAdapter {
 - Default to auto-detection
 - Support `all` to show sessions from all sources
 
-### Tasks (bd tracked)
+### Tasks
 
 - [x] `umwelten-e6m` - Create normalized-types.ts with NormalizedSession and NormalizedMessage interfaces
 - [x] `umwelten-z1c` - Create SessionAdapter interface in adapters/adapter.ts

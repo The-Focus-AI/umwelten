@@ -10,15 +10,6 @@
 - When planning, write out TASKS.md with completed/current/planned tasks and keep it up to date
 - **NEVER use gemini-2 models** — always use gemini-3 (e.g. `gemini-3-flash-preview`)
 
-**Issue tracking**: This project uses [bd (beads)](https://github.com/steveyegge/beads). Use `bd` commands instead of markdown TODOs.
-
-**CRITICAL - BD DAEMON RULES:**
-- NEVER run `bd daemon start` or any daemon commands
-- NEVER enable auto-sync, auto-commit, or auto-push for beads
-- The daemon creates spam commits every 5 seconds — it is FORBIDDEN
-- Only use direct bd commands: `bd create`, `bd update`, `bd close`, `bd list`, etc.
-- Manual `bd sync` is allowed if needed, but daemon is BANNED
-
 ## Architecture Overview
 
 The codebase is layered bottom-up. Each layer depends only on layers below it.

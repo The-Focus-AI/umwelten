@@ -305,7 +305,7 @@ Found 27 sessions (showing 10)
 │ ID       │ Branch        │ Messages │ Modified   │ First Prompt                         │
 ├──────────┼───────────────┼──────────┼────────────┼──────────────────────────────────────┤
 │ c15a9952 │ main          │ 42       │ 12h ago    │ lets explore how it work on...       │
-│ 4f2af089 │ main          │ 22       │ 14h ago    │ run mise exec -- bd ready...         │
+│ 4f2af089 │ main          │ 22       │ 14h ago    │ add error handling for stream...     │
 └──────────┴───────────────┴──────────┴────────────┴──────────────────────────────────────┘
 ```
 
