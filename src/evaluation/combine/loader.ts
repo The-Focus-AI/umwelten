@@ -78,6 +78,10 @@ export function loadDimension(
         const score = dimension.extractScore(data);
         const cost = data.cost || 0;
         const durationMs = data.durationMs || 0;
+        const perTaskMax =
+          dimension.perTaskMaxScore !== undefined
+            ? dimension.perTaskMaxScore
+            : null;
 
         // Preserve full raw result
         taskResults.push({
@@ -95,10 +99,14 @@ export function loadDimension(
           existing.totalCost += cost;
           existing.totalDurationMs += durationMs;
           existing.taskCount += 1;
+          if (perTaskMax !== null) {
+            existing.maxScore += perTaskMax;
+          }
         } else {
           scores.set(modelKey, {
             rawScore: score,
-            maxScore: dimension.maxScore,
+            maxScore:
+              perTaskMax !== null ? perTaskMax : dimension.maxScore,
             pct: 0, // calculated after all tasks
             totalCost: cost,
             totalDurationMs: durationMs,
@@ -109,12 +117,17 @@ export function loadDimension(
       } catch {
         // Count errors but continue
         const existing = scores.get(modelKey);
+        const perTaskMax =
+          dimension.perTaskMaxScore !== undefined
+            ? dimension.perTaskMaxScore
+            : null;
         if (existing) {
           existing.errorCount += 1;
         } else {
           scores.set(modelKey, {
             rawScore: 0,
-            maxScore: dimension.maxScore,
+            maxScore:
+              perTaskMax !== null ? perTaskMax : dimension.maxScore,
             pct: 0,
             totalCost: 0,
             totalDurationMs: 0,

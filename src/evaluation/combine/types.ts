@@ -8,8 +8,15 @@ export interface EvalDimension {
   evalName: string;
   /** Human-readable label for this dimension */
   label: string;
-  /** Max score for this evaluation */
+  /** Max score for this evaluation (full run — used for docs and legacy single-bucket mode) */
   maxScore: number;
+  /**
+   * When set, each loaded result file adds this many points to the model’s denominator for this
+   * dimension (sum of per-file maxima). Use for multi-task evals so partial runs show e.g. 28/28
+   * instead of 28/126. When omitted, the model’s maxScore stays `dimension.maxScore` after the
+   * first file (legacy).
+   */
+  perTaskMaxScore?: number;
   /** Extract score from a single result JSON file */
   extractScore: (result: any) => number;
   /** Does this eval have a results/ subdirectory under each task? */
