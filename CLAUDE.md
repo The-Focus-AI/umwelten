@@ -257,7 +257,7 @@ General-purpose report rendering. Used by tool tests and evaluation suite report
 Commander-based CLI. Entry point: `src/cli/entry.ts` → `src/cli/cli.ts`.
 
 - `cli.ts` — Main program: registers `models`, `run`, `chat`, `eval`, `sessions`, `telegram`, `habitat` commands
-- `habitat.ts` — `habitat` subcommand (REPL + telegram)
+- `habitat.ts` — `habitat` subcommand (REPL + telegram + discord + web)
 - `chat.ts` / `chat-new.ts` — Interactive chat
 - `eval.ts` — Evaluation runner
 - `run.ts` — One-shot prompt
@@ -271,6 +271,7 @@ Commander-based CLI. Entry point: `src/cli/entry.ts` → `src/cli/cli.ts`.
 
 - `cli/` — `CLIInterface`, `CommandRegistry`, `DefaultCommands` (chat/agent/eval commands)
 - `telegram/` — `TelegramAdapter` (Telegram bot interface)
+- `discord/` — `DiscordAdapter` (Discord bot interface; channel→agent via `discord.json`)
 - `tui/` — React Ink TUI with browser components
 - `WebInterface.ts` — Web interface
 
