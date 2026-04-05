@@ -122,6 +122,11 @@ export const SHOWDOWN_MODELS: ModelDetails[] = [
   { name: 'phi4:latest', provider: 'ollama' },
   { name: 'mistral-small:latest', provider: 'ollama' },
   { name: 'gemma3n:e4b', provider: 'ollama' },
+  // Google Gemma 4 (Ollama, Apr 2026) — use :latest for default e4b-tier (validates only if pulled)
+  { name: 'gemma4:e2b', provider: 'ollama' },
+  { name: 'gemma4:latest', provider: 'ollama' },
+  { name: 'gemma4:26b', provider: 'ollama' },
+  { name: 'gemma4:31b', provider: 'ollama' },
   { name: 'deepseek-r1:latest', provider: 'ollama' },
   { name: 'qwen3:30b-a3b', provider: 'ollama' },
   { name: 'qwen3:32b', provider: 'ollama' },
