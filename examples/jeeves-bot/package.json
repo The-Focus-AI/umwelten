@@ -5,11 +5,14 @@
   "scripts": {
     "cli": "tsx cli.ts",
     "telegram": "tsx telegram.ts",
+    "discord": "tsx discord.ts",
+    "check-discord": "tsx scripts/check-discord-setup.ts",
     "verify-sessions": "tsx verify-sessions-store-reload.ts",
     "verify-skills": "tsx verify-skills-load.ts"
   },
   "dependencies": {
-    "@tavily/core": "^0.7.1"
+    "@tavily/core": "^0.7.1",
+    "discord.js": "^14.26.1"
   },
   "devDependencies": {
     "@dagger.io/dagger": "^0.19.9",

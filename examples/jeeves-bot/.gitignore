@@ -1,3 +1,6 @@
+# Local secrets (use env.example as template)
+.env
+
 # Jeeves bot work directory - contains agent config, memories, facts, journal, etc.
 # This will match any directory named with the work dir pattern
 **/jeeves-bot-data-dir/

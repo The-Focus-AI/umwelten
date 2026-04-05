@@ -26,6 +26,18 @@ cp env.example .env
 
 Load it before running (for example `set -a && source .env && set +a`, or any equivalent `.env` loader). For a quick local test without touching `~/.jeeves`, see [Testing the work directory](#testing-the-work-directory).
 
+### mise (from repository root)
+
+If you use [mise](https://mise.jdx.dev/), the repo [`mise.toml`](../../mise.toml) tasks load **`examples/jeeves-bot/.env`** (the same file you use when working inside this directory). Install [dotenvx](https://dotenvx.com) if needed.
+
+```bash
+mise run jeeves            # CLI REPL
+mise run jeeves-telegram   # Telegram bot
+mise run jeeves-discord    # Discord bot
+```
+
+Relative **`JEEVES_WORK_DIR`** / **`JEEVES_SESSIONS_DIR`** in that `.env` (e.g. `./jeeves-bot-data-dir`) are re-rooted under **`examples/jeeves-bot/`** so paths match “run from `examples/jeeves-bot`” even though `pnpm` runs from the repo root. Absolute paths (e.g. `~/.jeeves`) are left unchanged.
+
 - **JEEVES_WORK_DIR**: Main work folder for agent config, memories, facts, and journal. Default if unset: `~/.jeeves`. Use an absolute path (or path relative to the current working directory).
 - **JEEVES_SESSIONS_DIR**: Sessions directory for storing all interactions, media files, and downloaded content. Each session gets its own subdirectory. Default if unset: `~/.jeeves-sessions`. Media from Telegram, large downloads from `wget` or `markify` go here.
 - **JEEVES_CONFIG_PATH**: Optional. Override path to the config file; if unset, config is `<JEEVES_WORK_DIR>/config.json`.
@@ -278,6 +290,51 @@ Files are named using Telegram's `file_unique_id` with appropriate extensions. T
 
 **Note**: The sessions directory (`JEEVES_SESSIONS_DIR`) is configurable in `.env` (default: `~/.jeeves-sessions`). Each Telegram chat gets its own session directory, keeping media files organized per conversation.
 
+## Discord
+
+**Docs:** [Jeeves: Discord](https://github.com/The-Focus-AI/umwelten/blob/main/docs/guide/jeeves-discord.md) (quickstart, slash commands, routing).
+
+**Check env + token before starting the bot** (from repo root, with `examples/jeeves-bot/.env`):
+
+```bash
+mise run jeeves-discord-check
+# or: dotenvx run -f examples/jeeves-bot/.env -- pnpm exec tsx examples/jeeves-bot/scripts/check-discord-setup.ts
+```
+
+From `examples/jeeves-bot`: `pnpm run check-discord` (uses `.env` next to that folder).
+
+1. Create an application and bot at [Discord Developer Portal](https://discord.com/developers/applications). Under **Bot**, enable the **Message Content Intent** (required to read messages).
+2. Invite the bot with `applications.commands` and `bot` scopes (and permissions to read/send messages in the channels you use).
+3. Set `DISCORD_BOT_TOKEN` in `.env` or pass `--token`.
+4. Add `<JEEVES_WORK_DIR>/discord.json` to map **channel snowflakes** to habitat **agent ids** (see `discord.json.example`). Unlisted channels use the **main** Jeeves stimulus unless you set `defaultAgentId`. Use `mainChannelId` for an explicit “lobby” channel.
+
+**Recommended layout:** a category (e.g. Jeeves) with `#general` (main butler) and one text channel per sub-agent (e.g. `#operations` → agent id `operations` in `config.json`).
+
+**From the `jeeves-bot` directory** (after `pnpm install` there if you use the local script):
+
+```bash
+pnpm run discord
+```
+
+**From the repository root:**
+
+```bash
+dotenvx run -- pnpm exec tsx examples/jeeves-bot/discord.ts
+pnpm exec tsx examples/jeeves-bot/discord.ts --token "$DISCORD_BOT_TOKEN" --provider google --model gemini-3-flash-preview
+```
+
+**Via habitat (any work dir):**
+
+```bash
+dotenvx run -- pnpm run cli habitat discord -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3-flash-preview --token "$DISCORD_BOT_TOKEN"
+```
+
+Optional: `DISCORD_GUILD_ID` or `--discord-guild` registers slash commands in one server (faster than global). Slash commands: `/start`, `/reset`, `/help`, `/bind-agent` and `/unbind-agent` (**Manage Channels** — map the current channel or thread to a habitat agent), `/reload-routing` (admin), `/provision` (admin, requires `DISCORD_AUTO_CHANNELS=1` and bot **Manage Channels** to create channels).
+
+**When it answers:** Without a bound sub-agent, the bot only replies to **@mentions** in **DM**, in an existing **thread** (each thread has its own session), or in a **channel** (it **creates a thread** from your message and chats there). After `/bind-agent`, it replies to every message in that place. See [Jeeves: Discord](../../docs/guide/jeeves-discord.md).
+
+Sessions and media: `{JEEVES_SESSIONS_DIR}/discord-{channelId}/` (with threading, same pattern as Telegram).
+
 ### CLI sessions
 
 Each CLI run (one-shot or REPL) creates a session under `JEEVES_SESSIONS_DIR` (e.g. `cli-{timestamp}-{id}`). The session directory contains `meta.json` (sessionId, type, created, lastUsed, `metadata.firstPrompt`, `metadata.messageCount`) and **`transcript.jsonl`** — Claude-style JSONL with **full tool call history**:
@@ -437,3 +494,6 @@ External interactions are **Claude Code** or **Cursor** conversation histories. 
 ## No daemon
 
 This example does not start any background daemon. The Telegram bot is a single long-running process; the CLI is either a one-shot run or an interactive REPL. No auto-sync, auto-commit, or auto-push is used.
+
+
+https://discord.com/oauth2/authorize?client_id=1381378839363453058&permissions=1689367404210240&integration_type=0&scope=bot+applications.commands

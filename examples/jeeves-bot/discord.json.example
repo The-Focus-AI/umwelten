@@ -1,0 +1,6 @@
+{
+  "mainChannelId": "PASTE_LOBBY_CHANNEL_SNOWFLAKE_HERE",
+  "channels": {
+    "PASTE_AGENT_CHANNEL_SNOWFLAKE": "operations"
+  }
+}
