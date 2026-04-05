@@ -107,10 +107,10 @@ Thread IDs are separate snowflakes: bind the thread explicitly if you want a dif
 ### When the bot replies (Jeeves / `habitat discord`)
 
 - **Sub-agent bound** (`/bind-agent` or `discord.json` maps this channel/thread to a **real** agent in `config.json`): the bot answers **every** message (and attachments) in that channel or thread.
-- **Not bound** (main / unmapped / unknown agent id in the map): the bot only answers when it is **@mentioned**, and then:
-  - **DM** — reply in the DM.
-  - **Existing thread** — reply in that thread; **each Discord thread uses its own on-disk session** (stable `discord-{threadId}` directory, no branching).
-  - **Parent text channel** — the bot **creates a new thread** from your message (needs **Create Public Threads** + **Send Messages in Threads**), names it from your message, replies inside that thread, and **renames the thread** periodically (about every 90s max) from the latest exchange (`Jeeves · …`).
+- **Not bound** (main / unmapped / unknown agent id in the map):
+  - **@mention** is required for the **first** message in a **DM** or **thread**, and for **every** message in a **parent text channel** (the bot opens a thread from that message).
+  - **Follow-ups** in the **same** DM or thread **do not need @mention** after the bot has replied once, until `/reset` or `/reload-routing`. **After a bot restart**, that behavior is **restored from `transcript.jsonl`**: if the session directory already contains an assistant line, the thread/DM stays unlocked without another @mention.
+  - **Where it replies:** **DM** — in the DM. **Existing thread** — in that thread (**each thread** uses a stable on-disk session `discord-{threadId}`). **Parent text channel** — creates a new thread (needs **Create Public Threads** + **Send Messages in Threads**), names it from your message, replies there, and **renames the thread** periodically (about every 90s max) as `Jeeves · …`.
 - **`defaultAgentId`** in `discord.json` counts as a dedicated agent route for unlisted channels — those channels get full auto-reply (same as a bound sub-agent).
 
 Slash commands (`/start`, `/help`, etc.) always work when Discord shows them; this gate applies to normal messages and attachments only. `/start` and `/reset` in a **Discord thread** clear that thread’s session in place (stable mode).

@@ -25,6 +25,7 @@ import {
   ambientInboundAllowed,
   channelAmbientFlags,
 } from "./discord-message-gate.js";
+import { transcriptJsonlHasAssistant } from "./discord-transcript-ambient.js";
 
 const DISCORD_MESSAGE_MAX = 2000;
 
@@ -116,6 +117,11 @@ export class DiscordAdapter {
    * messages do not need @mention (parent channels still do).
    */
   private ambientConversationUnlocked = new Set<string>();
+  /**
+   * Thread/DM ids we already scanned on disk for a prior assistant transcript (avoid
+   * re-reading transcript.jsonl on every message).
+   */
+  private ambientDiskUnlockScanned = new Set<string>();
 
   constructor(config: DiscordAdapterConfig) {
     this.config = config;
@@ -276,6 +282,7 @@ export class DiscordAdapter {
   private clearChannelSession(channelId: string): void {
     this.interactions.delete(channelId);
     this.ambientConversationUnlocked.delete(channelId);
+    this.ambientDiskUnlockScanned.delete(channelId);
   }
 
   private afterAmbientBotReply(
@@ -297,6 +304,44 @@ export class DiscordAdapter {
       unlockedChannelIds: this.ambientConversationUnlocked,
       ...flags,
     });
+  }
+
+  /**
+   * After a process restart, in-memory ambient unlock is empty. If this DM/thread has a
+   * persisted transcript that includes an assistant turn, treat it as unlocked so
+   * follow-ups without @mention still work (matches pre-restart behavior).
+   */
+  private async hydrateAmbientUnlockFromTranscript(
+    message: Message,
+    unrestricted: boolean,
+  ): Promise<void> {
+    if (unrestricted || !this.config.getSessionDir) {
+      return;
+    }
+    const flags = channelAmbientFlags(message);
+    if (!flags.isDm && !flags.isThread) {
+      return;
+    }
+    const channelId = flags.channelId;
+    if (this.ambientConversationUnlocked.has(channelId)) {
+      return;
+    }
+    if (this.ambientDiskUnlockScanned.has(channelId)) {
+      return;
+    }
+    const ctx: DiscordStimulusContext = {
+      parentChannelId: parentChannelIdFromChannel(message.channel),
+      isDiscordThread: flags.isThread,
+    };
+    try {
+      const { sessionDir } = await this.config.getSessionDir(channelId, ctx);
+      this.ambientDiskUnlockScanned.add(channelId);
+      if (await transcriptJsonlHasAssistant(sessionDir)) {
+        this.ambientConversationUnlocked.add(channelId);
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   private async handleSlash(
@@ -357,6 +402,7 @@ export class DiscordAdapter {
       this.interactions.clear();
       this.routeSignatures.clear();
       this.ambientConversationUnlocked.clear();
+      this.ambientDiskUnlockScanned.clear();
       await interaction.reply({
         content:
           "Cleared all in-memory channel sessions. New messages pick up updated discord.json.",
@@ -633,6 +679,7 @@ export class DiscordAdapter {
     if (!channel?.isTextBased() || !channel.isSendable()) return;
 
     const unrestricted = await this.computeUnrestricted(message);
+    await this.hydrateAmbientUnlockFromTranscript(message, unrestricted);
     if (!this.ambientAllowsInboundMessage(message, unrestricted)) {
       return;
     }
