@@ -146,6 +146,7 @@ export interface HabitatOptions {
 export type HabitatSessionType =
   | "cli"
   | "telegram"
+  | "discord"
   | "web"
   | "tui"
   | "api"
@@ -164,6 +165,8 @@ export interface HabitatSessionMetadata {
   /** LLM model used for this session. */
   model?: string;
   chatId?: number;
+  /** Discord text/DM channel snowflake when type is discord. */
+  discordChannelId?: string;
   metadata?: Record<string, unknown>;
 }
 

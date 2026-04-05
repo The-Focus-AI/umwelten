@@ -34,7 +34,10 @@ import {
   getAgentById,
   getFileAllowedRoots,
 } from "./config.js";
-import { HabitatSessionManager } from "./session-manager.js";
+import {
+  HabitatSessionManager,
+  type SessionManagerSessionOptions,
+} from "./session-manager.js";
 import { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
 import { isOnboarded, runOnboarding } from "./onboard.js";
 import { writeSessionTranscript } from "./transcript.js";
@@ -351,15 +354,17 @@ export class Habitat
   async getOrCreateSession(
     type: HabitatSessionType,
     identifier?: string | number,
+    options?: SessionManagerSessionOptions,
   ): Promise<{ sessionId: string; sessionDir: string }> {
-    return this.sessionManager.getOrCreateSession(type, identifier);
+    return this.sessionManager.getOrCreateSession(type, identifier, options);
   }
 
   async startNewThread(
     type: HabitatSessionType,
     identifier: string | number,
+    options?: SessionManagerSessionOptions,
   ): Promise<{ sessionId: string; sessionDir: string }> {
-    return this.sessionManager.startNewThread(type, identifier);
+    return this.sessionManager.startNewThread(type, identifier, options);
   }
 
   async updateSessionMetadata(

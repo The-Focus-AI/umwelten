@@ -3,11 +3,20 @@
  * Each session gets its own directory with meta.json, transcript.jsonl, and media/.
  */
 
-import { mkdir, readdir, stat, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, stat, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { HabitatSessionMetadata, HabitatSessionType } from './types.js';
 
 const CURRENT_FILE = 'current.json';
+
+/** Options for {@link HabitatSessionManager.getOrCreateSession} / {@link HabitatSessionManager.startNewThread}. */
+export type SessionManagerSessionOptions = {
+  /**
+   * Discord only: one session directory per id (`discord-{id}`), ignoring `current.json` branches.
+   * Use for native Discord threads so `/start` does not fork a second on-disk session.
+   */
+  discordStableSession?: boolean;
+};
 
 export class HabitatSessionManager {
   constructor(private sessionsDir: string) {}
@@ -20,18 +29,64 @@ export class HabitatSessionManager {
 
   /**
    * Get or create a session directory.
-   * - Telegram: uses chatId-based thread management (current.json tracks active thread).
+   * - Telegram / Discord: channel-based thread management (current.json tracks active thread).
    * - CLI: creates a new timestamp-based session each time.
    * - Other: uses identifier or generates a unique session ID.
    */
   async getOrCreateSession(
     type: HabitatSessionType,
-    identifier?: string | number
+    identifier?: string | number,
+    options?: SessionManagerSessionOptions,
   ): Promise<{ sessionId: string; sessionDir: string }> {
     await this.ensureDir();
 
     let sessionId: string;
-    if (type === 'telegram' && identifier !== undefined) {
+    if (type === 'discord' && identifier !== undefined) {
+      const channelId = String(identifier);
+      const baseId = `discord-${channelId}`;
+      if (options?.discordStableSession) {
+        sessionId = baseId;
+      } else {
+        const baseDir = join(this.sessionsDir, baseId);
+        try {
+          const currentPath = join(baseDir, CURRENT_FILE);
+          const raw = await readFile(currentPath, 'utf-8');
+          const { sessionId: currentId } = JSON.parse(raw) as { sessionId: string };
+          if (currentId && currentId.startsWith(baseId)) {
+            const threadDir = join(this.sessionsDir, currentId);
+            try {
+              const st = await stat(threadDir);
+              if (st.isDirectory()) {
+                sessionId = currentId;
+                const sessionDir = threadDir;
+                const metaPath = join(sessionDir, 'meta.json');
+                let metadata: HabitatSessionMetadata;
+                try {
+                  const existing = await readFile(metaPath, 'utf-8');
+                  metadata = JSON.parse(existing);
+                  metadata.lastUsed = new Date().toISOString();
+                } catch {
+                  metadata = {
+                    sessionId,
+                    created: new Date().toISOString(),
+                    lastUsed: new Date().toISOString(),
+                    type: 'discord',
+                    discordChannelId: channelId,
+                  };
+                }
+                await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
+                return { sessionId, sessionDir };
+              }
+            } catch {
+              // thread dir missing, fall through to use base
+            }
+          }
+        } catch {
+          // no current.json or invalid, fall through
+        }
+        sessionId = baseId;
+      }
+    } else if (type === 'telegram' && identifier !== undefined) {
       const chatId = String(identifier);
       const baseId = `telegram-${chatId}`;
       const baseDir = join(this.sessionsDir, baseId);
@@ -81,8 +136,23 @@ export class HabitatSessionManager {
     const sessionDir = join(this.sessionsDir, sessionId);
     await mkdir(sessionDir, { recursive: true });
 
-    // For Telegram base dir, write current.json so next time we use this dir
-    if (type === 'telegram' && identifier !== undefined && sessionId === `telegram-${identifier}`) {
+    // For Telegram / Discord base dir, write current.json so next time we use this dir
+    if (
+      type === 'telegram' &&
+      identifier !== undefined &&
+      sessionId === `telegram-${identifier}`
+    ) {
+      await writeFile(
+        join(sessionDir, CURRENT_FILE),
+        JSON.stringify({ sessionId }, null, 2),
+        'utf-8'
+      );
+    }
+    if (
+      type === 'discord' &&
+      identifier !== undefined &&
+      sessionId === `discord-${String(identifier)}`
+    ) {
       await writeFile(
         join(sessionDir, CURRENT_FILE),
         JSON.stringify({ sessionId }, null, 2),
@@ -104,6 +174,9 @@ export class HabitatSessionManager {
         lastUsed: new Date().toISOString(),
         type,
         ...(type === 'telegram' && identifier !== undefined && { chatId: Number(identifier) }),
+        ...(type === 'discord' && identifier !== undefined && {
+          discordChannelId: String(identifier),
+        }),
       };
     }
     await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
@@ -117,7 +190,8 @@ export class HabitatSessionManager {
    */
   async startNewThread(
     type: HabitatSessionType,
-    identifier: string | number
+    identifier: string | number,
+    options?: SessionManagerSessionOptions,
   ): Promise<{ sessionId: string; sessionDir: string }> {
     await this.ensureDir();
 
@@ -148,7 +222,61 @@ export class HabitatSessionManager {
       return { sessionId, sessionDir };
     }
 
-    // Non-telegram: just create a new session
+    if (type === 'discord') {
+      const channelId = String(identifier);
+      const baseId = `discord-${channelId}`;
+
+      if (options?.discordStableSession) {
+        const sessionId = baseId;
+        const sessionDir = join(this.sessionsDir, sessionId);
+        await mkdir(sessionDir, { recursive: true });
+        await rm(join(sessionDir, 'transcript.jsonl'), { force: true }).catch(() => {});
+        await rm(join(sessionDir, CURRENT_FILE), { force: true }).catch(() => {});
+
+        const metaPath = join(sessionDir, 'meta.json');
+        let metadata: HabitatSessionMetadata;
+        try {
+          const existing = await readFile(metaPath, 'utf-8');
+          metadata = JSON.parse(existing);
+          metadata.lastUsed = new Date().toISOString();
+        } catch {
+          metadata = {
+            sessionId,
+            created: new Date().toISOString(),
+            lastUsed: new Date().toISOString(),
+            type: 'discord',
+            discordChannelId: channelId,
+          };
+        }
+        await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
+        return { sessionId, sessionDir };
+      }
+
+      const sessionId = `${baseId}-${Date.now()}`;
+      const sessionDir = join(this.sessionsDir, sessionId);
+      await mkdir(sessionDir, { recursive: true });
+
+      const metadata: HabitatSessionMetadata = {
+        sessionId,
+        created: new Date().toISOString(),
+        lastUsed: new Date().toISOString(),
+        type: 'discord',
+        discordChannelId: channelId,
+      };
+      await writeFile(join(sessionDir, 'meta.json'), JSON.stringify(metadata, null, 2), 'utf-8');
+
+      const baseDir = join(this.sessionsDir, baseId);
+      await mkdir(baseDir, { recursive: true });
+      await writeFile(
+        join(baseDir, CURRENT_FILE),
+        JSON.stringify({ sessionId }, null, 2),
+        'utf-8'
+      );
+
+      return { sessionId, sessionDir };
+    }
+
+    // Non-threaded types: just create a new session
     return this.getOrCreateSession(type, identifier);
   }
 

@@ -33,6 +33,22 @@ export {
 } from "./tool-sets.js";
 
 export { HabitatSessionManager } from "./session-manager.js";
+export type { SessionManagerSessionOptions } from "./session-manager.js";
+
+export {
+  loadDiscordRouting,
+  resolveDiscordChannelRoute,
+  appendDiscordChannelRoute,
+  setDiscordChannelRoute,
+  discordRouteSignature,
+} from "./discord-routing.js";
+export type {
+  DiscordRoutingConfig,
+  DiscordRouteResolution,
+} from "./discord-routing.js";
+
+export { provisionDiscordAgentChannel } from "./discord-provision.js";
+export type { DiscordProvisionOptions } from "./discord-provision.js";
 
 export { coreMessagesToJSONL, writeSessionTranscript } from "./transcript.js";
 

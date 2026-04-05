@@ -9,13 +9,21 @@
  *   umwelten habitat -p google -m gemini-3-flash-preview "list my agents"
  *   umwelten habitat --work-dir ~/my-habitat -p openrouter -m anthropic/claude-sonnet-4
  *   umwelten habitat telegram --token $TELEGRAM_BOT_TOKEN -p google -m gemini-3-flash-preview
+ *   umwelten habitat discord --token $DISCORD_BOT_TOKEN -p google -m gemini-3-flash-preview
  */
 
 import { Command } from "commander";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import type { CoreMessage } from "ai";
-import { Habitat, getAgentMemoryPath } from "../habitat/index.js";
+import type { CoreMessage, Tool } from "ai";
+import {
+  Habitat,
+  getAgentMemoryPath,
+  buildAgentStimulus,
+  loadDiscordRouting,
+  resolveDiscordChannelRoute,
+  discordRouteSignature,
+} from "../habitat/index.js";
 import type { AgentEntry } from "../habitat/index.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { InteractionStore } from "../interaction/persistence/interaction-store.js";
@@ -31,6 +39,8 @@ import {
   listCompactionStrategies,
 } from "../context/index.js";
 import type { ModelDetails } from "../cognition/types.js";
+import { Stimulus } from "../stimulus/stimulus.js";
+import { createDiscordRoutingTools } from "../habitat/tools/discord-routing-tools.js";
 
 // ── Shared habitat options ────────────────────────────────────────────
 
@@ -95,6 +105,23 @@ function resolveModelDetails(
 /**
  * Print habitat startup info.
  */
+async function cloneHabitatStimulus(
+  habitat: Habitat,
+  extraTools?: Record<string, Tool>,
+): Promise<Stimulus> {
+  const base = await habitat.getStimulus();
+  const s = new Stimulus(base.options);
+  for (const [name, tool] of Object.entries(base.getTools())) {
+    s.addTool(name, tool);
+  }
+  if (extraTools) {
+    for (const [name, tool] of Object.entries(extraTools)) {
+      s.addTool(name, tool);
+    }
+  }
+  return s;
+}
+
 function printStartupInfo(habitat: Habitat, modelDetails: ModelDetails): void {
   const toolCount = Object.keys(habitat.getTools()).length;
   const agentCount = habitat.getAgents().length;
@@ -748,6 +775,170 @@ async function telegramAction(
   await adapter.start();
 }
 
+// ── Discord action ───────────────────────────────────────────────────
+
+async function discordAction(
+  options: HabitatCLIOptions & { token?: string; discordGuild?: string },
+): Promise<void> {
+  const token = options.token ?? process.env.DISCORD_BOT_TOKEN;
+  if (!token) {
+    console.error(
+      "Discord bot token is required. Set DISCORD_BOT_TOKEN or pass --token.",
+    );
+    console.error(
+      "Create an application and bot at https://discord.com/developers/applications (enable Message Content Intent).",
+    );
+    process.exit(1);
+  }
+
+  const habitat = await createHabitatFromOptions(options);
+  const modelDetails = resolveModelDetails(habitat, options);
+
+  if (!modelDetails) {
+    console.error(
+      "No model configured. Provide --provider and --model, or add defaultProvider/defaultModel to config.json.",
+    );
+    process.exit(1);
+  }
+
+  printStartupInfo(habitat, modelDetails);
+
+  const routingPath = process.env.DISCORD_ROUTING_PATH;
+  const prefix = habitat.envPrefix;
+  const visionProvider =
+    process.env[`${prefix}_VISION_PROVIDER`] ??
+    process.env.HABITAT_VISION_PROVIDER;
+  const visionModel =
+    process.env[`${prefix}_VISION_MODEL`] ?? process.env.HABITAT_VISION_MODEL;
+  const visionModelDetails: ModelDetails | undefined =
+    visionProvider && visionModel
+      ? { provider: visionProvider, name: visionModel }
+      : undefined;
+
+  const discordRoutingTools = createDiscordRoutingTools({
+    workDir: habitat.workDir,
+    routingPath,
+  });
+
+  const cloneMainDiscordStimulus = async (): Promise<Stimulus> => {
+    const s = await cloneHabitatStimulus(habitat, discordRoutingTools);
+    s.addInstruction(
+      "You can change which habitat agent answers in a Discord channel or thread using tools `discord_route_bind` and `discord_route_list` (snowflake ids).",
+    );
+    return s;
+  };
+
+  const getStimulusForChannel = async (
+    channelId: string,
+    context?: {
+      parentChannelId?: string | null;
+      isDiscordThread?: boolean;
+    },
+  ) => {
+    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+    const resolved = resolveDiscordChannelRoute(
+      channelId,
+      routing,
+      context?.parentChannelId,
+    );
+    if (resolved.kind === "main") {
+      return cloneMainDiscordStimulus();
+    }
+    const agent = habitat.getAgent(resolved.agentId);
+    if (!agent) {
+      console.warn(
+        `[habitat] discord.json maps channel ${channelId} to unknown agent "${resolved.agentId}"; using main stimulus.`,
+      );
+      return cloneMainDiscordStimulus();
+    }
+    return buildAgentStimulus(agent, habitat);
+  };
+
+  const getDiscordRouteSignature = async (
+    channelId: string,
+    context?: {
+      parentChannelId?: string | null;
+      isDiscordThread?: boolean;
+    },
+  ) => {
+    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+    const resolved = resolveDiscordChannelRoute(
+      channelId,
+      routing,
+      context?.parentChannelId,
+    );
+    return discordRouteSignature(resolved);
+  };
+
+  const getDiscordUnrestrictedMessages = async (
+    channelId: string,
+    context?: {
+      parentChannelId?: string | null;
+      isDiscordThread?: boolean;
+    },
+  ) => {
+    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+    const resolved = resolveDiscordChannelRoute(
+      channelId,
+      routing,
+      context?.parentChannelId,
+    );
+    if (resolved.kind === "main") {
+      return false;
+    }
+    return habitat.getAgent(resolved.agentId) != null;
+  };
+
+  const { DiscordAdapter } = await import("../ui/discord/DiscordAdapter.js");
+
+  const guildId =
+    options.discordGuild?.trim() || process.env.DISCORD_GUILD_ID?.trim();
+
+  const adapter = new DiscordAdapter({
+    token,
+    modelDetails,
+    visionModelDetails,
+    getStimulusForChannel,
+    getDiscordRouteSignature,
+    getDiscordUnrestrictedMessages,
+    workDir: habitat.workDir,
+    discordRoutingPath: routingPath,
+    guildId: guildId || undefined,
+    getSessionMediaDir: async (channelId, ctx) => {
+      const { sessionDir } = await habitat.getOrCreateSession(
+        "discord",
+        channelId,
+        { discordStableSession: ctx?.isDiscordThread === true },
+      );
+      return path.join(sessionDir, "media");
+    },
+    getSessionDir: async (channelId, ctx) =>
+      habitat.getOrCreateSession("discord", channelId, {
+        discordStableSession: ctx?.isDiscordThread === true,
+      }),
+    writeTranscript: writeSessionTranscript,
+    startNewThread: async (channelId, opts) => {
+      await habitat.startNewThread("discord", channelId, {
+        discordStableSession: opts?.isDiscordThread === true,
+      });
+    },
+  });
+
+  console.log(`[habitat] Discord bot starting…`);
+
+  process.on("SIGINT", async () => {
+    console.log("\nShutting down...");
+    await adapter.stop();
+    process.exit(0);
+  });
+  process.on("SIGTERM", async () => {
+    await adapter.stop();
+    process.exit(0);
+  });
+
+  await adapter.start();
+}
+
 // ── Web (Gaia) action ────────────────────────────────────────────────
 
 async function webAction(
@@ -850,6 +1041,29 @@ addSharedOptions(telegramSubcommand)
   });
 
 habitatCommand.addCommand(telegramSubcommand);
+
+// Discord subcommand
+const discordSubcommand = new Command("discord").description(
+  "Start a Discord bot interface for this habitat.",
+);
+addSharedOptions(discordSubcommand)
+  .option(
+    "--token <token>",
+    "Discord bot token (default: DISCORD_BOT_TOKEN env var)",
+  )
+  .option(
+    "--discord-guild <id>",
+    "Register slash commands in this guild only (default: DISCORD_GUILD_ID; omit for global commands)",
+  )
+  .action(
+    async (
+      options: HabitatCLIOptions & { token?: string; discordGuild?: string },
+    ) => {
+      await discordAction(options);
+    },
+  );
+
+habitatCommand.addCommand(discordSubcommand);
 
 // Web (Gaia) subcommand
 const webSubcommand = new Command("web").description(

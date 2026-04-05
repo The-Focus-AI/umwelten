@@ -316,6 +316,52 @@ describe("Habitat", () => {
       const sessions = await habitat.listSessions();
       expect(sessions.length).toBe(2);
     });
+
+    it("should create Discord sessions keyed by channel id with threading", async () => {
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      const ch = "123456789012345678";
+      const first = await habitat.getOrCreateSession("discord", ch);
+      expect(first.sessionId).toBe(`discord-${ch}`);
+      expect(first.sessionDir).toContain(`discord-${ch}`);
+
+      const again = await habitat.getOrCreateSession("discord", ch);
+      expect(again.sessionId).toBe(first.sessionId);
+
+      const threaded = await habitat.startNewThread("discord", ch);
+      expect(threaded.sessionId).toMatch(new RegExp(`^discord-${ch}-\\d+$`));
+
+      const afterThread = await habitat.getOrCreateSession("discord", ch);
+      expect(afterThread.sessionId).toBe(threaded.sessionId);
+    });
+
+    it("should keep one Discord session per id when discordStableSession is set", async () => {
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+
+      const threadCh = "998877665544332211";
+      const a = await habitat.getOrCreateSession("discord", threadCh, {
+        discordStableSession: true,
+      });
+      expect(a.sessionId).toBe(`discord-${threadCh}`);
+
+      await habitat.startNewThread("discord", threadCh, {
+        discordStableSession: true,
+      });
+      const b = await habitat.getOrCreateSession("discord", threadCh, {
+        discordStableSession: true,
+      });
+      expect(b.sessionId).toBe(`discord-${threadCh}`);
+    });
   });
 
   describe("stimulus", () => {
