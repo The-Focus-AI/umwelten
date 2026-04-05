@@ -25,7 +25,12 @@ const OLLAMA_CONTEXT_WINDOWS: Record<string, number> = {
   'gemma2:2b': 8192,
   'gemma2:9b': 8192,
   'gemma2:27b': 8192,
-  
+  'gemma4:e2b': 131072,
+  'gemma4:e4b': 131072,
+  'gemma4:latest': 131072,
+  'gemma4:26b': 262144,
+  'gemma4:31b': 262144,
+
   // Code models
   'codestral:latest': 32768,
   'codegemma:7b': 8192,
@@ -118,6 +123,10 @@ function getContextWindow(modelName: string): number {
   // Try family-based matching
   if (modelName.includes('llama3.2') || modelName.includes('llama3.1')) return 131072;
   if (modelName.includes('llama3')) return 8192;
+  if (modelName.includes('gemma4')) {
+    if (modelName.includes('26b') || modelName.includes('31b')) return 262144;
+    return 131072;
+  }
   if (modelName.includes('gemma3') || modelName.includes('gemma2')) return 8192;
   if (modelName.includes('deepseek-r1') || modelName.includes('deepseek-coder')) return 32768;
   if (modelName.includes('mistral') || modelName.includes('codestral') || modelName.includes('devstral')) return 32768;
