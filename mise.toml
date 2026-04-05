@@ -1,5 +1,27 @@
 [tools]
 node = "latest"
 "npm:@anthropic-ai/claude-code" = "latest"
-"npm:@beads/bd" = "latest"
 "npm:node-addon-api" = "latest"
+
+# Jeeves: loads examples/jeeves-bot/.env (same as working from that folder).
+# Relative JEEVES_WORK_DIR / JEEVES_SESSIONS_DIR in that file are anchored under examples/jeeves-bot
+# so `pnpm run cli` from repo root still resolves paths like ./jeeves-bot-data-dir correctly.
+[tasks.jeeves]
+description = "Jeeves CLI REPL (env: examples/jeeves-bot/.env)"
+dir = "{{ config_root }}"
+run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\"; _J=\"$_R/examples/jeeves-bot\"; case \"$JEEVES_WORK_DIR\" in \"\") ;; /*) ;; *) export JEEVES_WORK_DIR=\"$_J/${JEEVES_WORK_DIR#./}\" ;; esac; case \"$JEEVES_SESSIONS_DIR\" in \"\") ;; /*) ;; *) export JEEVES_SESSIONS_DIR=\"$_J/${JEEVES_SESSIONS_DIR#./}\" ;; esac; cd \"$_R\" && pnpm run cli habitat --env-prefix JEEVES'"
+
+[tasks."jeeves-telegram"]
+description = "Jeeves Telegram bot (examples/jeeves-bot/.env)"
+dir = "{{ config_root }}"
+run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\"; _J=\"$_R/examples/jeeves-bot\"; case \"$JEEVES_WORK_DIR\" in \"\") ;; /*) ;; *) export JEEVES_WORK_DIR=\"$_J/${JEEVES_WORK_DIR#./}\" ;; esac; case \"$JEEVES_SESSIONS_DIR\" in \"\") ;; /*) ;; *) export JEEVES_SESSIONS_DIR=\"$_J/${JEEVES_SESSIONS_DIR#./}\" ;; esac; cd \"$_R\" && pnpm exec tsx examples/jeeves-bot/telegram.ts'"
+
+[tasks."jeeves-discord"]
+description = "Jeeves Discord bot (examples/jeeves-bot/.env)"
+dir = "{{ config_root }}"
+run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\"; _J=\"$_R/examples/jeeves-bot\"; case \"$JEEVES_WORK_DIR\" in \"\") ;; /*) ;; *) export JEEVES_WORK_DIR=\"$_J/${JEEVES_WORK_DIR#./}\" ;; esac; case \"$JEEVES_SESSIONS_DIR\" in \"\") ;; /*) ;; *) export JEEVES_SESSIONS_DIR=\"$_J/${JEEVES_SESSIONS_DIR#./}\" ;; esac; cd \"$_R\" && pnpm exec tsx examples/jeeves-bot/discord.ts'"
+
+[tasks."jeeves-discord-check"]
+description = "Verify Jeeves Discord env, work dir, and bot token (examples/jeeves-bot/.env)"
+dir = "{{ config_root }}"
+run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\"; _J=\"$_R/examples/jeeves-bot\"; case \"$JEEVES_WORK_DIR\" in \"\") ;; /*) ;; *) export JEEVES_WORK_DIR=\"$_J/${JEEVES_WORK_DIR#./}\" ;; esac; case \"$JEEVES_SESSIONS_DIR\" in \"\") ;; /*) ;; *) export JEEVES_SESSIONS_DIR=\"$_J/${JEEVES_SESSIONS_DIR#./}\" ;; esac; cd \"$_R\" && pnpm exec tsx examples/jeeves-bot/scripts/check-discord-setup.ts'"
