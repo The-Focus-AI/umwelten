@@ -155,46 +155,7 @@ This dimension requires TezLab OAuth credentials. The eval connects via `example
 
 The suite config tells the combine system how to read each evaluation's results:
 
-```typescript
-// suite-config.ts
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
-
-export const SHOWDOWN_SUITE: EvalDimension[] = [
-  {
-    evalName: 'model-showdown-reasoning',
-    label: 'Reasoning',
-    maxScore: 20,
-    extractScore: (r) => r.judge?.reasoning_quality ?? r.reasoningQuality ?? r.score ?? 0,
-    hasResultsSubdir: true,
-  },
-  {
-    evalName: 'model-showdown-knowledge',
-    label: 'Knowledge',
-    maxScore: 30,
-    extractScore: (r) => r.correct ? 1 : 0,
-  },
-  {
-    evalName: 'model-showdown-instruction',
-    label: 'Instruction',
-    maxScore: 30,
-    extractScore: (r) => r.score ?? 0,
-  },
-  {
-    evalName: 'model-showdown-coding',
-    label: 'Coding',
-    maxScore: 126,
-    extractScore: (r) => r.totalScore ?? r.score ?? 0,
-    hasResultsSubdir: true,
-  },
-  {
-    evalName: 'model-showdown-mcp',
-    label: 'MCP Tool Use',
-    maxScore: 16,
-    extractScore: (r) => (r.toolUsage?.tool_score ?? 0) + (r.judge?.overall_score ?? 0),
-    hasResultsSubdir: true,
-  },
-];
-```
+See **`examples/model-showdown/suite-config.ts`** for the live `SHOWDOWN_SUITE` (includes `perTaskMaxScore` per dimension).
 
 Each dimension defines:
 
@@ -202,11 +163,12 @@ Each dimension defines:
 |-------|---------|
 | `evalName` | Maps to `output/evaluations/{evalName}/` directory |
 | `label` | Human-readable name for reports |
-| `maxScore` | Perfect score for this dimension |
+| `maxScore` | Perfect score for a **full** run of this dimension (documentation + legacy mode) |
+| `perTaskMaxScore` | Optional. When set, each loaded result file adds this to the model’s **denominator** for that dimension (sum of per-file maxima). Use for multi-task evals so a model evaluated on only some tasks shows e.g. **28/28** or **56/56** instead of **28/126** for coding. |
 | `extractScore` | Function to pull a numeric score from each result JSON file |
 | `hasResultsSubdir` | Whether results are in `{task}/results/` vs `{task}/` |
 
-The `extractScore` function is the key abstraction — each eval stores results differently, and this function normalizes them to a number.
+The `extractScore` function is the key abstraction — each eval stores results differently, and this function normalizes them to a number. **`perTaskMaxScore`** keeps leaderboard fractions honest when the cache only has a subset of tasks (e.g. new models added mid-campaign).
 
 ## Step 4: Run the Evaluations
 
@@ -447,8 +409,7 @@ dotenvx run -- pnpm tsx examples/model-showdown/run-all.ts --all
 # Full showdown with thinking effort variants (low/medium/high)
 dotenvx run -- pnpm tsx examples/model-showdown/run-all.ts --all --with-reasoning-levels
 
-# Include MCP eval (requires TezLab MCP server running)
-dotenvx run -- pnpm tsx examples/model-showdown/run-all.ts --all --with-mcp
+# `run-all` always runs MCP tool-use eval after the four core suites (TezLab MCP server must be reachable)
 
 # Force a fresh run (ignores all caches, creates new run number)
 dotenvx run -- pnpm tsx examples/model-showdown/run-all.ts --all --new
