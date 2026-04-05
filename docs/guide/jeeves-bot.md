@@ -1,6 +1,10 @@
 # Jeeves Bot
 
-Jeeves is a butler-style assistant that runs on the CLI and over Telegram. It was the original example of a [Habitat](./habitat.md)-based agent. Now that Habitat is a first-class top-level concept, Jeeves serves as a reference example of how to customize a Habitat with a specific persona and tools.
+Jeeves is a butler-style assistant that runs on the CLI, Telegram, and Discord. It was the original example of a [Habitat](./habitat.md)-based agent. Now that Habitat is a first-class top-level concept, Jeeves serves as a reference example of how to customize a Habitat with a specific persona and tools.
+
+::: tip Discord first
+**Running Jeeves on Discord?** Start with **[Jeeves: Discord](./jeeves-discord.md)** — prerequisites, `mise run jeeves-discord-check`, slash commands (`/bind-agent`), and smoke tests.
+:::
 
 ::: tip Prefer `umwelten habitat` for new setups
 You no longer need a separate Jeeves wrapper. The `umwelten habitat` command does everything Jeeves does, with any work directory. See the [Habitat guide](./habitat.md) and the [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md).
@@ -11,6 +15,9 @@ umwelten habitat -w examples/jeeves-bot/jeeves-bot-data-dir -p google -m gemini-
 
 # Or as a Telegram bot
 umwelten habitat telegram -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3-flash-preview
+
+# Or as a Discord bot (discord.json in work dir maps channels → agent ids)
+umwelten habitat discord -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3-flash-preview --token "$DISCORD_BOT_TOKEN"
 ```
 :::
 
@@ -18,6 +25,7 @@ umwelten habitat telegram -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3
 
 - **CLI**: Interactive REPL or one-shot commands. Can be run via `examples/jeeves-bot/cli.ts` or via `umwelten habitat -w ~/.jeeves --env-prefix JEEVES`.
 - **Telegram**: Long-running bot. Can be run via `examples/jeeves-bot/telegram.ts` or via `umwelten habitat telegram -w ~/.jeeves --env-prefix JEEVES`.
+- **Discord**: Long-running bot with per-channel routing (`discord.json`). See **[Jeeves: Discord](./jeeves-discord.md)** for setup, the `check-discord-setup` script, and slash commands. Run via `examples/jeeves-bot/discord.ts` or `umwelten habitat discord` (see also the [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md)).
 - **Work directory**: All config, prompts, tools, and skills live under `JEEVES_WORK_DIR` (default `~/.jeeves`). The bot can edit everything there; file access is sandboxed to the work dir and configured agent project roots.
 
 ## How Jeeves manages subagents (agents and habitats)
@@ -86,6 +94,7 @@ For step-by-step setup, env vars, work-directory layout, CLI/Telegram usage, and
 
 ## See Also
 
+- [Jeeves: Discord](./jeeves-discord.md) — Discord bot setup, check script, `/bind-agent`, routing
 - [Habitat](./habitat.md) — The top-level container concept (recommended for new setups)
 - [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md) — Step-by-step guide to building a new agent
 - [Habitat Agents](./habitat-agents.md) — Sub-agent delegation

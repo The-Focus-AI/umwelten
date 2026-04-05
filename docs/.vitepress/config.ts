@@ -47,12 +47,18 @@ export default defineConfig({
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },
             { text: 'Telegram Bot', link: '/guide/telegram-bot' },
-            { text: 'Jeeves Bot', link: '/guide/jeeves-bot' },
             { text: 'Web Interface', link: '/guide/web' },
             { text: 'Tool Calling', link: '/guide/tool-calling' },
             { text: 'Model Evaluation', link: '/guide/model-evaluation' },
             { text: 'Structured Output', link: '/guide/structured-output' },
             { text: 'Batch Processing', link: '/guide/batch-processing' }
+          ]
+        },
+        {
+          text: 'Jeeves',
+          items: [
+            { text: 'Discord setup', link: '/guide/jeeves-discord' },
+            { text: 'Jeeves bot (overview)', link: '/guide/jeeves-bot' }
           ]
         },
         {
