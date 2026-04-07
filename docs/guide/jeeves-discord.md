@@ -25,6 +25,7 @@ cp env.example .env
 - **`JEEVES_SESSIONS_DIR`** — Transcripts and media per Discord channel/thread. Default: `~/.jeeves-sessions`.
 - **`DISCORD_GUILD_ID`** — *Recommended for development.* Registers slash commands in **one guild** so new commands appear quickly. Omit for global registration (Discord can take up to about an hour).
 - **`DISCORD_ROUTING_PATH`** — Optional absolute path to routing JSON (default: `<JEEVES_WORK_DIR>/discord.json`).
+- **`DISCORD_BACKFILL_ON_START`** — Default (unset): after login, the bot **fetches recent history** (REST) for Discord session channels that already have a folder under `JEEVES_SESSIONS_DIR` with **`lastUsed` within ~7 days**, and replies once to **user text** left while it was offline (several messages in a row are **combined** into one model turn). The gateway does **not** replay missed `messageCreate` events, so this fills the gap. **Limitation:** a thread or DM that **never** had a session on disk yet (no prior bot traffic in that channel) is not scanned until the first live message creates `discord-{id}/`. Set to **`0`** to disable. **Attachment-only** messages while offline are not replayed in this pass.
 
 ## 2. Check the connection (script)
 

@@ -25,6 +25,7 @@ import {
   ambientInboundAllowed,
   channelAmbientFlags,
 } from "./discord-message-gate.js";
+import { collectUnansweredUserTexts } from "./discord-backfill.js";
 import { transcriptJsonlHasAssistant } from "./discord-transcript-ambient.js";
 
 const DISCORD_MESSAGE_MAX = 2000;
@@ -93,6 +94,16 @@ export interface DiscordAdapterConfig {
     channelId: string,
     opts?: { isDiscordThread?: boolean },
   ) => Promise<void>;
+  /**
+   * After login, fetch recent messages in these channels (REST) and reply to user text
+   * that arrived while the bot was offline. Disabled when unset or when
+   * `backfillMissedMessagesOnStartup` is false.
+   */
+  listBackfillChannelIds?: () => Promise<string[]>;
+  /** Messages to fetch per channel for backfill (default 25). */
+  backfillMessageLimit?: number;
+  /** Default true when `listBackfillChannelIds` is set. Set false to skip startup backfill. */
+  backfillMissedMessagesOnStartup?: boolean;
   resumeMessagePairs?: number;
   /** Register slash commands to this guild (recommended for dev); omit for global registration. */
   guildId?: string;
@@ -156,6 +167,9 @@ export class DiscordAdapter {
     this.client.once(Events.ClientReady, async (c) => {
       console.log(`[DISCORD] Logged in as ${c.user?.tag}`);
       await this.registerSlashCommands();
+      await this.runStartupBackfill().catch((err) => {
+        console.error("[DISCORD] Startup backfill failed:", err);
+      });
     });
 
     this.client.on(Events.MessageCreate, async (message) => {
@@ -315,24 +329,39 @@ export class DiscordAdapter {
     message: Message,
     unrestricted: boolean,
   ): Promise<void> {
+    const flags = channelAmbientFlags(message);
+    const ctx: DiscordStimulusContext = {
+      parentChannelId: parentChannelIdFromChannel(message.channel),
+      isDiscordThread: flags.isThread,
+    };
+    await this.hydrateAmbientUnlockForChannelId(
+      flags.channelId,
+      ctx,
+      unrestricted,
+      flags.isDm,
+      flags.isThread,
+    );
+  }
+
+  private async hydrateAmbientUnlockForChannelId(
+    channelId: string,
+    ctx: DiscordStimulusContext,
+    unrestricted: boolean,
+    isDm: boolean,
+    isThread: boolean,
+  ): Promise<void> {
     if (unrestricted || !this.config.getSessionDir) {
       return;
     }
-    const flags = channelAmbientFlags(message);
-    if (!flags.isDm && !flags.isThread) {
+    if (!isDm && !isThread) {
       return;
     }
-    const channelId = flags.channelId;
     if (this.ambientConversationUnlocked.has(channelId)) {
       return;
     }
     if (this.ambientDiskUnlockScanned.has(channelId)) {
       return;
     }
-    const ctx: DiscordStimulusContext = {
-      parentChannelId: parentChannelIdFromChannel(message.channel),
-      isDiscordThread: flags.isThread,
-    };
     try {
       const { sessionDir } = await this.config.getSessionDir(channelId, ctx);
       this.ambientDiskUnlockScanned.add(channelId);
@@ -342,6 +371,131 @@ export class DiscordAdapter {
     } catch {
       /* ignore */
     }
+  }
+
+  private async computeUnrestrictedFromFetchedChannel(
+    channel: NonNullable<Awaited<ReturnType<Client["channels"]["fetch"]>>>,
+    channelId: string,
+  ): Promise<boolean> {
+    if (!channel.isTextBased()) {
+      return true;
+    }
+    if (!this.config.getDiscordUnrestrictedMessages) {
+      return true;
+    }
+    const isThread =
+      "isThread" in channel &&
+      typeof channel.isThread === "function" &&
+      channel.isThread();
+    return this.config.getDiscordUnrestrictedMessages(channelId, {
+      parentChannelId: isThread ? channel.parentId ?? undefined : undefined,
+      isDiscordThread: Boolean(isThread),
+    });
+  }
+
+  private async runStartupBackfill(): Promise<void> {
+    if (this.config.backfillMissedMessagesOnStartup === false) {
+      return;
+    }
+    const listFn = this.config.listBackfillChannelIds;
+    if (!listFn) {
+      return;
+    }
+    const ids = await listFn();
+    if (ids.length === 0) {
+      return;
+    }
+    const limit = this.config.backfillMessageLimit ?? 25;
+    console.log(
+      `[DISCORD] Backfill: checking ${ids.length} session channel(s) for messages missed while offline…`,
+    );
+    for (const channelId of ids) {
+      try {
+        await this.backfillChannelIfNeeded(channelId, limit);
+      } catch (e) {
+        console.error(`[DISCORD] Backfill error for ${channelId}:`, e);
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+
+  private async backfillChannelIfNeeded(
+    channelId: string,
+    limit: number,
+  ): Promise<void> {
+    const ch = await this.client.channels.fetch(channelId).catch(() => null);
+    if (!ch?.isTextBased() || !ch.isSendable()) {
+      return;
+    }
+
+    const isDm = ch.isDMBased();
+    const isThread =
+      "isThread" in ch &&
+      typeof ch.isThread === "function" &&
+      ch.isThread();
+    const isParentGuildText = Boolean(
+      "guildId" in ch && ch.guildId && !isDm && !isThread,
+    );
+
+    const stimulusCtx: DiscordStimulusContext = {
+      parentChannelId: isThread ? ch.parentId ?? undefined : undefined,
+      isDiscordThread: isThread,
+    };
+
+    const unrestricted = await this.computeUnrestrictedFromFetchedChannel(
+      ch,
+      channelId,
+    );
+    await this.hydrateAmbientUnlockForChannelId(
+      channelId,
+      stimulusCtx,
+      unrestricted,
+      isDm,
+      isThread,
+    );
+
+    const gateFlags = {
+      channelId,
+      mentionedBot: false,
+      isDm,
+      isThread,
+      isParentGuildText,
+    };
+    if (
+      !ambientInboundAllowed({
+        unrestricted,
+        unlockedChannelIds: this.ambientConversationUnlocked,
+        ...gateFlags,
+      })
+    ) {
+      return;
+    }
+
+    const recent = await ch.messages.fetch({ limit });
+    const sorted = [...recent.values()].sort(
+      (a, b) => a.createdTimestamp - b.createdTimestamp,
+    );
+    const combined = collectUnansweredUserTexts(
+      sorted.map((m) => ({
+        authorIsBot: m.author.bot,
+        content: m.content ?? "",
+      })),
+    );
+    if (!combined?.trim()) {
+      return;
+    }
+
+    console.log(
+      `[DISCORD] Backfill: replying in [${channelId}] to missed user message(s)`,
+    );
+    await this.replyToUserText({
+      sessionChannelId: channelId,
+      replyChannel: ch as SendableChannel,
+      stimulusCtx,
+      unrestricted,
+      text: combined.trim(),
+      logSuffix: "backfill",
+    });
   }
 
   private async handleSlash(
@@ -672,44 +826,48 @@ export class DiscordAdapter {
     void thread.setName(name).catch(() => {});
   }
 
-  private async handleIncomingMessage(message: Message): Promise<void> {
-    if (!message.content && message.attachments.size === 0) return;
+  /** Shared path for live `messageCreate` and startup REST backfill. */
+  private async replyToUserText(params: {
+    message?: Message;
+    sessionChannelId: string;
+    replyChannel: SendableChannel;
+    stimulusCtx: DiscordStimulusContext;
+    unrestricted: boolean;
+    text: string;
+    logSuffix?: string;
+  }): Promise<void> {
+    const {
+      message,
+      sessionChannelId,
+      replyChannel,
+      stimulusCtx,
+      unrestricted,
+      text,
+      logSuffix,
+    } = params;
 
-    const channel = message.channel;
-    if (!channel?.isTextBased() || !channel.isSendable()) return;
-
-    const unrestricted = await this.computeUnrestricted(message);
-    await this.hydrateAmbientUnlockFromTranscript(message, unrestricted);
-    if (!this.ambientAllowsInboundMessage(message, unrestricted)) {
-      return;
-    }
-
-    const target = await this.resolveReplyTarget(message, unrestricted);
-    if (!target) {
-      return;
-    }
-
-    const stimulusCtx: DiscordStimulusContext = {
-      parentChannelId: target.parentChannelId,
-      isDiscordThread: target.isDiscordThread,
+    const logIn = (): void => {
+      if (message) {
+        this.logMessage("←", message, text);
+      } else {
+        const p = logSuffix ? ` (${logSuffix})` : "";
+        const prev = text.length > 120 ? `${text.slice(0, 120)}…` : text;
+        console.log(`[DISCORD] ← [${sessionChannelId}]${p}: ${prev}`);
+      }
+    };
+    const logOut = (content: string): void => {
+      if (message) {
+        this.logMessage("→", message, content);
+      } else {
+        const p = logSuffix ? ` (${logSuffix})` : "";
+        const prev =
+          content.length > 120 ? `${content.slice(0, 120)}…` : content;
+        console.log(`[DISCORD] → [${sessionChannelId}]${p}: ${prev}`);
+      }
     };
 
-    if (message.attachments.size > 0) {
-      await this.handleAttachments(
-        message,
-        target,
-        stimulusCtx,
-        unrestricted,
-      );
-      return;
-    }
+    logIn();
 
-    const text = message.content?.trim();
-    if (!text) return;
-
-    this.logMessage("←", message, text);
-
-    const { sessionChannelId, replyChannel } = target;
     const interaction = await this.getInteraction(sessionChannelId, stimulusCtx);
     const typingKey = sessionChannelId;
     this.startTypingLoop(replyChannel, typingKey);
@@ -719,8 +877,8 @@ export class DiscordAdapter {
         sessionChannelId,
         stimulusCtx,
       );
-      interaction.setOnTranscriptUpdate((messages) => {
-        void this.config.writeTranscript!(sessionDir, messages);
+      interaction.setOnTranscriptUpdate((msgs) => {
+        void this.config.writeTranscript!(sessionDir, msgs);
       });
     }
 
@@ -745,7 +903,7 @@ export class DiscordAdapter {
             if (followText) {
               await this.sendChunks(replyChannel, followText);
               this.afterAmbientBotReply(sessionChannelId, unrestricted);
-              this.logMessage("→", message, followText);
+              logOut(followText);
               this.maybeRefreshThreadTitle(replyChannel, text, followText);
               if (this.config.getSessionDir && this.config.writeTranscript) {
                 const { sessionDir } = await this.config.getSessionDir(
@@ -776,11 +934,11 @@ export class DiscordAdapter {
         await replyChannel.send(
           "I looked into that but don't have a clear result. Try rephrasing or `/reset`.",
         );
-        this.logMessage("→", message, "(no content – fallback)");
+        logOut("(no content – fallback)");
       } else {
         await this.sendChunks(replyChannel, responseText);
         this.afterAmbientBotReply(sessionChannelId, unrestricted);
-        this.logMessage("→", message, responseText);
+        logOut(responseText);
         this.maybeRefreshThreadTitle(replyChannel, text, responseText);
       }
 
@@ -823,6 +981,52 @@ export class DiscordAdapter {
     } finally {
       this.stopTypingLoop(typingKey);
     }
+  }
+
+  private async handleIncomingMessage(message: Message): Promise<void> {
+    if (!message.content && message.attachments.size === 0) return;
+
+    const channel = message.channel;
+    if (!channel?.isTextBased() || !channel.isSendable()) return;
+
+    const unrestricted = await this.computeUnrestricted(message);
+    await this.hydrateAmbientUnlockFromTranscript(message, unrestricted);
+    if (!this.ambientAllowsInboundMessage(message, unrestricted)) {
+      return;
+    }
+
+    const target = await this.resolveReplyTarget(message, unrestricted);
+    if (!target) {
+      return;
+    }
+
+    const stimulusCtx: DiscordStimulusContext = {
+      parentChannelId: target.parentChannelId,
+      isDiscordThread: target.isDiscordThread,
+    };
+
+    if (message.attachments.size > 0) {
+      await this.handleAttachments(
+        message,
+        target,
+        stimulusCtx,
+        unrestricted,
+      );
+      return;
+    }
+
+    const text = message.content?.trim();
+    if (!text) return;
+
+    const { sessionChannelId, replyChannel } = target;
+    await this.replyToUserText({
+      message,
+      sessionChannelId,
+      replyChannel,
+      stimulusCtx,
+      unrestricted,
+      text,
+    });
   }
 
   private async handleAttachments(

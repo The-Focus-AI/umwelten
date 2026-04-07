@@ -890,6 +890,9 @@ async function discordAction(
   };
 
   const { DiscordAdapter } = await import("../ui/discord/DiscordAdapter.js");
+  const { readRecentDiscordSessionChannelIds } = await import(
+    "../ui/discord/discord-backfill-sessions.js"
+  );
 
   const guildId =
     options.discordGuild?.trim() || process.env.DISCORD_GUILD_ID?.trim();
@@ -922,6 +925,10 @@ async function discordAction(
         discordStableSession: opts?.isDiscordThread === true,
       });
     },
+    listBackfillChannelIds: async () =>
+      readRecentDiscordSessionChannelIds(habitat.sessionsDir),
+    backfillMissedMessagesOnStartup:
+      process.env.DISCORD_BACKFILL_ON_START !== "0",
   });
 
   console.log(`[habitat] Discord bot starting…`);

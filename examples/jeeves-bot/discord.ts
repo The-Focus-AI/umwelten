@@ -8,6 +8,7 @@
 import path from 'node:path';
 import type { Tool } from 'ai';
 import { DiscordAdapter } from '../../src/ui/discord/DiscordAdapter.js';
+import { readRecentDiscordSessionChannelIds } from '../../src/ui/discord/discord-backfill-sessions.js';
 import { writeSessionTranscript } from '../../src/habitat/transcript.js';
 import {
   buildAgentStimulus,
@@ -195,6 +196,10 @@ async function main(): Promise<void> {
         discordStableSession: opts?.isDiscordThread === true,
       });
     },
+    listBackfillChannelIds: async () =>
+      readRecentDiscordSessionChannelIds(habitat.sessionsDir),
+    backfillMissedMessagesOnStartup:
+      process.env.DISCORD_BACKFILL_ON_START !== '0',
   });
 
   process.on('SIGINT', async () => {
