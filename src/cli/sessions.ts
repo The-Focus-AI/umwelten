@@ -28,9 +28,10 @@ import type { LearningKind } from '../session-record/types.js';
 import { LEARNING_KINDS } from '../session-record/types.js';
 import { resolveClaudeCodeSessionHandle } from '../session-record/resolve-claude.js';
 import { compactHabitatTranscriptSegment } from '../session-record/compaction-habitat.js';
+import { registerSessionsHabitatCommands } from './sessions-habitat.js';
 
 export const sessionsCommand = new Command('sessions')
-  .description('View and analyze sessions (Claude Code, Cursor)');
+  .description('View and analyze sessions (Claude Code, Cursor) and native Habitat transcripts');
 
 /**
  * Resolve session for show/messages/stats: from project index, or from --file / --session-dir (Jeeves-style).
@@ -2266,3 +2267,5 @@ transcriptCommand
   );
 
 sessionsCommand.addCommand(transcriptCommand);
+
+registerSessionsHabitatCommands(sessionsCommand);
