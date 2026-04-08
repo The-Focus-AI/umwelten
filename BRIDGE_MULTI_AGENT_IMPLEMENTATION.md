@@ -1,5 +1,7 @@
 # Multi-Agent Bridge System
 
+> **Maintained docs:** [Habitat Bridge guide](docs/guide/habitat-bridge.md).
+
 ## Overview
 
 The Bridge system supports multiple concurrent agents, each running in its own Dagger container with an MCP server for communication.

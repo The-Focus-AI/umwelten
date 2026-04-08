@@ -19,7 +19,7 @@ run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\
 [tasks."jeeves-discord"]
 description = "Jeeves Discord bot (examples/jeeves-bot/.env)"
 dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\"; _J=\"$_R/examples/jeeves-bot\"; case \"$JEEVES_WORK_DIR\" in \"\") ;; /*) ;; *) export JEEVES_WORK_DIR=\"$_J/${JEEVES_WORK_DIR#./}\" ;; esac; case \"$JEEVES_SESSIONS_DIR\" in \"\") ;; /*) ;; *) export JEEVES_SESSIONS_DIR=\"$_J/${JEEVES_SESSIONS_DIR#./}\" ;; esac; cd \"$_R\" && pnpm exec tsx examples/jeeves-bot/discord.ts'"
+run = "dotenvx run -f examples/jeeves-bot/.env -- sh -c '_R=\"{{ config_root }}\"; _J=\"$_R/examples/jeeves-bot\"; case \"$JEEVES_WORK_DIR\" in \"\") ;; /*) ;; *) export JEEVES_WORK_DIR=\"$_J/${JEEVES_WORK_DIR#./}\" ;; esac; case \"$JEEVES_SESSIONS_DIR\" in \"\") ;; /*) ;; *) export JEEVES_SESSIONS_DIR=\"$_J/${JEEVES_SESSIONS_DIR#./}\" ;; esac; cd \"$_R\" && pnpm run cli -- habitat discord --env-prefix JEEVES'"
 
 [tasks."jeeves-discord-check"]
 description = "Verify Jeeves Discord env, work dir, and bot token (examples/jeeves-bot/.env)"

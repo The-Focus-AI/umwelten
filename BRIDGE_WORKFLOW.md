@@ -1,5 +1,7 @@
 # Bridge System Workflow
 
+> **Maintained docs:** [Habitat Bridge guide](docs/guide/habitat-bridge.md) on the documentation site. This file is a short workflow summary for the repo.
+
 ## Core Principle
 
 **NEVER clone repos to host computer. Everything happens inside Dagger containers.**
