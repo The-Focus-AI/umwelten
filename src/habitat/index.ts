@@ -18,6 +18,13 @@ export type {
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
 export { getAgentMemoryPath } from "./agent-paths.js";
 
+export { runClaudeSDK } from "./claude-sdk-runner.js";
+export type {
+  ClaudeSDKRunnerOptions,
+  ClaudeSDKResult,
+  ClaudeSDKProgress,
+} from "./claude-sdk-runner.js";
+
 export type { ToolSet } from "./tool-sets.js";
 export {
   standardToolSets,
@@ -41,16 +48,41 @@ export {
   appendDiscordChannelRoute,
   setDiscordChannelRoute,
   discordRouteSignature,
+  coerceDiscordChannelBinding,
+  peekExactDiscordBinding,
+  setDiscordChannelInfoMessageId,
+  updateDiscordChannelRuntime,
 } from "./discord-routing.js";
 export type {
   DiscordRoutingConfig,
   DiscordRouteResolution,
+  DiscordChannelRuntimeMode,
+  DiscordChannelBinding,
 } from "./discord-routing.js";
 
 export { provisionDiscordAgentChannel } from "./discord-provision.js";
 export type { DiscordProvisionOptions } from "./discord-provision.js";
 
 export { coreMessagesToJSONL, writeSessionTranscript } from "./transcript.js";
+
+export type {
+  SessionHandle,
+  LearningKind,
+  LearningRecord,
+  CompactionEventV1,
+} from "../session-record/index.js";
+export {
+  FileLearningsStore,
+  resolveHabitatSessionHandle,
+  resolveClaudeCodeSessionHandle,
+  listHabitatTranscriptReadPaths,
+  compactHabitatTranscriptSegment,
+  loadHabitatSessionTranscriptMessages,
+  loadRecentHabitatTranscriptCoreMessages,
+  buildHabitatIntrospectionContextMessages,
+  LEARNING_KINDS,
+  LEARNING_FILENAMES,
+} from "../session-record/index.js";
 
 export { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
 

@@ -14,6 +14,8 @@
 
 import { Command } from "commander";
 import path from "node:path";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import type { CoreMessage, Tool } from "ai";
 import {
@@ -23,8 +25,9 @@ import {
   loadDiscordRouting,
   resolveDiscordChannelRoute,
   discordRouteSignature,
+  runClaudeSDK,
 } from "../habitat/index.js";
-import type { AgentEntry } from "../habitat/index.js";
+import type { AgentEntry, DiscordChannelRuntimeMode } from "../habitat/index.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { InteractionStore } from "../interaction/persistence/interaction-store.js";
 import { writeSessionTranscript } from "../habitat/transcript.js";
@@ -745,18 +748,43 @@ async function telegramAction(
     modelDetails,
     stimulus,
     getSessionMediaDir: async (chatId: number) => {
+      const label =
+        habitat.getConfig().name?.trim() ||
+        path.basename(path.resolve(habitat.workDir));
       const { sessionDir } = await habitat.getOrCreateSession(
         "telegram",
         chatId,
+        {
+          sessionMetadata: {
+            agentId: label,
+            routeSignature: `telegram:${chatId}`,
+          },
+        },
       );
       return path.join(sessionDir, "media");
     },
     getSessionDir: async (chatId: number) => {
-      return habitat.getOrCreateSession("telegram", chatId);
+      const label =
+        habitat.getConfig().name?.trim() ||
+        path.basename(path.resolve(habitat.workDir));
+      return habitat.getOrCreateSession("telegram", chatId, {
+        sessionMetadata: {
+          agentId: label,
+          routeSignature: `telegram:${chatId}`,
+        },
+      });
     },
     writeTranscript: writeSessionTranscript,
     startNewThread: async (chatId: number) => {
-      await habitat.startNewThread("telegram", chatId);
+      const label =
+        habitat.getConfig().name?.trim() ||
+        path.basename(path.resolve(habitat.workDir));
+      await habitat.startNewThread("telegram", chatId, {
+        sessionMetadata: {
+          agentId: label,
+          routeSignature: `telegram:${chatId}`,
+        },
+      });
     },
   });
 
@@ -776,6 +804,25 @@ async function telegramAction(
 }
 
 // ── Discord action ───────────────────────────────────────────────────
+
+async function readClaudeSdkVersionFromRepoPackageJson(): Promise<string> {
+  try {
+    const pkgPath = fileURLToPath(
+      new URL("../../package.json", import.meta.url),
+    );
+    const pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    return (
+      pkg.dependencies?.["@anthropic-ai/claude-agent-sdk"] ??
+      pkg.devDependencies?.["@anthropic-ai/claude-agent-sdk"] ??
+      "unknown"
+    );
+  } catch {
+    return "unknown";
+  }
+}
 
 async function discordAction(
   options: HabitatCLIOptions & { token?: string; discordGuild?: string },
@@ -889,6 +936,70 @@ async function discordAction(
     return habitat.getAgent(resolved.agentId) != null;
   };
 
+  const claudeSdkSpec = await readClaudeSdkVersionFromRepoPackageJson();
+
+  const getDiscordRouteDetail = async (
+    channelId: string,
+    context?: {
+      parentChannelId?: string | null;
+      isDiscordThread?: boolean;
+    },
+  ) => {
+    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+    return resolveDiscordChannelRoute(
+      channelId,
+      routing,
+      context?.parentChannelId,
+    );
+  };
+
+  const buildDiscordBindingPinContent = async (opts: {
+    agentId: string;
+    runtime: DiscordChannelRuntimeMode;
+  }) => {
+    const agent = habitat.getAgent(opts.agentId);
+    const runLine =
+      opts.runtime === "claude-sdk"
+        ? "**Runtime:** Claude Agent SDK pass-through (each message → `runClaudeSDK` on the agent repo). Text only."
+        : "**Runtime:** Habitat model + tools. Attachments and vision where supported.";
+    const lines = [
+      "# Habitat channel binding",
+      "",
+      `**Agent:** \`${opts.agentId}\`${agent ? ` — ${agent.name}` : ""}`,
+      agent ? `**Project:** \`${agent.projectPath}\`` : "",
+      runLine,
+      `**Claude SDK dep (umwelten):** \`${claudeSdkSpec}\``,
+      "",
+      "- Change mode: `/set-agent-runtime`",
+      "- Unbind: `/unbind-agent`",
+    ];
+    return lines.filter((l) => l !== "").join("\n");
+  };
+
+  const runClaudeSdkPassThrough = async (opts: {
+    agentId: string;
+    userText: string;
+  }) => {
+    const agent = habitat.getAgent(opts.agentId);
+    if (!agent) {
+      return {
+        text: "",
+        success: false,
+        errors: [`Agent not found: ${opts.agentId}`],
+      };
+    }
+    const r = await runClaudeSDK(opts.userText, {
+      cwd: agent.projectPath,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      maxTurns: 25,
+    });
+    return {
+      text: r.content,
+      success: r.success,
+      errors: r.errors.length ? r.errors : undefined,
+    };
+  };
+
   const { DiscordAdapter } = await import("../ui/discord/DiscordAdapter.js");
   const { readRecentDiscordSessionChannelIds } = await import(
     "../ui/discord/discord-backfill-sessions.js"
@@ -904,25 +1015,61 @@ async function discordAction(
     getStimulusForChannel,
     getDiscordRouteSignature,
     getDiscordUnrestrictedMessages,
+    getDiscordRouteDetail,
+    buildDiscordBindingPinContent,
+    runClaudeSdkPassThrough,
     workDir: habitat.workDir,
     discordRoutingPath: routingPath,
     guildId: guildId || undefined,
     getSessionMediaDir: async (channelId, ctx) => {
+      const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+      const resolved = resolveDiscordChannelRoute(
+        channelId,
+        routing,
+        ctx?.parentChannelId,
+      );
+      const routeSignature = discordRouteSignature(resolved);
+      const agentId =
+        resolved.kind === "agent" ? resolved.agentId : undefined;
       const { sessionDir } = await habitat.getOrCreateSession(
         "discord",
         channelId,
-        { discordStableSession: ctx?.isDiscordThread === true },
+        {
+          discordStableSession: ctx?.isDiscordThread === true,
+          sessionMetadata: { agentId, routeSignature },
+        },
       );
       return path.join(sessionDir, "media");
     },
-    getSessionDir: async (channelId, ctx) =>
-      habitat.getOrCreateSession("discord", channelId, {
+    getSessionDir: async (channelId, ctx) => {
+      const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+      const resolved = resolveDiscordChannelRoute(
+        channelId,
+        routing,
+        ctx?.parentChannelId,
+      );
+      const routeSignature = discordRouteSignature(resolved);
+      const agentId =
+        resolved.kind === "agent" ? resolved.agentId : undefined;
+      return habitat.getOrCreateSession("discord", channelId, {
         discordStableSession: ctx?.isDiscordThread === true,
-      }),
+        sessionMetadata: { agentId, routeSignature },
+      });
+    },
     writeTranscript: writeSessionTranscript,
     startNewThread: async (channelId, opts) => {
+      const routing = await loadDiscordRouting(habitat.workDir, routingPath);
+      const resolved = resolveDiscordChannelRoute(
+        channelId,
+        routing,
+        opts?.parentChannelId,
+      );
+      const routeSignature = discordRouteSignature(resolved);
+      const agentId =
+        resolved.kind === "agent" ? resolved.agentId : undefined;
       await habitat.startNewThread("discord", channelId, {
         discordStableSession: opts?.isDiscordThread === true,
+        sessionMetadata: { agentId, routeSignature },
       });
     },
     listBackfillChannelIds: async () =>

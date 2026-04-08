@@ -62,15 +62,39 @@ async function main(): Promise<void> {
     visionModelDetails: { name: VISION_MODEL, provider: VISION_PROVIDER },
     stimulus,
     getSessionMediaDir: async (chatId: number) => {
-      const { sessionDir } = await habitat.getOrCreateSession('telegram', chatId);
+      const label =
+        habitat.getConfig().name?.trim() ||
+        path.basename(path.resolve(habitat.workDir));
+      const { sessionDir } = await habitat.getOrCreateSession('telegram', chatId, {
+        sessionMetadata: {
+          agentId: label,
+          routeSignature: `telegram:${chatId}`,
+        },
+      });
       return path.join(sessionDir, 'media');
     },
     getSessionDir: async (chatId: number) => {
-      return habitat.getOrCreateSession('telegram', chatId);
+      const label =
+        habitat.getConfig().name?.trim() ||
+        path.basename(path.resolve(habitat.workDir));
+      return habitat.getOrCreateSession('telegram', chatId, {
+        sessionMetadata: {
+          agentId: label,
+          routeSignature: `telegram:${chatId}`,
+        },
+      });
     },
     writeTranscript: writeSessionTranscript,
     startNewThread: async (chatId: number) => {
-      await habitat.startNewThread('telegram', chatId);
+      const label =
+        habitat.getConfig().name?.trim() ||
+        path.basename(path.resolve(habitat.workDir));
+      await habitat.startNewThread('telegram', chatId, {
+        sessionMetadata: {
+          agentId: label,
+          routeSignature: `telegram:${chatId}`,
+        },
+      });
     },
   });
 
