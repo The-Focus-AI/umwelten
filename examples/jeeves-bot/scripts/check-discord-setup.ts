@@ -181,8 +181,8 @@ async function main(): Promise<number> {
   }
 
   console.log("\nNext: enable **Message Content Intent** in the Discord Developer Portal (Bot tab).");
-  console.log("Then run:  mise run jeeves-discord");
-  console.log("   or:     dotenvx run -f examples/jeeves-bot/.env -- pnpm exec tsx examples/jeeves-bot/discord.ts\n");
+  console.log("Then from examples/jeeves-bot:  dotenvx run -- pnpm run discord");
+  console.log("   (runs `umwelten habitat discord` with JEEVES prefix + ./jeeves-bot-data-dir)\n");
 
   return errors > 0 ? 1 : 0;
 }

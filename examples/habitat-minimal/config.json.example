@@ -1,0 +1,8 @@
+{
+  "defaultProvider": "google",
+  "defaultModel": "gemini-3-flash-preview",
+  "toolsDir": "tools",
+  "skillsDirs": [],
+  "skillsFromGit": [],
+  "agents": []
+}

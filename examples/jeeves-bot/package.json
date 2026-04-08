@@ -5,7 +5,7 @@
   "scripts": {
     "cli": "tsx cli.ts",
     "telegram": "tsx telegram.ts",
-    "discord": "tsx discord.ts",
+    "discord": "tsx ../../src/cli/entry.ts habitat discord --env-prefix JEEVES --work-dir ./jeeves-bot-data-dir",
     "check-discord": "tsx scripts/check-discord-setup.ts",
     "verify-sessions": "tsx verify-sessions-store-reload.ts",
     "verify-skills": "tsx verify-skills-load.ts"

@@ -205,13 +205,16 @@ async function repl(
 }
 
 async function main(): Promise<void> {
-  // Delegate to sessions CLI when: jeeves sessions <subcommand>
   const args = process.argv.slice(2);
   const sessionsIdx = args.findIndex((a) => a === 'sessions');
   if (sessionsIdx >= 0 && sessionsIdx <= 1) {
-    const { runSessionsCli } = await import('./sessions-cli.js');
-    await runSessionsCli(args.slice(sessionsIdx + 1));
-    process.exit(0);
+    console.error(
+      "[JEEVES] Native session commands live on the main CLI: `umwelten sessions habitat …`.\n" +
+        "From the umwelten repo root, with your Jeeves work dir and JEEVES env prefix, e.g.:\n" +
+        "  dotenvx run -- pnpm run cli -- sessions habitat list \\\n" +
+        "    --work-dir examples/jeeves-bot/jeeves-bot-data-dir --env-prefix JEEVES\n",
+    );
+    process.exit(1);
   }
 
   const { provider, model, oneShot, quiet } = parseArgs();

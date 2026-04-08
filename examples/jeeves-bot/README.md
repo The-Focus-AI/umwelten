@@ -316,17 +316,12 @@ From `examples/jeeves-bot`: `pnpm run check-discord` (uses `.env` next to that f
 pnpm run discord
 ```
 
-**From the repository root:**
+**From the repository root** (same as `pnpm run discord` in this folder):
 
 ```bash
-dotenvx run -- pnpm exec tsx examples/jeeves-bot/discord.ts
-pnpm exec tsx examples/jeeves-bot/discord.ts --token "$DISCORD_BOT_TOKEN" --provider google --model gemini-3-flash-preview
-```
-
-**Via habitat (any work dir):**
-
-```bash
-dotenvx run -- pnpm run cli habitat discord -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3-flash-preview --token "$DISCORD_BOT_TOKEN"
+dotenvx run -- pnpm run cli -- habitat discord --env-prefix JEEVES \
+  --work-dir examples/jeeves-bot/jeeves-bot-data-dir \
+  -p google -m gemini-3-flash-preview --token "$DISCORD_BOT_TOKEN"
 ```
 
 Optional: `DISCORD_GUILD_ID` or `--discord-guild` registers slash commands in one server (faster than global). Slash commands: `/start`, `/reset`, `/help`, `/bind-agent` and `/unbind-agent` (**Manage Channels** — map the current channel or thread to a habitat agent), `/reload-routing` (admin), `/provision` (admin, requires `DISCORD_AUTO_CHANNELS=1` and bot **Manage Channels** to create channels).
@@ -343,7 +338,17 @@ Each CLI run (one-shot or REPL) creates a session under `JEEVES_SESSIONS_DIR` (e
 - **Assistant messages**: `type: "assistant"` with text or `tool_use` content blocks
 - **Tool results**: `type: "user"` with `tool_result` content blocks (tool call ID, output, is_error)
 
-**Transcript format (JSONL)** — One JSON object per line, Claude-style. Each entry has `type`, `uuid`, `timestamp`, and `message: { role, content }`. Tool calls use `content: [{ "type": "tool_use", "id", "name", "input" }]`; tool results use `content: [{ "type": "tool_result", "tool_use_id", "content", "is_error" }]`. Full tool call history (inputs and outputs) is persisted so `sessions_show`, `sessions_messages`, and `sessions_stats` reflect the complete interaction.
+**Transcript format (JSONL)** — One JSON object per line, Claude-style. Each entry has `type`, `uuid`, `timestamp`, and `message: { role, content }`. Tool calls use `content: [{ "type": "tool_use", "id", "name", "input" }]`; tool results use `content: [{ "type": "tool_result", "tool_use_id", "content", "is_error" }]`. Full tool call history is persisted for inspection.
+
+**Inspect native sessions from the shell** (from repo root, adjust `--work-dir`):
+
+```bash
+dotenvx run -- pnpm run cli -- sessions habitat list --work-dir examples/jeeves-bot/jeeves-bot-data-dir --env-prefix JEEVES
+dotenvx run -- pnpm run cli -- sessions habitat show <session-prefix> --work-dir examples/jeeves-bot/jeeves-bot-data-dir --env-prefix JEEVES
+dotenvx run -- pnpm run cli -- sessions habitat beats <session-prefix> --work-dir … --env-prefix JEEVES
+```
+
+In-chat **session tools** (`sessions_list`, `sessions_show`, …) still mirror this data for the LLM.
 
 Session tools use **session-parser** (`parseSessionFile`, `summarizeSession`, `extractConversation`, `extractTextContent`) and mirror **external-interactions** (list, show, messages, stats, read_file):
 
