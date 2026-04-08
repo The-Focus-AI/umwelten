@@ -64,6 +64,17 @@ interface LocalAgentCLIOptions extends HabitatCLIOptions {
 }
 
 /**
+ * Shared flags like `--env-prefix` are parsed on the parent `habitat` command; leaf
+ * `.action` handlers only receive `this.opts()` for the subcommand. Merge ancestor opts.
+ */
+function mergedHabitatCliOptions(
+  command: Command,
+  local: HabitatCLIOptions,
+): HabitatCLIOptions {
+  return { ...command.optsWithGlobals(), ...local };
+}
+
+/**
  * Create a Habitat from CLI options. Shared between all subcommands.
  */
 async function createHabitatFromOptions(
@@ -103,6 +114,13 @@ function resolveModelDetails(
 
   // Fall back to habitat config defaults
   return habitat.getDefaultModelDetails();
+}
+
+function noDefaultModelCliHint(envPrefix: string): string {
+  return (
+    `No model configured. Provide --provider and --model, add defaultProvider/defaultModel to config.json, ` +
+    `or set ${envPrefix}_PROVIDER and ${envPrefix}_MODEL.`
+  );
 }
 
 /**
@@ -551,9 +569,7 @@ async function cliAction(
   const modelDetails = resolveModelDetails(habitat, options);
 
   if (!modelDetails) {
-    console.error(
-      "No model configured. Provide --provider and --model, or add defaultProvider/defaultModel to config.json.",
-    );
+    console.error(noDefaultModelCliHint(habitat.envPrefix));
     process.exit(1);
   }
 
@@ -659,9 +675,7 @@ async function localAction(
   const modelDetails = resolveModelDetails(habitat, options);
 
   if (!modelDetails) {
-    console.error(
-      "No model configured. Provide --provider and --model, or add defaultProvider/defaultModel to config.json.",
-    );
+    console.error(noDefaultModelCliHint(habitat.envPrefix));
     process.exit(1);
   }
 
@@ -730,9 +744,7 @@ async function telegramAction(
   const modelDetails = resolveModelDetails(habitat, options);
 
   if (!modelDetails) {
-    console.error(
-      "No model configured. Provide --provider and --model, or add defaultProvider/defaultModel to config.json.",
-    );
+    console.error(noDefaultModelCliHint(habitat.envPrefix));
     process.exit(1);
   }
 
@@ -842,9 +854,7 @@ async function discordAction(
   const modelDetails = resolveModelDetails(habitat, options);
 
   if (!modelDetails) {
-    console.error(
-      "No model configured. Provide --provider and --model, or add defaultProvider/defaultModel to config.json.",
-    );
+    console.error(noDefaultModelCliHint(habitat.envPrefix));
     process.exit(1);
   }
 
@@ -1190,9 +1200,14 @@ addSharedOptions(telegramSubcommand)
     "--token <token>",
     "Telegram bot token (default: TELEGRAM_BOT_TOKEN env var)",
   )
-  .action(async (options: HabitatCLIOptions & { token?: string }) => {
-    await telegramAction(options);
-  });
+  .action(
+    async (
+      options: HabitatCLIOptions & { token?: string },
+      command: Command,
+    ) => {
+      await telegramAction(mergedHabitatCliOptions(command, options));
+    },
+  );
 
 habitatCommand.addCommand(telegramSubcommand);
 
@@ -1212,8 +1227,9 @@ addSharedOptions(discordSubcommand)
   .action(
     async (
       options: HabitatCLIOptions & { token?: string; discordGuild?: string },
+      command: Command,
     ) => {
-      await discordAction(options);
+      await discordAction(mergedHabitatCliOptions(command, options));
     },
   );
 
@@ -1225,9 +1241,11 @@ const webSubcommand = new Command("web").description(
 );
 addSharedOptions(webSubcommand)
   .option("--port <port>", "HTTP port (default: 3000)")
-  .action(async (options: HabitatCLIOptions & { port?: string }) => {
-    await webAction(options);
-  });
+  .action(
+    async (options: HabitatCLIOptions & { port?: string }, command: Command) => {
+      await webAction(mergedHabitatCliOptions(command, options));
+    },
+  );
 
 habitatCommand.addCommand(webSubcommand);
 
@@ -1249,19 +1267,13 @@ addSharedOptions(localSubcommand)
   .action(
     async (
       promptParts: string[],
-      optionsOrCommand: LocalAgentCLIOptions | Command,
-      maybeCommand?: Command,
+      options: LocalAgentCLIOptions,
+      command: Command,
     ) => {
-      const command =
-        maybeCommand instanceof Command
-          ? maybeCommand
-          : optionsOrCommand instanceof Command
-            ? optionsOrCommand
-            : undefined;
-      const options = command
-        ? (command.optsWithGlobals() as LocalAgentCLIOptions)
-        : (optionsOrCommand as LocalAgentCLIOptions);
-      await localAction(promptParts, options);
+      await localAction(
+        promptParts,
+        mergedHabitatCliOptions(command, options) as LocalAgentCLIOptions,
+      );
     },
   );
 
@@ -1281,11 +1293,10 @@ secretsSubcommand
     "Environment variable prefix (default: HABITAT)",
   )
   .option("--skip-onboard", "Skip automatic onboarding")
-  .action(async (options: HabitatCLIOptions) => {
-    const habitat = await createHabitatFromOptions({
-      ...options,
-      skipOnboard: options.skipOnboard,
-    });
+  .action(async (options: HabitatCLIOptions, command: Command) => {
+    const habitat = await createHabitatFromOptions(
+      mergedHabitatCliOptions(command, options),
+    );
     const names = habitat.listSecretNames();
     if (names.length === 0) {
       console.log(
@@ -1317,6 +1328,7 @@ secretsSubcommand
       name: string,
       value: string | undefined,
       options: HabitatCLIOptions & { fromOp?: string },
+      command: Command,
     ) => {
       let secretValue = value;
 
@@ -1345,10 +1357,9 @@ secretsSubcommand
         process.exit(1);
       }
 
-      const habitat = await createHabitatFromOptions({
-        ...options,
-        skipOnboard: options.skipOnboard,
-      });
+      const habitat = await createHabitatFromOptions(
+        mergedHabitatCliOptions(command, options),
+      );
       await habitat.setSecret(name, secretValue);
       console.log(`Secret "${name}" set.`);
     },
@@ -1363,11 +1374,10 @@ secretsSubcommand
     "Environment variable prefix (default: HABITAT)",
   )
   .option("--skip-onboard", "Skip automatic onboarding")
-  .action(async (name: string, options: HabitatCLIOptions) => {
-    const habitat = await createHabitatFromOptions({
-      ...options,
-      skipOnboard: options.skipOnboard,
-    });
+  .action(async (name: string, options: HabitatCLIOptions, command: Command) => {
+    const habitat = await createHabitatFromOptions(
+      mergedHabitatCliOptions(command, options),
+    );
     await habitat.removeSecret(name);
     console.log(`Secret "${name}" removed.`);
   });
@@ -1391,11 +1401,14 @@ agentSubcommand
   .option("--skip-onboard", "Skip automatic onboarding")
   .option("--port <port>", "Preferred port (auto-assigned if not specified)")
   .action(
-    async (agentId: string, options: HabitatCLIOptions & { port?: string }) => {
-      const habitat = await createHabitatFromOptions({
-        ...options,
-        skipOnboard: options.skipOnboard,
-      });
+    async (
+      agentId: string,
+      options: HabitatCLIOptions & { port?: string },
+      command: Command,
+    ) => {
+      const habitat = await createHabitatFromOptions(
+        mergedHabitatCliOptions(command, options),
+      );
 
       const agent = habitat.getAgent(agentId);
       if (!agent) {
@@ -1458,11 +1471,10 @@ agentSubcommand
     "Environment variable prefix (default: HABITAT)",
   )
   .option("--skip-onboard", "Skip automatic onboarding")
-  .action(async (agentId: string, options: HabitatCLIOptions) => {
-    const habitat = await createHabitatFromOptions({
-      ...options,
-      skipOnboard: options.skipOnboard,
-    });
+  .action(async (agentId: string, options: HabitatCLIOptions, command: Command) => {
+    const habitat = await createHabitatFromOptions(
+      mergedHabitatCliOptions(command, options),
+    );
 
     const agent = habitat.getAgent(agentId);
     if (!agent) {
@@ -1496,11 +1508,15 @@ agentSubcommand
     "Environment variable prefix (default: HABITAT)",
   )
   .option("--skip-onboard", "Skip automatic onboarding")
-  .action(async (agentId: string | undefined, options: HabitatCLIOptions) => {
-    const habitat = await createHabitatFromOptions({
-      ...options,
-      skipOnboard: options.skipOnboard,
-    });
+  .action(
+    async (
+      agentId: string | undefined,
+      options: HabitatCLIOptions,
+      command: Command,
+    ) => {
+    const habitat = await createHabitatFromOptions(
+      mergedHabitatCliOptions(command, options),
+    );
 
     const { AgentDiscovery } = await import("../habitat/agent-discovery.js");
     const discovery = new AgentDiscovery({ habitat });

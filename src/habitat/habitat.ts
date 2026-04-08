@@ -210,8 +210,14 @@ export class Habitat
   getDefaultModelDetails(): ModelDetails | undefined {
     // Runtime model (from CLI flags) takes priority over config
     if (this.runtimeModelDetails) return this.runtimeModelDetails;
-    const provider = this.config.defaultProvider;
-    const model = this.config.defaultModel;
+
+    const fromConfigP = this.config.defaultProvider?.trim();
+    const fromConfigM = this.config.defaultModel?.trim();
+    const fromEnvP = process.env[`${this.envPrefix}_PROVIDER`]?.trim();
+    const fromEnvM = process.env[`${this.envPrefix}_MODEL`]?.trim();
+
+    const provider = fromConfigP || fromEnvP;
+    const model = fromConfigM || fromEnvM;
     if (provider && model) return { name: model, provider };
     return undefined;
   }
@@ -491,7 +497,7 @@ export class Habitat
     const modelDetails = this.getDefaultModelDetails();
     if (!modelDetails) {
       throw new Error(
-        "No default model configured. Set defaultProvider/defaultModel in config.json.",
+        `No default model configured. Set defaultProvider/defaultModel in config.json or ${this.envPrefix}_PROVIDER / ${this.envPrefix}_MODEL.`,
       );
     }
     return new Interaction(modelDetails, stimulus);

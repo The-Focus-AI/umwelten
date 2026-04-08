@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -256,6 +256,10 @@ describe("Habitat", () => {
   });
 
   describe("model defaults", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
     it("should return undefined when no model configured", async () => {
       const habitat = await Habitat.create({
         workDir,
@@ -265,6 +269,43 @@ describe("Habitat", () => {
       });
 
       expect(habitat.getDefaultModelDetails()).toBeUndefined();
+    });
+
+    it("should fall back to env-prefixed provider and model", async () => {
+      vi.stubEnv("TEMPHAB_PROVIDER", "google");
+      vi.stubEnv("TEMPHAB_MODEL", "gemini-3-flash-preview");
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        envPrefix: "TEMPHAB",
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+      expect(habitat.getDefaultModelDetails()).toEqual({
+        provider: "google",
+        name: "gemini-3-flash-preview",
+      });
+    });
+
+    it("should prefer config over env for default model", async () => {
+      vi.stubEnv("TEMPHAB2_PROVIDER", "openrouter");
+      vi.stubEnv("TEMPHAB2_MODEL", "anthropic/claude-sonnet-4");
+      const habitat = await Habitat.create({
+        workDir,
+        sessionsDir,
+        envPrefix: "TEMPHAB2",
+        config: {
+          agents: [],
+          defaultProvider: "google",
+          defaultModel: "gemini-3-flash-preview",
+        },
+        skipBuiltinTools: true,
+        skipSkills: true,
+      });
+      expect(habitat.getDefaultModelDetails()).toEqual({
+        provider: "google",
+        name: "gemini-3-flash-preview",
+      });
     });
 
     it("should return model details from config", async () => {
