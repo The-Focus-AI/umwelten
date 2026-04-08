@@ -16,7 +16,22 @@ export type SessionManagerSessionOptions = {
    * Use for native Discord threads so `/start` does not fork a second on-disk session.
    */
   discordStableSession?: boolean;
+  /** Merged into meta.json on write (routing / agent binding). */
+  sessionMetadata?: Partial<
+    Pick<HabitatSessionMetadata, "agentId" | "routeSignature">
+  >;
 };
+
+function applySessionMetadataPatch(
+  metadata: HabitatSessionMetadata,
+  patch: SessionManagerSessionOptions["sessionMetadata"] | undefined,
+): void {
+  if (!patch) return;
+  if (patch.agentId !== undefined) metadata.agentId = patch.agentId;
+  if (patch.routeSignature !== undefined) {
+    metadata.routeSignature = patch.routeSignature;
+  }
+}
 
 export class HabitatSessionManager {
   constructor(private sessionsDir: string) {}
@@ -74,6 +89,7 @@ export class HabitatSessionManager {
                     discordChannelId: channelId,
                   };
                 }
+                applySessionMetadataPatch(metadata, options?.sessionMetadata);
                 await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
                 return { sessionId, sessionDir };
               }
@@ -116,6 +132,7 @@ export class HabitatSessionManager {
                   chatId: Number(identifier),
                 };
               }
+              applySessionMetadataPatch(metadata, options?.sessionMetadata);
               await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
               return { sessionId, sessionDir };
             }
@@ -179,6 +196,7 @@ export class HabitatSessionManager {
         }),
       };
     }
+    applySessionMetadataPatch(metadata, options?.sessionMetadata);
     await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
 
     return { sessionId, sessionDir };
@@ -209,6 +227,7 @@ export class HabitatSessionManager {
         type: 'telegram',
         chatId,
       };
+      applySessionMetadataPatch(metadata, options?.sessionMetadata);
       await writeFile(join(sessionDir, 'meta.json'), JSON.stringify(metadata, null, 2), 'utf-8');
 
       const baseDir = join(this.sessionsDir, baseId);
@@ -248,6 +267,7 @@ export class HabitatSessionManager {
             discordChannelId: channelId,
           };
         }
+        applySessionMetadataPatch(metadata, options?.sessionMetadata);
         await writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
         return { sessionId, sessionDir };
       }
@@ -263,6 +283,7 @@ export class HabitatSessionManager {
         type: 'discord',
         discordChannelId: channelId,
       };
+      applySessionMetadataPatch(metadata, options?.sessionMetadata);
       await writeFile(join(sessionDir, 'meta.json'), JSON.stringify(metadata, null, 2), 'utf-8');
 
       const baseDir = join(this.sessionsDir, baseId);

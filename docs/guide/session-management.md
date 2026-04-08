@@ -23,6 +23,50 @@ The session system consists of three main features:
 2. **LLM-Based Indexing** - Automatically extract topics, tags, and key learnings using AI (indexes **all** sources: Claude Code and Cursor)
 3. **Intelligent Search** - Find relevant sessions using keyword search and filters
 
+## Habitat learnings & transcript compaction
+
+For **on-disk Habitat sessions** (under your habitat `sessions/` directory), Umwelten stores:
+
+- **`transcript.jsonl`** — live tail (full JSONL, same shape as other tools).
+- **`transcript.{ISO}.jsonl`** — frozen segments after **compaction** (older history).
+- **Per-kind learnings** — append-only `facts.jsonl`, `playbooks.jsonl`, `preferences.jsonl`, `open_loops.jsonl`, `mistakes.jsonl` in the same session directory.
+
+**Claude Code transcripts** stay read-only under `~/.claude/projects/…/{uuid}.jsonl`. Umwelten can still append learnings for that UUID under **`{habitatWorkDir}/.umwelten/learnings/claude/{safeKey}/`**.
+
+### CLI: learnings
+
+```bash
+# Habitat session directory (same folder as meta.json / transcript.jsonl)
+pnpm run cli -- sessions learnings append --session-dir /path/to/session \
+  --kind facts --payload '{"note":"uses pnpm"}'
+
+pnpm run cli -- sessions learnings list --session-dir /path/to/session
+pnpm run cli -- sessions learnings list --session-dir /path/to/session --kind facts --json
+
+# Claude mirror (resolve learnings root under a habitat work dir)
+pnpm run cli -- sessions learnings list \
+  --work-dir ~/my-habitat \
+  --claude-project ~/src/my-repo \
+  --claude-uuid <session-uuid-from-filename>
+```
+
+### CLI: compact the live transcript
+
+Prefer producing learnings (or a written summary) **before** compaction so `learningCounts` / external notes stay accurate. The CLI performs the same rename + marker line as the `sessions_transcript_compact` tool:
+
+```bash
+pnpm run cli -- sessions transcript compact \
+  --session-dir /path/to/session \
+  --summary "Rolled up tool-heavy segment; see facts.jsonl" \
+  --learning-counts '{"facts":3,"mistakes":1}'
+```
+
+### Operational digest
+
+```bash
+pnpm tsx scripts/session-digest.ts /path/to/habitat/sessions
+```
+
 ## Quick Start
 
 ### List recent sessions

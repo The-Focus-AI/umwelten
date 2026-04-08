@@ -23,6 +23,11 @@ import {
 import type { SearchOptions } from '../interaction/analysis/analysis-types.js';
 import { getAdapterRegistry } from '../interaction/adapters/index.js';
 import type { NormalizedSessionEntry, SessionSource } from '../interaction/types/normalized-types.js';
+import { FileLearningsStore } from '../session-record/learnings-store.js';
+import type { LearningKind } from '../session-record/types.js';
+import { LEARNING_KINDS } from '../session-record/types.js';
+import { resolveClaudeCodeSessionHandle } from '../session-record/resolve-claude.js';
+import { compactHabitatTranscriptSegment } from '../session-record/compaction-habitat.js';
 
 export const sessionsCommand = new Command('sessions')
   .description('View and analyze sessions (Claude Code, Cursor)');
@@ -2070,3 +2075,194 @@ sessionsCommand
       process.exit(1);
     }
   });
+
+async function resolveLearningsRootForCli(opts: {
+  sessionDir?: string;
+  workDir?: string;
+  claudeProject?: string;
+  claudeUuid?: string;
+}): Promise<string> {
+  if (opts.sessionDir) {
+    return resolve(opts.sessionDir);
+  }
+  if (opts.workDir && opts.claudeProject && opts.claudeUuid) {
+    const h = await resolveClaudeCodeSessionHandle({
+      workDir: resolve(opts.workDir),
+      projectPath: resolve(opts.claudeProject),
+      sessionUuid: opts.claudeUuid,
+    });
+    return h.learningsRoot;
+  }
+  throw new Error(
+    'Provide --session-dir PATH or --work-dir, --claude-project, and --claude-uuid',
+  );
+}
+
+function isLearningKind(s: string): s is LearningKind {
+  return (LEARNING_KINDS as readonly string[]).includes(s);
+}
+
+const learningsCommand = new Command('learnings').description(
+  'Append or list per-kind learnings JSONL (Habitat session dir or Claude mirror under workDir)',
+);
+
+learningsCommand
+  .command('append')
+  .description('Append one learning row')
+  .option('--session-dir <path>', 'Habitat session directory (learnings files live here)')
+  .option('--work-dir <path>', 'Habitat work directory (with .umwelten/learnings/claude/...)')
+  .option('--claude-project <path>', 'Claude Code project root (with .claude)')
+  .option('--claude-uuid <uuid>', 'Claude session file name without .jsonl')
+  .requiredOption(
+    '--kind <kind>',
+    `One of: ${LEARNING_KINDS.join(', ')}`,
+  )
+  .requiredOption('--payload <json>', 'JSON object for the stored payload')
+  .option('--provenance <json>', 'Optional provenance JSON object')
+  .action(
+    async (options: {
+      sessionDir?: string;
+      workDir?: string;
+      claudeProject?: string;
+      claudeUuid?: string;
+      kind: string;
+      payload: string;
+      provenance?: string;
+    }) => {
+      try {
+        if (!isLearningKind(options.kind)) {
+          console.error(chalk.red(`Invalid kind. Use one of: ${LEARNING_KINDS.join(', ')}`));
+          process.exit(1);
+        }
+        const root = await resolveLearningsRootForCli({
+          sessionDir: options.sessionDir,
+          workDir: options.workDir,
+          claudeProject: options.claudeProject,
+          claudeUuid: options.claudeUuid,
+        });
+        const payload = JSON.parse(options.payload) as Record<string, unknown>;
+        const provenance = options.provenance
+          ? (JSON.parse(options.provenance) as Record<string, unknown>)
+          : undefined;
+        const store = new FileLearningsStore(root);
+        const rec = await store.append(options.kind, { payload, provenance });
+        console.log(JSON.stringify(rec, null, 2));
+      } catch (e) {
+        console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+        process.exit(1);
+      }
+    },
+  );
+
+learningsCommand
+  .command('list')
+  .description('List learnings (all kinds or one)')
+  .option('--session-dir <path>', 'Habitat session directory')
+  .option('--work-dir <path>', 'Habitat work directory')
+  .option('--claude-project <path>', 'Claude Code project root')
+  .option('--claude-uuid <uuid>', 'Claude session uuid')
+  .option('--kind <kind>', 'Filter to a single kind')
+  .option('--json', 'Print JSON')
+  .action(
+    async (options: {
+      sessionDir?: string;
+      workDir?: string;
+      claudeProject?: string;
+      claudeUuid?: string;
+      kind?: string;
+      json?: boolean;
+    }) => {
+      try {
+        const root = await resolveLearningsRootForCli({
+          sessionDir: options.sessionDir,
+          workDir: options.workDir,
+          claudeProject: options.claudeProject,
+          claudeUuid: options.claudeUuid,
+        });
+        const store = new FileLearningsStore(root);
+        if (options.kind) {
+          if (!isLearningKind(options.kind)) {
+            console.error(chalk.red(`Invalid kind. Use one of: ${LEARNING_KINDS.join(', ')}`));
+            process.exit(1);
+          }
+          const rows = await store.read(options.kind);
+          if (options.json) {
+            console.log(JSON.stringify(rows, null, 2));
+          } else {
+            console.log(chalk.bold(`${options.kind} (${rows.length} rows)`));
+            for (const r of rows) {
+              console.log(JSON.stringify(r));
+            }
+          }
+          return;
+        }
+        const all = await store.readAll();
+        if (options.json) {
+          console.log(JSON.stringify(all, null, 2));
+        } else {
+          for (const k of LEARNING_KINDS) {
+            console.log(chalk.bold(`${k}: ${all[k].length} rows`));
+          }
+        }
+      } catch (e) {
+        console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+        process.exit(1);
+      }
+    },
+  );
+
+sessionsCommand.addCommand(learningsCommand);
+
+const transcriptCommand = new Command('transcript').description(
+  'Habitat session-directory transcript utilities (on-disk layout under sessions/)',
+);
+
+transcriptCommand
+  .command('compact')
+  .description(
+    'Rename live transcript.jsonl to transcript.{iso}.jsonl and write a new live file whose first line is the compaction marker',
+  )
+  .requiredOption('--session-dir <path>', 'Habitat session directory')
+  .requiredOption('--summary <text>', 'Summary stored in the compaction marker')
+  .option('--run-id <id>', 'Optional run id (default: random UUID)')
+  .option(
+    '--learning-counts <json>',
+    'Optional JSON object of learning kind → integer count',
+  )
+  .action(
+    async (options: {
+      sessionDir: string;
+      summary: string;
+      runId?: string;
+      learningCounts?: string;
+    }) => {
+      try {
+        let learningCounts:
+          | import('../session-record/types.js').CompactionEventV1['learningCounts']
+          | undefined;
+        if (options.learningCounts?.trim()) {
+          const raw = JSON.parse(options.learningCounts) as Record<string, number>;
+          const out: Partial<Record<LearningKind, number>> = {};
+          for (const k of LEARNING_KINDS) {
+            const v = raw[k];
+            if (typeof v === 'number' && Number.isInteger(v) && v >= 0) {
+              out[k] = v;
+            }
+          }
+          learningCounts = Object.keys(out).length > 0 ? out : undefined;
+        }
+        const result = await compactHabitatTranscriptSegment({
+          sessionDir: resolve(options.sessionDir),
+          summary: options.summary,
+          runId: options.runId,
+          learningCounts,
+        });
+        console.log(JSON.stringify(result, null, 2));
+      } catch (e) {
+        console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+        process.exit(1);
+      }
+    },
+  );
+
+sessionsCommand.addCommand(transcriptCommand);

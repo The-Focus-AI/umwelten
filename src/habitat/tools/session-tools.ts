@@ -13,14 +13,17 @@ import type { SessionMessage, AssistantMessageEntry, UserMessageEntry } from '..
 
 // These imports come from the main library's session parser
 import {
-  parseSessionFile,
   summarizeSession,
   getBeatsForSession,
-  extractConversation,
   extractTextContent,
   extractReasoning,
   sessionMessagesToNormalized,
 } from '../../interaction/persistence/session-parser.js';
+import { loadHabitatSessionTranscriptMessages } from '../../session-record/habitat-transcript-load.js';
+import { FileLearningsStore } from '../../session-record/learnings-store.js';
+import { compactHabitatTranscriptSegment } from '../../session-record/compaction-habitat.js';
+import type { LearningKind, LearningProvenance } from '../../session-record/types.js';
+import { LEARNING_KINDS } from '../../session-record/types.js';
 
 /** Interface for the habitat context that session tools need. */
 export interface SessionToolsContext {
@@ -50,6 +53,44 @@ function messageCountFromMeta(meta: { metadata?: Record<string, unknown> }): num
 const sessionIdSchema = z
   .string()
   .describe('Session ID (full ID or short prefix)');
+
+const learningKindSchema = z.enum([
+  'facts',
+  'playbooks',
+  'preferences',
+  'open_loops',
+  'mistakes',
+] as const satisfies readonly LearningKind[]);
+
+async function resolveSessionDir(
+  ctx: SessionToolsContext,
+  sessionId: string,
+): Promise<{ entry: HabitatSessionMetadata; sessionDir: string } | { error: string; message: string }> {
+  const all = await ctx.listSessions();
+  const entry = all.find(
+    (s) => s.sessionId === sessionId || s.sessionId.startsWith(sessionId),
+  );
+  if (!entry) {
+    return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+  }
+  const sessionDir = await ctx.getSessionDir(entry.sessionId);
+  if (!sessionDir) {
+    return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+  }
+  return { entry, sessionDir };
+}
+
+function parseLearningCounts(raw?: Record<string, number>):
+  | import('../../session-record/types.js').CompactionEventV1['learningCounts']
+  | undefined {
+  if (!raw) return undefined;
+  const out: Partial<Record<LearningKind, number>> = {};
+  for (const k of LEARNING_KINDS) {
+    const v = raw[k];
+    if (typeof v === 'number' && Number.isInteger(v) && v >= 0) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 export function createSessionTools(ctx: SessionToolsContext): Record<string, Tool> {
   const sessionsListTool = tool({
@@ -91,18 +132,14 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     inputSchema: z.object({ sessionId: sessionIdSchema }),
     execute: async ({ sessionId }) => {
       try {
-        const all = await ctx.listSessions();
-        const entry = all.find(s => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
-        if (!entry) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const { entry, sessionDir } = resolved;
 
-        const sessionDir = await ctx.getSessionDir(entry.sessionId);
-        if (!sessionDir) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
-
-        const transcriptPath = join(sessionDir, 'transcript.jsonl');
         let summary: ReturnType<typeof summarizeSession>;
         let beatCount: number;
         try {
-          const messages = await parseSessionFile(transcriptPath);
+          const messages = await loadHabitatSessionTranscriptMessages(sessionDir);
           summary = summarizeSession(messages);
           const { beats } = await getBeatsForSession(messages);
           beatCount = beats.length;
@@ -153,17 +190,13 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     }),
     execute: async ({ sessionId, limit }) => {
       try {
-        const all = await ctx.listSessions();
-        const entry = all.find(s => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
-        if (!entry) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const { entry, sessionDir } = resolved;
 
-        const sessionDir = await ctx.getSessionDir(entry.sessionId);
-        if (!sessionDir) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
-
-        const transcriptPath = join(sessionDir, 'transcript.jsonl');
         let messages: SessionMessage[];
         try {
-          messages = await parseSessionFile(transcriptPath);
+          messages = await loadHabitatSessionTranscriptMessages(sessionDir);
         } catch {
           return { sessionId: entry.sessionId, messages: [] };
         }
@@ -200,17 +233,13 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     inputSchema: z.object({ sessionId: sessionIdSchema }),
     execute: async ({ sessionId }) => {
       try {
-        const all = await ctx.listSessions();
-        const entry = all.find(s => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
-        if (!entry) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const { entry, sessionDir } = resolved;
 
-        const sessionDir = await ctx.getSessionDir(entry.sessionId);
-        if (!sessionDir) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
-
-        const transcriptPath = join(sessionDir, 'transcript.jsonl');
         let messages: SessionMessage[];
         try {
-          messages = await parseSessionFile(transcriptPath);
+          messages = await loadHabitatSessionTranscriptMessages(sessionDir);
         } catch {
           return {
             sessionId: entry.sessionId,
@@ -259,15 +288,11 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     }),
     execute: async ({ sessionId, messageIndexOrUuid }) => {
       try {
-        const all = await ctx.listSessions();
-        const entry = all.find(s => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
-        if (!entry) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const { entry, sessionDir } = resolved;
 
-        const sessionDir = await ctx.getSessionDir(entry.sessionId);
-        if (!sessionDir) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
-
-        const transcriptPath = join(sessionDir, 'transcript.jsonl');
-        const messages = await parseSessionFile(transcriptPath);
+        const messages = await loadHabitatSessionTranscriptMessages(sessionDir);
         const msg = getMessageByIndexOrUuid(messages, messageIndexOrUuid);
         if (!msg) return { error: 'MESSAGE_NOT_FOUND', sessionId: entry.sessionId, messageIndexOrUuid };
 
@@ -317,12 +342,9 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     }),
     execute: async ({ sessionId, path: filePath, offset, limit }) => {
       try {
-        const all = await ctx.listSessions();
-        const entry = all.find(s => s.sessionId === sessionId || s.sessionId.startsWith(sessionId));
-        if (!entry) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
-
-        const sessionDir = await ctx.getSessionDir(entry.sessionId);
-        if (!sessionDir) return { error: 'SESSION_NOT_FOUND', message: `Session "${sessionId}" not found.` };
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const { entry, sessionDir } = resolved;
 
         const fullPath = join(sessionDir, filePath);
         const content = await readFile(fullPath, 'utf-8');
@@ -345,6 +367,102 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     },
   });
 
+  const sessionsLearningsAppendTool = tool({
+    description:
+      'Append one structured learning row to the session directory (per-kind JSONL: facts, playbooks, preferences, open_loops, mistakes).',
+    inputSchema: z.object({
+      sessionId: sessionIdSchema,
+      kind: learningKindSchema,
+      payload: z
+        .record(z.string(), z.unknown())
+        .describe('JSON object stored as the learning payload'),
+      provenance: z.record(z.string(), z.unknown()).optional(),
+    }),
+    execute: async ({ sessionId, kind, payload, provenance }) => {
+      try {
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const store = new FileLearningsStore(resolved.sessionDir);
+        const rec = await store.append(kind, {
+          payload,
+          provenance: provenance as LearningProvenance | undefined,
+        });
+        return { ok: true as const, id: rec.id, kind: rec.kind, createdAt: rec.createdAt };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  });
+
+  const sessionsLearningsReadTool = tool({
+    description:
+      'Read learnings JSONL for a session. Omit kind to return all kinds with row counts and optional cap per kind.',
+    inputSchema: z.object({
+      sessionId: sessionIdSchema,
+      kind: learningKindSchema.optional(),
+      limitPerKind: z.number().int().min(1).max(500).optional(),
+    }),
+    execute: async ({ sessionId, kind, limitPerKind }) => {
+      try {
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const store = new FileLearningsStore(resolved.sessionDir);
+        if (kind) {
+          const rows = await store.read(kind);
+          const cap = limitPerKind ?? rows.length;
+          return { sessionId: resolved.entry.sessionId, kind, rows: rows.slice(-cap) };
+        }
+        const all = await store.readAll();
+        const out: Record<string, { count: number; rows: unknown[] }> = {};
+        const cap = limitPerKind ?? 1e9;
+        for (const k of LEARNING_KINDS) {
+          const rows = all[k];
+          out[k] = { count: rows.length, rows: rows.slice(-Math.min(cap, rows.length)) };
+        }
+        return { sessionId: resolved.entry.sessionId, kinds: out };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  });
+
+  const sessionsTranscriptCompactTool = tool({
+    description:
+      'Freeze the current live transcript.jsonl to transcript.{iso}.jsonl and start a new live file whose first line is a compaction marker with the given summary. Run AFTER capturing learnings/summary you want preserved; this tool only performs file operations.',
+    inputSchema: z.object({
+      sessionId: sessionIdSchema,
+      summary: z.string().min(1).describe('Human-readable summary of the frozen segment'),
+      runId: z.string().optional(),
+      learningCounts: z
+        .record(z.string(), z.number().int().min(0))
+        .optional()
+        .describe('Optional counts per learning kind for the compaction record'),
+    }),
+    execute: async ({ sessionId, summary, runId, learningCounts }) => {
+      try {
+        const resolved = await resolveSessionDir(ctx, sessionId);
+        if ('error' in resolved) return resolved;
+        const result = await compactHabitatTranscriptSegment({
+          sessionDir: resolved.sessionDir,
+          summary,
+          runId,
+          learningCounts: parseLearningCounts(learningCounts),
+        });
+        return {
+          ok: true as const,
+          sessionId: resolved.entry.sessionId,
+          frozenRelative: result.frozenRelative,
+          livePath: result.livePath,
+        };
+      } catch (err) {
+        return {
+          error: 'COMPACTION_FAILED',
+          message: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+  });
+
   return {
     sessions_list: sessionsListTool,
     sessions_show: sessionsShowTool,
@@ -352,6 +470,9 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
     sessions_stats: sessionsStatsTool,
     sessions_inspect: sessionsInspectTool,
     sessions_read_file: sessionsReadFileTool,
+    sessions_learnings_append: sessionsLearningsAppendTool,
+    sessions_learnings_read: sessionsLearningsReadTool,
+    sessions_transcript_compact: sessionsTranscriptCompactTool,
   };
 }
 

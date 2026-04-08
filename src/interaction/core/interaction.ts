@@ -25,6 +25,7 @@ import {
   SessionSource,
   SessionMetrics,
 } from "../types/normalized-types.js";
+import { buildHabitatIntrospectionContextMessages } from "../../session-record/context-merge.js";
 
 export class Interaction {
   public id: string;
@@ -168,6 +169,27 @@ export class Interaction {
 
   addMessage(message: CoreMessage): void {
     this.messages.push(message);
+    this.metadata.updated = new Date();
+  }
+
+  /**
+   * After Habitat transcript compaction or when reloading from disk, prepend compaction summaries
+   * and serialized learnings as extra system messages (after the stimulus system prompt).
+   */
+  async prependHabitatIntrospectionFromDisk(options: {
+    sessionDir: string;
+    learningsRoot?: string;
+  }): Promise<void> {
+    const extra = await buildHabitatIntrospectionContextMessages({
+      sessionDir: options.sessionDir,
+      learningsRoot: options.learningsRoot,
+    });
+    if (extra.length === 0) return;
+    if (this.messages[0]?.role === "system") {
+      this.messages.splice(1, 0, ...extra);
+    } else {
+      this.messages.unshift(...extra);
+    }
     this.metadata.updated = new Date();
   }
 

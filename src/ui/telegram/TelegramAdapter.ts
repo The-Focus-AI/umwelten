@@ -6,6 +6,7 @@ import { Stimulus } from "../../stimulus/stimulus.js";
 import { ModelDetails } from "../../cognition/types.js";
 import path from "path";
 import fs from "fs/promises";
+import { loadRecentHabitatTranscriptCoreMessages } from "../../session-record/habitat-transcript-load.js";
 
 type MyContext = FileFlavor<Context>;
 
@@ -111,38 +112,12 @@ export class TelegramAdapter {
 
     try {
       const { sessionDir } = await this.config.getSessionDir(chatId);
-      const transcriptPath = path.join(sessionDir, "transcript.jsonl");
-      const content = await fs.readFile(transcriptPath, "utf-8").catch(() => "");
-      if (!content.trim()) return;
-
-      const lines = content.trim().split("\n");
-      // Parse JSONL entries and extract CoreMessages (skip tool_result/tool_use detail entries)
-      const messages: CoreMessage[] = [];
-      for (const line of lines) {
-        try {
-          const entry = JSON.parse(line);
-          if (entry.message?.role === "user" && typeof entry.message.content === "string") {
-            messages.push({ role: "user", content: entry.message.content });
-          } else if (entry.message?.role === "assistant" && typeof entry.message.content === "string") {
-            messages.push({ role: "assistant", content: entry.message.content });
-          }
-        } catch {
-          // skip malformed lines
-        }
-      }
-
-      if (messages.length === 0) return;
-
-      // Take last N pairs (default 4 pairs = 8 messages)
       const pairCount = this.config.resumeMessagePairs ?? 4;
       const maxMessages = pairCount * 2;
-      const recent = messages.slice(-maxMessages);
-
-      // Ensure we start with a user message
-      while (recent.length > 0 && recent[0].role !== "user") {
-        recent.shift();
-      }
-
+      const recent = await loadRecentHabitatTranscriptCoreMessages(
+        sessionDir,
+        maxMessages,
+      );
       if (recent.length === 0) return;
 
       for (const msg of recent) {

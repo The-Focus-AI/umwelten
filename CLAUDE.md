@@ -128,7 +128,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 | `timeToolSet` | current_time | No (sub-agent) |
 | `urlToolSet` | wget, markify, parse_feed | No (sub-agent) |
 | `agentToolSet` | list/add/update/remove agents | Yes |
-| `sessionToolSet` | list/show/inspect sessions | Yes |
+| `sessionToolSet` | sessions_* list/show/messages/stats/inspect/read_file, learnings append/read, transcript compact | Yes |
 | `externalInteractionToolSet` | read Claude Code/Cursor history | Yes |
 | `agentRunnerToolSet` | agent_clone, agent_logs, agent_status, agent_ask, bridge_*, bridge_diagnose, bridge_monitor | Yes |
 | `runProjectToolSet` | run_project (Dagger smart containers) | Yes |
