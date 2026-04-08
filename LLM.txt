@@ -1,0 +1,49 @@
+# Umwelten — context for coding agents
+
+Project: TypeScript monorepo for **Habitat** (agent workspaces: tools, skills, sessions, sub-agents) and **evaluation** (multi-model runs, reports, combine suites). Public site: https://umwelten.thefocus.ai/
+
+## Rules
+
+- Package manager: **pnpm** only (`pnpm install`, `pnpm build`). Tests: **`pnpm test:run`** (not `pnpm test`, which watches).
+- Local CLI: **`pnpm run cli`** (tsx entry). With secrets: **`dotenvx run -- pnpm run cli -- …`**
+- Default Google model: **gemini-3** family (e.g. `gemini-3-flash-preview`). Do not use gemini-2.
+- Model responses: read **`ModelResponse.content`**, not `.text`.
+
+## Layers (bottom → top)
+
+Foundation → providers → cognition + stimulus + interaction → context + memory → habitat → evaluation → cli/ui.
+
+## Core usage patterns
+
+```ts
+import { Stimulus, Interaction, Habitat, runEvaluation, parseModel } from "umwelten";
+
+const stimulus = new Stimulus({ role: "helpful assistant" });
+const interaction = new Interaction(
+  { name: "gemini-3-flash-preview", provider: "google" },
+  stimulus,
+);
+await interaction.chat("Hello");
+
+const habitat = await Habitat.create({ workDir: "./my-agent" });
+const { interaction: ix } = await habitat.createInteraction();
+await ix.chat("…");
+```
+
+## CLI (high value)
+
+- `umwelten habitat` — REPL; subcommands `telegram`, `discord`, `web`.
+- `umwelten sessions` — Claude Code / Cursor sessions on disk (`--project`, index, search, show).
+- `umwelten sessions habitat …` — **native** Habitat `transcript.jsonl`: `list`, `show`, `beats`, `messages`, `message`, `pull`, `replay`; options `--work-dir`, `--sessions-dir`, `--env-prefix`.
+- `umwelten eval run` / `eval report` / `eval combine`.
+
+## Examples in repo
+
+- `examples/model-showdown/` — suite config + combine.
+- `examples/habitat-minimal/` — tiny work-dir layout sketch.
+- `examples/jeeves-bot/` — JEEVES preset (prompt + env); run Discord/Telegram via **`umwelten habitat …`** from repo root, not a forked binary.
+
+## Docs
+
+- Human: README.md, CLAUDE.md (full module map), docs/ (VitePress).
+- Bridge / containers: docs/guide/habitat-bridge.md; repo root BRIDGE_WORKFLOW.md summary.

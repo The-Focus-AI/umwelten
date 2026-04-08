@@ -2,10 +2,18 @@
   "name": "umwelten",
   "version": "0.4.6",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
     "umwelten": "dist/cli/entry.js"
   },
-  "description": "A tool for systematically evaluating language models",
+  "description": "Habitat agent environments, multi-provider LLM access, and systematic model evaluation",
   "scripts": {
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose",
@@ -43,6 +51,7 @@
   "files": [
     "dist/",
     "README.md",
+    "LLM.txt",
     "LICENSE",
     "env.template"
   ],
