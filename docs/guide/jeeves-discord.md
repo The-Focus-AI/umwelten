@@ -81,12 +81,13 @@ Optional: `--discord-guild <snowflake>` or `DISCORD_GUILD_ID` for guild-scoped s
 
 ## 4. Map channels to agents
 
-**Easiest:** in Discord, use slash commands (requires **Manage Channels** on your user for bind/unbind):
+**Easiest:** in Discord, use slash commands (requires **Manage Channels** on your user for bind/unbind; the bot needs **View Channel**, **Send Messages**, and **Send Messages in Threads** when binding in a thread, or Discord returns **50001 Missing Access** when posting the card). **Manage Messages** lets the bot **pin** the binding card.
 
 | Command | Purpose |
 |--------|---------|
-| `/bind-agent` | Set **this** channel or **thread** to a habitat **agent id** from `config.json`. |
-| `/unbind-agent` | Remove mapping; thread inherits parent channel, then defaults / main. |
+| `/bind-agent` | Set **this** channel or **thread** to a habitat **agent id** from `config.json`. Optional **runtime**: default (Jeeves / habitat model + tools) vs **Claude SDK** (text-only pass-through). Posts and pins a short status card. |
+| `/set-agent-runtime` | Switch **default** vs **claude-sdk** for an **existing** explicit binding on this channel/thread (does not apply to inherited-only routes). |
+| `/unbind-agent` | Remove mapping; thread inherits parent channel, then defaults / main. Unpins/deletes the binding card when possible. |
 | `/start` / `/reset` | Start fresh or clear history for **this** channel/thread. |
 | `/help` | Short in-app help. |
 
@@ -105,9 +106,13 @@ Optional: `--discord-guild <snowflake>` or `DISCORD_GUILD_ID` for guild-scoped s
 
 Thread IDs are separate snowflakes: bind the thread explicitly if you want a different agent than the parent channel.
 
+### Binding card and runtimes
+
+After `/bind-agent`, the bot posts a **pinned** message summarizing the agent, project path, and **runtime**. **`default`** uses the configured LLM plus habitat tools (attachments/vision where supported). **`claude-sdk`** sends **plain text** through `runClaudeSDK` on the agent’s `projectPath` (each message is a separate SDK run; **attachments are not** passed in this mode — users get a short explanation). Set **`ANTHROPIC_API_KEY`** for Claude SDK pass-through. You can also set `runtime` in `discord.json` (see `examples/jeeves-bot/discord.json.example`) or pass `runtime` to the `discord_route_bind` tool.
+
 ### When the bot replies (Jeeves / `habitat discord`)
 
-- **Sub-agent bound** (`/bind-agent` or `discord.json` maps this channel/thread to a **real** agent in `config.json`): the bot answers **every** message (and attachments) in that channel or thread.
+- **Sub-agent bound** (`/bind-agent` or `discord.json` maps this channel/thread to a **real** agent in `config.json`): the bot answers **every** message in that channel or thread. With **`default`** runtime it also handles **attachments**; with **`claude-sdk`**, only **text** is delegated to the SDK.
 - **Not bound** (main / unmapped / unknown agent id in the map):
   - **@mention** is required for the **first** message in a **DM** or **thread**, and for **every** message in a **parent text channel** (the bot opens a thread from that message).
   - **Follow-ups** in the **same** DM or thread **do not need @mention** after the bot has replied once, until `/reset` or `/reload-routing`. **After a bot restart**, that behavior is **restored from `transcript.jsonl`**: if the session directory already contains an assistant line, the thread/DM stays unlocked without another @mention.
@@ -152,6 +157,10 @@ The bot listens in **servers** and in **DMs** with the same code path. Your DM w
 **Bot answers in the server but errors or is empty**
 
 - Check provider API keys and model id in `.env`. See terminal stderr for stack traces.
+
+**Claude SDK pass-through returns errors or empty**
+
+- Ensure **`ANTHROPIC_API_KEY`** is set in the environment that runs the bot. Pass-through does not use the Google/OpenRouter key from Jeeves’ default model.
 
 ## See also
 

@@ -9,6 +9,7 @@ import {
   loadDiscordRouting,
   setDiscordChannelRoute,
 } from '../discord-routing.js';
+import type { DiscordChannelRuntimeMode } from '../discord-routing.js';
 
 export interface DiscordRoutingToolsContext {
   workDir: string;
@@ -36,13 +37,22 @@ export function createDiscordRoutingTools(
         .describe(
           'Habitat agent id, or "main" to unbind this snowflake',
         ),
+      runtime: z
+        .enum(['default', 'claude-sdk'])
+        .optional()
+        .describe(
+          'When binding: default = habitat LLM + tools; claude-sdk = text-only pass-through via Claude Agent SDK (no attachment handling in that mode)',
+        ),
     }),
-    execute: async ({ channel_id, agent_id }) => {
+    execute: async ({ channel_id, agent_id, runtime }) => {
+      const bindOpts: { runtime?: DiscordChannelRuntimeMode } | undefined =
+        runtime ? { runtime } : undefined;
       await setDiscordChannelRoute(
         ctx.workDir,
         channel_id,
         agent_id,
         ctx.routingPath,
+        bindOpts,
       );
       const lower = agent_id.trim().toLowerCase();
       if (lower === 'main' || agent_id.trim() === '') {
@@ -51,9 +61,10 @@ export function createDiscordRoutingTools(
           message: `Removed routing for ${channel_id}. It will use parent channel, default, or main.`,
         };
       }
+      const rt = runtime ? ` (runtime: ${runtime})` : '';
       return {
         ok: true,
-        message: `Mapped Discord ${channel_id} → agent "${agent_id.trim()}". New messages use this after the next turn (routing reloads automatically).`,
+        message: `Mapped Discord ${channel_id} → agent "${agent_id.trim()}"${rt}. New messages use this after the next turn (routing reloads automatically).`,
       };
     },
   });

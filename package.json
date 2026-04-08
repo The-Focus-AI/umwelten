@@ -50,6 +50,7 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.51",
     "@ai-sdk/openai-compatible": "^1.0.29",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.92",
     "@google/generative-ai": "^0.24.1",
     "@grammyjs/files": "^1.2.0",
     "@inkjs/ui": "^2.0.0",

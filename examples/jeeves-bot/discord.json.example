@@ -1,6 +1,10 @@
 {
   "mainChannelId": "PASTE_LOBBY_CHANNEL_SNOWFLAKE_HERE",
   "channels": {
-    "PASTE_AGENT_CHANNEL_SNOWFLAKE": "operations"
+    "PASTE_AGENT_CHANNEL_SNOWFLAKE": "operations",
+    "PASTE_ANOTHER_CHANNEL_FOR_SDK_PASS_THROUGH": {
+      "agentId": "operations",
+      "runtime": "claude-sdk"
+    }
   }
 }
