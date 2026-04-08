@@ -6,7 +6,7 @@ export default defineConfig({
   title: "Umwelten",
   description: "A command-line tool to interact with and systematically evaluate AI models across providers",
   base: '/',
-  ignoreDeadLinks: true, // Temporarily ignore dead links while we build out documentation
+  ignoreDeadLinks: true,
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico' }]
   ],
@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Running Prompts', link: '/guide/running-prompts' },
             { text: 'Interactive Chat', link: '/guide/interactive-chat' },
             { text: 'Habitat', link: '/guide/habitat' },
+            { text: 'Habitat interfaces', link: '/guide/habitat-interfaces' },
             { text: 'MCP Chat Example', link: '/guide/mcp-chat' },
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },

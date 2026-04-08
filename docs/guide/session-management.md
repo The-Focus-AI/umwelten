@@ -2,7 +2,9 @@
 
 Umwelten provides powerful tools to manage, analyze, and search through your AI coding assistant conversation history (**sessions**—read-only data from Claude Code, Cursor, etc.). This enables you to build a searchable knowledge base of past work, discover patterns, and quickly find solutions you've already implemented.
 
-**CLI command**: `sessions` (e.g. `pnpm run cli -- sessions list`).
+**CLI command**: `sessions` (e.g. `pnpm run cli -- sessions list` for **external** editor history).
+
+**Native Habitat transcripts** (your habitat’s `sessions/*/transcript.jsonl`) use the **`sessions habitat`** subcommands: `list`, `show`, `beats`, `messages`, `message`, `pull`, `replay`, with `--work-dir` / `--env-prefix` as needed. See [Habitat interfaces](./habitat-interfaces.md).
 
 ## Supported Sources
 

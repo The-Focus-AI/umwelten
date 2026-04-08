@@ -1,6 +1,21 @@
 ---
-title: Building with web
+title: Web interface
+description: Gaia (Habitat web), plus patterns for building your own app with Stimulus + Interaction
 ---
+
+# Habitat web (Gaia)
+
+Umwelten’s first-party browser experience is **`umwelten habitat web`**. It starts the Habitat-backed **Gaia** HTTP server ([`src/habitat/gaia-server.ts`](../../src/habitat/gaia-server.ts)) and serves the web UI from [`src/ui/WebInterface.ts`](../../src/ui/WebInterface.ts) and related modules under `src/ui/`. Use the same `--work-dir` / `--sessions-dir` / model flags as other `habitat` subcommands so CLI, Telegram, Discord, and web see one workspace.
+
+**Today:** session/agent data and chat flows exposed through Gaia for interactive use.
+
+**Roadmap / gaps:** richer **native session browser** (list habitat sessions, open `transcript.jsonl`, optional beats timeline) in the SPA; optional dashboards for **eval run** outputs. Until then, use `umwelten sessions habitat …` in the terminal for transcript introspection.
+
+See [Habitat interfaces](habitat-interfaces.md) for how web fits next to REPL, Telegram, and Discord.
+
+---
+
+## Building your own web app
 
 ```bash
 npx assistant-ui@latest create .

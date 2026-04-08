@@ -215,3 +215,4 @@ Dagger requires Docker. Start Docker Desktop or the Docker daemon.
 - [Habitat Bridge Walkthrough](../walkthroughs/habitat-bridge-walkthrough.md) — Step-by-step guide
 - [Habitat Agents](./habitat-agents.md) — Local sub-agents (HabitatAgent)
 - [Habitat](./habitat.md) — Top-level container
+- Repo root [`BRIDGE_WORKFLOW.md`](https://github.com/The-Focus-AI/umwelten/blob/main/BRIDGE_WORKFLOW.md) — short three-phase workflow summary

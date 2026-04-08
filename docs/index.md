@@ -14,7 +14,7 @@ An "Umwelt" is the perceptual world in which an organism exists - its unique sen
 
 Umwelten provides:
 
-- **Habitat**: The top-level container for agents — tools, skills, sessions, memory, and sub-agents in one place. Run as CLI, Telegram bot, or web UI.
+- **Habitat**: The top-level container for agents — tools, skills, sessions, memory, and sub-agents in one place. Run as CLI REPL, Telegram, Discord, or web (see [Habitat interfaces](./guide/habitat-interfaces.md)).
 - **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax
 - **Semantic Architecture**: Cognition, Interaction, and Stimulus frameworks
 - **Evaluation Framework**: Systematic model assessment and comparison
@@ -77,7 +77,15 @@ pnpm run cli -- habitat telegram
 
 # Launch the web UI
 pnpm run cli -- habitat web
+
+# Discord (same Habitat; example uses JEEVES env prefix)
+pnpm run cli -- habitat discord --env-prefix JEEVES --work-dir ./path/to/work --token "$DISCORD_BOT_TOKEN"
+
+# Native habitat transcripts (transcript.jsonl per session)
+pnpm run cli -- sessions habitat list --work-dir ./path/to/work
 ```
+
+Machine-oriented overview for agents: [LLM.txt](https://github.com/The-Focus-AI/umwelten/blob/main/LLM.txt) (also in the repo root).
 
 ## Core Features
 

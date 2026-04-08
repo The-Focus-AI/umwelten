@@ -25,7 +25,7 @@ umwelten habitat discord -w ~/.jeeves --env-prefix JEEVES -p google -m gemini-3-
 
 - **CLI**: Interactive REPL or one-shot commands. Can be run via `examples/jeeves-bot/cli.ts` or via `umwelten habitat -w ~/.jeeves --env-prefix JEEVES`.
 - **Telegram**: Long-running bot. Can be run via `examples/jeeves-bot/telegram.ts` or via `umwelten habitat telegram -w ~/.jeeves --env-prefix JEEVES`.
-- **Discord**: Long-running bot with per-channel routing (`discord.json`). See **[Jeeves: Discord](./jeeves-discord.md)** for setup, the `check-discord-setup` script, and slash commands. Run via `examples/jeeves-bot/discord.ts` or `umwelten habitat discord` (see also the [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md)).
+- **Discord**: Long-running bot with per-channel routing (`discord.json`). See **[Jeeves: Discord](./jeeves-discord.md)** for setup, the `check-discord-setup` script, and slash commands. Run via **`umwelten habitat discord`** (or `pnpm run discord` inside `examples/jeeves-bot`); see the [Jeeves README](https://github.com/The-Focus-AI/umwelten/blob/main/examples/jeeves-bot/README.md).
 - **Work directory**: All config, prompts, tools, and skills live under `JEEVES_WORK_DIR` (default `~/.jeeves`). The bot can edit everything there; file access is sandboxed to the work dir and configured agent project roots.
 
 ## How Jeeves manages subagents (agents and habitats)

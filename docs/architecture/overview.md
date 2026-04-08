@@ -22,7 +22,11 @@ The umwelten project implements a **stimulus-centric evaluation and interaction 
 
 ## Key Components
 
-### 1. Habitat (`src/habitat/`)
+### 1. Interfaces (`src/cli/`, `src/ui/`)
+
+User-facing surfaces attach to one [`Habitat`](../../src/habitat/habitat.ts): REPL and composers in [`src/cli/habitat.ts`](../../src/cli/habitat.ts); Telegram, Discord, TUI, and web under [`src/ui/WebInterface.ts`](../../src/ui/WebInterface.ts). See the [Habitat interfaces guide](../guide/habitat-interfaces.md).
+
+### 2. Habitat (`src/habitat/`)
 
 The top-level container for agents — the "world" an agent lives in.
 
@@ -33,7 +37,7 @@ The top-level container for agents — the "world" an agent lives in.
 - **Secrets**: Encrypted secret storage with `secrets.json` (0600 permissions)
 - **Gaia Server**: HTTP API for web UI access to habitat data
 
-### 2. Cognition (`src/cognition/`)
+### 3. Cognition (`src/cognition/`)
 
 Model runners that execute AI requests.
 
@@ -41,7 +45,7 @@ Model runners that execute AI requests.
 - **ModelResponse**: Standardized response with `content`, `metadata` (tokenUsage, cost, provider, model), optional `reasoning`
 - **Model Validation**: `validateModel()` queries provider APIs to verify model availability
 
-### 3. Interaction (`src/interaction/`)
+### 4. Interaction (`src/interaction/`)
 
 Conversation state management between user and model.
 
@@ -49,7 +53,7 @@ Conversation state management between user and model.
 - **Session Persistence**: Save/load conversations with `toNormalizedSession()`
 - **File Attachments**: Attach files to messages for multi-modal interactions
 
-### 4. Stimulus (`src/stimulus/`)
+### 5. Stimulus (`src/stimulus/`)
 
 Configuration that shapes AI behavior.
 
@@ -58,7 +62,7 @@ Configuration that shapes AI behavior.
 - **Skills**: Loaded from git repos or local directories — each skill is a `SKILL.md` with instructions
 - **Tool Loading**: Load tools from `tools/` directory (TOOL.md + handler.ts pattern)
 
-### 5. Evaluation Framework (`src/evaluation/`)
+### 6. Evaluation Framework (`src/evaluation/`)
 
 Systematic model assessment and comparison.
 
@@ -69,7 +73,7 @@ Systematic model assessment and comparison.
 - **Analysis**: Result analysis and reporting
 - **Pairwise Ranking** (`ranking/`): Post-processing module for head-to-head LLM-judge comparisons with Elo ratings. Supports swiss tournament and round-robin pairing. See [Pairwise Ranking Guide](../guide/pairwise-ranking.md)
 
-### 6. Provider Integration (`src/providers/`)
+### 7. Provider Integration (`src/providers/`)
 
 AI provider implementations using Vercel AI SDK.
 
@@ -77,7 +81,7 @@ AI provider implementations using Vercel AI SDK.
 - **Factory Pattern**: `createGoogleProvider()`, `createOpenRouterProvider()`, etc.
 - **Cost Tracking**: Per-provider cost calculation via `src/costs/`
 
-### 7. Memory System (`src/memory/`)
+### 8. Memory System (`src/memory/`)
 
 Persistent memory across interactions.
 
@@ -85,7 +89,7 @@ Persistent memory across interactions.
 - Fact extraction and storage
 - Knowledge retrieval and context
 
-### 8. Context Management (`src/context/`)
+### 9. Context Management (`src/context/`)
 
 Context window tracking and management.
 
@@ -96,6 +100,8 @@ Context window tracking and management.
 
 ```
 src/
+├── cli/                  # umwelten CLI (habitat, eval, sessions, …)
+├── ui/                   # Telegram, Discord, web, TUI adapters
 ├── habitat/              # Top-level agent container
 │   ├── tools/            # Tool set implementations
 │   │   ├── run-project/  # Dagger-based code execution

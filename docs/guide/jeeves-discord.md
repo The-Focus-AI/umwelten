@@ -67,13 +67,19 @@ mise run jeeves-discord
 Or:
 
 ```bash
-dotenvx run -f examples/jeeves-bot/.env -- pnpm exec tsx examples/jeeves-bot/discord.ts
+dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat discord --env-prefix JEEVES
+```
+
+**From `examples/jeeves-bot`** (after `pnpm install` there):
+
+```bash
+dotenvx run -- pnpm run discord
 ```
 
 **Generic Habitat CLI** (any work dir; `--env-prefix` matches your `.env` keys):
 
 ```bash
-dotenvx run -- pnpm run cli habitat discord -w ~/.jeeves --env-prefix JEEVES \
+dotenvx run -- pnpm run cli -- habitat discord -w ~/.jeeves --env-prefix JEEVES \
   -p google -m gemini-3-flash-preview --token "$DISCORD_BOT_TOKEN"
 ```
 
