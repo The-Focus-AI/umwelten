@@ -46,10 +46,10 @@ vi.mock("../models/models.js", () => ({
       }
     },
     {
-      name: "phi4:latest",
+      name: "gemma4:latest",
       provider: "ollama",
-      description: "Phi-4 model via Ollama",
-      contextLength: 4096,
+      description: "Gemma 4 via Ollama",
+      contextLength: 131072,
       costs: {
         promptTokens: 0,
         completionTokens: 0,
@@ -58,9 +58,9 @@ vi.mock("../models/models.js", () => ({
       lastUpdated: new Date("2024-06-20T00:00:00.000Z"),
       details: {
         architecture: "text->text",
-        tokenizer: "phi4",
-        instructType: "phi4",
-        family: "phi",
+        tokenizer: "gemma",
+        instructType: "gemma",
+        family: "gemma4",
         format: "gguf"
       }
     },
@@ -143,7 +143,7 @@ describe("Models Command", () => {
       // Check model information
       expect(output).toContain("gemma3:27b");
       expect(output).toContain("qwen3:8b");
-      expect(output).toContain("phi4:latest");
+      expect(output).toContain("gemma4:latest");
       expect(output).toContain("qwen2.5:latest");
       expect(output).toContain("qwen3:0.6b");
       expect(output).toContain("ollama");
@@ -168,7 +168,7 @@ describe("Models Command", () => {
       const names = parsed.map((m: any) => m.name);
       expect(names).toContain("gemma3:27b");
       expect(names).toContain("qwen3:8b");
-      expect(names).toContain("phi4:latest");
+      expect(names).toContain("gemma4:latest");
       expect(names).toContain("qwen2.5:latest");
       expect(names).toContain("qwen3:0.6b");
       parsed.forEach((model: ModelDetails) => {

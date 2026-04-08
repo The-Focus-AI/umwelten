@@ -9,7 +9,10 @@ import {
   statisticsTool,
   ToolSet
 } from './index.js';
-import { checkOllamaConnection } from '../../test-utils/setup.js';
+import {
+  checkOllamaConnection,
+  OLLAMA_INTEGRATION_MODEL,
+} from '../../test-utils/setup.js';
 
 describe('Tool Integration Tests with Ollama', () => {
   let runner: BaseModelRunner;
@@ -26,8 +29,8 @@ describe('Tool Integration Tests with Ollama', () => {
 
 
 
-  describe('Ollama phi4:latest Tool Calling', () => {
-    it('should call calculator tool with phi4:latest', async () => {
+  describe(`Ollama ${OLLAMA_INTEGRATION_MODEL} tool calling`, () => {
+    it(`should call calculator tool with ${OLLAMA_INTEGRATION_MODEL}`, async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -43,7 +46,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'phi4:latest', provider: 'ollama' },
+        { name: OLLAMA_INTEGRATION_MODEL, provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({
@@ -64,9 +67,9 @@ describe('Tool Integration Tests with Ollama', () => {
                          response.metadata?.toolCalls?.length > 0;
       
       expect(hasToolCall).toBe(true);
-    }, 30000); // 30 second timeout for Ollama
+    }, 90000);
 
-    it('should call statistics tool with phi4:latest', async () => {
+    it(`should call statistics tool with ${OLLAMA_INTEGRATION_MODEL}`, async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -82,7 +85,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'phi4:latest', provider: 'ollama' },
+        { name: OLLAMA_INTEGRATION_MODEL, provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({
@@ -103,9 +106,9 @@ describe('Tool Integration Tests with Ollama', () => {
                          response.metadata?.toolCalls?.length > 0;
       
       expect(hasToolCall).toBe(true);
-    }, 30000); // 30 second timeout for Ollama
+    }, 90000);
 
-    it('should handle multiple tool calls in sequence with phi4:latest', async () => {
+    it(`should handle multiple tool calls in sequence with ${OLLAMA_INTEGRATION_MODEL}`, async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -121,7 +124,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'phi4:latest', provider: 'ollama' },
+        { name: OLLAMA_INTEGRATION_MODEL, provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({
@@ -143,11 +146,11 @@ describe('Tool Integration Tests with Ollama', () => {
       // At least one tool should be called
       const toolCalls = hasCalculator || hasRandom || hasStatistics || (response.metadata?.toolCalls?.length || 0) > 0;
       expect(toolCalls).toBe(true);
-    }, 45000); // 45 second timeout for multiple tool calls
+    }, 120000);
   });
 
   describe('Tool Execution Context', () => {
-    it('should provide proper execution context to tools', async () => {
+    it("should provide proper execution context to tools", async () => {
       // Skip if Ollama is not available
       const ollamaAvailable = await checkOllamaConnection();
       if (!ollamaAvailable) {
@@ -163,7 +166,7 @@ describe('Tool Integration Tests with Ollama', () => {
       });
       
       const interaction = new Interaction(
-        { name: 'gpt-oss:latest', provider: 'ollama' },
+        { name: OLLAMA_INTEGRATION_MODEL, provider: 'ollama' },
         stimulus
       );
       interaction.addMessage({
@@ -183,6 +186,6 @@ describe('Tool Integration Tests with Ollama', () => {
       // Cost may be undefined for local models; ensure usage is present instead
       // and response shape is valid.
       // expect(response.metadata.cost).toBeDefined();
-    }, 30000); // 30 second timeout for Ollama
+    }, 90000);
   });
 });

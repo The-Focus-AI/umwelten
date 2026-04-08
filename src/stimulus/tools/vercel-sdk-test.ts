@@ -2,6 +2,9 @@ import { generateText, tool } from 'ai';
 import { ollama } from 'ollama-ai-provider-v2';
 import { z } from 'zod';
 
+const OLLAMA_SCRIPT_MODEL =
+  process.env.OLLAMA_TEST_MODEL?.trim() || 'gemma4:latest';
+
 // Define tools using Vercel AI SDK pattern
 const calculatorTool = tool({
   description: "Performs basic arithmetic operations (add, subtract, multiply, divide)",
@@ -72,7 +75,7 @@ async function testDirectVercelSDK() {
 
   try {
     const result = await generateText({
-      model: ollama('phi4:latest'),
+      model: ollama(OLLAMA_SCRIPT_MODEL),
       tools: {
         calculator: calculatorTool,
         statistics: statisticsTool,

@@ -8,6 +8,7 @@ import {
 
 // Import the actual implementations
 import { addToolsCommand, runToolsDemo } from './tools.js';
+import { OLLAMA_INTEGRATION_MODEL } from '../test-utils/setup.js';
 
 describe('CLI Tools Command', () => {
   let program: Command;
@@ -218,7 +219,7 @@ describe('CLI Tools Command', () => {
           prompt: 'Calculate 25 + 15 using the calculator tool',
           maxSteps: '3',
           provider: 'ollama',
-          model: 'phi4:latest'
+          model: OLLAMA_INTEGRATION_MODEL,
         });
         
         // Verify the demo ran

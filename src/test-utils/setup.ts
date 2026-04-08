@@ -19,6 +19,12 @@ export const hasGitHubToken = () => hasRequiredEnvVar('GITHUB_TOKEN')
 export const hasMinimaxKey = () => hasRequiredEnvVar('MINIMAX_API_KEY')
 
 // Service availability checks
+/**
+ * Default Ollama tag for integration tests. Override with env `OLLAMA_TEST_MODEL` (e.g. `gemma4:31b`).
+ */
+export const OLLAMA_INTEGRATION_MODEL =
+  process.env.OLLAMA_TEST_MODEL?.trim() || "gemma4:latest";
+
 export async function checkOllamaConnection(host = 'http://localhost:11434'): Promise<boolean> {
   try {
     const response = await fetch(`${host}/api/tags`)
