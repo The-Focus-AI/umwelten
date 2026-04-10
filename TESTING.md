@@ -78,10 +78,29 @@ pnpm exec vitest run src/evaluation/ranking/ --reporter=verbose
 pnpm exec vitest run src/habitat/tools/self-modify-tools.test.ts --reporter=verbose
 ```
 
+### Manual / integration scripts (see also Examples index)
+
+These are **not** part of `pnpm test:run`; use them when validating Dagger, tools, or streaming:
+
+```bash
+pnpm tsx src/test/test-dagger-runner.ts
+pnpm tsx src/test/test-tool-conversations.ts
+pnpm tsx src/test/test-reasoning-streaming-simple.ts
+pnpm tsx src/test/test-reasoning-complex.ts
+```
+
+Optional **unused export / file** pass (noisy; deep imports and scripts are often flagged):
+
+```bash
+pnpm knip
+```
+
+`knip.json` scopes analysis to `src/` entrypoints (`cli/entry.ts`, `index.ts`, `habitat/bridge/server.ts`). Many hits are intentional library surface or test-only modules—triaging is manual.
+
 Verify:
 
 - [ ] Total test count is ~774+ passed
-- [ ] Only pre-existing failures appear (Ollama text generation, OpenRouter auth, memory/determine_operations needing local models)
+- [ ] Only pre-existing failures appear (Ollama text generation, OpenRouter auth, `src/memory/determine_operations` needing local models)
 - [ ] No new failures in `src/cli/`, `src/cognition/`, `src/providers/minimax*`
 - [ ] All 21 pairwise ranking tests pass (13 elo + 8 pairing)
 - [ ] Self-modify tools tests pass

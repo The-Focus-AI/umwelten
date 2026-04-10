@@ -15,6 +15,14 @@ An "Umwelt" is the perceptual world in which an organism exists - its unique sen
 Umwelten provides:
 
 - **Habitat**: The top-level container for agents — tools, skills, sessions, memory, and sub-agents in one place. Run as CLI REPL, Telegram, Discord, or web (see [Habitat interfaces](./guide/habitat-interfaces.md)).
+
+## Choose your path
+
+| I want to… | Start here |
+|------------|------------|
+| **Run a managed agent** (work dir, tools, sessions, secrets) | [Habitat](./guide/habitat.md) → [Habitat interfaces](./guide/habitat-interfaces.md) · Example repo: [`examples/habitat-minimal`](https://github.com/The-Focus-AI/umwelten/tree/main/examples/habitat-minimal) |
+| **Evaluate and compare models** (CLI, reports, suites) | [Model evaluation](./guide/model-evaluation.md) · Example repo: [`examples/model-showdown`](https://github.com/The-Focus-AI/umwelten/tree/main/examples/model-showdown) |
+| **Use the TypeScript API** (`Interaction`, `Habitat`, `runEvaluation`) | [API overview](./api/overview.md) · Machine summary: [LLM.txt](https://github.com/The-Focus-AI/umwelten/blob/main/LLM.txt) |
 - **Multi-Provider Support**: Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax
 - **Semantic Architecture**: Cognition, Interaction, and Stimulus frameworks
 - **Evaluation Framework**: Systematic model assessment and comparison

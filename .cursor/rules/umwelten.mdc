@@ -1,0 +1,6 @@
+---
+description: Umwelten repo — use LLM.txt + CLAUDE.md for architecture and CLI conventions
+alwaysApply: false
+---
+
+When working in this repository, read **[LLM.txt](LLM.txt)** first (task table, CLI, layers); use **[CLAUDE.md](CLAUDE.md)** for the full maintainer module map. Use **pnpm** and **`pnpm test:run`**. Prefer **`dotenvx run --`** for CLI commands that need API keys.

@@ -1,6 +1,6 @@
 # Minimal Habitat example
 
-This folder documents the smallest useful **Habitat work directory** layout. Paths are relative to your chosen work dir (e.g. `~/habitats` or a project-specific directory).
+**Start here for Habitat:** this is the smallest useful **Habitat work directory** layout the project recommends copying before larger examples (`jeeves-bot`, `mcp-chat`, etc.). Paths are relative to your chosen work dir (e.g. `~/habitats` or a project-specific directory).
 
 ## Layout
 

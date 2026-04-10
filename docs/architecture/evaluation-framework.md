@@ -1,5 +1,11 @@
 # Evaluation Framework
 
+## Stimulus-centric evaluation
+
+Evaluations center on a **[Stimulus](./stimulus-system.md)** (role, objective, instructions, tools, temperature): it defines *what* cognitive work you are testing. **Strategies** in `src/evaluation/strategies/` define *how* to run that work across one or many models (matrix/batch/pipeline). **`EvaluationRunner`** (`src/evaluation/runner.ts`) is the usual extension point for custom cached runs. The CLI (`eval run`, `eval report`, `eval combine`) and [`runEvaluation`](../api/overview.md) use the same stack.
+
+For **multi-dimension benchmarks**, define an `EvalDimension[]` suite and run [`eval combine`](../guide/model-evaluation.md); see **[`examples/model-showdown/`](../../examples/model-showdown/README.md)**.
+
 ## Overview
 
 The evaluation framework provides a comprehensive set of strategies for testing AI models. It's designed to be composable, reusable, and extensible, allowing you to build complex evaluations from simple building blocks.

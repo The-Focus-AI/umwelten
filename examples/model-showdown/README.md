@@ -1,6 +1,6 @@
 # Model showdown (evaluation suite)
 
-Reference layout for **multi-dimension evaluations** and **`eval combine`**.
+**Start here for evaluations:** reference layout for **multi-dimension evaluations**, **`eval combine`**, and suite-style reports. Pair with [model evaluation](https://umwelten.thefocus.ai/guide/model-evaluation) on the docs site.
 
 ## Key files
 

@@ -1,49 +1,129 @@
 # Umwelten — context for coding agents
 
-Project: TypeScript monorepo for **Habitat** (agent workspaces: tools, skills, sessions, sub-agents) and **evaluation** (multi-model runs, reports, combine suites). Public site: https://umwelten.thefocus.ai/
+Project: TypeScript (Node 20+) for **Habitat** (agent workspaces: tools, skills, sessions, sub-agents, bridge) and **evaluation** (multi-model runs, reports, `eval combine` suites).
+
+- Human docs: https://umwelten.thefocus.ai/
+- Repo: https://github.com/The-Focus-AI/umwelten
 
 ## Rules
 
 - Package manager: **pnpm** only (`pnpm install`, `pnpm build`). Tests: **`pnpm test:run`** (not `pnpm test`, which watches).
-- Local CLI: **`pnpm run cli`** (tsx entry). With secrets: **`dotenvx run -- pnpm run cli -- …`**
-- Default Google model: **gemini-3** family (e.g. `gemini-3-flash-preview`). Do not use gemini-2.
-- Model responses: read **`ModelResponse.content`**, not `.text`.
+- Local CLI: **`pnpm run cli`** (tsx → `src/cli/entry.ts`). With secrets: **`dotenvx run -- pnpm run cli -- …`**
+- **Never use gemini-2 models** — use **gemini-3** (e.g. `gemini-3-flash-preview`).
+- Model responses: read **`ModelResponse.content`** (string), **not** `.text`.
+- Maintainer-deep module map: **CLAUDE.md** in repo root (this file is the shorter, agent-oriented summary).
 
-## Layers (bottom → top)
+---
 
-Foundation → providers → cognition + stimulus + interaction → context + memory → habitat → evaluation → cli/ui.
+## Layer stack (bottom → top)
 
-## Core usage patterns
+Each layer depends only on layers below.
 
-```ts
-import { Stimulus, Interaction, Habitat, runEvaluation, parseModel } from "umwelten";
+1. **Foundation** — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`, `src/mcp/`
+2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/GitHub/etc.
+3. **Core runtime** — `src/cognition/` (runners), `src/stimulus/` (prompt config), `src/interaction/` (conversation)
+4. **Context** — `src/context/` — compaction, token estimates
+5. **Memory** — `src/memory/` — fact extraction when `stimulus.runnerType === 'memory'` (`MemoryRunner`, `InMemoryMemoryStore`)
+6. **Habitat** — `src/habitat/` — `Habitat.create()`, tool sets, sessions, secrets (`secrets.json` in work dir, mode 0600), sub-agents, bridge
+7. **Evaluation** — `src/evaluation/` — `runEvaluation`, strategies, caching, Dagger, **`combine/`** for suite reports
+8. **Surfaces** — `src/cli/`, `src/ui/` (Telegram, Discord, TUI, web)
 
-const stimulus = new Stimulus({ role: "helpful assistant" });
-const interaction = new Interaction(
-  { name: "gemini-3-flash-preview", provider: "google" },
-  stimulus,
-);
-await interaction.chat("Hello");
+---
 
-const habitat = await Habitat.create({ workDir: "./my-agent" });
-const { interaction: ix } = await habitat.createInteraction();
-await ix.chat("…");
+## Core types
+
+- **`Stimulus`** — `role`, `objective`, `instructions`, `tools`, `temperature`, `runnerType`, `skillsDirs`, etc. Pure config; does not run the model.
+- **`Interaction`** — Messages + model + stimulus; **`chat()`, `generateText()`, `streamText()`, `generateObject()`, `compactContext()`**.
+- **`Habitat`** — Binds work directory, registers standard tool sets, loads prompts from work dir (`STIMULUS.md`, `CLAUDE.md`, …), manages sessions and agents.
+
+---
+
+## Published npm entry (`umwelten`)
+
+`src/index.ts` exports:
+
+- `Habitat`, types: `HabitatConfig`, `HabitatOptions`, …
+- `Interaction`, `Stimulus`
+- `runEvaluation`, `runEvaluationWithProgress`, `generateReport`, `listEvaluations`, `parseModel`
+- Types: `EvaluationConfig`, `EvaluationResult`, `EnhancedEvaluationConfig`
+
+Everything else: deep imports from **`umwelten/dist/<path>.js`** (check `tsc` `outDir` layout) — prefer staying on the public exports when possible.
+
+---
+
+## Common tasks
+
+| Goal | Where to start |
+|------|----------------|
+| Managed agent (tools, sessions, secrets) | `Habitat.create({ workDir })` → `createInteraction()` |
+| REPL / Telegram / Discord / web | `pnpm run cli -- habitat` (+ subcommands); same Habitat underneath |
+| One-shot multi-model compare | `runEvaluation` or `pnpm run cli -- eval run --models "provider:model,..."` |
+| Suite leaderboard | `examples/model-showdown/suite-config.ts` + **`pnpm run cli -- eval combine --config …`** |
+| Facts / memory | `new Stimulus({ ..., runnerType: 'memory' })` |
+| External session read (Claude Code / Cursor) | `pnpm run cli -- sessions …` |
+| Native Habitat transcripts | `pnpm run cli -- sessions habitat list|show|…` + `--work-dir` |
+
+---
+
+## CLI essentials
+
+```bash
+dotenvx run -- pnpm run cli models --search <name>
+dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview --prompt "Hello"
+dotenvx run -- pnpm run cli chat --provider google --model gemini-3-flash-preview
+dotenvx run -- pnpm run cli habitat
+dotenvx run -- pnpm run cli eval run --prompt "..." --models "google:gemini-3-flash-preview,ollama:gemma3:12b" --id my-id --concurrent
+dotenvx run -- pnpm run cli eval report --id my-id --format markdown
+dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts --format narrative --output report.md
 ```
 
-## CLI (high value)
+---
 
-- `umwelten habitat` — REPL; subcommands `telegram`, `discord`, `web`.
-- `umwelten sessions` — Claude Code / Cursor sessions on disk (`--project`, index, search, show).
-- `umwelten sessions habitat …` — **native** Habitat `transcript.jsonl`: `list`, `show`, `beats`, `messages`, `message`, `pull`, `replay`; options `--work-dir`, `--sessions-dir`, `--env-prefix`.
-- `umwelten eval run` / `eval report` / `eval combine`.
+## Habitat tool sets (standard)
 
-## Examples in repo
+Registered in **`standardToolSets`**: agent CRUD, session tools, external interaction (Claude/Cursor history), agent runner (clone, logs, `agent_ask`, bridge), `run_project` (Dagger), secrets, Tavily search.
 
-- `examples/model-showdown/` — suite config + combine.
-- `examples/habitat-minimal/` — tiny work-dir layout sketch.
-- `examples/jeeves-bot/` — JEEVES preset (prompt + env); run Discord/Telegram via **`umwelten habitat …`** from repo root, not a forked binary.
+**Not** in standard: file, time, URL tool sets — register via **`registerCustomTools`** for sub-agents / restricted contexts.
 
-## Docs
+Details: **CLAUDE.md** table `src/habitat/tool-sets.ts` + `src/habitat/tools/*`.
 
-- Human: README.md, CLAUDE.md (full module map), docs/ (VitePress).
-- Bridge / containers: docs/guide/habitat-bridge.md; repo root BRIDGE_WORKFLOW.md summary.
+---
+
+## Evaluation notes
+
+- High-level API: **`runEvaluation`**, **`parseModel("provider:model")`**.
+- Custom repeatable evals: subclass **`EvaluationRunner`** (`src/evaluation/runner.ts`).
+- Strategies: `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`, `ComplexPipeline` under `src/evaluation/strategies/`.
+- **Suites**: `src/evaluation/combine/` — `loadSuite`, `buildSuiteReport`, `buildNarrativeReport`; config type **`EvalDimension[]`**.
+- Multiple report generator classes exist in-tree (known duplication); prefer **`combine/`** + **`examples/model-showdown/`** for full suite reporting.
+
+---
+
+## Environment variables (common)
+
+- `GOOGLE_GENERATIVE_AI_API_KEY` — Gemini (**not** `GOOGLE_API_KEY`)
+- `OPENROUTER_API_KEY`, `GITHUB_TOKEN`, `DEEPINFRA_API_KEY`, `TOGETHER_API_KEY`, `TAVILY_API_KEY`, `FIREWORKS_API_KEY`, …
+
+See **env.template** in repo.
+
+---
+
+## Examples to copy
+
+1. **`examples/habitat-minimal/`** — smallest Habitat work-dir layout and CLI invocation.
+2. **`examples/model-showdown/`** — multi-dimension eval + **`eval combine`**.
+3. **`examples/jeeves-bot/`**, **`examples/mcp-chat/`** — optional full bots / MCP chat patterns.
+
+Script demos: **`scripts/examples/*`** (simple/matrix/batch/pipeline evaluations).
+
+---
+
+## Docs map
+
+- Getting started: site **/guide/getting-started**
+- Habitat: **/guide/habitat**, **/guide/habitat-interfaces**
+- Model evaluation: **/guide/model-evaluation**, **/guide/creating-evaluations**
+- Evaluation architecture: **/architecture/evaluation-framework** (canonical long form)
+- API: **/api/overview**
+
+Bridge / containers: **docs/guide/habitat-bridge.md**, **BRIDGE_WORKFLOW.md**.

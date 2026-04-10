@@ -34,7 +34,7 @@ The top-level container for agents — the "world" an agent lives in.
 - **Tool Sets**: Modular tool collections — agent management, session management, secrets, search
 - **HabitatAgent**: Sub-agent system with its own Stimulus built from cloned project files
 - **Session Management**: Persistent sessions with JSONL transcript storage
-- **Secrets**: Encrypted secret storage with `secrets.json` (0600 permissions)
+- **Secrets**: Work-dir `secrets.json` (plain JSON key/value map, file mode 0600)
 - **Gaia Server**: HTTP API for web UI access to habitat data
 
 ### 3. Cognition (`src/cognition/`)

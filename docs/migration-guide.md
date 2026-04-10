@@ -450,7 +450,7 @@ If migration issues occur:
 ## Support and Resources
 
 ### Documentation
-- **Architecture Guide**: `docs/evaluation-architecture.md`
+- **Architecture Guide**: `docs/architecture/evaluation-framework.md` (evaluation overview); `docs/evaluation-architecture.md` is a short redirect to that doc and related guides
 - **API Reference**: `docs/api/`
 - **Examples**: `scripts/` directory
 

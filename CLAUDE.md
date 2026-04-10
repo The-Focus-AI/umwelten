@@ -1,5 +1,7 @@
 # Umwelten
 
+For **published / npm-style agent context** (shorter module map, task cheat sheet), read **[LLM.txt](LLM.txt)** at the repo root. This file is the maintainer-deep map.
+
 ## Workflow Rules
 
 - Use `pnpm` (never `npm`)
@@ -113,7 +115,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `config.ts` — Directory resolution, config loading, file utilities
 - `tool-sets.ts` — Named tool collections (see Tool Sets below)
 - `onboard.ts` — Interactive setup wizard
-- `secrets.ts` — Encrypted secrets store (`.secrets.json` in work dir)
+- `secrets.ts` — Work-dir `secrets.json` (plain JSON map, file mode 0600)
 - `transcript.ts` — Export sessions to JSONL
 - `gaia-server.ts` — HTTP server for habitat API
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
@@ -249,7 +251,7 @@ Commander-based CLI. Entry point: `src/cli/entry.ts` → `src/cli/cli.ts`.
 
 - `cli.ts` — Main program: registers `models`, `run`, `chat`, `eval`, `sessions`, `telegram`, `habitat` commands
 - `habitat.ts` — `habitat` subcommand (REPL + telegram + discord + web)
-- `chat.ts` / `chat-new.ts` — Interactive chat
+- `chat.ts` — Interactive chat
 - `eval.ts` — Evaluation runner
 - `run.ts` — One-shot prompt
 - `models.ts` — Model listing/search

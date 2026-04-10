@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/cli/entry.ts",
+    "src/index.ts",
+    "src/habitat/bridge/server.ts"
+  ],
+  "project": ["src/**/*.ts"],
+  "ignore": [
+    "**/*.test.ts",
+    "src/test/**",
+    "src/habitat/bridge/spikes/**"
+  ]
+}
