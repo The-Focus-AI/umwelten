@@ -113,6 +113,47 @@ function buildReasoningProviderOptions(
   return undefined;
 }
 
+/**
+ * Build provider-specific user tracking options from an Interaction's userId.
+ * Returns providerOptions to deep-merge into generateText/streamText/etc calls,
+ * or undefined if the provider doesn't support user tracking or userId is unset.
+ */
+function buildUserProviderOptions(
+  provider: string,
+  userId?: string,
+): Record<string, any> | undefined {
+  if (!userId || userId === "default") return undefined;
+
+  if (provider === "openrouter") {
+    return { openrouter: { user: userId } };
+  }
+
+  if (provider === "anthropic") {
+    return { anthropic: { metadata: { userId } } };
+  }
+
+  return undefined;
+}
+
+/**
+ * Deep-merge two providerOptions objects (one level deep per provider key).
+ */
+function mergeProviderOptions(
+  existing: Record<string, any> | undefined,
+  incoming: Record<string, any>,
+): Record<string, any> {
+  if (!existing) return { ...incoming };
+  const merged = { ...existing };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (typeof value === "object" && value !== null && typeof merged[key] === "object" && merged[key] !== null) {
+      merged[key] = { ...merged[key], ...value };
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 export class BaseModelRunner implements ModelRunner {
   private config: ModelRunnerConfig;
 
@@ -339,6 +380,18 @@ export class BaseModelRunner implements ModelRunner {
         ...generateOptions.providerOptions,
         ...reasoningOpts,
       };
+    }
+
+    // Attach user tracking for providers that support it
+    const userOpts = buildUserProviderOptions(
+      interaction.modelDetails.provider,
+      interaction.userId,
+    );
+    if (userOpts) {
+      generateOptions.providerOptions = mergeProviderOptions(
+        generateOptions.providerOptions,
+        userOpts,
+      );
     }
 
     // Add tools if available
@@ -613,6 +666,18 @@ export class BaseModelRunner implements ModelRunner {
         ...streamOptions.providerOptions,
         ...reasoningOpts,
       };
+    }
+
+    // Attach user tracking for providers that support it
+    const userOpts = buildUserProviderOptions(
+      interaction.modelDetails.provider,
+      interaction.userId,
+    );
+    if (userOpts) {
+      streamOptions.providerOptions = mergeProviderOptions(
+        streamOptions.providerOptions,
+        userOpts,
+      );
     }
 
     if (interaction.hasTools()) {
@@ -1049,6 +1114,18 @@ export class BaseModelRunner implements ModelRunner {
         };
       }
 
+      // Attach user tracking for providers that support it
+      const userOpts = buildUserProviderOptions(
+        interaction.modelDetails.provider,
+        interaction.userId,
+      );
+      if (userOpts) {
+        generateOptions.providerOptions = mergeProviderOptions(
+          generateOptions.providerOptions,
+          userOpts,
+        );
+      }
+
       if (interaction.hasTools()) {
         generateOptions.tools = interaction.getVercelTools();
         if (interaction.maxSteps) {
@@ -1133,6 +1210,18 @@ export class BaseModelRunner implements ModelRunner {
           ...streamOptions.providerOptions,
           ...reasoningOpts2,
         };
+      }
+
+      // Attach user tracking for providers that support it
+      const userOpts2 = buildUserProviderOptions(
+        interaction.modelDetails.provider,
+        interaction.userId,
+      );
+      if (userOpts2) {
+        streamOptions.providerOptions = mergeProviderOptions(
+          streamOptions.providerOptions,
+          userOpts2,
+        );
       }
 
       if (interaction.hasTools()) {

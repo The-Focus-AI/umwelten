@@ -40,6 +40,11 @@ How to call LLMs. Wraps Vercel AI SDK with rate limiting, cost tracking, retries
 
 Key: `ModelResponse` has `.content` (string), NOT `.text`.
 
+**User tracking:** The runner automatically forwards `interaction.userId` to providers that support it. Set `interaction.userId` to a stable identifier (not PII) and the runner injects it into `providerOptions`:
+- **OpenRouter** → `{ openrouter: { user: userId } }` — enables per-user cost analytics and abuse detection
+- **Anthropic** → `{ anthropic: { metadata: { userId } } }` — enables abuse detection
+- Other providers (Google, DeepInfra, Together AI, etc.) have no user tracking — the field is ignored.
+
 ### `src/stimulus/` — Prompt Configuration
 
 Defines *what* to say: role, objective, instructions, tools, model options. A `Stimulus` is a config object — it doesn't run anything.

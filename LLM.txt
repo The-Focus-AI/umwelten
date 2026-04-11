@@ -33,7 +33,7 @@ Each layer depends only on layers below.
 ## Core types
 
 - **`Stimulus`** — `role`, `objective`, `instructions`, `tools`, `temperature`, `runnerType`, `skillsDirs`, etc. Pure config; does not run the model.
-- **`Interaction`** — Messages + model + stimulus; **`chat()`, `generateText()`, `streamText()`, `generateObject()`, `compactContext()`**.
+- **`Interaction`** — Messages + model + stimulus; **`chat()`, `generateText()`, `streamText()`, `generateObject()`, `compactContext()`**. Has **`userId`** field (default `"default"`) — when set, the runner forwards it to providers that support user tracking (OpenRouter → per-user cost analytics; Anthropic → abuse detection metadata).
 - **`Habitat`** — Binds work directory, registers standard tool sets, loads prompts from work dir (`STIMULUS.md`, `CLAUDE.md`, …), manages sessions and agents.
 
 ---
