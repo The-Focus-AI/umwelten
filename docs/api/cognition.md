@@ -483,6 +483,36 @@ try {
 }
 ```
 
+## Per-User Cost Tracking
+
+The runner automatically forwards `interaction.userId` to providers that support user-level tracking. Set `userId` on an `Interaction` to a stable, non-PII identifier (e.g. a UUID or hash):
+
+```typescript
+const interaction = new Interaction(modelDetails, stimulus);
+interaction.userId = 'user_abc123';
+
+const response = await runner.generateText(interaction);
+// OpenRouter and Anthropic requests now carry the user identifier
+```
+
+### Provider Support
+
+| Provider | What gets sent | What it enables |
+|----------|---------------|-----------------|
+| **OpenRouter** | `providerOptions.openrouter.user` | Per-user cost analytics and abuse detection on the OpenRouter dashboard |
+| **Anthropic** | `providerOptions.anthropic.metadata.userId` | Abuse detection and request tracking |
+| **Google, DeepInfra, Together AI, etc.** | Nothing | No user tracking support |
+
+When `userId` is unset or `"default"`, no user tracking data is sent — existing behavior is unchanged.
+
+### Extracting Per-User Costs
+
+OpenRouter does not provide a per-user aggregation API. To track per-user costs:
+
+1. Record `interaction.userId` alongside `response.metadata.cost` after each call
+2. Aggregate in your own database or session store
+3. Optionally query OpenRouter's `GET /api/v1/generation?id=<gen_id>` endpoint for the `total_cost` and `external_user` fields
+
 ## Integration with Other Modules
 
 ### Interaction Module

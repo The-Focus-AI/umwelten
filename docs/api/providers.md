@@ -4,15 +4,17 @@ The providers module gives unified access to multiple LLM backends through a com
 
 ## Supported Providers
 
-| Provider | Key | Env Variable | Local? |
-|----------|-----|-------------|--------|
-| Google Gemini | `google` | `GOOGLE_GENERATIVE_AI_API_KEY` | No |
-| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | No |
-| Ollama | `ollama` | (none) | Yes |
-| LM Studio | `lmstudio` | (none) | Yes |
-| GitHub Models | `github-models` | `GITHUB_TOKEN` | No |
-| Fireworks | `fireworks` | `FIREWORKS_API_KEY` | No |
-| MiniMax | `minimax` | `MINIMAX_API_KEY` | No |
+| Provider | Key | Env Variable | Local? | User Tracking |
+|----------|-----|-------------|--------|---------------|
+| Google Gemini | `google` | `GOOGLE_GENERATIVE_AI_API_KEY` | No | No |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | No | Yes (`user`) |
+| Ollama | `ollama` | (none) | Yes | No |
+| LM Studio | `lmstudio` | (none) | Yes | No |
+| GitHub Models | `github-models` | `GITHUB_TOKEN` | No | No |
+| Fireworks | `fireworks` | `FIREWORKS_API_KEY` | No | No |
+| MiniMax | `minimax` | `MINIMAX_API_KEY` | No | No |
+
+> **User tracking**: When `interaction.userId` is set, the runner automatically sends it to providers that support per-user analytics. OpenRouter uses it for sub-user cost attribution; Anthropic uses it for abuse detection. See [Cognition API — Per-User Cost Tracking](/api/cognition#per-user-cost-tracking) for details.
 
 ## BaseProvider
 

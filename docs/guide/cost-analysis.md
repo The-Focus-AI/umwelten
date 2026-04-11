@@ -396,6 +396,24 @@ esac
 pnpm run cli -- eval run --models "$MODEL" --prompt "$3" --id "$4"
 ```
 
+## Per-User Cost Attribution
+
+When running multi-user systems (Telegram bots, Discord bots, web apps), you can attribute costs to individual users by setting `interaction.userId`:
+
+```typescript
+const interaction = new Interaction(modelDetails, stimulus);
+interaction.userId = telegramUserId; // or discordUserId, etc.
+
+const response = await interaction.chat('Hello');
+// response.metadata.cost has the cost breakdown for this request
+```
+
+The runner forwards the user ID to providers that support it:
+- **OpenRouter**: Sends `user` in the request body — visible as `external_user` in OpenRouter's generation records
+- **Anthropic**: Sends `metadata.user_id` for abuse tracking
+
+To build per-user cost reports, record `response.metadata.cost.totalCost` alongside the `userId` after each interaction and aggregate in your own store.
+
 ## Cost Reporting and Analytics
 
 ### Generate Cost Reports
