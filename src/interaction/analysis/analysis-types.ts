@@ -138,6 +138,158 @@ export function isSessionAnalysis(obj: unknown): obj is SessionAnalysis {
   }
 }
 
+// ─── Digest Types ───────────────────────────────────────────────────────────
+
+/**
+ * A compacted segment from a session (through-line + key facts)
+ */
+export interface DigestSegment {
+  index: number;
+  messageRange: [number, number];
+  throughLine: string;
+  keyFacts: string[];
+}
+
+/**
+ * A single beat in the digest — one user turn with what happened and what came out of it.
+ */
+export interface DigestBeat {
+  index: number;
+  /** What the user asked / prompted */
+  userRequest: string;
+  /** Tools that were invoked */
+  toolsUsed: { name: string; count: number }[];
+  /** What the assistant concluded / delivered */
+  outcome: string;
+  /** LLM-generated narrative: what was this beat about, what was decided */
+  narrative: string;
+  /** Key facts extracted from this beat */
+  keyFacts: string[];
+}
+
+/**
+ * A phase of the conversation — a group of beats with a common theme.
+ */
+export interface DigestPhase {
+  name: string;
+  beatRange: [number, number]; // inclusive indices into the beats array
+  description: string;
+}
+
+/**
+ * Extracted fact from fact extraction pipeline
+ */
+export interface DigestFact {
+  type: string;
+  text: string;
+}
+
+/**
+ * Full digest of a single session — compaction + analysis + facts
+ */
+export interface SessionDigest {
+  sessionId: string;
+  projectPath: string;
+  projectName: string;
+  source: string; // 'claude-code' | 'cursor' | etc.
+  created: string;
+  modified: string;
+  digestedAt: string;
+
+  /** Compacted segments (through-line-and-facts per segment) */
+  segments: DigestSegment[];
+
+  /** Beat-by-beat breakdown: what was asked, what happened, what came out */
+  beats?: DigestBeat[];
+
+  /** Detected phases of the conversation (groups of beats with a common theme) */
+  phases?: DigestPhase[];
+
+  /** Merged summary across all segments */
+  overallSummary: string;
+
+  /** All key facts from compaction segments */
+  allFacts: string[];
+
+  /** LLM-extracted analysis (topics, tags, keyLearnings, etc.) */
+  analysis: SessionAnalysis;
+
+  /** Structured facts from fact extraction */
+  extractedFacts: DigestFact[];
+
+  /** Session metrics */
+  metrics: {
+    messageCount: number;
+    segmentCount: number;
+    toolCallCount: number;
+    estimatedCost: number;
+    duration: number;
+  };
+}
+
+/**
+ * Lightweight entry in the digest master index (no full segments)
+ */
+export interface DigestIndexEntry {
+  sessionId: string;
+  projectPath: string;
+  projectName: string;
+  source: string;
+  created: string;
+  digestedAt: string;
+  overallSummary: string;
+  allFacts: string[];
+  topics: string[];
+  tags: string[];
+  keyLearnings: string;
+  solutionType: string;
+  successIndicators: string;
+  messageCount: number;
+  estimatedCost: number;
+}
+
+/**
+ * Project summary in the digest index
+ */
+export interface DigestProjectSummary {
+  path: string;
+  name: string;
+  sessionCount: number;
+}
+
+/**
+ * The master digest index across all projects
+ */
+export interface DigestIndex {
+  version: number;
+  lastUpdated: string;
+  modelUsed: AnalysisModelDetails;
+  projects: DigestProjectSummary[];
+  totalSessions: number;
+  digestedSessions: number;
+  entries: DigestIndexEntry[];
+}
+
+/**
+ * Options for digest operations
+ */
+export interface DigestOptions {
+  projectPath?: string;   // specific project, or all if omitted
+  model?: string;         // format: "provider:model"
+  force?: boolean;
+  batchSize?: number;
+  verbose?: boolean;
+}
+
+/**
+ * Scored digest search result
+ */
+export interface ScoredDigestResult {
+  entry: DigestIndexEntry;
+  score: number;
+  matchedFields: string[];
+}
+
 /**
  * Type guard to check if an object is a valid SessionAnalysisIndex
  */
