@@ -4,7 +4,7 @@ import {
   ModelResponse,
   ModelRunner,
 } from "./types.js";
-import { buildReasoningProviderOptions, buildUserProviderOptions, mergeProviderOptions } from "./provider-options.js";
+import { buildRequestOptions } from "./request-options.js";
 import { RateLimitConfig } from "../rate-limit/rate-limit.js";
 import {
   shouldAllowRequest,
@@ -21,14 +21,10 @@ import {
   streamText,
   wrapLanguageModel,
   extractReasoningMiddleware,
-  stepCountIs,
 } from "ai";
 import { getModel, validateModel } from "../providers/index.js";
 import { normalizeTokenUsage, calculateCostBreakdown } from "./usage-extractor.js";
-import {
-  normalizeToModelMessages,
-  ensureGoogleThoughtSignatures,
-} from "./message-normalizer.js";
+
 import { Interaction } from "../interaction/core/interaction.js";
 import { z } from "zod";
 
@@ -156,79 +152,17 @@ export class BaseModelRunner implements ModelRunner {
   async generateText(interaction: Interaction): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
 
-    const mergedOptions = {
-      maxTokens: this.config.maxTokens,
-      ...interaction.options,
-    };
+    const generateOptions = buildRequestOptions({
+      interaction,
+      model,
+      config: this.config,
+      label: "generateText",
+      streaming: false,
+    });
 
-    let generateMessages = interaction.getMessages();
-    generateMessages = normalizeToModelMessages(generateMessages);
-    if (interaction.modelDetails.provider === "google") {
-      generateMessages = ensureGoogleThoughtSignatures(generateMessages);
-    }
-    const generateOptions: any = {
-      model: model,
-      messages: generateMessages,
-      temperature: interaction.modelDetails.temperature,
-      topP: interaction.modelDetails.topP,
-      topK: interaction.modelDetails.topK,
-      ...mergedOptions,
-      onError: (err: any) => {
-        console.error(`[onError] generateText:`, err);
-      },
-    };
-
-    // Enable usage accounting for providers that expose token usage via AI SDK metadata
-    if (
-      interaction.modelDetails.provider === "openrouter" ||
-      interaction.modelDetails.provider === "minimax"
-    ) {
-      generateOptions.usage = { include: true };
-    }
-
-    // Enable thinking/reasoning based on provider and reasoning effort
-    const reasoningOpts = buildReasoningProviderOptions(
-      interaction.modelDetails.provider,
-      interaction.modelDetails.reasoningEffort,
+    const response = await generateText(
+      generateOptions as Parameters<typeof generateText>[0],
     );
-    if (reasoningOpts) {
-      generateOptions.providerOptions = {
-        ...generateOptions.providerOptions,
-        ...reasoningOpts,
-      };
-    }
-
-    // Attach user tracking for providers that support it
-    const userOpts = buildUserProviderOptions(
-      interaction.modelDetails.provider,
-      interaction.userId,
-    );
-    if (userOpts) {
-      generateOptions.providerOptions = mergeProviderOptions(
-        generateOptions.providerOptions,
-        userOpts,
-      );
-    }
-
-    // Add tools if available
-    if (interaction.hasTools()) {
-      generateOptions.tools = interaction.getVercelTools();
-      if (interaction.maxSteps) {
-        generateOptions.stopWhen = stepCountIs(interaction.maxSteps);
-      }
-      if (process.env.DEBUG === "1") {
-        console.log(
-          "[DEBUG] Passing tools to model (generateText):",
-          Object.keys(interaction.getVercelTools() || {}),
-        );
-        console.log(
-          "[DEBUG] Using stopWhen with maxSteps:",
-          interaction.maxSteps,
-        );
-      }
-    }
-
-    const response = await generateText(generateOptions);
 
     const usage = await Promise.resolve(response.usage);
 
@@ -245,89 +179,17 @@ export class BaseModelRunner implements ModelRunner {
   async makeStreamOptions(
     interaction: Interaction,
     signal?: AbortSignal,
-  ): Promise<any> {
-    const { startTime, model, modelIdString } = await this.startUp(interaction);
+  ): Promise<Record<string, unknown>> {
+    const { model } = await this.startUp(interaction);
 
-    const mergedOptions = {
-      maxTokens: this.config.maxTokens,
-      ...interaction.options,
-    };
-
-    let messages = interaction.getMessages();
-    messages = normalizeToModelMessages(messages);
-    if (interaction.modelDetails.provider === "google") {
-      messages = ensureGoogleThoughtSignatures(messages);
-    }
-
-    const streamOptions: any = {
-      model: model,
-      messages,
-      temperature: interaction.modelDetails.temperature,
-      topP: interaction.modelDetails.topP,
-      topK: interaction.modelDetails.topK,
-      ...mergedOptions,
+    return buildRequestOptions({
+      interaction,
+      model,
+      config: this.config,
+      label: "streamText",
+      streaming: true,
       abortSignal: signal,
-      onError: (err: any) => {
-        console.error(`[onError] streamText:`, err);
-      },
-      onFinish: (event: any) => {
-        // console.log(`[onFinish] streamText:`, JSON.stringify(event, null, 2));
-      },
-    };
-
-    // Enable usage accounting for OpenRouter, GitHub models, and Google
-    if (
-      interaction.modelDetails.provider === "openrouter" ||
-      interaction.modelDetails.provider === "github-models" ||
-      interaction.modelDetails.provider === "google" ||
-      interaction.modelDetails.provider === "minimax"
-    ) {
-      streamOptions.usage = { include: true };
-    }
-
-    // Enable thinking/reasoning based on provider and reasoning effort
-    const reasoningOpts = buildReasoningProviderOptions(
-      interaction.modelDetails.provider,
-      interaction.modelDetails.reasoningEffort,
-    );
-    if (reasoningOpts) {
-      streamOptions.providerOptions = {
-        ...streamOptions.providerOptions,
-        ...reasoningOpts,
-      };
-    }
-
-    // Attach user tracking for providers that support it
-    const userOpts = buildUserProviderOptions(
-      interaction.modelDetails.provider,
-      interaction.userId,
-    );
-    if (userOpts) {
-      streamOptions.providerOptions = mergeProviderOptions(
-        streamOptions.providerOptions,
-        userOpts,
-      );
-    }
-
-    if (interaction.hasTools()) {
-      streamOptions.tools = interaction.getVercelTools();
-      if (interaction.maxSteps) {
-        streamOptions.stopWhen = stepCountIs(interaction.maxSteps);
-      }
-      streamOptions.experimental_toolCallStreaming = true;
-      if (process.env.DEBUG === "1") {
-        console.log(
-          "[DEBUG] Passing tools to model (streamText):",
-          Object.keys(interaction.getVercelTools() || {}),
-        );
-        console.log(
-          "[DEBUG] Using stopWhen with maxSteps:",
-          interaction.maxSteps,
-        );
-      }
-    }
-
-    return streamOptions;
+    });
   }
 
   async streamText(
@@ -339,7 +201,9 @@ export class BaseModelRunner implements ModelRunner {
     try {
       const streamOptions = await this.makeStreamOptions(interaction, signal);
 
-      const response = await streamText(streamOptions);
+      const response = await streamText(
+        streamOptions as Parameters<typeof streamText>[0],
+      );
 
       let fullText = "";
       let reasoningText = "";
@@ -699,80 +563,18 @@ export class BaseModelRunner implements ModelRunner {
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
     try {
-      const mergedOptions = {
-        maxTokens: this.config.maxTokens,
-        ...interaction.options,
-      };
-
-      let generateMessages = interaction.getMessages();
-      generateMessages = normalizeToModelMessages(generateMessages);
-      if (interaction.modelDetails.provider === "google") {
-        generateMessages = ensureGoogleThoughtSignatures(generateMessages);
-      }
-
-      const generateOptions: any = {
-        model: model,
-        messages: generateMessages,
+      const generateOptions = buildRequestOptions({
+        interaction,
+        model,
+        config: this.config,
+        label: "generateObject",
+        streaming: false,
         schema,
-        temperature: interaction.modelDetails.temperature,
-        topP: interaction.modelDetails.topP,
-        topK: interaction.modelDetails.topK,
-        ...mergedOptions,
-        onError: (err: any) => {
-          console.error(`[onError] generateObject:`, err);
-        },
-      };
+      });
 
-      // Enable usage accounting for providers that expose token usage via AI SDK metadata
-      if (
-        interaction.modelDetails.provider === "openrouter" ||
-        interaction.modelDetails.provider === "minimax"
-      ) {
-        generateOptions.usage = { include: true };
-      }
-
-      // Enable thinking/reasoning based on provider and reasoning effort
-      const reasoningOpts = buildReasoningProviderOptions(
-        interaction.modelDetails.provider,
-        interaction.modelDetails.reasoningEffort,
+      const response = await generateObject(
+        generateOptions as Parameters<typeof generateObject>[0],
       );
-      if (reasoningOpts) {
-        generateOptions.providerOptions = {
-          ...generateOptions.providerOptions,
-          ...reasoningOpts,
-        };
-      }
-
-      // Attach user tracking for providers that support it
-      const userOpts = buildUserProviderOptions(
-        interaction.modelDetails.provider,
-        interaction.userId,
-      );
-      if (userOpts) {
-        generateOptions.providerOptions = mergeProviderOptions(
-          generateOptions.providerOptions,
-          userOpts,
-        );
-      }
-
-      if (interaction.hasTools()) {
-        generateOptions.tools = interaction.getVercelTools();
-        if (interaction.maxSteps) {
-          generateOptions.stopWhen = stepCountIs(interaction.maxSteps);
-        }
-        if (process.env.DEBUG === "1") {
-          console.log(
-            "[DEBUG] Passing tools to model (generateObject):",
-            Object.keys(interaction.getVercelTools() || {}),
-          );
-          console.log(
-            "[DEBUG] Using stopWhen with maxSteps:",
-            interaction.maxSteps,
-          );
-        }
-      }
-
-      const response = await generateObject(generateOptions);
 
       const usage = await Promise.resolve(response.usage);
 
@@ -795,83 +597,19 @@ export class BaseModelRunner implements ModelRunner {
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
     try {
-      const mergedOptions = {
-        maxTokens: this.config.maxTokens,
-        ...interaction.options,
-      };
-
-      let streamMessages = interaction.getMessages();
-      streamMessages = normalizeToModelMessages(streamMessages);
-      if (interaction.modelDetails.provider === "google") {
-        streamMessages = ensureGoogleThoughtSignatures(streamMessages);
-      }
-
-      const streamOptions: any = {
-        model: model,
-        messages: streamMessages,
+      const streamOptions = buildRequestOptions({
+        interaction,
+        model,
+        config: this.config,
+        label: "streamObject",
+        streaming: true,
         schema,
-        temperature: interaction.modelDetails.temperature,
-        topP: interaction.modelDetails.topP,
-        topK: interaction.modelDetails.topK,
-        ...mergedOptions,
-        onError: (err: any) => {
-          console.error(`[onError] streamObject:`, err);
-        },
-      };
-
-      // Enable usage accounting for OpenRouter, GitHub models, and Google
-      if (
-        interaction.modelDetails.provider === "openrouter" ||
-        interaction.modelDetails.provider === "github-models" ||
-        interaction.modelDetails.provider === "google" ||
-        interaction.modelDetails.provider === "minimax"
-      ) {
-        streamOptions.usage = { include: true };
-      }
-
-      // Enable thinking/reasoning based on provider and reasoning effort
-      const reasoningOpts2 = buildReasoningProviderOptions(
-        interaction.modelDetails.provider,
-        interaction.modelDetails.reasoningEffort,
-      );
-      if (reasoningOpts2) {
-        streamOptions.providerOptions = {
-          ...streamOptions.providerOptions,
-          ...reasoningOpts2,
-        };
-      }
-
-      // Attach user tracking for providers that support it
-      const userOpts2 = buildUserProviderOptions(
-        interaction.modelDetails.provider,
-        interaction.userId,
-      );
-      if (userOpts2) {
-        streamOptions.providerOptions = mergeProviderOptions(
-          streamOptions.providerOptions,
-          userOpts2,
-        );
-      }
-
-      if (interaction.hasTools()) {
-        streamOptions.tools = interaction.getVercelTools();
-        if (interaction.maxSteps) {
-          streamOptions.stopWhen = stepCountIs(interaction.maxSteps);
-        }
-        if (process.env.DEBUG === "1") {
-          console.log(
-            "[DEBUG] Passing tools to model (streamObject):",
-            Object.keys(interaction.getVercelTools() || {}),
-          );
-          console.log(
-            "[DEBUG] Using stopWhen with maxSteps:",
-            interaction.maxSteps,
-          );
-        }
-      }
+      });
 
       // streamObject returns immediately in AI SDK 4.0+
-      const result = streamObject(streamOptions);
+      const result = streamObject(
+        streamOptions as Parameters<typeof streamObject>[0],
+      );
 
       // Use partialObjectStream instead of awaiting result.object (which hangs)
       let finalObject: Record<string, any> = {};
