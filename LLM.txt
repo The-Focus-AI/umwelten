@@ -1,17 +1,17 @@
 # Umwelten — context for coding agents
 
-Project: TypeScript (Node 20+) for **Habitat** (agent workspaces: tools, skills, sessions, sub-agents, bridge) and **evaluation** (multi-model runs, reports, `eval combine` suites).
+TypeScript (Node 20+) framework for **Habitat** (agent workspaces), **model evaluation** (multi-model benchmarks with scoring), and **pairwise ranking** (Elo via LLM judge).
 
 - Human docs: https://umwelten.thefocus.ai/
 - Repo: https://github.com/The-Focus-AI/umwelten
+- Maintainer-deep module map: **CLAUDE.md** in repo root
 
 ## Rules
 
-- Package manager: **pnpm** only (`pnpm install`, `pnpm build`). Tests: **`pnpm test:run`** (not `pnpm test`, which watches).
+- Package manager: **pnpm** only. Tests: **`pnpm test:run`** (not `pnpm test`, which watches).
 - Local CLI: **`pnpm run cli`** (tsx → `src/cli/entry.ts`). With secrets: **`dotenvx run -- pnpm run cli -- …`**
 - **Never use gemini-2 models** — use **gemini-3** (e.g. `gemini-3-flash-preview`).
 - Model responses: read **`ModelResponse.content`** (string), **not** `.text`.
-- Maintainer-deep module map: **CLAUDE.md** in repo root (this file is the shorter, agent-oriented summary).
 
 ---
 
@@ -20,21 +20,21 @@ Project: TypeScript (Node 20+) for **Habitat** (agent workspaces: tools, skills,
 Each layer depends only on layers below.
 
 1. **Foundation** — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`, `src/mcp/`
-2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/GitHub/etc.
+2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/GitHub/DeepInfra/Fireworks/MiniMax/Nvidia
 3. **Core runtime** — `src/cognition/` (runners), `src/stimulus/` (prompt config), `src/interaction/` (conversation)
 4. **Context** — `src/context/` — compaction, token estimates
-5. **Memory** — `src/memory/` — fact extraction when `stimulus.runnerType === 'memory'` (`MemoryRunner`, `InMemoryMemoryStore`)
-6. **Habitat** — `src/habitat/` — `Habitat.create()`, tool sets, sessions, secrets (`secrets.json` in work dir, mode 0600), sub-agents, bridge
-7. **Evaluation** — `src/evaluation/` — `runEvaluation`, strategies, caching, Dagger, **`combine/`** for suite reports
+5. **Memory** — `src/memory/` — fact extraction when `stimulus.runnerType === 'memory'`
+6. **Habitat** — `src/habitat/` — `Habitat.create()`, tool sets, sessions, secrets, sub-agents, bridge
+7. **Evaluation** — `src/evaluation/` — `EvalSuite`, `PairwiseRanker`, strategies, caching, Dagger, `combine/` for suite reports
 8. **Surfaces** — `src/cli/`, `src/ui/` (Telegram, Discord, TUI, web)
 
 ---
 
 ## Core types
 
-- **`Stimulus`** — `role`, `objective`, `instructions`, `tools`, `temperature`, `runnerType`, `skillsDirs`, etc. Pure config; does not run the model.
-- **`Interaction`** — Messages + model + stimulus; **`chat()`, `generateText()`, `streamText()`, `generateObject()`, `compactContext()`**. Has **`userId`** field (default `"default"`) — when set, the runner forwards it to providers that support user tracking (OpenRouter → per-user cost analytics; Anthropic → abuse detection metadata).
-- **`Habitat`** — Binds work directory, registers standard tool sets, loads prompts from work dir (`STIMULUS.md`, `CLAUDE.md`, …), manages sessions and agents.
+- **`Stimulus`** — `role`, `objective`, `instructions`, `tools`, `temperature`, `runnerType`, `skillsDirs`. Pure config; does not run the model.
+- **`Interaction`** — Messages + model + stimulus; **`chat()`, `generateText()`, `streamText()`, `generateObject()`, `compactContext()`**. Has **`userId`** field forwarded to OpenRouter/Anthropic.
+- **`Habitat`** — Binds work directory, registers tool sets, loads prompts, manages sessions and agents.
 
 ---
 
@@ -42,12 +42,151 @@ Each layer depends only on layers below.
 
 `src/index.ts` exports:
 
-- `Habitat`, types: `HabitatConfig`, `HabitatOptions`, …
-- `Interaction`, `Stimulus`
+- `Habitat`, `Interaction`, `Stimulus`
+- `EvalSuite` + types: `EvalSuiteConfig`, `EvalTask`, `VerifyTask`, `JudgeTask`, `VerifyResult`, `TaskResultRecord`
+- `PairwiseRanker` + types: `RankingEntry`, `PairwiseResult`, `RankedModel`, `RankingOutput`, `PairwiseRankerConfig`
 - `runEvaluation`, `runEvaluationWithProgress`, `generateReport`, `listEvaluations`, `parseModel`
-- Types: `EvaluationConfig`, `EvaluationResult`, `EnhancedEvaluationConfig`
+- Types: `HabitatConfig`, `HabitatOptions`, `EvaluationConfig`, `EvaluationResult`
 
-Everything else: deep imports from **`umwelten/dist/<path>.js`** (check `tsc` `outDir` layout) — prefer staying on the public exports when possible.
+Everything else: deep imports from **`umwelten/dist/<path>.js`**.
+
+---
+
+## Evaluation — EvalSuite (recommended)
+
+`EvalSuite` (`src/evaluation/suite.ts`) is the primary way to create evaluations. Define tasks + stimulus + models → get scored results + leaderboard in ~60-100 lines.
+
+### Minimal example
+
+```typescript
+import { EvalSuite } from '../../src/evaluation/suite.js';
+
+const suite = new EvalSuite({
+  name: 'my-eval',
+  stimulus: { role: 'helpful assistant', temperature: 0.3, maxTokens: 500 },
+  models: [
+    { name: 'gemini-3-flash-preview', provider: 'google' },
+    { name: 'openai/gpt-5.4-nano', provider: 'openrouter' },
+  ],
+  tasks: [{
+    id: 'q1', prompt: 'What is 2+2?', maxScore: 1,
+    verify: (r) => ({ score: r.trim() === '4' ? 1 : 0, details: r.trim() }),
+  }],
+});
+await suite.run();
+```
+
+### Two scoring modes
+
+**VerifyTask** — deterministic, no LLM:
+```typescript
+{ id: 'test', prompt: '...', maxScore: 5,
+  verify: (response) => ({ score: 3, details: 'partial match' }) }
+```
+
+**JudgeTask** — LLM judge with Zod schema:
+```typescript
+{ id: 'test', prompt: '...', maxScore: 5,
+  judge: {
+    schema: z.object({
+      reasoning_quality: z.coerce.number().min(1).max(5),
+      explanation: z.string(),
+    }),
+    instructions: ['Score 5 for correct, 1 for wrong.'],
+    extractScore: (r) => r.reasoning_quality,  // optional, defaults to r.reasoning_quality ?? r.score ?? 0
+  } }
+```
+
+### Config
+
+```typescript
+interface EvalSuiteConfig {
+  name: string;                    // Output directory name
+  stimulus: StimulusOptions | ((task) => StimulusOptions);
+  tasks: EvalTask[];               // VerifyTask[] | JudgeTask[]
+  models?: ModelDetails[];         // Default model list
+  allModels?: ModelDetails[];      // Used when --all flag is passed
+  judgeModel?: ModelDetails;       // Default: claude-haiku-4.5 via openrouter
+  concurrency?: number;            // Default: 5
+  judgeDelayMs?: number;           // Default: 500
+}
+```
+
+CLI flags: `--all` (full models), `--new` (fresh run), `--run N` (resume specific run).
+
+### Caching
+
+Two layers, both automatic:
+1. **Response cache** — `SimpleEvaluation` caches raw LLM responses per model/task. Resume by re-running without `--new`.
+2. **Result cache** — `EvalSuite` caches scored results (score + judge output). Error/zero-score judge results auto-retry.
+
+Results are written to `output/evaluations/{name}/runs/{NNN}/{taskId}/{modelKey}.json` — compatible with `eval combine`.
+
+---
+
+## Evaluation — PairwiseRanker
+
+`PairwiseRanker` (`src/evaluation/ranking/pairwise-ranker.ts`) ranks model responses head-to-head using an LLM judge and produces Elo ratings.
+
+```typescript
+import { PairwiseRanker } from '../../src/evaluation/ranking/index.js';
+
+const ranker = new PairwiseRanker(entries, {
+  judgeModel: { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
+  judgeInstructions: ['Compare these two responses. Which is better?'],
+  pairingMode: 'swiss',  // or 'all' for round-robin
+  swissRounds: 5,
+  cacheDir: './output/rankings/my-ranking',
+});
+
+const output = await ranker.rank();
+// output.rankings: RankedModel[] sorted by Elo descending
+```
+
+Features: Swiss tournament or round-robin pairing, position bias mitigation (random A/B flip), comparison-level caching, Bradley-Terry Elo (K=32), error resilience (ties on failure).
+
+Pure math functions also exported: `expectedScore()`, `updateElo()`, `buildStandings()`, `allPairs()`, `swissPairs()`.
+
+---
+
+## Evaluation — Lower-level strategies
+
+| Strategy | Purpose | Constructor |
+|----------|---------|-------------|
+| `SimpleEvaluation` | 1 prompt × N models (used by EvalSuite internally) | `new SimpleEvaluation(stimulus, models, prompt, cache, config)` |
+| `MatrixEvaluation` | Prompt with `{placeholders}` × cartesian product | `new MatrixEvaluation(stimulus, models, prompt, cache, { dimensions })` |
+| `BatchEvaluation` | N content items × N models with template prompt | `new BatchEvaluation(stimulus, models, prompt, cache, { items })` |
+
+---
+
+## Evaluation — Suite combine
+
+Run independent evaluations, then aggregate into a unified leaderboard:
+
+```typescript
+import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+
+export const MY_SUITE: EvalDimension[] = [
+  { evalName: 'my-reasoning', label: 'Reasoning', maxScore: 20,
+    extractScore: (r) => r.score ?? 0, hasResultsSubdir: true },
+  { evalName: 'my-knowledge', label: 'Knowledge', maxScore: 30,
+    extractScore: (r) => r.correct ? 1 : 0 },
+];
+```
+
+```bash
+dotenvx run -- pnpm run cli eval combine --config suite-config.ts --format narrative --output report.md
+```
+
+Report formats: `console`, `md`, `json`, `narrative` (full prose writeup).
+
+---
+
+## Habitat
+
+Top-level agent system. `Habitat.create({ workDir })` → register tools → `createInteraction()`.
+
+Tool sets (all registered by default): file ops, time, URL (wget/markify/parse_feed), agent CRUD, sessions, external interactions (Claude/Cursor), agent runner (clone/logs/ask), secrets, search (Tavily), self-modify.
 
 ---
 
@@ -55,13 +194,12 @@ Everything else: deep imports from **`umwelten/dist/<path>.js`** (check `tsc` `o
 
 | Goal | Where to start |
 |------|----------------|
-| Managed agent (tools, sessions, secrets) | `Habitat.create({ workDir })` → `createInteraction()` |
-| REPL / Telegram / Discord / web | `pnpm run cli -- habitat` (+ subcommands); same Habitat underneath |
-| One-shot multi-model compare | `runEvaluation` or `pnpm run cli -- eval run --models "provider:model,..."` |
-| Suite leaderboard | `examples/model-showdown/suite-config.ts` + **`pnpm run cli -- eval combine --config …`** |
-| Facts / memory | `new Stimulus({ ..., runnerType: 'memory' })` |
-| External session read (Claude Code / Cursor) | `pnpm run cli -- sessions …` |
-| Native Habitat transcripts | `pnpm run cli -- sessions habitat list|show|…` + `--work-dir` |
+| Create a model eval | `new EvalSuite({ name, stimulus, models, tasks })` → `suite.run()` |
+| Rank responses head-to-head | `new PairwiseRanker(entries, config)` → `ranker.rank()` |
+| Multi-dimension leaderboard | Define `EvalDimension[]` → `eval combine --config ...` |
+| Managed agent (tools, sessions) | `Habitat.create({ workDir })` → `createInteraction()` |
+| REPL / Telegram / Discord / web | `pnpm run cli -- habitat` |
+| One-shot multi-model compare | `pnpm run cli -- eval run --models "provider:model,..." --prompt "..."` |
 
 ---
 
@@ -79,51 +217,31 @@ dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-
 
 ---
 
-## Habitat tool sets (standard)
+## Examples to copy
 
-Registered in **`standardToolSets`**: agent CRUD, session tools, external interaction (Claude/Cursor history), agent runner (clone, logs, `agent_ask`, bridge), `run_project` (Dagger), secrets, Tavily search.
-
-**Not** in standard: file, time, URL tool sets — register via **`registerCustomTools`** for sub-agents / restricted contexts.
-
-Details: **CLAUDE.md** table `src/habitat/tool-sets.ts` + `src/habitat/tools/*`.
-
----
-
-## Evaluation notes
-
-- High-level API: **`runEvaluation`**, **`parseModel("provider:model")`**.
-- Custom repeatable evals: subclass **`EvaluationRunner`** (`src/evaluation/runner.ts`).
-- Strategies: `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`, `ComplexPipeline` under `src/evaluation/strategies/`.
-- **Suites**: `src/evaluation/combine/` — `loadSuite`, `buildSuiteReport`, `buildNarrativeReport`; config type **`EvalDimension[]`**.
-- Multiple report generator classes exist in-tree (known duplication); prefer **`combine/`** + **`examples/model-showdown/`** for full suite reporting.
+1. **`examples/evals/`** — EvalSuite examples: `reasoning.ts` (LLM judge, 100 lines), `instruction.ts` (deterministic, 100 lines), `car-wash.ts` (64 lines).
+2. **`examples/model-showdown/`** — 5-dimension eval suite + `eval combine` + reports.
+3. **`examples/mcp-chat/elo-rivian.ts`** — PairwiseRanker workflow with MCP tool-use responses.
+4. **`examples/habitat-minimal/`** — smallest Habitat work-dir layout.
 
 ---
 
-## Environment variables (common)
+## Environment variables
 
 - `GOOGLE_GENERATIVE_AI_API_KEY` — Gemini (**not** `GOOGLE_API_KEY`)
-- `OPENROUTER_API_KEY`, `GITHUB_TOKEN`, `DEEPINFRA_API_KEY`, `TOGETHER_API_KEY`, `TAVILY_API_KEY`, `FIREWORKS_API_KEY`, …
+- `OPENROUTER_API_KEY`, `GITHUB_TOKEN`, `DEEPINFRA_API_KEY`, `TOGETHER_API_KEY`, `TAVILY_API_KEY`, `FIREWORKS_API_KEY`, `NVIDIA_API_KEY`, `MINIMAX_API_KEY`
 
 See **env.template** in repo.
 
 ---
 
-## Examples to copy
-
-1. **`examples/habitat-minimal/`** — smallest Habitat work-dir layout and CLI invocation.
-2. **`examples/model-showdown/`** — multi-dimension eval + **`eval combine`**.
-3. **`examples/jeeves-bot/`**, **`examples/mcp-chat/`** — optional full bots / MCP chat patterns.
-
-Script demos: **`scripts/examples/*`** (simple/matrix/batch/pipeline evaluations).
-
----
-
 ## Docs map
 
-- Getting started: site **/guide/getting-started**
+- Getting started: **/guide/getting-started**
+- Creating evaluations: **/guide/creating-evaluations** (EvalSuite-focused)
+- Model evaluation: **/guide/model-evaluation** (CLI + combine)
+- Pairwise ranking: **/guide/pairwise-ranking**
+- Evaluation architecture: **/architecture/evaluation-framework**
 - Habitat: **/guide/habitat**, **/guide/habitat-interfaces**
-- Model evaluation: **/guide/model-evaluation**, **/guide/creating-evaluations**
-- Evaluation architecture: **/architecture/evaluation-framework** (canonical long form)
-- API: **/api/overview**
-
-Bridge / containers: **docs/guide/habitat-bridge.md**, **BRIDGE_WORKFLOW.md**.
+- Walkthroughs: **/walkthroughs/car-wash-evaluation**, **/walkthroughs/model-showdown**
+- Bridge / containers: **docs/guide/habitat-bridge.md**

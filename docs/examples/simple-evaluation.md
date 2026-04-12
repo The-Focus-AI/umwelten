@@ -209,4 +209,5 @@ The themes in Mary Shelley's Frankenstein are deeply rooted in the Romantic era'
 
 - Try the [Matrix Evaluation Example](/examples/matrix-evaluation) to compare multiple models
 - Explore the [Batch Evaluation Example](/examples/batch-evaluation) for processing multiple inputs
-- Check out the [Complex Pipeline Example](/examples/complex-pipeline) for advanced workflows
+- Check out the [EvalSuite Examples](/examples/comprehensive-analysis) for the recommended high-level API
+- Use [Pairwise Ranking](/examples/pairwise-ranking) to rank responses head-to-head with an LLM judge

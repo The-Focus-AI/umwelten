@@ -28,16 +28,22 @@ Clone the repo, `pnpm install`, set `.env`, then follow each README from the rep
 
 The VitePress **Examples** sidebar lists narrative pages: text generation, creative writing, batch/matrix evaluations, PDF/images, cost optimization, etc. Those pages supplement the canonical repos above; they are not separate git examples.
 
+## EvalSuite examples (repo)
+
+Working `EvalSuite` evaluations in [`examples/evals/`](https://github.com/The-Focus-AI/umwelten/tree/main/examples/evals):
+
+```bash
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts          # common-sense reasoning
+dotenvx run -- pnpm tsx examples/evals/instruction.ts       # instruction following
+dotenvx run -- pnpm tsx examples/evals/reasoning.ts         # reasoning quality
+```
+
 ## Script demos (repo)
 
 From the **umwelten** repo root:
 
 ```bash
-pnpm tsx scripts/examples/simple-evaluation-example.ts
-pnpm tsx scripts/examples/matrix-evaluation-example.ts
-pnpm tsx scripts/examples/batch-evaluation-example.ts
-pnpm tsx scripts/examples/complex-pipeline-example.ts
-pnpm tsx scripts/examples/comprehensive-analysis-example.ts
+dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
 ```
 
 For **integration-style / manual test scripts** (Dagger, tool conversations, reasoning streams), see [**TESTING.md**](https://github.com/The-Focus-AI/umwelten/blob/main/TESTING.md) in the repo.

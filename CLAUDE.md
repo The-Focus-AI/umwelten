@@ -160,19 +160,25 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 
 Systematic model assessment and comparison.
 
-- `api.ts` — High-level `runEvaluation(config)`, `parseModel("provider:model")`
+**High-level (recommended):**
+- `suite.ts` — **`EvalSuite`**: declarative eval runner. Define tasks + stimulus + models → get scored results + leaderboard. Two task types: `VerifyTask` (deterministic `verify()`) and `JudgeTask` (LLM judge with Zod schema). Handles CLI flags (`--all`, `--new`, `--run N`), caching, concurrency, and console output.
+
+**Strategies (building blocks used by EvalSuite):**
+- `strategies/` — `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`
+- `api.ts` — `runEvaluation(config)`, `parseModel("provider:model")` (used by CLI `eval run`)
+
+**Ranking (post-processing):**
+- `ranking/pairwise-ranker.ts` — `PairwiseRanker`: head-to-head LLM judge comparisons → Elo ratings. Swiss tournament or round-robin. Cached per-comparison.
+- `ranking/elo.ts` — `expectedScore()`, `updateElo()`, `buildStandings()`
+- `ranking/pairing.ts` — `allPairs()`, `swissPairs()`
+- `ranking/types.ts` — `RankingEntry`, `PairwiseResult`, `RankedModel`, `RankingOutput`, `PairwiseRankerConfig`
+
+**Infrastructure:**
 - `base.ts` — Abstract `Evaluation` — directory and cache management
 - `runner.ts` — Abstract `EvaluationRunner extends Evaluation` — adds model response caching
-- `strategies/` — `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`, `ComplexPipeline`
-- `ranking/` — Pairwise Elo ranking: `PairwiseRanker`, `expectedScore()`, `updateElo()`, `buildStandings()`, `allPairs()`, `swissPairs()`, `evaluationResultsToRankingEntries()`
 - `caching/` — Cache model responses, scores, file metadata
 - `dagger/` — Container-based code execution for evaluations
-- `analysis/` — `ResultAnalyzer`, `ReportGenerator` (multi-format)
-- `reporter.ts` — `EvaluationReporter` (incomplete, has TODOs)
-- `report-generator.ts` — `ReportGenerator` (static, Docker/code-analysis focused)
 - `combine/` — Multi-evaluation aggregation and combined reporting (see below)
-
-Note: there are 3 report generator classes here — this is known duplication to clean up.
 
 #### `src/evaluation/combine/` — Suite Aggregation
 

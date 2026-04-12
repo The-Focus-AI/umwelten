@@ -6,7 +6,42 @@ Learn how to systematically evaluate and compare AI models using Umwelten's comp
 
 Model evaluation is at the heart of Umwelten's functionality. The `eval` command family provides systematic testing across multiple models with comprehensive reporting, cost analysis, and resume capability.
 
-## Basic Evaluation
+## Quick Start with EvalSuite
+
+The fastest way to create an evaluation is `EvalSuite`. Define tasks with prompts and scoring — the suite handles caching, execution, judging, and output.
+
+```typescript
+import '../../src/env/load.js';
+import { z } from 'zod';
+import { EvalSuite } from '../../src/evaluation/suite.js';
+
+const suite = new EvalSuite({
+  name: 'my-eval',
+  stimulus: { role: 'helpful assistant', temperature: 0.3, maxTokens: 500 },
+  models: [
+    { name: 'gemini-3-flash-preview', provider: 'google' },
+    { name: 'openai/gpt-5.4-nano', provider: 'openrouter' },
+  ],
+  tasks: [{
+    id: 'q1',
+    prompt: 'What is 2+2?',
+    maxScore: 1,
+    verify: (r) => ({ score: r.trim() === '4' ? 1 : 0, details: r.trim() }),
+  }],
+});
+
+suite.run();
+```
+
+```bash
+dotenvx run -- pnpm tsx my-eval.ts          # run it
+dotenvx run -- pnpm tsx my-eval.ts --all    # use allModels list
+dotenvx run -- pnpm tsx my-eval.ts --new    # fresh run
+```
+
+Two scoring modes: **VerifyTask** (deterministic `verify()` function) and **JudgeTask** (LLM judge with Zod schema). See [Creating Evaluations](/guide/creating-evaluations) for full details and examples.
+
+## CLI Evaluation
 
 ### Simple Model Comparison
 
@@ -127,7 +162,7 @@ pnpm run cli -- eval list --json
 
 ## Pairwise Ranking
 
-After running an evaluation, you can rank the results head-to-head using an LLM judge with Elo ratings. This is especially useful for subjective quality comparisons where absolute scoring is unreliable.
+After running an evaluation, you can rank the results head-to-head using an LLM judge with Elo ratings. The `PairwiseRanker` class (`src/evaluation/ranking/pairwise-ranker.ts`) handles pairing, judging, position-bias mitigation, and caching.
 
 ```typescript
 import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
@@ -138,6 +173,7 @@ const ranker = new PairwiseRanker(entries, {
   judgeInstructions: ['Compare these responses. Which is more helpful and accurate?'],
   pairingMode: 'swiss',
   swissRounds: 5,
+  cacheDir: './output/rankings/my-ranking',
 });
 
 const output = await ranker.rank();

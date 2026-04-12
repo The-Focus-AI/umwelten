@@ -66,11 +66,12 @@ Configuration that shapes AI behavior.
 
 Systematic model assessment and comparison.
 
-- **EvaluationRunner**: Abstract base class — extend and implement `getModelResponse()` to create evaluations
-- **Strategies**: Code generation evaluation, tool testing, and custom strategies
+- **EvalSuite**: High-level declarative API — define tasks with prompts and scoring, get cached execution, judging, and leaderboard output. Two scoring modes: VerifyTask (deterministic) and JudgeTask (LLM judge with Zod schema). See [Creating Evaluations](../guide/creating-evaluations.md)
+- **EvaluationRunner**: Abstract base class — extend and implement `getModelResponse()` for custom cached runners
+- **Strategies**: `SimpleEvaluation` (1 prompt × N models, used by EvalSuite internally), `MatrixEvaluation` (placeholder variables × cartesian product), `BatchEvaluation` (N items × N models)
 - **Caching**: Model response caching, file caching, and score caching to avoid redundant API calls
 - **Code Execution**: DaggerRunner for running generated code in isolated containers
-- **Analysis**: Result analysis and reporting
+- **Suite Combine** (`combine/`): Aggregate multiple evaluations into a unified leaderboard with narrative reports. See [Model Showdown](../walkthroughs/model-showdown.md)
 - **Pairwise Ranking** (`ranking/`): Post-processing module for head-to-head LLM-judge comparisons with Elo ratings. Supports swiss tournament and round-robin pairing. See [Pairwise Ranking Guide](../guide/pairwise-ranking.md)
 
 ### 7. Provider Integration (`src/providers/`)
@@ -131,15 +132,14 @@ src/
 │   ├── coding/           # Code generation stimuli
 │   └── analysis/         # Analysis task stimuli
 ├── evaluation/           # Evaluation framework
+│   ├── suite.ts          # EvalSuite — recommended high-level API
 │   ├── runner.ts         # EvaluationRunner base class
-│   ├── strategies/       # Evaluation strategy implementations
-│   ├── ranking/          # Pairwise Elo ranking (LLM-judge comparisons)
+│   ├── strategies/       # SimpleEvaluation, MatrixEvaluation, BatchEvaluation
+│   ├── ranking/          # PairwiseRanker — head-to-head Elo ranking
+│   ├── combine/          # Multi-evaluation suite aggregation and reports
 │   ├── caching/          # Response and file caching
-│   ├── analysis/         # Result analysis and reporting
-│   ├── codebase/         # Codebase evaluation context
 │   ├── dagger/           # DaggerRunner for code execution
-│   ├── tool-testing/     # Tool use evaluation
-│   └── types/            # Evaluation type definitions
+│   └── api.ts            # CLI-facing evaluation API
 ├── providers/            # AI provider integrations
 ├── memory/               # Memory and knowledge storage
 ├── context/              # Context size tracking and compaction

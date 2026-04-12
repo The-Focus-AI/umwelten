@@ -2,370 +2,166 @@
 
 ## Overview
 
-This section provides comprehensive API documentation for the umwelten evaluation framework. The API is organized by component and includes detailed information about classes, methods, and usage examples.
+umwelten exposes a small public API from `umwelten` (see `src/index.ts`). For deep internals, use deep imports (`umwelten/dist/…`).
 
-## Table of Contents
+## Public Exports
 
-### Core Components
-- [Evaluation Strategies](evaluation-strategies.md) - API reference for evaluation strategies
-- [Stimulus System](stimulus-system.md) - API reference for stimulus templates and tools
-- [Caching System](caching-system.md) - API reference for caching infrastructure
-- [Provider Integration](provider-integration.md) - API reference for AI provider integrations
+### Core
 
-### Utilities
-- [CLI Reference](cli-reference.md) - Command-line interface reference
-- [Type Definitions](type-definitions.md) - TypeScript type definitions
-- [Error Handling](error-handling.md) - Error types and handling patterns
+| Export | Description |
+|--------|-------------|
+| `Habitat` | Agent container — work dir, config, sessions, tools |
+| `Interaction` | Conversation holder — messages, model, stimulus, runner |
+| `Stimulus` | Prompt config — role, objective, instructions, tools |
 
-## Quick Reference
+### Evaluation
 
-### Basic Usage
+| Export | Description |
+|--------|-------------|
+| `EvalSuite` | **Recommended.** Declarative eval runner — tasks + stimulus + models → scored results |
+| `PairwiseRanker` | Head-to-head LLM judge comparisons → Elo ratings |
+| `runEvaluation` | Lower-level: run a single evaluation from config |
+| `runEvaluationWithProgress` | Same, with progress callback |
+| `generateReport` | Generate a report from evaluation results |
+| `listEvaluations` | List existing evaluation runs |
+| `parseModel` | Parse `"provider:model"` string into `ModelDetails` |
+
+### Types
 
 ```typescript
-import { SimpleEvaluation } from '../src/evaluation/strategies/simple-evaluation.js';
-import { LiteraryAnalysisTemplate } from '../src/stimulus/templates/creative-templates.js';
+// EvalSuite types
+EvalSuiteConfig, EvalTask, VerifyTask, JudgeTask, VerifyResult, TaskResultRecord
 
-const evaluation = new SimpleEvaluation({
-  id: "my-evaluation",
-  name: "My Evaluation",
-  description: "A simple evaluation example"
-});
+// PairwiseRanker types
+RankingEntry, PairwiseResult, RankedModel, RankingOutput, PairwiseRankerConfig
 
-const result = await evaluation.run({
-  model: {
-    name: "gpt-4",
-    provider: "openrouter",
-    costs: { promptTokens: 0.0001, completionTokens: 0.0001 },
-    maxTokens: 1000,
-    temperature: 0.7
+// Evaluation API types
+EvaluationConfig, EvaluationResult, EnhancedEvaluationConfig
+
+// Habitat types
+HabitatConfig, HabitatOptions, HabitatSessionMetadata, HabitatSessionType, AgentEntry, OnboardingResult
+```
+
+## Quick Start — EvalSuite
+
+`EvalSuite` is the recommended way to build evaluations. Define tasks, stimulus, and models; the suite handles CLI flags, caching, execution, judging, and output.
+
+```typescript
+import { EvalSuite } from 'umwelten';
+import { z } from 'zod';
+
+const suite = new EvalSuite({
+  name: 'my-eval',
+  stimulus: {
+    role: 'helpful assistant',
+    objective: 'answer clearly and concisely',
+    temperature: 0.3,
+    maxTokens: 500,
   },
-  testCases: [{
-    id: "test-1",
-    name: "Test 1",
-    stimulus: LiteraryAnalysisTemplate,
-    input: { prompt: "Analyze the themes in 'To Kill a Mockingbird'" }
-  }]
-});
-```
-
-### Model Configuration
-
-```typescript
-interface ModelDetails {
-  name: string;
-  provider: 'openrouter' | 'google' | 'ollama' | 'lmstudio' | 'github-models' | 'fireworks' | 'minimax';
-  costs: {
-    promptTokens: number;
-    completionTokens: number;
-  };
-  maxTokens?: number;
-  temperature?: number;
-  // ... other model-specific settings
-}
-```
-
-### Test Case Structure
-
-```typescript
-interface TestCase {
-  id: string;
-  name: string;
-  stimulus: Stimulus;
-  input: Record<string, any>;
-  expectedOutput?: Record<string, any>;
-  metadata?: Record<string, any>;
-}
-```
-
-### Evaluation Result
-
-```typescript
-interface EvaluationResult {
-  id: string;
-  name: string;
-  responses: ModelResponse[];
-  metrics: {
-    totalTime: number;
-    totalTokens: number;
-    totalCost: number;
-    cacheHits: number;
-  };
-  scores?: ScoreResponse[];
-  metadata: Record<string, any>;
-}
-```
-
-## Common Patterns
-
-### 1. Single Model Evaluation
-
-```typescript
-import { SimpleEvaluation } from '../src/evaluation/strategies/simple-evaluation.js';
-
-const evaluation = new SimpleEvaluation({
-  id: "single-model-test",
-  name: "Single Model Test",
-  description: "Test a single model"
-});
-
-const result = await evaluation.run({
-  model: { name: "gpt-4", provider: "openrouter" },
-  testCases: [testCase]
-});
-```
-
-### 2. Model Comparison
-
-```typescript
-import { MatrixEvaluation } from '../src/evaluation/strategies/matrix-evaluation.js';
-
-const evaluation = new MatrixEvaluation({
-  id: "model-comparison",
-  name: "Model Comparison",
-  description: "Compare multiple models"
-});
-
-const result = await evaluation.run({
   models: [
-    { name: "gpt-4", provider: "openrouter" },
-    { name: "claude-3", provider: "openrouter" }
+    { name: 'gemini-3-flash-preview', provider: 'google' },
+    { name: 'openai/gpt-4o', provider: 'openrouter' },
   ],
-  testCases: [testCase]
-});
-```
-
-### 3. Batch Processing
-
-```typescript
-import { BatchEvaluation } from '../src/evaluation/strategies/batch-evaluation.js';
-
-const evaluation = new BatchEvaluation({
-  id: "batch-processing",
-  name: "Batch Processing",
-  description: "Process multiple inputs"
-});
-
-const result = await evaluation.run({
-  model: { name: "gpt-4", provider: "openrouter" },
-  testCases: [testCase1, testCase2, testCase3]
-});
-```
-
-### 4. Complex Pipeline
-
-```typescript
-import { ComplexPipeline } from '../src/evaluation/strategies/complex-pipeline.js';
-
-const pipeline = new ComplexPipeline({
-  id: "complex-pipeline",
-  name: "Complex Pipeline",
-  description: "Multi-step evaluation"
-});
-
-const result = await pipeline.run({
-  models: [model1, model2],
-  steps: [
-    { id: "step-1", strategy: "simple", stimulus: stimulus1, input: input1 },
-    { id: "step-2", strategy: "simple", stimulus: stimulus2, input: input2, dependsOn: ["step-1"] }
-  ]
-});
-```
-
-## Error Handling
-
-### Common Error Types
-
-```typescript
-// Rate limit errors
-if (error instanceof RateLimitError) {
-  console.log("Rate limit exceeded, retrying...");
-  // Implement retry logic
-}
-
-// Authentication errors
-if (error instanceof AuthenticationError) {
-  console.error("Authentication failed:", error.message);
-  // Check API keys
-}
-
-// Model errors
-if (error instanceof ModelError) {
-  console.error("Model error:", error.message);
-  // Handle model-specific issues
-}
-
-// Validation errors
-if (error instanceof ValidationError) {
-  console.error("Validation error:", error.message);
-  // Check input parameters
-}
-```
-
-### Retry Logic
-
-```typescript
-import { retry } from '../src/utils/retry.js';
-
-const result = await retry(
-  () => evaluation.run({ model, testCases }),
-  {
-    maxAttempts: 3,
-    delay: 1000,
-    backoff: 'exponential'
-  }
-);
-```
-
-## Configuration
-
-### Global Configuration
-
-```typescript
-import { Config } from '../src/config/config.js';
-
-const config = new Config({
-  cache: {
-    enabled: true,
-    ttl: 3600,
-    strategy: 'balanced'
-  },
-  providers: {
-    openrouter: {
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: 'https://openrouter.ai/api/v1'
+  tasks: [
+    // Deterministic scoring (no LLM judge)
+    {
+      id: 'math',
+      prompt: 'What is 2+2?',
+      maxScore: 1,
+      verify: (response) => ({
+        score: response.trim() === '4' ? 1 : 0,
+        details: response.trim(),
+      }),
     },
-    google: {
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-      baseUrl: 'https://generativelanguage.googleapis.com/v1beta'
+    // LLM-judged scoring
+    {
+      id: 'reasoning',
+      prompt: 'Should I walk or drive to the car wash?',
+      maxScore: 5,
+      judge: {
+        schema: z.object({
+          recommendation: z.string(),
+          reasoning_quality: z.coerce.number().min(1).max(5),
+          explanation: z.string(),
+        }),
+        instructions: [
+          'The correct answer is DRIVE — the car must be at the wash.',
+          '5=immediately gets it, 1=missed completely.',
+        ],
+      },
     },
-    fireworks: {
-      apiKey: process.env.FIREWORKS_API_KEY,
-      baseUrl: 'https://api.fireworks.ai/inference/v1'
-    },
-    minimax: {
-      apiKey: process.env.MINIMAX_API_KEY,
-      baseUrl: 'https://api.minimax.io/v1'
-    }
-  },
-  evaluation: {
-    defaultTimeout: 30000,
-    maxRetries: 3,
-    parallelLimit: 5
-  }
+  ],
 });
+
+suite.run().catch(console.error);
 ```
 
-### Per-Evaluation Configuration
+Run with CLI flags: `--all` (use `allModels` list), `--new` (skip cache), `--run N` (specific run).
+
+## Model Configuration
 
 ```typescript
-const evaluation = new SimpleEvaluation({
-  id: "configured-evaluation",
-  name: "Configured Evaluation",
-  description: "An evaluation with custom configuration",
-  
-  config: {
-    timeout: 60000,
-    retries: 5,
-    cache: {
-      enabled: true,
-      ttl: 1800
-    }
-  }
-});
-```
+import type { ModelDetails } from 'umwelten/dist/cognition/types.js';
 
-## TypeScript Support
-
-The framework is built with TypeScript and provides comprehensive type definitions:
-
-```typescript
-import type { 
-  ModelDetails, 
-  ModelResponse, 
-  EvaluationResult,
-  TestCase,
-  Stimulus
-} from '../src/types/index.js';
-
-// Type-safe model configuration
+// Minimal — just name and provider
 const model: ModelDetails = {
-  name: "gpt-4",
-  provider: "openrouter",
-  costs: { promptTokens: 0.0001, completionTokens: 0.0001 }
+  name: 'gemini-3-flash-preview',
+  provider: 'google',
 };
 
-// Type-safe evaluation result
-const result: EvaluationResult = await evaluation.run({ model, testCases });
+// With options inherited from ModelRoute
+const modelWithOptions: ModelDetails = {
+  name: 'openai/gpt-4o',
+  provider: 'openrouter',
+  temperature: 0.7,
+  reasoningEffort: 'high',
+};
 ```
 
-## Performance Considerations
+`ModelDetails` extends `ModelRoute` (`name`, `provider`, `variant?`, `temperature?`, `topP?`, `topK?`, `numCtx?`, `reasoningEffort?`) and adds optional fields: `description`, `contextLength`, `costs`, `addedDate`, `lastUpdated`, `details`, `originalProvider`.
 
-### Caching
+## Lower-Level Strategies
+
+For custom evaluation pipelines, use the strategy classes directly (in `src/evaluation/strategies/`):
+
+| Strategy | Use case |
+|----------|----------|
+| `SimpleEvaluation` | Run one prompt against one or more models |
+| `MatrixEvaluation` | Cross-product of models × prompts |
+| `BatchEvaluation` | Batch multiple prompts efficiently |
+
+These are building blocks — prefer `EvalSuite` for most use cases.
+
+## Pairwise Ranking
 
 ```typescript
-const evaluation = new SimpleEvaluation({
-  id: "cached-evaluation",
-  name: "Cached Evaluation",
-  description: "An evaluation with caching",
-  
-  cache: {
-    enabled: true,
-    ttl: 3600,
-    strategy: 'aggressive'
-  }
+import { PairwiseRanker } from 'umwelten';
+
+const ranker = new PairwiseRanker({
+  evalDir: './output/evals/my-eval',
+  judgeModel: { name: 'gemini-3-flash-preview', provider: 'google' },
+  mode: 'swiss',       // or 'round-robin'
+  swissRounds: 5,
+  initialElo: 1500,
 });
+
+const output = await ranker.rank();
+console.log(output.standings); // sorted by Elo
 ```
 
-### Parallel Processing
+## Multi-Dimension Aggregation
 
-```typescript
-const evaluation = new SimpleEvaluation({
-  id: "parallel-evaluation",
-  name: "Parallel Evaluation",
-  description: "An evaluation with parallel processing",
-  
-  parallel: {
-    enabled: true,
-    maxConcurrency: 5
-  }
-});
+Combine results from multiple evaluations into a unified leaderboard:
+
+```bash
+dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
 ```
 
-### Memory Management
+See [Model showdown walkthrough](/walkthroughs/model-showdown) and `src/evaluation/combine/` for details.
 
-```typescript
-const evaluation = new SimpleEvaluation({
-  id: "memory-optimized-evaluation",
-  name: "Memory Optimized Evaluation",
-  description: "An evaluation with memory optimization",
-  
-  memory: {
-    maxCacheSize: '512MB',
-    cleanupInterval: 300000, // 5 minutes
-    gcThreshold: 0.8
-  }
-});
-```
+## Further Reading
 
-## Examples
-
-See the `scripts/examples/` directory for complete working examples of each API component.
-
-## Contributing
-
-When contributing to the API:
-
-1. Follow the existing patterns and conventions
-2. Add comprehensive TypeScript types
-3. Include JSDoc comments for all public methods
-4. Write tests for new functionality
-5. Update this documentation
-
-## Support
-
-For API-related questions:
-
-- Check the [troubleshooting guide](../guide/troubleshooting.md)
-- Review the [examples](../examples/README.md)
-- Open an issue on GitHub
-- Join the community discussions
+- [Getting started](/guide/getting-started)
+- [Creating evaluations](/guide/creating-evaluations)
+- [Model evaluation guide](/guide/model-evaluation)
+- [EvalSuite examples](https://github.com/The-Focus-AI/umwelten/tree/main/examples/evals) (`car-wash.ts`, `instruction.ts`, `reasoning.ts`)

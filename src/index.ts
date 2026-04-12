@@ -27,3 +27,22 @@ export type {
   EvaluationResult,
   EnhancedEvaluationConfig,
 } from "./evaluation/api.js";
+
+export { EvalSuite } from "./evaluation/suite.js";
+export type {
+  EvalSuiteConfig,
+  EvalTask,
+  VerifyTask,
+  JudgeTask,
+  VerifyResult,
+  TaskResultRecord,
+} from "./evaluation/suite.js";
+
+export { PairwiseRanker } from "./evaluation/ranking/index.js";
+export type {
+  RankingEntry,
+  PairwiseResult,
+  RankedModel,
+  RankingOutput,
+  PairwiseRankerConfig,
+} from "./evaluation/ranking/index.js";

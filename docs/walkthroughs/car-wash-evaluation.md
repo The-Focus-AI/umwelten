@@ -7,6 +7,66 @@ A walkthrough of building the "Car Wash Test" — a common-sense reasoning bench
 **Optional:** Ollama for local model testing
 **Cost:** ~$0.50 for a full 131-model run
 
+## The Short Version
+
+Using `EvalSuite`, the entire car wash test fits in ~64 lines:
+
+```typescript
+import '../../src/env/load.js';
+import { z } from 'zod';
+import { EvalSuite } from '../../src/evaluation/suite.js';
+
+const suite = new EvalSuite({
+  name: 'car-wash-test',
+  stimulus: {
+    role: 'helpful assistant',
+    objective: 'answer clearly and concisely',
+    instructions: ['Think carefully', 'Give a clear recommendation', 'Explain briefly'],
+    temperature: 0.3,
+    maxTokens: 500,
+  },
+  models: [
+    { name: 'gemini-3-flash-preview', provider: 'google' },
+    { name: 'openai/gpt-5.4-nano', provider: 'openrouter' },
+    { name: 'qwen3:30b-a3b', provider: 'ollama' },
+  ],
+  allModels: [
+    // ... add your full model list here, used with --all
+  ],
+  tasks: [{
+    id: 'car-wash',
+    name: 'Car Wash',
+    prompt: 'I want to wash my car. The car wash is 50 meters away. Should I walk or drive?',
+    maxScore: 5,
+    judge: {
+      schema: z.object({
+        recommendation: z.string().describe('"drive" or "walk" or "unclear"'),
+        recognizes_need_for_car: z.coerce.boolean().describe('Does model understand car must be at the wash?'),
+        reasoning_quality: z.coerce.number().min(1).max(5).describe('5=immediately gets it, 1=missed'),
+        explanation: z.string(),
+      }),
+      instructions: [
+        'The ONLY correct answer is DRIVE — the car must be at the car wash to be washed.',
+        'A model saying "drive" for convenience/laziness has the wrong reason (score 2).',
+        'A model saying "walk" completely fails (score 1).',
+      ],
+    },
+  }],
+});
+
+suite.run().catch(err => { console.error('Fatal:', err); process.exit(1); });
+```
+
+```bash
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts          # quick (3 models)
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts --all     # full model list
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts --new     # fresh run
+```
+
+The suite handles run directories, caching, judge calls, and prints a leaderboard automatically. See [`examples/evals/car-wash.ts`](../../examples/evals/car-wash.ts) for the complete file.
+
+The rest of this walkthrough shows how to build the same thing from scratch using the lower-level APIs — useful for understanding what EvalSuite does under the hood, or for cases where you need more control.
+
 ## What We're Building
 
 A script that:

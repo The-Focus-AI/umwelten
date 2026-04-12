@@ -1,313 +1,143 @@
 # Getting Started
 
-## Quick Start
+Build an AI agent, give it a persona, and measure whether it works — in under 10 minutes.
 
-Welcome to umwelten! This guide will help you get up and running in just a few minutes.
+## 1. Install (30 seconds)
 
-## Prerequisites
-
-- Node.js 20+
-- pnpm (recommended)
-- API keys for your chosen AI providers
-
-## Installation
-
-1. **Clone the repository**
 ```bash
 git clone https://github.com/The-Focus-AI/umwelten.git
 cd umwelten
-```
-
-2. **Install dependencies**
-```bash
 pnpm install
-```
-
-3. **Set up environment variables**
-```bash
 cp env.template .env
-# Edit .env with your API keys
+# Edit .env — add at least GOOGLE_GENERATIVE_AI_API_KEY
 ```
 
-Required env vars depend on your provider:
-```bash
-# Google Gemini (recommended for getting started)
-GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+You need at least one API key. [Google AI Studio](https://aistudio.google.com/) is the cheapest way to start — generous free tier, fast models. If you want fully local and free, [install Ollama](https://ollama.com/) and skip the API key entirely.
 
-# OpenRouter (for OpenAI, Anthropic, etc.)
-OPENROUTER_API_KEY=your_key_here
-
-# GitHub Models (free tier)
-GITHUB_TOKEN=your_token_here
-
-# Fireworks
-FIREWORKS_API_KEY=your_key_here
-
-# MiniMax
-MINIMAX_API_KEY=your_key_here
-
-# Local providers (Ollama, LM Studio) need no env vars
-```
-
-4. **Build the project**
-```bash
-pnpm build
-```
-
-## CLI Usage
-
-All CLI commands automatically load the nearest `.env` file:
+## 2. Start a Habitat (60 seconds)
 
 ```bash
-# List available models from a provider
-pnpm run cli -- models --provider google
-
-# Run a simple prompt
-pnpm run cli -- run --provider google --model gemini-3-flash-preview "Explain quantum computing"
-
-# Interactive chat
-pnpm run cli -- chat --provider google --model gemini-3-flash-preview
-
-# Chat with memory (remembers facts across messages)
-pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+dotenvx run -- pnpm run cli -- habitat
 ```
 
-## Your First Script
+That's it. You're now in a REPL, talking to an AI agent that can manage files, search the web, run sub-agents, and remember things across sessions.
 
-Create a file `my-first-script.ts`:
+First run creates a workspace at `~/.habitat/`:
+
+```
+~/.habitat/
+├── config.json        ← agent configuration
+├── STIMULUS.md        ← your agent's persona
+├── tools/             ← custom tool definitions
+└── skills/            ← shareable skill packs
+```
+
+Type something. It works. Now let's make it *yours*.
+
+## 3. Give It a Persona
+
+Open `~/.habitat/STIMULUS.md` in your editor:
+
+```markdown
+---
+role: research assistant
+objective: help with technical research and writing
+---
+
+You are a meticulous researcher. You verify claims, cite sources,
+and present findings clearly. When uncertain, you say so.
+```
+
+The YAML frontmatter sets `role` and `objective`. The body becomes the system prompt. You can also add `instructions` as a list in the frontmatter for specific behavioral rules.
+
+Restart the habitat — it loads the new persona automatically:
+
+```bash
+dotenvx run -- pnpm run cli -- habitat
+```
+
+## 4. Talk to Different Models
+
+Your agent isn't locked to one model. Switch at the command line:
+
+```bash
+# Google Gemini — cloud, fast, cheap
+dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+
+# Ollama — local, free, private
+dotenvx run -- pnpm run cli -- habitat -p ollama -m gemma3:12b
+
+# OpenRouter — access to GPT-5, Claude, and dozens more
+dotenvx run -- pnpm run cli -- habitat -p openrouter -m openai/gpt-5.4-nano
+```
+
+See what's available:
+
+```bash
+dotenvx run -- pnpm run cli -- models --provider google
+dotenvx run -- pnpm run cli -- models --search gpt-5
+```
+
+Same persona, same tools, different brain. This is why separating the agent (Habitat) from the model matters.
+
+## 5. Your First Eval — Does Your Agent Actually Work?
+
+You built an agent. But does it *reason* correctly? This is the key question umwelten helps you answer.
+
+Create `my-first-eval.ts` in the repo root:
 
 ```typescript
-import { Stimulus } from './src/stimulus/stimulus.js';
-import { Interaction } from './src/interaction/core/interaction.js';
+import './src/env/load.js';
+import { EvalSuite } from './src/evaluation/suite.js';
 
-const stimulus = new Stimulus({
-  role: "creative writer",
-  objective: "write engaging short stories",
-  instructions: [
-    "Write vivid, imaginative stories",
-    "Keep stories under 200 words"
+const suite = new EvalSuite({
+  name: 'my-first-eval',
+  stimulus: {
+    role: 'helpful assistant',
+    temperature: 0.3,
+    maxTokens: 500,
+  },
+  models: [
+    { name: 'gemini-3-flash-preview', provider: 'google' },
   ],
-  temperature: 0.8
+  tasks: [{
+    id: 'math',
+    prompt: 'What is 2+2?',
+    maxScore: 1,
+    verify: (r) => ({ score: r.trim() === '4' ? 1 : 0, details: r.trim() }),
+  }],
 });
 
-const interaction = new Interaction(
-  { name: "gemini-3-flash-preview", provider: "google" },
-  stimulus
-);
-
-const response = await interaction.chat("Write a short story about a robot learning to paint");
-
-console.log("Story:", response.content);
-console.log("Tokens used:", response.metadata.tokenUsage.total);
-if (response.metadata.cost) {
-  console.log("Cost:", `$${response.metadata.cost.totalCost}`);
-}
+suite.run();
 ```
 
 Run it:
-```bash
-pnpm tsx my-first-script.ts
-```
-
-## Structured Output
-
-Extract structured data using Zod schemas:
-
-```typescript
-import { z } from 'zod';
-import { Stimulus } from './src/stimulus/stimulus.js';
-import { Interaction } from './src/interaction/core/interaction.js';
-
-const BookSchema = z.object({
-  title: z.string(),
-  author: z.string(),
-  year: z.number(),
-  genre: z.string(),
-  summary: z.string()
-});
-
-const stimulus = new Stimulus({
-  role: "librarian",
-  objective: "extract book information from text"
-});
-
-const interaction = new Interaction(
-  { name: "gemini-3-flash-preview", provider: "google" },
-  stimulus
-);
-
-interaction.addMessage({
-  role: 'user',
-  content: 'Tell me about "1984" by George Orwell'
-});
-
-const response = await interaction.generateObject(BookSchema);
-const book = JSON.parse(response.content);
-console.log(book.title);   // "1984"
-console.log(book.author);  // "George Orwell"
-```
-
-## Your First Evaluation
-
-Compare how different models handle the same task:
-
-```typescript
-import { EvaluationRunner } from './src/evaluation/runner.js';
-import { ModelDetails, ModelResponse } from './src/cognition/types.js';
-import { BaseModelRunner } from './src/cognition/runner.js';
-import { Stimulus } from './src/stimulus/stimulus.js';
-import { Interaction } from './src/interaction/core/interaction.js';
-
-class CreativeWritingEval extends EvaluationRunner {
-  constructor() {
-    super('creative-writing-test');
-  }
-
-  async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const stimulus = new Stimulus({
-      role: "creative writer",
-      objective: "write engaging stories",
-      temperature: 0.8
-    });
-
-    const interaction = new Interaction(model, stimulus);
-    interaction.addMessage({
-      role: 'user',
-      content: 'Write a haiku about the ocean'
-    });
-
-    const runner = new BaseModelRunner();
-    return runner.generateText(interaction);
-  }
-}
-
-const evaluation = new CreativeWritingEval();
-
-// Compare across providers
-await evaluation.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
-await evaluation.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
-
-// Results are saved in output/evaluations/creative-writing-test/
-```
-
-## Using Habitat
-
-For a full agent environment with tools, sessions, and persistence:
 
 ```bash
-# Start the habitat REPL
-pnpm run cli -- habitat
-
-# Start as a Telegram bot
-pnpm run cli -- habitat telegram
+dotenvx run -- pnpm tsx my-first-eval.ts
 ```
 
-The habitat provides:
-- Agent management (sub-agents with their own skills)
-- Session persistence
-- Tool sets (file operations, search, secrets, code execution)
-- Skills sharing between agents
+You get a score, a leaderboard, and cached results so re-runs are instant. Add more models to the `models` array and they run in parallel.
 
-## Custom Stimulus
+For LLM-as-judge evaluations, multi-model comparison, and the full API, see [Creating Evaluations](/guide/creating-evaluations).
 
-Create reusable stimulus configurations:
+## 6. See Something Surprising
 
-```typescript
-import { Stimulus } from './src/stimulus/stimulus.js';
+Run the car wash test — a common-sense reasoning trap:
 
-// Analytical stimulus
-const analyticalStimulus = new Stimulus({
-  role: "data analyst",
-  objective: "analyze data and provide actionable insights",
-  instructions: [
-    "Examine the data carefully",
-    "Identify key patterns and trends",
-    "Provide actionable recommendations"
-  ],
-  output: [
-    "Structured analysis report",
-    "Key findings",
-    "Recommendations"
-  ],
-  temperature: 0.3,
-  maxTokens: 1500
-});
-
-// Creative stimulus
-const creativeStimulus = new Stimulus({
-  role: "creative writer",
-  objective: "write engaging content",
-  instructions: [
-    "Be creative and original",
-    "Use vivid language"
-  ],
-  temperature: 0.9,
-  maxTokens: 2000
-});
+```bash
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 ```
 
-## Using Tools
+*"I want to wash my car. The car wash is 50 meters away. Should I walk or drive?"*
 
-Add tools to give the AI capabilities:
+The correct answer is **drive** — you need the car at the car wash. A surprising number of models say "walk" because 50 meters is close. Run `--all` to test 8+ models and see which ones your agent's model is.
 
-```typescript
-import { tool } from 'ai';
-import { z } from 'zod';
-import { Stimulus } from './src/stimulus/stimulus.js';
-import { Interaction } from './src/interaction/core/interaction.js';
+## 7. What's Next?
 
-const calculatorTool = tool({
-  description: "Performs basic arithmetic",
-  parameters: z.object({
-    operation: z.enum(["add", "subtract", "multiply", "divide"]),
-    a: z.number(),
-    b: z.number()
-  }),
-  execute: async ({ operation, a, b }) => {
-    switch (operation) {
-      case 'add': return { result: a + b };
-      case 'subtract': return { result: a - b };
-      case 'multiply': return { result: a * b };
-      case 'divide': return { result: a / b };
-    }
-  }
-});
+You have a working Habitat and you've run your first eval. Go deeper:
 
-const stimulus = new Stimulus({
-  role: "math tutor",
-  tools: { calculator: calculatorTool },
-  toolInstructions: ["Use the calculator for arithmetic"],
-  maxToolSteps: 5
-});
-
-const interaction = new Interaction(
-  { name: "gemini-3-flash-preview", provider: "google" },
-  stimulus
-);
-
-const response = await interaction.chat("What is 42 * 17?");
-console.log(response.content);
-```
-
-## Troubleshooting
-
-### API Key Errors
-- Verify your API keys in `.env`
-- Make sure your API keys are available in a `.env` file
-- Google uses `GOOGLE_GENERATIVE_AI_API_KEY` (not `GOOGLE_API_KEY`)
-
-### Model Not Found
-- Run `pnpm run cli -- models --provider <provider>` to see available models
-- Model names must exactly match the provider's naming
-
-### Rate Limit Errors
-- The framework has built-in rate limiting
-- Consider using caching in evaluations (`getCachedFile()`)
-- Add delays between requests if needed
-
-## What's Next?
-
-1. **[Habitat Guide](/guide/habitat)** - Set up a full agent environment
-2. **[Tools](/api/tools)** - Learn about stimulus tools and habitat tool sets
-3. **[API Reference](/api/overview)** - Full TypeScript API documentation
-4. **[Evaluation Framework](/api/evaluation-framework)** - Build sophisticated evaluations
+- **[Habitat Guide](/guide/habitat)** — tools, sub-agents, sessions, Telegram/Discord bots
+- **[Creating Evaluations](/guide/creating-evaluations)** — LLM judges, multi-model comparison, the full eval API
+- **[Model Showdown](/walkthroughs/model-showdown)** — 49 models, 5 dimensions, full analysis
+- **[API Reference](/api/overview)** — TypeScript API for custom integrations

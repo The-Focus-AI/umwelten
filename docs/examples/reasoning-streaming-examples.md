@@ -181,7 +181,7 @@ async function testTokenUsage() {
     prompt: 'Hello, how are you today?',
   });
 
-  console.log('Response:', result.text);
+  console.log('Response:', result.text); // Vercel AI SDK raw result
 
   console.log('\nToken Usage:');
   if (result.usage) {

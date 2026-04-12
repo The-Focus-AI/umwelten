@@ -365,6 +365,7 @@ console.log(`Memory usage: ${process.memoryUsage().heapUsed / 1024 / 1024} MB`);
 
 ## Next Steps
 
-- Try the [Complex Pipeline Example](/examples/complex-pipeline) for multi-step workflows
-- Explore the [Comprehensive Analysis Example](/examples/comprehensive-analysis) for detailed performance analysis
+- Try the [Multi-Dimension Suite Example](/examples/complex-pipeline) for multi-evaluation workflows
+- Explore the [EvalSuite Examples](/examples/comprehensive-analysis) for the recommended high-level API
+- Use [Pairwise Ranking](/examples/pairwise-ranking) to rank responses head-to-head with an LLM judge
 - Check out the [Tool Integration Examples](/examples/tool-integration) for more tool usage patterns

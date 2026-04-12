@@ -281,6 +281,6 @@ Use matrix evaluation to:
 ## Next Steps
 
 - Try the [Batch Evaluation Example](/examples/batch-evaluation) for processing multiple inputs
-- Explore the [Complex Pipeline Example](/examples/complex-pipeline) for advanced workflows
-- Check out the [Comprehensive Analysis Example](/examples/comprehensive-analysis) for detailed performance analysis
+- Explore the [Multi-Dimension Suite](/examples/complex-pipeline) for multi-evaluation workflows  
+- Check out the [EvalSuite Examples](/examples/comprehensive-analysis) for the recommended high-level API
 - Use [Pairwise Ranking](/examples/pairwise-ranking) to rank matrix evaluation results head-to-head with an LLM judge

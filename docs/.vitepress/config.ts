@@ -4,7 +4,7 @@ import { searchConfig } from './search.config'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "Umwelten",
-  description: "A command-line tool to interact with and systematically evaluate AI models across providers",
+  description: "Build agent environments that observe, measure, and understand themselves",
   base: '/',
   ignoreDeadLinks: true,
   head: [
@@ -28,53 +28,63 @@ export default defineConfig({
     sidebar: {
       '/guide/': [
         {
-          text: 'Getting Started',
+          text: 'Start Here',
           items: [
-            { text: 'Installation', link: '/guide/getting-started' },
+            { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Configuration', link: '/guide/configuration' },
-            { text: 'Basic Usage', link: '/guide/basic-usage' },
-            { text: 'Search Documentation', link: '/guide/search' }
           ]
         },
         {
-          text: 'Core Features',
+          text: 'Habitat',
+          items: [
+            { text: 'What is a Habitat?', link: '/guide/habitat' },
+            { text: 'Habitat Interfaces', link: '/guide/habitat-interfaces' },
+            { text: 'Habitat Agents', link: '/guide/habitat-agents' },
+            { text: 'Habitat Testing', link: '/guide/habitat-testing' },
+            { text: 'Habitat Bridge', link: '/guide/habitat-bridge' },
+          ]
+        },
+        {
+          text: 'Models & Interaction',
           items: [
             { text: 'Model Discovery', link: '/guide/model-discovery' },
             { text: 'Running Prompts', link: '/guide/running-prompts' },
             { text: 'Interactive Chat', link: '/guide/interactive-chat' },
-            { text: 'Habitat', link: '/guide/habitat' },
-            { text: 'Habitat interfaces', link: '/guide/habitat-interfaces' },
-            { text: 'MCP Chat Example', link: '/guide/mcp-chat' },
-            { text: 'Habitat Agents', link: '/guide/habitat-agents' },
-            { text: 'Habitat Testing', link: '/guide/habitat-testing' },
-            { text: 'Telegram Bot', link: '/guide/telegram-bot' },
-            { text: 'Web Interface', link: '/guide/web' },
             { text: 'Tool Calling', link: '/guide/tool-calling' },
-            { text: 'Model Evaluation', link: '/guide/model-evaluation' },
             { text: 'Structured Output', link: '/guide/structured-output' },
-            { text: 'Batch Processing', link: '/guide/batch-processing' }
+            { text: 'MCP Chat', link: '/guide/mcp-chat' },
           ]
         },
         {
-          text: 'Jeeves',
+          text: 'Evaluation',
           items: [
-            { text: 'Discord setup', link: '/guide/jeeves-discord' },
-            { text: 'Jeeves bot (overview)', link: '/guide/jeeves-bot' }
-          ]
-        },
-        {
-          text: 'Advanced',
-          items: [
-            { text: 'Code Execution', link: '/guide/code-execution' },
-            { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
-            { text: 'Cost Analysis', link: '/guide/cost-analysis' },
-            { text: 'Reports & Analysis', link: '/guide/reports' },
             { text: 'Creating Evaluations', link: '/guide/creating-evaluations' },
-            { text: 'Memory & Tools', link: '/guide/memory-tools' },
-            { text: 'Session Management & Search', link: '/guide/session-management' },
-            { text: 'Context Management', link: '/guide/context-management' }
+            { text: 'Model Evaluation', link: '/guide/model-evaluation' },
+            { text: 'Pairwise Ranking', link: '/guide/pairwise-ranking' },
           ]
-        }
+        },
+        {
+          text: 'Operations',
+          items: [
+            { text: 'Cost Analysis', link: '/guide/cost-analysis' },
+            { text: 'Session Management', link: '/guide/session-management' },
+            { text: 'Context Management', link: '/guide/context-management' },
+            { text: 'Memory & Tools', link: '/guide/memory-tools' },
+            { text: 'Batch Processing', link: '/guide/batch-processing' },
+            { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
+            { text: 'Reports & Analysis', link: '/guide/reports' },
+            { text: 'Troubleshooting', link: '/guide/troubleshooting' },
+          ]
+        },
+        {
+          text: 'Bots',
+          items: [
+            { text: 'Telegram Bot', link: '/guide/telegram-bot' },
+            { text: 'Discord (Jeeves)', link: '/guide/jeeves-discord' },
+            { text: 'Jeeves Overview', link: '/guide/jeeves-bot' },
+            { text: 'Web Interface', link: '/guide/web' },
+          ]
+        },
       ],
       '/examples/': [
         {
@@ -111,6 +121,17 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Evaluation',
+          items: [
+            { text: 'EvalSuite Examples', link: '/examples/comprehensive-analysis' },
+            { text: 'Simple Evaluation', link: '/examples/simple-evaluation' },
+            { text: 'Matrix Evaluation', link: '/examples/matrix-evaluation' },
+            { text: 'Batch Evaluation', link: '/examples/batch-evaluation' },
+            { text: 'Multi-Dimension Suite', link: '/examples/complex-pipeline' },
+            { text: 'Pairwise Ranking', link: '/examples/pairwise-ranking' }
+          ]
+        },
+        {
           text: 'Advanced Workflows',
           items: [
             { text: 'Multi-language Evaluation', link: '/examples/multi-language' },
@@ -127,6 +148,7 @@ export default defineConfig({
             { text: 'Habitat Setup', link: '/walkthroughs/habitat-setup-walkthrough' },
             { text: 'Session Analysis Walkthrough', link: '/walkthroughs/session-analysis-walkthrough' },
             { text: 'TRMNL Project Analysis', link: '/walkthroughs/trmnl-project-analysis' },
+            { text: 'Car Wash Evaluation', link: '/walkthroughs/car-wash-evaluation' },
             { text: 'Model Showdown', link: '/walkthroughs/model-showdown' },
             { text: 'Model Showdown Results', link: '/walkthroughs/model-showdown-results' }
           ]
@@ -157,6 +179,7 @@ export default defineConfig({
             { text: 'Core Classes', link: '/api/core-classes' },
             { text: 'Model Integration', link: '/api/model-integration' },
             { text: 'Evaluation Framework', link: '/api/evaluation-framework' },
+            { text: 'Pairwise Ranking', link: '/api/pairwise-ranking' },
             { text: 'Schema Validation', link: '/api/schemas' }
           ]
         },
