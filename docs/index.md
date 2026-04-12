@@ -12,7 +12,7 @@ Every AI model lives in its own perceptual bubble — its *Umwelt*. Most tools t
 **76% of models fail a simple common-sense question:**
 
 ```bash
-dotenvx run -- pnpm tsx examples/evals/car-wash.ts
+pnpm tsx examples/evals/car-wash.ts
 ```
 
 "Should I walk or drive to the car wash?" Most models say walk. They're wrong — you need the car there.
@@ -22,7 +22,7 @@ dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 **Watch models fall for classic logic traps:**
 
 ```bash
-dotenvx run -- pnpm tsx examples/evals/reasoning.ts
+pnpm tsx examples/evals/reasoning.ts
 ```
 
 ---
@@ -30,17 +30,19 @@ dotenvx run -- pnpm tsx examples/evals/reasoning.ts
 **Can a model write exactly 12 words?**
 
 ```bash
-dotenvx run -- pnpm tsx examples/evals/instruction.ts
+pnpm tsx examples/evals/instruction.ts
 ```
 
 Harder than it sounds. Most overshoot or undershoot.
+
+> These eval scripts require cloning the repo — see [Install](#install) below.
 
 ---
 
 **An agent environment in one command:**
 
 ```bash
-dotenvx run -- pnpm run cli -- habitat
+npx umwelten habitat
 ```
 
 Tools, sessions, memory, sub-agents. One directory, any interface.
@@ -50,7 +52,7 @@ Tools, sessions, memory, sub-agents. One directory, any interface.
 **Same prompt, 8 providers, one command:**
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+npx umwelten eval run \
   --prompt "Explain why the sky is blue in exactly three sentences" \
   --models "google:gemini-3-flash-preview,openrouter:openai/gpt-5.4-nano,openrouter:anthropic/claude-sonnet-4.6,openrouter:deepseek/deepseek-v3.2" \
   --id "sky-test" --concurrent
@@ -61,7 +63,7 @@ dotenvx run -- pnpm run cli -- eval run \
 **Your laptop model vs GPT-5:**
 
 ```bash
-dotenvx run -- pnpm run cli -- eval run \
+npx umwelten eval run \
   --prompt "Write a haiku about recursion" \
   --models "ollama:qwen3:30b-a3b,openrouter:openai/gpt-5.4" \
   --id "local-vs-cloud" --concurrent
@@ -121,6 +123,31 @@ suite.run();
 Run it. Get a leaderboard with scores, cost, and timing. Cache responses, resume interrupted runs, compare across providers.
 
 → [Creating evaluations](./guide/creating-evaluations.md)
+
+## Understand your AI work
+
+Your Habitat can read your Claude Code and Cursor history — every session, every tool call, every solution you've built. Index it with an LLM, search it semantically, extract learnings.
+
+```bash
+# See what you've been doing
+npx umwelten sessions list
+
+# Inspect a specific session
+npx umwelten sessions show abc1234
+
+# Index everything with AI (costs ~$0.03 per 100 sessions)
+npx umwelten sessions index
+
+# Search your work semantically
+npx umwelten sessions search "authentication"
+
+# Browse interactively
+npx umwelten sessions browse
+```
+
+Supports Claude Code (JSONL) and Cursor (SQLite). Your Habitat can append learnings to sessions for continuous improvement.
+
+→ [Session management guide](./guide/session-management.md) · [Session analysis walkthrough](./walkthroughs/session-analysis-walkthrough.md)
 
 ## Install
 

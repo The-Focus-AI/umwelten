@@ -14,7 +14,13 @@ cd umwelten && pnpm install && cp env.template .env
 
 ```bash
 # Start an agent environment
-dotenvx run -- pnpm run cli -- habitat
+npx umwelten habitat
+
+# Same prompt, multiple providers, one command
+npx umwelten eval run \
+  --prompt "Explain why the sky is blue" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-5.4-nano" \
+  --id "sky-test" --concurrent
 
 # 76% of models fail this common-sense question
 dotenvx run -- pnpm tsx examples/evals/car-wash.ts
@@ -24,12 +30,6 @@ dotenvx run -- pnpm tsx examples/evals/reasoning.ts
 
 # Can a model write exactly 12 words?
 dotenvx run -- pnpm tsx examples/evals/instruction.ts
-
-# Same prompt, multiple providers, one command
-dotenvx run -- pnpm run cli -- eval run \
-  --prompt "Explain why the sky is blue" \
-  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-5.4-nano" \
-  --id "sky-test" --concurrent
 ```
 
 ## Programmatic usage
@@ -63,6 +63,17 @@ const suite = new EvalSuite({
 await suite.run();
 ```
 
+## Session digestion
+
+Your Habitat reads Claude Code and Cursor history — every session, every tool call, every solution. Index with AI, search semantically, extract learnings.
+
+```bash
+npx umwelten sessions list                           # see your sessions
+npx umwelten sessions index                          # AI-index everything
+npx umwelten sessions search "authentication"        # semantic search
+npx umwelten sessions browse                         # interactive browser
+```
+
 ## Documentation
 
 **[umwelten.thefocus.ai](https://umwelten.thefocus.ai/)**
@@ -70,6 +81,7 @@ await suite.run();
 - [Getting started](https://umwelten.thefocus.ai/guide/getting-started) — build an agent in 10 minutes
 - [Habitat](https://umwelten.thefocus.ai/guide/habitat) — tools, agents, sessions, interfaces
 - [Creating evaluations](https://umwelten.thefocus.ai/guide/creating-evaluations) — EvalSuite, VerifyTask, JudgeTask
+- [Session management](https://umwelten.thefocus.ai/guide/session-management) — Claude Code & Cursor history
 - [Model Showdown](https://umwelten.thefocus.ai/walkthroughs/model-showdown) — 49 models, 5 dimensions
 - [API reference](https://umwelten.thefocus.ai/api/overview)
 

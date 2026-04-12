@@ -2,8 +2,20 @@
 
 Build an AI agent, give it a persona, and measure whether it works — in under 10 minutes.
 
-## 1. Install (30 seconds)
+## 1. Install
 
+**Use it immediately:**
+```bash
+npx umwelten habitat
+```
+
+**Or install globally:**
+```bash
+npm install -g umwelten
+umwelten habitat
+```
+
+**Or from source (for development and running eval scripts):**
 ```bash
 git clone https://github.com/The-Focus-AI/umwelten.git
 cd umwelten
@@ -17,7 +29,7 @@ You need at least one API key. [Google AI Studio](https://aistudio.google.com/) 
 ## 2. Start a Habitat (60 seconds)
 
 ```bash
-dotenvx run -- pnpm run cli -- habitat
+npx umwelten habitat
 ```
 
 That's it. You're now in a REPL, talking to an AI agent that can manage files, search the web, run sub-agents, and remember things across sessions.
@@ -53,7 +65,7 @@ The YAML frontmatter sets `role` and `objective`. The body becomes the system pr
 Restart the habitat — it loads the new persona automatically:
 
 ```bash
-dotenvx run -- pnpm run cli -- habitat
+npx umwelten habitat
 ```
 
 ## 4. Talk to Different Models
@@ -62,20 +74,20 @@ Your agent isn't locked to one model. Switch at the command line:
 
 ```bash
 # Google Gemini — cloud, fast, cheap
-dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+npx umwelten habitat -p google -m gemini-3-flash-preview
 
 # Ollama — local, free, private
-dotenvx run -- pnpm run cli -- habitat -p ollama -m gemma3:12b
+npx umwelten habitat -p ollama -m gemma3:12b
 
 # OpenRouter — access to GPT-5, Claude, and dozens more
-dotenvx run -- pnpm run cli -- habitat -p openrouter -m openai/gpt-5.4-nano
+npx umwelten habitat -p openrouter -m openai/gpt-5.4-nano
 ```
 
 See what's available:
 
 ```bash
-dotenvx run -- pnpm run cli -- models --provider google
-dotenvx run -- pnpm run cli -- models --search gpt-5
+npx umwelten models --provider google
+npx umwelten models --search gpt-5
 ```
 
 Same persona, same tools, different brain. This is why separating the agent (Habitat) from the model matters.
@@ -114,7 +126,7 @@ suite.run();
 Run it:
 
 ```bash
-dotenvx run -- pnpm tsx my-first-eval.ts
+npx tsx my-first-eval.ts
 ```
 
 You get a score, a leaderboard, and cached results so re-runs are instant. Add more models to the `models` array and they run in parallel.
@@ -133,11 +145,31 @@ dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 
 The correct answer is **drive** — you need the car at the car wash. A surprising number of models say "walk" because 50 meters is close. Run `--all` to test 8+ models and see which ones your agent's model is.
 
-## 7. What's Next?
+## 7. Understand Your Past Work
+
+If you've been using Claude Code or Cursor, your Habitat can learn from everything you've already done.
+
+```bash
+# See your Claude Code / Cursor sessions
+npx umwelten sessions list
+
+# Index them with AI (~$0.03 per 100 sessions)
+npx umwelten sessions index
+
+# Search semantically
+npx umwelten sessions search "authentication"
+```
+
+The indexer extracts topics, key learnings, and solution patterns from every session. Your Habitat gets smarter from your history.
+
+→ [Session analysis walkthrough](/walkthroughs/session-analysis-walkthrough)
+
+## 8. What's Next?
 
 You have a working Habitat and you've run your first eval. Go deeper:
 
 - **[Habitat Guide](/guide/habitat)** — tools, sub-agents, sessions, Telegram/Discord bots
 - **[Creating Evaluations](/guide/creating-evaluations)** — LLM judges, multi-model comparison, the full eval API
+- **[Session Management](/guide/session-management)** — understand and search your Claude Code and Cursor history
 - **[Model Showdown](/walkthroughs/model-showdown)** — 49 models, 5 dimensions, full analysis
 - **[API Reference](/api/overview)** — TypeScript API for custom integrations
