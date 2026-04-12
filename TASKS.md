@@ -722,9 +722,9 @@ Recommended order: 5 → 3B → 1A–1C → 2A → 4A–4C → 6A–6C.
 
 ### 2. Untangle the `Interaction` class
 
-- [ ] **2A: Extract `toNormalizedSession()`** — Move 240-line serializer into `src/interaction/core/normalize.ts` as a pure function.
+- [x] **2A: Extract `toNormalizedSession()`** — Moved into `src/interaction/core/normalize.ts` as `interactionToNormalizedSession()`. 251 lines.
 - [ ] **2B: Extract attachment handling** — Move `addAttachmentFromPath()` into `src/interaction/core/attachments.ts`. Drops `file-type`, `fs/promises`, `path` imports from Interaction.
-- [ ] **2C: Extract `fromNormalizedSession()`** — Move static factory into same `normalize.ts` module for symmetry.
+- [x] **2C: Extract `fromNormalizedSession()`** — Moved helper `normalizedSessionToMessages()` into same `normalize.ts` module. Static factory delegates to it.
 
 ### 3. Consolidate report generators
 
