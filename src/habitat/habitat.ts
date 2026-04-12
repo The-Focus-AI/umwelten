@@ -51,10 +51,10 @@ import type { ExternalInteractionToolsContext } from "./tools/external-interacti
 import type { AgentRunnerToolsContext } from "./tools/agent-runner-tools.js";
 import type { SecretsToolsContext } from "./tools/secrets-tools.js";
 import type { SearchToolsContext } from "./tools/search-tools.js";
+import { ToolRegistry } from "./tool-registry.js";
 import { HabitatAgent } from "./habitat-agent.js";
 import { loadSecrets, saveSecrets } from "./secrets.js";
-import type { BridgeState, SupervisorState } from "./bridge/state.js";
-import { BridgeSupervisor, type SupervisorConfig } from "./bridge/supervisor.js";
+import { BridgeManager } from "./bridge-manager.js";
 
 export class Habitat
   implements
@@ -76,10 +76,11 @@ export class Habitat
   private sessionManager: HabitatSessionManager;
   private store: InteractionStore;
   private stimulus: Stimulus | null = null;
-  private registeredTools: Record<string, Tool> = {};
+  private toolRegistry: ToolRegistry;
   private habitatAgents: Map<string, HabitatAgent> = new Map();
   private runtimeModelDetails: ModelDetails | undefined;
   private options: HabitatOptions;
+  private bridgeManager!: BridgeManager;
 
   private constructor(
     workDir: string,
@@ -101,6 +102,7 @@ export class Habitat
     this.store = store;
     this.sessionManager = sessionManager;
     this.options = options;
+    this.toolRegistry = new ToolRegistry(this);
   }
 
   // ── Static factory ──────────────────────────────────────────────
@@ -148,6 +150,13 @@ export class Habitat
       sessionManager,
       opts,
     );
+
+    habitat.bridgeManager = new BridgeManager({
+      workDir: habitat.workDir,
+      getAgent: (id) => habitat.getAgent(id),
+      updateAgent: (id, u) => habitat.updateAgent(id, u),
+      getSecret: (name) => habitat.getSecret(name),
+    });
 
     // 6. Register standard tool sets (unless skipped)
     if (!opts.skipBuiltinTools) {
@@ -299,7 +308,7 @@ export class Habitat
     const stimulus = new Stimulus(stimulusOptions);
 
     // Register all habitat tools into the stimulus
-    for (const [name, tool] of Object.entries(this.registeredTools)) {
+    for (const [name, tool] of Object.entries(this.toolRegistry.getTools())) {
       stimulus.addTool(name, tool);
     }
 
@@ -318,42 +327,21 @@ export class Habitat
       stimulus.addSkillsTool();
     }
 
+    this.toolRegistry.setStimulus(stimulus);
     return stimulus;
   }
 
   // ── Tool management ─────────────────────────────────────────────
 
-  addTool(name: string, tool: Tool): void {
-    this.registeredTools[name] = tool;
-    // If stimulus is already built, also add to it
-    if (this.stimulus) {
-      this.stimulus.addTool(name, tool);
-    }
-  }
+  addTool(name: string, tool: Tool): void { this.toolRegistry.addTool(name, tool); }
 
-  addTools(tools: Record<string, Tool>): void {
-    for (const [name, tool] of Object.entries(tools)) {
-      this.addTool(name, tool);
-    }
-  }
+  addTools(tools: Record<string, Tool>): void { this.toolRegistry.addTools(tools); }
 
-  getTools(): Record<string, Tool> {
-    return { ...this.registeredTools };
-  }
+  getTools(): Record<string, Tool> { return this.toolRegistry.getTools(); }
 
-  addToolSet(toolSet: ToolSet): void {
-    const tools = toolSet.createTools(this);
-    this.addTools(tools);
-  }
+  addToolSet(toolSet: ToolSet): void { this.toolRegistry.addToolSet(toolSet); }
 
-  /**
-   * Get the loaded skills from the habitat's stimulus.
-   * Returns an empty array if stimulus hasn't been built yet or skills are disabled.
-   */
-  getSkills(): SkillDefinition[] {
-    const registry = this.stimulus?.getSkillsRegistry();
-    return registry ? registry.listSkills() : [];
-  }
+  getSkills(): SkillDefinition[] { return this.toolRegistry.getSkills(); }
 
   // ── Session management ──────────────────────────────────────────
 
@@ -503,247 +491,57 @@ export class Habitat
     return new Interaction(modelDetails, stimulus);
   }
 
-  // ── Bridge Supervisor management ─────────────────────────────────
+  // ── Bridge Supervisor management (delegated to BridgeManager) ────
 
-  private supervisors = new Map<string, BridgeSupervisor>();
-
-  /**
-   * Get the directory path for an agent's state and logs
-   */
   getAgentDir(agentId: string): string {
-    return join(this.workDir, "agents", agentId);
+    return this.bridgeManager.getAgentDir(agentId);
   }
 
-  /**
-   * Ensure agent directory exists
-   */
   async ensureAgentDir(agentId: string): Promise<void> {
-    const agentDir = this.getAgentDir(agentId);
-    await ensureDir(agentDir);
-    await ensureDir(join(agentDir, "logs"));
+    return this.bridgeManager.ensureAgentDir(agentId);
   }
 
-  /**
-   * Save bridge state to disk (legacy compat)
-   */
-  async saveBridgeState(agentId: string, state: BridgeState): Promise<void> {
-    await this.ensureAgentDir(agentId);
-    const statePath = join(this.getAgentDir(agentId), "state.json");
-    const { writeFile } = await import("node:fs/promises");
-    await writeFile(statePath, JSON.stringify(state, null, 2), "utf-8");
+  async saveBridgeState(agentId: string, state: import("./bridge/state.js").BridgeState): Promise<void> {
+    return this.bridgeManager.saveBridgeState(agentId, state);
   }
 
-  /**
-   * Load bridge state from disk (legacy compat)
-   */
-  async loadBridgeState(agentId: string): Promise<BridgeState | null> {
-    const statePath = join(this.getAgentDir(agentId), "state.json");
-    try {
-      const { readFile } = await import("node:fs/promises");
-      const data = await readFile(statePath, "utf-8");
-      return JSON.parse(data) as BridgeState;
-    } catch {
-      return null;
-    }
+  async loadBridgeState(agentId: string): Promise<import("./bridge/state.js").BridgeState | null> {
+    return this.bridgeManager.loadBridgeState(agentId);
   }
 
-  /**
-   * Load all persisted bridge states
-   */
-  async loadAllBridgeStates(): Promise<BridgeState[]> {
-    const agentsDir = join(this.workDir, "agents");
-    try {
-      const { readdir } = await import("node:fs/promises");
-      const entries = await readdir(agentsDir, { withFileTypes: true });
-      const states: BridgeState[] = [];
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const state = await this.loadBridgeState(entry.name);
-          if (state) {
-            states.push(state);
-          }
-        }
-      }
-      return states;
-    } catch {
-      return [];
-    }
+  async loadAllBridgeStates(): Promise<import("./bridge/state.js").BridgeState[]> {
+    return this.bridgeManager.loadAllBridgeStates();
   }
 
-  /**
-   * Start a Bridge supervisor for an agent.
-   * The supervisor builds the container (via dag.llm() + fallback),
-   * monitors health, and rebuilds on failure.
-   */
   async startBridge(
     agentId: string,
     options?: { logFilePath?: string },
   ): Promise<import("./bridge/agent.js").BridgeAgent> {
-    // Validate agent exists and has gitRemote
-    const agent = this.getAgent(agentId);
-    if (!agent) throw new Error(`Agent not found: ${agentId}`);
-    if (!agent.gitRemote) throw new Error(`Agent "${agentId}" has no gitRemote configured`);
-
-    // Ensure agent dir + log path
-    await this.ensureAgentDir(agentId);
-    const logFilePath = options?.logFilePath ??
-      join(this.getAgentDir(agentId), "logs", "bridge.log");
-
-    // Resolve secrets from agent.secrets names → values
-    const resolvedSecrets = this.resolveAgentSecrets(agentId);
-
-    // Load saved provisioning from agent config
-    const savedProvisioning = agent.bridgeProvisioning;
-
-    // Create and start supervisor
-    const supervisorConfig: SupervisorConfig = {
-      agentId,
-      repoUrl: agent.gitRemote,
-      secrets: resolvedSecrets,
-      stateDir: this.getAgentDir(agentId),
-      logFilePath,
-      savedProvisioning: savedProvisioning ? { ...savedProvisioning } : undefined,
-    };
-
-    const supervisor = new BridgeSupervisor(supervisorConfig);
-    await supervisor.start();
-
-    // Store supervisor
-    this.supervisors.set(agentId, supervisor);
-
-    // Get the bridge agent from supervisor
-    const bridgeAgent = supervisor.getBridgeAgent();
-    if (!bridgeAgent) {
-      throw new Error(`Supervisor started but bridge agent not available for ${agentId}`);
-    }
-
-    // Save port + status to config
-    const port = supervisor.getPort();
-    await this.updateAgent(agentId, {
-      mcpPort: port,
-      mcpStatus: "running",
-      mcpEnabled: true,
-    });
-
-    // Save provisioning if we got new one from the LLM build
-    const newProvisioning = bridgeAgent.getSavedProvisioning();
-    if (newProvisioning) {
-      await this.updateAgent(agentId, {
-        bridgeProvisioning: newProvisioning,
-      });
-    }
-
-    // Save legacy state for compat
-    const state: BridgeState = {
-      agentId,
-      repoUrl: agent.gitRemote,
-      port: port || 0,
-      pid: process.pid,
-      status: "running",
-      createdAt: new Date().toISOString(),
-      lastHealthCheck: new Date().toISOString(),
-    };
-    await this.saveBridgeState(agentId, state);
-
-    return bridgeAgent;
+    return this.bridgeManager.startBridge(agentId, options);
   }
 
-  private resolveAgentSecrets(agentId: string): Array<{ name: string; value: string }> {
-    const agent = this.getAgent(agentId);
-    const resolved: Array<{ name: string; value: string }> = [];
-    if (agent?.secrets?.length) {
-      const missing: string[] = [];
-      for (const secretName of agent.secrets) {
-        const value = this.getSecret(secretName);
-        if (value) {
-          resolved.push({ name: secretName, value });
-        } else {
-          missing.push(secretName);
-        }
-      }
-      if (missing.length > 0) {
-        console.warn(
-          `[habitat] WARNING: Agent "${agentId}" references secrets not found in store or environment: ${missing.join(", ")}. ` +
-          `Use secrets_set to add them, then restart the bridge.`,
-        );
-      }
-    }
-    return resolved;
+  getSupervisor(agentId: string): import("./bridge/supervisor.js").BridgeSupervisor | undefined {
+    return this.bridgeManager.getSupervisor(agentId);
   }
 
-  /**
-   * Get the supervisor for an agent.
-   */
-  getSupervisor(agentId: string): BridgeSupervisor | undefined {
-    return this.supervisors.get(agentId);
+  getBridgeAgent(agentId: string): import("./bridge/agent.js").BridgeAgent | undefined {
+    return this.bridgeManager.getBridgeAgent(agentId);
   }
 
-  /**
-   * Get an existing Bridge Agent by ID (from supervisor).
-   */
-  getBridgeAgent(
-    agentId: string,
-  ): import("./bridge/agent.js").BridgeAgent | undefined {
-    const supervisor = this.supervisors.get(agentId);
-    return supervisor?.getBridgeAgent() ?? undefined;
-  }
-
-  /**
-   * Get all bridge agents (from supervisors)
-   */
   getAllBridgeAgents(): import("./bridge/agent.js").BridgeAgent[] {
-    const agents: import("./bridge/agent.js").BridgeAgent[] = [];
-    for (const supervisor of this.supervisors.values()) {
-      const agent = supervisor.getBridgeAgent();
-      if (agent) agents.push(agent);
-    }
-    return agents;
+    return this.bridgeManager.getAllBridgeAgents();
   }
 
-  /**
-   * Destroy a Bridge Agent and clean up its resources.
-   */
   async destroyBridgeAgent(agentId: string): Promise<void> {
-    const supervisor = this.supervisors.get(agentId);
-    if (supervisor) {
-      await supervisor.stop();
-      this.supervisors.delete(agentId);
-    }
-    // Clear port from config so bridge_list doesn't try to connect
-    await this.updateAgent(agentId, {
-      mcpPort: undefined,
-      mcpStatus: "stopped",
-    });
-    // Update state
-    const state = await this.loadBridgeState(agentId);
-    if (state) {
-      state.status = "stopped";
-      await this.saveBridgeState(agentId, state);
-    }
+    return this.bridgeManager.destroyBridgeAgent(agentId);
   }
 
-  /**
-   * List all active Bridge Agent IDs.
-   */
   listBridgeAgents(): string[] {
-    return Array.from(this.supervisors.keys());
+    return this.bridgeManager.listBridgeAgents();
   }
 
-  /**
-   * Stop all supervisors (for graceful shutdown).
-   */
   async stopAllSupervisors(): Promise<void> {
-    const promises = Array.from(this.supervisors.entries()).map(
-      async ([id, supervisor]) => {
-        try {
-          await supervisor.stop();
-        } catch (err: any) {
-          console.warn(`[habitat] Failed to stop supervisor ${id}: ${err.message}`);
-        }
-      },
-    );
-    await Promise.all(promises);
-    this.supervisors.clear();
+    return this.bridgeManager.stopAllSupervisors();
   }
 
   // ── Onboarding ──────────────────────────────────────────────────

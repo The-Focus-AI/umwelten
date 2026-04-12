@@ -746,8 +746,8 @@ Four report generation surfaces exist: `evaluation/reporter.ts` (stub), `evaluat
 
 ### 6. Decompose the Habitat God Object
 
-- [ ] **6A: Extract `BridgeManager`** — Move bridge supervisor lifecycle (~240 lines) into `src/habitat/bridge-manager.ts`.
-- [ ] **6B: Extract `ToolRegistry`** — Move tool registration into `src/habitat/tool-registry.ts` with `addTool`, `addTools`, `addToolSet`, `getTools`.
+- [x] **6A: Extract `BridgeManager`** — Moved bridge supervisor lifecycle into `src/habitat/bridge-manager.ts`. 265 lines.
+- [x] **6B: Extract `ToolRegistry`** — Moved tool registration into `src/habitat/tool-registry.ts`. 51 lines.
 - [ ] **6C: Narrow context interfaces** — After 6A–6B, point tool context interfaces at the narrower objects (`BridgeManager`, `ToolRegistry`) instead of Habitat.
 
 ---
