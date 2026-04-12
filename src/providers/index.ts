@@ -1,52 +1,87 @@
-import { getOllamaModelUrl } from "./ollama.js";
-import { getOpenRouterModelUrl } from "./openrouter.js";
-import { getGoogleModelUrl } from "./google.js";
-import { getGitHubModelsModelUrl } from "./github-models.js";
-import { getFireworksModelUrl } from "./fireworks.js";
+import { createOllamaProvider, getOllamaModelUrl } from "./ollama.js";
+import { createOpenRouterProvider, getOpenRouterModelUrl } from "./openrouter.js";
+import { createGoogleProvider, getGoogleModelUrl } from "./google.js";
+import { createGitHubModelsProvider, getGitHubModelsModelUrl } from "./github-models.js";
+import { createFireworksProvider, getFireworksModelUrl } from "./fireworks.js";
 import {
   createMiniMaxProvider,
   getMiniMaxCanonicalModelName,
   getMiniMaxModelUrl,
 } from "./minimax.js";
 import type { ModelDetails } from "../cognition/types.js";
-import { createGoogleProvider } from "./google.js";
-import { createOpenRouterProvider } from "./openrouter.js";
-import { createOllamaProvider } from "./ollama.js";
-import { createGitHubModelsProvider } from "./github-models.js";
-import { createFireworksProvider } from "./fireworks.js";
 import { createDeepInfraProvider, getDeepInfraModelUrl } from "./deepinfra.js";
 import { createTogetherAIProvider, getTogetherAIModelUrl } from "./togetherai.js";
 import { createNvidiaProvider, getNvidiaModelUrl } from "./nvidia.js";
 import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
+import { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
+
+// Re-export registry functions
+export { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
+
+// Register all built-in providers at module load time
+registerProvider("google", {
+  create: (key) => createGoogleProvider(key!),
+  envVar: "GOOGLE_GENERATIVE_AI_API_KEY",
+  getModelUrl: getGoogleModelUrl,
+});
+
+registerProvider("openrouter", {
+  create: (key) => createOpenRouterProvider(key!),
+  envVar: "OPENROUTER_API_KEY",
+  getModelUrl: getOpenRouterModelUrl,
+});
+
+registerProvider("github-models", {
+  create: (key) => createGitHubModelsProvider(key!),
+  envVar: "GITHUB_TOKEN",
+  getModelUrl: getGitHubModelsModelUrl,
+});
+
+registerProvider("fireworks", {
+  create: (key) => createFireworksProvider(key!),
+  envVar: "FIREWORKS_API_KEY",
+  getModelUrl: getFireworksModelUrl,
+});
+
+registerProvider("minimax", {
+  create: (key) => createMiniMaxProvider(key!, process.env.MINIMAX_BASE_URL),
+  envVar: "MINIMAX_API_KEY",
+  getModelUrl: getMiniMaxModelUrl,
+});
+
+registerProvider("deepinfra", {
+  create: (key) => createDeepInfraProvider(key!),
+  envVar: "DEEPINFRA_API_KEY",
+  getModelUrl: getDeepInfraModelUrl,
+});
+
+registerProvider("nvidia", {
+  create: (key) => createNvidiaProvider(key!),
+  envVar: "NVIDIA_API_KEY",
+  getModelUrl: getNvidiaModelUrl,
+});
+
+registerProvider("togetherai", {
+  create: (key) => createTogetherAIProvider(key!),
+  envVar: "TOGETHER_API_KEY",
+  getModelUrl: getTogetherAIModelUrl,
+});
+
+registerProvider("ollama", {
+  create: () => createOllamaProvider(),
+  getModelUrl: getOllamaModelUrl,
+});
+
+registerProvider("lmstudio", {
+  create: () => createLMStudioProvider(),
+});
 
 
 export function getModelUrl(model: ModelDetails): string | undefined {
-  switch (model.provider) {
-    case "openrouter":
-      return getOpenRouterModelUrl(model.name);
-    case "ollama":
-      return getOllamaModelUrl(model.name);
-    case "google":
-      return getGoogleModelUrl(model.name);
-    case "github-models":
-      return getGitHubModelsModelUrl(model.name);
-    case "fireworks":
-      return getFireworksModelUrl(model.name);
-    case "minimax":
-      return getMiniMaxModelUrl(model.name);
-    case "deepinfra":
-      return getDeepInfraModelUrl(model.name);
-    case "nvidia":
-      return getNvidiaModelUrl(model.name);
-    case "togetherai":
-      return getTogetherAIModelUrl(model.name);
-    case "lmstudio":
-      return undefined;
-    default:
-      return undefined;
-  }
+  const entry = getRegisteredProvider(model.provider);
+  return entry?.getModelUrl?.(model.name);
 }
 
 export async function getModel(
@@ -77,7 +112,7 @@ export async function getModelDetails(model: LanguageModel): Promise<ModelDetail
     const modelId = model.toString();
     
     // Try to find the model in our known providers
-    const providers = ['google', 'openrouter', 'ollama', 'github-models', 'fireworks', 'minimax', 'deepinfra', 'nvidia', 'togetherai', 'lmstudio'] as const;
+    const providers = listRegisteredProviders();
     
     for (const providerName of providers) {
       try {
@@ -111,66 +146,20 @@ export async function getModelDetails(model: LanguageModel): Promise<ModelDetail
 export async function getModelProvider(
   modelDetails: ModelDetails
 ): Promise<BaseProvider | undefined> {
-  switch (modelDetails.provider) {
-    case "google":
-      const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      if (!googleKey) {
-        throw new Error(
-          "GOOGLE_GENERATIVE_AI_API_KEY environment variable is required"
-        );
-      }
-      return createGoogleProvider(googleKey);
-    case "openrouter":
-      const openrouterKey = process.env.OPENROUTER_API_KEY;
-      if (!openrouterKey) {
-        throw new Error("OPENROUTER_API_KEY environment variable is required");
-      }
-      return createOpenRouterProvider(openrouterKey);
-    case "github-models":
-      const githubToken = process.env.GITHUB_TOKEN;
-      if (!githubToken) {
-        throw new Error("GITHUB_TOKEN environment variable is required");
-      }
-      return createGitHubModelsProvider(githubToken);
-    case "fireworks":
-      const fireworksKey = process.env.FIREWORKS_API_KEY;
-      if (!fireworksKey) {
-        throw new Error("FIREWORKS_API_KEY environment variable is required");
-      }
-      return createFireworksProvider(fireworksKey);
-    case "minimax":
-      const minimaxKey = process.env.MINIMAX_API_KEY;
-      if (!minimaxKey) {
-        throw new Error("MINIMAX_API_KEY environment variable is required");
-      }
-      return createMiniMaxProvider(minimaxKey, process.env.MINIMAX_BASE_URL);
-    case "deepinfra":
-      const deepinfraKey = process.env.DEEPINFRA_API_KEY;
-      if (!deepinfraKey) {
-        throw new Error("DEEPINFRA_API_KEY environment variable is required");
-      }
-      return createDeepInfraProvider(deepinfraKey);
-    case "nvidia":
-      const nvidiaKey = process.env.NVIDIA_API_KEY;
-      if (!nvidiaKey) {
-        throw new Error("NVIDIA_API_KEY environment variable is required");
-      }
-      return createNvidiaProvider(nvidiaKey);
-    case "togetherai":
-      const togetheraiKey = process.env.TOGETHER_API_KEY;
-      if (!togetheraiKey) {
-        throw new Error("TOGETHER_API_KEY environment variable is required");
-      }
-      return createTogetherAIProvider(togetheraiKey);
-    case "ollama":
-      return createOllamaProvider();
-    case "lmstudio":
-      return createLMStudioProvider();
-    default:
-      throw new Error(
-        `Unsupported provider for modelId: ${modelDetails.provider} ${modelDetails.name}`
-      );
+  const entry = getRegisteredProvider(modelDetails.provider);
+  if (!entry) {
+    throw new Error(
+      `Unsupported provider for modelId: ${modelDetails.provider} ${modelDetails.name}`
+    );
   }
+  if (entry.envVar) {
+    const key = process.env[entry.envVar];
+    if (!key) {
+      throw new Error(`${entry.envVar} environment variable is required`);
+    }
+    return entry.create(key);
+  }
+  return entry.create();
 }
 
 // Known OpenRouter model variant suffixes (e.g. `:thinking`, `:free`, `:extended`)

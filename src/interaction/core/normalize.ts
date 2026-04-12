@@ -46,7 +46,7 @@ export function interactionToNormalizedSession(
           ? msg.content
           : msg.content
               .map((c) => {
-                const part = c as Record<string, unknown>;
+                const part = c as unknown as Record<string, unknown>;
                 if (part.type === "text") return part.text as string;
                 if (part.type === "image") return "[Image]";
                 if (part.type === "file") return "[File]";
@@ -91,7 +91,7 @@ export function interactionToNormalizedSession(
       if (typeof msg.content === "string") {
         contentStr = msg.content;
       } else if (Array.isArray(msg.content)) {
-        for (const part of msg.content as Record<string, unknown>[]) {
+        for (const part of msg.content as unknown as Record<string, unknown>[]) {
           if (part.type === "text") {
             contentStr += part.text as string;
           } else if (part.type === "tool-call") {
@@ -148,7 +148,7 @@ export function interactionToNormalizedSession(
       } else {
         contentStr = msg.content
           .map((c) => {
-            const part = c as Record<string, unknown>;
+            const part = c as unknown as Record<string, unknown>;
             if (part.type === "tool-result") {
               const resultOrOutput =
                 (part.result as unknown) ?? (part.output as unknown);
@@ -243,9 +243,9 @@ export function normalizedSessionToMessages(
     source: session.source,
     sourceId: session.sourceId,
     messages: session.messages.map((m) => ({
-      role: m.role as CoreMessage["role"],
+      role: m.role,
       content: m.content,
-    })),
+    })) as CoreMessage[],
     systemContent: systemMsg?.content,
   };
 }

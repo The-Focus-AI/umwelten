@@ -723,7 +723,7 @@ Recommended order: 5 → 3B → 1A–1C → 2A → 4A–4C → 6A–6C.
 ### 2. Untangle the `Interaction` class
 
 - [x] **2A: Extract `toNormalizedSession()`** — Moved into `src/interaction/core/normalize.ts` as `interactionToNormalizedSession()`. 251 lines.
-- [ ] **2B: Extract attachment handling** — Move `addAttachmentFromPath()` into `src/interaction/core/attachments.ts`. Drops `file-type`, `fs/promises`, `path` imports from Interaction.
+- [x] **2B: Extract attachment handling** — Moved `addAttachmentFromPath()` into `src/interaction/core/attachments.ts`. Drops `file-type`, `fs/promises`, `path` imports from Interaction.
 - [x] **2C: Extract `fromNormalizedSession()`** — Moved helper `normalizedSessionToMessages()` into same `normalize.ts` module. Static factory delegates to it.
 
 ### 3. Consolidate report generators
@@ -736,9 +736,9 @@ Four report generation surfaces exist: `evaluation/reporter.ts` (stub), `evaluat
 
 ### 4. Replace provider switch-statement registry
 
-- [ ] **4A: Create provider registry** — `src/providers/registry.ts` with `registerProvider()`, `getRegisteredProvider()`, `listRegisteredProviders()`.
-- [ ] **4B: Migrate `getModelProvider()` and `getModelUrl()`** — Replace switch statements with registry lookups in `index.ts`.
-- [ ] **4C: Move API key resolution into providers** — Each provider's factory resolves its own env var and throws if missing. Remove 10 copies of the `const key = process.env.X; if (!key) throw` pattern from `index.ts`.
+- [x] **4A: Create provider registry** — Created `src/providers/registry.ts` with `registerProvider()`, `getRegisteredProvider()`, `listRegisteredProviders()`.
+- [x] **4B: Migrate `getModelProvider()` and `getModelUrl()`** — Replaced switch statements with registry lookups in `index.ts`.
+- [x] **4C: Move API key resolution into providers** — Each provider entry declares its `envVar`; `getModelProvider()` resolves it generically. Removed 10 copies of the pattern.
 
 ### 5. Fix hardcoded model in MemoryRunner
 
