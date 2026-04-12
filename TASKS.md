@@ -689,3 +689,18 @@ The habitat has **4 LLM agents**, each with different tool access. Several have 
 - [ ] Add environment variables for OpenRouter LLM configuration in Dagger
 - [ ] Update existing docker-runner tests to work with DaggerRunner
 - [ ] Remove deprecated docker-runner.ts in future release
+
+## Session Introspection (Completed)
+
+- [x] `session-digester.ts` — Core digestion engine (filterBeats, digestSession, digestAllProjects, askAboutSession, buildSessionAnalysisInteraction)
+- [x] `digest-search.ts` — Cross-project search and aggregation (searchDigests, searchKnowledge, getDigestTopics, getDigestPatterns, buildOverview)
+- [x] CLI commands (`sessions digest build/search/overview/stats/topics/patterns/knowledge/ask`)
+- [x] Types in `analysis-types.ts` (SessionDigest, DigestBeat, DigestPhase, DigestSegment, etc.)
+- [x] Tests (`digest.test.ts`) — 21 tests passing (segment splitting, beat filtering, response parsing, formatting)
+
+### Session Introspection Backlog
+- [ ] Micro-session batching (sessions with <=10 messages batched together)
+- [ ] Hierarchical compaction for very long sessions
+- [ ] Embeddings-based semantic search across learnings
+- [ ] Integration test: digest a real session JSONL end-to-end
+- [ ] Clean up digest-store.ts — consolidate fully on FileLearningsStore
