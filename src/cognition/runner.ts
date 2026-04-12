@@ -24,6 +24,7 @@ import {
 } from "ai";
 import { getModel, validateModel } from "../providers/index.js";
 import { normalizeTokenUsage, calculateCostBreakdown } from "./usage-extractor.js";
+import { assembleSteps } from "./step-assembler.js";
 
 import { Interaction } from "../interaction/core/interaction.js";
 import { z } from "zod";
@@ -759,184 +760,11 @@ export class BaseModelRunner implements ModelRunner {
     const contentString =
       typeof content === "string" ? content : JSON.stringify(content);
 
-    // SDK ToolResultPart expects output: { type: 'text'|'json'|'error-text', value }
-    function toToolResultOutput(
-      result: unknown,
-      isError?: boolean,
-    ): { type: "text" | "json" | "error-text"; value: string | unknown } {
-      if (isError) {
-        return {
-          type: "error-text",
-          value:
-            typeof result === "string" ? result : JSON.stringify(result ?? ""),
-        };
-      }
-      return typeof result === "string"
-        ? { type: "text", value: result }
-        : { type: "json", value: result };
-    }
-
-    // Resolve tool calls and results (they might be promises)
-    let toolCalls: any[] = [];
-    let toolResults: any[] = [];
-    let steps: any[] = [];
-
-    if (response.toolCalls) {
-      const resolvedCalls = await response.toolCalls;
-      if (Array.isArray(resolvedCalls) && resolvedCalls.length > 0) {
-        toolCalls = resolvedCalls;
-      }
-    }
-    if (response.toolResults) {
-      const resolvedResults = await response.toolResults;
-      if (Array.isArray(resolvedResults) && resolvedResults.length > 0) {
-        toolResults = resolvedResults;
-      }
-    }
-    if (response.steps) {
-      const resolvedSteps = await response.steps;
-      if (Array.isArray(resolvedSteps)) {
-        steps = resolvedSteps;
-        if (toolCalls.length === 0) {
-          for (const step of steps) {
-            if (step.toolCalls && Array.isArray(step.toolCalls)) {
-              toolCalls.push(...step.toolCalls);
-            }
-            if (step.toolResults && Array.isArray(step.toolResults)) {
-              toolResults.push(...step.toolResults);
-            }
-          }
-        }
-      }
-    }
-
-    // If we already added tool messages during streamText (streaming), only add final assistant text
-    const messages = interaction.getMessages();
-    const lastUserIdx = messages.map((m) => m.role).lastIndexOf("user");
-    const afterLastUser = messages.slice(lastUserIdx + 1);
-    const alreadyHasToolMessages = afterLastUser.some((m) => m.role === "tool");
-
-    if (alreadyHasToolMessages) {
-      if (contentString) {
-        interaction.addMessage({ role: "assistant", content: contentString });
-        interaction.notifyTranscriptUpdate?.();
-      }
-    } else if (steps.length > 0) {
-      // Append full conversation to interaction.messages (Claude Code style: user, assistant+tool_use, tool results, ..., final assistant)
-      for (const step of steps) {
-        const stepCalls =
-          step.toolCalls && Array.isArray(step.toolCalls) ? step.toolCalls : [];
-        const stepResults =
-          step.toolResults && Array.isArray(step.toolResults)
-            ? step.toolResults
-            : [];
-        const stepText =
-          step.text != null
-            ? typeof step.text === "string"
-              ? step.text
-              : String(step.text)
-            : "";
-        if (stepCalls.length > 0) {
-          interaction.addMessage({
-            role: "assistant",
-            content: stepText
-              ? [
-                  { type: "text", text: stepText },
-                  ...stepCalls.map((tc: any) => ({
-                    type: "tool-call",
-                    toolCallId: tc.toolCallId ?? tc.id,
-                    toolName: tc.toolName ?? tc.name,
-                    input: tc.input ?? tc.args ?? {},
-                  })),
-                ]
-              : stepCalls.map((tc: any) => ({
-                  type: "tool-call",
-                  toolCallId: tc.toolCallId ?? tc.id,
-                  toolName: tc.toolName ?? tc.name,
-                  input: tc.input ?? tc.args ?? {},
-                })),
-          });
-          interaction.notifyTranscriptUpdate?.();
-        } else if (stepText) {
-          interaction.addMessage({ role: "assistant", content: stepText });
-          interaction.notifyTranscriptUpdate?.();
-        }
-        if (stepResults.length > 0) {
-          const resultMap = new Map(
-            stepResults.map((tr: any) => [tr.toolCallId ?? tr.id, tr]),
-          );
-          for (const tc of stepCalls) {
-            const id = tc.toolCallId ?? tc.id;
-            const tr = resultMap.get(id) as any;
-            if (tr != null) {
-              const out = tr.result ?? tr.output;
-              interaction.addMessage({
-                role: "tool",
-                content: [
-                  {
-                    type: "tool-result",
-                    toolCallId: id,
-                    toolName: tr.toolName ?? tc.toolName ?? "",
-                    output: toToolResultOutput(out, tr.isError ?? false),
-                  },
-                ],
-              } as unknown as CoreMessage);
-              interaction.notifyTranscriptUpdate?.();
-            }
-          }
-        }
-      }
-      // Final assistant text only if last step had no text (e.g. last step was tool-only)
-      const lastStep = steps[steps.length - 1];
-      const lastStepText = lastStep?.text != null ? String(lastStep.text) : "";
-      if (contentString && lastStepText !== contentString) {
-        interaction.addMessage({ role: "assistant", content: contentString });
-        interaction.notifyTranscriptUpdate?.();
-      }
-    } else if (toolCalls.length > 0) {
-      interaction.addMessage({
-        role: "assistant",
-        content: toolCalls.map((tc: any) => ({
-          type: "tool-call",
-          toolCallId: tc.toolCallId ?? tc.id,
-          toolName: tc.toolName ?? tc.name,
-          input: tc.input ?? tc.args ?? {},
-        })),
-      } as unknown as CoreMessage);
-      interaction.notifyTranscriptUpdate?.();
-      const resultMap = new Map(
-        (toolResults as any[]).map((tr: any) => [tr.toolCallId ?? tr.id, tr]),
-      );
-      for (const tc of toolCalls) {
-        const id = tc.toolCallId ?? tc.id;
-        const tr = resultMap.get(id) as any;
-        if (tr != null) {
-          const out = tr.result ?? tr.output;
-          interaction.addMessage({
-            role: "tool",
-            content: [
-              {
-                type: "tool-result",
-                toolCallId: id,
-                toolName: (tr as any).toolName ?? (tc as any).toolName ?? "",
-                output: toToolResultOutput(out, tr.isError ?? false),
-              },
-            ],
-          } as unknown as CoreMessage);
-          interaction.notifyTranscriptUpdate?.();
-        }
-      }
-      if (contentString) {
-        interaction.addMessage({ role: "assistant", content: contentString });
-        interaction.notifyTranscriptUpdate?.();
-      }
-    } else {
-      interaction.addMessage({
-        role: "assistant",
-        content: contentString,
-      });
-      interaction.notifyTranscriptUpdate?.();
-    }
+    const { toolCalls, toolResults } = await assembleSteps({
+      response,
+      contentString,
+      interaction,
+    });
 
     const modelResponse: ModelResponse = {
       content: contentString,
@@ -949,82 +777,14 @@ export class BaseModelRunner implements ModelRunner {
           total: normalizedUsage?.total ?? 0,
         },
         cost: costBreakdown || undefined,
-        // costInfo: costBreakdown ? formatCostBreakdown(costBreakdown) : undefined,
         provider: interaction.modelDetails.provider,
         model: interaction.modelDetails.name,
-        // Include tool call information if available
         ...(toolCalls.length > 0 && { toolCalls }),
         ...(toolResults.length > 0 && { toolResults }),
       },
       ...(reasoning && { reasoning }),
     };
 
-    // console.log("Response object:", response);
-
     return modelResponse;
   }
-
-  /*
-  async stream(interaction: Interaction): Promise<ModelResponse> {
-    const startTime = new Date();
-    const { model, modelIdString } = await this.validateAndPrepareModel({
-      prompt: interaction.prompt,
-      modelDetails: interaction.modelDetails,
-      options: interaction.options
-    });
-
-    try {
-      console.log('Streaming messages:')
-      
-
-      const responseStream = await streamText({
-        model: model,
-        messages: interaction.getMessages(),
-        ...interaction.options,
-        onFinish: (event) => {
-          console.log('Finish Reason:', event.finishReason);
-        },
-        onError: (error) => {
-          console.error('Error:', error);
-        },
-        
-      });
-
-      for await (const textPart of responseStream.textStream) {
-        process.stdout.write(textPart);
-      }
-
-
-      const usage = await responseStream.usage;
-      const final = await responseStream.text;
-      const finishReason = await responseStream.finishReason;
-
-      const costBreakdown = calculateCostBreakdown(usage, { modelDetails: interaction.modelDetails });
-
-      if (!usage || usage.promptTokens === undefined || usage.completionTokens === undefined) {
-        console.warn(`Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`);
-      }
-
-      const modelResponse: ModelResponse = {
-        content: final,
-        metadata: {
-          startTime,
-          endTime: new Date(),
-          tokenUsage: {
-            promptTokens: usage?.promptTokens || 0,
-            completionTokens: usage?.completionTokens || 0,
-            total: usage?.totalTokens || (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
-          },
-          cost: costBreakdown || undefined,
-          provider: interaction.modelDetails.provider,
-          model: interaction.modelDetails.name
-        }
-      };
-
-      return modelResponse;
-    } catch (error) {
-      this.handleError(error, modelIdString, 'streaming');
-    }
-  }
-*/
 }

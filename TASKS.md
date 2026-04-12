@@ -717,8 +717,8 @@ Recommended order: 5 → 3B → 1A–1C → 2A → 4A–4C → 6A–6C.
 - [x] **1A: Extract message normalization** — Moved `normalizeToModelMessages()`, `ensureGoogleThoughtSignatures()`, `cleanProviderOptions()` into `src/cognition/message-normalizer.ts`. 190 lines.
 - [x] **1B: Extract provider option builders** — Moved `buildReasoningProviderOptions()`, `buildUserProviderOptions()`, `mergeProviderOptions()` into `src/cognition/provider-options.ts`. 116 lines.
 - [x] **1C: Extract usage extraction** — Moved `normalizeTokenUsage()`, `calculateCostBreakdown()` into `src/cognition/usage-extractor.ts`. 75 lines.
-- [ ] **1D: Extract step assembler** — `makeResult`'s 200-line tool-call/step assembly into `src/cognition/step-assembler.ts`.
-- [ ] **1E: Deduplicate option building** — After 1A–1D, extract shared `buildRequestOptions(interaction, config)` to replace 4 near-identical option-building blocks across generateText/streamText/generateObject/streamObject.
+- [x] **1D: Extract step assembler** — Moved `makeResult`'s tool-call/step assembly into `src/cognition/step-assembler.ts`. 214 lines. Also removed dead commented-out `stream()` method.
+- [x] **1E: Deduplicate option building** — Extracted shared `buildRequestOptions()` into `src/cognition/request-options.ts`. 127 lines. Zero `any` in new file.
 
 ### 2. Untangle the `Interaction` class
 
