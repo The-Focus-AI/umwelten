@@ -3,8 +3,8 @@ import {
   ModelOptions,
   ModelResponse,
   ModelRunner,
-  ReasoningEffort,
 } from "./types.js";
+import { buildReasoningProviderOptions, buildUserProviderOptions, mergeProviderOptions } from "./provider-options.js";
 import { RateLimitConfig } from "../rate-limit/rate-limit.js";
 import {
   shouldAllowRequest,
@@ -23,8 +23,12 @@ import {
   extractReasoningMiddleware,
   stepCountIs,
 } from "ai";
-import { calculateCost, formatCostBreakdown } from "../costs/costs.js";
 import { getModel, validateModel } from "../providers/index.js";
+import { normalizeTokenUsage, calculateCostBreakdown } from "./usage-extractor.js";
+import {
+  normalizeToModelMessages,
+  ensureGoogleThoughtSignatures,
+} from "./message-normalizer.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { z } from "zod";
 
@@ -38,121 +42,6 @@ const DEFAULT_CONFIG: ModelRunnerConfig = {
   maxRetries: 3,
   maxTokens: 4096, // Default safeguard
 };
-
-/**
- * Build provider-specific reasoning/thinking options from a unified ReasoningEffort level.
- * Returns providerOptions to merge into generateText/streamText/generateObject/streamObject calls.
- */
-function buildReasoningProviderOptions(
-  provider: string,
-  effort?: ReasoningEffort,
-): Record<string, any> | undefined {
-  // Default: enable thinking for Google (backward compat), skip for others
-  if (provider === "google") {
-    if (effort === "none") {
-      return {
-        google: {
-          thinkingConfig: {
-            includeThoughts: false,
-          },
-        },
-      };
-    }
-    const budgetMap: Record<string, number> = {
-      low: 1024,
-      medium: 8192,
-      high: 24576,
-    };
-    return {
-      google: {
-        thinkingConfig: {
-          includeThoughts: true,
-          ...(effort && budgetMap[effort]
-            ? { thinkingBudget: budgetMap[effort] }
-            : {}),
-        },
-      },
-    };
-  }
-
-  if (!effort || effort === "none") return undefined;
-
-  if (provider === "openrouter") {
-    return {
-      openrouter: {
-        reasoning: { effort },
-      },
-    };
-  }
-
-  if (provider === "anthropic") {
-    const budgetMap: Record<string, number> = {
-      low: 2048,
-      medium: 8192,
-      high: 32768,
-    };
-    return {
-      anthropic: {
-        thinking: {
-          type: "enabled",
-          budget_tokens: budgetMap[effort] ?? 8192,
-        },
-      },
-    };
-  }
-
-  // DeepInfra and Together AI use OpenAI-compatible reasoning_effort
-  if (provider === "deepinfra" || provider === "togetherai") {
-    return {
-      [provider]: {
-        reasoning_effort: effort,
-      },
-    };
-  }
-
-  return undefined;
-}
-
-/**
- * Build provider-specific user tracking options from an Interaction's userId.
- * Returns providerOptions to deep-merge into generateText/streamText/etc calls,
- * or undefined if the provider doesn't support user tracking or userId is unset.
- */
-function buildUserProviderOptions(
-  provider: string,
-  userId?: string,
-): Record<string, any> | undefined {
-  if (!userId || userId === "default") return undefined;
-
-  if (provider === "openrouter") {
-    return { openrouter: { user: userId } };
-  }
-
-  if (provider === "anthropic") {
-    return { anthropic: { metadata: { userId } } };
-  }
-
-  return undefined;
-}
-
-/**
- * Deep-merge two providerOptions objects (one level deep per provider key).
- */
-function mergeProviderOptions(
-  existing: Record<string, any> | undefined,
-  incoming: Record<string, any>,
-): Record<string, any> {
-  if (!existing) return { ...incoming };
-  const merged = { ...existing };
-  for (const [key, value] of Object.entries(incoming)) {
-    if (typeof value === "object" && value !== null && typeof merged[key] === "object" && merged[key] !== null) {
-      merged[key] = { ...merged[key], ...value };
-    } else {
-      merged[key] = value;
-    }
-  }
-  return merged;
-}
 
 export class BaseModelRunner implements ModelRunner {
   private config: ModelRunnerConfig;
@@ -264,79 +153,6 @@ export class BaseModelRunner implements ModelRunner {
     return { model, modelIdString };
   }
 
-  private normalizeTokenUsage(
-    usage: any,
-  ): { promptTokens: number; completionTokens: number; total?: number } | null {
-    if (!usage || typeof usage !== "object") {
-      return null;
-    }
-
-    const toNum = (v: unknown): number | undefined => {
-      if (v === undefined || v === null) return undefined;
-      const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : undefined;
-      return n !== undefined && !Number.isNaN(n) && n >= 0 ? n : undefined;
-    };
-
-    let promptTokens =
-      toNum(usage.promptTokens) ??
-      toNum(usage.inputTokens) ??
-      toNum(usage.prompt_tokens) ??
-      toNum(usage.input_tokens);
-    let completionTokens =
-      toNum(usage.completionTokens) ??
-      toNum(usage.outputTokens) ??
-      toNum(usage.completion_tokens) ??
-      toNum(usage.output_tokens);
-
-    const total =
-      toNum(usage.totalTokens) ??
-      toNum(usage.total) ??
-      toNum(usage.total_tokens) ??
-      (promptTokens !== undefined && completionTokens !== undefined
-        ? promptTokens + completionTokens
-        : undefined);
-
-    const reasoning = toNum(usage.reasoningTokens) ?? toNum(usage.reasoning_tokens);
-
-    // MiniMax and some providers return totalTokens/reasoningTokens but omit or zero inputTokens/outputTokens
-    if (promptTokens === undefined || completionTokens === undefined) {
-      if (typeof total === "number" && total >= 0) {
-        const r = reasoning ?? 0;
-        promptTokens = promptTokens ?? r;
-        completionTokens = completionTokens ?? Math.max(0, total - (promptTokens ?? 0));
-      } else if (reasoning !== undefined && reasoning >= 0) {
-        promptTokens = promptTokens ?? reasoning;
-        completionTokens = completionTokens ?? toNum(usage.outputTokens) ?? 0;
-      } else {
-        promptTokens = promptTokens ?? 0;
-        completionTokens = completionTokens ?? 0;
-      }
-    }
-
-    const p = Number(promptTokens);
-    const c = Number(completionTokens);
-    if (Number.isNaN(p) || Number.isNaN(c) || p < 0 || c < 0) {
-      return null;
-    }
-
-    return {
-      promptTokens: p,
-      completionTokens: c,
-      total: total ?? p + c,
-    };
-  }
-
-  private calculateCostBreakdown(
-    usage: any,
-    params: { modelDetails: ModelDetails },
-  ): any {
-    const normalizedUsage = this.normalizeTokenUsage(usage);
-
-    return normalizedUsage
-      ? calculateCost(params.modelDetails, normalizedUsage)
-      : null;
-  }
-
   async generateText(interaction: Interaction): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
 
@@ -346,9 +162,9 @@ export class BaseModelRunner implements ModelRunner {
     };
 
     let generateMessages = interaction.getMessages();
-    generateMessages = this.normalizeToModelMessages(generateMessages);
+    generateMessages = normalizeToModelMessages(generateMessages);
     if (interaction.modelDetails.provider === "google") {
-      generateMessages = this.ensureGoogleThoughtSignatures(generateMessages);
+      generateMessages = ensureGoogleThoughtSignatures(generateMessages);
     }
     const generateOptions: any = {
       model: model,
@@ -426,193 +242,6 @@ export class BaseModelRunner implements ModelRunner {
     });
   }
 
-  /**
-   * Clean provider options to remove nested structures that cause AI SDK v5 Zod validation to fail.
-   * Specifically removes reasoning_details arrays which have complex nested types.
-   * Returns { cleaned: cleanedOptions, reasoning: extractedReasoning }
-   */
-  private cleanProviderOptions(providerOptions: any): {
-    cleaned: any;
-    reasoning?: string;
-  } {
-    if (!providerOptions || typeof providerOptions !== "object") {
-      return { cleaned: providerOptions };
-    }
-
-    let reasoningText: string | undefined;
-
-    // Create a clean copy without reasoning_details
-    const cleaned: any = {};
-    for (const [key, value] of Object.entries(providerOptions)) {
-      if (key === "reasoning_details") {
-        // Extract reasoning text before removing
-        if (Array.isArray(value)) {
-          const reasoningParts = value
-            .filter((r: any) => r && typeof r.text === "string")
-            .map((r: any) => r.text);
-          if (reasoningParts.length > 0) {
-            reasoningText = reasoningParts.join("\n");
-          }
-        }
-        // Skip reasoning_details - it has complex nested structures that Zod rejects
-        continue;
-      }
-      if (key === "openrouter" && typeof value === "object" && value !== null) {
-        // Clean nested openrouter object too, and check for reasoning there
-        const nested = this.cleanProviderOptions(value);
-        cleaned[key] = nested.cleaned;
-        if (nested.reasoning && !reasoningText) {
-          reasoningText = nested.reasoning;
-        }
-      } else {
-        cleaned[key] = value;
-      }
-    }
-    return { cleaned, reasoning: reasoningText };
-  }
-
-  /**
-   * Normalize messages to AI SDK ModelMessage shape so they pass standardizePrompt validation.
-   * Converts legacy/UI-style fields: args→input, experimental_providerMetadata→providerOptions.
-   * Outputs only schema-allowed keys for tool-call and tool-result parts to avoid strict validation failures.
-   */
-  private normalizeToModelMessages(messages: CoreMessage[]): CoreMessage[] {
-    return messages.map((msg) => {
-      if (msg.role !== "assistant" && msg.role !== "tool") return msg;
-      if (!Array.isArray(msg.content)) return msg;
-      const content = msg.content as unknown as Array<Record<string, unknown>>;
-      const newContent = content.map((part) => {
-        if (part?.type === "tool-call") {
-          const input = part.input ?? part.args ?? {};
-          const rawProviderOptions =
-            part.providerOptions ?? part.experimental_providerMetadata;
-          // Clean provider options to remove nested structures that Zod rejects
-          // Also extract any reasoning text from provider metadata
-          let providerOptions: any;
-          let extractedReasoning: string | undefined;
-          if (rawProviderOptions != null) {
-            const cleaned = this.cleanProviderOptions(rawProviderOptions);
-            providerOptions = cleaned.cleaned;
-            extractedReasoning = cleaned.reasoning;
-          }
-
-          // If we found reasoning in provider options, log it
-          if (extractedReasoning) {
-            console.log("\n🧠 [REASONING FROM MODEL]:");
-            console.log(`\x1b[36m${extractedReasoning}\x1b[0m`);
-          }
-
-          return {
-            type: "tool-call" as const,
-            toolCallId: String(part.toolCallId ?? ""),
-            toolName: String(part.toolName ?? ""),
-            input,
-            ...(providerOptions != null && { providerOptions }),
-            ...(typeof part.providerExecuted === "boolean" && {
-              providerExecuted: part.providerExecuted,
-            }),
-          };
-        }
-        if (part?.type === "tool-result") {
-          const rawProvOpts =
-            part.providerOptions ?? part.experimental_providerMetadata;
-          // Clean provider options to remove nested structures that Zod rejects
-          let provOpts: any;
-          if (rawProvOpts != null) {
-            const cleaned = this.cleanProviderOptions(rawProvOpts);
-            provOpts = cleaned.cleaned;
-            // Note: reasoning from tool-results is less common, but could be logged here too
-          }
-          // Normalize output to { type, value } format expected by AI SDK.
-          // The SDK's Zod schema rejects `undefined` anywhere in the JsonValue tree,
-          // so we JSON round-trip the value to strip undefineds.
-          let output = part.output;
-          if (output == null) {
-            output = { type: "text" as const, value: "" };
-          } else if (typeof output === "string") {
-            output = { type: "text" as const, value: output };
-          } else if (
-            typeof output === "object" &&
-            (!("type" in (output as any)) || !("value" in (output as any)))
-          ) {
-            output = {
-              type: "json" as const,
-              value: JSON.parse(JSON.stringify(output)),
-            };
-          } else if (typeof output === "object" && "value" in (output as any)) {
-            // Already has { type, value } shape — strip undefineds from value
-            const o = output as { type: string; value: unknown };
-            output = {
-              ...o,
-              value:
-                o.value != null && typeof o.value === "object"
-                  ? JSON.parse(JSON.stringify(o.value))
-                  : o.value,
-            };
-          }
-          return {
-            type: "tool-result" as const,
-            toolCallId: String(part.toolCallId ?? ""),
-            toolName: String(part.toolName ?? ""),
-            output,
-            ...(provOpts != null && { providerOptions: provOpts }),
-          };
-        }
-        return part;
-      });
-      return { ...msg, content: newContent } as unknown as CoreMessage;
-    });
-  }
-
-  /**
-   * Ensure assistant messages with tool-call parts have thought_signature on the first
-   * tool-call when using Google (Gemini 3). Uses dummy signature when missing so the API
-   * accepts the request. See https://ai.google.dev/gemini-api/docs/thought-signatures
-   */
-  private ensureGoogleThoughtSignatures(
-    messages: CoreMessage[],
-  ): CoreMessage[] {
-    return messages.map((msg) => {
-      if (msg.role !== "assistant" || !Array.isArray(msg.content)) return msg;
-      const content = msg.content as unknown as Array<Record<string, unknown>>;
-      const hasToolCall = content.some((p) => p?.type === "tool-call");
-      if (!hasToolCall) return msg;
-      let firstToolCallInStep = true;
-      const newContent = content.map((part) => {
-        if (part?.type !== "tool-call") return part;
-        const meta = (part.providerOptions ??
-          part.experimental_providerMetadata) as
-          | Record<string, unknown>
-          | undefined;
-        const existing = meta?.["google"] as
-          | Record<string, unknown>
-          | undefined;
-        const hasSignature =
-          existing &&
-          typeof existing.thought_signature === "string" &&
-          existing.thought_signature.length > 0;
-        if (hasSignature || !firstToolCallInStep) {
-          firstToolCallInStep = false;
-          return part;
-        }
-        firstToolCallInStep = false;
-        return {
-          ...part,
-          providerOptions: {
-            ...(meta ?? {}),
-            google: {
-              ...((existing ?? {}) as object),
-              thought_signature:
-                (existing?.thought_signature as string) ??
-                "skip_thought_signature_validator",
-            },
-          },
-        };
-      });
-      return { ...msg, content: newContent } as unknown as CoreMessage;
-    });
-  }
-
   async makeStreamOptions(
     interaction: Interaction,
     signal?: AbortSignal,
@@ -625,9 +254,9 @@ export class BaseModelRunner implements ModelRunner {
     };
 
     let messages = interaction.getMessages();
-    messages = this.normalizeToModelMessages(messages);
+    messages = normalizeToModelMessages(messages);
     if (interaction.modelDetails.provider === "google") {
-      messages = this.ensureGoogleThoughtSignatures(messages);
+      messages = ensureGoogleThoughtSignatures(messages);
     }
 
     const streamOptions: any = {
@@ -1076,9 +705,9 @@ export class BaseModelRunner implements ModelRunner {
       };
 
       let generateMessages = interaction.getMessages();
-      generateMessages = this.normalizeToModelMessages(generateMessages);
+      generateMessages = normalizeToModelMessages(generateMessages);
       if (interaction.modelDetails.provider === "google") {
-        generateMessages = this.ensureGoogleThoughtSignatures(generateMessages);
+        generateMessages = ensureGoogleThoughtSignatures(generateMessages);
       }
 
       const generateOptions: any = {
@@ -1172,9 +801,9 @@ export class BaseModelRunner implements ModelRunner {
       };
 
       let streamMessages = interaction.getMessages();
-      streamMessages = this.normalizeToModelMessages(streamMessages);
+      streamMessages = normalizeToModelMessages(streamMessages);
       if (interaction.modelDetails.provider === "google") {
-        streamMessages = this.ensureGoogleThoughtSignatures(streamMessages);
+        streamMessages = ensureGoogleThoughtSignatures(streamMessages);
       }
 
       const streamOptions: any = {
@@ -1354,11 +983,11 @@ export class BaseModelRunner implements ModelRunner {
       this.config.rateLimitConfig,
     );
 
-    const costBreakdown = this.calculateCostBreakdown(usage, {
+    const costBreakdown = calculateCostBreakdown(usage, {
       modelDetails: interaction.modelDetails,
     });
 
-    const normalizedUsage = this.normalizeTokenUsage(usage);
+    const normalizedUsage = normalizeTokenUsage(usage);
 
     const debugUsage = process.env.DEBUG_USAGE === "1" || process.env.DEBUG === "1";
     if (debugUsage) {
@@ -1632,7 +1261,7 @@ export class BaseModelRunner implements ModelRunner {
       const final = await responseStream.text;
       const finishReason = await responseStream.finishReason;
 
-      const costBreakdown = this.calculateCostBreakdown(usage, { modelDetails: interaction.modelDetails });
+      const costBreakdown = calculateCostBreakdown(usage, { modelDetails: interaction.modelDetails });
 
       if (!usage || usage.promptTokens === undefined || usage.completionTokens === undefined) {
         console.warn(`Warning: Usage statistics (prompt/completion tokens) not available for model ${modelIdString}. Cost cannot be calculated.`);

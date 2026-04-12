@@ -8,14 +8,14 @@ import { z } from 'zod';
 import type { CoreMessage } from 'ai';
 import { modelMessageSchema } from 'ai';
 import { BaseModelRunner } from './runner.js';
+import { normalizeToModelMessages } from './message-normalizer.js';
 import { Interaction } from '../interaction/core/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
 
 const messagesArraySchema = z.array(modelMessageSchema);
 
 function normalizeViaRunner(messages: CoreMessage[]): CoreMessage[] {
-  const runner = new BaseModelRunner();
-  return (runner as unknown as { normalizeToModelMessages(m: CoreMessage[]): CoreMessage[] }).normalizeToModelMessages(messages);
+  return normalizeToModelMessages(messages);
 }
 
 function makeInteraction() {

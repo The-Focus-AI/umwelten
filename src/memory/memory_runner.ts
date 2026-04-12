@@ -1,6 +1,6 @@
 import { SmartModelRunner, RunnerHook } from "../cognition/smart_runner.js";
 import { MemoryStore } from "./memory_store.js";
-import { ModelRunner } from "../cognition/types.js";
+import { ModelRunner, ModelDetails } from "../cognition/types.js";
 import { extractFacts } from "./extract_facts.js";
 import { determineOperations } from "./determine_operations.js";
 import { Fact } from "./types.js";
@@ -13,6 +13,7 @@ export interface MemoryRunnerConfig {
   baseRunner: ModelRunner;
   llmModel: string;
   memoryStore: MemoryStore;
+  factExtractionModel?: ModelDetails;
 }
 
 export class MemoryRunner extends SmartModelRunner {
@@ -20,7 +21,7 @@ export class MemoryRunner extends SmartModelRunner {
 
   constructor(config: MemoryRunnerConfig) {
     let extractedFacts: Fact[] = [];
-    const model = { provider: "ollama", name: "gemma4:latest" };
+    const model: ModelDetails = config.factExtractionModel ?? { provider: "google", name: "gemini-3-flash-preview" };
     
     // During hook: extract facts and store in context
     const extractFactsHook: RunnerHook = async (conversation) => {  

@@ -154,6 +154,7 @@ export class Interaction {
           baseRunner: new BaseModelRunner(),
           llmModel: this.modelDetails.name,
           memoryStore: new InMemoryMemoryStore(),
+          factExtractionModel: this.modelDetails,
         });
       default:
         return new BaseModelRunner();

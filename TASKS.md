@@ -714,9 +714,9 @@ Recommended order: 5 → 3B → 1A–1C → 2A → 4A–4C → 6A–6C.
 
 ### 1. Decompose `BaseModelRunner` (runner.ts — 1,663 lines)
 
-- [ ] **1A: Extract message normalization** — Move `normalizeToModelMessages()`, `ensureGoogleThoughtSignatures()`, `cleanProviderOptions()` into `src/cognition/message-normalizer.ts`. Pure functions, ~180 lines.
-- [ ] **1B: Extract provider option builders** — Move `buildReasoningProviderOptions()`, `buildUserProviderOptions()`, `mergeProviderOptions()` into `src/cognition/provider-options.ts`. Already free functions, ~80 lines.
-- [ ] **1C: Extract usage extraction** — Provider-specific usage extraction (~150 lines of `_totalUsage.status.value` cascades) into `src/cognition/usage-extractor.ts` with `extractUsage(response, provider): TokenUsage | null`.
+- [x] **1A: Extract message normalization** — Moved `normalizeToModelMessages()`, `ensureGoogleThoughtSignatures()`, `cleanProviderOptions()` into `src/cognition/message-normalizer.ts`. 190 lines.
+- [x] **1B: Extract provider option builders** — Moved `buildReasoningProviderOptions()`, `buildUserProviderOptions()`, `mergeProviderOptions()` into `src/cognition/provider-options.ts`. 116 lines.
+- [x] **1C: Extract usage extraction** — Moved `normalizeTokenUsage()`, `calculateCostBreakdown()` into `src/cognition/usage-extractor.ts`. 75 lines.
 - [ ] **1D: Extract step assembler** — `makeResult`'s 200-line tool-call/step assembly into `src/cognition/step-assembler.ts`.
 - [ ] **1E: Deduplicate option building** — After 1A–1D, extract shared `buildRequestOptions(interaction, config)` to replace 4 near-identical option-building blocks across generateText/streamText/generateObject/streamObject.
 
@@ -742,7 +742,7 @@ Four report generation surfaces exist: `evaluation/reporter.ts` (stub), `evaluat
 
 ### 5. Fix hardcoded model in MemoryRunner
 
-- [ ] **5: Accept optional `factExtractionModel`** — Add `factExtractionModel?: ModelDetails` to `MemoryRunnerConfig`. Default to interaction's model. Remove hardcoded `{ provider: "ollama", name: "gemma3:12b" }` from `memory_runner.ts` line 23.
+- [x] **5: Accept optional `factExtractionModel`** — Added `factExtractionModel?: ModelDetails` to `MemoryRunnerConfig`. Default to `google:gemini-3-flash-preview`. Interaction passes its own model. Removed hardcoded Ollama default.
 
 ### 6. Decompose the Habitat God Object
 

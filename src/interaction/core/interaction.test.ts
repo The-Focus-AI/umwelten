@@ -4,6 +4,7 @@ import { Stimulus } from '../../stimulus/stimulus.js';
 import { tool, modelMessageSchema } from 'ai';
 import { z } from 'zod';
 import { BaseModelRunner } from '../../cognition/runner.js';
+import { normalizeToModelMessages } from '../../cognition/message-normalizer.js';
 
 // Mock calculator tool for testing using Vercel AI SDK pattern
 const calculatorTool = tool({
@@ -357,9 +358,7 @@ describe('New Interaction Constructor', () => {
       interaction.addMessage({ role: 'user', content: 'Thanks, now multiply by 3.' });
 
       // Run through runner normalization (same as what generateText/streamText does)
-      const runner = new BaseModelRunner();
-      const normalize = (runner as any).normalizeToModelMessages.bind(runner);
-      const normalized = normalize(interaction.getMessages());
+      const normalized = normalizeToModelMessages(interaction.getMessages());
       const parsed = messagesArraySchema.safeParse(normalized);
       expect(parsed.success).toBe(true);
     });
