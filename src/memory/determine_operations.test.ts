@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { determineOperations } from "./determine_operations";
 import { MemoryFact, Fact } from "./types";
 
-describe("DetermineOperationsSpecialist (gemma3:12b)", () => {
-  const model = { provider: "ollama", name: "gemma3:12b" };
+describe("DetermineOperationsSpecialist (gemma4:latest)", () => {
+  const model = { provider: "ollama", name: "gemma4:latest" };
 
   // Mock memory facts (not MemoryItem)
   const initialMemory = [

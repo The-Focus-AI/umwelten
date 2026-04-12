@@ -704,3 +704,212 @@ The habitat has **4 LLM agents**, each with different tool access. Several have 
 - [ ] Embeddings-based semantic search across learnings
 - [ ] Integration test: digest a real session JSONL end-to-end
 - [ ] Clean up digest-store.ts — consolidate fully on FileLearningsStore
+
+---
+
+## Planned: Architectural Refactoring
+
+Six structural issues identified via architecture review. Each is independently shippable.
+Recommended order: 5 → 3B → 1A–1C → 2A → 4A–4C → 6A–6C.
+
+### 1. Decompose `BaseModelRunner` (runner.ts — 1,663 lines)
+
+- [ ] **1A: Extract message normalization** — Move `normalizeToModelMessages()`, `ensureGoogleThoughtSignatures()`, `cleanProviderOptions()` into `src/cognition/message-normalizer.ts`. Pure functions, ~180 lines.
+- [ ] **1B: Extract provider option builders** — Move `buildReasoningProviderOptions()`, `buildUserProviderOptions()`, `mergeProviderOptions()` into `src/cognition/provider-options.ts`. Already free functions, ~80 lines.
+- [ ] **1C: Extract usage extraction** — Provider-specific usage extraction (~150 lines of `_totalUsage.status.value` cascades) into `src/cognition/usage-extractor.ts` with `extractUsage(response, provider): TokenUsage | null`.
+- [ ] **1D: Extract step assembler** — `makeResult`'s 200-line tool-call/step assembly into `src/cognition/step-assembler.ts`.
+- [ ] **1E: Deduplicate option building** — After 1A–1D, extract shared `buildRequestOptions(interaction, config)` to replace 4 near-identical option-building blocks across generateText/streamText/generateObject/streamObject.
+
+### 2. Untangle the `Interaction` class
+
+- [ ] **2A: Extract `toNormalizedSession()`** — Move 240-line serializer into `src/interaction/core/normalize.ts` as a pure function.
+- [ ] **2B: Extract attachment handling** — Move `addAttachmentFromPath()` into `src/interaction/core/attachments.ts`. Drops `file-type`, `fs/promises`, `path` imports from Interaction.
+- [ ] **2C: Extract `fromNormalizedSession()`** — Move static factory into same `normalize.ts` module for symmetry.
+
+### 3. Consolidate report generators
+
+Four report generation surfaces exist: `evaluation/reporter.ts` (stub), `evaluation/report-generator.ts` (legacy), `evaluation/analysis/report-generator.ts` (another), `evaluation/combine/report-builder.ts` (canonical). Plus `reporting/reporter.ts` (general-purpose).
+
+- [ ] **3A: Audit usage** — Grep all imports to determine which are actually called.
+- [ ] **3B: Delete dead ones** — Remove `evaluation/reporter.ts` (stub with TODOs) and `evaluation/report-generator.ts` if unused. Update barrel exports.
+- [ ] **3C: Reconcile survivors** — Merge unique capabilities from `analysis/report-generator.ts` into `combine/` or `reporting/`, or delete if subset.
+
+### 4. Replace provider switch-statement registry
+
+- [ ] **4A: Create provider registry** — `src/providers/registry.ts` with `registerProvider()`, `getRegisteredProvider()`, `listRegisteredProviders()`.
+- [ ] **4B: Migrate `getModelProvider()` and `getModelUrl()`** — Replace switch statements with registry lookups in `index.ts`.
+- [ ] **4C: Move API key resolution into providers** — Each provider's factory resolves its own env var and throws if missing. Remove 10 copies of the `const key = process.env.X; if (!key) throw` pattern from `index.ts`.
+
+### 5. Fix hardcoded model in MemoryRunner
+
+- [ ] **5: Accept optional `factExtractionModel`** — Add `factExtractionModel?: ModelDetails` to `MemoryRunnerConfig`. Default to interaction's model. Remove hardcoded `{ provider: "ollama", name: "gemma3:12b" }` from `memory_runner.ts` line 23.
+
+### 6. Decompose the Habitat God Object
+
+- [ ] **6A: Extract `BridgeManager`** — Move bridge supervisor lifecycle (~240 lines) into `src/habitat/bridge-manager.ts`.
+- [ ] **6B: Extract `ToolRegistry`** — Move tool registration into `src/habitat/tool-registry.ts` with `addTool`, `addTools`, `addToolSet`, `getTools`.
+- [ ] **6C: Narrow context interfaces** — After 6A–6B, point tool context interfaces at the narrower objects (`BridgeManager`, `ToolRegistry`) instead of Habitat.
+
+---
+
+## Repo Hygiene Inventory (April 2026)
+
+Full audit of dead code, temp files, misplaced files, and outdated artifacts.
+
+### 🗑️ Files to DELETE (tracked in git, definitely dead)
+
+| File | Why |
+|------|-----|
+| `test-stopwhen.js` | Empty file (1 space). Root-level test scratch. |
+| `test-mcp.sh` | One-off manual test script. Not a real test. |
+| `umwelten-architecture.png` | Root-level image. Move to `docs/` or delete if `docs/architecture/umwelten-architecture-labs.png` supersedes. |
+| `BRIDGE_MULTI_AGENT_IMPLEMENTATION.md` | Points to `docs/guide/habitat-bridge.md` as canonical. Just a redirect — delete. |
+| `BRIDGE_WORKFLOW.md` | Same — points to `docs/guide/habitat-bridge.md`. Delete. |
+| `DOCUMENTATION_UPDATES.md` | One-time changelog from a doc audit. Not maintained. Delete. |
+| `DIGEST-REPORT.md` / `DIGEST-REPORT.pdf` | Untracked one-off report output. Add to `.gitignore` or delete. |
+| `.env.example` | Duplicate of `env.template`. Pick one. `env.template` has more content → delete `.env.example`. |
+| `src/evaluation/reporter.ts` | Stub with 5 TODOs and no callers (knip confirms unused). |
+| `src/evaluation/report-generator.ts` | Legacy Docker/code-analysis reporter. Knip confirms unused. |
+| `src/evaluation/docker-runner.ts` | Explicitly `@deprecated`, replaced by DaggerRunner. |
+| `src/evaluation/advanced-code-analyzer.ts` | Knip: unused file. |
+| `src/evaluation/structured-feature-scorer.ts` | Knip: unused file. |
+| `src/evaluation/typescript-code-extractor.ts` | Only consumer is the dead `report-generator.ts`. |
+| `src/evaluation/analysis/comprehensive-analyzer.ts` | Knip: unused. |
+| `src/evaluation/analysis/performance-analyzer.ts` | Knip: unused. |
+| `src/evaluation/analysis/quality-analyzer.ts` | Knip: unused. |
+| `src/evaluation/analysis/report-generator.ts` | Knip: unused. Third report generator. |
+| `src/evaluation/analysis/index.ts` | Barrel for dead modules. |
+| `src/evaluation/strategies/complex-pipeline.ts` | Knip: unused strategy. |
+| `src/evaluation/strategies/index.ts` | Barrel for dead modules. |
+| `src/evaluation/tool-testing/conversation-runner.ts` | Knip: unused. |
+| `src/evaluation/tool-testing/tool-scoring.ts` | Knip: unused. |
+| `src/evaluation/tool-testing/tool-validator.ts` | Knip: unused. |
+| `src/evaluation/tool-testing/index.ts` | Barrel for dead modules. |
+| `src/evaluation/types/index.ts` | Knip: unused barrel. |
+| `src/evaluation/caching/index.ts` | Knip: unused barrel. |
+| `src/evaluation/codebase/dagger-codebase-runner.ts` | Knip: unused. |
+| `src/evaluation/codebase/index.ts` | Knip: unused barrel. |
+| `src/evaluation/ranking/index.ts` | Knip: unused barrel. |
+| `src/evaluation/ranking/pairwise-ranker.ts` | Knip: unused. |
+| `src/evaluation/index.ts` | Knip: unused barrel (public API goes through `src/index.ts` → `api.ts`). |
+| `src/evaluation/dagger/index.ts` | Knip: unused barrel. |
+| `src/stimulus/templates/` (entire dir) | 4 files, zero imports outside the dir. Knip confirms all unused. |
+| `src/stimulus/analysis/advanced-analysis.ts` | Knip: unused. Only referenced from dead `scripts/evaluate-batch-analysis.ts`. |
+| `src/stimulus/analysis/pdf-analysis.ts` | Knip: unused. |
+| `src/stimulus/coding/advanced-typescript.ts` | Knip: unused. Only from dead evaluate scripts. |
+| `src/stimulus/coding/typescript.ts` | Knip: unused. |
+| `src/stimulus/creative/advanced-creative.ts` | Knip: unused. |
+| `src/stimulus/index.ts` | Knip: unused barrel. |
+| `src/stimulus/tools/vercel-sdk-test.ts` | Test file in non-test location. Knip: unused. |
+| `src/mcp/types/transport-tcp.ts` | Knip: unused. |
+| `src/reporting/index.ts` | Knip: unused barrel. |
+| `src/reporting/renderers/index.ts` | Knip: unused barrel. |
+| `src/interaction/analysis/digest-store.ts` | Knip: unused (superseded by `session-record/learnings-store.ts`). |
+| `src/habitat/bridge/bridge-worker.ts` | Knip: unused (superseded by supervisor). |
+| `src/habitat/bridge/container-builder.ts` | Knip: unused (superseded by supervisor). |
+| `src/habitat/bridge/index.ts` | Knip: unused barrel. |
+| `src/ui/discord/index.ts` | Knip: unused barrel. |
+| `src/ui/telegram/index.ts` | Knip: unused barrel. |
+
+### 🗑️ Scripts to DELETE or archive
+
+| File | Why |
+|------|-----|
+| `scripts/evaluate-advanced-typescript.ts` | References dead stimuli (`AdvancedTypeScriptStimulus`). Sep 2025. |
+| `scripts/evaluate-batch-analysis.ts` | References `BatchEvaluation` (deleted class). Sep 2025. |
+| `scripts/evaluate-cat-poem.ts` | References `SimpleEvaluation` (deleted class). Sep 2025. |
+| `scripts/evaluate-matrix-creative.ts` | References `MatrixEvaluation` (deleted class). Sep 2025. |
+| `scripts/evaluate-phase2-demo.ts` | References `ComplexPipeline` (deleted class). Sep 2025. |
+| `scripts/parse-session.ts` | 4 parse-session variants — consolidate to 1 or delete all (CLI `sessions` replaces them). |
+| `scripts/parse-session-all.ts` | Same. |
+| `scripts/parse-session-full.ts` | Same. |
+| `scripts/parse-session-raw.ts` | Same. |
+| `scripts/inspect-jsonl.ts` | 2 inspect-jsonl variants. Keep one at most. |
+| `scripts/inspect-jsonl2.ts` | Same. |
+| `scripts/spike-dagger-llm.ts` | Spike script. Move to `spikes/` or delete. |
+| `scripts/gen-report-data.mjs` | `.mjs` in a `.ts` project — likely one-off. |
+| `scripts/show-rivian-results.ts` | Project-specific results viewer. |
+| `scripts/filter-anthropic-models.ts` | One-off filter script. |
+| `scripts/extract-all-tool-calls.ts` | One-off extraction. |
+| `scripts/extract-tool-args.ts` | One-off extraction. |
+| `scripts/examples/comprehensive-analysis-example.ts` | References dead classes. |
+| `scripts/examples/complex-pipeline-example.ts` | References `ComplexPipeline` (dead). |
+| `scripts/examples/batch-evaluation-example.ts` | References `BatchEvaluation` (dead). |
+| `scripts/examples/matrix-evaluation-example.ts` | References `MatrixEvaluation` (dead). |
+| `scripts/examples/simple-evaluation-example.ts` | References `SimpleEvaluation` (dead). |
+
+### 🗑️ Spikes to archive or delete
+
+| Path | Why |
+|------|-----|
+| `src/habitat/bridge/spikes/` (9 files) | Exploration scripts from Feb/Mar. Valuable history but shouldn't be in `src/`. Move to `scripts/spikes/bridge/` or delete. |
+
+### 📦 Temp files / directories to clean (on disk, gitignored but present)
+
+| Path | What |
+|------|------|
+| `docker-temp-*` (6 dirs) | Leftover Dagger temp directories. Safe to `rm -rf`. |
+| `.letta/` | Letta local state. Not used by umwelten. |
+| `.dagger-cache/` | Dagger cache. Can be cleaned. |
+| `test-output/` | 13 leftover cache-test dirs from January. |
+| `reports/` | Old output logs from January (`output.log`, `output2.log`). |
+| `input/` | Local test inputs (audio, images). Gitignored. |
+| `output/` | Eval outputs including `.tmp-code/`. Gitignored. |
+| `examples/introspection/` | Untracked session analysis output. Add to `.gitignore` or delete. |
+
+### ⚠️ Misplaced files
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `src/test/` (8 files) | Manual test scripts mixed into `src/`. Not vitest tests. | Move to `scripts/test/` or `scripts/manual-tests/`. |
+| `src/test/feed_reader.rb` | Ruby file in a TypeScript source tree. | Move to `scripts/` or `test-data/`. |
+| `src/schema/__tests__/fixtures/` (3 files) | Knip: unused test fixtures. | Delete if tests don't need them; verify with `pnpm test:run`. |
+| `src/habitat/bridge/go-server/bridge-server` | **10.9 MB native macOS binary** tracked in git. | Should NOT be in git. Use `.gitignore` + build script. |
+| `src/habitat/bridge/go-server/bridge-server-linux` | **10.6 MB Linux binary** tracked in git. | Same — use releases/artifacts, not git-tracked binaries. |
+
+### ⚠️ Duplicate / redundant files
+
+| Files | Issue |
+|-------|-------|
+| `.env.example` + `env.template` | Two env templates. `.env.example` is a subset of `env.template`. Keep one. |
+| `CLAUDE.md` + `LLM.txt` | Intentional (CLAUDE.md = deep, LLM.txt = agent summary). OK — but document the relationship. |
+
+### ⚠️ Outdated docs (tracked, should update or delete)
+
+| File | Issue |
+|------|-------|
+| `docs/claude-agent-monitor.md` (381 lines) | Phase 1/2/3 plan doc. Phases 1–2 completed per TASKS.md. Convert to historical note or delete. |
+| `docs/dagger_logging.md` (81 lines) | Debugging note about spike script. Delete. |
+| `docs/evaluation-architecture.md` (9 lines) | Redirect stub: "This page has been consolidated." Delete. |
+| `docs/migration-guide.md` (471 lines) | Migration from pre-Stimulus era (Jan 2025). Likely irrelevant for current users. Archive or delete. |
+| `docs/phase-2-completion-summary.md` (241 lines) | Internal milestone summary from Jan 2025. Delete. |
+| `docs/telegram-storage-metadata.md` (230 lines) | Internal analysis doc. Move to `docs/architecture/` or delete. |
+| `docs/telegram-streaming-analysis.md` (123 lines) | Internal debugging analysis. Delete. |
+| `docs/plans/interactive-session-tui.md` | Completed feature (per TASKS.md). Delete plan. |
+| `docs/plans/session-browser.md` | Completed feature (per TASKS.md). Delete plan. |
+
+### ⚠️ Unused dependencies (from knip)
+
+| Package | Note |
+|---------|------|
+| `@google/generative-ai` | Possibly superseded by `@ai-sdk/google`. Verify. |
+| `@inkjs/ui` | May be used indirectly by TUI. Verify. |
+| `fullscreen-ink` | Same — TUI dependency. Verify. |
+| `ora` | Spinner library. May be used in CLI. Verify. |
+| `tiktoken` | Token counting. May be used by `estimate-size.ts`. Verify. |
+| `@typescript-eslint/*` (2 pkgs) | ESLint plugins — may need if `pnpm lint` is used. |
+| `node-addon-api` | Build dep for `better-sqlite3`. Likely needed. |
+| `prettier` | Dev tool. May be used manually. |
+
+### 📊 Summary
+
+| Category | Count |
+|----------|-------|
+| Dead source files (knip confirmed) | **46** |
+| Dead/broken scripts | **~20** |
+| Spike files to relocate | **9** |
+| Temp dirs to clean | **6 docker-temp + misc** |
+| Outdated docs to delete | **~10** |
+| Binary files that shouldn't be in git | **2 (21.5 MB total)** |
+| Deprecated code still present | **3 files** |
+| Duplicate env templates | **1** |

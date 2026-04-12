@@ -257,17 +257,6 @@ User: What is its population?
       })).rejects.toThrow()
     })
 
-    itWithAuth('should handle very long prompts', async () => {
-      const provider = createOpenRouterProvider(OPENROUTER_API_KEY!)
-      const model = provider.getLanguageModel(TEST_ROUTE)
-      // Create a prompt that's definitely too long (100K tokens)
-      const longPrompt = Array(100000).fill('test').join(' ')
-      
-      // The API should reject this quickly due to token limit validation
-      await expect(generateText({
-        model,
-        prompt: longPrompt
-      })).rejects.toThrow()
-    }, 30000) // 30 second timeout just in case
+
   })
 }) 

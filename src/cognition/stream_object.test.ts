@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import { BaseModelRunner } from "./runner.js";
-import { Interaction } from "../interaction/interaction.js";
+import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import type { ModelDetails } from "./types.js";
+import { OLLAMA_INTEGRATION_MODEL } from '../test-utils/setup.js';
 
 describe("Structured Object Generation with BaseModelRunner", () => {
   let runner: BaseModelRunner;
@@ -51,7 +52,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         number: z.number().optional(),
       }).passthrough();
       
-      const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
+      const modelDetails = createGoogleModelDetails("gemini-3-flash-preview");
       const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
 
       const interaction = new Interaction(modelDetails, stimulus);
@@ -74,12 +75,12 @@ describe("Structured Object Generation with BaseModelRunner", () => {
       // Verify metadata
       expect(result.metadata).toBeDefined();
       expect(result.metadata.provider).toBe("google");
-      expect(result.metadata.model).toBe("gemini-2.0-flash");
+      expect(result.metadata.model).toBe("gemini-3-flash-preview");
       expect(result.metadata.tokenUsage).toBeDefined();
     }, 30000);
 
     it("should generate text that can be parsed as JSON with generateText", async () => {
-      const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
+      const modelDetails = createGoogleModelDetails("gemini-3-flash-preview");
       const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
 
       const interaction = new Interaction(modelDetails, stimulus);
@@ -131,7 +132,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         number: z.number().optional(),
       }).passthrough();
 
-      const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
+      const modelDetails = createGoogleModelDetails("gemini-3-flash-preview");
       const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
 
       const interaction = new Interaction(modelDetails, stimulus);
@@ -155,7 +156,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
       // Verify metadata
       expect(result.metadata).toBeDefined();
       expect(result.metadata.provider).toBe("google");
-      expect(result.metadata.model).toBe("gemini-2.0-flash");
+      expect(result.metadata.model).toBe("gemini-3-flash-preview");
       expect(result.metadata.tokenUsage).toBeDefined();
       
       console.log("✅ streamObject now works with Google Gemini!");
@@ -169,8 +170,11 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         number: z.number().optional(),
       }).passthrough();
 
-      const modelDetails = createOllamaModelDetails("gemma3:12b");
-      const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
+      const modelDetails = createOllamaModelDetails(OLLAMA_INTEGRATION_MODEL);
+      const stimulus = new Stimulus({
+        role: "helpful assistant that responds with JSON",
+        instructions: ["You MUST return raw JSON only. Never wrap output in markdown code fences."],
+      });
 
       const interaction = new Interaction(modelDetails, stimulus);
       interaction.setOutputFormat(simpleSchema);
@@ -192,7 +196,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
       // Verify metadata
       expect(result.metadata).toBeDefined();
       expect(result.metadata.provider).toBe("ollama");
-      expect(result.metadata.model).toBe("gemma3:12b");
+      expect(result.metadata.model).toBe(OLLAMA_INTEGRATION_MODEL);
       expect(result.metadata.tokenUsage).toBeDefined();
     }, 60000);
 
@@ -202,7 +206,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         number: z.number().optional(),
       }).passthrough();
 
-      const modelDetails = createOllamaModelDetails("gemma3:12b");
+      const modelDetails = createOllamaModelDetails(OLLAMA_INTEGRATION_MODEL);
       const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
 
       const interaction = new Interaction(modelDetails, stimulus);
@@ -226,7 +230,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
       // Verify metadata
       expect(result.metadata).toBeDefined();
       expect(result.metadata.provider).toBe("ollama");
-      expect(result.metadata.model).toBe("gemma3:12b");
+      expect(result.metadata.model).toBe(OLLAMA_INTEGRATION_MODEL);
       expect(result.metadata.tokenUsage).toBeDefined();
       
       console.log("✅ streamObject now works with Ollama!");
@@ -263,7 +267,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
 
   describe("Alternative Approaches", () => {
     it("should demonstrate using generateText + JSON parsing as alternative to streamObject", async () => {
-      const modelDetails = createGoogleModelDetails("gemini-2.0-flash");
+      const modelDetails = createGoogleModelDetails("gemini-3-flash-preview");
       const stimulus = new Stimulus({ role: "helpful assistant that responds with JSON" });
 
       const interaction = new Interaction(modelDetails, stimulus);

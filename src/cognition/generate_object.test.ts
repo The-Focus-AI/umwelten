@@ -206,7 +206,7 @@ describe("generateObject with BaseModelRunner and Ollama", () => {
       expect(result.metadata.tokenUsage).toBeDefined();
     }, 60000);
 
-    it("should handle complex structured generation (story)", { retry: 2 }, async () => {
+    it("should handle complex structured generation (story)", { retry: 2, timeout: 60000 }, async () => {
       if (!ollamaHasIntegrationModel) return;
       // Local models often flatten nested "story" objects into title + long text — keep shape simple.
       const storySchema = z.object({

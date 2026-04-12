@@ -2,15 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { createOllamaProvider } from './ollama.js'
 import { generateText } from 'ai'
 import { ModelRoute } from '../cognition/types.js'
-import { checkOllamaConnection } from '../test-utils/setup.js'
+import { checkOllamaConnection, OLLAMA_INTEGRATION_MODEL } from '../test-utils/setup.js'
 
 describe('Ollama Provider', () => {
   // Check if Ollama is running locally
   const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434'
   
-  // Test route using the gemma model
+  // Test route using a locally available model
   const TEST_ROUTE: ModelRoute = {
-    name: 'gemma3:27b',
+    name: OLLAMA_INTEGRATION_MODEL,
     provider: 'ollama',
   }
 
@@ -158,7 +158,7 @@ User: What is its population?
       expect(response1.text).toBe(response2.text)
     })
 
-    it('should generate text with gemma3:12b model', async () => {
+    it('should generate text with a different model route', async () => {
       // Skip if Ollama is not running
       const ollamaAvailable = await checkOllamaConnection()
       if (!ollamaAvailable) {
@@ -167,7 +167,7 @@ User: What is its population?
       }
 
       const provider = createOllamaProvider()
-      const model = provider.getLanguageModel({ name: 'gemma3:12b', provider: 'ollama' })
+      const model = provider.getLanguageModel({ name: 'gemma4:e2b', provider: 'ollama' })
       
       const prompt = 'Write a haiku about coding'
       
@@ -176,7 +176,7 @@ User: What is its population?
         prompt
       })
 
-      console.log('Generated text for gemma3:12b:', response.text)
+      console.log('Generated text for gemma4:e2b:', response.text)
       
       expect(response.text).toBeTruthy()
       expect(typeof response.text).toBe('string')

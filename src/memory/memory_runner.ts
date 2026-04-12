@@ -20,7 +20,7 @@ export class MemoryRunner extends SmartModelRunner {
 
   constructor(config: MemoryRunnerConfig) {
     let extractedFacts: Fact[] = [];
-    const model = { provider: "ollama", name: "gemma3:12b" };
+    const model = { provider: "ollama", name: "gemma4:latest" };
     
     // During hook: extract facts and store in context
     const extractFactsHook: RunnerHook = async (conversation) => {  

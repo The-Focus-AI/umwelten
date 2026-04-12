@@ -31,7 +31,7 @@ Alwyas return an operation for each memory item.
 The memory is empty, so we should add the new fact to the memory.
 </explanation>
 <old_memory>[]</old_memory>
-<new_facts>[{"type":"personal", "text": "Name is John"}]</new_facts>
+<new_facts>[{"type":"miscellaneous", "text": "Name is John"}]</new_facts>
 <output>
 {
     "memory" : [
@@ -39,7 +39,7 @@ The memory is empty, so we should add the new fact to the memory.
             "id" : "0",
             "fact":{
                 "text" : "Name is John",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event" : "ADD"
         }
@@ -52,8 +52,8 @@ The memory is empty, so we should add the new fact to the memory.
 <explanation>
 If a more detailed fact is added, then we should update the memory with the new information.
 </explanation>
-<old_memory>[{"id":"0", "fact":{"text":"Name is John", "type":"personal"}}]</old_memory>
-<new_facts>[{"type":"personal", "text": "Name is John Smith"}]</new_facts>
+<old_memory>[{"id":"0", "fact":{"text":"Name is John", "type":"miscellaneous"}}]</old_memory>
+<new_facts>[{"type":"miscellaneous", "text": "Name is John Smith"}]</new_facts>
 <output>
 {
     "memory" : [
@@ -61,7 +61,7 @@ If a more detailed fact is added, then we should update the memory with the new 
             "id" : "0",
             "fact":{
                 "text" : "Name is John Smith",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event" : "UPDATE",
             "old_memory" : "Name is John"
@@ -76,11 +76,11 @@ If a more detailed fact is added, then we should update the memory with the new 
 <explanation>
 If a more detailed fact is added, then we should update the memory with the new information.
 </explanation>
-<old_memory>[{"id":"0", "fact":{"text":"Name is John", "type":"personal"}},
-{"id":"1", "fact":{"text":"I have a dog", "type":"personal"}},
-{"id":"2", "fact":{"text":"I have children", "type":"personal"}}]</old_memory>
-<new_facts>[{"type":"personal", "text": "I have 5 children"},
-{"type":"personal", "text": "I have a dog named Max"}]</new_facts>
+<old_memory>[{"id":"0", "fact":{"text":"Name is John", "type":"miscellaneous"}},
+{"id":"1", "fact":{"text":"I have a dog", "type":"miscellaneous"}},
+{"id":"2", "fact":{"text":"I have children", "type":"miscellaneous"}}]</old_memory>
+<new_facts>[{"type":"miscellaneous", "text": "I have 5 children"},
+{"type":"miscellaneous", "text": "I have a dog named Max"}]</new_facts>
 <output>
 { 
     "memory" : [
@@ -88,7 +88,7 @@ If a more detailed fact is added, then we should update the memory with the new 
             "id" : "0",
             "fact":{
                 "text" : "Name is John",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event" : "NONE",
             "old_memory" : "Name is John"
@@ -97,7 +97,7 @@ If a more detailed fact is added, then we should update the memory with the new 
             "id" : "1",
             "fact":{
                 "text" : "I have a dog named Max",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event":"UPDATE",
             "old_memory" : "I have a dog"
@@ -106,9 +106,9 @@ If a more detailed fact is added, then we should update the memory with the new 
             "id" : "2",
             "fact":{
                 "text" : "I have 5 children",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
-            "event" : "UPDATE"
+            "event" : "UPDATE",
             "old_memory" : "I have children"
         }
     ]
@@ -120,9 +120,9 @@ If a more detailed fact is added, then we should update the memory with the new 
 <explanation>
 If we already know about a fact, then we should do nothing.
 </explanation>
-<old_memory>[{"id":"0", "fact":{"text":"Name is John", "type":"personal"}},
-{"id":"1", "fact":{"text":"I have a dog", "type":"personal"}},
-{"id":"2", "fact":{"text":"I have children", "type":"personal"}}]</old_memory>
+<old_memory>[{"id":"0", "fact":{"text":"Name is John", "type":"miscellaneous"}},
+{"id":"1", "fact":{"text":"I have a dog", "type":"miscellaneous"}},
+{"id":"2", "fact":{"text":"I have children", "type":"miscellaneous"}}]</old_memory>
 <new_facts>[{"type":"preference", "text": "I have a dog"}]</new_facts>
 <output>
 {
@@ -131,7 +131,7 @@ If we already know about a fact, then we should do nothing.
             "id" : "0",
             "fact":{ 
                 "text" : "Name is John",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event" : "NONE",
             "old_memory" : "Name is John"
@@ -140,7 +140,7 @@ If we already know about a fact, then we should do nothing.
             "id" : "1",
             "fact":{
                 "text" : "I have a dog",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event" : "NONE",
             "old_memory" : "I have a dog"
@@ -149,7 +149,7 @@ If we already know about a fact, then we should do nothing.
             "id" : "2",
             "fact":{
                 "text" : "I have children",
-                "type" : "personal"
+                "type" : "miscellaneous"
             },
             "event" : "NONE",
             "old_memory" : "I have children"
@@ -215,12 +215,15 @@ export async function determineOperations(
     instructions: [
       "Analyze previous memories and new facts",
       "Determine appropriate operations (ADD, UPDATE, NONE)",
-      "Return structured operation results"
+      "Return structured operation results",
+      "Output only a single JSON object matching the schema. No markdown fences, no commentary before or after.",
+      "Valid fact types are: preference, memory, plan, activity, health, professional, miscellaneous. Do not use any other type value.",
     ],
     runnerType: 'base'
   });
 
   const interaction = new Interaction(model, stimulus);
+  interaction.setOutputFormat(memoryOperationResultSchema);
   interaction.addMessage({ role: "user", content: prompt });
 
   const runner = new BaseModelRunner();

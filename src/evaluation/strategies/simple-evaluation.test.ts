@@ -4,13 +4,13 @@ import { EvaluationCache } from '../caching/cache-service.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
 import { EvaluationConfig, EvaluationProgress } from '../types/evaluation-types.js';
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Mock the Interaction module at the top level
-vi.mock('../../interaction/interaction.js');
+vi.mock('../../interaction/core/interaction.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

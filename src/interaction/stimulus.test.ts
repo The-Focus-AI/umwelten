@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Stimulus } from "./stimulus";
+import { Stimulus } from "../stimulus/stimulus.js";
 
 describe('Stimulus maker', () => {
     it('should create a basic stimulus', async () => {

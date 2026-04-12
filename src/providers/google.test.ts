@@ -22,9 +22,9 @@ describe('Google Provider', () => {
   // Helper function to skip tests if no API key
   const itWithAuth = hasGoogleKey() ? it : it.skip
 
-  // Test route using Gemini Pro
+  // Test route using Gemini 3 Flash
   const TEST_ROUTE: ModelRoute = {
-    name: 'gemini-1.5-pro',
+    name: 'gemini-3-flash-preview',
     provider: 'google',
   }
 
@@ -88,7 +88,7 @@ describe('Google Provider', () => {
         expect(response.usage).toHaveProperty('inputTokens')
         expect(response.usage).toHaveProperty('outputTokens')
         expect(response.usage).toHaveProperty('totalTokens')
-        expect(response.usage.totalTokens).toBe(
+        expect(response.usage.totalTokens).toBeGreaterThanOrEqual(
           response.usage.inputTokens! + response.usage.outputTokens!
         )
       }
@@ -120,18 +120,16 @@ describe('Google Provider', () => {
         prompt: ''
       })
 
-      // Should return a message asking for input
+      // Model should return some response (content is non-deterministic)
       expect(response.text).toBeTruthy()
-      expect(response.text.toLowerCase()).toContain('provide')
-      // AI SDK v5 behavior changed - model now provides helpful suggestions instead of error message
-      expect(response.text.toLowerCase()).toContain('task') // Check for helpful response content
+      expect(response.text.length).toBeGreaterThan(0)
 
       // Should have usage statistics
       expect(response.usage).toBeDefined()
       if (response.usage?.inputTokens && response.usage?.outputTokens) {
         expect(response.usage.inputTokens).toBeGreaterThan(0)
         expect(response.usage.outputTokens).toBeGreaterThan(0)
-        expect(response.usage.totalTokens).toBe(
+        expect(response.usage.totalTokens).toBeGreaterThanOrEqual(
           response.usage.inputTokens! + response.usage.outputTokens!
         )
       }

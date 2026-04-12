@@ -3,10 +3,10 @@ import { BatchEvaluation } from './batch-evaluation.js';
 import { EvaluationCache } from '../caching/cache-service.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { ModelDetails, ModelResponse } from '../../cognition/types.js';
-import { Interaction } from '../../interaction/interaction.js';
+import { Interaction } from '../../interaction/core/interaction.js';
 
 // Mock dependencies
-vi.mock('../../interaction/interaction.js');
+vi.mock('../../interaction/core/interaction.js');
 vi.mock('../caching/cache-service.js');
 
 describe('BatchEvaluation', () => {
