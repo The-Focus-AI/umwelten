@@ -379,6 +379,123 @@ mcpCommand
   });
 
 // =============================================================================
+// MCP Chat Command — connect to a remote MCP server and chat
+// =============================================================================
+
+mcpCommand
+  .command('chat')
+  .description('Connect to a remote MCP server with OAuth and start an interactive chat')
+  .requiredOption('--url <url>', 'Remote MCP server URL (e.g. https://oura-mcp.fly.dev/mcp)')
+  .option('-p, --provider <name>', 'LLM provider', 'google')
+  .option('-m, --model <name>', 'Model name', 'gemini-3-flash-preview')
+  .option('--scope <scope>', 'OAuth scope', 'mcp')
+  .option('--oauth-port <port>', 'Local port for OAuth callback', '3339')
+  .option('--logout', 'Clear stored OAuth credentials for this server')
+  .option('--one-shot <prompt>', 'Send a single prompt and exit')
+  .action(async (opts: {
+    url: string;
+    provider: string;
+    model: string;
+    scope: string;
+    oauthPort: string;
+    logout?: boolean;
+    oneShot?: string;
+  }) => {
+    const { RemoteMcpClient } = await import('../mcp/client/remote.js');
+    const { Interaction } = await import('../interaction/core/interaction.js');
+    const { Stimulus } = await import('../stimulus/stimulus.js');
+    const { createInterface } = await import('node:readline');
+
+    const mcp = new RemoteMcpClient({
+      serverUrl: opts.url,
+      scope: opts.scope,
+      oauthPort: parseInt(opts.oauthPort, 10),
+    });
+
+    if (opts.logout) {
+      await mcp.resetAuth();
+      console.log(`Cleared OAuth credentials for ${opts.url}`);
+      console.log(`Auth file was: ${mcp.authStorePath}`);
+      return;
+    }
+
+    console.log(`Connecting to ${opts.url}...`);
+    await mcp.connect();
+    console.log(`Connected. ${mcp.getToolNames().length} tools available:`);
+    for (const name of mcp.getToolNames()) {
+      const desc = mcp.getToolDescription(name);
+      console.log(`  ${chalk.green(name)}${desc ? ` — ${desc}` : ''}`);
+    }
+    console.log('');
+
+    const today = new Date().toISOString().split('T')[0];
+    const stimulus = new Stimulus({
+      role: `You are a helpful assistant with access to remote MCP tools. Use them to answer questions. Today's date is ${today}.`,
+      tools: mcp.getTools(),
+    });
+
+    const interaction = new Interaction(
+      { name: opts.model, provider: opts.provider },
+      stimulus,
+    );
+
+    // One-shot mode
+    if (opts.oneShot) {
+      interaction.addMessage({ role: 'user', content: opts.oneShot });
+      await interaction.streamText();
+      process.stdout.write('\n');
+      await mcp.disconnect();
+      return;
+    }
+
+    // REPL mode
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    console.log('Type a message to chat. /tools to list tools, /logout to clear auth, /exit to quit.\n');
+
+    const ask = () => {
+      rl.question('You: ', async (line) => {
+        const input = line.trim();
+        if (!input) { ask(); return; }
+
+        if (input === '/exit' || input === '/quit') {
+          await mcp.disconnect();
+          rl.close();
+          process.exit(0);
+        }
+        if (input === '/tools') {
+          for (const name of mcp.getToolNames()) {
+            const desc = mcp.getToolDescription(name);
+            console.log(`  ${chalk.green(name)}${desc ? ` — ${desc}` : ''}`);
+          }
+          console.log('');
+          ask();
+          return;
+        }
+        if (input === '/logout') {
+          await mcp.resetAuth();
+          console.log('Cleared credentials. Restart to re-auth.\n');
+          ask();
+          return;
+        }
+
+        try {
+          interaction.addMessage({ role: 'user', content: input });
+          process.stdout.write('Assistant: ');
+          const response = await interaction.streamText();
+          const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
+          if (text && !text.endsWith('\n')) process.stdout.write('\n');
+        } catch (error) {
+          console.error('Error:', error instanceof Error ? error.message : error);
+        }
+        console.log('');
+        ask();
+      });
+    };
+
+    ask();
+  });
+
+// =============================================================================
 // Utility Commands
 // =============================================================================
 

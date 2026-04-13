@@ -1,0 +1,4 @@
+{
+  "name": "oura-mcp",
+  "description": "Oura Ring data exposed as a multi-user MCP server"
+}
