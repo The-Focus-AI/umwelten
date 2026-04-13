@@ -16,7 +16,7 @@ export class WebInterface extends Interaction {
     async toUIMessageStreamResponse() {
       const streamOptions = await (this.getRunner() as BaseModelRunner).makeStreamOptions(this);
   
-      const result = streamText(streamOptions);  
+      const result = streamText(streamOptions as Parameters<typeof streamText>[0]);  
       
       return result.toUIMessageStreamResponse();
     }
