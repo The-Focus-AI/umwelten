@@ -63,6 +63,20 @@ const suite = new EvalSuite({
 await suite.run();
 ```
 
+## Remote MCP servers
+
+Connect to any remote MCP server with OAuth — chat from the command line or build your own MCP-backed agent.
+
+```bash
+# Chat with a remote MCP server (OAuth handled automatically)
+npx umwelten mcp chat --url https://oura-mcp.fly.dev/mcp
+
+# One-shot query
+npx umwelten mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
+```
+
+Build your own multi-user MCP server with Habitat: see [`examples/oura-mcp/`](examples/oura-mcp/) — a complete Oura Ring MCP server with OAuth, Neon Postgres, deployable on fly.io.
+
 ## Session digestion
 
 Your Habitat reads Claude Code and Cursor history — every session, every tool call, every solution. Index with AI, search semantically, extract learnings.
@@ -97,9 +111,11 @@ src/stimulus/    — prompts, tools, skills
 src/cognition/   — model runners
 src/providers/   — Google, OpenRouter, Ollama, LM Studio, GitHub, Fireworks, MiniMax
 src/ui/          — Telegram, Discord, web, TUI adapters
+src/mcp/         — MCP client (RemoteMcpClient with OAuth) and server
 src/cli/         — umwelten commands
 examples/evals/  — EvalSuite examples (car-wash, reasoning, instruction)
 examples/model-showdown/ — multi-dimension eval suite
+examples/oura-mcp/ — multi-user Oura Ring MCP server (Habitat + fly.io)
 examples/habitat-minimal/ — minimal Habitat work-dir
 ```
 

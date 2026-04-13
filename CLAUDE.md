@@ -242,7 +242,8 @@ Parse DSL strings into Zod schemas, validate model output.
 
 ### `src/mcp/` — Model Context Protocol
 
-- `client/client.ts` — MCP client for connecting to external tool servers
+- `client/client.ts` — Low-level MCP client (custom protocol implementation)
+- `client/remote.ts` — **`RemoteMcpClient`**: connect to any remote MCP server over Streamable HTTP with OAuth 2.1 PKCE. File-backed token storage at `~/.umwelten/mcp-auth/`. Converts MCP tools → Vercel AI SDK tools for use with Interactions.
 - `server/server.ts` — MCP server exposing umwelten as a tool provider
 - `integration/stimulus.ts` — Bridge: load MCP tools into a Stimulus
 - `types/` — Transport and protocol types
@@ -260,8 +261,9 @@ General-purpose report rendering. Used by tool tests and evaluation suite report
 
 Commander-based CLI. Entry point: `src/cli/entry.ts` → `src/cli/cli.ts`.
 
-- `cli.ts` — Main program: registers `models`, `run`, `chat`, `eval`, `sessions`, `telegram`, `habitat` commands
+- `cli.ts` — Main program: registers `models`, `run`, `chat`, `eval`, `sessions`, `telegram`, `habitat`, `mcp` commands
 - `habitat.ts` — `habitat` subcommand (REPL + telegram + discord + web)
+- `mcp.ts` — `mcp` subcommand: `mcp chat` (connect to remote MCP server with OAuth, REPL or one-shot), `mcp connect`, `mcp test-tool`
 - `chat.ts` — Interactive chat
 - `eval.ts` — Evaluation runner
 - `run.ts` — One-shot prompt
@@ -327,6 +329,11 @@ dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview
 
 # Scripted evaluations (e.g. car wash test)
 dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
+
+# Connect to a remote MCP server and chat (OAuth handled automatically)
+dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp
+dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
+dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --logout
 ```
 
 ## Environment Variables

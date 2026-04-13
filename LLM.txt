@@ -19,7 +19,7 @@ TypeScript (Node 20+) framework for **Habitat** (agent workspaces), **model eval
 
 Each layer depends only on layers below.
 
-1. **Foundation** — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`, `src/mcp/`
+1. **Foundation** — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`, `src/mcp/` (includes `RemoteMcpClient` for OAuth connections to remote MCP servers)
 2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/GitHub/DeepInfra/Fireworks/MiniMax/Nvidia
 3. **Core runtime** — `src/cognition/` (runners), `src/stimulus/` (prompt config), `src/interaction/` (conversation)
 4. **Context** — `src/context/` — compaction, token estimates
@@ -198,6 +198,7 @@ Tool sets (all registered by default): file ops, time, URL (wget/markify/parse_f
 | Rank responses head-to-head | `new PairwiseRanker(entries, config)` → `ranker.rank()` |
 | Multi-dimension leaderboard | Define `EvalDimension[]` → `eval combine --config ...` |
 | Managed agent (tools, sessions) | `Habitat.create({ workDir })` → `createInteraction()` |
+| Chat with remote MCP server | `pnpm run cli -- mcp chat --url https://server/mcp` |
 | REPL / Telegram / Discord / web | `pnpm run cli -- habitat` |
 | One-shot multi-model compare | `pnpm run cli -- eval run --models "provider:model,..." --prompt "..."` |
 
@@ -210,6 +211,8 @@ dotenvx run -- pnpm run cli models --search <name>
 dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview --prompt "Hello"
 dotenvx run -- pnpm run cli chat --provider google --model gemini-3-flash-preview
 dotenvx run -- pnpm run cli habitat
+dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp
+dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
 dotenvx run -- pnpm run cli eval run --prompt "..." --models "google:gemini-3-flash-preview,ollama:gemma3:12b" --id my-id --concurrent
 dotenvx run -- pnpm run cli eval report --id my-id --format markdown
 dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts --format narrative --output report.md
@@ -221,8 +224,9 @@ dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-
 
 1. **`examples/evals/`** — EvalSuite examples: `reasoning.ts` (LLM judge, 100 lines), `instruction.ts` (deterministic, 100 lines), `car-wash.ts` (64 lines).
 2. **`examples/model-showdown/`** — 5-dimension eval suite + `eval combine` + reports.
-3. **`examples/mcp-chat/elo-rivian.ts`** — PairwiseRanker workflow with MCP tool-use responses.
-4. **`examples/habitat-minimal/`** — smallest Habitat work-dir layout.
+3. **`examples/mcp-chat/`** — PairwiseRanker workflow with MCP tool-use responses; TezLab MCP client.
+4. **`examples/oura-mcp/`** — Multi-user Oura Ring MCP server (Habitat + OAuth + Neon Postgres), deployable on fly.io.
+5. **`examples/habitat-minimal/`** — smallest Habitat work-dir layout.
 
 ---
 
