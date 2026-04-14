@@ -7,6 +7,7 @@ import { ModelDetails } from "../../cognition/types.js";
 import path from "path";
 import fs from "fs/promises";
 import { loadRecentHabitatTranscriptCoreMessages } from "../../session-record/habitat-transcript-load.js";
+import type { ChannelBridge } from "../../ui/bridge/channel-bridge.js";
 
 type MyContext = FileFlavor<Context>;
 
@@ -24,6 +25,8 @@ export interface TelegramAdapterConfig {
   startNewThread?: (chatId: number) => Promise<void>;
   /** Number of recent user+assistant message pairs to restore from transcript on restart (default 4) */
   resumeMessagePairs?: number;
+  /** Optional ChannelBridge — when set, delegates interaction management, transcript, and tool-call follow-ups to the bridge. */
+  bridge?: ChannelBridge;
 }
 
 export class TelegramAdapter {
@@ -166,6 +169,7 @@ export class TelegramAdapter {
       await this.config.startNewThread(chatId);
     }
     this.interactions.delete(chatId);
+    this.config.bridge?.resetChannel(`telegram:${chatId}`);
 
     const reply = "Hello! I'm ready to chat. Send me a message or share media.\n\n" +
       "Commands:\n" +
@@ -185,6 +189,7 @@ export class TelegramAdapter {
       await this.config.startNewThread(chatId);
     }
     this.interactions.delete(chatId);
+    this.config.bridge?.resetChannel(`telegram:${chatId}`);
     const reply = "Conversation cleared. Send a message to start a new conversation.";
     await ctx.reply(reply);
     this.logMessage("→", ctx, reply);
@@ -211,6 +216,10 @@ export class TelegramAdapter {
     if (!chatId || !text) return;
 
     this.logMessage("←", ctx, text);
+
+    if (this.config.bridge) {
+      return this.handleTextViaBridge(ctx, chatId, text);
+    }
 
     const interaction = await this.getInteraction(chatId);
     this.startTypingIndicator(ctx);
@@ -291,6 +300,41 @@ export class TelegramAdapter {
           console.error("Error writing transcript after failure:", writeErr);
         }
       }
+    } finally {
+      this.stopTypingIndicator(chatId);
+    }
+  }
+
+  private async handleTextViaBridge(ctx: Context, chatId: number, text: string): Promise<void> {
+    const bridge = this.config.bridge!;
+    const channelKey = `telegram:${chatId}`;
+
+    this.startTypingIndicator(ctx);
+
+    try {
+      await bridge.handleMessage(
+        { channelKey, text, userId: ctx.from?.id?.toString() },
+        {
+          onDone: async (result) => {
+            const formatted = this.messageContentForTelegram(result.content);
+            if (!formatted) {
+              await ctx.reply(
+                "I looked into that but don't have a clear result to show. Try rephrasing or use /reset to start over."
+              );
+              this.logMessage("→", ctx, "(no content – sent fallback)");
+            } else {
+              await this.sendFormattedMessage(ctx, formatted);
+              this.logMessage("→", ctx, formatted);
+            }
+          },
+          onError: async (error) => {
+            console.error("Error processing message:", error);
+            const errorMsg = "Sorry, I encountered an error. Please try again or use /reset to start over.";
+            await ctx.reply(errorMsg);
+            this.logMessage("→", ctx, errorMsg);
+          },
+        },
+      );
     } finally {
       this.stopTypingIndicator(chatId);
     }

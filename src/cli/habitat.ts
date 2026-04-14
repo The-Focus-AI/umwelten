@@ -754,11 +754,17 @@ async function telegramAction(
 
   // Lazy import to avoid requiring grammy when not using telegram
   const { TelegramAdapter } = await import("../ui/telegram/TelegramAdapter.js");
+  const { ChannelBridge } = await import("../ui/bridge/channel-bridge.js");
+
+  const bridge = new ChannelBridge(habitat, {
+    platformInstruction: 'You are responding in Telegram. Never use markdown tables — they render poorly. Use bold labels on separate lines. Keep formatting simple: bold, italic, code blocks, and links only.',
+  });
 
   const adapter = new TelegramAdapter({
     token,
     modelDetails,
     stimulus,
+    bridge,
     getSessionMediaDir: async (chatId: number) => {
       const label =
         habitat.getConfig().name?.trim() ||
@@ -1014,6 +1020,11 @@ async function discordAction(
   const { readRecentDiscordSessionChannelIds } = await import(
     "../ui/discord/discord-backfill-sessions.js"
   );
+  const { ChannelBridge } = await import("../ui/bridge/channel-bridge.js");
+  const bridge = new ChannelBridge(habitat, {
+    platformInstruction:
+      "You are responding in Discord. Prefer short paragraphs. Avoid wide markdown tables; use bullet lists or labeled lines. Keep code in fenced blocks when needed.",
+  });
 
   const guildId =
     options.discordGuild?.trim() || process.env.DISCORD_GUILD_ID?.trim();
@@ -1022,6 +1033,7 @@ async function discordAction(
     token,
     modelDetails,
     visionModelDetails,
+    bridge,
     getStimulusForChannel,
     getDiscordRouteSignature,
     getDiscordUnrestrictedMessages,

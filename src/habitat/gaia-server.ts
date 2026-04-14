@@ -26,8 +26,7 @@ import {
   getBeatsForSession,
 } from '../interaction/persistence/session-parser.js';
 import type { AssistantMessageEntry, UserMessageEntry } from '../interaction/types/types.js';
-import { Interaction } from '../interaction/core/interaction.js';
-import { writeSessionTranscript } from './transcript.js';
+import { ChannelBridge } from '../ui/bridge/channel-bridge.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -153,10 +152,6 @@ function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
     req.on('error', reject);
   });
 }
-
-// ── Chat state (interaction cache keyed by sessionId) ────────────────────
-
-const chatInteractions = new Map<string, { interaction: Interaction; sessionDir: string; sessionId: string }>();
 
 // ── API Handlers ─────────────────────────────────────────────────────────
 
@@ -389,7 +384,7 @@ async function handleSessionBeats(
 }
 
 /**
- * SSE chat handler — streams events as the LLM runs:
+ * SSE chat handler — uses ChannelBridge to stream events as the LLM runs:
  *   event: session   — { sessionId }
  *   event: text      — { text }  (incremental text delta)
  *   event: tool-call — { name, input }
@@ -397,7 +392,7 @@ async function handleSessionBeats(
  *   event: done      — { content }  (full final text)
  *   event: error     — { error }
  */
-async function handleChat(habitat: Habitat, req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handleChat(bridge: ChannelBridge, req: IncomingMessage, res: ServerResponse): Promise<void> {
   let body: Record<string, unknown>;
   try {
     body = await readBody(req);
@@ -411,7 +406,11 @@ async function handleChat(habitat: Habitat, req: IncomingMessage, res: ServerRes
   }
 
   const requestedSessionId = typeof body.sessionId === 'string' ? body.sessionId : undefined;
-  const agentId = typeof body.agentId === 'string' ? body.agentId.trim() : undefined;
+
+  // Build the channel key — reuse session id if resuming, otherwise generate one
+  const channelKey = requestedSessionId
+    ? `web:${requestedSessionId}`
+    : `web:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // Set up SSE
   res.writeHead(200, {
@@ -425,93 +424,29 @@ async function handleChat(habitat: Habitat, req: IncomingMessage, res: ServerRes
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  try {
-    let entry = requestedSessionId ? chatInteractions.get(requestedSessionId) : undefined;
+  // Emit session id early so the client can resume
+  const sessionId = bridge.getChannelSessionId(channelKey);
+  sendEvent('session', { sessionId: sessionId ?? channelKey.slice(4) });
 
-    if (!entry) {
-      if (agentId) {
-        // Route to a sub-agent's interaction
-        const habitatAgent = await habitat.getOrCreateHabitatAgent(agentId);
-        const interaction = habitatAgent.getInteraction();
-        const sessionId = habitatAgent.getSessionId();
-        const sessionDir = await habitat.getSessionDir(sessionId) ?? '';
-        entry = { interaction, sessionDir, sessionId };
-      } else {
-        const result = await habitat.createInteraction({
-          sessionType: 'web',
-        });
-        entry = { interaction: result.interaction, sessionDir: result.sessionDir, sessionId: result.sessionId };
-      }
-      chatInteractions.set(entry.sessionId, entry);
-    }
-
-    const { interaction, sessionDir, sessionId } = entry;
-    sendEvent('session', { sessionId, agentId: agentId ?? null });
-
-    // Hook into transcript updates to detect tool calls/results as they happen
-    const msgCountBefore = interaction.getMessages().length;
-    const originalCallback = interaction.onTranscriptUpdate;
-    interaction.setOnTranscriptUpdate((messages) => {
-      // Check for new messages added by the runner
-      for (let i = msgCountBefore + 1; i < messages.length; i++) {
-        const msg = messages[i];
-        if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-          for (const part of msg.content as unknown as Array<Record<string, unknown>>) {
-            if (part.type === 'tool-call') {
-              sendEvent('tool-call', { name: part.toolName, input: part.input ?? part.args });
-            }
-          }
-        }
-        if (msg.role === 'tool' && Array.isArray(msg.content)) {
-          for (const part of msg.content as unknown as Array<Record<string, unknown>>) {
-            if (part.type === 'tool-result') {
-              const output = part.output as Record<string, unknown> | undefined;
-              const outputStr = output?.value != null
-                ? String(output.value).slice(0, 500)
-                : typeof part.content === 'string' ? (part.content as string).slice(0, 500) : '';
-              sendEvent('tool-result', { name: part.toolName, output: outputStr, isError: output?.type === 'error-text' });
-            }
-          }
-        }
-      }
-      // Also write transcript to disk
-      void writeSessionTranscript(sessionDir, messages);
-    });
-
-    // Add the user message
-    interaction.addMessage({ role: 'user', content: message });
-
-    // Intercept stdout to capture text deltas for SSE
-    const origWrite = process.stdout.write.bind(process.stdout);
-    let capturing = true;
-    process.stdout.write = function (chunk: any, ...args: any[]) {
-      if (capturing && typeof chunk === 'string' && chunk.length > 0) {
-        sendEvent('text', { text: chunk });
-      }
-      return origWrite(chunk, ...args);
-    } as any;
-
-    // Run the model
-    let response;
-    try {
-      response = await interaction.streamText();
-    } finally {
-      capturing = false;
-      process.stdout.write = origWrite;
-      // Restore original transcript callback
-      interaction.onTranscriptUpdate = originalCallback ?? undefined;
-    }
-
-    // Persist final transcript
-    await writeSessionTranscript(sessionDir, interaction.getMessages());
-
-    sendEvent('done', { content: response.content, sessionId });
-    res.end();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    sendEvent('error', { error: message });
-    res.end();
-  }
+  await bridge.handleMessage(
+    { channelKey, text: message },
+    {
+      onToolCall: (name, input) => {
+        sendEvent('tool-call', { name, input });
+      },
+      onToolResult: (name, output, isError) => {
+        sendEvent('tool-result', { name, output, isError });
+      },
+      onDone: (result) => {
+        sendEvent('done', { content: result.content, sessionId: result.sessionId });
+        res.end();
+      },
+      onError: (error) => {
+        sendEvent('error', { error });
+        res.end();
+      },
+    },
+  );
 }
 
 // ── Router ───────────────────────────────────────────────────────────────
@@ -539,6 +474,11 @@ export interface GaiaServerOptions {
 export async function startGaiaServer(options: GaiaServerOptions): Promise<{ port: number; close: () => void }> {
   const { habitat, port = 3000, host = '0.0.0.0' } = options;
 
+  // Create the ChannelBridge for all web chat sessions
+  const bridge = new ChannelBridge(habitat, {
+    platformInstruction: 'You are responding via a web interface. Markdown is rendered natively.',
+  });
+
   // Resolve path to the UI HTML file
   const thisDir = fileURLToPath(new URL('.', import.meta.url));
   const projectRoot = resolve(thisDir, '..', '..');
@@ -561,7 +501,7 @@ export async function startGaiaServer(options: GaiaServerOptions): Promise<{ por
     try {
       // API routes
       if (path === '/api/chat' && req.method === 'POST') {
-        return await handleChat(habitat, req, res);
+        return await handleChat(bridge, req, res);
       }
       if (path === '/api/habitat') {
         return await handleHabitat(habitat, req, res);

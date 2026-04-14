@@ -34,6 +34,7 @@ import type {
 } from "../../habitat/discord-routing.js";
 import { collectUnansweredUserTexts } from "./discord-backfill.js";
 import { transcriptJsonlHasAssistant } from "./discord-transcript-ambient.js";
+import type { ChannelBridge } from "../bridge/channel-bridge.js";
 
 const DISCORD_MESSAGE_MAX = 2000;
 
@@ -143,6 +144,8 @@ export interface DiscordAdapterConfig {
     agentId: string;
     runtime: DiscordChannelRuntimeMode;
   }) => Promise<string>;
+  /** When set, text replies go through the ChannelBridge instead of the manual interaction flow. */
+  bridge?: ChannelBridge;
 }
 
 type SendableChannel = TextChannel | DMChannel | NewsChannel | ThreadChannel;
@@ -679,6 +682,9 @@ export class DiscordAdapter {
       this.routeSignatures.clear();
       this.ambientConversationUnlocked.clear();
       this.ambientDiskUnlockScanned.clear();
+      if (this.config.bridge) {
+        this.config.bridge.resetAll();
+      }
       await interaction.reply({
         content:
           "Cleared all in-memory channel sessions. New messages pick up updated discord.json.",
@@ -979,6 +985,9 @@ export class DiscordAdapter {
         });
       }
       this.clearChannelSession(channelId);
+      if (this.config.bridge) {
+        this.config.bridge.resetChannel(`discord:${channelId}`);
+      }
       const text =
         "Hello! I'm ready to chat.\n\n" +
         "Without `/bind-agent`: @mention me in **DM**, in a **thread**, or in a **channel** (I'll open a thread). With `/bind-agent`, I answer every message here.\n\n" +
@@ -1007,6 +1016,9 @@ export class DiscordAdapter {
         });
       }
       this.clearChannelSession(channelId);
+      if (this.config.bridge) {
+        this.config.bridge.resetChannel(`discord:${channelId}`);
+      }
       await interaction.editReply(
         "Conversation cleared. Send a message to start fresh.",
       );
@@ -1266,6 +1278,47 @@ export class DiscordAdapter {
       }
     }
 
+    // ── Bridge path ──────────────────────────────────────────────────
+    if (this.config.bridge) {
+      const channelKey = `discord:${sessionChannelId}`;
+      const parentChannelKey = stimulusCtx.parentChannelId
+        ? `discord:${stimulusCtx.parentChannelId}`
+        : undefined;
+      const typingKey = sessionChannelId;
+      this.startTypingLoop(replyChannel, typingKey);
+      try {
+        await this.config.bridge.handleMessage(
+          { channelKey, text, parentChannelKey },
+          {
+            onDone: async (result) => {
+              const responseText = messageContentForDiscord(result.content);
+              if (!responseText) {
+                await replyChannel.send(
+                  "I looked into that but don't have a clear result. Try rephrasing or `/reset`.",
+                );
+                logOut("(no content – fallback)");
+              } else {
+                await this.sendChunks(replyChannel, responseText);
+                this.afterAmbientBotReply(sessionChannelId, unrestricted);
+                logOut(responseText);
+                this.maybeRefreshThreadTitle(replyChannel, text, responseText);
+              }
+            },
+            onError: async (error) => {
+              console.error("[DISCORD] Bridge error:", error);
+              await replyChannel
+                .send("Sorry, something went wrong. Try again or `/reset`.")
+                .catch(() => {});
+            },
+          },
+        );
+      } finally {
+        this.stopTypingLoop(typingKey);
+      }
+      return;
+    }
+
+    // ── Legacy (non-bridge) path ─────────────────────────────────────
     const interaction = await this.getInteraction(sessionChannelId, stimulusCtx);
     const typingKey = sessionChannelId;
     this.startTypingLoop(replyChannel, typingKey);
