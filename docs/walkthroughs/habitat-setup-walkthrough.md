@@ -1,25 +1,27 @@
-# Setting Up an Agent in Habitat
+# Setting Up a Habitat — The Complete Walkthrough
 
-A step-by-step walkthrough for creating a Habitat from scratch, customizing its persona, adding tools, registering sub-agents, and running it as both a CLI REPL and a Telegram bot.
+A step-by-step guide for creating a Habitat from scratch, customizing it, and running it across all available interfaces: CLI REPL, Telegram, Discord, and Web.
 
-**Time Required:** 15-20 minutes
-**Prerequisites:** Node.js 20+, pnpm, a Google AI API key (or any supported provider)
-**Optional:** Telegram bot token, Tavily API key, Dagger installed
+**Time Required:** 20-30 minutes  
+**Prerequisites:** Node.js 20+, pnpm, at least one LLM API key  
+**Optional:** Telegram bot token, Discord bot token, Tavily API key, Dagger
 
-## What We'll Build
+## What You'll Build
 
 By the end of this walkthrough you'll have:
 
 1. A working habitat at `~/habitats` with a custom persona
 2. Tools loaded from the work directory (including web search)
 3. A registered sub-agent for a git project
-4. A running CLI REPL and optionally a Telegram bot
-5. Understanding of how all the pieces fit together
+4. A running CLI REPL
+5. Optionally: Telegram bot, Discord bot, and/or web interface — all sharing the same habitat
+6. Understanding of how routing, tools, and agents fit together
 
-## Step 1: Install Umwelten
+## Part 1: Install & Environment
+
+### Clone and install
 
 ```bash
-# Clone and install
 git clone https://github.com/The-Focus-AI/umwelten.git
 cd umwelten
 pnpm install
@@ -30,28 +32,39 @@ pnpm run cli --help
 
 You should see the list of commands including `habitat`.
 
-## Step 2: Set Up Environment
+### Set up API keys
 
-Create a `.env` file (or export these in your shell):
-
-```bash
-# Required: at least one provider
-export GOOGLE_GENERATIVE_AI_API_KEY="your-google-api-key"
-
-# Optional: for web search
-export TAVILY_API_KEY="your-tavily-key"
-
-# Optional: for Telegram
-export TELEGRAM_BOT_TOKEN="your-telegram-token"
-```
-
-## Step 3: First Run — Automatic Onboarding
+Create a `.env` file in the repo root (or use `examples/jeeves-bot/.env` as a starting point):
 
 ```bash
-pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+# Required — at least one LLM provider
+GOOGLE_GENERATIVE_AI_API_KEY=your-google-api-key
+
+# Optional — web search tool
+TAVILY_API_KEY=your-tavily-key
+
+# Optional — bot interfaces
+TELEGRAM_BOT_TOKEN=your-telegram-token
+DISCORD_BOT_TOKEN=your-discord-token
 ```
 
-On first run, the habitat detects that `~/habitats` doesn't exist and runs onboarding:
+::: tip dotenvx prefix
+**Always** prefix CLI commands with `dotenvx run --` so your `.env` keys are loaded:
+```bash
+dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+```
+The repo also includes **mise tasks** that handle this automatically (see [Part 4](#part-4-mise-tasks-the-easy-way)).
+:::
+
+## Part 2: First Run — CLI REPL
+
+### Start the habitat
+
+```bash
+dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+```
+
+On first run, the habitat detects that `~/habitats` doesn't exist and runs onboarding automatically:
 
 ```
 [habitat] Work directory not set up. Running onboarding...
@@ -62,23 +75,30 @@ On first run, the habitat detects that `~/habitats` doesn't exist and runs onboa
 [habitat] 16 tools, 0 skills, 0 agents
 [habitat] Session: cli-1707580000000
 Habitat agent ready. Type a message and press Enter.
-Commands: /exit, /agents, /skills, /tools, /context, /onboard, /compact [strategy], /compact help
+Commands: /exit, /agents, /agent-start <id>, /agent-stop <id>, /agent-status [id], /skills, /tools, /context, /onboard, /compact [strategy], /compact help
 ```
 
-Type `/tools` to see all registered tools:
+### Explore the REPL
+
+Try these commands:
 
 ```
 You: /tools
 Tools (16): read_file, write_file, list_directory, ripgrep, current_time, wget, markify, parse_feed, agents_list, agents_add, agents_update, agents_remove, agent_clone, agent_ask, agent_logs, agent_status
+
+You: /agents
+No agents registered. Use agent_clone or agents_add tools to register agents.
+
+You: /context
+[Context: 2 messages, ~0.3K tokens]
+
+You: What tools do you have?
+Habitat: I have the following tools available: ...
+
+You: /exit
 ```
 
-If you have `TAVILY_API_KEY` set and the search tool handler loaded, you'll also see `search` in the list.
-
-Type `/exit` to quit for now.
-
-## Step 4: Explore the Work Directory
-
-Let's see what onboarding created:
+### Explore the work directory
 
 ```bash
 ls ~/habitats/
@@ -106,9 +126,11 @@ ls ~/habitats/tools/search/
 TOOL.md    handler.ts
 ```
 
-## Step 5: Customize Your Persona
+## Part 3: Customize Your Habitat
 
-Edit `~/habitats/STIMULUS.md` to give your agent a personality. Replace the minimal default with something like:
+### Edit the persona
+
+Edit `~/habitats/STIMULUS.md` to give your agent a personality:
 
 ```markdown
 ---
@@ -117,8 +139,8 @@ objective: "Help the user research topics, manage projects, and stay organized"
 instructions:
   - "When asked to research something, use the search tool to find current information"
   - "When managing projects, use agent tools to monitor their status"
-  - "Keep the user's memories.md and facts.md up to date"
-  - "Be concise but thorough in your responses"
+  - "Keep memories.md and facts.md up to date"
+  - "Be concise but thorough"
 maxToolSteps: 15
 ---
 
@@ -126,22 +148,15 @@ maxToolSteps: 15
 
 You are a research assistant that helps with:
 
-1. **Web research** — Use the `search` tool to look up current information
+1. **Web research** — Use the `search` tool for current information
 2. **Project management** — Monitor and interact with registered sub-agents
 3. **File management** — Read, write, and organize files in the work directory
-4. **Memory** — Maintain memories.md with things the user tells you, and facts.md with a summary
-
-## Memory Files
-
-Maintain these files in the work directory:
-
-- **memories.md** — Running list of things the user shared, with dates
-- **facts.md** — Concise summary of what you know about the user
+4. **Memory** — Maintain memories.md with things the user shares
 ```
 
-## Step 6: Configure Model Defaults
+### Configure model defaults
 
-Edit `~/habitats/config.json` to set default provider and model so you don't need `--provider` and `--model` every time:
+Edit `~/habitats/config.json` so you don't need `--provider` and `--model` every time:
 
 ```json
 {
@@ -158,88 +173,15 @@ Edit `~/habitats/config.json` to set default provider and model so you don't nee
 }
 ```
 
-Now you can start with just:
+Now start with just:
 
 ```bash
-pnpm run cli -- habitat
+dotenvx run -- pnpm run cli -- habitat
 ```
 
-## Step 7: Test the REPL
+### Add a custom tool
 
-```bash
-pnpm run cli -- habitat
-```
-
-Try a few things:
-
-```
-You: What tools do you have available?
-
-Habitat: I have the following tools available:
-- **read_file** / **write_file** / **list_directory** — File operations
-- **ripgrep** — Search file contents
-- **search** — Web search via Tavily
-- **agent_clone** / **agent_ask** / **agent_logs** / **agent_status** — Agent management
-- **current_time** — Get current time
-- **wget** / **markify** / **parse_feed** — Web content tools
-...
-
-You: Search for the latest news about TypeScript 5.7
-
-Habitat: [Uses search tool]
-Here are the latest findings about TypeScript 5.7:
-...
-
-You: Remember that I prefer using pnpm over npm
-
-Habitat: I'll remember that! Let me note it in your memories file.
-[Uses write_file to update memories.md]
-```
-
-Check that your memory was saved:
-
-```
-You: /exit
-```
-
-```bash
-cat ~/habitats/memories.md
-```
-
-## Step 8: Register a Sub-Agent
-
-Sub-agents are external projects that your habitat can monitor and interact with. Let's clone a project:
-
-```bash
-pnpm run cli -- habitat
-```
-
-```
-You: Clone https://github.com/The-Focus-AI/trmnl-image-agent and register it as an agent called "TRMNL Image Agent"
-
-Habitat: [Uses agent_clone tool]
-Cloned to /Users/you/habitats/repos/trmnl-image-agent and registered agent.
-
-You: /agents
-Agents (1):
-  trmnl-image-agent — TRMNL Image Agent (/Users/you/habitats/repos/trmnl-image-agent)
-```
-
-Now you can delegate questions to the sub-agent:
-
-```
-You: Ask the trmnl-image-agent to explore its project and tell me what it does
-
-Habitat: [Uses agent_ask tool — the sub-agent reads README, package.json, CLAUDE.md]
-The TRMNL Image Agent is an automated dashboard image generator for TRMNL e-ink displays.
-It uses Chrome/Puppeteer to render HTML templates and push them to the TRMNL API...
-```
-
-The sub-agent has persistent memory — it remembers what it learned about the project across conversations.
-
-## Step 9: Add a Custom Tool
-
-Let's create a tool that checks if a URL is reachable:
+Create a `ping_url` tool that checks if a URL is reachable:
 
 ```bash
 mkdir -p ~/habitats/tools/ping_url
@@ -252,11 +194,6 @@ Create `~/habitats/tools/ping_url/TOOL.md`:
 name: ping_url
 description: "Check if a URL is reachable. Returns status code and response time."
 ---
-
-# Ping URL
-
-Checks if a URL is reachable by making an HTTP HEAD request.
-Returns the HTTP status code and response time in milliseconds.
 ```
 
 Create `~/habitats/tools/ping_url/handler.ts`:
@@ -274,227 +211,444 @@ export default tool({
     const start = Date.now();
     try {
       const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
-      return {
-        url,
-        status: response.status,
-        ok: response.ok,
-        responseTimeMs: Date.now() - start,
-      };
+      return { url, status: response.status, ok: response.ok, responseTimeMs: Date.now() - start };
     } catch (err) {
-      return {
-        url,
-        error: err instanceof Error ? err.message : String(err),
-        responseTimeMs: Date.now() - start,
-      };
+      return { url, error: err instanceof Error ? err.message : String(err), responseTimeMs: Date.now() - start };
     }
   },
 });
 ```
 
-Restart the habitat and check:
-
-```bash
-pnpm run cli -- habitat
-```
+Restart the habitat and verify:
 
 ```
 You: /tools
 Tools (17): ..., ping_url
 
 You: Is github.com up?
-
 Habitat: [Uses ping_url tool]
 Yes! github.com returned HTTP 200 in 145ms.
 ```
 
-## Step 10: Add a Factory Tool
+### Register a sub-agent
 
-Factory tools receive the habitat context, giving them access to `workDir`, `getAgent()`, and `getAllowedRoots()`. This is how `run_bash` works — it needs to know about registered agents.
+```
+You: Clone https://github.com/octocat/Hello-World.git as "Hello World"
+Habitat: [Uses agent_clone tool]
+Cloned and registered.
 
-Create `~/habitats/tools/project_info/TOOL.md`:
+You: /agents
+Agents (1):
+  hello-world — Hello World (/Users/you/habitats/repos/hello-world)
 
-```markdown
----
-name: project_info
-description: "Get info about a registered agent's project (package.json name, version, description)"
----
+You: Ask hello-world to explore its project and tell me what it does
+Habitat: [Uses agent_ask — the sub-agent reads files in the project]
+...
 ```
 
-Create `~/habitats/tools/project_info/handler.ts`:
+## Part 4: mise Tasks — The Easy Way
 
-```typescript
-import { tool } from 'ai';
-import { z } from 'zod';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import type { Tool } from 'ai';
+The repo includes [mise](https://mise.jdx.dev) tasks that handle env vars and work directory automatically. First, set up `examples/jeeves-bot/.env`:
 
-// Factory function — receives habitat context
-export default function(ctx: { getAgent: (id: string) => any }): Tool {
-  return tool({
-    description: 'Get package.json info for a registered agent project',
-    parameters: z.object({
-      agentId: z.string().describe('Agent ID to look up'),
-    }),
-    execute: async ({ agentId }) => {
-      const agent = ctx.getAgent(agentId);
-      if (!agent) return { error: `Agent not found: ${agentId}` };
-
-      try {
-        const pkg = JSON.parse(
-          await readFile(join(agent.projectPath, 'package.json'), 'utf-8')
-        );
-        return {
-          name: pkg.name,
-          version: pkg.version,
-          description: pkg.description,
-          scripts: Object.keys(pkg.scripts || {}),
-        };
-      } catch {
-        return { error: 'No package.json found' };
-      }
-    },
-  });
-}
+```bash
+cp examples/jeeves-bot/env.example examples/jeeves-bot/.env
+# Edit .env with your API keys
 ```
 
-Because the handler exports a **function** (not a Tool with `.execute`), the loader detects it as a factory and calls it with the habitat as context.
+Then run any interface with a single command:
 
-## Step 11: Add Skills from Git
+| Command | Interface | Notes |
+|---------|-----------|-------|
+| `mise run habitat` | CLI REPL | Interactive conversation |
+| `mise run habitat-web` | Gaia web server | http://localhost:3000 |
+| `mise run habitat-telegram` | Telegram bot | Needs `TELEGRAM_BOT_TOKEN` |
+| `mise run habitat-discord` | Discord bot | Needs `DISCORD_BOT_TOKEN` |
+| `mise run habitat-discord-check` | Discord setup check | Verifies env and bot config |
 
-Skills are reusable prompt templates that get loaded as tools. Add a git-based skill to your config:
+All mise tasks share **one work directory** (`examples/jeeves-bot/jeeves-bot-data-dir`), so agents, persona, memories, and tools stay consistent across interfaces.
 
-Edit `~/habitats/config.json` and add to the `skillsFromGit` array:
+## Part 5: All Four Interfaces
+
+Every interface attaches to the same Habitat — sharing config, tools, skills, agents, sessions, and the ChannelBridge routing layer.
+
+### CLI REPL (default)
+
+```bash
+# Direct (with dotenvx)
+dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+
+# With mise
+mise run habitat
+
+# One-shot prompt
+dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview "list my agents"
+
+# Custom work directory
+dotenvx run -- pnpm run cli -- habitat -w ~/my-agent
+```
+
+REPL commands:
+
+| Command | Description |
+|---------|-------------|
+| `/exit` | Save session and quit |
+| `/agents` | List registered agents |
+| `/agent-start <id>` | Start an agent's MCP server |
+| `/agent-stop <id>` | Stop an agent's MCP server |
+| `/agent-status [id]` | Check agent health (all if no ID) |
+| `/skills` | List loaded skills |
+| `/tools` | List registered tools |
+| `/context` | Show context size |
+| `/onboard` | Re-run onboarding |
+| `/compact [strategy]` | Compact conversation context |
+| `/compact help` | List compaction strategies |
+
+### Local Agent Mode
+
+Talk directly to a sub-agent rooted at a project directory:
+
+```bash
+# Use current directory as the project
+dotenvx run -- pnpm run cli -- habitat local
+
+# Or specify a project
+dotenvx run -- pnpm run cli -- habitat local --project ~/projects/my-app
+
+# One-shot
+dotenvx run -- pnpm run cli -- habitat local "What does this project do?"
+```
+
+This automatically registers the directory as a managed agent, configures it (reads README, package.json, etc.), and gives you a REPL talking directly to that project's sub-agent.
+
+### Telegram Bot
+
+```bash
+# Direct
+dotenvx run -- pnpm run cli -- habitat telegram --token $TELEGRAM_BOT_TOKEN -p google -m gemini-3-flash-preview
+
+# With mise
+mise run habitat-telegram
+```
+
+Features:
+- Multi-turn conversations per chat
+- Media support (photos, documents, audio, video)
+- `/start`, `/reset`, `/help` commands
+- Session-specific media storage and transcripts
+- Markdown formatting
+
+**Getting a bot token:** Message [@BotFather](https://t.me/BotFather) on Telegram → `/newbot` → follow the prompts → save the token.
+
+### Discord Bot
+
+```bash
+# Direct
+dotenvx run -- pnpm run cli -- habitat discord --token $DISCORD_BOT_TOKEN -p google -m gemini-3-flash-preview
+
+# With Jeeves preset
+dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat discord \
+  -w examples/jeeves-bot/jeeves-bot-data-dir --env-prefix JEEVES
+
+# With mise
+mise run habitat-discord
+```
+
+Features:
+- Channel → agent routing via `routing.json`
+- Runtime modes: `habitat` (default) or `claude-sdk` (Claude Agent SDK pass-through)
+- Startup REST backfill for messages sent while bot was offline
+- Stable thread sessions with transcript resume
+- Per-channel slash commands: `/switch`, `/status`, `/reset`, `/agents`
+
+**Setup:**
+1. Create an application at [discord.com/developers/applications](https://discord.com/developers/applications)
+2. Bot → Enable **Message Content Intent**
+3. OAuth2 → URL Generator → scopes: `bot`, `applications.commands` → permissions: Send Messages, Read Message History, Manage Messages
+4. Use the generated URL to invite the bot to your server
+
+**Verify setup:**
+```bash
+mise run habitat-discord-check
+```
+
+### Web Interface (Gaia)
+
+```bash
+# Direct
+dotenvx run -- pnpm run cli -- habitat web -p google -m gemini-3-flash-preview --port 3000
+
+# With mise
+mise run habitat-web
+```
+
+Starts an HTTP server with a REST API and web UI at `http://localhost:3000`.
+
+## Part 6: Channel Routing
+
+The **ChannelBridge** is the unified adapter layer that all platform interfaces go through. It handles:
+
+- **Interaction caching** — one interaction per channel key
+- **Route resolution** — which agent handles which channel
+- **Transcript resume** — reload recent messages on restart
+- **Transcript persistence** — write to session dir on every update
+- **Unified slash commands** — work identically on Discord, Telegram, and Web
+
+### routing.json
+
+Create `routing.json` in your work directory to map channels to specific agents:
 
 ```json
 {
-  "skillsFromGit": ["The-Focus-AI/umwelten-skills"]
+  "channels": {
+    "discord:123456789": { "agentId": "ops-agent", "runtime": "default" },
+    "discord:987654321": { "agentId": "dev-agent", "runtime": "claude-sdk" },
+    "telegram:42": { "agentId": "research-agent" }
+  },
+  "platformDefaults": {
+    "discord": { "agentId": "jeeves" }
+  },
+  "defaultAgentId": "main-agent"
 }
 ```
 
-The skills repo will be cloned into `~/habitats/repos/` on the next habitat start.
+**Resolution order:**
+1. Exact channel key match (`discord:123456789`)
+2. Parent channel match (threads inherit from parent)
+3. Platform default (`platformDefaults.discord`)
+4. Global default (`defaultAgentId`)
+5. Main habitat persona (no agent — uses `STIMULUS.md`)
 
-## Step 12: Run as a Telegram Bot
+### Slash commands (all platforms)
 
-If you have a Telegram bot token:
+These commands work the same on Discord, Telegram, and Web:
 
-```bash
-# Set the token
-export TELEGRAM_BOT_TOKEN="123456789:AbCdefGhIJKlmNoPQRsTUVwxyZ"
+| Command | Description |
+|---------|-------------|
+| `/reset` or `/start` | Clear conversation and start fresh |
+| `/agents` | List available agents |
+| `/switch <agent-id>` | Switch channel to a specific agent |
+| `/switch main` | Switch back to main habitat persona |
+| `/switch-claude <agent-id>` | Switch to Claude SDK pass-through |
+| `/status` | Show current routing for this channel |
+| `/help` | Show available commands |
 
-# Start the bot
-pnpm run cli -- habitat telegram -p google -m gemini-3-flash-preview
-```
+### Legacy discord.json
 
-The bot uses the same habitat — same tools, skills, agents, persona:
+If you have an existing `discord.json`, it's automatically merged into the routing — channel IDs are prefixed with `discord:`. You can migrate to `routing.json` at your leisure.
 
-```
-[habitat] google/gemini-3-flash-preview
-[habitat] Work dir: /Users/you/habitats
-[habitat] 17 tools, 0 skills, 1 agents
-[habitat] Telegram bot starting...
-```
+## Part 7: Secrets Management
 
-Now message your bot on Telegram. It has access to everything: search, file tools, agents, memory.
-
-Telegram sessions are separate from CLI sessions — each chat gets its own session directory under `~/habitats-sessions/telegram-{chatId}/`.
-
-### Getting a Bot Token
-
-1. Open Telegram and message [@BotFather](https://t.me/BotFather)
-2. Send `/newbot` and follow the prompts
-3. Save the token it gives you
-
-## Step 13: Use a Different Work Directory
-
-You can point at any existing work directory:
+Habitats have a built-in secrets store (`secrets.json`, mode 0600):
 
 ```bash
-# Use a Jeeves-style data dir
-pnpm run cli -- habitat -w examples/jeeves-bot/jeeves-bot-data-dir -p google -m gemini-3-flash-preview
+# List secrets
+dotenvx run -- pnpm run cli -- habitat secrets list
 
-# Use a custom location
-pnpm run cli -- habitat -w ~/projects/my-assistant
+# Set a secret
+dotenvx run -- pnpm run cli -- habitat secrets set TAVILY_API_KEY "tvly-..."
+
+# Set from 1Password
+dotenvx run -- pnpm run cli -- habitat secrets set OPENAI_KEY --from-op "op://vault/item/key"
+
+# Remove a secret
+dotenvx run -- pnpm run cli -- habitat secrets remove OLD_KEY
 ```
 
-Any directory with `config.json` + `STIMULUS.md` works. If the directory doesn't have them yet, onboarding creates them automatically.
+Secrets are stored in `~/habitats/secrets.json` and available to tools at runtime.
 
-## Step 14: Using Environment Variables
+## Part 8: Agent MCP Servers
 
-Instead of passing flags every time, set environment variables:
+Agents can run as standalone MCP servers. This is useful for long-running, isolated environments:
 
 ```bash
-export HABITAT_WORK_DIR=~/habitats
-export HABITAT_PROVIDER=google
-export HABITAT_MODEL=gemini-3-flash-preview
+# Start an agent's MCP server
+dotenvx run -- pnpm run cli -- habitat agent start my-agent
+
+# Check status of all agents
+dotenvx run -- pnpm run cli -- habitat agent status
+
+# Check a specific agent
+dotenvx run -- pnpm run cli -- habitat agent status my-agent
+
+# Stop an agent
+dotenvx run -- pnpm run cli -- habitat agent stop my-agent
 ```
 
-Now just run:
+From the REPL:
+```
+You: /agent-start my-agent
+✅ Agent "My Agent" Bridge MCP server started on port 12345
+   Endpoint: http://localhost:12345/mcp
 
-```bash
-pnpm run cli -- habitat
+You: /agent-status
+🟢 My Agent (my-agent)
+   Status: running
+   Port: 12345
+   Tools: 5 available
+
+You: /agent-stop my-agent
+✅ Agent "My Agent" MCP server marked as stopped
 ```
 
-You can change the prefix with `--env-prefix`:
+## Part 9: Remote MCP Chat
+
+Connect to any remote MCP server with OAuth support:
 
 ```bash
+# Interactive REPL
+dotenvx run -- pnpm run cli -- mcp chat --url https://oura-mcp.fly.dev/mcp
+
+# One-shot
+dotenvx run -- pnpm run cli -- mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
+
+# Clear saved OAuth credentials
+dotenvx run -- pnpm run cli -- mcp chat --url https://oura-mcp.fly.dev/mcp --logout
+```
+
+On first connection, the CLI opens a browser for OAuth login. Tokens are saved to `~/.umwelten/mcp-auth/` for subsequent runs. In-REPL commands: `/tools`, `/logout`, `/exit`.
+
+## Part 10: Environment Variables
+
+### Provider keys
+
+| Variable | Provider |
+|----------|----------|
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini |
+| `OPENROUTER_API_KEY` | OpenRouter (OpenAI, Anthropic, etc.) |
+| `DEEPINFRA_API_KEY` | DeepInfra |
+| `TOGETHER_API_KEY` | Together AI |
+| `GITHUB_TOKEN` | GitHub Models |
+| `ANTHROPIC_API_KEY` | Claude SDK pass-through |
+
+### Habitat configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HABITAT_WORK_DIR` | `~/habitats` | Work directory |
+| `HABITAT_SESSIONS_DIR` | `~/habitats-sessions` | Sessions directory |
+| `HABITAT_CONFIG_PATH` | `{workDir}/config.json` | Config file override |
+| `HABITAT_PROVIDER` | (none) | Default LLM provider |
+| `HABITAT_MODEL` | (none) | Default LLM model |
+
+### Bot tokens
+
+| Variable | Interface |
+|----------|-----------|
+| `TELEGRAM_BOT_TOKEN` | Telegram bot |
+| `DISCORD_BOT_TOKEN` | Discord bot |
+| `DISCORD_GUILD_ID` | Register slash commands in one guild (faster) |
+| `TAVILY_API_KEY` | Web search tool |
+
+### Custom env prefix
+
+Change the prefix with `--env-prefix` to run multiple habitats with different configs:
+
+```bash
+# Uses JEEVES_WORK_DIR, JEEVES_PROVIDER, JEEVES_MODEL
+dotenvx run -- pnpm run cli -- habitat --env-prefix JEEVES
+
 # Uses MYBOT_WORK_DIR, MYBOT_PROVIDER, etc.
-pnpm run cli -- habitat --env-prefix MYBOT
+dotenvx run -- pnpm run cli -- habitat --env-prefix MYBOT
 ```
+
+## Part 11: Testing
+
+### Automated tests
+
+```bash
+# All tests (use test:run, never test — it watches)
+pnpm test:run
+
+# Habitat tests specifically
+pnpm test:run src/habitat/
+
+# ChannelBridge routing & command tests
+pnpm test:run src/ui/bridge/
+
+# Discord adapter tests
+pnpm test:run src/ui/discord/
+```
+
+### Manual verification checklist
+
+1. **Start REPL**: `dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview`
+2. **Check tools**: `/tools` — verify 16+ tools listed
+3. **Check agents**: `/agents`
+4. **Test search**: "Search for the latest TypeScript news" (needs `TAVILY_API_KEY`)
+5. **Clone an agent**: "Clone https://github.com/octocat/Hello-World.git as Hello World"
+6. **Ask the agent**: "Ask hello-world what this project does"
+7. **Check context**: `/context`
+8. **Exit and restart**: `/exit`, then re-run — verify session persists
+9. **Compact**: After a long conversation, `/compact` to reduce context size
 
 ## Putting It All Together
 
-Here's the complete flow of what happens when you start a habitat:
-
 ```
-1. Habitat.create()
-   - Resolve work dir (~/habitats by default)
-   - Load config.json
-   - Register 14+ standard tools (file, agent, session, time, url)
-   - Load tools/ directory (search, run_bash, ping_url, ...)
-     - Direct exports → registered as-is
-     - Factory exports → called with habitat context, then registered
-   - Call registerCustomTools (if any)
-
-2. Build Stimulus
-   - Load STIMULUS.md (persona, role, instructions)
-   - Load AGENT.md (extra context)
-   - Load memory files (memories.md, facts.md)
-   - Register all tools into the stimulus
-   - Load skills (local + git)
-
-3. Start Interface
-   - CLI REPL: readline loop with streaming responses
-   - Telegram: grammY bot with long-polling
-   - Both share the same habitat, tools, and stimulus
+Habitat.create()
+  │
+  ├── resolveWorkDir (~/habitats, env, or --work-dir)
+  ├── loadConfig (config.json)
+  ├── register standard tool sets (file, time, url, agent, session, …)
+  ├── loadToolsFromDirectory (search, run_bash, ping_url, …)
+  │     ├── Direct exports → registered as-is
+  │     └── Factory exports → called with habitat context
+  ├── registerCustomTools (if any)
+  │
+  ├── getStimulus()
+  │     ├── loadStimulusOptionsFromWorkDir (STIMULUS.md, AGENT.md, memory)
+  │     ├── register all tools into stimulus
+  │     └── load skills (local + git)
+  │
+  └── Interface starts
+        ├── CLI REPL: readline loop + streaming
+        ├── Telegram: grammY bot + ChannelBridge
+        ├── Discord: discord.js bot + ChannelBridge + routing.json
+        └── Web: HTTP server + ChannelBridge
 ```
 
-## What's Next
+All interfaces share the same Habitat, tools, skills, agents, and the ChannelBridge routing layer.
 
-- **More tools**: Create any tool by adding a subdirectory to `tools/` with `TOOL.md` + `handler.ts`
-- **More agents**: Clone projects with `agent_clone`, then delegate with `agent_ask`
-- **Skills**: Add reusable prompt templates via local `skills/` or `skillsFromGit`
-- **Context management**: Use `/compact` in the REPL when context gets large
-- **Custom interfaces**: Build your own using `Habitat.create()` + `habitat.createInteraction()` programmatically
+## Work Directory Reference
+
+```
+~/habitats/                     ← the habitat work directory
+  config.json                   ← agents, skills, model defaults
+  secrets.json                  ← API keys (mode 0600)
+  STIMULUS.md                   ← base persona / system prompt
+  AGENT.md                      ← additional context (optional)
+  routing.json                  ← channel→agent routing (all platforms)
+  repos/                        ← git-cloned skill repos
+  skills/                       ← local skills
+  tools/                        ← work-dir tools
+    search/TOOL.md + handler.ts
+    run_bash/TOOL.md + handler.ts
+    ping_url/TOOL.md + handler.ts
+  agents/                       ← managed agent workspaces
+    {agentId}/
+      repo/                     ← cloned project
+      logs/bridge.log
+      state.json
+  memories.md, facts.md         ← memory files
+  private journal.md            ← optional journal
+```
 
 ## Troubleshooting
 
-### "No model configured"
+| Problem | Fix |
+|---------|-----|
+| "No model configured" | Set `--provider` + `--model`, add defaults to `config.json`, or set `HABITAT_PROVIDER` / `HABITAT_MODEL` |
+| Tool not loading | Check `TOOL.md` has `description` in frontmatter; `handler.ts` must default-export a Tool or factory |
+| "TAVILY_API_KEY is not set" | Set `TAVILY_API_KEY` in your `.env`. Get one at [app.tavily.com](https://app.tavily.com) |
+| Agent not found | Check `config.json` agents array. Use `/agents` or clone one with `agent_clone` |
+| Discord bot not responding | Enable **Message Content Intent** in Discord Developer Portal → Bot settings |
+| Env vars not loading | Use `dotenvx run --` prefix or `mise` tasks — don't run bare `pnpm run cli` |
+| Routing not applying | Check `routing.json` channel keys match format `platform:id` (e.g. `discord:123456`) |
 
-Set `--provider` and `--model`, or add `defaultProvider`/`defaultModel` to `config.json`, or set `HABITAT_PROVIDER`/`HABITAT_MODEL` env vars.
+## What's Next
 
-### Tool not loading
-
-Check that the tool directory has a valid `TOOL.md` with `description` in frontmatter, and that `handler.ts` default-exports either a Tool or a factory function.
-
-### Search tool says "TAVILY_API_KEY is not set"
-
-Set the `TAVILY_API_KEY` environment variable. Get a key at [app.tavily.com](https://app.tavily.com).
-
-### Agent not found
-
-Make sure the agent is registered in `config.json`. Use `/agents` to see registered agents, or clone one with the `agent_clone` tool.
-
-### Onboarding didn't seed tools
-
-Run `/onboard` in the REPL. If the `tools/` directory already exists, existing tools are left untouched. Only new tool subdirectories (like `search/`, `run_bash/`) are added if they don't already exist.
+- **[Habitat Interfaces](../guide/habitat-interfaces.md)** — detailed docs for each surface
+- **[Channel Routing](../guide/habitat-routing.md)** — deep dive into routing.json and ChannelBridge
+- **[Habitat Agents](../guide/habitat-agents.md)** — sub-agents and bridge agents
+- **[Habitat Testing](../guide/habitat-testing.md)** — automated and manual test procedures
+- **[MCP Chat](../guide/mcp-chat.md)** — remote MCP server integration
+- **[Jeeves Discord Guide](../guide/jeeves-discord.md)** — opinionated Discord bot preset

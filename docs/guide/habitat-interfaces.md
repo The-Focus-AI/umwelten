@@ -1,28 +1,89 @@
-# Habitat interfaces
+# Habitat Interfaces
 
-A single [`Habitat`](../../src/habitat/habitat.ts) instance can be driven from different UIs. All paths share the same work directory, `config.json`, secrets, tool sets, skills, and on-disk sessions (`transcript.jsonl` per session).
+A single [`Habitat`](../../src/habitat/habitat.ts) instance can be driven from different UIs. All interfaces share the same work directory, `config.json`, secrets, tool sets, skills, on-disk sessions, and the [ChannelBridge](./habitat-routing.md) routing layer.
 
 ## Surfaces
 
-| Surface | Entry | Code |
-| ------- | ----- | ---- |
-| REPL / one-shot | `umwelten habitat` | [`src/cli/habitat.ts`](../../src/cli/habitat.ts) |
-| Telegram | `umwelten habitat telegram` | [`src/ui/telegram/TelegramAdapter.ts`](../../src/ui/telegram/TelegramAdapter.ts) |
-| Discord | `umwelten habitat discord` | [`src/ui/discord/DiscordAdapter.ts`](../../src/ui/discord/DiscordAdapter.ts) |
-| Web + API | `umwelten habitat web` | [`src/habitat/gaia-server.ts`](../../src/habitat/gaia-server.ts), web UI under `src/ui/` |
-| TUI (sessions) | `umwelten sessions tui` / `browse` | [`src/ui/tui/file-session.ts`](../../src/ui/tui/file-session.ts) |
+| Surface | CLI Command | Code | mise Task |
+| ------- | ----------- | ---- | --------- |
+| REPL / one-shot | `umwelten habitat` | [`src/cli/habitat.ts`](../../src/cli/habitat.ts) | `mise run habitat` |
+| Local agent | `umwelten habitat local` | [`src/cli/habitat.ts`](../../src/cli/habitat.ts) | — |
+| Telegram | `umwelten habitat telegram` | [`src/ui/telegram/TelegramAdapter.ts`](../../src/ui/telegram/TelegramAdapter.ts) | `mise run habitat-telegram` |
+| Discord | `umwelten habitat discord` | [`src/ui/discord/DiscordAdapter.ts`](../../src/ui/discord/DiscordAdapter.ts) | `mise run habitat-discord` |
+| Web + API | `umwelten habitat web` | [`src/habitat/gaia-server.ts`](../../src/habitat/gaia-server.ts) | `mise run habitat-web` |
+| TUI (sessions) | `umwelten sessions tui` | [`src/ui/tui/file-session.ts`](../../src/ui/tui/file-session.ts) | — |
+
+## Quick start (with mise)
+
+The repo includes [mise](https://mise.jdx.dev) tasks that handle environment variables and work directory configuration automatically:
+
+```bash
+# Set up env
+cp examples/jeeves-bot/env.example examples/jeeves-bot/.env
+# Edit .env with your API keys
+
+# Run any interface
+mise run habitat            # CLI REPL
+mise run habitat-web        # Web on :3000
+mise run habitat-telegram   # Telegram bot
+mise run habitat-discord    # Discord bot
+```
+
+All tasks share one work directory (`examples/jeeves-bot/jeeves-bot-data-dir`) so config, agents, and tools are consistent.
+
+## Quick start (without mise)
+
+```bash
+# Always use dotenvx to load .env keys
+dotenvx run -- pnpm run cli -- habitat -p google -m gemini-3-flash-preview
+dotenvx run -- pnpm run cli -- habitat telegram --token $TELEGRAM_BOT_TOKEN
+dotenvx run -- pnpm run cli -- habitat discord --token $DISCORD_BOT_TOKEN
+dotenvx run -- pnpm run cli -- habitat web --port 3000
+```
+
+## ChannelBridge — unified adapter layer
+
+All platform adapters (Telegram, Discord, Web) go through the **ChannelBridge**, which handles:
+
+- Interaction caching (one per channel key)
+- Route resolution (channel → agent via `routing.json`)
+- Transcript resume on restart
+- Transcript persistence on every update
+- Unified slash commands (`/switch`, `/agents`, `/status`, `/reset`, `/help`)
+
+See [Channel Routing](./habitat-routing.md) for details on routing configuration and slash commands.
 
 ## Discord presets (Jeeves)
 
-The [Jeeves example](../../examples/jeeves-bot/README.md) is an **opinionated preset**: `JEEVES_*` env prefix, default work dir name, and a bundled stimulus template. You still run the **main** CLI:
+The [Jeeves example](../../examples/jeeves-bot/README.md) is an **opinionated preset**: `JEEVES_*` env prefix, bundled stimulus template, and a ready-to-go data directory. You still run the **main** CLI:
 
 ```bash
-dotenvx run -- pnpm run cli -- habitat discord --token "$DISCORD_BOT_TOKEN" \
-  --work-dir /path/to/jeeves-bot-data-dir \
+dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat discord \
+  --token "$DISCORD_BOT_TOKEN" \
+  -w examples/jeeves-bot/jeeves-bot-data-dir \
   --env-prefix JEEVES
 ```
 
-(Adjust `--work-dir` to your data directory; set `JEEVES_PROVIDER` / `JEEVES_MODEL` as needed.)
+## Agent MCP server management
+
+Agents can run as standalone MCP servers. Manage them from the CLI:
+
+```bash
+umwelten habitat agent start <agent-id>    # Start an agent's MCP server
+umwelten habitat agent stop <agent-id>     # Stop it
+umwelten habitat agent status [agent-id]   # Check health (all agents if no ID)
+```
+
+Or from the REPL: `/agent-start <id>`, `/agent-stop <id>`, `/agent-status [id]`.
+
+## Secrets management
+
+```bash
+umwelten habitat secrets list              # List stored secret names
+umwelten habitat secrets set <name> <val>  # Store a secret
+umwelten habitat secrets set <name> --from-op "op://vault/item/key"  # From 1Password
+umwelten habitat secrets remove <name>     # Remove a secret
+```
 
 ## Native session introspection
 
@@ -40,6 +101,10 @@ External editor sessions (Claude Code, Cursor) use `umwelten sessions list|show|
 
 ## See also
 
-- [Habitat](habitat.md) — work dir, tools, agents
+- [Habitat](habitat.md) — work directory, tools, agents
+- [Channel Routing](habitat-routing.md) — routing.json and ChannelBridge deep dive
 - [Web](web.md) — Gaia server and browser UI
-- [Session management](session-management.md) — external session index/search
+- [Jeeves Discord Guide](jeeves-discord.md) — Discord bot preset
+- [Habitat Testing](habitat-testing.md) — automated and manual test procedures
+- [Session Management](session-management.md) — external session index/search
+- [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md) — hands-on tutorial
