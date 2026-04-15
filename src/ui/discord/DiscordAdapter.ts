@@ -1260,6 +1260,17 @@ export class DiscordAdapter {
 
     logIn();
 
+    // Bridge commands (/agents, /switch, /status, /help, etc.)
+    if (this.config.bridge && text.startsWith('/')) {
+      const { processBridgeCommand } = await import('../bridge/commands.js');
+      const result = await processBridgeCommand(this.config.bridge, `discord:${sessionChannelId}`, text);
+      if (result.handled) {
+        if (result.text) await this.sendChunks(replyChannel, result.text);
+        logOut(result.text || "(command handled)");
+        return;
+      }
+    }
+
     if (this.config.getDiscordRouteDetail && this.config.runClaudeSdkPassThrough) {
       const routeDetail = await this.config.getDiscordRouteDetail(
         sessionChannelId,

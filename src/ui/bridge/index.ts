@@ -25,5 +25,8 @@ export {
   coerceChannelBinding,
 } from './routing.js';
 
+export { processBridgeCommand, getBridgeCommandDefs } from './commands.js';
+export type { CommandResult } from './commands.js';
+
 // Re-export for convenience — adapters can import from bridge/
 export type { ClaudeSDKResult } from '../../habitat/claude-sdk-runner.js';

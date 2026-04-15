@@ -217,6 +217,17 @@ export class TelegramAdapter {
 
     this.logMessage("←", ctx, text);
 
+    // Bridge commands (/agents, /switch, /status, /help, etc.)
+    if (this.config.bridge && text.startsWith('/')) {
+      const { processBridgeCommand } = await import('../bridge/commands.js');
+      const result = await processBridgeCommand(this.config.bridge, `telegram:${chatId}`, text);
+      if (result.handled) {
+        if (result.text) await this.sendFormattedMessage(ctx, result.text);
+        this.logMessage("→", ctx, result.text || "(command handled)");
+        return;
+      }
+    }
+
     if (this.config.bridge) {
       return this.handleTextViaBridge(ctx, chatId, text);
     }

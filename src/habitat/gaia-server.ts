@@ -10,6 +10,7 @@
  *   GET  /api/sessions/:id     — session summary (message counts, beats, cost)
  *   GET  /api/sessions/:id/messages  — full conversation messages
  *   GET  /api/sessions/:id/beats     — conversation beats
+ *   POST /api/command           — run a bridge command (/agents, /switch, /status, etc.)
  *   POST /api/chat             — send a message to the habitat agent (LLM)
  *   GET  /                     — Gaia UI (index.html)
  */
@@ -449,6 +450,25 @@ async function handleChat(bridge: ChannelBridge, req: IncomingMessage, res: Serv
   );
 }
 
+async function handleCommand(bridge: ChannelBridge, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readBody(req);
+  } catch {
+    return json(res, { error: 'Invalid JSON body' }, 400);
+  }
+  const command = typeof body.command === 'string' ? body.command.trim() : '';
+  if (!command) {
+    return json(res, { error: 'Missing "command" field' }, 400);
+  }
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId : 'default';
+  const channelKey = `web:${sessionId}`;
+
+  const { processBridgeCommand } = await import('../ui/bridge/commands.js');
+  const result = await processBridgeCommand(bridge, channelKey, command);
+  json(res, result);
+}
+
 // ── Router ───────────────────────────────────────────────────────────────
 
 function parseRoute(url: string): { path: string; query: Record<string, string> } {
@@ -500,6 +520,9 @@ export async function startGaiaServer(options: GaiaServerOptions): Promise<{ por
 
     try {
       // API routes
+      if (path === '/api/command' && req.method === 'POST') {
+        return await handleCommand(bridge, req, res);
+      }
       if (path === '/api/chat' && req.method === 'POST') {
         return await handleChat(bridge, req, res);
       }
