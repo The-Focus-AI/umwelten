@@ -1,12 +1,17 @@
+/**
+ * Dynamic Client Registration (DCR) endpoint.
+ * MCP clients register themselves to get a client_id.
+ */
+
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import type { Store } from '../store.js';
+import type { McpServeStore } from '../types.js';
 import { json } from './helpers.js';
 
-export async function handleRegister(store: Store, req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function handleRegister(store: McpServeStore, req: IncomingMessage, res: ServerResponse): Promise<void> {
   const body = await new Promise<string>((resolve, reject) => {
     let data = '';
-    req.on('data', chunk => { data += chunk; });
+    req.on('data', (chunk: Buffer) => { data += chunk; });
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });

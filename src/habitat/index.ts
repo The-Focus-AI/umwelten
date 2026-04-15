@@ -86,6 +86,19 @@ export {
 
 export { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
 
+// MCP server library — turn any upstream OAuth service into a hosted MCP server
+export { createMcpServer } from "./mcp-serve/server.js";
+export type { McpHttpServer } from "./mcp-serve/server.js";
+export { NeonStore } from "./mcp-serve/neon-store.js";
+export type {
+  UpstreamOAuthProvider,
+  UpstreamTokens,
+  McpToolRegistrar,
+  McpServeConfig,
+  McpServeStore,
+} from "./mcp-serve/types.js";
+export { getPublicBaseUrl } from "./mcp-serve/public-url.js";
+
 export { AgentDiscovery, isMCPServerRunning } from "./agent-discovery.js";
 export type {
   DiscoveredAgent,

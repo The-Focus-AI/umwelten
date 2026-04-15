@@ -1,7 +1,12 @@
+/**
+ * Well-known OAuth metadata endpoints.
+ * These are service-agnostic — they describe our MCP server's OAuth capabilities.
+ */
+
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { json } from './helpers.js';
 
-export function handleProtectedResource(baseUrl: string, req: IncomingMessage, res: ServerResponse): void {
+export function handleProtectedResource(baseUrl: string, _req: IncomingMessage, res: ServerResponse): void {
   json(res, {
     resource: baseUrl,
     authorization_servers: [baseUrl],
@@ -10,7 +15,7 @@ export function handleProtectedResource(baseUrl: string, req: IncomingMessage, r
   });
 }
 
-export function handleAuthServerMetadata(baseUrl: string, req: IncomingMessage, res: ServerResponse): void {
+export function handleAuthServerMetadata(baseUrl: string, _req: IncomingMessage, res: ServerResponse): void {
   json(res, {
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/oauth/authorize`,

@@ -1,3 +1,8 @@
+/**
+ * Determine the public-facing base URL for OAuth metadata and redirects.
+ * On Fly.io the edge sets X-Forwarded-Proto / Host; we prefer those.
+ */
+
 import type { IncomingMessage } from 'node:http';
 
 function firstHeader(v: string | string[] | undefined): string | undefined {
@@ -10,11 +15,6 @@ function trimTrailingSlash(s: string): string {
   return s.replace(/\/$/, '');
 }
 
-/**
- * Browser-facing origin for OAuth metadata and redirects.
- * On Fly.io the edge sets X-Forwarded-Proto / Host; we prefer those over BASE_URL
- * so a mis-set secret does not break issuer vs redirect_uri.
- */
 export function getPublicBaseUrl(req: IncomingMessage): string {
   const forwardedProto = firstHeader(req.headers['x-forwarded-proto']);
   const forwardedHost = firstHeader(req.headers['x-forwarded-host']);

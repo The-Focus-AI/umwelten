@@ -1,39 +1,5 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { Store } from './store.js';
-
-async function getValidOuraToken(
-  userId: string,
-  store: Store,
-  ouraClientId: string,
-  ouraClientSecret: string,
-): Promise<string> {
-  const tokens = await store.getOuraTokens(userId);
-  if (!tokens) throw new Error('No Oura tokens found for user');
-
-  // Check if expired (with 5-minute buffer)
-  if (tokens.expires_at && new Date(tokens.expires_at) < new Date(Date.now() + 5 * 60 * 1000)) {
-    const res = await fetch('https://api.ouraring.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: tokens.refresh_token,
-        client_id: ouraClientId,
-        client_secret: ouraClientSecret,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Oura token refresh failed: ${res.status}`);
-
-    const data = await res.json();
-    const expiresAt = new Date(Date.now() + (data.expires_in || 86400) * 1000);
-    await store.upsertOuraTokens(userId, data.access_token, data.refresh_token, expiresAt);
-    return data.access_token;
-  }
-
-  return tokens.access_token;
-}
 
 async function ouraFetch(
   endpoint: string,
@@ -67,9 +33,7 @@ type DateParams = { start_date: string; end_date?: string };
 export async function registerOuraTools(
   server: McpServer,
   userId: string,
-  store: Store,
-  ouraClientId: string,
-  ouraClientSecret: string,
+  getUpstreamToken: () => Promise<string>,
 ): Promise<void> {
   const tools: Array<{ name: string; endpoint: string; description: string }> = [
     { name: 'oura_sleep', endpoint: 'daily_sleep', description: 'Get daily sleep scores and contributors' },
@@ -87,7 +51,7 @@ export async function registerOuraTools(
       dateParams,
       async (params: DateParams) => {
         try {
-          const token = await getValidOuraToken(userId, store, ouraClientId, ouraClientSecret);
+          const token = await getUpstreamToken();
           const data = await ouraFetch(tool.endpoint, {
             start_date: params.start_date,
             end_date: params.end_date || params.start_date,

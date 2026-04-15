@@ -1,6 +1,6 @@
 import { createMcpServer, NeonStore } from '../../../src/habitat/mcp-serve/index.js';
-import { OuraProvider } from './oura-provider.js';
-import { registerOuraTools } from './oura-tool-set.js';
+import { TwitterProvider } from './twitter-provider.js';
+import { registerTwitterTools } from './twitter-tools.js';
 
 function requireEnv(name: string): string {
   const val = process.env[name];
@@ -9,12 +9,15 @@ function requireEnv(name: string): string {
 }
 
 const store = new NeonStore(requireEnv('DATABASE_URL'));
-const upstream = new OuraProvider(requireEnv('OURA_CLIENT_ID'), requireEnv('OURA_CLIENT_SECRET'));
+const upstream = new TwitterProvider(
+  requireEnv('TWITTER_CLIENT_ID'),
+  requireEnv('TWITTER_CLIENT_SECRET'),
+);
 
 const server = createMcpServer({
-  name: 'oura-mcp',
+  name: 'twitter-mcp',
   upstream,
-  registerTools: registerOuraTools,
+  registerTools: registerTwitterTools,
   store,
 });
 

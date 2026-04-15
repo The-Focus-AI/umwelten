@@ -1,40 +1,32 @@
+/**
+ * MCP request handler — creates a stateless McpServer per request,
+ * authenticates via Bearer token, and registers tools for the user.
+ */
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { Store } from './store.js';
+import type { McpServeStore, UpstreamOAuthProvider, McpToolRegistrar } from './types.js';
 import { hashToken } from './oauth/token.js';
-import { registerOuraTools } from './oura-tool-set.js';
 
 export interface McpHandlerConfig {
-  ouraClientId: string;
-  ouraClientSecret: string;
+  serverName: string;
+  serverVersion: string;
+  upstream: UpstreamOAuthProvider;
+  store: McpServeStore;
+  registerTools: McpToolRegistrar;
 }
 
-/**
- * Validate Bearer token and return user_id, or null if invalid.
- */
-async function authenticateRequest(
-  req: IncomingMessage,
-  store: Store,
-): Promise<string | null> {
+async function authenticateRequest(req: IncomingMessage, store: McpServeStore): Promise<string | null> {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) return null;
-  
+
   const token = auth.slice(7);
   const hash = hashToken(token);
-  const userId = await store.getUserByTokenHash(hash);
-  return userId;
+  return store.getUserByTokenHash(hash);
 }
 
-/**
- * Handle an MCP request over Streamable HTTP.
- * Creates a fresh McpServer per request (stateless pattern).
- */
-function sendMcpUnauthorized(
-  res: ServerResponse,
-  publicBaseUrl: string,
-  opts?: { head?: boolean },
-): void {
+function sendUnauthorized(res: ServerResponse, publicBaseUrl: string, opts?: { head?: boolean }): void {
   const body = JSON.stringify({ error: 'unauthorized' });
   const headers: Record<string, string | number> = {
     'WWW-Authenticate': `Bearer resource_metadata="${publicBaseUrl}/.well-known/oauth-protected-resource"`,
@@ -48,13 +40,35 @@ function sendMcpUnauthorized(
   res.end(opts?.head ? undefined : body);
 }
 
+/**
+ * Get a valid upstream access token for a user, refreshing if needed.
+ */
+async function getValidUpstreamToken(
+  userId: string,
+  store: McpServeStore,
+  upstream: UpstreamOAuthProvider,
+): Promise<string> {
+  const tokens = await store.getUpstreamTokens(userId);
+  if (!tokens) throw new Error('No upstream tokens found for user');
+
+  // Refresh if expired (with 5-minute buffer)
+  if (tokens.expires_at && tokens.expires_at < new Date(Date.now() + 5 * 60 * 1000)) {
+    const refreshed = await upstream.refreshToken(tokens.refresh_token);
+    await store.upsertUpstreamTokens(userId, refreshed);
+    return refreshed.access_token;
+  }
+
+  return tokens.access_token;
+}
+
 export async function handleMcpRequest(
   config: McpHandlerConfig,
-  store: Store,
   req: IncomingMessage,
   res: ServerResponse,
   publicBaseUrl: string,
 ): Promise<void> {
+  const { store, upstream } = config;
+
   // Handle DELETE for session termination
   if (req.method === 'DELETE') {
     res.writeHead(200);
@@ -62,11 +76,11 @@ export async function handleMcpRequest(
     return;
   }
 
-  // Clients (e.g. Claude Code OAuth) often probe with HEAD; plain 405 + non-JSON breaks their error parser.
+  // Handle HEAD probes (e.g., from Claude Code OAuth)
   if (req.method === 'HEAD') {
     const userId = await authenticateRequest(req, store);
     if (!userId) {
-      sendMcpUnauthorized(res, publicBaseUrl, { head: true });
+      sendUnauthorized(res, publicBaseUrl, { head: true });
       return;
     }
     res.writeHead(200, {
@@ -83,23 +97,21 @@ export async function handleMcpRequest(
       'Access-Control-Allow-Origin': '*',
       Allow: 'GET, HEAD, POST, DELETE',
     });
-    res.end(
-      JSON.stringify({
-        error: 'method_not_allowed',
-        error_description: 'Use GET, HEAD, POST, or DELETE',
-      }),
-    );
+    res.end(JSON.stringify({
+      error: 'method_not_allowed',
+      error_description: 'Use GET, HEAD, POST, or DELETE',
+    }));
     return;
   }
 
   // Authenticate
   const userId = await authenticateRequest(req, store);
   if (!userId) {
-    sendMcpUnauthorized(res, publicBaseUrl);
+    sendUnauthorized(res, publicBaseUrl);
     return;
   }
 
-  // Read and parse request body as JSON (SDK expects parsed object)
+  // Parse request body
   const rawBody = await new Promise<string>((resolve, reject) => {
     let data = '';
     req.on('data', (chunk: Buffer) => { data += chunk; });
@@ -116,20 +128,15 @@ export async function handleMcpRequest(
     return;
   }
 
-  // Create fresh McpServer for this request
+  // Create fresh McpServer for this request (stateless)
   const mcpServer = new McpServer({
-    name: 'oura-mcp',
-    version: '0.1.0',
+    name: config.serverName,
+    version: config.serverVersion,
   });
 
-  // Register oura tools for this user
-  await registerOuraTools(
-    mcpServer,
-    userId,
-    store,
-    config.ouraClientId,
-    config.ouraClientSecret,
-  );
+  // Register tools with a token-getter closure
+  const getUpstreamToken = () => getValidUpstreamToken(userId, store, upstream);
+  await config.registerTools(mcpServer, userId, getUpstreamToken);
 
   // Create transport in stateless mode
   const transport = new StreamableHTTPServerTransport({

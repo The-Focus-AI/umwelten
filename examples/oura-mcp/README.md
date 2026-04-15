@@ -1,31 +1,29 @@
 # oura-mcp — Oura Ring as a Multi-User MCP Server
 
-A habitat-based MCP server that exposes Oura Ring health data (sleep, readiness, activity, stress, heart rate) as MCP tools. Multiple users connect via Claude/Amp/Cursor, each with their own Oura account. Deployed on Fly.io with Neon Postgres for storage.
+An MCP server that exposes Oura Ring health data (sleep, readiness, activity, stress, heart rate) as MCP tools. Built on the **`mcp-serve`** library (`src/habitat/mcp-serve/`), which provides the HTTP server, OAuth 2.1 authorization server, MCP transport, and Neon Postgres store. This example only needs to implement the Oura-specific OAuth provider and tool registration.
 
 ## Architecture
 
-The server uses two layers of OAuth:
+The `mcp-serve` library handles two layers of OAuth:
 
-- **MCP OAuth** — authenticates MCP clients (Claude, Amp, Cursor). This server acts as its own Authorization Server, implementing dynamic client registration, authorization, and token endpoints.
-- **Oura OAuth** — chained during the MCP auth flow. When a user authorizes, the server redirects them to Oura to grant access to their health data. Oura tokens are stored per-user in Neon Postgres.
-- **Habitat** — deployable work directory (`habitat/`): metadata (`config.json`), agent-facing instructions (`stimulus.md`), and optional `secrets.json`. The process boots `Habitat.create({ workDir, skipBuiltinTools: true })` so you get Habitat config and secrets without loading the full Umwelten management tool sets. Domain MCP tools are registered in code (see below).
+- **MCP OAuth** — authenticates MCP clients (Claude, Amp, Cursor). The library acts as its own Authorization Server, implementing dynamic client registration, authorization, and token endpoints.
+- **Upstream OAuth** — chained during the MCP auth flow. The `OuraProvider` implements the `UpstreamOAuthProvider` interface to redirect users to Oura for health data access. Tokens are stored per-user in Neon Postgres via `NeonStore`.
 
 ```
-MCP Client ──► oura-mcp server ──► Oura API
-  (Claude)     (OAuth AS + MCP)    (health data)
-               (Neon Postgres)
-               (Habitat work dir + MCP tool registration)
+MCP Client ──► mcp-serve library ──► OuraProvider ──► Oura API
+  (Claude)     (OAuth AS + MCP)       (upstream OAuth)  (health data)
+               (NeonStore / Postgres)
 ```
 
-**Public URL:** On Fly.io, OAuth `issuer`, `resource_metadata`, and Oura `redirect_uri` are derived from **`X-Forwarded-Proto` and `Host`** (see `src/public-url.ts`) so they match the browser even if `BASE_URL` in secrets is wrong or unset. Locally, set `BASE_URL` or rely on `http://localhost:<port>` from `Host`.
+**Public URL:** On Fly.io, OAuth `issuer`, `resource_metadata`, and Oura `redirect_uri` are derived from **`X-Forwarded-Proto` and `Host`** so they match the browser even if `BASE_URL` is wrong or unset. Locally, set `BASE_URL` or rely on `http://localhost:<port>` from `Host`.
 
 ## Prerequisites
 
 - Node.js 22+
 - A [Neon](https://neon.tech) database (free tier works)
 - An [Oura developer app](https://cloud.ouraring.com/oauth/applications) with:
-  - Redirect URI (dev): `http://localhost:8080/oauth/oura-callback`
-  - Redirect URI (prod): `https://<your-fly-app>.fly.dev/oauth/oura-callback` (must match the hostname users hit; e.g. if `fly.toml` has `app = "focus-oura-mcp"`, use `https://focus-oura-mcp.fly.dev/oauth/oura-callback`)
+  - Redirect URI (dev): `http://localhost:8080/oauth/upstream-callback`
+  - Redirect URI (prod): `https://<your-fly-app>.fly.dev/oauth/upstream-callback` (must match the hostname users hit; e.g. if `fly.toml` has `app = "focus-oura-mcp"`, use `https://focus-oura-mcp.fly.dev/oauth/upstream-callback`)
   - Scopes: daily, heartrate, personal
 - [Fly.io](https://fly.io) account (for deployment)
 
@@ -155,66 +153,40 @@ All tools take `start_date` (required, YYYY-MM-DD) and `end_date` (optional, def
 7. Client exchanges the code at `POST /oauth/token`.
 8. Authenticated `/mcp` requests use `Authorization: Bearer <mcp-token>`; the server resolves the user and registers Oura-backed tools for that session.
 
-## Wrapping an API endpoint with Habitat (this pattern)
+## Wrapping another API with `mcp-serve`
 
-This repo shows how to ship an **HTTP API** as **MCP tools** while using **Habitat** as the deployable shell.
+The `mcp-serve` library (`src/habitat/mcp-serve/`) provides the full HTTP server, OAuth 2.1 authorization server, MCP transport, and Neon Postgres store. To wrap a new API:
 
-### 1. Habitat work directory
+### 1. Implement `UpstreamOAuthProvider`
 
-Add a `habitat/` folder next to your server with at least:
+Create a class (like `OuraProvider`) that implements `buildAuthorizeUrl()`, `exchangeCode()`, and `refreshToken()` for your upstream service.
 
-- **`config.json`** — name/description of the “agent” or product.
-- **`stimulus.md`** (optional) — instructions for any future Umwelten `Interaction` / agent that shares this workspace.
-- **`secrets.json`** — created at runtime; the server can mirror env secrets into it via `habitat.setSecret` so Habitat-aware code reads one place.
+### 2. Implement `McpToolRegistrar`
 
-Boot once at process start:
+Write a function `(server, userId, getUpstreamToken) => Promise<void>` that registers MCP tools. Each tool calls `getUpstreamToken()` to get a valid access token, then fetches from your API.
+
+### 3. Wire it up
 
 ```ts
-const habitat = await Habitat.create({
-  workDir: pathToHabitatDir,
-  skipBuiltinTools: true, // MCP server: no session/file/search tool sets unless you want them
+import { createMcpServer, NeonStore } from 'umwelten/mcp-serve';
+
+const server = createMcpServer({
+  name: 'my-service-mcp',
+  upstream: myProvider,
+  registerTools: myToolRegistrar,
+  store: new NeonStore(DATABASE_URL),
 });
+server.listen(8080);
 ```
 
-Use **`skipBuiltinTools: true`** when the only tools you expose are your API wrappers on the MCP server (typical for a focused remote MCP).
-
-### 2. Per-user API credentials
-
-Whatever the API uses (OAuth refresh token, API key, etc.), persist it **keyed by your MCP user id** (here: `store.ts` + Neon). The MCP layer must never mix tokens between users.
-
-### 3. Register one MCP tool per API surface
-
-In **`oura-tool-set.ts`**, each tool:
-
-1. Defines a name, description, and **Zod** input schema (what the model passes in).
-2. In the handler, loads/refreshes the **user’s** API token, calls **`fetch`** (or your HTTP client) against the upstream REST path, maps query/body as needed.
-3. Returns MCP **`content`** (e.g. JSON as text) or **`isError: true`** on failure.
-
-That is the core of “wrapping” an endpoint: **MCP tool ↔ HTTP request to your vendor API**, with auth from your store.
-
-### 4. Wire tools into the MCP request path
-
-In **`mcp-handler.ts`**, after you verify the MCP Bearer token and know `userId`, create an `McpServer`, call **`registerOuraTools(...)`** (or your equivalent), then attach **`StreamableHTTPServerTransport`** and forward the HTTP request. Each authenticated session gets tools bound to that user.
-
-### 5. Optional: full Umwelten tool sets
-
-Inside a **full Habitat agent** (REPL, sub-agents, etc.), you would **`habitat.addToolSet(...)`** or **`registerCustomTools`** with Umwelten `ToolSet` objects. This **MCP-only** service instead registers tools directly on **`@modelcontextprotocol/sdk`’s `McpServer`**, which is simpler for a standalone Fly deployment. You can still use the same `habitat/` directory for config, stimulus, and secrets.
-
-### Checklist for another API (Twitter, Gmail, internal REST, …)
+### Checklist
 
 | Step | What to do |
 |------|------------|
-| Store | Table(s) for OAuth tokens or API keys keyed by MCP `user_id`. |
-| OAuth | Reuse this server’s MCP OAuth shell; add a second leg to your provider (like `authorize.ts` + callback for Oura). |
-| Tools | New `registerMyApiTools(server, userId, store, …)` with `fetch` to your base URL. |
-| Habitat | Keep `habitat/` for config + secrets; point `workDir` at it from `server.ts`. |
-| Deploy | Same Fly + Neon pattern; register redirect URIs on the provider for your production host. |
-
-## Making your own fork
-
-Generic pieces: **`server.ts`** (routing, `getPublicBaseUrl`), **`oauth/`**, **`store.ts`**, **`mcp-handler.ts`** (transport + auth gate).
-
-Replace **`registerOuraTools`** and the Oura-specific OAuth leg with your provider and a new `register…Tools` module.
+| Provider | Implement `UpstreamOAuthProvider` for your service's OAuth |
+| Tools | Write a `McpToolRegistrar` with `fetch` calls to your API |
+| DB | Run `store.setupTables()` once to create the schema |
+| Deploy | Same Fly + Neon pattern; register redirect URIs for `<host>/oauth/upstream-callback` |
 
 ## Environment variables
 
@@ -223,7 +195,7 @@ Replace **`registerOuraTools`** and the Oura-specific OAuth leg with your provid
 | `DATABASE_URL` | Neon Postgres connection string |
 | `OURA_CLIENT_ID` | From [Oura developer portal](https://cloud.ouraring.com/oauth/applications) |
 | `OURA_CLIENT_SECRET` | From Oura developer portal |
-| `BASE_URL` | Public origin for OAuth when **not** behind a proxy that sets `X-Forwarded-Proto` (local dev). On Fly, usually omitted; see `src/public-url.ts`. |
+| `BASE_URL` | Public origin for OAuth when **not** behind a proxy that sets `X-Forwarded-Proto` (local dev). On Fly, usually omitted. |
 | `TOKEN_SECRET` | Secret for hashing MCP tokens (`openssl rand -hex 32` in production) |
 | `PORT` | HTTP port (default `8080`; Fly sets `internal_port` in `fly.toml`) |
 
@@ -231,10 +203,8 @@ Replace **`registerOuraTools`** and the Oura-specific OAuth leg with your provid
 
 | Path | Role |
 |------|------|
-| `src/server.ts` | HTTP server, Habitat boot, OAuth + MCP routes |
-| `src/public-url.ts` | Public base URL for metadata and redirects |
-| `src/mcp-handler.ts` | MCP session, 401/HEAD handling, tool registration |
-| `src/oura-tool-set.ts` | Oura REST → MCP tools |
-| `src/oauth/*` | MCP authorization server |
-| `src/store.ts` | Neon persistence for clients, sessions, tokens |
+| `src/server.ts` | Entry point — creates the MCP server via `mcp-serve` library |
+| `src/oura-provider.ts` | `UpstreamOAuthProvider` for Oura Ring OAuth |
+| `src/oura-tool-set.ts` | `McpToolRegistrar` — Oura REST → MCP tools |
+| `src/db-setup.ts` | Creates DB tables via `NeonStore.setupTables()` |
 | `habitat/` | Habitat config, stimulus, secrets store |

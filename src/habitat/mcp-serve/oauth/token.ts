@@ -1,25 +1,26 @@
+/**
+ * Token endpoint — exchange MCP auth codes for access/refresh tokens.
+ * Handles both authorization_code and refresh_token grants.
+ */
+
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
-import type { Store } from '../store.js';
+import type { McpServeStore } from '../types.js';
 import { json } from './helpers.js';
 
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-function base64urlEncode(buffer: Buffer): string {
-  return buffer.toString('base64url');
-}
-
 function verifyPKCE(codeVerifier: string, codeChallenge: string): boolean {
-  const computed = base64urlEncode(createHash('sha256').update(codeVerifier).digest());
+  const computed = createHash('sha256').update(codeVerifier).digest('base64url');
   return computed === codeChallenge;
 }
 
 const ACCESS_TOKEN_TTL = 3600;
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60;
 
-async function issueTokens(store: Store, userId: string, clientId: string) {
+async function issueTokens(store: McpServeStore, userId: string, clientId: string) {
   const accessToken = randomUUID();
   const refreshToken = randomUUID();
 
@@ -30,7 +31,7 @@ async function issueTokens(store: Store, userId: string, clientId: string) {
   return { accessToken, refreshToken };
 }
 
-async function handleAuthorizationCode(store: Store, params: URLSearchParams, res: ServerResponse): Promise<void> {
+async function handleAuthorizationCode(store: McpServeStore, params: URLSearchParams, res: ServerResponse): Promise<void> {
   const code = params.get('code');
   const codeVerifier = params.get('code_verifier');
   const clientId = params.get('client_id');
@@ -79,7 +80,7 @@ async function handleAuthorizationCode(store: Store, params: URLSearchParams, re
   });
 }
 
-async function handleRefreshToken(store: Store, params: URLSearchParams, res: ServerResponse): Promise<void> {
+async function handleRefreshToken(store: McpServeStore, params: URLSearchParams, res: ServerResponse): Promise<void> {
   const refreshTokenRaw = params.get('refresh_token');
   const clientId = params.get('client_id');
 
@@ -113,10 +114,10 @@ async function handleRefreshToken(store: Store, params: URLSearchParams, res: Se
   });
 }
 
-export async function handleToken(store: Store, req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function handleToken(store: McpServeStore, req: IncomingMessage, res: ServerResponse): Promise<void> {
   const body = await new Promise<string>((resolve, reject) => {
     let data = '';
-    req.on('data', chunk => { data += chunk; });
+    req.on('data', (chunk: Buffer) => { data += chunk; });
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
