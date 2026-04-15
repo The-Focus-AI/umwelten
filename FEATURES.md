@@ -4,28 +4,170 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 
 ---
 
-## 1. Habitat — Agent Container
+## 1. Stimulus — Prompt Configuration
+
+The Stimulus defines *what* to say: persona, instructions, tools, model parameters. Pure config — doesn't run anything.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Stimulus class (role, objective, instructions, reasoning, output format) | ✅ | `new Stimulus({ role: '...' })` |
+| Model parameter config (temperature, maxTokens, topP, penalties) | ✅ | Set on Stimulus, applied at runtime |
+| Tool management on Stimulus (addTool, getTools) | ✅ | Tools are part of the prompt config |
+| Tool instructions | ✅ | Natural language instructions for tool usage |
+| Skills registry (load from directory, Git, or inline) | ✅ | `SkillsRegistry`, `loadSkillsFromDirectory`, `loadSkillsFromGit` |
+| Skill tool (LLM selects + loads a skill at runtime) | ✅ | `createSkillTool()` |
+| Runner type selection (`base` or `memory`) | ✅ | `memory` enables auto fact extraction |
+| System prompt generation from options | ✅ | Assembles system message from role + objective + instructions + context |
+| Pre-built analysis stimuli | ✅ | PDF parsing, image analysis, transcription analysis |
+| Pre-built creative stimuli | ✅ | Cat poems, Frankenstein, temperature tests |
+| Pre-built coding stimuli | ✅ | TypeScript debugging, Python |
+| **Stimulus export / import** | ❌ | No serialization format. Can't export a Stimulus config and import it in another habitat or share it. |
+| **Stimulus templates / inheritance** | ❌ | Can't extend a base Stimulus. No "this agent is like that agent but with extra tools." |
+
+## 2. Built-in Tools & Tool Loading
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| URL tools (wget, markify, parse_feed) | ✅ | Fetch URLs, HTML→markdown (Turndown or Markify service), RSS/Atom parsing |
+| PDF tools | ✅ | PDF content extraction |
+| Image tools | ✅ | Image analysis via LLM |
+| Audio tools | ✅ | Audio transcription |
+| TOOL.md + handler loader | ✅ | Work-dir tools: each subdir with TOOL.md becomes a Tool; supports handler.ts, handler.js, or script execution |
+| Factory-pattern tool handlers | ✅ | Handler can export a factory function receiving context |
+| Script tools | ✅ | `type: script` in TOOL.md → runs external script with args |
+| Math example tools | ✅ | Reference implementation |
+
+## 3. Cognition — Model Runners
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| BaseModelRunner | ✅ | `generateText`, `streamText`, `generateObject`, `streamObject` — wraps Vercel AI SDK |
+| SmartModelRunner (hooks) | ✅ | Before/during/after hooks for intercepting model calls |
+| MemoryRunner | ✅ | SmartModelRunner that auto-extracts facts after each response |
+| Rate limiting (per-model) | ✅ | Built into BaseModelRunner |
+| Cost tracking (per-call) | ✅ | Automatic cost calculation with `TokenUsage` and `CostBreakdown` |
+| Usage extraction | ✅ | Normalize input/output/total tokens across providers |
+| Step assembler | ✅ | Multi-step tool calling orchestration |
+| Message normalization | ✅ | Normalize messages across provider formats |
+| Per-user tracking (forwarded to OpenRouter/Anthropic) | ✅ | `interaction.userId` → provider-specific user analytics |
+| Reasoning effort control | ✅ | `none`, `low`, `medium`, `high` for thinking models |
+
+## 4. Interaction — Conversations
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Interaction class | ✅ | Messages + model + stimulus → `chat()`, `generateText()`, `streamText()`, `generateObject()` |
+| Multi-step tool calling | ✅ | `maxSteps` for iterative tool use |
+| Context compaction | ✅ | `compactContext()` with pluggable strategies |
+| Attachment handling | ✅ | Images, files → multimodal messages |
+| Normalized session format | ✅ | `NormalizedSession`, `NormalizedMessage` for cross-source compatibility |
+| Session adapters | ✅ | `ClaudeCodeAdapter`, `CursorAdapter` — read external IDE sessions |
+| Transcript persistence | ✅ | `onTranscriptUpdate` callback for JSONL writing |
+| Checkpoint / resume | ✅ | `checkpointMessageIndex` for compaction boundaries |
+
+## 5. Providers — LLM Backends
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Google (Gemini) | ✅ | Native thinking support |
+| OpenRouter | ✅ | Access to OpenAI, Anthropic, Meta, etc. |
+| Ollama (local) | ✅ | No API key needed |
+| LM Studio (local) | ✅ | REST API, no key needed |
+| GitHub Models | ✅ | Via GITHUB_TOKEN |
+| DeepInfra | ✅ | |
+| Together AI | ✅ | |
+| Fireworks | ✅ | |
+| MiniMax | ✅ | |
+| Nvidia | ✅ | |
+| Base provider abstraction | ✅ | `BaseProvider` with `listModels()` and `getLanguageModel()` |
+| Provider registry | ✅ | `getModel()`, `validateModel()`, `getModelProvider()` |
+| Model discovery and search | ✅ | `getAllModels()`, `searchModels()`, `findModelByIdAndProvider()` |
+| **Model fallback / retry across providers** | ❌ | If a provider is down, no automatic fallback to another |
+| **Spend caps / budget limits** | ❌ | Can track costs but can't enforce limits |
+
+## 6. Schema — Structured Output
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| DSL-to-Zod parser | ✅ | `parseDSLSchema()` — parse string DSL into Zod schemas |
+| Zod schema loader | ✅ | `loadZodSchema()`, `convertZodToSchema()` |
+| JSON Schema conversion | ✅ | `toJSONSchema()` |
+| Schema validator | ✅ | `validateSchema()`, `createValidator()`, `coerceData()` |
+| Schema manager (singleton) | ✅ | `SchemaManager` for managing schema lifecycle |
+
+## 7. URL & HTML Utilities
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| URL fetching with limits | ✅ | `fetchUrl()` with timeout and size limits |
+| HTML → Markdown (Turndown) | ✅ | `fromHtmlBuiltIn()` |
+| HTML → Markdown (Markify service) | ✅ | `fromHtmlViaMarkify()` — optional external service |
+| URL → Markdown pipeline | ✅ | `urlToMarkdown()` — fetch + convert |
+| RSS/Atom feed parsing | ✅ | `parseFeed()` |
+
+## 8. Habitat — Agent Container
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Work directory with config.json | ✅ | |
 | Agent secrets (secrets.json, 0600 perms) | ✅ | Plain JSON, no encryption at rest |
-| Tool registration via ToolSet interface | ✅ | |
+| Tool registration via ToolSet interface | ✅ | 10 standard tool sets registered by default |
 | Work-dir tools (TOOL.md + handler files) | ✅ | |
 | Skills from directory or Git repos | ✅ | |
-| Self-modify tools (create/remove tools at runtime) | ✅ | |
-| Stimulus from work dir files (STIMULUS.md, README, etc.) | ✅ | |
+| Self-modify tools (create/remove/reload tools at runtime) | ✅ | |
+| Stimulus from work dir files (STIMULUS.md, README, CLAUDE.md) | ✅ | |
+| Memory files loading into stimulus context | ✅ | `memoryFiles` config with journal support |
 | Sub-agents (managed projects with agent CRUD) | ✅ | |
-| Bridge system (Dagger containers for sub-agents) | ✅ | |
 | Agent discovery (MCP health monitoring) | ✅ | |
 | Onboarding wizard | ✅ | |
+| Gaia HTTP server (JSON API + chat) | ✅ | Sessions, beats, commands, chat endpoints |
+| Session management (create, list, resume, metadata) | ✅ | Per-type (CLI, Discord, Telegram, web, API) |
+| Interaction factory | ✅ | `createInteraction()` with auto-session and transcript persistence |
+| Ephemeral agent interactions | ✅ | `createAgentInteraction()` for diagnosis/monitor agents |
+| Work dir file management | ✅ | `readWorkDirFile()`, `writeWorkDirFile()`, state files |
+
+### Habitat Tool Sets
+
+| Tool Set | Tools | Notes |
+|----------|-------|-------|
+| File operations | read_file, write_file, list_directory, ripgrep | Sandboxed to allowed roots |
+| Time | current_time | |
+| URL operations | wget, markify, parse_feed | |
+| Agent management | list/add/update/remove agents | |
+| Session management | list/show/messages/stats/inspect/read_file, learnings, transcript compact | |
+| External interactions | Read Claude Code/Cursor history | |
+| Agent runner | agent_clone, agent_logs, agent_status, agent_ask, bridge_diagnose, bridge_monitor | |
+| Secrets | set/remove/list secrets | |
+| Search | Web search via Tavily | Needs TAVILY_API_KEY |
+| Self-modify | create/remove/reload tools and skills at runtime | |
+| Discord routing | Channel → agent binding tools | |
+
+### Habitat Bridge (Containerized Sub-Agents)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| BridgeAgent (containerized execution via Dagger) | ✅ | |
+| BridgeSupervisor (lifecycle management) | ✅ | |
+| MCP SDK server/client (StreamableHTTP transport) | ✅ | |
+| Go MCP server implementation | ✅ | Alternative server for bridges |
+| LLM-driven diagnosis agent | ✅ | Read-only project inspection and provisioning detection |
+| LLM-driven monitor agent | ✅ | Container health monitoring |
+| Persistent logging | ✅ | |
+| Secret injection into containers | ✅ | |
+| Port pool management | ✅ | Auto-assigned MCP ports |
+| Bridge state persistence | ✅ | `BridgeState` saved/loaded per agent |
+
+### Habitat Gaps
+
+| Feature | Status | Notes |
+|---------|--------|-------|
 | **Per-user credentials on Habitat** | ❌ | mcp-serve has per-user upstream tokens, but core Habitat only has agent-level secrets. Discord user can't store their own Twitter tokens on the habitat. |
 | **Stimulus sharing between habitats** | ❌ | No way to export/import a stimulus config. Agent A can't adopt agent B's personality or tool config. |
 | **Secrets encryption at rest** | ❌ | secrets.json is plaintext. Fine for local dev, not for hosted prod. |
 | **Secret scoping (global / habitat / user)** | ❌ | All secrets are habitat-scoped. No user-level or global-level. |
 | **Config validation / `habitat doctor`** | ❌ | No schema validation, env var checks, or diagnostic command. |
 
-## 2. Multi-Platform Interfaces
+## 9. Multi-Platform Interfaces
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -43,12 +185,16 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 | **Consistent multimodal output** | 🔶 | Input attachments work (images, files). Output is text-only across all adapters — no image/audio generation or rich formatting. |
 | **Platform capability negotiation** | ❌ | Bridge doesn't know what each platform supports (message length, embeds, reactions, etc.) |
 
-## 3. MCP (Model Context Protocol)
+## 10. MCP (Model Context Protocol)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Remote MCP client with OAuth PKCE | ✅ | `RemoteMcpClient` with file-backed token storage |
-| `mcp chat` CLI (connect + REPL or one-shot) | ✅ | |
+| Remote MCP client with OAuth PKCE | ✅ | `RemoteMcpClient` with file-backed token storage at `~/.umwelten/mcp-auth/` |
+| MCP client (custom protocol) | ✅ | Low-level `MCPClient` for stdio/HTTP transports |
+| MCP server (expose umwelten as tool provider) | ✅ | |
+| MCP → Stimulus bridge | ✅ | Load MCP tools into a Stimulus, convert MCP tools to Vercel AI SDK tools |
+| `mcp chat` CLI (connect + REPL or one-shot) | ✅ | With `--logout` for credential reset |
+| `mcp connect` and `mcp test-tool` CLI | ✅ | |
 | **mcp-serve library** | ✅ | Generic "upstream OAuth → hosted MCP server" toolkit |
 | `NeonStore` for Postgres persistence | ✅ | |
 | `UpstreamOAuthProvider` interface | ✅ | Implement for any OAuth service |
@@ -62,7 +208,7 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 | **Token revocation endpoint** | ❌ | MCP tokens can't be explicitly revoked by the user. |
 | **Skill → hosted MCP packaging flow** | ❌ | mcp-serve is a library you code against. Missing: skill manifest format, declare required auth/scopes, publish/deploy workflow. |
 
-## 4. Identity & Access Control
+## 11. Identity & Access Control
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -75,7 +221,7 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 | **Role-based access control** | ❌ | No admin vs user vs readonly roles. |
 | **Data lifecycle / privacy controls** | ❌ | No delete-my-data, no transcript retention rules, no export-my-data, no redaction. |
 
-## 5. Memory
+## 12. Memory
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -89,7 +235,7 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 | **Cross-session memory** | ❌ | Each `Interaction` creates a fresh `InMemoryMemoryStore`. No sharing between sessions or conversations. |
 | **Memory search / relevance** | ❌ | No semantic search over stored facts. No "retrieve the 5 most relevant facts for this conversation." |
 
-## 6. Session Understanding & Knowledge Extraction
+## 13. Session Understanding & Knowledge Extraction
 
 This is one of the most developed areas — a full pipeline for understanding what happened in conversations and extracting reusable knowledge.
 
@@ -157,37 +303,51 @@ This is one of the most developed areas — a full pipeline for understanding wh
 | **Automatic digest on session end** | ❌ | Digest is manual (`sessions digest`). Not triggered automatically when a conversation ends. |
 | **Learning deduplication / consolidation** | ❌ | Learnings accumulate forever. No merging of duplicate facts, no periodic consolidation. |
 
-## 7. Model & Provider Support
+## 14. Reporting
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| 9 providers (Google, OpenRouter, Ollama, LM Studio, GitHub, DeepInfra, Together AI, Fireworks, MiniMax) | ✅ | |
-| Model discovery and search | ✅ | |
-| Cost tracking (per-call, per-session) | ✅ | |
-| Rate limiting (per-model) | ✅ | |
-| Per-user cost tracking (forwarded to providers) | ✅ | OpenRouter + Anthropic |
-| Native thinking (Gemini) | ✅ | |
-| Tool calling | ✅ | |
-| Structured output (Zod schemas) | ✅ | |
-| Streaming | ✅ | |
-| **Observability dashboard** | ❌ | Cost data exists in pieces but no unified view, no alerts, no per-user usage breakdown. |
-| **Model fallback / retry across providers** | ❌ | If a provider is down, no automatic fallback to another. |
-| **Spend caps / budget limits** | ❌ | Can track costs but can't enforce limits. |
+| Unified Reporter class | ✅ | `Reporter` with `fromToolTest()`, `toConsole()`, `toMarkdown()`, `toHtml()`, `toJson()` |
+| Console renderer | ✅ | Formatted terminal output |
+| Markdown renderer | ✅ | Structured markdown reports |
+| HTML renderer | ✅ | |
+| JSON renderer | ✅ | |
+| Report types | ✅ | `tool-test`, `code-generation`, `evaluation`, `batch`, `suite` |
+| Narrative reports (prose writeup) | ✅ | Full methodology + analysis + cost/speed breakdown for eval combines |
+| Report adapters | ✅ | Adapt different result types to unified `Report` format |
 
-## 8. Evaluation
+## 15. Evaluation
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| EvalSuite (declarative eval runner) | ✅ | VerifyTask + JudgeTask |
-| PairwiseRanker (Elo via LLM judge) | ✅ | Swiss tournament + round-robin |
-| Suite combine (multi-dimension leaderboard) | ✅ | |
-| Result caching (response + score) | ✅ | |
-| Multiple report formats (console, md, json, narrative) | ✅ | |
-| Dagger-based code execution for evals | ✅ | |
-| CLI commands (eval run, eval report, eval combine) | ✅ | |
+| EvalSuite (declarative eval runner) | ✅ | VerifyTask (deterministic) + JudgeTask (LLM judge with Zod schema) |
+| PairwiseRanker (Elo via LLM judge) | ✅ | Swiss tournament + round-robin, position bias mitigation, comparison caching |
+| Suite combine (multi-dimension leaderboard) | ✅ | Aggregate independent evals into unified report |
+| Lower-level strategies | ✅ | `SimpleEvaluation`, `MatrixEvaluation` (placeholder cartesian product), `BatchEvaluation` (N items × N models) |
+| Result caching (two layers) | ✅ | Response cache (raw LLM output) + result cache (scored output) |
+| Multiple report formats | ✅ | Console, markdown, JSON, narrative (full prose) |
+| Dagger-based code execution | ✅ | TypeScript, Python, Ruby, Rust, Go in isolated containers |
+| Codebase evaluation | ✅ | `ContextProvider`, `ChangeExtractor`, `ChangeApplicator` for code-aware evals |
+| CLI commands | ✅ | `eval run`, `eval report`, `eval list`, `eval combine` |
+| Concurrency control | ✅ | `--concurrent` flag, configurable concurrency |
 | **Tool/skill contract tests** | ❌ | Evaluations test LLM responses, but no first-class framework for testing tool implementations, MCP server endpoints, or OAuth flows. |
 
-## 9. Background & Automation
+## 16. CLI
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `models` — list/search across providers | ✅ | `--search`, `--provider`, `--json` |
+| `run` — one-shot prompt | ✅ | |
+| `chat` — interactive REPL | ✅ | |
+| `eval` — evaluation suite | ✅ | `run`, `report`, `list`, `combine` subcommands |
+| `sessions` — session management | ✅ | `list`, `index`, `search`, `browse`, `digest` |
+| `habitat` — agent REPL + interfaces | ✅ | Launches REPL, telegram, discord, web |
+| `mcp` — remote MCP client | ✅ | `chat`, `connect`, `test-tool` |
+| `telegram` — standalone Telegram bot | ✅ | |
+| `tools` — list available tools | ✅ | |
+| Common options | ✅ | `--provider`, `--model`, `--temperature`, etc. shared across commands |
+
+## 17. Background & Automation
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -196,7 +356,7 @@ This is one of the most developed areas — a full pipeline for understanding wh
 | **Background job runtime** | ❌ | No job queue, retries, idempotency, or failure handling. |
 | **Inter-habitat communication** | 🔶 | Sub-agents exist, bridge delegates via MCP. But no direct tool-to-tool calls between habitats, no pub/sub. |
 
-## 10. Developer Experience
+## 18. Developer Experience
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -210,6 +370,23 @@ This is one of the most developed areas — a full pipeline for understanding wh
 | **Skill manifest format** | ❌ | SKILL.md is human-readable but not machine-parseable. No declarative way to say "this skill needs these env vars, these OAuth scopes, these tools." |
 | **MCP server smoke/integration tests** | ❌ | No test harness for verifying a hosted MCP server works end-to-end (OAuth flow, tool calls, token refresh). |
 | **Safety / approval model for dangerous tools** | ❌ | No dangerous-tool classification, no approval hooks, no outbound network restrictions, no filesystem boundaries beyond `allowedRoots`. |
+| **Observability dashboard** | ❌ | Cost data exists in pieces but no unified view, no alerts, no per-user usage breakdown. |
+
+## 19. Examples
+
+| Example | Status | Notes |
+|---------|--------|-------|
+| `examples/evals/` | ✅ | EvalSuite examples: reasoning (LLM judge), instruction (deterministic), car-wash |
+| `examples/model-showdown/` | ✅ | 5-dimension eval suite + combine + reports |
+| `examples/oura-mcp/` | ✅ | Multi-user Oura Ring MCP server (mcp-serve + Neon + fly.io) |
+| `examples/twitter-mcp/` | ✅ | Multi-user Twitter MCP server (mcp-serve + Neon + fly.io) |
+| `examples/habitat-minimal/` | ✅ | Smallest Habitat work-dir layout |
+| `examples/jeeves-bot/` | ✅ | Discord/Telegram bot example |
+| `examples/mcp-chat/` | ✅ | PairwiseRanker + MCP tool-use responses |
+| `examples/memorization/` | ✅ | Memory extraction demo |
+| `examples/provider-comparison/` | ✅ | Multi-provider comparison |
+| `examples/schemas/` | ✅ | Structured output examples |
+| `examples/gaia-ui/` | ✅ | Gaia web interface |
 
 ---
 
