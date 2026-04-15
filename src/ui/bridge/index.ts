@@ -24,3 +24,6 @@ export {
   setChannelRoute,
   coerceChannelBinding,
 } from './routing.js';
+
+// Re-export for convenience — adapters can import from bridge/
+export type { ClaudeSDKResult } from '../../habitat/claude-sdk-runner.js';

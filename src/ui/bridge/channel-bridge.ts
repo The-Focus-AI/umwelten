@@ -19,12 +19,14 @@ import { Interaction } from '../../interaction/core/interaction.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
 import { writeSessionTranscript } from '../../habitat/transcript.js';
 import { loadRecentHabitatTranscriptCoreMessages } from '../../session-record/habitat-transcript-load.js';
-import { resolveChannelRoute, loadRouting, routeSignature } from './routing.js';
+import { runClaudeSDK } from '../../habitat/claude-sdk-runner.js';
+import { resolveChannelRoute, loadRouting, routeSignature, setChannelRoute } from './routing.js';
 import type {
   ChannelMessage,
   BridgeEventHandlers,
   BridgeResult,
   ChannelBridgeOptions,
+  ChannelRuntimeMode,
   RouteResolution,
 } from './types.js';
 
@@ -62,12 +64,21 @@ export class ChannelBridge {
    * The ONE method every adapter calls.
    * Resolves routing, gets or creates an Interaction, streams the LLM,
    * persists the transcript, and emits events to the adapter.
+   *
+   * When the route resolves to `runtime: claude-sdk`, the message is
+   * forwarded to the Claude Agent SDK instead of the normal LLM flow.
    */
   async handleMessage(
     msg: ChannelMessage,
     events: BridgeEventHandlers,
   ): Promise<void> {
     try {
+      // Check if this channel routes to claude-sdk
+      const route = await this.resolveRoute(msg.channelKey, msg.parentChannelKey);
+      if (route.kind === 'agent' && route.runtime === 'claude-sdk') {
+        return await this.handleClaudeSdk(msg, route.agentId, events);
+      }
+
       const entry = await this.getOrCreateEntry(msg);
       const { interaction, sessionId, sessionDir } = entry;
 
@@ -187,6 +198,97 @@ export class ChannelBridge {
   ): Promise<RouteResolution> {
     const routing = await loadRouting(this.habitat.workDir, this.routingPath);
     return resolveChannelRoute(channelKey, routing, parentChannelKey);
+  }
+
+  /**
+   * Switch a channel to a specific agent (or back to main).
+   * Updates routing.json, invalidates the cached interaction, and returns the new route.
+   *
+   * Pass `null` to switch back to the main habitat persona.
+   */
+  async switchAgent(
+    channelKey: string,
+    agentId: string | null,
+    runtime?: ChannelRuntimeMode,
+  ): Promise<RouteResolution> {
+    await setChannelRoute(
+      this.habitat.workDir,
+      channelKey,
+      agentId,
+      this.routingPath,
+      runtime ? { runtime } : undefined,
+    );
+    // Invalidate cached interaction so next message picks up the new route
+    this.cache.delete(channelKey);
+    // Return the new resolution
+    return this.resolveRoute(channelKey);
+  }
+
+  /** List available agents from the habitat config. */
+  listAgents(): Array<{ id: string; name: string }> {
+    return this.habitat.getAgents().map(a => ({ id: a.id, name: a.name }));
+  }
+
+  // ── Claude SDK pass-through ────────────────────────────────────────
+
+  /**
+   * Handle a message via Claude Agent SDK.
+   * Spawns a Claude Code subprocess with full tools against the agent's project.
+   */
+  private async handleClaudeSdk(
+    msg: ChannelMessage,
+    agentId: string,
+    events: BridgeEventHandlers,
+  ): Promise<void> {
+    const agent = this.habitat.getAgent(agentId);
+    if (!agent) {
+      const err = `Agent "${agentId}" not found for Claude SDK pass-through`;
+      if (events.onError) events.onError(err);
+      else console.error(`[ChannelBridge] ${err}`);
+      return;
+    }
+
+    try {
+      // Create session on disk for transcript
+      const platform = msg.channelKey.slice(0, msg.channelKey.indexOf(':')) || 'web';
+      const identifier = msg.channelKey.slice(msg.channelKey.indexOf(':') + 1);
+      const session = await this.habitat.getOrCreateSession(platform as any, identifier);
+
+      const result = await runClaudeSDK(msg.text, {
+        cwd: agent.projectPath,
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        maxTurns: 25,
+      });
+
+      const content = result.content;
+
+      // Write a minimal transcript (user + assistant)
+      await writeSessionTranscript(session.sessionDir, [
+        { role: 'user', content: msg.text },
+        { role: 'assistant', content: content || '(no text)' },
+      ]);
+
+      if (!result.success && events.onError) {
+        const hint = result.errors.length > 0
+          ? result.errors.join('; ')
+          : 'Claude SDK returned no content';
+        events.onError(`Claude SDK pass-through: ${hint}. Check ANTHROPIC_API_KEY.`);
+        return;
+      }
+
+      await events.onDone({
+        content,
+        sessionId: session.sessionId,
+        channelKey: msg.channelKey,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (events.onError) {
+        events.onError(`Claude SDK pass-through failed: ${message}`);
+      } else {
+        console.error(`[ChannelBridge] Claude SDK error for ${msg.channelKey}:`, err);
+      }
+    }
   }
 
   // ── Internals ──────────────────────────────────────────────────────

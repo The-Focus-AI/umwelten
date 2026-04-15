@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import { tmpdir } from 'node:os';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   resolveChannelRoute,
   routeSignature,
   coerceChannelBinding,
+  setChannelRoute,
+  loadRouting,
 } from './routing.js';
 import type { RoutingConfig } from './types.js';
 
@@ -108,6 +113,33 @@ describe('routing', () => {
     it('includes runtime in signature', () => {
       expect(routeSignature({ kind: 'agent', agentId: 'ops', runtime: 'claude-sdk' }))
         .toBe('agent:ops:claude-sdk');
+    });
+  });
+
+  describe('setChannelRoute', () => {
+    it('creates routing.json and sets a binding', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'routing-test-'));
+      await setChannelRoute(dir, 'discord:123', 'ops');
+      const routing = await loadRouting(dir);
+      const res = resolveChannelRoute('discord:123', routing);
+      expect(res).toEqual({ kind: 'agent', agentId: 'ops', runtime: 'default' });
+    });
+
+    it('sets a binding with claude-sdk runtime', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'routing-test-'));
+      await setChannelRoute(dir, 'web:abc', 'coding', undefined, { runtime: 'claude-sdk' });
+      const routing = await loadRouting(dir);
+      const res = resolveChannelRoute('web:abc', routing);
+      expect(res).toEqual({ kind: 'agent', agentId: 'coding', runtime: 'claude-sdk' });
+    });
+
+    it('removes a binding with null', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'routing-test-'));
+      await setChannelRoute(dir, 'telegram:456', 'ops');
+      await setChannelRoute(dir, 'telegram:456', null);
+      const routing = await loadRouting(dir);
+      const res = resolveChannelRoute('telegram:456', routing);
+      expect(res).toEqual({ kind: 'main' });
     });
   });
 });
