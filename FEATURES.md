@@ -89,20 +89,73 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 | **Cross-session memory** | ❌ | Each `Interaction` creates a fresh `InMemoryMemoryStore`. No sharing between sessions or conversations. |
 | **Memory search / relevance** | ❌ | No semantic search over stored facts. No "retrieve the 5 most relevant facts for this conversation." |
 
-## 6. Sessions & Conversations
+## 6. Session Understanding & Knowledge Extraction
+
+This is one of the most developed areas — a full pipeline for understanding what happened in conversations and extracting reusable knowledge.
+
+### Session Persistence & Structure
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Session persistence (JSONL transcripts) | ✅ | |
+| JSONL transcript persistence | ✅ | Append-only, per-session |
 | Session metadata (provider, model, type, agent) | ✅ | |
-| Session analysis / digest | ✅ | Topics, learnings, conversation beats |
-| Session search (semantic via LLM indexing) | ✅ | |
-| External session adapters (Claude Code, Cursor) | ✅ | |
-| Context compaction (summarize long conversations) | ✅ | Pluggable strategies |
-| Token estimation | ✅ | |
-| Session introspection tools | ✅ | |
-| **Multi-instance session safety** | ❌ | Sessions assume single-process, local disk. No distributed locks, no session ownership. Multiple workers writing to the same session would corrupt it. |
-| **Session transfer between platforms** | ❌ | Can't continue a Discord conversation on Telegram or web. |
+| Conversation beats (user turn + tools + response) | ✅ | `messagesToBeats()` groups messages into logical turns |
+| External session reading (Claude Code, Cursor) | ✅ | `ClaudeCodeAdapter`, `CursorAdapter` — reads their JSONL history |
+| Transcript resume on restart | ✅ | Reload last N message pairs when process restarts |
+| Segmented transcripts | ✅ | Compaction creates frozen segments + live segment |
+
+### Session Analysis (LLM-powered)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Session analysis via LLM | ✅ | Extracts: topics, tags, key learnings, summary, solution type, code languages, tools used, success indicators |
+| Analysis index (per-project) | ✅ | `SessionAnalysisIndex` — cached analysis results, incremental re-indexing |
+| Session search (keyword + field filters) | ✅ | Filter by tags, topic, tool, solutionType, branch, success |
+| Cross-project search | ✅ | Discover + search across all Claude Code/Cursor project directories |
+
+### Session Digest (Deep Understanding)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Session digester | ✅ | Full pipeline: compaction → analysis → fact extraction → beat analysis → phase detection |
+| Beat-by-beat breakdown | ✅ | Per-beat: userRequest, toolsUsed, outcome, narrative, keyFacts |
+| Phase detection | ✅ | Groups beats into conversation phases with themes |
+| Digest segments (compacted) | ✅ | Through-line + key facts per segment |
+| Overall summary generation | ✅ | Merged summary across all segments |
+| Structured fact extraction | ✅ | Typed facts from digest pipeline |
+| Session metrics | ✅ | Message count, segment count, tool call count, estimated cost, duration |
+| Digest index (master, cross-project) | ✅ | `DigestIndex` with lightweight entries for browsing |
+
+### Learnings System (Persistent Knowledge)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| FileLearningsStore | ✅ | Append-only JSONL per kind, per session |
+| Learning kinds | ✅ | `facts`, `playbooks`, `preferences`, `open_loops`, `mistakes` |
+| Learning provenance tracking | ✅ | Links back to session, channel, compaction run |
+| Context merge (inject learnings into new sessions) | ✅ | `buildHabitatIntrospectionContextMessages()` — prepends compaction summaries + serialized learnings |
+| Compaction events | ✅ | `CompactionEventV1` — marker in transcript when compaction occurs |
+| Session-level learnings CLI | ✅ | `sessions digest` subcommands |
+
+### Context Management
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Context compaction | ✅ | Pluggable `CompactionStrategy` interface |
+| Token estimation | ✅ | `estimateContextSize()` |
+| Compaction segment detection | ✅ | `getCompactionSegment()` — find which messages to compact |
+| Strategy registry | ✅ | `registerCompactionStrategy()` / `getCompactionStrategy()` |
+
+### Gaps
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Cross-session learning injection** | 🔶 | `buildHabitatIntrospectionContextMessages()` can inject learnings from the *same session's* learnings store, but there's no automatic "pull relevant learnings from *all* past sessions" into a new conversation. |
+| **Semantic search over learnings** | ❌ | Learnings are stored but can only be loaded in bulk, not searched by relevance. No embedding-based retrieval. |
+| **Cross-platform session continuity** | ❌ | Can't continue a Discord conversation on Telegram or web. Sessions are channel-scoped. |
+| **Multi-instance session safety** | ❌ | Sessions assume single-process, local disk. No distributed locks. Multiple workers writing to the same session would corrupt it. |
+| **Automatic digest on session end** | ❌ | Digest is manual (`sessions digest`). Not triggered automatically when a conversation ends. |
+| **Learning deduplication / consolidation** | ❌ | Learnings accumulate forever. No merging of duplicate facts, no periodic consolidation. |
 
 ## 7. Model & Provider Support
 
