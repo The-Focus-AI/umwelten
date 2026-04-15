@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Umwelten: A Comprehensive Overview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;500;600;700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;0,8..60,900;1,8..60,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-paper: #f3f2ea;
+      --color-void: #1a1a1a;
+      --color-rand-blue: #0055aa;
+      --color-alert-red: #d93025;
+      --color-surface: #e6e4dc;
+      --color-border: rgba(26, 26, 26, 0.2);
+      --font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --font-mono: 'Courier Prime', monospace;
+    }
+
+    @page {
+      size: letter;
+      margin: 0.75in 0.75in 1in 0.75in;
+      background: var(--color-paper);
+      @top-left {
+        content: "THEFOCUS.AI LABS";
+        font-family: 'Inter', sans-serif;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        color: #d93025;
+        vertical-align: bottom;
+        padding-bottom: 8px;
+      }
+      @top-right {
+        content: counter(page, decimal-leading-zero);
+        font-family: 'Courier Prime', monospace;
+        font-size: 10px;
+        color: rgba(26, 26, 26, 0.5);
+        vertical-align: bottom;
+        padding-bottom: 8px;
+      }
+    }
+
+    @page cover { @top-left { content: none; } @top-right { content: none; } }
+    @page :first { @top-left { content: none; } @top-right { content: none; } }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+    body {
+      font-family: var(--font-sans);
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--color-void);
+      background: var(--color-paper);
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+      counter-reset: h2-counter;
+    }
+
+    .cover {
+      page: cover;
+      break-after: page;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem 0;
+    }
+
+    .cover .brand-mark {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--color-alert-red);
+      margin-bottom: 3rem;
+    }
+
+    .cover h1 {
+      font-family: var(--font-display);
+      font-size: 52px;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      color: var(--color-void);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .cover h1::before { content: none; }
+
+    .cover .subtitle {
+      font-family: var(--font-sans);
+      font-size: 17px;
+      font-weight: 500;
+      line-height: 1.4;
+      color: rgba(26, 26, 26, 0.7);
+      margin-bottom: 3rem;
+      max-width: 500px;
+    }
+
+    .cover .cover-rule { width: 60px; height: 3px; background: var(--color-void); margin-bottom: 2rem; }
+
+    .cover .cover-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(26, 26, 26, 0.6);
+      line-height: 1.8;
+    }
+
+    .cover .cover-meta strong {
+      font-weight: 700; color: var(--color-void);
+      text-transform: uppercase; letter-spacing: 0.15em; font-size: 10px;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: 32px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.0;
+      color: var(--color-void); margin-bottom: 1rem; padding-bottom: 1rem;
+      border-bottom: 2px solid var(--color-void);
+    }
+
+    h2 {
+      font-family: var(--font-sans);
+      font-size: 18px; font-weight: 900; text-transform: uppercase;
+      letter-spacing: 0.05em; line-height: 1.2; color: var(--color-void);
+      margin-top: 0; margin-bottom: 0.6rem; padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--color-void);
+      break-before: page; break-after: avoid;
+    }
+
+    .cover + h2, .cover + .stat-grid + h2, body > h2:first-child, .no-break-before { break-before: auto; }
+
+    h2::before {
+      content: counter(h2-counter, decimal-leading-zero) " ";
+      counter-increment: h2-counter;
+      color: var(--color-alert-red);
+      font-family: var(--font-mono); font-size: 0.7em; font-weight: 400; margin-right: 0.5rem;
+    }
+
+    h3 {
+      font-family: var(--font-sans);
+      font-size: 15px; font-weight: 700; line-height: 1.3;
+      color: var(--color-void); margin-top: 1.2rem; margin-bottom: 0.4rem;
+      break-after: avoid;
+    }
+
+    p { margin-bottom: 0.6rem; orphans: 3; widows: 3; }
+
+    .lead {
+      font-size: 15px; font-weight: 500; line-height: 1.5;
+      border-left: 4px solid var(--color-alert-red);
+      padding-left: 1.25rem; margin-bottom: 1.2rem;
+    }
+
+    a { color: var(--color-rand-blue); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+    ul, ol { margin-bottom: 0.6rem; padding-left: 1.4rem; }
+    li { margin-bottom: 0.2rem; }
+    li::marker { color: var(--color-alert-red); font-family: var(--font-mono); font-weight: 700; }
+
+    code {
+      font-family: var(--font-mono); font-size: 0.88em;
+      background: var(--color-surface); padding: 0.1em 0.3em;
+      border: 1px solid rgba(26, 26, 26, 0.15);
+    }
+
+    strong { font-weight: 700; }
+    em { font-style: italic; }
+
+    .stat-number { font-family: var(--font-display); font-size: 48px; font-weight: 900; line-height: 1; color: var(--color-void); margin-bottom: 0.25rem; }
+    .stat-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--color-alert-red); }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin: 1.5rem 0; break-inside: avoid; }
+    .stat-grid > div { text-align: center; padding: 1.25rem; }
+
+    .callout-key {
+      background: var(--color-void); color: var(--color-paper);
+      padding: 1rem 1.25rem; margin: 1rem 0; break-inside: avoid;
+      font-size: 13px;
+    }
+    .callout-key p:last-child { margin-bottom: 0; }
+    .callout-key strong { color: var(--color-paper); }
+
+    .card-accent {
+      background: white; border: 1px solid var(--color-void);
+      border-left: 4px solid var(--color-alert-red);
+      padding: 1rem 1.25rem; break-inside: avoid; margin: 0.75rem 0;
+      font-size: 13px;
+    }
+
+    .card-light {
+      background: white; border: 1px solid var(--color-void);
+      border-left: 4px solid var(--color-rand-blue);
+      padding: 1rem 1.25rem; break-inside: avoid; margin: 0.75rem 0;
+      font-size: 13px;
+    }
+
+    .section { break-inside: avoid; }
+    .page-break { break-before: page; }
+    .keep-together { break-inside: avoid; }
+
+    .doc-footer {
+      margin-top: 3rem; padding-top: 0.75rem;
+      border-top: 2px solid var(--color-void);
+      font-family: var(--font-mono); font-size: 10px;
+      color: rgba(26, 26, 26, 0.5); text-align: center;
+      text-transform: uppercase; letter-spacing: 0.2em;
+    }
+
+    .feature-list { list-style: none; padding-left: 0; margin-bottom: 0.6rem; }
+    .feature-list li { padding-left: 1.8rem; text-indent: -1.8rem; margin-bottom: 0.2rem; }
+    .feature-list li::marker { content: none; }
+
+    .gap-list { list-style: none; padding-left: 0; margin-bottom: 0.6rem; }
+    .gap-list li { padding-left: 1.8rem; text-indent: -1.8rem; margin-bottom: 0.25rem; color: rgba(26,26,26,0.75); }
+    .gap-list li::marker { content: none; }
+
+    .part-divider {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--color-alert-red);
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.25rem;
+      border-bottom: 2px solid var(--color-alert-red);
+      break-before: page;
+    }
+
+    .part-divider.first { break-before: auto; }
+
+    img { break-inside: avoid; max-width: 100%; }
+    ul, ol { break-inside: avoid; }
+
+    hr { margin: 1.5rem 0; border: none; border-top: 1px solid var(--color-border); }
+
+    /* Module size table */
+    .module-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 0.75rem 0; break-inside: avoid; }
+    .module-table th {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--color-alert-red); text-align: left;
+      padding: 0.3rem 0.5rem; border-bottom: 2px solid var(--color-void);
+    }
+    .module-table th:nth-child(n+2) { text-align: right; }
+    .module-table td { padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--color-border); }
+    .module-table td:nth-child(n+2) { text-align: right; font-family: var(--font-mono); font-size: 11px; }
+    .module-table tr:last-child td { border-bottom: 2px solid var(--color-void); font-weight: 700; }
+
+    /* Bar chart for module sizes */
+    .bar-row { display: flex; align-items: center; margin-bottom: 0.2rem; }
+    .bar-label { width: 100px; font-family: var(--font-mono); font-size: 10px; text-align: right; padding-right: 0.5rem; flex-shrink: 0; }
+    .bar-track { flex: 1; height: 14px; background: var(--color-surface); position: relative; }
+    .bar-fill { height: 100%; background: var(--color-void); position: absolute; left: 0; top: 0; }
+    .bar-fill.test { background: var(--color-alert-red); opacity: 0.5; }
+    .bar-value { font-family: var(--font-mono); font-size: 10px; padding-left: 0.4rem; width: 50px; flex-shrink: 0; color: rgba(26,26,26,0.6); }
+
+    /* Timeline */
+    .timeline { position: relative; margin: 1rem 0 1.5rem 0; break-inside: avoid; }
+    .timeline-track { width: 100%; height: 3px; background: var(--color-border); position: relative; margin-bottom: 1.5rem; }
+    .timeline-mark {
+      position: absolute; top: -3px; width: 9px; height: 9px;
+      border-radius: 50%; background: var(--color-void); border: 2px solid var(--color-paper);
+    }
+    .timeline-label {
+      position: absolute; top: 12px;
+      font-family: var(--font-mono); font-size: 8px; color: rgba(26,26,26,0.6);
+      white-space: nowrap; transform: rotate(-45deg); transform-origin: top left;
+    }
+    .timeline-date {
+      position: absolute; top: -16px;
+      font-family: var(--font-mono); font-size: 7px; color: rgba(26,26,26,0.5);
+      white-space: nowrap;
+    }
+
+    /* Commit activity chart */
+    .activity-chart { display: flex; align-items: flex-end; gap: 2px; height: 60px; margin: 0.75rem 0; break-inside: avoid; }
+    .activity-bar {
+      flex: 1; background: var(--color-void); min-width: 8px; position: relative;
+    }
+    .activity-bar:hover::after {
+      content: attr(data-label);
+      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      font-family: var(--font-mono); font-size: 8px; white-space: nowrap;
+      background: var(--color-void); color: var(--color-paper); padding: 2px 4px;
+    }
+    .activity-labels { display: flex; gap: 2px; margin-top: 0.15rem; }
+    .activity-labels span {
+      flex: 1; font-family: var(--font-mono); font-size: 7px; text-align: center;
+      color: rgba(26,26,26,0.5); min-width: 8px;
+    }
+  </style>
+
+  <script>window.PagedConfig = { auto: false };</script>
+  <script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
+  <script>document.fonts.ready.then(function() { window.PagedPolyfill.preview(); });</script>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="cover">
+  <div class="brand-mark">THEFOCUS.AI LABS</div>
+  <h1>Umwelten</h1>
+  <div class="subtitle">A TypeScript framework for building, hosting, and evaluating AI agents across multiple platforms. This document inventories every feature module, what works, what&rsquo;s partial, and what&rsquo;s missing.</div>
+  <div class="cover-rule"></div>
+  <div class="cover-meta">
+    <strong>Document Type:</strong> Feature Inventory &amp; Technical Overview<br>
+    <strong>Date:</strong> April 2026<br>
+    <strong>Status Key:</strong> &check; Implemented &middot; &#x26A0; Partial &middot; &cross; Missing
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stat-grid">
+  <div>
+    <div class="stat-number">53K</div>
+    <div class="stat-label">Lines of TypeScript</div>
+  </div>
+  <div>
+    <div class="stat-number">394</div>
+    <div class="stat-label">Commits</div>
+  </div>
+  <div>
+    <div class="stat-number">13</div>
+    <div class="stat-label">Months Active</div>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div>
+    <div class="stat-number">10</div>
+    <div class="stat-label">LLM Providers</div>
+  </div>
+  <div>
+    <div class="stat-number">20</div>
+    <div class="stat-label">Feature Modules</div>
+  </div>
+  <div>
+    <div class="stat-number">15K</div>
+    <div class="stat-label">Lines of Tests</div>
+  </div>
+</div>
+
+<p style="font-family: var(--font-mono); font-size: 11px; color: rgba(26,26,26,0.6); margin-top: 0.25rem;">
+  First commit: <strong>March 2025</strong> &middot;
+  Active development days: <strong>75</strong> &middot;
+  Latest: <strong>April 2026</strong>
+</p>
+
+
+<!-- PROJECT AT A GLANCE -->
+<h2 class="no-break-before">Project at a Glance</h2>
+
+<h3>Development Activity</h3>
+
+<p style="font-size: 12px; margin-bottom: 0.25rem;">Commits per month &mdash; March 2025 to April 2026:</p>
+
+<div class="activity-chart">
+  <div class="activity-bar" style="height: 9%;" data-label="Mar 25: 8"></div>
+  <div class="activity-bar" style="height: 29%;" data-label="Apr 25: 27"></div>
+  <div class="activity-bar" style="height: 1%;" data-label="May 25: 0" ></div>
+  <div class="activity-bar" style="height: 17%;" data-label="Jun 25: 16"></div>
+  <div class="activity-bar" style="height: 1%;" data-label="Jul 25: 1"></div>
+  <div class="activity-bar" style="height: 57%;" data-label="Aug 25: 52"></div>
+  <div class="activity-bar" style="height: 16%;" data-label="Sep 25: 15"></div>
+  <div class="activity-bar" style="height: 1%;" data-label="Oct 25: 1"></div>
+  <div class="activity-bar" style="height: 1%;" data-label="Nov 25: 0"></div>
+  <div class="activity-bar" style="height: 1%;" data-label="Dec 25: 1"></div>
+  <div class="activity-bar" style="height: 99%;" data-label="Jan 26: 91"></div>
+  <div class="activity-bar" style="height: 100%;" data-label="Feb 26: 92"></div>
+  <div class="activity-bar" style="height: 36%;" data-label="Mar 26: 33"></div>
+  <div class="activity-bar" style="height: 62%;" data-label="Apr 26: 57"></div>
+</div>
+<div class="activity-labels">
+  <span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span>
+</div>
+<p style="font-family: var(--font-mono); font-size: 9px; color: rgba(26,26,26,0.4); margin-top: 0.15rem; text-align: right;">2025 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2026</p>
+
+
+<h3>Module Sizes (lines of TypeScript, excluding tests)</h3>
+
+<!-- Visual bar chart -->
+<div style="margin: 0.75rem 0; break-inside: avoid;">
+  <div class="bar-row"><div class="bar-label">habitat</div><div class="bar-track"><div class="bar-fill" style="width: 100%;"></div></div><div class="bar-value">10,403</div></div>
+  <div class="bar-row"><div class="bar-label">evaluation</div><div class="bar-track"><div class="bar-fill" style="width: 81%;"></div></div><div class="bar-value">8,375</div></div>
+  <div class="bar-row"><div class="bar-label">cli</div><div class="bar-track"><div class="bar-fill" style="width: 68%;"></div></div><div class="bar-value">7,114</div></div>
+  <div class="bar-row"><div class="bar-label">interaction</div><div class="bar-track"><div class="bar-fill" style="width: 67%;"></div></div><div class="bar-value">6,918</div></div>
+  <div class="bar-row"><div class="bar-label">ui</div><div class="bar-track"><div class="bar-fill" style="width: 53%;"></div></div><div class="bar-value">5,478</div></div>
+  <div class="bar-row"><div class="bar-label">stimulus</div><div class="bar-track"><div class="bar-fill" style="width: 33%;"></div></div><div class="bar-value">3,425</div></div>
+  <div class="bar-row"><div class="bar-label">mcp</div><div class="bar-track"><div class="bar-fill" style="width: 28%;"></div></div><div class="bar-value">2,869</div></div>
+  <div class="bar-row"><div class="bar-label">cognition</div><div class="bar-track"><div class="bar-fill" style="width: 19%;"></div></div><div class="bar-value">1,942</div></div>
+  <div class="bar-row"><div class="bar-label">providers</div><div class="bar-track"><div class="bar-fill" style="width: 15%;"></div></div><div class="bar-value">1,533</div></div>
+  <div class="bar-row"><div class="bar-label">reporting</div><div class="bar-track"><div class="bar-fill" style="width: 12%;"></div></div><div class="bar-value">1,274</div></div>
+  <div class="bar-row"><div class="bar-label">schema</div><div class="bar-track"><div class="bar-fill" style="width: 10%;"></div></div><div class="bar-value">1,036</div></div>
+  <div class="bar-row"><div class="bar-label">memory</div><div class="bar-track"><div class="bar-fill" style="width: 5%;"></div></div><div class="bar-value">567</div></div>
+  <div class="bar-row"><div class="bar-label">markdown</div><div class="bar-track"><div class="bar-fill" style="width: 4%;"></div></div><div class="bar-value">463</div></div>
+  <div class="bar-row"><div class="bar-label">context</div><div class="bar-track"><div class="bar-fill" style="width: 3%;"></div></div><div class="bar-value">342</div></div>
+</div>
+
+
+<h3>Module Timeline</h3>
+
+<p style="font-size: 12px; margin-bottom: 0.5rem;">When each module first appeared in the codebase:</p>
+
+<table class="module-table">
+  <thead>
+    <tr><th>Module</th><th>Started</th><th>Source Lines</th><th>Test Lines</th><th>Files</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>providers</td><td>Apr 2025</td><td>1,533</td><td>1,021</td><td>13</td></tr>
+    <tr><td>cli</td><td>Apr 2025</td><td>7,114</td><td>579</td><td>13</td></tr>
+    <tr><td>evaluation</td><td>Apr 2025</td><td>8,375</td><td>3,433</td><td>34</td></tr>
+    <tr><td>memory</td><td>Apr 2025</td><td>567</td><td>104</td><td>5</td></tr>
+    <tr><td>markdown</td><td>Apr 2025</td><td>463</td><td>&mdash;</td><td>4</td></tr>
+    <tr><td>cognition</td><td>Jun 2025</td><td>1,942</td><td>1,493</td><td>9</td></tr>
+    <tr><td>stimulus</td><td>Jun 2025</td><td>3,425</td><td>2,102</td><td>25</td></tr>
+    <tr><td>interaction</td><td>Jun 2025</td><td>6,918</td><td>1,880</td><td>20</td></tr>
+    <tr><td>mcp</td><td>Jun 2025</td><td>2,869</td><td>&mdash;</td><td>6</td></tr>
+    <tr><td>schema</td><td>Aug 2025</td><td>1,036</td><td>851</td><td>10</td></tr>
+    <tr><td>ui</td><td>Aug 2025</td><td>5,478</td><td>1,322</td><td>19</td></tr>
+    <tr><td>reporting</td><td>Jan 2026</td><td>1,274</td><td>&mdash;</td><td>7</td></tr>
+    <tr><td>context</td><td>Jan 2026</td><td>342</td><td>61</td><td>8</td></tr>
+    <tr><td>habitat</td><td>Feb 2026</td><td>10,403</td><td>1,916</td><td>46</td></tr>
+    <tr><td><strong>Total</strong></td><td></td><td><strong>52,664</strong></td><td><strong>15,060</strong></td><td><strong>221</strong></td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PART I — FOUNDATION                        -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="part-divider">Part I &mdash; Foundation</div>
+
+
+<!-- 1. PROVIDERS -->
+<h2 class="no-break-before">Providers &mdash; LLM Backends</h2>
+
+<p>Unified access to 10 providers via <code>BaseProvider</code> (abstract class with <code>listModels()</code> and <code>getLanguageModel()</code>).</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Google (Gemini)</strong> &mdash; native thinking support</li>
+  <li>&check; <strong>OpenRouter</strong> &mdash; access to OpenAI, Anthropic, Meta, etc.</li>
+  <li>&check; <strong>Ollama</strong> &mdash; local models, no API key needed</li>
+  <li>&check; <strong>LM Studio</strong> &mdash; local REST API, no key needed</li>
+  <li>&check; <strong>GitHub Models</strong> &mdash; via GITHUB_TOKEN</li>
+  <li>&check; <strong>DeepInfra, Together AI, Fireworks, MiniMax, Nvidia</strong></li>
+  <li>&check; <strong>Provider registry</strong> &mdash; <code>getModel()</code>, <code>validateModel()</code>, <code>getModelProvider()</code></li>
+  <li>&check; <strong>Model discovery and search</strong> &mdash; <code>getAllModels()</code>, <code>searchModels()</code>, <code>findModelByIdAndProvider()</code></li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Model fallback/retry across providers</strong> &mdash; if a provider is down, no automatic fallback</li>
+  <li>&cross; <strong>Spend caps/budget limits</strong> &mdash; can track costs but can&rsquo;t enforce limits</li>
+</ul>
+
+
+<!-- 2. COGNITION -->
+<h2>Cognition &mdash; Model Runners</h2>
+
+<p>How to call LLMs. Wraps Vercel AI SDK with rate limiting, cost tracking, retries.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>BaseModelRunner</strong> &mdash; <code>generateText</code>, <code>streamText</code>, <code>generateObject</code>, <code>streamObject</code></li>
+  <li>&check; <strong>SmartModelRunner</strong> &mdash; before/during/after hooks for intercepting model calls</li>
+  <li>&check; <strong>MemoryRunner</strong> &mdash; SmartModelRunner that auto-extracts facts after each response</li>
+  <li>&check; <strong>Rate limiting</strong> &mdash; per-model, built into BaseModelRunner</li>
+  <li>&check; <strong>Cost tracking</strong> &mdash; automatic per-call calculation with <code>TokenUsage</code> and <code>CostBreakdown</code></li>
+  <li>&check; <strong>Usage extraction</strong> &mdash; normalize input/output/total tokens across providers</li>
+  <li>&check; <strong>Step assembler</strong> &mdash; multi-step tool calling orchestration</li>
+  <li>&check; <strong>Message normalization</strong> &mdash; normalize messages across provider formats</li>
+  <li>&check; <strong>Per-user tracking</strong> &mdash; <code>interaction.userId</code> forwarded to OpenRouter/Anthropic analytics</li>
+  <li>&check; <strong>Reasoning effort control</strong> &mdash; <code>none</code>, <code>low</code>, <code>medium</code>, <code>high</code> for thinking models</li>
+</ul>
+
+
+<!-- 3. SCHEMA -->
+<h2>Schema &mdash; Structured Output</h2>
+
+<p>Parse DSL strings into Zod schemas, validate and coerce model output.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>DSL-to-Zod parser</strong> &mdash; <code>parseDSLSchema()</code> parses string DSL into Zod schemas</li>
+  <li>&check; <strong>Zod schema loader</strong> &mdash; <code>loadZodSchema()</code>, <code>convertZodToSchema()</code></li>
+  <li>&check; <strong>JSON Schema conversion</strong> &mdash; <code>toJSONSchema()</code></li>
+  <li>&check; <strong>Schema validator</strong> &mdash; <code>validateSchema()</code>, <code>createValidator()</code>, <code>coerceData()</code></li>
+  <li>&check; <strong>Schema manager</strong> &mdash; <code>SchemaManager</code> singleton for managing schema lifecycle</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PART II — CORE ABSTRACTIONS                -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="part-divider">Part II &mdash; Core Abstractions</div>
+
+
+<!-- 4. STIMULUS -->
+<h2 class="no-break-before">Stimulus &mdash; Prompt Configuration</h2>
+
+<p>The Stimulus defines <em>what</em> to say: persona, instructions, tools, model parameters. Pure config&mdash;doesn&rsquo;t run anything.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Stimulus class</strong> &mdash; role, objective, instructions, reasoning, output format (<code>new Stimulus({ role: '...' })</code>)</li>
+  <li>&check; <strong>Model parameter config</strong> &mdash; temperature, maxTokens, topP, penalties; set on Stimulus, applied at runtime</li>
+  <li>&check; <strong>Tool management</strong> &mdash; <code>addTool</code>, <code>getTools</code>; tools are part of the prompt config</li>
+  <li>&check; <strong>Tool instructions</strong> &mdash; natural language instructions for tool usage</li>
+  <li>&check; <strong>Skills registry</strong> &mdash; <code>SkillsRegistry</code>, <code>loadSkillsFromDirectory</code>, <code>loadSkillsFromGit</code></li>
+  <li>&check; <strong>Skill tool</strong> &mdash; LLM selects + loads a skill at runtime via <code>createSkillTool()</code></li>
+  <li>&check; <strong>Runner type selection</strong> &mdash; <code>base</code> or <code>memory</code>; memory enables auto fact extraction</li>
+  <li>&check; <strong>System prompt generation</strong> &mdash; assembles system message from role + objective + instructions + context</li>
+  <li>&check; <strong>Pre-built stimuli</strong> &mdash; analysis (PDF, image, transcription), creative (cat poems, Frankenstein), coding (TypeScript, Python)</li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Stimulus export/import</strong> &mdash; no serialization format; can&rsquo;t share stimulus configs between habitats</li>
+  <li>&cross; <strong>Stimulus templates/inheritance</strong> &mdash; can&rsquo;t extend a base stimulus (&ldquo;like that agent but with extra tools&rdquo;)</li>
+</ul>
+
+
+<!-- 5. INTERACTION -->
+<h2>Interaction &mdash; Conversations</h2>
+
+<p>Holds messages, model, stimulus, and runner. This is where the actual conversation lives.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Interaction class</strong> &mdash; messages + model + stimulus &rarr; <code>chat()</code>, <code>generateText()</code>, <code>streamText()</code>, <code>generateObject()</code></li>
+  <li>&check; <strong>Multi-step tool calling</strong> &mdash; <code>maxSteps</code> for iterative tool use</li>
+  <li>&check; <strong>Context compaction</strong> &mdash; <code>compactContext()</code> with pluggable strategies</li>
+  <li>&check; <strong>Attachment handling</strong> &mdash; images, files as multimodal messages</li>
+  <li>&check; <strong>Normalized session format</strong> &mdash; <code>NormalizedSession</code>, <code>NormalizedMessage</code> for cross-source compatibility</li>
+  <li>&check; <strong>Session adapters</strong> &mdash; <code>ClaudeCodeAdapter</code>, <code>CursorAdapter</code> to read external IDE sessions</li>
+  <li>&check; <strong>Transcript persistence</strong> &mdash; <code>onTranscriptUpdate</code> callback for JSONL writing</li>
+  <li>&check; <strong>Checkpoint/resume</strong> &mdash; <code>checkpointMessageIndex</code> for compaction boundaries</li>
+</ul>
+
+
+<!-- 6. TOOLS -->
+<h2>Built-in Tools &amp; Tool Loading</h2>
+
+<p>Tools that agents can invoke during conversations, plus a convention-based loading system.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>URL tools</strong> &mdash; <code>wget</code>, <code>markify</code>, <code>parse_feed</code>; fetch URLs, HTML&rarr;markdown, RSS/Atom parsing</li>
+  <li>&check; <strong>PDF tools</strong> &mdash; PDF content extraction</li>
+  <li>&check; <strong>Image tools</strong> &mdash; image analysis via LLM</li>
+  <li>&check; <strong>Audio tools</strong> &mdash; audio transcription</li>
+  <li>&check; <strong>TOOL.md + handler loader</strong> &mdash; each subdir with TOOL.md becomes a Tool; supports handler.ts, handler.js, or script execution</li>
+  <li>&check; <strong>Factory-pattern handlers</strong> &mdash; handler can export a factory function receiving context</li>
+  <li>&check; <strong>Script tools</strong> &mdash; <code>type: script</code> in TOOL.md runs external script with args</li>
+  <li>&check; <strong>Math example tools</strong> &mdash; reference implementation</li>
+</ul>
+
+
+<!-- 7. EVALUATION -->
+<h2>Evaluation</h2>
+
+<p>Systematic model assessment, comparison, and reporting.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>EvalSuite</strong> &mdash; declarative eval runner; VerifyTask (deterministic) + JudgeTask (LLM judge with Zod schema)</li>
+  <li>&check; <strong>PairwiseRanker</strong> &mdash; Elo via LLM judge; Swiss tournament + round-robin, position bias mitigation, comparison caching</li>
+  <li>&check; <strong>Suite combine</strong> &mdash; multi-dimension leaderboard; aggregate independent evals into unified report</li>
+  <li>&check; <strong>Lower-level strategies</strong> &mdash; SimpleEvaluation, MatrixEvaluation, BatchEvaluation</li>
+  <li>&check; <strong>Result caching (two layers)</strong> &mdash; response cache (raw LLM output) + result cache (scored output)</li>
+  <li>&check; <strong>Multiple report formats</strong> &mdash; console, markdown, JSON, narrative (full prose)</li>
+  <li>&check; <strong>Dagger-based code execution</strong> &mdash; TypeScript, Python, Ruby, Rust, Go in isolated containers</li>
+  <li>&check; <strong>Codebase evaluation</strong> &mdash; ContextProvider, ChangeExtractor, ChangeApplicator</li>
+  <li>&check; <strong>CLI commands</strong> &mdash; eval run, eval report, eval list, eval combine</li>
+  <li>&check; <strong>Concurrency control</strong> &mdash; <code>--concurrent</code> flag, configurable concurrency</li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Tool/skill contract tests</strong> &mdash; no first-class framework for testing tool implementations, MCP endpoints, or OAuth flows</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PART III — INTELLIGENCE                    -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="part-divider">Part III &mdash; Intelligence</div>
+
+
+<!-- 8. MEMORY -->
+<h2 class="no-break-before">Memory &mdash; Fact Extraction</h2>
+
+<p>Extract and store facts from conversations automatically.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Fact extraction</strong> &mdash; LLM-powered, categorized (preference, plan, professional)</li>
+  <li>&check; <strong>Memory operations</strong> &mdash; ADD, UPDATE, DELETE</li>
+  <li>&check; <strong>MemoryRunner</strong> &mdash; auto-extract during chat (<code>stimulus.runnerType = 'memory'</code>)</li>
+  <li>&check; <strong>Per-user fact storage</strong> &mdash; MemoryStore interface exists</li>
+  <li>&check; <strong>Learnings store</strong> &mdash; <code>FileLearningsStore</code> for session-level learnings</li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Persistent memory backend</strong> &mdash; only <code>InMemoryMemoryStore</code>; facts lost when process restarts</li>
+  <li>&cross; <strong>Memory retrieval/injection</strong> &mdash; facts extracted but not automatically retrieved for future conversations</li>
+  <li>&cross; <strong>Cross-session memory</strong> &mdash; each Interaction creates a fresh store; no sharing between sessions</li>
+  <li>&cross; <strong>Memory search/relevance</strong> &mdash; no semantic search over stored facts</li>
+</ul>
+
+
+<!-- 9. SESSION UNDERSTANDING -->
+<h2>Session Understanding &amp; Knowledge Extraction</h2>
+
+<p>One of the most developed areas&mdash;a full pipeline for understanding conversations and extracting reusable knowledge.</p>
+
+<h3>Session Persistence &amp; Structure</h3>
+
+<ul class="feature-list">
+  <li>&check; <strong>JSONL transcript persistence</strong> &mdash; append-only, per-session</li>
+  <li>&check; <strong>Session metadata</strong> &mdash; provider, model, type, agent</li>
+  <li>&check; <strong>Conversation beats</strong> &mdash; <code>messagesToBeats()</code> groups messages into logical turns</li>
+  <li>&check; <strong>External session reading</strong> &mdash; ClaudeCodeAdapter, CursorAdapter</li>
+  <li>&check; <strong>Transcript resume on restart</strong></li>
+  <li>&check; <strong>Segmented transcripts</strong> &mdash; compaction creates frozen segments + live segment</li>
+</ul>
+
+<h3>Session Analysis (LLM-powered)</h3>
+
+<ul class="feature-list">
+  <li>&check; <strong>Session analysis via LLM</strong> &mdash; extracts topics, tags, learnings, summary, solution type, languages, tools, success indicators</li>
+  <li>&check; <strong>Analysis index</strong> &mdash; <code>SessionAnalysisIndex</code> with cached results, incremental re-indexing</li>
+  <li>&check; <strong>Session search</strong> &mdash; keyword + field filters (tags, topic, tool, solutionType, branch, success)</li>
+  <li>&check; <strong>Cross-project search</strong> &mdash; discover + search across all Claude Code/Cursor project directories</li>
+</ul>
+
+<h3>Session Digest (Deep Understanding)</h3>
+
+<ul class="feature-list">
+  <li>&check; <strong>Session digester</strong> &mdash; full pipeline: compaction &rarr; analysis &rarr; fact extraction &rarr; beat analysis &rarr; phase detection</li>
+  <li>&check; <strong>Beat-by-beat breakdown</strong> &mdash; per-beat: userRequest, toolsUsed, outcome, narrative, keyFacts</li>
+  <li>&check; <strong>Phase detection</strong> &mdash; groups beats into conversation phases with themes</li>
+  <li>&check; <strong>Digest segments</strong> &mdash; through-line + key facts per segment</li>
+  <li>&check; <strong>Overall summary generation</strong> &mdash; merged summary across all segments</li>
+  <li>&check; <strong>Structured fact extraction</strong> &mdash; typed facts from digest pipeline</li>
+  <li>&check; <strong>Session metrics</strong> &mdash; message count, segment count, tool calls, estimated cost, duration</li>
+  <li>&check; <strong>Digest index</strong> &mdash; <code>DigestIndex</code> with lightweight entries for browsing</li>
+</ul>
+
+<h3>Learnings System (Persistent Knowledge)</h3>
+
+<ul class="feature-list">
+  <li>&check; <strong>FileLearningsStore</strong> &mdash; append-only JSONL per kind, per session</li>
+  <li>&check; <strong>Learning kinds</strong> &mdash; facts, playbooks, preferences, open_loops, mistakes</li>
+  <li>&check; <strong>Learning provenance tracking</strong> &mdash; links back to session, channel, compaction run</li>
+  <li>&check; <strong>Context merge</strong> &mdash; inject learnings into new sessions via <code>buildHabitatIntrospectionContextMessages()</code></li>
+  <li>&check; <strong>Compaction events</strong> &mdash; <code>CompactionEventV1</code> marker in transcript</li>
+  <li>&check; <strong>Session-level learnings CLI</strong> &mdash; <code>sessions digest</code> subcommands</li>
+</ul>
+
+<h3>Session Understanding Gaps</h3>
+
+<ul class="gap-list">
+  <li>&#x26A0; <strong>Cross-session learning injection</strong> &mdash; can inject from same session&rsquo;s store, but no automatic pull from all past sessions</li>
+  <li>&cross; <strong>Semantic search over learnings</strong> &mdash; stored but can only be loaded in bulk, not searched by relevance</li>
+  <li>&cross; <strong>Cross-platform session continuity</strong> &mdash; can&rsquo;t continue a Discord conversation on Telegram or web</li>
+  <li>&cross; <strong>Multi-instance session safety</strong> &mdash; no distributed locks; multiple workers would corrupt</li>
+  <li>&cross; <strong>Automatic digest on session end</strong> &mdash; digest is manual only</li>
+  <li>&cross; <strong>Learning deduplication/consolidation</strong> &mdash; learnings accumulate forever, no merging</li>
+</ul>
+
+
+<!-- 10. CONTEXT -->
+<h2>Context Management</h2>
+
+<p>Track context size and compact long conversations.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Context compaction</strong> &mdash; pluggable <code>CompactionStrategy</code> interface</li>
+  <li>&check; <strong>Token estimation</strong> &mdash; <code>estimateContextSize()</code></li>
+  <li>&check; <strong>Compaction segment detection</strong> &mdash; <code>getCompactionSegment()</code></li>
+  <li>&check; <strong>Strategy registry</strong> &mdash; <code>registerCompactionStrategy()</code> / <code>getCompactionStrategy()</code></li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PART IV — THE AGENT PLATFORM               -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="part-divider">Part IV &mdash; The Agent Platform</div>
+
+
+<!-- 11. HABITAT -->
+<h2 class="no-break-before">Habitat &mdash; Agent Container</h2>
+
+<p>The top-level system. Manages work directory, config, sessions, tools, agents, and secrets.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Work directory with config.json</strong></li>
+  <li>&check; <strong>Agent secrets</strong> &mdash; secrets.json, 0600 perms (plain JSON, no encryption at rest)</li>
+  <li>&check; <strong>Tool registration via ToolSet interface</strong> &mdash; 10 standard tool sets registered by default</li>
+  <li>&check; <strong>Work-dir tools</strong> &mdash; TOOL.md + handler files</li>
+  <li>&check; <strong>Skills from directory or Git repos</strong></li>
+  <li>&check; <strong>Self-modify tools</strong> &mdash; create/remove/reload tools at runtime</li>
+  <li>&check; <strong>Stimulus from work dir files</strong> &mdash; STIMULUS.md, README, CLAUDE.md</li>
+  <li>&check; <strong>Memory files loading</strong> &mdash; <code>memoryFiles</code> config with journal support</li>
+  <li>&check; <strong>Sub-agents</strong> &mdash; managed projects with agent CRUD</li>
+  <li>&check; <strong>Agent discovery</strong> &mdash; MCP health monitoring</li>
+  <li>&check; <strong>Onboarding wizard</strong></li>
+  <li>&check; <strong>Gaia HTTP server</strong> &mdash; JSON API + chat (sessions, beats, commands, chat endpoints)</li>
+  <li>&check; <strong>Session management</strong> &mdash; create, list, resume, metadata; per-type (CLI, Discord, Telegram, web, API)</li>
+  <li>&check; <strong>Interaction factory</strong> &mdash; <code>createInteraction()</code> with auto-session and transcript persistence</li>
+  <li>&check; <strong>Ephemeral agent interactions</strong> &mdash; <code>createAgentInteraction()</code> for diagnosis/monitor agents</li>
+  <li>&check; <strong>Work dir file management</strong> &mdash; <code>readWorkDirFile()</code>, <code>writeWorkDirFile()</code>, state files</li>
+</ul>
+
+<h3>Habitat Tool Sets</h3>
+
+<ul class="feature-list">
+  <li>&check; <strong>File operations</strong> &mdash; read_file, write_file, list_directory, ripgrep (sandboxed to allowed roots)</li>
+  <li>&check; <strong>Time</strong> &mdash; current_time</li>
+  <li>&check; <strong>URL operations</strong> &mdash; wget, markify, parse_feed</li>
+  <li>&check; <strong>Agent management</strong> &mdash; list/add/update/remove agents</li>
+  <li>&check; <strong>Session management</strong> &mdash; list/show/messages/stats/inspect/read_file, learnings, transcript compact</li>
+  <li>&check; <strong>External interactions</strong> &mdash; read Claude Code/Cursor history</li>
+  <li>&check; <strong>Agent runner</strong> &mdash; agent_clone, agent_logs, agent_status, agent_ask, bridge_diagnose, bridge_monitor</li>
+  <li>&check; <strong>Secrets</strong> &mdash; set/remove/list secrets</li>
+  <li>&check; <strong>Search</strong> &mdash; web search via Tavily (needs TAVILY_API_KEY)</li>
+  <li>&check; <strong>Self-modify</strong> &mdash; create/remove/reload tools and skills at runtime</li>
+  <li>&check; <strong>Discord routing</strong> &mdash; channel&rarr;agent binding tools</li>
+</ul>
+
+<h3>Habitat Bridge (Containerized Sub-Agents)</h3>
+
+<ul class="feature-list">
+  <li>&check; <strong>BridgeAgent</strong> &mdash; containerized execution via Dagger</li>
+  <li>&check; <strong>BridgeSupervisor</strong> &mdash; lifecycle management</li>
+  <li>&check; <strong>MCP SDK server/client</strong> &mdash; StreamableHTTP transport</li>
+  <li>&check; <strong>Go MCP server implementation</strong> &mdash; alternative server for bridges</li>
+  <li>&check; <strong>LLM-driven diagnosis agent</strong> &mdash; read-only project inspection and provisioning detection</li>
+  <li>&check; <strong>LLM-driven monitor agent</strong> &mdash; container health monitoring</li>
+  <li>&check; <strong>Persistent logging</strong></li>
+  <li>&check; <strong>Secret injection into containers</strong></li>
+  <li>&check; <strong>Port pool management</strong> &mdash; auto-assigned MCP ports</li>
+  <li>&check; <strong>Bridge state persistence</strong> &mdash; <code>BridgeState</code> saved/loaded per agent</li>
+</ul>
+
+<h3>Habitat Gaps</h3>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Per-user credentials on Habitat</strong> &mdash; mcp-serve has per-user upstream tokens, but core Habitat only has agent-level secrets</li>
+  <li>&cross; <strong>Stimulus sharing between habitats</strong> &mdash; no way to export/import a stimulus config</li>
+  <li>&cross; <strong>Secrets encryption at rest</strong> &mdash; secrets.json is plaintext</li>
+  <li>&cross; <strong>Secret scoping</strong> &mdash; all secrets are habitat-scoped; no user-level or global-level</li>
+  <li>&cross; <strong>Config validation / habitat doctor</strong> &mdash; no schema validation, env var checks, or diagnostic command</li>
+</ul>
+
+
+<!-- 12. MCP -->
+<h2>MCP &mdash; Model Context Protocol</h2>
+
+<p>Full MCP implementation on both client and server sides, plus a library for building hosted multi-user MCP servers.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Remote MCP client with OAuth PKCE</strong> &mdash; <code>RemoteMcpClient</code> with file-backed token storage at <code>~/.umwelten/mcp-auth/</code></li>
+  <li>&check; <strong>MCP client (custom protocol)</strong> &mdash; low-level <code>MCPClient</code> for stdio/HTTP transports</li>
+  <li>&check; <strong>MCP server</strong> &mdash; expose umwelten as tool provider</li>
+  <li>&check; <strong>MCP&rarr;Stimulus bridge</strong> &mdash; load MCP tools into a Stimulus, convert to Vercel AI SDK tools</li>
+  <li>&check; <strong>mcp chat CLI</strong> &mdash; connect + REPL or one-shot, with <code>--logout</code> for credential reset</li>
+  <li>&check; <strong>mcp connect and mcp test-tool CLI</strong></li>
+  <li>&check; <strong>mcp-serve library</strong> &mdash; generic &ldquo;upstream OAuth &rarr; hosted MCP server&rdquo; toolkit</li>
+  <li>&check; <strong>NeonStore</strong> &mdash; Postgres persistence for mcp-serve</li>
+  <li>&check; <strong>UpstreamOAuthProvider interface</strong> &mdash; implement for any OAuth service</li>
+  <li>&check; <strong>McpToolRegistrar</strong> &mdash; per-user tool registration</li>
+  <li>&check; <strong>Oura Ring MCP example</strong> &mdash; rebuilt on mcp-serve library</li>
+  <li>&check; <strong>Twitter MCP example</strong> &mdash; 12 tools, per-user Twitter OAuth</li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Per-tool authorization/scopes</strong> &mdash; MCP auth is all-or-nothing; no per-tool read/write permissions</li>
+  <li>&cross; <strong>Audit logs</strong> &mdash; no record of who called what tool, when, with whose credentials</li>
+  <li>&cross; <strong>Admin surface for hosted MCPs</strong> &mdash; no way to list users, revoke auth, inspect usage without DB access</li>
+  <li>&cross; <strong>Per-user quotas/rate limits/billing</strong> &mdash; cost tracking exists per model call, but no per-user metering on MCP server</li>
+  <li>&cross; <strong>Token revocation endpoint</strong> &mdash; MCP tokens can&rsquo;t be explicitly revoked by the user</li>
+  <li>&cross; <strong>Skill&rarr;hosted MCP packaging flow</strong> &mdash; missing skill manifest format, deploy workflow</li>
+</ul>
+
+
+<!-- 13. MULTI-PLATFORM -->
+<h2>Multi-Platform Interfaces</h2>
+
+<p>Agents accessible from multiple surfaces through a unified ChannelBridge routing layer.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>CLI REPL</strong></li>
+  <li>&check; <strong>Discord adapter</strong> &mdash; ambient mode, threads, slash commands, attachment handling</li>
+  <li>&check; <strong>Telegram adapter</strong> &mdash; media storage, message logging</li>
+  <li>&check; <strong>Web interface (Gaia server)</strong> &mdash; JSON API + chat endpoint</li>
+  <li>&check; <strong>TUI (React Ink)</strong></li>
+  <li>&check; <strong>ChannelBridge</strong> &mdash; unified adapter layer; all platforms share one bridge</li>
+  <li>&check; <strong>Unified routing</strong> &mdash; routing.json &rarr; agent binding with runtime mode selection</li>
+  <li>&check; <strong>Unified slash commands</strong> &mdash; /switch, /status, /reload-routing, etc.</li>
+  <li>&check; <strong>Claude SDK pass-through</strong> &mdash; claude-sdk runtime</li>
+  <li>&check; <strong>Transcript resume on restart</strong></li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Gaia web server authentication</strong> &mdash; no auth, no sessions, no user identity</li>
+  <li>&#x26A0; <strong>Consistent multimodal output</strong> &mdash; input attachments work; output is text-only across all adapters</li>
+  <li>&cross; <strong>Platform capability negotiation</strong> &mdash; bridge doesn&rsquo;t know what each platform supports</li>
+</ul>
+
+
+<!-- 14. IDENTITY -->
+<h2>Identity &amp; Access Control</h2>
+
+<p>Current identity model is functional but minimal.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>userId field on Interaction</strong> &mdash; forwarded to OpenRouter/Anthropic for analytics</li>
+  <li>&check; <strong>Per-user memory</strong> &mdash; MemoryStore keyed by userId (but in-memory only)</li>
+  <li>&check; <strong>MCP OAuth for user identity</strong> &mdash; in mcp-serve layer</li>
+</ul>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Unified user identity across channels</strong> &mdash; Discord user &ne; Telegram user &ne; MCP user; no way to link them</li>
+  <li>&cross; <strong>User account management</strong> &mdash; no signup, login, profile, linked accounts</li>
+  <li>&cross; <strong>Per-user credential store on Habitat</strong> &mdash; no <code>getUserSecret(userId, service)</code></li>
+  <li>&cross; <strong>Role-based access control</strong> &mdash; no admin vs user vs readonly roles</li>
+  <li>&cross; <strong>Data lifecycle/privacy controls</strong> &mdash; no delete-my-data, retention rules, export, redaction</li>
+</ul>
+
+
+<!-- 15. BACKGROUND -->
+<h2>Background &amp; Automation</h2>
+
+<p>The least developed area. Habitats can only react to incoming chat messages.</p>
+
+<ul class="gap-list">
+  <li>&cross; <strong>Webhook/event ingestion</strong> &mdash; no HTTP webhook handler, no event bus, no &ldquo;when X happens, do Y&rdquo;</li>
+  <li>&cross; <strong>Scheduled tasks/cron</strong> &mdash; no way to say &ldquo;every morning, summarize my Twitter feed&rdquo;</li>
+  <li>&cross; <strong>Background job runtime</strong> &mdash; no job queue, retries, idempotency, or failure handling</li>
+  <li>&#x26A0; <strong>Inter-habitat communication</strong> &mdash; sub-agents exist, bridge delegates via MCP, but no direct tool-to-tool calls or pub/sub</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PART V — DEVELOPER EXPERIENCE              -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="part-divider">Part V &mdash; Developer Experience</div>
+
+
+<!-- 16. URL -->
+<h2 class="no-break-before">URL &amp; HTML Utilities</h2>
+
+<p>Low-level utilities consumed by the tool layer.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>URL fetching with limits</strong> &mdash; <code>fetchUrl()</code> with timeout and size limits</li>
+  <li>&check; <strong>HTML&rarr;Markdown (Turndown)</strong> &mdash; <code>fromHtmlBuiltIn()</code></li>
+  <li>&check; <strong>HTML&rarr;Markdown (Markify service)</strong> &mdash; <code>fromHtmlViaMarkify()</code>, optional external service</li>
+  <li>&check; <strong>URL&rarr;Markdown pipeline</strong> &mdash; <code>urlToMarkdown()</code> fetch + convert</li>
+  <li>&check; <strong>RSS/Atom feed parsing</strong> &mdash; <code>parseFeed()</code></li>
+</ul>
+
+
+<!-- 17. REPORTING -->
+<h2>Reporting</h2>
+
+<p>Unified report rendering used by tool tests and evaluation suite reports.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>Unified Reporter class</strong> &mdash; <code>fromToolTest()</code>, <code>toConsole()</code>, <code>toMarkdown()</code>, <code>toHtml()</code>, <code>toJson()</code></li>
+  <li>&check; <strong>Console renderer</strong> &mdash; formatted terminal output</li>
+  <li>&check; <strong>Markdown renderer</strong> &mdash; structured markdown reports</li>
+  <li>&check; <strong>HTML renderer</strong></li>
+  <li>&check; <strong>JSON renderer</strong></li>
+  <li>&check; <strong>Report types</strong> &mdash; tool-test, code-generation, evaluation, batch, suite</li>
+  <li>&check; <strong>Narrative reports</strong> &mdash; full methodology + analysis + cost/speed breakdown</li>
+  <li>&check; <strong>Report adapters</strong> &mdash; adapt different result types to unified Report format</li>
+</ul>
+
+
+<!-- 18. CLI -->
+<h2>CLI</h2>
+
+<p>Commander-based CLI providing the primary developer interface.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>models</strong> &mdash; list/search across providers (<code>--search</code>, <code>--provider</code>, <code>--json</code>)</li>
+  <li>&check; <strong>run</strong> &mdash; one-shot prompt</li>
+  <li>&check; <strong>chat</strong> &mdash; interactive REPL</li>
+  <li>&check; <strong>eval</strong> &mdash; run, report, list, combine subcommands</li>
+  <li>&check; <strong>sessions</strong> &mdash; list, index, search, browse, digest</li>
+  <li>&check; <strong>habitat</strong> &mdash; agent REPL + interfaces (telegram, discord, web)</li>
+  <li>&check; <strong>mcp</strong> &mdash; chat, connect, test-tool</li>
+  <li>&check; <strong>telegram</strong> &mdash; standalone Telegram bot</li>
+  <li>&check; <strong>tools</strong> &mdash; list available tools</li>
+  <li>&check; <strong>Common options</strong> &mdash; <code>--provider</code>, <code>--model</code>, <code>--temperature</code>, etc. shared across commands</li>
+</ul>
+
+
+<!-- 19. DX -->
+<h2>Developer Experience</h2>
+
+<p>Documentation, tooling, and developer workflow support.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>CLAUDE.md</strong> &mdash; maintainer module map</li>
+  <li>&check; <strong>LLM.txt</strong> &mdash; agent-friendly summary</li>
+  <li>&check; <strong>VitePress documentation site</strong></li>
+  <li>&check; <strong>Examples</strong> &mdash; evals, oura-mcp, twitter-mcp, habitat-minimal, and more</li>
+  <li>&check; <strong>mise.toml tasks</strong></li>
+</ul>
+
+<ul class="gap-list">
+  <li>&#x26A0; <strong>Hot-reload of tools/skills</strong> &mdash; self-modify tools exist but no automatic watch-mode</li>
+  <li>&cross; <strong>Skill versioning/compatibility</strong> &mdash; no version constraints, no migration, no &ldquo;requires umwelten &ge;0.5&rdquo;</li>
+  <li>&cross; <strong>Skill manifest format</strong> &mdash; SKILL.md is human-readable but not machine-parseable</li>
+  <li>&cross; <strong>MCP server smoke/integration tests</strong> &mdash; no test harness for end-to-end verification</li>
+  <li>&cross; <strong>Safety/approval model for dangerous tools</strong> &mdash; no dangerous-tool classification or approval hooks</li>
+  <li>&cross; <strong>Observability dashboard</strong> &mdash; cost data exists in pieces but no unified view or alerts</li>
+</ul>
+
+
+<!-- 20. EXAMPLES -->
+<h2>Examples</h2>
+
+<p>Working reference implementations in the <code>examples/</code> directory.</p>
+
+<ul class="feature-list">
+  <li>&check; <strong>examples/evals/</strong> &mdash; EvalSuite examples: reasoning (LLM judge), instruction (deterministic), car-wash</li>
+  <li>&check; <strong>examples/model-showdown/</strong> &mdash; 5-dimension eval suite + combine + reports</li>
+  <li>&check; <strong>examples/oura-mcp/</strong> &mdash; multi-user Oura Ring MCP server (mcp-serve + Neon + fly.io)</li>
+  <li>&check; <strong>examples/twitter-mcp/</strong> &mdash; multi-user Twitter MCP server (mcp-serve + Neon + fly.io)</li>
+  <li>&check; <strong>examples/habitat-minimal/</strong> &mdash; smallest Habitat work-dir layout</li>
+  <li>&check; <strong>examples/jeeves-bot/</strong> &mdash; Discord/Telegram bot example</li>
+  <li>&check; <strong>examples/mcp-chat/</strong> &mdash; PairwiseRanker + MCP tool-use responses</li>
+  <li>&check; <strong>examples/memorization/</strong> &mdash; memory extraction demo</li>
+  <li>&check; <strong>examples/provider-comparison/</strong> &mdash; multi-provider comparison</li>
+  <li>&check; <strong>examples/schemas/</strong> &mdash; structured output examples</li>
+  <li>&check; <strong>examples/gaia-ui/</strong> &mdash; Gaia web interface</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PRIORITY GAPS                              -->
+<!-- ═══════════════════════════════════════════ -->
+<h2>Priority Gaps for the Vision</h2>
+
+<p class="lead">The &ldquo;turn any skill into a hosted MCP with per-user access control&rdquo; vision is partially realized with <code>mcp-serve</code>. The critical remaining gaps:</p>
+
+<h3>Tier 1 &mdash; Enables the Multi-User Agent Platform</h3>
+
+<ul>
+  <li><strong>Unified user identity</strong> &mdash; same person across Discord, Telegram, MCP, web</li>
+  <li><strong>Per-user credential store on Habitat</strong> &mdash; <code>habitat.getUserSecret(userId, 'twitter')</code></li>
+  <li><strong>Persistent memory backend</strong> &mdash; facts survive restarts, shared across sessions</li>
+  <li><strong>Memory retrieval loop</strong> &mdash; extract &rarr; store &rarr; retrieve &rarr; inject as context</li>
+</ul>
+
+<h3>Tier 2 &mdash; Enables Production Hosting</h3>
+
+<ul>
+  <li><strong>Gaia web auth</strong> &mdash; at minimum, API key or session-based auth</li>
+  <li><strong>Audit logs</strong> &mdash; who called what, when, with whose credentials</li>
+  <li><strong>Per-user quotas/metering</strong> &mdash; track and cap usage per user</li>
+  <li><strong>Secrets encryption</strong> &mdash; at rest, with rotation support</li>
+</ul>
+
+<h3>Tier 3 &mdash; Enables the Skill Marketplace</h3>
+
+<ul>
+  <li><strong>Skill manifest format</strong> &mdash; machine-readable declaration of auth, scopes, env vars, tools</li>
+  <li><strong>Stimulus portability</strong> &mdash; export/import agent personality and tool config</li>
+  <li><strong>Skill versioning</strong> &mdash; semver, compatibility constraints, migration</li>
+  <li><strong>Packaging + deploy workflow</strong> &mdash; <code>umwelten publish</code> &rarr; hosted MCP with OAuth</li>
+</ul>
+
+<h3>Tier 4 &mdash; Enables Autonomous Agents</h3>
+
+<ul>
+  <li><strong>Scheduled tasks/cron</strong> &mdash; agents that act on their own schedule</li>
+  <li><strong>Webhook ingestion</strong> &mdash; agents that react to external events</li>
+  <li><strong>Background job runtime</strong> &mdash; queues, retries, failure handling</li>
+</ul>
+
+<div class="doc-footer">THEFOCUS.AI LABS &mdash; UMWELTEN FEATURE INVENTORY &mdash; APRIL 2026</div>
+
+</body>
+</html>

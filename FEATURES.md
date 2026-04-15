@@ -4,68 +4,47 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 
 ---
 
-## 1. Stimulus — Prompt Configuration
+## Table of Contents
 
-The Stimulus defines *what* to say: persona, instructions, tools, model parameters. Pure config — doesn't run anything.
+### Part I — Foundation
+1. [Providers — LLM Backends](#1-providers--llm-backends)
+2. [Cognition — Model Runners](#2-cognition--model-runners)
+3. [Schema — Structured Output](#3-schema--structured-output)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Stimulus class (role, objective, instructions, reasoning, output format) | ✅ | `new Stimulus({ role: '...' })` |
-| Model parameter config (temperature, maxTokens, topP, penalties) | ✅ | Set on Stimulus, applied at runtime |
-| Tool management on Stimulus (addTool, getTools) | ✅ | Tools are part of the prompt config |
-| Tool instructions | ✅ | Natural language instructions for tool usage |
-| Skills registry (load from directory, Git, or inline) | ✅ | `SkillsRegistry`, `loadSkillsFromDirectory`, `loadSkillsFromGit` |
-| Skill tool (LLM selects + loads a skill at runtime) | ✅ | `createSkillTool()` |
-| Runner type selection (`base` or `memory`) | ✅ | `memory` enables auto fact extraction |
-| System prompt generation from options | ✅ | Assembles system message from role + objective + instructions + context |
-| Pre-built analysis stimuli | ✅ | PDF parsing, image analysis, transcription analysis |
-| Pre-built creative stimuli | ✅ | Cat poems, Frankenstein, temperature tests |
-| Pre-built coding stimuli | ✅ | TypeScript debugging, Python |
-| **Stimulus export / import** | ❌ | No serialization format. Can't export a Stimulus config and import it in another habitat or share it. |
-| **Stimulus templates / inheritance** | ❌ | Can't extend a base Stimulus. No "this agent is like that agent but with extra tools." |
+### Part II — Core Abstractions
+4. [Stimulus — Prompt Configuration](#4-stimulus--prompt-configuration)
+5. [Interaction — Conversations](#5-interaction--conversations)
+6. [Built-in Tools & Tool Loading](#6-built-in-tools--tool-loading)
+7. [Evaluation](#7-evaluation)
 
-## 2. Built-in Tools & Tool Loading
+### Part III — Intelligence
+8. [Memory — Fact Extraction](#8-memory--fact-extraction)
+9. [Session Understanding & Knowledge Extraction](#9-session-understanding--knowledge-extraction)
+10. [Context Management](#10-context-management)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| URL tools (wget, markify, parse_feed) | ✅ | Fetch URLs, HTML→markdown (Turndown or Markify service), RSS/Atom parsing |
-| PDF tools | ✅ | PDF content extraction |
-| Image tools | ✅ | Image analysis via LLM |
-| Audio tools | ✅ | Audio transcription |
-| TOOL.md + handler loader | ✅ | Work-dir tools: each subdir with TOOL.md becomes a Tool; supports handler.ts, handler.js, or script execution |
-| Factory-pattern tool handlers | ✅ | Handler can export a factory function receiving context |
-| Script tools | ✅ | `type: script` in TOOL.md → runs external script with args |
-| Math example tools | ✅ | Reference implementation |
+### Part IV — The Agent Platform
+11. [Habitat — Agent Container](#11-habitat--agent-container)
+12. [MCP — Model Context Protocol](#12-mcp-model-context-protocol)
+13. [Multi-Platform Interfaces](#13-multi-platform-interfaces)
+14. [Identity & Access Control](#14-identity--access-control)
+15. [Background & Automation](#15-background--automation)
 
-## 3. Cognition — Model Runners
+### Part V — Developer Experience
+16. [URL & HTML Utilities](#16-url--html-utilities)
+17. [Reporting](#17-reporting)
+18. [CLI](#18-cli)
+19. [Developer Experience](#19-developer-experience)
+20. [Examples](#20-examples)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| BaseModelRunner | ✅ | `generateText`, `streamText`, `generateObject`, `streamObject` — wraps Vercel AI SDK |
-| SmartModelRunner (hooks) | ✅ | Before/during/after hooks for intercepting model calls |
-| MemoryRunner | ✅ | SmartModelRunner that auto-extracts facts after each response |
-| Rate limiting (per-model) | ✅ | Built into BaseModelRunner |
-| Cost tracking (per-call) | ✅ | Automatic cost calculation with `TokenUsage` and `CostBreakdown` |
-| Usage extraction | ✅ | Normalize input/output/total tokens across providers |
-| Step assembler | ✅ | Multi-step tool calling orchestration |
-| Message normalization | ✅ | Normalize messages across provider formats |
-| Per-user tracking (forwarded to OpenRouter/Anthropic) | ✅ | `interaction.userId` → provider-specific user analytics |
-| Reasoning effort control | ✅ | `none`, `low`, `medium`, `high` for thinking models |
+### [Priority Gaps for the Vision](#priority-gaps-for-the-vision)
 
-## 4. Interaction — Conversations
+---
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Interaction class | ✅ | Messages + model + stimulus → `chat()`, `generateText()`, `streamText()`, `generateObject()` |
-| Multi-step tool calling | ✅ | `maxSteps` for iterative tool use |
-| Context compaction | ✅ | `compactContext()` with pluggable strategies |
-| Attachment handling | ✅ | Images, files → multimodal messages |
-| Normalized session format | ✅ | `NormalizedSession`, `NormalizedMessage` for cross-source compatibility |
-| Session adapters | ✅ | `ClaudeCodeAdapter`, `CursorAdapter` — read external IDE sessions |
-| Transcript persistence | ✅ | `onTranscriptUpdate` callback for JSONL writing |
-| Checkpoint / resume | ✅ | `checkpointMessageIndex` for compaction boundaries |
+# Part I — Foundation
 
-## 5. Providers — LLM Backends
+## 1. Providers — LLM Backends
+
+Unified access to 10 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -85,7 +64,26 @@ The Stimulus defines *what* to say: persona, instructions, tools, model paramete
 | **Model fallback / retry across providers** | ❌ | If a provider is down, no automatic fallback to another |
 | **Spend caps / budget limits** | ❌ | Can track costs but can't enforce limits |
 
-## 6. Schema — Structured Output
+## 2. Cognition — Model Runners
+
+How to call LLMs. Wraps Vercel AI SDK with rate limiting, cost tracking, retries.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| BaseModelRunner | ✅ | `generateText`, `streamText`, `generateObject`, `streamObject` — wraps Vercel AI SDK |
+| SmartModelRunner (hooks) | ✅ | Before/during/after hooks for intercepting model calls |
+| MemoryRunner | ✅ | SmartModelRunner that auto-extracts facts after each response |
+| Rate limiting (per-model) | ✅ | Built into BaseModelRunner |
+| Cost tracking (per-call) | ✅ | Automatic cost calculation with `TokenUsage` and `CostBreakdown` |
+| Usage extraction | ✅ | Normalize input/output/total tokens across providers |
+| Step assembler | ✅ | Multi-step tool calling orchestration |
+| Message normalization | ✅ | Normalize messages across provider formats |
+| Per-user tracking (forwarded to OpenRouter/Anthropic) | ✅ | `interaction.userId` → provider-specific user analytics |
+| Reasoning effort control | ✅ | `none`, `low`, `medium`, `high` for thinking models |
+
+## 3. Schema — Structured Output
+
+Parse DSL strings into Zod schemas, validate and coerce model output.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -95,17 +93,175 @@ The Stimulus defines *what* to say: persona, instructions, tools, model paramete
 | Schema validator | ✅ | `validateSchema()`, `createValidator()`, `coerceData()` |
 | Schema manager (singleton) | ✅ | `SchemaManager` for managing schema lifecycle |
 
-## 7. URL & HTML Utilities
+---
+
+# Part II — Core Abstractions
+
+## 4. Stimulus — Prompt Configuration
+
+The Stimulus defines *what* to say: persona, instructions, tools, model parameters. Pure config — doesn't run anything.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| URL fetching with limits | ✅ | `fetchUrl()` with timeout and size limits |
-| HTML → Markdown (Turndown) | ✅ | `fromHtmlBuiltIn()` |
-| HTML → Markdown (Markify service) | ✅ | `fromHtmlViaMarkify()` — optional external service |
-| URL → Markdown pipeline | ✅ | `urlToMarkdown()` — fetch + convert |
-| RSS/Atom feed parsing | ✅ | `parseFeed()` |
+| Stimulus class (role, objective, instructions, reasoning, output format) | ✅ | `new Stimulus({ role: '...' })` |
+| Model parameter config (temperature, maxTokens, topP, penalties) | ✅ | Set on Stimulus, applied at runtime |
+| Tool management on Stimulus (addTool, getTools) | ✅ | Tools are part of the prompt config |
+| Tool instructions | ✅ | Natural language instructions for tool usage |
+| Skills registry (load from directory, Git, or inline) | ✅ | `SkillsRegistry`, `loadSkillsFromDirectory`, `loadSkillsFromGit` |
+| Skill tool (LLM selects + loads a skill at runtime) | ✅ | `createSkillTool()` |
+| Runner type selection (`base` or `memory`) | ✅ | `memory` enables auto fact extraction |
+| System prompt generation from options | ✅ | Assembles system message from role + objective + instructions + context |
+| Pre-built analysis stimuli | ✅ | PDF parsing, image analysis, transcription analysis |
+| Pre-built creative stimuli | ✅ | Cat poems, Frankenstein, temperature tests |
+| Pre-built coding stimuli | ✅ | TypeScript debugging, Python |
+| **Stimulus export / import** | ❌ | No serialization format. Can't export a Stimulus config and import it in another habitat or share it. |
+| **Stimulus templates / inheritance** | ❌ | Can't extend a base Stimulus. No "this agent is like that agent but with extra tools." |
 
-## 8. Habitat — Agent Container
+## 5. Interaction — Conversations
+
+Holds messages, model, stimulus, and runner. This is where the actual conversation lives.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Interaction class | ✅ | Messages + model + stimulus → `chat()`, `generateText()`, `streamText()`, `generateObject()` |
+| Multi-step tool calling | ✅ | `maxSteps` for iterative tool use |
+| Context compaction | ✅ | `compactContext()` with pluggable strategies |
+| Attachment handling | ✅ | Images, files → multimodal messages |
+| Normalized session format | ✅ | `NormalizedSession`, `NormalizedMessage` for cross-source compatibility |
+| Session adapters | ✅ | `ClaudeCodeAdapter`, `CursorAdapter` — read external IDE sessions |
+| Transcript persistence | ✅ | `onTranscriptUpdate` callback for JSONL writing |
+| Checkpoint / resume | ✅ | `checkpointMessageIndex` for compaction boundaries |
+
+## 6. Built-in Tools & Tool Loading
+
+Tools that agents can invoke during conversations, plus a convention-based loading system.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| URL tools (wget, markify, parse_feed) | ✅ | Fetch URLs, HTML→markdown (Turndown or Markify service), RSS/Atom parsing |
+| PDF tools | ✅ | PDF content extraction |
+| Image tools | ✅ | Image analysis via LLM |
+| Audio tools | ✅ | Audio transcription |
+| TOOL.md + handler loader | ✅ | Work-dir tools: each subdir with TOOL.md becomes a Tool; supports handler.ts, handler.js, or script execution |
+| Factory-pattern tool handlers | ✅ | Handler can export a factory function receiving context |
+| Script tools | ✅ | `type: script` in TOOL.md → runs external script with args |
+| Math example tools | ✅ | Reference implementation |
+
+## 7. Evaluation
+
+Systematic model assessment, comparison, and reporting.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| EvalSuite (declarative eval runner) | ✅ | VerifyTask (deterministic) + JudgeTask (LLM judge with Zod schema) |
+| PairwiseRanker (Elo via LLM judge) | ✅ | Swiss tournament + round-robin, position bias mitigation, comparison caching |
+| Suite combine (multi-dimension leaderboard) | ✅ | Aggregate independent evals into unified report |
+| Lower-level strategies | ✅ | `SimpleEvaluation`, `MatrixEvaluation` (placeholder cartesian product), `BatchEvaluation` (N items × N models) |
+| Result caching (two layers) | ✅ | Response cache (raw LLM output) + result cache (scored output) |
+| Multiple report formats | ✅ | Console, markdown, JSON, narrative (full prose) |
+| Dagger-based code execution | ✅ | TypeScript, Python, Ruby, Rust, Go in isolated containers |
+| Codebase evaluation | ✅ | `ContextProvider`, `ChangeExtractor`, `ChangeApplicator` for code-aware evals |
+| CLI commands | ✅ | `eval run`, `eval report`, `eval list`, `eval combine` |
+| Concurrency control | ✅ | `--concurrent` flag, configurable concurrency |
+| **Tool/skill contract tests** | ❌ | Evaluations test LLM responses, but no first-class framework for testing tool implementations, MCP server endpoints, or OAuth flows. |
+
+---
+
+# Part III — Intelligence
+
+## 8. Memory — Fact Extraction
+
+Extract and store facts from conversations automatically.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Fact extraction from conversations | ✅ | LLM-powered, categorized (preference, plan, professional) |
+| Memory operations (ADD, UPDATE, DELETE) | ✅ | |
+| MemoryRunner (auto-extract during chat) | ✅ | `stimulus.runnerType = 'memory'` |
+| Per-user fact storage (MemoryStore interface) | ✅ | Interface exists |
+| Learnings store (file-based, per-session) | ✅ | `FileLearningsStore` for session-level learnings |
+| **Persistent memory backend** | ❌ | Only `InMemoryMemoryStore` exists. Facts are lost when process restarts. No file, SQLite, or Postgres backend. |
+| **Memory retrieval / injection** | ❌ | Facts are extracted but not automatically retrieved and injected as context for future conversations. The loop is broken. |
+| **Cross-session memory** | ❌ | Each `Interaction` creates a fresh `InMemoryMemoryStore`. No sharing between sessions or conversations. |
+| **Memory search / relevance** | ❌ | No semantic search over stored facts. No "retrieve the 5 most relevant facts for this conversation." |
+
+## 9. Session Understanding & Knowledge Extraction
+
+One of the most developed areas — a full pipeline for understanding what happened in conversations and extracting reusable knowledge.
+
+### Session Persistence & Structure
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| JSONL transcript persistence | ✅ | Append-only, per-session |
+| Session metadata (provider, model, type, agent) | ✅ | |
+| Conversation beats (user turn + tools + response) | ✅ | `messagesToBeats()` groups messages into logical turns |
+| External session reading (Claude Code, Cursor) | ✅ | `ClaudeCodeAdapter`, `CursorAdapter` — reads their JSONL history |
+| Transcript resume on restart | ✅ | Reload last N message pairs when process restarts |
+| Segmented transcripts | ✅ | Compaction creates frozen segments + live segment |
+
+### Session Analysis (LLM-powered)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Session analysis via LLM | ✅ | Extracts: topics, tags, key learnings, summary, solution type, code languages, tools used, success indicators |
+| Analysis index (per-project) | ✅ | `SessionAnalysisIndex` — cached analysis results, incremental re-indexing |
+| Session search (keyword + field filters) | ✅ | Filter by tags, topic, tool, solutionType, branch, success |
+| Cross-project search | ✅ | Discover + search across all Claude Code/Cursor project directories |
+
+### Session Digest (Deep Understanding)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Session digester | ✅ | Full pipeline: compaction → analysis → fact extraction → beat analysis → phase detection |
+| Beat-by-beat breakdown | ✅ | Per-beat: userRequest, toolsUsed, outcome, narrative, keyFacts |
+| Phase detection | ✅ | Groups beats into conversation phases with themes |
+| Digest segments (compacted) | ✅ | Through-line + key facts per segment |
+| Overall summary generation | ✅ | Merged summary across all segments |
+| Structured fact extraction | ✅ | Typed facts from digest pipeline |
+| Session metrics | ✅ | Message count, segment count, tool call count, estimated cost, duration |
+| Digest index (master, cross-project) | ✅ | `DigestIndex` with lightweight entries for browsing |
+
+### Learnings System (Persistent Knowledge)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| FileLearningsStore | ✅ | Append-only JSONL per kind, per session |
+| Learning kinds | ✅ | `facts`, `playbooks`, `preferences`, `open_loops`, `mistakes` |
+| Learning provenance tracking | ✅ | Links back to session, channel, compaction run |
+| Context merge (inject learnings into new sessions) | ✅ | `buildHabitatIntrospectionContextMessages()` — prepends compaction summaries + serialized learnings |
+| Compaction events | ✅ | `CompactionEventV1` — marker in transcript when compaction occurs |
+| Session-level learnings CLI | ✅ | `sessions digest` subcommands |
+
+### Gaps
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Cross-session learning injection** | 🔶 | `buildHabitatIntrospectionContextMessages()` can inject learnings from the *same session's* learnings store, but there's no automatic "pull relevant learnings from *all* past sessions" into a new conversation. |
+| **Semantic search over learnings** | ❌ | Learnings are stored but can only be loaded in bulk, not searched by relevance. No embedding-based retrieval. |
+| **Cross-platform session continuity** | ❌ | Can't continue a Discord conversation on Telegram or web. Sessions are channel-scoped. |
+| **Multi-instance session safety** | ❌ | Sessions assume single-process, local disk. No distributed locks. Multiple workers writing to the same session would corrupt it. |
+| **Automatic digest on session end** | ❌ | Digest is manual (`sessions digest`). Not triggered automatically when a conversation ends. |
+| **Learning deduplication / consolidation** | ❌ | Learnings accumulate forever. No merging of duplicate facts, no periodic consolidation. |
+
+## 10. Context Management
+
+Track context size and compact long conversations.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Context compaction | ✅ | Pluggable `CompactionStrategy` interface |
+| Token estimation | ✅ | `estimateContextSize()` |
+| Compaction segment detection | ✅ | `getCompactionSegment()` — find which messages to compact |
+| Strategy registry | ✅ | `registerCompactionStrategy()` / `getCompactionStrategy()` |
+
+---
+
+# Part IV — The Agent Platform
+
+## 11. Habitat — Agent Container
+
+The top-level system. Manages work directory, config, sessions, tools, agents, and secrets.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -167,25 +323,9 @@ The Stimulus defines *what* to say: persona, instructions, tools, model paramete
 | **Secret scoping (global / habitat / user)** | ❌ | All secrets are habitat-scoped. No user-level or global-level. |
 | **Config validation / `habitat doctor`** | ❌ | No schema validation, env var checks, or diagnostic command. |
 
-## 9. Multi-Platform Interfaces
+## 12. MCP (Model Context Protocol)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| CLI REPL | ✅ | |
-| Discord adapter | ✅ | Ambient mode, threads, slash commands, attachment handling |
-| Telegram adapter | ✅ | Media storage, message logging |
-| Web interface (Gaia server) | ✅ | JSON API + chat endpoint |
-| TUI (React Ink) | ✅ | |
-| ChannelBridge (unified adapter layer) | ✅ | All platforms share one bridge |
-| Unified routing (routing.json → agent binding) | ✅ | Channel → agent with runtime mode selection |
-| Unified slash commands across platforms | ✅ | /switch, /status, /reload-routing, etc. |
-| Claude SDK pass-through (claude-sdk runtime) | ✅ | |
-| Transcript resume on restart | ✅ | |
-| **Gaia web server authentication** | ❌ | Anyone who can reach the server can use it. No auth, no sessions, no user identity. |
-| **Consistent multimodal output** | 🔶 | Input attachments work (images, files). Output is text-only across all adapters — no image/audio generation or rich formatting. |
-| **Platform capability negotiation** | ❌ | Bridge doesn't know what each platform supports (message length, embeds, reactions, etc.) |
-
-## 10. MCP (Model Context Protocol)
+Full MCP implementation on both client and server sides, plus a library for building hosted multi-user MCP servers.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -208,7 +348,29 @@ The Stimulus defines *what* to say: persona, instructions, tools, model paramete
 | **Token revocation endpoint** | ❌ | MCP tokens can't be explicitly revoked by the user. |
 | **Skill → hosted MCP packaging flow** | ❌ | mcp-serve is a library you code against. Missing: skill manifest format, declare required auth/scopes, publish/deploy workflow. |
 
-## 11. Identity & Access Control
+## 13. Multi-Platform Interfaces
+
+Agents accessible from multiple surfaces through a unified ChannelBridge routing layer.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| CLI REPL | ✅ | |
+| Discord adapter | ✅ | Ambient mode, threads, slash commands, attachment handling |
+| Telegram adapter | ✅ | Media storage, message logging |
+| Web interface (Gaia server) | ✅ | JSON API + chat endpoint |
+| TUI (React Ink) | ✅ | |
+| ChannelBridge (unified adapter layer) | ✅ | All platforms share one bridge |
+| Unified routing (routing.json → agent binding) | ✅ | Channel → agent with runtime mode selection |
+| Unified slash commands across platforms | ✅ | /switch, /status, /reload-routing, etc. |
+| Claude SDK pass-through (claude-sdk runtime) | ✅ | |
+| Transcript resume on restart | ✅ | |
+| **Gaia web server authentication** | ❌ | Anyone who can reach the server can use it. No auth, no sessions, no user identity. |
+| **Consistent multimodal output** | 🔶 | Input attachments work (images, files). Output is text-only across all adapters — no image/audio generation or rich formatting. |
+| **Platform capability negotiation** | ❌ | Bridge doesn't know what each platform supports (message length, embeds, reactions, etc.) |
+
+## 14. Identity & Access Control
+
+Current identity model is functional but minimal.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -221,89 +383,36 @@ The Stimulus defines *what* to say: persona, instructions, tools, model paramete
 | **Role-based access control** | ❌ | No admin vs user vs readonly roles. |
 | **Data lifecycle / privacy controls** | ❌ | No delete-my-data, no transcript retention rules, no export-my-data, no redaction. |
 
-## 12. Memory
+## 15. Background & Automation
+
+The least developed area. Habitats can only react to incoming chat messages.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Fact extraction from conversations | ✅ | LLM-powered, categorized (preference, plan, professional) |
-| Memory operations (ADD, UPDATE, DELETE) | ✅ | |
-| MemoryRunner (auto-extract during chat) | ✅ | `stimulus.runnerType = 'memory'` |
-| Per-user fact storage (MemoryStore interface) | ✅ | Interface exists |
-| Learnings store (file-based, per-session) | ✅ | `FileLearningsStore` for session-level learnings |
-| **Persistent memory backend** | ❌ | Only `InMemoryMemoryStore` exists. Facts are lost when process restarts. No file, SQLite, or Postgres backend. |
-| **Memory retrieval / injection** | ❌ | Facts are extracted but not automatically retrieved and injected as context for future conversations. The loop is broken. |
-| **Cross-session memory** | ❌ | Each `Interaction` creates a fresh `InMemoryMemoryStore`. No sharing between sessions or conversations. |
-| **Memory search / relevance** | ❌ | No semantic search over stored facts. No "retrieve the 5 most relevant facts for this conversation." |
+| **Webhook / event ingestion** | ❌ | Habitat can only react to chat messages. No HTTP webhook handler, no event bus, no "when X happens, do Y." |
+| **Scheduled tasks / cron** | ❌ | No way to say "every morning, summarize my Twitter feed" or "check Oura sleep data at 8am." |
+| **Background job runtime** | ❌ | No job queue, retries, idempotency, or failure handling. |
+| **Inter-habitat communication** | 🔶 | Sub-agents exist, bridge delegates via MCP. But no direct tool-to-tool calls between habitats, no pub/sub. |
 
-## 13. Session Understanding & Knowledge Extraction
+---
 
-This is one of the most developed areas — a full pipeline for understanding what happened in conversations and extracting reusable knowledge.
+# Part V — Developer Experience
 
-### Session Persistence & Structure
+## 16. URL & HTML Utilities
+
+Low-level utilities consumed by the tool layer.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| JSONL transcript persistence | ✅ | Append-only, per-session |
-| Session metadata (provider, model, type, agent) | ✅ | |
-| Conversation beats (user turn + tools + response) | ✅ | `messagesToBeats()` groups messages into logical turns |
-| External session reading (Claude Code, Cursor) | ✅ | `ClaudeCodeAdapter`, `CursorAdapter` — reads their JSONL history |
-| Transcript resume on restart | ✅ | Reload last N message pairs when process restarts |
-| Segmented transcripts | ✅ | Compaction creates frozen segments + live segment |
+| URL fetching with limits | ✅ | `fetchUrl()` with timeout and size limits |
+| HTML → Markdown (Turndown) | ✅ | `fromHtmlBuiltIn()` |
+| HTML → Markdown (Markify service) | ✅ | `fromHtmlViaMarkify()` — optional external service |
+| URL → Markdown pipeline | ✅ | `urlToMarkdown()` — fetch + convert |
+| RSS/Atom feed parsing | ✅ | `parseFeed()` |
 
-### Session Analysis (LLM-powered)
+## 17. Reporting
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Session analysis via LLM | ✅ | Extracts: topics, tags, key learnings, summary, solution type, code languages, tools used, success indicators |
-| Analysis index (per-project) | ✅ | `SessionAnalysisIndex` — cached analysis results, incremental re-indexing |
-| Session search (keyword + field filters) | ✅ | Filter by tags, topic, tool, solutionType, branch, success |
-| Cross-project search | ✅ | Discover + search across all Claude Code/Cursor project directories |
-
-### Session Digest (Deep Understanding)
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Session digester | ✅ | Full pipeline: compaction → analysis → fact extraction → beat analysis → phase detection |
-| Beat-by-beat breakdown | ✅ | Per-beat: userRequest, toolsUsed, outcome, narrative, keyFacts |
-| Phase detection | ✅ | Groups beats into conversation phases with themes |
-| Digest segments (compacted) | ✅ | Through-line + key facts per segment |
-| Overall summary generation | ✅ | Merged summary across all segments |
-| Structured fact extraction | ✅ | Typed facts from digest pipeline |
-| Session metrics | ✅ | Message count, segment count, tool call count, estimated cost, duration |
-| Digest index (master, cross-project) | ✅ | `DigestIndex` with lightweight entries for browsing |
-
-### Learnings System (Persistent Knowledge)
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| FileLearningsStore | ✅ | Append-only JSONL per kind, per session |
-| Learning kinds | ✅ | `facts`, `playbooks`, `preferences`, `open_loops`, `mistakes` |
-| Learning provenance tracking | ✅ | Links back to session, channel, compaction run |
-| Context merge (inject learnings into new sessions) | ✅ | `buildHabitatIntrospectionContextMessages()` — prepends compaction summaries + serialized learnings |
-| Compaction events | ✅ | `CompactionEventV1` — marker in transcript when compaction occurs |
-| Session-level learnings CLI | ✅ | `sessions digest` subcommands |
-
-### Context Management
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Context compaction | ✅ | Pluggable `CompactionStrategy` interface |
-| Token estimation | ✅ | `estimateContextSize()` |
-| Compaction segment detection | ✅ | `getCompactionSegment()` — find which messages to compact |
-| Strategy registry | ✅ | `registerCompactionStrategy()` / `getCompactionStrategy()` |
-
-### Gaps
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Cross-session learning injection** | 🔶 | `buildHabitatIntrospectionContextMessages()` can inject learnings from the *same session's* learnings store, but there's no automatic "pull relevant learnings from *all* past sessions" into a new conversation. |
-| **Semantic search over learnings** | ❌ | Learnings are stored but can only be loaded in bulk, not searched by relevance. No embedding-based retrieval. |
-| **Cross-platform session continuity** | ❌ | Can't continue a Discord conversation on Telegram or web. Sessions are channel-scoped. |
-| **Multi-instance session safety** | ❌ | Sessions assume single-process, local disk. No distributed locks. Multiple workers writing to the same session would corrupt it. |
-| **Automatic digest on session end** | ❌ | Digest is manual (`sessions digest`). Not triggered automatically when a conversation ends. |
-| **Learning deduplication / consolidation** | ❌ | Learnings accumulate forever. No merging of duplicate facts, no periodic consolidation. |
-
-## 14. Reporting
+Unified report rendering used by tool tests and evaluation suite reports.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -316,23 +425,9 @@ This is one of the most developed areas — a full pipeline for understanding wh
 | Narrative reports (prose writeup) | ✅ | Full methodology + analysis + cost/speed breakdown for eval combines |
 | Report adapters | ✅ | Adapt different result types to unified `Report` format |
 
-## 15. Evaluation
+## 18. CLI
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| EvalSuite (declarative eval runner) | ✅ | VerifyTask (deterministic) + JudgeTask (LLM judge with Zod schema) |
-| PairwiseRanker (Elo via LLM judge) | ✅ | Swiss tournament + round-robin, position bias mitigation, comparison caching |
-| Suite combine (multi-dimension leaderboard) | ✅ | Aggregate independent evals into unified report |
-| Lower-level strategies | ✅ | `SimpleEvaluation`, `MatrixEvaluation` (placeholder cartesian product), `BatchEvaluation` (N items × N models) |
-| Result caching (two layers) | ✅ | Response cache (raw LLM output) + result cache (scored output) |
-| Multiple report formats | ✅ | Console, markdown, JSON, narrative (full prose) |
-| Dagger-based code execution | ✅ | TypeScript, Python, Ruby, Rust, Go in isolated containers |
-| Codebase evaluation | ✅ | `ContextProvider`, `ChangeExtractor`, `ChangeApplicator` for code-aware evals |
-| CLI commands | ✅ | `eval run`, `eval report`, `eval list`, `eval combine` |
-| Concurrency control | ✅ | `--concurrent` flag, configurable concurrency |
-| **Tool/skill contract tests** | ❌ | Evaluations test LLM responses, but no first-class framework for testing tool implementations, MCP server endpoints, or OAuth flows. |
-
-## 16. CLI
+Commander-based CLI providing the primary developer interface.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -347,16 +442,9 @@ This is one of the most developed areas — a full pipeline for understanding wh
 | `tools` — list available tools | ✅ | |
 | Common options | ✅ | `--provider`, `--model`, `--temperature`, etc. shared across commands |
 
-## 17. Background & Automation
+## 19. Developer Experience
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **Webhook / event ingestion** | ❌ | Habitat can only react to chat messages. No HTTP webhook handler, no event bus, no "when X happens, do Y." |
-| **Scheduled tasks / cron** | ❌ | No way to say "every morning, summarize my Twitter feed" or "check Oura sleep data at 8am." |
-| **Background job runtime** | ❌ | No job queue, retries, idempotency, or failure handling. |
-| **Inter-habitat communication** | 🔶 | Sub-agents exist, bridge delegates via MCP. But no direct tool-to-tool calls between habitats, no pub/sub. |
-
-## 18. Developer Experience
+Documentation, tooling, and developer workflow support.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -372,7 +460,7 @@ This is one of the most developed areas — a full pipeline for understanding wh
 | **Safety / approval model for dangerous tools** | ❌ | No dangerous-tool classification, no approval hooks, no outbound network restrictions, no filesystem boundaries beyond `allowedRoots`. |
 | **Observability dashboard** | ❌ | Cost data exists in pieces but no unified view, no alerts, no per-user usage breakdown. |
 
-## 19. Examples
+## 20. Examples
 
 | Example | Status | Notes |
 |---------|--------|-------|
