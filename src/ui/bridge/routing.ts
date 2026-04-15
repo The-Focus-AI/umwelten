@@ -31,7 +31,9 @@ export function coerceChannelBinding(
     if (!agentId) return null;
     const runtime: ChannelRuntimeMode =
       value.runtime === 'claude-sdk' ? 'claude-sdk' : 'default';
-    return { agentId, runtime };
+    const infoMessageId = typeof value.infoMessageId === 'string' && value.infoMessageId.trim()
+      ? value.infoMessageId.trim() : undefined;
+    return { agentId, runtime, infoMessageId };
   }
   return null;
 }
@@ -49,17 +51,46 @@ export async function loadRouting(
   explicitPath?: string,
 ): Promise<RoutingConfig> {
   const routingPath = explicitPath ?? join(workDir, 'routing.json');
+  let config: RoutingConfig = { channels: {} };
+
   try {
     const raw = await readFile(routingPath, 'utf-8');
     const parsed = JSON.parse(raw) as RoutingConfig;
-    return {
+    config = {
       channels: parsed.channels ?? {},
       defaultAgentId: parsed.defaultAgentId,
       platformDefaults: parsed.platformDefaults,
     };
   } catch {
-    return { channels: {} };
+    // routing.json doesn't exist yet
   }
+
+  // Merge discord.json entries as fallback (prefix with discord:)
+  try {
+    const discordPath = join(workDir, 'discord.json');
+    if (discordPath !== routingPath) {
+      const raw = await readFile(discordPath, 'utf-8');
+      const discord = JSON.parse(raw) as Record<string, unknown>;
+      const discordChannels = discord.channels as Record<string, unknown> | undefined;
+      if (discordChannels) {
+        for (const [id, value] of Object.entries(discordChannels)) {
+          const key = `discord:${id}`;
+          if (!config.channels![key]) {
+            config.channels![key] = value as string | ChannelBinding;
+          }
+        }
+      }
+      // Merge defaultAgentId as platform default
+      if (discord.defaultAgentId && !config.platformDefaults?.discord) {
+        if (!config.platformDefaults) config.platformDefaults = {};
+        config.platformDefaults.discord = { agentId: discord.defaultAgentId as string };
+      }
+    }
+  } catch {
+    // discord.json doesn't exist
+  }
+
+  return config;
 }
 
 export async function saveRouting(
@@ -132,6 +163,35 @@ export function routeSignature(resolution: RouteResolution): string {
 }
 
 // ── Mutations ────────────────────────────────────────────────────────
+
+/** Read the exact binding for a channelKey (no inheritance). */
+export async function peekExactChannelBinding(
+  workDir: string,
+  channelKey: string,
+  explicitPath?: string,
+): Promise<ChannelBinding | null> {
+  const routing = await loadRouting(workDir, explicitPath);
+  return coerceChannelBinding(routing.channels?.[channelKey]);
+}
+
+/** Update the infoMessageId on an existing binding (no-op if not bound). */
+export async function setChannelInfoMessageId(
+  workDir: string,
+  channelKey: string,
+  infoMessageId: string | null,
+  explicitPath?: string,
+): Promise<void> {
+  const routingPath = explicitPath ?? join(workDir, 'routing.json');
+  const routing = await loadRouting(workDir, routingPath);
+  const channels = { ...(routing.channels ?? {}) };
+  const binding = coerceChannelBinding(channels[channelKey]);
+  if (!binding) return;
+  channels[channelKey] = {
+    ...binding,
+    infoMessageId: infoMessageId?.trim() || undefined,
+  };
+  await saveRouting(workDir, { ...routing, channels }, routingPath);
+}
 
 /** Set or remove a channel binding. Pass `null` to remove. */
 export async function setChannelRoute(

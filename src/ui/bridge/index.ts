@@ -23,6 +23,8 @@ export {
   routeSignature,
   setChannelRoute,
   coerceChannelBinding,
+  peekExactChannelBinding,
+  setChannelInfoMessageId,
 } from './routing.js';
 
 export { processBridgeCommand, getBridgeCommandDefs } from './commands.js';

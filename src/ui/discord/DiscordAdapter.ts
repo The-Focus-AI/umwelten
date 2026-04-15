@@ -63,8 +63,8 @@ export interface DiscordAdapterConfig {
   token: string;
   modelDetails: ModelDetails;
   visionModelDetails?: ModelDetails;
-  /** Resolve stimulus for this Discord channel (main habitat vs buildAgentStimulus per routing). */
-  getStimulusForChannel: (
+  /** Resolve stimulus for this Discord channel (legacy; not needed when bridge is set). */
+  getStimulusForChannel?: (
     channelId: string,
     context?: DiscordStimulusContext,
   ) => Promise<Stimulus>;
@@ -500,15 +500,24 @@ export class DiscordAdapter {
     if (!channel.isTextBased()) {
       return true;
     }
-    if (!this.config.getDiscordUnrestrictedMessages) {
-      return true;
-    }
     const isThread =
       "isThread" in channel &&
       typeof channel.isThread === "function" &&
       channel.isThread();
+    const parentId = isThread ? channel.parentId ?? undefined : undefined;
+
+    if (this.config.bridge) {
+      const channelKey = `discord:${channelId}`;
+      const parentKey = parentId ? `discord:${parentId}` : undefined;
+      const route = await this.config.bridge.resolveRoute(channelKey, parentKey);
+      return route.kind === "agent";
+    }
+
+    if (!this.config.getDiscordUnrestrictedMessages) {
+      return true;
+    }
     return this.config.getDiscordUnrestrictedMessages(channelId, {
-      parentChannelId: isThread ? channel.parentId ?? undefined : undefined,
+      parentChannelId: parentId,
       isDiscordThread: Boolean(isThread),
     });
   }
@@ -761,52 +770,102 @@ export class DiscordAdapter {
       const runtime: DiscordChannelRuntimeMode =
         rt === "claude-sdk" ? "claude-sdk" : "default";
       try {
-        const {
-          updateDiscordChannelRuntime,
-          peekExactDiscordBinding,
-        } = await import("../../habitat/discord-routing.js");
-        const ok = await updateDiscordChannelRuntime(
-          workDir,
-          channelId,
-          runtime,
-          routingPath,
-        );
-        if (!ok) {
-          await interaction.editReply({
-            content:
-              "This channel/thread has **no direct** binding in `discord.json` (it may only **inherit** the parent). Run `/bind-agent` **here** first, then you can change runtime.",
-          });
-          return;
-        }
-        this.clearChannelSession(channelId);
-        this.routeSignatures.delete(channelId);
-        const ch = interaction.channel;
-        if (
-          this.config.buildDiscordBindingPinContent &&
-          ch?.isTextBased() &&
-          ch.isSendable()
-        ) {
-          const b = await peekExactDiscordBinding(
-            workDir,
-            channelId,
-            routingPath,
-          );
-          if (b?.infoMessageId) {
-            const msg = await ch.messages.fetch(b.infoMessageId).catch(() => null);
-            if (msg) {
-              const body = (
-                await this.config.buildDiscordBindingPinContent({
-                  agentId: b.agentId,
-                  runtime,
-                })
-              ).slice(0, 2000);
-              await msg.edit({ content: body }).catch(() => {});
+        if (this.config.bridge) {
+          // ── Bridge path ──
+          const { peekExactChannelBinding } = await import("../bridge/routing.js");
+          const channelKey = `discord:${channelId}`;
+          const parentKey = interaction.channel &&
+            "parentId" in interaction.channel &&
+            interaction.channel.parentId
+            ? `discord:${interaction.channel.parentId}`
+            : undefined;
+          const route = await this.config.bridge.resolveRoute(channelKey, parentKey);
+          if (route.kind !== "agent") {
+            await interaction.editReply({
+              content:
+                "This channel/thread has **no agent binding**. Run `/bind-agent` first, then you can change runtime.",
+            });
+            return;
+          }
+          await this.config.bridge.switchAgent(channelKey, route.agentId, runtime);
+          this.clearChannelSession(channelId);
+          this.routeSignatures.delete(channelId);
+          const ch = interaction.channel;
+          if (
+            this.config.buildDiscordBindingPinContent &&
+            ch?.isTextBased() &&
+            ch.isSendable()
+          ) {
+            const b = await peekExactChannelBinding(
+              workDir,
+              channelKey,
+              routingPath,
+            );
+            if (b?.infoMessageId) {
+              const msg = await ch.messages.fetch(b.infoMessageId).catch(() => null);
+              if (msg) {
+                const body = (
+                  await this.config.buildDiscordBindingPinContent({
+                    agentId: route.agentId,
+                    runtime,
+                  })
+                ).slice(0, 2000);
+                await msg.edit({ content: body }).catch(() => {});
+              }
             }
           }
+          await interaction.editReply({
+            content: `Runtime is now **${runtime}** for this channel (session cache cleared).`,
+          });
+        } else {
+          // ── Legacy path ──
+          const {
+            updateDiscordChannelRuntime,
+            peekExactDiscordBinding,
+          } = await import("../../habitat/discord-routing.js");
+          const ok = await updateDiscordChannelRuntime(
+            workDir,
+            channelId,
+            runtime,
+            routingPath,
+          );
+          if (!ok) {
+            await interaction.editReply({
+              content:
+                "This channel/thread has **no direct** binding in `discord.json` (it may only **inherit** the parent). Run `/bind-agent` **here** first, then you can change runtime.",
+            });
+            return;
+          }
+          this.clearChannelSession(channelId);
+          this.routeSignatures.delete(channelId);
+          const ch = interaction.channel;
+          if (
+            this.config.buildDiscordBindingPinContent &&
+            ch?.isTextBased() &&
+            ch.isSendable()
+          ) {
+            const b = await peekExactDiscordBinding(
+              workDir,
+              channelId,
+              routingPath,
+            );
+            if (b?.infoMessageId) {
+              const msg = await ch.messages.fetch(b.infoMessageId).catch(() => null);
+              if (msg) {
+                const body = (
+                  await this.config.buildDiscordBindingPinContent({
+                    agentId: b.agentId,
+                    runtime,
+                  })
+                ).slice(0, 2000);
+                await msg.edit({ content: body }).catch(() => {});
+              }
+            }
+          }
+          await interaction.editReply({
+            content: `Runtime is now **${runtime}** for this channel (session cache cleared).`,
+          });
         }
-        await interaction.editReply({
-          content: `Runtime is now **${runtime}** for this channel (session cache cleared).`,
-        });
       } catch (e) {
         await interaction.editReply({
           content: e instanceof Error ? e.message : String(e),
@@ -832,13 +891,138 @@ export class DiscordAdapter {
       const routingPath =
         this.config.discordRoutingPath ?? process.env.DISCORD_ROUTING_PATH;
       try {
-        const {
-          setDiscordChannelRoute,
-          peekExactDiscordBinding,
-          setDiscordChannelInfoMessageId,
-        } = await import("../../habitat/discord-routing.js");
-        if (name === "unbind-agent") {
-          const prev = await peekExactDiscordBinding(
+        if (this.config.bridge) {
+          // ── Bridge path ──
+          const { peekExactChannelBinding, setChannelInfoMessageId } =
+            await import("../bridge/routing.js");
+          const channelKey = `discord:${channelId}`;
+          if (name === "unbind-agent") {
+            const prev = await peekExactChannelBinding(
+              workDir,
+              channelKey,
+              routingPath,
+            );
+            await this.config.bridge.switchAgent(channelKey, null);
+            this.clearChannelSession(channelId);
+            this.routeSignatures.delete(channelId);
+            if (
+              prev?.infoMessageId &&
+              interaction.channel?.isTextBased() &&
+              interaction.channel.isSendable()
+            ) {
+              await this.removeBindingInfoMessage(
+                interaction.channel as SendableChannel,
+                prev.infoMessageId,
+              );
+            }
+            await interaction.editReply({
+              content:
+                "Removed mapping for this channel/thread. Next message uses parent channel, default, or main.",
+            });
+          } else {
+            const agentId = interaction.options.getString("agent_id", true).trim();
+            if (!agentId) {
+              await interaction.editReply({ content: "agent_id cannot be empty." });
+              return;
+            }
+            const rtOpt = interaction.options.getString("runtime");
+            const runtime: DiscordChannelRuntimeMode =
+              rtOpt === "claude-sdk" ? "claude-sdk" : "default";
+            const prev = await peekExactChannelBinding(
+              workDir,
+              channelKey,
+              routingPath,
+            );
+            if (
+              prev?.infoMessageId &&
+              interaction.channel?.isTextBased() &&
+              interaction.channel.isSendable()
+            ) {
+              await this.removeBindingInfoMessage(
+                interaction.channel as SendableChannel,
+                prev.infoMessageId,
+              );
+            }
+            await this.config.bridge.switchAgent(channelKey, agentId, runtime);
+            this.clearChannelSession(channelId);
+            this.routeSignatures.delete(channelId);
+            let pinNote = "";
+            let ephemeralCardAppend = "";
+            if (
+              this.config.buildDiscordBindingPinContent &&
+              interaction.channel?.isTextBased() &&
+              interaction.channel.isSendable() &&
+              interaction.inGuild()
+            ) {
+              const body = (
+                await this.config.buildDiscordBindingPinContent({
+                  agentId,
+                  runtime,
+                })
+              ).slice(0, 2000);
+              const sendCh = interaction.channel as SendableChannel;
+              const botMember = interaction.guild?.members.me ?? null;
+              const blockers = this.bindingCardChannelBlockers(
+                sendCh,
+                botMember,
+              );
+              if (blockers.length > 0) {
+                pinNote = `\n\n**Binding card not posted:** the bot is missing **${blockers.join(", ")}** here. Fix **channel (or category) permissions** for the bot's role. In **threads**, enable **Send Messages in Threads**. To **pin** the card once sending works, also grant **Manage Messages**.`;
+                ephemeralCardAppend = `\n---\n${body}`;
+              } else {
+                try {
+                  const msg = await sendCh.send(body);
+                  try {
+                    await msg.pin();
+                  } catch (pe) {
+                    console.warn(
+                      "[DISCORD] Could not pin binding card (Manage Messages?):",
+                      pe,
+                    );
+                    pinNote =
+                      "\n\n_Could not **pin** the info card — grant the bot **Manage Messages**._";
+                  }
+                  await setChannelInfoMessageId(
+                    workDir,
+                    channelKey,
+                    msg.id,
+                    routingPath,
+                  );
+                } catch (se) {
+                  console.warn("[DISCORD] Could not post binding card:", se);
+                  const code =
+                    se && typeof se === "object" && "code" in se
+                      ? Number((se as { code?: number }).code)
+                      : undefined;
+                  const hint =
+                    code === 50_001
+                      ? " Missing **View Channel**, **Send Messages**, or (in threads) **Send Messages in Threads** for the bot."
+                      : "";
+                  pinNote = `\n\n_Could not post the binding card.${hint}_`;
+                  ephemeralCardAppend = `\n---\n${body}`;
+                }
+              }
+            }
+            const summary = `Mapped this channel/thread to agent \`${agentId}\` (**runtime:** \`${runtime}\`).${pinNote}`;
+            let replyBody = summary;
+            if (ephemeralCardAppend) {
+              const cap = 2000;
+              const room = cap - summary.length;
+              if (room > 24) {
+                replyBody = (summary + ephemeralCardAppend).slice(0, cap);
+              }
+            }
+            await interaction.editReply({ content: replyBody });
+          }
+        } else {
+          // ── Legacy (discord-routing) path ──
+          const {
+            setDiscordChannelRoute,
+            peekExactDiscordBinding,
+            setDiscordChannelInfoMessageId,
+          } = await import("../../habitat/discord-routing.js");
+          if (name === "unbind-agent") {
+            const prev = await peekExactDiscordBinding(
             workDir,
             channelId,
             routingPath,
@@ -956,6 +1140,7 @@ export class DiscordAdapter {
             }
           }
           await interaction.editReply({ content: replyBody });
+          }
         }
       } catch (e) {
         await interaction.editReply({
@@ -1034,17 +1219,26 @@ export class DiscordAdapter {
   }
 
   private async computeUnrestricted(message: Message): Promise<boolean> {
-    if (!this.config.getDiscordUnrestrictedMessages) {
-      return true;
-    }
     const ch = message.channel;
     const isThread =
       ch &&
       "isThread" in ch &&
       typeof ch.isThread === "function" &&
       ch.isThread();
+    const parentKey = parentChannelIdFromChannel(message.channel);
+
+    if (this.config.bridge) {
+      const channelKey = `discord:${message.channelId}`;
+      const parentChannelKey = parentKey ? `discord:${parentKey}` : undefined;
+      const route = await this.config.bridge.resolveRoute(channelKey, parentChannelKey);
+      return route.kind === "agent";
+    }
+
+    if (!this.config.getDiscordUnrestrictedMessages) {
+      return true;
+    }
     return this.config.getDiscordUnrestrictedMessages(message.channelId, {
-      parentChannelId: parentChannelIdFromChannel(message.channel),
+      parentChannelId: parentKey,
       isDiscordThread: Boolean(isThread),
     });
   }
@@ -1501,7 +1695,19 @@ export class DiscordAdapter {
     unrestricted: boolean,
   ): Promise<void> {
     const { sessionChannelId, replyChannel } = target;
-    if (this.config.getDiscordRouteDetail) {
+    if (this.config.bridge) {
+      const channelKey = `discord:${sessionChannelId}`;
+      const parentKey = stimulusCtx.parentChannelId
+        ? `discord:${stimulusCtx.parentChannelId}`
+        : undefined;
+      const route = await this.config.bridge.resolveRoute(channelKey, parentKey);
+      if (route.kind === "agent" && route.runtime === "claude-sdk") {
+        await replyChannel.send(
+          "This channel is **Claude SDK pass-through** (text only). Attachments are not forwarded. Use `/set-agent-runtime` → **Jeeves + tools**, or describe files in text.",
+        );
+        return;
+      }
+    } else if (this.config.getDiscordRouteDetail) {
       const d = await this.config.getDiscordRouteDetail(
         sessionChannelId,
         stimulusCtx,
@@ -1692,6 +1898,9 @@ export class DiscordAdapter {
     }
 
     if (!this.interactions.has(channelId)) {
+      if (!this.config.getStimulusForChannel) {
+        throw new Error('getStimulusForChannel is required for legacy (non-bridge) interaction path');
+      }
       const stimulus = await this.config.getStimulusForChannel(channelId, ctx);
       const interaction = this.createInteraction(
         this.config.modelDetails,
@@ -1713,6 +1922,9 @@ export class DiscordAdapter {
       (vision.name !== this.config.modelDetails.name ||
         vision.provider !== this.config.modelDetails.provider)
     ) {
+      if (!this.config.getStimulusForChannel) {
+        throw new Error('getStimulusForChannel is required for vision interaction');
+      }
       const stimulus = await this.config.getStimulusForChannel(channelId, ctx);
       return {
         interaction: this.createInteraction(vision, stimulus),

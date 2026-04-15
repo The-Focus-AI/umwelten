@@ -77,6 +77,8 @@ export type ChannelRuntimeMode = 'default' | 'claude-sdk';
 export interface ChannelBinding {
   agentId: string;
   runtime?: ChannelRuntimeMode;
+  /** Discord-specific: pinned binding card message id. */
+  infoMessageId?: string;
 }
 
 /** Routing configuration loaded from routing.json. */

@@ -22,10 +22,6 @@ import {
   Habitat,
   getAgentMemoryPath,
   buildAgentStimulus,
-  loadDiscordRouting,
-  resolveDiscordChannelRoute,
-  discordRouteSignature,
-  runClaudeSDK,
 } from "../habitat/index.js";
 import type { AgentEntry, DiscordChannelRuntimeMode } from "../habitat/index.js";
 import { Interaction } from "../interaction/core/interaction.js";
@@ -43,7 +39,7 @@ import {
 } from "../context/index.js";
 import type { ModelDetails } from "../cognition/types.js";
 import { Stimulus } from "../stimulus/stimulus.js";
-import { createDiscordRoutingTools } from "../habitat/tools/discord-routing-tools.js";
+// Discord routing tools kept for non-bridge paths (e.g. tools exposed to the LLM)
 
 // ── Shared habitat options ────────────────────────────────────────────
 
@@ -878,96 +874,31 @@ async function discordAction(
       ? { provider: visionProvider, name: visionModel }
       : undefined;
 
-  const discordRoutingTools = createDiscordRoutingTools({
-    workDir: habitat.workDir,
-    routingPath,
+  const { DiscordAdapter } = await import("../ui/discord/DiscordAdapter.js");
+  const { readRecentDiscordSessionChannelIds } = await import(
+    "../ui/discord/discord-backfill-sessions.js"
+  );
+  const { ChannelBridge } = await import("../ui/bridge/channel-bridge.js");
+  const { routeSignature: bridgeRouteSignature } = await import(
+    "../ui/bridge/routing.js"
+  );
+
+  const bridge = new ChannelBridge(habitat, {
+    platformInstruction:
+      "You are responding in Discord. Prefer short paragraphs. Avoid wide markdown tables; use bullet lists or labeled lines. Keep code in fenced blocks when needed.",
   });
 
-  const cloneMainDiscordStimulus = async (): Promise<Stimulus> => {
-    const s = await cloneHabitatStimulus(habitat, discordRoutingTools);
-    s.addInstruction(
-      "You can change which habitat agent answers in a Discord channel or thread using tools `discord_route_bind` and `discord_route_list` (snowflake ids).",
-    );
-    return s;
-  };
-
-  const getStimulusForChannel = async (
+  /** Resolve route via the bridge (shared routing.json + discord.json fallback). */
+  const resolveViaBridge = async (
     channelId: string,
-    context?: {
-      parentChannelId?: string | null;
-      isDiscordThread?: boolean;
-    },
+    parentChannelId?: string | null,
   ) => {
-    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-    const resolved = resolveDiscordChannelRoute(
-      channelId,
-      routing,
-      context?.parentChannelId,
-    );
-    if (resolved.kind === "main") {
-      return cloneMainDiscordStimulus();
-    }
-    const agent = habitat.getAgent(resolved.agentId);
-    if (!agent) {
-      console.warn(
-        `[habitat] discord.json maps channel ${channelId} to unknown agent "${resolved.agentId}"; using main stimulus.`,
-      );
-      return cloneMainDiscordStimulus();
-    }
-    return buildAgentStimulus(agent, habitat);
-  };
-
-  const getDiscordRouteSignature = async (
-    channelId: string,
-    context?: {
-      parentChannelId?: string | null;
-      isDiscordThread?: boolean;
-    },
-  ) => {
-    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-    const resolved = resolveDiscordChannelRoute(
-      channelId,
-      routing,
-      context?.parentChannelId,
-    );
-    return discordRouteSignature(resolved);
-  };
-
-  const getDiscordUnrestrictedMessages = async (
-    channelId: string,
-    context?: {
-      parentChannelId?: string | null;
-      isDiscordThread?: boolean;
-    },
-  ) => {
-    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-    const resolved = resolveDiscordChannelRoute(
-      channelId,
-      routing,
-      context?.parentChannelId,
-    );
-    if (resolved.kind === "main") {
-      return false;
-    }
-    return habitat.getAgent(resolved.agentId) != null;
+    const key = `discord:${channelId}`;
+    const parentKey = parentChannelId ? `discord:${parentChannelId}` : undefined;
+    return bridge.resolveRoute(key, parentKey);
   };
 
   const claudeSdkSpec = await readClaudeSdkVersionFromRepoPackageJson();
-
-  const getDiscordRouteDetail = async (
-    channelId: string,
-    context?: {
-      parentChannelId?: string | null;
-      isDiscordThread?: boolean;
-    },
-  ) => {
-    const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-    return resolveDiscordChannelRoute(
-      channelId,
-      routing,
-      context?.parentChannelId,
-    );
-  };
 
   const buildDiscordBindingPinContent = async (opts: {
     agentId: string;
@@ -976,7 +907,7 @@ async function discordAction(
     const agent = habitat.getAgent(opts.agentId);
     const runLine =
       opts.runtime === "claude-sdk"
-        ? "**Runtime:** Claude Agent SDK pass-through (each message → `runClaudeSDK` on the agent repo). Text only."
+        ? "**Runtime:** Claude Agent SDK pass-through. Text only."
         : "**Runtime:** Habitat model + tools. Attachments and vision where supported.";
     const lines = [
       "# Habitat channel binding",
@@ -984,47 +915,14 @@ async function discordAction(
       `**Agent:** \`${opts.agentId}\`${agent ? ` — ${agent.name}` : ""}`,
       agent ? `**Project:** \`${agent.projectPath}\`` : "",
       runLine,
-      `**Claude SDK dep (umwelten):** \`${claudeSdkSpec}\``,
       "",
-      "- Change mode: `/set-agent-runtime`",
+      "- Switch agent: `/switch <agent-id>` or `/switch main`",
+      "- Claude SDK: `/switch-claude <agent-id>`",
+      "- Status: `/status`",
       "- Unbind: `/unbind-agent`",
     ];
     return lines.filter((l) => l !== "").join("\n");
   };
-
-  const runClaudeSdkPassThrough = async (opts: {
-    agentId: string;
-    userText: string;
-  }) => {
-    const agent = habitat.getAgent(opts.agentId);
-    if (!agent) {
-      return {
-        text: "",
-        success: false,
-        errors: [`Agent not found: ${opts.agentId}`],
-      };
-    }
-    const r = await runClaudeSDK(opts.userText, {
-      cwd: agent.projectPath,
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      maxTurns: 25,
-    });
-    return {
-      text: r.content,
-      success: r.success,
-      errors: r.errors.length ? r.errors : undefined,
-    };
-  };
-
-  const { DiscordAdapter } = await import("../ui/discord/DiscordAdapter.js");
-  const { readRecentDiscordSessionChannelIds } = await import(
-    "../ui/discord/discord-backfill-sessions.js"
-  );
-  const { ChannelBridge } = await import("../ui/bridge/channel-bridge.js");
-  const bridge = new ChannelBridge(habitat, {
-    platformInstruction:
-      "You are responding in Discord. Prefer short paragraphs. Avoid wide markdown tables; use bullet lists or labeled lines. Keep code in fenced blocks when needed.",
-  });
 
   const guildId =
     options.discordGuild?.trim() || process.env.DISCORD_GUILD_ID?.trim();
@@ -1034,64 +932,40 @@ async function discordAction(
     modelDetails,
     visionModelDetails,
     bridge,
-    getStimulusForChannel,
-    getDiscordRouteSignature,
-    getDiscordUnrestrictedMessages,
-    getDiscordRouteDetail,
     buildDiscordBindingPinContent,
-    runClaudeSdkPassThrough,
     workDir: habitat.workDir,
-    discordRoutingPath: routingPath,
     guildId: guildId || undefined,
     getSessionMediaDir: async (channelId, ctx) => {
-      const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-      const resolved = resolveDiscordChannelRoute(
-        channelId,
-        routing,
-        ctx?.parentChannelId,
-      );
-      const routeSignature = discordRouteSignature(resolved);
-      const agentId =
-        resolved.kind === "agent" ? resolved.agentId : undefined;
+      const resolved = await resolveViaBridge(channelId, ctx?.parentChannelId);
+      const sig = bridgeRouteSignature(resolved);
+      const agentId = resolved.kind === "agent" ? resolved.agentId : undefined;
       const { sessionDir } = await habitat.getOrCreateSession(
         "discord",
         channelId,
         {
           discordStableSession: ctx?.isDiscordThread === true,
-          sessionMetadata: { agentId, routeSignature },
+          sessionMetadata: { agentId, routeSignature: sig },
         },
       );
       return path.join(sessionDir, "media");
     },
     getSessionDir: async (channelId, ctx) => {
-      const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-      const resolved = resolveDiscordChannelRoute(
-        channelId,
-        routing,
-        ctx?.parentChannelId,
-      );
-      const routeSignature = discordRouteSignature(resolved);
-      const agentId =
-        resolved.kind === "agent" ? resolved.agentId : undefined;
+      const resolved = await resolveViaBridge(channelId, ctx?.parentChannelId);
+      const sig = bridgeRouteSignature(resolved);
+      const agentId = resolved.kind === "agent" ? resolved.agentId : undefined;
       return habitat.getOrCreateSession("discord", channelId, {
         discordStableSession: ctx?.isDiscordThread === true,
-        sessionMetadata: { agentId, routeSignature },
+        sessionMetadata: { agentId, routeSignature: sig },
       });
     },
     writeTranscript: writeSessionTranscript,
     startNewThread: async (channelId, opts) => {
-      const routing = await loadDiscordRouting(habitat.workDir, routingPath);
-      const resolved = resolveDiscordChannelRoute(
-        channelId,
-        routing,
-        opts?.parentChannelId,
-      );
-      const routeSignature = discordRouteSignature(resolved);
-      const agentId =
-        resolved.kind === "agent" ? resolved.agentId : undefined;
+      const resolved = await resolveViaBridge(channelId, opts?.parentChannelId);
+      const sig = bridgeRouteSignature(resolved);
+      const agentId = resolved.kind === "agent" ? resolved.agentId : undefined;
       await habitat.startNewThread("discord", channelId, {
         discordStableSession: opts?.isDiscordThread === true,
-        sessionMetadata: { agentId, routeSignature },
+        sessionMetadata: { agentId, routeSignature: sig },
       });
     },
     listBackfillChannelIds: async () =>
