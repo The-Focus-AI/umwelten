@@ -17,5 +17,16 @@
   "devDependencies": {
     "@dagger.io/dagger": "^0.19.9",
     "tsx": "^4.21.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "axios": ">=1.15.0",
+      "tar": ">=7.5.11",
+      "follow-redirects": ">=1.16.0",
+      "minimatch@>=10.0.0": ">=10.2.3",
+      "brace-expansion@>=4.0.0": ">=5.0.5",
+      "yaml@>=2.0.0": ">=2.8.3",
+      "ajv@<6.14.0": ">=6.14.0"
+    }
   }
 }

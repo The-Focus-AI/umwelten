@@ -82,8 +82,4 @@ umwelten-*.tgz
 **/jeeves-bot-data-dir-dagger-experiences/
 **/*-dagger-experiences/
 
-# Go binaries (build from source instead)
-src/habitat/bridge/go-server/bridge-server
-src/habitat/bridge/go-server/bridge-server-linux
-
 examples/introspection/
