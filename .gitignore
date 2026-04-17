@@ -62,9 +62,6 @@ docs/.vitepress/temp/
 
 umwelten-*.tgz
 
-# Optional local tooling (never commit)
-.beads/
-
 # Letta – local state, lockfiles, per-dir settings
 .letta/
 **/.letta/
