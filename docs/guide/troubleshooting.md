@@ -85,6 +85,25 @@ curl http://localhost:1234/v1/models
 export LMSTUDIO_BASE_URL=http://localhost:1234
 ```
 
+### LlamaBarn Connection Issues
+
+**Problem**: Cannot connect to LlamaBarn server
+
+**Solutions**:
+1. **Start LlamaBarn**: Ensure the menu bar app is running
+2. **Add a model**: Pick one from the menu bar (downloads from Hugging Face)
+3. **Verify port**: LlamaBarn serves on `2276` by default
+
+```bash
+# Test LlamaBarn connection
+curl http://localhost:2276/v1/models
+
+# Override host if you moved it
+export LLAMABARN_HOST=http://localhost:2276/v1
+```
+
+Sleeping models wake automatically on the first request — a 60s+ first-token latency is normal for cold loads.
+
 ## Runtime Errors
 
 ### Timeout Errors

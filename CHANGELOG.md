@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **LlamaBarn provider** — local llama.cpp via the [LlamaBarn](https://github.com/ggml-org/LlamaBarn) macOS menu bar app. OpenAI-compatible endpoint at `http://localhost:2276/v1`, no API key needed. Surfaces loaded/sleeping/unloaded model state and parses `ctx-size` from the preset for accurate context length. Override host with `LLAMABARN_HOST` or `createLlamaBarnProvider(url)`.
+
 ## 0.4.6 (2026-03-14)
 
 ### Features

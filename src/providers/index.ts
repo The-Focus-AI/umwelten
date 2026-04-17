@@ -15,6 +15,7 @@ import { createNvidiaProvider, getNvidiaModelUrl } from "./nvidia.js";
 import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
+import { createLlamaBarnProvider } from "./llamabarn.js";
 import { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
 
 // Re-export registry functions
@@ -76,6 +77,10 @@ registerProvider("ollama", {
 
 registerProvider("lmstudio", {
   create: () => createLMStudioProvider(),
+});
+
+registerProvider("llamabarn", {
+  create: () => createLlamaBarnProvider(),
 });
 
 

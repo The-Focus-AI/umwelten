@@ -74,7 +74,7 @@ Usage: `new Interaction(modelDetails, stimulus)` then `interaction.chat("message
 
 ### `src/providers/` — LLM Backends
 
-Unified access to 7 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
+Unified access to 8 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
 
 - `base.ts` — `BaseProvider` abstract class
 - `google.ts` — Gemini models (needs `GOOGLE_GENERATIVE_AI_API_KEY`)
@@ -83,6 +83,7 @@ Unified access to 7 providers via `BaseProvider` (abstract class with `listModel
 - `togetherai.ts` — Together AI models (needs `TOGETHER_API_KEY`)
 - `ollama.ts` — Local models (no key needed)
 - `lmstudio.ts` — Local REST API (no key needed)
+- `llamabarn.ts` — [LlamaBarn](https://github.com/ggml-org/LlamaBarn) local llama.cpp models via OpenAI-compatible API at `http://localhost:2276/v1` (no key needed)
 - `github-models.ts` — GitHub-hosted models (needs `GITHUB_TOKEN`)
 - `index.ts` — `getModel()`, `validateModel()`, `getModelProvider()`, `getModelDetails()`
 

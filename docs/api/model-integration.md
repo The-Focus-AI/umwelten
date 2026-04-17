@@ -12,6 +12,7 @@ Umwelten supports multiple AI model providers, each with different characteristi
 | **Ollama** | Local | Free | Development, privacy | Local server |
 | **OpenRouter** | API | Pay-per-token | Premium models | API Key |
 | **LM Studio** | Local | Free | Custom models | Local server |
+| **LlamaBarn** | Local | Free | llama.cpp on macOS | Local server |
 | **GitHub Models** | API | Free tier | Azure-hosted models | GitHub Token |
 | **Fireworks** | API | Pay-per-token | Hosted OSS and partner models | API Key |
 | **MiniMax** | API | Pay-per-token | MiniMax M2 family | API Key |
@@ -437,6 +438,44 @@ async function codeGeneration(prompt: string): Promise<string> {
   return response.content;
 }
 ```
+
+## LlamaBarn Local Models
+
+[LlamaBarn](https://github.com/ggml-org/LlamaBarn) is a 12 MB macOS menu bar app that runs local GGUF models on llama.cpp with an OpenAI-compatible server. Models sleep idle and wake on demand.
+
+### Setup
+
+1. Install LlamaBarn (menu bar app)
+2. Add a model from the menu bar (downloads from Hugging Face)
+3. The server runs on `http://localhost:2276/v1` by default
+
+### Configuration
+
+```typescript
+const llamaBarnModel: ModelDetails = {
+  name: 'glm-4.7-flash', // Or any id from listModels()
+  provider: 'llamabarn'
+};
+
+// Override host if needed
+process.env.LLAMABARN_HOST = 'http://localhost:2276/v1';
+```
+
+### Model Management
+
+```typescript
+import { createLlamaBarnProvider } from '../src/providers/llamabarn.js';
+
+const provider = createLlamaBarnProvider();
+const models = await provider.listModels();
+
+// Each model reports loaded / sleeping / unloaded state
+for (const m of models) {
+  console.log(`${m.name} [${m.details?.state}] ctx=${m.contextLength}`);
+}
+```
+
+Sleeping models wake on the first request — expect a cold-start pause (often 60s+) before the first token. The `contextLength` is parsed from LlamaBarn's per-model preset (`ctx-size`).
 
 ## Cross-Provider Strategies
 

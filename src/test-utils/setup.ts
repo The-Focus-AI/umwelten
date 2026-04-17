@@ -41,4 +41,14 @@ export async function checkLMStudioConnection(host = 'http://localhost:1234/v1')
   } catch (e) {
     return false
   }
-} 
+}
+
+export async function checkLlamaBarnConnection(host = 'http://localhost:2276/v1'): Promise<boolean> {
+  try {
+    const response = await fetch(`${host}/models`)
+    return response.ok
+  } catch (e) {
+    return false
+  }
+}
+

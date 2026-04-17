@@ -10,6 +10,7 @@ The providers module gives unified access to multiple LLM backends through a com
 | OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | No | Yes (`user`) |
 | Ollama | `ollama` | (none) | Yes | No |
 | LM Studio | `lmstudio` | (none) | Yes | No |
+| LlamaBarn | `llamabarn` | (none) | Yes | No |
 | GitHub Models | `github-models` | `GITHUB_TOKEN` | No | No |
 | Fireworks | `fireworks` | `FIREWORKS_API_KEY` | No | No |
 | MiniMax | `minimax` | `MINIMAX_API_KEY` | No | No |
@@ -49,6 +50,7 @@ import { createGoogleProvider } from '../src/providers/google.js';
 import { createOpenRouterProvider } from '../src/providers/openrouter.js';
 import { createOllamaProvider } from '../src/providers/ollama.js';
 import { createLMStudioProvider } from '../src/providers/lmstudio.js';
+import { createLlamaBarnProvider } from '../src/providers/llamabarn.js';
 import { createGitHubModelsProvider } from '../src/providers/github-models.js';
 import { createFireworksProvider } from '../src/providers/fireworks.js';
 import { createMiniMaxProvider } from '../src/providers/minimax.js';
@@ -63,6 +65,7 @@ const minimax = createMiniMaxProvider(process.env.MINIMAX_API_KEY!);
 // Local providers (no API key)
 const ollama = createOllamaProvider();
 const lmstudio = createLMStudioProvider();
+const llamabarn = createLlamaBarnProvider();
 ```
 
 ### Listing Models
@@ -226,6 +229,7 @@ MINIMAX_BASE_URL=https://api.minimax.io/v1
 # Local providers need no env vars — they connect to localhost by default
 # Ollama: http://localhost:11434
 # LM Studio: http://localhost:1234
+# LlamaBarn: http://localhost:2276/v1 (override with LLAMABARN_HOST)
 ```
 
 ## Usage with Interaction

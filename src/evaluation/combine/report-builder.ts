@@ -886,7 +886,7 @@ function buildRunInfo(suiteResult: SuiteResult): ReportSection {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function parseModelKey(modelKey: string): { model: string; provider: string } {
-  const providers = ['openrouter', 'google', 'deepinfra', 'togetherai', 'ollama', 'lmstudio', 'github-models'];
+  const providers = ['openrouter', 'google', 'deepinfra', 'togetherai', 'ollama', 'lmstudio', 'llamabarn', 'github-models'];
   for (const p of providers) {
     if (modelKey.endsWith(`-${p}`)) {
       return { model: modelKey.slice(0, -(p.length + 1)), provider: p };

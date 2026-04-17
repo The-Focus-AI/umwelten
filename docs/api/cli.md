@@ -31,7 +31,7 @@ pnpm run cli -- models --provider google --json
 
 **Options**:
 
-- `--provider <provider>`: Filter by provider (`google`, `openrouter`, `ollama`, `lmstudio`, `github-models`, `fireworks`, `minimax`)
+- `--provider <provider>`: Filter by provider (`google`, `openrouter`, `ollama`, `lmstudio`, `llamabarn`, `github-models`, `fireworks`, `minimax`)
 - `--json`: Output in JSON format
 
 ### `run`

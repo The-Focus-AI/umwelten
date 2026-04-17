@@ -8,7 +8,7 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 - **[Stimulus + Interaction Pattern](/api/interaction-interface-pattern)**: The core pattern — Stimulus defines behavior, Interaction manages conversations
 - **[Cognition Module](/api/cognition)**: Model execution runners (generateText, streamText, generateObject, streamObject)
 - **[Core Classes](/api/core-classes)**: Essential classes — BaseModelRunner, Interaction, EvaluationRunner
-- **[Providers](/api/providers)**: Working with Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, and MiniMax
+- **[Providers](/api/providers)**: Working with Google, OpenRouter, Ollama, LM Studio, LlamaBarn, GitHub Models, Fireworks, and MiniMax
 - **[Tools](/api/tools)**: Stimulus tools and Habitat tool sets
 - **[Memory System](/api/memory)**: Conversation memory and fact extraction
 - **[Evaluation Framework](/api/evaluation-framework)**: Building custom evaluation logic and runners
@@ -229,6 +229,12 @@ const lmStudioModel: ModelDetails = {
   name: 'local-model-name',
   provider: 'lmstudio'
 };
+
+// LlamaBarn local models (requires LlamaBarn at localhost:2276)
+const llamaBarnModel: ModelDetails = {
+  name: 'glm-4.7-flash',
+  provider: 'llamabarn'
+};
 ```
 
 ## Essential Types
@@ -272,7 +278,7 @@ interface ModelResponse {
 ```typescript
 interface ModelDetails {
   name: string;          // Model identifier (e.g., 'gemini-3-flash-preview')
-  provider: string;      // Provider ('google', 'ollama', 'openrouter', 'lmstudio', 'github-models', 'fireworks', 'minimax')
+  provider: string;      // Provider ('google', 'ollama', 'openrouter', 'lmstudio', 'llamabarn', 'github-models', 'fireworks', 'minimax')
   temperature?: number;  // Creativity setting (0-2)
   topP?: number;         // Nucleus sampling
   topK?: number;         // Top-K sampling

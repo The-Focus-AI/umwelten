@@ -44,7 +44,7 @@ Status key: ✅ Implemented · 🔶 Partial / local-dev only · ❌ Missing
 
 ## 1. Providers — LLM Backends
 
-Unified access to 10 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
+Unified access to 11 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -52,6 +52,7 @@ Unified access to 10 providers via `BaseProvider` (abstract class with `listMode
 | OpenRouter | ✅ | Access to OpenAI, Anthropic, Meta, etc. |
 | Ollama (local) | ✅ | No API key needed |
 | LM Studio (local) | ✅ | REST API, no key needed |
+| LlamaBarn (local) | ✅ | macOS menu bar app for llama.cpp, OpenAI-compatible at `:2276/v1` |
 | GitHub Models | ✅ | Via GITHUB_TOKEN |
 | DeepInfra | ✅ | |
 | Together AI | ✅ | |

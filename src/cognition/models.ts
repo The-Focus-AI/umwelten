@@ -2,6 +2,7 @@ import { createOpenRouterProvider } from "../providers/openrouter.js";
 import { createOllamaProvider } from "../providers/ollama.js";
 import { createGoogleProvider } from "../providers/google.js";
 import { createLMStudioProvider } from "../providers/lmstudio.js";
+import { createLlamaBarnProvider } from "../providers/llamabarn.js";
 import { createGitHubModelsProvider } from "../providers/github-models.js";
 import { createFireworksProvider } from "../providers/fireworks.js";
 import { createMiniMaxProvider } from "../providers/minimax.js";
@@ -15,6 +16,7 @@ export async function getAllModels(): Promise<ModelDetails[]> {
     const providerEntries: { label: string; listModels: () => Promise<ModelDetails[]> }[] = [
       { label: "ollama", listModels: () => createOllamaProvider().listModels() },
       { label: "lmstudio", listModels: () => createLMStudioProvider().listModels() },
+      { label: "llamabarn", listModels: () => createLlamaBarnProvider().listModels() },
       ...(process.env.OPENROUTER_API_KEY
         ? [{ label: "openrouter", listModels: () => createOpenRouterProvider(process.env.OPENROUTER_API_KEY!).listModels() }]
         : []),

@@ -153,7 +153,7 @@ export function loadDimension(
  */
 function parseModelKey(modelKey: string): { model: string; provider: string } {
   // Common provider suffixes
-  const providers = ['openrouter', 'google', 'deepinfra', 'togetherai', 'ollama', 'lmstudio', 'github-models'];
+  const providers = ['openrouter', 'google', 'deepinfra', 'togetherai', 'ollama', 'lmstudio', 'llamabarn', 'github-models'];
   for (const p of providers) {
     if (modelKey.endsWith(`-${p}`)) {
       return {

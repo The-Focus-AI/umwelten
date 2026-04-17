@@ -30,6 +30,9 @@ export OLLAMA_HOST="http://localhost:11434"
 # LM Studio (optional, defaults to localhost)
 export LMSTUDIO_BASE_URL="http://localhost:1234"
 
+# LlamaBarn (optional, defaults to localhost)
+export LLAMABARN_HOST="http://localhost:2276/v1"
+
 # MiniMax base URL override (optional)
 export MINIMAX_BASE_URL="https://api.minimax.io/v1"
 ```
@@ -47,6 +50,7 @@ FIREWORKS_API_KEY=your-fireworks-api-key
 MINIMAX_API_KEY=your-minimax-api-key
 OLLAMA_HOST=http://localhost:11434
 LMSTUDIO_BASE_URL=http://localhost:1234
+LLAMABARN_HOST=http://localhost:2276/v1
 MINIMAX_BASE_URL=https://api.minimax.io/v1
 ```
 
@@ -173,6 +177,29 @@ pnpm run cli -- run \
   --model your-loaded-model \
   "Your prompt here"
 ```
+
+### LlamaBarn
+
+[LlamaBarn](https://github.com/ggml-org/LlamaBarn) is a 12 MB macOS menu bar app that runs local GGUF models on llama.cpp. It exposes an OpenAI-compatible server and sleeps idle models automatically.
+
+1. Install LlamaBarn (menu bar app)
+2. Add models from the menu bar (they download from Hugging Face)
+3. The server auto-starts on `http://localhost:2276/v1`
+
+```bash
+# Default — no env var required
+pnpm run cli -- models --provider llamabarn
+
+pnpm run cli -- run \
+  --provider llamabarn \
+  --model glm-4.7-flash \
+  "Your prompt here"
+
+# Override host if needed
+export LLAMABARN_HOST="http://localhost:2276/v1"
+```
+
+Model states (`loaded`, `sleeping`, `unloaded`) are surfaced in the `details.state` field. Sleeping models wake on the first request.
 
 ## Advanced Configuration
 
@@ -335,6 +362,8 @@ Check your current configuration:
 # Test API connectivity
 pnpm run cli -- models list --provider google
 pnpm run cli -- models list --provider ollama
+pnpm run cli -- models list --provider lmstudio
+pnpm run cli -- models list --provider llamabarn
 pnpm run cli -- models list --provider openrouter
 pnpm run cli -- models list --provider github-models
 pnpm run cli -- models list --provider fireworks

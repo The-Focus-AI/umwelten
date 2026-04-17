@@ -54,7 +54,7 @@ pnpm run cli -- run [options] "your prompt here"
 ```
 
 **Common Options**:
-- `--provider`: Specify the AI provider (`google`, `ollama`, `openrouter`, `lmstudio`, `github-models`, `fireworks`, `minimax`)
+- `--provider`: Specify the AI provider (`google`, `ollama`, `openrouter`, `lmstudio`, `llamabarn`, `github-models`, `fireworks`, `minimax`)
 - `--model`: Choose the specific model to use
 - `--temperature`: Control creativity (0.0-2.0, default 0.7)
 - `--system`: Set the AI's role or behavior

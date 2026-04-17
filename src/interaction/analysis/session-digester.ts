@@ -275,7 +275,7 @@ export async function digestSession(
     });
 
     // 4. Batch-compact beats in groups of ~5
-    const isLocal = model.provider === 'ollama' || model.provider === 'lmstudio';
+    const isLocal = model.provider === 'ollama' || model.provider === 'lmstudio' || model.provider === 'llamabarn';
     const BASE_DELAY_MS = isLocal ? 0 : 2000;
     const BEATS_PER_BATCH = 5;
     const digestSegments: DigestSegment[] = [];
@@ -616,7 +616,7 @@ export async function digestProject(
 
   let digested = 0;
   let failed = 0;
-  const isLocalModel = model.provider === 'ollama' || model.provider === 'lmstudio';
+  const isLocalModel = model.provider === 'ollama' || model.provider === 'lmstudio' || model.provider === 'llamabarn';
 
   for (let i = 0; i < toProcess.length; i++) {
     const session = toProcess[i];
