@@ -16,6 +16,7 @@ import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
 import { createLlamaBarnProvider } from "./llamabarn.js";
+import { createLlamaSwapProvider } from "./llamaswap.js";
 import { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
 
 // Re-export registry functions
@@ -81,6 +82,10 @@ registerProvider("lmstudio", {
 
 registerProvider("llamabarn", {
   create: () => createLlamaBarnProvider(),
+});
+
+registerProvider("llamaswap", {
+  create: () => createLlamaSwapProvider(process.env.LLAMASWAP_HOST),
 });
 
 

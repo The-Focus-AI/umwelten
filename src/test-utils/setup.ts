@@ -52,3 +52,12 @@ export async function checkLlamaBarnConnection(host = 'http://localhost:2276/v1'
   }
 }
 
+export async function checkLlamaSwapConnection(host = 'http://localhost:8080/v1'): Promise<boolean> {
+  try {
+    const response = await fetch(`${host}/models`)
+    return response.ok
+  } catch (e) {
+    return false
+  }
+}
+
