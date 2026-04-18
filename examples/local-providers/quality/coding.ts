@@ -135,7 +135,7 @@ const suite = new EvalSuite({
   tasks,
   models,
   allModels: models,
-  concurrency: 2, // local runtimes can only handle one prompt at a time usefully
+  concurrency: 1, // local runtimes serialize
 });
 
 suite.run().catch(err => { console.error(err); process.exit(1); });

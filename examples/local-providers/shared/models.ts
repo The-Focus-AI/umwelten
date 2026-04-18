@@ -21,17 +21,25 @@ export interface LocalEntry {
  * Nemotron and GPT-OSS are included where available.
  */
 export const LOCAL_MATRIX: LocalEntry[] = [
-  // Gemma 4 26B A4B — the focal model
-  { family: 'gemma-4-26b', model: { name: 'gemma4:26b', provider: 'ollama' } },
-  { family: 'gemma-4-26b', model: { name: 'unsloth/gemma-4-26b-a4b-it-gguf', provider: 'lmstudio' } },
-  { family: 'gemma-4-26b', model: { name: 'unsloth/gemma-4-26B-A4B-it-GGUF:Q4_K_M', provider: 'llamabarn' } },
-  { family: 'gemma-4-26b', model: { name: 'gemma-4-26b-a4b', provider: 'llamaswap' } },
+  // Gemma 4 26B A4B — 3-way comparison
+  { family: 'gemma-4-26b-a4b', model: { name: 'gemma4:26b', provider: 'ollama' } },
+  { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamabarn' } },
+  { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamaswap' } },
 
-  // Nemotron Nano 4B (small baseline) — verify small model performance
-  { family: 'nemotron-nano-4b', model: { name: 'unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q8_0', provider: 'llamabarn' } },
+  // GLM 4.7 Flash — 3-way comparison
+  { family: 'glm-4-7-flash', model: { name: 'glm-4.7-flash:latest', provider: 'ollama' } },
+  { family: 'glm-4-7-flash', model: { name: 'glm-4.7-flash', provider: 'llamabarn' } },
+  { family: 'glm-4-7-flash', model: { name: 'glm-4-7-flash', provider: 'llamaswap' } },
 
-  // GPT-OSS 20B (secondary) — where loaded
+  // GPT-OSS 20B — 3-way comparison
+  { family: 'gpt-oss-20b', model: { name: 'gpt-oss:latest', provider: 'ollama' } },
   { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamabarn' } },
+  { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamaswap' } },
+
+  // NVIDIA Nemotron-3-Nano-4B — 3-way small-model baseline
+  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'nemotron-3-nano:4b', provider: 'ollama' } },
+  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q8_0', provider: 'llamabarn' } },
+  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'nvidia-nemotron-3-nano-4b', provider: 'llamaswap' } },
 ];
 
 /**

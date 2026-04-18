@@ -290,7 +290,7 @@ const suite = new EvalSuite({
   })),
   models,
   allModels: models,
-  concurrency: 2,
+  concurrency: 1,
 });
 
 suite.run().catch(err => { console.error(err); process.exit(1); });

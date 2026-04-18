@@ -30,16 +30,13 @@ interface Entry {
   model: ModelDetails;
 }
 
-const MATRIX: Entry[] = [
-  // Gemma 4 26B across all 4 runtimes (when available)
-  { label: 'gemma-4-26b / ollama',    family: 'gemma-4-26b', model: { name: 'gemma4:26b', provider: 'ollama' } },
-  { label: 'gemma-4-26b / lmstudio',  family: 'gemma-4-26b', model: { name: 'unsloth/gemma-4-26b-a4b-it-gguf', provider: 'lmstudio' } },
-  { label: 'gemma-4-26b / llamabarn', family: 'gemma-4-26b', model: { name: 'unsloth/gemma-4-26B-A4B-it-GGUF:Q4_K_M', provider: 'llamabarn' } },
-  { label: 'gemma-4-26b / llamaswap', family: 'gemma-4-26b', model: { name: 'gemma-4-26b-a4b', provider: 'llamaswap' } },
+import { LOCAL_MATRIX } from './shared/models.js';
 
-  // Nemotron Nano 4B
-  { label: 'nemotron-nano-4b / llamabarn', family: 'nemotron-nano-4b', model: { name: 'unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q8_0', provider: 'llamabarn' } },
-];
+const MATRIX: Entry[] = LOCAL_MATRIX.map(e => ({
+  label: `${e.family} / ${e.model.provider}`,
+  family: e.family,
+  model: e.model,
+}));
 
 // ── Prompts ──────────────────────────────────────────────────────────────────
 

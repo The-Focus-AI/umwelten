@@ -45,7 +45,7 @@ const suite = new EvalSuite({
   })),
   models,
   allModels: models,
-  concurrency: 3,
+  concurrency: 1, // local runtimes serialize — parallel calls thrash model-swap
 });
 
 suite.run().catch(err => { console.error(err); process.exit(1); });
