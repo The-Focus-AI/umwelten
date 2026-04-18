@@ -1,4 +1,4 @@
-import { NeonStore } from '../../../src/habitat/mcp-serve/index.js';
+import { NeonStore } from 'umwelten/mcp-serve';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {

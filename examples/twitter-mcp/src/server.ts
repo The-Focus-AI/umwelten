@@ -1,4 +1,4 @@
-import { createMcpServer, NeonStore } from '../../../src/habitat/mcp-serve/index.js';
+import { createMcpServer, NeonStore } from 'umwelten/mcp-serve';
 import { TwitterProvider } from './twitter-provider.js';
 import { registerTwitterTools } from './twitter-tools.js';
 

@@ -8,16 +8,23 @@
  * - Token refresh (Twitter refresh tokens are single-use)
  */
 
-import { randomUUID } from 'node:crypto';
-import type { UpstreamOAuthProvider, UpstreamTokens } from '../../../src/habitat/mcp-serve/index.js';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import type { UpstreamOAuthProvider, UpstreamTokens } from 'umwelten/mcp-serve';
 
 const TWITTER_AUTH_URL = 'https://twitter.com/i/oauth2/authorize';
 const TWITTER_TOKEN_URL = 'https://api.twitter.com/2/oauth2/token';
-const TWITTER_SCOPES = 'tweet.read tweet.write users.read list.read list.write like.read like.write offline.access';
+const TWITTER_SCOPES = 'tweet.read users.read offline.access';
+
+function base64url(buf: Buffer): string {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 export class TwitterProvider implements UpstreamOAuthProvider {
   readonly name = 'twitter';
   readonly scopes = TWITTER_SCOPES;
+
+  // PKCE verifiers keyed by state. In-memory; entries expire after 10 min.
+  private verifiers = new Map<string, { verifier: string; createdAt: number }>();
 
   constructor(
     private clientId: string,
@@ -28,17 +35,37 @@ export class TwitterProvider implements UpstreamOAuthProvider {
     return Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
   }
 
+  private pruneVerifiers(): void {
+    const cutoff = Date.now() - 10 * 60 * 1000;
+    for (const [k, v] of this.verifiers) {
+      if (v.createdAt < cutoff) this.verifiers.delete(k);
+    }
+  }
+
   buildAuthorizeUrl(callbackUrl: string, state: string): string {
+    this.pruneVerifiers();
+    const verifier = base64url(randomBytes(32));
+    const challenge = base64url(createHash('sha256').update(verifier).digest());
+    this.verifiers.set(state, { verifier, createdAt: Date.now() });
+
     const url = new URL(TWITTER_AUTH_URL);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('client_id', this.clientId);
     url.searchParams.set('redirect_uri', callbackUrl);
     url.searchParams.set('scope', TWITTER_SCOPES);
     url.searchParams.set('state', state);
+    url.searchParams.set('code_challenge', challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
     return url.toString();
   }
 
-  async exchangeCode(code: string, callbackUrl: string): Promise<{ tokens: UpstreamTokens; userId: string }> {
+  async exchangeCode(code: string, callbackUrl: string, upstreamState?: string): Promise<{ tokens: UpstreamTokens; userId: string }> {
+    const entry = upstreamState ? this.verifiers.get(upstreamState) : undefined;
+    if (!entry) {
+      throw new Error(`No PKCE verifier found for state=${upstreamState}`);
+    }
+    this.verifiers.delete(upstreamState!);
+
     const res = await fetch(TWITTER_TOKEN_URL, {
       method: 'POST',
       headers: {
@@ -49,6 +76,7 @@ export class TwitterProvider implements UpstreamOAuthProvider {
         grant_type: 'authorization_code',
         code,
         redirect_uri: callbackUrl,
+        code_verifier: entry.verifier,
       }),
     });
 

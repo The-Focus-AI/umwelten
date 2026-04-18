@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { UpstreamOAuthProvider, UpstreamTokens } from '../../../src/habitat/mcp-serve/index.js';
+import type { UpstreamOAuthProvider, UpstreamTokens } from 'umwelten/mcp-serve';
 
 export class OuraProvider implements UpstreamOAuthProvider {
   readonly name = 'oura';

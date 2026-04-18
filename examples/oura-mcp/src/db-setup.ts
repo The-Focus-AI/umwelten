@@ -1,4 +1,4 @@
-import { NeonStore } from '../../../src/habitat/mcp-serve/index.js';
+import { NeonStore } from 'umwelten/mcp-serve';
 
 const store = new NeonStore(process.env.DATABASE_URL!);
 await store.setupTables();

@@ -1,4 +1,4 @@
-import { createMcpServer, NeonStore } from '../../../src/habitat/mcp-serve/index.js';
+import { createMcpServer, NeonStore } from 'umwelten/mcp-serve';
 import { OuraProvider } from './oura-provider.js';
 import { registerOuraTools } from './oura-tool-set.js';
 
