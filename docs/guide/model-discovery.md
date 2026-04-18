@@ -101,7 +101,7 @@ pnpm run cli -- models costs --sort-by total
 
 The costs command shows:
 - **Model**: Model identifier
-- **Provider**: Which service hosts the model (ollama, openrouter, google, github-models, fireworks, minimax, lmstudio, llamabarn)
+- **Provider**: Which service hosts the model (ollama, openrouter, google, github-models, fireworks, minimax, lmstudio, llamabarn, llamaswap)
 - **Prompt**: Cost per 1M input tokens
 - **Completion**: Cost per 1M output tokens  
 - **Total**: Combined cost per 1M tokens

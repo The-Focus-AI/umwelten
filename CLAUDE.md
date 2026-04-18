@@ -84,6 +84,8 @@ Unified access to 8 providers via `BaseProvider` (abstract class with `listModel
 - `ollama.ts` — Local models (no key needed)
 - `lmstudio.ts` — Local REST API (no key needed)
 - `llamabarn.ts` — [LlamaBarn](https://github.com/ggml-org/LlamaBarn) local llama.cpp models via OpenAI-compatible API at `http://localhost:2276/v1` (no key needed)
+- `llamaswap.ts` — [llama-swap](https://github.com/mostlygeek/llama-swap) proxy; OpenAI-compatible, default `http://localhost:8080/v1` (override with `LLAMASWAP_HOST`). Use `umwelten models llamaswap-config` to generate its YAML config from local GGUF caches.
+- `llamaswap-config.ts` — pure helpers to scan GGUF caches (LM Studio, LlamaBarn, HF hub) and emit a `llama-swap` YAML. Exposed via the `umwelten models llamaswap-config` CLI command.
 - `github-models.ts` — GitHub-hosted models (needs `GITHUB_TOKEN`)
 - `index.ts` — `getModel()`, `validateModel()`, `getModelProvider()`, `getModelDetails()`
 

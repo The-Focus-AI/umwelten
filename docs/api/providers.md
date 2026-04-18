@@ -11,6 +11,7 @@ The providers module gives unified access to multiple LLM backends through a com
 | Ollama | `ollama` | (none) | Yes | No |
 | LM Studio | `lmstudio` | (none) | Yes | No |
 | LlamaBarn | `llamabarn` | (none) | Yes | No |
+| llama-swap | `llamaswap` | (none) | Yes | No |
 | GitHub Models | `github-models` | `GITHUB_TOKEN` | No | No |
 | Fireworks | `fireworks` | `FIREWORKS_API_KEY` | No | No |
 | MiniMax | `minimax` | `MINIMAX_API_KEY` | No | No |
@@ -51,6 +52,7 @@ import { createOpenRouterProvider } from '../src/providers/openrouter.js';
 import { createOllamaProvider } from '../src/providers/ollama.js';
 import { createLMStudioProvider } from '../src/providers/lmstudio.js';
 import { createLlamaBarnProvider } from '../src/providers/llamabarn.js';
+import { createLlamaSwapProvider } from '../src/providers/llamaswap.js';
 import { createGitHubModelsProvider } from '../src/providers/github-models.js';
 import { createFireworksProvider } from '../src/providers/fireworks.js';
 import { createMiniMaxProvider } from '../src/providers/minimax.js';
@@ -66,6 +68,7 @@ const minimax = createMiniMaxProvider(process.env.MINIMAX_API_KEY!);
 const ollama = createOllamaProvider();
 const lmstudio = createLMStudioProvider();
 const llamabarn = createLlamaBarnProvider();
+const llamaswap = createLlamaSwapProvider(); // default: http://localhost:8080/v1
 ```
 
 ### Listing Models
@@ -230,7 +233,30 @@ MINIMAX_BASE_URL=https://api.minimax.io/v1
 # Ollama: http://localhost:11434
 # LM Studio: http://localhost:1234
 # LlamaBarn: http://localhost:2276/v1 (override with LLAMABARN_HOST)
+# llama-swap: http://localhost:8080/v1 (override with LLAMASWAP_HOST)
 ```
+
+### Generating a llama-swap config
+
+`llama-swap` is a proxy that launches `llama-server` on demand per model and unloads idle models. The `llamaswap` provider only needs the proxy's URL — to produce the YAML config that tells the proxy which GGUF files to serve, use:
+
+```bash
+pnpm run cli -- models llamaswap-config --output llama-swap.yaml
+llama-swap --config llama-swap.yaml --listen :8080
+```
+
+See [CLI — `models llamaswap-config`](/api/cli#models-llamaswap-config) for flags. Programmatic access is available through `src/providers/llamaswap-config.ts`:
+
+```typescript
+import { generateLlamaSwapConfig } from '../src/providers/llamaswap-config.js';
+
+const { yaml, models } = generateLlamaSwapConfig({
+  ttlSeconds: 300,
+  ctxSize: 0,
+  extraCachePaths: ['/custom/gguf/location'],
+});
+```
+
 
 ## Usage with Interaction
 

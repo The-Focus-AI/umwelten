@@ -20,7 +20,7 @@ TypeScript (Node 20+) framework for **Habitat** (agent workspaces), **model eval
 Each layer depends only on layers below.
 
 1. **Foundation** — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`, `src/mcp/` (includes `RemoteMcpClient` for OAuth connections to remote MCP servers)
-2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/LlamaBarn/GitHub/DeepInfra/Fireworks/MiniMax/Nvidia
+2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/LlamaBarn/llama-swap/GitHub/DeepInfra/Fireworks/MiniMax/Nvidia. `llamaswap-config.ts` + `umwelten models llamaswap-config` generate a llama-swap YAML from local GGUF caches.
 3. **Core runtime** — `src/cognition/` (runners), `src/stimulus/` (prompt config), `src/interaction/` (conversation)
 4. **Context** — `src/context/` — compaction, token estimates
 5. **Memory** — `src/memory/` — fact extraction when `stimulus.runnerType === 'memory'`

@@ -109,7 +109,7 @@ src/evaluation/  — EvalSuite, PairwiseRanker, strategies, combine
 src/interaction/ — conversations, persistence, session analysis
 src/stimulus/    — prompts, tools, skills
 src/cognition/   — model runners
-src/providers/   — Google, OpenRouter, Ollama, LM Studio, LlamaBarn, GitHub, Fireworks, MiniMax
+src/providers/   — Google, OpenRouter, Ollama, LM Studio, LlamaBarn, llama-swap, GitHub, Fireworks, MiniMax
 src/ui/          — Telegram, Discord, web, TUI adapters
 src/mcp/         — MCP client (RemoteMcpClient with OAuth) and server
 src/cli/         — umwelten commands

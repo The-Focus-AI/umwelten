@@ -31,8 +31,40 @@ pnpm run cli -- models --provider google --json
 
 **Options**:
 
-- `--provider <provider>`: Filter by provider (`google`, `openrouter`, `ollama`, `lmstudio`, `llamabarn`, `github-models`, `fireworks`, `minimax`)
+- `--provider <provider>`: Filter by provider (`google`, `openrouter`, `ollama`, `lmstudio`, `llamabarn`, `llamaswap`, `github-models`, `fireworks`, `minimax`)
 - `--json`: Output in JSON format
+
+#### `models llamaswap-config`
+
+Generate a `llama-swap` YAML config by scanning your local GGUF caches (LM Studio, LlamaBarn, `~/.cache/huggingface/hub`, `~/.cache/llama.cpp`). Handy for standing up a second upstream-llama.cpp runtime alongside LlamaBarn or LM Studio.
+
+```bash
+# List discovered GGUF files (no YAML output)
+pnpm run cli -- models llamaswap-config --list
+
+# Print YAML to stdout
+pnpm run cli -- models llamaswap-config
+
+# Write directly to a file
+pnpm run cli -- models llamaswap-config \
+  --output llama-swap.yaml \
+  --llama-server-path /opt/homebrew/bin/llama-server
+
+# Then start the proxy
+llama-swap --config llama-swap.yaml --listen :8090
+```
+
+**Options**:
+
+- `-o, --output <file>`: Write YAML to `<file>` instead of stdout
+- `--scan <path>`: Additional cache path to scan (repeatable)
+- `--ttl <seconds>`: Idle-unload TTL seconds (default: `300`)
+- `--ctx-size <n>`: Context window size; `0` = model max (default: `0`)
+- `--llama-server-path <path>`: Path to `llama-server` binary (default: `llama-server` on PATH)
+- `--extra-arg <arg>`: Extra arg appended to each generated `cmd` (repeatable), e.g. `--extra-arg --flash-attn`
+- `--list`: Print discovered GGUF files; do not emit YAML
+
+Model names are normalized to stable aliases (e.g. `unsloth/gemma-4-26B-A4B-it-GGUF` → `gemma-4-26b-a4b`), and when multiple quantizations of the same model are found, the largest file is kept. Multimodal projector sidecars (`mmproj-*.gguf`) and embedding models are skipped.
 
 ### `run`
 

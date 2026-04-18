@@ -13,6 +13,7 @@ Umwelten supports multiple AI model providers, each with different characteristi
 | **OpenRouter** | API | Pay-per-token | Premium models | API Key |
 | **LM Studio** | Local | Free | Custom models | Local server |
 | **LlamaBarn** | Local | Free | llama.cpp on macOS | Local server |
+| **llama-swap** | Local | Free | Upstream llama.cpp, on-demand model loading | Local server |
 | **GitHub Models** | API | Free tier | Azure-hosted models | GitHub Token |
 | **Fireworks** | API | Pay-per-token | Hosted OSS and partner models | API Key |
 | **MiniMax** | API | Pay-per-token | MiniMax M2 family | API Key |
@@ -476,6 +477,63 @@ for (const m of models) {
 ```
 
 Sleeping models wake on the first request — expect a cold-start pause (often 60s+) before the first token. The `contextLength` is parsed from LlamaBarn's per-model preset (`ctx-size`).
+
+## llama-swap Local Models
+
+[llama-swap](https://github.com/mostlygeek/llama-swap) is a small proxy that launches upstream `llama-server` on demand per model alias and unloads idle models after a configurable TTL. It pairs well with the `brew install llama.cpp` toolchain and gives you "Ollama-style hot-swapping with real upstream llama.cpp."
+
+### Setup
+
+1. Install the binaries: `brew install llama.cpp` and `brew install llama-swap` (or `go install github.com/mostlygeek/llama-swap@latest`)
+2. Generate a config from your local GGUF caches:
+   ```bash
+   pnpm run cli -- models llamaswap-config \
+     --output llama-swap.yaml \
+     --llama-server-path /opt/homebrew/bin/llama-server
+   ```
+3. Start the proxy:
+   ```bash
+   llama-swap --config llama-swap.yaml --listen :8080
+   ```
+
+### Configuration
+
+```typescript
+const llamaSwapModel: ModelDetails = {
+  name: 'gemma-4-26b-a4b', // alias from llama-swap config
+  provider: 'llamaswap'
+};
+
+// Override host if running llama-swap on a different port
+process.env.LLAMASWAP_HOST = 'http://localhost:8090/v1';
+```
+
+### Config Generation (programmatic)
+
+```typescript
+import {
+  generateLlamaSwapConfig,
+  findLlamaSwapModels,
+  buildLlamaSwapConfig,
+} from '../src/providers/llamaswap-config.js';
+
+// One-shot: scan default paths + emit YAML
+const { yaml, models } = generateLlamaSwapConfig({
+  ttlSeconds: 300,
+  ctxSize: 0,
+  extraCachePaths: ['/my/extra/gguf/dir'],
+});
+
+// Or compose the two halves:
+const gguf = findLlamaSwapModels({ extraCachePaths: ['/my/extra/gguf/dir'] });
+const yaml2 = buildLlamaSwapConfig(gguf, {
+  ttlSeconds: 60,
+  llamaServerPath: '/opt/homebrew/bin/llama-server',
+  extraArgs: ['--flash-attn'],
+});
+```
+
+The scanner follows symlinks (the Hugging Face hub cache stores snapshots as symlinks to blob files), dedupes multi-quant copies by preferring the largest file, and skips non-chat GGUFs (mmproj projector sidecars, embedding models).
 
 ## Cross-Provider Strategies
 
