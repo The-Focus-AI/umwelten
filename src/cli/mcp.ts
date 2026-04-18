@@ -392,6 +392,7 @@ mcpCommand
   .option('--oauth-port <port>', 'Local port for OAuth callback', '3339')
   .option('--logout', 'Clear stored OAuth credentials for this server')
   .option('--one-shot <prompt>', 'Send a single prompt and exit')
+  .option('--max-steps <n>', 'Max LLM+tool steps per turn', '100')
   .action(async (opts: {
     url: string;
     provider: string;
@@ -400,6 +401,7 @@ mcpCommand
     oauthPort: string;
     logout?: boolean;
     oneShot?: string;
+    maxSteps: string;
   }) => {
     const { RemoteMcpClient } = await import('../mcp/client/remote.js');
     const { Interaction } = await import('../interaction/core/interaction.js');
@@ -438,6 +440,7 @@ mcpCommand
       { name: opts.model, provider: opts.provider },
       stimulus,
     );
+    interaction.setMaxSteps(parseInt(opts.maxSteps, 10));
 
     // One-shot mode
     if (opts.oneShot) {

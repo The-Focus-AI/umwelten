@@ -41,9 +41,11 @@ export interface UpstreamOAuthProvider {
   /**
    * Exchange the upstream authorization code for tokens.
    * Called after the upstream service redirects back to us.
+   * @param upstreamState - The state string from buildAuthorizeUrl, round-tripped through the upstream flow.
+   *                       Providers that need to correlate per-flow data (e.g., PKCE verifier) can use it as a lookup key.
    * @returns The upstream tokens + a stable user identity string.
    */
-  exchangeCode(code: string, callbackUrl: string): Promise<{
+  exchangeCode(code: string, callbackUrl: string, upstreamState?: string): Promise<{
     tokens: UpstreamTokens;
     userId: string;
   }>;

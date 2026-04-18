@@ -108,6 +108,7 @@ export async function handleUpstreamCallback(
   }
 
   if (upstreamError || !code) {
+    console.error(`[mcp-serve] upstream callback rejected: error=${upstreamError} error_description=${params.get('error_description')} error_uri=${params.get('error_uri')} raw_query=${url.search}`);
     const redirectUrl = new URL(session.redirect_uri);
     redirectUrl.searchParams.set('error', 'server_error');
     if (session.state) redirectUrl.searchParams.set('state', session.state);
@@ -120,9 +121,9 @@ export async function handleUpstreamCallback(
   const callbackUrl = `${baseUrl}/oauth/upstream-callback`;
   let result: { tokens: import('../types.js').UpstreamTokens; userId: string };
   try {
-    result = await upstream.exchangeCode(code, callbackUrl);
+    result = await upstream.exchangeCode(code, callbackUrl, upstreamState);
   } catch (err) {
-    console.error(`Upstream token exchange failed:`, err);
+    console.error(`[mcp-serve] upstream token exchange failed:`, err);
     const redirectUrl = new URL(session.redirect_uri);
     redirectUrl.searchParams.set('error', 'server_error');
     if (session.state) redirectUrl.searchParams.set('state', session.state);

@@ -1,6 +1,6 @@
 {
   "name": "umwelten",
-  "version": "0.4.7",
+  "version": "0.4.10",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./mcp-serve": {
+      "types": "./dist/habitat/mcp-serve/index.d.ts",
+      "import": "./dist/habitat/mcp-serve/index.js"
     }
   },
   "bin": {
