@@ -234,9 +234,27 @@ async function evictSpecific(runtimeId: string, model: ModelDetails): Promise<vo
 
 // ── Family intersection ─────────────────────────────────────────────────────
 
+/**
+ * Map from whatever a runtime calls a model to a canonical cross-runtime
+ * family key. Ollama names things differently than Unsloth's GGUF filenames
+ * (e.g. `gemma4:26b` vs `unsloth/gemma-4-26B-A4B-it-GGUF`), so without this
+ * map the families don't intersect even when the weights are identical.
+ *
+ * Keys are post-normalizeModelName() output. Values are the target family.
+ */
+const FAMILY_ALIASES: Record<string, string> = {
+  // Ollama gemma4:26b (Q4_K_M, 25.8B) === Unsloth gemma-4-26B-A4B Q4_K_M
+  'gemma4-26b': 'gemma-4-26b-a4b',
+  // Ollama gpt-oss:latest (13GB) is the 20B variant
+  'gpt-oss': 'gpt-oss-20b',
+  // Ollama nemotron-3-nano:4b === Unsloth NVIDIA-Nemotron-3-Nano-4B
+  'nemotron-3-nano-4b': 'nvidia-nemotron-3-nano-4b',
+};
+
 function normalizeFamily(name: string): string {
   const ollamaStripped = name.replace(':latest', '').replace(/:/g, '-');
-  return normalizeModelName(ollamaStripped);
+  const normalized = normalizeModelName(ollamaStripped);
+  return FAMILY_ALIASES[normalized] ?? normalized;
 }
 
 function familyFilter(): string | null {
