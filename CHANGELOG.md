@@ -4,10 +4,11 @@
 
 ### Features
 
+- **`umwelten/mcp-serve` subpath export** — expose the hosted-MCP-server library (OAuth 2.1 server, Streamable HTTP transport, Neon-backed per-user token storage) as an importable subpath. Enables downstream projects like `examples/oura-mcp` and `examples/twitter-mcp` to build self-contained Docker images without referencing the umwelten monorepo source tree.
 - **LlamaBarn provider** — local llama.cpp via the [LlamaBarn](https://github.com/ggml-org/LlamaBarn) macOS menu bar app. OpenAI-compatible endpoint at `http://localhost:2276/v1`, no API key needed. Surfaces loaded/sleeping/unloaded model state and parses `ctx-size` from the preset for accurate context length. Override host with `LLAMABARN_HOST` or `createLlamaBarnProvider(url)`.
 - **llama-swap provider** — OpenAI-compatible provider for the [llama-swap](https://github.com/mostlygeek/llama-swap) proxy. Default endpoint `http://localhost:8080/v1`, override with `LLAMASWAP_HOST` or `createLlamaSwapProvider(url)`.
 - **llama-swap config generator** — `src/providers/llamaswap-config.ts` and `umwelten models llamaswap-config` scan local GGUF caches (LM Studio, LlamaBarn, `~/.cache/huggingface/hub`, `~/.cache/llama.cpp`), dedupe by normalized alias, and emit a llama-swap YAML config. Follows symlinks so HF hub snapshot dirs are discovered. Supports custom scan paths, TTL, context size, `llama-server` binary path, and extra args.
-- **Local-providers example** (`examples/local-providers/`) — head-to-head benchmark suite (speed, instruction, reasoning, coding, tool-math, soul.md file-artifact maintenance) across Ollama, LM Studio, LlamaBarn, and llama-swap, with optional frontier-reference comparison. Includes a catalog script that discovers shared models across runtimes.
+- **Local-providers example** (`examples/local-providers/`) — head-to-head benchmark suite (speed, instruction, reasoning, coding, tool-math, soul.md file-artifact maintenance) across Ollama, LM Studio, LlamaBarn, and llama-swap, with optional frontier-reference comparison. Includes a catalog script that discovers shared models across runtimes, a memory-spike tracer (`memory-spike.ts`) using `vmmap --summary` for accurate RSS on macOS, and a smoke test (`smoke.ts`) that measures cold-load + warm-response times per `(runtime, shared-family)` pair with active per-runtime eviction (Ollama `keep_alive:0`, llama-swap `/unload`, LlamaBarn `pkill`).
 
 ## 0.4.6 (2026-03-14)
 
