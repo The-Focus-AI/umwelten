@@ -264,33 +264,36 @@ function verifyFix(bug: BugFix, response: string): { score: number; details: str
 
 // ── Build + run ──────────────────────────────────────────────────────────────
 
-const models = includeFrontier() ? ALL_MODELS : LOCAL_MODELS;
+export function makeSuite(models: import('../../../src/cognition/types.js').ModelDetails[]): EvalSuite {
+  return new EvalSuite({
+    name: 'local-providers-coding-bugfix',
+    stimulus: {
+      role: 'expert JavaScript engineer',
+      objective: 'fix the bug in the given function',
+      instructions: [
+        'Return ONLY the corrected function inside a ```javascript code block',
+        'No explanation, no preamble',
+        'Keep the function signature identical',
+        'The function must be named exactly as shown',
+      ],
+      temperature: 0.1,
+      maxTokens: 800,
+      runnerType: 'base',
+    },
+    tasks: BUGFIXES.map(bug => ({
+      id: bug.id,
+      name: bug.name,
+      prompt: `Here is a buggy function:\n\n\`\`\`javascript\n${bug.buggy}\n\`\`\`\n\n${bug.spec}`,
+      maxScore: 5,
+      verify: (response: string) => verifyFix(bug, response),
+    })),
+    models,
+    allModels: models,
+    concurrency: 1,
+  });
+}
 
-const suite = new EvalSuite({
-  name: 'local-providers-coding-bugfix',
-  stimulus: {
-    role: 'expert JavaScript engineer',
-    objective: 'fix the bug in the given function',
-    instructions: [
-      'Return ONLY the corrected function inside a ```javascript code block',
-      'No explanation, no preamble',
-      'Keep the function signature identical',
-      'The function must be named exactly as shown',
-    ],
-    temperature: 0.1,
-    maxTokens: 800,
-    runnerType: 'base',
-  },
-  tasks: BUGFIXES.map(bug => ({
-    id: bug.id,
-    name: bug.name,
-    prompt: `Here is a buggy function:\n\n\`\`\`javascript\n${bug.buggy}\n\`\`\`\n\n${bug.spec}`,
-    maxScore: 5,
-    verify: (response: string) => verifyFix(bug, response),
-  })),
-  models,
-  allModels: models,
-  concurrency: 1,
-});
-
-suite.run().catch(err => { console.error(err); process.exit(1); });
+if (process.argv[1] === (await import('node:url')).fileURLToPath(import.meta.url)) {
+  const models = includeFrontier() ? ALL_MODELS : LOCAL_MODELS;
+  makeSuite(models).run().catch(err => { console.error(err); process.exit(1); });
+}

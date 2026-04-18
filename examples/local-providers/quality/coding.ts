@@ -115,27 +115,30 @@ for (const lang of languages) {
   }
 }
 
-const models = includeFrontier() ? ALL_MODELS : LOCAL_MODELS;
+export function makeSuite(models: import('../../../src/cognition/types.js').ModelDetails[]): EvalSuite {
+  return new EvalSuite({
+    name: 'local-providers-coding',
+    stimulus: {
+      role: 'expert programmer',
+      objective: 'write correct, self-contained code that solves the problem',
+      instructions: [
+        'Write complete, working code',
+        'No imports except the standard library',
+        'Wrap code in a language-tagged markdown fence',
+        'Do not include explanation outside the code block',
+      ],
+      temperature: 0.2,
+      maxTokens: 2000,
+      runnerType: 'base',
+    },
+    tasks,
+    models,
+    allModels: models,
+    concurrency: 1,
+  });
+}
 
-const suite = new EvalSuite({
-  name: 'local-providers-coding',
-  stimulus: {
-    role: 'expert programmer',
-    objective: 'write correct, self-contained code that solves the problem',
-    instructions: [
-      'Write complete, working code',
-      'No imports except the standard library',
-      'Wrap code in a language-tagged markdown fence',
-      'Do not include explanation outside the code block',
-    ],
-    temperature: 0.2,
-    maxTokens: 2000,
-    runnerType: 'base',
-  },
-  tasks,
-  models,
-  allModels: models,
-  concurrency: 1, // local runtimes serialize
-});
-
-suite.run().catch(err => { console.error(err); process.exit(1); });
+if (process.argv[1] === (await import('node:url')).fileURLToPath(import.meta.url)) {
+  const models = includeFrontier() ? ALL_MODELS : LOCAL_MODELS;
+  makeSuite(models).run().catch(err => { console.error(err); process.exit(1); });
+}
