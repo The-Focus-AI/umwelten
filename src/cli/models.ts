@@ -1,7 +1,9 @@
 import { Command } from 'commander';
+import fs from 'node:fs';
 import { getAllModels, searchModels } from '../cognition/models.js';
 import { estimateCost } from '../costs/costs.js';
 import { getModelUrl } from '../providers/index.js';
+import { generateLlamaSwapConfig, DEFAULT_CACHE_PATHS } from '../providers/llamaswap-config.js';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import type { ModelDetails } from '../cognition/types.js';
@@ -348,5 +350,45 @@ modelsCommand
     } catch (error) {
       console.error('Error fetching model costs:', error);
       process.exit(1);
+    }
+  });
+
+// models llamaswap-config
+modelsCommand
+  .command('llamaswap-config')
+  .description('Generate a llama-swap YAML config from local GGUF files (LM Studio / LlamaBarn / HF cache)')
+  .option('-o, --output <file>', 'Write YAML to file instead of stdout')
+  .option('--scan <path>', 'Additional cache path to scan (repeatable)', (v, acc: string[]) => [...acc, v], [] as string[])
+  .option('--ttl <seconds>', 'Idle-unload TTL seconds', v => parseInt(v, 10), 300)
+  .option('--ctx-size <n>', 'Context window size (0 = model max)', v => parseInt(v, 10), 0)
+  .option('--llama-server-path <path>', 'Path to llama-server binary', 'llama-server')
+  .option('--extra-arg <arg>', 'Extra arg to append to each cmd (repeatable)', (v, acc: string[]) => [...acc, v], [] as string[])
+  .option('--list', 'List discovered model files (no YAML output)')
+  .action((options) => {
+    const { yaml, models } = generateLlamaSwapConfig({
+      extraCachePaths: options.scan,
+      ttlSeconds: options.ttl,
+      ctxSize: options.ctxSize,
+      llamaServerPath: options.llamaServerPath,
+      extraArgs: options.extraArg,
+    });
+
+    if (options.list) {
+      console.log(chalk.bold(`Discovered ${models.length} model${models.length === 1 ? '' : 's'}:`));
+      for (const m of models) {
+        const sizeGb = m.sizeBytes ? (m.sizeBytes / 1e9).toFixed(1) + ' GB' : '?';
+        console.log(`  ${chalk.cyan(m.alias.padEnd(40))} ${sizeGb.padStart(8)}  ${chalk.gray(m.path)}`);
+      }
+      console.log();
+      console.log(chalk.gray('Scanned paths:'));
+      for (const p of [...DEFAULT_CACHE_PATHS, ...(options.scan ?? [])]) console.log(chalk.gray(`  ${p}`));
+      return;
+    }
+
+    if (options.output) {
+      fs.writeFileSync(options.output, yaml);
+      console.error(chalk.green(`✓ wrote ${models.length} model${models.length === 1 ? '' : 's'} to ${options.output}`));
+    } else {
+      process.stdout.write(yaml);
     }
   });
