@@ -51,7 +51,12 @@ export function sampleModelRssBytes(): number {
       const pid = parseInt(pidStr, 10);
       const psRss = parseInt(rssStr, 10) * 1024;
       const foot = physicalFootprintBytes(pid);
-      total += Math.max(psRss, foot);
+      const rss = Math.max(psRss, foot);
+      // Ignore idle-stub processes (llama-swap's parent managerial
+      // llama-server holding no model, or LlamaBarn's coordinator
+      // subprocess). These sit at <100 MB; a loaded model is always GB.
+      if (rss < 100 * 1024 * 1024) continue;
+      total += rss;
     }
   }
   return total;
@@ -84,21 +89,42 @@ async function evictOllamaAll(): Promise<void> {
 }
 
 async function evictLlamaSwap(): Promise<void> {
+  const base = LLAMASWAP_HOST.replace(/\/v1\/?$/, '');
+  // `/unload` has been observed to return OK before the subprocess actually
+  // exits. Poll up to 5s for the child llama-server to disappear so downstream
+  // logic sees a clean state.
   try {
-    const base = LLAMASWAP_HOST.replace(/\/v1\/?$/, '');
     await fetch(`${base}/unload`);
-  } catch { /* best effort */ }
+  } catch { return; }
+  for (let i = 0; i < 10; i++) {
+    const stillUp = childLlamaServerRunning();
+    if (!stillUp) return;
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
+/** Returns true if any standalone /opt/homebrew-style llama-server (the ones
+ *  llama-swap spawns as children) is currently running. Used to gate eviction
+ *  completion since /unload returns before SIGCHLD. */
+function childLlamaServerRunning(): boolean {
+  try {
+    const out = execSync('pgrep -f "llama-server -m " 2>/dev/null || true', { encoding: 'utf8' });
+    return out.trim().length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * LlamaBarn has no unload API. Kill its model-hosting llama-server
- * subprocess directly; the GUI respawns it on the next request. Only
- * matches the child process, not the LlamaBarn GUI app itself.
+ * subprocess directly with SIGKILL — SIGTERM is ignored (the process
+ * stays alive, keeping weights resident). SIGKILL is safe because
+ * LlamaBarn's coordinator respawns cleanly on the next request.
  */
 function evictLlamaBarn(): void {
   try {
     execSync(
-      `pkill -f "LlamaBarn.app/Contents/MacOS/llama-cpp/llama-server --host 127.0.0.1"`,
+      `pkill -9 -f "LlamaBarn.app/Contents/MacOS/llama-cpp/llama-server --host 127.0.0.1"`,
       { stdio: 'ignore' },
     );
   } catch { /* nothing to kill */ }
