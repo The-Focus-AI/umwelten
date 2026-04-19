@@ -29,7 +29,7 @@
 import './shared/models.js'; // ensure models export is registered
 import '../model-showdown/shared/env.js';
 import type { ModelDetails } from '../../src/cognition/types.js';
-import { LOCAL_MATRIX } from './shared/models.js';
+import { LOCAL_MATRIX, LOCAL_MATRIX_NOTHINK, LOCAL_MATRIX_ALL } from './shared/models.js';
 import {
   evictAll,
   waitForMemoryBelow,
@@ -88,6 +88,17 @@ function parseModelFilter(): ((m: ModelDetails) => boolean) {
   return m => `${m.provider}:${m.name}`.includes(needle);
 }
 
+function parseMatrix(): typeof LOCAL_MATRIX {
+  const idx = process.argv.indexOf('--matrix');
+  if (idx === -1 || idx + 1 >= process.argv.length) return LOCAL_MATRIX;
+  const val = process.argv[idx + 1];
+  if (val === 'nothink') return LOCAL_MATRIX_NOTHINK;
+  if (val === 'all') return LOCAL_MATRIX_ALL;
+  if (val === 'think') return LOCAL_MATRIX;
+  console.error(`--matrix: unknown "${val}". Use one of: think, nothink, all`);
+  process.exit(1);
+}
+
 const skipEvict = process.argv.includes('--skip-evict');
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -95,11 +106,13 @@ const skipEvict = process.argv.includes('--skip-evict');
 async function main() {
   const selectedSuites = parseOnly();
   const modelFilter = parseModelFilter();
-  const targets = LOCAL_MATRIX.filter(e => modelFilter(e.model));
+  const matrix = parseMatrix();
+  const targets = matrix.filter(e => modelFilter(e.model));
 
   console.log('🎯 Local-Providers Quality Runner (model-major)');
   console.log('═'.repeat(78));
-  console.log(`Models:    ${targets.length} / ${LOCAL_MATRIX.length}`);
+  console.log(`Matrix:    ${matrix === LOCAL_MATRIX ? 'think' : matrix === LOCAL_MATRIX_NOTHINK ? 'nothink' : 'all'} (${matrix.length} entries)`);
+  console.log(`Models:    ${targets.length} / ${matrix.length} after filter`);
   console.log(`Suites:    ${selectedSuites.join(', ')}`);
   console.log(`Total jobs: ${targets.length} × ${selectedSuites.length} = ${targets.length * selectedSuites.length} suite runs`);
   console.log(`Eviction:  ${skipEvict ? 'DISABLED' : `enabled (wait until <${fmtBytes(IDLE_BYTES)})`}`);

@@ -88,6 +88,25 @@ registerProvider("llamaswap", {
   create: () => createLlamaSwapProvider(process.env.LLAMASWAP_HOST),
 });
 
+// Variants with llama.cpp server's `chat_template_kwargs.enable_thinking=false`
+// injected into every request — disables model reasoning/thinking tokens
+// where the chat template supports it (GLM 4.7, Qwen, etc.). Gives clean
+// head-to-head comparison of "same weights, thinking on/off" since Ollama's
+// defaults differ from llama.cpp's --jinja defaults.
+registerProvider("llamabarn-nothink", {
+  create: () => createLlamaBarnProvider(
+    process.env.LLAMABARN_HOST,
+    { extraBody: { chat_template_kwargs: { enable_thinking: false } } },
+  ),
+});
+
+registerProvider("llamaswap-nothink", {
+  create: () => createLlamaSwapProvider(
+    process.env.LLAMASWAP_HOST,
+    { extraBody: { chat_template_kwargs: { enable_thinking: false } } },
+  ),
+});
+
 
 export function getModelUrl(model: ModelDetails): string | undefined {
   const entry = getRegisteredProvider(model.provider);

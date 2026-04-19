@@ -43,6 +43,38 @@ export const LOCAL_MATRIX: LocalEntry[] = [
 ];
 
 /**
+ * No-thinking variants — same weights + same runtime, but with
+ * `chat_template_kwargs.enable_thinking=false` injected into every request.
+ * Disables the model's hidden reasoning tokens (GLM, Gemma's `<think>`
+ * blocks, etc.). Answers the question: "how much of the time cost on
+ * llamaswap/llamabarn is thinking-mode overhead, and does turning it off
+ * hurt scores?"
+ *
+ * Ollama models have no "-nothink" entries because Ollama's defaults
+ * already behave this way for these models (no --jinja, no <think> blocks).
+ */
+export const LOCAL_MATRIX_NOTHINK: LocalEntry[] = [
+  { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamabarn-nothink' } },
+  { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamaswap-nothink' } },
+
+  { family: 'glm-4-7-flash', model: { name: 'glm-4.7-flash', provider: 'llamabarn-nothink' } },
+  { family: 'glm-4-7-flash', model: { name: 'glm-4-7-flash', provider: 'llamaswap-nothink' } },
+
+  { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamabarn-nothink' } },
+  { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamaswap-nothink' } },
+
+  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q8_0', provider: 'llamabarn-nothink' } },
+  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'nvidia-nemotron-3-nano-4b', provider: 'llamaswap-nothink' } },
+];
+
+/** Thinking matrix + no-thinking matrix. Used when the caller wants to
+ *  run the full cross-product (20 entries total). */
+export const LOCAL_MATRIX_ALL: LocalEntry[] = [
+  ...LOCAL_MATRIX,
+  ...LOCAL_MATRIX_NOTHINK,
+];
+
+/**
  * Frontier reference — what you'd use if you didn't have local.
  * Primary: Gemini 3 Flash (cheap, fast, frontier-ish).
  * Ceiling: Claude Opus 4.7 (expensive, best).
