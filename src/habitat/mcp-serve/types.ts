@@ -153,4 +153,10 @@ export interface McpServeConfig {
   store: McpServeStore;
   /** Port to listen on. Defaults to 8080. */
   port?: number;
+  /**
+   * Optional path to a directory whose `index.html` is served at `GET /`.
+   * Relative paths resolve against the current working directory.
+   * Also serves `<staticRoot>/index.html` for `GET /index.html`.
+   */
+  staticRoot?: string;
 }

@@ -12,6 +12,8 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import type { McpServeConfig } from './types.js';
 import { handleMcpRequest, type McpHandlerConfig } from './mcp-handler.js';
 import { handleProtectedResource, handleAuthServerMetadata } from './oauth/metadata.js';
@@ -20,13 +22,27 @@ import { handleAuthorize, handleUpstreamCallback } from './oauth/authorize.js';
 import { handleToken } from './oauth/token.js';
 import { getPublicBaseUrl } from './public-url.js';
 
+async function serveStaticIndex(staticRoot: string, res: ServerResponse): Promise<boolean> {
+  try {
+    const html = await readFile(resolve(staticRoot, 'index.html'), 'utf-8');
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300',
+    });
+    res.end(html);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface McpHttpServer {
   listen(port?: number): void;
   close(): void;
 }
 
 export function createMcpServer(config: McpServeConfig): McpHttpServer {
-  const { name, version = '0.1.0', upstream, registerTools, store } = config;
+  const { name, version = '0.1.0', upstream, registerTools, store, staticRoot } = config;
   const port = config.port ?? 8080;
 
   const mcpHandlerConfig: McpHandlerConfig = {
@@ -87,6 +103,11 @@ export function createMcpServer(config: McpServeConfig): McpHttpServer {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok', name }));
         return;
+      }
+
+      // Optional static landing page
+      if (staticRoot && req.method === 'GET' && (path === '/' || path === '/index.html')) {
+        if (await serveStaticIndex(staticRoot, res)) return;
       }
 
       // Not found
