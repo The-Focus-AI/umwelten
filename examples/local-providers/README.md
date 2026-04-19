@@ -11,7 +11,54 @@ across quality suites (instruction, reasoning, coding write + fix, tool
 calling, file-tools/artifact-building) with an optional **frontier
 reference** (Gemini 3 Flash + Claude Opus 4.7).
 
-Inspired by [Migrating to llama.cpp](https://willschenk.com/howto/2026/migrating_to_llama_cpp/).
+Inspired by [Migrating to llama.cpp](https://willschenk.com/howto/2026/migrating_to_llama_cpp/)
+and the sharper polemic [Stop Using Ollama](https://sleepingrobots.com/dreams/stop-using-ollama/).
+
+## Claims under test
+
+This benchmark exists specifically to test the claims in those two posts.
+We track each claim, what our tests say about it, and what's still
+undetermined.
+
+### From "Stop Using Ollama" (sleepingrobots.com)
+
+| # | Claim | Status | What we found |
+|---|---|---|---|
+| 1 | "llama.cpp runs 1.8× faster than Ollama" (161 vs 89 tok/s) | **refuted as stated** | At matched config (same quant, same chat template), tok/s is within noise. The popular number conflates Q4-vs-Q8 and `--jinja` thinking-mode overhead, both of which favor Ollama's defaults. |
+| 2 | CPU perf gap 30-50% | undetermined | We're on Metal/GPU; not our scenario |
+| 3 | Qwen-3 Coder 32B: 70% higher throughput on llama.cpp | not tested yet | Not in our matrix |
+| 4 | Overhead from Ollama's daemon + GPU offloading | partly refuted | We see Ollama ~14% **faster** than llama.cpp-Q8 on gemma-4-26b (Q4 advantage), and within ~5% when we control for quant |
+| 5 | Ollama's fork reintroduced llama.cpp bugs | partly supported | We saw `gpt-oss-20b` fail consistently under LlamaBarn (upstream llama.cpp) with "Compute error"; Ollama's `gpt-oss:latest` worked fine. That's the **opposite** of the claim. But: see claim 7 below. |
+| 6 | Broken structured output, vision failures, GGML crashes | not tested | |
+| 7 | `gpt-oss-20b` works in upstream llama.cpp but fails in Ollama | **contradicted here** | We observed the reverse: Ollama's `gpt-oss:latest` scored 100% on our suite; LlamaBarn+llamaswap on `gpt-oss-20b-mxfp4` had scattered failures in early runs (later resolved). Likely version-dependent. |
+| 8 | Qwen tool calls / garbage responses on Ollama | not tested | No Qwen in matrix yet |
+| 9 | DeepSeek-R1 naming misrepresentation | N/A | Documentation claim, not performance |
+| 10 | Stripped distinction from DeepSeek's naming | N/A | Documentation claim |
+| 11 | Ollama can only create Q4_K_S, Q4_K_M, Q8_0, F16, F32 | **true** (by inspection) | `ollama create` lacks Q5_K_M, Q6_K, IQ quants — but this is a quant-creation claim, not a runtime quality claim |
+| 12 | Can't create Q5/Q6/IQ without external tools | **true** | See #11 |
+| 13 | Ollama auto-detects chat templates from hardcoded list | **true** (by design) | Ollama uses Go templates; unknown models need a manual modelfile |
+| 14 | Falls back to bare template, silently breaking instruction format | not directly tested | Would manifest as score regression on unknown models |
+| 15 | Requires translating Jinja to Go template syntax | **true** | Known limitation |
+| 16 | Changing a parameter copies the entire 30-60 GB model | unverified | Would need to time `ollama cp` — out of scope |
+| 17 | New HF models appear in llama.cpp within hours; Ollama lags | **true** (known) | Ollama's registry requires manual packaging |
+
+### From "Migrating to llama.cpp" (willschenk.com)
+
+| Claim | Status | What we found |
+|---|---|---|
+| llama.cpp runs 1.5-1.8× faster than Ollama | **collapses with controls** | Same story as sleepingrobots #1 — apparent speedup is quant + thinking-mode confound. |
+| Q4_K_M is the sweet spot at ~17 GB for 26B models | plausible | Our scores on Q4 vs Q8 data (in progress) will tell. |
+| `llama-swap` gives hot-swapping without daemon lock-in | **supported** | Confirmed — `GET /unload` + per-model YAML TTL works. |
+
+### Our own claims (emergent from the data)
+
+| Claim | Status | Evidence |
+|---|---|---|
+| Thinking mode dominates wall-clock time on llama.cpp runtimes | **strong evidence** | 20-200× speedups when disabled, with no measurable score regression on short-horizon tasks |
+| Thinking mode can **hurt** scores (context truncation) | **some evidence** | LlamaBarn gemma-4-26b: thinking-on 86.1% vs thinking-off 95.0% |
+| Thinking mode **helps** some model-runtime pairs | **some evidence** | LlamaBarn glm-4.7: thinking-on 87.6% vs thinking-off 74.1% |
+| "Runtime speed difference" is mostly quantization + chat-template | **strong evidence** | Controlling for both brings Ollama / llamaswap / LlamaBarn tok/s within ~14% on gemma-4-26b |
+| gpt-oss-20b is the strongest open model in our matrix | **supported** | Tied at 100% / 98.5% / 98.5% across llamabarn / llamaswap / ollama |
 
 ## The four dimensions
 
