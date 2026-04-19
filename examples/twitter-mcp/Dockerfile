@@ -13,6 +13,7 @@ RUN printf '%s\n' 'package-import-method=copy' > .npmrc
 RUN --mount=type=cache,id=pnpm-twitter-mcp,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 COPY src ./src/
+COPY public ./public/
 RUN pnpm run build
 
 FROM node:22-slim
@@ -20,6 +21,7 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist/
 COPY --from=build /app/node_modules ./node_modules/
 COPY --from=build /app/package.json ./
+COPY --from=build /app/public ./public/
 
 EXPOSE 8080
 CMD ["node", "dist/server.js"]

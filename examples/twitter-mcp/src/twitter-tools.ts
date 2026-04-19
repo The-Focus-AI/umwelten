@@ -255,4 +255,51 @@ export async function registerTwitterTools(
       } catch (error) { return toolError(error); }
     },
   );
+
+  // ── Bookmarks ──────────────────────────────────────────────────
+
+  (server as any).tool(
+    'twitter_bookmarks',
+    'Get my bookmarked tweets',
+    {},
+    async () => {
+      try {
+        const token = await getUpstreamToken();
+        const myId = await getMyUserId(token);
+        const data = await twitterGet(
+          `/users/${myId}/bookmarks?max_results=100&tweet.fields=${TWEET_FIELDS}&expansions=attachments.media_keys&media.fields=url,preview_image_url,type,width,height,media_key`,
+          token,
+        );
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
+  (server as any).tool(
+    'twitter_bookmark',
+    'Bookmark a tweet',
+    { tweet_id: z.string().describe('Tweet ID to bookmark') },
+    async (params: { tweet_id: string }) => {
+      try {
+        const token = await getUpstreamToken();
+        const myId = await getMyUserId(token);
+        const data = await twitterPost(`/users/${myId}/bookmarks`, { tweet_id: params.tweet_id }, token);
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
+  (server as any).tool(
+    'twitter_unbookmark',
+    'Remove a bookmark',
+    { tweet_id: z.string().describe('Tweet ID to unbookmark') },
+    async (params: { tweet_id: string }) => {
+      try {
+        const token = await getUpstreamToken();
+        const myId = await getMyUserId(token);
+        const data = await twitterDelete(`/users/${myId}/bookmarks/${params.tweet_id}`, token);
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
 }

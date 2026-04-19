@@ -161,6 +161,8 @@ The `mcp-serve` library (`src/habitat/mcp-serve/`) provides the full HTTP server
 
 Create a class (like `OuraProvider`) that implements `buildAuthorizeUrl()`, `exchangeCode()`, and `refreshToken()` for your upstream service.
 
+If the upstream requires **PKCE** (Twitter, for example, rejects authorize requests without a `code_challenge`), `exchangeCode` also receives an optional `upstreamState` parameter. Generate the verifier in `buildAuthorizeUrl`, store it keyed by `state` (in-memory map is fine for short-lived flows), and look it up in `exchangeCode`. See [`examples/twitter-mcp/src/twitter-provider.ts`](../twitter-mcp/src/twitter-provider.ts) for a working example.
+
 ### 2. Implement `McpToolRegistrar`
 
 Write a function `(server, userId, getUpstreamToken) => Promise<void>` that registers MCP tools. Each tool calls `getUpstreamToken()` to get a valid access token, then fetches from your API.

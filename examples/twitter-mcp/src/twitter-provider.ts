@@ -13,7 +13,7 @@ import type { UpstreamOAuthProvider, UpstreamTokens } from 'umwelten/mcp-serve';
 
 const TWITTER_AUTH_URL = 'https://twitter.com/i/oauth2/authorize';
 const TWITTER_TOKEN_URL = 'https://api.twitter.com/2/oauth2/token';
-const TWITTER_SCOPES = 'tweet.read users.read offline.access';
+const TWITTER_SCOPES = 'tweet.read tweet.write users.read list.read list.write like.read like.write bookmark.read bookmark.write offline.access';
 
 function base64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

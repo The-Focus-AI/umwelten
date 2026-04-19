@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>oura-mcp — Focus.AI Labs</title>
+<meta name="description" content="Connect your Oura Ring to any MCP client. A multi-user MCP server from Focus.AI Labs." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f3f2ea;
+    --void: #1a1a1a;
+    --rand-blue: #0055aa;
+    --alert-red: #d93025;
+    --surface: #e6e4dc;
+    --page-bg: #e8e6df;
+    --inactive-tab: #d6d4ce;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--page-bg);
+    color: var(--void);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: 'Courier Prime', monospace; }
+
+  .page {
+    max-width: 1120px;
+    margin: 32px auto;
+    background: var(--paper);
+    border: 1px solid var(--void);
+    box-shadow: 10px 10px 0 0 rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .page { margin: 0; border-left: 0; border-right: 0; box-shadow: none; }
+  }
+
+  header.masthead {
+    padding: 24px 32px;
+    border-bottom: 2px solid var(--void);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .masthead .brand {
+    font-family: 'Courier Prime', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+
+  .masthead .brand a { color: var(--void); text-decoration: none; }
+  .masthead .brand a:hover { color: var(--rand-blue); }
+  .masthead .brand .accent { color: var(--rand-blue); }
+
+  .masthead .meta {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: #555;
+    text-align: right;
+  }
+
+  .masthead .meta p { margin: 0; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+  }
+
+  .binding {
+    background: var(--rand-blue);
+    color: #fff;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 24px 0;
+    border-right: 1px solid var(--void);
+  }
+
+  .binding span {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  .hero-body { padding: 56px 48px; }
+
+  .hero .tag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--alert-red);
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    font-size: clamp(40px, 7vw, 72px);
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.02em;
+    margin: 0 0 24px;
+  }
+
+  .hero h1 .accent { color: var(--rand-blue); }
+
+  .hero .lead {
+    max-width: 640px;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.4;
+    border-left: 4px solid var(--alert-red);
+    padding: 8px 0 8px 24px;
+    margin: 0 0 32px;
+  }
+
+  .hero .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+  a.btn {
+    display: inline-block;
+    background: var(--rand-blue);
+    color: #fff;
+    text-decoration: none;
+    padding: 10px 18px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: 1px solid var(--void);
+  }
+  a.btn:hover { background: #003d7a; }
+  a.btn.secondary { background: transparent; color: var(--void); }
+  a.btn.secondary:hover { background: var(--void); color: #fff; }
+
+  section.section {
+    padding: 48px;
+    border-top: 1px solid var(--void);
+  }
+
+  @media (max-width: 640px) { section.section, .hero-body { padding: 32px 24px; } }
+
+  section.section > .section-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--alert-red);
+    margin: 0 0 8px;
+  }
+
+  section.section > h2 {
+    font-size: 28px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    margin: 0 0 24px;
+  }
+
+  section.section p { max-width: 720px; }
+
+  .grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--void);
+    border: 1px solid var(--void);
+  }
+
+  .card {
+    background: #fff;
+    padding: 24px;
+  }
+
+  .card .num {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--alert-red);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+
+  .card p { margin: 0; font-size: 14px; color: #333; }
+
+  pre.code {
+    background: var(--void);
+    color: #e6e4dc;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 16px 0 24px;
+    border: 1px solid var(--void);
+  }
+
+  pre.code .c { color: #888; }
+  pre.code .k { color: #66b2ff; }
+
+  .tool-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 0;
+    font-size: 14px;
+  }
+
+  .tool-table th, .tool-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--surface);
+    vertical-align: top;
+  }
+
+  .tool-table th {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: var(--surface);
+    border-bottom: 1px solid var(--void);
+  }
+
+  .tool-table tbody tr:last-child td { border-bottom: 0; }
+
+  .tool-table code {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    color: var(--rand-blue);
+    background: transparent;
+    padding: 0;
+  }
+
+  footer.colophon {
+    padding: 24px 48px;
+    border-top: 2px solid var(--void);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: var(--surface);
+  }
+
+  @media (max-width: 640px) { footer.colophon { padding: 24px; } }
+
+  footer.colophon a { color: var(--rand-blue); text-decoration: none; font-weight: 700; }
+  footer.colophon a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+
+  footer.colophon .mono { font-size: 12px; }
+
+  .steps { display: grid; grid-template-columns: 1fr; gap: 16px; max-width: 820px; }
+  .step { display: grid; grid-template-columns: 48px 1fr; gap: 16px; }
+  .step .num {
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--alert-red);
+    border-right: 1px solid var(--void);
+    padding-right: 16px;
+  }
+  .step .body h3 { margin: 0 0 6px; font-size: 16px; }
+  .step .body p { margin: 0; font-size: 14px; color: #333; }
+
+  .pill {
+    display: inline-block;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border: 1px solid var(--void);
+    border-radius: 999px;
+    color: var(--void);
+    background: var(--paper);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="brand">
+      <a href="https://thefocus.ai/"><span class="accent">THEFOCUS</span>.AI&nbsp;LABS</a>
+    </div>
+    <div class="meta mono">
+      <p>PROJECT: OURA-MCP</p>
+      <p>DOC. NO: FLM-2026-01</p>
+      <p>STATUS: PUBLIC</p>
+    </div>
+  </header>
+
+  <div class="hero">
+    <aside class="binding" aria-hidden="true"><span>oura-mcp</span></aside>
+    <div class="hero-body">
+      <div class="tag">Hosted MCP Server · Oura Ring · OAuth 2.1</div>
+      <h1>Your <span class="accent">ring data</span><br />in any MCP client.</h1>
+      <p class="lead">
+        <strong>oura-mcp</strong> is a multi-user MCP server that exposes Oura Ring health data
+        — sleep, readiness, activity, stress, heart rate — as tools any MCP-compatible LLM
+        client can call. OAuth 2.1 with dynamic client registration; per-user tokens stored in
+        Neon Postgres. Built on the <span class="mono">umwelten/mcp-serve</span> library.
+      </p>
+      <div class="cta-row">
+        <a class="btn" href="https://focus-oura-mcp.fly.dev/mcp">Live Endpoint →</a>
+        <a class="btn secondary" href="https://github.com/The-Focus-AI/umwelten/tree/main/examples/oura-mcp">Source on GitHub</a>
+        <a class="btn secondary" href="https://umwelten.thefocus.ai/">umwelten docs</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="section">
+    <p class="section-label">01 · Connect</p>
+    <h2>Add to your MCP client</h2>
+    <p>Pick the client you use. OAuth runs automatically on first connection — your browser opens, you authorize with Oura, and you're done.</p>
+
+    <h3 style="margin-top:32px;font-size:16px;">Claude Code</h3>
+<pre class="code"><span class="c"># registers the server for this project</span>
+claude mcp add --transport http oura https://focus-oura-mcp.fly.dev/mcp</pre>
+
+    <h3 style="font-size:16px;">umwelten CLI</h3>
+<pre class="code"><span class="c"># interactive chat with OAuth flow</span>
+dotenvx run -- pnpm run cli mcp chat \
+  --url https://focus-oura-mcp.fly.dev/mcp
+
+<span class="c"># one-shot question</span>
+dotenvx run -- pnpm run cli mcp chat \
+  --url https://focus-oura-mcp.fly.dev/mcp \
+  --one-shot "how did I sleep last week?"</pre>
+
+    <h3 style="font-size:16px;">Any MCP client (JSON config)</h3>
+<pre class="code">{
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"oura"</span>: {
+      <span class="k">"type"</span>: <span class="k">"streamable-http"</span>,
+      <span class="k">"url"</span>: <span class="k">"https://focus-oura-mcp.fly.dev/mcp"</span>
+    }
+  }
+}</pre>
+  </section>
+
+  <section class="section">
+    <p class="section-label">02 · Available Tools</p>
+    <h2>Six read-only tools</h2>
+    <p>Each tool takes <span class="mono">start_date</span> (required, YYYY-MM-DD) and <span class="mono">end_date</span> (optional). Responses are raw Oura v2 API JSON.</p>
+
+    <table class="tool-table">
+      <thead>
+        <tr><th style="width:220px;">Tool</th><th style="width:380px;">Oura Endpoint</th><th>What it returns</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>oura_sleep</code></td><td><code>/v2/usercollection/daily_sleep</code></td><td>Daily sleep scores and contributors</td></tr>
+        <tr><td><code>oura_sleep_detail</code></td><td><code>/v2/usercollection/sleep</code></td><td>Per-sleep periods: deep/REM/light, lowest HR, avg HRV</td></tr>
+        <tr><td><code>oura_readiness</code></td><td><code>/v2/usercollection/daily_readiness</code></td><td>Readiness, temperature deviation, HRV balance</td></tr>
+        <tr><td><code>oura_activity</code></td><td><code>/v2/usercollection/daily_activity</code></td><td>Steps, calories, activity score</td></tr>
+        <tr><td><code>oura_stress</code></td><td><code>/v2/usercollection/daily_stress</code></td><td>Stress/recovery minutes, day summary</td></tr>
+        <tr><td><code>oura_heart_rate</code></td><td><code>/v2/usercollection/heartrate</code></td><td>Time-series heart rate data</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <p class="section-label">03 · Under the hood</p>
+    <h2>How the OAuth chain works</h2>
+
+    <div class="steps">
+      <div class="step">
+        <div class="num">01</div>
+        <div class="body">
+          <h3>Client hits <span class="mono">/mcp</span></h3>
+          <p>The server returns 401 with <span class="mono">WWW-Authenticate</span> pointing at the resource metadata document.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <div class="body">
+          <h3>Discovery &amp; registration</h3>
+          <p>Client discovers OAuth endpoints from <span class="mono">/.well-known/oauth-authorization-server</span> and registers dynamically via <span class="mono">POST /oauth/register</span>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <div class="body">
+          <h3>Upstream chain to Oura</h3>
+          <p>Your browser is sent to Oura to authorize. The server relays the callback and stores your Oura tokens per-user in Neon Postgres.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">04</div>
+        <div class="body">
+          <h3>MCP token issued</h3>
+          <p>Client exchanges the code at <span class="mono">POST /oauth/token</span>. Authenticated requests carry <span class="mono">Authorization: Bearer &lt;mcp-token&gt;</span>; the server resolves your user and uses your Oura token to call the upstream API.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <p class="section-label">04 · Run your own</p>
+    <h2>Self-host or fork it</h2>
+    <p>The source is small: a Twitter-flavored <span class="mono">UpstreamOAuthProvider</span>, a Zod-validated tool registrar, and a few lines to glue them to <span class="mono">mcp-serve</span>. Fly.io + Neon free tier works for personal use.</p>
+
+    <div class="grid-cards" style="margin-top:24px;">
+      <div class="card">
+        <span class="num">01</span>
+        <h3>Fork</h3>
+        <p><span class="mono">examples/oura-mcp/</span> in the <a href="https://github.com/The-Focus-AI/umwelten" style="color:var(--rand-blue);">umwelten repo</a> — four small source files.</p>
+      </div>
+      <div class="card">
+        <span class="num">02</span>
+        <h3>Register an Oura app</h3>
+        <p>Callback URI: <span class="mono">https://&lt;your-fly-app&gt;.fly.dev/oauth/upstream-callback</span>. Scopes: daily, heartrate, personal.</p>
+      </div>
+      <div class="card">
+        <span class="num">03</span>
+        <h3>Provision Neon</h3>
+        <p>Free tier. Run <span class="mono">pnpm run db:setup</span> once against <span class="mono">DATABASE_URL</span>.</p>
+      </div>
+      <div class="card">
+        <span class="num">04</span>
+        <h3>Deploy</h3>
+        <p><span class="mono">fly launch</span>, set secrets, <span class="mono">fly deploy</span>. Docker build is self-contained.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <p class="section-label">05 · What this is built on</p>
+    <h2>umwelten/mcp-serve</h2>
+    <p>
+      <span class="mono">umwelten</span> is Focus.AI's TypeScript toolkit for multi-provider LLM access, systematic evaluation,
+      and agent environments. Its <span class="mono">mcp-serve</span> subpath gives you an HTTP MCP server with built-in OAuth 2.1,
+      streamable transport, and a pluggable per-user token store — so wrapping a new API takes an <span class="mono">UpstreamOAuthProvider</span>
+      and a tool registrar, not a custom auth stack.
+    </p>
+    <div class="cta-row" style="margin-top:24px;">
+      <a class="btn" href="https://umwelten.thefocus.ai/">Read the docs →</a>
+      <a class="btn secondary" href="https://www.npmjs.com/package/umwelten">umwelten on npm</a>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <div class="mono">
+      <p><span class="pill">Focus.AI Labs</span></p>
+      <p>Experiments in public · <a href="https://thefocus.ai/">thefocus.ai</a></p>
+    </div>
+    <div class="mono">
+      <p>Built on <a href="https://umwelten.thefocus.ai/">umwelten</a> · <a href="https://github.com/The-Focus-AI/umwelten/tree/main/examples/oura-mcp">Source</a></p>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

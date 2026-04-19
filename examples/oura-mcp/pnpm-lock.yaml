@@ -19,8 +19,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.2
       umwelten:
-        specifier: ^0.4.8
-        version: 0.4.8
+        specifier: ^0.4.11
+        version: 0.4.11
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -1440,8 +1440,8 @@ packages:
     resolution: {integrity: sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==}
     engines: {node: '>=18'}
 
-  umwelten@0.4.8:
-    resolution: {integrity: sha512-hNQukuDhFiG9WPj4HAweeJXAa43YiJtIRa+aGNctI/ABmHI69xOqiB4dzOm+ks3w6j5SNvyXGRZVwQlUSE4abA==}
+  umwelten@0.4.11:
+    resolution: {integrity: sha512-FTOp+QLUMZx1GUiAUwr0xJY38RpyX3LQaoyftPZpE/nlT9GAIBFWRI4IkwchO4SCubm/hMTqobQcAXVLmoroiA==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -2900,7 +2900,7 @@ snapshots:
 
   uint8array-extras@1.5.0: {}
 
-  umwelten@0.4.8:
+  umwelten@0.4.11:
     dependencies:
       '@ai-sdk/google': 2.0.68(zod@4.3.6)
       '@ai-sdk/openai-compatible': 1.0.35(zod@4.3.6)

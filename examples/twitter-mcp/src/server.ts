@@ -19,6 +19,7 @@ const server = createMcpServer({
   upstream,
   registerTools: registerTwitterTools,
   store,
+  staticRoot: 'public',
 });
 
 server.listen(parseInt(process.env.PORT || '8080', 10));
