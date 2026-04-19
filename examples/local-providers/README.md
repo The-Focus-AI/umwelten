@@ -1,31 +1,68 @@
 # Local-Providers Showdown
 
-Four local LLM runtimes, same hardware, same weights — which one should you
-actually use?
+**The thesis under test:** how much does the runtime actually matter when
+running a local LLM, vs. everything else around it — chat template,
+reasoning mode, quantization, sampling? This example runs the *same
+weights* through multiple local runtimes and isolates each variable so we
+can say what's doing what.
 
-This example benchmarks **Ollama**, **LM Studio**, **LlamaBarn**, and
-**llama-swap** across six dimensions (speed, instruction following, reasoning,
-coding — write + fix, tool calling, file-tools/artifact-building), with an
-optional **frontier reference** (Gemini 3 Flash + Claude Opus 4.7) to answer:
-
-1. **When can I use local instead of frontier?** (quality gap)
-2. **Which runtime is fastest for the same weights?** (speed)
-3. **Which local model is smartest overall?** (leaderboard)
+It benchmarks **Ollama**, **LM Studio**, **LlamaBarn**, and **llama-swap**
+across quality suites (instruction, reasoning, coding write + fix, tool
+calling, file-tools/artifact-building) with an optional **frontier
+reference** (Gemini 3 Flash + Claude Opus 4.7).
 
 Inspired by [Migrating to llama.cpp](https://willschenk.com/howto/2026/migrating_to_llama_cpp/).
 
+## The four dimensions
+
+Every benchmark cell is a combination of these:
+
+| Dimension | Values we test | Why it matters |
+|---|---|---|
+| **Runtime** | `ollama`, `llamabarn`, `llamaswap`, (`lmstudio`) | Are Ollama's custom fork's optimizations better than upstream llama.cpp? Does orchestration (TTL, swap) matter? |
+| **Model family** | gemma-4-26b-a4b, glm-4-7-flash, gpt-oss-20b, nvidia-nemotron-3-nano-4b | Which open model is smartest? Which scales down? |
+| **Thinking mode** | `on` (default), `off` | Hidden reasoning tokens can multiply generation time 20-200× with little or no score improvement. When is it worth it? |
+| **Quantization** | Q4_K_M, Q8_0 (BF16 planned) | Does 4-bit precision hurt scores enough to justify the 2× memory cost of Q8? Does the answer depend on the model? |
+
+**Not every cell makes sense:**
+
+- Ollama has no `--jinja` equivalent exposed — its modelfiles ship with a
+  fixed chat template per model and most don't emit hidden reasoning tokens.
+  So Ollama's "thinking on/off" dimension is whatever the modelfile says.
+- llama.cpp runtimes (llamabarn, llamaswap) **do** expose thinking via
+  `chat_template_kwargs.enable_thinking=false` per-request — see
+  [Thinking mode](#thinking-mode) below.
+- Quantization is determined by which GGUF file is loaded. Each runtime
+  loads a specific file; to compare quants you need the file for each
+  quant level on disk.
+
 ## What each runtime is
 
-| Runtime | Backend | Orchestration | Good at |
+| Runtime | Backend | Orchestration | Strengths |
 |---|---|---|---|
-| **Ollama** | Ollama's llama.cpp fork | Single daemon, auto-unload | Ergonomics, model registry |
-| **LM Studio** | Upstream llama.cpp | GUI loader + headless server | GUI tuning, per-model config |
+| **Ollama** | Ollama's llama.cpp fork | Single daemon, TTL-based auto-unload | Ergonomics, built-in registry (`ollama pull`) |
+| **LM Studio** | Upstream llama.cpp | GUI loader + headless server | Per-model config GUI |
 | **LlamaBarn** | Upstream llama.cpp | Mac-native auto-swap | "Ollama UX with real llama.cpp" |
-| **llama-swap** | Upstream llama.cpp | YAML-configured proxy, TTL-unload | Headless, programmable, fastest |
+| **llama-swap** | Upstream llama.cpp | YAML-configured proxy, per-model TTL | Headless, programmable, scriptable |
 
-Ollama lags upstream llama.cpp (community benchmarks show 1.5-1.8× slower on
-identical hardware). The other three all run upstream llama.cpp; they differ
-in orchestration, not inference.
+The popular belief (from the blog post we were inspired by) is that
+**llama.cpp runs 1.5-1.8× faster than Ollama for the same model**. **Our
+measurements suggest that's wrong in the way it's usually stated**, because:
+
+1. Ollama ships Q4_K_M quants by default. Upstream llama.cpp's HuggingFace
+   auto-downloads (ggml-org repos) ship Q8_0 by default. Q4 is
+   mechanically faster per token than Q8 because half as much data per
+   weight has to move through the arithmetic unit. **That confounds the
+   whole comparison.**
+2. Default `--jinja` on llama.cpp activates a model's chat template,
+   which for most recent models (Gemma 4, GLM 4.7, GPT-OSS) means
+   *thinking mode*. Ollama's modelfiles usually don't. This alone can
+   make the llama.cpp path look 20-200× **slower**, not faster.
+
+When you control for both — same quant (e.g. Q4_K_M on both) AND same
+thinking mode (either both on or both off) — the tok/s numbers converge.
+The runtime itself contributes much less than the popular claim suggests.
+Full data in the per-run reports.
 
 ## Install runtimes
 
@@ -33,88 +70,136 @@ in orchestration, not inference.
 
 ```bash
 brew install ollama
-ollama serve  # in one terminal
+ollama serve  # in one terminal, or launch the .app
 ollama pull gemma4:26b
+ollama pull glm-4.7-flash
+ollama pull gpt-oss
+ollama pull nemotron-3-nano:4b
 ```
 
 **LM Studio** — <https://lmstudio.ai/download>
 
-Download the Mac app, install models through the GUI, then enable the local
-server (⚙️ → Developer → Start Server, default `http://localhost:1234`).
+Download the Mac app, install models through the GUI, then enable the
+local server (⚙️ → Developer → Start Server, default
+`http://localhost:1234`).
 
 **LlamaBarn** — <https://llamabarn.com/>
 
-Mac app. Install, add models through the GUI. API at `http://localhost:2276/v1`.
+Mac app. Install, add models through the GUI. API at
+`http://localhost:2276/v1`. Uses upstream llama.cpp. Preset config lives
+at `~/.llamabarn/models.ini`.
 
 **llama-swap + llama.cpp** — <https://github.com/mostlygeek/llama-swap>
 
 ```bash
-brew install llama.cpp
-go install github.com/mostlygeek/llama-swap@latest
+brew install llama.cpp   # or latest release with --jinja support
+brew install llama-swap  # or: go install github.com/mostlygeek/llama-swap@latest
 
-# Generate a starter config from your LM Studio / LlamaBarn model cache:
-pnpm tsx examples/local-providers/catalog.ts --yaml > examples/local-providers/llama-swap.yaml
+# Generate a config from your GGUF cache:
+umwelten models llamaswap-config --output examples/local-providers/llama-swap.yaml
 
-# Start the proxy (runs llama-server on demand, unloads on idle)
-llama-swap --config examples/local-providers/llama-swap.yaml --listen :8080
+# Start the proxy
+llama-swap --config examples/local-providers/llama-swap.yaml --listen :8090
 ```
 
-## Seed a shared model
+Set `LLAMASWAP_HOST=http://localhost:8090/v1` in `.env` if you use a
+non-default port (we use `:8090` to avoid conflicts).
 
-For apples-to-apples comparison we need the **same weights** loadable on every
-runtime. The blog post lands on Gemma 4 26B-A4B Q4_K_M (~17 GB). To install
-across all four:
+## Seed shared models
+
+For cross-runtime comparison we need the **same weights** loadable on
+every runtime. For head-to-head at a specific quant you also need the
+right GGUF file on disk for each quant you want to test. The eval
+defaults currently expect:
+
+| Model family | Q4_K_M source | Q8_0 source |
+|---|---|---|
+| gemma-4-26b-a4b | `unsloth/gemma-4-26B-A4B-it-GGUF` | `ggml-org/gemma-4-26B-A4B-it-GGUF` |
+| glm-4-7-flash | (pull from Ollama or HF) | `ggml-org/GLM-4.7-Flash-GGUF` |
+| gpt-oss-20b | (via Ollama) | `ggml-org/gpt-oss-20b-GGUF` (mxfp4) |
+| nemotron-3-nano-4b | `unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF` | same |
+
+Download what you need via `llama-cli -hf <repo>:<quant> -cnv` (ctrl-C
+after the first token to keep the file), or LlamaBarn's UI, or LM
+Studio's UI. Then `umwelten models llamaswap-config` will pick them up.
+
+## Verify setup
 
 ```bash
-# Ollama
-ollama pull gemma4:26b
-
-# llama.cpp (direct) — also used by llama-swap
-llama-cli -hf unsloth/gemma-4-26B-A4B-it-GGUF:Q4_K_M -cnv
-# (Ctrl-C after first token; the file is now in ~/.cache/llama.cpp/)
-
-# LM Studio: GUI → Search → unsloth/gemma-4-26B-A4B-it-GGUF → Download
-# LlamaBarn: GUI → Browse → same model
-```
-
-Then run:
-
-```bash
+# Catalog: show which runtimes are up and which models they agree on
 pnpm tsx examples/local-providers/catalog.ts
+
+# Smoke test: cold + warm latency per (runtime, model) with eviction
+dotenvx run -- pnpm tsx examples/local-providers/smoke.ts
+
+# Eviction spike: confirm one model at a time actually works
+dotenvx run -- pnpm tsx examples/local-providers/eviction-spike.ts
 ```
 
-…to confirm all four runtimes can see the model.
+## The matrix
 
-## Run the suite
+Edit `shared/models.ts`. Three exported matrices:
 
-Each sub-suite writes to `output/evaluations/local-providers-<dim>/runs/NNN/`.
-Tasks are cached; re-running is cheap.
+- **`LOCAL_MATRIX`** — the "default" runtime behavior: 12 cells (4 models
+  × 3 runtimes, ollama/llamabarn/llamaswap at their stock config). This
+  is what you get out of the box.
+- **`LOCAL_MATRIX_NOTHINK`** — 8 cells. Same 4 models but on
+  `llamabarn-nothink` + `llamaswap-nothink` (Ollama excluded since its
+  modelfiles don't expose a thinking toggle). Each request injects
+  `chat_template_kwargs: { enable_thinking: false }`.
+- **`LOCAL_MATRIX_ALL`** — union of the two.
+
+Model IDs need to match what each runtime actually exposes — Ollama uses
+short names (`gemma4:26b`), llama.cpp uses the HF-style alias
+(`gemma-4-26b-a4b`). `smoke.ts`'s `FAMILY_ALIASES` handles the
+cross-runtime family mapping.
+
+## Run the quality suite
+
+The benchmark is **model-major** — it loads one model at a time, runs
+all four quality suites (instruction, reasoning, coding write, coding
+fix) on it, evicts, then moves to the next. This is critical on hardware
+that can't hold two big models simultaneously.
 
 ```bash
-# Speed (TTFT, tok/s, cold-start)
+# Default matrix (12 entries, thinking-on wherever it is default)
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts
+
+# Thinking OFF (8 llama.cpp entries)
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --matrix nothink
+
+# Both (20 entries)
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --matrix all
+
+# Subset filters
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --only reasoning,coding
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --model llamaswap
+
+# Debug
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --skip-evict   # no eviction
+dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --new          # bust caches
+```
+
+Each suite caches per (task, model) so re-running is incremental. A
+90-minute **watchdog** per suite prevents a hung model from stalling
+the whole run.
+
+Every suite run also triggers memory eviction between models — see
+[Eviction](#eviction).
+
+## Run the other suites
+
+Speed, tool-math, soul-md are standalone scripts:
+
+```bash
 dotenvx run -- pnpm tsx examples/local-providers/speed.ts
-dotenvx run -- pnpm tsx examples/local-providers/speed.ts --prompt long
-
-# Quality
-dotenvx run -- pnpm tsx examples/local-providers/quality/instruction.ts
-dotenvx run -- pnpm tsx examples/local-providers/quality/reasoning.ts
-dotenvx run -- pnpm tsx examples/local-providers/quality/coding.ts
-dotenvx run -- pnpm tsx examples/local-providers/quality/coding-bugfix.ts
-
-# Tools
 dotenvx run -- pnpm tsx examples/local-providers/quality/tool-math.ts
 dotenvx run -- pnpm tsx examples/local-providers/quality/soul-md.ts
-
-# Add --frontier to any of the above to include Gemini 3 Flash + Opus 4.7.
-# Add --new to force a fresh run (default is resume/cache).
 ```
 
-## Combined report
-
-After running all sub-suites:
+## Generate the combined report
 
 ```bash
-# Leaderboard + per-dimension tables in markdown
 dotenvx run -- pnpm run cli eval combine \
   --config examples/local-providers/suite-config.ts \
   --format md --output output/local-providers-report.md
@@ -125,18 +210,111 @@ dotenvx run -- pnpm run cli eval combine \
   --format narrative --output output/local-providers-narrative.md
 ```
 
-## Editing the matrix
+The report shows a leaderboard per dimension, provider breakdowns,
+cost/speed tradeoffs, and per-task failure summaries. It consumes
+the cached (model, task) scores written by each suite — you can
+regenerate the report without re-running the models.
 
-`shared/models.ts` is the source of truth for (runtime, model) pairs.
-Edit `LOCAL_MATRIX` to match what you have installed. The `family` field
-groups "same weights on different runtime" so the combined report can show
-head-to-head comparisons.
+## Thinking mode
 
-## What each dimension tests
+Most recent open-weights chat models emit hidden reasoning tokens
+between `<think>` and `</think>` tags before their final answer. The
+tokens are often stripped from the API response body but **counted in
+`completion_tokens`** — which is why the same weights can take 20-200×
+longer on a llama.cpp-based runtime (with `--jinja` chat template) than
+on Ollama.
+
+Some chat templates expose a template parameter to disable this. For
+llama.cpp `--jinja` servers, we inject:
+
+```json
+{
+  "chat_template_kwargs": { "enable_thinking": false }
+}
+```
+
+…into every POST body. This is wired up via `extraBody` passthrough on
+the `llamaswap-nothink` and `llamabarn-nothink` providers (see
+`src/providers/llamaswap.ts` and `llamabarn.ts`).
+
+What we've measured so far:
+
+- On llamaswap+gemma-4-26b, an instruction task: **981s → 8.6s**
+  (~114× speedup). Same weights, same runtime, same API.
+- On llamabarn+glm-4-7-flash coding suite: **5226s → 209s** (~25×).
+- Scores are **indistinguishable** — the hidden reasoning tokens don't
+  measurably improve outcomes on these tests.
+
+**Caveat:** the tests are short-horizon. Harder multi-step problems
+might still benefit from thinking. Add your own.
+
+## Quantization
+
+Quantization is the precision at which model weights are stored. Common
+levels for our models:
+
+| Quant | bits/weight | ~Size for 26B | Notes |
+|---|---|---|---|
+| Q4_K_M | ~4 | 17 GB | Ollama's default. Good quality/size tradeoff. |
+| Q5_K_M | ~5 | 20 GB | |
+| Q8_0 | 8 | 27 GB | llama.cpp HF ggml-org default. Near-lossless. |
+| BF16 / F16 | 16 | 50 GB | Baseline / "full precision". |
+
+Smaller quants are **mechanically faster** (less data per arithmetic op)
+and **degrade quality**, but how much depends on the model and task.
+
+Our benchmark supports any quant per (runtime, model) cell — the `-q4` /
+`-q8` suffix in `LOCAL_MATRIX` entries routes to the corresponding GGUF
+file via llamaswap's YAML aliases and LlamaBarn's `models.ini` entries.
+
+`umwelten models llamaswap-config --prefer-quant smallest|largest`
+generates a YAML pinned to the smaller or larger of whatever's in your
+GGUF cache. Use this to flip a whole run between "Q4 on everything" and
+"Q8 on everything" without hand-editing.
+
+**Claims we're set up to test** (some have data, some don't yet):
+
+1. Q4 is ~2-5% worse than Q8 on hard reasoning, indistinguishable on
+   easy tasks. *Data TBD.*
+2. Q8 is within noise of BF16 for all tasks. *Data TBD.*
+3. Smaller models degrade more from Q4 than larger models ("quantization
+   costs more at the bottom"). *Data TBD.*
+4. llama.cpp at Q4 is the same speed as Ollama at Q4 (i.e. the
+   "llama.cpp is faster" claim is quantization confound). *Partial data
+   — gemma-4-26b Q4-vs-Q8 comparison in progress.*
+
+## Eviction
+
+Only one model at a time on our hardware (M4 Max, 64 GB). The runner
+evicts everything else before each new (runtime, model) starts:
+
+- **Ollama**: POST `/api/generate` with `keep_alive: 0` per-model.
+- **llama-swap**: `GET /unload` unloads all swapped models.
+- **LlamaBarn**: `pkill -9` the `llama-server --host 127.0.0.1` child
+  (the GUI coordinator respawns it on next request). **SIGKILL is
+  required** — SIGTERM is ignored.
+- **LM Studio**: no programmatic unload. Rely on JIT mode if the GUI is
+  configured that way.
+
+`shared/evict.ts` centralizes this. `eviction-spike.ts` is a standalone
+harness that verifies the single-model-at-a-time invariant across the
+full matrix.
+
+## Memory monitoring
+
+`memory-log.sh` samples every 60s to `/tmp/memory.log`:
+
+```
+timestamp | free=XG active=XG wired=XG swap=XG | models=XG | <per-proc>
+```
+
+Run it in a terminal while benchmarks are going to watch for pressure.
+Swap usage climbing toward 30+ GB is a sign the eviction isn't working.
+
+## What each quality dimension tests
 
 | Dimension | Type | Scoring | Tests |
 |---|---|---|---|
-| **speed** | streaming latency | TTFT ms + tok/s | Short + long prompt, cold + warm |
 | **instruction** | deterministic | `/30` | Exact word count, JSON shape, alphabetized list, negative constraints, format transformation, multi-format |
 | **reasoning** | LLM judge | `/20` | Surgeon riddle, bat & ball, lily pad, counterfeit coin |
 | **coding — write** | compile + run + check stdout | `/126` | 6 problems × 3 languages (TS, Python, Go) |
@@ -144,9 +322,57 @@ head-to-head comparisons.
 | **tool math** | deterministic + tool-call count | `/25` | 5 multi-step arithmetic problems using calculator + statistics tools |
 | **soul.md** | LLM judge over final artifact | `/10` | 8-turn conversation where assistant maintains `soul.md` using read_file / write_file |
 
+## Adding a new dimension
+
+To bolt on another axis (e.g. sampling temperature, or a new runtime):
+
+1. **If it's a new runtime**: add `src/providers/<name>.ts`, register in
+   `src/providers/index.ts`, add to `catalog.ts`'s `RUNTIMES` list, add
+   eviction logic in `shared/evict.ts`.
+
+2. **If it's a new config knob of an existing runtime** (like
+   `enable_thinking`): use the pattern in `llamaswap-nothink` /
+   `llamabarn-nothink` — register a variant provider key that wraps
+   the base provider with `extraBody` + a distinct `providerId` (so
+   `validateModel()` round-trips correctly; see the fix in commit
+   `2176b34`).
+
+3. **If it's a new quant**: add a separate GGUF file entry to
+   llama-swap.yaml (suffix the alias, e.g. `gemma-4-26b-a4b-q4`),
+   edit LlamaBarn's models.ini, `ollama pull <model>:<quant-tag>`.
+   Add matching `-q4`/`-q8` entries to `LOCAL_MATRIX`.
+
+4. **Always**: add a `family` for any cell that should cluster with
+   existing ones in the combined report's per-dimension breakdown.
+   Same-weight comparisons rely on this.
+
+5. **Document why**. Add a row to the "four dimensions" table at the
+   top of this README. Point at which commit introduced the dimension.
+
+## Files
+
+| File | What |
+|---|---|
+| `shared/models.ts` | `LOCAL_MATRIX`, `LOCAL_MATRIX_NOTHINK`, `LOCAL_MATRIX_ALL` — the source of truth for what gets tested |
+| `shared/evict.ts` | Per-runtime eviction + memory sampling |
+| `run-quality.ts` | The main driver. Model-major loop with eviction, watchdog, resume. |
+| `quality/*.ts` | Each quality suite exports `makeSuite(models)` — the driver imports and runs them one-model-at-a-time |
+| `suite-config.ts` | `EvalDimension[]` for `umwelten eval combine` |
+| `catalog.ts` | Cross-runtime model discovery + llama-swap YAML generation |
+| `speed.ts` | Streaming latency benchmark (TTFT, tok/s, cold vs warm) |
+| `smoke.ts` | Pre-flight sanity test across shared-family models |
+| `eviction-spike.ts` | Verify single-model-at-a-time invariant |
+| `memory-log.sh` | Minute-granularity memory logger |
+| `llama-swap.yaml` | (generated, gitignored) — the config fed to the llama-swap binary |
+
 ## What's next
 
-The `soul-md` test uses the same substrate (sandboxed file tools + workspace)
-that an **autoresearch agent** would use — drop the scripted conversation,
-give the model a research goal, and let it write its own tools via
-`src/stimulus/tools/loader.ts` + `SkillsRegistry`. That's the next step.
+- **Finish quantization dimension** — run Q4 on llama.cpp runtimes for
+  gemma-4-26b and nemotron-4b, compare against existing Q8 data.
+- **Add BF16 baseline** for a reference ceiling on at least one model.
+- **Autoresearch agent** — the `soul-md` test's file-tools substrate
+  is the seed. Swap the scripted conversation for a research goal,
+  give the model `SkillsRegistry` + `stimulus/tools/loader.ts`, see
+  what it builds.
+- **Cost-per-score axis** — local is "free" in API dollars but not in
+  watts or time. Would be useful to quantify.

@@ -37,6 +37,13 @@ export interface BuildConfigOptions {
   extraArgs?: string[];
   /** Include a leading comment block. Default: true */
   includeHeader?: boolean;
+  /**
+   * When multiple GGUF files map to the same alias, which one to keep.
+   * 'largest' (default) picks the highest-quality quant (usually Q8 / BF16).
+   * 'smallest' picks the smallest file that's still a chat model (usually
+   * Q4_K_M) — useful when benchmarking against Ollama, which defaults to Q4.
+   */
+  preferQuant?: "largest" | "smallest";
 }
 
 export interface ScanOptions {
@@ -152,10 +159,14 @@ export function findLlamaSwapModels(opts: ScanOptions = {}): GgufModel[] {
 }
 
 /**
- * Collapse multiple files that normalize to the same alias, preferring the
- * largest file (typically the higher-quality quant).
+ * Collapse multiple files that normalize to the same alias, keeping either
+ * the largest (higher-quality quant, default) or smallest (lower-quality
+ * but faster / smaller memory footprint) per alias.
  */
-export function dedupeByAlias(models: GgufModel[]): GgufModel[] {
+export function dedupeByAlias(
+  models: GgufModel[],
+  prefer: "largest" | "smallest" = "largest",
+): GgufModel[] {
   const byAlias = new Map<string, GgufModel>();
   for (const m of models) {
     const existing = byAlias.get(m.alias);
@@ -165,7 +176,9 @@ export function dedupeByAlias(models: GgufModel[]): GgufModel[] {
     }
     const a = existing.sizeBytes ?? 0;
     const b = m.sizeBytes ?? 0;
-    if (b > a) byAlias.set(m.alias, m);
+    if (prefer === "largest" ? b > a : b > 0 && b < a) {
+      byAlias.set(m.alias, m);
+    }
   }
   return [...byAlias.values()].sort((a, b) => a.alias.localeCompare(b.alias));
 }
@@ -185,7 +198,7 @@ export function buildLlamaSwapConfig(models: GgufModel[], opts: BuildConfigOptio
   const extra = opts.extraArgs ?? [];
   const includeHeader = opts.includeHeader ?? true;
 
-  const deduped = dedupeByAlias(models);
+  const deduped = dedupeByAlias(models, opts.preferQuant ?? "largest");
 
   const lines: string[] = [];
   if (includeHeader) {
@@ -231,7 +244,7 @@ export function generateLlamaSwapConfig(
   opts: BuildConfigOptions & ScanOptions = {}
 ): { yaml: string; models: GgufModel[] } {
   const models = findLlamaSwapModels(opts);
-  const deduped = dedupeByAlias(models);
+  const deduped = dedupeByAlias(models, opts.preferQuant ?? "largest");
   const yaml = buildLlamaSwapConfig(deduped, opts);
   return { yaml, models: deduped };
 }
