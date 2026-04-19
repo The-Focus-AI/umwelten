@@ -51,6 +51,12 @@ const IDLE_BYTES = 500 * 1024 * 1024;
 /** Max seconds to wait for memory to drop after eviction before giving up. */
 const EVICT_MAX_MS = 60_000;
 
+/** Max wall-clock per sub-suite per model. Thinking-mode coding suites can
+ *  legitimately take an hour, but a single hung task (model stuck in
+ *  reasoning loop) will eat arbitrary time otherwise. Cap so one bad task
+ *  doesn't block the other 6+ models. */
+const SUITE_WATCHDOG_MS = 90 * 60 * 1000; // 90 minutes
+
 const suites = {
   instruction: makeInstruction,
   reasoning: makeReasoning,
@@ -124,7 +130,18 @@ async function main() {
       console.log(`\n  ▸ ${suiteName}`);
       try {
         const suite = suites[suiteName]([entry.model]);
-        await suite.run();
+        // Watchdog: hard cap wall time per suite. A hung task (model stuck
+        // in thinking loop with no response) can otherwise block forever.
+        // Throwing here lets us move on — partial results stay cached.
+        await Promise.race([
+          suite.run(),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`watchdog: suite exceeded ${SUITE_WATCHDOG_MS / 60_000}min`)),
+              SUITE_WATCHDOG_MS,
+            ),
+          ),
+        ]);
         console.log(`    ✓ ${suiteName} complete in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
       } catch (err: any) {
         console.error(`    ❌ ${suiteName} failed: ${err?.message ?? String(err)}`);
