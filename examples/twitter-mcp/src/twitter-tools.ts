@@ -256,6 +256,87 @@ export async function registerTwitterTools(
     },
   );
 
+  (server as any).tool(
+    'twitter_list_create',
+    'Create a new Twitter list',
+    {
+      name: z.string().describe('List name (max 25 chars)'),
+      description: z.string().optional().describe('Optional list description (max 100 chars)'),
+      private: z.boolean().optional().describe('Whether the list is private (default false)'),
+    },
+    async (params: { name: string; description?: string; private?: boolean }) => {
+      try {
+        const token = await getUpstreamToken();
+        const body: Record<string, unknown> = { name: params.name };
+        if (params.description !== undefined) body.description = params.description;
+        if (params.private !== undefined) body.private = params.private;
+        const data = await twitterPost('/lists', body, token);
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
+  (server as any).tool(
+    'twitter_list_delete',
+    'Delete a Twitter list',
+    { list_id: z.string().describe('List ID to delete') },
+    async (params: { list_id: string }) => {
+      try {
+        const token = await getUpstreamToken();
+        const data = await twitterDelete(`/lists/${params.list_id}`, token);
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
+  (server as any).tool(
+    'twitter_list_members',
+    'Get members of a Twitter list',
+    { list_id: z.string().describe('List ID') },
+    async (params: { list_id: string }) => {
+      try {
+        const token = await getUpstreamToken();
+        const data = await twitterGet(
+          `/lists/${params.list_id}/members?max_results=100&user.fields=${USER_FIELDS}`,
+          token,
+        );
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
+  (server as any).tool(
+    'twitter_list_add_member',
+    'Add a user to a Twitter list',
+    {
+      list_id: z.string().describe('List ID'),
+      user_id: z.string().describe('User ID to add (numeric Twitter user ID, not username)'),
+    },
+    async (params: { list_id: string; user_id: string }) => {
+      try {
+        const token = await getUpstreamToken();
+        const data = await twitterPost(`/lists/${params.list_id}/members`, { user_id: params.user_id }, token);
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
+  (server as any).tool(
+    'twitter_list_remove_member',
+    'Remove a user from a Twitter list',
+    {
+      list_id: z.string().describe('List ID'),
+      user_id: z.string().describe('User ID to remove (numeric Twitter user ID, not username)'),
+    },
+    async (params: { list_id: string; user_id: string }) => {
+      try {
+        const token = await getUpstreamToken();
+        const data = await twitterDelete(`/lists/${params.list_id}/members/${params.user_id}`, token);
+        return toolResult(data);
+      } catch (error) { return toolError(error); }
+    },
+  );
+
   // ── Bookmarks ──────────────────────────────────────────────────
 
   (server as any).tool(

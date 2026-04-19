@@ -156,11 +156,16 @@ On first connect, complete OAuth; you will be sent through Twitter to link the a
 | `twitter_retweet` | `POST /2/users/:id/retweets` | Retweet |
 | `twitter_lists` | `/2/users/:id/owned_lists` | Get my Twitter lists |
 | `twitter_list_tweets` | `/2/lists/:id/tweets` | Get tweets from a list |
+| `twitter_list_members` | `/2/lists/:id/members` | Get members of a list |
+| `twitter_list_create` | `POST /2/lists` | Create a new list |
+| `twitter_list_delete` | `DELETE /2/lists/:id` | Delete a list |
+| `twitter_list_add_member` | `POST /2/lists/:id/members` | Add a user to a list |
+| `twitter_list_remove_member` | `DELETE /2/lists/:id/members/:user_id` | Remove a user from a list |
 | `twitter_bookmarks` | `/2/users/:id/bookmarks` | Get my bookmarked tweets |
 | `twitter_bookmark` | `POST /2/users/:id/bookmarks` | Bookmark a tweet |
 | `twitter_unbookmark` | `DELETE /2/users/:id/bookmarks/:tweet_id` | Remove a bookmark |
 
-Write tools (`twitter_post`, `twitter_delete_tweet`, `twitter_like`, `twitter_retweet`, `twitter_bookmark`, `twitter_unbookmark`) require the Twitter app to have `Read and write` permissions **and** the corresponding scopes (`tweet.write`, `like.write`, `bookmark.write`) in `src/twitter-provider.ts`.
+Write tools (`twitter_post`, `twitter_delete_tweet`, `twitter_like`, `twitter_retweet`, `twitter_bookmark`, `twitter_unbookmark`, `twitter_list_create`, `twitter_list_delete`, `twitter_list_add_member`, `twitter_list_remove_member`) require the Twitter app to have `Read and write` permissions **and** the corresponding scopes (`tweet.write`, `like.write`, `bookmark.write`, `list.write`) in `src/twitter-provider.ts`.
 
 ## How it works
 
