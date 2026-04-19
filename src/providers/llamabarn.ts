@@ -9,6 +9,8 @@ export interface LlamaBarnProviderOptions {
   /** Fields merged into every /v1/chat/completions request body.
    *  Typical use: `{ chat_template_kwargs: { enable_thinking: false } }`. */
   extraBody?: Record<string, unknown>;
+  /** Provider identity reported by listModels() — see llamaswap.ts for why. */
+  providerId?: string;
 }
 
 function parseCtxSize(preset: string | undefined): number | undefined {
@@ -42,10 +44,12 @@ function fetchWithExtraBody(extraBody: Record<string, unknown>): typeof fetch {
 
 export class LlamaBarnProvider extends BaseProvider {
   private extraBody?: Record<string, unknown>;
+  private providerId: string;
 
   constructor(baseUrl: string = DEFAULT_BASE_URL, options: LlamaBarnProviderOptions = {}) {
     super(undefined, baseUrl);
     this.extraBody = options.extraBody;
+    this.providerId = options.providerId ?? "llamabarn";
   }
 
   protected get requiresApiKey(): boolean {
@@ -64,7 +68,7 @@ export class LlamaBarnProvider extends BaseProvider {
       const ctxSize = parseCtxSize(preset);
       const created = typeof model.created === "number" ? new Date(model.created * 1000) : undefined;
       return {
-        provider: "llamabarn",
+        provider: this.providerId,
         name: model.id ?? "",
         contextLength: ctxSize,
         costs: {

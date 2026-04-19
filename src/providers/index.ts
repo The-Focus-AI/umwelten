@@ -96,14 +96,20 @@ registerProvider("llamaswap", {
 registerProvider("llamabarn-nothink", {
   create: () => createLlamaBarnProvider(
     process.env.LLAMABARN_HOST,
-    { extraBody: { chat_template_kwargs: { enable_thinking: false } } },
+    {
+      providerId: "llamabarn-nothink",
+      extraBody: { chat_template_kwargs: { enable_thinking: false } },
+    },
   ),
 });
 
 registerProvider("llamaswap-nothink", {
   create: () => createLlamaSwapProvider(
     process.env.LLAMASWAP_HOST,
-    { extraBody: { chat_template_kwargs: { enable_thinking: false } } },
+    {
+      providerId: "llamaswap-nothink",
+      extraBody: { chat_template_kwargs: { enable_thinking: false } },
+    },
   ),
 });
 

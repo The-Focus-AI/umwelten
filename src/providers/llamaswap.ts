@@ -13,6 +13,14 @@ export interface LlamaSwapProviderOptions {
    * models' reasoning tokens on/off).
    */
   extraBody?: Record<string, unknown>;
+  /**
+   * Provider identity reported by `listModels()`. Used so that variant
+   * registrations (e.g. `llamaswap-nothink`) can reuse this class but
+   * preserve their own identity through validateModel() — otherwise the
+   * validation path replaces the caller's `llamaswap-nothink` with the
+   * default `llamaswap`, silently discarding the nothink wrapping.
+   */
+  providerId?: string;
 }
 
 /** Build a fetch that injects `extraBody` fields into outgoing JSON request
@@ -43,10 +51,12 @@ function fetchWithExtraBody(extraBody: Record<string, unknown>): typeof fetch {
 
 export class LlamaSwapProvider extends BaseProvider {
   private extraBody?: Record<string, unknown>;
+  private providerId: string;
 
   constructor(baseUrl: string = DEFAULT_BASE_URL, options: LlamaSwapProviderOptions = {}) {
     super(undefined, baseUrl);
     this.extraBody = options.extraBody;
+    this.providerId = options.providerId ?? "llamaswap";
   }
 
   protected get requiresApiKey(): boolean {
@@ -62,7 +72,7 @@ export class LlamaSwapProvider extends BaseProvider {
     return data.data.map((model: any) => {
       const created = typeof model.created === "number" ? new Date(model.created * 1000) : undefined;
       return {
-        provider: "llamaswap",
+        provider: this.providerId,
         name: model.id ?? "",
         costs: {
           promptTokens: 0,
