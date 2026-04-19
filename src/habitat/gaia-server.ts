@@ -499,10 +499,17 @@ export async function startGaiaServer(options: GaiaServerOptions): Promise<{ por
     platformInstruction: 'You are responding via a web interface. Markdown is rendered natively.',
   });
 
-  // Resolve path to the UI HTML file
+  // Resolve path to the UI directory
   const thisDir = fileURLToPath(new URL('.', import.meta.url));
   const projectRoot = resolve(thisDir, '..', '..');
-  const uiPath = join(projectRoot, 'examples', 'gaia-ui', 'index.html');
+  const uiDir = join(projectRoot, 'examples', 'gaia-ui');
+  const uiPath = join(uiDir, 'index.html');
+
+  const staticAssets: Record<string, string> = {
+    '/styles.css': 'text/css; charset=utf-8',
+    '/app.js': 'application/javascript; charset=utf-8',
+    '/artifacts.js': 'application/javascript; charset=utf-8',
+  };
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const { path } = parseRoute(req.url ?? '/');
@@ -560,6 +567,19 @@ export async function startGaiaServer(options: GaiaServerOptions): Promise<{ por
         } catch {
           res.writeHead(500, { 'Content-Type': 'text/plain' });
           res.end(`Gaia UI not found at ${uiPath}. Run from the umwelten project root.`);
+        }
+        return;
+      }
+
+      // Serve static assets (CSS, JS) from the gaia-ui directory
+      const assetPath = path.split('?')[0];
+      if (staticAssets[assetPath]) {
+        try {
+          const body = await readFile(join(uiDir, assetPath.slice(1)), 'utf-8');
+          res.writeHead(200, { 'Content-Type': staticAssets[assetPath] });
+          res.end(body);
+        } catch {
+          notFound(res);
         }
         return;
       }
