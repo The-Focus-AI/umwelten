@@ -101,7 +101,7 @@
   "devDependencies": {
     "@dagger.io/dagger": "^0.20.1",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^24.10.4",
+    "@types/node": "^25.6.0",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
