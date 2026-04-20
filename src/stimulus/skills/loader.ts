@@ -85,7 +85,7 @@ export async function loadSkillFromPath(skillDir: string): Promise<SkillDefiniti
       path: skillDir,
       license: data.license,
       compatibility: data.compatibility,
-      allowedTools: typeof data['allowed-tools'] === 'string' ? data['allowed-tools'].split(/\s+/).filter(Boolean) : undefined,
+      allowedTools: typeof data['allowed-tools'] === 'string' ? data['allowed-tools'].trim() || undefined : undefined,
       metadata: data.metadata,
       disableModelInvocation: data['disable-model-invocation'],
       userInvocable: data['user-invocable'],

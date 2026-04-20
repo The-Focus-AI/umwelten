@@ -10,7 +10,8 @@ export interface SkillDefinition {
   // Optional fields from Agent Skills spec
   license?: string;
   compatibility?: string;
-  allowedTools?: string[];
+  // Space-separated tool patterns per Agent Skills spec, e.g. "Bash(git:*) Read".
+  allowedTools?: string;
   metadata?: Record<string, string>;
   // Claude Code extensions
   disableModelInvocation?: boolean;

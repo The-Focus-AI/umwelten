@@ -16,14 +16,22 @@ export function createSkillTool(registry: SkillsRegistry) {
     description: `Activate a skill to get specialized instructions for a task. Available skills:\n${list || '(none)'}`,
     inputSchema: skillToolSchema,
     execute: async ({ skill, arguments: args }) => {
-      const instructions = registry.activateSkill(skill, args);
-      if (!instructions) {
+      const payload = registry.getActivationPayload(skill, args);
+      if (!payload) {
         return { error: `Skill '${skill}' not found` };
       }
+      const resourceNote = payload.resources.length
+        ? `\n\nBundled resources (relative to skillDir, read on demand):\n${payload.resources.map((r) => `- ${r}`).join('\n')}`
+        : '';
       return {
-        skill,
-        instructions,
-        message: `Skill '${skill}' activated. Follow the instructions above.`,
+        skill: payload.name,
+        skillDir: payload.skillDir,
+        resources: payload.resources,
+        instructions: payload.instructions,
+        message:
+          `Skill '${payload.name}' activated. Follow the instructions above. ` +
+          `Relative paths in the instructions resolve against skillDir: ${payload.skillDir}.` +
+          resourceNote,
       };
     },
   });

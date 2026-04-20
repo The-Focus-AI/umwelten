@@ -6,5 +6,5 @@ export {
   loadSkillsFromGit,
   normalizeGitUrl,
 } from './loader.js';
-export { SkillsRegistry } from './registry.js';
+export { SkillsRegistry, type SkillActivation } from './registry.js';
 export { createSkillTool } from './skill-tool.js';

@@ -125,6 +125,44 @@ Sub instructions.
     expect(result.map((s) => s.name).sort()).toEqual(['root-skill', 'sub-skill']);
   });
 
+  it('loadSkillFromPath preserves allowed-tools as raw space-separated string (spec format)', async () => {
+    const skillDir = join(tmpDir, 'tool-skill');
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      `---
+name: tool-skill
+description: Uses tools
+allowed-tools: Bash(git:*) Bash(jq:*) Read
+---
+
+Body.
+`,
+      'utf-8'
+    );
+    const result = await loadSkillFromPath(skillDir);
+    expect(result).not.toBeNull();
+    expect(result!.allowedTools).toBe('Bash(git:*) Bash(jq:*) Read');
+  });
+
+  it('loadSkillFromPath leaves allowedTools undefined when frontmatter omits it', async () => {
+    const skillDir = join(tmpDir, 'plain-skill');
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      `---
+name: plain-skill
+description: No tools listed
+---
+
+Body.
+`,
+      'utf-8'
+    );
+    const result = await loadSkillFromPath(skillDir);
+    expect(result!.allowedTools).toBeUndefined();
+  });
+
   it('discoverSkillsInDirectory finds nested SKILL.md (e.g. .claude/skills/browser-automation)', async () => {
     const nestedDir = join(tmpDir, '.claude', 'skills', 'browser-automation');
     await mkdir(nestedDir, { recursive: true });
