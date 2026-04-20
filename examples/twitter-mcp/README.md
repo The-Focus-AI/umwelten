@@ -159,13 +159,79 @@ On first connect, complete OAuth; you will be sent through Twitter to link the a
 | `twitter_list_members` | `/2/lists/:id/members` | Get members of a list |
 | `twitter_list_create` | `POST /2/lists` | Create a new list |
 | `twitter_list_delete` | `DELETE /2/lists/:id` | Delete a list |
+| `twitter_list_update` | `PUT /2/lists/:id` | Rename / update description / toggle private — avoids delete+recreate |
 | `twitter_list_add_member` | `POST /2/lists/:id/members` | Add a user to a list |
 | `twitter_list_remove_member` | `DELETE /2/lists/:id/members/:user_id` | Remove a user from a list |
 | `twitter_bookmarks` | `/2/users/:id/bookmarks` | Get my bookmarked tweets |
 | `twitter_bookmark` | `POST /2/users/:id/bookmarks` | Bookmark a tweet |
 | `twitter_unbookmark` | `DELETE /2/users/:id/bookmarks/:tweet_id` | Remove a bookmark |
+| `twitter_info` | `GET /2/users/me` (probe) | Report current rate-limit state + per-tool budget map. Costs 1 call against the `/users/me` bucket. |
 
-Write tools (`twitter_post`, `twitter_delete_tweet`, `twitter_like`, `twitter_retweet`, `twitter_bookmark`, `twitter_unbookmark`, `twitter_list_create`, `twitter_list_delete`, `twitter_list_add_member`, `twitter_list_remove_member`) require the Twitter app to have `Read and write` permissions **and** the corresponding scopes (`tweet.write`, `like.write`, `bookmark.write`, `list.write`) in `src/twitter-provider.ts`.
+Write tools (`twitter_post`, `twitter_delete_tweet`, `twitter_like`, `twitter_retweet`, `twitter_bookmark`, `twitter_unbookmark`, `twitter_list_create`, `twitter_list_delete`, `twitter_list_update`, `twitter_list_add_member`, `twitter_list_remove_member`) require the Twitter app to have `Read and write` permissions **and** the corresponding scopes (`tweet.write`, `like.write`, `bookmark.write`, `list.write`) in `src/twitter-provider.ts`.
+
+**Stale-token gotcha:** if a tool that should work (e.g. `twitter_list_members`) returns `No approval received` or a scope error, the user's stored token was issued before the relevant scope was added. Clear stored MCP credentials and re-authorize — for umwelten CLI that's `mcp chat --url ... --logout` then reconnect; for Claude Code, remove and re-add the MCP server. The new token will carry the full scope set from `TWITTER_SCOPES` in `src/twitter-provider.ts`.
+
+## Rate limits
+
+Every tool response includes a `rateLimit` object parsed from Twitter's response headers so the LLM (and you) can see how close you are to the cap:
+
+```json
+{
+  "data": { "...": "..." },
+  "rateLimit": {
+    "limit": 300,
+    "remaining": 297,
+    "reset": 1745096400,
+    "resetAt": "2026-04-19T21:00:00.000Z",
+    "userLimit24h": 1000,
+    "userRemaining24h": 995,
+    "userReset24h": 1745172800,
+    "userResetAt24h": "2026-04-20T18:00:00.000Z",
+    "appLimit24h": null,
+    "appRemaining24h": null,
+    "appReset24h": null,
+    "appResetAt24h": null
+  }
+}
+```
+
+- `limit` / `remaining` / `reset` come from `x-rate-limit-*` (the 15-minute window).
+- `userLimit24h` / `userRemaining24h` / `userReset24h` come from `x-user-limit-24hour-*` (per-user 24-hour cap, used for posts, likes, etc.).
+- `appLimit24h` / `appRemaining24h` / `appReset24h` come from `x-app-limit-24hour-*` (per-app 24-hour cap).
+- Fields are `null` when Twitter doesn't return that header for the endpoint.
+- `reset` / `*Reset24h` are Unix-seconds; `resetAt` / `*ResetAt24h` are the ISO-8601 form for convenience.
+
+On non-2xx responses, the thrown error message includes the same `rateLimit` JSON so `429 Too Many Requests` failures surface the next reset time.
+
+### Per-endpoint limits (X API v2, standard pay-per-use tier)
+
+Twitter publishes limits per endpoint and splits them between **per-user** (OAuth user token, what this server uses) and **per-app** (Bearer Token). All 15-minute windows are rolling. See [docs.x.com/fundamentals/rate-limits](https://docs.x.com/fundamentals/rate-limits) for the authoritative list and any tier overrides.
+
+| Tool | Endpoint | Per-user | Per-app | Window |
+|------|----------|----------|---------|--------|
+| `twitter_me` | `GET /2/users/me` | 75 | 75 | 15 min |
+| `twitter_user` | `GET /2/users/by/username/:handle` | 100 | 500 | 15 min |
+| `twitter_post` | `POST /2/tweets` | 100 + 17/24h | 10,000/24h | 15 min + 24h |
+| `twitter_delete_tweet` | `DELETE /2/tweets/:id` | 50 | — | 15 min |
+| `twitter_tweet` | `GET /2/tweets/:id` | 900 | 450 | 15 min |
+| `twitter_my_tweets` | `GET /2/users/:id/tweets` | 900 | 1,500 | 15 min |
+| `twitter_timeline` | `GET /2/users/:id/timelines/reverse_chronological` | 180 | — | 15 min |
+| `twitter_search` | `GET /2/tweets/search/recent` | 300 | 450 | 15 min |
+| `twitter_like` | `POST /2/users/:id/likes` | 50 + 1,000/24h | — | 15 min + 24h |
+| `twitter_retweet` | `POST /2/users/:id/retweets` | 50 | — | 15 min |
+| `twitter_lists` | `GET /2/users/:id/owned_lists` | 15 | 15 | 15 min |
+| `twitter_list_tweets` | `GET /2/lists/:id/tweets` | 900 | 900 | 15 min |
+| `twitter_list_members` | `GET /2/lists/:id/members` | 900 | 900 | 15 min |
+| `twitter_list_create` | `POST /2/lists` | 300/24h | — | 24 h |
+| `twitter_list_delete` | `DELETE /2/lists/:id` | 300/24h | — | 24 h |
+| `twitter_list_update` | `PUT /2/lists/:id` | 300/24h | — | 24 h |
+| `twitter_list_add_member` | `POST /2/lists/:id/members` | 300/24h | — | 24 h |
+| `twitter_list_remove_member` | `DELETE /2/lists/:id/members/:user_id` | 300/24h | — | 24 h |
+| `twitter_bookmarks` | `GET /2/users/:id/bookmarks` | 180 | — | 15 min |
+| `twitter_bookmark` | `POST /2/users/:id/bookmarks` | 50 | — | 15 min |
+| `twitter_unbookmark` | `DELETE /2/users/:id/bookmarks/:tweet_id` | 50 | — | 15 min |
+
+Numbers change — always trust the `rateLimit` object in the tool response over this table.
 
 ## How it works
 
