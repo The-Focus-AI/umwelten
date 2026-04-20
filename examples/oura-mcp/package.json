@@ -12,7 +12,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^1.0.0",
-    "umwelten": "^0.4.11",
+    "umwelten": "^0.4.12",
     "zod": "^4.3.6"
   },
   "devDependencies": {
