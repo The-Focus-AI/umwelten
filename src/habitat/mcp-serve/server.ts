@@ -36,6 +36,43 @@ async function serveStaticIndex(staticRoot: string, res: ServerResponse): Promis
   }
 }
 
+const STATIC_CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+async function serveStaticFile(staticRoot: string, urlPath: string, res: ServerResponse): Promise<boolean> {
+  const rootAbs = resolve(staticRoot);
+  const requested = resolve(rootAbs, '.' + urlPath);
+  if (!requested.startsWith(rootAbs + '/') && requested !== rootAbs) return false;
+  try {
+    const data = await readFile(requested);
+    const ext = requested.slice(requested.lastIndexOf('.')).toLowerCase();
+    const contentType = STATIC_CONTENT_TYPES[ext] ?? 'application/octet-stream';
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=300',
+    });
+    res.end(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface McpHttpServer {
   listen(port?: number): void;
   close(): void;
@@ -108,6 +145,11 @@ export function createMcpServer(config: McpServeConfig): McpHttpServer {
       // Optional static landing page
       if (staticRoot && req.method === 'GET' && (path === '/' || path === '/index.html')) {
         if (await serveStaticIndex(staticRoot, res)) return;
+      }
+
+      // Optional static assets (images, css, etc.)
+      if (staticRoot && req.method === 'GET' && path !== '/' && !path.includes('..')) {
+        if (await serveStaticFile(staticRoot, path, res)) return;
       }
 
       // Not found
