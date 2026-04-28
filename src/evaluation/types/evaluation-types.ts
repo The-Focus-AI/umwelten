@@ -58,6 +58,14 @@ export interface EvaluationConfig {
   resume?: boolean;
   /** Whether to show progress updates (default: true) */
   showProgress?: boolean;
+  /**
+   * Optional AbortSignal — when aborted, in-flight model generation is
+   * cancelled (forwarded to the AI SDK abortSignal). Used by the
+   * local-providers harness watchdog so that timing out a stuck cell
+   * actually closes the underlying connection instead of letting
+   * generation continue in the background.
+   */
+  signal?: AbortSignal;
 }
 
 /**

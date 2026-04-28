@@ -44,7 +44,20 @@ export interface VerifyTask {
   name?: string;
   prompt: string;
   maxScore: number;
-  verify: (response: string) => VerifyResult;
+  /**
+   * Score the response. The full ModelResponse is passed as a second arg
+   * so tool-calling tasks can inspect `response.metadata.toolCalls`
+   * without needing a separate code path. Most tasks ignore the second
+   * arg and just use the text.
+   */
+  verify: (response: string, fullResponse?: ModelResponse) => VerifyResult;
+  /**
+   * Optional grouping label. Used by the llm-eval composite suites to
+   * tag each task with its origin sub-suite (e.g. `instruction` vs
+   * `reasoning`) so reports can show sub-scores. Has no effect on the
+   * runner.
+   */
+  section?: string;
 }
 
 /** LLM-judged task — you supply judge schema + instructions */
@@ -59,6 +72,8 @@ export interface JudgeTask {
     /** Extract numeric score from parsed judge output (default: result.reasoning_quality ?? result.score ?? 0) */
     extractScore?: (judgeResult: any) => number;
   };
+  /** Optional grouping label — see VerifyTask.section. */
+  section?: string;
 }
 
 export type EvalTask = VerifyTask | JudgeTask;
@@ -84,6 +99,8 @@ export interface EvalSuiteConfig {
   concurrency?: number;
   /** Delay between judge calls in ms (default: 500) */
   judgeDelayMs?: number;
+  /** Per-task timeout in ms. A single hung task won't kill the whole suite (default: 5 min) */
+  perTaskTimeoutMs?: number;
 }
 
 export interface TaskResultRecord {
@@ -99,6 +116,8 @@ export interface TaskResultRecord {
   cost: number;
   judge?: any;
   error?: string;
+  /** Sub-suite label, copied from EvalTask.section. */
+  section?: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -172,6 +191,18 @@ function coerceTypes(obj: any): any {
 
 // ── EvalSuite ────────────────────────────────────────────────────────────────
 
+export interface EvalSuiteRunOptions {
+  /**
+   * Optional AbortSignal. When aborted (e.g. by a harness watchdog),
+   * in-flight generation is cancelled by forwarding the signal through
+   * SimpleEvaluation → Interaction → BaseModelRunner → AI SDK. Without
+   * this, a watchdog only rejects its `await` while the generation
+   * continues in the background — the original bug that led to phantom
+   * traffic re-loading evicted models.
+   */
+  signal?: AbortSignal;
+}
+
 export class EvalSuite {
   private config: EvalSuiteConfig;
 
@@ -179,7 +210,8 @@ export class EvalSuite {
     this.config = config;
   }
 
-  async run(): Promise<TaskResultRecord[]> {
+  async run(opts: EvalSuiteRunOptions = {}): Promise<TaskResultRecord[]> {
+    const { signal } = opts;
     const isAll = process.argv.includes('--all');
     const models = isAll
       ? (this.config.allModels ?? this.config.models ?? [])
@@ -194,6 +226,7 @@ export class EvalSuite {
     const judgeModel = this.config.judgeModel ?? DEFAULT_JUDGE;
     const concurrency = this.config.concurrency ?? 5;
     const judgeDelayMs = this.config.judgeDelayMs ?? 500;
+    const perTaskTimeoutMs = this.config.perTaskTimeoutMs ?? 300_000;
     const tasks = this.config.tasks;
     const totalMaxPerModel = tasks.reduce((s, t) => s + t.maxScore, 0);
 
@@ -209,6 +242,16 @@ export class EvalSuite {
     const allResults: TaskResultRecord[] = [];
 
     for (const task of tasks) {
+      // Bail out cleanly between tasks when aborted. Prevents wasting
+      // judge calls or model spin-up on a suite the harness has decided
+      // to cancel.
+      if (signal?.aborted) {
+        throw new Error(
+          signal.reason instanceof Error
+            ? signal.reason.message
+            : 'EvalSuite aborted',
+        );
+      }
       console.log(`\n📝 ${task.name ?? task.id}`);
 
       // Build stimulus
@@ -229,12 +272,51 @@ export class EvalSuite {
         concurrent: true,
         maxConcurrency: concurrency,
         showProgress: true,
+        signal,
       }, (p) => {
         if (p.status === 'completed') console.log(`  ✅ ${p.modelName}`);
         else if (p.status === 'error') console.log(`  ❌ ${p.modelName}: ${p.error}`);
       });
 
-      const evalResults = await evaluation.run();
+      // Per-task timeout: a single hung task won't kill the whole suite.
+      // This is critical for local models that can get stuck in thinking loops.
+      const taskController = new AbortController();
+      const taskTimer = setTimeout(() => {
+        taskController.abort(new Error(`per-task timeout: exceeded ${perTaskTimeoutMs / 1000}s`));
+      }, perTaskTimeoutMs);
+      let evalResults;
+      try {
+        evalResults = await Promise.race([
+          evaluation.run(),
+          new Promise<never>((_, reject) => {
+            taskController.signal.addEventListener('abort', () =>
+              reject(new Error(taskController.signal.reason?.toString() ?? 'per-task timeout')),
+            );
+          }),
+        ]);
+      } catch (err: any) {
+        // Per-task timeout — log and skip, don't kill the suite
+        console.log(`  ⏱  task timed out after ${perTaskTimeoutMs / 1000}s — skipping`);
+        for (const model of models) {
+          const record: TaskResultRecord = {
+            taskId: task.id,
+            model: model.name,
+            provider: model.provider,
+            responseText: '',
+            score: 0,
+            maxScore: task.maxScore,
+            details: `per-task timeout: ${err?.message ?? 'unknown'}`,
+            durationMs: perTaskTimeoutMs,
+            cost: 0,
+            error: err?.message ?? 'per-task timeout',
+          };
+          allResults.push(record);
+          console.log(`  ❌ ${modelLabel(model)} → 0/${task.maxScore} (timeout)`);
+        }
+        clearTimeout(taskTimer);
+        continue;
+      }
+      clearTimeout(taskTimer);
 
       // Score each response
       const resultsDir = path.join(runDir, task.id);
@@ -277,7 +359,7 @@ export class EvalSuite {
             // LLM judge
             try {
               const judgeResult = await this.runJudge(
-                judgeModel, task.judge.instructions, responseText, task.judge.schema,
+                judgeModel, task.judge.instructions, responseText, task.judge.schema, signal,
               );
               judge = judgeResult;
               const extract = task.judge.extractScore
@@ -289,8 +371,9 @@ export class EvalSuite {
             }
             await delay(judgeDelayMs);
           } else {
-            // Deterministic verify
-            const v = task.verify(responseText);
+            // Deterministic verify. Pass the full response as well so
+            // tool-calling tasks can inspect metadata.toolCalls.
+            const v = task.verify(responseText, result.response);
             score = v.score;
             details = v.details;
           }
@@ -309,6 +392,7 @@ export class EvalSuite {
           cost: result.response.metadata.cost?.totalCost || 0,
           judge,
           error: result.metadata.error,
+          ...(task.section && { section: task.section }),
         };
         allResults.push(record);
         fs.writeFileSync(resultPath, JSON.stringify(record, null, 2));
@@ -383,6 +467,7 @@ export class EvalSuite {
     instructions: string[],
     content: string,
     schema: z.ZodObject<any>,
+    signal?: AbortSignal,
   ): Promise<any> {
     const fields = Object.entries(schema.shape)
       .map(([key, val]: [string, any]) => `  "${key}": ${val.description ? `(${val.description})` : 'value'}`)
@@ -406,7 +491,7 @@ export class EvalSuite {
       content: `Here is the model response to judge:\n\n---\n${content}\n---\n\nScore this response. Reply with ONLY a JSON object.`,
     });
 
-    const resp = await interaction.generateText();
+    const resp = await interaction.generateText(signal);
     const raw = parseJudgeJSON(resp.content as string);
 
     const r1 = schema.safeParse(raw);

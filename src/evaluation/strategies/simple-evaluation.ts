@@ -194,8 +194,10 @@ export class SimpleEvaluation implements EvaluationStrategy {
       content: this.prompt
     });
 
-    // Execute the interaction
-    return await interaction.generateText();
+    // Execute the interaction. Forward the optional AbortSignal so a
+    // harness watchdog can cancel in-flight generation cleanly instead of
+    // leaving the request running in the background.
+    return await interaction.generateText(this.config.signal);
   }
 
   /**

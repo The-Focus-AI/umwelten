@@ -152,8 +152,20 @@ export function loadDimension(
  * or "anthropic-claude-haiku-4.5-openrouter".
  */
 function parseModelKey(modelKey: string): { model: string; provider: string } {
-  // Common provider suffixes
-  const providers = ['openrouter', 'google', 'deepinfra', 'togetherai', 'ollama', 'lmstudio', 'llamabarn', 'github-models'];
+  // Keep longer/more specific provider suffixes before their base providers.
+  const providers = [
+    'llamaswap-nothink',
+    'llamabarn-nothink',
+    'github-models',
+    'openrouter',
+    'deepinfra',
+    'togetherai',
+    'llamaswap',
+    'llamabarn',
+    'lmstudio',
+    'google',
+    'ollama',
+  ];
   for (const p of providers) {
     if (modelKey.endsWith(`-${p}`)) {
       return {
