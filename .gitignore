@@ -86,3 +86,12 @@ examples/introspection/
 
 # Bare-bones-memory runtime state (session logs, project files, etc.)
 examples/bare-bones-memory/memory/
+
+# Simple-agent: ignore runtime artifacts; allowlist authored source.
+examples/simple-agent/*
+!examples/simple-agent/AGENTS.md
+!examples/simple-agent/chat.ts
+!examples/simple-agent/README.md
+!examples/simple-agent/skills/
+examples/simple-agent/skills/*
+!examples/simple-agent/skills/.gitkeep
