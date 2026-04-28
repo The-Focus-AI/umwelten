@@ -84,6 +84,10 @@ umwelten-*.tgz
 
 examples/introspection/
 
+# Local tool caches / runtime scratch
+.firecrawl/
+.umwelten/
+
 # Bare-bones-memory runtime state (session logs, project files, etc.)
 examples/bare-bones-memory/memory/
 
