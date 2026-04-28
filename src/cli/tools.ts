@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
+import { cliStdoutObserver } from "../cognition/observers.js";
 import { getModel } from "../providers/index.js";
 import { addCommonOptions, parseCommonOptions } from './commonOptions.js';
 import {
@@ -63,7 +64,7 @@ export async function runToolsDemo(options: any) {
     // Execute with tools
     const runner = new BaseModelRunner();
     if (process.env.DEBUG === '1') console.log("[DEBUG] About to call runner.streamText(interaction)");
-    let response = await runner.streamText(interaction);
+    let response = await runner.streamText(interaction, undefined, cliStdoutObserver());
     if (process.env.DEBUG === '1') console.log("[DEBUG] After await runner.streamText(interaction)");
     if (process.env.DEBUG === '1') console.log("[DEBUG] typeof response:", typeof response);
     if (process.env.DEBUG === '1') console.log("[DEBUG] response:", response);

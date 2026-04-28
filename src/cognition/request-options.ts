@@ -20,7 +20,12 @@ import {
 interface RequestOptionsInput {
   interaction: Interaction;
   model: LanguageModel;
-  config: { maxTokens?: number };
+  /**
+   * Reserved for future per-request config (retries, etc). Intentionally
+   * does NOT include `maxTokens`/`maxOutputTokens` — see
+   * buildRequestOptions() below and CLAUDE.md "Token limits" rule.
+   */
+  config: object;
   label: string;
   streaming: boolean;
   abortSignal?: AbortSignal;
@@ -48,19 +53,19 @@ export function buildRequestOptions(input: RequestOptionsInput): Record<string, 
     messages = ensureGoogleThoughtSignatures(messages);
   }
 
-  const mergedOptions: Record<string, unknown> = {
-    maxTokens: config.maxTokens,
-    ...interaction.options,
-  };
-
+  // DO NOT cap output tokens here. This runner powers benchmarks that
+  // measure model quality — truncating generation silently invalidates
+  // scores (especially for thinking-on models that need room to reason).
+  // If a specific caller wants a cap, it must set it on the Stimulus.
+  // See CLAUDE.md for the rule and cognition/request-options.test.ts for
+  // the regression guard.
   const options: Record<string, unknown> = {
     model,
     messages,
     temperature: interaction.modelDetails.temperature,
     topP: interaction.modelDetails.topP,
     topK: interaction.modelDetails.topK,
-    ...mergedOptions,
-    maxTokens: (mergedOptions.maxTokens as number | undefined) ?? config.maxTokens,
+    ...interaction.options,
     onError: (err: unknown) => {
       console.error(`[onError] ${label}:`, err);
     },

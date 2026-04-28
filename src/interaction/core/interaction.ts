@@ -322,24 +322,33 @@ export class Interaction {
   }
 
   // Delegate to the internal runner
-  async generateText(): Promise<ModelResponse> {
+  async generateText(signal?: AbortSignal): Promise<ModelResponse> {
     this.metadata.updated = new Date();
-    return await this.runner.generateText(this);
+    return await this.runner.generateText(this, signal);
   }
 
-  async streamText(signal?: AbortSignal): Promise<ModelResponse> {
+  async streamText(
+    signal?: AbortSignal,
+    observer?: import("../../cognition/types.js").StreamObserver,
+  ): Promise<ModelResponse> {
     this.metadata.updated = new Date();
-    return await this.runner.streamText(this, signal);
+    return await this.runner.streamText(this, signal, observer);
   }
 
-  async generateObject(schema: z.ZodSchema): Promise<ModelResponse> {
+  async generateObject(
+    schema: z.ZodSchema,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse> {
     this.metadata.updated = new Date();
-    return await this.runner.generateObject(this, schema);
+    return await this.runner.generateObject(this, schema, signal);
   }
 
-  async streamObject(schema: z.ZodSchema): Promise<ModelResponse> {
+  async streamObject(
+    schema: z.ZodSchema,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse> {
     this.metadata.updated = new Date();
-    return await this.runner.streamObject(this, schema);
+    return await this.runner.streamObject(this, schema, signal);
   }
 
   // Access to underlying components when needed

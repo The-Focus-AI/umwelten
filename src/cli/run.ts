@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { getModel } from "../providers/index.js";
 import { ModelDetails } from "../cognition/types.js";
 import { BaseModelRunner } from "../cognition/runner.js";
+import { cliStdoutObserver } from "../cognition/observers.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { addCommonOptions, parseCommonOptions } from "./commonOptions.js";
@@ -133,11 +134,11 @@ export const runCommand = addCommonOptions(
           console.warn(
             "[WARN] --object is set but no schema is available. Falling back to streamText.",
           );
-          response = await runner.streamText(conversation);
-          if (response?.content) {
-            process.stdout.write(response.content + "\n");
-          } else {
+          response = await runner.streamText(conversation, undefined, cliStdoutObserver());
+          if (!response?.content) {
             process.stdout.write("[No response]\n");
+          } else if (!String(response.content).endsWith("\n")) {
+            process.stdout.write("\n");
           }
         }
       } else {
@@ -150,7 +151,7 @@ export const runCommand = addCommonOptions(
             process.stdout.write("[No response]\n");
           }
         } else {
-          response = await runner.streamText(conversation);
+          response = await runner.streamText(conversation, undefined, cliStdoutObserver());
           if (!response?.content || !String(response.content).trim()) {
             process.stdout.write("[No response]\n");
           } else if (!String(response.content).endsWith("\n")) {

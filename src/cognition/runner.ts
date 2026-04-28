@@ -3,6 +3,7 @@ import {
   ModelOptions,
   ModelResponse,
   ModelRunner,
+  StreamObserver,
 } from "./types.js";
 import { buildRequestOptions } from "./request-options.js";
 import { RateLimitConfig } from "../rate-limit/rate-limit.js";
@@ -32,12 +33,16 @@ import { z } from "zod";
 export interface ModelRunnerConfig {
   rateLimitConfig?: RateLimitConfig;
   maxRetries?: number;
-  maxTokens?: number;
+  // Intentionally no `maxTokens`/`maxOutputTokens` field. This runner
+  // powers benchmarks that measure model quality — truncating generation
+  // silently invalidates scores (especially for thinking-on models that
+  // need room to reason). If a caller needs a cap for a specific task,
+  // set it on the Stimulus so it appears in request metadata and is
+  // visible per-call. See CLAUDE.md "Token limits" rule.
 }
 
 const DEFAULT_CONFIG: ModelRunnerConfig = {
   maxRetries: 3,
-  maxTokens: 4096, // Default safeguard
 };
 
 export class BaseModelRunner implements ModelRunner {
@@ -150,7 +155,10 @@ export class BaseModelRunner implements ModelRunner {
     return { model, modelIdString };
   }
 
-  async generateText(interaction: Interaction): Promise<ModelResponse> {
+  async generateText(
+    interaction: Interaction,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
 
     const generateOptions = buildRequestOptions({
@@ -159,6 +167,7 @@ export class BaseModelRunner implements ModelRunner {
       config: this.config,
       label: "generateText",
       streaming: false,
+      abortSignal: signal,
     });
 
     const response = await generateText(
@@ -167,9 +176,19 @@ export class BaseModelRunner implements ModelRunner {
 
     const usage = await Promise.resolve(response.usage);
 
+    // AI SDK v5 exposes extracted reasoning on `reasoningText` when the
+    // reasoning middleware fires (e.g. <think>…</think> from local
+    // models). Preserve it so downstream consumers can inspect and score
+    // the model's chain of thought.
+    const reasoningText =
+      typeof (response as any).reasoningText === "string"
+        ? (response as any).reasoningText
+        : undefined;
+
     return this.makeResult({
       response,
       content: await response.text,
+      reasoning: reasoningText,
       usage,
       interaction,
       startTime,
@@ -196,6 +215,7 @@ export class BaseModelRunner implements ModelRunner {
   async streamText(
     interaction: Interaction,
     signal?: AbortSignal,
+    observer?: StreamObserver,
   ): Promise<ModelResponse> {
     const { startTime, modelIdString } = await this.startUp(interaction);
 
@@ -214,22 +234,21 @@ export class BaseModelRunner implements ModelRunner {
       if (response.fullStream) {
         for await (const event of response.fullStream) {
           const ev = event as any;
-          // Debug: Log all event types (including text-delta for reasoning debug)
           if (process.env.DEBUG === "1") {
             console.log(`[DEBUG] Event type: ${ev.type}`, ev);
           }
           switch (ev.type) {
-            case "text-delta":
+            case "text-delta": {
               const textDelta = ev.textDelta || ev.text;
               if (textDelta !== undefined && textDelta !== null) {
-                process.stdout.write(textDelta);
                 fullText += textDelta;
+                observer?.onTextDelta?.(textDelta);
               }
               break;
+            }
             case "reasoning-start":
-              console.log("\n🧠 [REASONING START]");
               break;
-            case "reasoning-delta":
+            case "reasoning-delta": {
               const reasoningDelta = ev.delta ?? ev.textDelta ?? ev.text;
               if (
                 reasoningDelta !== undefined &&
@@ -237,46 +256,45 @@ export class BaseModelRunner implements ModelRunner {
                 reasoningDelta !== "" &&
                 typeof reasoningDelta === "string"
               ) {
-                // Only write printable ASCII characters to avoid garbled output
                 const cleanDelta = reasoningDelta.replace(
                   /[^\x20-\x7E\s]/g,
                   "",
                 );
                 if (cleanDelta) {
-                  process.stdout.write(`\x1b[36m${cleanDelta}\x1b[0m`); // Cyan color for reasoning
                   reasoningText += cleanDelta;
+                  observer?.onReasoningDelta?.(cleanDelta);
                 }
               }
               break;
+            }
             case "reasoning-end":
-              console.log("\n🧠 [REASONING END]");
               break;
-            case "reasoning":
+            case "reasoning": {
               const reasoningChunk = ev.text;
               if (reasoningChunk !== undefined && reasoningChunk !== null) {
-                console.log("\n🧠 [REASONING]:", reasoningChunk);
                 reasoningText += reasoningChunk;
+                observer?.onReasoningDelta?.(reasoningChunk);
               }
               break;
-            case "tool-call":
-              console.log(
-                `\n[TOOL CALL] ${ev.toolName} called with:`,
-                ev.input,
-              );
-              // Capture provider metadata (e.g. Google thought_signature) so we can send it back next turn
+            }
+            case "tool-call": {
               const providerMeta =
                 ev.experimental_providerMetadata ??
                 ev.providerMetadata ??
                 undefined;
+              const toolCallId = ev.toolCallId ?? ev.id;
+              const toolName = ev.toolName ?? ev.name;
+              const input = ev.input ?? ev.args ?? {};
               pendingToolCalls.push({
-                toolCallId: ev.toolCallId ?? ev.id,
-                toolName: ev.toolName ?? ev.name,
-                input: ev.input ?? ev.args ?? {},
+                toolCallId,
+                toolName,
+                input,
                 experimental_providerMetadata: providerMeta,
               });
+              observer?.onToolCall?.({ toolCallId, toolName, input });
               break;
-            case "tool-result":
-              console.log(`\n[TOOL RESULT] ${ev.toolName} result:`, ev.output);
+            }
+            case "tool-result": {
               if (pendingToolCalls.length > 0) {
                 interaction.addMessage({
                   role: "assistant",
@@ -287,7 +305,6 @@ export class BaseModelRunner implements ModelRunner {
                       toolName: tc.toolName ?? tc.name,
                       input: tc.input ?? tc.args ?? {},
                     };
-                    // providerOptions is the ModelMessage schema field (e.g. for Gemini thought_signature)
                     if (tc.experimental_providerMetadata != null) {
                       part.providerOptions = tc.experimental_providerMetadata;
                     }
@@ -298,8 +315,9 @@ export class BaseModelRunner implements ModelRunner {
                 interaction.notifyTranscriptUpdate?.();
               }
               const out = ev.result ?? ev.output;
+              const isError = ev.isError === true;
               const output =
-                ev.isError === true
+                isError
                   ? {
                       type: "error-text" as const,
                       value:
@@ -310,19 +328,28 @@ export class BaseModelRunner implements ModelRunner {
                   : typeof out === "string"
                     ? { type: "text" as const, value: out }
                     : { type: "json" as const, value: out };
+              const toolCallId = ev.toolCallId ?? ev.id;
+              const toolName = ev.toolName ?? ev.name ?? "";
               interaction.addMessage({
                 role: "tool",
                 content: [
                   {
                     type: "tool-result",
-                    toolCallId: ev.toolCallId ?? ev.id,
-                    toolName: ev.toolName ?? ev.name ?? "",
+                    toolCallId,
+                    toolName,
                     output,
                   },
                 ],
               } as unknown as CoreMessage);
               interaction.notifyTranscriptUpdate?.();
+              observer?.onToolResult?.({
+                toolCallId,
+                toolName,
+                output: out,
+                isError,
+              });
               break;
+            }
             default:
               break;
           }
@@ -330,28 +357,23 @@ export class BaseModelRunner implements ModelRunner {
       } else if (response.textStream) {
         for await (const textPart of response.textStream) {
           if (textPart !== undefined && textPart !== null) {
-            process.stdout.write(textPart);
             fullText += textPart;
+            observer?.onTextDelta?.(textPart);
           }
         }
-        // console.log(`[DEBUG] Text stream complete1`,fullText);
       } else {
         // fallback: await the full text if streaming is not available
         fullText = await response.text;
         if (fullText !== undefined && fullText !== null) {
-          process.stdout.write(fullText);
+          observer?.onTextDelta?.(fullText);
         }
-        // console.log(`[DEBUG] Text stream complete2`,fullText);
       }
 
       // If no text was captured from streaming, try to get it from the response object
       if (!fullText && response.text) {
         fullText = await response.text;
-
-        // If we found text, display it
         if (fullText) {
-          console.log("\n[MODEL RESPONSE]:");
-          console.log(fullText);
+          observer?.onTextDelta?.(fullText);
         }
       }
 
@@ -561,6 +583,7 @@ export class BaseModelRunner implements ModelRunner {
   async generateObject(
     interaction: Interaction,
     schema: z.ZodSchema,
+    signal?: AbortSignal,
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
     try {
@@ -571,6 +594,7 @@ export class BaseModelRunner implements ModelRunner {
         label: "generateObject",
         streaming: false,
         schema,
+        abortSignal: signal,
       });
 
       const response = await generateObject(
@@ -595,6 +619,7 @@ export class BaseModelRunner implements ModelRunner {
   async streamObject(
     interaction: Interaction,
     schema: z.ZodSchema,
+    signal?: AbortSignal,
   ): Promise<ModelResponse> {
     const { startTime, model, modelIdString } = await this.startUp(interaction);
     try {
@@ -605,6 +630,7 @@ export class BaseModelRunner implements ModelRunner {
         label: "streamObject",
         streaming: true,
         schema,
+        abortSignal: signal,
       });
 
       // streamObject returns immediately in AI SDK 4.0+

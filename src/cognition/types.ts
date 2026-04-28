@@ -162,11 +162,52 @@ export const ScoreResponseSchema = z.object({
 
 export type ScoreResponse = z.infer<typeof ScoreResponseSchema>;
 
+/**
+ * StreamObserver — optional callbacks that receive stream events as they arrive.
+ *
+ * Passed to streamText() to let callers (web adapters, TUIs, etc.) react to
+ * deltas without waiting for the final ModelResponse.
+ *
+ * All callbacks are optional. The runner will still return the final
+ * ModelResponse unchanged; this is purely additive observation.
+ */
+export interface StreamObserver {
+  /** A chunk of assistant text arrived. */
+  onTextDelta?: (delta: string) => void;
+  /** A chunk of reasoning/thinking text arrived. */
+  onReasoningDelta?: (delta: string) => void;
+  /** A tool call is fully assembled and about to execute. */
+  onToolCall?: (call: {
+    toolCallId: string;
+    toolName: string;
+    input: unknown;
+  }) => void;
+  /** A tool call returned a result. */
+  onToolResult?: (result: {
+    toolCallId: string;
+    toolName: string;
+    output: unknown;
+    isError: boolean;
+  }) => void;
+}
+
 export interface ModelRunner {
-  generateText(interaction: any): Promise<ModelResponse>;
-  streamText(interaction: any, signal?: AbortSignal): Promise<ModelResponse>;
-  generateObject(interaction: any, schema: z.ZodSchema): Promise<ModelResponse>;
-  streamObject(interaction: any, schema: z.ZodSchema): Promise<ModelResponse>;
+  generateText(interaction: any, signal?: AbortSignal): Promise<ModelResponse>;
+  streamText(
+    interaction: any,
+    signal?: AbortSignal,
+    observer?: StreamObserver,
+  ): Promise<ModelResponse>;
+  generateObject(
+    interaction: any,
+    schema: z.ZodSchema,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse>;
+  streamObject(
+    interaction: any,
+    schema: z.ZodSchema,
+    signal?: AbortSignal,
+  ): Promise<ModelResponse>;
   // generateImage(interaction: any): Promise<ModelResponse>;
 }
 

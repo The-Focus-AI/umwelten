@@ -7,6 +7,7 @@ import { createSSEConfig, createWebSocketConfig } from '../mcp/client/client.js'
 import { createMCPServer } from '../mcp/server/server.js';
 import { StdioTransport } from '../mcp/types/transport.js';
 import type { TransportConfig } from '../mcp/types/transport.js';
+import { cliStdoutObserver } from '../cognition/observers.js';
 
 /**
  * CLI Commands for MCP (Model Context Protocol) functionality
@@ -445,7 +446,7 @@ mcpCommand
     // One-shot mode
     if (opts.oneShot) {
       interaction.addMessage({ role: 'user', content: opts.oneShot });
-      await interaction.streamText();
+      await interaction.streamText(undefined, cliStdoutObserver());
       process.stdout.write('\n');
       await mcp.disconnect();
       return;
@@ -484,7 +485,7 @@ mcpCommand
         try {
           interaction.addMessage({ role: 'user', content: input });
           process.stdout.write('Assistant: ');
-          const response = await interaction.streamText();
+          const response = await interaction.streamText(undefined, cliStdoutObserver());
           const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
           if (text && !text.endsWith('\n')) process.stdout.write('\n');
         } catch (error) {
