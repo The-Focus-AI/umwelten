@@ -5,10 +5,11 @@ import { stat } from 'node:fs/promises';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import {
-  hasSessionsIndex,
   getProjectSessionsIncludingFromDirectory,
-  getProjectSessions,
   hasAnalysisIndex,
+  buildSessionEntryFromFile,
+  discoverSessionFilesInProject,
+  getClaudeProjectPath,
 } from '../interaction/persistence/session-store.js';
 import type { SessionIndexEntry } from '../interaction/types/types.js';
 import { indexProject } from '../interaction/persistence/session-indexer.js';
@@ -34,7 +35,55 @@ export const sessionsCommand = new Command('sessions')
   .description('View and analyze sessions (Claude Code, Cursor) and native Habitat transcripts');
 
 /**
- * Resolve session for show/messages/stats: from project index, or from --file / --session-dir (Jeeves-style).
+ * Look up a single session by id (full or prefix) without requiring a full index.
+ *
+ * Strategy:
+ *  1. If id is a full UUID, try the JSONL file directly — fastest path, no directory scan.
+ *  2. Otherwise scan the project's Claude directory for a matching filename prefix.
+ *  3. Fall back to the existing index/directory merge (catches indexed entries whose
+ *     file may not live under the Claude dir for this encoded path).
+ *
+ * Returns a fully-populated SessionIndexEntry (streams the file for metadata when needed).
+ */
+async function findSessionById(
+  projectPath: string,
+  sessionId: string
+): Promise<SessionIndexEntry | null> {
+  if (!sessionId) return null;
+
+  const claudeDir = getClaudeProjectPath(projectPath);
+
+  // 1. Direct file path (full UUID case)
+  const directPath = join(claudeDir, `${sessionId}.jsonl`);
+  try {
+    await stat(directPath);
+    return await buildSessionEntryFromFile(directPath, projectPath);
+  } catch {
+    // Not a full UUID or file doesn't exist — fall through
+  }
+
+  // 2. Prefix match against directory listing
+  const files = await discoverSessionFilesInProject(projectPath);
+  const match = files.find((f) => basename(f, '.jsonl').startsWith(sessionId));
+  if (match) {
+    return await buildSessionEntryFromFile(match, projectPath);
+  }
+
+  // 3. Fall back to merged index + directory (preserves any edge cases)
+  try {
+    const entries = await getProjectSessionsIncludingFromDirectory(projectPath);
+    return (
+      entries.find(
+        (e) => e.sessionId === sessionId || e.sessionId.startsWith(sessionId)
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve session for show/messages/stats: from project (lazy lookup), or from --file / --session-dir (Jeeves-style).
  */
 async function resolveSessionEntry(
   projectPath: string,
@@ -84,12 +133,7 @@ async function resolveSessionEntry(
       isSidechain: false,
     };
   }
-  if (!(await hasSessionsIndex(projectPath))) return null;
-  const sessions = await getProjectSessions(projectPath);
-  const session = sessions.find(
-    (s) => s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
-  );
-  return session ?? null;
+  return findSessionById(projectPath, sessionId);
 }
 
 // Helper functions
@@ -730,19 +774,7 @@ sessionsCommand
     try {
       const projectPath = resolve(options.project);
 
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No sessions found for project: ${projectPath}`)
-        );
-        process.exit(1);
-      }
-
-      // Get all sessions and find matching one (support partial IDs)
-      const sessions = await getProjectSessions(projectPath);
-      const session = sessions.find(s =>
-        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
-      );
+      const session = await findSessionById(projectPath, sessionId);
 
       if (!session) {
         console.error(chalk.red(`Session not found: ${sessionId}`));
@@ -753,7 +785,7 @@ sessionsCommand
       }
 
       if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        console.error(chalk.red('Session file path not available.'));
         process.exit(1);
       }
 
@@ -1597,19 +1629,7 @@ sessionsCommand
     try {
       const projectPath = resolve(options.project);
 
-      // Check if sessions index exists
-      if (!(await hasSessionsIndex(projectPath))) {
-        console.error(
-          chalk.red(`No sessions found for project: ${projectPath}`)
-        );
-        process.exit(1);
-      }
-
-      // Get all sessions and find matching one (support partial IDs)
-      const sessions = await getProjectSessions(projectPath);
-      const session = sessions.find(s =>
-        s.sessionId === sessionId || s.sessionId.startsWith(sessionId)
-      );
+      const session = await findSessionById(projectPath, sessionId);
 
       if (!session) {
         console.error(chalk.red(`Session not found: ${sessionId}`));
@@ -1620,7 +1640,7 @@ sessionsCommand
       }
 
       if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project.'));
+        console.error(chalk.red('Session file path not available.'));
         process.exit(1);
       }
 
