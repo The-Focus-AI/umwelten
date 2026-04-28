@@ -13,7 +13,22 @@ export {
   infoCommand,
   toggleStatsCommand
 } from './cli/DefaultCommands.js';
-export {WebInterface} from './WebInterface.js';
+// Web server / adapter — the HTTP channel, peer to Discord/Telegram.
+export {
+  startWebServer,
+  WebAdapter,
+  UiMessageStream,
+  devAuth,
+  defaultRoutes,
+} from './web/index.js';
+export type {
+  AuthProvider,
+  UserContext,
+  RouteHandler,
+  RouteContext,
+  WebServerConfig,
+  StartedWebServer,
+} from './web/index.js';
 
 // ChannelBridge — unified adapter layer
 export { ChannelBridge } from './bridge/channel-bridge.js';

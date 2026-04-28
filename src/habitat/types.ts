@@ -167,6 +167,8 @@ export interface HabitatSessionMetadata {
   chatId?: number;
   /** Discord text/DM channel snowflake when type is discord. */
   discordChannelId?: string;
+  /** Stable user identifier (from the auth layer, e.g. web or Telegram sender). */
+  userId?: string;
   /** Bound Discord agent id or Telegram/habitat label when set at session init. */
   agentId?: string;
   /** Stable routing signature (e.g. `agent:my-agent:default` or `main`) for Discord. */

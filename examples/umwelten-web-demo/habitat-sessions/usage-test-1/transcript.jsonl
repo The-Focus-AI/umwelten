@@ -1,0 +1,2 @@
+{"type":"user","uuid":"f079ca14-d2a0-4208-ae19-7706e1f10732","timestamp":"2026-04-20T00:27:14.942Z","message":{"role":"user","content":"Hello 1"}}
+{"type":"assistant","uuid":"45ca2307-bb83-4415-9c26-b7f610118982","timestamp":"2026-04-20T00:27:14.943Z","message":{"role":"assistant","content":"Hello! How can I help you today?"}}

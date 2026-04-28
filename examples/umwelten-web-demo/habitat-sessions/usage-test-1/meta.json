@@ -1,0 +1,9 @@
+{
+  "sessionId": "usage-test-1",
+  "created": "2026-04-20T00:27:12.328Z",
+  "lastUsed": "2026-04-20T00:27:12.328Z",
+  "type": "web",
+  "userId": "dev",
+  "provider": "google",
+  "model": "gemini-3-flash-preview"
+}

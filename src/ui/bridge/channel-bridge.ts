@@ -82,44 +82,33 @@ export class ChannelBridge {
       const entry = await this.getOrCreateEntry(msg);
       const { interaction, sessionId, sessionDir } = entry;
 
-      // Wire transcript persistence and event emission
-      const msgCountBefore = interaction.getMessages().length;
+      // Wire transcript persistence (no more event extraction here — the
+      // StreamObserver below receives events directly from the runner).
       const originalCallback = interaction.onTranscriptUpdate;
       interaction.setOnTranscriptUpdate((messages) => {
-        // Detect tool calls / results in new messages
-        for (let i = msgCountBefore + 1; i < messages.length; i++) {
-          const m = messages[i];
-          if (m.role === 'assistant' && Array.isArray(m.content)) {
-            for (const part of m.content as unknown as Array<Record<string, unknown>>) {
-              if (part.type === 'tool-call' && events.onToolCall) {
-                events.onToolCall(
-                  part.toolName as string,
-                  part.input ?? part.args,
-                );
-              }
-            }
-          }
-          if (m.role === 'tool' && Array.isArray(m.content)) {
-            for (const part of m.content as unknown as Array<Record<string, unknown>>) {
-              if (part.type === 'tool-result' && events.onToolResult) {
-                const output = part.output as Record<string, unknown> | undefined;
-                const outputStr = output?.value != null
-                  ? String(output.value).slice(0, 500)
-                  : typeof part.content === 'string'
-                    ? (part.content as string).slice(0, 500)
-                    : '';
-                events.onToolResult(
-                  part.toolName as string,
-                  outputStr,
-                  output?.type === 'error-text',
-                );
-              }
-            }
-          }
-        }
-        // Persist to disk
         void writeSessionTranscript(sessionDir, messages);
       });
+
+      // Bridge the runner's stream events to adapter event handlers.
+      const observer = {
+        onTextDelta: (delta: string) => {
+          events.onText?.(delta);
+        },
+        onReasoningDelta: (_delta: string) => {
+          // Reasoning deltas are carried separately; adapters that care can
+          // extend BridgeEventHandlers later. For now we keep them internal.
+        },
+        onToolCall: (call: { toolCallId: string; toolName: string; input: unknown }) => {
+          events.onToolCall?.(call.toolName, call.input);
+        },
+        onToolResult: (res: { toolCallId: string; toolName: string; output: unknown; isError: boolean }) => {
+          const outputStr =
+            typeof res.output === 'string'
+              ? res.output.slice(0, 500)
+              : JSON.stringify(res.output ?? '').slice(0, 500);
+          events.onToolResult?.(res.toolName, outputStr, res.isError);
+        },
+      };
 
       // Add the user message
       interaction.addMessage({ role: 'user', content: msg.text });
@@ -127,7 +116,7 @@ export class ChannelBridge {
       // Stream the response
       let response;
       try {
-        response = await interaction.streamText();
+        response = await interaction.streamText(undefined, observer);
       } finally {
         interaction.onTranscriptUpdate = originalCallback ?? undefined;
       }
@@ -144,7 +133,7 @@ export class ChannelBridge {
         const meta = response.metadata as { toolCalls?: unknown[] };
         if (Array.isArray(meta.toolCalls) && meta.toolCalls.length > 0) {
           try {
-            const followUp = await interaction.streamText();
+            const followUp = await interaction.streamText(undefined, observer);
             const followText = typeof followUp.content === 'string' ? followUp.content : '';
             if (followText.trim()) {
               content = followText;
@@ -332,6 +321,22 @@ export class ChannelBridge {
       platform as any,
       identifier,
     );
+
+    // Stamp userId + provider/model onto the session metadata so listSessions
+    // and /api/usage can attribute activity. Safe to call on every message;
+    // updateMetadata merges.
+    const model = interaction.modelDetails;
+    const metaPatch: Record<string, unknown> = {};
+    if (msg.userId) metaPatch.userId = msg.userId;
+    if (model?.provider) metaPatch.provider = model.provider;
+    if (model?.name) metaPatch.model = model.name;
+    if (Object.keys(metaPatch).length > 0) {
+      await this.habitat
+        .updateSessionMetadata(session.sessionId, metaPatch)
+        .catch(() => {
+          /* non-fatal — session dir may not exist in some test scenarios */
+        });
+    }
 
     // Resume from transcript
     await this.resumeFromTranscript(session.sessionDir, interaction);
