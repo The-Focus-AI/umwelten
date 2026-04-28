@@ -38,6 +38,7 @@ import {
   listCompactionStrategies,
 } from "../context/index.js";
 import type { ModelDetails } from "../cognition/types.js";
+import { cliStdoutObserver } from "../cognition/observers.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 // Discord routing tools kept for non-bridge paths (e.g. tools exposed to the LLM)
 
@@ -182,7 +183,7 @@ async function oneShotRun(
 ): Promise<void> {
   interaction.addMessage({ role: "user", content: prompt });
   process.stdout.write("Habitat: ");
-  const response = await interaction.streamText();
+  const response = await interaction.streamText(undefined, cliStdoutObserver());
   const text =
     typeof response.content === "string"
       ? response.content
@@ -520,7 +521,7 @@ async function repl(
           process.stdin.on("keypress", keypressHandler);
         }
 
-        const response = await interaction.streamText();
+        const response = await interaction.streamText(undefined, cliStdoutObserver());
         const text =
           typeof response.content === "string"
             ? response.content
@@ -644,6 +645,7 @@ async function ensureLocalAgent(
     const missingCommands = !agent.commands?.run && !agent.commands?.setup;
 
     if (missingMemory || missingCommands) {
+      console.log(`[habitat] Analyzing project configuration to generate MEMORY.md (this may take a minute)...`);
       const result = await configureManagedAgent(habitat, agent.id, {
         saveMemory: true,
       });
