@@ -17,6 +17,7 @@ import { LOCAL_MODELS, ALL_MODELS, includeFrontier } from '../shared/models.js';
 export function makeSuite(models: ModelDetails[]): EvalSuite {
   return new EvalSuite({
     name: 'local-providers-reasoning',
+    perTaskTimeoutMs: 300_000,
     stimulus: {
       role: 'helpful assistant',
       objective: 'answer the question clearly and concisely',

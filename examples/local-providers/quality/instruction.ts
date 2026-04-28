@@ -21,6 +21,7 @@ import { LOCAL_MODELS, ALL_MODELS, includeFrontier } from '../shared/models.js';
 export function makeSuite(models: ModelDetails[]): EvalSuite {
   return new EvalSuite({
     name: 'local-providers-instruction',
+    perTaskTimeoutMs: 300_000,
     stimulus: {
       role: 'precise assistant that follows instructions exactly',
       objective: 'follow the given instructions with exact format compliance',

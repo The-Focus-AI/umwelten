@@ -118,6 +118,7 @@ for (const lang of languages) {
 export function makeSuite(models: import('../../../src/cognition/types.js').ModelDetails[]): EvalSuite {
   return new EvalSuite({
     name: 'local-providers-coding',
+    perTaskTimeoutMs: 300_000,
     stimulus: {
       role: 'expert programmer',
       objective: 'write correct, self-contained code that solves the problem',

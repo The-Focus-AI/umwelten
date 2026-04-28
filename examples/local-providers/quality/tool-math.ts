@@ -157,6 +157,9 @@ function nextRunId(): string {
 }
 
 async function runOne(model: ModelDetails, task: MathTask) {
+  // No maxTokens — we're measuring model quality. A cap here would
+  // truncate thinking-on models mid-reasoning or mid-chain-of-tool-calls
+  // and invalidate the score. See CLAUDE.md "Token limits" rule.
   const stimulus = new Stimulus({
     role: 'careful mathematician',
     objective: 'compute the answer using the provided tools',
@@ -166,7 +169,6 @@ async function runOne(model: ModelDetails, task: MathTask) {
       'Return the final answer as a single number.',
     ],
     temperature: 0.0,
-    maxTokens: 2000,
     maxToolSteps: 12,
     runnerType: 'base',
   });

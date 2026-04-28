@@ -17,29 +17,60 @@ export interface LocalEntry {
 
 /**
  * Primary matrix — quality + speed comparison.
- * Gemma 4 26B (~17 GB Q4) hits 4 runtimes.
- * Nemotron and GPT-OSS are included where available.
+ *
+ * All weights are Q4_K_M across runtimes (apples-to-apples), except gpt-oss
+ * which ships natively as MXFP4. This eliminates the Q4-vs-Q8 confound from
+ * earlier runs where llamabarn/llamaswap served Q8_0 while ollama served Q4.
+ *
+ * Runtimes: ollama + llamaswap only. LlamaBarn is dropped because its
+ * `LlamaBarn.app` rewrites `~/.llamabarn/models.ini` at every launch,
+ * stripping custom ctx-size settings down to 4096 — that silently truncates
+ * long generations and violates the "context as high as the provider allows"
+ * rule. llamaswap uses llama-server directly, so we control ctx-size (0 =
+ * model max).
+ *
+ * GGUF sources (llamaswap):
+ *   gemma-4-e2b      → unsloth/gemma-4-E2B-it-GGUF:Q4_K_M
+ *   gemma-4-e4b      → ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
+ *   gemma-4-26b-a4b  → ggml-org/gemma-4-26B-A4B-it-GGUF:Q4_K_M
+ *   gemma-4-31b      → ggml-org/gemma-4-31B-it-GGUF:Q4_K_M
+ *   glm-4.7-flash    → unsloth/GLM-4.7-Flash-GGUF:Q4_K_M (ggml-org has no Q4)
+ *   gpt-oss-20b      → ggml-org/gpt-oss-20b-GGUF (MXFP4 native)
+ *   nemotron-3-nano  → unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q4_K_M
+ *   qwen3.6-27b      → unsloth/Qwen3.6-27B-GGUF:Q4_K_M
  */
 export const LOCAL_MATRIX: LocalEntry[] = [
-  // Gemma 4 26B A4B — 3-way comparison
+  // Gemma 4 E2B
+  { family: 'gemma-4-e2b', model: { name: 'gemma4:e2b', provider: 'ollama' } },
+  { family: 'gemma-4-e2b', model: { name: 'gemma-4-e2b', provider: 'llamaswap' } },
+
+  // Gemma 4 E4B / 8B class (pin copied from gemma4:latest)
+  { family: 'gemma-4-e4b', model: { name: 'gemma4:e4b', provider: 'ollama' } },
+  { family: 'gemma-4-e4b', model: { name: 'gemma-4-e4b', provider: 'llamaswap' } },
+
+  // Gemma 4 26B A4B
   { family: 'gemma-4-26b-a4b', model: { name: 'gemma4:26b', provider: 'ollama' } },
-  { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamabarn' } },
   { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamaswap' } },
 
-  // GLM 4.7 Flash — 3-way comparison
+  // Gemma 4 31B
+  { family: 'gemma-4-31b', model: { name: 'gemma4:31b', provider: 'ollama' } },
+  { family: 'gemma-4-31b', model: { name: 'gemma-4-31b', provider: 'llamaswap' } },
+
+  // GLM 4.7 Flash
   { family: 'glm-4-7-flash', model: { name: 'glm-4.7-flash:latest', provider: 'ollama' } },
-  { family: 'glm-4-7-flash', model: { name: 'glm-4.7-flash', provider: 'llamabarn' } },
   { family: 'glm-4-7-flash', model: { name: 'glm-4-7-flash', provider: 'llamaswap' } },
 
-  // GPT-OSS 20B — 3-way comparison
+  // GPT-OSS 20B (MXFP4 native, not quantized)
   { family: 'gpt-oss-20b', model: { name: 'gpt-oss:latest', provider: 'ollama' } },
-  { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamabarn' } },
   { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamaswap' } },
 
-  // NVIDIA Nemotron-3-Nano-4B — 3-way small-model baseline
+  // NVIDIA Nemotron-3-Nano-4B — small-model baseline
   { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'nemotron-3-nano:4b', provider: 'ollama' } },
-  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q8_0', provider: 'llamabarn' } },
   { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'nvidia-nemotron-3-nano-4b', provider: 'llamaswap' } },
+
+  // Qwen3.6 27B — dense, released 2026-04-22
+  { family: 'qwen3-6-27b', model: { name: 'qwen3.6:27b', provider: 'ollama' } },
+  { family: 'qwen3-6-27b', model: { name: 'qwen3-6-27b', provider: 'llamaswap' } },
 ];
 
 /**
@@ -47,24 +78,20 @@ export const LOCAL_MATRIX: LocalEntry[] = [
  * `chat_template_kwargs.enable_thinking=false` injected into every request.
  * Disables the model's hidden reasoning tokens (GLM, Gemma's `<think>`
  * blocks, etc.). Answers the question: "how much of the time cost on
- * llamaswap/llamabarn is thinking-mode overhead, and does turning it off
- * hurt scores?"
+ * llamaswap is thinking-mode overhead, and does turning it off hurt scores?"
  *
  * Ollama models have no "-nothink" entries because Ollama's defaults
  * already behave this way for these models (no --jinja, no <think> blocks).
  */
 export const LOCAL_MATRIX_NOTHINK: LocalEntry[] = [
-  { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamabarn-nothink' } },
+  { family: 'gemma-4-e2b', model: { name: 'gemma-4-e2b', provider: 'llamaswap-nothink' } },
+  { family: 'gemma-4-e4b', model: { name: 'gemma-4-e4b', provider: 'llamaswap-nothink' } },
   { family: 'gemma-4-26b-a4b', model: { name: 'gemma-4-26b-a4b', provider: 'llamaswap-nothink' } },
-
-  { family: 'glm-4-7-flash', model: { name: 'glm-4.7-flash', provider: 'llamabarn-nothink' } },
+  { family: 'gemma-4-31b', model: { name: 'gemma-4-31b', provider: 'llamaswap-nothink' } },
   { family: 'glm-4-7-flash', model: { name: 'glm-4-7-flash', provider: 'llamaswap-nothink' } },
-
-  { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamabarn-nothink' } },
   { family: 'gpt-oss-20b', model: { name: 'gpt-oss-20b', provider: 'llamaswap-nothink' } },
-
-  { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q8_0', provider: 'llamabarn-nothink' } },
   { family: 'nvidia-nemotron-3-nano-4b', model: { name: 'nvidia-nemotron-3-nano-4b', provider: 'llamaswap-nothink' } },
+  { family: 'qwen3-6-27b', model: { name: 'qwen3-6-27b', provider: 'llamaswap-nothink' } },
 ];
 
 /** Thinking matrix + no-thinking matrix. Used when the caller wants to

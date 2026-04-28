@@ -267,6 +267,7 @@ function verifyFix(bug: BugFix, response: string): { score: number; details: str
 export function makeSuite(models: import('../../../src/cognition/types.js').ModelDetails[]): EvalSuite {
   return new EvalSuite({
     name: 'local-providers-coding-bugfix',
+    perTaskTimeoutMs: 300_000,
     stimulus: {
       role: 'expert JavaScript engineer',
       objective: 'fix the bug in the given function',

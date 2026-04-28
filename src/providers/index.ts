@@ -17,6 +17,7 @@ import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
 import { createLlamaBarnProvider } from "./llamabarn.js";
 import { createLlamaSwapProvider } from "./llamaswap.js";
+import { installLocalFetchDispatcher } from "./local-fetch.js";
 import { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
 
 // Re-export registry functions
@@ -81,11 +82,11 @@ registerProvider("lmstudio", {
 });
 
 registerProvider("llamabarn", {
-  create: () => createLlamaBarnProvider(),
+  create: () => { installLocalFetchDispatcher(); return createLlamaBarnProvider(); },
 });
 
 registerProvider("llamaswap", {
-  create: () => createLlamaSwapProvider(process.env.LLAMASWAP_HOST),
+  create: () => { installLocalFetchDispatcher(); return createLlamaSwapProvider(process.env.LLAMASWAP_HOST); },
 });
 
 // Variants with llama.cpp server's `chat_template_kwargs.enable_thinking=false`
@@ -94,23 +95,29 @@ registerProvider("llamaswap", {
 // head-to-head comparison of "same weights, thinking on/off" since Ollama's
 // defaults differ from llama.cpp's --jinja defaults.
 registerProvider("llamabarn-nothink", {
-  create: () => createLlamaBarnProvider(
-    process.env.LLAMABARN_HOST,
-    {
-      providerId: "llamabarn-nothink",
-      extraBody: { chat_template_kwargs: { enable_thinking: false } },
-    },
-  ),
+  create: () => {
+    installLocalFetchDispatcher();
+    return createLlamaBarnProvider(
+      process.env.LLAMABARN_HOST,
+      {
+        providerId: "llamabarn-nothink",
+        extraBody: { chat_template_kwargs: { enable_thinking: false } },
+      },
+    );
+  },
 });
 
 registerProvider("llamaswap-nothink", {
-  create: () => createLlamaSwapProvider(
-    process.env.LLAMASWAP_HOST,
-    {
-      providerId: "llamaswap-nothink",
-      extraBody: { chat_template_kwargs: { enable_thinking: false } },
-    },
-  ),
+  create: () => {
+    installLocalFetchDispatcher();
+    return createLlamaSwapProvider(
+      process.env.LLAMASWAP_HOST,
+      {
+        providerId: "llamaswap-nothink",
+        extraBody: { chat_template_kwargs: { enable_thinking: false } },
+      },
+    );
+  },
 });
 
 

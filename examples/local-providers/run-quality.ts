@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 /**
+ * @deprecated Use `run-matrix.ts` instead. This file is kept for now
+ * because in-flight benchmark runs may still reference it; it will be
+ * removed once the new harness has been validated end-to-end.
+ *
  * Local-Providers — Model-Major Quality Runner
  *
  * Runs all four quality suites (instruction, reasoning, coding, coding-bugfix)
@@ -55,7 +59,7 @@ const EVICT_MAX_MS = 60_000;
  *  legitimately take an hour, but a single hung task (model stuck in
  *  reasoning loop) will eat arbitrary time otherwise. Cap so one bad task
  *  doesn't block the other 6+ models. */
-const SUITE_WATCHDOG_MS = 90 * 60 * 1000; // 90 minutes
+const SUITE_WATCHDOG_MS = 20 * 60 * 1000; // 20 minutes
 
 const suites = {
   instruction: makeInstruction,
@@ -101,9 +105,29 @@ function parseMatrix(): typeof LOCAL_MATRIX {
 
 const skipEvict = process.argv.includes('--skip-evict');
 
+async function runWithWatchdog<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`watchdog: suite exceeded ${timeoutMs / 60_000}min`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
+  console.warn(
+    '⚠️  run-quality.ts is deprecated — use run-matrix.ts (or run-one.ts for a single cell).',
+  );
   const selectedSuites = parseOnly();
   const modelFilter = parseModelFilter();
   const matrix = parseMatrix();
@@ -146,19 +170,23 @@ async function main() {
         // Watchdog: hard cap wall time per suite. A hung task (model stuck
         // in thinking loop with no response) can otherwise block forever.
         // Throwing here lets us move on — partial results stay cached.
-        await Promise.race([
-          suite.run(),
-          new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error(`watchdog: suite exceeded ${SUITE_WATCHDOG_MS / 60_000}min`)),
-              SUITE_WATCHDOG_MS,
-            ),
-          ),
-        ]);
+        await runWithWatchdog(suite.run(), SUITE_WATCHDOG_MS);
         console.log(`    ✓ ${suiteName} complete in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
       } catch (err: any) {
         console.error(`    ❌ ${suiteName} failed: ${err?.message ?? String(err)}`);
-        // Keep going — next suite might still work. Results are disk-cached.
+        // Watchdog rejects the await but does NOT cancel the suite's pending
+        // generation requests. Without an explicit cleanup, those continue
+        // to hammer the runtime, force model reloads, and contaminate every
+        // subsequent suite/cell. Force-evict to break the connections so
+        // pending requests reject and the queue drains.
+        if (err?.message?.includes('watchdog')) {
+          process.stdout.write('    🩺 watchdog cleanup... ');
+          await evictAll();
+          const released = await waitForMemoryBelow(IDLE_BYTES, EVICT_MAX_MS);
+          console.log(released.ok
+            ? `✓ idle (${fmtBytes(released.finalBytes)}) after ${(released.elapsedMs / 1000).toFixed(1)}s`
+            : `⚠ ${fmtBytes(released.finalBytes)} resident after ${(released.elapsedMs / 1000).toFixed(1)}s`);
+        }
       }
     }
 
