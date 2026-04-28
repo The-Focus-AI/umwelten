@@ -1,5 +1,7 @@
 # Interaction + Interface Examples
 
+> **⚠️ Stale:** this page was drafted against an earlier `ChatInteraction` / `useWebInterface` sketch that never landed as a public API. The real surface is `Interaction` + `startWebServer` + `WebAdapter` — see the [Web interface guide](../guide/web.md) and [`examples/umwelten-web-demo/`](../../examples/umwelten-web-demo/). The code below won't run as-is against the current npm package.
+
 This guide provides comprehensive examples of using the new Interaction + Interface pattern across different scenarios.
 
 ## 🚀 Quick Start Examples

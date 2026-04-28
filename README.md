@@ -63,6 +63,32 @@ const suite = new EvalSuite({
 await suite.run();
 ```
 
+## Web applications
+
+Habitats also drive HTTP chat. `src/ui/web/` exposes `startWebServer` — the web peer to the Discord and Telegram adapters. It speaks the [Vercel AI SDK UI Message Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol), so any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Streaming text, tool calls, and tool results all flow through the same `ChannelBridge` that every other channel uses.
+
+```ts
+import { Habitat } from 'umwelten';
+import { startWebServer } from 'umwelten/ui/web';
+
+const habitat = await Habitat.create({ workDir: './my-habitat' });
+await startWebServer({
+  habitat,
+  auth: 'dev',            // or a custom AuthProvider
+  staticRoot: './public', // built SPA
+  port: 3000,
+});
+```
+
+Generative UI comes via a `renderUi` tool that ships a [json-render](https://json-render.dev) Spec through the tool-call channel — the client renders it with `@json-render/react`. See [`examples/umwelten-web-demo/`](examples/umwelten-web-demo/) for the reference app (`useChat` + thread sidebar + tool-call cards + renderUi).
+
+```bash
+mise run web-demo         # API server on :3000
+mise run web-demo-client  # Vite dev server on :5173 (proxies /api)
+```
+
+[Gaia](examples/gaia-ui/) — the built-in habitat manager UI — is a thin wrapper over the same framework (`mise run habitat-web`).
+
 ## Remote MCP servers
 
 Connect to any remote MCP server with OAuth — chat from the command line or build your own MCP-backed agent.
@@ -110,12 +136,13 @@ src/interaction/ — conversations, persistence, session analysis
 src/stimulus/    — prompts, tools, skills
 src/cognition/   — model runners
 src/providers/   — Google, OpenRouter, Ollama, LM Studio, LlamaBarn, llama-swap, GitHub, Fireworks, MiniMax
-src/ui/          — Telegram, Discord, web, TUI adapters
+src/ui/          — Telegram, Discord, web (startWebServer), TUI adapters
 src/mcp/         — MCP client (RemoteMcpClient with OAuth) and server
 src/cli/         — umwelten commands
 examples/evals/  — EvalSuite examples (car-wash, reasoning, instruction)
 examples/model-showdown/ — multi-dimension eval suite
 examples/oura-mcp/ — multi-user Oura Ring MCP server (Habitat + fly.io)
+examples/umwelten-web-demo/ — React + useChat reference app for src/ui/web/
 examples/habitat-minimal/ — minimal Habitat work-dir
 ```
 

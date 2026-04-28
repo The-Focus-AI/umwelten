@@ -24,7 +24,7 @@ The umwelten project implements a **stimulus-centric evaluation and interaction 
 
 ### 1. Interfaces (`src/cli/`, `src/ui/`)
 
-User-facing surfaces attach to one [`Habitat`](../../src/habitat/habitat.ts): REPL and composers in [`src/cli/habitat.ts`](../../src/cli/habitat.ts); Telegram, Discord, TUI, and web under [`src/ui/WebInterface.ts`](../../src/ui/WebInterface.ts). See the [Habitat interfaces guide](../guide/habitat-interfaces.md).
+User-facing surfaces attach to one [`Habitat`](../../src/habitat/habitat.ts): REPL and composers in [`src/cli/habitat.ts`](../../src/cli/habitat.ts); Telegram ([`src/ui/telegram/`](../../src/ui/telegram/)), Discord ([`src/ui/discord/`](../../src/ui/discord/)), TUI ([`src/ui/tui/`](../../src/ui/tui/)), and web ([`src/ui/web/`](../../src/ui/web/)) all drive the same [`ChannelBridge`](../../src/ui/bridge/channel-bridge.ts). See the [Habitat interfaces guide](../guide/habitat-interfaces.md) and the [Web interface guide](../guide/web.md).
 
 ### 2. Habitat (`src/habitat/`)
 

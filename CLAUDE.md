@@ -12,6 +12,25 @@ For **published / npm-style agent context** (shorter module map, task cheat shee
 - When planning, write out TASKS.md with completed/current/planned tasks and keep it up to date
 - **NEVER use gemini-2 models** — always use gemini-3 (e.g. `gemini-3-flash-preview`)
 
+## HARD RULES — do not violate, do not ask
+
+These are invariants. Breaking them silently poisons benchmark data. If a
+fix seems to require breaking one of these, STOP and surface the problem
+instead — never work around it by weakening the rule.
+
+### Token limits / output length
+
+- **NEVER cap `maxOutputTokens` / `maxTokens` in the runner, `ModelRunnerConfig`, `request-options`, or any shared default.** Models must be free to generate to their natural stop (EOS or context limit). Capping silently truncates thinking-on model reasoning and invalidates every score downstream. There is **no scenario** where adding a default cap is acceptable.
+- **Context windows should be set as high as the provider allows.** If a local llama.cpp is configured with `--ctx-size 0`, leave it. If a provider supports 1M tokens, use it.
+- The **only** sanctioned way to limit output is setting `maxTokens` on a specific `Stimulus` instance — explicit, per-task, visible in request metadata.
+- If a test or benchmark is "taking too long" or emitting "too many tokens," that is **data**, not a bug. Do not cap your way out of it. Investigate (is the model stuck in a repetition loop? does the prompt provoke runaway generation?) and report.
+- Regression tests live at `src/cognition/request-options.test.ts` — they assert that `buildRequestOptions()` does not inject any cap. Do not weaken or skip these tests.
+
+### Scope of changes
+
+- Do not make "wild-ass changes." If you think a subsystem is broken, describe the symptom and propose the fix before editing shared runtime code (`cognition/`, `interaction/`, `providers/`). Changes to these files affect every evaluation and every downstream benchmark.
+- Never silently change a default that the existing benchmark data was collected against. If you must change such a default, the old data becomes incomparable — flag this explicitly before touching anything.
+
 ## Architecture Overview
 
 The codebase is layered bottom-up. Each layer depends only on layers below it.
@@ -251,6 +270,23 @@ Parse DSL strings into Zod schemas, validate model output.
 - `integration/stimulus.ts` — Bridge: load MCP tools into a Stimulus
 - `types/` — Transport and protocol types
 
+### `src/introspection/` — Session Browser Data Layer
+
+Browses sessions and their **digests** (produced by `src/interaction/analysis/session-digester.ts`). There is no longer a separate "introspection" LLM pipeline — digests are the one source of session analysis, and the browser surfaces them.
+
+- `browse.ts` — `buildBrowse()` assembles every session (claude-code + habitat) with its digest (loaded from `~/.umwelten/digests/sessions/<id>.json`). `applyFilter()` — date window, source, status, free-text search. `loadDigest()` / `saveDigest()` — digest round-trip.
+- `storage.ts` — legacy run/decision log structure kept for data already on disk; not used for new work.
+- `types.ts` — shared types.
+
+TUIs in `src/ui/tui/introspect/`:
+- `BrowseApp` / `runIntrospectBrowseTui` — **primary entry**. Fixed-width panes; edge-scroll. Shows digest data when present (summary, key learning, topics, tags, phases, counts). Keys: `enter` detail view, `D` run digest (streams live), `b` beats (no LLM), `v` transcript, `/` search, `q` quit.
+- `detail.tsx` — per-session detail view (tabs over digest: overview, beats, phases, facts, diff-against-CLAUDE.md).
+- `digest-live.tsx` — live streaming progress for the digester pipeline.
+
+CLI in `src/cli/introspect.ts`:
+- `umwelten browse` (top-level) — the primary entry.
+- `umwelten introspect browse` — namespaced alias for discoverability.
+
 ### `src/reporting/` — Unified Reporter
 
 General-purpose report rendering. Used by tool tests and evaluation suite reports.
@@ -337,6 +373,17 @@ dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --logout
+
+# Session browser — primary entry for session review and digest management.
+# Every session (claude-code and habitat) with its digest (topics, tags, summary,
+# phases, facts, metrics) shown inline. 30d default window; press 4 for all.
+# Keys: enter=detail view · D=run digest (streams) · b=beats (no LLM) · v=transcript · / search · q quit
+dotenvx run -- pnpm run cli browse
+dotenvx run -- pnpm run cli browse --sessions-dir examples/jeeves-bot/jeeves-bot-sessions  # habitat mode
+
+# Or via mise
+mise run browse               # primary entry
+mise run habitat-browse       # against a habitat's sessions
 ```
 
 ## Environment Variables

@@ -94,6 +94,7 @@
     "react": "^19.2.4",
     "tiktoken": "^1.0.22",
     "turndown": "^7.2.2",
+    "undici": "^8.1.0",
     "uuid": "^13.0.0",
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.1"

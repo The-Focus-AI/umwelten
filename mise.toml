@@ -3,6 +3,9 @@ node = "latest"
 "npm:@anthropic-ai/claude-code" = "latest"
 "npm:node-addon-api" = "latest"
 
+# Keep root tasks focused on workflows people run often. Example-specific
+# variants should live in the example READMEs as direct pnpm/dotenvx commands.
+
 # ── Habitat ───────────────────────────────────────────────────────────
 # All interfaces share ONE work dir (examples/jeeves-bot/jeeves-bot-data-dir)
 # so agents, persona, memories, and tools are the same everywhere.
@@ -32,3 +35,74 @@ run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat discor
 description = "Verify Discord env, work dir, and bot token"
 dir = "{{ config_root }}"
 run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm exec tsx examples/jeeves-bot/scripts/check-discord-setup.ts"
+
+# ── umwelten-web-demo ─────────────────────────────────────────────────
+
+[tasks."web-demo"]
+description = "umwelten-web-demo API server on :3000 (AI SDK UI Message Stream Protocol, useChat-compatible)"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/umwelten-web-demo/src/server.ts"
+
+[tasks."web-demo-client"]
+description = "umwelten-web-demo Vite dev server on :5173 (proxies /api to :3000)"
+dir = "{{ config_root }}"
+run = "pnpm exec vite --config examples/umwelten-web-demo/vite.config.ts"
+
+[tasks."web-demo-build"]
+description = "Build the umwelten-web-demo SPA into examples/umwelten-web-demo/public"
+dir = "{{ config_root }}"
+run = "pnpm exec vite build --config examples/umwelten-web-demo/vite.config.ts"
+
+# ── Session browser ───────────────────────────────────────────────────
+
+[tasks.browse]
+description = "Session browser: every session with digest, actions to digest, view detail, see transcript (TUI)"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm run cli -- browse"
+
+[tasks."habitat-browse"]
+description = "Session browser scoped to Jeeves habitat sessions"
+dir = "{{ config_root }}"
+run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- browse --sessions-dir examples/jeeves-bot/jeeves-bot-sessions --target examples/jeeves-bot/jeeves-bot-data-dir/system.md"
+
+# ── Local providers / local model showdown ─────────────────────────────
+# Quality tasks are resume-safe: cached per-task results are skipped, and
+# run-quality.ts keeps going after suite failures/watchdogs. If a run is
+# interrupted, re-run the same mise task to continue from disk cache.
+
+[tasks."local-catalog"]
+description = "Local providers: list available runtimes/models"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/local-providers/catalog.ts"
+
+[tasks."local-smoke"]
+description = "Local providers: cold/warm smoke test with eviction"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/local-providers/smoke.ts"
+
+[tasks."local-quality"]
+description = "Local providers: resume-safe default quality matrix"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/local-providers/run-quality.ts"
+
+[tasks."local-quality-nothink"]
+description = "Local providers: resume-safe quality matrix with thinking disabled"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/local-providers/run-quality.ts --matrix nothink"
+
+[tasks."local-report"]
+description = "Local providers: combine cached results into markdown report"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm run cli -- eval combine --config examples/local-providers/suite-config.ts --format md --output output/local-providers-report.md"
+
+# ── Model showdown ──────────────────────────────────────────────────────
+
+[tasks."model-showdown"]
+description = "Run the model-showdown evaluation suite"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/model-showdown/run-all.ts"
+
+[tasks."model-showdown-report"]
+description = "Generate the model-showdown report from cached results"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx examples/model-showdown/generate-report.ts"

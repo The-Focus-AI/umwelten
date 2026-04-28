@@ -277,8 +277,9 @@ The `Interaction` is UI-agnostic. Different UIs consume it:
 
 - **CLI**: `src/ui/cli/CLIInterface.ts` — readline-based REPL
 - **Telegram**: `src/ui/telegram/TelegramAdapter.ts` — Telegram bot
+- **Discord**: `src/ui/discord/DiscordAdapter.ts` — Discord bot
 - **TUI**: `src/ui/tui/` — React Ink terminal UI
-- **Web**: `src/ui/WebInterface.ts` — web interface
+- **Web**: `src/ui/web/` — `startWebServer` + `WebAdapter` (AI SDK UI Message Stream Protocol)
 
 The CLI habitat command provides the standard entry point:
 

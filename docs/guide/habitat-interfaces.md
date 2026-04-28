@@ -10,7 +10,8 @@ A single [`Habitat`](../../src/habitat/habitat.ts) instance can be driven from d
 | Local agent | `umwelten habitat local` | [`src/cli/habitat.ts`](../../src/cli/habitat.ts) | — |
 | Telegram | `umwelten habitat telegram` | [`src/ui/telegram/TelegramAdapter.ts`](../../src/ui/telegram/TelegramAdapter.ts) | `mise run habitat-telegram` |
 | Discord | `umwelten habitat discord` | [`src/ui/discord/DiscordAdapter.ts`](../../src/ui/discord/DiscordAdapter.ts) | `mise run habitat-discord` |
-| Web + API | `umwelten habitat web` | [`src/habitat/gaia-server.ts`](../../src/habitat/gaia-server.ts) | `mise run habitat-web` |
+| Web + API (Gaia) | `umwelten habitat web` | [`src/habitat/gaia-server.ts`](../../src/habitat/gaia-server.ts) (thin wrapper over `startWebServer`) | `mise run habitat-web` |
+| Custom web app | `startWebServer({...})` | [`src/ui/web/`](../../src/ui/web/) — the HTTP channel peer to Discord/Telegram. Speaks the Vercel AI SDK UI Message Stream Protocol so `@ai-sdk/react`'s `useChat` connects directly. See [`examples/umwelten-web-demo/`](../../examples/umwelten-web-demo/). | `mise run web-demo` + `mise run web-demo-client` |
 | TUI (sessions) | `umwelten sessions tui` | [`src/ui/tui/file-session.ts`](../../src/ui/tui/file-session.ts) | — |
 
 ## Quick start (with mise)

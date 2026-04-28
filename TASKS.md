@@ -1,20 +1,29 @@
-# Tasks — Evaluation Framework Cleanup
+# Tasks — Local Providers Report Cleanup
 
 ## Completed
-- [x] Reviewed full codebase architecture
-- [x] Created `src/evaluation/suite.ts` — `EvalSuite` declarative runner
-- [x] Created `examples/evals/reasoning.ts` — LLM judge example
-- [x] Created `examples/evals/instruction.ts` — deterministic scoring example
-- [x] Created `examples/evals/car-wash.ts` — car wash test using EvalSuite
-- [x] Fixed result-file caching (retry on error/zero-score judge results)
-- [x] Built `PairwiseRanker` class (`src/evaluation/ranking/pairwise-ranker.ts`)
-- [x] Created ranking barrel export (`src/evaluation/ranking/index.ts`)
-- [x] Added EvalSuite + PairwiseRanker to public exports (`src/index.ts`)
-- [x] Wrote tests — 48 new tests, all 895 tests pass (77 files)
-- [x] Updated `docs/guide/creating-evaluations.md` — rewrote around EvalSuite
-- [x] Updated `docs/guide/model-evaluation.md` — added Quick Start section
-- [x] Updated `docs/architecture/evaluation-framework.md` — removed phantom classes
-- [x] Updated `docs/walkthroughs/car-wash-evaluation.md` — added Short Version
-- [x] Verified `docs/guide/pairwise-ranking.md` — already correct
-- [x] Updated `CLAUDE.md` — evaluation section rewritten
-- [x] Updated `LLM.txt` — evaluation notes + examples
+- [x] Run and finish `--matrix nothink`
+- [x] Generate combined markdown report
+- [x] Diagnose provider-name bug in combined report
+- [x] Patch combine parser to recognize `llamaswap` and `llamaswap-nothink`
+- [x] Regenerate combined markdown + narrative reports
+- [x] Load Focus.AI shared design system
+- [x] Load Focus.AI client design system
+- [x] Load Focus.AI report command/template docs
+
+## Completed
+- [x] Rebuild the PDF as a clean client-style report from scratch
+- [x] Generate client-branded HTML using a curated structure instead of raw pandoc dump
+- [x] Render PDF with the client paged template and sane section breaks
+
+## Completed
+- [x] Inventory Gemma variants across Ollama and llama-swap/HF
+- [x] Identify missing Gemma GGUFs needed to test all Gemmas on both runtimes
+- [x] Download missing Gemma GGUFs
+- [x] Extend llama-swap config for additional Gemma variants
+
+## Current
+- [ ] Restart llama-swap with expanded Gemma config
+- [ ] Run Gemma-only effective no-think benchmark sweep (Ollama + llama-swap-nothink)
+
+## Planned
+- [ ] Keep detailed raw markdown report as appendix/source artifact
