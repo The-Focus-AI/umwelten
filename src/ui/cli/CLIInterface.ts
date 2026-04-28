@@ -1,5 +1,6 @@
 import readline from "readline";
 import { Interaction } from "../../interaction/core/interaction.js";
+import { cliStdoutObserver } from "../../cognition/observers.js";
 import { CommandRegistry, CLICommand } from "./CommandRegistry.js";
 
 /**
@@ -225,15 +226,13 @@ export class CLIInterface {
         // Clear the current line and write the model response
         process.stdout.write("\r\x1b[K"); // Clear current line
         process.stdout.write("Model: ");
-        
+
         const startTime = Date.now();
-        const response = await interaction.streamText();
+        const response = await interaction.streamText(undefined, cliStdoutObserver());
         const endTime = Date.now();
-        
-        // Write the response with proper formatting
-        if (response.content && response.content.trim()) {
-          process.stdout.write(response.content);
-        } else {
+
+        // Streaming already wrote the content via the observer; just finish the line.
+        if (!response.content || !response.content.trim()) {
           process.stdout.write("[No response content received]");
         }
         process.stdout.write("\n\n");
@@ -293,9 +292,9 @@ export class CLIInterface {
 
     this.isActive = true;
     console.log("Starting agent session. Type 'exit' or 'quit' to end.\n");
-    console.log("Agent Role:", interaction.stimulus.options.role || "assistant");
-    console.log("Available Tools:", interaction.stimulus.hasTools() ? Object.keys(interaction.stimulus.getTools()).join(", ") : "none");
-    console.log();
+    console.log("--- System Prompt ---");
+    console.log(interaction.stimulus.getPrompt());
+    console.log("---------------------\n");
 
     this.rl.on("line", async (line) => {
       const task = line.trim();
@@ -327,11 +326,10 @@ export class CLIInterface {
         // Add the task as a user message and execute
         interaction.addMessage({ role: "user", content: task });
         const startTime = Date.now();
-        const response = await interaction.streamText();
+        const response = await interaction.streamText(undefined, cliStdoutObserver());
         const endTime = Date.now();
-        
-        // Write the response with proper formatting
-        process.stdout.write(response.content);
+
+        // Streaming already wrote the content; just finish the line.
         process.stdout.write("\n\n");
         
         // Track response statistics

@@ -235,26 +235,16 @@ export class Stimulus {
       prompt.push(`Your examples are to ${this.options.examples}.`);
     }
     
-    // NEW: Add tool context to prompt
-    if (this.hasTools()) {
-      prompt.push(`\n# Available Tools\nYou have access to the following tools:`);
-      Object.entries(this.tools).forEach(([name, tool]) => {
-        // Handle different tool object structures
-        const description = tool.description || 
-                          (tool as any).inputSchema?.description || 
-                          'No description available';
-        prompt.push(`- ${name}: ${description}`);
-      });
-      
-      if (this.options.toolInstructions) {
-        prompt.push(`\n# Tool Usage Instructions\n- ${this.options.toolInstructions.join('\n- ')}`);
-      }
-      
-      if (this.options.maxToolSteps) {
-        prompt.push(`\n# Tool Usage Limits\n- Maximum tool steps: ${this.options.maxToolSteps}`);
-      }
+    // Tool schemas are delivered to the model via the Vercel AI SDK's native
+    // `tools` parameter (see `buildRequestOptions` / `interaction.getVercelTools`).
+    // We do NOT enumerate them in the system prompt — that just adds noise the
+    // SDK already covers. `toolInstructions` is still surfaced as user-supplied
+    // narrative guidance (e.g. "prefer X over Y"), and `maxToolSteps` enforces
+    // step caps via `stopWhen`, not via prose.
+    if (this.hasTools() && this.options.toolInstructions?.length) {
+      prompt.push(`\n# Tool Usage Instructions\n- ${this.options.toolInstructions.join('\n- ')}`);
     }
-    
+
     // Add system context if provided
     if (this.options.systemContext) {
       prompt.push(`\n# Additional Context\n${this.options.systemContext}`);

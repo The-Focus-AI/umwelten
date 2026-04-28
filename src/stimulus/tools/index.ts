@@ -18,3 +18,14 @@ export * from './url-tools.js';
 
 // Work-dir tool loader (TOOL.md + optional handler)
 export * from './loader.js';
+
+// Sandboxed filesystem + bash factories
+export * from './path-sandbox.js';
+export * from './fs-tools.js';
+export * from './bash-tool.js';
+
+// One-shot agent factory: fs + bash + AGENTS.md + skills/
+export * from './agent-kit.js';
+
+// Curated drop-in bundles
+export * from './bundles.js';

@@ -1,16 +1,28 @@
 /**
  * Habitat file tools: read_file, write_file, list_directory, ripgrep.
- * Paths are sandboxed to the habitat's allowed roots (work dir, sessions dir, agent projects).
+ *
+ * Paths are sandboxed to the habitat's allowed roots (work dir, sessions dir,
+ * agent projects). When `agentId` is supplied the path is resolved relative to
+ * that agent's project; otherwise it falls back to the shared `resolveSandboxPath`
+ * helper used by all sandboxed tools.
+ *
+ * The four tool implementations live in `src/stimulus/tools/fs-tools.ts` — this
+ * file is just a habitat-aware wrapper that threads `agentId` through.
  */
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { resolve, normalize, relative, join } from 'node:path';
+import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tool } from 'ai';
 import { z } from 'zod';
 import type { Tool } from 'ai';
 import type { HabitatConfig, AgentEntry } from '../types.js';
+import {
+  resolveSandboxPath,
+  ensureAllowed,
+  OUTSIDE_ALLOWED_PATH,
+} from '../../stimulus/tools/path-sandbox.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -44,53 +56,24 @@ const pathSchema = z.object({
 });
 
 /**
- * Resolve path for file tools. Leading "/" is treated as the work dir (chroot-style).
+ * Habitat path resolution. Adds the agent-aware branch on top of the shared
+ * `resolveSandboxPath` helper.
  */
-function resolvePath(
+function resolveHabitatPath(
   rawPath: string,
   agentId: string | undefined,
   ctx: FileToolsContext
 ): string {
-  const workDir = ctx.getWorkDir();
-
   if (agentId) {
     const agent = ctx.getAgent(agentId);
     if (!agent) throw new Error(`AGENT_NOT_FOUND: ${agentId}`);
     return resolve(agent.projectPath, rawPath);
   }
 
-  // Leading "/" (but not "//") = virtual root = work dir
-  if (rawPath.startsWith('/') && !rawPath.startsWith('//')) {
-    const asAbsolute = normalize(resolve(rawPath));
-    const allowedRoots = ctx.getAllowedRoots();
-    for (const root of allowedRoots) {
-      const rootNorm = normalize(root);
-      const rel = relative(rootNorm, asAbsolute);
-      if (rel === '' || (!rel.startsWith('..') && rel !== '..')) {
-        return asAbsolute;
-      }
-    }
-    const underWork = rawPath.slice(1) || '.';
-    return resolve(workDir, underWork);
-  }
-
-  if (rawPath.startsWith('\\') || (process.platform === 'win32' && /^[A-Za-z]:/.test(rawPath))) {
-    return normalize(resolve(rawPath));
-  }
-
-  return resolve(workDir, rawPath);
-}
-
-function ensureAllowed(resolved: string, allowedRoots: string[]): void {
-  const normalized = normalize(resolved);
-
-  for (const root of allowedRoots) {
-    const rootNorm = normalize(root);
-    const rel = relative(rootNorm, normalized);
-    if (rel && !rel.startsWith('..') && !rel.startsWith('/')) return;
-    if (normalized === rootNorm) return;
-  }
-  throw new Error('OUTSIDE_ALLOWED_PATH: path is not under the work directory, sessions directory, or any configured agent project');
+  // Non-agent paths: delegate to the shared helper. First root is treated as
+  // the virtual workspace root.
+  const roots = [ctx.getWorkDir(), ...ctx.getAllowedRoots().filter((r) => r !== ctx.getWorkDir())];
+  return resolveSandboxPath(rawPath, roots);
 }
 
 /**
@@ -103,7 +86,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
     execute: async ({ path: rawPath, agentId, offset, limit }) => {
       const allowedRoots = ctx.getAllowedRoots();
       try {
-        const resolved = resolvePath(rawPath, agentId, ctx);
+        const resolved = resolveHabitatPath(rawPath, agentId, ctx);
         ensureAllowed(resolved, allowedRoots);
         const fullContent = await readFile(resolved, 'utf-8');
 
@@ -127,7 +110,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
       } catch (err: unknown) {
         if (err instanceof Error) {
           if (err.message.startsWith('AGENT_NOT_FOUND')) return { error: err.message };
-          if (err.message.startsWith('OUTSIDE_ALLOWED_PATH')) return { error: err.message };
+          if (err.message.startsWith(OUTSIDE_ALLOWED_PATH)) return { error: err.message };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') return { error: 'FILE_NOT_FOUND', path: rawPath };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'EACCES') return { error: 'PERMISSION_DENIED', path: rawPath };
         }
@@ -148,7 +131,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
     execute: async ({ path: rawPath, content, agentId }) => {
       const allowedRoots = ctx.getAllowedRoots();
       try {
-        const resolved = resolvePath(rawPath, agentId, ctx);
+        const resolved = resolveHabitatPath(rawPath, agentId, ctx);
         ensureAllowed(resolved, allowedRoots);
         await mkdir(resolve(resolved, '..'), { recursive: true });
         await writeFile(resolved, content, 'utf-8');
@@ -156,7 +139,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
       } catch (err: unknown) {
         if (err instanceof Error) {
           if (err.message.startsWith('AGENT_NOT_FOUND')) return { error: err.message };
-          if (err.message.startsWith('OUTSIDE_ALLOWED_PATH')) return { error: err.message };
+          if (err.message.startsWith(OUTSIDE_ALLOWED_PATH)) return { error: err.message };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'EACCES') return { error: 'PERMISSION_DENIED', path: rawPath };
         }
         return { error: String(err) };
@@ -170,7 +153,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
     execute: async ({ path: rawPath, agentId }) => {
       const allowedRoots = ctx.getAllowedRoots();
       try {
-        const resolved = resolvePath(rawPath, agentId, ctx);
+        const resolved = resolveHabitatPath(rawPath, agentId, ctx);
         ensureAllowed(resolved, allowedRoots);
         const entries = await readdir(resolved, { withFileTypes: true });
         const list = entries.map(e => ({ name: e.name, isDir: e.isDirectory() }));
@@ -178,7 +161,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
       } catch (err: unknown) {
         if (err instanceof Error) {
           if (err.message.startsWith('AGENT_NOT_FOUND')) return { error: err.message };
-          if (err.message.startsWith('OUTSIDE_ALLOWED_PATH')) return { error: err.message };
+          if (err.message.startsWith(OUTSIDE_ALLOWED_PATH)) return { error: err.message };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') return { error: 'FILE_NOT_FOUND', path: rawPath };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'EACCES') return { error: 'PERMISSION_DENIED', path: rawPath };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'ENOTDIR') return { error: 'NOT_A_DIRECTORY', path: rawPath };
@@ -203,7 +186,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
     execute: async ({ pattern, path: rawPath, agentId, caseSensitive = false, maxResults = 100, fileType }) => {
       const allowedRoots = ctx.getAllowedRoots();
       try {
-        const resolved = resolvePath(rawPath, agentId, ctx);
+        const resolved = resolveHabitatPath(rawPath, agentId, ctx);
         ensureAllowed(resolved, allowedRoots);
 
         const args: string[] = [pattern, resolved];
@@ -246,7 +229,7 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
       } catch (err: unknown) {
         if (err instanceof Error) {
           if (err.message.startsWith('AGENT_NOT_FOUND')) return { error: err.message };
-          if (err.message.startsWith('OUTSIDE_ALLOWED_PATH')) return { error: err.message };
+          if (err.message.startsWith(OUTSIDE_ALLOWED_PATH)) return { error: err.message };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') return { error: 'FILE_NOT_FOUND', path: rawPath };
           if ('code' in err && (err as NodeJS.ErrnoException).code === 'EACCES') return { error: 'PERMISSION_DENIED', path: rawPath };
         }

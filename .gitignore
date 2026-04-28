@@ -83,3 +83,6 @@ umwelten-*.tgz
 **/*-dagger-experiences/
 
 examples/introspection/
+
+# Bare-bones-memory runtime state (session logs, project files, etc.)
+examples/bare-bones-memory/memory/

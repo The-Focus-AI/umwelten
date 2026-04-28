@@ -56,11 +56,11 @@ describe('New Interaction Constructor', () => {
 
     const interaction = new Interaction(mockModel, stimulus);
 
-    // Check system prompt includes stimulus context
+    // Check system prompt includes stimulus context. Tools are delivered via
+    // the SDK's `tools` parameter, not enumerated in the prompt.
     const messages = interaction.getMessages();
     expect(messages[0].content).toContain("math tutor");
     expect(messages[0].content).toContain("help with calculations");
-    expect(messages[0].content).toContain("Available Tools");
 
     // Check tools are applied
     expect(interaction.getVercelTools()).toEqual({ calculator: calculatorTool });
@@ -128,11 +128,13 @@ describe('New Interaction Constructor', () => {
     expect(interaction.getVercelTools()).toEqual({ calculator: calculatorTool });
     expect(interaction.maxSteps).toBe(3);
 
-    // Check that tool instructions are in the system prompt
+    // Tool schemas + step caps go to the model via the SDK's `tools` and
+    // `stopWhen` parameters, not the system prompt. Author-supplied
+    // `toolInstructions` is the one piece that does end up as prose.
     const messages = interaction.getMessages();
     expect(messages[0].content).toContain("Tool Usage Instructions");
     expect(messages[0].content).toContain("Use calculator for arithmetic");
-    expect(messages[0].content).toContain("Maximum tool steps: 3");
+    expect(messages[0].content).not.toContain("Maximum tool steps");
   });
 
   it('should handle stimulus with system context', () => {

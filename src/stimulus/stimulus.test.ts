@@ -106,7 +106,7 @@ describe('Enhanced Stimulus', () => {
     expect(stimulus.getRunnerType()).toBe('memory');
   });
 
-  it('should generate enhanced prompt with tool context', () => {
+  it('surfaces toolInstructions but does not enumerate tools (delivered via SDK)', () => {
     const stimulus = new Stimulus({
       role: "math tutor",
       objective: "help with calculations",
@@ -114,9 +114,13 @@ describe('Enhanced Stimulus', () => {
       toolInstructions: ["Use calculator for arithmetic"]
     });
     const prompt = stimulus.getPrompt();
-    expect(prompt).toContain("Available Tools");
-    expect(prompt).toContain("calculator");
+    // Tools are delivered to the model via the AI SDK's `tools` parameter,
+    // not re-listed in the system prompt.
+    expect(prompt).not.toContain("Available Tools");
+    expect(prompt).not.toContain(calculatorTool.description!);
+    // Author-supplied tool guidance is still surfaced.
     expect(prompt).toContain("Tool Usage Instructions");
+    expect(prompt).toContain("Use calculator for arithmetic");
   });
 
   it('should handle multiple tools', () => {
@@ -199,16 +203,16 @@ describe('Enhanced Stimulus', () => {
     expect(prompt).toContain("secure environment");
   });
 
-  it('should include tool usage limits', () => {
+  it('does not put tool step caps in the prompt (enforced via SDK stopWhen)', () => {
     const stimulus = new Stimulus({
       role: "assistant",
       tools: { calculator: calculatorTool },
       maxToolSteps: 3
     });
-    
+
     const prompt = stimulus.getPrompt();
-    expect(prompt).toContain("Tool Usage Limits");
-    expect(prompt).toContain("Maximum tool steps: 3");
+    expect(prompt).not.toContain("Tool Usage Limits");
+    expect(prompt).not.toContain("Maximum tool steps");
   });
 });
 
