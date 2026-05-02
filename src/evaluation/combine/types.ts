@@ -4,6 +4,13 @@
 
 /** Configuration for one evaluation in a suite */
 export interface EvalDimension {
+  /**
+   * Unique key for this dimension in the report. Defaults to `evalName`.
+   * Set this when two dimensions share the same `evalName` (e.g. one
+   * underlying eval split by `includeTask` into a write-vs-bugfix pair),
+   * so the report builder can keep them as separate columns.
+   */
+  id?: string;
   /** Evaluation name (maps to output/evaluations/{name}/) */
   evalName: string;
   /** Human-readable label for this dimension */
@@ -19,6 +26,14 @@ export interface EvalDimension {
   perTaskMaxScore?: number;
   /** Extract score from a single result JSON file */
   extractScore: (result: any) => number;
+  /**
+   * Optional filter applied to each task before loading. Receives the
+   * task directory name (e.g. `gen-fizzbuzz-typescript`) and the parsed
+   * result JSON. Return false to skip this task entirely (no contribution
+   * to score or denominator). Lets one underlying eval back two
+   * EvalDimension entries split by section/prefix.
+   */
+  includeTask?: (taskId: string, result: any) => boolean;
   /** Does this eval have a results/ subdirectory under each task? */
   hasResultsSubdir?: boolean;
   /** Optional: specific run number to use (default: latest) */

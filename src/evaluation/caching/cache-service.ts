@@ -136,12 +136,49 @@ export class EvaluationCache {
    * @returns Cached or freshly fetched model response
    */
   async getCachedModelResponse(
-    model: ModelDetails, 
-    stimulusId: string, 
+    model: ModelDetails,
+    stimulusId: string,
     fetch: () => Promise<ModelResponse>
   ): Promise<ModelResponse> {
     const key = `responses/${stimulusId}/${this.getModelKey(model)}`;
-    return this.getCachedFile(key, fetch);
+    const filePath = this.getFilePath(key);
+
+    // Cache hit — but if the cached response was partial (watchdog abort),
+    // skip the cache and re-fetch. We keep the partial on disk for
+    // forensics; the suite layer surfaces it. But if we serve it here,
+    // the next run never tries the model again.
+    if (this.isFileValid(filePath)) {
+      try {
+        const cached = JSON.parse(fs.readFileSync(filePath, 'utf8')) as ModelResponse;
+        const isPartial = (cached.metadata as any)?.partial === true;
+        if (!isPartial) {
+          this.stats.hits++;
+          this.updateHitRate();
+          return cached;
+        }
+        // Partial — fall through to re-fetch
+      } catch {
+        // Corrupt — fall through to re-fetch
+      }
+    }
+
+    // Cache miss (or partial). Fetch fresh and cache only if non-partial.
+    this.stats.misses++;
+    this.updateHitRate();
+    const data = await fetch();
+    const isPartial = (data.metadata as any)?.partial === true;
+    if (!isPartial) {
+      try {
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      } catch (err) {
+        if (this.config.verbose) {
+          console.error(`Cache write failed for key: ${key}:`, err);
+        }
+      }
+    }
+    return data;
   }
 
   /**

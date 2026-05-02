@@ -129,6 +129,8 @@ function scoreMath(
 
 export interface ToolCallingSuiteOptions {
   name?: string;
+  /** Override per-task timeout (ms). Defaults to EvalSuite default (5 min). */
+  perTaskTimeoutMs?: number;
 }
 
 export function makeToolCallingSuite(
@@ -167,5 +169,6 @@ export function makeToolCallingSuite(
     models: [model],
     allModels: [model],
     concurrency: 1,
+    perTaskTimeoutMs: opts.perTaskTimeoutMs,
   });
 }

@@ -194,10 +194,13 @@ export class SimpleEvaluation implements EvaluationStrategy {
       content: this.prompt
     });
 
-    // Execute the interaction. Forward the optional AbortSignal so a
-    // harness watchdog can cancel in-flight generation cleanly instead of
-    // leaving the request running in the background.
-    return await interaction.generateText(this.config.signal);
+    // Execute via streamText (not generateText) so that if a watchdog
+    // aborts mid-generation, the runner can salvage partial accumulated
+    // text instead of discarding everything the model emitted. Forward
+    // the optional AbortSignal so the AI SDK closes the underlying
+    // request cleanly instead of leaving generation running in the
+    // background.
+    return await interaction.streamText(this.config.signal);
   }
 
   /**

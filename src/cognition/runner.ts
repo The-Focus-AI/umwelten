@@ -219,6 +219,14 @@ export class BaseModelRunner implements ModelRunner {
   ): Promise<ModelResponse> {
     const { startTime, modelIdString } = await this.startUp(interaction);
 
+    // Hoisted so the catch block can salvage partial content when the
+    // stream is aborted mid-generation (e.g. by a watchdog timeout).
+    // Without this, abort errors discard everything the model emitted
+    // before the abort fired.
+    let fullText = "";
+    let reasoningText = "";
+    let reasoningDetails: any[] = [];
+
     try {
       const streamOptions = await this.makeStreamOptions(interaction, signal);
 
@@ -226,9 +234,6 @@ export class BaseModelRunner implements ModelRunner {
         streamOptions as Parameters<typeof streamText>[0],
       );
 
-      let fullText = "";
-      let reasoningText = "";
-      let reasoningDetails: any[] = [];
       const pendingToolCalls: any[] = [];
 
       if (response.fullStream) {
@@ -575,7 +580,56 @@ export class BaseModelRunner implements ModelRunner {
         startTime,
         modelIdString,
       });
-    } catch (err) {
+    } catch (err: any) {
+      // If the caller aborted (watchdog timeout), salvage whatever was
+      // accumulated before the abort fired — including reasoning-only
+      // output, which is the typical pattern for Gemma stuck in <think>
+      // loops with no final answer. Preserving an empty content + filled
+      // reasoning is still useful: it tells the report "model burned N
+      // tokens thinking but produced nothing."
+      //
+      // Heuristic for "aborted": explicit AbortError, our signal flagged,
+      // or message text matches abort/timeout. AI SDK's exact error shape
+      // varies by provider, so we fall through to all of them.
+      const aborted =
+        err?.name === "AbortError" ||
+        signal?.aborted === true ||
+        /aborted|AbortError|timeout/i.test(err?.message ?? "");
+      if (aborted) {
+        // Approximate completion tokens from accumulated text length.
+        // Stream usage isn't queryable mid-stream, so this is the best
+        // signal we have for "how much did the model produce before
+        // the abort." ~4 chars/token is the standard heuristic.
+        const approxCompletionTokens =
+          Math.round((fullText.length + reasoningText.length) / 4);
+        const partialResponse: ModelResponse = {
+          content: fullText,
+          metadata: {
+            startTime,
+            endTime: new Date(),
+            tokenUsage: {
+              promptTokens: 0,
+              completionTokens: approxCompletionTokens,
+              total: approxCompletionTokens,
+            },
+            cost: undefined as any,
+            provider: interaction.modelDetails.provider,
+            model: interaction.modelDetails.name,
+            partial: true,
+            partialReason: err?.message ?? "aborted",
+            partialApproxTokens: approxCompletionTokens,
+            partialReasoningChars: reasoningText.length,
+            partialContentChars: fullText.length,
+          } as any,
+          ...(reasoningText && { reasoning: reasoningText }),
+          // For partials the runner doesn't append a final assistant
+          // message (no completion happened). Snapshot what we have —
+          // system + user (+ any tool turns) — so 2-pass / replay can
+          // construct a follow-up turn even from an aborted run.
+          messages: interaction.getMessages().slice(),
+        };
+        return partialResponse;
+      }
       this.handleError(err, modelIdString, "streamText");
     }
   }
@@ -809,6 +863,12 @@ export class BaseModelRunner implements ModelRunner {
         ...(toolResults.length > 0 && { toolResults }),
       },
       ...(reasoning && { reasoning }),
+      // Snapshot the conversation as it stands at end of generation.
+      // step-assembler appends the final assistant message before this
+      // returns, so getMessages() now contains system → user → assistant
+      // (plus any tool turns). Slice to defensively copy — interaction
+      // may keep mutating after this returns.
+      messages: interaction.getMessages().slice(),
     };
 
     return modelResponse;

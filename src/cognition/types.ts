@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LanguageModel } from "ai";
+import type { CoreMessage, LanguageModel } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
 import { Interaction } from "../interaction/core/interaction.js";
@@ -129,7 +129,15 @@ export const ModelResponseSchema = z.object({
     .optional(),
 });
 
-export type ModelResponse = z.infer<typeof ModelResponseSchema>;
+export type ModelResponse = z.infer<typeof ModelResponseSchema> & {
+  /**
+   * Full message transcript (system + user + assistant + any tool turns)
+   * captured at end of generation. Snapshot of `interaction.getMessages()`
+   * — sufficient to replay the conversation without re-running the model.
+   * Cached to disk so 2-pass / multi-turn evals can pick up the thread.
+   */
+  messages?: CoreMessage[];
+};
 
 export const ScoreSchema = z.object({
   evals: z.array(

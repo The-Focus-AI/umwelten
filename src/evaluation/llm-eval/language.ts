@@ -53,6 +53,8 @@ export interface LanguageSuiteOptions {
   name?: string;
   /** Judge model for reasoning puzzles. Defaults to suite default. */
   judgeModel?: ModelDetails;
+  /** Override per-task timeout (ms). Defaults to EvalSuite default (5 min). */
+  perTaskTimeoutMs?: number;
 }
 
 export function makeLanguageSuite(
@@ -101,5 +103,6 @@ export function makeLanguageSuite(
     allModels: [model],
     judgeModel: opts.judgeModel,
     concurrency: 1,
+    perTaskTimeoutMs: opts.perTaskTimeoutMs,
   });
 }

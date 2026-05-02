@@ -18,6 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mockInteraction: {
   addMessage: ReturnType<typeof vi.fn>;
   generateText: ReturnType<typeof vi.fn>;
+  streamText: ReturnType<typeof vi.fn>;
 };
 
 describe('SimpleEvaluation', () => {
@@ -73,19 +74,23 @@ describe('SimpleEvaluation', () => {
     progressCallback = vi.fn();
 
     // Setup Interaction mock - shared across tests
+    const mockResponse = {
+      content: 'Test response',
+      metadata: {
+        startTime: new Date(),
+        endTime: new Date(),
+        tokenUsage: { promptTokens: 10, completionTokens: 20 },
+        provider: 'test-provider',
+        model: 'test-model',
+        cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
+      },
+    };
     mockInteraction = {
       addMessage: vi.fn(),
-      generateText: vi.fn().mockResolvedValue({
-        content: 'Test response',
-        metadata: {
-          startTime: new Date(),
-          endTime: new Date(),
-          tokenUsage: { promptTokens: 10, completionTokens: 20 },
-          provider: 'test-provider',
-          model: 'test-model',
-          cost: { promptTokens: 0.01, completionTokens: 0.02, total: 0.03 },
-        },
-      }),
+      generateText: vi.fn().mockResolvedValue(mockResponse),
+      // SimpleEvaluation now uses streamText so partial results survive
+      // watchdog aborts. Tests assert against streamText accordingly.
+      streamText: vi.fn().mockResolvedValue(mockResponse),
     };
 
     vi.mocked(Interaction).mockImplementation(function(this: any, modelDetails: any, stimulus: any) {
@@ -162,12 +167,12 @@ describe('SimpleEvaluation', () => {
 
       expect(results).toHaveLength(2);
       expect(mockInteraction.addMessage).toHaveBeenCalledTimes(2);
-      expect(mockInteraction.generateText).toHaveBeenCalledTimes(2);
+      expect(mockInteraction.streamText).toHaveBeenCalledTimes(2);
     });
 
     it('should handle model errors gracefully', async () => {
       // Reset mock to throw an error
-      mockInteraction.generateText.mockRejectedValue(new Error('Model error'));
+      mockInteraction.streamText.mockRejectedValue(new Error('Model error'));
 
       const results = await evaluation.run();
 
@@ -227,11 +232,11 @@ describe('SimpleEvaluation', () => {
     it('should use caching when enabled', async () => {
       // First run
       await evaluation.run();
-      expect(mockInteraction.generateText).toHaveBeenCalledTimes(2);
+      expect(mockInteraction.streamText).toHaveBeenCalledTimes(2);
 
       // Second run should use cache
       await evaluation.run();
-      expect(mockInteraction.generateText).toHaveBeenCalledTimes(2); // Should not be called again
+      expect(mockInteraction.streamText).toHaveBeenCalledTimes(2); // Should not be called again
     });
 
     it('should not use caching when disabled', async () => {
@@ -250,11 +255,11 @@ describe('SimpleEvaluation', () => {
 
       // First run
       await noCacheEvaluation.run();
-      expect(mockInteraction.generateText).toHaveBeenCalledTimes(2);
+      expect(mockInteraction.streamText).toHaveBeenCalledTimes(2);
 
       // Second run should not use cache
       await noCacheEvaluation.run();
-      expect(mockInteraction.generateText).toHaveBeenCalledTimes(4); // Should be called again
+      expect(mockInteraction.streamText).toHaveBeenCalledTimes(4); // Should be called again
     });
   });
 

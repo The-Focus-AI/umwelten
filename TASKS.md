@@ -21,9 +21,14 @@
 - [x] Download missing Gemma GGUFs
 - [x] Extend llama-swap config for additional Gemma variants
 
+## Completed (2026-04-29)
+- [x] Restart llama-swap with expanded Gemma config (e2b/e4b/26b-a4b/31b serving on :8090)
+- [x] Run Gemma llamaswap-nothink sweep (4 cells; 31b timed out on tool-calling)
+- [x] Run Gemma ollama think-mode sweep (8 cells incl. llamaswap-think; 26b-a4b + 31b llamaswap-think timed out on tool-calling reasoning loop)
+- [x] Regenerate combined markdown + narrative reports with new Gemma data
+
 ## Current
-- [ ] Restart llama-swap with expanded Gemma config
-- [ ] Run Gemma-only effective no-think benchmark sweep (Ollama + llama-swap-nothink)
+- [ ] Investigate Gemma tool-calling failure mode (calculator infinite-loop in nothink, reasoning-loop watchdog timeouts in think) — affects e2b through 31b across runtimes
 
 ## Planned
 - [ ] Keep detailed raw markdown report as appendix/source artifact

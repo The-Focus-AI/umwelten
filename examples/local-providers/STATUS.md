@@ -78,6 +78,32 @@ dotenvx run -- pnpm run cli eval combine \
 3. **gpt-oss MXFP4 is the same file on both runtimes** — apples-to-apples
    regardless of Q4/Q8 choice. Expect this family to show the smallest
    cross-runtime gap.
+4. **Gemma tool-calling is broken across all sizes (2026-04-29 sweep).**
+   - In nothink mode: calculator infinite-loops (10+ identical
+     `1.07^5` calls), then returns empty. e2b 0/5, e4b 0/5×2, 26b-a4b
+     0/5, 31b watchdog timeout.
+   - In think mode: 26b-a4b and 31b both trip the 20-min suite watchdog,
+     stuck in reasoning loops (78k tokens decoded on one cell with no
+     output). Smaller variants (e2b/e4b) just return empty.
+   - Affects both ollama and llamaswap. Worth a separate investigation —
+     looks like a Gemma chat-template / tool-calling integration issue
+     rather than a runtime bug.
+
+## Gemma sweep (2026-04-29)
+
+Added Gemma e2b and e4b variants to the matrix (full set: e2b, e4b,
+26b-a4b, 31b). Ran two sweeps:
+
+- **llamaswap-nothink Gemmas (4 cells):** 3 ok, gemma-4-31b watchdog
+  timeout on tool-calling.
+- **think-mode Gemmas (8 cells = 4 ollama + 4 llamaswap):** 6 ok,
+  llamaswap:gemma-4-26b-a4b and llamaswap:gemma-4-31b both watchdog
+  timeout on tool-calling (reasoning loop).
+
+Combined report regenerated to `output/local-providers-report.md` and
+`output/local-providers-report-narrative.md`. New top-3 (any provider):
+gemma-4-26b-a4b llamaswap-nothink, gemma-4-31b llamaswap-nothink,
+gemma4:31b ollama — all 100% on the 4-suite combined score.
 
 ## Files touched
 

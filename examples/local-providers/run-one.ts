@@ -59,6 +59,19 @@ if (onlyArg && (!only || only.length === 0)) {
 const skipEvict = argv.includes('--skip-evict');
 const requireAC = argv.includes('--require-ac');
 
+function parseMin(flag: string): number | undefined {
+  const v = readArg(flag);
+  if (!v) return undefined;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) {
+    console.error(`${flag}: expected a positive number, got "${v}"`);
+    process.exit(1);
+  }
+  return n * 60_000;
+}
+const perTaskTimeoutMs = parseMin('--task-timeout-min');
+const perCellTimeoutMs = parseMin('--cell-timeout-min');
+
 const matrixHit = LOCAL_MATRIX_ALL.find(
   (e) => e.model.provider === provider && e.model.name === name,
 );
@@ -77,11 +90,15 @@ async function main() {
   const reports = await runHarness([entry], {
     skipEvict,
     skipEvictIfAlreadyLoaded: true,
+    perCellTimeoutMs,
     preflight: {
       requireAC,
       minBatteryLevel: 0.5,
     },
-    fullEvalOptions: only ? { only } : {},
+    fullEvalOptions: {
+      ...(only ? { only } : {}),
+      ...(perTaskTimeoutMs ? { perTaskTimeoutMs } : {}),
+    },
   });
 
   const r = reports[0];

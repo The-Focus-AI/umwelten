@@ -58,6 +58,13 @@ export interface FullEvalOptions {
   judgeModel?: ModelDetails;
   /** Restrict coding suite to specific languages. */
   codingLanguages?: CodingSuiteOptions['languages'];
+  /**
+   * Override per-task timeout (ms). Applied to all sub-suites.
+   * Use to retry cells that hit the default 5-min watchdog due to
+   * legitimate (not hung) reasoning chains. Default: undefined → EvalSuite
+   * default (300_000 ms).
+   */
+  perTaskTimeoutMs?: number;
 }
 
 export interface SuiteRunResult {
@@ -108,6 +115,7 @@ export async function runFullEval(
     const suite = makeLanguageSuite(model, {
       name: opts.names?.language,
       judgeModel: opts.judgeModel,
+      perTaskTimeoutMs: opts.perTaskTimeoutMs,
     });
     const results = await suite.run({ signal });
     suites.push({
@@ -123,6 +131,7 @@ export async function runFullEval(
     const suite = makeCodingSuite(model, {
       name: opts.names?.coding,
       languages: opts.codingLanguages,
+      perTaskTimeoutMs: opts.perTaskTimeoutMs,
     });
     const results = await suite.run({ signal });
     suites.push({
@@ -137,6 +146,7 @@ export async function runFullEval(
     const t0 = Date.now();
     const suite = makeToolCallingSuite(model, {
       name: opts.names?.['tool-calling'],
+      perTaskTimeoutMs: opts.perTaskTimeoutMs,
     });
     const results = await suite.run({ signal });
     suites.push({

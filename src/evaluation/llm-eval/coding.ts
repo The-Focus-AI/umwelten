@@ -47,7 +47,76 @@ function extractCode(response: string, lang: Language): string | null {
   return null;
 }
 
-function executeLocal(
+/**
+ * Augment PATH and resolve GOROOT for runtimes we need. Some
+ * environments (Claude Code's bash sandbox, Docker, CI) start without
+ * mise's shim path, so `go` / `tsx` / `python3` aren't found despite
+ * being installed. mise-installed Go binaries also expect GOROOT to
+ * be set explicitly — the binary's baked-in GOROOT can be stale across
+ * upgrades. We probe known locations, pick the highest installed go
+ * version, and produce both an augmented PATH and the matching GOROOT.
+ */
+function pickLatestMiseDir(parent: string): string | undefined {
+  try {
+    const versions = fs
+      .readdirSync(parent)
+      .filter((d) => /^\d/.test(d) && /^[\d.]+$/.test(d))
+      .filter((d) => {
+        try {
+          return fs.statSync(path.join(parent, d)).isDirectory();
+        } catch {
+          return false;
+        }
+      })
+      // Sort by version components so 1.26.2 wins over 1.26
+      .sort((a, b) => {
+        const av = a.split('.').map(Number);
+        const bv = b.split('.').map(Number);
+        for (let i = 0; i < Math.max(av.length, bv.length); i++) {
+          const d = (bv[i] ?? 0) - (av[i] ?? 0);
+          if (d !== 0) return d;
+        }
+        return 0;
+      });
+    return versions[0];
+  } catch {
+    return undefined;
+  }
+}
+
+function buildExecEnv(): { PATH: string; GOROOT?: string } {
+  const home = process.env.HOME ?? '';
+  const goParent = `${home}/.local/share/mise/installs/go`;
+  const goVersion = pickLatestMiseDir(goParent);
+  const goRoot = goVersion ? path.join(goParent, goVersion) : undefined;
+  const goBin = goRoot ? path.join(goRoot, 'bin') : undefined;
+
+  const candidates = [
+    goBin,
+    `${home}/.local/share/mise/shims`,
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+  ].filter((p): p is string => Boolean(p));
+
+  const existing = (process.env.PATH ?? '').split(path.delimiter);
+  const additions = candidates.filter(
+    (p) => !existing.includes(p) && fs.existsSync(p),
+  );
+  return {
+    PATH: [...additions, ...existing].join(path.delimiter),
+    ...(goRoot && fs.existsSync(goRoot) ? { GOROOT: goRoot } : {}),
+  };
+}
+
+const EXEC_ENV = buildExecEnv();
+
+/**
+ * Run a code blob through the appropriate interpreter/compiler.
+ * Exported so 2-pass / replay drivers can re-execute a saved
+ * round-1 response and capture the exact error to feed back into
+ * round-2 generation.
+ */
+export function executeLocal(
   code: string,
   lang: Language,
   timeoutMs = 15000,
@@ -72,6 +141,7 @@ function executeLocal(
       timeout: timeoutMs,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, ...EXEC_ENV },
     });
     return { stdout, stderr: '', exitCode: 0 };
   } catch (err: any) {
@@ -85,6 +155,57 @@ function executeLocal(
   }
 }
 
+/**
+ * Score one generation-task response. Pure function over (challenge,
+ * lang, response) — used both inline by the suite and by 2-pass drivers
+ * that re-score after a follow-up turn. Returns the verify result
+ * plus the captured exec output so callers can build error-feedback
+ * messages without having to extract+run the code a second time.
+ */
+export function verifyGenerationResponse(
+  challenge: (typeof ALL_CHALLENGES)[number],
+  lang: Language,
+  response: string,
+): {
+  score: number;
+  details: string;
+  code: string | null;
+  exec?: { stdout: string; stderr: string; exitCode: number };
+} {
+  const code = extractCode(response, lang);
+  if (!code) {
+    return { score: 0, details: 'no code block extracted', code: null };
+  }
+  const exec = executeLocal(code, lang);
+  if (exec.exitCode !== 0) {
+    return {
+      score: 1,
+      details: `runtime error: ${exec.stderr.slice(0, 120)}`,
+      code,
+      exec,
+    };
+  }
+  const v = challenge.verify(exec.stdout);
+  return { score: 1 + 1 + v.score, details: v.details, code, exec };
+}
+
+/**
+ * Resolve a generation task id (e.g. `gen-fizzbuzz-boom-go`) to its
+ * (challenge, language) pair. Returns null if the id doesn't match a
+ * known generation task. Used by 2-pass drivers that operate on saved
+ * task records and need to re-score them.
+ */
+export function lookupGenerationTask(
+  taskId: string,
+): { challenge: (typeof ALL_CHALLENGES)[number]; lang: Language } | null {
+  const m = taskId.match(/^gen-(.+)-(typescript|python|go)$/);
+  if (!m) return null;
+  const [, challengeId, lang] = m;
+  const challenge = ALL_CHALLENGES.find((c) => c.id === challengeId);
+  if (!challenge) return null;
+  return { challenge, lang: lang as Language };
+}
+
 function buildGenerationTasks(languages: Language[]): EvalTask[] {
   const tasks: EvalTask[] = [];
   for (const lang of languages) {
@@ -96,18 +217,8 @@ function buildGenerationTasks(languages: Language[]): EvalTask[] {
         maxScore: 7,
         section: SECTION_GENERATION,
         verify: (response: string) => {
-          const code = extractCode(response, lang);
-          if (!code) return { score: 0, details: 'no code block extracted' };
-          const exec = executeLocal(code, lang);
-          if (exec.exitCode !== 0) {
-            return {
-              score: 1,
-              details: `runtime error: ${exec.stderr.slice(0, 120)}`,
-            };
-          }
-          const v = challenge.verify(exec.stdout);
-          // compile(1) + runs(1) + correctness(0-5)
-          return { score: 1 + 1 + v.score, details: v.details };
+          const r = verifyGenerationResponse(challenge, lang, response);
+          return { score: r.score, details: r.details };
         },
       });
     }
@@ -389,6 +500,8 @@ export interface CodingSuiteOptions {
   name?: string;
   /** Restrict to a subset of languages. Default: all three. */
   languages?: Language[];
+  /** Override per-task timeout (ms). Defaults to EvalSuite default (5 min). */
+  perTaskTimeoutMs?: number;
 }
 
 export function makeCodingSuite(
@@ -435,5 +548,6 @@ export function makeCodingSuite(
     models: [model],
     allModels: [model],
     concurrency: 1,
+    perTaskTimeoutMs: opts.perTaskTimeoutMs,
   });
 }

@@ -75,6 +75,10 @@ export function loadDimension(
           fs.readFileSync(path.join(resultsPath, file), 'utf8')
         );
 
+        if (dimension.includeTask && !dimension.includeTask(taskDir, data)) {
+          continue;
+        }
+
         const score = dimension.extractScore(data);
         const cost = data.cost || 0;
         const durationMs = data.durationMs || 0;
@@ -211,9 +215,10 @@ export function loadSuite(
       continue;
     }
 
+    const dimKey = dim.id ?? dim.evalName;
     const { scores, taskResults } = loadDimension(dim, runResult.runDir);
-    allDimensionScores.set(dim.evalName, scores);
-    allTaskResults.set(dim.evalName, taskResults);
+    allDimensionScores.set(dimKey, scores);
+    allTaskResults.set(dimKey, taskResults);
 
     // Count unique tasks by looking at subdirs
     const taskCount = fs.readdirSync(runResult.runDir)
@@ -221,7 +226,7 @@ export function loadSuite(
       .length;
 
     runInfo.push({
-      evalName: dim.evalName,
+      evalName: dimKey,
       label: dim.label,
       runDir: runResult.runDir,
       runNumber: runResult.runNumber,

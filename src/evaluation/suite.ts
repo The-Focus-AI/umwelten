@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
+import type { CoreMessage } from 'ai';
 import { Stimulus, type StimulusOptions } from '../stimulus/stimulus.js';
 import { SimpleEvaluation } from './strategies/simple-evaluation.js';
 import { EvaluationCache } from './caching/cache-service.js';
@@ -118,6 +119,36 @@ export interface TaskResultRecord {
   error?: string;
   /** Sub-suite label, copied from EvalTask.section. */
   section?: string;
+  /** True if generation was aborted mid-stream (watchdog timeout). The
+   *  responseText is whatever was accumulated before the abort fired. */
+  partial?: boolean;
+  /** Reasoning/thinking tokens (e.g. from Gemma <think> blocks). Captured
+   *  for partial responses so we can see what the model was doing when
+   *  the watchdog fired — often a giant reasoning loop with no answer. */
+  reasoning?: string;
+  /** Token usage from the runtime, for partials especially — shows how
+   *  many tokens were burned before the abort. */
+  tokenUsage?: { promptTokens?: number; completionTokens?: number; total?: number };
+  /**
+   * The exact user prompt sent to the model. Stored alongside the
+   * stimulus snapshot so we can rebuild the conversation without
+   * re-deriving from task definitions (which may change between runs).
+   */
+  prompt?: string;
+  /**
+   * Snapshot of the resolved Stimulus options (role / objective /
+   * instructions / temperature / etc.). Tools are stripped — they're
+   * functions and not safely serializable; replay logic reattaches the
+   * task's tool set on demand.
+   */
+  stimulusOptions?: Omit<StimulusOptions, 'tools' | 'runnerType'>;
+  /**
+   * Full message transcript: system + user + assistant (+ tool turns).
+   * Replay rebuilds an Interaction from this; 2-pass evals append to
+   * it. Untruncated. Sidecar transcript file is written next to the
+   * task result so the main JSON stays small for report consumers.
+   */
+  messages?: CoreMessage[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,7 +160,7 @@ function modelLabel(m: ModelDetails): string {
   return `${m.provider}:${m.name}${effort}`;
 }
 
-function modelKey(m: ModelDetails): string {
+export function modelKey(m: ModelDetails): string {
   const effort = m.reasoningEffort ? `-effort-${m.reasoningEffort}` : '';
   return `${m.name.replace(/[\/:]/g, '-')}-${m.provider}${effort}`;
 }
@@ -259,6 +290,10 @@ export class EvalSuite {
         ? this.config.stimulus(task)
         : this.config.stimulus;
       const stimulus = new Stimulus({ ...stimOpts, runnerType: 'base' });
+      // Snapshot for replay: drop tools (functions, not safely
+      // serializable). runnerType is already excluded by EvalSuiteConfig
+      // type. Everything else round-trips through JSON.
+      const { tools: _tools, ...stimulusSnapshot } = stimOpts;
 
       // Get model responses
       const cache = new EvaluationCache(
@@ -280,23 +315,49 @@ export class EvalSuite {
 
       // Per-task timeout: a single hung task won't kill the whole suite.
       // This is critical for local models that can get stuck in thinking loops.
+      //
+      // On timeout, we fire the abort signal but await evaluation.run()
+      // anyway so the runner can return whatever partial content the
+      // model emitted before being interrupted. SimpleEvaluation forwards
+      // the signal to streamText, which has been wired to salvage the
+      // accumulated `fullText`/`reasoningText` on AbortError.
+      //
+      // A secondary hard-deadline race protects against a runtime that
+      // ignores the abort signal — if evaluation.run() doesn't settle
+      // within HARD_DEADLINE_GRACE_MS after we fire the abort, we throw
+      // and treat all models as zero-score timeouts (legacy behavior).
+      const HARD_DEADLINE_GRACE_MS = 30_000;
       const taskController = new AbortController();
+      let timedOut = false;
       const taskTimer = setTimeout(() => {
+        timedOut = true;
         taskController.abort(new Error(`per-task timeout: exceeded ${perTaskTimeoutMs / 1000}s`));
       }, perTaskTimeoutMs);
+
+      // Re-wire signal forwarding: pass taskController.signal to the
+      // strategy (via config.signal, set above on `evaluation`).
+      (evaluation as any).config.signal = taskController.signal;
+
       let evalResults;
       try {
         evalResults = await Promise.race([
           evaluation.run(),
           new Promise<never>((_, reject) => {
-            taskController.signal.addEventListener('abort', () =>
-              reject(new Error(taskController.signal.reason?.toString() ?? 'per-task timeout')),
+            // Hard deadline: fire perTaskTimeout + grace AFTER abort signal.
+            // Used only as a safety net — normally evaluation.run() settles
+            // promptly after abort because streamText respects the signal.
+            const hardTimer = setTimeout(
+              () => reject(new Error(`hard timeout: exceeded ${(perTaskTimeoutMs + HARD_DEADLINE_GRACE_MS) / 1000}s`)),
+              perTaskTimeoutMs + HARD_DEADLINE_GRACE_MS,
             );
+            // Allow GC if the race resolves first
+            (hardTimer as any).unref?.();
           }),
         ]);
       } catch (err: any) {
-        // Per-task timeout — log and skip, don't kill the suite
-        console.log(`  ⏱  task timed out after ${perTaskTimeoutMs / 1000}s — skipping`);
+        // Hard deadline hit — runtime ignored abort signal. Fall back to
+        // zero-score timeout records (legacy behavior).
+        console.log(`  ⏱  hard timeout after ${(perTaskTimeoutMs + HARD_DEADLINE_GRACE_MS) / 1000}s — skipping`);
         for (const model of models) {
           const record: TaskResultRecord = {
             taskId: task.id,
@@ -305,18 +366,23 @@ export class EvalSuite {
             responseText: '',
             score: 0,
             maxScore: task.maxScore,
-            details: `per-task timeout: ${err?.message ?? 'unknown'}`,
-            durationMs: perTaskTimeoutMs,
+            details: `hard timeout: ${err?.message ?? 'unknown'}`,
+            durationMs: perTaskTimeoutMs + HARD_DEADLINE_GRACE_MS,
             cost: 0,
-            error: err?.message ?? 'per-task timeout',
+            error: err?.message ?? 'hard timeout',
+            partial: true,
           };
           allResults.push(record);
-          console.log(`  ❌ ${modelLabel(model)} → 0/${task.maxScore} (timeout)`);
+          console.log(`  ❌ ${modelLabel(model)} → 0/${task.maxScore} (hard timeout)`);
         }
         clearTimeout(taskTimer);
         continue;
       }
       clearTimeout(taskTimer);
+
+      if (timedOut) {
+        console.log(`  ⏱  task aborted after ${perTaskTimeoutMs / 1000}s — scoring partial output`);
+      }
 
       // Score each response
       const resultsDir = path.join(runDir, task.id);
@@ -335,14 +401,18 @@ export class EvalSuite {
         if (fs.existsSync(resultPath) && !process.argv.includes('--new')) {
           try {
             const cached = JSON.parse(fs.readFileSync(resultPath, 'utf8')) as TaskResultRecord;
-            // Re-run if previous result was an error or judge failed
-            if (!cached.error && (cached.score > 0 || !isJudgeTask(task))) {
+            // Re-run if previous result was an error, partial (watchdog
+            // abort), or a zero-score judge result. Partials are retried
+            // because the model may produce a complete answer next time
+            // — but we keep the partial record on disk as evidence of
+            // the timeout pattern.
+            if (!cached.error && !cached.partial && (cached.score > 0 || !isJudgeTask(task))) {
               allResults.push(cached);
               const icon = cached.score >= cached.maxScore * 0.8 ? '✅' : cached.score > 0 ? '⚠️' : '❌';
               console.log(`  ${icon} ${modelLabel(result.model)} → ${cached.score}/${cached.maxScore} (cached)`);
               continue;
             }
-            // Error or zero-score judge result — retry
+            // Error, partial, or zero-score judge — retry
           } catch { /* corrupt file — re-score */ }
         }
 
@@ -350,8 +420,15 @@ export class EvalSuite {
           ? result.response.content
           : JSON.stringify(result.response.content);
 
+        // True if streamText was aborted mid-generation (watchdog timeout)
+        // and salvaged the accumulated text. The response is still scored
+        // — the model may have produced enough before the abort to score
+        // points — but we flag it so reports can distinguish complete
+        // answers from truncated ones.
+        const isPartial = (result.response.metadata as any)?.partial === true;
+
         let score = 0;
-        let details = 'empty response';
+        let details = isPartial ? 'partial response (watchdog abort)' : 'empty response';
         let judge: any = undefined;
 
         if (responseText && !result.metadata.error) {
@@ -379,6 +456,12 @@ export class EvalSuite {
           }
         }
 
+        const reasoningText =
+          typeof (result.response as any).reasoning === 'string'
+            ? (result.response as any).reasoning
+            : undefined;
+        const usage = (result.response.metadata as any)?.tokenUsage;
+
         const record: TaskResultRecord = {
           taskId: task.id,
           model: result.model.name,
@@ -393,12 +476,51 @@ export class EvalSuite {
           judge,
           error: result.metadata.error,
           ...(task.section && { section: task.section }),
+          ...(isPartial && { partial: true }),
+          // Capture reasoning + usage for partials especially. For
+          // non-partials, only save reasoning when present and shortish
+          // — full <think> blocks for completed runs are noise.
+          ...(reasoningText && (isPartial || reasoningText.length < 4000) && {
+            reasoning: reasoningText.slice(0, isPartial ? 8000 : 4000),
+          }),
+          ...(usage && { tokenUsage: {
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            total: usage.total,
+          }}),
+          prompt: task.prompt,
+          stimulusOptions: stimulusSnapshot,
         };
         allResults.push(record);
         fs.writeFileSync(resultPath, JSON.stringify(record, null, 2));
 
+        // Sidecar transcript file: full untruncated message history,
+        // suitable for replay or multi-turn follow-up. Written separately
+        // so the main result file stays small for report consumers that
+        // never need the transcript.
+        const messages = (result.response as ModelResponse).messages;
+        if (messages && messages.length > 0) {
+          const transcriptPath = path.join(resultsDir, `${mk}.transcript.json`);
+          fs.writeFileSync(
+            transcriptPath,
+            JSON.stringify(
+              {
+                taskId: task.id,
+                model: result.model.name,
+                provider: result.model.provider,
+                prompt: task.prompt,
+                stimulusOptions: stimulusSnapshot,
+                messages,
+              },
+              null,
+              2,
+            ),
+          );
+        }
+
         const icon = score >= task.maxScore * 0.8 ? '✅' : score > 0 ? '⚠️' : '❌';
-        console.log(`  ${icon} ${modelLabel(result.model)} → ${score}/${task.maxScore} ${details.slice(0, 60)}`);
+        const partialMark = isPartial ? ' ⏱[partial]' : '';
+        console.log(`  ${icon} ${modelLabel(result.model)} → ${score}/${task.maxScore}${partialMark} ${details.slice(0, 60)}`);
       }
     }
 

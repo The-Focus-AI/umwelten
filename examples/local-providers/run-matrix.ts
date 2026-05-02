@@ -108,6 +108,13 @@ async function main() {
       // ~30Wh easily and we don't want the laptop to die mid-cell.
       minBatteryLevel: 0.5,
     },
+    // Re-check battery/AC before EVERY cell, not just at startup.
+    // Otherwise a multi-hour sweep that started at 65% drains down
+    // through the threshold and keeps running until the laptop sleeps.
+    // Per-cell check costs ~10ms; cell duration is minutes — basically
+    // free. If a cell would run with <50% battery on power, it gets
+    // skipped (cached results stay; the harness moves on or exits).
+    perCellPreflight: true,
     fullEvalOptions: only ? { only } : {},
   });
 
