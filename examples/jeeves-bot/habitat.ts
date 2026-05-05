@@ -14,7 +14,6 @@ export async function createJeevesHabitat(): Promise<Habitat> {
   return Habitat.create({
     envPrefix: 'JEEVES',
     defaultWorkDirName: '.jeeves',
-    defaultSessionsDirName: '.jeeves-sessions',
     stimulusTemplatePath: join(__dirname, 'JEEVES_PROMPT.md'),
     registerCustomTools: async (habitat) => {
       habitat.addTool('search', tavilySearchTool);

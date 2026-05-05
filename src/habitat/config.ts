@@ -31,17 +31,20 @@ export function resolveWorkDir(options?: HabitatOptions): string {
 
 /**
  * Resolve the sessions directory from options, env, or default.
+ * Defaults to ${workDir}/sessions (co-located with the habitat).
  */
-export function resolveSessionsDir(options?: HabitatOptions): string {
+export function resolveSessionsDir(options?: HabitatOptions, workDir?: string): string {
   const prefix = options?.envPrefix ?? 'HABITAT';
-  const defaultName = options?.defaultSessionsDirName ?? '.habitat-sessions';
 
   if (options?.sessionsDir) return resolve(options.sessionsDir);
 
   const env = process.env[`${prefix}_SESSIONS_DIR`];
   if (env) return resolve(env);
 
-  return join(homedir(), defaultName);
+  // Sessions live inside the work directory
+  if (workDir) return join(workDir, 'sessions');
+
+  return join(homedir(), '.habitat', 'sessions');
 }
 
 /**

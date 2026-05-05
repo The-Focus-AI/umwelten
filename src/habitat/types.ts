@@ -124,8 +124,6 @@ export interface HabitatOptions {
   envPrefix?: string;
   /** Default work directory name under home (default: ".habitat"). */
   defaultWorkDirName?: string;
-  /** Default sessions directory name under home (default: ".habitat-sessions"). */
-  defaultSessionsDirName?: string;
   /** Override the habitat config (skip loading from disk). */
   config?: HabitatConfig;
   /** Custom tool registration callback (called after built-in tools). */

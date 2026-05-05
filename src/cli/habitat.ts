@@ -82,7 +82,6 @@ async function createHabitatFromOptions(
     sessionsDir: options.sessionsDir,
     envPrefix: options.envPrefix ?? "HABITAT",
     defaultWorkDirName: "habitats",
-    defaultSessionsDirName: "habitats-sessions",
   });
 
   // Onboard if needed
@@ -1477,3 +1476,42 @@ agentSubcommand
   });
 
 habitatCommand.addCommand(agentSubcommand);
+
+// Serve subcommand — expose habitat tools as MCP server
+const serveSubcommand = new Command("serve").description(
+  "Start an MCP server exposing all habitat tools over Streamable HTTP.",
+);
+addSharedOptions(serveSubcommand)
+  .option("--port <port>", "HTTP port (default: 8080)", "8080")
+  .option("--host <host>", "Bind address (default: 0.0.0.0)", "0.0.0.0")
+  .action(
+    async (
+      options: HabitatCLIOptions & { port?: string; host?: string },
+      command: Command,
+    ) => {
+      const merged = mergedHabitatCliOptions(command, options) as typeof options;
+      const habitat = await createHabitatFromOptions(merged);
+
+      const { startHabitatMcpServer } = await import(
+        "../habitat/mcp-local-server.js"
+      );
+
+      const server = await startHabitatMcpServer({
+        habitat,
+        port: parseInt(merged.port ?? "8080", 10),
+        host: merged.host ?? "0.0.0.0",
+        name: habitat.getConfig().name ?? "habitat-mcp",
+      });
+
+      // Keep process alive until SIGINT/SIGTERM
+      const shutdown = () => {
+        console.log("\n[habitat-mcp] Shutting down...");
+        server.close();
+        process.exit(0);
+      };
+      process.on("SIGINT", shutdown);
+      process.on("SIGTERM", shutdown);
+    },
+  );
+
+habitatCommand.addCommand(serveSubcommand);

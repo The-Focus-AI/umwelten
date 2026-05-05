@@ -145,26 +145,51 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `secrets.ts` — Work-dir `secrets.json` (plain JSON map, file mode 0600)
 - `transcript.ts` — Export sessions to JSONL
 - `gaia-server.ts` — HTTP server for habitat API
+- `mcp-local-server.ts` — **MCP server exposing all habitat tools over Streamable HTTP** (no OAuth, for local/container use)
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
 - `bridge/diagnosis-agent.ts` — LLM agent for read-only project inspection and provisioning detection
 - `bridge/monitor-agent.ts` — LLM agent for container health monitoring
+
+**Directory layout** — sessions are co-located inside the work directory:
+
+```
+workDir/
+  config.json         # agent definition
+  STIMULUS.md         # persona
+  secrets.json        # API keys (mode 0600)
+  skills/             # installed skills
+  tools/              # custom tools
+  sessions/           # conversation history (JSONL)
+```
+
+**MCP Server** (`mcp-local-server.ts`):
+
+Exposes all habitat tools as MCP tools over Streamable HTTP at `/mcp`. Stateless (no session management — that's the A2A layer's job). Uses official `@modelcontextprotocol/sdk`.
+
+```bash
+# Start the MCP server
+dotenvx run -- pnpm run cli habitat serve --port 8080
+
+# Connect with any MCP client
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp
+```
 
 **Tool Sets** — named collections registered on a habitat:
 
 | ToolSet | Tools | In `standardToolSets`? |
 |---------|-------|----------------------|
-| `fileToolSet` | read_file, write_file, list_directory, ripgrep | No (sub-agent) |
-| `timeToolSet` | current_time | No (sub-agent) |
-| `urlToolSet` | wget, markify, parse_feed | No (sub-agent) |
+| `fileToolSet` | read_file, write_file, list_directory, ripgrep | Yes |
+| `timeToolSet` | current_time | Yes |
+| `urlToolSet` | wget, markify, parse_feed | Yes |
 | `agentToolSet` | list/add/update/remove agents | Yes |
 | `sessionToolSet` | sessions_* list/show/messages/stats/inspect/read_file, learnings append/read, transcript compact | Yes |
 | `externalInteractionToolSet` | read Claude Code/Cursor history | Yes |
 | `agentRunnerToolSet` | agent_clone, agent_logs, agent_status, agent_ask, bridge_*, bridge_diagnose, bridge_monitor | Yes |
-| `runProjectToolSet` | run_project (Dagger smart containers) | Yes |
 | `secretsToolSet` | set/remove/list secrets | Yes |
 | `searchToolSet` | web search via Tavily | Yes |
+| `selfModifyToolSet` | create_tool, create_skill, reload, list, remove | Yes |
 
-`standardToolSets` = management tools. File/time/URL tools must be registered separately via `registerCustomTools`.
+`standardToolSets` includes all tool sets. All are registered by default.
 
 **Habitat tools** (`src/habitat/tools/`):
 
@@ -176,7 +201,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `agent-runner-tools.ts` — Clone repos, read logs, check status, delegate to sub-agents, bridge_diagnose (LLM provisioning), bridge_monitor (LLM health check)
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
 - `secrets-tools.ts` — Manage secrets in the habitat store
-- `run-project/` — Smart Dagger container execution (auto-detect project type, install deps, inject API keys)
+- `self-modify-tools.ts` — Create/remove tools and skills at runtime
 
 ### `src/evaluation/` — Model Evaluation Framework
 
@@ -369,10 +394,15 @@ dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview
 # Scripted evaluations (e.g. car wash test)
 dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
 
-# Connect to a remote MCP server and chat (OAuth handled automatically)
+# Start habitat as an MCP server (exposes all tools over Streamable HTTP)
+dotenvx run -- pnpm run cli habitat serve --port 8080
+dotenvx run -- pnpm run cli habitat serve --port 8080 --work-dir ./my-agent
+
+# Connect to any MCP server and chat (OAuth handled automatically if server requires it)
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp --one-shot "list my files"
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
-dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --logout
 
 # Session browser — primary entry for session review and digest management.
 # Every session (claude-code and habitat) with its digest (topics, tags, summary,

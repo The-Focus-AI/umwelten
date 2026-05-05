@@ -117,7 +117,7 @@ export class Habitat
 
     // 1. Resolve directories
     const workDir = resolveWorkDir(opts);
-    const sessionsDir = resolveSessionsDir(opts);
+    const sessionsDir = resolveSessionsDir(opts, workDir);
     const configPath = resolveConfigPath(workDir, opts);
 
     // 2. Ensure directories exist

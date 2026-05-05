@@ -34,7 +34,6 @@ export async function createMCPChatRuntime(): Promise<MCPChatRuntime> {
   const habitat = await Habitat.create({
     envPrefix: 'MCP_CHAT',
     defaultWorkDirName: '.mcp-chat',
-    defaultSessionsDirName: '.mcp-chat-sessions',
     stimulusTemplatePath: join(__dirname, 'MCP_CHAT_PROMPT.md'),
     skipBuiltinTools: true,
     skipWorkDirTools: true,

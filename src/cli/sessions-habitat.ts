@@ -50,7 +50,6 @@ function habitatOptionsFromMerged(merged: Record<string, unknown>): HabitatOptio
     sessionsDir: merged.sessionsDir as string | undefined,
     envPrefix: (merged.envPrefix as string | undefined) ?? "HABITAT",
     defaultWorkDirName: "habitats",
-    defaultSessionsDirName: "habitats-sessions",
   };
 }
 

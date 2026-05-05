@@ -99,6 +99,13 @@ export type {
 } from "./mcp-serve/types.js";
 export { getPublicBaseUrl } from "./mcp-serve/public-url.js";
 
+// Habitat MCP local server — expose habitat tools over Streamable HTTP (no OAuth)
+export { startHabitatMcpServer } from "./mcp-local-server.js";
+export type {
+  HabitatMcpServerOptions,
+  StartedHabitatMcpServer,
+} from "./mcp-local-server.js";
+
 export { AgentDiscovery, isMCPServerRunning } from "./agent-discovery.js";
 export type {
   DiscoveredAgent,
