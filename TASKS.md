@@ -65,10 +65,19 @@
 - [x] `/health` and static UI always open (no auth required)
 - [x] Create minimal chat UI (`src/habitat/container-ui/index.html`) — vanilla HTML/JS, no build step
 - [x] Chat UI: streams AI SDK UI Message Stream, renders markdown, shows tool calls inline
+- [x] Reasoning/thinking: full pipeline runner → bridge → SSE → UI, collapsible thinking block
+- [x] Artifact system: `publish_artifact` + `list_artifacts` tools, `/api/artifacts` endpoint
+- [x] Artifact metadata: name, description, mimeType, timestamp, sessionId, sourcePath
+- [x] Artifacts pane in header: thumbnails visible across all tabs, click for detail overlay
+- [x] Sessions browser tab: list sessions, click to view full message history with tool calls
+- [x] Settings tab: inference form, full config.json, mise.toml dependencies, env var status
+- [x] `/api/settings` endpoint — config, deps, env vars
+- [x] `/files/*` serves files from work dir with proper MIME types and sandbox checks
+- [x] Platform instructions guide model to use `publish_artifact` and `/files/` URLs
+- [x] Tab order: Chat (default) → Sessions → Settings
 - [x] Update `habitat serve` CLI — uses unified server by default, `--mcp-only` for legacy
-- [x] Update Dockerfile comments
 - [x] Export `startContainerServer` from habitat index
-- [x] Integration tested: health, UI, API, 404 all working
+- [x] Integration tested: health, UI, API, artifacts, sessions all working
 
 ## Phase 5: A2A Agent (Next)
 
@@ -81,7 +90,7 @@ MCP client → POST /mcp → Raw tools (no LLM)
 - [ ] Mount `/.well-known/agent.json` — agent card generated from config + stimulus
 - [ ] Mount `/a2a` — A2A endpoint wrapping ChannelBridge with task lifecycle
 - [ ] Context-keyed sessions (contextId → habitat sessionId)
-- [ ] Artifact production from file tool results
+- [ ] Map published artifacts → A2A Artifact parts in task responses
 - [ ] Test: send A2A message, get response, verify agent card
 
 ## Backlog
