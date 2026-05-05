@@ -118,6 +118,9 @@ importers:
       react:
         specifier: ^19.2.4
         version: 19.2.4
+      streammark:
+        specifier: ^1.0.4
+        version: 1.0.4
       tiktoken:
         specifier: ^1.0.22
         version: 1.0.22
@@ -3163,6 +3166,9 @@ packages:
     resolution: {integrity: sha512-reExS1kSGoElkextOcPkel4NE99S0BWxjUHQeDFnR8S993JxpPX7KU4MNmO19NXhlJp+8dmdCbKQVNgLJh2teA==}
     engines: {node: '>=18'}
 
+  streammark@1.0.4:
+    resolution: {integrity: sha512-2r1Jtw8P3wdsqjmwo6fIYZZeyc99seYyM63DEEuMbDmFqLD8xO8L6+ovThcR67eQSs51NOnH0gLLySB4Mksm3A==}
+
   string-template@0.2.1:
     resolution: {integrity: sha512-Yptehjogou2xm4UJbxJ4CxgZx12HBfeystp0y3x7s4Dj32ltVVG1Gg8YhKjHZkHicuKpZX/ffilA8505VbUbpw==}
 
@@ -5869,7 +5875,7 @@ snapshots:
 
   is-fullwidth-code-point@5.1.0:
     dependencies:
-      get-east-asian-width: 1.4.0
+      get-east-asian-width: 1.5.0
 
   is-glob@4.0.3:
     dependencies:
@@ -6639,6 +6645,11 @@ snapshots:
 
   stdin-discarder@0.3.1: {}
 
+  streammark@1.0.4:
+    dependencies:
+      chalk: 5.6.2
+      string-width: 7.2.0
+
   string-template@0.2.1: {}
 
   string-width@4.2.3:
@@ -6650,8 +6661,8 @@ snapshots:
   string-width@7.2.0:
     dependencies:
       emoji-regex: 10.6.0
-      get-east-asian-width: 1.4.0
-      strip-ansi: 7.1.2
+      get-east-asian-width: 1.5.0
+      strip-ansi: 7.2.0
 
   string-width@8.1.0:
     dependencies:

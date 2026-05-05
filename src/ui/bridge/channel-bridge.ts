@@ -94,9 +94,8 @@ export class ChannelBridge {
         onTextDelta: (delta: string) => {
           events.onText?.(delta);
         },
-        onReasoningDelta: (_delta: string) => {
-          // Reasoning deltas are carried separately; adapters that care can
-          // extend BridgeEventHandlers later. For now we keep them internal.
+        onReasoningDelta: (delta: string) => {
+          events.onReasoning?.(delta);
         },
         onToolCall: (call: { toolCallId: string; toolName: string; input: unknown }) => {
           events.onToolCall?.(call.toolName, call.input);
@@ -304,8 +303,14 @@ export class ChannelBridge {
     const stimulus = await this.buildStimulusForRoute(resolution);
 
     // Create interaction
+    const modelDetails = this.habitat.getDefaultModelDetails();
+    if (!modelDetails) {
+      throw new Error(
+        'No default model configured. Set defaultProvider/defaultModel in config.json, or HABITAT_PROVIDER/HABITAT_MODEL env vars.',
+      );
+    }
     const interaction = new Interaction(
-      this.habitat.getDefaultModelDetails()!,
+      modelDetails,
       stimulus,
     );
 

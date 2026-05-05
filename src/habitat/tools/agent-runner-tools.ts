@@ -13,7 +13,7 @@ import { z } from "zod";
 import type { Tool } from "ai";
 import type { AgentEntry, LogPattern } from "../types.js";
 import { getAgentMemoryPath } from "../agent-paths.js";
-import { HabitatBridgeClient } from "../bridge/client.js";
+
 import { Interaction } from "../../interaction/core/interaction.js";
 import { Stimulus } from "../../stimulus/stimulus.js";
 import { runClaudeSDK } from "../claude-sdk-runner.js";
@@ -74,7 +74,7 @@ const agentConfigureSchema = z.object({
       }),
     )
     .default([]),
-  recommendedRuntime: z.enum(["host", "bridge"]),
+  recommendedRuntime: z.enum(["host", "container"]),
   notes: z.array(z.string()).default([]),
 });
 
@@ -90,28 +90,9 @@ export interface AgentRunnerToolsContext {
   getOrCreateHabitatAgent(
     agentId: string,
   ): Promise<import("../habitat-agent.js").HabitatAgent>;
-  // Bridge agent management (via supervisor)
-  startBridge(
-    agentId: string,
-    options?: { logFilePath?: string },
-  ): Promise<import("../bridge/agent.js").BridgeAgent>;
-  getBridgeAgent(
-    agentId: string,
-  ): import("../bridge/agent.js").BridgeAgent | undefined;
-  getAllBridgeAgents(): import("../bridge/agent.js").BridgeAgent[];
-  destroyBridgeAgent(agentId: string): Promise<void>;
-  listBridgeAgents(): string[];
-  // Bridge state persistence
+  // Agent directory management
   getAgentDir(agentId: string): string;
   ensureAgentDir(agentId: string): Promise<void>;
-  saveBridgeState(
-    agentId: string,
-    state: import("../bridge/state.js").BridgeState,
-  ): Promise<void>;
-  loadBridgeState(
-    agentId: string,
-  ): Promise<import("../bridge/state.js").BridgeState | null>;
-  loadAllBridgeStates(): Promise<import("../bridge/state.js").BridgeState[]>;
 }
 
 function deriveAgentId(seed: string): string {
@@ -309,57 +290,6 @@ export async function configureManagedAgent(
 export function createAgentRunnerTools(
   ctx: AgentRunnerToolsContext,
 ): Record<string, Tool> {
-  // Track clients connected to externally-started bridges (not in-memory BridgeAgent)
-  const externalClients = new Map<string, HabitatBridgeClient>();
-
-  /**
-   * Get a bridge client for an agent, checking both:
-   * 1. In-memory BridgeAgent (started in this process)
-   * 2. External bridge (started from a separate CLI process, detected via mcpPort in config)
-   */
-  async function getBridgeClient(
-    agentId: string,
-  ): Promise<{ client: HabitatBridgeClient; port: number } | null> {
-    // First check in-memory bridge
-    const bridgeAgent = ctx.getBridgeAgent(agentId);
-    if (bridgeAgent) {
-      const client = await bridgeAgent.getClient();
-      return { client, port: bridgeAgent.getPort() };
-    }
-
-    // Check if we already have a connected external client
-    const existing = externalClients.get(agentId);
-    if (existing && existing.isConnected()) {
-      const agent = ctx.getAgent(agentId);
-      return { client: existing, port: agent?.mcpPort || 0 };
-    }
-
-    // Try connecting to externally-started bridge via config port
-    const agent = ctx.getAgent(agentId);
-    if (agent?.mcpPort) {
-      try {
-        const client = new HabitatBridgeClient({
-          host: "localhost",
-          port: agent.mcpPort,
-          timeout: 5000,
-          id: agentId,
-        });
-        await client.connect();
-        // Verify it's actually alive with a health check
-        await client.health();
-        externalClients.set(agentId, client);
-        return { client, port: agent.mcpPort };
-      } catch {
-        // Port configured but not reachable — bridge is down
-        // Clean up stale external client
-        externalClients.delete(agentId);
-        return null;
-      }
-    }
-
-    return null;
-  }
-
   // ── agent_register_directory ───────────────────────────────────────
 
   const agentRegisterDirectoryTool = tool({
@@ -506,53 +436,10 @@ export function createAgentRunnerTools(
         ? [{ pattern, format: pattern.endsWith(".jsonl") ? "jsonl" : "plain" }]
         : (agent.logPatterns ?? []);
 
-      // If no log patterns configured but MCP server is running, try to get logs from MCP
-      if (logPatterns.length === 0 && agent.mcpPort) {
-        try {
-          const { AgentDiscovery } = await import("../agent-discovery.js");
-          const discovery = new AgentDiscovery({ habitat: ctx as any });
-          const discovered = await discovery.discoverAgent(agent);
-
-          if (discovered.status === "running" && discovered.client) {
-            // Try to call the bridge health tool to get server info
-            const result = await discovered.client.callTool({
-              name: "bridge_health",
-              arguments: {},
-            });
-
-            discovery.stop();
-
-            return {
-              agentId: agent.id,
-              source: "mcp_server",
-              mcpPort: agent.mcpPort,
-              message:
-                "MCP server is running. Use agent_status for detailed server info.",
-              health: result,
-            };
-          }
-
-          discovery.stop();
-
-          return {
-            agentId: agent.id,
-            error: "MCP_SERVER_NOT_RUNNING",
-            message: `MCP server on port ${agent.mcpPort} is not running (status: ${discovered.status}).`,
-            mcpError: discovered.error,
-          };
-        } catch (e) {
-          return {
-            agentId: agent.id,
-            error: "MCP_QUERY_FAILED",
-            message: `Failed to query MCP server on port ${agent.mcpPort}: ${e instanceof Error ? e.message : String(e)}`,
-          };
-        }
-      }
-
       if (logPatterns.length === 0) {
         return {
           error: "NO_LOG_PATTERNS",
-          message: `No log patterns configured for agent "${agent.name}" and no MCP server is running. Configure logPatterns in the agent entry or start an MCP server.`,
+          message: `No log patterns configured for agent "${agent.name}". Configure logPatterns in the agent entry.`,
         };
       }
 
@@ -651,30 +538,6 @@ export function createAgentRunnerTools(
         projectPath: agent.projectPath,
       };
 
-      // Check MCP server status if configured
-      if (agent.mcpPort) {
-        try {
-          const { AgentDiscovery } = await import("../agent-discovery.js");
-          const discovery = new AgentDiscovery({ habitat: ctx as any });
-          const discovered = await discovery.discoverAgent(agent);
-
-          status.mcpServer = {
-            port: agent.mcpPort,
-            status: discovered.status,
-            endpoint: discovered.endpoint,
-            tools: discovered.tools,
-            error: discovered.error,
-          };
-
-          discovery.stop();
-        } catch (e) {
-          status.mcpServer = {
-            port: agent.mcpPort,
-            status: "error",
-            error: e instanceof Error ? e.message : String(e),
-          };
-        }
-      }
 
       // Read status file if configured
       if (agent.statusFile) {
@@ -805,323 +668,6 @@ export function createAgentRunnerTools(
     },
   });
 
-  // ── bridge_start ──────────────────────────────────────────────────────
-  /** Start a Bridge MCP server for an agent in a Dagger container.
-   *  This creates a container with the bridge MCP server running,
-   *  clones the repo, and returns connection details for the CLI to use as a client.
-   */
-  const bridgeStartTool = tool({
-    description:
-      "Start a Bridge MCP server for an agent. Creates a Dagger container with MCP server running at localhost:PORT. Returns connection details for CLI to use as client.",
-    inputSchema: z.object({
-      agentId: z
-        .string()
-        .describe("ID of the registered agent to start bridge for"),
-    }),
-    execute: async ({ agentId }) => {
-      const agent = ctx.getAgent(agentId);
-      if (!agent) {
-        return {
-          error: "AGENT_NOT_FOUND",
-          message: `No agent found: ${agentId}`,
-        };
-      }
-
-      if (!agent.gitRemote) {
-        return {
-          error: "NO_GIT_REMOTE",
-          message: `Agent ${agentId} has no gitRemote configured. Only agents cloned from git repos can use Bridge mode.`,
-        };
-      }
-
-      // Check if bridge already exists in-memory (started in this process)
-      const inMemoryBridge = ctx.getBridgeAgent(agentId);
-      if (inMemoryBridge) {
-        const port = inMemoryBridge.getPort();
-        // Verify the bridge is actually alive (port > 0 and reachable)
-        if (port > 0) {
-          try {
-            const client = await inMemoryBridge.getClient();
-            await client.health();
-            return {
-              bridgeId: agentId,
-              repoUrl: agent.gitRemote,
-              mcpUrl: `http://localhost:${port}/mcp`,
-              port,
-              status: "already_running",
-              message: `Bridge MCP server for ${agentId} is already running at http://localhost:${port}/mcp. To restart with updated config/secrets, use bridge_stop first then bridge_start.`,
-            };
-          } catch {
-            // Bridge exists in memory but is dead — clean it up and restart
-            await ctx.destroyBridgeAgent(agentId);
-          }
-        } else {
-          // Port 0 means it never started properly — clean up
-          await ctx.destroyBridgeAgent(agentId);
-        }
-      }
-
-      // Check for externally-started bridge (from CLI) — stop it so we can restart with current config
-      const existingClient = await getBridgeClient(agentId);
-      if (existingClient) {
-        // Disconnect the external client — we'll start a fresh one
-        const extClient = externalClients.get(agentId);
-        if (extClient) {
-          await extClient.disconnect();
-          externalClients.delete(agentId);
-        }
-        // Note: the external container is still running, but we can't stop it from here.
-        // Start a new bridge in this process which will get a new port.
-      }
-
-      try {
-        const bridgeAgent = await ctx.startBridge(agentId);
-        const port = bridgeAgent.getPort();
-
-        return {
-          bridgeId: agentId,
-          repoUrl: agent.gitRemote,
-          mcpUrl: `http://localhost:${port}/mcp`,
-          port,
-          status: "running",
-          logFile: `${ctx.getAgentDir(agentId)}/logs/bridge.log`,
-          message: `Bridge MCP server started for ${agentId} at http://localhost:${port}/mcp. Use bridge_ls, bridge_read, bridge_exec to inspect.`,
-        };
-      } catch (err: any) {
-        return {
-          error: "BRIDGE_START_FAILED",
-          message: err.message || String(err),
-        };
-      }
-    },
-  });
-
-  // ── bridge_ls ─────────────────────────────────────────────────────────
-  /** List files in the bridge container */
-  const bridgeLsTool = tool({
-    description: "List files in the bridge container's /workspace directory",
-    inputSchema: z.object({
-      agentId: z.string().describe("ID of the bridge agent"),
-      path: z
-        .string()
-        .optional()
-        .describe("Directory path to list (default: /workspace)"),
-    }),
-    execute: async ({ agentId, path }) => {
-      const bridge = await getBridgeClient(agentId);
-      if (!bridge) {
-        return {
-          error: "BRIDGE_NOT_FOUND",
-          message: `No running bridge found for agent ${agentId}. Start one with bridge_start first.`,
-        };
-      }
-
-      try {
-        const result = await bridge.client.listDirectory(path || "/workspace");
-        return { agentId, entries: result };
-      } catch (err: any) {
-        return {
-          error: "BRIDGE_COMMAND_FAILED",
-          message: err.message || String(err),
-        };
-      }
-    },
-  });
-
-  // ── bridge_read ────────────────────────────────────────────────────────
-  /** Read a file from the bridge container */
-  const bridgeReadTool = tool({
-    description: "Read a file from the bridge container",
-    inputSchema: z.object({
-      agentId: z.string().describe("ID of the bridge agent"),
-      path: z.string().describe("File path to read (relative to /workspace)"),
-    }),
-    execute: async ({ agentId, path }) => {
-      const bridge = await getBridgeClient(agentId);
-      if (!bridge) {
-        return {
-          error: "BRIDGE_NOT_FOUND",
-          message: `No running bridge found for agent ${agentId}. Start one with bridge_start first.`,
-        };
-      }
-
-      try {
-        const content = await bridge.client.readFile(path);
-        return { agentId, path, content };
-      } catch (err: any) {
-        return {
-          error: "BRIDGE_COMMAND_FAILED",
-          message: err.message || String(err),
-        };
-      }
-    },
-  });
-
-  // ── bridge_exec ─────────────────────────────────────────────────────────
-  /** Execute a command in the bridge container */
-  const bridgeExecTool = tool({
-    description: "Execute a command in the bridge container",
-    inputSchema: z.object({
-      agentId: z.string().describe("ID of the bridge agent"),
-      command: z.string().describe("Command to execute"),
-      cwd: z
-        .string()
-        .optional()
-        .describe("Working directory (default: /workspace)"),
-    }),
-    execute: async ({ agentId, command, cwd }) => {
-      const bridge = await getBridgeClient(agentId);
-      if (!bridge) {
-        return {
-          error: "BRIDGE_NOT_FOUND",
-          message: `No running bridge found for agent ${agentId}. Start one with bridge_start first.`,
-        };
-      }
-
-      try {
-        const result = await bridge.client.execute(command, { cwd });
-        return {
-          agentId,
-          command,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        };
-      } catch (err: any) {
-        return {
-          error: "BRIDGE_COMMAND_FAILED",
-          message: err.message || String(err),
-        };
-      }
-    },
-  });
-
-  // ── bridge_list ────────────────────────────────────────────────────────
-  /** List all running bridge agents */
-  const bridgeListTool = tool({
-    description:
-      "List all bridge agents and their connection status. Checks actual MCP server connectivity.",
-    inputSchema: z.object({}),
-    execute: async () => {
-      const allAgents = ctx.getAgents();
-      const bridges = [];
-
-      for (const agent of allAgents) {
-        if (!agent.mcpPort && !agent.gitRemote) continue;
-
-        // First check in-memory bridge (started in this process)
-        const inMemoryBridge = ctx.getBridgeAgent(agent.id);
-        if (inMemoryBridge) {
-          const port = inMemoryBridge.getPort();
-          if (port > 0) {
-            // Verify it's actually alive
-            try {
-              const client = await inMemoryBridge.getClient();
-              await client.health();
-              bridges.push({
-                agentId: agent.id,
-                name: agent.name,
-                port,
-                status: "running",
-                mcpUrl: `http://localhost:${port}/mcp`,
-              });
-              continue;
-            } catch {
-              // In-memory but dead
-              bridges.push({
-                agentId: agent.id,
-                name: agent.name,
-                status: "unhealthy",
-                port,
-                gitRemote: agent.gitRemote,
-              });
-              continue;
-            }
-          }
-        }
-
-        // Check external bridge via config port
-        if (agent.mcpPort && agent.mcpPort > 0) {
-          const { AgentDiscovery } = await import("../agent-discovery.js");
-          const discovery = new AgentDiscovery({ habitat: ctx as any });
-          const discovered = await discovery.discoverAgent(agent);
-          discovery.stop();
-          bridges.push({
-            agentId: agent.id,
-            name: agent.name,
-            port: agent.mcpPort,
-            status: discovered.status,
-            mcpUrl: `http://localhost:${agent.mcpPort}/mcp`,
-            tools: discovered.tools,
-            error: discovered.error,
-          });
-        } else {
-          // Agent has gitRemote but no port — not started
-          bridges.push({
-            agentId: agent.id,
-            name: agent.name,
-            status: "stopped",
-            gitRemote: agent.gitRemote,
-          });
-        }
-      }
-
-      return {
-        count: bridges.length,
-        running: bridges.filter((b) => b.status === "running").length,
-        bridges,
-      };
-    },
-  });
-
-  // ── bridge_stop ─────────────────────────────────────────────────────────
-  /** Stop a running bridge agent */
-  const bridgeStopTool = tool({
-    description: "Stop a running bridge agent and clean up its resources",
-    inputSchema: z.object({
-      agentId: z.string().describe("ID of the bridge agent to stop"),
-    }),
-    execute: async ({ agentId }) => {
-      // Check in-memory first (bridges started in this process)
-      const bridgeAgent = ctx.getBridgeAgent(agentId);
-      if (bridgeAgent) {
-        try {
-          await ctx.destroyBridgeAgent(agentId);
-          return {
-            agentId,
-            status: "stopped",
-            message: `Bridge agent ${agentId} stopped successfully`,
-          };
-        } catch (err: any) {
-          return {
-            error: "BRIDGE_STOP_FAILED",
-            message: err.message || String(err),
-          };
-        }
-      }
-
-      // Check for externally-started bridge — disconnect our client
-      const agent = ctx.getAgent(agentId);
-      if (agent?.mcpPort) {
-        const extClient = externalClients.get(agentId);
-        if (extClient) {
-          await extClient.disconnect();
-          externalClients.delete(agentId);
-        }
-        await ctx.updateAgent(agentId, { mcpStatus: "stopped", mcpPort: undefined });
-        return {
-          agentId,
-          status: "stopped",
-          message: `Bridge agent ${agentId} disconnected. The external container may still be running (use Ctrl+C in its terminal). Use bridge_start to start a new bridge with current config and secrets.`,
-        };
-      }
-
-      return {
-        error: "BRIDGE_NOT_FOUND",
-        message: `No bridge found for agent ${agentId}`,
-      };
-    },
-  });
-
   // ── agent_ask_claude ──────────────────────────────────────────────────
   /** Delegate a task to Claude Code SDK running against the agent's project.
    *  This spawns a real Claude Code subprocess with full agentic tools
@@ -1204,12 +750,6 @@ export function createAgentRunnerTools(
     agent_ask: agentAskTool,
     agent_ask_claude: agentAskClaudeTool,
     agent_configure: agentConfigureTool,
-    bridge_start: bridgeStartTool,
-    bridge_stop: bridgeStopTool,
-    bridge_list: bridgeListTool,
-    bridge_ls: bridgeLsTool,
-    bridge_read: bridgeReadTool,
-    bridge_exec: bridgeExecTool,
   };
 }
 
@@ -1239,7 +779,7 @@ function renderAgentMemory(
       path?: string | null;
       required: boolean;
     }>;
-    recommendedRuntime: "host" | "bridge";
+    recommendedRuntime: "host" | "container";
     notes: string[];
   },
 ): string {

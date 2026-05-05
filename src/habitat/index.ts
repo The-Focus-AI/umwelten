@@ -8,11 +8,11 @@ export type {
   HabitatConfig,
   HabitatOptions,
   AgentEntry,
-  AgentMCPStatus,
   HabitatCommands,
   HabitatSessionMetadata,
   HabitatSessionType,
   OnboardingResult,
+  RequiredSecret,
 } from "./types.js";
 
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
@@ -28,6 +28,7 @@ export type {
 export type { ToolSet } from "./tool-sets.js";
 export {
   standardToolSets,
+  containerToolSets,
   fileToolSet,
   timeToolSet,
   urlToolSet,
@@ -37,6 +38,9 @@ export {
   agentRunnerToolSet,
   secretsToolSet,
   searchToolSet,
+  provisionToolSet,
+  execToolSet,
+  artifactToolSet,
 } from "./tool-sets.js";
 
 export { HabitatSessionManager } from "./session-manager.js";
@@ -106,8 +110,10 @@ export type {
   StartedHabitatMcpServer,
 } from "./mcp-local-server.js";
 
-export { AgentDiscovery, isMCPServerRunning } from "./agent-discovery.js";
+// Unified container server — MCP + LLM chat + web UI on one port
+export { startContainerServer } from "./container-server.js";
 export type {
-  DiscoveredAgent,
-  AgentDiscoveryOptions,
-} from "./agent-discovery.js";
+  ContainerServerOptions,
+  StartedContainerServer,
+} from "./container-server.js";
+

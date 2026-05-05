@@ -241,11 +241,8 @@ async function repl(
             const cmds = a.commands
               ? ` [${Object.keys(a.commands).join(", ")}]`
               : "";
-            const mcpStatus = a.mcpStatus
-              ? ` [MCP: ${a.mcpStatus}${a.mcpPort ? `:${a.mcpPort}` : ""}]`
-              : "";
             console.log(
-              `  ${a.id} — ${a.name} (${a.projectPath})${cmds}${mcpStatus}`,
+              `  ${a.id} — ${a.name} (${a.projectPath})${cmds}`,
             );
           }
         }
@@ -254,155 +251,6 @@ async function repl(
         return;
       }
 
-      if (input.startsWith("/agent-start ")) {
-        const agentId = input.slice(13).trim();
-        if (!agentId) {
-          console.log("Usage: /agent-start <agent-id>");
-          console.log("");
-          ask();
-          return;
-        }
-
-        const agent = habitat.getAgent(agentId);
-        if (!agent) {
-          console.log(`Agent "${agentId}" not found.`);
-          console.log("");
-          ask();
-          return;
-        }
-
-        try {
-          const bridgeAgent = await habitat.startBridge(agentId);
-          const port = bridgeAgent.getPort();
-
-          console.log(
-            `✅ Agent "${agent.name}" Bridge MCP server started on port ${port}`,
-          );
-          console.log(`   Endpoint: http://localhost:${port}/mcp`);
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          console.error(`❌ Failed to start MCP server: ${msg}`);
-        }
-        console.log("");
-        ask();
-        return;
-      }
-
-      if (input.startsWith("/agent-stop ")) {
-        const agentId = input.slice(12).trim();
-        if (!agentId) {
-          console.log("Usage: /agent-stop <agent-id>");
-          console.log("");
-          ask();
-          return;
-        }
-
-        const agent = habitat.getAgent(agentId);
-        if (!agent) {
-          console.log(`Agent "${agentId}" not found.`);
-          console.log("");
-          ask();
-          return;
-        }
-
-        try {
-          // For BridgeAgent, we need to track the instance to stop it
-          // For now, just update the config to mark as stopped
-          await habitat.updateAgent(agent.id, {
-            mcpStatus: "stopped",
-          });
-          console.log(`✅ Agent "${agent.name}" MCP server marked as stopped`);
-          console.log(
-            "   Note: Bridge containers are destroyed when the process exits",
-          );
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          console.error(`❌ Failed to stop MCP server: ${msg}`);
-        }
-        console.log("");
-        ask();
-        return;
-      }
-
-      if (input === "/agent-status" || input.startsWith("/agent-status ")) {
-        const agentId = input.length > 14 ? input.slice(14).trim() : undefined;
-
-        const { AgentDiscovery } =
-          await import("../habitat/agent-discovery.js");
-        const discovery = new AgentDiscovery({ habitat });
-
-        if (agentId) {
-          const agent = habitat.getAgent(agentId);
-          if (!agent) {
-            console.log(`Agent "${agentId}" not found.`);
-            discovery.stop();
-            console.log("");
-            ask();
-            return;
-          }
-
-          const discovered = await discovery.discoverAgent(agent);
-          console.log(`Agent: ${agent.name} (${agent.id})`);
-          console.log(`Status: ${discovered.status}`);
-
-          if (discovered.port) {
-            console.log(`Port: ${discovered.port}`);
-          }
-
-          if (discovered.endpoint) {
-            console.log(`Endpoint: ${discovered.endpoint}`);
-          }
-
-          if (discovered.tools && discovered.tools.length > 0) {
-            console.log(`Tools: ${discovered.tools.join(", ")}`);
-          }
-
-          if (discovered.error) {
-            console.log(`Error: ${discovered.error}`);
-          }
-        } else {
-          const agents = await discovery.discoverAll();
-
-          if (agents.length === 0) {
-            console.log("No agents registered.");
-          } else {
-            console.log(`Agents (${agents.length}):`);
-            console.log("");
-
-            for (const discovered of agents) {
-              const { agent, status, port, tools, error } = discovered;
-              const statusEmoji =
-                status === "running"
-                  ? "🟢"
-                  : status === "stopped"
-                    ? "⚪"
-                    : "🔴";
-
-              console.log(`${statusEmoji} ${agent.name} (${agent.id})`);
-              console.log(`   Status: ${status}`);
-
-              if (port) {
-                console.log(`   Port: ${port}`);
-              }
-
-              if (tools && tools.length > 0) {
-                console.log(`   Tools: ${tools.length} available`);
-              }
-
-              if (error) {
-                console.log(`   Error: ${error}`);
-              }
-
-              console.log("");
-            }
-          }
-        }
-
-        discovery.stop();
-        console.log("");
-        ask();
-        return;
-      }
 
       if (input === "/skills") {
         const skills = habitat.getSkills();
@@ -1272,245 +1120,85 @@ secretsSubcommand
 habitatCommand.addCommand(secretsSubcommand);
 
 // Agent subcommand
-const agentSubcommand = new Command("agent").description(
-  "Manage agent MCP servers (start, stop, status).",
-);
 
-// agent-start
-agentSubcommand
-  .command("start <agent-id>")
-  .description("Start an agent's MCP server")
-  .option("-w, --work-dir <path>", "Work directory (default: ~/habitats)")
-  .option(
-    "--env-prefix <prefix>",
-    "Environment variable prefix (default: HABITAT)",
-  )
-  .option("--skip-onboard", "Skip automatic onboarding")
-  .option("--port <port>", "Preferred port (auto-assigned if not specified)")
-  .action(
-    async (
-      agentId: string,
-      options: HabitatCLIOptions & { port?: string },
-      command: Command,
-    ) => {
-      const habitat = await createHabitatFromOptions(
-        mergedHabitatCliOptions(command, options),
-      );
-
-      const agent = habitat.getAgent(agentId);
-      if (!agent) {
-        console.error(`Agent "${agentId}" not found.`);
-        process.exit(1);
-      }
-
-      try {
-        // Create logs directory with timestamped filename
-        const { mkdirSync } = await import("node:fs");
-        const logsDir = path.join(habitat.sessionsDir, "logs");
-        mkdirSync(logsDir, { recursive: true });
-        const ts = new Date().toISOString().replace(/[:.]/g, "-");
-        const logFilePath = path.join(logsDir, `bridge-${agentId}-${ts}.log`);
-        console.log(`[habitat] Logs: ${logFilePath}`);
-
-        if (agent.bridgeProvisioning) {
-          console.log(`[habitat] Using saved provisioning from ${agent.bridgeProvisioning.analyzedAt}`);
-        }
-
-        const bridgeAgent = await habitat.startBridge(agentId, { logFilePath });
-        const port = bridgeAgent.getPort();
-
-        console.log(
-          `\u2705 Agent "${agent.name}" Bridge MCP server started on port ${port}`,
-        );
-        console.log(`   Endpoint: http://localhost:${port}/mcp`);
-        console.log(`   Logs: ${logFilePath}`);
-        if (agent.bridgeProvisioning) {
-          console.log(
-            `   Build: ${agent.bridgeProvisioning.baseImage} (${agent.bridgeProvisioning.buildSteps.join(", ")})`,
-          );
-        }
-
-        // Keep the process running
-        console.log("Press Ctrl+C to stop the server");
-        process.on("SIGINT", async () => {
-          console.log("\nStopping Bridge MCP server...");
-          await bridgeAgent.destroy();
-          await habitat.updateAgent(agent.id, {
-            mcpStatus: "stopped",
-          });
-          process.exit(0);
-        });
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error(`\u274C Failed to start MCP server: ${msg}`);
-        process.exit(1);
-      }
-    },
-  );
-
-// agent-stop
-agentSubcommand
-  .command("stop <agent-id>")
-  .description("Stop an agent's MCP server")
-  .option("-w, --work-dir <path>", "Work directory (default: ~/habitats)")
-  .option(
-    "--env-prefix <prefix>",
-    "Environment variable prefix (default: HABITAT)",
-  )
-  .option("--skip-onboard", "Skip automatic onboarding")
-  .action(async (agentId: string, options: HabitatCLIOptions, command: Command) => {
-    const habitat = await createHabitatFromOptions(
-      mergedHabitatCliOptions(command, options),
-    );
-
-    const agent = habitat.getAgent(agentId);
-    if (!agent) {
-      console.error(`Agent "${agentId}" not found.`);
-      process.exit(1);
-    }
-
-    // Update agent config to mark as stopped
-    try {
-      await habitat.updateAgent(agent.id, {
-        mcpStatus: "stopped",
-      });
-      console.log(`✅ Agent "${agent.name}" MCP server marked as stopped`);
-      console.log(
-        "   Note: Bridge containers are destroyed when the process exits",
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to update agent status: ${msg}`);
-      process.exit(1);
-    }
-  });
-
-// agent-status
-agentSubcommand
-  .command("status [agent-id]")
-  .description("Check agent MCP server status (all agents if no ID specified)")
-  .option("-w, --work-dir <path>", "Work directory (default: ~/habitats)")
-  .option(
-    "--env-prefix <prefix>",
-    "Environment variable prefix (default: HABITAT)",
-  )
-  .option("--skip-onboard", "Skip automatic onboarding")
-  .action(
-    async (
-      agentId: string | undefined,
-      options: HabitatCLIOptions,
-      command: Command,
-    ) => {
-    const habitat = await createHabitatFromOptions(
-      mergedHabitatCliOptions(command, options),
-    );
-
-    const { AgentDiscovery } = await import("../habitat/agent-discovery.js");
-    const discovery = new AgentDiscovery({ habitat });
-
-    if (agentId) {
-      // Check specific agent
-      const agent = habitat.getAgent(agentId);
-      if (!agent) {
-        console.error(`Agent "${agentId}" not found.`);
-        process.exit(1);
-      }
-
-      const discovered = await discovery.discoverAgent(agent);
-      console.log(`Agent: ${agent.name} (${agent.id})`);
-      console.log(`Status: ${discovered.status}`);
-
-      if (discovered.port) {
-        console.log(`Port: ${discovered.port}`);
-      }
-
-      if (discovered.endpoint) {
-        console.log(`Endpoint: ${discovered.endpoint}`);
-      }
-
-      if (discovered.tools && discovered.tools.length > 0) {
-        console.log(`Tools: ${discovered.tools.join(", ")}`);
-      }
-
-      if (discovered.error) {
-        console.log(`Error: ${discovered.error}`);
-      }
-    } else {
-      // Check all agents
-      const agents = await discovery.discoverAll();
-
-      if (agents.length === 0) {
-        console.log("No agents registered.");
-        return;
-      }
-
-      console.log(`Agents (${agents.length}):`);
-      console.log("");
-
-      for (const discovered of agents) {
-        const { agent, status, port, tools, error } = discovered;
-        const statusEmoji =
-          status === "running" ? "🟢" : status === "stopped" ? "⚪" : "🔴";
-
-        console.log(`${statusEmoji} ${agent.name} (${agent.id})`);
-        console.log(`   Status: ${status}`);
-
-        if (port) {
-          console.log(`   Port: ${port}`);
-        }
-
-        if (tools && tools.length > 0) {
-          console.log(`   Tools: ${tools.length} available`);
-        }
-
-        if (error) {
-          console.log(`   Error: ${error}`);
-        }
-
-        console.log("");
-      }
-    }
-
-    // Clean up
-    discovery.stop();
-  });
-
-habitatCommand.addCommand(agentSubcommand);
-
-// Serve subcommand — expose habitat tools as MCP server
+// Serve subcommand — unified container server (MCP + chat + web UI)
 const serveSubcommand = new Command("serve").description(
-  "Start an MCP server exposing all habitat tools over Streamable HTTP.",
+  "Start the unified container server: MCP tools + LLM chat + web UI on one port.",
 );
 addSharedOptions(serveSubcommand)
   .option("--port <port>", "HTTP port (default: 8080)", "8080")
   .option("--host <host>", "Bind address (default: 0.0.0.0)", "0.0.0.0")
+  .option("--all-tools", "Expose all tools (default: container-minimal set)")
+  .option("--mcp-only", "MCP-only mode (no chat, no web UI)")
   .action(
     async (
-      options: HabitatCLIOptions & { port?: string; host?: string },
+      options: HabitatCLIOptions & { port?: string; host?: string; allTools?: boolean; mcpOnly?: boolean },
       command: Command,
     ) => {
       const merged = mergedHabitatCliOptions(command, options) as typeof options;
-      const habitat = await createHabitatFromOptions(merged);
 
-      const { startHabitatMcpServer } = await import(
-        "../habitat/mcp-local-server.js"
-      );
-
-      const server = await startHabitatMcpServer({
-        habitat,
-        port: parseInt(merged.port ?? "8080", 10),
-        host: merged.host ?? "0.0.0.0",
-        name: habitat.getConfig().name ?? "habitat-mcp",
+      // Use container-minimal tool sets by default; --all-tools for full orchestrator set
+      const { containerToolSets } = await import("../habitat/tool-sets.js");
+      const habitat = await Habitat.create({
+        workDir: merged.workDir,
+        sessionsDir: merged.sessionsDir,
+        envPrefix: merged.envPrefix ?? "HABITAT",
+        defaultWorkDirName: "habitats",
+        toolSets: (merged as any).allTools ? undefined : containerToolSets,
       });
 
-      // Keep process alive until SIGINT/SIGTERM
-      const shutdown = () => {
-        console.log("\n[habitat-mcp] Shutting down...");
-        server.close();
-        process.exit(0);
-      };
-      process.on("SIGINT", shutdown);
-      process.on("SIGTERM", shutdown);
+      // Onboard if needed
+      if (!merged.skipOnboard && !(await habitat.isOnboarded())) {
+        console.log("[habitat] Work directory not set up. Running onboarding...");
+        const result = await habitat.onboard();
+        if (result.created.length > 0)
+          console.log("[habitat] Created:", result.created.join(", "));
+        console.log(`[habitat] Work directory: ${result.workDir}`);
+      }
+
+      // Set runtime model from CLI flags so chat/bridge can find it
+      const modelDetails = resolveModelDetails(habitat, merged);
+      if (modelDetails) {
+        habitat.setRuntimeModelDetails(modelDetails);
+      }
+
+      if ((merged as any).mcpOnly) {
+        // Legacy MCP-only mode
+        const { startHabitatMcpServer } = await import(
+          "../habitat/mcp-local-server.js"
+        );
+        const server = await startHabitatMcpServer({
+          habitat,
+          port: parseInt(merged.port ?? "8080", 10),
+          host: merged.host ?? "0.0.0.0",
+          name: habitat.getConfig().name ?? "habitat-mcp",
+        });
+        const shutdown = () => {
+          console.log("\n[habitat-mcp] Shutting down...");
+          server.close();
+          process.exit(0);
+        };
+        process.on("SIGINT", shutdown);
+        process.on("SIGTERM", shutdown);
+      } else {
+        // Unified container server (MCP + chat + web UI)
+        const { startContainerServer } = await import(
+          "../habitat/container-server.js"
+        );
+        const server = await startContainerServer({
+          habitat,
+          port: parseInt(merged.port ?? "8080", 10),
+          host: merged.host ?? "0.0.0.0",
+          name: habitat.getConfig().name ?? "habitat",
+        });
+        const shutdown = () => {
+          console.log("\n[container] Shutting down...");
+          server.close();
+          process.exit(0);
+        };
+        process.on("SIGINT", shutdown);
+        process.on("SIGTERM", shutdown);
+      }
     },
   );
 

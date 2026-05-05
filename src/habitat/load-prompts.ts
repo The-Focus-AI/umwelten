@@ -9,7 +9,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import type { StimulusOptions } from "../stimulus/stimulus.js";
 import type { HabitatConfig } from "./types.js";
-import { fileExists } from "./config.js";
+import { fileExists, resolveProjectDir } from "./config.js";
 
 const DEFAULT_STIMULUS_BODY = `# Persona
 
@@ -29,28 +29,13 @@ const DEFAULT_INSTRUCTIONS = [
 
   // Secrets
   "Secrets in agent config are references only (env var names); never store or echo secret values.",
-  "SECURITY CRITICAL: Never use export, variables, or template literals in exec commands. BAD: exec('export TOKEN=secret && curl -H $TOKEN'). GOOD: Pass secrets via the env parameter only. Variables in command strings can leak in logs and process listings.",
-  "Bridge containers inject secrets via environment variables securely - they are never exposed in command strings or logs.",
-  "After setting a secret with secrets_set, you MUST bridge_stop then bridge_start to restart the container with the new secret injected. Secrets are only injected at container build time, not into running containers.",
+  "SECURITY CRITICAL: Never use export, variables, or template literals in exec commands. BAD: exec('export TOKEN=secret && curl -H $TOKEN'). GOOD: Pass secrets via the env parameter only.",
 
-  // Managed agents + optional bridge runtimes
-  "Use agent_clone to add an agent from a git repo. This clones the repo into the habitat workspace and registers it as a managed agent on the host filesystem.",
+  // Managed agents
+  "Use agent_clone to add an agent from a git repo. This clones the repo into the habitat workspace and registers it as a managed agent.",
   "Use agent_register_directory to manage an existing local project directory without cloning it.",
-  "Use agent_ask to inspect and manage registered agents through their host-side project workspace.",
-  "Use bridge_start, bridge_ls, bridge_read, and bridge_exec only when a project needs an isolated runtime.",
-  "IMPORTANT: agent_ask requires a configured model for the sub-agent. If no model is configured and you need isolated execution, use bridge_start and then bridge_exec/bridge_read/bridge_ls.",
-  "If you start a bridge, the supervisor monitors container health for that runtime.",
-
-  // Running scripts in bridge containers
-  "CRITICAL — RUNNING SCRIPTS IN BRIDGED AGENTS: When the user asks you to run a script inside an isolated agent runtime, call `bridge_exec(agentId, './run.sh')` immediately as your first action. Do not manually decompose the script before trying the top-level entrypoint.",
-  "ABSOLUTELY FORBIDDEN: Never run a script's steps manually one-by-one. If a script calls sub-scripts, you run the TOP-LEVEL script only. You do not replicate the pipeline by calling curl, grep, or other commands yourself. The script is the entry point — run it, don't decompose it.",
-  "ABSOLUTELY FORBIDDEN: Never create mock, dummy, or fake scripts to replace missing tools. Never create shim scripts that pretend to be a real tool (e.g. a fake 'claude' CLI, fake 'chrome-driver', fake 'op'). If a required tool is missing, STOP and tell the user what is missing and what needs to be installed. Do not fake success.",
-  "ABSOLUTELY FORBIDDEN: Never rewrite or modify the project's existing scripts to work around missing dependencies. The scripts are the source of truth. If a script requires a tool that isn't installed, install the real tool or report the failure honestly.",
-  "When a script fails, report the ACTUAL error output. Do not hide failures behind mock implementations or manual workarounds.",
-
-  // Installing tools in bridge containers
-  "CRITICAL — INSTALLING CLAUDE CLI: When a project needs the `claude` CLI, ALWAYS install it with the official script: `curl -fsSL https://claude.ai/install.sh | bash`. NEVER install via npm (`npm install -g @anthropic/claude-cli` or similar). The official script is the only supported method.",
-  "When you discover missing tools in a bridge container (from actual error output), install only what the error says is missing. Do NOT preemptively install packages. Only install a tool after a script fails because that specific tool is not found.",
+  "Use agent_ask to inspect and manage registered agents through their project workspace.",
+  "Use agent_ask_claude to delegate agentic coding tasks to Claude Code SDK against the agent's project.",
 
   // Session and debugging tools
   "Use sessions_list and sessions_show to review previous conversation history when debugging issues or understanding what happened in past interactions.",
@@ -72,6 +57,7 @@ function normalizeInstructions(value: unknown): string[] {
 async function loadStimulusFile(
   workDir: string,
   stimulusFile?: string,
+  projectDir?: string,
 ): Promise<{ data: Record<string, unknown>; body: string } | null> {
   const candidates = stimulusFile
     ? [join(workDir, stimulusFile)]
@@ -79,6 +65,14 @@ async function loadStimulusFile(
         join(workDir, "STIMULUS.md"),
         join(workDir, "prompts", "main.md"),
         join(workDir, "prompts", "persona.md"),
+        // Fallback to project directory if provisioned
+        ...(projectDir
+          ? [
+              join(projectDir, "STIMULUS.md"),
+              join(projectDir, "prompts", "main.md"),
+              join(projectDir, "prompts", "persona.md"),
+            ]
+          : []),
       ];
   for (const path of candidates) {
     if (await fileExists(path)) {
@@ -143,7 +137,8 @@ export async function loadStimulusOptionsFromWorkDir(
   workDir: string,
   config: HabitatConfig,
 ): Promise<Partial<StimulusOptions> & { systemContext: string }> {
-  const stimulusSource = await loadStimulusFile(workDir, config.stimulusFile);
+  const projectDir = resolveProjectDir(workDir, config);
+  const stimulusSource = await loadStimulusFile(workDir, config.stimulusFile, projectDir);
   let role = "assistant";
   let objective: string | undefined;
   let instructions = DEFAULT_INSTRUCTIONS;

@@ -81,10 +81,8 @@ describe("HabitatAgent", () => {
     expect(tools.agent_ask).toBeUndefined();
     expect(tools.agent_clone).toBeUndefined();
     expect(tools.agents_list).toBeUndefined();
-    expect(tools.bridge_start).toBeDefined();
-    expect(tools.bridge_exec).toBeDefined();
     expect(stimulus.instructions).toContain(
-      "Prefer host-side file tools first when inspecting the repo. Do not use bridge tools unless the user explicitly asks for an isolated runtime or host-side inspection is insufficient.",
+      "Use file tools to inspect the repo directly.",
     );
     expect(stimulus.instructions).toContain(
       'For project-scoped tools, use agentId="test-agent" whenever the tool requires it.',
@@ -93,7 +91,7 @@ describe("HabitatAgent", () => {
       "When asked how the project runs or what it needs, inspect the actual runnable entrypoints first (for example run.sh, setup.sh, start.sh, Makefile targets, Dockerfile, and bin/* scripts) and follow the scripts they invoke. Do not rely only on README or package manifests.",
     );
     expect(stimulus.instructions).toContain(
-      "You do not have direct host shell execution. When the user asks you to run project commands or scripts, use bridge_start and then bridge_exec for this project when bridge tools are available.",
+      "Use agent_ask_claude to delegate tasks that require shell execution or code editing.",
     );
     expect(stimulus.instructions).toContain(
       "Never delegate back into this same project with agent_ask. You are already the project sub-agent.",

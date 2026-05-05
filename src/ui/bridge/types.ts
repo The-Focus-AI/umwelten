@@ -44,6 +44,8 @@ export interface ChannelMessage {
 export interface BridgeEventHandlers {
   /** Incremental text delta from the LLM. */
   onText?: (delta: string) => void;
+  /** Incremental reasoning/thinking delta from the LLM. */
+  onReasoning?: (delta: string) => void;
   /** A tool call started. */
   onToolCall?: (name: string, input: unknown) => void;
   /** A tool call returned a result. */

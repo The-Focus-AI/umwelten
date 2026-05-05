@@ -45,6 +45,12 @@ export class UiMessageStream {
     this.emit({ type: 'start', messageId: this.messageId });
   }
 
+  /** Append a reasoning/thinking delta. */
+  reasoningDelta(delta: string): void {
+    if (this.closed || !delta) return;
+    this.emit({ type: 'reasoning-delta', delta });
+  }
+
   /** Append a text delta. Opens a text block on first call. */
   textDelta(delta: string): void {
     if (this.closed || !delta) return;

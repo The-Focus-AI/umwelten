@@ -119,6 +119,7 @@ export class WebAdapter {
       { channelKey, text, userId: user.userId },
       {
         onText: (delta) => stream.textDelta(delta),
+        onReasoning: (delta) => stream.reasoningDelta(delta),
         onToolCall: (name, input) => {
           const callId = randomUUID();
           toolCallIds.set(name, callId);

@@ -6,7 +6,24 @@ node = "latest"
 # Keep root tasks focused on workflows people run often. Example-specific
 # variants should live in the example READMEs as direct pnpm/dotenvx commands.
 
-# ── Habitat ───────────────────────────────────────────────────────────
+# ── Habitat Container ─────────────────────────────────────────────────
+
+[tasks."habitat-build"]
+description = "Build the habitat Docker container"
+dir = "{{ config_root }}"
+run = "docker build -t habitat ."
+
+[tasks."habitat-run"]
+description = "Run the habitat container (port 8080, volume ./habitat-data:/data)"
+dir = "{{ config_root }}"
+run = "docker run --rm -p 8080:8080 -v ./habitat-data:/data --env-file .env habitat"
+
+[tasks."habitat-serve"]
+description = "Run habitat MCP server locally via tsx (no Docker)"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm exec tsx src/cli/entry.ts habitat serve --port 8080 --skip-onboard"
+
+# ── Habitat CLI ───────────────────────────────────────────────────────
 # All interfaces share ONE work dir (examples/jeeves-bot/jeeves-bot-data-dir)
 # so agents, persona, memories, and tools are the same everywhere.
 # API keys come from examples/jeeves-bot/.env; model from JEEVES_PROVIDER/JEEVES_MODEL.

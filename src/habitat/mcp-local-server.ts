@@ -56,6 +56,12 @@ function registerAiTool(
 
   // Build the handler that bridges MCP → AI SDK tool execute
   const handler = async (params: Record<string, unknown>) => {
+    const ts = new Date().toISOString();
+    const argSummary = Object.entries(params)
+      .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+      .join(" ");
+    console.log(`[${ts}] ⚡ ${toolName}${argSummary ? " " + argSummary : ""}`);
+
     try {
       const result = await execute(params, {
         toolCallId: `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -67,10 +73,13 @@ function registerAiTool(
       const text =
         typeof result === "string" ? result : JSON.stringify(result, null, 2);
 
+      console.log(`[${new Date().toISOString()}] ✓ ${toolName} (${text.length} chars)`);
+
       return {
         content: [{ type: "text" as const, text }],
       };
     } catch (error: any) {
+      console.log(`[${new Date().toISOString()}] ✗ ${toolName}: ${error.message ?? String(error)}`);
       return {
         content: [
           {

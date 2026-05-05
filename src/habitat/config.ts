@@ -137,10 +137,19 @@ export function getAgentById(config: HabitatConfig, idOrName: string): AgentEntr
   return config.agents.find(a => a.id === idOrName || a.name === idOrName);
 }
 
-/** All roots allowed for file access: work dir, sessions dir, then agent project paths. */
+/**
+ * Resolve the project directory (git clone target) from config.
+ * Returns absolute path: workDir + (config.projectDir ?? "project").
+ */
+export function resolveProjectDir(workDir: string, config: HabitatConfig): string {
+  return join(workDir, config.projectDir ?? 'project');
+}
+
+/** All roots allowed for file access: work dir, sessions dir, project dir, then agent project paths. */
 export function getFileAllowedRoots(workDir: string, sessionsDir: string, config: HabitatConfig): string[] {
   const agentRoots = config.agents.map(a => a.projectPath).filter(Boolean);
-  return [workDir, sessionsDir, ...agentRoots];
+  const projectDir = resolveProjectDir(workDir, config);
+  return [workDir, sessionsDir, projectDir, ...agentRoots];
 }
 
 /** Check if a file exists and is readable. */

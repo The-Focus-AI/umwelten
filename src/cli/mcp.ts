@@ -7,7 +7,7 @@ import { createSSEConfig, createWebSocketConfig } from '../mcp/client/client.js'
 import { createMCPServer } from '../mcp/server/server.js';
 import { StdioTransport } from '../mcp/types/transport.js';
 import type { TransportConfig } from '../mcp/types/transport.js';
-import { cliStdoutObserver } from '../cognition/observers.js';
+import { createMarkdownChatObserver } from '../cognition/observers.js';
 
 /**
  * CLI Commands for MCP (Model Context Protocol) functionality
@@ -408,6 +408,12 @@ mcpCommand
     const { Interaction } = await import('../interaction/core/interaction.js');
     const { Stimulus } = await import('../stimulus/stimulus.js');
     const { createInterface } = await import('node:readline');
+    const { join } = await import('node:path');
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    const { homedir } = await import('node:os');
+    const { writeSessionTranscript } = await import('../habitat/transcript.js');
+    const { estimateContextSize } = await import('../context/estimate-size.js');
+    const { listCompactionStrategies } = await import('../context/registry.js');
 
     const mcp = new RemoteMcpClient({
       serverUrl: opts.url,
@@ -422,13 +428,37 @@ mcpCommand
       return;
     }
 
+    // Set up session directory for transcript persistence
+    let sessionId = `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const sessionsBase = join(homedir(), '.umwelten', 'mcp-sessions');
+    let sessionDir = join(sessionsBase, sessionId);
+    mkdirSync(sessionDir, { recursive: true });
+
+    // Write session metadata
+    writeFileSync(join(sessionDir, 'meta.json'), JSON.stringify({
+      id: sessionId,
+      server: opts.url,
+      provider: opts.provider,
+      model: opts.model,
+      createdAt: new Date().toISOString(),
+    }, null, 2));
+
     console.log(`Connecting to ${opts.url}...`);
     await mcp.connect();
-    console.log(`Connected. ${mcp.getToolNames().length} tools available:`);
-    for (const name of mcp.getToolNames()) {
+
+    const toolNames = mcp.getToolNames();
+    console.log(`Connected. ${chalk.green(String(toolNames.length))} tools available:`);
+    // Show tool names in a compact grid, with short descriptions
+    for (const name of toolNames) {
       const desc = mcp.getToolDescription(name);
-      console.log(`  ${chalk.green(name)}${desc ? ` — ${desc}` : ''}`);
+      // Truncate description to first sentence or 80 chars
+      const shortDesc = desc
+        ? desc.split(/\.\s/)[0].slice(0, 80) + (desc.length > 80 ? '...' : '')
+        : '';
+      console.log(`  ${chalk.green(name)}${shortDesc ? ` ${chalk.dim('—')} ${chalk.dim(shortDesc)}` : ''}`);
     }
+    console.log('');
+    console.log(chalk.dim(`Session: ${sessionDir}`));
     console.log('');
 
     const today = new Date().toISOString().split('T')[0];
@@ -443,58 +473,321 @@ mcpCommand
     );
     interaction.setMaxSteps(parseInt(opts.maxSteps, 10));
 
+    // Save transcript after each turn
+    const saveTranscript = async () => {
+      try {
+        await writeSessionTranscript(sessionDir, interaction.getMessages());
+      } catch {
+        // Non-fatal — don't interrupt the chat
+      }
+    };
+
     // One-shot mode
     if (opts.oneShot) {
       interaction.addMessage({ role: 'user', content: opts.oneShot });
-      await interaction.streamText(undefined, cliStdoutObserver());
+      const obs = await createMarkdownChatObserver();
+      await interaction.streamText(undefined, obs);
+      obs.end();
       process.stdout.write('\n');
+      await saveTranscript();
       await mcp.disconnect();
       return;
     }
 
-    // REPL mode
+    // REPL mode with abort support
     const rl = createInterface({ input: process.stdin, output: process.stdout });
-    console.log('Type a message to chat. /tools to list tools, /logout to clear auth, /exit to quit.\n');
 
-    const ask = () => {
-      rl.question('You: ', async (line) => {
-        const input = line.trim();
-        if (!input) { ask(); return; }
+    let currentAbort: AbortController | null = null;
+    let isStreaming = false;
 
-        if (input === '/exit' || input === '/quit') {
+    // Listen for raw keypress events for Escape during streaming
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false); // readline manages raw mode
+    }
+
+    // Intercept Escape key — readline emits 'keypress' events
+    const onKeypress = (_ch: string, key: { name?: string; ctrl?: boolean; sequence?: string }) => {
+      if (!isStreaming) return;
+      if (key?.name === 'escape' || key?.sequence === '\x1b') {
+        if (currentAbort) {
+          process.stdout.write(chalk.dim('\n  ⏹ aborted\n'));
+          currentAbort.abort();
+          currentAbort = null;
+        }
+      }
+    };
+    process.stdin.on('keypress', onKeypress);
+
+    // Context size helper
+    const getContextStatus = (): string => {
+      const est = estimateContextSize(interaction.getMessages());
+      const msgs = est.messageCount;
+      const tokens = est.estimatedTokens;
+      if (tokens > 1000) {
+        return `${msgs} msgs ~${(tokens / 1000).toFixed(1)}k tokens`;
+      }
+      return `${msgs} msgs ~${tokens} tokens`;
+    };
+
+    // Prompt with context info
+    const getPrompt = (): string => {
+      const ctx = getContextStatus();
+      return `${chalk.dim(`[${ctx}]`)} ${chalk.bold('You: ')}`;
+    };
+
+    const showHelp = () => {
+      console.log(`
+${chalk.bold('Commands:')}
+  ${chalk.green('/help')}       Show this help
+  ${chalk.green('/tools')}      List available MCP tools
+  ${chalk.green('/context')}    Show context size details
+  ${chalk.green('/compact')}    Compact context (reduce token usage)
+  ${chalk.green('/new')}        Start fresh conversation (same session)
+  ${chalk.green('/fork')}       Fork: save current session, start fresh in new one
+  ${chalk.green('/logout')}     Clear OAuth credentials
+  ${chalk.green('/quit')}       Save and exit
+
+  ${chalk.dim('Press Escape or Ctrl+C during generation to abort.')}
+`);
+    };
+
+    const handleCommand = async (input: string): Promise<boolean> => {
+      const [cmd, ...args] = input.split(/\s+/);
+
+      switch (cmd) {
+        case '/exit':
+        case '/quit':
+        case '/q':
+          await saveTranscript();
+          console.log(chalk.dim(`Session saved: ${sessionDir}`));
           await mcp.disconnect();
           rl.close();
           process.exit(0);
-        }
-        if (input === '/tools') {
-          for (const name of mcp.getToolNames()) {
+
+        case '/help':
+        case '/?':
+          showHelp();
+          return true;
+
+        case '/tools':
+          for (const name of toolNames) {
             const desc = mcp.getToolDescription(name);
-            console.log(`  ${chalk.green(name)}${desc ? ` — ${desc}` : ''}`);
+            console.log(`  ${chalk.green(name)}${desc ? ` ${chalk.dim('—')} ${chalk.dim(desc)}` : ''}`);
           }
           console.log('');
-          ask();
-          return;
-        }
-        if (input === '/logout') {
-          await mcp.resetAuth();
-          console.log('Cleared credentials. Restart to re-auth.\n');
-          ask();
-          return;
+          return true;
+
+        case '/context': {
+          const est = estimateContextSize(interaction.getMessages());
+          console.log(`  Messages: ${est.messageCount}`);
+          console.log(`  Characters: ${est.characterCount.toLocaleString()}`);
+          console.log(`  Estimated tokens: ~${est.estimatedTokens.toLocaleString()}`);
+          console.log('');
+          return true;
         }
 
-        try {
-          interaction.addMessage({ role: 'user', content: input });
-          process.stdout.write('Assistant: ');
-          const response = await interaction.streamText(undefined, cliStdoutObserver());
-          const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
-          if (text && !text.endsWith('\n')) process.stdout.write('\n');
-        } catch (error) {
-          console.error('Error:', error instanceof Error ? error.message : error);
+        case '/compact': {
+          const strategies = await listCompactionStrategies();
+          if (args[0] === 'list') {
+            console.log(`  Available strategies:`);
+            for (const s of strategies) {
+              console.log(`    ${chalk.green(s.id)} — ${s.description ?? ''}`);
+            }
+            console.log(`\n  Usage: ${chalk.dim('/compact [strategy-id]')}`);
+            console.log('');
+            return true;
+          }
+          const strategyId = args[0] || strategies[0]?.id;
+          if (!strategyId) {
+            console.log(chalk.red('  No compaction strategies available.\n'));
+            return true;
+          }
+
+          // Snapshot messages before compaction
+          const messagesBefore = [...interaction.getMessages()];
+          const beforeEst = estimateContextSize(messagesBefore);
+          console.log(`  Compacting with ${chalk.green(strategyId)}...`);
+
+          const result = await interaction.compactContext(strategyId);
+          if (!result) {
+            console.log(chalk.dim('  Nothing to compact (too few messages).\n'));
+            return true;
+          }
+
+          // Show the replacement summary
+          const afterEst = estimateContextSize(interaction.getMessages());
+          console.log(`  ${beforeEst.estimatedTokens} → ${afterEst.estimatedTokens} tokens`);
+          console.log(`  (${result.segmentEnd - result.segmentStart + 1} messages → ${result.replacementCount})\n`);
+
+          // Show the replacement content
+          const replacementMsgs = interaction.getMessages().slice(
+            result.segmentStart,
+            result.segmentStart + result.replacementCount,
+          );
+          console.log(chalk.dim('  ── replacement ──'));
+          for (const msg of replacementMsgs) {
+            const content = typeof msg.content === 'string'
+              ? msg.content
+              : JSON.stringify(msg.content);
+            // Show first ~20 lines
+            const lines = content.split('\n');
+            const preview = lines.slice(0, 20);
+            for (const line of preview) {
+              console.log(chalk.dim(`  │ `) + line);
+            }
+            if (lines.length > 20) {
+              console.log(chalk.dim(`  │ ... (${lines.length - 20} more lines)`));
+            }
+          }
+          console.log(chalk.dim('  ── end ──\n'));
+
+          // Ask: accept, edit, or revert
+          const answer = await new Promise<string>((resolve) => {
+            rl.question(
+              `  ${chalk.bold('Accept')} (a), ${chalk.bold('edit')} (e), or ${chalk.bold('revert')} (r)? `,
+              resolve,
+            );
+          });
+
+          const choice = answer.trim().toLowerCase();
+          if (choice === 'r' || choice === 'revert') {
+            // Restore original messages
+            (interaction as any).messages = messagesBefore;
+            console.log(chalk.dim('  Reverted.\n'));
+          } else if (choice === 'e' || choice === 'edit') {
+            // Let user provide replacement text
+            console.log(chalk.dim('  Enter replacement summary (end with empty line):'));
+            const editLines: string[] = [];
+            const collectEdit = (): Promise<void> => new Promise((resolve) => {
+              const readLine = () => {
+                rl.question(chalk.dim('  │ '), (line) => {
+                  if (line === '') {
+                    resolve();
+                  } else {
+                    editLines.push(line);
+                    readLine();
+                  }
+                });
+              };
+              readLine();
+            });
+            await collectEdit();
+            if (editLines.length > 0) {
+              const editedContent = editLines.join('\n');
+              const newMessages = [
+                ...interaction.getMessages().slice(0, result.segmentStart),
+                { role: 'assistant' as const, content: editedContent },
+                ...interaction.getMessages().slice(result.segmentStart + result.replacementCount),
+              ];
+              (interaction as any).messages = newMessages;
+              console.log(chalk.dim('  Updated.\n'));
+            } else {
+              console.log(chalk.dim('  No input — keeping compacted version.\n'));
+            }
+          } else {
+            console.log(chalk.dim('  Accepted.\n'));
+          }
+          return true;
         }
+
+        case '/new':
+          await saveTranscript();
+          interaction.clearContext();
+          console.log(chalk.dim('  Conversation cleared. Starting fresh.\n'));
+          return true;
+
+        case '/fork': {
+          await saveTranscript();
+          console.log(chalk.dim(`  Saved: ${sessionDir}`));
+          const prevSessionId = sessionId;
+          sessionId = `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          sessionDir = join(sessionsBase, sessionId);
+          mkdirSync(sessionDir, { recursive: true });
+          writeFileSync(join(sessionDir, 'meta.json'), JSON.stringify({
+            id: sessionId,
+            server: opts.url,
+            provider: opts.provider,
+            model: opts.model,
+            createdAt: new Date().toISOString(),
+            forkedFrom: prevSessionId,
+          }, null, 2));
+          interaction.clearContext();
+          console.log(chalk.dim(`  Forked to: ${sessionDir}`));
+          console.log(chalk.dim('  Conversation cleared.\n'));
+          return true;
+        }
+
+        case '/logout':
+          await mcp.resetAuth();
+          console.log('  Cleared credentials. Restart to re-auth.\n');
+          return true;
+
+        default:
+          if (input.startsWith('/')) {
+            console.log(chalk.dim(`  Unknown command: ${cmd}. Type /help for commands.\n`));
+            return true;
+          }
+          return false;
+      }
+    };
+
+    const runTurn = async (input: string) => {
+      const obs = await createMarkdownChatObserver();
+      try {
+        interaction.addMessage({ role: 'user', content: input });
+        console.log('');
+        currentAbort = new AbortController();
+        isStreaming = true;
+        const response = await interaction.streamText(currentAbort.signal, obs);
+        obs.end();
+        const text = typeof response.content === 'string' ? response.content : String(response.content ?? '');
+        if (text && !text.endsWith('\n')) process.stdout.write('\n');
+      } catch (error: any) {
+        obs.end();
+        if (error?.name === 'AbortError' || currentAbort?.signal.aborted) {
+          // Already printed abort message
+        } else {
+          console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
+        }
+      } finally {
+        isStreaming = false;
+        currentAbort = null;
+        await saveTranscript();
+      }
+    };
+
+    showHelp();
+
+    const ask = () => {
+      rl.question(getPrompt(), async (line) => {
+        const input = line.trim();
+        if (!input) { ask(); return; }
+
+        if (await handleCommand(input)) { ask(); return; }
+
+        await runTurn(input);
         console.log('');
         ask();
       });
     };
+
+    // Save on Ctrl+C too
+    process.on('SIGINT', async () => {
+      if (currentAbort) {
+        currentAbort.abort();
+        process.stdout.write(chalk.dim('\n  ⏹ aborted\n'));
+        isStreaming = false;
+        currentAbort = null;
+        await saveTranscript();
+        console.log('');
+        ask();
+        return;
+      }
+      await saveTranscript();
+      console.log(chalk.dim(`\nSession saved: ${sessionDir}`));
+      await mcp.disconnect();
+      process.exit(0);
+    });
 
     ask();
   });

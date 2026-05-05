@@ -92,6 +92,7 @@
     "ollama-ai-provider-v2": "^1.5.5",
     "ora": "^9.3.0",
     "react": "^19.2.4",
+    "streammark": "^1.0.4",
     "tiktoken": "^1.0.22",
     "turndown": "^7.2.2",
     "undici": "^8.1.0",

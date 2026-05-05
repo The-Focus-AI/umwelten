@@ -165,10 +165,10 @@ export async function buildAgentStimulus(
     instructions: [
       `You are a sub-agent managing the "${agent.name}" project at ${agent.projectPath}.`,
       "Use read_file, list_directory, and ripgrep with agentId to explore the project.",
-      "Prefer host-side file tools first when inspecting the repo. Do not use bridge tools unless the user explicitly asks for an isolated runtime or host-side inspection is insufficient.",
+      "Use file tools to inspect the repo directly.",
       `For project-scoped tools, use agentId="${agent.id}" whenever the tool requires it.`,
       "When asked how the project runs or what it needs, inspect the actual runnable entrypoints first (for example run.sh, setup.sh, start.sh, Makefile targets, Dockerfile, and bin/* scripts) and follow the scripts they invoke. Do not rely only on README or package manifests.",
-      "You do not have direct host shell execution. When the user asks you to run project commands or scripts, use bridge_start and then bridge_exec for this project when bridge tools are available.",
+      "Use agent_ask_claude to delegate tasks that require shell execution or code editing.",
       "Never delegate back into this same project with agent_ask. You are already the project sub-agent.",
       "Treat every external executable invoked by those entrypoints as a potential dependency. Explicitly look for required CLIs, environment variables, host integrations, hardcoded absolute paths, and optional fallbacks.",
       "Ignore incidental mentions in reports/, notes, or research documents unless those files are part of the actual runnable path.",
@@ -275,22 +275,6 @@ export class HabitatAgent {
     );
   }
 
-  /**
-   * Get the MCP server port from agent config.
-   */
-  getMCPPort(): number | undefined {
-    return this.agent.mcpPort;
-  }
-
-  /**
-   * Get the MCP endpoint URL.
-   */
-  getMCPEndpoint(): string | undefined {
-    if (this.agent.mcpPort) {
-      return `http://localhost:${this.agent.mcpPort}/mcp`;
-    }
-    return undefined;
-  }
 
   /**
    * Send a message to the agent and get a response.

@@ -68,18 +68,10 @@ describe('agent-runner-tools', () => {
         if (agent) Object.assign(agent, updates);
       },
       getOrCreateHabitatAgent: async () => mockHabitatAgent,
-      startBridge: async () => { throw new Error('Mock: no bridge in test'); },
-      getBridgeAgent: () => undefined,
-      getAllBridgeAgents: () => [],
-      destroyBridgeAgent: async () => {},
-      listBridgeAgents: () => [],
       getAgentDir: (id: string) => join(workDir, 'agents', id),
       ensureAgentDir: async (id: string) => {
         await mkdir(join(workDir, 'agents', id, 'logs'), { recursive: true });
       },
-      saveBridgeState: async () => {},
-      loadBridgeState: async () => null,
-      loadAllBridgeStates: async () => [],
     };
 
     tools = createAgentRunnerTools(ctx);
@@ -580,18 +572,13 @@ describe('agent-runner-tools', () => {
       expect(tools.agent_status).toBeDefined();
       expect(tools.agent_ask).toBeDefined();
       expect(tools.agent_configure).toBeDefined();
-      expect(tools.bridge_start).toBeDefined();
-      expect(tools.bridge_stop).toBeDefined();
-      expect(tools.bridge_list).toBeDefined();
-      expect(tools.bridge_ls).toBeDefined();
-      expect(tools.bridge_read).toBeDefined();
-      expect(tools.bridge_exec).toBeDefined();
+      expect(tools.agent_ask_claude).toBeDefined();
     });
 
-    it('should not include removed tools', () => {
-      expect(tools.bridge_diagnose).toBeUndefined();
-      expect(tools.bridge_apply_provisioning).toBeUndefined();
-      expect(tools.bridge_monitor).toBeUndefined();
+    it('should not include removed bridge tools', () => {
+      expect((tools as any).bridge_start).toBeUndefined();
+      expect((tools as any).bridge_stop).toBeUndefined();
+      expect((tools as any).bridge_list).toBeUndefined();
     });
   });
 });

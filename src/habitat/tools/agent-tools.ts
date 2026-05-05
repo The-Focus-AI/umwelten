@@ -19,49 +19,19 @@ export interface AgentToolsContext {
 
 export function createAgentTools(ctx: AgentToolsContext): Record<string, Tool> {
   const agentsListTool = tool({
-    description: 'List all configured agents (habitats): id, name, projectPath, gitRemote, MCP status, commands.',
+    description: 'List all configured agents (habitats): id, name, projectPath, gitRemote, commands.',
     inputSchema: z.object({}).optional(),
     execute: async () => {
       const config = ctx.getConfig();
-      const { AgentDiscovery } = await import('../agent-discovery.js');
-      const discovery = new AgentDiscovery({ habitat: ctx as any });
 
-      const agents = await Promise.all(config.agents.map(async (a) => {
-        let mcpStatus: string | null = a.mcpStatus ?? null;
-        let mcpError: string | undefined;
-
-        if (a.mcpPort && a.mcpPort > 0) {
-          try {
-            const discovered = await discovery.discoverAgent(a);
-            mcpStatus = discovered.status;
-            mcpError = discovered.error;
-          } catch (err) {
-            mcpStatus = "error";
-            mcpError = err instanceof Error ? err.message : String(err);
-          }
-        }
-
-        return {
-          id: a.id,
-          name: a.name,
-          projectPath: a.projectPath,
-          gitRemote: a.gitRemote ?? null,
-          mcpPort: a.mcpPort ?? null,
-          mcpStatus,
-          mcpError,
-          secretsRefs: a.secrets?.length ? a.secrets : undefined,
-          commands: a.commands ?? undefined,
-          hasProvisioning: !!a.bridgeProvisioning,
-          provisioningSummary: a.bridgeProvisioning ? {
-            baseImage: a.bridgeProvisioning.baseImage,
-            buildSteps: a.bridgeProvisioning.buildSteps,
-            envVarNames: a.bridgeProvisioning.envVarNames,
-            analyzedAt: a.bridgeProvisioning.analyzedAt,
-          } : undefined,
-        };
+      const agents = config.agents.map((a) => ({
+        id: a.id,
+        name: a.name,
+        projectPath: a.projectPath,
+        gitRemote: a.gitRemote ?? null,
+        secretsRefs: a.secrets?.length ? a.secrets : undefined,
+        commands: a.commands ?? undefined,
       }));
-
-      discovery.stop();
 
       return {
         agents,

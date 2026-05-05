@@ -52,9 +52,26 @@ function shouldSaveToFile(content: string): { save: boolean; reason?: string; li
 }
 
 /**
- * Get the sessions directory (from env or default)
+ * Configurable downloads directory. Set via `setDownloadsDir()` or falls back
+ * to JEEVES_SESSIONS_DIR env / ~/.jeeves-sessions.
+ */
+let _configuredDownloadsDir: string | undefined;
+
+/**
+ * Set the downloads directory for url tools (wget/markify).
+ * Call this before using the tools to control where large responses are saved.
+ */
+export function setDownloadsDir(dir: string): void {
+  _configuredDownloadsDir = dir;
+}
+
+/**
+ * Get the downloads base directory.
  */
 function getSessionsDir(): string {
+  if (_configuredDownloadsDir) {
+    return resolve(_configuredDownloadsDir);
+  }
   const env = process.env.JEEVES_SESSIONS_DIR;
   if (env) {
     return resolve(env);
@@ -77,12 +94,12 @@ async function getDefaultSessionDir(): Promise<string> {
  */
 async function writeToSessionFile(content: string, prefix: string, extension: string): Promise<string> {
   const sessionDir = await getDefaultSessionDir();
-  
+
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 9);
   const filename = `${prefix}-${timestamp}-${random}.${extension}`;
   const filePath = join(sessionDir, filename);
-  
+
   await writeFile(filePath, content, 'utf-8');
   return filePath;
 }

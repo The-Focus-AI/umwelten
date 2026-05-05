@@ -54,7 +54,6 @@ import type { SearchToolsContext } from "./tools/search-tools.js";
 import { ToolRegistry } from "./tool-registry.js";
 import { HabitatAgent } from "./habitat-agent.js";
 import { loadSecrets, saveSecrets } from "./secrets.js";
-import { BridgeManager } from "./bridge-manager.js";
 
 export class Habitat
   implements
@@ -80,7 +79,6 @@ export class Habitat
   private habitatAgents: Map<string, HabitatAgent> = new Map();
   private runtimeModelDetails: ModelDetails | undefined;
   private options: HabitatOptions;
-  private bridgeManager!: BridgeManager;
 
   private constructor(
     workDir: string,
@@ -151,16 +149,11 @@ export class Habitat
       opts,
     );
 
-    habitat.bridgeManager = new BridgeManager({
-      workDir: habitat.workDir,
-      getAgent: (id) => habitat.getAgent(id),
-      updateAgent: (id, u) => habitat.updateAgent(id, u),
-      getSecret: (name) => habitat.getSecret(name),
-    });
 
-    // 6. Register standard tool sets (unless skipped)
+    // 6. Register tool sets (unless skipped)
     if (!opts.skipBuiltinTools) {
-      for (const toolSet of standardToolSets) {
+      const toolSets = opts.toolSets ?? standardToolSets;
+      for (const toolSet of toolSets) {
         habitat.addToolSet(toolSet);
       }
     }
@@ -491,57 +484,15 @@ export class Habitat
     return new Interaction(modelDetails, stimulus);
   }
 
-  // ── Bridge Supervisor management (delegated to BridgeManager) ────
+  // ── Agent directory management ────
 
   getAgentDir(agentId: string): string {
-    return this.bridgeManager.getAgentDir(agentId);
+    return join(this.workDir, "agents", agentId);
   }
 
   async ensureAgentDir(agentId: string): Promise<void> {
-    return this.bridgeManager.ensureAgentDir(agentId);
-  }
-
-  async saveBridgeState(agentId: string, state: import("./bridge/state.js").BridgeState): Promise<void> {
-    return this.bridgeManager.saveBridgeState(agentId, state);
-  }
-
-  async loadBridgeState(agentId: string): Promise<import("./bridge/state.js").BridgeState | null> {
-    return this.bridgeManager.loadBridgeState(agentId);
-  }
-
-  async loadAllBridgeStates(): Promise<import("./bridge/state.js").BridgeState[]> {
-    return this.bridgeManager.loadAllBridgeStates();
-  }
-
-  async startBridge(
-    agentId: string,
-    options?: { logFilePath?: string },
-  ): Promise<import("./bridge/agent.js").BridgeAgent> {
-    return this.bridgeManager.startBridge(agentId, options);
-  }
-
-  getSupervisor(agentId: string): import("./bridge/supervisor.js").BridgeSupervisor | undefined {
-    return this.bridgeManager.getSupervisor(agentId);
-  }
-
-  getBridgeAgent(agentId: string): import("./bridge/agent.js").BridgeAgent | undefined {
-    return this.bridgeManager.getBridgeAgent(agentId);
-  }
-
-  getAllBridgeAgents(): import("./bridge/agent.js").BridgeAgent[] {
-    return this.bridgeManager.getAllBridgeAgents();
-  }
-
-  async destroyBridgeAgent(agentId: string): Promise<void> {
-    return this.bridgeManager.destroyBridgeAgent(agentId);
-  }
-
-  listBridgeAgents(): string[] {
-    return this.bridgeManager.listBridgeAgents();
-  }
-
-  async stopAllSupervisors(): Promise<void> {
-    return this.bridgeManager.stopAllSupervisors();
+    const agentDir = this.getAgentDir(agentId);
+    await ensureDir(agentDir);
   }
 
   // ── Onboarding ──────────────────────────────────────────────────

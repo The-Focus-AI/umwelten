@@ -17,7 +17,13 @@ import {
   wgetTool,
   markifyTool,
   parseFeedTool,
+  setDownloadsDir,
 } from "../stimulus/tools/url-tools.js";
+import { createExecTools } from "./tools/exec-tools.js";
+import { createProvisionTools } from "./tools/provision-tools.js";
+import { createArtifactTools } from "./tools/artifact-tools.js";
+import { resolveProjectDir } from "./config.js";
+import { accessSync } from "node:fs";
 
 /**
  * A ToolSet is a named collection of tools that can be registered together.
@@ -47,11 +53,15 @@ export const timeToolSet: ToolSet = {
 export const urlToolSet: ToolSet = {
   name: "url-operations",
   description: "Fetch URLs, convert to markdown, parse feeds",
-  createTools: () => ({
-    wget: wgetTool,
-    markify: markifyTool,
-    parse_feed: parseFeedTool,
-  }),
+  createTools: (habitat) => {
+    // Configure downloads to go inside the habitat work dir so read_file can access them
+    setDownloadsDir(`${habitat.getWorkDir()}/downloads`);
+    return {
+      wget: wgetTool,
+      markify: markifyTool,
+      parse_feed: parseFeedTool,
+    };
+  },
 };
 
 /** Agent CRUD: list, add, update, remove agents. */
@@ -96,6 +106,54 @@ export const searchToolSet: ToolSet = {
   createTools: (habitat) => createSearchTools(habitat),
 };
 
+/** Shell execution: run commands in the habitat work directory. */
+export const execToolSet: ToolSet = {
+  name: "exec",
+  description: "Execute shell commands in the habitat work directory",
+  createTools: (habitat) =>
+    createExecTools({
+      getWorkDir: () => habitat.getWorkDir(),
+      getProjectDir: () => {
+        const config = habitat.getConfig();
+        if (config.gitUrl) {
+          const projectDir = resolveProjectDir(habitat.getWorkDir(), config);
+          try {
+            accessSync(projectDir);
+            return projectDir;
+          } catch {
+            return undefined;
+          }
+        }
+        return undefined;
+      },
+    }),
+};
+
+/** Provisioning: clone git repos, install runtimes via mise, declare secrets. */
+export const provisionToolSet: ToolSet = {
+  name: "provisioning",
+  description:
+    "Reproducible habitat provisioning: clone project, install runtimes, manage required secrets",
+  createTools: (habitat) =>
+    createProvisionTools({
+      getWorkDir: () => habitat.getWorkDir(),
+      getConfig: () => habitat.getConfig(),
+      getConfigPath: () => habitat.configPath,
+      reloadConfig: () => habitat.reloadConfig().then(() => {}),
+    }),
+};
+
+/** Artifacts: publish files as named, timestamped artifacts with metadata. */
+export const artifactToolSet: ToolSet = {
+  name: "artifacts",
+  description: "Publish and list artifacts (files shared with the user)",
+  createTools: (habitat) =>
+    createArtifactTools({
+      getWorkDir: () => habitat.getWorkDir(),
+      getSessionId: () => (habitat as any)._currentSessionId,
+    }),
+};
+
 /** Self-modification: create/remove/reload tools and skills at runtime. */
 export const selfModifyToolSet: ToolSet = {
   name: "self-modify",
@@ -104,7 +162,7 @@ export const selfModifyToolSet: ToolSet = {
   createTools: (habitat) => createSelfModifyTools(habitat),
 };
 
-/** All standard tool sets that a typical habitat includes. */
+/** All standard tool sets that a typical habitat includes (host orchestrator). */
 export const standardToolSets: ToolSet[] = [
   fileToolSet,
   timeToolSet,
@@ -116,4 +174,19 @@ export const standardToolSets: ToolSet[] = [
   secretsToolSet,
   searchToolSet,
   selfModifyToolSet,
+];
+
+/**
+ * Minimal tool sets for a habitat container (MCP server mode).
+ * Only self-awareness tools: file ops, secrets, self-modify, time, URL fetch.
+ */
+export const containerToolSets: ToolSet[] = [
+  fileToolSet,
+  timeToolSet,
+  urlToolSet,
+  secretsToolSet,
+  selfModifyToolSet,
+  execToolSet,
+  provisionToolSet,
+  artifactToolSet,
 ];

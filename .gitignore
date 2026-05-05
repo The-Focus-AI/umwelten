@@ -99,3 +99,4 @@ examples/simple-agent/*
 !examples/simple-agent/skills/
 examples/simple-agent/skills/*
 !examples/simple-agent/skills/.gitkeep
+habitat_data/

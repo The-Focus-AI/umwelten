@@ -20,23 +20,14 @@ export interface LogPattern {
   format: "jsonl" | "plain";
 }
 
-/**
- * MCP server status for an agent.
- */
-export type AgentMCPStatus = "running" | "stopped" | "error" | "starting";
 
-/** Provisioning data that gets persisted to config.json. */
-export interface SavedProvisioning {
-  /** What the LLM chose — informational, used as hint on next build. */
-  baseImage: string;
-  /** Build steps the LLM executed or we detected. */
-  buildSteps: string[];
-  /** Env var names the project needs. */
-  envVarNames: string[];
-  /** LLM reasoning for the build choices. */
-  reasoning: string;
-  /** When this provisioning was last analyzed. */
-  analyzedAt: string;
+/**
+ * A required secret declaration for reproducible provisioning.
+ */
+export interface RequiredSecret {
+  name: string;
+  description?: string;
+  required: boolean;
 }
 
 /**
@@ -60,16 +51,6 @@ export interface AgentEntry {
   statusFile?: string;
   /** Git repos for skills this agent needs (e.g. "Focus-AI/chrome-driver"). */
   skillsFromGit?: string[];
-  /** Port where agent's MCP server runs (auto-assigned). */
-  mcpPort?: number;
-  /** Whether MCP server is enabled for this agent. */
-  mcpEnabled?: boolean;
-  /** Current MCP server status. */
-  mcpStatus?: AgentMCPStatus;
-  /** Last error message if mcpStatus is 'error'. */
-  mcpError?: string;
-  /** Cached provisioning from bridge analysis (persisted across sessions). */
-  bridgeProvisioning?: SavedProvisioning;
 }
 
 /**
@@ -103,6 +84,14 @@ export interface HabitatConfig {
     /** Journal file for reflective logging (e.g. "private journal.md"). */
     journalFile?: string;
   };
+  /** Git URL for reproducible provisioning (cloned into projectDir). */
+  gitUrl?: string;
+  /** Git branch to check out (default: main). */
+  gitBranch?: string;
+  /** Subdirectory for the git clone, relative to workDir (default: "project"). */
+  projectDir?: string;
+  /** Secrets required for this habitat to function. */
+  requiredSecrets?: RequiredSecret[];
   /** Extension point for habitat-specific config. */
   extensions?: Record<string, unknown>;
 }
@@ -130,6 +119,8 @@ export interface HabitatOptions {
   registerCustomTools?: (habitat: any) => void | Promise<void>;
   /** Skip loading built-in tools (file ops, time, etc.). */
   skipBuiltinTools?: boolean;
+  /** Override which tool sets to register (default: standardToolSets). */
+  toolSets?: import("./tool-sets.js").ToolSet[];
   /** Skip loading work-dir tools from tools/ directory. */
   skipWorkDirTools?: boolean;
   /** Skip loading skills. */

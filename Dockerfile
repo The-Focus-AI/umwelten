@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1.4
 #
-# Habitat MCP Server container.
+# Habitat Container — unified server.
 #
-# Exposes all habitat tools over Streamable HTTP at /mcp.
+# Single port exposes: MCP tools (/mcp), LLM chat (/api/chat), web UI (/), health (/health).
 # Mount a volume at /data for persistent state (config, sessions, skills, tools).
+# Set HABITAT_API_KEY to enable bearer token auth on /api/* and /mcp.
 #
 # Build:
 #   docker build -t habitat .
@@ -12,13 +13,24 @@
 #   docker run -p 8080:8080 -v ./my-habitat:/data habitat
 #   docker run -p 8080:8080 -e GOOGLE_GENERATIVE_AI_API_KEY=... habitat
 
-FROM node:22-slim AS base
+FROM node:22-slim
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 
-# ── Build stage ──────────────────────────────────────────────────
-FROM base AS build
-WORKDIR /app
+# Install git, ripgrep, curl, and CA certs (needed by habitat tools + HTTPS + mise)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ripgrep ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install mise (universal runtime/package manager)
+RUN curl https://mise.run | sh && \
+    ln -s /root/.local/bin/mise /usr/local/bin/mise
+
+ENV MISE_YES=1
+ENV MISE_DATA_DIR=/opt/mise
+ENV PATH="/opt/mise/shims:${PATH}"
+
+WORKDIR /habitat
 
 COPY package.json pnpm-lock.yaml tsconfig.json ./
 RUN printf '%s\n' 'package-import-method=copy' > .npmrc
@@ -26,19 +38,8 @@ RUN --mount=type=cache,id=pnpm-habitat,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 
 COPY src ./src/
-RUN pnpm run build
-
-# ── Production stage ─────────────────────────────────────────────
-FROM node:22-slim
-WORKDIR /app
-
-# Install git and ripgrep (needed by habitat tools)
-RUN apt-get update && apt-get install -y --no-install-recommends git ripgrep && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY --from=build /app/dist ./dist/
-COPY --from=build /app/node_modules ./node_modules/
-COPY --from=build /app/package.json ./
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Data volume — habitat work directory
 VOLUME /data
@@ -53,4 +54,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
     CMD node -e "fetch('http://localhost:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/cli/entry.js", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["pnpm", "exec", "tsx", "src/cli/entry.ts", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]
