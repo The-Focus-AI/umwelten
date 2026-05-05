@@ -1,0 +1,13 @@
+services:
+  habitat:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./habitat-data:/data
+    environment:
+      - PORT=8080
+      # Pass API keys via environment variables
+      # - GOOGLE_GENERATIVE_AI_API_KEY=
+      # - OPENROUTER_API_KEY=
+      # - TAVILY_API_KEY=

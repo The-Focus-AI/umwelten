@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.git/
+.env
+*.md
+!CLAUDE.md
+!LLM.txt
+output/
+reports/
+examples/
+docs/
+scripts/
+.claude/

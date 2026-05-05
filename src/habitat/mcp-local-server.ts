@@ -124,6 +124,13 @@ export async function startHabitatMcpServer(
         return;
       }
 
+      // Health check
+      if (req.url === "/health") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ status: "ok", name: serverName, tools: toolNames.length }));
+        return;
+      }
+
       // Only handle /mcp
       if (req.url !== "/mcp") {
         res.writeHead(404);
