@@ -11,16 +11,15 @@
 - [x] Removed `defaultSessionsDirName` — clean break from scattered session dirs
 - [x] Updated CLAUDE.md docs (module map, CLI reference, directory layout)
 
-## Phase 2: Docker Container (NEXT)
+## Phase 2: Docker Container (DONE)
 
-Package the habitat into a self-contained container.
-
-- [ ] `Dockerfile`: Node 22, install umwelten, entrypoint runs `habitat serve`
-- [ ] Volume at `/data` (config, skills, tools, workspace, sessions)
-- [ ] Env var injection for secrets (read from env, not secrets.json)
-- [ ] `docker-compose.yml` for local dev
-- [ ] Health check endpoint (`/health`)
-- [ ] Test: `docker compose up`, MCP client connects, tools work
+- [x] `Dockerfile`: multi-stage (node:22-slim), git+ripgrep, volume /data
+- [x] Volume at `/data` (config, sessions, skills, tools — all co-located)
+- [x] Env var injection for secrets (Docker-native)
+- [x] `docker-compose.yml` for local dev
+- [x] `/health` endpoint on MCP server
+- [x] `.dockerignore`
+- [x] Tested: build, run, health, initialize, tools/list, tool calls, write persistence, `mcp chat` end-to-end
 
 ## Phase 3: Agent Definition & Inference Attachment
 
