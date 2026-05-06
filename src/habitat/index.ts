@@ -122,11 +122,12 @@ export { createA2AHandler, buildAgentCard, HabitatAgentExecutor } from "./a2a-ha
 export type { A2AHandler, A2AHandlerOptions, AgentCardOptions } from "./a2a-handler.js";
 
 // Gaia Orchestrator — manage multiple habitat containers
-export { startGaiaOrchestrator, GaiaRegistryManager, GaiaSecretVault, DockerManager } from "./gaia/index.js";
+export { GaiaRegistryManager, GaiaSecretVault, DockerManager, createGaiaToolSet, handleGaiaRoute } from "./gaia/index.js";
 export type {
   GaiaHabitatEntry,
   GaiaRegistry,
   GaiaOrchestratorOptions,
-  StartedGaiaOrchestrator,
+  GaiaToolsContext,
+  GaiaRouteContext,
 } from "./gaia/index.js";
 

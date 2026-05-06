@@ -1204,7 +1204,7 @@ addSharedOptions(serveSubcommand)
 
 habitatCommand.addCommand(serveSubcommand);
 
-// Gaia orchestrator subcommand
+// Gaia orchestrator subcommand — a normal habitat with extra tools + routes
 const gaiaSubcommand = new Command("gaia").description(
   "Start the Gaia orchestrator — manage multiple habitat containers from a dashboard.",
 );
@@ -1217,19 +1217,84 @@ addSharedOptions(gaiaSubcommand)
       command: Command,
     ) => {
       const merged = mergedHabitatCliOptions(command, options);
-      const { startGaiaOrchestrator } = await import(
-        "../habitat/gaia/server.js"
-      );
+      const { resolve: pathResolve } = await import("node:path");
+      const { writeFile, mkdir } = await import("node:fs/promises");
+      const { fileURLToPath: toPath } = await import("node:url");
+      const { fileExists } = await import("../habitat/config.js");
+      const { containerToolSets } = await import("../habitat/tool-sets.js");
+      const { GaiaRegistryManager } = await import("../habitat/gaia/registry.js");
+      const { GaiaSecretVault } = await import("../habitat/gaia/secrets.js");
+      const { DockerManager } = await import("../habitat/gaia/docker.js");
+      const { createGaiaToolSet } = await import("../habitat/gaia/gaia-tools.js");
+      const { handleGaiaRoute } = await import("../habitat/gaia/routes.js");
 
-      const server = await startGaiaOrchestrator({
+      const dataDir = pathResolve(options.dataDir ?? "./gaia-data");
+      await mkdir(dataDir, { recursive: true });
+
+      // Write default STIMULUS.md if missing
+      const stimulusPath = pathResolve(dataDir, "STIMULUS.md");
+      if (!(await fileExists(stimulusPath))) {
+        await writeFile(stimulusPath, [
+          "# Gaia — Habitat Orchestrator",
+          "",
+          "You are Gaia, the habitat orchestrator. You manage multiple habitat containers — creating, starting, stopping, querying, and configuring them.",
+          "",
+          "You can also manage the master secret vault and delegate tasks to running habitats via A2A (Agent-to-Agent protocol).",
+          "",
+          "When users ask about their habitats, use your tools to check status, view logs, or relay questions. Be proactive about suggesting next steps.",
+          "",
+        ].join("\n"));
+      }
+
+      // Write default config.json if missing
+      const configPath = pathResolve(dataDir, "config.json");
+      if (!(await fileExists(configPath))) {
+        await writeFile(configPath, JSON.stringify({
+          name: "Gaia Orchestrator",
+          defaultProvider: merged.provider,
+          defaultModel: merged.model,
+        }, null, 2) + "\n");
+      }
+
+      // Initialize gaia components
+      const registry = new GaiaRegistryManager(dataDir);
+      await registry.load();
+      const vault = new GaiaSecretVault(dataDir);
+      await vault.load();
+      const projectRoot = pathResolve(toPath(import.meta.url), "..", "..", "..");
+      const docker = new DockerManager(dataDir, projectRoot);
+      await docker.ensureNetwork().catch(() => {});
+
+      // Create habitat with container tools + gaia orchestrator tools
+      const gaiaToolSet = createGaiaToolSet({ registry, vault, docker });
+      const habitat = await Habitat.create({
+        workDir: dataDir,
+        sessionsDir: pathResolve(dataDir, "sessions"),
+        envPrefix: "HABITAT",
+        toolSets: [...containerToolSets, gaiaToolSet],
+      });
+
+      if (merged.provider && merged.model) {
+        habitat.setRuntimeModelDetails({ provider: merged.provider, name: merged.model });
+      }
+
+      // Gaia UI directory
+      const gaiaUiDir = pathResolve(toPath(new URL(".", import.meta.url)), "..", "habitat", "gaia", "ui");
+
+      // Start the standard container server with gaia extensions
+      const { startContainerServer } = await import("../habitat/container-server.js");
+      const routeCtx = { registry, vault, docker };
+      const server = await startContainerServer({
+        habitat,
         port: parseInt(options.port ?? "7420", 10),
-        dataDir: options.dataDir ?? "./gaia-data",
-        provider: merged.provider,
-        model: merged.model,
+        host: "0.0.0.0",
+        name: "Gaia Orchestrator",
+        uiDir: gaiaUiDir,
+        extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
       });
 
       const shutdown = () => {
-        console.log("\n[gaia] Shutting down...");
+        console.log("\n[container] Shutting down...");
         server.close();
         process.exit(0);
       };

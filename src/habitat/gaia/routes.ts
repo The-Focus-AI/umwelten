@@ -3,27 +3,11 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { GaiaHabitatEntry } from "./types.js";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
 import { proxyRequest } from "./proxy.js";
-
-/** Build seed files (config + filtered secrets) for a habitat volume. */
-function buildSeedFiles(
-  entry: GaiaHabitatEntry,
-  vault: GaiaSecretVault,
-): Array<{ path: string; content: string }> {
-  const filtered: Record<string, string> = {};
-  for (const name of entry.secretBindings) {
-    const val = vault.get(name);
-    if (val) filtered[name] = val;
-  }
-  return [
-    { path: "config.json", content: JSON.stringify(entry.config, null, 2) + "\n" },
-    { path: "secrets.json", content: JSON.stringify(filtered, null, 2) + "\n" },
-  ];
-}
+import { buildSeedFiles } from "./gaia-tools.js";
 
 export interface GaiaRouteContext {
   registry: GaiaRegistryManager;

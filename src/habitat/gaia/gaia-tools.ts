@@ -1,25 +1,26 @@
 /**
- * Gaia Chat Tools — AI SDK tools for orchestrating habitats.
- * These tools let you talk to Gaia and manage habitats via natural language.
+ * Gaia Orchestrator ToolSet — AI SDK tools for orchestrating habitats,
+ * wrapped as a ToolSet for registration on a Habitat.
  */
 
 import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
+import type { ToolSet } from "../tool-sets.js";
 import type { GaiaHabitatEntry } from "./types.js";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
 import { fetchAgentCard, sendA2AMessage, discoverHabitats } from "./a2a-client.js";
 
-export interface GaiaChatToolsContext {
+export interface GaiaToolsContext {
   registry: GaiaRegistryManager;
   vault: GaiaSecretVault;
   docker: DockerManager;
 }
 
 /** Build the seed files (config.json + secrets.json) for a habitat volume. */
-function buildSeedFiles(
+export function buildSeedFiles(
   entry: GaiaHabitatEntry,
   vault: GaiaSecretVault,
 ): Array<{ path: string; content: string }> {
@@ -34,7 +35,7 @@ function buildSeedFiles(
   ];
 }
 
-export function createGaiaChatTools(ctx: GaiaChatToolsContext): Record<string, Tool> {
+function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
   const { registry, vault, docker } = ctx;
 
   return {
@@ -281,5 +282,16 @@ export function createGaiaChatTools(ctx: GaiaChatToolsContext): Record<string, T
         }
       },
     }),
+  };
+}
+
+/** Create a ToolSet that adds Gaia orchestrator tools to a habitat. */
+export function createGaiaToolSet(ctx: GaiaToolsContext): ToolSet {
+  return {
+    name: "gaia-orchestrator",
+    description: "Manage multiple habitat containers — create, start, stop, query, and configure them via Docker. Manage the master secret vault and delegate tasks to running habitats via A2A.",
+    createTools: () => {
+      return createGaiaTools(ctx);
+    },
   };
 }

@@ -41,6 +41,10 @@ export interface ContainerServerOptions {
   port?: number;
   host?: string;
   name?: string;
+  /** Optional raw request handler that runs before standard routing. Return true if handled. */
+  extraRawHandler?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
+  /** Override the static UI directory (default: container-ui/) */
+  uiDir?: string;
 }
 
 export interface StartedContainerServer {
@@ -182,7 +186,7 @@ function sendJson(res: ServerResponse, data: unknown, status = 200): void {
 export async function startContainerServer(
   options: ContainerServerOptions,
 ): Promise<StartedContainerServer> {
-  const { habitat, port = 7430, host = "0.0.0.0" } = options;
+  const { habitat, port = 7430, host = "0.0.0.0", extraRawHandler } = options;
   const serverName = options.name ?? habitat.getConfig().name ?? "habitat";
 
   // Tools for MCP
@@ -260,7 +264,7 @@ export async function startContainerServer(
 
   // Static UI directory
   const thisDir = fileURLToPath(new URL(".", import.meta.url));
-  const uiDir = resolve(thisDir, "container-ui");
+  const uiDir = options.uiDir ?? resolve(thisDir, "container-ui");
 
   const httpServer = createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
@@ -296,6 +300,12 @@ export async function startContainerServer(
             model: modelDetails ? `${modelDetails.provider}/${modelDetails.name}` : null,
           });
           return;
+        }
+
+        // ── Extra raw handler (e.g. Gaia orchestrator routes) ──
+        if (extraRawHandler) {
+          const handled = await extraRawHandler(req, res);
+          if (handled) return;
         }
 
         // ── A2A agent card (always open) ────────────────────
