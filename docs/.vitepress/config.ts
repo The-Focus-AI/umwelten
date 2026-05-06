@@ -38,6 +38,7 @@ export default defineConfig({
           text: 'Habitat',
           items: [
             { text: 'What is a Habitat?', link: '/guide/habitat' },
+            { text: 'Gaia Orchestrator', link: '/guide/gaia-orchestrator' },
             { text: 'Habitat Interfaces', link: '/guide/habitat-interfaces' },
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },
