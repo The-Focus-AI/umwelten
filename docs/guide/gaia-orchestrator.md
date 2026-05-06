@@ -2,6 +2,8 @@
 
 Gaia is the **orchestrator** for multiple habitat containers. Instead of running each habitat independently, Gaia gives you a single dashboard to create, configure, start, stop, and talk to all your habitats. It manages Docker containers, isolates secrets, and provides a unified gateway with its own AI chat.
 
+Architecturally, Gaia is a **normal habitat** — it runs on the same `startContainerServer` as any other habitat, with 14 extra orchestrator tools added via a `gaiaToolSet`. This means Gaia automatically gets sessions, MCP, A2A, artifacts, tool call logging, and bearer auth — the same features every habitat has.
+
 ```
 ┌──────────────────────────────────────────────────┐
 │  Gaia Orchestrator (port 7420)                   │
@@ -346,9 +348,29 @@ Gaia proxies several endpoints to running containers:
 
 All proxied requests include the container's `Authorization: Bearer <apiKey>` header automatically.
 
-### MCP access
+### Gaia's own endpoints
 
-You can connect to a habitat's MCP endpoint through Gaia:
+Since Gaia is a normal habitat, it has its own MCP and A2A endpoints exposing all 40 tools (container + orchestrator):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/mcp` | MCP tools (all 40, including orchestrator tools) |
+| `/a2a` | A2A JSON-RPC (talk to Gaia as an agent) |
+| `/.well-known/agent-card.json` | Gaia's agent card |
+| `/api/sessions` | Gaia's own chat session history |
+| `/api/artifacts` | Gaia's published artifacts |
+
+You can connect to Gaia itself as an MCP server:
+
+```bash
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:7420/mcp
+```
+
+This gives you access to all orchestrator tools (list_habitats, start_habitat, etc.) plus all standard habitat tools (file ops, web search, etc.) via MCP.
+
+### MCP access to child habitats
+
+You can also connect to a child habitat's MCP endpoint through Gaia's proxy:
 
 ```bash
 dotenvx run -- pnpm run cli mcp chat \

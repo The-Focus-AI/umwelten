@@ -209,7 +209,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 
 #### `src/habitat/gaia/` — Gaia Orchestrator
 
-Manages multiple habitat containers from a single dashboard. Gaia has its own LLM chat for natural-language orchestration.
+Manages multiple habitat containers from a single dashboard. Gaia is a **normal habitat** (runs on `startContainerServer`) with extra orchestrator tools — it gets sessions, MCP, A2A, artifacts, and tool logging for free.
 
 - `types.ts` — `GaiaHabitatEntry`, `GaiaRegistry`, `ContainerStatus`, `GaiaOrchestratorOptions`
 - `registry.ts` — `GaiaRegistryManager` — CRUD for `registry.json` in data dir
@@ -217,9 +217,8 @@ Manages multiple habitat containers from a single dashboard. Gaia has its own LL
 - `docker.ts` — `DockerManager` — build/start/stop/logs/status via docker CLI, named volumes, port assignment
 - `proxy.ts` — `proxyRequest()`, `fetchFromContainer()` — reverse proxy with Bearer auth injection
 - `a2a-client.ts` — `fetchAgentCard()`, `sendA2AMessage()`, `discoverHabitats()` — A2A client
-- `gaia-chat.ts` — 14 AI SDK tools for orchestration (list/create/start/stop/ask/discover habitats, manage secrets)
-- `routes.ts` — API route handlers (registry CRUD, Docker lifecycle, proxy, secrets, image build)
-- `server.ts` — `startGaiaOrchestrator()` — HTTP server with chat + dashboard UI
+- `gaia-tools.ts` — `createGaiaToolSet()` — 14 AI SDK tools as a `ToolSet` (closure over registry/vault/docker)
+- `routes.ts` — API route handlers mounted via `extraRawHandler` on container-server
 - `ui/index.html` — Dashboard SPA (Chat, Habitats, Secrets, Create tabs)
 
 ```bash

@@ -107,9 +107,9 @@ Multi-habitat management: dashboard, Docker lifecycle, secret isolation, A2A dis
 - [x] `src/habitat/gaia/docker.ts` — `DockerManager` — build/start/stop/logs/status via docker CLI
 - [x] `src/habitat/gaia/proxy.ts` — `proxyRequest()` + `fetchFromContainer()` — reverse proxy with auth injection
 - [x] `src/habitat/gaia/a2a-client.ts` — `fetchAgentCard()`, `sendA2AMessage()`, `discoverHabitats()`
-- [x] `src/habitat/gaia/gaia-chat.ts` — AI SDK tools for orchestration (14 tools)
+- [x] `src/habitat/gaia/gaia-tools.ts` — `createGaiaToolSet()` — 14 tools as a ToolSet (closure over registry/vault/docker)
 - [x] `src/habitat/gaia/routes.ts` — All API route handlers (registry, lifecycle, proxy, secrets, docker)
-- [x] `src/habitat/gaia/server.ts` — `startGaiaOrchestrator()` — HTTP server + chat + UI
+- [x] Gaia runs on `startContainerServer` (not a custom server) — gets sessions, MCP, A2A, artifacts for free
 - [x] `src/habitat/gaia/ui/index.html` — Dashboard (Chat, Habitats, Secrets, Create tabs)
 - [x] `src/habitat/gaia/index.ts` — Barrel exports
 - [x] `src/cli/habitat.ts` — `habitat gaia` subcommand (--port, --data-dir, --provider, --model)
