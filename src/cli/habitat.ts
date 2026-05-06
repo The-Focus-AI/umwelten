@@ -1278,10 +1278,7 @@ addSharedOptions(gaiaSubcommand)
         habitat.setRuntimeModelDetails({ provider: merged.provider, name: merged.model });
       }
 
-      // Gaia UI directory
-      const gaiaUiDir = pathResolve(toPath(new URL(".", import.meta.url)), "..", "habitat", "gaia", "ui");
-
-      // Start the standard container server with gaia extensions
+      // Start the standard container server with gaia routes
       const { startContainerServer } = await import("../habitat/container-server.js");
       const routeCtx = { registry, vault, docker };
       const server = await startContainerServer({
@@ -1289,7 +1286,6 @@ addSharedOptions(gaiaSubcommand)
         port: parseInt(options.port ?? "7420", 10),
         host: "0.0.0.0",
         name: "Gaia Orchestrator",
-        uiDir: gaiaUiDir,
         extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
       });
 
