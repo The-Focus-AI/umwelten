@@ -1208,24 +1208,15 @@ habitatCommand.addCommand(serveSubcommand);
 const gaiaSubcommand = new Command("gaia").description(
   "Start the Gaia orchestrator — manage multiple habitat containers from a dashboard.",
 );
-gaiaSubcommand
+addSharedOptions(gaiaSubcommand)
   .option("--port <port>", "HTTP port (default: 7420)", "7420")
   .option("--data-dir <path>", "Data directory (default: ./gaia-data)", "./gaia-data")
-  .option(
-    "-p, --provider <provider>",
-    "LLM provider for Gaia's own chat (e.g. google)",
-  )
-  .option(
-    "-m, --model <model>",
-    "Model for Gaia's own chat (e.g. gemini-3-flash-preview)",
-  )
   .action(
-    async (options: {
-      port?: string;
-      dataDir?: string;
-      provider?: string;
-      model?: string;
-    }) => {
+    async (
+      options: HabitatCLIOptions & { port?: string; dataDir?: string },
+      command: Command,
+    ) => {
+      const merged = mergedHabitatCliOptions(command, options);
       const { startGaiaOrchestrator } = await import(
         "../habitat/gaia/server.js"
       );
@@ -1233,8 +1224,8 @@ gaiaSubcommand
       const server = await startGaiaOrchestrator({
         port: parseInt(options.port ?? "7420", 10),
         dataDir: options.dataDir ?? "./gaia-data",
-        provider: options.provider,
-        model: options.model,
+        provider: merged.provider,
+        model: merged.model,
       });
 
       const shutdown = () => {
