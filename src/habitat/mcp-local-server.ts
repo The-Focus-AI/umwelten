@@ -110,7 +110,7 @@ function registerAiTool(
 export async function startHabitatMcpServer(
   options: HabitatMcpServerOptions,
 ): Promise<StartedHabitatMcpServer> {
-  const { habitat, port = 8080, host = "0.0.0.0" } = options;
+  const { habitat, port = 7430, host = "0.0.0.0" } = options;
   const serverName = options.name ?? "habitat-mcp";
 
   // Collect all tools from the habitat

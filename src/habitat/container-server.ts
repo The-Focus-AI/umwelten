@@ -28,6 +28,7 @@ import type { Tool } from "ai";
 import type { Habitat } from "./habitat.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts } from "./tools/artifact-tools.js";
+import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
 import { ChannelBridge } from "../ui/bridge/channel-bridge.js";
 import { WebAdapter } from "../ui/web/WebAdapter.js";
 import { devAuth } from "../ui/web/auth/dev-auth.js";
@@ -181,7 +182,7 @@ function sendJson(res: ServerResponse, data: unknown, status = 200): void {
 export async function startContainerServer(
   options: ContainerServerOptions,
 ): Promise<StartedContainerServer> {
-  const { habitat, port = 8080, host = "0.0.0.0" } = options;
+  const { habitat, port = 7430, host = "0.0.0.0" } = options;
   const serverName = options.name ?? habitat.getConfig().name ?? "habitat";
 
   // Tools for MCP
@@ -239,6 +240,21 @@ export async function startContainerServer(
 
   const webAdapter = new WebAdapter(bridge);
 
+  // A2A handler — initialized lazily on first request (needs port for baseUrl)
+  let a2aHandler: A2AHandler | null = null;
+  async function getA2AHandler(actualPort: number): Promise<A2AHandler> {
+    if (!a2aHandler) {
+      const baseUrl = `http://${host === "0.0.0.0" ? "localhost" : host}:${actualPort}`;
+      a2aHandler = await createA2AHandler({
+        habitat,
+        bridge,
+        baseUrl,
+        name: serverName,
+      });
+    }
+    return a2aHandler;
+  }
+
   // API routes
   const routes: RouteHandler[] = defaultRoutes();
 
@@ -263,7 +279,7 @@ export async function startContainerServer(
       const reqStart = Date.now();
 
       // Log non-static requests
-      const shouldLog = path.startsWith("/api/") || path === "/mcp" || path === "/health";
+      const shouldLog = path.startsWith("/api/") || path === "/mcp" || path === "/a2a" || path === "/health";
       if (shouldLog) {
         console.log(`[${new Date().toISOString()}] ${req.method} ${path}`);
       }
@@ -279,6 +295,65 @@ export async function startContainerServer(
             auth: apiKey ? "bearer" : "open",
             model: modelDetails ? `${modelDetails.provider}/${modelDetails.name}` : null,
           });
+          return;
+        }
+
+        // ── A2A agent card (always open) ────────────────────
+        if (path === "/.well-known/agent-card.json" && req.method === "GET") {
+          const addr = httpServer.address();
+          const actualPort = typeof addr === "object" && addr ? addr.port : port;
+          const handler = await getA2AHandler(actualPort);
+          sendJson(res, handler.agentCard);
+          return;
+        }
+
+        // ── A2A endpoint ─────────────────────────────────────
+        if (path === "/a2a" && req.method === "POST") {
+          if (apiKey) {
+            const user = await auth.authenticate(req);
+            if (!user) { sendJson(res, { error: "Unauthorized" }, 401); return; }
+          }
+          const addr = httpServer.address();
+          const actualPort = typeof addr === "object" && addr ? addr.port : port;
+          const handler = await getA2AHandler(actualPort);
+          const rawBody = await readBodyRaw(req);
+          let parsedBody: unknown;
+          try {
+            parsedBody = rawBody ? JSON.parse(rawBody) : undefined;
+          } catch {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null }));
+            return;
+          }
+
+          try {
+            const result = await handler.transportHandler.handle(parsedBody);
+            if (result && typeof (result as any)[Symbol.asyncIterator] === "function") {
+              // Streaming response — SSE
+              res.writeHead(200, {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+              });
+              const generator = result as AsyncGenerator<any>;
+              for await (const event of generator) {
+                res.write(`data: ${JSON.stringify(event)}\n\n`);
+              }
+              res.end();
+            } else {
+              // Single JSON-RPC response
+              sendJson(res, result);
+            }
+          } catch (error) {
+            console.error(`[container] A2A error: ${error instanceof Error ? error.message : String(error)}`);
+            if (!res.headersSent) {
+              sendJson(res, {
+                jsonrpc: "2.0",
+                error: { code: -32603, message: "Internal error" },
+                id: null,
+              }, 500);
+            }
+          }
           return;
         }
 
@@ -607,6 +682,7 @@ export async function startContainerServer(
 
       console.log(`[container] ${serverName} at http://${host}:${assignedPort}`);
       console.log(`[container]   /mcp         — MCP tools (${toolNames.length})`);
+      console.log(`[container]   /a2a         — A2A agent endpoint`);
       console.log(`[container]   /api/chat    — LLM chat`);
       console.log(`[container]   /            — Web UI`);
       console.log(`[container]   /health      — Health check`);

@@ -110,10 +110,23 @@ export type {
   StartedHabitatMcpServer,
 } from "./mcp-local-server.js";
 
-// Unified container server — MCP + LLM chat + web UI on one port
+// Unified container server — MCP + LLM chat + web UI + A2A on one port
 export { startContainerServer } from "./container-server.js";
 export type {
   ContainerServerOptions,
   StartedContainerServer,
 } from "./container-server.js";
+
+// A2A (Agent-to-Agent) protocol handler
+export { createA2AHandler, buildAgentCard, HabitatAgentExecutor } from "./a2a-handler.js";
+export type { A2AHandler, A2AHandlerOptions, AgentCardOptions } from "./a2a-handler.js";
+
+// Gaia Orchestrator — manage multiple habitat containers
+export { startGaiaOrchestrator, GaiaRegistryManager, GaiaSecretVault, DockerManager } from "./gaia/index.js";
+export type {
+  GaiaHabitatEntry,
+  GaiaRegistry,
+  GaiaOrchestratorOptions,
+  StartedGaiaOrchestrator,
+} from "./gaia/index.js";
 

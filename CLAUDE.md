@@ -5,7 +5,10 @@ For **published / npm-style agent context** (shorter module map, task cheat shee
 ## Workflow Rules
 
 - Use `pnpm` (never `npm`)
-- Use `pnpm test:run` (never `pnpm test` — it watches)
+- Use `pnpm test:run` for unit tests (never `pnpm test` — it watches). This is fast (~4s) and safe — no network, no LLM calls.
+- Use `pnpm test:integration` for integration tests (needs API keys, local servers). These hit real LLM providers and will be slow.
+- Use `pnpm test:all` to run both.
+- Test files: `*.test.ts` = unit (mocked), `*.integration.test.ts` = integration (real APIs).
 - Run tests before building
 - Use `pnpm run cli` to test CLI without building (runs via tsx)
 - **ALWAYS use `dotenvx run --` prefix** when running CLI commands that need env vars (e.g. `dotenvx run -- pnpm run cli -- habitat ...`). The .env file has the API keys. Never run habitat/CLI commands without it.
@@ -144,8 +147,9 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `onboard.ts` — Interactive setup wizard
 - `secrets.ts` — Work-dir `secrets.json` (plain JSON map, file mode 0600)
 - `transcript.ts` — Export sessions to JSONL
-- `gaia-server.ts` — HTTP server for habitat API
+- `gaia-server.ts` — Legacy single-habitat web UI server
 - `mcp-local-server.ts` — **MCP server exposing all habitat tools over Streamable HTTP** (no OAuth, for local/container use)
+- `gaia/` — **Gaia Orchestrator** — manages multiple habitat containers (see Gaia section below)
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
 - `bridge/diagnosis-agent.ts` — LLM agent for read-only project inspection and provisioning detection
 - `bridge/monitor-agent.ts` — LLM agent for container health monitoring
@@ -167,11 +171,11 @@ workDir/
 Exposes all habitat tools as MCP tools over Streamable HTTP at `/mcp`. Stateless (no session management — that's the A2A layer's job). Uses official `@modelcontextprotocol/sdk`.
 
 ```bash
-# Start the MCP server
-dotenvx run -- pnpm run cli habitat serve --port 8080
+# Start the MCP server (default port: 7430)
+dotenvx run -- pnpm run cli habitat serve
 
 # Connect with any MCP client
-dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 ```
 
 **Tool Sets** — named collections registered on a habitat:
@@ -202,6 +206,31 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
 - `secrets-tools.ts` — Manage secrets in the habitat store
 - `self-modify-tools.ts` — Create/remove tools and skills at runtime
+
+#### `src/habitat/gaia/` — Gaia Orchestrator
+
+Manages multiple habitat containers from a single dashboard. Gaia has its own LLM chat for natural-language orchestration.
+
+- `types.ts` — `GaiaHabitatEntry`, `GaiaRegistry`, `ContainerStatus`, `GaiaOrchestratorOptions`
+- `registry.ts` — `GaiaRegistryManager` — CRUD for `registry.json` in data dir
+- `secrets.ts` — `GaiaSecretVault` — master secret vault + per-container filtering
+- `docker.ts` — `DockerManager` — build/start/stop/logs/status via docker CLI, named volumes, port assignment
+- `proxy.ts` — `proxyRequest()`, `fetchFromContainer()` — reverse proxy with Bearer auth injection
+- `a2a-client.ts` — `fetchAgentCard()`, `sendA2AMessage()`, `discoverHabitats()` — A2A client
+- `gaia-chat.ts` — 14 AI SDK tools for orchestration (list/create/start/stop/ask/discover habitats, manage secrets)
+- `routes.ts` — API route handlers (registry CRUD, Docker lifecycle, proxy, secrets, image build)
+- `server.ts` — `startGaiaOrchestrator()` — HTTP server with chat + dashboard UI
+- `ui/index.html` — Dashboard SPA (Chat, Habitats, Secrets, Create tabs)
+
+```bash
+# Start Gaia orchestrator (default port: 7420)
+dotenvx run -- pnpm run cli habitat gaia -p google -m gemini-3-flash-preview
+
+# With custom data dir
+dotenvx run -- pnpm run cli habitat gaia --data-dir ./my-gaia-data -p google -m gemini-3-flash-preview
+```
+
+**Storage**: Named Docker volumes (`gaia-<id>-data`), not bind mounts. Volumes are seeded with `config.json` and `secrets.json` via one-shot Alpine containers. Registry and master secrets live in the data dir on the host.
 
 ### `src/evaluation/` — Model Evaluation Framework
 
@@ -394,15 +423,18 @@ dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview
 # Scripted evaluations (e.g. car wash test)
 dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
 
-# Start habitat as an MCP server (exposes all tools over Streamable HTTP)
-dotenvx run -- pnpm run cli habitat serve --port 8080
-dotenvx run -- pnpm run cli habitat serve --port 8080 --work-dir ./my-agent
+# Start habitat as an MCP server (default port: 7430)
+dotenvx run -- pnpm run cli habitat serve
+dotenvx run -- pnpm run cli habitat serve --port 7430 --work-dir ./my-agent
 
 # Connect to any MCP server and chat (OAuth handled automatically if server requires it)
-dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp
-dotenvx run -- pnpm run cli mcp chat --url http://localhost:8080/mcp --one-shot "list my files"
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
+dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp --one-shot "list my files"
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp
 dotenvx run -- pnpm run cli mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
+
+# Start Gaia orchestrator (default port: 7420)
+dotenvx run -- pnpm run cli habitat gaia -p google -m gemini-3-flash-preview
 
 # Session browser — primary entry for session review and digest management.
 # Every session (claude-code and habitat) with its digest (topics, tags, summary,
@@ -426,3 +458,23 @@ mise run habitat-browse       # against a habitat's sessions
 - `TOGETHER_API_KEY` — Together AI
 - `TAVILY_API_KEY` — Web search tool
 - `MARKIFY_URL` — Optional external HTML-to-markdown service
+
+## Port Scheme (74xx block)
+
+All umwelten services use the 74xx port range to avoid conflicts with common dev servers.
+
+| Service | Port | Notes |
+|---------|------|-------|
+| Gaia orchestrator | **7420** | `habitat gaia` — multi-habitat dashboard |
+| Legacy `habitat web` | **7421** | `habitat web` — single-habitat web UI |
+| `habitat serve` (host) | **7430** | `habitat serve` — MCP + chat + web UI |
+| Managed containers | **7440–7499** | Gaia assigns sequentially from this range |
+| Internal container port | **8080** | Inside Docker only, never exposed directly |
+
+## Test Suites
+
+| Command | Scope | Speed |
+|---------|-------|-------|
+| `pnpm test:run` | Unit tests only (`*.test.ts`) — no network, no LLM | ~4s |
+| `pnpm test:integration` | Integration tests (`*.integration.test.ts`) — needs API keys, local servers | slow |
+| `pnpm test:all` | Both suites | both |

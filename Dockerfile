@@ -9,9 +9,11 @@
 # Build:
 #   docker build -t habitat .
 #
-# Run:
-#   docker run -p 8080:8080 -v ./my-habitat:/data habitat
-#   docker run -p 8080:8080 -e GOOGLE_GENERATIVE_AI_API_KEY=... habitat
+# Run (standalone):
+#   docker run -p 7430:8080 -v habitat-data:/data habitat
+#   docker run -p 7430:8080 -e GOOGLE_GENERATIVE_AI_API_KEY=... habitat
+#
+# Run (managed by Gaia): Gaia assigns ports in the 7440+ range automatically.
 
 FROM node:22-slim
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0

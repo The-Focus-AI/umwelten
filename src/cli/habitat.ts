@@ -867,7 +867,7 @@ async function webAction(
 
   const { startGaiaServer } = await import("../habitat/gaia-server.js");
 
-  const port = options.port ? parseInt(options.port, 10) : 3000;
+  const port = options.port ? parseInt(options.port, 10) : 7421;
   let actualPort: number;
   try {
     const server = await startGaiaServer({ habitat, port });
@@ -975,7 +975,7 @@ const webSubcommand = new Command("web").description(
   "Start Gaia — the habitat manager web UI.",
 );
 addSharedOptions(webSubcommand)
-  .option("--port <port>", "HTTP port (default: 3000)")
+  .option("--port <port>", "HTTP port (default: 7421)")
   .action(
     async (options: HabitatCLIOptions & { port?: string }, command: Command) => {
       await webAction(mergedHabitatCliOptions(command, options));
@@ -1126,7 +1126,7 @@ const serveSubcommand = new Command("serve").description(
   "Start the unified container server: MCP tools + LLM chat + web UI on one port.",
 );
 addSharedOptions(serveSubcommand)
-  .option("--port <port>", "HTTP port (default: 8080)", "8080")
+  .option("--port <port>", "HTTP port (default: 7430)", "7430")
   .option("--host <host>", "Bind address (default: 0.0.0.0)", "0.0.0.0")
   .option("--all-tools", "Expose all tools (default: container-minimal set)")
   .option("--mcp-only", "MCP-only mode (no chat, no web UI)")
@@ -1169,7 +1169,7 @@ addSharedOptions(serveSubcommand)
         );
         const server = await startHabitatMcpServer({
           habitat,
-          port: parseInt(merged.port ?? "8080", 10),
+          port: parseInt(merged.port ?? "7430", 10),
           host: merged.host ?? "0.0.0.0",
           name: habitat.getConfig().name ?? "habitat-mcp",
         });
@@ -1187,7 +1187,7 @@ addSharedOptions(serveSubcommand)
         );
         const server = await startContainerServer({
           habitat,
-          port: parseInt(merged.port ?? "8080", 10),
+          port: parseInt(merged.port ?? "7430", 10),
           host: merged.host ?? "0.0.0.0",
           name: habitat.getConfig().name ?? "habitat",
         });
@@ -1203,3 +1203,48 @@ addSharedOptions(serveSubcommand)
   );
 
 habitatCommand.addCommand(serveSubcommand);
+
+// Gaia orchestrator subcommand
+const gaiaSubcommand = new Command("gaia").description(
+  "Start the Gaia orchestrator — manage multiple habitat containers from a dashboard.",
+);
+gaiaSubcommand
+  .option("--port <port>", "HTTP port (default: 7420)", "7420")
+  .option("--data-dir <path>", "Data directory (default: ./gaia-data)", "./gaia-data")
+  .option(
+    "-p, --provider <provider>",
+    "LLM provider for Gaia's own chat (e.g. google)",
+  )
+  .option(
+    "-m, --model <model>",
+    "Model for Gaia's own chat (e.g. gemini-3-flash-preview)",
+  )
+  .action(
+    async (options: {
+      port?: string;
+      dataDir?: string;
+      provider?: string;
+      model?: string;
+    }) => {
+      const { startGaiaOrchestrator } = await import(
+        "../habitat/gaia/server.js"
+      );
+
+      const server = await startGaiaOrchestrator({
+        port: parseInt(options.port ?? "7420", 10),
+        dataDir: options.dataDir ?? "./gaia-data",
+        provider: options.provider,
+        model: options.model,
+      });
+
+      const shutdown = () => {
+        console.log("\n[gaia] Shutting down...");
+        server.close();
+        process.exit(0);
+      };
+      process.on("SIGINT", shutdown);
+      process.on("SIGTERM", shutdown);
+    },
+  );
+
+habitatCommand.addCommand(gaiaSubcommand);

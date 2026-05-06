@@ -2,10 +2,13 @@ services:
   habitat:
     build: .
     ports:
-      - "8080:8080"
+      - "7430:8080"
     volumes:
-      - ./habitat-data:/data
+      - habitat-data:/data
     env_file:
       - .env
     environment:
       - PORT=8080
+
+volumes:
+  habitat-data:

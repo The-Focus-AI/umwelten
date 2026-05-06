@@ -79,19 +79,57 @@
 - [x] Export `startContainerServer` from habitat index
 - [x] Integration tested: health, UI, API, artifacts, sessions all working
 
-## Phase 5: A2A Agent (Next)
+## Phase 5: A2A Agent (DONE)
 
 A2A sits alongside `/api/chat` — both are thin protocol adapters over ChannelBridge.
 Browser → POST /api/chat → ChannelBridge → LLM + tools
 A2A client → POST /a2a → ChannelBridge → LLM + tools
 MCP client → POST /mcp → Raw tools (no LLM)
 
-- [ ] Add `@a2a-js/sdk` dependency
-- [ ] Mount `/.well-known/agent.json` — agent card generated from config + stimulus
-- [ ] Mount `/a2a` — A2A endpoint wrapping ChannelBridge with task lifecycle
-- [ ] Context-keyed sessions (contextId → habitat sessionId)
-- [ ] Map published artifacts → A2A Artifact parts in task responses
-- [ ] Test: send A2A message, get response, verify agent card
+- [x] Add `@a2a-js/sdk` dependency
+- [x] Create `src/habitat/a2a-handler.ts` — AgentExecutor wrapping ChannelBridge
+- [x] `buildAgentCard()` — generates agent card from habitat config + stimulus
+- [x] `HabitatAgentExecutor` — implements A2A AgentExecutor, bridges to ChannelBridge
+- [x] Mount `/.well-known/agent-card.json` — agent card (always open, no auth)
+- [x] Mount `/a2a` — A2A JSON-RPC endpoint (streaming + non-streaming)
+- [x] Context-keyed sessions (`a2a:{contextId}` → ChannelBridge channel key)
+- [x] Map published artifacts → A2A Artifact parts (FilePart with URI + metadata)
+- [x] Export `createA2AHandler`, `buildAgentCard`, `HabitatAgentExecutor` from habitat index
+- [x] TypeScript clean, all tests pass (no new failures)
+
+## Phase 6: Gaia as Habitat Orchestrator (DONE)
+
+Multi-habitat management: dashboard, Docker lifecycle, secret isolation, A2A discovery, Gaia chat.
+
+- [x] `src/habitat/gaia/types.ts` — `GaiaHabitatEntry`, `GaiaRegistry`, `ContainerStatus`, `GaiaOrchestratorOptions`
+- [x] `src/habitat/gaia/registry.ts` — `GaiaRegistryManager` — load/save/CRUD for registry.json
+- [x] `src/habitat/gaia/secrets.ts` — `GaiaSecretVault` — master vault + per-container `writeFilteredSecrets()`
+- [x] `src/habitat/gaia/docker.ts` — `DockerManager` — build/start/stop/logs/status via docker CLI
+- [x] `src/habitat/gaia/proxy.ts` — `proxyRequest()` + `fetchFromContainer()` — reverse proxy with auth injection
+- [x] `src/habitat/gaia/a2a-client.ts` — `fetchAgentCard()`, `sendA2AMessage()`, `discoverHabitats()`
+- [x] `src/habitat/gaia/gaia-chat.ts` — AI SDK tools for orchestration (14 tools)
+- [x] `src/habitat/gaia/routes.ts` — All API route handlers (registry, lifecycle, proxy, secrets, docker)
+- [x] `src/habitat/gaia/server.ts` — `startGaiaOrchestrator()` — HTTP server + chat + UI
+- [x] `src/habitat/gaia/ui/index.html` — Dashboard (Chat, Habitats, Secrets, Create tabs)
+- [x] `src/habitat/gaia/index.ts` — Barrel exports
+- [x] `src/cli/habitat.ts` — `habitat gaia` subcommand (--port, --data-dir, --provider, --model)
+- [x] `src/habitat/index.ts` — Export gaia types/functions
+- [x] `.gitignore` — `gaia-data/`
+- [x] TypeScript clean, all tests pass (no new failures)
+
+## Infrastructure: Port Scheme + Docker Volumes + Test Split (DONE)
+
+- [x] Establish 74xx port block: Gaia 7420, legacy web 7421, habitat serve 7430, managed containers 7440-7499
+- [x] Update all default ports in CLI, container-server, gaia-server, mcp-local-server
+- [x] Switch `docker-compose.yml` from bind mounts to named Docker volumes
+- [x] `DockerManager.seedVolume()` — write files into named volumes via one-shot Alpine containers
+- [x] Update Dockerfile comments for new port scheme (internal 8080 unchanged)
+- [x] Split test suite: `*.test.ts` (unit, no external deps) vs `*.integration.test.ts` (needs real APIs/services)
+- [x] Create `vitest.integration.config.ts` with 60s timeout
+- [x] Rename 14 integration tests (providers, cognition, memory, habitat, cli)
+- [x] Add `test:integration` and `test:all` scripts to package.json
+- [x] Update vitest.config.ts to exclude `*.integration.test.ts`
+- [x] Update CLAUDE.md with port scheme table, test suite docs, gaia orchestrator docs
 
 ## Backlog
 

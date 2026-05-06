@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
+    exclude: ['src/**/*.integration.test.ts'],
     environment: 'node',
     setupFiles: ['src/test-utils/load-env.ts'],
     globals: true,
@@ -10,7 +11,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts']
+      exclude: ['src/**/*.test.ts', 'src/**/*.integration.test.ts']
     },
     reporters: ['verbose'],
     stdout: true,

@@ -27,7 +27,7 @@ export interface GaiaServerOptions {
 export async function startGaiaServer(
   options: GaiaServerOptions,
 ): Promise<{ port: number; close: () => void }> {
-  const { habitat, port = 3000, host = '0.0.0.0' } = options;
+  const { habitat, port = 7421, host = '0.0.0.0' } = options;
 
   // Resolve path to examples/gaia-ui (the built-in UI)
   const thisDir = fileURLToPath(new URL('.', import.meta.url));
