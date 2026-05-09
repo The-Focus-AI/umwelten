@@ -1,0 +1,41 @@
+{
+  "name": "umwelten",
+  "version": "0.4.12",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mcp-serve": {
+      "types": "./dist/mcp-serve.d.ts",
+      "import": "./dist/mcp-serve.js"
+    }
+  },
+  "bin": {
+    "umwelten": "dist/entry.js"
+  },
+  "description": "Habitat agent environments, multi-provider LLM access, and systematic model evaluation",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
+    "directory": "packages/umwelten"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@umwelten/core": "workspace:*",
+    "@umwelten/server": "workspace:*",
+    "@umwelten/habitat": "workspace:*",
+    "@umwelten/evaluation": "workspace:*",
+    "@umwelten/ui": "workspace:*",
+    "@umwelten/cli": "workspace:*"
+  }
+}
