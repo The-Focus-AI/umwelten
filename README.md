@@ -65,11 +65,11 @@ await suite.run();
 
 ## Web applications
 
-Habitats also drive HTTP chat. `src/ui/web/` exposes `startWebServer` — the web peer to the Discord and Telegram adapters. It speaks the [Vercel AI SDK UI Message Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol), so any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Streaming text, tool calls, and tool results all flow through the same `ChannelBridge` that every other channel uses.
+Habitats also drive HTTP chat. `@umwelten/habitat` exposes `startWebServer` — the web peer to the Discord and Telegram adapters. It speaks the [Vercel AI SDK UI Message Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol), so any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Streaming text, tool calls, and tool results all flow through the same `ChannelBridge` that every other channel uses.
 
 ```ts
 import { Habitat } from 'umwelten';
-import { startWebServer } from 'umwelten/ui/web';
+import { startWebServer } from '@umwelten/habitat';
 
 const habitat = await Habitat.create({ workDir: './my-habitat' });
 await startWebServer({
@@ -129,21 +129,23 @@ Machine-oriented summary for agents: [LLM.txt](LLM.txt).
 
 ## Repository layout
 
+Monorepo managed with [pnpm workspaces](https://pnpm.io/workspaces). Each package is independently publishable under the `@umwelten/` scope.
+
 ```
-src/habitat/     — agent container, tools, sessions, bridge
-src/evaluation/  — EvalSuite, PairwiseRanker, strategies, combine
-src/interaction/ — conversations, persistence, session analysis
-src/stimulus/    — prompts, tools, skills
-src/cognition/   — model runners
-src/providers/   — Google, OpenRouter, Ollama, LM Studio, LlamaBarn, llama-swap, GitHub, Fireworks, MiniMax
-src/ui/          — Telegram, Discord, web (startWebServer), TUI adapters
-src/mcp/         — MCP client (RemoteMcpClient with OAuth) and server
-src/cli/         — umwelten commands
-examples/evals/  — EvalSuite examples (car-wash, reasoning, instruction)
-examples/model-showdown/ — multi-dimension eval suite
-examples/oura-mcp/ — multi-user Oura Ring MCP server (Habitat + fly.io)
-examples/umwelten-web-demo/ — React + useChat reference app for src/ui/web/
-examples/habitat-minimal/ — minimal Habitat work-dir
+packages/
+  core/          @umwelten/core       — model runners, stimulus, interaction, providers, context, memory
+  server/        @umwelten/server     — MCP server/client, OAuth, remote tool bridge
+  habitat/       @umwelten/habitat    — agent container, tools, sessions, Gaia orchestrator, web/A2A server
+  evaluation/    @umwelten/evaluation — EvalSuite, PairwiseRanker, reporting, session introspection
+  ui/            @umwelten/ui         — Telegram, Discord, TUI adapters
+  cli/           @umwelten/cli        — umwelten CLI commands
+  umwelten/      umwelten             — meta-package re-exporting everything
+examples/
+  evals/           — EvalSuite examples (car-wash, reasoning, instruction)
+  model-showdown/  — multi-dimension eval suite
+  oura-mcp/        — multi-user Oura Ring MCP server (Habitat + fly.io)
+  umwelten-web-demo/ — React + useChat reference app
+  habitat-minimal/ — minimal Habitat work-dir
 ```
 
 ## License

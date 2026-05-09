@@ -27,7 +27,7 @@ instead — never work around it by weakening the rule.
 - **Context windows should be set as high as the provider allows.** If a local llama.cpp is configured with `--ctx-size 0`, leave it. If a provider supports 1M tokens, use it.
 - The **only** sanctioned way to limit output is setting `maxTokens` on a specific `Stimulus` instance — explicit, per-task, visible in request metadata.
 - If a test or benchmark is "taking too long" or emitting "too many tokens," that is **data**, not a bug. Do not cap your way out of it. Investigate (is the model stuck in a repetition loop? does the prompt provoke runaway generation?) and report.
-- Regression tests live at `src/cognition/request-options.test.ts` — they assert that `buildRequestOptions()` does not inject any cap. Do not weaken or skip these tests.
+- Regression tests live at `packages/core/src/cognition/request-options.test.ts` — they assert that `buildRequestOptions()` does not inject any cap. Do not weaken or skip these tests.
 
 ### Scope of changes
 
@@ -36,18 +36,29 @@ instead — never work around it by weakening the rule.
 
 ## Architecture Overview
 
-The codebase is layered bottom-up. Each layer depends only on layers below it.
+pnpm workspace monorepo. Each package is under `packages/` and publishable independently.
 
 ```
-Layer 8: CLI / UI          src/cli/  src/ui/
-Layer 7: Evaluation        src/evaluation/
-Layer 6: Habitat           src/habitat/
-Layer 5: Memory            src/memory/
-Layer 4: Context           src/context/
-Layer 3: Core Runtime      src/cognition/  src/stimulus/  src/interaction/
-Layer 2: Providers         src/providers/
-Layer 1: Foundation        src/costs/  src/rate-limit/  src/markdown/  src/schema/  src/mcp/
+@umwelten/cli        packages/cli/           — CLI commands
+@umwelten/ui         packages/ui/            — Telegram, Discord, TUI adapters
+@umwelten/evaluation packages/evaluation/    — EvalSuite, ranking, reporting, introspection
+@umwelten/habitat    packages/habitat/       — agent container, tools, Gaia, web/A2A server
+@umwelten/server     packages/server/        — MCP server/client, OAuth
+@umwelten/core       packages/core/          — model runners, stimulus, interaction, providers, context, memory
+umwelten             packages/umwelten/      — meta-package re-exporting everything
 ```
+
+Dependency DAG (no cycles):
+```
+@umwelten/core              ← foundation, no internal deps
+@umwelten/server            ← core
+@umwelten/evaluation        ← core
+@umwelten/habitat           ← core, server
+@umwelten/ui                ← core, habitat, evaluation
+@umwelten/cli               ← core, habitat, evaluation, server, ui
+```
+
+Source paths below use `src/` relative to each package (e.g. `src/cognition/` means `packages/core/src/cognition/`).
 
 ## Module Map
 
