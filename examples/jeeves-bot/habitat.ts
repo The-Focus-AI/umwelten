@@ -5,7 +5,7 @@
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Habitat } from '../../src/habitat/index.js';
+import { Habitat } from '@umwelten/habitat/index.js';
 import { tavilySearchTool } from './tools/tavily.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -17,8 +17,8 @@
 import fs from 'fs';
 import path from 'path';
 import { streamText } from 'ai';
-import { getModel } from '../../src/providers/index.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+import { getModel } from '@umwelten/core/providers/index.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 // ── Matrix ───────────────────────────────────────────────────────────────────
 // Edit this to reflect models actually loadable on each runtime.

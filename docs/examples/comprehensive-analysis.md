@@ -22,7 +22,7 @@ The classic common-sense reasoning test: "Should I walk or drive to the car wash
 
 ```typescript
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'car-wash-test',
@@ -71,7 +71,7 @@ Key points:
 Deterministic scoring — no LLM judge needed. Each task has a `verify` function that checks the response programmatically.
 
 ```typescript
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'instruction-eval',
@@ -131,7 +131,7 @@ Tests classic logic puzzles using `JudgeTask` with a shared judge schema across 
 
 ```typescript
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const judgeSchema = z.object({
   reasoning_quality: z.coerce.number().min(1).max(5).describe('1=missed, 3=partial, 5=perfect'),

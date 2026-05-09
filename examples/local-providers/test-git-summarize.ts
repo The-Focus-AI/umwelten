@@ -20,10 +20,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
-import { Stimulus } from '../../src/stimulus/stimulus.js';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
-import { getModel } from '../../src/providers/index.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
+import { getModel } from '@umwelten/core/providers/index.js';
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 

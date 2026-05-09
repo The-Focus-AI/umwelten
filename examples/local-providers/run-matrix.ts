@@ -17,7 +17,7 @@
  */
 
 import '../model-showdown/shared/env.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 import {
   LOCAL_MATRIX,
   LOCAL_MATRIX_NOTHINK,
@@ -25,7 +25,7 @@ import {
   type LocalEntry,
 } from './shared/models.js';
 import { runHarness, type MatrixEntry } from './harness/index.js';
-import type { LlmEvalSuiteName } from '../../src/evaluation/llm-eval/index.js';
+import type { LlmEvalSuiteName } from '@umwelten/evaluation/evaluation/llm-eval/index.js';
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 

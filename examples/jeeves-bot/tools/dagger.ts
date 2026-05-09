@@ -11,8 +11,8 @@ import { join, resolve, normalize, relative } from 'node:path';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { dag, connection, type Container } from '@dagger.io/dagger';
-import { buildTimeoutBashExecArgs } from '../../../src/evaluation/dagger-exec-args.js';
-import type { AgentEntry } from '../../../src/habitat/types.js';
+import { buildTimeoutBashExecArgs } from '@umwelten/evaluation/evaluation/dagger-exec-args.js';
+import type { AgentEntry } from '@umwelten/habitat/types.js';
 import type { Tool } from 'ai';
 
 /** Interface for the habitat context that the dagger tool needs. */

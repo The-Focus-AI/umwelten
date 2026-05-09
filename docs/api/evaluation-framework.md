@@ -4,7 +4,7 @@ Use this page as a **quick map** of evaluation-related code. Long-form patterns 
 
 ## Published package exports
 
-From `umwelten` ([`src/index.ts`](https://github.com/The-Focus-AI/umwelten/blob/main/src/index.ts)):
+From `umwelten` ([`packages/umwelten/src/index.ts`](https://github.com/The-Focus-AI/umwelten/blob/main/src/index.ts)):
 
 - `runEvaluation`, `runEvaluationWithProgress`, `generateReport`, `listEvaluations`, `parseModel`
 - Types: `EvaluationConfig`, `EvaluationResult`, `EnhancedEvaluationConfig`

@@ -2,12 +2,6 @@
 
 This example demonstrates how to use the new infrastructure for basic evaluations using stimulus templates and evaluation strategies.
 
-## Running the Example
-
-```bash
-pnpm tsx scripts/examples/simple-evaluation-example.ts
-```
-
 ## What This Example Shows
 
 - **Stimulus Templates**: Using pre-defined templates for common tasks
@@ -20,9 +14,9 @@ pnpm tsx scripts/examples/simple-evaluation-example.ts
 ### 1. Import Dependencies
 
 ```typescript
-import { SimpleEvaluation } from '../../src/evaluation/strategies/simple-evaluation.js';
-import { LiteraryAnalysisTemplate } from '../../src/stimulus/templates/creative-templates.js';
-import { getAvailableModels } from '../../src/providers/index.js';
+import { SimpleEvaluation } from '@umwelten/evaluation/evaluation/strategies/simple-evaluation.js';
+import { LiteraryAnalysisTemplate } from '@umwelten/core/stimulus/templates/creative-templates.js';
+import { getAvailableModels } from '@umwelten/core/providers/index.js';
 ```
 
 ### 2. Create Evaluation
@@ -107,7 +101,7 @@ import {
   CreativeWritingTemplate,
   PoetryGenerationTemplate,
   CodeGenerationTemplate
-} from '../../src/stimulus/templates/creative-templates.js';
+} from '@umwelten/core/stimulus/templates/creative-templates.js';
 
 // For creative writing
 const creativeTest = {
@@ -129,7 +123,7 @@ const poetryTest = {
 ### Custom Stimulus
 
 ```typescript
-import { Stimulus } from '../../src/stimulus/stimulus.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
 
 const customStimulus = new Stimulus({
   id: 'custom-analysis',

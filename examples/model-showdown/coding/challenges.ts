@@ -11,4 +11,4 @@ export {
   ALL_LANGUAGES,
   type CodingChallenge,
   type Language,
-} from '../../../src/evaluation/llm-eval/data/coding-challenges.js';
+} from '@umwelten/evaluation/evaluation/llm-eval/data/coding-challenges.js';

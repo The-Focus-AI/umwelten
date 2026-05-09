@@ -32,7 +32,7 @@ Tools extend stimuli with external capabilities:
 
 ### Basic Stimulus
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const myStimulus = new Stimulus({
   id: 'my-stimulus',
@@ -60,8 +60,8 @@ const myStimulus = new Stimulus({
 
 ### Stimulus with Tools
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { PDFTools } from '../src/stimulus/tools/pdf-tools.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { PDFTools } from './core/stimulus/tools/pdf-tools.js';
 
 const pdfAnalysisStimulus = new Stimulus({
   id: 'pdf-analysis',
@@ -97,7 +97,7 @@ const pdfAnalysisStimulus = new Stimulus({
 
 ### Creative Templates
 ```typescript
-import { LiteraryAnalysisTemplate } from '../src/stimulus/templates/creative-templates.js';
+import { LiteraryAnalysisTemplate } from './core/stimulus/templates/creative-templates.js';
 
 // Use a pre-defined template
 const analysis = new Interaction(model, LiteraryAnalysisTemplate);
@@ -109,7 +109,7 @@ analysis.addMessage({
 
 ### Coding Templates
 ```typescript
-import { CodeGenerationTemplate } from '../src/stimulus/templates/coding-templates.js';
+import { CodeGenerationTemplate } from './core/stimulus/templates/coding-templates.js';
 
 // Use a coding template
 const codeGen = new Interaction(model, CodeGenerationTemplate);
@@ -121,7 +121,7 @@ codeGen.addMessage({
 
 ### Analysis Templates
 ```typescript
-import { DocumentAnalysisTemplate } from '../src/stimulus/templates/analysis-templates.js';
+import { DocumentAnalysisTemplate } from './core/stimulus/templates/analysis-templates.js';
 
 // Use an analysis template
 const docAnalysis = new Interaction(model, DocumentAnalysisTemplate);
@@ -135,7 +135,7 @@ docAnalysis.addMessage({
 
 ### PDF Tools
 ```typescript
-import { PDFTools } from '../src/stimulus/tools/pdf-tools.js';
+import { PDFTools } from './core/stimulus/tools/pdf-tools.js';
 
 const stimulus = new Stimulus({
   // ... other properties
@@ -149,7 +149,7 @@ const stimulus = new Stimulus({
 
 ### Audio Tools
 ```typescript
-import { AudioTools } from '../src/stimulus/tools/audio-tools.js';
+import { AudioTools } from './core/stimulus/tools/audio-tools.js';
 
 const stimulus = new Stimulus({
   // ... other properties
@@ -163,7 +163,7 @@ const stimulus = new Stimulus({
 
 ### Image Tools
 ```typescript
-import { ImageTools } from '../src/stimulus/tools/image-tools.js';
+import { ImageTools } from './core/stimulus/tools/image-tools.js';
 
 const stimulus = new Stimulus({
   // ... other properties

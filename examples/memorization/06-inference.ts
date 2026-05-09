@@ -14,12 +14,12 @@ import './shared/env.js';
 import fs from 'fs';
 import path from 'path';
 import { spawn, ChildProcess } from 'child_process';
-import { Stimulus } from '../../src/stimulus/stimulus.js';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { clearAllRateLimitStates } from '../../src/rate-limit/rate-limit.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { clearAllRateLimitStates } from '@umwelten/core/rate-limit/rate-limit.js';
 import { resolveRun } from '../model-showdown/shared/runner-utils.js';
 import type { MemorizationConfig, FinetuneResult, GenerationResult } from './shared/types.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 const CONFIG_PATH = path.join(process.cwd(), 'input', 'memorization', 'config.json');
 const DATA_EVAL = 'memorization-data';

@@ -36,8 +36,8 @@ The rest of this plan assumes **B**, calling out where A would diverge.
 
 You have three:
 
-- `src/habitat/container-ui/index.html` — the standalone single-habitat chat UI (✅ already wired to `/api/chat` SSE, `/api/sessions`, `/api/artifacts`).
-- `src/habitat/gaia/ui/index.html` — Gaia dashboard (multi-habitat — overkill for a single-habitat app).
+- `packages/habitat/src/container-ui/index.html` — the standalone single-habitat chat UI (✅ already wired to `/api/chat` SSE, `/api/sessions`, `/api/artifacts`).
+- `packages/habitat/src/gaia/ui/index.html` — Gaia dashboard (multi-habitat — overkill for a single-habitat app).
 - A new SolidJS/React app — too much work for v0.
 
 **Recommendation: ship `container-ui/index.html` as-is in v0.** It's already a complete chat client. The Electron renderer's job is to load it and inject a `Platform` object (see §4) that overrides specific behaviors — file pickers, external links, etc. — with native versions.
@@ -429,7 +429,7 @@ Look through `container-ui/index.html` for everything that's currently same-orig
 
 ### 4.2 Refactor target
 
-Add `src/habitat/container-ui/platform.ts` exporting:
+Add `packages/habitat/src/container-ui/platform.ts` exporting:
 
 ```ts
 export interface HabitatPlatform {
@@ -503,10 +503,10 @@ Opencode's renderer has built-in xterm.js terminals backed by `node-pty` running
 
 ### 6.1 Server side
 
-Add a `Pty` service to umwelten — small, freestanding, lives at `src/habitat/pty/`:
+Add a `Pty` service to umwelten — small, freestanding, lives at `packages/habitat/src/pty/`:
 
 ```
-src/habitat/pty/
+packages/habitat/src/pty/
   service.ts        # PtySession registry, scrollback buffer, subscribers
   routes.ts         # GET/POST/DELETE /api/pty, GET /api/pty/:id/connect (WS)
 ```

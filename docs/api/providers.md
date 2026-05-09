@@ -23,7 +23,7 @@ The providers module gives unified access to multiple LLM backends through a com
 All providers extend this abstract class:
 
 ```typescript
-import { BaseProvider } from '../src/providers/base.js';
+import { BaseProvider } from './core/providers/base.js';
 
 abstract class BaseProvider {
   protected constructor(apiKey?: string, baseUrl?: string);
@@ -47,15 +47,15 @@ abstract class BaseProvider {
 Use the factory functions — don't instantiate classes directly:
 
 ```typescript
-import { createGoogleProvider } from '../src/providers/google.js';
-import { createOpenRouterProvider } from '../src/providers/openrouter.js';
-import { createOllamaProvider } from '../src/providers/ollama.js';
-import { createLMStudioProvider } from '../src/providers/lmstudio.js';
-import { createLlamaBarnProvider } from '../src/providers/llamabarn.js';
-import { createLlamaSwapProvider } from '../src/providers/llamaswap.js';
-import { createGitHubModelsProvider } from '../src/providers/github-models.js';
-import { createFireworksProvider } from '../src/providers/fireworks.js';
-import { createMiniMaxProvider } from '../src/providers/minimax.js';
+import { createGoogleProvider } from './core/providers/google.js';
+import { createOpenRouterProvider } from './core/providers/openrouter.js';
+import { createOllamaProvider } from './core/providers/ollama.js';
+import { createLMStudioProvider } from './core/providers/lmstudio.js';
+import { createLlamaBarnProvider } from './core/providers/llamabarn.js';
+import { createLlamaSwapProvider } from './core/providers/llamaswap.js';
+import { createGitHubModelsProvider } from './core/providers/github-models.js';
+import { createFireworksProvider } from './core/providers/fireworks.js';
+import { createMiniMaxProvider } from './core/providers/minimax.js';
 
 // Cloud providers (require API keys)
 const google = createGoogleProvider(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
@@ -95,7 +95,7 @@ const languageModel = google.getLanguageModel({
 
 ## Provider Index Functions
 
-The `src/providers/index.ts` module provides high-level functions that automatically resolve providers:
+The `packages/core/src/providers/index.ts` module provides high-level functions that automatically resolve providers:
 
 ```typescript
 import {
@@ -104,7 +104,7 @@ import {
   validateModel,
   getModelUrl,
   getModelDetails
-} from '../src/providers/index.js';
+} from './core/providers/index.js';
 ```
 
 ### `getModel(modelDetails): Promise<LanguageModel | undefined>`
@@ -158,10 +158,10 @@ const url = getModelUrl({ name: "gemini-3-flash-preview", provider: "google" });
 
 ## Model Discovery
 
-The `src/cognition/models.ts` module provides cross-provider model search:
+The `packages/core/src/cognition/models.ts` module provides cross-provider model search:
 
 ```typescript
-import { getAllModels, searchModels } from '../src/cognition/models.js';
+import { getAllModels, searchModels } from './core/cognition/models.js';
 
 // Get models from all configured providers
 const allModels = await getAllModels();
@@ -245,10 +245,10 @@ pnpm run cli -- models llamaswap-config --output llama-swap.yaml
 llama-swap --config llama-swap.yaml --listen :8080
 ```
 
-See [CLI — `models llamaswap-config`](/api/cli#models-llamaswap-config) for flags. Programmatic access is available through `src/providers/llamaswap-config.ts`:
+See [CLI — `models llamaswap-config`](/api/cli#models-llamaswap-config) for flags. Programmatic access is available through `packages/core/src/providers/llamaswap-config.ts`:
 
 ```typescript
-import { generateLlamaSwapConfig } from '../src/providers/llamaswap-config.js';
+import { generateLlamaSwapConfig } from './core/providers/llamaswap-config.js';
 
 const { yaml, models } = generateLlamaSwapConfig({
   ttlSeconds: 300,
@@ -263,8 +263,8 @@ const { yaml, models } = generateLlamaSwapConfig({
 You typically don't use providers directly. Pass `ModelDetails` to `Interaction`:
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const stimulus = new Stimulus({ role: "helpful assistant" });
 const interaction = new Interaction(

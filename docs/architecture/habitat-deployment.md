@@ -6,9 +6,9 @@
 
 The marketing pitch on thefocus.ai promises a "production AI system that carries your team's rules, learns from decisions, and runs autonomously" — with bulletproof traceability, scoped credentials, and autonomous execution. The habitat code today delivers ~40% of that story locally:
 
-- **Production-ready**: MCP HTTP server with OAuth + PKCE + Postgres-backed OAuth state (`src/habitat/mcp-serve/`, currently using Neon's HTTP driver but the interface is a generic `McpServeStore`), JSONL session transcripts (`src/habitat/transcript.ts`), secrets file (`src/habitat/secrets.ts`), `X-Forwarded-*`-aware URL handling that works on any PaaS (`src/habitat/mcp-serve/public-url.ts`).
-- **Half-built**: single global provider/model (`HabitatConfig.defaultProvider` + `defaultModel` — no multi-provider table), skills pulled per-habitat from git with no vetted registry (`src/stimulus/skills/loader.ts`, `src/mcp/client/remote.ts`), Discord/Telegram bridge works but has no bot-token mgmt or failover.
-- **Missing**: no Dockerfile, `src/habitat/tools/run-project/` is an empty shell, no container entrypoint, web UI auth is hardcoded `dev`, no central audit/event stream, no multi-tenant isolation.
+- **Production-ready**: MCP HTTP server with OAuth + PKCE + Postgres-backed OAuth state (`packages/habitat/src/mcp-serve/`, currently using Neon's HTTP driver but the interface is a generic `McpServeStore`), JSONL session transcripts (`packages/habitat/src/transcript.ts`), secrets file (`packages/habitat/src/secrets.ts`), `X-Forwarded-*`-aware URL handling that works on any PaaS (`packages/habitat/src/mcp-serve/public-url.ts`).
+- **Half-built**: single global provider/model (`HabitatConfig.defaultProvider` + `defaultModel` — no multi-provider table), skills pulled per-habitat from git with no vetted registry (`packages/core/src/stimulus/skills/loader.ts`, `packages/server/src/mcp/client/remote.ts`), Discord/Telegram bridge works but has no bot-token mgmt or failover.
+- **Missing**: no Dockerfile, `packages/habitat/src/tools/run-project/` is an empty shell, no container entrypoint, web UI auth is hardcoded `dev`, no central audit/event stream, no multi-tenant isolation.
 
 Goal: close the gap so that `dotenvx run -- pnpm run cli habitat deploy --target <gcp|vercel|aws|vps|local>` takes a local habitat directory and produces a self-running, audited service with vetted skills/MCP tools, configurable providers, durable state, and log/audit that a customer can actually point at during a sales call.
 
@@ -22,7 +22,7 @@ We should **not** hard-couple to GCP. The runtime needs to work on anything that
 | **StateBackend** | Sessions, OAuth state, audit rows | **Postgres** (works everywhere — Neon/Supabase/RDS/local), **SQLite** (single-VPS, dev), **fs** (local only) |
 | **BlobSink** | Transcript/audit object storage with versioning | GCS, S3, R2, Vercel Blob, local filesystem |
 
-The "Neon" thing today is just **Postgres accessed over HTTP**. The schema in `src/habitat/mcp-serve/neon-store.ts` is plain SQL — `CREATE TABLE`, `INSERT`, `SELECT`. Switching to `pg`/`postgres.js` gets us RDS, Supabase, any Postgres on a VPS with zero schema changes. We don't care which Postgres. We should just care that **Postgres is the state backend**, and the driver is a thin adapter.
+The "Neon" thing today is just **Postgres accessed over HTTP**. The schema in `packages/habitat/src/mcp-serve/neon-store.ts` is plain SQL — `CREATE TABLE`, `INSERT`, `SELECT`. Switching to `pg`/`postgres.js` gets us RDS, Supabase, any Postgres on a VPS with zero schema changes. We don't care which Postgres. We should just care that **Postgres is the state backend**, and the driver is a thin adapter.
 
 ## Design
 
@@ -31,19 +31,19 @@ The "Neon" thing today is just **Postgres accessed over HTTP**. The schema in `s
 Borrow from `docs/integration-access-patterns.md` (`foundtain-creek` baseline): secret manager + per-target auth + CI-driven deploys. Build it target-neutral from day one:
 
 1. **Add `Dockerfile` at repo root** — multi-stage Node 22, runs `pnpm run cli habitat serve` on `$PORT`. Same image ships to Cloud Run, ECS/Fargate, Fly, and `docker run` on a VPS. Vercel is the one exception (see adapter below).
-2. **New CLI command `habitat serve`** in `src/cli/habitat.ts` — wraps `Habitat.create()` + `startGaiaServer()` and binds to `PORT`. Reuses existing `src/habitat/gaia-server.ts`. This is the single entrypoint every target calls.
-3. **New `RuntimeTarget` adapters** in `src/habitat/deploy/`:
+2. **New CLI command `habitat serve`** in `packages/cli/src/habitat.ts` — wraps `Habitat.create()` + `startGaiaServer()` and binds to `PORT`. Reuses existing `packages/habitat/src/gaia-server.ts`. This is the single entrypoint every target calls.
+3. **New `RuntimeTarget` adapters** in `packages/habitat/src/deploy/`:
    - `gcp.ts` — Cloud Run + Secret Manager + Cloud Build (`foundtain-creek` pattern)
    - `aws.ts` — ECS Fargate + Secrets Manager + CodeBuild, OR Lambda container for cheap/low-traffic
    - `vercel.ts` — one `api/[...habitat].ts` catch-all handler that spins up Habitat per request (stateless — see caveat below), reads secrets from Vercel env vars
    - `vps.ts` — emits a `docker-compose.yml` + `caddy` snippet + systemd unit, `habitat deploy --target vps --host user@box` rsyncs and remote-execs (reuse patterns from the `marina-skill` plugin already in your environment)
    - `fly.ts` — `fly.toml` + `fly deploy` (low effort; code already handles `X-Forwarded-*`)
    - `local.ts` — `docker compose up` on the dev machine
-4. **State backend abstraction** — today `InteractionStore` is fs-only. Introduce `StateBackend` interface in `src/interaction/persistence/` with three impls:
+4. **State backend abstraction** — today `InteractionStore` is fs-only. Introduce `StateBackend` interface in `packages/core/src/interaction/persistence/` with three impls:
    - `PostgresStore` — one SQL schema, swappable drivers: `@neondatabase/serverless` (HTTP, fits Vercel/Lambda), `postgres`/`pg` (TCP, fits Cloud Run/ECS/VPS). Connection string from `DATABASE_URL`. Works for Neon, Supabase, RDS, self-hosted, Docker Postgres on a VPS — we don't care, it's just Postgres.
    - `SqliteStore` — single-file, perfect for single-VPS/local deploys. Uses `better-sqlite3`.
    - `FsStore` — the current behavior, kept for local dev and tests.
-   The schema in `src/habitat/mcp-serve/neon-store.ts` gets promoted out into this shared backend; `mcp-serve` becomes a consumer.
+   The schema in `packages/habitat/src/mcp-serve/neon-store.ts` gets promoted out into this shared backend; `mcp-serve` becomes a consumer.
 5. **BlobSink abstraction** — transcripts and audit files go to versioned object storage. Adapters: `GcsSink` (versioning on), `S3Sink`, `R2Sink`, `VercelBlobSink`, `FsSink`. Selected by config, not by runtime target (a GCP deploy can still write audit to S3 if the customer insists).
 
 **Vercel scope (revised — it's more capable than "web only"):**
@@ -53,7 +53,7 @@ Vercel Functions + **Vercel Cron** (declared in `vercel.json`, pings a handler o
 | Surface | On Vercel? | How |
 |---|---|---|
 | Web UI / HTTP API | Yes | `api/*.ts` handlers |
-| MCP server + OAuth | Yes | `src/habitat/mcp-serve/` endpoints drop into `api/oauth/*.ts` — they're already stateless |
+| MCP server + OAuth | Yes | `packages/habitat/src/mcp-serve/` endpoints drop into `api/oauth/*.ts` — they're already stateless |
 | Telegram bot | Yes | Webhook mode (`grammy` supports it). Set webhook URL to `api/telegram/webhook.ts` |
 | Discord slash commands | Yes | HTTP Interactions endpoint → `api/discord/interactions.ts` (signature-verified) |
 | Scheduled self-run | Yes | Vercel Cron → `api/cron/tick.ts` calls the habitat with the scheduled stimulus |
@@ -70,15 +70,15 @@ Today `HabitatConfig` has one `defaultProvider`/`defaultModel` and keys come fro
 
 1. **Add `HabitatConfig.providers: ProviderEntry[]`** — each entry has `{ id, provider, defaultModel?, secretRef, enabled }` where `secretRef` is a Secret Manager resource name on GCP or a `secrets.json` key locally.
 2. **Add `routing` block** — `{ default: providerId, overrides: { 'sessionType:web' → providerId, 'agent:foo' → providerId } }` so different surfaces can use different providers without code changes.
-3. **Extend `Habitat.getDefaultModelDetails()`** (`src/habitat/habitat.ts:219`) to read from the registry and resolve secrets from the habitat secret store, not `process.env` directly. Keep the env-var fallback for dev.
-4. **CLI: `habitat providers list|add|remove|test`** — `test` does a 1-token ping (we already have `src/cli/run.ts` one-shot scaffolding).
+3. **Extend `Habitat.getDefaultModelDetails()`** (`packages/habitat/src/habitat.ts:219`) to read from the registry and resolve secrets from the habitat secret store, not `process.env` directly. Keep the env-var fallback for dev.
+4. **CLI: `habitat providers list|add|remove|test`** — `test` does a 1-token ping (we already have `packages/cli/src/run.ts` one-shot scaffolding).
 
 ### Phase 3 — Vetted skills & MCP registry (site-wide trust)
 
 Today skills come from `skillsFromGit` per-habitat — the owner hand-picks repos. Marketing sells "vetted and installed." Deliver:
 
-1. **New file `src/habitat/registry/skills-registry.json`** checked into the umwelten repo — a curated list `{ id, repo, commit, description, capabilities, sha256 }`. Commit-pinned. This is the "site-wide vetted" list.
-2. **Same shape for MCP servers**: `src/habitat/registry/mcp-registry.json` with `{ id, url, issuer, scopes, vendor, description }` covering our own oura-mcp, twitter-mcp, etc.
+1. **New file `packages/habitat/src/registry/skills-registry.json`** checked into the umwelten repo — a curated list `{ id, repo, commit, description, capabilities, sha256 }`. Commit-pinned. This is the "site-wide vetted" list.
+2. **Same shape for MCP servers**: `packages/habitat/src/registry/mcp-registry.json` with `{ id, url, issuer, scopes, vendor, description }` covering our own oura-mcp, twitter-mcp, etc.
 3. **CLI: `habitat skills install <id>` and `habitat mcp install <id>`** — reads the registry, verifies commit/sha, writes into habitat `config.json` as a pinned reference. Refuses unknown IDs unless `--unsafe` is passed.
 4. **Boot-time verification** in `Habitat.create()` — before registering, hash-check git-cloned skills against the registry entry; log an audit event (see Phase 4) on mismatch and refuse to load unless explicitly allowed.
 
@@ -89,14 +89,14 @@ This gives us a defensible "our platform only runs code we've vetted" line witho
 **The marketing says**: "Code is extracted, compiled, and run in Docker containers" and "Docker containerization for physical process isolation" is the primary trust claim alongside scoped credentials.
 
 **What's actually built today**:
-- Full Dagger SDK integration lives in `src/evaluation/dagger/*` — `DaggerRunner`, `llm-container-builder.ts` that picks base images, detects deps, caches provisioning.
-- `src/habitat/bridge/` has `supervisor.ts` that lifecycles per-agent MCP containers with health polling and rebuilds. Requires `AgentEntry.gitRemote`.
-- `src/habitat/tools/run-project/` is **an empty directory**. This is where "run a project in a container" was supposed to live and doesn't.
+- Full Dagger SDK integration lives in `packages/evaluation/src/evaluation/dagger/*` — `DaggerRunner`, `llm-container-builder.ts` that picks base images, detects deps, caches provisioning.
+- `packages/habitat/src/bridge/` has `supervisor.ts` that lifecycles per-agent MCP containers with health polling and rebuilds. Requires `AgentEntry.gitRemote`.
+- `packages/habitat/src/tools/run-project/` is **an empty directory**. This is where "run a project in a container" was supposed to live and doesn't.
 
 **What to build**:
 
-1. **Populate `src/habitat/tools/run-project/`** with a `run_project` tool that wraps the existing Dagger infrastructure. It's not new capability — it's wiring `DaggerRunner` (from evaluation/) into the habitat tool registry so any habitat agent can say "run this script/project in a sandbox" and get a real container.
-2. **Promote Dagger out of evaluation/** — move `src/evaluation/dagger/` to `src/sandbox/dagger/` (or similar). Evaluation keeps using it; habitats use it too. Single source of truth for "run code in a container."
+1. **Populate `packages/habitat/src/tools/run-project/`** with a `run_project` tool that wraps the existing Dagger infrastructure. It's not new capability — it's wiring `DaggerRunner` (from evaluation/) into the habitat tool registry so any habitat agent can say "run this script/project in a sandbox" and get a real container.
+2. **Promote Dagger out of evaluation/** — move `packages/evaluation/src/evaluation/dagger/` to `src/sandbox/dagger/` (or similar). Evaluation keeps using it; habitats use it too. Single source of truth for "run code in a container."
 3. **Generic `sandbox_exec` tool** in the habitat tool set — takes `{ image, command, env, mounts, timeoutMs }`, returns `{ exitCode, stdout, stderr, durationMs }`. Under the hood: Dagger when available, falls back to local `docker run` via CLI when not. This is the primitive the LLM calls when it needs isolation.
 4. **Per-target availability matrix** (honest about limits):
    - Cloud Run: Yes — Dagger engine runs in sidecar, or call a dedicated Dagger Cloud endpoint
@@ -110,9 +110,9 @@ This gives us a defensible "our platform only runs code we've vetted" line witho
 **The marketing says**: "Git provides an audit trail of every change" and habitats "learn from decisions" with full versioning.
 
 **What's actually built today**:
-- `loadSkillsFromGit()` (`src/stimulus/skills/loader.ts:144`) does `git clone --depth 1` and caches by repo slug. Read-only.
-- `agent_clone` tool (`src/habitat/tools/agent-runner-tools.ts`) clones a repo into `agents/{id}/repo` and registers the agent. Read-only.
-- `AgentEntry.gitRemote` (`src/habitat/types.ts:52`) records the origin. Used only by the bridge to decide whether it can build a container.
+- `loadSkillsFromGit()` (`packages/core/src/stimulus/skills/loader.ts:144`) does `git clone --depth 1` and caches by repo slug. Read-only.
+- `agent_clone` tool (`packages/habitat/src/tools/agent-runner-tools.ts`) clones a repo into `agents/{id}/repo` and registers the agent. Read-only.
+- `AgentEntry.gitRemote` (`packages/habitat/src/types.ts:52`) records the origin. Used only by the bridge to decide whether it can build a container.
 - **No commits ever get written.** Changes to `config.json`, `STIMULUS.md`, skills, or agent state mutate files in place with zero git history. The "audit trail via git" claim is vapor today.
 
 **What to build**:
@@ -133,9 +133,9 @@ This gives us a defensible "our platform only runs code we've vetted" line witho
 
 Marketing is heavy on traceability: "every answer can be traced back to its source." Today we have per-session JSONL and that's it. Build the thinnest possible centralized audit layer:
 
-1. **New module `src/habitat/audit/` with an `AuditLogger`** — append-only events: `session.started`, `tool.invoked`, `secret.accessed`, `model.called`, `skill.loaded`, `provider.routed`, `deploy.published`. Each event has `{ ts, habitatId, sessionId?, actor, event, payload, contentHash }`.
+1. **New module `packages/habitat/src/audit/` with an `AuditLogger`** — append-only events: `session.started`, `tool.invoked`, `secret.accessed`, `model.called`, `skill.loaded`, `provider.routed`, `deploy.published`. Each event has `{ ts, habitatId, sessionId?, actor, event, payload, contentHash }`.
 2. **Uses the BlobSink abstraction from Phase 1** — audit writes go through the same `BlobSink` that transcripts use. On GCP the default is `GcsSink` with object-versioning on; on AWS it's `S3Sink` with versioning + object-lock; on Vercel it's `VercelBlobSink`; on a VPS it's `FsSink` with a `chattr +a` append-only flag (or just versioned backups). Append-only-for-real (even against a compromised service account) comes from the versioning/lock feature of whichever store we pick, not from our code.
-3. **Hook points**: wrap `BaseModelRunner` (`src/cognition/runner.ts`) to emit `model.called` with token counts + cost. Wrap `Habitat.getSecret()` to emit `secret.accessed`. Wrap tool execution in the existing tool registry (`src/habitat/tool-registry.ts`) to emit `tool.invoked`. The `src/cognition/observers.ts` file already exists and is heading this direction — fold into it.
+3. **Hook points**: wrap `BaseModelRunner` (`packages/core/src/cognition/runner.ts`) to emit `model.called` with token counts + cost. Wrap `Habitat.getSecret()` to emit `secret.accessed`. Wrap tool execution in the existing tool registry (`packages/habitat/src/tool-registry.ts`) to emit `tool.invoked`. The `packages/core/src/cognition/observers.ts` file already exists and is heading this direction — fold into it.
 4. **`habitat audit tail` / `habitat audit verify <date>`** — verify reads JSONL in order, recomputes content hashes to detect tampering, flags gaps.
 
 This is what we point at on a demo to answer "how do you know this agent didn't do something weird."
@@ -145,14 +145,14 @@ This is what we point at on a demo to answer "how do you know this agent didn't 
 Marketing promises systems "run autonomously" on schedules. Deliver a minimum viable self-watch:
 
 1. **`habitat schedule` command** wrapping whichever cron the target provides — Cloud Scheduler on GCP, EventBridge on AWS, Vercel Cron on Vercel, Fly machine cron on Fly, systemd timers on VPS. Shared interface: `{ name, cronExpr, endpoint, payload, auth }` translated per target. All targets hit the same `/cron/:jobName` habitat endpoint; only the dispatcher changes.
-2. **Self-log checker**: reuse `src/habitat/bridge/monitor-agent.ts` (already an LLM that monitors container health) but point it at the habitat's own audit log + GCP Cloud Logging. Runs on a schedule. If it sees `error.rate > threshold` or `secret.accessed` with no corresponding `tool.invoked`, it pages (Discord webhook / email / Telegram bot — all already integrated).
+2. **Self-log checker**: reuse `packages/habitat/src/bridge/monitor-agent.ts` (already an LLM that monitors container health) but point it at the habitat's own audit log + GCP Cloud Logging. Runs on a schedule. If it sees `error.rate > threshold` or `secret.accessed` with no corresponding `tool.invoked`, it pages (Discord webhook / email / Telegram bot — all already integrated).
 3. **Health endpoint** on gaia-server: `/healthz` (liveness) and `/readyz` (DB ping + provider smoke test). Cloud Run needs this to route traffic correctly.
 
 ### Phase 6 — Deploy command (the actual `habitat deploy`)
 
 The UX that ties it all together. `habitat deploy --target <gcp|aws|vercel|fly|vps|local>`:
 
-1. Reads `HabitatConfig.deployment`. If unset, runs an interactive wizard extending `src/habitat/onboard.ts` (asks target, state backend, blob sink).
+1. Reads `HabitatConfig.deployment`. If unset, runs an interactive wizard extending `packages/habitat/src/onboard.ts` (asks target, state backend, blob sink).
 2. Validates target-neutral invariants: every `providers[].secretRef` resolves in the target's secret store; every `skillsFromGit` matches the vetted registry; `stateBackend` and `blobSink` are reachable.
 3. Dispatches to the matching `RuntimeTarget` adapter from Phase 1:
    - `gcp` → Cloud Build → `gcloud run deploy` with `--update-secrets` (`quantificore` + `foundtain-creek`)
@@ -161,7 +161,7 @@ The UX that ties it all together. `habitat deploy --target <gcp|aws|vercel|fly|v
    - `fly` → `fly deploy`, secrets via `fly secrets set`
    - `vps` → build image locally → `docker save | ssh host docker load` → `docker compose up -d`, secrets via `.env` on the remote (0600). Leans on the marina-skill patterns in your env.
    - `local` → `docker compose up` on the dev machine
-4. Post-deploy, every adapter: registers `/oauth/*` if MCP is enabled (reuse `src/habitat/mcp-serve/`), runs `/healthz` probe, emits `deploy.published` audit event with target, image digest, and the adapter's generated resource IDs.
+4. Post-deploy, every adapter: registers `/oauth/*` if MCP is enabled (reuse `packages/habitat/src/mcp-serve/`), runs `/healthz` probe, emits `deploy.published` audit event with target, image digest, and the adapter's generated resource IDs.
 
 ## Vercel deployment (consolidated)
 
@@ -175,11 +175,11 @@ The Vercel target is called out separately because it's the most serverless-nati
   api/
     [...habitat].ts        # catch-all: web UI, HTTP API
     oauth/
-      authorize.ts         # reuses src/habitat/mcp-serve/oauth/
+      authorize.ts         # reuses packages/habitat/src/mcp-serve/oauth/
       callback.ts
       token.ts
     mcp/
-      [...].ts             # reuses src/habitat/mcp-serve/mcp-handler.ts
+      [...].ts             # reuses packages/habitat/src/mcp-serve/mcp-handler.ts
     telegram/webhook.ts    # grammy webhook mode
     discord/interactions.ts # signature-verified slash commands
     cron/
@@ -194,8 +194,8 @@ The Vercel target is called out separately because it's the most serverless-nati
 
 | Habitat capability | Vercel mechanism | Source that already exists |
 |---|---|---|
-| HTTP server + web UI | `api/[...habitat].ts` calling `startGaiaServer()`-equivalent | `src/habitat/gaia-server.ts` |
-| MCP + OAuth endpoints | individual files under `api/oauth/*`, `api/mcp/*` | `src/habitat/mcp-serve/` — already stateless handlers |
+| HTTP server + web UI | `api/[...habitat].ts` calling `startGaiaServer()`-equivalent | `packages/habitat/src/gaia-server.ts` |
+| MCP + OAuth endpoints | individual files under `api/oauth/*`, `api/mcp/*` | `packages/habitat/src/mcp-serve/` — already stateless handlers |
 | State (sessions, OAuth, audit rows) | Neon Postgres over HTTP | extended `postgres-store.ts` from Phase 1 |
 | Secrets | Vercel env vars | new `VercelEnvStore` adapter on the `SecretStore` interface |
 | Transcripts + audit blobs | Vercel Blob with versioning | new `VercelBlobSink` adapter on the `BlobSink` interface |
@@ -267,22 +267,22 @@ Decisions to lock before starting:
 
 ## Critical files to modify
 
-- `src/habitat/types.ts` — extend `HabitatConfig` with `providers`, `routing`, `deployment` (target + stateBackend + blobSink + secretManager).
-- `src/habitat/habitat.ts:219` — rewrite `getDefaultModelDetails()` to use provider registry.
-- `src/habitat/secrets.ts` — abstract behind a `SecretStore` interface with adapters: `FsSecretStore` (current), `GcpSecretManagerStore`, `AwsSecretsManagerStore`, `VercelEnvStore`.
-- `src/habitat/gaia-server.ts` — add `/healthz`, `/readyz`, production auth middleware.
-- `src/habitat/mcp-serve/neon-store.ts` — **rename to `postgres-store.ts` + split driver**: one file defines the SQL + interface, another picks `@neondatabase/serverless` vs `postgres` based on `DATABASE_URL` or explicit config. Extend schema to cover sessions + audit tables.
-- `src/cli/habitat.ts` — add `serve`, `deploy`, `providers`, `skills`, `mcp`, `audit`, `schedule` subcommands.
-- `src/cognition/observers.ts` (already exists) — becomes the audit event emitter for model calls.
+- `packages/habitat/src/types.ts` — extend `HabitatConfig` with `providers`, `routing`, `deployment` (target + stateBackend + blobSink + secretManager).
+- `packages/habitat/src/habitat.ts:219` — rewrite `getDefaultModelDetails()` to use provider registry.
+- `packages/habitat/src/secrets.ts` — abstract behind a `SecretStore` interface with adapters: `FsSecretStore` (current), `GcpSecretManagerStore`, `AwsSecretsManagerStore`, `VercelEnvStore`.
+- `packages/habitat/src/gaia-server.ts` — add `/healthz`, `/readyz`, production auth middleware.
+- `packages/habitat/src/mcp-serve/neon-store.ts` — **rename to `postgres-store.ts` + split driver**: one file defines the SQL + interface, another picks `@neondatabase/serverless` vs `postgres` based on `DATABASE_URL` or explicit config. Extend schema to cover sessions + audit tables.
+- `packages/cli/src/habitat.ts` — add `serve`, `deploy`, `providers`, `skills`, `mcp`, `audit`, `schedule` subcommands.
+- `packages/core/src/cognition/observers.ts` (already exists) — becomes the audit event emitter for model calls.
 - **New directories**:
-  - `src/habitat/deploy/` — one file per target (`gcp.ts`, `aws.ts`, `vercel.ts`, `fly.ts`, `vps.ts`, `local.ts`) implementing a shared `RuntimeTarget` interface
-  - `src/habitat/audit/` — `AuditLogger`, event types, `verify.ts`
-  - `src/habitat/registry/` — `skills-registry.json`, `mcp-registry.json`, loader
-  - `src/habitat/git/` — `simple-git` wrapper, auto-commit hooks, `history.ts`, secret-manifest generation
-  - `src/habitat/tools/run-project/` — finally populate it: `run_project.ts` wrapping the promoted Dagger runner
-  - `src/sandbox/` — Dagger runner promoted out of `src/evaluation/dagger/`, plus a `docker-cli` fallback and a `sandbox_exec` tool
-  - `src/interaction/persistence/postgres-store.ts`, `sqlite-store.ts` (alongside existing fs store)
-  - `src/habitat/blob/` — `BlobSink` interface + `gcs.ts`, `s3.ts`, `r2.ts`, `vercel-blob.ts`, `fs.ts` adapters
+  - `packages/habitat/src/deploy/` — one file per target (`gcp.ts`, `aws.ts`, `vercel.ts`, `fly.ts`, `vps.ts`, `local.ts`) implementing a shared `RuntimeTarget` interface
+  - `packages/habitat/src/audit/` — `AuditLogger`, event types, `verify.ts`
+  - `packages/habitat/src/registry/` — `skills-registry.json`, `mcp-registry.json`, loader
+  - `packages/habitat/src/git/` — `simple-git` wrapper, auto-commit hooks, `history.ts`, secret-manifest generation
+  - `packages/habitat/src/tools/run-project/` — finally populate it: `run_project.ts` wrapping the promoted Dagger runner
+  - `src/sandbox/` — Dagger runner promoted out of `packages/evaluation/src/evaluation/dagger/`, plus a `docker-cli` fallback and a `sandbox_exec` tool
+  - `packages/core/src/interaction/persistence/postgres-store.ts`, `sqlite-store.ts` (alongside existing fs store)
+  - `packages/habitat/src/blob/` — `BlobSink` interface + `gcs.ts`, `s3.ts`, `r2.ts`, `vercel-blob.ts`, `fs.ts` adapters
 - **New repo-root files**: `Dockerfile`, `docker-compose.yml` (local target), `cloudbuild.yaml` (GCP), `fly.toml` template (Fly).
 
 ## Verification

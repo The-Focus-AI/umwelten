@@ -17,7 +17,7 @@ import '../../model-showdown/shared/env.js';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { EvalSuite } from '../../../src/evaluation/suite.ts';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 import { LOCAL_MODELS, ALL_MODELS, includeFrontier } from '../shared/models.js';
 
 // ── Bugfix fixtures ──────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ function verifyFix(bug: BugFix, response: string): { score: number; details: str
 
 // ── Build + run ──────────────────────────────────────────────────────────────
 
-export function makeSuite(models: import('../../../src/cognition/types.js').ModelDetails[]): EvalSuite {
+export function makeSuite(models: import('@umwelten/core/cognition/types.js').ModelDetails[]): EvalSuite {
   return new EvalSuite({
     name: 'local-providers-coding-bugfix',
     perTaskTimeoutMs: 300_000,

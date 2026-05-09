@@ -9,9 +9,9 @@
  *   dotenvx run -- pnpm tsx examples/evals/car-wash.ts --all    # full
  */
 
-import '../../src/env/load.js';
+import '@umwelten/core/env/load.js';
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const LOCAL = [
   { name: 'gemini-3-flash-preview', provider: 'google' },

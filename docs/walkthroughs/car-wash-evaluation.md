@@ -12,9 +12,9 @@ A walkthrough of building the "Car Wash Test" — a common-sense reasoning bench
 Using `EvalSuite`, the entire car wash test fits in ~64 lines:
 
 ```typescript
-import '../../src/env/load.js';
+import '@umwelten/core/env/load.js';
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'car-wash-test',
@@ -84,7 +84,7 @@ The question is simple: *"I want to wash my car. The car wash is 50 meters away.
 Start with a small test set, then scale up. Models come from three sources: direct provider APIs, OpenRouter (which gives access to dozens of providers), and local Ollama models.
 
 ```typescript
-import { ModelDetails } from '../../src/cognition/types.js';
+import { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 // Quick local test — one model per provider
 const LOCAL_TEST_MODELS: ModelDetails[] = [
@@ -132,7 +132,7 @@ pnpm run cli -- models --provider ollama
 A `Stimulus` defines *what* to tell the model — the role, instructions, and generation parameters. It doesn't run anything; it's just configuration.
 
 ```typescript
-import { Stimulus } from '../../src/stimulus/stimulus.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
 
 const stimulus = new Stimulus({
   role: 'helpful assistant',
@@ -157,7 +157,7 @@ Each run gets its own directory. This lets you resume interrupted evaluations, c
 ```typescript
 import fs from 'fs';
 import path from 'path';
-import { EvaluationCache } from '../../src/evaluation/caching/cache-service.js';
+import { EvaluationCache } from '@umwelten/evaluation/evaluation/caching/cache-service.js';
 
 // Determine run number
 const baseDir = path.join(process.cwd(), 'output', 'evaluations', 'car-wash-test', 'runs');
@@ -196,7 +196,7 @@ The cache key is based on the model name, prompt, and stimulus settings. If you 
 `SimpleEvaluation` sends the same prompt to all models concurrently. The progress callback lets you track what's happening.
 
 ```typescript
-import { SimpleEvaluation } from '../../src/evaluation/strategies/simple-evaluation.js';
+import { SimpleEvaluation } from '@umwelten/evaluation/evaluation/strategies/simple-evaluation.js';
 
 const evaluation = new SimpleEvaluation(
   stimulus,
@@ -263,7 +263,7 @@ The schema is the contract between your judge LLM and your code. Every field has
 The judge gets its own Stimulus with very specific instructions. The key is being explicit about what counts as correct and what doesn't.
 
 ```typescript
-import { Interaction } from '../../src/interaction/core/interaction.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
 
 const judgeModel: ModelDetails = {
   name: 'anthropic/claude-haiku-4.5',
@@ -291,7 +291,7 @@ Notice: the judge uses `temperature: 0.0` for maximum consistency. We also use a
 ### Run the Judge on Each Response
 
 ```typescript
-import { clearAllRateLimitStates } from '../../src/rate-limit/rate-limit.js';
+import { clearAllRateLimitStates } from '@umwelten/core/rate-limit/rate-limit.js';
 
 // Clear rate limit state from the evaluation phase
 clearAllRateLimitStates();
@@ -417,16 +417,16 @@ This "correct for the right reason" distinction is important. A model that says 
 
 ```bash
 # Quick test with 3 models
-pnpm tsx scripts/examples/car-wash-test.ts
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 
-# Full 131-model run (fresh)
-pnpm tsx scripts/examples/car-wash-test.ts --all --new
+# Full run (fresh)
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts --all --new
 
 # Resume an interrupted run (reuses cached responses)
-pnpm tsx scripts/examples/car-wash-test.ts --all
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts --all
 
 # Re-run a specific previous run
-pnpm tsx scripts/examples/car-wash-test.ts --all --run 4
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts --all --run 4
 ```
 
 A full run takes about 15 minutes and costs ~$0.50. Most of the time is spent on rate-limited judge calls (1/second × 131 models ≈ 2 minutes) and slow models (some thinking models take 30–140 seconds).
@@ -471,6 +471,6 @@ Mix direct APIs (Google), aggregators (OpenRouter), and local models (Ollama) in
 
 ## Full Source
 
-See [`scripts/examples/car-wash-test.ts`](../../scripts/examples/car-wash-test.ts) for the complete implementation (542 lines including all 131 models).
+See [`examples/evals/car-wash.ts`](../../examples/evals/car-wash.ts) for the complete implementation.
 
 Results from our evaluation are published at [thefocus.ai/reports/car-wash-test](https://thefocus.ai/reports/car-wash-test/).

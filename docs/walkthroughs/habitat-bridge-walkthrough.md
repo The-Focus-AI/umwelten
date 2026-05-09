@@ -5,7 +5,7 @@ This walkthrough shows how to run an agent repository in a supervised Dagger con
 ## Prerequisites
 
 - Docker running (Dagger uses Docker)
-- Go MCP binary compiled at `src/habitat/bridge/go-server/bridge-server-linux`
+- Go MCP binary compiled at `packages/habitat/src/bridge/go-server/bridge-server-linux`
 - A habitat set up (run `pnpm run cli -- habitat` once to onboard)
 
 ## Step 1: Start the Habitat REPL

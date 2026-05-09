@@ -560,13 +560,13 @@ dotenvx run -- pnpm run cli -- habitat --env-prefix MYBOT
 pnpm test:run
 
 # Habitat tests specifically
-pnpm test:run src/habitat/
+pnpm test:run packages/habitat/src/
 
 # ChannelBridge routing & command tests
-pnpm test:run src/ui/bridge/
+pnpm test:run packages/habitat/src/bridge/
 
 # Discord adapter tests
-pnpm test:run src/ui/discord/
+pnpm test:run packages/ui/src/discord/
 ```
 
 ### Manual verification checklist

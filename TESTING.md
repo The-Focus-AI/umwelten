@@ -58,7 +58,7 @@ Suggested quick sanity checks:
 ```bash
 pnpm run cli --help
 pnpm run cli models --provider minimax
-pnpm exec vitest run src/providers/minimax.test.ts --reporter=verbose
+pnpm exec vitest run packages/core/src/providers/minimax.test.ts --reporter=verbose
 ```
 
 ---
@@ -74,34 +74,23 @@ pnpm test:run
 Then run the ranking unit tests and self-modify tool tests (no API keys needed):
 
 ```bash
-pnpm exec vitest run src/evaluation/ranking/ --reporter=verbose
-pnpm exec vitest run src/habitat/tools/self-modify-tools.test.ts --reporter=verbose
+pnpm exec vitest run packages/evaluation/src/evaluation/ranking/ --reporter=verbose
+pnpm exec vitest run packages/habitat/src/tools/self-modify-tools.test.ts --reporter=verbose
 ```
 
-### Manual / integration scripts (see also Examples index)
-
-These are **not** part of `pnpm test:run`; use them when validating Dagger, tools, or streaming:
-
-```bash
-pnpm tsx src/test/test-dagger-runner.ts
-pnpm tsx src/test/test-tool-conversations.ts
-pnpm tsx src/test/test-reasoning-streaming-simple.ts
-pnpm tsx src/test/test-reasoning-complex.ts
-```
-
-Optional **unused export / file** pass (noisy; deep imports and scripts are often flagged):
+Optional **unused export / file** pass (noisy; deep imports are often flagged):
 
 ```bash
 pnpm knip
 ```
 
-`knip.json` scopes analysis to `src/` entrypoints (`cli/entry.ts`, `index.ts`, `habitat/bridge/server.ts`). Many hits are intentional library surface or test-only modules—triaging is manual.
+`knip.json` scopes analysis to each workspace package's `src/` entrypoints. Many hits are intentional library surface or test-only modules — triaging is manual.
 
 Verify:
 
-- [ ] Total test count is ~774+ passed
-- [ ] Only pre-existing failures appear (Ollama text generation, OpenRouter auth, `src/memory/determine_operations` needing local models)
-- [ ] No new failures in `src/cli/`, `src/cognition/`, `src/providers/minimax*`
+- [ ] Total test count is ~840+ passed
+- [ ] Only pre-existing failures appear (Cursor adapter `better-sqlite3` ABI mismatch, Ollama text generation if not running locally, OpenRouter auth if no key)
+- [ ] No new failures in `packages/cli/`, `packages/core/`, `packages/core/src/providers/minimax*`
 - [ ] All 21 pairwise ranking tests pass (13 elo + 8 pairing)
 - [ ] Self-modify tools tests pass
 
@@ -174,13 +163,12 @@ Verify:
 ### 1.5 Direct-run scripts
 
 ```bash
-pnpm tsx scripts/examples/car-wash-test.ts
-pnpm tsx scripts/spike-dagger-llm.ts
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 ```
 
 Verify:
 
-- [ ] Scripts load `.env` automatically
+- [ ] Scripts load `.env` automatically (via `dotenvx run --`)
 - [ ] No manual `source .env` step is required for normal local use
 
 ---

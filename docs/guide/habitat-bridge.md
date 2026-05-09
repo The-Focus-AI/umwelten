@@ -108,13 +108,13 @@ All file operations are sandboxed to `/workspace` and `/opt`.
 
 | Component | File | Role |
 |---|---|---|
-| **BridgeSupervisor** | `src/habitat/bridge/supervisor.ts` | Build → health loop → rebuild cycle |
-| **container-builder** | `src/habitat/bridge/container-builder.ts` | LLM container building via dag.llm() |
-| **BridgeAgent** | `src/habitat/bridge/agent.ts` | Wraps lifecycle, tracks provisioning |
-| **BridgeLifecycle** | `src/habitat/bridge/lifecycle.ts` | Spawns worker threads, manages ports |
-| **bridge-worker** | `src/habitat/bridge/bridge-worker.ts` | Builds Dagger container in worker thread |
-| **Go MCP Server** | `src/habitat/bridge/go-server/` | Static binary, MCP over HTTP |
-| **BridgeClient** | `src/habitat/bridge/client.ts` | MCP client for calling tools in container |
+| **BridgeSupervisor** | `packages/habitat/src/bridge/supervisor.ts` | Build → health loop → rebuild cycle |
+| **container-builder** | `packages/habitat/src/bridge/container-builder.ts` | LLM container building via dag.llm() |
+| **BridgeAgent** | `packages/habitat/src/bridge/agent.ts` | Wraps lifecycle, tracks provisioning |
+| **BridgeLifecycle** | `packages/habitat/src/bridge/lifecycle.ts` | Spawns worker threads, manages ports |
+| **bridge-worker** | `packages/habitat/src/bridge/bridge-worker.ts` | Builds Dagger container in worker thread |
+| **Go MCP Server** | `packages/habitat/src/bridge/go-server/` | Static binary, MCP over HTTP |
+| **BridgeClient** | `packages/habitat/src/bridge/client.ts` | MCP client for calling tools in container |
 
 ## Saved Provisioning
 
@@ -174,7 +174,7 @@ curl -X POST http://localhost:10000/mcp \
 ## Prerequisites
 
 - **Docker running** — Dagger uses Docker under the hood
-- **Go MCP binary compiled** — `src/habitat/bridge/go-server/bridge-server-linux` (cross-compiled for arm64 Linux)
+- **Go MCP binary compiled** — `packages/habitat/src/bridge/go-server/bridge-server-linux` (cross-compiled for arm64 Linux)
 
 ## Port Management
 

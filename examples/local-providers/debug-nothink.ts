@@ -1,6 +1,6 @@
 /** Trace exactly what the AI SDK is sending for llamaswap vs llamaswap-nothink */
-import { Interaction } from '../../src/interaction/core/interaction.ts';
-import { Stimulus } from '../../src/stimulus/stimulus.ts';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
 
 // Monkey-patch global fetch to log bodies
 const orig = global.fetch;

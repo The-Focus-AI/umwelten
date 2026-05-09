@@ -99,8 +99,8 @@ You built an agent. But does it *reason* correctly? This is the key question umw
 Create `my-first-eval.ts` in the repo root:
 
 ```typescript
-import './src/env/load.js';
-import { EvalSuite } from './src/evaluation/suite.js';
+import '/core/env/load.js';
+import { EvalSuite } from '/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'my-first-eval',

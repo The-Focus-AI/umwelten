@@ -19,9 +19,9 @@ dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../.e
 
 import fs from 'fs';
 import path from 'path';
-import type { ModelDetails } from '../../src/cognition/types.js';
-import { PairwiseRanker } from '../../src/evaluation/ranking/index.js';
-import type { RankingEntry } from '../../src/evaluation/ranking/index.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
+import { PairwiseRanker } from '@umwelten/evaluation/evaluation/ranking/index.js';
+import type { RankingEntry } from '@umwelten/evaluation/evaluation/ranking/index.js';
 
 // ── CLI flags ────────────────────────────────────────────────────────
 

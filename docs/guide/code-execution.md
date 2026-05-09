@@ -19,7 +19,7 @@ Umwelten provides secure, isolated code execution through the `DaggerRunner` cla
 ### Basic Usage
 
 ```typescript
-import { DaggerRunner } from './src/evaluation/dagger-runner.js';
+import { DaggerRunner } from '/evaluation/evaluation/dagger-runner.js';
 
 // Run TypeScript code
 const result = await DaggerRunner.runCode({
@@ -350,13 +350,13 @@ DaggerRunner is a drop-in replacement for the legacy `DockerRunner`:
 
 ```typescript
 // Old (deprecated)
-import { DockerRunner } from './src/evaluation/docker-runner.js';
+import { DockerRunner } from '/evaluation/evaluation/docker-runner.js';
 
 // New (recommended)
-import { DaggerRunner } from './src/evaluation/dagger-runner.js';
+import { DaggerRunner } from '/evaluation/evaluation/dagger-runner.js';
 
 // Or use the backward-compatible alias
-import { DockerRunner } from './src/evaluation/dagger-runner.js';
+import { DockerRunner } from '/evaluation/evaluation/dagger-runner.js';
 ```
 
 The interface is identical, so no other code changes are required.

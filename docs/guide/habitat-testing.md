@@ -22,13 +22,13 @@ See the [Habitat guide](./habitat.md) for details.
 
 ```bash
 # All habitat tests (42 tests across 2 suites)
-pnpm test:run src/habitat/
+pnpm test:run packages/habitat/src/
 
 # Agent runner tools only (16 tests)
-pnpm test:run src/habitat/tools/agent-runner-tools.test.ts
+pnpm test:run packages/habitat/src/tools/agent-runner-tools.test.ts
 
 # Watch mode (re-runs on change)
-npx vitest src/habitat/
+npx vitest packages/habitat/src/
 ```
 
 ### What the automated tests cover
@@ -148,7 +148,7 @@ pnpm --filter jeeves-bot run cli
 **Programmatic verification** (in a test script):
 
 ```typescript
-import { Habitat } from '../../src/habitat/index.js';
+import { Habitat } from '@umwelten/habitat/index.js';
 
 const habitat = await Habitat.create({
   envPrefix: 'JEEVES',
@@ -329,7 +329,7 @@ echo "Run all tests" > $PROJECT/.claude/commands/test.md
 **Programmatic test**:
 
 ```typescript
-import { buildAgentStimulus } from '../../src/habitat/habitat-agent.js';
+import { buildAgentStimulus } from '@umwelten/habitat/habitat-agent.js';
 
 const stimulus = await buildAgentStimulus(
   {
@@ -431,7 +431,7 @@ Update the agent's `logPatterns` to use each pattern and run `agent_logs` to ver
 **Steps**:
 
 ```typescript
-import { standardToolSets } from '../../src/habitat/tool-sets.js';
+import { standardToolSets } from '@umwelten/habitat/tool-sets.js';
 
 const names = standardToolSets.map(ts => ts.name);
 console.log('Standard tool sets:', names);
@@ -442,7 +442,7 @@ console.log('Standard tool sets:', names);
 - [ ] `agent-runner` is present
 
 ```typescript
-import { Habitat } from '../../src/habitat/index.js';
+import { Habitat } from '@umwelten/habitat/index.js';
 
 const habitat = await Habitat.create({ skipSkills: true, skipWorkDirTools: true });
 const tools = habitat.getTools();

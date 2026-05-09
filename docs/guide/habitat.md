@@ -218,7 +218,7 @@ New habitats are seeded with two builtin tools during onboarding:
 | `search`   | Direct export | Web search via [Tavily](https://tavily.com). Requires `TAVILY_API_KEY` env var.                                   |
 | `run_bash` | Factory       | Execute bash in [Dagger](https://dagger.io) containers with experience-based state. Requires `@dagger.io/dagger`. |
 
-These are copied from `src/habitat/builtin-tools/` into your habitat's `tools/` directory. You can customize or delete them.
+These are copied from `packages/habitat/src/builtin-tools/` into your habitat's `tools/` directory. You can customize or delete them.
 
 ### Standard Tools (Built-in)
 
@@ -377,14 +377,14 @@ Habitat.create()
 
 | File                           | Purpose                                     |
 | ------------------------------ | ------------------------------------------- |
-| `src/habitat/habitat.ts`       | Main Habitat class with `create()` factory  |
-| `src/habitat/config.ts`        | Directory resolution, config load/save      |
-| `src/habitat/types.ts`         | HabitatConfig, HabitatOptions, AgentEntry   |
-| `src/habitat/onboard.ts`       | First-run setup, builtin tool seeding       |
-| `src/habitat/tool-sets.ts`     | Standard tool set registration              |
-| `src/stimulus/tools/loader.ts` | TOOL.md + handler loader (factory support)  |
-| `src/habitat/builtin-tools/`   | Reference tool implementations              |
-| `src/cli/habitat.ts`           | CLI command with REPL + telegram subcommand |
+| `packages/habitat/src/habitat.ts`       | Main Habitat class with `create()` factory  |
+| `packages/habitat/src/config.ts`        | Directory resolution, config load/save      |
+| `packages/habitat/src/types.ts`         | HabitatConfig, HabitatOptions, AgentEntry   |
+| `packages/habitat/src/onboard.ts`       | First-run setup, builtin tool seeding       |
+| `packages/habitat/src/tool-sets.ts`     | Standard tool set registration              |
+| `packages/core/src/stimulus/tools/loader.ts` | TOOL.md + handler loader (factory support)  |
+| `packages/habitat/src/builtin-tools/`   | Reference tool implementations              |
+| `packages/cli/src/habitat.ts`           | CLI command with REPL + telegram subcommand |
 
 ## Habitat Bridge System
 

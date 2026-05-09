@@ -41,19 +41,19 @@ process.on('unhandledRejection', (reason: any) => {
   throw reason;
 });
 
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { Stimulus } from '../../src/stimulus/stimulus.js';
-import { modelKey } from '../../src/evaluation/suite.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import { modelKey } from '@umwelten/evaluation/evaluation/suite.js';
 import {
   loadTranscript,
   type TranscriptFile,
-} from '../../src/evaluation/replay.js';
+} from '@umwelten/evaluation/evaluation/replay.js';
 import {
   lookupGenerationTask,
   verifyGenerationResponse,
   executeLocal,
-} from '../../src/evaluation/llm-eval/coding.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+} from '@umwelten/evaluation/evaluation/llm-eval/coding.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 const ROUND1_EVAL = 'llm-eval-coding';
 const ROUND2_EVAL = 'llm-eval-coding-2pass';

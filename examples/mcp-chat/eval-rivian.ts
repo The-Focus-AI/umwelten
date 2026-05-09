@@ -25,10 +25,10 @@ import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import type { CoreMessage } from 'ai';
-import { clearAllRateLimitStates } from '../../src/rate-limit/rate-limit.js';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { Stimulus } from '../../src/stimulus/stimulus.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+import { clearAllRateLimitStates } from '@umwelten/core/rate-limit/rate-limit.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 import { createMCPChatRuntime } from './habitat.js';
 
 // ── Models to evaluate ──────────────────────────────────────────────────────

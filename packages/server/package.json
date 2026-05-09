@@ -14,7 +14,7 @@
       "import": "./dist/*.js"
     }
   },
-  "description": "Network layer: MCP server/client, A2A handler, container server, web UI",
+  "description": "Network protocol layer: MCP server/client and A2A client/server scaffolding",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
+    "@a2a-js/sdk": "^0.3.13",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^1.0.2",
     "ai": "^5.0.115",

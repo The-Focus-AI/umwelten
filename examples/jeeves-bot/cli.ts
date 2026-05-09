@@ -8,13 +8,13 @@
 
 import { createInterface } from 'node:readline';
 import type { CoreMessage } from 'ai';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { InteractionStore } from '../../src/interaction/persistence/interaction-store.js';
-import { estimateContextSize, listCompactionStrategies } from '../../src/context/index.js';
-import { writeSessionTranscript } from '../../src/habitat/transcript.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { InteractionStore } from '@umwelten/core/interaction/persistence/interaction-store.js';
+import { estimateContextSize, listCompactionStrategies } from '@umwelten/core/context/index.js';
+import { writeSessionTranscript } from '@umwelten/habitat/transcript.js';
 import { createJeevesHabitat } from './habitat.js';
-import type { Habitat } from '../../src/habitat/index.js';
-import type { OnboardingResult } from '../../src/habitat/types.js';
+import type { Habitat } from '@umwelten/habitat/index.js';
+import type { OnboardingResult } from '@umwelten/habitat/types.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';
 const DEFAULT_MODEL = process.env.JEEVES_MODEL || 'gemini-3-flash-preview';

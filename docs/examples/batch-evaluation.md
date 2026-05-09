@@ -2,12 +2,6 @@
 
 This example demonstrates how to process multiple inputs with the same model using the BatchEvaluation strategy, including tool integration for document processing.
 
-## Running the Example
-
-```bash
-pnpm tsx scripts/examples/batch-evaluation-example.ts
-```
-
 ## What This Example Shows
 
 - **Batch Processing**: Process multiple inputs with the same model
@@ -20,10 +14,10 @@ pnpm tsx scripts/examples/batch-evaluation-example.ts
 ### 1. Import Dependencies
 
 ```typescript
-import { BatchEvaluation } from '../../src/evaluation/strategies/batch-evaluation.js';
-import { DocumentAnalysisTemplate } from '../../src/stimulus/templates/analysis-templates.js';
-import { PDFTools } from '../../src/stimulus/tools/pdf-tools.js';
-import { getAvailableModels } from '../../src/providers/index.js';
+import { BatchEvaluation } from '@umwelten/evaluation/evaluation/strategies/batch-evaluation.js';
+import { DocumentAnalysisTemplate } from '@umwelten/core/stimulus/templates/analysis-templates.js';
+import { PDFTools } from '@umwelten/core/stimulus/tools/pdf-tools.js';
+import { getAvailableModels } from '@umwelten/core/providers/index.js';
 ```
 
 ### 2. Create Batch Evaluation
@@ -178,7 +172,7 @@ const evaluation = new BatchEvaluation({
 ### Custom Tool Integration
 
 ```typescript
-import { AudioTools, ImageTools } from '../../src/stimulus/tools/index.js';
+import { AudioTools, ImageTools } from '@umwelten/core/stimulus/tools/index.js';
 
 // Audio analysis stimulus
 const audioAnalysisStimulus = new Stimulus({

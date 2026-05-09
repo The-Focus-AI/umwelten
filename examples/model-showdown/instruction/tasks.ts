@@ -11,4 +11,4 @@
 export {
   ALL_TASKS,
   type InstructionTask,
-} from '../../../src/evaluation/llm-eval/data/instruction-tasks.js';
+} from '@umwelten/evaluation/evaluation/llm-eval/data/instruction-tasks.js';

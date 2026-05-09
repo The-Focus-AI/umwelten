@@ -66,7 +66,9 @@ pnpm run cli -- sessions transcript compact \
 ### Operational digest
 
 ```bash
-pnpm tsx scripts/session-digest.ts /path/to/habitat/sessions
+# Interactive session browser — every session with its digest (topics, tags,
+# summary, phases, facts, learning counts) inline.
+pnpm run cli -- browse --sessions-dir /path/to/habitat/sessions
 ```
 
 ## Quick Start

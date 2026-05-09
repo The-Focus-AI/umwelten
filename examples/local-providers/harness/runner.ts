@@ -19,12 +19,12 @@
  * cleanly tears down any straggler.
  */
 
-import type { ModelDetails } from '../../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 import {
   runFullEval,
   type FullEvalOptions,
   type FullEvalResult,
-} from '../../../src/evaluation/llm-eval/index.js';
+} from '@umwelten/evaluation/evaluation/llm-eval/index.js';
 import {
   evictAll,
   evictAndWait,

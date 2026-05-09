@@ -5,11 +5,11 @@ description: startWebServer — the HTTP peer to Discord/Telegram. Gaia, buildin
 
 # Web interface
 
-Umwelten's web layer is **`startWebServer`** ([`src/ui/web/server.ts`](../../src/ui/web/server.ts)) — the HTTP peer to the Discord and Telegram adapters. It drives the same `ChannelBridge` ([`src/ui/bridge/channel-bridge.ts`](../../src/ui/bridge/channel-bridge.ts)) that every other channel uses, so CLI, Telegram, Discord, and web all share one habitat, one session store, and one transcript format.
+Umwelten's web layer is **`startWebServer`** ([`packages/habitat/src/web/server.ts`](@umwelten/habitat/web/server.ts)) — the HTTP peer to the Discord and Telegram adapters. It drives the same `ChannelBridge` ([`@umwelten/habitat/bridge/channel-bridge.ts`](@umwelten/habitat/bridge/channel-bridge.ts)) that every other channel uses, so CLI, Telegram, Discord, and web all share one habitat, one session store, and one transcript format.
 
 Two production consumers ship with the repo:
 
-- **Gaia** ([`src/habitat/gaia-server.ts`](../../src/habitat/gaia-server.ts)) — the built-in habitat manager UI served by `umwelten habitat web` / `mise run habitat-web`.
+- **Gaia** ([`packages/habitat/src/gaia-server.ts`](@umwelten/habitat/gaia-server.ts)) — the built-in habitat manager UI served by `umwelten habitat web` / `mise run habitat-web`.
 - **umwelten-web-demo** ([`examples/umwelten-web-demo/`](../../examples/umwelten-web-demo/)) — a minimal React + `useChat` reference app for building your own.
 
 ## Protocol
@@ -27,7 +27,7 @@ data: {"type":"finish"}
 data: [DONE]
 ```
 
-Any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Gaia keeps an older `event:`-prefixed SSE format for its existing UI; that's handled by the `gaiaRoutes()` route pack ([`src/habitat/gaia-routes.ts`](../../src/habitat/gaia-routes.ts)) — custom routes win over defaults, so Gaia overrides `/api/chat` without touching the framework.
+Any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Gaia keeps an older `event:`-prefixed SSE format for its existing UI; that's handled by the `gaiaRoutes()` route pack ([`packages/habitat/src/gaia-routes.ts`](@umwelten/habitat/gaia-routes.ts)) — custom routes win over defaults, so Gaia overrides `/api/chat` without touching the framework.
 
 ## Build your own web app
 
@@ -107,7 +107,7 @@ First match wins, so custom routes override defaults on path+method collisions.
 
 ## Auth
 
-`auth: 'dev'` uses [`devAuth`](../../src/ui/web/auth/dev-auth.ts) — pins every request to `userId = 'dev'`, no login. For real auth, pass an `AuthProvider`:
+`auth: 'dev'` uses [`devAuth`](@umwelten/habitat/web/auth/dev-auth.ts) — pins every request to `userId = 'dev'`, no login. For real auth, pass an `AuthProvider`:
 
 ```ts
 interface AuthProvider {
@@ -117,7 +117,7 @@ interface AuthProvider {
 }
 ```
 
-The resolved `userId` flows through `ChannelBridge` onto `Interaction.userId`, which [`buildUserProviderOptions`](../../src/cognition/provider-options.ts) injects into OpenRouter's `user` field and Anthropic's `metadata.userId` for provider-side attribution. It's also stamped onto session `meta.json`, so `/api/sessions` and `/api/usage` filter correctly per user.
+The resolved `userId` flows through `ChannelBridge` onto `Interaction.userId`, which [`buildUserProviderOptions`](@umwelten/core/cognition/provider-options.ts) injects into OpenRouter's `user` field and Anthropic's `metadata.userId` for provider-side attribution. It's also stamped onto session `meta.json`, so `/api/sessions` and `/api/usage` filter correctly per user.
 
 ## Generative UI
 
@@ -144,6 +144,6 @@ function ToolCallCard({ part }) {
 
 ## Gaia
 
-`umwelten habitat web` (or `mise run habitat-web`) starts Gaia — a thin wrapper over `startWebServer` that mounts the default routes plus Gaia's legacy `/api/chat` (event-SSE) and `/api/command` routes, serves [`examples/gaia-ui/`](../../examples/gaia-ui/) as the SPA, and uses dev auth. Rebuilt to share the `src/ui/web/` plumbing — no separate codepath.
+`umwelten habitat web` (or `mise run habitat-web`) starts Gaia — a thin wrapper over `startWebServer` that mounts the default routes plus Gaia's legacy `/api/chat` (event-SSE) and `/api/command` routes, serves [`examples/gaia-ui/`](../../examples/gaia-ui/) as the SPA, and uses dev auth. Rebuilt to share the `packages/habitat/src/web/` plumbing — no separate codepath.
 
 See [Habitat interfaces](habitat-interfaces.md) for how web fits next to REPL, Telegram, and Discord.

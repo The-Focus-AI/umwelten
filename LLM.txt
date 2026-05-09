@@ -9,7 +9,7 @@ TypeScript (Node 20+) framework for **Habitat** (agent workspaces), **model eval
 ## Rules
 
 - Package manager: **pnpm** only. Tests: **`pnpm test:run`** (not `pnpm test`, which watches).
-- Local CLI: **`pnpm run cli`** (tsx → `src/cli/entry.ts`). With secrets: **`dotenvx run -- pnpm run cli -- …`**
+- Local CLI: **`pnpm run cli`** (tsx → `packages/cli/src/entry.ts`). With secrets: **`dotenvx run -- pnpm run cli -- …`**
 - **Never use gemini-2 models** — use **gemini-3** (e.g. `gemini-3-flash-preview`).
 - Model responses: read **`ModelResponse.content`** (string), **not** `.text`.
 
@@ -17,16 +17,16 @@ TypeScript (Node 20+) framework for **Habitat** (agent workspaces), **model eval
 
 ## Layer stack (bottom → top)
 
-Each layer depends only on layers below.
+Each layer depends only on layers below. `src/<dir>/` paths below are shorthand for `packages/<pkg>/src/<dir>/` — the umwelten codebase is a pnpm workspace monorepo (`@umwelten/core`, `@umwelten/server`, `@umwelten/evaluation`, `@umwelten/habitat`, `@umwelten/ui`, `@umwelten/cli`, plus the umbrella `umwelten` meta-package).
 
-1. **Foundation** — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`, `src/mcp/` (includes `RemoteMcpClient` for OAuth connections to remote MCP servers)
-2. **Providers** — `src/providers/` — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/LlamaBarn/llama-swap/GitHub/DeepInfra/Fireworks/MiniMax/Nvidia. `llamaswap-config.ts` + `umwelten models llamaswap-config` generate a llama-swap YAML from local GGUF caches.
-3. **Core runtime** — `src/cognition/` (runners), `src/stimulus/` (prompt config), `src/interaction/` (conversation)
-4. **Context** — `src/context/` — compaction, token estimates
-5. **Memory** — `src/memory/` — fact extraction when `stimulus.runnerType === 'memory'`
-6. **Habitat** — `src/habitat/` — `Habitat.create()`, tool sets, sessions, secrets, sub-agents, bridge
-7. **Evaluation** — `src/evaluation/` — `EvalSuite`, `PairwiseRanker`, strategies, caching, Dagger, `combine/` for suite reports
-8. **Surfaces** — `src/cli/`, `src/ui/` (Telegram, Discord, TUI, web)
+1. **Foundation** (`@umwelten/core`) — `src/costs/`, `src/rate-limit/`, `src/markdown/`, `src/schema/`. **MCP** lives in `@umwelten/server/mcp/` (includes `RemoteMcpClient` for OAuth connections to remote MCP servers).
+2. **Providers** (`@umwelten/core/providers/`) — `getModel(modelDetails)`, `validateModel()`, Google/OpenRouter/Ollama/LM Studio/LlamaBarn/llama-swap/GitHub/DeepInfra/Fireworks/MiniMax/Nvidia. `llamaswap-config.ts` + `umwelten models llamaswap-config` generate a llama-swap YAML from local GGUF caches.
+3. **Core runtime** (`@umwelten/core`) — `src/cognition/` (runners), `src/stimulus/` (prompt config), `src/interaction/` (conversation)
+4. **Context** (`@umwelten/core/context/`) — compaction, token estimates
+5. **Memory** (`@umwelten/core/memory/`) — fact extraction when `stimulus.runnerType === 'memory'`
+6. **Habitat** (`@umwelten/habitat`) — `Habitat.create()`, tool sets, sessions, secrets, sub-agents, bridge. A2A protocol scaffolding lives in `@umwelten/server/a2a/`; habitat wraps it via `a2a-handler.ts`.
+7. **Evaluation** (`@umwelten/evaluation`) — `EvalSuite`, `PairwiseRanker`, strategies, caching, Dagger, `combine/` for suite reports
+8. **Surfaces** — `@umwelten/cli` (commands), `@umwelten/ui` (Telegram, Discord, TUI). The web UI is in `@umwelten/habitat/web/`.
 
 ---
 
@@ -40,7 +40,7 @@ Each layer depends only on layers below.
 
 ## Published npm entry (`umwelten`)
 
-`src/index.ts` exports:
+`packages/umwelten/src/index.ts` (the umbrella meta-package) re-exports:
 
 - `Habitat`, `Interaction`, `Stimulus`
 - `EvalSuite` + types: `EvalSuiteConfig`, `EvalTask`, `VerifyTask`, `JudgeTask`, `VerifyResult`, `TaskResultRecord`
@@ -59,7 +59,7 @@ Everything else: deep imports from **`umwelten/dist/<path>.js`**.
 ### Minimal example
 
 ```typescript
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'my-eval',
@@ -129,7 +129,7 @@ Results are written to `output/evaluations/{name}/runs/{NNN}/{taskId}/{modelKey}
 `PairwiseRanker` (`src/evaluation/ranking/pairwise-ranker.ts`) ranks model responses head-to-head using an LLM judge and produces Elo ratings.
 
 ```typescript
-import { PairwiseRanker } from '../../src/evaluation/ranking/index.js';
+import { PairwiseRanker } from '/evaluation/evaluation/ranking/index.js';
 
 const ranker = new PairwiseRanker(entries, {
   judgeModel: { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
@@ -164,7 +164,7 @@ Pure math functions also exported: `expectedScore()`, `updateElo()`, `buildStand
 Run independent evaluations, then aggregate into a unified leaderboard:
 
 ```typescript
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+import type { EvalDimension } from '/evaluation/evaluation/combine/types.js';
 
 export const MY_SUITE: EvalDimension[] = [
   { evalName: 'my-reasoning', label: 'Reasoning', maxScore: 20,

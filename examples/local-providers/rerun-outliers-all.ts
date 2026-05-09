@@ -4,7 +4,7 @@
  * one model is resident in memory at a time — never two llama-servers at once.
  */
 
-import { getModel } from '../../src/providers/index.ts';
+import { getModel } from '@umwelten/core/providers/index.js';
 import { streamText } from 'ai';
 import { evictAll, waitForMemoryBelow, sampleModelRssBytes, fmtBytes } from './shared/evict.js';
 

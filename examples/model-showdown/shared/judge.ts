@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { Interaction } from '../../../src/interaction/core/interaction.js';
-import { Stimulus } from '../../../src/stimulus/stimulus.js';
-import type { ModelDetails } from '../../../src/cognition/types.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 /** Default judge model */
 export const JUDGE_MODEL: ModelDetails = { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' };

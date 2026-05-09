@@ -25,8 +25,8 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 Everything starts with a **Stimulus** (configuration) and an **Interaction** (conversation):
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 // Stimulus defines what the AI should do
 const stimulus = new Stimulus({
@@ -54,8 +54,8 @@ Extract structured data using Zod schemas:
 
 ```typescript
 import { z } from 'zod';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 const PersonSchema = z.object({
   name: z.string().describe('Full name of the person'),
@@ -91,8 +91,8 @@ console.log(person.skills);  // ["TypeScript", "React", "Node.js"]
 Process files with model analysis:
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 const stimulus = new Stimulus({
   role: "image analyst",
@@ -114,9 +114,9 @@ console.log(response.content);
 ### Simple Evaluation Function
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { ModelDetails, ModelResponse } from './core/cognition/types.js';
 
 export async function analyzeText(model: ModelDetails, text: string): Promise<ModelResponse> {
   const stimulus = new Stimulus({
@@ -138,10 +138,10 @@ console.log(result.content);
 Build sophisticated evaluation workflows:
 
 ```typescript
-import { EvaluationRunner } from '../src/evaluation/runner.js';
-import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { EvaluationRunner } from './evaluation/evaluation/runner.js';
+import { ModelDetails, ModelResponse } from './core/cognition/types.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 import { z } from 'zod';
 
 const AnalysisSchema = z.object({
@@ -186,7 +186,7 @@ await runner.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
 ## Working with Different Providers
 
 ```typescript
-import { ModelDetails } from '../src/cognition/types.js';
+import { ModelDetails } from './core/cognition/types.js';
 
 // Google Gemini (requires GOOGLE_GENERATIVE_AI_API_KEY)
 const googleModel: ModelDetails = {
@@ -314,7 +314,7 @@ if (response.metadata.cost) {
 ### Error Handling
 
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
 
 try {
   const runner = new BaseModelRunner();
@@ -334,9 +334,9 @@ try {
 ### Batch Processing
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { ModelDetails, ModelResponse } from './core/cognition/types.js';
 
 async function processBatch(texts: string[], model: ModelDetails): Promise<ModelResponse[]> {
   const results: ModelResponse[] = [];

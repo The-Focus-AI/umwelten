@@ -1,4 +1,4 @@
-import type { ModelDetails } from '../../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 // ── Quick local test (3 models) ──────────────────────────────────────────────
 export const LOCAL_TEST_MODELS: ModelDetails[] = [

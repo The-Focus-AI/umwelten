@@ -11,9 +11,9 @@ Model evaluation is at the heart of Umwelten's functionality. The `eval` command
 The fastest way to create an evaluation is `EvalSuite`. Define tasks with prompts and scoring — the suite handles caching, execution, judging, and output.
 
 ```typescript
-import '../../src/env/load.js';
+import '@umwelten/core/env/load.js';
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'my-eval',
@@ -162,10 +162,10 @@ pnpm run cli -- eval list --json
 
 ## Pairwise Ranking
 
-After running an evaluation, you can rank the results head-to-head using an LLM judge with Elo ratings. The `PairwiseRanker` class (`src/evaluation/ranking/pairwise-ranker.ts`) handles pairing, judging, position-bias mitigation, and caching.
+After running an evaluation, you can rank the results head-to-head using an LLM judge with Elo ratings. The `PairwiseRanker` class (`packages/evaluation/src/evaluation/ranking/pairwise-ranker.ts`) handles pairing, judging, position-bias mitigation, and caching.
 
 ```typescript
-import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+import { PairwiseRanker, evaluationResultsToRankingEntries } from './evaluation/evaluation/ranking/index.js';
 
 const entries = evaluationResultsToRankingEntries(evalResult);
 const ranker = new PairwiseRanker(entries, {
@@ -193,7 +193,7 @@ When you have multiple evaluations that test different capabilities, use `eval c
 Create a TypeScript file that defines how to read each evaluation's results:
 
 ```typescript
-import type { EvalDimension } from '../src/evaluation/combine/types.js';
+import type { EvalDimension } from './evaluation/evaluation/combine/types.js';
 
 export const MY_SUITE: EvalDimension[] = [
   {

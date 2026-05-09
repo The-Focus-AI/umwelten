@@ -8,10 +8,10 @@
 
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { Habitat } from '../../../src/habitat/habitat.js';
-import { timeToolSet } from '../../../src/habitat/tool-sets.js';
-import { startWebServer } from '../../../src/ui/web/index.js';
-import { makeRenderUiTool } from '../../../src/stimulus/tools/ui-tools.js';
+import { Habitat } from '@umwelten/habitat/habitat.js';
+import { timeToolSet } from '@umwelten/habitat/tool-sets.js';
+import { startWebServer } from '@umwelten/habitat/web/index.js';
+import { makeRenderUiTool } from '@umwelten/core/stimulus/tools/ui-tools.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const demoRoot = resolve(__dirname, '..');

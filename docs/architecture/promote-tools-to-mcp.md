@@ -30,33 +30,33 @@ A `promote.json` manifest describes which tools to include and what auth mode to
 
 ### Step 1: Extract `registerAiTool` to shared location
 
-**Create** `src/habitat/mcp-serve/register-ai-tool.ts` — extract the function from `container-server.ts:60-90`.
+**Create** `packages/habitat/src/mcp-serve/register-ai-tool.ts` — extract the function from `container-server.ts:60-90`.
 
-**Modify** `src/habitat/container-server.ts` — import from shared location instead of local definition.
+**Modify** `packages/habitat/src/container-server.ts` — import from shared location instead of local definition.
 
-**Modify** `src/habitat/mcp-local-server.ts` — import from shared location (if it has its own copy).
+**Modify** `packages/habitat/src/mcp-local-server.ts` — import from shared location (if it has its own copy).
 
 ### Step 2: Make `upstream` optional in mcp-serve
 
-**Modify** `src/habitat/mcp-serve/types.ts`:
+**Modify** `packages/habitat/src/mcp-serve/types.ts`:
 - `McpServeConfig.upstream` becomes `upstream?: UpstreamOAuthProvider`
 - `McpHandlerConfig.upstream` becomes optional too
 
-**Modify** `src/habitat/mcp-serve/server.ts`:
+**Modify** `packages/habitat/src/mcp-serve/server.ts`:
 - Skip `/oauth/authorize` and `/oauth/upstream-callback` routes when no upstream
 - When no upstream, `/oauth/authorize` auto-approves: generates a synthetic userId (from client_id), creates auth code, redirects back immediately — no upstream redirect
 
-**Modify** `src/habitat/mcp-serve/oauth/authorize.ts`:
+**Modify** `packages/habitat/src/mcp-serve/oauth/authorize.ts`:
 - `handleAuthorize` accepts `upstream?: UpstreamOAuthProvider`
 - When undefined, skip upstream redirect — generate userId + auth code directly
 
-**Modify** `src/habitat/mcp-serve/mcp-handler.ts`:
+**Modify** `packages/habitat/src/mcp-serve/mcp-handler.ts`:
 - `getValidUpstreamToken` returns a clear error when no upstream configured
 - `McpHandlerConfig.upstream` becomes optional
 
 ### Step 3: Create promote types
 
-**Create** `src/habitat/mcp-serve/promote/types.ts`:
+**Create** `packages/habitat/src/mcp-serve/promote/types.ts`:
 
 ```typescript
 export interface PromoteManifest {
@@ -77,29 +77,29 @@ export type ToolSource =
 
 ### Step 4: Create promote loader
 
-**Create** `src/habitat/mcp-serve/promote/loader.ts`:
+**Create** `packages/habitat/src/mcp-serve/promote/loader.ts`:
 - `loadToolsFromManifest(manifest, baseDir)` resolves `ToolSource[]` into `Record<string, Tool>`
-- Uses existing `loadToolsFromDirectory()` from `src/stimulus/tools/loader.ts` for directory sources
+- Uses existing `loadToolsFromDirectory()` from `packages/core/src/stimulus/tools/loader.ts` for directory sources
 - Uses `loadToolFromPath()` for single handler sources
 - Passes a context object `{ getUpstreamToken, userId, env }` to factory-pattern handlers
 
 ### Step 5: Create registrar builder
 
-**Create** `src/habitat/mcp-serve/promote/build-registrar.ts`:
+**Create** `packages/habitat/src/mcp-serve/promote/build-registrar.ts`:
 - `buildRegistrarFromAiTools(tools)` converts `Record<string, Tool>` into `McpToolRegistrar`
 - Uses the extracted `registerAiTool` from Step 1
 - For factory-pattern handlers that need upstream tokens, the context is wired through
 
 ### Step 6: Create in-process serve
 
-**Create** `src/habitat/mcp-serve/promote/serve.ts`:
+**Create** `packages/habitat/src/mcp-serve/promote/serve.ts`:
 - `serveFromManifest(manifestPath)` — loads manifest, resolves tools, builds registrar, calls `createMcpServer`
 - Validates required env vars
 - Always requires `DATABASE_URL` — creates `NeonStore` (Neon has a free tier, keeps things simple)
 
 ### Step 7: Create scaffold generator
 
-**Create** `src/habitat/mcp-serve/promote/scaffold.ts`:
+**Create** `packages/habitat/src/mcp-serve/promote/scaffold.ts`:
 - `scaffoldProject(manifest, outputDir)` generates:
   - `server.ts` — thin entry point (like twitter-mcp's)
   - `package.json` — with `umwelten` dependency
@@ -111,7 +111,7 @@ export type ToolSource =
 
 ### Step 8: Add CLI commands
 
-**Create** `src/cli/promote.ts`:
+**Create** `packages/cli/src/promote.ts`:
 
 ```
 umwelten promote serve [--manifest promote.json] [--port 8080]
@@ -124,7 +124,7 @@ umwelten promote init [--name my-mcp]
   Creates a starter promote.json in the current directory.
 ```
 
-**Modify** `src/cli/cli.ts` — register the `promote` command.
+**Modify** `packages/cli/src/cli.ts` — register the `promote` command.
 
 ### Step 9: Create example
 
@@ -137,28 +137,28 @@ umwelten promote init [--name my-mcp]
 
 | Action | File | Purpose |
 |--------|------|---------|
-| Create | `src/habitat/mcp-serve/register-ai-tool.ts` | Shared AI SDK to MCP tool bridge |
-| Create | `src/habitat/mcp-serve/promote/types.ts` | Manifest types |
-| Create | `src/habitat/mcp-serve/promote/loader.ts` | Resolve tool sources |
-| Create | `src/habitat/mcp-serve/promote/build-registrar.ts` | Tools to McpToolRegistrar |
-| Create | `src/habitat/mcp-serve/promote/serve.ts` | In-process dev server |
-| Create | `src/habitat/mcp-serve/promote/scaffold.ts` | Generate standalone project |
-| Create | `src/habitat/mcp-serve/promote/index.ts` | Barrel exports |
-| Create | `src/cli/promote.ts` | CLI commands |
+| Create | `packages/habitat/src/mcp-serve/register-ai-tool.ts` | Shared AI SDK to MCP tool bridge |
+| Create | `packages/habitat/src/mcp-serve/promote/types.ts` | Manifest types |
+| Create | `packages/habitat/src/mcp-serve/promote/loader.ts` | Resolve tool sources |
+| Create | `packages/habitat/src/mcp-serve/promote/build-registrar.ts` | Tools to McpToolRegistrar |
+| Create | `packages/habitat/src/mcp-serve/promote/serve.ts` | In-process dev server |
+| Create | `packages/habitat/src/mcp-serve/promote/scaffold.ts` | Generate standalone project |
+| Create | `packages/habitat/src/mcp-serve/promote/index.ts` | Barrel exports |
+| Create | `packages/cli/src/promote.ts` | CLI commands |
 | Create | `examples/promoted-mcp/` | Working example |
-| Modify | `src/habitat/mcp-serve/types.ts` | Make upstream optional |
-| Modify | `src/habitat/mcp-serve/server.ts` | Handle missing upstream |
-| Modify | `src/habitat/mcp-serve/oauth/authorize.ts` | Auto-approve when no upstream |
-| Modify | `src/habitat/mcp-serve/mcp-handler.ts` | Handle missing upstream |
-| Modify | `src/habitat/container-server.ts` | Use shared registerAiTool |
-| Modify | `src/cli/cli.ts` | Register promote command |
+| Modify | `packages/habitat/src/mcp-serve/types.ts` | Make upstream optional |
+| Modify | `packages/habitat/src/mcp-serve/server.ts` | Handle missing upstream |
+| Modify | `packages/habitat/src/mcp-serve/oauth/authorize.ts` | Auto-approve when no upstream |
+| Modify | `packages/habitat/src/mcp-serve/mcp-handler.ts` | Handle missing upstream |
+| Modify | `packages/habitat/src/container-server.ts` | Use shared registerAiTool |
+| Modify | `packages/cli/src/cli.ts` | Register promote command |
 
 ## Key Reuse
 
-- `loadToolsFromDirectory()` / `loadToolFromPath()` from `src/stimulus/tools/loader.ts` — already handles TOOL.md + handler.ts loading with factory pattern
-- `registerAiTool()` from `src/habitat/container-server.ts:60-90` — already converts AI SDK tools to MCP tools
-- `createMcpServer()` from `src/habitat/mcp-serve/server.ts` — full OAuth MCP server framework
-- `NeonStore` from `src/habitat/mcp-serve/neon-store.ts` — Postgres persistence
+- `loadToolsFromDirectory()` / `loadToolFromPath()` from `packages/core/src/stimulus/tools/loader.ts` — already handles TOOL.md + handler.ts loading with factory pattern
+- `registerAiTool()` from `packages/habitat/src/container-server.ts:60-90` — already converts AI SDK tools to MCP tools
+- `createMcpServer()` from `packages/habitat/src/mcp-serve/server.ts` — full OAuth MCP server framework
+- `NeonStore` from `packages/habitat/src/mcp-serve/neon-store.ts` — Postgres persistence
 - Dockerfile pattern from `examples/twitter-mcp/Dockerfile`
 
 ## Verification

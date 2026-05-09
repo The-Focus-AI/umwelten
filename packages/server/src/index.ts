@@ -2,8 +2,28 @@
  * @umwelten/server — Network protocol layer.
  *
  * MCP server framework (OAuth, Neon store), MCP client (OAuth PKCE),
- * and MCP-to-AI-SDK integration.
+ * MCP-to-AI-SDK integration, and A2A (Agent-to-Agent) client + server
+ * scaffolding.
  */
+
+// ── A2A (client + server scaffolding) ───────────────────────────────────
+export {
+  fetchAgentCard,
+  sendA2AMessage,
+  createA2AServer,
+} from "./a2a/index.js";
+export type {
+  A2AEndpoint,
+  AgentCardSummary,
+  A2AMessageResponse,
+  A2AServer,
+  A2AServerOptions,
+  AgentExecutor,
+  RequestContext,
+  ExecutionEventBus,
+  AgentCard,
+  AgentSkill,
+} from "./a2a/index.js";
 
 // ── MCP Serve (OAuth MCP server framework) ──────────────────────────────
 export { createMcpServer } from "./mcp-serve/server.js";

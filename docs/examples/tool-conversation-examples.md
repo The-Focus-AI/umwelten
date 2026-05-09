@@ -14,7 +14,7 @@ The tool conversation testing framework evaluates model capabilities for:
 
 ```bash
 # Run the tool conversation tests
-npx tsx src/test/test-tool-conversations.ts
+npx tsx packages/core/src/test/test-tool-conversations.ts
 ```
 
 ## Framework Components
@@ -360,10 +360,10 @@ interface StepValidationResult {
 
 ## Full Test Script
 
-See the complete test implementation at `src/test/test-tool-conversations.ts`:
+See the complete test implementation at `packages/core/src/test/test-tool-conversations.ts`:
 
 ```bash
-npx tsx src/test/test-tool-conversations.ts
+npx tsx packages/core/src/test/test-tool-conversations.ts
 ```
 
 ## Requirements

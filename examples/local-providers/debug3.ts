@@ -1,4 +1,4 @@
-import { getModel, getModelProvider } from '../../src/providers/index.ts';
+import { getModel, getModelProvider } from '@umwelten/core/providers/index.js';
 import { streamText } from 'ai';
 
 for (const provider of ['llamaswap', 'llamaswap-nothink']) {

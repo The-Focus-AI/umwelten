@@ -9,9 +9,9 @@
 
 import '../../model-showdown/shared/env.js';
 import { fileURLToPath } from 'node:url';
-import { EvalSuite } from '../../../src/evaluation/suite.ts';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 import { ALL_PUZZLES } from '../../model-showdown/reasoning/puzzles.js';
-import type { ModelDetails } from '../../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 import { LOCAL_MODELS, ALL_MODELS, includeFrontier } from '../shared/models.js';
 
 export function makeSuite(models: ModelDetails[]): EvalSuite {

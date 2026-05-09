@@ -67,7 +67,7 @@ NOT contain `bash`.** A bash command can `cd ..`, write anywhere on disk,
 shell's `cwd`.
 
 For real isolation, use Habitat with the Dagger-backed `run_project` tool
-(see `src/habitat/tools/run-project/`).
+(see `packages/habitat/src/tools/run-project/`).
 
 ## Adding your own tool
 
@@ -102,9 +102,9 @@ skills/research/
 
 The `skill` tool is auto-registered when `createAgentKit` discovers any skill.
 The model invokes it with `{ skill: 'research', arguments?: '...' }` to get the
-activation payload. See `src/stimulus/skills/` for the spec.
+activation payload. See `packages/core/src/stimulus/skills/` for the spec.
 
 ## Related
 
 - `examples/bare-bones-memory/` — the same idea plus the [Bare Bones Memory](https://gist.github.com/southpolesteve/b39a3528790bc99fe3f2c2b9e3263ef8) protocol layered on top.
-- `src/habitat/` — full agent container with persistent sessions, sub-agents, secrets, and Dagger-isolated execution.
+- `/habitat` — full agent container with persistent sessions, sub-agents, secrets, and Dagger-isolated execution.

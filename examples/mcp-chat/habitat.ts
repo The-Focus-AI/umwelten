@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Habitat } from '../../src/habitat/index.js';
-import { currentTimeTool } from '../../src/habitat/tools/time-tools.js';
+import { Habitat } from '@umwelten/habitat/index.js';
+import { currentTimeTool } from '@umwelten/habitat/tools/time-tools.js';
 import { TezLabMCPManager } from './tezlab-mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

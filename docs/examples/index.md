@@ -38,12 +38,12 @@ dotenvx run -- pnpm tsx examples/evals/instruction.ts       # instruction follow
 dotenvx run -- pnpm tsx examples/evals/reasoning.ts         # reasoning quality
 ```
 
-## Script demos (repo)
+## Example demos (repo)
 
 From the **umwelten** repo root:
 
 ```bash
-dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 ```
 
-For **integration-style / manual test scripts** (Dagger, tool conversations, reasoning streams), see [**TESTING.md**](https://github.com/The-Focus-AI/umwelten/blob/main/TESTING.md) in the repo.
+For more EvalSuite-style examples, see [`examples/evals/`](https://github.com/The-Focus-AI/umwelten/tree/main/examples/evals) and [`examples/model-showdown/`](https://github.com/The-Focus-AI/umwelten/tree/main/examples/model-showdown). For test-suite organization, see [**TESTING.md**](https://github.com/The-Focus-AI/umwelten/blob/main/TESTING.md) in the repo.

@@ -32,7 +32,7 @@
 
 import './shared/models.js'; // ensure models export is registered
 import '../model-showdown/shared/env.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 import { LOCAL_MATRIX, LOCAL_MATRIX_NOTHINK, LOCAL_MATRIX_ALL } from './shared/models.js';
 import {
   evictAll,

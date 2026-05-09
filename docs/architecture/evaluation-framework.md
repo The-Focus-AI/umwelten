@@ -4,9 +4,9 @@
 
 Evaluations center on a **[Stimulus](./stimulus-system.md)** (role, objective, instructions, tools, temperature): it defines *what* cognitive work you are testing.
 
-The **recommended high-level API** is `EvalSuite` (`src/evaluation/suite.ts`) — a declarative runner that handles CLI flags, run directories, caching, execution, judging (via VerifyTask or JudgeTask), and leaderboard output. See [`examples/evals/`](../../examples/evals/) for working examples.
+The **recommended high-level API** is `EvalSuite` (`packages/evaluation/src/evaluation/suite.ts`) — a declarative runner that handles CLI flags, run directories, caching, execution, judging (via VerifyTask or JudgeTask), and leaderboard output. See [`examples/evals/`](../../examples/evals/) for working examples.
 
-**Strategies** in `src/evaluation/strategies/` (`SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`) are lower-level building blocks used internally by EvalSuite and available for custom workflows. **`EvaluationRunner`** (`src/evaluation/runner.ts`) is the extension point for custom cached runs. The CLI (`eval run`, `eval report`, `eval combine`) and [`runEvaluation`](../api/overview.md) use the same stack.
+**Strategies** in `packages/evaluation/src/evaluation/strategies/` (`SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`) are lower-level building blocks used internally by EvalSuite and available for custom workflows. **`EvaluationRunner`** (`packages/evaluation/src/evaluation/runner.ts`) is the extension point for custom cached runs. The CLI (`eval run`, `eval report`, `eval combine`) and [`runEvaluation`](../api/overview.md) use the same stack.
 
 For **multi-dimension benchmarks**, define an `EvalDimension[]` suite and run [`eval combine`](../guide/model-evaluation.md); see **[`examples/model-showdown/`](../../examples/model-showdown/README.md)**.
 
@@ -45,8 +45,8 @@ The result of running an evaluation:
 Send the same prompt to multiple models with caching. This is what `EvalSuite` uses internally.
 
 ```typescript
-import { SimpleEvaluation } from '../src/evaluation/strategies/simple-evaluation.js';
-import { EvaluationCache } from '../src/evaluation/caching/cache-service.js';
+import { SimpleEvaluation } from './evaluation/evaluation/strategies/simple-evaluation.js';
+import { EvaluationCache } from './evaluation/evaluation/caching/cache-service.js';
 
 const evaluation = new SimpleEvaluation(stimulus, models, prompt, cache, {
   evaluationId: 'my-eval',
@@ -64,7 +64,7 @@ const results = await evaluation.run();
 Evaluate a prompt with `{placeholder}` variables across a cartesian product of dimensions.
 
 ```typescript
-import { MatrixEvaluation } from '../src/evaluation/strategies/matrix-evaluation.js';
+import { MatrixEvaluation } from './evaluation/evaluation/strategies/matrix-evaluation.js';
 
 const evaluation = new MatrixEvaluation(stimulus, models, 'Write a {tone} {genre} story', cache, {
   dimensions: [
@@ -82,7 +82,7 @@ const results = await evaluation.run();
 Process multiple content items with a template prompt.
 
 ```typescript
-import { BatchEvaluation } from '../src/evaluation/strategies/batch-evaluation.js';
+import { BatchEvaluation } from './evaluation/evaluation/strategies/batch-evaluation.js';
 
 const evaluation = new BatchEvaluation(stimulus, models, 'Summarize: {content}', cache, {
   items: [
@@ -100,7 +100,7 @@ const results = await evaluation.run();
 High-level declarative API that wraps SimpleEvaluation with automatic caching, judging, and leaderboard output. Supports two scoring modes: **VerifyTask** (deterministic) and **JudgeTask** (LLM judge).
 
 ```typescript
-import { EvalSuite } from '../src/evaluation/suite.js';
+import { EvalSuite } from './evaluation/evaluation/suite.js';
 import { z } from 'zod';
 
 const suite = new EvalSuite({
@@ -203,7 +203,7 @@ Rank model responses via head-to-head LLM-judge comparisons with Elo ratings.
 Unlike the evaluation strategies above, the ranking module is a **post-processing step** — it consumes existing responses rather than generating them. This makes it composable with any evaluation strategy.
 
 ```typescript
-import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+import { PairwiseRanker, evaluationResultsToRankingEntries } from './evaluation/evaluation/ranking/index.js';
 
 // Bridge from evaluation results
 const entries = evaluationResultsToRankingEntries(evalResult);
@@ -233,7 +233,7 @@ const output = await ranker.rank();
 
 **Module structure:**
 ```
-src/evaluation/ranking/
+packages/evaluation/src/evaluation/ranking/
 ├── index.ts            — Barrel re-exports
 ├── types.ts            — RankingEntry, PairwiseResult, RankedModel, RankingOutput, PairwiseRankerConfig, evaluationResultsToRankingEntries()
 ├── elo.ts              — expectedScore(), updateElo(), buildStandings()
@@ -284,7 +284,7 @@ For detailed usage, see the [Pairwise Ranking Guide](../guide/pairwise-ranking.m
 
 ## Examples
 
-See `examples/evals/` for EvalSuite examples (car-wash, reasoning, instruction), `scripts/examples/` for lower-level evaluation scripts, and `examples/mcp-chat/elo-rivian.ts` for a full pairwise ranking workflow.
+See `examples/evals/` for EvalSuite examples (car-wash, reasoning, instruction), `examples/model-showdown/` for a multi-dimension suite reference, and `examples/mcp-chat/elo-rivian.ts` for a full pairwise ranking workflow.
 
 ## API Reference
 

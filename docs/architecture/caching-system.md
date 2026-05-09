@@ -17,7 +17,7 @@ Caches model responses to avoid re-running expensive model calls.
 
 **Usage:**
 ```typescript
-import { CacheService } from '../src/evaluation/caching/cache-service.js';
+import { CacheService } from './evaluation/evaluation/caching/cache-service.js';
 
 const cache = new CacheService({
   ttl: 3600, // 1 hour
@@ -47,7 +47,7 @@ Caches processed files and metadata to avoid re-processing.
 
 **Usage:**
 ```typescript
-import { FileCache } from '../src/evaluation/caching/file-cache.js';
+import { FileCache } from './evaluation/evaluation/caching/file-cache.js';
 
 const fileCache = new FileCache({
   baseDir: './cache/files',
@@ -75,7 +75,7 @@ Caches evaluation scores and results to avoid re-computing.
 
 **Usage:**
 ```typescript
-import { ScoreCache } from '../src/evaluation/caching/score-cache.js';
+import { ScoreCache } from './evaluation/evaluation/caching/score-cache.js';
 
 const scoreCache = new ScoreCache({
   ttl: 7200, // 2 hours
@@ -98,7 +98,7 @@ const cachedScore = await scoreCache.get('score-key');
 
 ### Global Configuration
 ```typescript
-import { CacheConfig } from '../src/evaluation/caching/cache-config.js';
+import { CacheConfig } from './evaluation/evaluation/caching/cache-config.js';
 
 const config = new CacheConfig({
   // Global settings

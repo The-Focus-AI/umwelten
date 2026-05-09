@@ -103,8 +103,8 @@ The `jsonSchemaToZod()` function handles strings, numbers, booleans, arrays, obj
 A Habitat is Umwelten's agent container. It manages the work directory, sessions, and tool registration. Here's the full wiring:
 
 ```typescript
-import { Habitat } from '../../src/habitat/index.js';
-import { currentTimeTool } from '../../src/habitat/tools/time-tools.js';
+import { Habitat } from '@umwelten/habitat/index.js';
+import { currentTimeTool } from '@umwelten/habitat/tools/time-tools.js';
 
 const habitat = await Habitat.create({
   envPrefix: 'MCP_CHAT',
@@ -173,7 +173,7 @@ Same client API, different transport. Your code doesn't change.
 The server framework uses a builder pattern. Here's a server that exposes Umwelten's evaluation capabilities:
 
 ```typescript
-import { createMCPServer } from '../../src/mcp/server/server.js';
+import { createMCPServer } from '@umwelten/server/mcp/server/server.js';
 
 const server = createMCPServer()
   .withName('umwelten-evaluation-server')
@@ -213,7 +213,7 @@ The server automatically handles JSON-RPC 2.0, capability negotiation, and tool/
 You can also register existing Umwelten tools directly:
 
 ```typescript
-import { wgetTool } from '../../src/stimulus/tools/url-tools.js';
+import { wgetTool } from '@umwelten/core/stimulus/tools/url-tools.js';
 
 // Converts Zod schema → JSON Schema automatically
 server.registerToolFromDefinition('wget', wgetTool);
@@ -224,7 +224,7 @@ server.registerToolFromDefinition('wget', wgetTool);
 The `MCPStimulusManager` ties everything together — it manages the connection lifecycle and converts between MCP and Umwelten's internal tool format:
 
 ```typescript
-import { createMCPStimulusManager } from '../../src/mcp/integration/stimulus.js';
+import { createMCPStimulusManager } from '@umwelten/server/mcp/integration/stimulus.js';
 
 const manager = createMCPStimulusManager({
   name: 'my-client',
@@ -263,7 +263,7 @@ The implementation enforces several safety boundaries:
 ## Architecture
 
 ```
-src/mcp/
+packages/server/src/mcp/
 ├── types/
 │   ├── protocol.ts        # Zod schemas for JSON-RPC 2.0 + MCP protocol
 │   ├── transport.ts        # Abstract transport + Stdio/SSE/WebSocket
@@ -333,4 +333,4 @@ See [`examples/mcp-chat/`](../examples/mcp-chat/) for the complete implementatio
 - `habitat.ts` — Habitat wiring with MCP tools
 - `cli.ts` — Interactive chat REPL with `/tools`, `/context`, `/logout` commands
 
-For the core MCP library, see [`src/mcp/`](../src/mcp/).
+For the core MCP library, see [`packages/server/src/mcp/`](../src/mcp/).

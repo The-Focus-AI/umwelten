@@ -1,4 +1,4 @@
-import { getModel } from '../../src/providers/index.ts';
+import { getModel } from '@umwelten/core/providers/index.js';
 import { streamText } from 'ai';
 
 const prompt = `List 5 animals, numbered 1-5, max 8 characters each, in alphabetical order. No extra text.`;

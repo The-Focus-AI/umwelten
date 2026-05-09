@@ -17,7 +17,7 @@ Stimulus              Interaction              UI
 A `Stimulus` is a configuration object — it defines the personality, tools, and model options but doesn't run anything.
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const stimulus = new Stimulus({
   role: "helpful AI assistant",
@@ -79,7 +79,7 @@ interface StimulusOptions {
 The `Interaction` class holds the conversation state: messages, model, stimulus, and runner. Create one per conversation.
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 const interaction = new Interaction(
   { name: "gemini-3-flash-preview", provider: "google" },
@@ -229,7 +229,7 @@ const response = await interaction.chat("Research the latest trends in AI safety
 For managed agent environments, use `Habitat` instead of creating interactions directly:
 
 ```typescript
-import { Habitat } from '../src/habitat/index.js';
+import { Habitat } from './habitat/index.js';
 
 const habitat = await Habitat.create({ workDir: './my-agent' });
 const interaction = await habitat.createInteraction(sessionId);
@@ -275,11 +275,11 @@ const stimulus = new Stimulus({
 
 The `Interaction` is UI-agnostic. Different UIs consume it:
 
-- **CLI**: `src/ui/cli/CLIInterface.ts` — readline-based REPL
-- **Telegram**: `src/ui/telegram/TelegramAdapter.ts` — Telegram bot
-- **Discord**: `src/ui/discord/DiscordAdapter.ts` — Discord bot
-- **TUI**: `src/ui/tui/` — React Ink terminal UI
-- **Web**: `src/ui/web/` — `startWebServer` + `WebAdapter` (AI SDK UI Message Stream Protocol)
+- **CLI**: `packages/ui/src/cli/CLIInterface.ts` — readline-based REPL
+- **Telegram**: `packages/ui/src/telegram/TelegramAdapter.ts` — Telegram bot
+- **Discord**: `packages/ui/src/discord/DiscordAdapter.ts` — Discord bot
+- **TUI**: `packages/ui/src/tui/` — React Ink terminal UI
+- **Web**: `packages/habitat/src/web/` — `startWebServer` + `WebAdapter` (AI SDK UI Message Stream Protocol)
 
 The CLI habitat command provides the standard entry point:
 

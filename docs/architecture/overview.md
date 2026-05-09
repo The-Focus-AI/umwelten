@@ -22,11 +22,11 @@ The umwelten project implements a **stimulus-centric evaluation and interaction 
 
 ## Key Components
 
-### 1. Interfaces (`src/cli/`, `src/ui/`)
+### 1. Interfaces (`packages/cli/src/`, `src/ui/`)
 
-User-facing surfaces attach to one [`Habitat`](../../src/habitat/habitat.ts): REPL and composers in [`src/cli/habitat.ts`](../../src/cli/habitat.ts); Telegram ([`src/ui/telegram/`](../../src/ui/telegram/)), Discord ([`src/ui/discord/`](../../src/ui/discord/)), TUI ([`src/ui/tui/`](../../src/ui/tui/)), and web ([`src/ui/web/`](../../src/ui/web/)) all drive the same [`ChannelBridge`](../../src/ui/bridge/channel-bridge.ts). See the [Habitat interfaces guide](../guide/habitat-interfaces.md) and the [Web interface guide](../guide/web.md).
+User-facing surfaces attach to one [`Habitat`](@umwelten/habitat/habitat.ts): REPL and composers in [`packages/cli/src/habitat.ts`](@umwelten/cli/habitat.ts); Telegram ([`packages/ui/src/telegram/`](@umwelten/ui/telegram/)), Discord ([`packages/ui/src/discord/`](@umwelten/ui/discord/)), TUI ([`packages/ui/src/tui/`](@umwelten/ui/tui/)), and web ([`packages/habitat/src/web/`](@umwelten/habitat/web/)) all drive the same [`ChannelBridge`](@umwelten/habitat/bridge/channel-bridge.ts). See the [Habitat interfaces guide](../guide/habitat-interfaces.md) and the [Web interface guide](../guide/web.md).
 
-### 2. Habitat (`src/habitat/`)
+### 2. Habitat (`packages/habitat/src/`)
 
 The top-level container for agents — the "world" an agent lives in.
 
@@ -37,7 +37,7 @@ The top-level container for agents — the "world" an agent lives in.
 - **Secrets**: Work-dir `secrets.json` (plain JSON key/value map, file mode 0600)
 - **Gaia Server**: HTTP API for web UI access to habitat data
 
-### 3. Cognition (`src/cognition/`)
+### 3. Cognition (`packages/core/src/cognition/`)
 
 Model runners that execute AI requests.
 
@@ -45,7 +45,7 @@ Model runners that execute AI requests.
 - **ModelResponse**: Standardized response with `content`, `metadata` (tokenUsage, cost, provider, model), optional `reasoning`
 - **Model Validation**: `validateModel()` queries provider APIs to verify model availability
 
-### 4. Interaction (`src/interaction/`)
+### 4. Interaction (`packages/core/src/interaction/`)
 
 Conversation state management between user and model.
 
@@ -53,7 +53,7 @@ Conversation state management between user and model.
 - **Session Persistence**: Save/load conversations with `toNormalizedSession()`
 - **File Attachments**: Attach files to messages for multi-modal interactions
 
-### 5. Stimulus (`src/stimulus/`)
+### 5. Stimulus (`packages/core/src/stimulus/`)
 
 Configuration that shapes AI behavior.
 
@@ -62,7 +62,7 @@ Configuration that shapes AI behavior.
 - **Skills**: Loaded from git repos or local directories — each skill is a `SKILL.md` with instructions
 - **Tool Loading**: Load tools from `tools/` directory (TOOL.md + handler.ts pattern)
 
-### 6. Evaluation Framework (`src/evaluation/`)
+### 6. Evaluation Framework (`packages/evaluation/src/evaluation/`)
 
 Systematic model assessment and comparison.
 
@@ -74,15 +74,15 @@ Systematic model assessment and comparison.
 - **Suite Combine** (`combine/`): Aggregate multiple evaluations into a unified leaderboard with narrative reports. See [Model Showdown](../walkthroughs/model-showdown.md)
 - **Pairwise Ranking** (`ranking/`): Post-processing module for head-to-head LLM-judge comparisons with Elo ratings. Supports swiss tournament and round-robin pairing. See [Pairwise Ranking Guide](../guide/pairwise-ranking.md)
 
-### 7. Provider Integration (`src/providers/`)
+### 7. Provider Integration (`packages/core/src/providers/`)
 
 AI provider implementations using Vercel AI SDK.
 
 - **Supported**: Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax
 - **Factory Pattern**: `createGoogleProvider()`, `createOpenRouterProvider()`, etc.
-- **Cost Tracking**: Per-provider cost calculation via `src/costs/`
+- **Cost Tracking**: Per-provider cost calculation via `packages/core/src/costs/`
 
-### 8. Memory System (`src/memory/`)
+### 8. Memory System (`packages/core/src/memory/`)
 
 Persistent memory across interactions.
 
@@ -90,7 +90,7 @@ Persistent memory across interactions.
 - Fact extraction and storage
 - Knowledge retrieval and context
 
-### 9. Context Management (`src/context/`)
+### 9. Context Management (`packages/core/src/context/`)
 
 Context window tracking and management.
 

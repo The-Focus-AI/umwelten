@@ -9,4 +9,4 @@
 export {
   ALL_PUZZLES,
   type Puzzle,
-} from '../../../src/evaluation/llm-eval/data/reasoning-puzzles.js';
+} from '@umwelten/evaluation/evaluation/llm-eval/data/reasoning-puzzles.js';

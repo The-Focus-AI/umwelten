@@ -5,12 +5,12 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tool } from 'ai';
 import { z } from 'zod';
-import { Stimulus } from '../../src/stimulus/stimulus.js';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { CLIInterface } from '../../src/ui/cli/CLIInterface.js';
-import { getAgentCommands } from '../../src/ui/cli/DefaultCommands.js';
-import { createFileTools } from '../../src/habitat/tools/file-tools.js';
-import type { FileToolsContext } from '../../src/habitat/tools/file-tools.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { CLIInterface } from '@umwelten/ui/cli/CLIInterface.js';
+import { getAgentCommands } from '@umwelten/ui/cli/DefaultCommands.js';
+import { createFileTools } from '@umwelten/habitat/tools/file-tools.js';
+import type { FileToolsContext } from '@umwelten/habitat/tools/file-tools.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MEMORY_DIR = resolve(__dirname, '.');

@@ -1,6 +1,6 @@
 # Pairwise Ranking API Reference
 
-API reference for the pairwise Elo ranking module at `src/evaluation/ranking/`.
+API reference for the pairwise Elo ranking module at `packages/evaluation/src/evaluation/ranking/`.
 
 ## Imports
 
@@ -14,10 +14,10 @@ import {
   allPairs,
   swissPairs,
   evaluationResultsToRankingEntries,
-} from '../src/evaluation/ranking/index.js';
+} from './evaluation/evaluation/ranking/index.js';
 
 // Also re-exported from the evaluation barrel
-import { PairwiseRanker } from '../src/evaluation/index.js';
+import { PairwiseRanker } from './evaluation/evaluation/index.js';
 
 // Types
 import type {
@@ -27,7 +27,7 @@ import type {
   RankingOutput,
   PairwiseRankerConfig,
   Matchup,
-} from '../src/evaluation/ranking/index.js';
+} from './evaluation/evaluation/ranking/index.js';
 ```
 
 ## PairwiseRanker
@@ -224,14 +224,14 @@ interface Matchup {
 
 ### `evaluationResultsToRankingEntries(evalResult: EvaluationResult): RankingEntry[]`
 
-Convert `EvaluationResult` (from `src/evaluation/api.ts`) to `RankingEntry[]`.
+Convert `EvaluationResult` (from `packages/evaluation/src/evaluation/api.ts`) to `RankingEntry[]`.
 
 - Filters out failed results and results without response content
 - Generates keys from `provider__model` with special characters replaced by underscores
 
 ```typescript
-import { runEvaluation } from '../src/evaluation/api.js';
-import { evaluationResultsToRankingEntries, PairwiseRanker } from '../src/evaluation/ranking/index.js';
+import { runEvaluation } from './evaluation/evaluation/api.js';
+import { evaluationResultsToRankingEntries, PairwiseRanker } from './evaluation/evaluation/ranking/index.js';
 
 const evalResult = await runEvaluation(config);
 const entries = evaluationResultsToRankingEntries(evalResult);
@@ -279,7 +279,7 @@ Cache is bidirectional — if A-vs-B is cached, B-vs-A lookups find it and flip 
 ## Module Structure
 
 ```
-src/evaluation/ranking/
+packages/evaluation/src/evaluation/ranking/
 ├── types.ts            — Type definitions + evaluationResultsToRankingEntries()
 ├── elo.ts              — Pure Elo math (expectedScore, updateElo, buildStandings)
 ├── pairing.ts          — Pairing strategies (allPairs, swissPairs)

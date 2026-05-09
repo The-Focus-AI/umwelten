@@ -12,8 +12,8 @@
 import fs from 'fs';
 import path from 'path';
 import { resolveRun } from '../model-showdown/shared/runner-utils.js';
-import { Reporter } from '../../src/reporting/reporter.js';
-import type { Report } from '../../src/reporting/types.js';
+import { Reporter } from '@umwelten/evaluation/reporting/reporter.js';
+import type { Report } from '@umwelten/evaluation/reporting/types.js';
 import type { BookMetrics, MemorizationConfig } from './shared/types.js';
 
 const CONFIG_PATH = path.join(process.cwd(), 'input', 'memorization', 'config.json');

@@ -8,7 +8,7 @@ The primary class for executing model interactions and generating responses.
 
 ### Import
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
 ```
 
 ### Constructor
@@ -30,8 +30,8 @@ interface ModelRunnerConfig {
 Generate a text response from the model.
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 const stimulus = new Stimulus({
   role: "helpful assistant",
@@ -142,8 +142,8 @@ Manages conversations with models. Requires both `ModelDetails` and a `Stimulus`
 
 ### Import
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 ```
 
 ### Constructor
@@ -155,7 +155,7 @@ constructor(modelDetails: ModelDetails, stimulus: Stimulus)
 Create a new conversation:
 
 ```typescript
-import { ModelDetails } from '../src/cognition/types.js';
+import { ModelDetails } from './core/cognition/types.js';
 
 const model: ModelDetails = {
   name: 'gemini-3-flash-preview',
@@ -297,7 +297,7 @@ Configuration object that defines AI behavior. Does not run anything — it's pu
 
 ### Import
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 ```
 
 ### Constructor
@@ -359,7 +359,7 @@ Abstract base class for building evaluation workflows with caching, multiple mod
 
 ### Import
 ```typescript
-import { EvaluationRunner } from '../src/evaluation/runner.js';
+import { EvaluationRunner } from './evaluation/evaluation/runner.js';
 ```
 
 ### Basic Usage
@@ -367,11 +367,11 @@ import { EvaluationRunner } from '../src/evaluation/runner.js';
 Extend `EvaluationRunner` to create custom evaluation logic:
 
 ```typescript
-import { EvaluationRunner } from '../src/evaluation/runner.js';
-import { ModelDetails, ModelResponse } from '../src/cognition/types.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { EvaluationRunner } from './evaluation/evaluation/runner.js';
+import { ModelDetails, ModelResponse } from './core/cognition/types.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 class CustomEvaluationRunner extends EvaluationRunner {
   constructor() {

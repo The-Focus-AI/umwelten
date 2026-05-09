@@ -42,7 +42,7 @@ Each evaluation writes results to `output/evaluations/model-showdown-{name}/runs
 All evals share the same model list from `shared/models.ts`:
 
 ```typescript
-import { ModelDetails } from '../../../src/cognition/types.js';
+import { ModelDetails } from '../@umwelten/core/cognition/types.js';
 
 const LOCAL_TEST_MODELS: ModelDetails[] = [
   { name: 'gemini-3-flash-preview', provider: 'google' },
@@ -238,7 +238,7 @@ dotenvx run -- pnpm run cli eval combine \
 
 ### Console / Structured Report
 
-The `buildSuiteReport()` function produces a `Report` object (from `src/reporting/types.ts`) with these sections:
+The `buildSuiteReport()` function produces a `Report` object (from `packages/evaluation/src/reporting/types.ts`) with these sections:
 
 1. **Overall Leaderboard** — Rank, Model, Combined %, one column per dimension, Cost, Time
 2. **Cost Efficiency** — Sorted by score/dollar (free models at top)
@@ -249,8 +249,8 @@ The `buildSuiteReport()` function produces a `Report` object (from `src/reportin
 
 Render via `Reporter`:
 ```typescript
-import { loadSuite, buildSuiteReport } from '../../src/evaluation/combine/index.js';
-import { Reporter } from '../../src/reporting/reporter.js';
+import { loadSuite, buildSuiteReport } from '@umwelten/evaluation/evaluation/combine/index.js';
+import { Reporter } from '@umwelten/evaluation/reporting/reporter.js';
 import { SHOWDOWN_SUITE } from './suite-config.js';
 
 const result = loadSuite(SHOWDOWN_SUITE);
@@ -283,7 +283,7 @@ The `buildNarrativeReport()` function produces a standalone markdown article —
 - **Methodology** — how scores are combined, what "combined %" means
 
 ```typescript
-import { loadSuite, buildNarrativeReport } from '../../src/evaluation/combine/index.js';
+import { loadSuite, buildNarrativeReport } from '@umwelten/evaluation/evaluation/combine/index.js';
 import { SHOWDOWN_SUITE } from './suite-config.js';
 
 const result = loadSuite(SHOWDOWN_SUITE);
@@ -322,7 +322,7 @@ The loader preserves the full raw JSON from every result file in `SuiteResult.ta
 2. **Define your suite config.** Create an `EvalDimension[]` array:
 
 ```typescript
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/types.js';
 
 export const MY_SUITE: EvalDimension[] = [
   {
@@ -351,8 +351,8 @@ dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --form
 Or programmatically:
 
 ```typescript
-import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../../src/evaluation/combine/index.js';
-import { Reporter } from '../../src/reporting/reporter.js';
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from '@umwelten/evaluation/evaluation/combine/index.js';
+import { Reporter } from '@umwelten/evaluation/reporting/reporter.js';
 
 const result = loadSuite(MY_SUITE);
 

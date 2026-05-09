@@ -38,8 +38,20 @@
   },
   "packageManager": "pnpm@10.33.0",
   "devDependencies": {
+    "@dagger.io/dagger": "^0.20.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@tavily/core": "^0.7.2",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
+    "@umwelten/core": "workspace:*",
+    "@umwelten/server": "workspace:*",
+    "@umwelten/evaluation": "workspace:*",
+    "@umwelten/habitat": "workspace:*",
+    "@umwelten/ui": "workspace:*",
+    "@umwelten/cli": "workspace:*",
+    "@vitejs/plugin-react": "^4.5.2",
+    "ai": "^5.0.115",
+    "dotenv": "^16.4.7",
     "eslint": "^9.39.2",
     "knip": "^5.88.1",
     "prettier": "^3.8.1",
@@ -47,7 +59,8 @@
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vitepress": "2.0.0-alpha.12",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "zod": "^4.3.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

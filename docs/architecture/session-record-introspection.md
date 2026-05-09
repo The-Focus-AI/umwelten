@@ -56,7 +56,7 @@ First line after compaction is JSON with `type: "umwelten_compaction"`, `schema:
 - **Habitat tools** (`createSessionTools`): `sessions_learnings_append`, `sessions_learnings_read`, `sessions_transcript_compact` (same file ops as compaction module; produce learnings/summary **before** calling or in the same workflow).
 - **CLI:** `sessions learnings append|list` ( `--session-dir` or Claude mirror via `--work-dir` + `--claude-project` + `--claude-uuid` ); `sessions transcript compact --session-dir … --summary …`.
 - **Context merge:** `buildHabitatIntrospectionContextMessages()` and `Interaction.prependHabitatIntrospectionFromDisk()` — optional prepend after reload/compaction (not on every `streamText`).
-- **Digest:** `scripts/session-digest.ts` prints per-session learnings counts for a `sessions/` tree.
+- **Digest:** `pnpm run cli -- browse --sessions-dir <path>` opens the interactive session browser with per-session digests inline.
 
 ## Roadmap
 
@@ -66,5 +66,5 @@ First line after compaction is JSON with `type: "umwelten_compaction"`, `schema:
 ## See also
 
 - [Session management](../guide/session-management.md)
-- `src/interaction/persistence/session-store.ts` — Claude project paths & index
-- `src/habitat/session-manager.ts` — session directories
+- `packages/core/src/interaction/persistence/session-store.ts` — Claude project paths & index
+- `packages/habitat/src/session-manager.ts` — session directories

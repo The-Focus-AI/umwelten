@@ -1,6 +1,6 @@
 # Agent Skills Spec — Gap Analysis
 
-Comparing umwelten's skills adapter (`src/stimulus/skills/`) against the [agentskills.io](https://agentskills.io/specification) spec (as of 2026-04).
+Comparing umwelten's skills adapter (`packages/core/src/stimulus/skills/`) against the [agentskills.io](https://agentskills.io/specification) spec (as of 2026-04).
 
 ## Summary
 

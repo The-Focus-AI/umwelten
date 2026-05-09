@@ -35,7 +35,7 @@ process.env.GOOGLE_GENERATIVE_AI_API_KEY = "your-api-key-here";
 ### Available Models
 
 ```typescript
-import { ModelDetails } from '../src/cognition/types.js';
+import { ModelDetails } from './core/cognition/types.js';
 
 // Fast and cost-effective
 const flashModel: ModelDetails = {
@@ -64,9 +64,9 @@ const flash8bModel: ModelDetails = {
 Google models excel at image and document analysis:
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
 
 // Image analysis
 const visionStimulus = new Stimulus({ role: "expert image analyst" });
@@ -465,7 +465,7 @@ process.env.LLAMABARN_HOST = 'http://localhost:2276/v1';
 ### Model Management
 
 ```typescript
-import { createLlamaBarnProvider } from '../src/providers/llamabarn.js';
+import { createLlamaBarnProvider } from './core/providers/llamabarn.js';
 
 const provider = createLlamaBarnProvider();
 const models = await provider.listModels();
@@ -515,7 +515,7 @@ import {
   generateLlamaSwapConfig,
   findLlamaSwapModels,
   buildLlamaSwapConfig,
-} from '../src/providers/llamaswap-config.js';
+} from './core/providers/llamaswap-config.js';
 
 // One-shot: scan default paths + emit YAML
 const { yaml, models } = generateLlamaSwapConfig({

@@ -18,9 +18,9 @@ The Interaction package manages the complete lifecycle of model interactions, in
 The primary class for managing model-environment interactions and conversations. Now requires both `modelDetails` and a `Stimulus` object.
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { ModelDetails } from '../src/cognition/types.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { ModelDetails } from './core/cognition/types.js';
 
 const model: ModelDetails = {
   name: 'gemini-3-flash-preview',
@@ -53,7 +53,7 @@ constructor(modelDetails: ModelDetails, stimulus: Stimulus)
 Update the stimulus (environmental context) for the interaction.
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const newStimulus = new Stimulus({
   role: "math tutor",
@@ -271,7 +271,7 @@ const clonedInteraction = interaction.clone();
 Represents environmental context that triggers cognitive response. The Stimulus class is now a self-contained unit containing all environmental context, tools, instructions, and model options.
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -438,9 +438,9 @@ interface StimulusOptions {
 ### Basic Interaction
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { ModelDetails } from '../src/cognition/types.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { ModelDetails } from './core/cognition/types.js';
 
 const model: ModelDetails = {
   name: 'gemini-3-flash-preview',
@@ -477,8 +477,8 @@ console.log('Response:', response.content);
 ### File Attachments
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const model = { name: 'gemini-3-flash-preview', provider: 'google' };
 
@@ -513,7 +513,7 @@ console.log('Analysis:', response.content);
 ### Stimulus with Tools
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -836,8 +836,8 @@ const detailedResponse = await interaction.streamText();
 The Interaction class now manages its own model runner internally:
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const stimulus = new Stimulus({
   role: "helpful assistant",
@@ -859,7 +859,7 @@ const response = await interaction.streamText();
 Use memory-enabled stimuli for persistent context:
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const memoryStimulus = new Stimulus({
   role: "helpful assistant with memory",
@@ -881,7 +881,7 @@ const response = await interaction.streamText();
 Create evaluation-specific stimuli:
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const evaluationStimulus = new Stimulus({
   role: "evaluation system",

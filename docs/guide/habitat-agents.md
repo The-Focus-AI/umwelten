@@ -367,11 +367,11 @@ console.log(stimulus.getPrompt()); // see the full system prompt
 
 | File                                      | Purpose                                                        |
 | ----------------------------------------- | -------------------------------------------------------------- |
-| `src/habitat/habitat-agent.ts`            | `buildAgentStimulus()` and `HabitatAgent` class                |
-| `src/habitat/tools/agent-runner-tools.ts` | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask`, `agent_configure` tools |
-| `src/habitat/habitat.ts`                  | `getOrCreateHabitatAgent()` — lazy creation and caching        |
-| `src/habitat/tool-sets.ts`                | `agentRunnerToolSet` — registered in standard tool sets        |
-| `src/habitat/types.ts`                    | `AgentEntry` with `logPatterns`, `statusFile` fields           |
+| `packages/habitat/src/habitat-agent.ts`            | `buildAgentStimulus()` and `HabitatAgent` class                |
+| `packages/habitat/src/tools/agent-runner-tools.ts` | `agent_clone`, `agent_logs`, `agent_status`, `agent_ask`, `agent_configure` tools |
+| `packages/habitat/src/habitat.ts`                  | `getOrCreateHabitatAgent()` — lazy creation and caching        |
+| `packages/habitat/src/tool-sets.ts`                | `agentRunnerToolSet` — registered in standard tool sets        |
+| `packages/habitat/src/types.ts`                    | `AgentEntry` with `logPatterns`, `statusFile` fields           |
 
 ### How agent_ask works internally
 

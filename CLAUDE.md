@@ -43,7 +43,7 @@ pnpm workspace monorepo. Each package is under `packages/` and publishable indep
 @umwelten/ui         packages/ui/            — Telegram, Discord, TUI adapters
 @umwelten/evaluation packages/evaluation/    — EvalSuite, ranking, reporting, introspection
 @umwelten/habitat    packages/habitat/       — agent container, tools, Gaia, web/A2A server
-@umwelten/server     packages/server/        — MCP server/client, OAuth
+@umwelten/server     packages/server/        — MCP server/client, OAuth, A2A client/server
 @umwelten/core       packages/core/          — model runners, stimulus, interaction, providers, context, memory
 umwelten             packages/umwelten/      — meta-package re-exporting everything
 ```
@@ -159,6 +159,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `secrets.ts` — Work-dir `secrets.json` (plain JSON map, file mode 0600)
 - `transcript.ts` — Export sessions to JSONL
 - `gaia-server.ts` — Legacy single-habitat web UI server
+- `a2a-handler.ts` — Habitat ↔ A2A adapter (`HabitatAgentExecutor`, `buildAgentCard`); the actual A2A protocol scaffolding lives in `@umwelten/server/a2a/`
 - `mcp-local-server.ts` — **MCP server exposing all habitat tools over Streamable HTTP** (no OAuth, for local/container use)
 - `gaia/` — **Gaia Orchestrator** — manages multiple habitat containers (see Gaia section below)
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
@@ -227,8 +228,7 @@ Manages multiple habitat containers from a single dashboard. Gaia is a **normal 
 - `secrets.ts` — `GaiaSecretVault` — master secret vault + per-container filtering
 - `docker.ts` — `DockerManager` — build/start/stop/logs/status via docker CLI, named volumes, port assignment
 - `proxy.ts` — `proxyRequest()`, `fetchFromContainer()` — reverse proxy with Bearer auth injection
-- `a2a-client.ts` — `fetchAgentCard()`, `sendA2AMessage()`, `discoverHabitats()` — A2A client
-- `gaia-tools.ts` — `createGaiaToolSet()` — 14 AI SDK tools as a `ToolSet` (closure over registry/vault/docker)
+- `gaia-tools.ts` — `createGaiaToolSet()` — 14 AI SDK tools as a `ToolSet` (closure over registry/vault/docker). Speaks A2A to running containers via `fetchAgentCard()` / `sendA2AMessage()` from `@umwelten/server`.
 - `routes.ts` — API route handlers mounted via `extraRawHandler` on container-server
 - `ui/index.html` — Dashboard SPA (Chat, Habitats, Secrets, Create tabs)
 
@@ -278,7 +278,7 @@ Combine results from multiple evaluations into a unified leaderboard with cost/s
 
 **Suite config pattern** — define an `EvalDimension[]` array:
 ```typescript
-import type { EvalDimension } from '../../src/evaluation/combine/index.js';
+import type { EvalDimension } from '/evaluation/evaluation/combine/index.js';
 export const MY_SUITE: EvalDimension[] = [
   { evalName: 'my-eval-reasoning', label: 'Reasoning', maxScore: 20,
     extractScore: (r) => r.score ?? 0, hasResultsSubdir: true },
@@ -429,9 +429,6 @@ dotenvx run -- pnpm run cli eval list --details
 
 # Run a one-shot prompt
 dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview --prompt "Hello"
-
-# Scripted evaluations (e.g. car wash test)
-dotenvx run -- pnpm tsx scripts/examples/car-wash-test.ts
 
 # Start habitat as an MCP server (default port: 7430)
 dotenvx run -- pnpm run cli habitat serve

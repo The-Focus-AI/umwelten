@@ -16,10 +16,10 @@
 import '../shared/env.js';
 import fs from 'fs';
 import path from 'path';
-import { Stimulus } from '../../../src/stimulus/stimulus.js';
-import { SimpleEvaluation } from '../../../src/evaluation/strategies/simple-evaluation.js';
-import { EvaluationCache } from '../../../src/evaluation/caching/cache-service.js';
-import type { ModelDetails } from '../../../src/cognition/types.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import { SimpleEvaluation } from '@umwelten/evaluation/evaluation/strategies/simple-evaluation.js';
+import { EvaluationCache } from '@umwelten/evaluation/evaluation/caching/cache-service.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 import { SHOWDOWN_MODELS, LOCAL_TEST_MODELS, modelLabel, modelKey } from '../shared/models.js';
 import { resolveRun, isFullRun } from '../shared/runner-utils.js';
 import { ALL_TASKS, type InstructionTask } from './tasks.js';

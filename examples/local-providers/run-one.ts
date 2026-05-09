@@ -20,7 +20,7 @@
 import '../model-showdown/shared/env.js';
 import { LOCAL_MATRIX_ALL } from './shared/models.js';
 import { runHarness, type MatrixEntry } from './harness/index.js';
-import type { LlmEvalSuiteName } from '../../src/evaluation/llm-eval/index.js';
+import type { LlmEvalSuiteName } from '@umwelten/evaluation/evaluation/llm-eval/index.js';
 
 const argv = process.argv.slice(2);
 

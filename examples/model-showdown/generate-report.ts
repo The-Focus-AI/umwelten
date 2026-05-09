@@ -14,8 +14,8 @@
  *   pnpm tsx examples/model-showdown/generate-report.ts --exclude mcp  # 4-dim report (no MCP)
  */
 
-import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../../src/evaluation/combine/index.js';
-import { Reporter } from '../../src/reporting/reporter.js';
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from '@umwelten/evaluation/evaluation/combine/index.js';
+import { Reporter } from '@umwelten/evaluation/reporting/reporter.js';
 import { SHOWDOWN_SUITE } from './suite-config.js';
 import fs from 'fs';
 import path from 'path';

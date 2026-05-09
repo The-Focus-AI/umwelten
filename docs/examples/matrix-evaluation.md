@@ -2,12 +2,6 @@
 
 This example demonstrates how to compare multiple models on the same test cases using the MatrixEvaluation strategy.
 
-## Running the Example
-
-```bash
-pnpm tsx scripts/examples/matrix-evaluation-example.ts
-```
-
 ## What This Example Shows
 
 - **Model Comparison**: Side-by-side comparison of multiple models
@@ -20,9 +14,9 @@ pnpm tsx scripts/examples/matrix-evaluation-example.ts
 ### 1. Import Dependencies
 
 ```typescript
-import { MatrixEvaluation } from '../../src/evaluation/strategies/matrix-evaluation.js';
-import { CodeGenerationTemplate } from '../../src/stimulus/templates/coding-templates.js';
-import { getAvailableModels } from '../../src/providers/index.js';
+import { MatrixEvaluation } from '@umwelten/evaluation/evaluation/strategies/matrix-evaluation.js';
+import { CodeGenerationTemplate } from '@umwelten/core/stimulus/templates/coding-templates.js';
+import { getAvailableModels } from '@umwelten/core/providers/index.js';
 ```
 
 ### 2. Create Matrix Evaluation

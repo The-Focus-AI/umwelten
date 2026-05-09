@@ -1,5 +1,5 @@
 /** Quick sanity: same model, same prompt, thinking on vs off → what changes? */
-import { getModel } from '../../src/providers/index.ts';
+import { getModel } from '@umwelten/core/providers/index.js';
 import { streamText } from 'ai';
 
 const prompt = `Write a complete, self-contained TypeScript program. Do NOT use any imports or external dependencies. Wrap your code in a \`\`\`typescript code block. Print output using console.log.

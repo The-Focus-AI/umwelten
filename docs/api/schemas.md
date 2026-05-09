@@ -42,8 +42,8 @@ const optionalSchema = "name, email?, phone?, address?";
 ### Usage Examples
 
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 // Simple person extraction
 const model = { name: 'gemini-3-flash-preview', provider: 'google' };
@@ -85,8 +85,8 @@ TypeScript-first validation with rich type inference and runtime safety.
 
 ```typescript
 import { z } from 'zod';
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 // Define schema
 const PersonSchema = z.object({
@@ -273,8 +273,6 @@ const EventSchema = z.object({
 
 #### Image Analysis Schema
 
-From `scripts/image-feature-extract.ts`:
-
 ```typescript
 const ImageFeatureSchema = z.object({
   able_to_parse: z.object({
@@ -303,8 +301,6 @@ type ImageFeature = z.infer<typeof ImageFeatureSchema>;
 ```
 
 #### Pricing Data Schema
-
-From `scripts/google-pricing.ts`:
 
 ```typescript
 const PricingSchema = z.object({

@@ -1,4 +1,4 @@
-import type { ModelDetails } from '../../../src/cognition/types.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 /**
  * Local-Providers matrix.

@@ -5,8 +5,8 @@
  */
 
 import path from 'path';
-import { TelegramAdapter } from '../../src/ui/telegram/TelegramAdapter.js';
-import { writeSessionTranscript } from '../../src/habitat/transcript.js';
+import { TelegramAdapter } from '@umwelten/ui/telegram/TelegramAdapter.js';
+import { writeSessionTranscript } from '@umwelten/habitat/transcript.js';
 import { createJeevesHabitat } from './habitat.js';
 
 const DEFAULT_PROVIDER = process.env.JEEVES_PROVIDER || 'google';

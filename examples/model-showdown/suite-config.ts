@@ -1,4 +1,4 @@
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/types.js';
 
 export const SHOWDOWN_SUITE: EvalDimension[] = [
   {

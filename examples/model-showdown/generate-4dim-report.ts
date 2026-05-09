@@ -2,9 +2,9 @@
 /**
  * Generate a 4-dimension report (without MCP) to include all 45 models.
  */
-import { loadSuite, buildNarrativeReport } from '../../src/evaluation/combine/index.js';
-import { buildSuiteReport } from '../../src/evaluation/combine/index.js';
-import { Reporter } from '../../src/reporting/reporter.js';
+import { loadSuite, buildNarrativeReport } from '@umwelten/evaluation/evaluation/combine/index.js';
+import { buildSuiteReport } from '@umwelten/evaluation/evaluation/combine/index.js';
+import { Reporter } from '@umwelten/evaluation/reporting/reporter.js';
 import fs from 'fs';
 import path from 'path';
 import { SHOWDOWN_SUITE } from './suite-config.js';

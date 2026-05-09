@@ -32,8 +32,8 @@ dotenvx run -- pnpm tsx examples/mcp-chat/elo-rivian.ts --rounds 7
 The script reads cached model responses from a completed evaluation run:
 
 ```typescript
-import { PairwiseRanker } from '../../src/evaluation/ranking/index.js';
-import type { RankingEntry } from '../../src/evaluation/ranking/index.js';
+import { PairwiseRanker } from '@umwelten/evaluation/evaluation/ranking/index.js';
+import type { RankingEntry } from '@umwelten/evaluation/evaluation/ranking/index.js';
 
 // Load responses from evaluation run directory
 const entries: RankingEntry[] = [];
@@ -134,7 +134,7 @@ Rank  Model                                     Elo     W    L    T    Games  To
 Use the ranker independently of any evaluation framework:
 
 ```typescript
-import { PairwiseRanker } from '../../src/evaluation/ranking/index.js';
+import { PairwiseRanker } from '@umwelten/evaluation/evaluation/ranking/index.js';
 
 // Your responses from any source
 const entries = [
@@ -158,8 +158,8 @@ console.log(`Top model: ${output.rankings[0].model} with Elo ${output.rankings[0
 Bridge from `runEvaluation()` results:
 
 ```typescript
-import { runEvaluation } from '../../src/evaluation/api.js';
-import { evaluationResultsToRankingEntries, PairwiseRanker } from '../../src/evaluation/ranking/index.js';
+import { runEvaluation } from '@umwelten/evaluation/evaluation/api.js';
+import { evaluationResultsToRankingEntries, PairwiseRanker } from '@umwelten/evaluation/evaluation/ranking/index.js';
 
 // Step 1: Run evaluation
 const evalResult = await runEvaluation({

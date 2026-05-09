@@ -11,7 +11,46 @@ import type { GaiaHabitatEntry } from "./types.js";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
-import { fetchAgentCard, sendA2AMessage, discoverHabitats } from "./a2a-client.js";
+import {
+  fetchAgentCard,
+  sendA2AMessage,
+  type A2AEndpoint,
+  type AgentCardSummary,
+} from "@umwelten/server";
+
+/** Adapt a Gaia registry entry to a generic A2A endpoint. */
+function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
+  if (!entry.containerPort) {
+    throw new Error(`Container ${entry.id} not running`);
+  }
+  return {
+    host: "127.0.0.1",
+    port: entry.containerPort,
+    apiKey: entry.apiKey,
+    label: entry.id,
+  };
+}
+
+/** Fetch agent cards from all running habitats; failures are reported per-entry. */
+async function discoverHabitats(
+  entries: GaiaHabitatEntry[],
+): Promise<
+  Array<{ id: string; card: AgentCardSummary } | { id: string; error: string }>
+> {
+  const running = entries.filter((e) => e.containerPort);
+  const results = await Promise.allSettled(
+    running.map(async (entry) => {
+      const card = await fetchAgentCard(entryToEndpoint(entry));
+      return { id: entry.id, card };
+    }),
+  );
+
+  return results.map((r, i) =>
+    r.status === "fulfilled"
+      ? r.value
+      : { id: running[i].id, error: r.reason?.message ?? "Unknown error" },
+  );
+}
 
 export interface GaiaToolsContext {
   registry: GaiaRegistryManager;
@@ -268,7 +307,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
         if (!entry.containerPort) return `Habitat "${id}" is not running`;
 
         try {
-          const response = await sendA2AMessage(entry, message);
+          const response = await sendA2AMessage(entryToEndpoint(entry), message);
           let result = `Response from ${entry.name}:\n${response.text}`;
           if (response.artifacts?.length) {
             result += "\nArtifacts: " + response.artifacts.map(a => a.name ?? a.uri).join(", ");

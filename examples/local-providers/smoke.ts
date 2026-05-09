@@ -29,13 +29,13 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { streamText } from 'ai';
-import { createOllamaProvider } from '../../src/providers/ollama.js';
-import { createLMStudioProvider } from '../../src/providers/lmstudio.js';
-import { createLlamaBarnProvider } from '../../src/providers/llamabarn.js';
-import { createLlamaSwapProvider } from '../../src/providers/llamaswap.js';
-import { getModel } from '../../src/providers/index.js';
-import { normalizeModelName } from '../../src/providers/llamaswap-config.js';
-import type { ModelDetails } from '../../src/cognition/types.js';
+import { createOllamaProvider } from '@umwelten/core/providers/ollama.js';
+import { createLMStudioProvider } from '@umwelten/core/providers/lmstudio.js';
+import { createLlamaBarnProvider } from '@umwelten/core/providers/llamabarn.js';
+import { createLlamaSwapProvider } from '@umwelten/core/providers/llamaswap.js';
+import { getModel } from '@umwelten/core/providers/index.js';
+import { normalizeModelName } from '@umwelten/core/providers/llamaswap-config.js';
+import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 

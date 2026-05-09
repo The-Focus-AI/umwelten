@@ -29,7 +29,7 @@ Results are written to `output/evaluations/{eval-name}/runs/{NNN}/` as JSON file
 Create a TypeScript file that exports an `EvalDimension[]`. Each dimension maps to one evaluation's output directory and tells the combiner how to extract scores.
 
 ```typescript
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/types.js';
 
 export const SHOWDOWN_SUITE: EvalDimension[] = [
   {
@@ -122,10 +122,10 @@ dotenvx run -- pnpm run cli -- eval combine \
 You can also use the combine system directly in code:
 
 ```typescript
-import { loadSuite } from '../../src/evaluation/combine/loader.js';
-import { buildSuiteReport } from '../../src/evaluation/combine/report-builder.js';
-import { buildNarrativeReport } from '../../src/evaluation/combine/narrative-report.js';
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+import { loadSuite } from '@umwelten/evaluation/evaluation/combine/loader.js';
+import { buildSuiteReport } from '@umwelten/evaluation/evaluation/combine/report-builder.js';
+import { buildNarrativeReport } from '@umwelten/evaluation/evaluation/combine/narrative-report.js';
+import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/types.js';
 
 const dimensions: EvalDimension[] = [ /* ... */ ];
 

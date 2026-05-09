@@ -110,13 +110,18 @@ pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
 Run model evaluations.
 
 ```bash
-# Run an evaluation script
-pnpm run cli -- eval --script scripts/google-pricing.ts
+# Run a one-shot evaluation across multiple models
+pnpm run cli -- eval run \
+  --prompt "Your prompt" \
+  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
+  --id "my-eval" --concurrent
+
+# Or run an EvalSuite-based example directly with tsx
+dotenvx run -- pnpm tsx examples/evals/car-wash.ts
 ```
 
-**Options**:
-
-- `--script <file>`: Evaluation script to run
+See `examples/evals/` for runnable evaluation examples and `eval run --help`
+for the full option list.
 
 ### `sessions`
 
@@ -211,10 +216,10 @@ pnpm run cli -- tools demo --prompt "Calculate 25 * 4"
 
 ## Source Structure
 
-The CLI is implemented in `src/cli/`:
+The CLI is implemented in `packages/cli/src/`:
 
 ```
-src/cli/
+packages/cli/src/
 ├── cli.ts          # Main entry point — registers all commands
 ├── models.ts       # models command
 ├── run.ts          # run command

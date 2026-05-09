@@ -16,7 +16,7 @@ The memory module provides conversation fact extraction and persistent knowledge
 A single extracted fact with a category type.
 
 ```typescript
-import { Fact } from '../src/memory/types.js';
+import { Fact } from './core/memory/types.js';
 
 // Fact is { type, text }
 // type is one of: "preference" | "memory" | "plan" | "activity" | "health" | "professional" | "miscellaneous"
@@ -31,7 +31,7 @@ const fact: Fact = {
 A `Fact` with an `id` field, used for storage.
 
 ```typescript
-import { MemoryFact } from '../src/memory/types.js';
+import { MemoryFact } from './core/memory/types.js';
 
 const memoryFact: MemoryFact = {
   id: "fact-001",
@@ -45,7 +45,7 @@ const memoryFact: MemoryFact = {
 Describes how to update the memory store.
 
 ```typescript
-import { MemoryOperation } from '../src/memory/types.js';
+import { MemoryOperation } from './core/memory/types.js';
 
 const operation: MemoryOperation = {
   id: "fact-001",
@@ -60,8 +60,8 @@ const operation: MemoryOperation = {
 Interface for persisting user facts. The built-in `InMemoryMemoryStore` keeps facts in a `Map`.
 
 ```typescript
-import { InMemoryMemoryStore } from '../src/memory/memory_store.js';
-import type { MemoryStore } from '../src/memory/memory_store.js';
+import { InMemoryMemoryStore } from './core/memory/memory_store.js';
+import type { MemoryStore } from './core/memory/memory_store.js';
 
 const store: MemoryStore = new InMemoryMemoryStore();
 ```
@@ -115,7 +115,7 @@ await store.setFacts("user-1", [
 Extract structured facts from a conversation using an LLM.
 
 ```typescript
-import { extractFacts } from '../src/memory/extract_facts.js';
+import { extractFacts } from './core/memory/extract_facts.js';
 
 const facts = await extractFacts(interaction, modelDetails);
 // Returns: { facts: Fact[] }
@@ -128,9 +128,9 @@ const facts = await extractFacts(interaction, modelDetails);
 The function takes the last user message from the conversation, feeds it through a fact-extraction prompt, and returns categorized facts. It uses `generateObject` with a Zod schema to get structured output.
 
 ```typescript
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { extractFacts } from '../src/memory/extract_facts.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { extractFacts } from './core/memory/extract_facts.js';
 
 const stimulus = new Stimulus({ role: "helpful assistant" });
 const interaction = new Interaction(
@@ -156,7 +156,7 @@ const result = await extractFacts(interaction, { name: "gemini-3-flash-preview",
 Given new facts and existing memories, determine what memory operations (ADD, UPDATE, NONE) to perform.
 
 ```typescript
-import { determineOperations } from '../src/memory/determine_operations.js';
+import { determineOperations } from './core/memory/determine_operations.js';
 
 const result = await determineOperations(modelDetails, newFacts, existingMemories);
 // Returns: { memory: MemoryOperation[] }
@@ -168,7 +168,7 @@ const result = await determineOperations(modelDetails, newFacts, existingMemorie
 - `existingMemories`: `MemoryFact[]` — current stored memories (optional, defaults to `[]`)
 
 ```typescript
-import { determineOperations } from '../src/memory/determine_operations.js';
+import { determineOperations } from './core/memory/determine_operations.js';
 
 const newFacts = [
   { type: "professional", text: "Name is Sarah Smith" }
@@ -192,9 +192,9 @@ const ops = await determineOperations(
 A `SmartModelRunner` that automatically extracts facts and updates memory after each model call. It uses `duringHooks` (fact extraction) and `afterHooks` (memory update).
 
 ```typescript
-import { MemoryRunner, createMemoryRunner } from '../src/memory/memory_runner.js';
-import { InMemoryMemoryStore } from '../src/memory/memory_store.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { MemoryRunner, createMemoryRunner } from './core/memory/memory_runner.js';
+import { InMemoryMemoryStore } from './core/memory/memory_store.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
 
 const memoryRunner = createMemoryRunner({
   baseRunner: new BaseModelRunner(),
@@ -215,8 +215,8 @@ const facts = await store.getFacts("default");
 Set `runnerType: 'memory'` on a Stimulus to automatically use a `MemoryRunner`:
 
 ```typescript
-import { Stimulus } from '../src/stimulus/stimulus.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 
 const stimulus = new Stimulus({
   role: "helpful assistant with memory",
@@ -237,8 +237,8 @@ const response = await interaction.generateText();
 Implement the `MemoryStore` interface for persistent storage:
 
 ```typescript
-import type { MemoryStore } from '../src/memory/memory_store.js';
-import type { MemoryFact } from '../src/memory/types.js';
+import type { MemoryStore } from './core/memory/memory_store.js';
+import type { MemoryFact } from './core/memory/types.js';
 import fs from 'fs/promises';
 
 class FileMemoryStore implements MemoryStore {

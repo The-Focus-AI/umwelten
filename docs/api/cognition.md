@@ -19,7 +19,7 @@ The primary class for executing model interactions and generating responses.
 
 #### Import
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
 ```
 
 #### Constructor
@@ -156,7 +156,7 @@ A hookable runner that supports before, during, and after execution hooks for co
 
 #### Import
 ```typescript
-import { SmartModelRunner } from '../src/cognition/smart_runner.js';
+import { SmartModelRunner } from './core/cognition/smart_runner.js';
 ```
 
 #### Constructor
@@ -394,9 +394,9 @@ try {
 
 ### Basic Text Generation
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 
 const runner = new BaseModelRunner();
 const modelDetails = {
@@ -421,9 +421,9 @@ console.log(response.content);
 
 ### Structured Output with Streaming
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
-import { Stimulus } from '../src/stimulus/stimulus.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
+import { Interaction } from './core/interaction/core/interaction.js';
+import { Stimulus } from './core/stimulus/stimulus.js';
 import { z } from 'zod';
 
 const ProductSchema = z.object({
@@ -458,8 +458,8 @@ console.log('Product analysis:', product);
 
 ### Hookable Runner with Validation
 ```typescript
-import { SmartModelRunner, RunnerAbort } from '../src/cognition/smart_runner.js';
-import { BaseModelRunner } from '../src/cognition/runner.js';
+import { SmartModelRunner, RunnerAbort } from './core/cognition/smart_runner.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
 
 const validationHook = async (interaction) => {
   if (!interaction.prompt.trim()) {

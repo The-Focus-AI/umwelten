@@ -20,7 +20,7 @@ import '../../model-showdown/shared/env.js';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { EvalSuite } from '../../../src/evaluation/suite.ts';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 import { ALL_CHALLENGES, ALL_LANGUAGES, type Language } from '../../model-showdown/coding/challenges.js';
 import { LOCAL_MODELS, ALL_MODELS, includeFrontier } from '../shared/models.js';
 
@@ -115,7 +115,7 @@ for (const lang of languages) {
   }
 }
 
-export function makeSuite(models: import('../../../src/cognition/types.js').ModelDetails[]): EvalSuite {
+export function makeSuite(models: import('@umwelten/core/cognition/types.js').ModelDetails[]): EvalSuite {
   return new EvalSuite({
     name: 'local-providers-coding',
     perTaskTimeoutMs: 300_000,

@@ -188,7 +188,7 @@ CLI (habitat.ts)
   <- Returns BridgeAgent with port + client
 ```
 
-The Go MCP server (`bridge-server-linux`) is a static ARM64 binary compiled from `src/habitat/bridge/go-server/main.go`. It uses the official Go MCP SDK with StreamableHTTP transport — no Node.js or npm needed inside the container for the server itself.
+The Go MCP server (`bridge-server-linux`) is a static ARM64 binary compiled from `packages/habitat/src/bridge/go-server/main.go`. It uses the official Go MCP SDK with StreamableHTTP transport — no Node.js or npm needed inside the container for the server itself.
 
 ## Logs
 
@@ -201,11 +201,11 @@ ls -lt ~/habitats-sessions/logs/bridge-trmnl-image-agent-*.log | head -1 | xargs
 
 ## See Also
 
-- `src/habitat/bridge/agent.ts` — BridgeAgent (simple start, no iteration loop)
-- `src/habitat/bridge/diagnosis-agent.ts` — LLM agent for project inspection and provisioning
-- `src/habitat/bridge/monitor-agent.ts` — LLM agent for health monitoring
-- `src/habitat/bridge/bridge-worker.ts` — Dagger container build
-- `src/habitat/bridge/client.ts` — HabitatBridgeClient
-- `src/habitat/bridge/go-server/main.go` — Go MCP server source
-- `src/habitat/habitat.ts` — `startBridge()`, `createAgentInteraction()`
-- `src/habitat/tools/agent-runner-tools.ts` — `bridge_diagnose`, `bridge_monitor` tools
+- `packages/habitat/src/bridge/agent.ts` — BridgeAgent (simple start, no iteration loop)
+- `packages/habitat/src/bridge/diagnosis-agent.ts` — LLM agent for project inspection and provisioning
+- `packages/habitat/src/bridge/monitor-agent.ts` — LLM agent for health monitoring
+- `packages/habitat/src/bridge/bridge-worker.ts` — Dagger container build
+- `packages/habitat/src/bridge/client.ts` — HabitatBridgeClient
+- `packages/habitat/src/bridge/go-server/main.go` — Go MCP server source
+- `packages/habitat/src/habitat.ts` — `startBridge()`, `createAgentInteraction()`
+- `packages/habitat/src/tools/agent-runner-tools.ts` — `bridge_diagnose`, `bridge_monitor` tools

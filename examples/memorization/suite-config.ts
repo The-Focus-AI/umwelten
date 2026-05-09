@@ -8,7 +8,7 @@
  *   dotenvx run -- pnpm run cli eval combine --config examples/memorization/suite-config.ts
  */
 
-import type { EvalDimension } from '../../src/evaluation/combine/types.js';
+import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/types.js';
 
 export const MEMORIZATION_SUITE: EvalDimension[] = [
   {

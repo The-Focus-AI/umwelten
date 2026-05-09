@@ -2,12 +2,12 @@
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Stimulus } from '../../src/stimulus/stimulus.js';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { CLIInterface } from '../../src/ui/cli/CLIInterface.js';
-import { getAgentCommands } from '../../src/ui/cli/DefaultCommands.js';
-import { createAgentKit } from '../../src/stimulus/tools/agent-kit.js';
-import { mathTools } from '../../src/stimulus/tools/bundles.js';
+import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { CLIInterface } from '@umwelten/ui/cli/CLIInterface.js';
+import { getAgentCommands } from '@umwelten/ui/cli/DefaultCommands.js';
+import { createAgentKit } from '@umwelten/core/stimulus/tools/agent-kit.js';
+import { mathTools } from '@umwelten/core/stimulus/tools/bundles.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // The example directory IS the agent's home: AGENTS.md, chat.ts, skills/,

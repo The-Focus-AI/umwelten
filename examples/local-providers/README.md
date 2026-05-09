@@ -282,7 +282,7 @@ llama.cpp `--jinja` servers, we inject:
 
 …into every POST body. This is wired up via `extraBody` passthrough on
 the `llamaswap-nothink` and `llamabarn-nothink` providers (see
-`src/providers/llamaswap.ts` and `llamabarn.ts`).
+`/core/providers/llamaswap.ts` and `llamabarn.ts`).
 
 What we've measured so far:
 
@@ -373,8 +373,8 @@ Swap usage climbing toward 30+ GB is a sign the eviction isn't working.
 
 To bolt on another axis (e.g. sampling temperature, or a new runtime):
 
-1. **If it's a new runtime**: add `src/providers/<name>.ts`, register in
-   `src/providers/index.ts`, add to `catalog.ts`'s `RUNTIMES` list, add
+1. **If it's a new runtime**: add `packages/core/src/providers/<name>.ts`, register in
+   `packages/core/src/providers/index.ts`, add to `catalog.ts`'s `RUNTIMES` list, add
    eviction logic in `shared/evict.ts`.
 
 2. **If it's a new config knob of an existing runtime** (like

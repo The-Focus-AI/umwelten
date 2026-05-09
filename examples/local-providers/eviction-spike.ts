@@ -15,7 +15,7 @@
 import '../model-showdown/shared/env.js';
 import { execSync } from 'node:child_process';
 import { streamText } from 'ai';
-import { getModel } from '../../src/providers/index.js';
+import { getModel } from '@umwelten/core/providers/index.js';
 import { LOCAL_MATRIX } from './shared/models.js';
 import {
   evictAll,

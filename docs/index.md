@@ -97,7 +97,7 @@ Any interface plugs into the same Habitat — CLI, Telegram, Discord, web. Same 
 Your agent needs to know if it's working. An eval tests any model against any question and scores the result. Twenty lines of TypeScript:
 
 ```typescript
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'my-eval',

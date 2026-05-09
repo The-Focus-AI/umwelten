@@ -10,16 +10,16 @@ Some AI models (particularly Qwen3 and Gemma3 variants) support "thinking" or "r
 
 ```bash
 # Simple reasoning test
-npx tsx src/test/test-reasoning-streaming-simple.ts
+npx tsx packages/core/src/test/test-reasoning-streaming-simple.ts
 
 # Complex reasoning test
-npx tsx src/test/test-reasoning-complex.ts
+npx tsx packages/core/src/test/test-reasoning-complex.ts
 
 # Multi-model reasoning comparison
-npx tsx src/test/test-reasoning-streaming.ts
+npx tsx packages/core/src/test/test-reasoning-streaming.ts
 
 # Basic Ollama token usage
-npx tsx src/test/test-ollama-tokens.ts
+npx tsx packages/core/src/test/test-ollama-tokens.ts
 ```
 
 ## Example 1: Simple Reasoning Capture

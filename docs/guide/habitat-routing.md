@@ -227,10 +227,10 @@ const route = await bridge.resolveRoute('custom:user-123');
 
 | File | Purpose |
 |------|---------|
-| [`src/ui/bridge/channel-bridge.ts`](../../src/ui/bridge/channel-bridge.ts) | ChannelBridge class — the core adapter |
-| [`src/ui/bridge/routing.ts`](../../src/ui/bridge/routing.ts) | Route loading, resolution, and mutation |
-| [`src/ui/bridge/commands.ts`](../../src/ui/bridge/commands.ts) | Unified slash command definitions |
-| [`src/ui/bridge/types.ts`](../../src/ui/bridge/types.ts) | Shared types (ChannelMessage, RoutingConfig, etc.) |
+| [`@umwelten/habitat/bridge/channel-bridge.ts`](@umwelten/habitat/bridge/channel-bridge.ts) | ChannelBridge class — the core adapter |
+| [`@umwelten/habitat/bridge/routing.ts`](@umwelten/habitat/bridge/routing.ts) | Route loading, resolution, and mutation |
+| [`@umwelten/habitat/bridge/commands.ts`](@umwelten/habitat/bridge/commands.ts) | Unified slash command definitions |
+| [`@umwelten/habitat/bridge/types.ts`](@umwelten/habitat/bridge/types.ts) | Shared types (ChannelMessage, RoutingConfig, etc.) |
 
 ## See Also
 

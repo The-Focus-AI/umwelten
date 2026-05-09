@@ -19,7 +19,7 @@ Traditional evaluation scores each model independently. Pairwise ranking takes a
 If you've already run an evaluation with `eval run`, bridge the results directly:
 
 ```typescript
-import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+import { PairwiseRanker, evaluationResultsToRankingEntries } from './evaluation/evaluation/ranking/index.js';
 
 // Convert evaluation results to ranking entries
 const entries = evaluationResultsToRankingEntries(evalResult);
@@ -46,8 +46,8 @@ for (const r of output.rankings) {
 You can rank any set of text responses, not just evaluation results:
 
 ```typescript
-import { PairwiseRanker } from '../src/evaluation/ranking/index.js';
-import type { RankingEntry } from '../src/evaluation/ranking/index.js';
+import { PairwiseRanker } from './evaluation/evaluation/ranking/index.js';
+import type { RankingEntry } from './evaluation/evaluation/ranking/index.js';
 
 const entries: RankingEntry[] = [
   { key: 'gpt4o', model: 'gpt-4o', provider: 'openrouter', responseText: '...' },
@@ -290,7 +290,7 @@ dotenvx run -- pnpm tsx examples/mcp-chat/elo-rivian.ts --rounds 7
 The Elo math and pairing strategies are exported as pure functions for custom use:
 
 ```typescript
-import { expectedScore, updateElo, buildStandings, allPairs, swissPairs } from '../src/evaluation/ranking/index.js';
+import { expectedScore, updateElo, buildStandings, allPairs, swissPairs } from './evaluation/evaluation/ranking/index.js';
 
 // Bradley-Terry expected score
 const eA = expectedScore(1600, 1400); // ~0.76

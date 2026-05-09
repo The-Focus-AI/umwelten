@@ -304,8 +304,8 @@ Umwelten supports real-time streaming for structured output, providing immediate
 For interactive applications that need immediate partial results:
 
 ```typescript
-import { BaseModelRunner } from '../src/cognition/runner.js';
-import { Interaction } from '../src/interaction/core/interaction.js';
+import { BaseModelRunner } from './core/cognition/runner.js';
+import { Interaction } from './core/interaction/core/interaction.js';
 import { z } from 'zod';
 
 const schema = z.object({

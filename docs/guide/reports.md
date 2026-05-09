@@ -493,7 +493,7 @@ For programmatic report generation in your TypeScript code, use the `Reporter` c
 ### Basic Usage
 
 ```typescript
-import { Reporter } from '../src/reporting/index.js';
+import { Reporter } from './evaluation/reporting/index.js';
 
 // Create a reporter
 const reporter = new Reporter({ outputDir: './reports' });
@@ -582,7 +582,7 @@ dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --form
 The config file defines how to read and normalize scores from each evaluation:
 
 ```typescript
-import type { EvalDimension } from '../src/evaluation/combine/types.js';
+import type { EvalDimension } from './evaluation/evaluation/combine/types.js';
 
 export const MY_SUITE: EvalDimension[] = [
   {
@@ -619,8 +619,8 @@ The `narrative` format generates a full writeup suitable for publishing or shari
 ### Programmatic Usage
 
 ```typescript
-import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../src/evaluation/combine/index.js';
-import { Reporter } from '../src/reporting/reporter.js';
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from './evaluation/evaluation/combine/index.js';
+import { Reporter } from './evaluation/reporting/reporter.js';
 
 const result = loadSuite(MY_SUITE);
 

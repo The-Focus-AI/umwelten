@@ -2,11 +2,11 @@
 
 import { createInterface } from 'node:readline';
 import type { CoreMessage } from 'ai';
-import { Interaction } from '../../src/interaction/core/interaction.js';
-import { InteractionStore } from '../../src/interaction/persistence/interaction-store.js';
-import { estimateContextSize } from '../../src/context/index.js';
-import { writeSessionTranscript } from '../../src/habitat/transcript.js';
-import type { Habitat } from '../../src/habitat/index.js';
+import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
+import { InteractionStore } from '@umwelten/core/interaction/persistence/interaction-store.js';
+import { estimateContextSize } from '@umwelten/core/context/index.js';
+import { writeSessionTranscript } from '@umwelten/habitat/transcript.js';
+import type { Habitat } from '@umwelten/habitat/index.js';
 import { createMCPChatRuntime } from './habitat.js';
 import { TezLabMCPManager, type TezLabMCPManager as TezLabMCPManagerType } from './tezlab-mcp.js';
 

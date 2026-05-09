@@ -1,6 +1,6 @@
 # oura-mcp — Oura Ring as a Multi-User MCP Server
 
-An MCP server that exposes Oura Ring health data (sleep, readiness, activity, stress, heart rate) as MCP tools. Built on the **`mcp-serve`** library (`src/habitat/mcp-serve/`), which provides the HTTP server, OAuth 2.1 authorization server, MCP transport, and Neon Postgres store. This example only needs to implement the Oura-specific OAuth provider and tool registration.
+An MCP server that exposes Oura Ring health data (sleep, readiness, activity, stress, heart rate) as MCP tools. Built on the **`mcp-serve`** library (`/habitat/mcp-serve/`), which provides the HTTP server, OAuth 2.1 authorization server, MCP transport, and Neon Postgres store. This example only needs to implement the Oura-specific OAuth provider and tool registration.
 
 ## Architecture
 
@@ -155,7 +155,7 @@ All tools take `start_date` (required, YYYY-MM-DD) and `end_date` (optional, def
 
 ## Wrapping another API with `mcp-serve`
 
-The `mcp-serve` library (`src/habitat/mcp-serve/`) provides the full HTTP server, OAuth 2.1 authorization server, MCP transport, and Neon Postgres store. To wrap a new API:
+The `mcp-serve` library (`/habitat/mcp-serve/`) provides the full HTTP server, OAuth 2.1 authorization server, MCP transport, and Neon Postgres store. To wrap a new API:
 
 ### 1. Implement `UpstreamOAuthProvider`
 

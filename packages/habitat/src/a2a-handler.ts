@@ -1,11 +1,15 @@
 /**
- * A2A (Agent-to-Agent) protocol handler.
+ * Habitat ↔ A2A adapter.
  *
- * Implements the AgentExecutor interface from @a2a-js/sdk, wrapping
- * ChannelBridge to handle A2A messages with full LLM + tool access.
+ * Bridges habitat-specific abstractions (`AgentHost`, `ChannelBridge`,
+ * published artifacts) to the generic A2A scaffolding in `@umwelten/server`.
  *
- * Also provides helpers to build an AgentCard from habitat config/stimulus
- * and to create the JsonRpcTransportHandler for mounting on HTTP.
+ * - {@link buildAgentCard} converts a habitat's config + stimulus into an
+ *   A2A AgentCard.
+ * - {@link HabitatAgentExecutor} implements `AgentExecutor` by delegating
+ *   each incoming message to a {@link ChannelBridge}.
+ * - {@link createA2AHandler} wires both pieces into an
+ *   {@link A2AServer} ready to mount on the container HTTP server.
  */
 
 import { randomUUID } from "node:crypto";
@@ -13,22 +17,18 @@ import type {
   AgentCard,
   AgentSkill,
   Message as A2AMessage,
-  Task as A2ATask,
   TextPart,
   FilePart,
   Artifact as A2AArtifact,
   TaskState,
 } from "@a2a-js/sdk";
 import {
-  DefaultRequestHandler,
-  InMemoryTaskStore,
-  DefaultExecutionEventBus,
-  DefaultExecutionEventBusManager,
-  JsonRpcTransportHandler,
+  createA2AServer,
+  type A2AServer,
   type AgentExecutor,
   type RequestContext,
   type ExecutionEventBus,
-} from "@a2a-js/sdk/server";
+} from "@umwelten/server";
 import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "./bridge/channel-bridge.js";
 import { listArtifacts, type ArtifactMeta } from "./tools/artifact-tools.js";
@@ -60,21 +60,14 @@ export async function buildAgentCard(
     stimulusOptions.role ??
     `An AI agent powered by ${config.defaultProvider ?? "unknown"}/${config.defaultModel ?? "unknown"}`;
 
-  // Build skills from the habitat's registered tools
-  const tools = habitat.getTools();
-  const toolNames = Object.keys(tools);
-
   // Group tools into a single "general" skill — the agent handles routing internally
   const skills: AgentSkill[] = [
     {
       id: "general",
       name: "General",
-      description: description,
+      description,
       tags: ["general", "assistant"],
-      examples: [
-        "What can you do?",
-        "Help me with a task",
-      ],
+      examples: ["What can you do?", "Help me with a task"],
     },
   ];
 
@@ -84,9 +77,7 @@ export async function buildAgentCard(
     url: `${baseUrl}/a2a`,
     version: "1.0.0",
     protocolVersion: "0.2.5",
-    capabilities: {
-      streaming: true,
-    },
+    capabilities: { streaming: true },
     defaultInputModes: ["text/plain"],
     defaultOutputModes: ["text/plain"],
     skills,
@@ -117,7 +108,6 @@ export class HabitatAgentExecutor implements AgentExecutor {
       .join("\n");
 
     if (!text.trim()) {
-      // Emit completed with empty response
       const responseMessage: A2AMessage = {
         kind: "message",
         messageId: randomUUID(),
@@ -132,7 +122,6 @@ export class HabitatAgentExecutor implements AgentExecutor {
     // Use contextId as channel key for session continuity
     const channelKey = `a2a:${contextId}`;
 
-    // Collect the full response text and artifacts via bridge events
     let fullText = "";
 
     await this.bridge.handleMessage(
@@ -140,8 +129,8 @@ export class HabitatAgentExecutor implements AgentExecutor {
       {
         onText: (delta) => {
           // Emit working status with incremental text
-          const statusEvent = {
-            kind: "status-update" as const,
+          eventBus.publish({
+            kind: "status-update",
             taskId,
             contextId,
             final: false,
@@ -149,16 +138,15 @@ export class HabitatAgentExecutor implements AgentExecutor {
               state: "working" as TaskState,
               timestamp: new Date().toISOString(),
               message: {
-                kind: "message" as const,
+                kind: "message",
                 messageId: randomUUID(),
-                role: "agent" as const,
-                parts: [{ kind: "text" as const, text: delta }],
+                role: "agent",
+                parts: [{ kind: "text", text: delta }],
               },
             },
-          };
-          eventBus.publish(statusEvent);
+          });
         },
-        onToolCall: (name, _input) => {
+        onToolCall: (_name, _input) => {
           // Optionally emit status updates for tool calls
         },
         onToolResult: (_name, _output, _isError) => {
@@ -170,45 +158,39 @@ export class HabitatAgentExecutor implements AgentExecutor {
           // Check for published artifacts
           const artifacts = await this.buildA2AArtifacts();
 
-          // Emit the final response message
           const responseParts: (TextPart | FilePart)[] = [
             { kind: "text", text: fullText },
           ];
 
-          const responseMessage: A2AMessage = {
+          eventBus.publish({
             kind: "message",
             messageId: randomUUID(),
             role: "agent",
             parts: responseParts,
             contextId,
             taskId,
-          };
-          eventBus.publish(responseMessage);
+          } satisfies A2AMessage);
 
-          // Emit artifact events if any
           for (const artifact of artifacts) {
-            const artifactEvent = {
-              kind: "artifact-update" as const,
+            eventBus.publish({
+              kind: "artifact-update",
               taskId,
               contextId,
               artifact,
-            };
-            eventBus.publish(artifactEvent);
+            });
           }
 
           eventBus.finished();
         },
         onError: (error) => {
-          // Emit error as a message then finish
-          const errorMessage: A2AMessage = {
+          eventBus.publish({
             kind: "message",
             messageId: randomUUID(),
             role: "agent",
             parts: [{ kind: "text", text: `Error: ${error}` }],
             contextId,
             taskId,
-          };
-          eventBus.publish(errorMessage);
+          } satisfies A2AMessage);
           eventBus.finished();
         },
       },
@@ -216,9 +198,8 @@ export class HabitatAgentExecutor implements AgentExecutor {
   }
 
   async cancelTask(taskId: string, eventBus: ExecutionEventBus): Promise<void> {
-    // Basic cancellation — just mark as canceled
-    const statusEvent = {
-      kind: "status-update" as const,
+    eventBus.publish({
+      kind: "status-update",
       taskId,
       contextId: "",
       final: true,
@@ -226,8 +207,7 @@ export class HabitatAgentExecutor implements AgentExecutor {
         state: "canceled" as TaskState,
         timestamp: new Date().toISOString(),
       },
-    };
-    eventBus.publish(statusEvent);
+    });
     eventBus.finished();
   }
 
@@ -238,19 +218,17 @@ export class HabitatAgentExecutor implements AgentExecutor {
   }
 
   private metaToA2AArtifact(meta: ArtifactMeta, index: number): A2AArtifact {
-    const parts: (TextPart | FilePart)[] = [];
-
-    // Add file reference
-    parts.push({
-      kind: "file",
-      file: {
-        uri: meta.url,
-        mimeType: meta.mimeType,
-        name: meta.name,
+    const parts: (TextPart | FilePart)[] = [
+      {
+        kind: "file",
+        file: {
+          uri: meta.url,
+          mimeType: meta.mimeType,
+          name: meta.name,
+        },
       },
-    });
+    ];
 
-    // Add description as text if present
     if (meta.description) {
       parts.push({ kind: "text", text: meta.description });
     }
@@ -264,7 +242,7 @@ export class HabitatAgentExecutor implements AgentExecutor {
   }
 }
 
-// ── Transport setup ───────────────────────────────────────────────
+// ── Handler factory ───────────────────────────────────────────────
 
 export interface A2AHandlerOptions {
   habitat: AgentHost;
@@ -274,35 +252,24 @@ export interface A2AHandlerOptions {
   description?: string;
 }
 
-export interface A2AHandler {
-  agentCard: AgentCard;
-  transportHandler: JsonRpcTransportHandler;
-}
+/**
+ * Returned shape kept stable for `container-server.ts` and any external
+ * consumers: an agent card for the well-known endpoint plus the JSON-RPC
+ * transport handler for `/a2a` POST.
+ */
+export type A2AHandler = A2AServer;
 
 export async function createA2AHandler(
   options: A2AHandlerOptions,
 ): Promise<A2AHandler> {
-  const { habitat, bridge, baseUrl } = options;
-
   const agentCard = await buildAgentCard({
-    baseUrl,
-    habitat,
+    baseUrl: options.baseUrl,
+    habitat: options.habitat,
     name: options.name,
     description: options.description,
   });
 
-  const taskStore = new InMemoryTaskStore();
-  const executor = new HabitatAgentExecutor(habitat, bridge);
-  const eventBusManager = new DefaultExecutionEventBusManager();
+  const executor = new HabitatAgentExecutor(options.habitat, options.bridge);
 
-  const requestHandler = new DefaultRequestHandler(
-    agentCard,
-    taskStore,
-    executor,
-    eventBusManager,
-  );
-
-  const transportHandler = new JsonRpcTransportHandler(requestHandler);
-
-  return { agentCard, transportHandler };
+  return createA2AServer({ agentCard, executor });
 }

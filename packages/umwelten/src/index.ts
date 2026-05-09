@@ -251,6 +251,9 @@ export {
   MCPServer,
   MCPServerBuilder,
   createMCPServer,
+  fetchAgentCard,
+  sendA2AMessage,
+  createA2AServer,
 } from "@umwelten/server";
 
 export type {
@@ -268,6 +271,16 @@ export type {
   MCPStimulusStdioConfig,
   MCPStimulusTransportWrapperConfig,
   TransportConfig,
+  A2AEndpoint,
+  AgentCardSummary,
+  A2AMessageResponse,
+  A2AServer,
+  A2AServerOptions,
+  AgentExecutor,
+  RequestContext,
+  ExecutionEventBus,
+  AgentCard,
+  AgentSkill,
 } from "@umwelten/server";
 
 // ── @umwelten/evaluation ────────────────────────────────────────────────

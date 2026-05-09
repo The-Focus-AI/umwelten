@@ -2,7 +2,7 @@
 
 ## Overview
 
-umwelten exposes a small public API from `umwelten` (see `src/index.ts`). For deep internals, use deep imports (`umwelten/dist/…`).
+umwelten exposes a small public API from `umwelten` (see `packages/umwelten/src/index.ts`). For deep internals, use deep imports (`umwelten/dist/…`).
 
 ## Public Exports
 
@@ -122,7 +122,7 @@ const modelWithOptions: ModelDetails = {
 
 ## Lower-Level Strategies
 
-For custom evaluation pipelines, use the strategy classes directly (in `src/evaluation/strategies/`):
+For custom evaluation pipelines, use the strategy classes directly (in `packages/evaluation/src/evaluation/strategies/`):
 
 | Strategy | Use case |
 |----------|----------|
@@ -157,7 +157,7 @@ Combine results from multiple evaluations into a unified leaderboard:
 dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
 ```
 
-See [Model showdown walkthrough](/walkthroughs/model-showdown) and `src/evaluation/combine/` for details.
+See [Model showdown walkthrough](/walkthroughs/model-showdown) and `packages/evaluation/src/evaluation/combine/` for details.
 
 ## Further Reading
 

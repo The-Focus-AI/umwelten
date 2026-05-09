@@ -6,14 +6,14 @@ This guide covers how to create evaluations using the umwelten framework. The re
 
 ## Quick Start: EvalSuite
 
-`EvalSuite` (`src/evaluation/suite.ts`) is the primary way to build evaluations. You define **tasks** with prompts and scoring, and the suite handles everything else.
+`EvalSuite` (`packages/evaluation/src/evaluation/suite.ts`) is the primary way to build evaluations. You define **tasks** with prompts and scoring, and the suite handles everything else.
 
 ### Simplest Example: Car Wash Test
 
 ```typescript
-import '../../src/env/load.js';
+import '@umwelten/core/env/load.js';
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'car-wash-test',
@@ -76,7 +76,7 @@ The suite automatically:
 For tasks where you can write a `verify(response) → { score, details }` function. No LLM judge needed — fast, free, and reproducible.
 
 ```typescript
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const suite = new EvalSuite({
   name: 'instruction-eval',
@@ -136,7 +136,7 @@ For tasks where scoring requires understanding (reasoning quality, creative writ
 
 ```typescript
 import { z } from 'zod';
-import { EvalSuite } from '../../src/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
 
 const judgeSchema = z.object({
   reasoning_quality: z.coerce.number().min(1).max(5).describe('1=missed, 3=partial, 5=perfect'),
@@ -224,14 +224,14 @@ CLI flags handled automatically:
 
 ## Lower-Level Building Blocks
 
-For cases where `EvalSuite` doesn't fit, three lower-level strategies are available in `src/evaluation/strategies/`:
+For cases where `EvalSuite` doesn't fit, three lower-level strategies are available in `packages/evaluation/src/evaluation/strategies/`:
 
 ### SimpleEvaluation
 
 Send the same prompt to multiple models concurrently with caching. This is what `EvalSuite` uses internally.
 
 ```typescript
-import { SimpleEvaluation } from '../src/evaluation/strategies/simple-evaluation.js';
+import { SimpleEvaluation } from './evaluation/evaluation/strategies/simple-evaluation.js';
 
 const evaluation = new SimpleEvaluation(stimulus, models, prompt, cache, {
   evaluationId: 'my-eval',
@@ -260,7 +260,7 @@ These are useful when you need fine-grained control over execution, custom cachi
 After generating responses with any strategy, rank them head-to-head using the `PairwiseRanker`:
 
 ```typescript
-import { PairwiseRanker, evaluationResultsToRankingEntries } from '../src/evaluation/ranking/index.js';
+import { PairwiseRanker, evaluationResultsToRankingEntries } from './evaluation/evaluation/ranking/index.js';
 
 const entries = evaluationResultsToRankingEntries(evalResult);
 
@@ -293,8 +293,8 @@ See the [Pairwise Ranking Guide](/guide/pairwise-ranking) for detailed configura
 Run several evaluations independently, then combine them into a unified leaderboard using the `eval combine` system. Each evaluation becomes a "dimension" in the combined report.
 
 ```typescript
-import type { EvalDimension } from '../src/evaluation/combine/types.js';
-import { loadSuite, buildSuiteReport, buildNarrativeReport } from '../src/evaluation/combine/index.js';
+import type { EvalDimension } from './evaluation/evaluation/combine/types.js';
+import { loadSuite, buildSuiteReport, buildNarrativeReport } from './evaluation/evaluation/combine/index.js';
 
 const MY_SUITE: EvalDimension[] = [
   { evalName: 'my-accuracy-eval', label: 'Accuracy', maxScore: 100,
@@ -327,7 +327,7 @@ See `examples/evals/` for complete working examples:
 - [`reasoning.ts`](../../examples/evals/reasoning.ts) — 4 logic puzzles with LLM judge (~100 lines)
 - [`instruction.ts`](../../examples/evals/instruction.ts) — 4 constraint tasks with deterministic scoring (~100 lines)
 
-For the detailed car wash walkthrough (manual approach without EvalSuite), see [`scripts/examples/car-wash-test.ts`](../../scripts/examples/car-wash-test.ts).
+For the detailed car wash walkthrough, see the [Car Wash Evaluation walkthrough](/walkthroughs/car-wash-evaluation).
 
 For pairwise ranking, see `examples/mcp-chat/elo-rivian.ts` and the [Pairwise Ranking Guide](/guide/pairwise-ranking).
 
