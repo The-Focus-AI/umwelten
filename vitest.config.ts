@@ -2,16 +2,15 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
-    exclude: ['src/**/*.integration.test.ts'],
+    include: ['packages/*/src/**/*.test.ts'],
+    exclude: ['packages/*/src/**/*.integration.test.ts'],
     environment: 'node',
-    setupFiles: ['src/test-utils/load-env.ts'],
     globals: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/**/*.integration.test.ts']
+      include: ['packages/*/src/**/*.ts'],
+      exclude: ['packages/*/src/**/*.test.ts', 'packages/*/src/**/*.integration.test.ts']
     },
     reporters: ['verbose'],
     stdout: true,
@@ -26,7 +25,6 @@ export default defineConfig({
     }
   },
   define: {
-    // Make process.env available in tests
     'process.env': process.env
   }
-}) 
+})
