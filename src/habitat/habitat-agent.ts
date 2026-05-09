@@ -10,8 +10,7 @@ import { join } from "node:path";
 import { Stimulus, StimulusOptions } from "../stimulus/stimulus.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { discoverSkillsInDirectory } from "../stimulus/skills/loader.js";
-import type { AgentEntry } from "./types.js";
-import type { Habitat } from "./habitat.js";
+import type { AgentEntry, AgentHost } from "./types.js";
 import { getAgentMemoryPath } from "./agent-paths.js";
 import { fileExists } from "./config.js";
 import { createFileTools } from "./tools/file-tools.js";
@@ -34,7 +33,7 @@ const SUB_AGENT_TOOL_DENYLIST = new Set([
  */
 export async function buildAgentStimulus(
   agent: AgentEntry,
-  habitat: Habitat,
+  habitat: AgentHost,
 ): Promise<Stimulus> {
   const projectPath = agent.projectPath;
   const contextParts: string[] = [];
@@ -228,7 +227,7 @@ export class HabitatAgent {
   private interaction: Interaction;
   private sessionId: string;
   private sessionDir: string;
-  private habitat: Habitat;
+  private habitat: AgentHost;
 
   private constructor(
     agent: AgentEntry,
@@ -236,7 +235,7 @@ export class HabitatAgent {
     interaction: Interaction,
     sessionId: string,
     sessionDir: string,
-    habitat: Habitat,
+    habitat: AgentHost,
   ) {
     this.agent = agent;
     this.stimulus = stimulus;
@@ -251,7 +250,7 @@ export class HabitatAgent {
    * Loads stimulus from the project, creates or resumes a persistent session.
    */
   static async create(
-    habitat: Habitat,
+    habitat: AgentHost,
     agentEntry: AgentEntry,
   ): Promise<HabitatAgent> {
     const stimulus = await buildAgentStimulus(agentEntry, habitat);

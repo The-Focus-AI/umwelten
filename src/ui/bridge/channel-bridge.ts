@@ -13,13 +13,11 @@
  */
 
 import type { CoreMessage } from 'ai';
-import type { Habitat } from '../../habitat/habitat.js';
-import { buildAgentStimulus } from '../../habitat/habitat-agent.js';
+import type { AgentHost } from '../../habitat/types.js';
 import { Interaction } from '../../interaction/core/interaction.js';
 import { Stimulus } from '../../stimulus/stimulus.js';
-import { writeSessionTranscript } from '../../habitat/transcript.js';
+import { writeSessionTranscript } from '../../session-record/transcript-write.js';
 import { loadRecentHabitatTranscriptCoreMessages } from '../../session-record/habitat-transcript-load.js';
-import { runClaudeSDK } from '../../habitat/claude-sdk-runner.js';
 import { resolveChannelRoute, loadRouting, routeSignature, setChannelRoute } from './routing.js';
 import type {
   ChannelMessage,
@@ -41,21 +39,47 @@ interface InteractionEntry {
 
 // ── ChannelBridge ────────────────────────────────────────────────────
 
+/**
+ * Callback to build a Stimulus for a specific agent.
+ * Injected by the caller so ChannelBridge doesn't import habitat-agent.ts directly.
+ */
+export type BuildAgentStimulusFn = (
+  agent: import('../../habitat/types.js').AgentEntry,
+  host: AgentHost,
+) => Promise<Stimulus>;
+
+/**
+ * Callback to run a message through the Claude Agent SDK.
+ * Injected by the caller so ChannelBridge doesn't import claude-sdk-runner.ts directly.
+ */
+export type RunClaudeSdkFn = (
+  prompt: string,
+  options: { cwd: string; apiKey?: string; maxTurns?: number },
+) => Promise<{ content: string; success: boolean; errors: string[] }>;
+
 export class ChannelBridge {
-  private habitat: Habitat;
+  private host: AgentHost;
   private cache = new Map<string, InteractionEntry>();
   private resumeMessagePairs: number;
   private platformInstruction?: string;
   private routingPath?: string;
+  private buildAgentStimulusFn?: BuildAgentStimulusFn;
+  private runClaudeSdkFn?: RunClaudeSdkFn;
 
   constructor(
-    habitat: Habitat,
-    options?: ChannelBridgeOptions & { routingPath?: string },
+    host: AgentHost,
+    options?: ChannelBridgeOptions & {
+      routingPath?: string;
+      buildAgentStimulus?: BuildAgentStimulusFn;
+      runClaudeSdk?: RunClaudeSdkFn;
+    },
   ) {
-    this.habitat = habitat;
+    this.host = host;
     this.resumeMessagePairs = options?.resumeMessagePairs ?? 4;
     this.platformInstruction = options?.platformInstruction;
     this.routingPath = options?.routingPath;
+    this.buildAgentStimulusFn = options?.buildAgentStimulus;
+    this.runClaudeSdkFn = options?.runClaudeSdk;
   }
 
   // ── Public API ───────────────────────────────────────────────────
@@ -184,7 +208,7 @@ export class ChannelBridge {
     channelKey: string,
     parentChannelKey?: string,
   ): Promise<RouteResolution> {
-    const routing = await loadRouting(this.habitat.workDir, this.routingPath);
+    const routing = await loadRouting(this.host.workDir, this.routingPath);
     return resolveChannelRoute(channelKey, routing, parentChannelKey);
   }
 
@@ -200,7 +224,7 @@ export class ChannelBridge {
     runtime?: ChannelRuntimeMode,
   ): Promise<RouteResolution> {
     await setChannelRoute(
-      this.habitat.workDir,
+      this.host.workDir,
       channelKey,
       agentId,
       this.routingPath,
@@ -214,7 +238,7 @@ export class ChannelBridge {
 
   /** List available agents from the habitat config. */
   listAgents(): Array<{ id: string; name: string }> {
-    return this.habitat.getAgents().map(a => ({ id: a.id, name: a.name }));
+    return this.host.getAgents().map(a => ({ id: a.id, name: a.name }));
   }
 
   // ── Claude SDK pass-through ────────────────────────────────────────
@@ -228,9 +252,16 @@ export class ChannelBridge {
     agentId: string,
     events: BridgeEventHandlers,
   ): Promise<void> {
-    const agent = this.habitat.getAgent(agentId);
+    const agent = this.host.getAgent(agentId);
     if (!agent) {
       const err = `Agent "${agentId}" not found for Claude SDK pass-through`;
+      if (events.onError) events.onError(err);
+      else console.error(`[ChannelBridge] ${err}`);
+      return;
+    }
+
+    if (!this.runClaudeSdkFn) {
+      const err = 'Claude SDK pass-through not available (runClaudeSdk not injected)';
       if (events.onError) events.onError(err);
       else console.error(`[ChannelBridge] ${err}`);
       return;
@@ -240,9 +271,9 @@ export class ChannelBridge {
       // Create session on disk for transcript
       const platform = msg.channelKey.slice(0, msg.channelKey.indexOf(':')) || 'web';
       const identifier = msg.channelKey.slice(msg.channelKey.indexOf(':') + 1);
-      const session = await this.habitat.getOrCreateSession(platform as any, identifier);
+      const session = await this.host.getOrCreateSession(platform as any, identifier);
 
-      const result = await runClaudeSDK(msg.text, {
+      const result = await this.runClaudeSdkFn(msg.text, {
         cwd: agent.projectPath,
         apiKey: process.env.ANTHROPIC_API_KEY,
         maxTurns: 25,
@@ -289,7 +320,7 @@ export class ChannelBridge {
     const { channelKey, parentChannelKey } = msg;
 
     // Resolve current route
-    const routing = await loadRouting(this.habitat.workDir, this.routingPath);
+    const routing = await loadRouting(this.host.workDir, this.routingPath);
     const resolution = resolveChannelRoute(channelKey, routing, parentChannelKey);
     const sig = routeSignature(resolution);
 
@@ -303,7 +334,7 @@ export class ChannelBridge {
     const stimulus = await this.buildStimulusForRoute(resolution);
 
     // Create interaction
-    const modelDetails = this.habitat.getDefaultModelDetails();
+    const modelDetails = this.host.getDefaultModelDetails();
     if (!modelDetails) {
       throw new Error(
         'No default model configured. Set defaultProvider/defaultModel in config.json, or HABITAT_PROVIDER/HABITAT_MODEL env vars.',
@@ -322,7 +353,7 @@ export class ChannelBridge {
     // Create session on disk
     const platform = channelKey.slice(0, channelKey.indexOf(':')) || 'web';
     const identifier = channelKey.slice(channelKey.indexOf(':') + 1);
-    const session = await this.habitat.getOrCreateSession(
+    const session = await this.host.getOrCreateSession(
       platform as any,
       identifier,
     );
@@ -336,7 +367,7 @@ export class ChannelBridge {
     if (model?.provider) metaPatch.provider = model.provider;
     if (model?.name) metaPatch.model = model.name;
     if (Object.keys(metaPatch).length > 0) {
-      await this.habitat
+      await this.host
         .updateSessionMetadata(session.sessionId, metaPatch)
         .catch(() => {
           /* non-fatal — session dir may not exist in some test scenarios */
@@ -361,17 +392,23 @@ export class ChannelBridge {
     let baseStimulus: Stimulus;
 
     if (resolution.kind === 'agent') {
-      const agent = this.habitat.getAgent(resolution.agentId);
-      if (agent) {
-        baseStimulus = await buildAgentStimulus(agent, this.habitat);
+      const agent = this.host.getAgent(resolution.agentId);
+      if (agent && this.buildAgentStimulusFn) {
+        baseStimulus = await this.buildAgentStimulusFn(agent, this.host);
+      } else if (agent) {
+        // No buildAgentStimulus injected — fall back to main stimulus
+        console.warn(
+          `[ChannelBridge] No buildAgentStimulus injected; using main stimulus for agent "${resolution.agentId}".`,
+        );
+        baseStimulus = await this.host.getStimulus();
       } else {
         console.warn(
           `[ChannelBridge] Route references unknown agent "${resolution.agentId}"; using main stimulus.`,
         );
-        baseStimulus = await this.habitat.getStimulus();
+        baseStimulus = await this.host.getStimulus();
       }
     } else {
-      baseStimulus = await this.habitat.getStimulus();
+      baseStimulus = await this.host.getStimulus();
     }
 
     // Clone so we don't mutate the habitat's cached stimulus

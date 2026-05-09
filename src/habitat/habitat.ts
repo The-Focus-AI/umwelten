@@ -13,6 +13,7 @@ import { loadToolsFromDirectory } from "../stimulus/tools/loader.js";
 import type { SkillDefinition } from "../stimulus/skills/types.js";
 import type { ModelDetails } from "../cognition/types.js";
 import type {
+  AgentHost,
   HabitatConfig,
   HabitatOptions,
   HabitatSessionMetadata,
@@ -57,6 +58,7 @@ import { loadSecrets, saveSecrets } from "./secrets.js";
 
 export class Habitat
   implements
+    AgentHost,
     FileToolsContext,
     AgentToolsContext,
     SessionToolsContext,
@@ -307,7 +309,12 @@ export class Habitat
 
     // Load skills (unless skipped)
     if (!this.options.skipSkills) {
-      const skillsDirsResolved = (this.config.skillsDirs ?? ["./skills"]).map(
+      const defaultSkillsDirs = this.config.skillsDirs ?? ["./skills"];
+      // Also check .agents/skills (npx skills install location)
+      if (!defaultSkillsDirs.includes("./.agents/skills") && !defaultSkillsDirs.includes(".agents/skills")) {
+        defaultSkillsDirs.push("./.agents/skills");
+      }
+      const skillsDirsResolved = defaultSkillsDirs.map(
         (d) => join(this.workDir, d),
       );
       stimulus.options.skillsDirs = skillsDirsResolved;

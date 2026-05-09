@@ -9,8 +9,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RouteHandler } from '../types.js';
-import type { Habitat } from '../../../habitat/habitat.js';
-import type { HabitatSessionMetadata } from '../../../habitat/types.js';
+import type { AgentHost, HabitatSessionMetadata } from '../../../habitat/types.js';
 import {
   parseSessionFile,
   summarizeSession,
@@ -33,7 +32,7 @@ function findSession(
 }
 
 async function getTranscriptPath(
-  habitat: Habitat,
+  habitat: AgentHost,
   sessionId: string,
 ): Promise<string | null> {
   const dir = await habitat.getSessionDir(sessionId);

@@ -29,7 +29,7 @@ import {
   type RequestContext,
   type ExecutionEventBus,
 } from "@a2a-js/sdk/server";
-import type { Habitat } from "./habitat.js";
+import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "../ui/bridge/channel-bridge.js";
 import { listArtifacts, type ArtifactMeta } from "./tools/artifact-tools.js";
 
@@ -39,7 +39,7 @@ export interface AgentCardOptions {
   /** Base URL where the agent is hosted (e.g. "http://localhost:8080"). */
   baseUrl: string;
   /** Habitat instance for config + stimulus. */
-  habitat: Habitat;
+  habitat: AgentHost;
   /** Override name (defaults to config.name). */
   name?: string;
   /** Override description. */
@@ -97,9 +97,9 @@ export async function buildAgentCard(
 
 export class HabitatAgentExecutor implements AgentExecutor {
   private bridge: ChannelBridge;
-  private habitat: Habitat;
+  private habitat: AgentHost;
 
-  constructor(habitat: Habitat, bridge: ChannelBridge) {
+  constructor(habitat: AgentHost, bridge: ChannelBridge) {
     this.habitat = habitat;
     this.bridge = bridge;
   }
@@ -267,7 +267,7 @@ export class HabitatAgentExecutor implements AgentExecutor {
 // ── Transport setup ───────────────────────────────────────────────
 
 export interface A2AHandlerOptions {
-  habitat: Habitat;
+  habitat: AgentHost;
   bridge: ChannelBridge;
   baseUrl: string;
   name?: string;

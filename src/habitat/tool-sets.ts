@@ -190,3 +190,18 @@ export const containerToolSets: ToolSet[] = [
   provisionToolSet,
   artifactToolSet,
 ];
+
+/**
+ * Tool sets for Gaia-managed containers.
+ * Same as containerToolSets but WITHOUT secretsToolSet — secrets are
+ * managed by Gaia's master vault, not by the container itself.
+ */
+export const managedContainerToolSets: ToolSet[] = [
+  fileToolSet,
+  timeToolSet,
+  urlToolSet,
+  selfModifyToolSet,
+  execToolSet,
+  provisionToolSet,
+  artifactToolSet,
+];

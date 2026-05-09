@@ -26,9 +26,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Tool } from "ai";
 import type { Habitat } from "./habitat.js";
+import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
+import { buildAgentStimulus } from "./habitat-agent.js";
+import { runClaudeSDK } from "./claude-sdk-runner.js";
 import { ChannelBridge } from "../ui/bridge/channel-bridge.js";
 import { WebAdapter } from "../ui/web/WebAdapter.js";
 import { devAuth } from "../ui/web/auth/dev-auth.js";
@@ -206,6 +209,8 @@ export async function startContainerServer(
       "After publishing, include the artifact URL in your response using markdown: ![name](/files/artifacts/filename.png) or [name](/files/artifacts/filename.ext)",
       "Do NOT copy files to /files/ — that path is a virtual mount, not a real directory. Files are served directly from /data/.",
     ].join("\n"),
+    buildAgentStimulus,
+    runClaudeSdk: runClaudeSDK,
   });
 
   // Wrap bridge.handleMessage to log chat activity and track session

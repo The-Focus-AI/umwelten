@@ -5,6 +5,7 @@
 export { Habitat } from "./habitat.js";
 
 export type {
+  AgentHost,
   HabitatConfig,
   HabitatOptions,
   AgentEntry,
@@ -29,6 +30,7 @@ export type { ToolSet } from "./tool-sets.js";
 export {
   standardToolSets,
   containerToolSets,
+  managedContainerToolSets,
   fileToolSet,
   timeToolSet,
   urlToolSet,

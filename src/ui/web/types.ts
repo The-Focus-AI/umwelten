@@ -7,7 +7,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { Habitat } from '../../habitat/habitat.js';
+import type { AgentHost } from '../../habitat/types.js';
 import type { ChannelBridge } from '../bridge/channel-bridge.js';
 
 // ── Auth ─────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export interface AuthProvider {
  * Handlers receive a fully-authenticated user plus shared dependencies.
  */
 export interface RouteContext {
-  habitat: Habitat;
+  habitat: AgentHost;
   bridge: ChannelBridge;
   user: UserContext;
   req: IncomingMessage;
@@ -72,7 +72,7 @@ export interface RouteHandler {
 // ── Server config ────────────────────────────────────────────────────
 
 export interface WebServerConfig {
-  habitat: Habitat;
+  habitat: AgentHost;
   /** Auth strategy. Pass 'dev' for the built-in single-user dev auth. */
   auth: AuthProvider | 'dev';
   /** Additional routes to mount (on top of the default route set). */

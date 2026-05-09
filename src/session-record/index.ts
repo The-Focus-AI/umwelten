@@ -18,3 +18,4 @@ export { buildHabitatIntrospectionContextMessages } from "./context-merge.js";
 export { resolveHabitatSessionHandle } from "./resolve-habitat.js";
 export { resolveClaudeCodeSessionHandle } from "./resolve-claude.js";
 export { compactHabitatTranscriptSegment } from "./compaction-habitat.js";
+export { writeSessionTranscript, coreMessagesToJSONL } from "./transcript-write.js";

@@ -3,6 +3,7 @@
  */
 
 export { ChannelBridge } from './channel-bridge.js';
+export type { BuildAgentStimulusFn, RunClaudeSdkFn } from './channel-bridge.js';
 
 export type {
   ChannelMessage,
@@ -29,6 +30,3 @@ export {
 
 export { processBridgeCommand, getBridgeCommandDefs } from './commands.js';
 export type { CommandResult } from './commands.js';
-
-// Re-export for convenience — adapters can import from bridge/
-export type { ClaudeSDKResult } from '../../habitat/claude-sdk-runner.js';

@@ -4,6 +4,60 @@
  * sessions, tools, skills, memory, and references to other habitats (agents).
  */
 
+import type { Tool } from 'ai';
+import type { Stimulus } from '../stimulus/stimulus.js';
+import type { ModelDetails } from '../cognition/types.js';
+import type { SkillDefinition } from '../stimulus/skills/types.js';
+import type { SessionManagerSessionOptions } from './session-manager.js';
+
+/**
+ * AgentHost — the abstract interface that platform adapters (ChannelBridge,
+ * WebAdapter, route handlers) depend on instead of the concrete Habitat class.
+ *
+ * This breaks the circular dependency between src/habitat/ (Layer 6) and
+ * src/ui/ (Layer 8). UI code imports this interface from types.ts; the
+ * concrete Habitat class implements it.
+ */
+export interface AgentHost {
+  readonly workDir: string;
+  readonly configPath: string;
+
+  getConfig(): HabitatConfig;
+  reloadConfig(): Promise<HabitatConfig>;
+  getDefaultModelDetails(): ModelDetails | undefined;
+  setRuntimeModelDetails(details: ModelDetails): void;
+
+  getAgents(): AgentEntry[];
+  getAgent(idOrName: string): AgentEntry | undefined;
+  getAgentDir(agentId: string): string;
+
+  getStimulus(): Promise<Stimulus>;
+  getTools(): Record<string, Tool>;
+  getSkills(): SkillDefinition[];
+
+  getWorkDir(): string;
+  getSessionsDir(): string;
+  getAllowedRoots(): string[];
+
+  getOrCreateSession(
+    type: HabitatSessionType,
+    identifier?: string | number,
+    options?: SessionManagerSessionOptions,
+  ): Promise<{ sessionId: string; sessionDir: string }>;
+  updateSessionMetadata(sessionId: string, patch: Record<string, unknown>): Promise<void>;
+  listSessions(): Promise<HabitatSessionMetadata[]>;
+  getSessionDir(sessionId: string): Promise<string | null>;
+
+  getSecret(name: string): string | undefined;
+  setSecret(name: string, value: string): Promise<void>;
+
+  createInteraction(options: {
+    sessionId?: string;
+    sessionType?: HabitatSessionType;
+    modelDetails?: ModelDetails;
+  }): Promise<{ interaction: import('../interaction/core/interaction.js').Interaction; sessionDir: string }>;
+}
+
 /**
  * Commands to interact with a habitat (e.g. run CLI, start server).
  * Keys are arbitrary (e.g. "run", "cli", "install"); values are shell commands.
