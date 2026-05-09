@@ -1,0 +1,46 @@
+{
+  "name": "@umwelten/server",
+  "version": "0.4.12",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./*.js": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
+  },
+  "description": "Network layer: MCP server/client, A2A handler, container server, web UI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
+    "directory": "packages/server"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --reporter=verbose",
+    "test:run": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@umwelten/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@neondatabase/serverless": "^1.0.2",
+    "ai": "^5.0.115",
+    "undici": "^8.1.0",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
