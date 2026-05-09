@@ -1137,14 +1137,17 @@ addSharedOptions(serveSubcommand)
     ) => {
       const merged = mergedHabitatCliOptions(command, options) as typeof options;
 
-      // Use container-minimal tool sets by default; --all-tools for full orchestrator set
-      const { containerToolSets } = await import("../habitat/tool-sets.js");
+      // Use container-minimal tool sets by default; --all-tools for full orchestrator set.
+      // Gaia-managed containers (HABITAT_API_KEY set) get managedContainerToolSets
+      // which excludes secretsToolSet — secrets are managed by Gaia's master vault.
+      const { containerToolSets, managedContainerToolSets } = await import("../habitat/tool-sets.js");
+      const isManaged = !!process.env.HABITAT_API_KEY;
       const habitat = await Habitat.create({
         workDir: merged.workDir,
         sessionsDir: merged.sessionsDir,
         envPrefix: merged.envPrefix ?? "HABITAT",
         defaultWorkDirName: "habitats",
-        toolSets: (merged as any).allTools ? undefined : containerToolSets,
+        toolSets: (merged as any).allTools ? undefined : (isManaged ? managedContainerToolSets : containerToolSets),
       });
 
       // Onboard if needed
@@ -1241,6 +1244,20 @@ addSharedOptions(gaiaSubcommand)
           "",
           "You can also manage the master secret vault and delegate tasks to running habitats via A2A (Agent-to-Agent protocol).",
           "",
+          "## Important: Config-Driven Habitat Management",
+          "",
+          "Habitats are managed declaratively through their config. NEVER ask a running habitat to install skills at runtime — those changes are lost on rebuild.",
+          "",
+          "To add a skill to a habitat, use `add_skill` with the git repo (e.g. 'typefully/agent-skills'). This records it in the habitat's config. Then `rebuild_habitat` to apply. The container will clone and load the skill on startup.",
+          "",
+          "To check what a running habitat knows or can do, use `ask_habitat` or `discover_habitats`.",
+          "",
+          "The goal is that a habitat can be fully recreated from its config: provider, model, secrets, and skills. If you destroy and rebuild a habitat, it should come back exactly as configured.",
+          "",
+          "## Sharing Links",
+          "",
+          "When listing habitats or reporting status, ALWAYS include the web UI URL (from the `url` field in tool results). These URLs contain the auth token so the user can click them directly. Format them as clickable links.",
+          "",
           "When users ask about their habitats, use your tools to check status, view logs, or relay questions. Be proactive about suggesting next steps.",
           "",
         ].join("\n"));
@@ -1300,3 +1317,233 @@ addSharedOptions(gaiaSubcommand)
   );
 
 habitatCommand.addCommand(gaiaSubcommand);
+
+// ── habitat chat — connect to a running habitat's /api/chat ──────────────
+const chatSubcommand = new Command("chat")
+  .description(
+    "Connect to a running habitat and chat with it (uses the habitat's own LLM).",
+  )
+  .requiredOption("--url <url>", "Habitat base URL (e.g. http://localhost:7440)")
+  .option("--token <token>", "Bearer token for auth (or set HABITAT_CHAT_TOKEN env var)")
+  .option("--one-shot <prompt>", "Send a single prompt and exit")
+  .action(async (opts: { url: string; token?: string; oneShot?: string }) => {
+    const chalk = (await import("chalk")).default;
+    const { createInterface } = await import("node:readline");
+    const { createMarkdownChatObserver } = await import(
+      "../cognition/observers.js"
+    );
+    const http = await import("node:http");
+    const https = await import("node:https");
+
+    const baseUrl = opts.url.replace(/\/+$/, "");
+    let token = opts.token ?? process.env.HABITAT_CHAT_TOKEN;
+
+    // Auto-discover token from Gaia registry if not provided
+    if (!token) {
+      token = await discoverToken(baseUrl);
+      if (token) {
+        console.log(chalk.dim("(token auto-discovered from gaia registry)"));
+      }
+    }
+
+    // Thread ID for session continuity across turns
+    const threadId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    // Check health first
+    try {
+      const health = await fetchJson(`${baseUrl}/health`, token);
+      console.log(
+        `Connected to ${chalk.green(health.name ?? "habitat")} (${health.tools ?? "?"} tools, model: ${chalk.cyan(health.model ?? "none")})`,
+      );
+      if (!health.model) {
+        console.log(
+          chalk.yellow("Warning: No model configured — the habitat may not respond."),
+        );
+      }
+    } catch (err: any) {
+      console.error(chalk.red(`Cannot reach ${baseUrl}: ${err.message}`));
+      process.exit(1);
+    }
+
+    async function sendMessage(text: string): Promise<void> {
+      const obs = await createMarkdownChatObserver();
+      const body = JSON.stringify({
+        id: threadId,
+        messages: [{ role: "user", content: text }],
+      });
+
+      const url = new URL(`${baseUrl}/api/chat`);
+      const isHttps = url.protocol === "https:";
+      const reqModule = isHttps ? https : http;
+
+      return new Promise<void>((resolve, reject) => {
+        const req = reqModule.request(
+          {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname,
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...(token ? { authorization: `Bearer ${token}` } : {}),
+            },
+          },
+          (res) => {
+            if (res.statusCode && res.statusCode >= 400) {
+              let data = "";
+              res.on("data", (c) => (data += c));
+              res.on("end", () => {
+                console.error(chalk.red(`HTTP ${res.statusCode}: ${data.slice(0, 300)}`));
+                resolve();
+              });
+              return;
+            }
+
+            let buffer = "";
+            res.on("data", (chunk: Buffer) => {
+              buffer += chunk.toString();
+              // Process complete SSE lines
+              const lines = buffer.split("\n");
+              buffer = lines.pop() ?? ""; // Keep incomplete last line
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                const payload = line.slice(6).trim();
+                if (payload === "[DONE]") continue;
+                try {
+                  const event = JSON.parse(payload);
+                  switch (event.type) {
+                    case "text-delta":
+                      obs.onTextDelta?.(event.delta);
+                      break;
+                    case "reasoning-delta":
+                      process.stdout.write(chalk.dim(event.delta));
+                      break;
+                    case "tool-input-available":
+                      console.log(
+                        chalk.dim(`\n  [tool] ${event.toolName}(${truncateJson(event.input, 80)})`),
+                      );
+                      break;
+                    case "tool-output-available": {
+                      const out = typeof event.output === "string"
+                        ? event.output
+                        : JSON.stringify(event.output);
+                      const isErr = !!event.errorText;
+                      console.log(
+                        isErr
+                          ? chalk.red(`  [error] ${out.slice(0, 200)}`)
+                          : chalk.dim(`  [result] ${out.slice(0, 200)}${out.length > 200 ? "..." : ""}`),
+                      );
+                      break;
+                    }
+                    case "error":
+                      console.error(chalk.red(`  [error] ${event.errorText}`));
+                      break;
+                  }
+                } catch {
+                  // Skip unparseable lines
+                }
+              }
+            });
+            res.on("end", () => {
+              obs.end();
+              process.stdout.write("\n");
+              resolve();
+            });
+          },
+        );
+        req.on("error", reject);
+        req.write(body);
+        req.end();
+      });
+    }
+
+    // One-shot mode
+    if (opts.oneShot) {
+      await sendMessage(opts.oneShot);
+      return;
+    }
+
+    // REPL mode
+    console.log(chalk.dim("Type a message, or /quit to exit.\n"));
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+    const askQuestion = (): void => {
+      rl.question(chalk.blue("you> "), async (input) => {
+        const trimmed = input.trim();
+        if (!trimmed) { askQuestion(); return; }
+        if (trimmed === "/quit" || trimmed === "/exit" || trimmed === "/q") {
+          rl.close();
+          return;
+        }
+        await sendMessage(trimmed);
+        askQuestion();
+      });
+    };
+    askQuestion();
+  });
+
+function truncateJson(input: unknown, max: number): string {
+  const s = typeof input === "string" ? input : JSON.stringify(input);
+  return s.length > max ? s.slice(0, max) + "..." : s;
+}
+
+async function fetchJson(url: string, token?: string): Promise<any> {
+  const http = await import("node:http");
+  const https = await import("node:https");
+  const parsed = new URL(url);
+  const reqModule = parsed.protocol === "https:" ? https : http;
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return new Promise((resolve, reject) => {
+    reqModule.get(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        headers,
+      },
+      (res: any) => {
+        let data = "";
+        res.on("data", (c: string) => (data += c));
+        res.on("end", () => {
+          try { resolve(JSON.parse(data)); }
+          catch { reject(new Error(`Invalid JSON from ${url}`)); }
+        });
+      },
+    ).on("error", reject);
+  });
+}
+
+/**
+ * Auto-discover a habitat's API key from a gaia registry file.
+ * Looks for gaia-data/registry.json in the cwd and matches by port.
+ */
+async function discoverToken(baseUrl: string): Promise<string | undefined> {
+  const { readFile: rf } = await import("node:fs/promises");
+  const { resolve: resolvePath } = await import("node:path");
+
+  // Try common locations for the registry
+  const candidates = [
+    resolvePath("gaia-data", "registry.json"),
+    resolvePath("registry.json"),
+  ];
+
+  const parsed = new URL(baseUrl);
+  const port = parseInt(parsed.port || "80", 10);
+
+  for (const candidate of candidates) {
+    try {
+      const raw = await rf(candidate, "utf-8");
+      const registry = JSON.parse(raw);
+      const habitats = registry.habitats ?? [];
+      // Match by port
+      const match = habitats.find((h: any) => h.containerPort === port);
+      if (match?.apiKey) return match.apiKey;
+    } catch {
+      // File doesn't exist — try next
+    }
+  }
+  return undefined;
+}
+
+habitatCommand.addCommand(chatSubcommand);

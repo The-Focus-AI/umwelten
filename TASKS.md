@@ -131,6 +131,43 @@ Multi-habitat management: dashboard, Docker lifecycle, secret isolation, A2A dis
 - [x] Update vitest.config.ts to exclude `*.integration.test.ts`
 - [x] Update CLAUDE.md with port scheme table, test suite docs, gaia orchestrator docs
 
+## Phase 7: Config-Driven Skill Management (IN PROGRESS)
+
+Goal: Gaia manages habitat skills declaratively through config, not runtime delegation. A habitat rebuilt from scratch should fully recreate with all skills, secrets, and model config.
+
+- [x] Add `skillsFromGit` to `CreateHabitatOptions` type
+- [x] Wire `skillsFromGit` through registry.create() → entry.config
+- [x] Add `skillsFromGit` param to `create_habitat` Gaia tool
+- [x] Add `add_skill` Gaia tool — appends to `entry.config.skillsFromGit`, persists to registry
+- [x] Add `remove_skill` Gaia tool — removes from array, persists
+- [x] Add `list_skills` Gaia tool — shows configured skills
+- [x] Update STIMULUS.md template — config-driven, never runtime delegation
+- [x] Strip `secretsToolSet` from Gaia-managed containers — secrets are read-only, managed by Gaia's master vault
+- [x] `update_habitat_config` tool — set provider, model, and other config fields
+- [x] Integrate `npx skills` ecosystem — skills-lock.json seeded into volumes, entrypoint runs `npx skills experimental_install`
+- [x] `buildSeedFiles` generates `skills-lock.json` from `config.skillsFromGit`
+- [x] `add_skill`/`remove_skill` re-seed volume on config change
+- [x] Habitat loads skills from `.agents/skills/` (npx skills install location) in addition to `./skills/`
+- [ ] Verify round-trip: config → seedVolume → container start → skills installed via npx skills → working → destroy → rebuild → still works
+
+## Phase 0: Break Circular Dependency (DONE)
+
+Break the `habitat ↔ ui/bridge` circular dependency. UI code (Layer 8) was importing the concrete `Habitat` class from Layer 6, while habitat imported `ChannelBridge`/`WebAdapter` from ui — a Layer 6 ↔ 8 cycle.
+
+- [x] Extract `AgentHost` interface in `src/habitat/types.ts` — minimal interface for platform adapters
+- [x] Move `writeSessionTranscript`/`coreMessagesToJSONL` to `src/session-record/transcript-write.ts` (no habitat deps)
+- [x] Make `src/habitat/transcript.ts` a thin re-export for backwards compat
+- [x] Update `ChannelBridge` to depend on `AgentHost` instead of concrete `Habitat`
+- [x] Inject `buildAgentStimulus` and `runClaudeSDK` as callbacks (no direct import from ui → habitat)
+- [x] Update `src/ui/web/types.ts` — `RouteContext.habitat` and `WebServerConfig.habitat` now `AgentHost`
+- [x] Update web route handlers (`sessions.ts`, `usage.ts`, `habitat.ts`) to use `AgentHost`
+- [x] Update `a2a-handler.ts` to use `AgentHost` instead of `Habitat`
+- [x] Update `habitat-agent.ts` (`buildAgentStimulus`, `HabitatAgent`) to use `AgentHost`
+- [x] `Habitat` class now `implements AgentHost`
+- [x] Export `AgentHost` from `src/habitat/index.ts`
+- [x] Verify: `src/ui/` no longer imports concrete `Habitat` class — only `AgentHost` interface and pure types
+- [x] TypeScript clean, all tests pass (no new failures)
+
 ## Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)

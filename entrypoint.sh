@@ -29,6 +29,14 @@ if [ -f "$CONFIG_FILE" ]; then
       echo "[entrypoint] mise install complete."
     fi
   fi
+
+  # Install skills from skills-lock.json if present
+  if [ -f "$WORK_DIR/skills-lock.json" ]; then
+    echo "[entrypoint] Restoring skills from skills-lock.json..."
+    cd "$WORK_DIR" && npx skills install 2>&1 || echo "[entrypoint] Skills install had warnings (non-fatal)"
+    cd /habitat
+    echo "[entrypoint] Skills restore complete."
+  fi
 fi
 
 # Execute the main command

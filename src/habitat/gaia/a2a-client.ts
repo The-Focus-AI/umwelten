@@ -37,6 +37,10 @@ export async function fetchAgentCard(
         let data = "";
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`Agent card request to ${entry.id} returned HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
+            return;
+          }
           try {
             resolve(JSON.parse(data) as AgentCardSummary);
           } catch {
@@ -71,14 +75,16 @@ export async function sendA2AMessage(
     throw new Error(`Container ${entry.id} not running`);
   }
 
+  const messageId = `gaia-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const rpcBody = JSON.stringify({
     jsonrpc: "2.0",
     id: `gaia-${Date.now()}`,
     method: "message/send",
     params: {
       message: {
+        messageId,
         role: "user",
-        parts: [{ type: "text", text }],
+        parts: [{ kind: "text", text }],
       },
     },
   });
@@ -99,13 +105,25 @@ export async function sendA2AMessage(
         let data = "";
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
+          // Check HTTP-level errors
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`A2A request to ${entry.id} returned HTTP ${res.statusCode}: ${data.slice(0, 300)}`));
+            return;
+          }
           try {
             const parsed = JSON.parse(data);
+            // Check for JSON-RPC error
+            if (parsed.error) {
+              const errMsg = parsed.error.message ?? JSON.stringify(parsed.error);
+              reject(new Error(`A2A error from ${entry.id}: ${errMsg}`));
+              return;
+            }
             // Extract text from A2A response
+            // The result can be a Message (with .parts directly) or a Task (with .status.message.parts)
             const result = parsed.result ?? parsed;
-            const parts = result?.status?.message?.parts ?? result?.message?.parts ?? [];
+            const parts = result?.parts ?? result?.status?.message?.parts ?? result?.message?.parts ?? [];
             const textParts = parts
-              .filter((p: any) => p.type === "text")
+              .filter((p: any) => p.kind === "text" || p.type === "text")
               .map((p: any) => p.text);
             const artifacts = (result?.artifacts ?? []).map((a: any) => ({
               name: a.name,
@@ -116,7 +134,7 @@ export async function sendA2AMessage(
               artifacts: artifacts.length > 0 ? artifacts : undefined,
             });
           } catch {
-            reject(new Error(`Invalid A2A response from ${entry.id}`));
+            reject(new Error(`Invalid A2A response from ${entry.id}: ${data.slice(0, 300)}`));
           }
         });
       },

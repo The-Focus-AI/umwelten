@@ -51,6 +51,7 @@ export interface CreateHabitatOptions {
   provider?: string;
   model?: string;
   secretBindings?: string[];
+  skillsFromGit?: string[];
 }
 
 /** Options for the Gaia orchestrator server. */

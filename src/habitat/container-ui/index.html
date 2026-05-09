@@ -383,6 +383,21 @@ let sending = false;
 let threadId = crypto.randomUUID();
 const knownArtifacts = new Set();
 
+// Auth token: from ?token= query param, or stored in localStorage
+const urlToken = new URLSearchParams(location.search).get('token');
+if (urlToken) localStorage.setItem('habitat-token', urlToken);
+const authToken = localStorage.getItem('habitat-token');
+function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (authToken) h['Authorization'] = `Bearer ${authToken}`;
+  return h;
+}
+function authHeadersNoBody() {
+  const h = {};
+  if (authToken) h['Authorization'] = `Bearer ${authToken}`;
+  return h;
+}
+
 const $ = (id) => document.getElementById(id);
 
 // --- Markdown ---
@@ -509,7 +524,7 @@ function showArtifactDetail(url) {
 
 async function loadArtifacts() {
   try {
-    const res = await fetch('/api/artifacts');
+    const res = await fetch('/api/artifacts', { headers: authHeadersNoBody() });
     const data = await res.json();
     for (const art of (data.artifacts || [])) {
       addArtifact(art);
@@ -536,7 +551,7 @@ window.showView = function(view) {
 // --- Dashboard ---
 async function loadStatus() {
   try {
-    const res = await fetch('/api/status');
+    const res = await fetch('/api/status', { headers: authHeadersNoBody() });
     statusData = await res.json();
     renderDashboard();
   } catch {
@@ -612,7 +627,7 @@ window.saveInference = async function() {
   try {
     const res = await fetch('/api/inference', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ provider, model, apiKey: apiKey || undefined }),
     });
     const data = await res.json();
@@ -683,7 +698,7 @@ async function send() {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: threadId, messages: [{ role: 'user', content: text }] }),
     });
 
@@ -862,7 +877,7 @@ inputEl.addEventListener('keydown', (e) => {
 async function loadSettings() {
   // Config JSON
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch('/api/settings', { headers: authHeadersNoBody() });
     const data = await res.json();
     $('config-json').textContent = JSON.stringify(data.config || {}, null, 2);
     // Dependencies
@@ -888,7 +903,7 @@ const sessionsEl = $('sessions-content');
 async function loadSessions() {
   sessionsEl.innerHTML = '<div style="color: var(--text-dim)">Loading sessions...</div>';
   try {
-    const res = await fetch('/api/sessions');
+    const res = await fetch('/api/sessions', { headers: authHeadersNoBody() });
     const data = await res.json();
     if (!data.sessions?.length) {
       sessionsEl.innerHTML = '<div style="color: var(--text-dim)">No sessions yet.</div>';
@@ -921,7 +936,7 @@ function renderSessionList(sessions) {
 window.loadSessionDetail = async function(sessionId) {
   sessionsEl.innerHTML = '<div style="color: var(--text-dim)">Loading messages...</div>';
   try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`);
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, { headers: authHeadersNoBody() });
     const data = await res.json();
     if (data.error) {
       sessionsEl.innerHTML = `<div style="color: var(--error)">Error: ${esc(data.error)}</div>`;

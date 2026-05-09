@@ -12,11 +12,36 @@
  * Storage: named Docker volumes (`gaia-<id>-data`), not bind mounts.
  */
 
-import { execFile as execFileCb } from "node:child_process";
+import { execFile as execFileCb, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import type { ContainerStatus, GaiaHabitatEntry } from "./types.js";
 
 const execFile = promisify(execFileCb);
+
+/**
+ * Run a command and pipe content to its stdin.
+ * Node's execFile doesn't support `input` — only spawn does.
+ */
+function spawnWithStdin(
+  command: string,
+  args: string[],
+  stdin: string,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args);
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d) => (stdout += d));
+    proc.stderr.on("data", (d) => (stderr += d));
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(`${command} exited ${code}: ${stderr}`));
+    });
+    proc.stdin.write(stdin);
+    proc.stdin.end();
+  });
+}
 
 const NETWORK_NAME = "gaia-net";
 const IMAGE_NAME = "habitat";
@@ -124,11 +149,10 @@ export class DockerManager {
    */
   async writeToContainer(id: string, containerPath: string, content: string): Promise<void> {
     const name = containerName(id);
-    // Use sh -c with heredoc to write file content
-    await execFile("docker", [
-      "exec", name, "sh", "-c",
+    await spawnWithStdin("docker", [
+      "exec", "-i", name, "sh", "-c",
       `cat > '${containerPath}'`,
-    ], { input: content } as any);
+    ], content);
   }
 
   /**
@@ -146,16 +170,15 @@ export class DockerManager {
       await execFile("docker", ["volume", "create", volume]);
     } catch { /* may already exist */ }
 
-    // Write each file using a one-shot container
+    // Write each file using a one-shot container with stdin piped via spawn
     for (const file of files) {
-      // Use printf to handle special characters safely, write to file in volume
-      await execFile("docker", [
-        "run", "--rm",
+      await spawnWithStdin("docker", [
+        "run", "--rm", "-i",
         "-v", `${volume}:/data`,
         "alpine:3.20",
         "sh", "-c",
         `mkdir -p "$(dirname "/data/${file.path}")" && cat > "/data/${file.path}"`,
-      ], { input: file.content } as any);
+      ], file.content);
     }
   }
 
