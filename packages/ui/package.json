@@ -1,0 +1,56 @@
+{
+  "name": "@umwelten/ui",
+  "version": "0.4.12",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./*.js": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
+  },
+  "description": "UI adapters: Telegram, Discord, TUI (React Ink), CLI interface",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
+    "directory": "packages/ui"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest --reporter=verbose",
+    "test:run": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@umwelten/core": "workspace:*",
+    "@umwelten/habitat": "workspace:*",
+    "@umwelten/evaluation": "workspace:*",
+    "ai": "^5.0.115",
+    "@ai-sdk/react": "^3.0.170",
+    "@grammyjs/files": "^1.2.0",
+    "@inkjs/ui": "^2.0.0",
+    "@types/react": "^19.2.14",
+    "chalk": "^5.6.2",
+    "discord.js": "^14.26.1",
+    "fullscreen-ink": "^0.1.0",
+    "grammy": "^1.41.1",
+    "ink": "^6.8.0",
+    "ora": "^9.3.0",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.4",
+    "@types/react-dom": "^19.2.3",
+    "react-dom": "^19.2.5",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
