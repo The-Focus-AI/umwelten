@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaia Orchestrator</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --yellow: #d29922;
+  --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+button.primary:hover { background: var(--accent-hover); }
+button.danger { border-color: var(--red); color: var(--red); }
+button.danger:hover { background: var(--red); color: #fff; }
+input, select, textarea {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+label { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 13px; }
+
+/* Header / Tabs */
+header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+header h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
+.tabs { display: flex; gap: 4px; }
+.tab {
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-dim);
+  border: none;
+  background: transparent;
+}
+.tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.tab.active { color: var(--accent); background: rgba(88,166,255,0.1); }
+
+/* Main content */
+main { flex: 1; overflow: auto; padding: 24px; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* Status dot */
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+.dot.running { background: var(--green); }
+.dot.exited, .dot.dead { background: var(--red); }
+.dot.not-found { background: var(--text-dim); }
+.dot.created, .dot.paused { background: var(--yellow); }
+
+/* Cards grid */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.card h3 { font-size: 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.card .meta { color: var(--text-dim); font-size: 13px; margin-bottom: 12px; }
+.card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Chat */
+.chat-container { display: flex; flex-direction: column; height: calc(100vh - 120px); }
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.message {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.message.user {
+  align-self: flex-end;
+  background: rgba(88,166,255,0.15);
+  border: 1px solid rgba(88,166,255,0.3);
+}
+.message.assistant {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.message.tool {
+  align-self: flex-start;
+  background: rgba(63,185,80,0.1);
+  border: 1px solid rgba(63,185,80,0.2);
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-dim);
+}
+.chat-input-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.chat-input-bar input { flex: 1; }
+.chat-input-bar .no-model { color: var(--text-dim); font-size: 13px; padding: 8px; }
+
+/* Secrets table */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-size: 13px; font-weight: 500; }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-row { display: flex; gap: 12px; }
+.form-row > * { flex: 1; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.checkbox-group label {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text); font-size: 14px; cursor: pointer;
+}
+.checkbox-group input[type="checkbox"] { width: auto; }
+
+/* Embedded chat */
+.embedded-chat {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+}
+.embedded-chat .messages { padding: 12px; font-size: 13px; }
+.embedded-chat .chat-input-bar { padding: 8px 12px; }
+
+/* Detail panel */
+.detail-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 16px;
+}
+.detail-panel h2 { font-size: 18px; margin-bottom: 16px; }
+.detail-panel .info-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.detail-panel .info-label { color: var(--text-dim); min-width: 100px; }
+
+/* Logs */
+.log-output {
+  background: #000;
+  color: #ddd;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin-top: 12px;
+}
+
+/* Empty state */
+.empty { color: var(--text-dim); text-align: center; padding: 40px 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gaia</h1>
+  <div class="tabs">
+    <button class="tab active" data-view="chat">Chat</button>
+    <button class="tab" data-view="habitats">Habitats</button>
+    <button class="tab" data-view="secrets">Secrets</button>
+    <button class="tab" data-view="create">Create</button>
+  </div>
+  <span id="statusBadge" style="margin-left: auto; font-size: 12px; color: var(--text-dim);"></span>
+</header>
+
+<main>
+  <!-- Chat View -->
+  <div id="view-chat" class="view active">
+    <div class="chat-container">
+      <div class="messages" id="chatMessages">
+        <div class="empty">Talk to Gaia to manage your habitats. Try "list my habitats" or "create a new habitat called test-bot".</div>
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chatInput" placeholder="Message Gaia..." autocomplete="off">
+        <button class="primary" id="chatSend">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Habitats View -->
+  <div id="view-habitats" class="view">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>Habitats</h2>
+      <button onclick="refreshHabitats()">Refresh</button>
+    </div>
+    <div id="habitatsList" class="cards">
+      <div class="empty">No habitats registered yet.</div>
+    </div>
+    <div id="habitatDetail"></div>
+  </div>
+
+  <!-- Secrets View -->
+  <div id="view-secrets" class="view">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>Master Secrets</h2>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="newSecretName" placeholder="Name" style="width:200px">
+        <input type="text" id="newSecretValue" placeholder="Value" style="width:200px">
+        <button class="primary" onclick="addSecret()">Add</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Used By</th><th></th></tr></thead>
+      <tbody id="secretsTable"></tbody>
+    </table>
+  </div>
+
+  <!-- Create View -->
+  <div id="view-create" class="view">
+    <h2 style="margin-bottom: 16px;">Create Habitat</h2>
+    <form id="createForm" onsubmit="return createHabitat(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ID (slug)</label>
+          <input type="text" name="id" placeholder="my-bot" required>
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" name="name" placeholder="My Bot" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Git URL (optional)</label>
+        <input type="text" name="gitUrl" placeholder="https://github.com/user/repo.git">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Provider</label>
+          <input type="text" name="provider" placeholder="google">
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" name="model" placeholder="gemini-3-flash-preview">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Secret Bindings</label>
+        <div class="checkbox-group" id="secretCheckboxes">
+          <span style="color:var(--text-dim);font-size:13px">Loading secrets...</span>
+        </div>
+      </div>
+      <button type="submit" class="primary">Create Habitat</button>
+    </form>
+  </div>
+</main>
+
+<script>
+// ── State ──
+let chatHistory = [];
+
+// ── Tab switching ──
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-' + tab.dataset.view).classList.add('active');
+    if (tab.dataset.view === 'habitats') refreshHabitats();
+    if (tab.dataset.view === 'secrets') refreshSecrets();
+    if (tab.dataset.view === 'create') loadSecretCheckboxes();
+  });
+});
+
+// ── Health check ──
+async function checkHealth() {
+  try {
+    const res = await fetch('/health');
+    const data = await res.json();
+    const badge = document.getElementById('statusBadge');
+    const parts = [`${data.habitats} habitats`, `${data.secrets} secrets`];
+    if (data.docker) parts.push('Docker OK');
+    else parts.push('No Docker');
+    if (data.chat) parts.push('Chat enabled');
+    badge.textContent = parts.join(' | ');
+  } catch {}
+}
+checkHealth();
+
+// ── Chat ──
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+
+function addChatMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  div.textContent = text;
+  // Clear empty state
+  const empty = chatMessages.querySelector('.empty');
+  if (empty) empty.remove();
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return div;
+}
+
+async function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  chatInput.value = '';
+  chatInput.disabled = true;
+  chatSend.disabled = true;
+
+  addChatMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  const assistantDiv = addChatMessage('assistant', '');
+  let fullText = '';
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }));
+      assistantDiv.textContent = `Error: ${err.error}`;
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) continue;
+        const type = line.slice(0, colonIdx);
+        const data = line.slice(colonIdx + 1);
+
+        if (type === '0') {
+          // Text delta
+          try {
+            fullText += JSON.parse(data);
+            assistantDiv.textContent = fullText;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          } catch {}
+        } else if (type === '9') {
+          // Tool call
+          try {
+            const tc = JSON.parse(data);
+            const toolDiv = addChatMessage('tool', `Tool: ${tc.toolName}`);
+          } catch {}
+        } else if (type === 'a') {
+          // Tool result
+          try {
+            const tr = JSON.parse(data);
+            const resultText = typeof tr.result === 'string' ? tr.result : JSON.stringify(tr.result);
+            addChatMessage('tool', `Result: ${resultText.slice(0, 500)}`);
+          } catch {}
+        }
+      }
+    }
+
+    if (fullText) {
+      chatHistory.push({ role: 'assistant', content: fullText });
+    }
+  } catch (err) {
+    assistantDiv.textContent = `Error: ${err.message}`;
+  } finally {
+    chatInput.disabled = false;
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+}
+
+chatSend.addEventListener('click', sendChat);
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+
+// ── Habitats ──
+async function refreshHabitats() {
+  try {
+    const res = await fetch('/api/habitats');
+    const data = await res.json();
+    const list = document.getElementById('habitatsList');
+
+    if (!data.habitats?.length) {
+      list.innerHTML = '<div class="empty">No habitats registered. Use the Create tab or chat with Gaia.</div>';
+      return;
+    }
+
+    list.innerHTML = data.habitats.map(h => `
+      <div class="card" data-id="${h.id}">
+        <h3><span class="dot ${h.containerStatus}"></span> ${h.name}</h3>
+        <div class="meta">
+          ${h.config?.defaultProvider ?? 'no provider'}/${h.config?.defaultModel ?? 'no model'}
+          ${h.containerPort ? ` | Port ${h.containerPort}` : ''}
+          ${h.containerStatus !== 'not-found' ? ` | ${h.containerStatus}` : ''}
+        </div>
+        <div class="actions">
+          ${h.containerStatus === 'running'
+            ? `<button onclick="stopHabitat('${h.id}')">Stop</button>
+               <button onclick="showHabitatDetail('${h.id}')">Details</button>`
+            : `<button class="primary" onclick="startHabitat('${h.id}')">Start</button>`}
+          <button onclick="rebuildHabitat('${h.id}')">Rebuild</button>
+          <button onclick="showLogs('${h.id}')">Logs</button>
+          <button class="danger" onclick="removeHabitat('${h.id}')">Remove</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    document.getElementById('habitatsList').innerHTML = `<div class="empty">Error: ${err.message}</div>`;
+  }
+}
+
+async function startHabitat(id) {
+  try {
+    const res = await fetch(`/api/habitats/${id}/start`, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) alert(data.error);
+    else refreshHabitats();
+  } catch (err) { alert(err.message); }
+}
+
+async function stopHabitat(id) {
+  try {
+    await fetch(`/api/habitats/${id}/stop`, { method: 'POST' });
+    refreshHabitats();
+  } catch (err) { alert(err.message); }
+}
+
+async function rebuildHabitat(id) {
+  if (!confirm(`Rebuild habitat "${id}"? This will stop and restart the container.`)) return;
+  try {
+    const res = await fetch(`/api/habitats/${id}/rebuild`, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) alert(data.error);
+    else refreshHabitats();
+  } catch (err) { alert(err.message); }
+}
+
+async function removeHabitat(id) {
+  if (!confirm(`Remove habitat "${id}"? The container will be stopped and the registry entry deleted.`)) return;
+  try {
+    await fetch(`/api/habitats/${id}`, { method: 'DELETE' });
+    refreshHabitats();
+    document.getElementById('habitatDetail').innerHTML = '';
+  } catch (err) { alert(err.message); }
+}
+
+async function showLogs(id) {
+  try {
+    const res = await fetch(`/api/habitats/${id}/logs?tail=50`);
+    const data = await res.json();
+    const detail = document.getElementById('habitatDetail');
+    detail.innerHTML = `
+      <div class="detail-panel">
+        <h2>Logs: ${id}</h2>
+        <div class="log-output">${escapeHtml(data.logs || 'No logs')}</div>
+      </div>
+    `;
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function showHabitatDetail(id) {
+  try {
+    const res = await fetch(`/api/habitats/${id}`);
+    const h = await res.json();
+    const detail = document.getElementById('habitatDetail');
+    detail.innerHTML = `
+      <div class="detail-panel">
+        <h2><span class="dot ${h.containerStatus}"></span> ${h.name}</h2>
+        <div class="info-row"><span class="info-label">ID:</span> ${h.id}</div>
+        <div class="info-row"><span class="info-label">Provider:</span> ${h.config?.defaultProvider ?? 'not set'}</div>
+        <div class="info-row"><span class="info-label">Model:</span> ${h.config?.defaultModel ?? 'not set'}</div>
+        <div class="info-row"><span class="info-label">Status:</span> ${h.containerStatus}</div>
+        <div class="info-row"><span class="info-label">Port:</span> ${h.containerPort ?? 'N/A'}</div>
+        <div class="info-row"><span class="info-label">Secrets:</span> ${h.secretBindings?.join(', ') || 'none'}</div>
+        <div class="info-row"><span class="info-label">Git URL:</span> ${h.config?.gitUrl ?? 'none'}</div>
+        <div class="info-row"><span class="info-label">Created:</span> ${h.createdAt}</div>
+        ${h.containerStatus === 'running' ? `
+          <h3 style="margin-top:16px; margin-bottom:8px;">Chat with ${h.name}</h3>
+          <div class="embedded-chat">
+            <div class="messages" id="embed-messages-${h.id}"></div>
+            <div class="chat-input-bar">
+              <input type="text" id="embed-input-${h.id}" placeholder="Message ${h.name}...">
+              <button class="primary" onclick="sendEmbeddedChat('${h.id}')">Send</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    if (h.containerStatus === 'running') {
+      const input = document.getElementById(`embed-input-${h.id}`);
+      input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); sendEmbeddedChat(h.id); }
+      });
+    }
+  } catch (err) { alert(err.message); }
+}
+
+const embeddedHistories = {};
+async function sendEmbeddedChat(id) {
+  const input = document.getElementById(`embed-input-${id}`);
+  const messages = document.getElementById(`embed-messages-${id}`);
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  if (!embeddedHistories[id]) embeddedHistories[id] = [];
+  embeddedHistories[id].push({ role: 'user', content: text });
+
+  const userDiv = document.createElement('div');
+  userDiv.className = 'message user';
+  userDiv.textContent = text;
+  messages.appendChild(userDiv);
+
+  const assistantDiv = document.createElement('div');
+  assistantDiv.className = 'message assistant';
+  assistantDiv.textContent = '';
+  messages.appendChild(assistantDiv);
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const res = await fetch(`/api/habitats/${id}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: embeddedHistories[id] }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) continue;
+        const type = line.slice(0, colonIdx);
+        const data = line.slice(colonIdx + 1);
+        if (type === '0') {
+          try { fullText += JSON.parse(data); assistantDiv.textContent = fullText; } catch {}
+        }
+      }
+    }
+    if (fullText) embeddedHistories[id].push({ role: 'assistant', content: fullText });
+  } catch (err) {
+    assistantDiv.textContent = `Error: ${err.message}`;
+  }
+  messages.scrollTop = messages.scrollHeight;
+}
+
+// ── Secrets ──
+async function refreshSecrets() {
+  try {
+    const res = await fetch('/api/secrets');
+    const data = await res.json();
+    const tbody = document.getElementById('secretsTable');
+
+    if (!data.secrets?.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-dim)">No secrets stored.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.secrets.map(s => `
+      <tr>
+        <td><code>${escapeHtml(s.name)}</code></td>
+        <td>${s.usedBy.length ? s.usedBy.map(id => `<code>${id}</code>`).join(', ') : '<span style="color:var(--text-dim)">unused</span>'}</td>
+        <td><button class="danger" onclick="removeSecret('${escapeHtml(s.name)}')">Remove</button></td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    document.getElementById('secretsTable').innerHTML = `<tr><td colspan="3">Error: ${err.message}</td></tr>`;
+  }
+}
+
+async function addSecret() {
+  const name = document.getElementById('newSecretName').value.trim();
+  const value = document.getElementById('newSecretValue').value.trim();
+  if (!name || !value) return alert('Name and value required');
+  try {
+    await fetch('/api/secrets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, value }),
+    });
+    document.getElementById('newSecretName').value = '';
+    document.getElementById('newSecretValue').value = '';
+    refreshSecrets();
+  } catch (err) { alert(err.message); }
+}
+
+async function removeSecret(name) {
+  if (!confirm(`Remove secret "${name}"?`)) return;
+  try {
+    await fetch(`/api/secrets/${name}`, { method: 'DELETE' });
+    refreshSecrets();
+  } catch (err) { alert(err.message); }
+}
+
+async function loadSecretCheckboxes() {
+  try {
+    const res = await fetch('/api/secrets');
+    const data = await res.json();
+    const container = document.getElementById('secretCheckboxes');
+    if (!data.secrets?.length) {
+      container.innerHTML = '<span style="color:var(--text-dim);font-size:13px">No secrets in vault. Add secrets in the Secrets tab first.</span>';
+      return;
+    }
+    container.innerHTML = data.secrets.map(s =>
+      `<label><input type="checkbox" name="secrets" value="${escapeHtml(s.name)}"> ${escapeHtml(s.name)}</label>`
+    ).join('');
+  } catch {
+    document.getElementById('secretCheckboxes').innerHTML = '<span style="color:var(--text-dim)">Could not load secrets</span>';
+  }
+}
+
+// ── Create Habitat ──
+async function createHabitat(e) {
+  e.preventDefault();
+  const form = document.getElementById('createForm');
+  const data = {
+    id: form.id.value.trim(),
+    name: form.name.value.trim(),
+    gitUrl: form.gitUrl.value.trim() || undefined,
+    provider: form.provider.value.trim() || undefined,
+    model: form.model.value.trim() || undefined,
+    secretBindings: Array.from(form.querySelectorAll('input[name="secrets"]:checked')).map(cb => cb.value),
+  };
+  try {
+    const res = await fetch('/api/habitats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (result.error) { alert(result.error); return false; }
+    alert(`Habitat "${result.id}" created!`);
+    form.reset();
+    // Switch to habitats tab
+    document.querySelector('.tab[data-view="habitats"]').click();
+  } catch (err) { alert(err.message); }
+  return false;
+}
+
+// ── Util ──
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
