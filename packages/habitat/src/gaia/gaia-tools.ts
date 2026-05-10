@@ -11,12 +11,14 @@ import type { GaiaHabitatEntry } from "./types.js";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
+import type { CredentialCatalog } from "./credential-catalog.js";
 import {
   fetchAgentCard,
   sendA2AMessage,
   type A2AEndpoint,
   type AgentCardSummary,
 } from "@umwelten/server";
+import { seedOrgReadonly } from "./gaia-seed.js";
 
 /** Adapt a Gaia registry entry to a generic A2A endpoint. */
 function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
@@ -56,6 +58,7 @@ export interface GaiaToolsContext {
   registry: GaiaRegistryManager;
   vault: GaiaSecretVault;
   docker: DockerManager;
+  catalog: CredentialCatalog;
 }
 
 /** Build a skills-lock.json from the habitat config's skillsFromGit list. */
@@ -103,7 +106,7 @@ export function buildSeedFiles(
 }
 
 function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
-  const { registry, vault, docker } = ctx;
+  const { registry, vault, docker, catalog } = ctx;
 
   return {
     list_habitats: tool({
@@ -147,7 +150,21 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
       }),
       execute: async (params) => {
         const entry = await registry.create(params);
-        // Seed the Docker volume with config + secrets
+
+        // Auto-bind the org-readonly identity if Gaia's master vault has the
+        // relevant tokens. Adds a scopeTemplate + a credential-only agent in
+        // the new habitat's config and binds the corresponding env vars.
+        const seed = seedOrgReadonly(entry.config, vault);
+        if (seed.bindings.length > 0) {
+          for (const name of seed.bindings) {
+            if (!entry.secretBindings.includes(name)) entry.secretBindings.push(name);
+          }
+          await registry.update(entry.id, {
+            config: entry.config,
+            secretBindings: entry.secretBindings,
+          });
+        }
+
         await docker.seedVolume(entry.id, buildSeedFiles(entry, vault));
         const warnings: string[] = [];
         if (!entry.config.defaultProvider || !entry.config.defaultModel) {
@@ -156,7 +173,10 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
         if (entry.secretBindings.length === 0) {
           warnings.push("WARNING: No secrets bound — the habitat has no API keys. Use bind_secret to add them.");
         }
-        const msg = `Created habitat "${entry.id}" (${entry.name}). Volume: gaia-${entry.id}-data`;
+        const seedNote = seed.scopeAdded || seed.agentAdded
+          ? `\n\nAuto-seeded org-readonly identity (${seed.bindings.join(", ")}).`
+          : "";
+        const msg = `Created habitat "${entry.id}" (${entry.name}). Volume: gaia-${entry.id}-data${seedNote}`;
         return warnings.length > 0 ? `${msg}\n\n${warnings.join("\n")}` : msg;
       },
     }),
@@ -468,6 +488,185 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
         } catch (err: any) {
           return `Build failed: ${err.message}`;
         }
+      },
+    }),
+
+    // ── Reproducibility: export / import a habitat description ───────
+    //
+    // The export blob is the smallest set of bytes required to recreate the
+    // habitat from scratch on another Gaia. It contains:
+    //   - registry entry: id, name, config (HabitatConfig), secretBindings
+    //   - The names (NOT values) of the secrets that need to be set in the
+    //     target Gaia's master vault before calling import_habitat.
+    //
+    // Volumes, sessions, learnings, and on-disk repos are NOT exported. The
+    // intent is "here is the recipe"; data that the habitat creates lives
+    // and dies with the named volume.
+
+    export_habitat: tool({
+      description:
+        "Export a habitat description as a JSON blob suitable for recreating it on another Gaia. The blob contains the config, secret-binding names (not values), and identity scopes. No data, no volumes.",
+      inputSchema: z.object({
+        id: z.string().describe("Habitat ID to export"),
+      }),
+      execute: async ({ id }) => {
+        const entry = registry.get(id);
+        if (!entry) return `Habitat "${id}" not found`;
+        const blob = {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          name: entry.name,
+          config: entry.config,
+          secretBindings: entry.secretBindings,
+          requiredSecrets: entry.secretBindings.map(name => ({
+            name,
+            present: vault.get(name) !== undefined,
+          })),
+        };
+        return JSON.stringify(blob, null, 2);
+      },
+    }),
+
+    import_habitat: tool({
+      description:
+        "Recreate a habitat from a previously exported blob. Pass the JSON string from export_habitat. Will fail if the target ID already exists. Master-vault secrets must be set separately (use bind_secret on the secrets the warning mentions).",
+      inputSchema: z.object({
+        blob: z
+          .string()
+          .describe("The JSON blob produced by export_habitat. Pass as a string."),
+        idOverride: z
+          .string()
+          .optional()
+          .describe("Override the habitat ID (use when the blob's ID is already taken)."),
+      }),
+      execute: async ({ blob, idOverride }) => {
+        let parsed: any;
+        try { parsed = JSON.parse(blob); }
+        catch (err: any) { return `Invalid blob: not JSON (${err.message})`; }
+        if (!parsed?.config) return "Invalid blob: missing config";
+
+        const id = idOverride ?? parsed.config.id ?? parsed.name?.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        if (!id) return "Invalid blob: cannot derive habitat ID";
+
+        if (registry.get(id)) {
+          return `Habitat "${id}" already exists. Pass idOverride to import under a different ID.`;
+        }
+
+        const entry = await registry.create({
+          id,
+          name: parsed.name ?? id,
+          provider: parsed.config.defaultProvider ?? "google",
+          model: parsed.config.defaultModel ?? "gemini-3-flash-preview",
+          gitUrl: parsed.config.gitUrl,
+          gitBranch: parsed.config.gitBranch,
+          secretBindings: parsed.secretBindings ?? [],
+          skillsFromGit: parsed.config.skillsFromGit,
+        });
+        // Preserve agents, scopeTemplates, requiredSecrets, etc.
+        entry.config = { ...entry.config, ...parsed.config, name: entry.name };
+        await registry.update(id, { config: entry.config });
+
+        // Re-apply the org-readonly seed in case the importer's vault has
+        // tokens the source vault didn't.
+        const seed = seedOrgReadonly(entry.config, vault);
+        if (seed.bindings.length > 0) {
+          for (const name of seed.bindings) {
+            if (!entry.secretBindings.includes(name)) entry.secretBindings.push(name);
+          }
+          await registry.update(id, {
+            config: entry.config,
+            secretBindings: entry.secretBindings,
+          });
+        }
+
+        await docker.seedVolume(id, buildSeedFiles(entry, vault));
+
+        const missing = entry.secretBindings.filter(n => vault.get(n) === undefined);
+        const warn = missing.length > 0
+          ? `\n\nWARNING: master vault is missing values for: ${missing.join(", ")}. Use bind_secret to add them before starting the container.`
+          : "";
+        return `Imported habitat "${id}" from blob.${warn}`;
+      },
+    }),
+
+    // ── Credential Catalog ───────────────────────────────────────────
+
+    add_credential: tool({
+      description:
+        "Add a credential entry to the catalog. Stores metadata about a secret (provider, capabilities, scopes) — NOT the actual secret value. Use set_secret to store the actual value in the master vault.",
+      inputSchema: z.object({
+        name: z.string().describe("Stable machine name (e.g. 'quickbooks-read-key')"),
+        label: z.string().describe("Human-readable label"),
+        provider: z.string().describe("Provider namespace (e.g. 'intuit/quickbooks', 'github')"),
+        capabilities: z.array(z.string()).describe("Capability names this credential grants (e.g. ['quickbooks:read'])"),
+        scopes: z.array(z.string()).optional().describe("Upstream OAuth scopes (e.g. ['accounts:read'])"),
+        dashboardUrl: z.string().optional().describe("URL to billing/quotas dashboard"),
+        sourceVaultRef: z.string().optional().describe("Reference to secret location (1Password item, age key, etc.)"),
+      }),
+      execute: async (params) => {
+        try {
+          await catalog.add({
+            name: params.name,
+            label: params.label,
+            provider: params.provider,
+            capabilities: params.capabilities,
+            scopes: params.scopes ?? [],
+            dashboardUrl: params.dashboardUrl,
+            sourceVaultRef: params.sourceVaultRef,
+            status: "unknown",
+          });
+          return `Added credential "${params.name}" (${params.provider}).`;
+        } catch (err: any) {
+          return `Error: ${err.message}`;
+        }
+      },
+    }),
+
+    list_credentials: tool({
+      description:
+        "List all credentials in the catalog with their capabilities and status.",
+      inputSchema: z.object({
+        provider: z.string().optional().describe("Filter by provider namespace"),
+        capability: z.string().optional().describe("Filter by capability"),
+      }),
+      execute: async ({ provider, capability }) => {
+        let entries = catalog.list();
+        if (provider) entries = entries.filter((e) => e.provider === provider);
+        if (capability) entries = entries.filter((e) => e.capabilities.includes(capability));
+        if (entries.length === 0) return "No credentials found.";
+        const summary = entries.map((e) => {
+          const capStr = e.capabilities.length > 0 ? e.capabilities.join(", ") : "none";
+          const verified = e.lastVerified ? ` (verified ${e.lastVerified.slice(0, 10)})` : "";
+          return `  - ${e.name} [${e.provider}] caps: ${capStr} status: ${e.status}${verified}`;
+        });
+        return `Credentials (${entries.length}):\n${summary.join("\n")}`;
+      },
+    }),
+
+    remove_credential: tool({
+      description:
+        "Remove a credential entry from the catalog by name. Does NOT delete the secret from the master vault.",
+      inputSchema: z.object({
+        name: z.string().describe("Credential name to remove"),
+      }),
+      execute: async ({ name }) => {
+        const removed = await catalog.remove(name);
+        return removed
+          ? `Removed credential "${name}".`
+          : `Credential "${name}" not found.`;
+      },
+    }),
+
+    verify_credential: tool({
+      description:
+        "Mark a credential as verified (sets status to active and updates lastVerified timestamp).",
+      inputSchema: z.object({
+        name: z.string().describe("Credential name to verify"),
+      }),
+      execute: async ({ name }) => {
+        const entry = await catalog.verify(name);
+        if (!entry) return `Credential "${name}" not found.`;
+        return `Verified credential "${name}" (status: active, verified: ${entry.lastVerified}).`;
       },
     }),
   };

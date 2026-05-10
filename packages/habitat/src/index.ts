@@ -12,12 +12,27 @@ export type {
   HabitatConfig,
   HabitatOptions,
   AgentEntry,
+  AgentKind,
+  AgentIdentity,
+  AgentScope,
+  AgentVaultRef,
+  AgentRequirements,
+  AgentSurface,
+  ScopeTemplate,
   HabitatCommands,
   HabitatSessionMetadata,
   HabitatSessionType,
   OnboardingResult,
   RequiredSecret,
 } from "./types.js";
+
+// ── Agent identity / vaults ─────────────────────────────────────────────
+export {
+  InlineVault,
+  HabitatVault,
+  OnePasswordVault,
+} from "./identity/vault.js";
+export type { AgentVault } from "./identity/vault.js";
 
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
 export { getAgentMemoryPath } from "./agent-paths.js";
@@ -136,13 +151,15 @@ export { createA2AHandler, buildAgentCard, HabitatAgentExecutor } from "./a2a-ha
 export type { A2AHandler, A2AHandlerOptions, AgentCardOptions } from "./a2a-handler.js";
 
 // ── Gaia orchestrator ───────────────────────────────────────────────────
-export { GaiaRegistryManager, GaiaSecretVault, DockerManager, createGaiaToolSet, handleGaiaRoute } from "./gaia/index.js";
+export { GaiaRegistryManager, GaiaSecretVault, DockerManager, CredentialCatalog, createGaiaToolSet, handleGaiaRoute } from "./gaia/index.js";
 export type {
   GaiaHabitatEntry,
   GaiaRegistry,
   GaiaOrchestratorOptions,
   GaiaToolsContext,
   GaiaRouteContext,
+  CredentialEntry,
+  CredentialStatus,
 } from "./gaia/index.js";
 
 // ── Web server / adapter ────────────────────────────────────────────────

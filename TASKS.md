@@ -178,6 +178,17 @@ Break the `habitat ↔ ui/bridge` circular dependency. UI code (Layer 8) was imp
 - [x] Update `mise run habitat-build` task path
 - [x] All tests pass (2 pre-existing better-sqlite3 native module failures unrelated)
 
+## T2: Credential Catalog — Data Model, File Storage, Basic CRUD Tools (DONE)
+
+- [x] Add `CredentialEntry` and `CredentialStatus` types to `gaia/types.ts`
+- [x] Create `CredentialCatalog` class (load/save, add, remove, get, list, listByCapability, listByProvider, verify)
+- [x] Add `catalog` to `GaiaToolsContext`
+- [x] Add Gaia tools: `add_credential`, `list_credentials`, `remove_credential`, `verify_credential`
+- [x] Wire `CredentialCatalog` into CLI Gaia startup
+- [x] Export from `gaia/index.ts` and main `habitat/src/index.ts`
+- [x] 18 unit tests: load/save, add, remove, get, listByCapability, listByProvider, idempotent add, verify, secret safety
+- [x] All tests pass (2 pre-existing better-sqlite3 failures only)
+
 ## Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)

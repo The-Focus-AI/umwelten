@@ -54,6 +54,37 @@ export interface CreateHabitatOptions {
   skillsFromGit?: string[];
 }
 
+/** Status of a credential (whether it's known to be working). */
+export type CredentialStatus = "active" | "expired" | "unknown";
+
+/**
+ * Metadata about a secret stored in Gaia's master vault.
+ * Stores what the key grants, which provider it's for, and verification info.
+ * No actual secret values — only metadata.
+ */
+export interface CredentialEntry {
+  /** Stable machine name, e.g. "accounting-bot-read-key" */
+  name: string;
+  /** Human-readable label */
+  label: string;
+  /** Provider namespace, e.g. "intuit/quickbooks", "github", "openrouter" */
+  provider: string;
+  /** Capability names this credential grants, e.g. ["quickbooks:read", "quickbooks:write"] */
+  capabilities: string[];
+  /** Upstream OAuth scopes or API permission names, e.g. ["accounts:read"] */
+  scopes: string[];
+  /** Optional URL to a billing/quotas dashboard for this credential */
+  dashboardUrl?: string;
+  /** Where the actual secret lives: 1Password item UUID, age key name, vault entry */
+  sourceVaultRef?: string;
+  /** Whether this credential has been verified recently */
+  status: CredentialStatus;
+  /** ISO timestamp of last verification */
+  lastVerified?: string;
+  /** ISO timestamp when OAuth refresh token expires (if applicable) */
+  refreshTokenExpiry?: string;
+}
+
 /** Options for the Gaia orchestrator server. */
 export interface GaiaOrchestratorOptions {
   port?: number;

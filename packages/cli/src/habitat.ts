@@ -25,7 +25,7 @@ import {
 } from "@umwelten/habitat";
 import type { AgentEntry, DiscordChannelRuntimeMode } from "@umwelten/habitat";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
-import { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
+import type { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
 import { writeSessionTranscript } from "@umwelten/habitat/transcript.js";
 import { createCurrentSessionTool } from "@umwelten/habitat/tools/session-tools.js";
 import { fileExists } from "@umwelten/habitat/config.js";
@@ -1228,6 +1228,7 @@ addSharedOptions(gaiaSubcommand)
       const { GaiaRegistryManager } = await import("@umwelten/habitat/gaia/registry.js");
       const { GaiaSecretVault } = await import("@umwelten/habitat/gaia/secrets.js");
       const { DockerManager } = await import("@umwelten/habitat/gaia/docker.js");
+      const { CredentialCatalog } = await import("@umwelten/habitat/gaia/credential-catalog.js");
       const { createGaiaToolSet } = await import("@umwelten/habitat/gaia/gaia-tools.js");
       const { handleGaiaRoute } = await import("@umwelten/habitat/gaia/routes.js");
 
@@ -1283,7 +1284,9 @@ addSharedOptions(gaiaSubcommand)
       await docker.ensureNetwork().catch(() => {});
 
       // Create habitat with container tools + gaia orchestrator tools
-      const gaiaToolSet = createGaiaToolSet({ registry, vault, docker });
+      const catalog = new CredentialCatalog(dataDir);
+      await catalog.load();
+      const gaiaToolSet = createGaiaToolSet({ registry, vault, docker, catalog });
       const habitat = await Habitat.create({
         workDir: dataDir,
         sessionsDir: pathResolve(dataDir, "sessions"),
