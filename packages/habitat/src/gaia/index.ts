@@ -12,10 +12,13 @@ export type {
 	CredentialEntry,
 	CredentialStatus,
 } from "./types.js";
+export type { CapabilityBinding } from "../types.js";
 
 export { GaiaRegistryManager } from "./registry.js";
 export { GaiaSecretVault } from "./secrets.js";
 export { CredentialCatalog } from "./credential-catalog.js";
+export { CapabilityResolver } from "./capability-resolver.js";
+export type { ResolverResult } from "./capability-resolver.js";
 export { DockerManager } from "./docker.js";
 export { proxyRequest, fetchFromContainer } from "./proxy.js";
 export { createGaiaToolSet, buildSeedFiles } from "./gaia-tools.js";

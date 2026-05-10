@@ -202,6 +202,18 @@ Credential catalog is managed LLM-first via Gaia chat, not through custom HTML t
 - [x] Removed legacy `gaia/ui/index.html` — no custom Gaia-specific UI needed
 - [x] LLM drives credential management via existing chat + tool infrastructure
 
+## T4: Capability Bindings — HabitatConfig + buildSeedFiles Resolution (DONE)
+
+- [x] Add `CapabilityBinding` type (`{ capability, credential }`) to `types.ts`
+- [x] Add `capabilities?: CapabilityBinding[]` field to `HabitatConfig`
+- [x] Create `CapabilityResolver` class in `gaia/capability-resolver.ts`
+- [x] Resolver: resolves bindings → env vars, rejects missing credentials, warns on expired
+- [x] Modify `buildSeedFiles` to accept optional `catalog` param and resolve capabilities
+- [x] 18 unit tests: valid bindings, multiple bindings, missing credential, expired status, expired refresh token, overlapping capabilities, buildSeedFiles integration (both bindings + capabilities, backward compat without catalog, config.json includes capabilities)
+- [x] All call sites in `gaia-tools.ts` pass catalog to `buildSeedFiles`
+- [x] Exports: `CapabilityBinding`, `CapabilityResolver`, `ResolverResult` from gaia + habitat indexes
+- [x] TypeScript clean, all tests pass (only pre-existing better-sqlite3 failures remain)
+
 ### Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)

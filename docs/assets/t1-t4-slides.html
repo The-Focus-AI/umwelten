@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Habitat Credential Catalog — Progress Slides</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "media",
+        theme: {
+          fontFamily: {
+            sans: [
+              "'IBM Plex Sans'",
+              "'Hanken Grotesk'",
+              "Barlow",
+              "'Host Grotesk'",
+              "'DM Sans'",
+              "system-ui",
+              "sans-serif",
+            ],
+          },
+        },
+      };
+    </script>
+    <style>
+      * {
+        scroll-behavior: smooth;
+      }
+      html {
+        color-scheme: light dark;
+      }
+      ::selection {
+        background: #c8102e;
+        color: white;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-50 antialiased"
+  >
+    <!-- Slide Container -->
+    <main class="snap-y snap-mandatory h-screen overflow-y-auto">
+      <!-- ── Slide 1: Title ───────────────────────────────────────────── -->
+      <section
+        class="snap-start h-screen flex items-center justify-center px-4 md:px-8"
+      >
+        <div class="max-w-3xl mx-auto text-center">
+          <span
+            class="text-xs font-normal tracking-wide uppercase text-stone-900/40 dark:text-stone-50/40"
+          >
+            @umwelten/habitat · Gaia Orchestrator
+          </span>
+          <h1
+            class="mt-8 text-4xl sm:text-5xl md:text-7xl font-light tracking-tight leading-none text-balance"
+          >
+            Habitat Credential<br />Catalog &amp; Permissions
+          </h1>
+          <p
+            class="mt-8 text-lg font-normal text-stone-900/70 dark:text-stone-50/70 max-w-[60ch] mx-auto text-pretty leading-relaxed"
+          >
+            Declarative, catalog-driven credential management for multi-agent
+            container habitats — built on Gaia's master vault, credential
+            registry, and capability resolution.
+          </p>
+          <div
+            class="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-stone-900/40 dark:text-stone-50/40"
+          >
+            <span>T1–T4 Complete</span>
+            <span class="text-stone-900/20 dark:text-stone-50/20">|</span>
+            <span>May 2026</span>
+          </div>
+          <div class="mt-16 flex items-center justify-center gap-3">
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+            <span class="w-2 h-2 rounded-full bg-[#C8102E]/20"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 2: T1 — Root Directory Cleanup ─────────────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <div class="grid grid-cols-12 gap-8 md:gap-16">
+            <div class="col-span-12 md:col-span-4">
+              <span
+                class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+                >T1</span
+              >
+              <h2
+                class="mt-4 text-3xl font-light tracking-tight leading-none text-balance"
+              >
+                Root Directory<br />Cleanup
+              </h2>
+              <p class="mt-6 text-sm text-stone-900/40 dark:text-stone-50/40">
+                Foundation work — move habitat deployment artifacts into the
+                package, tidy the monorepo root.
+              </p>
+            </div>
+            <div class="col-span-12 md:col-span-8">
+              <div class="space-y-6">
+                <div class="border-l-2 border-[#C8102E]/20 pl-6">
+                  <h3 class="text-base font-medium">
+                    Files relocated into
+                    <code class="font-mono text-sm text-[#C8102E]"
+                      >packages/habitat/</code
+                    >
+                  </h3>
+                  <ul
+                    class="mt-3 space-y-2 text-sm text-stone-900/70 dark:text-stone-50/70"
+                  >
+                    <li class="flex items-start gap-3">
+                      <span
+                        class="mt-1 w-2 h-2 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span
+                        ><code class="font-mono text-sm">Dockerfile</code> —
+                        with updated COPY paths for monorepo build context</span
+                      >
+                    </li>
+                    <li class="flex items-start gap-3">
+                      <span
+                        class="mt-1 w-2 h-2 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span
+                        ><code class="font-mono text-sm"
+                          >docker-compose.yml</code
+                        >
+                        — build context:
+                        <code class="font-mono text-sm">../..</code></span
+                      >
+                    </li>
+                    <li class="flex items-start gap-3">
+                      <span
+                        class="mt-1 w-2 h-2 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span
+                        ><code class="font-mono text-sm">entrypoint.sh</code> —
+                        auto-provisioning on boot</span
+                      >
+                    </li>
+                  </ul>
+                </div>
+                <div class="border-l-2 border-[#C8102E]/20 pl-6">
+                  <h3 class="text-base font-medium">Root hygiene</h3>
+                  <ul
+                    class="mt-3 space-y-2 text-sm text-stone-900/70 dark:text-stone-50/70"
+                  >
+                    <li class="flex items-start gap-3">
+                      <span
+                        class="mt-1 w-2 h-2 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span
+                        >Architecture diagrams moved to
+                        <code class="font-mono text-sm"
+                          >docs/assets/</code
+                        ></span
+                      >
+                    </li>
+                    <li class="flex items-start gap-3">
+                      <span
+                        class="mt-1 w-2 h-2 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span
+                        >6 entries added to
+                        <code class="font-mono text-sm">.gitignore</code>
+                        (habitat-data, test-data, *.tgz, …)</span
+                      >
+                    </li>
+                    <li class="flex items-start gap-3">
+                      <span
+                        class="mt-1 w-2 h-2 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span
+                        >Updated
+                        <code class="font-mono text-sm"
+                          >mise run habitat-build</code
+                        >
+                        task path</span
+                      >
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 3: T2 — Credential Catalog ─────────────────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <div class="grid grid-cols-12 gap-8 md:gap-16">
+            <div class="col-span-12 md:col-span-4">
+              <span
+                class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+                >T2</span
+              >
+              <h2
+                class="mt-4 text-3xl font-light tracking-tight leading-none text-balance"
+              >
+                Credential<br />Catalog
+              </h2>
+              <p class="mt-6 text-sm text-stone-900/40 dark:text-stone-50/40">
+                Data model, file-backed persistence, and CRUD operations for
+                credential metadata — names, providers, capabilities, and
+                verification status.
+              </p>
+            </div>
+            <div class="col-span-12 md:col-span-8">
+              <!-- Type diagram -->
+              <div
+                class="bg-stone-100 dark:bg-stone-900 rounded-sm p-6 md:p-8 font-mono text-sm leading-relaxed overflow-x-auto"
+              >
+                <span class="text-[#C8102E]">interface</span>
+                <span class="text-stone-900/70 dark:text-stone-50/70"
+                  >CredentialEntry</span
+                >
+                { <br />&nbsp;&nbsp;name:
+                <span class="text-[#C8102E]">string</span>
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >// "org-readonly-key"</span
+                >
+                <br />&nbsp;&nbsp;label:
+                <span class="text-[#C8102E]">string</span>
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >// "Org Read-Only GitHub Key"</span
+                >
+                <br />&nbsp;&nbsp;provider:
+                <span class="text-[#C8102E]">string</span>
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >// "github"</span
+                >
+                <br />&nbsp;&nbsp;capabilities:
+                <span class="text-[#C8102E]">string[]</span>
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >// ["github:read"]</span
+                >
+                <br />&nbsp;&nbsp;scopes:
+                <span class="text-[#C8102E]">string[]</span>
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >// ["repo:read"]</span
+                >
+                <br />&nbsp;&nbsp;status:
+                <span class="text-[#C8102E]">CredentialStatus</span>
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >// "active" | "expired" | "unknown"</span
+                >
+                <br />&nbsp;&nbsp;lastVerified?:
+                <span class="text-[#C8102E]">string</span>
+                <br />&nbsp;&nbsp;refreshTokenExpiry?:
+                <span class="text-[#C8102E]">string</span> <br />}
+              </div>
+
+              <div class="mt-8 grid grid-cols-2 gap-4">
+                <div class="border-l-2 border-[#C8102E]/20 pl-4">
+                  <h3 class="text-base font-medium">
+                    CredentialCatalog methods
+                  </h3>
+                  <ul
+                    class="mt-3 space-y-1 text-sm text-stone-900/70 dark:text-stone-50/70"
+                  >
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >add(entry)</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >remove(name)</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >get(name)</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >list()</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >listByCapability(cap)</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >listByProvider(prov)</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >verify(name)</code
+                      >
+                    </li>
+                  </ul>
+                </div>
+                <div class="border-l-2 border-[#C8102E]/20 pl-4">
+                  <h3 class="text-base font-medium">Gaia tools exposed</h3>
+                  <ul
+                    class="mt-3 space-y-1 text-sm text-stone-900/70 dark:text-stone-50/70"
+                  >
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >add_credential</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >list_credentials</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >remove_credential</code
+                      >
+                    </li>
+                    <li>
+                      <code class="font-mono text-xs text-[#C8102E]"
+                        >verify_credential</code
+                      >
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div
+                class="mt-8 flex items-center gap-4 text-sm text-stone-900/40 dark:text-stone-50/40"
+              >
+                <span
+                  class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+                  >17 tests</span
+                >
+                <span
+                  class="w-1 h-1 rounded-full bg-stone-300 dark:bg-stone-700"
+                ></span>
+                <span>No secret values stored — metadata only</span>
+                <span
+                  class="w-1 h-1 rounded-full bg-stone-300 dark:bg-stone-700"
+                ></span>
+                <span
+                  >Persisted in
+                  <code class="font-mono text-xs">credentials.json</code></span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 4: T3 — LLM-First Credential Management ────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <div class="grid grid-cols-12 gap-8 md:gap-16">
+            <div class="col-span-12 md:col-span-4">
+              <span
+                class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+                >T3</span
+              >
+              <h2
+                class="mt-4 text-3xl font-light tracking-tight leading-none text-balance"
+              >
+                LLM-First<br />Credential Management
+              </h2>
+              <p class="mt-6 text-sm text-stone-900/40 dark:text-stone-50/40">
+                Re-scoped — no custom HTML UI. Credentials are managed through
+                Gaia chat using the standard container UI's tool-call rendering.
+              </p>
+            </div>
+            <div class="col-span-12 md:col-span-8">
+              <div class="bg-stone-100 dark:bg-stone-900 rounded-sm p-8">
+                <div class="space-y-8">
+                  <!-- Conversation mock -->
+                  <div class="flex items-start gap-4">
+                    <span
+                      class="text-xs font-medium text-stone-900/40 dark:text-stone-50/40 mt-1 w-12 shrink-0"
+                      >User</span
+                    >
+                    <div
+                      class="bg-stone-50 dark:bg-stone-950 rounded-sm px-4 py-3 text-sm max-w-[60ch]"
+                    >
+                      Add a credential for our QuickBooks read-only access
+                    </div>
+                  </div>
+                  <div class="flex items-start gap-4">
+                    <span
+                      class="text-xs font-medium text-stone-900/40 dark:text-stone-50/40 mt-1 w-12 shrink-0"
+                      >Gaia</span
+                    >
+                    <div class="text-sm max-w-[60ch] space-y-3">
+                      <p>I'll add that credential to the catalog.</p>
+                      <div
+                        class="border-l-2 border-stone-200 dark:border-stone-800 pl-4 font-mono text-xs leading-relaxed text-stone-900/70 dark:text-stone-50/70"
+                      >
+                        <span class="text-[#C8102E]">add_credential</span> {
+                        <br />&nbsp;&nbsp;name: "quickbooks-read-key",
+                        <br />&nbsp;&nbsp;label: "QuickBooks Read-Only",
+                        <br />&nbsp;&nbsp;provider: "intuit/quickbooks",
+                        <br />&nbsp;&nbsp;capabilities: ["quickbooks:read"],
+                        <br />&nbsp;&nbsp;scopes: ["accounts:read"] <br />}
+                      </div>
+                      <p class="text-stone-900/70 dark:text-stone-50/70">
+                        Added credential "quickbooks-read-key"
+                        (intuit/quickbooks).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-8 grid grid-cols-2 gap-4">
+                <div class="border-l-2 border-[#C8102E]/20 pl-4">
+                  <h3 class="text-base font-medium">Design decision</h3>
+                  <p
+                    class="mt-3 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                  >
+                    The LLM is the interface. Tool calls and results render
+                    inline in the standard chat view — no bespoke HTML tabs
+                    needed. Credential operations are discoverable through
+                    natural language.
+                  </p>
+                </div>
+                <div class="border-l-2 border-[#C8102E]/20 pl-4">
+                  <h3 class="text-base font-medium">Tool coverage</h3>
+                  <p
+                    class="mt-3 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                  >
+                    All four T2 tools are immediately available in Gaia chat:
+                    add, list (with provider &amp; capability filters), remove,
+                    and verify credentials — all managed by the LLM agent.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 5: T4 — Capability Bindings ────────────────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <div class="grid grid-cols-12 gap-8 md:gap-16">
+            <div class="col-span-12 md:col-span-4">
+              <span
+                class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+                >T4</span
+              >
+              <h2
+                class="mt-4 text-3xl font-light tracking-tight leading-none text-balance"
+              >
+                Capability<br />Bindings
+              </h2>
+              <p class="mt-6 text-sm text-stone-900/40 dark:text-stone-50/40">
+                Declarative binding of capabilities to specific credentials in
+                habitat configs — resolved at seed time into actual secret
+                values from the master vault.
+              </p>
+            </div>
+            <div class="col-span-12 md:col-span-8">
+              <!-- Config example -->
+              <div class="mb-8">
+                <span
+                  class="text-xs font-normal tracking-wide uppercase text-stone-900/40 dark:text-stone-50/40"
+                  >habitat config.json</span
+                >
+                <div
+                  class="mt-3 bg-stone-100 dark:bg-stone-900 rounded-sm p-6 font-mono text-sm leading-relaxed overflow-x-auto"
+                >
+                  {
+                  <br />&nbsp;&nbsp;<span class="text-[#C8102E]"
+                    >"capabilities"</span
+                  >: [ <br />&nbsp;&nbsp;&nbsp;&nbsp;{
+                  <span class="text-[#C8102E]">"capability"</span>:
+                  <span class="text-stone-900/70 dark:text-stone-50/70"
+                    >"github:read"</span
+                  >, <br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+                    class="text-[#C8102E]"
+                    >"credential"</span
+                  >:
+                  <span class="text-stone-900/70 dark:text-stone-50/70"
+                    >"org-readonly-key"</span
+                  >
+                  }, <br />&nbsp;&nbsp;&nbsp;&nbsp;{
+                  <span class="text-[#C8102E]">"capability"</span>:
+                  <span class="text-stone-900/70 dark:text-stone-50/70"
+                    >"quickbooks:read"</span
+                  >, <br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+                    class="text-[#C8102E]"
+                    >"credential"</span
+                  >:
+                  <span class="text-stone-900/70 dark:text-stone-50/70"
+                    >"accounting-bot-read-key"</span
+                  >
+                  } <br />&nbsp;&nbsp;] <br />}
+                </div>
+              </div>
+
+              <!-- Resolution flow -->
+              <div class="mb-8">
+                <span
+                  class="text-xs font-normal tracking-wide uppercase text-stone-900/40 dark:text-stone-50/40"
+                  >resolution flow</span
+                >
+                <div
+                  class="mt-3 flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm font-mono"
+                >
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-3 py-2"
+                    >Config<br />capabilities</span
+                  >
+                  <span class="text-stone-900/20 dark:text-stone-50/20 text-lg"
+                    >→</span
+                  >
+                  <span
+                    class="bg-[#C8102E]/10 rounded-sm px-3 py-2 text-[#C8102E]"
+                    >Capability<br />Resolver</span
+                  >
+                  <span class="text-stone-900/20 dark:text-stone-50/20 text-lg"
+                    >→</span
+                  >
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-3 py-2"
+                    >Catalog<br />lookup</span
+                  >
+                  <span class="text-stone-900/20 dark:text-stone-50/20 text-lg"
+                    >→</span
+                  >
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-3 py-2"
+                    >Vault<br />read</span
+                  >
+                  <span class="text-stone-900/20 dark:text-stone-50/20 text-lg"
+                    >→</span
+                  >
+                  <span
+                    class="bg-[#C8102E]/10 rounded-sm px-3 py-2 text-[#C8102E]"
+                    >secrets.json<br />env vars</span
+                  >
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="border-l-2 border-[#C8102E]/20 pl-4">
+                  <h3 class="text-base font-medium">CapabilityResolver</h3>
+                  <ul
+                    class="mt-3 space-y-1 text-sm text-stone-900/70 dark:text-stone-50/70"
+                  >
+                    <li class="flex items-start gap-2">
+                      <span
+                        class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span>Resolves bindings → env vars</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <span
+                        class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span>Rejects missing credentials</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <span
+                        class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span>Warns on expired status/tokens</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                      <span
+                        class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                      ></span>
+                      <span>Handles overlapping capabilities</span>
+                    </li>
+                  </ul>
+                </div>
+                <div class="border-l-2 border-[#C8102E]/20 pl-4">
+                  <h3 class="text-base font-medium">
+                    buildSeedFiles integration
+                  </h3>
+                  <p
+                    class="mt-3 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                  >
+                    seeds now contain both direct
+                    <code class="font-mono text-xs">secretBindings</code>
+                    and capability-resolved values. Backward compatible —
+                    habitats without capabilities are unaffected.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="mt-6 flex items-center gap-4 text-sm text-stone-900/40 dark:text-stone-50/40"
+              >
+                <span
+                  class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+                  >18 tests</span
+                >
+                <span
+                  class="w-1 h-1 rounded-full bg-stone-300 dark:bg-stone-700"
+                ></span>
+                <span>8 call sites updated</span>
+                <span
+                  class="w-1 h-1 rounded-full bg-stone-300 dark:bg-stone-700"
+                ></span>
+                <span>TypeScript clean</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 6: Architecture ─────────────────────────────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <span
+            class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+            >architecture</span
+          >
+          <h2
+            class="mt-4 text-4xl md:text-5xl font-light tracking-tight leading-none text-balance"
+          >
+            How the pieces fit together
+          </h2>
+
+          <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Master Vault -->
+            <div
+              class="border border-stone-200 dark:border-stone-800 rounded-sm p-6"
+            >
+              <div
+                class="w-10 h-10 bg-[#C8102E]/10 rounded-sm flex items-center justify-center mb-4"
+              >
+                <span class="text-lg font-light text-[#C8102E]">1</span>
+              </div>
+              <h3 class="text-lg font-normal">Master Vault</h3>
+              <p
+                class="mt-3 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+              >
+                <code class="font-mono text-xs">GaiaSecretVault</code> stores
+                actual secret values — API keys, tokens, credentials — in a
+                single 0600-mode JSON file. Names are lookup keys.
+              </p>
+              <div
+                class="mt-4 bg-stone-100 dark:bg-stone-900 rounded-sm p-3 font-mono text-xs leading-relaxed"
+              >
+                GITHUB_TOKEN<br />
+                QUICKBOOKS_KEY<br />
+                TAVILY_API_KEY
+              </div>
+            </div>
+
+            <!-- Credential Catalog -->
+            <div
+              class="border border-stone-200 dark:border-stone-800 rounded-sm p-6"
+            >
+              <div
+                class="w-10 h-10 bg-[#C8102E]/10 rounded-sm flex items-center justify-center mb-4"
+              >
+                <span class="text-lg font-light text-[#C8102E]">2</span>
+              </div>
+              <h3 class="text-lg font-normal">Credential Catalog</h3>
+              <p
+                class="mt-3 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+              >
+                <code class="font-mono text-xs">CredentialCatalog</code> stores
+                metadata about each secret: provider, capabilities, scopes,
+                status, and verification timestamps — no values.
+              </p>
+              <div
+                class="mt-4 bg-stone-100 dark:bg-stone-900 rounded-sm p-3 font-mono text-xs leading-relaxed"
+              >
+                name: "gh-read-key"<br />
+                provider: "github"<br />
+                caps: ["github:read"]<br />
+                status: "active"
+              </div>
+            </div>
+
+            <!-- Capability Resolver -->
+            <div
+              class="border border-[#C8102E]/40 rounded-sm p-6 bg-[#C8102E]/5"
+            >
+              <div
+                class="w-10 h-10 bg-[#C8102E] rounded-sm flex items-center justify-center mb-4"
+              >
+                <span class="text-lg font-light text-stone-50">3</span>
+              </div>
+              <h3 class="text-lg font-normal">Capability Resolver</h3>
+              <p
+                class="mt-3 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+              >
+                <code class="font-mono text-xs">CapabilityResolver</code>
+                bridges the two: given a config's capability bindings, looks up
+                credentials in the catalog, validates them, and pulls secrets
+                from the vault.
+              </p>
+              <div
+                class="mt-4 bg-[#C8102E]/10 rounded-sm p-3 font-mono text-xs leading-relaxed"
+              >
+                capability → credential<br />
+                → catalog check<br />
+                → vault read<br />
+                → secrets.json
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="mt-16 border-t border-stone-200 dark:border-stone-800 pt-8"
+          >
+            <div class="grid grid-cols-12 gap-4">
+              <div class="col-span-12 md:col-span-6">
+                <span
+                  class="text-xs font-normal tracking-wide uppercase text-stone-900/40 dark:text-stone-50/40"
+                  >seed flow</span
+                >
+                <div
+                  class="mt-3 flex flex-wrap items-center gap-2 text-xs font-mono"
+                >
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-2 py-1"
+                    >create_habitat</span
+                  >
+                  <span class="text-stone-300 dark:text-stone-700">→</span>
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-2 py-1"
+                    >buildSeedFiles</span
+                  >
+                  <span class="text-stone-300 dark:text-stone-700">→</span>
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-2 py-1"
+                    >seedVolume</span
+                  >
+                  <span class="text-stone-300 dark:text-stone-700">→</span>
+                  <span
+                    class="bg-stone-100 dark:bg-stone-900 rounded-sm px-2 py-1"
+                    >startContainer</span
+                  >
+                </div>
+              </div>
+              <div class="col-span-12 md:col-span-6">
+                <span
+                  class="text-xs font-normal tracking-wide uppercase text-stone-900/40 dark:text-stone-50/40"
+                  >output</span
+                >
+                <div
+                  class="mt-3 bg-stone-100 dark:bg-stone-900 rounded-sm p-3 font-mono text-xs leading-relaxed"
+                >
+                  secrets.json = {<br />
+                  &nbsp;&nbsp;<span
+                    class="text-stone-900/40 dark:text-stone-50/40"
+                    >// secretBindings</span
+                  ><br />
+                  &nbsp;&nbsp;"GITHUB_TOKEN": "ghp_xxx",<br />
+                  &nbsp;&nbsp;<span
+                    class="text-stone-900/40 dark:text-stone-50/40"
+                    >// capability-resolved</span
+                  ><br />
+                  &nbsp;&nbsp;"gh-read-key": "ghp_yyy"<br />
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 7: Test Coverage ────────────────────────────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <span
+            class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+            >quality</span
+          >
+          <h2
+            class="mt-4 text-4xl md:text-5xl font-light tracking-tight leading-none text-balance"
+          >
+            Test Coverage
+          </h2>
+
+          <div class="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 class="text-lg font-normal mb-6">
+                Credential Catalog
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >— 17 tests</span
+                >
+              </h3>
+              <ul
+                class="space-y-3 text-sm text-stone-900/70 dark:text-stone-50/70"
+              >
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>Load/save round-trip, empty catalog start</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>Add, remove, get — with duplicate rejection</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>listByCapability and listByProvider filtering</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>Verify updates lastVerified + status, idempotent</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span
+                    >Secret value safety — no values in credentials.json</span
+                  >
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="text-lg font-normal mb-6">
+                Capability Resolver
+                <span class="text-stone-900/40 dark:text-stone-50/40"
+                  >— 18 tests</span
+                >
+              </h3>
+              <ul
+                class="space-y-3 text-sm text-stone-900/70 dark:text-stone-50/70"
+              >
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>Valid single &amp; multiple bindings → env vars</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>Missing credential → throws</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span>Expired status → warning, still resolves</span>
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span
+                    >Refresh token expiry past/future → warning/no warning</span
+                  >
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span
+                    >Overlapping capabilities, empty bindings, missing vault
+                    value</span
+                  >
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span
+                    >buildSeedFiles: both bindings + capabilities merged</span
+                  >
+                </li>
+                <li class="flex items-start gap-3">
+                  <span
+                    class="mt-1 w-1.5 h-1.5 rounded-full bg-[#C8102E]/40 shrink-0"
+                  ></span>
+                  <span
+                    >Backward compat: no catalog, no capabilities field</span
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div
+            class="mt-12 bg-stone-100 dark:bg-stone-900 rounded-sm p-8 text-center"
+          >
+            <span
+              class="text-6xl md:text-8xl font-light tracking-tight text-[#C8102E]"
+              >35</span
+            >
+            <p class="mt-2 text-sm text-stone-900/40 dark:text-stone-50/40">
+              total tests across both suites
+            </p>
+            <p class="mt-1 text-xs text-stone-900/20 dark:text-stone-50/20">
+              2 pre-existing better-sqlite3 failures · TypeScript clean · no
+              regressions
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 8: What's Next ──────────────────────────────────────── -->
+      <section
+        class="snap-start min-h-screen flex items-center py-24 px-4 md:px-8"
+      >
+        <div class="max-w-5xl mx-auto w-full">
+          <span
+            class="text-xs font-normal tracking-wide uppercase text-[#C8102E]"
+            >next</span
+          >
+          <h2
+            class="mt-4 text-4xl md:text-5xl font-light tracking-tight leading-none text-balance"
+          >
+            What's Coming
+          </h2>
+
+          <div class="mt-16 space-y-8">
+            <div class="grid grid-cols-12 gap-4 items-start">
+              <div class="col-span-2 md:col-span-1">
+                <span class="text-lg font-light text-[#C8102E]">T5</span>
+              </div>
+              <div class="col-span-10 md:col-span-6">
+                <h3 class="text-lg font-normal">
+                  Gaia Tools — Capability Bindings
+                </h3>
+                <p
+                  class="mt-2 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                >
+                  Extend the
+                  <code class="font-mono text-xs">create_habitat</code> and
+                  <code class="font-mono text-xs">update_habitat_config</code>
+                  tools to accept capability bindings. New tools:
+                  <code class="font-mono text-xs">set_capability_binding</code>
+                  and
+                  <code class="font-mono text-xs"
+                    >remove_capability_binding</code
+                  >.
+                </p>
+              </div>
+              <div class="hidden md:block md:col-span-5">
+                <span
+                  class="inline-block bg-stone-200 dark:bg-stone-800 rounded-sm px-3 py-1 text-xs font-normal tracking-wide uppercase"
+                  >Gaia Tools</span
+                >
+              </div>
+            </div>
+
+            <div
+              class="border-t border-stone-200 dark:border-stone-800 w-full"
+            ></div>
+
+            <div class="grid grid-cols-12 gap-4 items-start">
+              <div class="col-span-2 md:col-span-1">
+                <span class="text-lg font-light text-[#C8102E]">T6</span>
+              </div>
+              <div class="col-span-10 md:col-span-6">
+                <h3 class="text-lg font-normal">Gaia UI — Capability Badges</h3>
+                <p
+                  class="mt-2 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                >
+                  Surface capability bindings in the standard container UI.
+                  Habitat cards show capability badges, credential status
+                  indicators, and verification timestamps.
+                </p>
+              </div>
+              <div class="hidden md:block md:col-span-5">
+                <span
+                  class="inline-block bg-stone-200 dark:bg-stone-800 rounded-sm px-3 py-1 text-xs font-normal tracking-wide uppercase"
+                  >UI</span
+                >
+              </div>
+            </div>
+
+            <div
+              class="border-t border-stone-200 dark:border-stone-800 w-full"
+            ></div>
+
+            <div class="grid grid-cols-12 gap-4 items-start">
+              <div class="col-span-2 md:col-span-1">
+                <span class="text-lg font-light text-[#C8102E]">T7</span>
+              </div>
+              <div class="col-span-10 md:col-span-6">
+                <h3 class="text-lg font-normal">Standards Agent — Auto-Seed</h3>
+                <p
+                  class="mt-2 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                >
+                  Auto-create a read-only "standards" sub-agent when Gaia
+                  detects org-wide standards repos. Declarative seeding — no
+                  runtime delegation.
+                </p>
+              </div>
+              <div class="hidden md:block md:col-span-5">
+                <span
+                  class="inline-block bg-stone-200 dark:bg-stone-800 rounded-sm px-3 py-1 text-xs font-normal tracking-wide uppercase"
+                  >Standards</span
+                >
+              </div>
+            </div>
+
+            <div
+              class="border-t border-stone-200 dark:border-stone-800 w-full"
+            ></div>
+
+            <div class="grid grid-cols-12 gap-4 items-start opacity-40">
+              <div class="col-span-2 md:col-span-1">
+                <span class="text-lg font-light text-[#C8102E]">T8+</span>
+              </div>
+              <div class="col-span-10 md:col-span-6">
+                <h3 class="text-lg font-normal">
+                  Broadcast, Audit Panel, Gap Detection &amp; More
+                </h3>
+                <p
+                  class="mt-2 text-sm text-stone-900/70 dark:text-stone-50/70 leading-relaxed"
+                >
+                  Standards broadcast tool, Gaia UI audit panel, gap detection,
+                  fnox integration, and credential logging — see
+                  <code class="font-mono text-xs">issues/</code> for full
+                  backlog.
+                </p>
+              </div>
+              <div class="hidden md:block md:col-span-5">
+                <span
+                  class="inline-block bg-stone-200 dark:bg-stone-800 rounded-sm px-3 py-1 text-xs font-normal tracking-wide uppercase"
+                  >Backlog</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Slide 9: End ─────────────────────────────────────────────── -->
+      <section
+        class="snap-start h-screen flex items-center justify-center px-4 md:px-8"
+      >
+        <div class="max-w-3xl mx-auto text-center">
+          <div class="w-16 h-0.5 bg-[#C8102E] mx-auto mb-8"></div>
+          <h2
+            class="text-5xl md:text-7xl font-light tracking-tight leading-none text-balance"
+          >
+            T1–T4<br />Complete
+          </h2>
+          <p
+            class="mt-10 text-lg text-stone-900/70 dark:text-stone-50/70 max-w-[60ch] mx-auto leading-relaxed"
+          >
+            The foundation of Gaia's credential management is in place. Catalog,
+            vault, capability resolution, and LLM-first tooling — all tested,
+            exported, and ready for the next layer.
+          </p>
+
+          <div class="mt-16 grid grid-cols-4 gap-8 max-w-lg mx-auto">
+            <div class="text-center">
+              <div class="text-2xl font-light text-[#C8102E]">3</div>
+              <div class="mt-1 text-xs text-stone-900/40 dark:text-stone-50/40">
+                new files
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-light text-[#C8102E]">4</div>
+              <div class="mt-1 text-xs text-stone-900/40 dark:text-stone-50/40">
+                modified
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-light text-[#C8102E]">35</div>
+              <div class="mt-1 text-xs text-stone-900/40 dark:text-stone-50/40">
+                tests
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-light text-[#C8102E]">8</div>
+              <div class="mt-1 text-xs text-stone-900/40 dark:text-stone-50/40">
+                call sites
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Navigation dots (fixed) -->
+    <nav
+      class="fixed right-4 top-1/2 -translate-y-1/2 hidden md:flex flex-col gap-3 z-50"
+      aria-label="Slide navigation"
+    >
+      <a
+        href="#slide-1"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="Title"
+      ></a>
+      <a
+        href="#slide-2"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="T1"
+      ></a>
+      <a
+        href="#slide-3"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="T2"
+      ></a>
+      <a
+        href="#slide-4"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="T3"
+      ></a>
+      <a
+        href="#slide-5"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="T4"
+      ></a>
+      <a
+        href="#slide-6"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="Architecture"
+      ></a>
+      <a
+        href="#slide-7"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="Tests"
+      ></a>
+      <a
+        href="#slide-8"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="Next"
+      ></a>
+      <a
+        href="#slide-9"
+        class="w-2 h-2 rounded-full bg-stone-300 dark:bg-stone-700 hover:bg-[#C8102E] transition-colors motion-safe:transition motion-reduce:transition-none"
+        title="End"
+      ></a>
+    </nav>
+
+    <!-- Keyboard hint -->
+    <div
+      class="fixed bottom-4 left-4 text-xs text-stone-900/20 dark:text-stone-50/20 hidden md:block"
+    >
+      ↑ ↓ to navigate · <kbd>⌘</kbd> + <kbd>K</kbd> for overview
+    </div>
+  </body>
+</html>

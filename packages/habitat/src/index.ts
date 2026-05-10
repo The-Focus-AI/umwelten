@@ -11,6 +11,7 @@ export type {
 	AgentHost,
 	HabitatConfig,
 	HabitatOptions,
+	CapabilityBinding,
 	AgentEntry,
 	AgentKind,
 	AgentIdentity,
@@ -164,6 +165,7 @@ export {
 	GaiaSecretVault,
 	DockerManager,
 	CredentialCatalog,
+	CapabilityResolver,
 	createGaiaToolSet,
 	handleGaiaRoute,
 } from "./gaia/index.js";
@@ -175,6 +177,7 @@ export type {
 	GaiaRouteContext,
 	CredentialEntry,
 	CredentialStatus,
+	ResolverResult,
 } from "./gaia/index.js";
 
 // ── Web server / adapter ────────────────────────────────────────────────

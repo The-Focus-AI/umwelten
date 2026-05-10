@@ -12,6 +12,7 @@ import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
+import { CapabilityResolver } from "./capability-resolver.js";
 import {
 	fetchAgentCard,
 	sendA2AMessage,
@@ -66,16 +67,32 @@ export interface GaiaToolsContext {
  * Skills are NOT seeded as a lock file here — the container entrypoint
  * installs them via `npx skills add` at boot, which generates a proper
  * skills-lock.json with correct skill paths and hashes.
+ *
+ * If `catalog` is provided and the habitat config has capability bindings,
+ * they are resolved into secret values from the master vault and merged
+ * into secrets.json alongside direct secretBindings.
  */
 export function buildSeedFiles(
 	entry: GaiaHabitatEntry,
 	vault: GaiaSecretVault,
+	catalog?: CredentialCatalog,
 ): Array<{ path: string; content: string }> {
 	const filtered: Record<string, string> = {};
+
+	// Direct secret bindings
 	for (const name of entry.secretBindings) {
 		const val = vault.get(name);
 		if (val) filtered[name] = val;
 	}
+
+	// Capability-resolved secrets
+	if (catalog && entry.config.capabilities?.length) {
+		const resolver = new CapabilityResolver();
+		const result = resolver.resolve(entry.config.capabilities, catalog, vault);
+		Object.assign(filtered, result.envVars);
+		// Warnings are logged by the caller when they surface through tool output
+	}
+
 	return [
 		{
 			path: "config.json",
@@ -164,7 +181,10 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					});
 				}
 
-				await docker.seedVolume(entry.id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(
+					entry.id,
+					buildSeedFiles(entry, vault, catalog),
+				);
 				const warnings: string[] = [];
 				if (!entry.config.defaultProvider || !entry.config.defaultModel) {
 					warnings.push(
@@ -196,7 +216,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				if (!entry) return `Habitat "${id}" not found`;
 
 				// Seed volume with fresh config + secrets
-				await docker.seedVolume(id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 
 				const port = await docker.startContainer(entry, "", registry.list());
 				await registry.update(id, { containerPort: port });
@@ -392,7 +412,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				entry.config.skillsFromGit.push(repo);
 				await registry.update(id, { config: entry.config });
 				// Re-seed volume with updated config (skillsFromGit added)
-				await docker.seedVolume(id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 				return `Added skill "${repo}" to habitat "${id}". Rebuild the habitat to install it.`;
 			},
 		}),
@@ -415,7 +435,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				);
 				await registry.update(id, { config: entry.config });
 				// Re-seed volume with updated config (skillsFromGit removed)
-				await docker.seedVolume(id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 				return `Removed skill "${repo}" from habitat "${id}". Rebuild the habitat to apply.`;
 			},
 		}),
@@ -485,7 +505,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				await registry.update(id, { name: entry.name, config: entry.config });
 
 				// Re-seed volume so next start picks up new config
-				await docker.seedVolume(id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 
 				const status = await docker.getStatus(id);
 				const hint =
@@ -524,7 +544,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				if (!entry) return `Habitat "${id}" not found`;
 
 				await docker.stopContainer(id).catch(() => {});
-				await docker.seedVolume(id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 				const port = await docker.startContainer(entry, "", registry.list());
 				await registry.update(id, { containerPort: port });
 				const url = `http://localhost:${port}/?token=${entry.apiKey}`;
@@ -644,7 +664,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					});
 				}
 
-				await docker.seedVolume(id, buildSeedFiles(entry, vault));
+				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 
 				const missing = entry.secretBindings.filter(
 					(n) => vault.get(n) === undefined,
