@@ -226,6 +226,20 @@ Credential catalog is managed LLM-first via Gaia chat, not through custom HTML t
 - [x] 6 unit tests: validate (valid, missing, wrong capability), registry.create with/without capabilities
 - [x] TypeScript clean, all tests pass (only pre-existing better-sqlite3 failures remain)
 
+## T6: Gaia UI — Capability Badges in Habitats Tab (DONE)
+
+- [x] Add "Habitats" tab to container UI with nav button
+- [x] Render capability badges on each habitat card (provider-coded colors, credential name)
+- [x] Badges color-coded by provider namespace (github, intuit, openrouter, google, twitter, slack, notion)
+- [x] No-capabilities indicator (muted italic text)
+- [x] Multi-select capability filter bar (AND logic, updates in real-time)
+- [x] "High risk" toggle for `:write` capabilities
+- [x] Filter persists across render cycles during session
+- [x] Empty state when no habitats match filter
+- [x] Enhance `/api/habitats` endpoint with `_credMeta` (provider + status per credential)
+- [x] Add `catalog` to `GaiaRouteContext` + wire into CLI startup
+- [x] TypeScript clean, 923/925 tests pass (2 pre-existing better-sqlite3)
+
 ### Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)

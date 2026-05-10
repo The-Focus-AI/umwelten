@@ -1382,7 +1382,7 @@ addSharedOptions(gaiaSubcommand)
 			const { startContainerServer } = await import(
 				"@umwelten/habitat/container-server.js"
 			);
-			const routeCtx = { registry, vault, docker };
+			const routeCtx = { registry, vault, docker, catalog };
 			const server = await startContainerServer({
 				habitat,
 				port: parseInt(options.port ?? "7420", 10),

@@ -159,7 +159,9 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				capabilities: z
 					.array(
 						z.object({
-							capability: z.string().describe("Capability name (e.g. 'github:read')"),
+							capability: z
+								.string()
+								.describe("Capability name (e.g. 'github:read')"),
 							credential: z.string().describe("Credential name in the catalog"),
 						}),
 					)
@@ -811,9 +813,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				capability: z
 					.string()
 					.describe("Capability to bind (e.g. 'github:read')"),
-				credential: z
-					.string()
-					.describe("Credential name in the catalog"),
+				credential: z.string().describe("Credential name in the catalog"),
 			}),
 			execute: async ({ habitatId, capability, credential }) => {
 				const entry = registry.get(habitatId);
@@ -840,7 +840,10 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				await registry.update(habitatId, { config: entry.config });
 
 				// Re-seed volume
-				await docker.seedVolume(habitatId, buildSeedFiles(entry, vault, catalog));
+				await docker.seedVolume(
+					habitatId,
+					buildSeedFiles(entry, vault, catalog),
+				);
 
 				const status = await docker.getStatus(habitatId);
 				const hint =
@@ -881,7 +884,10 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				await registry.update(habitatId, { config: entry.config });
 
 				// Re-seed volume
-				await docker.seedVolume(habitatId, buildSeedFiles(entry, vault, catalog));
+				await docker.seedVolume(
+					habitatId,
+					buildSeedFiles(entry, vault, catalog),
+				);
 
 				const credList = removed.map((b) => `"${b.credential}"`).join(", ");
 				const status = await docker.getStatus(habitatId);

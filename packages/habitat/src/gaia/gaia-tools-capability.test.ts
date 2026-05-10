@@ -9,7 +9,9 @@ import { GaiaRegistryManager } from "./registry.js";
 import type { CredentialEntry, GaiaHabitatEntry } from "./types.js";
 import type { CapabilityBinding } from "../types.js";
 
-function makeCredential(overrides: Partial<CredentialEntry> = {}): CredentialEntry {
+function makeCredential(
+	overrides: Partial<CredentialEntry> = {},
+): CredentialEntry {
 	return {
 		name: "test-key",
 		label: "Test Key",
@@ -100,9 +102,7 @@ describe("Gaia registry — create with capabilities", () => {
 			name: "Test Habitat",
 			provider: "google",
 			model: "gemini-3-flash-preview",
-			capabilities: [
-				{ capability: "github:read", credential: "gh-key" },
-			],
+			capabilities: [{ capability: "github:read", credential: "gh-key" }],
 		});
 
 		expect(entry.config.capabilities).toEqual([

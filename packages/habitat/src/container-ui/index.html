@@ -161,6 +161,75 @@ header .nav button.active { color: var(--accent); border-color: var(--accent); }
   overflow-x: auto; white-space: nowrap; display: flex; gap: 10px; align-items: center;
   min-height: 0; transition: min-height 0.2s;
 }
+
+/* Capability badges */
+.cap-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 4px;
+  font-family: var(--mono); font-size: 0.72em;
+  border: 1px solid;
+}
+.cap-badge .cap-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+.cap-badge .cap-cred { opacity: 0.6; font-size: 0.9em; }
+.cap-badge.provider-github { background: rgba(35,134,54,0.12); color: #3fb950; border-color: rgba(35,134,54,0.3); }
+.cap-badge.provider-gitlab { background: rgba(252,109,38,0.12); color: #fc6d26; border-color: rgba(252,109,38,0.3); }
+.cap-badge.provider-intuit { background: rgba(45,160,100,0.12); color: #2da064; border-color: rgba(45,160,100,0.3); }
+.cap-badge.provider-openrouter { background: rgba(139,92,246,0.12); color: #a78bfa; border-color: rgba(139,92,246,0.3); }
+.cap-badge.provider-google { background: rgba(66,133,244,0.12); color: #8ab4f8; border-color: rgba(66,133,244,0.3); }
+.cap-badge.provider-twitter { background: rgba(29,161,242,0.12); color: #1da1f2; border-color: rgba(29,161,242,0.3); }
+.cap-badge.provider-slack { background: rgba(74,21,75,0.2); color: #e01e5a; border-color: rgba(224,30,90,0.3); }
+.cap-badge.provider-notion { background: rgba(0,0,0,0.2); color: #9b9b9b; border-color: rgba(155,155,155,0.3); }
+.cap-badge .cap-status { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 2px; }
+.cap-badge .cap-status.active { background: var(--success); }
+.cap-badge .cap-status.expired { background: var(--error); }
+.cap-badge .cap-status.unknown { background: var(--warn); }
+.cap-badge .cap-status.not-in-catalog { background: var(--text-dim); }
+.no-capabilities { color: var(--text-dim); font-style: italic; font-size: 0.82em; padding: 4px 0; }
+
+/* Filter bar */
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0;
+  border-bottom: 1px solid var(--border); margin-bottom: 16px;
+}
+.filter-bar .filter-label {
+  font-size: 0.78em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.filter-bar .filter-chip {
+  padding: 4px 10px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--border); cursor: pointer; font-size: 0.78em;
+  font-family: var(--mono); color: var(--text-dim); user-select: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.filter-bar .filter-chip.selected {
+  border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.08);
+}
+.filter-bar .filter-chip:hover { border-color: var(--text-dim); color: var(--text); }
+.filter-bar .filter-chip.selected:hover { border-color: var(--accent); color: var(--accent); }
+.filter-bar .filter-toggle {
+  margin-left: auto;
+  padding: 4px 12px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--border); cursor: pointer; font-size: 0.78em;
+  color: var(--text-dim); user-select: none;
+}
+.filter-bar .filter-toggle.on { border-color: var(--error); color: var(--error); background: rgba(239,68,68,0.08); }
+
+/* Habitat card */
+.habitat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 18px; margin-bottom: 12px;
+}
+.habitat-card .hc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.habitat-card .hc-name { font-weight: 600; font-size: 0.95em; }
+.habitat-card .hc-status { font-size: 0.75em; font-family: var(--mono); padding: 2px 8px; border-radius: 8px; }
+.habitat-card .hc-status.running { background: rgba(34,197,94,0.12); color: var(--success); }
+.habitat-card .hc-status.exited, .habitat-card .hc-status.dead { background: rgba(239,68,68,0.12); color: var(--error); }
+.habitat-card .hc-status.not-found, .habitat-card .hc-status.created { background: rgba(115,115,115,0.12); color: var(--text-dim); }
+.habitat-card .hc-meta { font-size: 0.75em; color: var(--text-dim); margin-bottom: 8px; font-family: var(--mono); }
+.habitat-card .hc-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.habitats-view { flex: 1; overflow-y: auto; padding: 20px; }
+.habitats-view h2 { font-size: 16px; margin-bottom: 8px; }
+.habitats-view .empty-state { color: var(--text-dim); font-size: 0.9em; padding: 24px 0; text-align: center; }
 .artifacts-pane.has-items { min-height: 72px; }
 .artifacts-pane .art-item {
   display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
@@ -283,6 +352,7 @@ header .nav button.active { color: var(--accent); border-color: var(--accent); }
     <div class="nav">
       <button id="nav-chat" class="active" onclick="showView('chat')">Chat</button>
       <button id="nav-sessions" onclick="showView('sessions')">Sessions</button>
+      <button id="nav-habitats" onclick="showView('habitats')">Habitats</button>
       <button id="nav-settings" onclick="showView('settings')">Settings</button>
     </div>
     <div class="status" id="status"><span class="dot" id="dot"></span><span id="status-text">connecting...</span></div>
@@ -360,6 +430,13 @@ header .nav button.active { color: var(--accent); border-color: var(--accent); }
   <!-- Sessions view -->
   <div class="sessions-view hidden" id="view-sessions">
     <div id="sessions-content"></div>
+  </div>
+
+  <!-- Habitats view -->
+  <div class="habitats-view hidden" id="view-habitats">
+    <h2>Managed Habitats</h2>
+    <div class="filter-bar" id="filter-bar"></div>
+    <div id="habitats-content"></div>
   </div>
 
   <!-- Artifacts pane (always visible) -->
@@ -540,12 +617,15 @@ window.showView = function(view) {
   $('view-settings').classList.toggle('hidden', view !== 'settings');
   $('view-chat').classList.toggle('hidden', view !== 'chat');
   $('view-sessions').classList.toggle('hidden', view !== 'sessions');
+  $('view-habitats').classList.toggle('hidden', view !== 'habitats');
   $('nav-settings').classList.toggle('active', view === 'settings');
   $('nav-chat').classList.toggle('active', view === 'chat');
   $('nav-sessions').classList.toggle('active', view === 'sessions');
+  $('nav-habitats').classList.toggle('active', view === 'habitats');
   if (view === 'chat') $('input').focus();
   if (view === 'sessions') loadSessions();
   if (view === 'settings') loadSettings();
+  if (view === 'habitats') loadHabitats();
 };
 
 // --- Dashboard ---
@@ -989,6 +1069,146 @@ function renderSessionDetail(sessionId, messages) {
 // --- Init ---
 loadStatus();
 loadArtifacts();
+
+// --- Habitats ---
+let habitatsData = [];
+let capabilityFilters = new Set();
+let highRiskOnly = false;
+
+const PROVIDER_COLORS = {
+  github: 'github', gitlab: 'gitlab', 'intuit/quickbooks': 'intuit',
+  openrouter: 'openrouter', google: 'google', twitter: 'twitter',
+  slack: 'slack', notion: 'notion',
+};
+
+function providerCss(provider) {
+  if (!provider) return '';
+  // Check exact match first, then namespace prefix
+  for (const [key, css] of Object.entries(PROVIDER_COLORS)) {
+    if (provider === key || provider.startsWith(key + '/')) return `provider-${css}`;
+  }
+  return 'provider-default';
+}
+
+async function loadHabitats() {
+  const el = $('habitats-content');
+  el.innerHTML = '<div style="color: var(--text-dim)">Loading habitats...</div>';
+  try {
+    const res = await fetch('/api/habitats', { headers: authHeadersNoBody() });
+    const data = await res.json();
+    habitatsData = data.habitats || [];
+    renderHabitats();
+  } catch (err) {
+    el.innerHTML = `<div style="color: var(--text-dim)">Habitats not available — this may not be a Gaia orchestrator.</div>`;
+    habitatsData = [];
+    $('filter-bar').innerHTML = '';
+  }
+}
+
+function getAllCapabilities() {
+  const caps = new Map(); // capName -> Set of provider prefixes
+  for (const h of habitatsData) {
+    for (const b of (h.config?.capabilities || [])) {
+      if (!caps.has(b.capability)) caps.set(b.capability, new Set());
+    }
+  }
+  return caps;
+}
+
+function renderFilterBar() {
+  const allCaps = getAllCapabilities();
+  const bar = $('filter-bar');
+  if (allCaps.size === 0) { bar.innerHTML = ''; return; }
+
+  let html = '<span class="filter-label">Filter:</span>';
+  for (const [cap] of allCaps) {
+    const sel = capabilityFilters.has(cap) ? ' selected' : '';
+    html += `<span class="filter-chip${sel}" data-cap="${esc(cap)}" onclick="toggleCapabilityFilter('${esc(cap)}')">${esc(cap)}</span>`;
+  }
+  const toggleClass = highRiskOnly ? ' on' : '';
+  html += `<span class="filter-toggle${toggleClass}" onclick="toggleHighRisk()">⚠ write</span>`;
+  bar.innerHTML = html;
+}
+
+window.toggleCapabilityFilter = function(cap) {
+  if (capabilityFilters.has(cap)) capabilityFilters.delete(cap);
+  else capabilityFilters.add(cap);
+  renderHabitats();
+};
+
+window.toggleHighRisk = function() {
+  highRiskOnly = !highRiskOnly;
+  renderHabitats();
+};
+
+function renderHabitats() {
+  renderFilterBar();
+  const el = $('habitats-content');
+
+  let filtered = habitatsData;
+
+  // Apply capability filter (AND)
+  if (capabilityFilters.size > 0) {
+    filtered = filtered.filter(h => {
+      const hCaps = new Set((h.config?.capabilities || []).map(b => b.capability));
+      for (const f of capabilityFilters) {
+        if (!hCaps.has(f)) return false;
+      }
+      return true;
+    });
+  }
+
+  // Apply high-risk filter
+  if (highRiskOnly) {
+    filtered = filtered.filter(h =>
+      (h.config?.capabilities || []).some(b => b.capability.endsWith(':write'))
+    );
+  }
+
+  if (!filtered.length) {
+    let msg = 'No habitats';
+    if (capabilityFilters.size > 0) msg += ' match the selected filters';
+    if (highRiskOnly) msg = 'No habitats with write-level capabilities';
+    el.innerHTML = `<div class="empty-state">${msg}.</div>`;
+    return;
+  }
+
+  let html = '';
+  for (const h of filtered) {
+    const caps = h.config?.capabilities || [];
+    const status = h.containerStatus || 'unknown';
+    const port = h.containerPort ? `:${h.containerPort}` : '';
+    const createdAt = h.createdAt ? new Date(h.createdAt).toLocaleDateString() : '';
+
+    html += `<div class="habitat-card">
+      <div class="hc-header">
+        <span class="hc-name">${esc(h.name || h.id)}</span>
+        <span class="hc-status ${status}">${status}${port}</span>
+      </div>
+      <div class="hc-meta">${esc(h.config?.defaultProvider || 'no provider')}/${esc(h.config?.defaultModel || 'no model')} · created ${createdAt}</div>
+      <div class="hc-badges">`;
+
+    if (caps.length === 0) {
+      html += '<span class="no-capabilities">no capabilities</span>';
+    } else {
+      for (const b of caps) {
+        // Get credential info from catalog if available (otherwise show inline)
+        const credMeta = h._credMeta?.[b.credential];
+        const cssProv = providerCss(credMeta?.provider || '');
+        const capParts = b.capability.split(':');
+        const capShort = capParts.length === 2 ? capParts[0] + ':' + capParts[1].slice(0, 4) + '…' : b.capability;
+        html += `<span class="cap-badge ${cssProv}" title="${esc(b.capability)} → ${esc(b.credential)}">`;
+        html += `<span class="cap-name">${esc(capShort)}</span>`;
+        html += `<span class="cap-cred">${esc(b.credential)}</span>`;
+        html += `</span>`;
+      }
+    }
+
+    html += '</div></div>';
+  }
+
+  el.innerHTML = html;
+}
 </script>
 </body>
 </html>

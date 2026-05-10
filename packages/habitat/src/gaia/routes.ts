@@ -6,13 +6,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
+import type { CredentialCatalog } from "./credential-catalog.js";
 import { proxyRequest } from "./proxy.js";
 import { buildSeedFiles } from "./gaia-tools.js";
 
 export interface GaiaRouteContext {
-  registry: GaiaRegistryManager;
-  vault: GaiaSecretVault;
-  docker: DockerManager;
+	registry: GaiaRegistryManager;
+	vault: GaiaSecretVault;
+	docker: DockerManager;
+	catalog: CredentialCatalog;
 }
 
 interface RouteMatch {
@@ -93,7 +95,19 @@ export async function handleGaiaRoute(
     const results = await Promise.all(
       entries.map(async (entry) => {
         const status = await ctx.docker.getStatus(entry.id);
-        return { ...entry, apiKey: undefined, containerStatus: status };
+        // Attach credential metadata for UI rendering
+        const caps = entry.config?.capabilities || [];
+        const _credMeta: Record<string, { provider: string; status: string }> = {};
+        if (ctx.catalog) {
+          for (const b of caps) {
+            const cred = ctx.catalog.get(b.credential);
+            _credMeta[b.credential] = {
+              provider: cred?.provider ?? "unknown",
+              status: cred?.status ?? "not-in-catalog",
+            };
+          }
+        }
+        return { ...entry, apiKey: undefined, containerStatus: status, _credMeta };
       }),
     );
     sendJson(res, { habitats: results });
