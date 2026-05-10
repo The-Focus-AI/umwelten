@@ -168,6 +168,16 @@ Break the `habitat ↔ ui/bridge` circular dependency. UI code (Layer 8) was imp
 - [x] Verify: `src/ui/` no longer imports concrete `Habitat` class — only `AgentHost` interface and pure types
 - [x] TypeScript clean, all tests pass (no new failures)
 
+## T1: Root Directory Cleanup (DONE)
+
+- [x] Move `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` → `packages/habitat/`
+- [x] Update Dockerfile COPY paths for monorepo-root build context
+- [x] Update docker-compose.yml: build context `../..`, env_file `../../.env`
+- [x] Add `test-data/`, `test-output/`, `*.tgz` to `.gitignore`
+- [x] Move 10 architecture PNGs → `docs/assets/`
+- [x] Update `mise run habitat-build` task path
+- [x] All tests pass (2 pre-existing better-sqlite3 native module failures unrelated)
+
 ## Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)

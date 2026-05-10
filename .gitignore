@@ -101,9 +101,13 @@ examples/simple-agent/skills/*
 !examples/simple-agent/skills/.gitkeep
 habitat_data/
 habitat-data/
+test-data/
+test-output/
+*.tgz
 
 # Agent runtime state
 .pi/
+.agents/skills
 
 # Gaia orchestrator data
 gaia-data/

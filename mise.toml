@@ -11,7 +11,7 @@ node = "latest"
 [tasks."habitat-build"]
 description = "Build the habitat Docker container"
 dir = "{{ config_root }}"
-run = "docker build -t habitat ."
+run = "docker build -t habitat -f packages/habitat/Dockerfile ."
 
 [tasks."habitat-run"]
 description = "Run the habitat container (port 8080, volume ./habitat-data:/data)"

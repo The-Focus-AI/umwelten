@@ -6,8 +6,8 @@
 # Mount a volume at /data for persistent state (config, sessions, skills, tools).
 # Set HABITAT_API_KEY to enable bearer token auth on /api/* and /mcp.
 #
-# Build:
-#   docker build -t habitat .
+# Build (from monorepo root):
+#   docker build -t habitat -f packages/habitat/Dockerfile .
 #
 # Run (standalone):
 #   docker run -p 7430:8080 -v habitat-data:/data habitat
@@ -39,8 +39,8 @@ RUN printf '%s\n' 'package-import-method=copy' > .npmrc
 RUN --mount=type=cache,id=pnpm-habitat,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 
-COPY src ./src/
-COPY entrypoint.sh /entrypoint.sh
+COPY packages/habitat/src ./src/
+COPY packages/habitat/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Data volume — habitat work directory

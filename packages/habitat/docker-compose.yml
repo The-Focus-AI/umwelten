@@ -1,12 +1,14 @@
 services:
   habitat:
-    build: .
+    build:
+      context: ../..
+      dockerfile: packages/habitat/Dockerfile
     ports:
       - "7430:8080"
     volumes:
       - habitat-data:/data
     env_file:
-      - .env
+      - ../../.env
     environment:
       - PORT=8080
 
