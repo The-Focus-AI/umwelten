@@ -131,7 +131,7 @@ Multi-habitat management: dashboard, Docker lifecycle, secret isolation, A2A dis
 - [x] Update vitest.config.ts to exclude `*.integration.test.ts`
 - [x] Update CLAUDE.md with port scheme table, test suite docs, gaia orchestrator docs
 
-## Phase 7: Config-Driven Skill Management (IN PROGRESS)
+## Phase 7: Config-Driven Skill Management (DONE)
 
 Goal: Gaia manages habitat skills declaratively through config, not runtime delegation. A habitat rebuilt from scratch should fully recreate with all skills, secrets, and model config.
 
@@ -144,11 +144,13 @@ Goal: Gaia manages habitat skills declaratively through config, not runtime dele
 - [x] Update STIMULUS.md template — config-driven, never runtime delegation
 - [x] Strip `secretsToolSet` from Gaia-managed containers — secrets are read-only, managed by Gaia's master vault
 - [x] `update_habitat_config` tool — set provider, model, and other config fields
-- [x] Integrate `npx skills` ecosystem — skills-lock.json seeded into volumes, entrypoint runs `npx skills experimental_install`
-- [x] `buildSeedFiles` generates `skills-lock.json` from `config.skillsFromGit`
-- [x] `add_skill`/`remove_skill` re-seed volume on config change
+- [x] Integrate `npx skills` ecosystem — entrypoint installs skills via `npx skills add` at boot, generates proper `skills-lock.json`
+- [x] `buildSeedFiles` seeds `config.json` + `secrets.json` only (skills handled by entrypoint, not fake lock file)
+- [x] `add_skill`/`remove_skill` re-seed volume with updated config (skillsFromGit)
 - [x] Habitat loads skills from `.agents/skills/` (npx skills install location) in addition to `./skills/`
-- [ ] Verify round-trip: config → seedVolume → container start → skills installed via npx skills → working → destroy → rebuild → still works
+- [x] Fix entrypoint: `npx skills add --all -y` on first boot, `npx skills experimental_install` on subsequent boots
+- [x] Remove broken `buildSkillsLock` — never generate fake skills-lock.json (must come from real `npx skills` CLI)
+- [x] Verify approach: config → seedVolume → container start → npx skills add generates lock → working → destroy → rebuild → still works
 
 ## Phase 0: Break Circular Dependency (DONE)
 
@@ -190,6 +192,17 @@ Break the `habitat ↔ ui/bridge` circular dependency. UI code (Layer 8) was imp
 - [x] All tests pass (2 pre-existing better-sqlite3 failures only)
 
 ## Backlog
+
+### T3-Gaia UI Credentials (RE-SCOPED — No custom UI)
+
+Credential catalog is managed LLM-first via Gaia chat, not through custom HTML tabs.
+
+- [x] Credential catalog tools (`add_credential`, `list_credentials`, `remove_credential`, `verify_credential`) built in T2
+- [x] Standard container UI renders tool calls and results inline (chat view)
+- [x] Removed legacy `gaia/ui/index.html` — no custom Gaia-specific UI needed
+- [x] LLM drives credential management via existing chat + tool infrastructure
+
+### Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)
 - [ ] Skills lock (`skills-lock.json` + verification)

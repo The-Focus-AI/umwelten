@@ -61,31 +61,12 @@ export interface GaiaToolsContext {
 	catalog: CredentialCatalog;
 }
 
-/** Build a skills-lock.json from the habitat config's skillsFromGit list. */
-function buildSkillsLock(skills: string[]): {
-	version: number;
-	skills: Record<
-		string,
-		{ source: string; sourceType: string; computedHash: string }
-	>;
-} {
-	const entries: Record<
-		string,
-		{ source: string; sourceType: string; computedHash: string }
-	> = {};
-	for (const repo of skills) {
-		// Use the repo shortname as the skill name (e.g. "vercel-labs/agent-skills" → "agent-skills")
-		const name = repo.includes("/") ? repo.split("/").pop()! : repo;
-		entries[name] = {
-			source: repo,
-			sourceType: "github",
-			computedHash: "", // Will be populated on first install
-		};
-	}
-	return { version: 1, skills: entries };
-}
-
-/** Build the seed files (config.json + secrets.json + skills-lock.json) for a habitat volume. */
+/** Build the seed files (config.json + secrets.json) for a habitat volume.
+ *
+ * Skills are NOT seeded as a lock file here — the container entrypoint
+ * installs them via `npx skills add` at boot, which generates a proper
+ * skills-lock.json with correct skill paths and hashes.
+ */
 export function buildSeedFiles(
 	entry: GaiaHabitatEntry,
 	vault: GaiaSecretVault,
@@ -95,24 +76,13 @@ export function buildSeedFiles(
 		const val = vault.get(name);
 		if (val) filtered[name] = val;
 	}
-	const files = [
+	return [
 		{
 			path: "config.json",
 			content: JSON.stringify(entry.config, null, 2) + "\n",
 		},
 		{ path: "secrets.json", content: JSON.stringify(filtered, null, 2) + "\n" },
 	];
-
-	// Seed skills-lock.json if skills are configured
-	const skills = entry.config.skillsFromGit ?? [];
-	if (skills.length > 0) {
-		files.push({
-			path: "skills-lock.json",
-			content: JSON.stringify(buildSkillsLock(skills), null, 2) + "\n",
-		});
-	}
-
-	return files;
 }
 
 function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
@@ -421,7 +391,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				}
 				entry.config.skillsFromGit.push(repo);
 				await registry.update(id, { config: entry.config });
-				// Re-seed volume with updated skills-lock.json
+				// Re-seed volume with updated config (skillsFromGit added)
 				await docker.seedVolume(id, buildSeedFiles(entry, vault));
 				return `Added skill "${repo}" to habitat "${id}". Rebuild the habitat to install it.`;
 			},
@@ -444,7 +414,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					(s) => s !== repo,
 				);
 				await registry.update(id, { config: entry.config });
-				// Re-seed volume with updated skills-lock.json
+				// Re-seed volume with updated config (skillsFromGit removed)
 				await docker.seedVolume(id, buildSeedFiles(entry, vault));
 				return `Removed skill "${repo}" from habitat "${id}". Rebuild the habitat to apply.`;
 			},
