@@ -156,6 +156,15 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					.array(z.string())
 					.optional()
 					.describe("Secret names to bind (e.g. GOOGLE_GENERATIVE_AI_API_KEY)"),
+				capabilities: z
+					.array(
+						z.object({
+							capability: z.string().describe("Capability name (e.g. 'github:read')"),
+							credential: z.string().describe("Credential name in the catalog"),
+						}),
+					)
+					.optional()
+					.describe("Capability-to-credential bindings"),
 				skillsFromGit: z
 					.array(z.string())
 					.optional()
@@ -164,6 +173,14 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					),
 			}),
 			execute: async (params) => {
+				// Validate capability bindings before creating
+				if (params.capabilities?.length) {
+					const resolver = new CapabilityResolver();
+					for (const binding of params.capabilities) {
+						resolver.validate(binding, catalog);
+					}
+				}
+
 				const entry = await registry.create(params);
 
 				// Auto-bind the org-readonly identity if Gaia's master vault has the
@@ -781,6 +798,128 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				const entry = await catalog.verify(name);
 				if (!entry) return `Credential "${name}" not found.`;
 				return `Verified credential "${name}" (status: active, verified: ${entry.lastVerified}).`;
+			},
+		}),
+
+		// ── Capability Bindings ───────────────────────────────────────
+
+		bind_capability: tool({
+			description:
+				"Bind a capability to a habitat using a specific credential. The credential must exist in the catalog and grant the requested capability. Adds the binding to the habitat config and re-seeds the volume.",
+			inputSchema: z.object({
+				habitatId: z.string().describe("Habitat ID"),
+				capability: z
+					.string()
+					.describe("Capability to bind (e.g. 'github:read')"),
+				credential: z
+					.string()
+					.describe("Credential name in the catalog"),
+			}),
+			execute: async ({ habitatId, capability, credential }) => {
+				const entry = registry.get(habitatId);
+				if (!entry) return `Habitat "${habitatId}" not found`;
+
+				// Validate
+				const resolver = new CapabilityResolver();
+				try {
+					resolver.validate({ capability, credential }, catalog);
+				} catch (err: any) {
+					return `Validation failed: ${err.message}`;
+				}
+
+				// Check for duplicate
+				if (!entry.config.capabilities) entry.config.capabilities = [];
+				const existing = entry.config.capabilities.find(
+					(b) => b.capability === capability && b.credential === credential,
+				);
+				if (existing) {
+					return `Capability "${capability}" already bound to credential "${credential}" on habitat "${habitatId}".`;
+				}
+
+				entry.config.capabilities.push({ capability, credential });
+				await registry.update(habitatId, { config: entry.config });
+
+				// Re-seed volume
+				await docker.seedVolume(habitatId, buildSeedFiles(entry, vault, catalog));
+
+				const status = await docker.getStatus(habitatId);
+				const hint =
+					status === "running"
+						? " Rebuild the habitat for the new capability to take effect."
+						: "";
+				return `Bound capability "${capability}" → credential "${credential}" on habitat "${habitatId}".${hint}`;
+			},
+		}),
+
+		unbind_capability: tool({
+			description:
+				"Remove a capability binding from a habitat. Takes the capability name (e.g. 'github:read') and removes all bindings for that capability.",
+			inputSchema: z.object({
+				habitatId: z.string().describe("Habitat ID"),
+				capability: z
+					.string()
+					.describe("Capability to unbind (e.g. 'github:read')"),
+			}),
+			execute: async ({ habitatId, capability }) => {
+				const entry = registry.get(habitatId);
+				if (!entry) return `Habitat "${habitatId}" not found`;
+
+				if (!entry.config.capabilities?.length) {
+					return `Habitat "${habitatId}" has no capability bindings.`;
+				}
+
+				const removed = entry.config.capabilities.filter(
+					(b) => b.capability === capability,
+				);
+				if (removed.length === 0) {
+					return `Capability "${capability}" is not bound on habitat "${habitatId}".`;
+				}
+
+				entry.config.capabilities = entry.config.capabilities.filter(
+					(b) => b.capability !== capability,
+				);
+				await registry.update(habitatId, { config: entry.config });
+
+				// Re-seed volume
+				await docker.seedVolume(habitatId, buildSeedFiles(entry, vault, catalog));
+
+				const credList = removed.map((b) => `"${b.credential}"`).join(", ");
+				const status = await docker.getStatus(habitatId);
+				const hint =
+					status === "running"
+						? " Rebuild the habitat for changes to take effect."
+						: "";
+				return `Unbound capability "${capability}" (removed credentials: ${credList}) from habitat "${habitatId}".${hint}`;
+			},
+		}),
+
+		list_habitat_capabilities: tool({
+			description:
+				"List all capability bindings on a habitat, with the credential status for each.",
+			inputSchema: z.object({
+				habitatId: z.string().describe("Habitat ID"),
+			}),
+			execute: async ({ habitatId }) => {
+				const entry = registry.get(habitatId);
+				if (!entry) return `Habitat "${habitatId}" not found`;
+
+				if (!entry.config.capabilities?.length) {
+					return `Habitat "${habitatId}" has no capability bindings.`;
+				}
+
+				const summary = entry.config.capabilities.map((b) => {
+					const cred = catalog.get(b.credential);
+					const status = cred?.status ?? "not-in-catalog";
+					const verified = cred?.lastVerified
+						? ` (verified ${cred.lastVerified.slice(0, 10)})`
+						: "";
+					const hasSecret = vault.get(b.credential) !== undefined;
+					const secretStatus = hasSecret ? "has secret" : "no secret in vault";
+					return `  - ${b.capability} → ${b.credential} [${cred?.provider ?? "unknown"}] status: ${status}${verified}, ${secretStatus}`;
+				});
+
+				return `Capability bindings on "${habitatId}":
+${summary.join("\n")}`;
 			},
 		}),
 	};

@@ -11,6 +11,7 @@
 import type { CapabilityBinding } from "../types.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
 import type { GaiaSecretVault } from "./secrets.js";
+import type { CredentialEntry } from "./types.js";
 
 /** Result of resolving capability bindings into env vars. */
 export interface ResolverResult {
@@ -28,6 +29,33 @@ export interface ResolverResult {
  * name is used as the env var name in the habitat.
  */
 export class CapabilityResolver {
+	/**
+	 * Validate a single capability binding against the credential catalog.
+	 *
+	 * Checks that:
+	 *  1. The credential exists in the catalog
+	 *  2. The credential's capabilities include the requested capability
+	 *
+	 * Returns the catalog entry on success; throws on validation failure.
+	 */
+	validate(
+		binding: CapabilityBinding,
+		catalog: CredentialCatalog,
+	): CredentialEntry {
+		const entry = catalog.get(binding.credential);
+		if (!entry) {
+			throw new Error(
+				`Credential "${binding.credential}" not found in catalog`,
+			);
+		}
+		if (!entry.capabilities.includes(binding.capability)) {
+			throw new Error(
+				`Credential "${binding.credential}" does not grant capability "${binding.capability}" (grants: ${entry.capabilities.join(", ")})`,
+			);
+		}
+		return entry;
+	}
+
 	/**
 	 * Resolve a list of capability bindings into env vars.
 	 *

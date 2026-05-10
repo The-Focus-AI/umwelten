@@ -91,6 +91,7 @@ export class GaiaRegistryManager {
         gitUrl: options.gitUrl,
         gitBranch: options.gitBranch,
         ...(options.skillsFromGit?.length ? { skillsFromGit: options.skillsFromGit } : {}),
+        ...(options.capabilities?.length ? { capabilities: options.capabilities } : {}),
       },
       secretBindings: options.secretBindings ?? [],
       apiKey: generateApiKey(),

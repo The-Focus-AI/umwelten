@@ -214,6 +214,18 @@ Credential catalog is managed LLM-first via Gaia chat, not through custom HTML t
 - [x] Exports: `CapabilityBinding`, `CapabilityResolver`, `ResolverResult` from gaia + habitat indexes
 - [x] TypeScript clean, all tests pass (only pre-existing better-sqlite3 failures remain)
 
+## T5: Gaia Tools for Capability Bindings (DONE)
+
+- [x] Add `validate()` method to `CapabilityResolver` — checks credential exists and grants capability
+- [x] Extend `CreateHabitatOptions` with `capabilities?: CapabilityBinding[]`
+- [x] Wire `capabilities` through `registry.create()` into `HabitatConfig`
+- [x] Extend `create_habitat` tool — accepts `capabilities` parameter, validates bindings before creating
+- [x] Add `bind_capability` tool — validates, adds binding, re-seeds volume
+- [x] Add `unbind_capability` tool — removes bindings by capability name, re-seeds volume
+- [x] Add `list_habitat_capabilities` tool — lists bindings with credential status and vault info
+- [x] 6 unit tests: validate (valid, missing, wrong capability), registry.create with/without capabilities
+- [x] TypeScript clean, all tests pass (only pre-existing better-sqlite3 failures remain)
+
 ### Backlog
 
 - [ ] Agent definition export/import (persona, skills, tool config)
