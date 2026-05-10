@@ -23,6 +23,11 @@ description = "Run habitat MCP server locally via tsx (no Docker)"
 dir = "{{ config_root }}"
 run = "dotenvx run -- pnpm exec tsx packages/cli/src/entry.ts habitat serve --port 8080 --skip-onboard"
 
+[tasks.gaia]
+description = "Start Gaia orchestrator (port 7420). Uses .env for GOOGLE_GENERATIVE_AI_API_KEY"
+dir = "{{ config_root }}"
+run = "dotenvx run -- pnpm run cli -- habitat gaia -p google -m gemini-3-flash-preview"
+
 # ── Habitat CLI ───────────────────────────────────────────────────────
 # All interfaces share ONE work dir (examples/jeeves-bot/jeeves-bot-data-dir)
 # so agents, persona, memories, and tools are the same everywhere.
