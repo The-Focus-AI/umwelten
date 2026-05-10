@@ -37,6 +37,8 @@ The top-level container for agents — the "world" an agent lives in.
 - **Secrets**: Work-dir `secrets.json` (plain JSON key/value map, file mode 0600)
 - **Gaia Server**: HTTP API for web UI access to habitat data
 
+See **[Habitat runtime](./habitat-runtime.md)** (multi-agent model, identities, token-routed MCP) and **[Habitat deployment](./habitat-deployment.md)** (where habitats run).
+
 ### 3. Cognition (`packages/core/src/cognition/`)
 
 Model runners that execute AI requests.

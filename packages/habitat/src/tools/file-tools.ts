@@ -33,6 +33,8 @@ export interface FileToolsContext {
   getConfig(): HabitatConfig;
   getAgent(idOrName: string): AgentEntry | undefined;
   getAllowedRoots(): string[];
+  /** Optional: returns the read-only agent whose root contains the path, if any. */
+  findReadOnlyAgentForPath?(absPath: string): { agentId: string; root: string } | undefined;
 }
 
 const pathSchema = z.object({
@@ -133,6 +135,31 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
       try {
         const resolved = resolveHabitatPath(rawPath, agentId, ctx);
         ensureAllowed(resolved, allowedRoots);
+
+        // Read-mode policy enforcement: refuse writes into a read-mode agent's repo.
+        // Direct check by agentId (for the explicit case) plus path-based check
+        // (catches writes via plain paths that resolve into a read agent's tree).
+        if (agentId) {
+          const targetAgent = ctx.getAgent(agentId);
+          if (targetAgent?.mode === 'read') {
+            return {
+              error: 'READ_ONLY_AGENT',
+              agent: targetAgent.id,
+              message: `Agent "${targetAgent.id}" is mode:read; writes are not permitted.`,
+              path: rawPath,
+            };
+          }
+        }
+        const ro = ctx.findReadOnlyAgentForPath?.(resolved);
+        if (ro) {
+          return {
+            error: 'READ_ONLY_AGENT',
+            agent: ro.agentId,
+            message: `Path resolves into read-only agent "${ro.agentId}" (${ro.root}); writes are not permitted.`,
+            path: rawPath,
+          };
+        }
+
         await mkdir(resolve(resolved, '..'), { recursive: true });
         await writeFile(resolved, content, 'utf-8');
         return { path: resolved, written: true };

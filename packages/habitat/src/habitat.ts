@@ -4,7 +4,7 @@
  * Any UI (CLI, Telegram, TUI, web) starts from a Habitat.
  */
 
-import { join } from "node:path";
+import { join, isAbsolute, resolve as resolveAbs } from "node:path";
 import type { Tool } from "ai";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
@@ -19,6 +19,7 @@ import type {
   HabitatSessionMetadata,
   HabitatSessionType,
   AgentEntry,
+  AgentRequirements,
   OnboardingResult,
 } from "./types.js";
 import {
@@ -34,6 +35,7 @@ import {
   writeWorkDirFile,
   getAgentById,
   getFileAllowedRoots,
+  findReadOnlyAgentForPath,
 } from "./config.js";
 import {
   HabitatSessionManager,
@@ -55,6 +57,18 @@ import type { SearchToolsContext } from "./tools/search-tools.js";
 import { ToolRegistry } from "./tool-registry.js";
 import { HabitatAgent } from "./habitat-agent.js";
 import { loadSecrets, saveSecrets } from "./secrets.js";
+import {
+  type AgentVault,
+  InlineVault,
+  HabitatVault,
+  OnePasswordVault,
+} from "./identity/vault.js";
+import { inspectSkill, mergeRequirements } from "./identity/skill-inspector.js";
+import {
+  loadAgentManifest,
+  type AgentManifest,
+  AgentManifestError,
+} from "./identity/agent-manifest.js";
 
 export class Habitat
   implements
@@ -267,6 +281,10 @@ export class Habitat
     return getFileAllowedRoots(this.workDir, this.sessionsDir, this.config);
   }
 
+  findReadOnlyAgentForPath(absPath: string): { agentId: string; root: string } | undefined {
+    return findReadOnlyAgentForPath(this.config, absPath);
+  }
+
   // ── FileToolsContext interface ──────────────────────────────────
 
   getWorkDir(): string {
@@ -342,6 +360,99 @@ export class Habitat
   addToolSet(toolSet: ToolSet): void { this.toolRegistry.addToolSet(toolSet); }
 
   getSkills(): SkillDefinition[] { return this.toolRegistry.getSkills(); }
+
+  // ── Provisioning manifest (Habitat Runtime spec, Phase 3) ──────────
+
+  /**
+   * Aggregate the env vars + CLI tools every loaded skill and configured agent
+   * needs. Used by GET /api/manifest to produce the reproducibility view.
+   *
+   * Skill requirements are *discovered* (not declared) by scanning skill source
+   * via inspectSkill(). Per-agent requirements are read from agent.requirements
+   * if present, otherwise omitted.
+   */
+  async computeRequirements(): Promise<{
+    skills: { name: string; path: string; requirements: AgentRequirements }[];
+    agents: { id: string; requirements: AgentRequirements }[];
+    aggregate: AgentRequirements;
+  }> {
+    // Skills are normally populated only after a session is created (which is
+    // when the SkillsRegistry is built). Provisioning manifests are useful
+    // before any session exists, so we union the loaded registry with a fresh
+    // disk scan of the configured skillsDirs to give a complete view either way.
+    const loaded = this.getSkills();
+    const fromDirs: typeof loaded = [];
+    const seen = new Set(loaded.map(s => s.path));
+    const { loadSkillsFromDirectory } = await import("@umwelten/core/stimulus/skills/index.js");
+    for (const dir of this.config.skillsDirs ?? []) {
+      const abs = isAbsolute(dir) ? dir : resolveAbs(this.workDir, dir);
+      try {
+        const fresh = await loadSkillsFromDirectory(abs);
+        for (const s of fresh) {
+          if (!seen.has(s.path)) {
+            fromDirs.push(s);
+            seen.add(s.path);
+          }
+        }
+      } catch {
+        // tolerate missing/unreadable skill dirs
+      }
+    }
+    const all = [...loaded, ...fromDirs];
+
+    const skills = await Promise.all(
+      all.map(async (s) => ({
+        name: s.name,
+        path: s.path,
+        requirements: await inspectSkill(s.path),
+      })),
+    );
+    const agents = (this.config.agents ?? [])
+      .filter((a) => a.requirements)
+      .map((a) => ({ id: a.id, requirements: a.requirements as AgentRequirements }));
+
+    const aggregate = mergeRequirements([
+      ...skills.map((s) => s.requirements),
+      ...agents.map((a) => a.requirements),
+    ]);
+    return { skills, agents, aggregate };
+  }
+
+  /**
+   * List all `kind: "mcp-agent"` agents that have a valid agent-manifest.json
+   * in their repo. Used by container-server to mount the public UI + MCP
+   * surface for each one.
+   *
+   * Tolerant: an agent without a manifest is silently skipped (returned in
+   * the `unmanifested` list); a malformed manifest is reported in `errors`
+   * but does not throw.
+   */
+  async getMcpAgents(): Promise<{
+    mcpAgents: { agent: AgentEntry; manifest: AgentManifest; path: string }[];
+    unmanifested: AgentEntry[];
+    errors: { agent: AgentEntry; error: string }[];
+  }> {
+    const mcpAgents: { agent: AgentEntry; manifest: AgentManifest; path: string }[] = [];
+    const unmanifested: AgentEntry[] = [];
+    const errors: { agent: AgentEntry; error: string }[] = [];
+    for (const agent of this.config.agents ?? []) {
+      if (agent.kind !== "mcp-agent") continue;
+      try {
+        const result = await loadAgentManifest(agent.projectPath);
+        if (!result) {
+          unmanifested.push(agent);
+          continue;
+        }
+        mcpAgents.push({ agent, manifest: result.manifest, path: result.path });
+      } catch (err) {
+        errors.push({
+          agent,
+          error: err instanceof AgentManifestError ? err.message : String(err),
+        });
+      }
+    }
+    return { mcpAgents, unmanifested, errors };
+  }
 
   // ── Session management ──────────────────────────────────────────
 
@@ -542,6 +653,66 @@ export class Habitat
 
   listSecretNames(): string[] {
     return Object.keys(this.secrets);
+  }
+
+  // ── Per-agent vault resolution (Habitat Runtime spec, Phase 2) ──
+
+  /**
+   * Build the AgentVault for an agent based on its identity.vault.backend.
+   * Defaults to HabitatVault (existing behavior) when no identity is set.
+   */
+  getVaultForAgent(agentId: string): AgentVault {
+    const agent = this.getAgent(agentId);
+    const backend = agent?.identity?.vault?.backend ?? "habitat";
+    switch (backend) {
+      case "inline":
+        return new InlineVault(this.getAgentDir(agentId));
+      case "1password":
+        return new OnePasswordVault(agent?.identity?.vault?.ref);
+      case "habitat":
+      default:
+        return new HabitatVault(this.workDir);
+    }
+  }
+
+  /**
+   * Resolve a secret for an agent, falling back to the habitat-level store
+   * (and then process.env) if the agent's vault doesn't have it.
+   */
+  async resolveAgentSecret(agentId: string, name: string): Promise<string | undefined> {
+    const vault = this.getVaultForAgent(agentId);
+    const fromVault = await vault.resolve(name);
+    if (fromVault !== undefined) return fromVault;
+    return this.getSecret(name);
+  }
+
+  /**
+   * Build the env object for an agent's commands: union of every scope's
+   * env-var names, resolved through the agent's vault chain.
+   * Only includes names with values (silently drops missing ones).
+   */
+  async buildAgentEnv(agentId: string): Promise<Record<string, string>> {
+    const agent = this.getAgent(agentId);
+    if (!agent) return {};
+    const env: Record<string, string> = {};
+    const seen = new Set<string>();
+
+    // Collect env-var names from identity.scopes plus the legacy `secrets` field.
+    const names: string[] = [];
+    for (const scope of agent.identity?.scopes ?? []) {
+      for (const n of scope.env) {
+        if (!seen.has(n)) { names.push(n); seen.add(n); }
+      }
+    }
+    for (const n of agent.secrets ?? []) {
+      if (!seen.has(n)) { names.push(n); seen.add(n); }
+    }
+
+    for (const name of names) {
+      const value = await this.resolveAgentSecret(agentId, name);
+      if (value !== undefined) env[name] = value;
+    }
+    return env;
   }
 
   // ── Work dir file management ────────────────────────────────────

@@ -267,9 +267,23 @@ export async function startContainerServer(
   // API routes
   const routes: RouteHandler[] = defaultRoutes();
 
-  // Static UI directory
+  // Static UI directory.
+  // tsc doesn't copy non-.ts files into dist, so dist/container-ui is empty
+  // unless a separate copy step ran. Fall back to src/container-ui (which
+  // ships in the package and is what the build is supposed to mirror).
   const thisDir = fileURLToPath(new URL(".", import.meta.url));
-  const uiDir = options.uiDir ?? resolve(thisDir, "container-ui");
+  let uiDir: string;
+  if (options.uiDir) {
+    uiDir = options.uiDir;
+  } else {
+    const distUi = resolve(thisDir, "container-ui");
+    const srcUi = resolve(thisDir, "..", "src", "container-ui");
+    const distHasIndex = await stat(resolve(distUi, "index.html")).then(
+      () => true,
+      () => false,
+    );
+    uiDir = distHasIndex ? distUi : srcUi;
+  }
 
   const httpServer = createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
@@ -429,6 +443,94 @@ export async function startContainerServer(
           return;
         }
 
+        // ── mcp-agent public surface (/agents/<id>/...) ───────
+        // Scaffold for Phase 4 of the Habitat Runtime spec: serve a
+        // mcp-agent's static UI dir, return its manifest, and stub the
+        // MCP endpoint with a 501 + diagnostic until mcp-serve is wired up.
+        {
+          const m = path.match(/^\/agents\/([^/]+)(?:\/(.*))?$/);
+          if (m) {
+            const agentId = m[1];
+            const subPath = m[2] ?? "";
+            const agent = habitat.getAgent(agentId);
+            if (agent && agent.kind === "mcp-agent") {
+              const all = await habitat.getMcpAgents();
+              const found = all.mcpAgents.find(x => x.agent.id === agentId);
+              const manifestErr = all.errors.find(e => e.agent.id === agentId);
+
+              if (!found) {
+                sendJson(res, {
+                  error: manifestErr ? "MANIFEST_INVALID" : "MANIFEST_NOT_FOUND",
+                  agentId,
+                  message: manifestErr?.error ?? "agent has no agent-manifest.json (cannot mount)",
+                }, manifestErr ? 422 : 503);
+                return;
+              }
+
+              if (subPath === "mcp") {
+                sendJson(res, {
+                  error: "NOT_IMPLEMENTED",
+                  agentId,
+                  message:
+                    "mcp-agent MCP endpoint mount is scaffolded but not yet wired to @umwelten/server/mcp-serve. Manifest detected at " +
+                    found.path,
+                  manifest: found.manifest,
+                }, 501);
+                return;
+              }
+
+              if (subPath === "manifest.json") {
+                sendJson(res, found.manifest);
+                return;
+              }
+
+              // Static UI passthrough — serve files under publicUiDir.
+              if (req.method === "GET" && found.manifest.publicUiDir) {
+                const uiRoot = resolve(agent.projectPath, found.manifest.publicUiDir);
+                const fileName = subPath === "" ? "index.html" : subPath;
+                if (fileName.includes("..")) {
+                  sendJson(res, { error: "Invalid path" }, 400);
+                  return;
+                }
+                const absPath = resolve(uiRoot, fileName);
+                if (!absPath.startsWith(uiRoot + "/") && absPath !== uiRoot) {
+                  sendJson(res, { error: "Path outside ui root" }, 403);
+                  return;
+                }
+                try {
+                  const fileStat = await stat(absPath);
+                  if (fileStat.isDirectory()) {
+                    sendJson(res, { error: "Cannot serve directories" }, 400);
+                    return;
+                  }
+                  const ext = extname(absPath).toLowerCase();
+                  const types: Record<string, string> = {
+                    ".html": "text/html; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml",
+                  };
+                  const body = await readFile(absPath);
+                  res.writeHead(200, {
+                    "Content-Type": types[ext] ?? "application/octet-stream",
+                    "Content-Length": body.length,
+                    "Cache-Control": "no-cache",
+                  });
+                  res.end(body);
+                } catch (err: any) {
+                  if (err.code === "ENOENT") sendJson(res, { error: "File not found" }, 404);
+                  else sendJson(res, { error: err.message }, 500);
+                }
+                return;
+              }
+
+              sendJson(res, { error: "NOT_FOUND", agentId, subPath }, 404);
+              return;
+            }
+          }
+        }
+
         // ── File serving (sandboxed to work dir) ───────────────
         if (path.startsWith("/files/") && req.method === "GET") {
           if (apiKey) {
@@ -566,6 +668,128 @@ export async function startContainerServer(
             const metas = await listArtifacts(habitat.getWorkDir());
             sendJson(res, { artifacts: metas, count: metas.length });
             return;
+          }
+
+          // GET /api/manifest — provisioning manifest (skills + agents + aggregate requirements)
+          if (path === "/api/manifest" && req.method === "GET") {
+            const config = habitat.getConfig();
+            const requirements = await habitat.computeRequirements();
+            sendJson(res, {
+              name: config.name ?? "Unnamed Habitat",
+              defaultProvider: config.defaultProvider ?? null,
+              defaultModel: config.defaultModel ?? null,
+              gitUrl: config.gitUrl ?? null,
+              gitBranch: config.gitBranch ?? null,
+              skillsDirs: config.skillsDirs ?? [],
+              skillsFromGit: config.skillsFromGit ?? [],
+              scopeTemplates: config.scopeTemplates ?? {},
+              agents: (config.agents ?? []).map(a => ({
+                id: a.id,
+                name: a.name,
+                kind: a.kind ?? "repo",
+                mode: a.mode ?? "write",
+                gitRemote: a.gitRemote ?? null,
+                identity: a.identity
+                  ? {
+                      principal: a.identity.principal,
+                      vault: a.identity.vault ?? { backend: "habitat" },
+                      scopes: a.identity.scopes,
+                    }
+                  : null,
+                scopes: a.identity?.scopes ?? [],
+                surface: a.surface ?? null,
+              })),
+              skills: requirements.skills,
+              agentRequirements: requirements.agents,
+              aggregate: requirements.aggregate,
+              requiredSecrets: (config.requiredSecrets ?? []).map(s => ({
+                name: s.name,
+                description: s.description,
+                required: s.required,
+                set: !!(habitat.getSecret(s.name)),
+              })),
+            });
+            return;
+          }
+
+          // GET /api/agents — list of agents with status (no secret values).
+          if (path === "/api/agents" && req.method === "GET") {
+            const config = habitat.getConfig();
+            sendJson(res, {
+              agents: (config.agents ?? []).map(a => ({
+                id: a.id,
+                name: a.name,
+                kind: a.kind ?? "repo",
+                mode: a.mode ?? "write",
+                projectPath: a.projectPath,
+                gitRemote: a.gitRemote ?? null,
+                identity: a.identity
+                  ? {
+                      principal: a.identity.principal,
+                      vault: a.identity.vault ?? { backend: "habitat" },
+                      scopes: a.identity.scopes,
+                    }
+                  : null,
+                surface: a.surface ?? null,
+              })),
+              scopeTemplates: config.scopeTemplates ?? {},
+            });
+            return;
+          }
+
+          // GET /api/agents/:id/requirements — discovered requirements for a single agent.
+          {
+            const m = path.match(/^\/api\/agents\/([^/]+)\/requirements$/);
+            if (m && req.method === "GET") {
+              const agent = habitat.getAgent(m[1]);
+              if (!agent) {
+                sendJson(res, { error: "AGENT_NOT_FOUND", id: m[1] }, 404);
+                return;
+              }
+              sendJson(res, {
+                agentId: agent.id,
+                requirements: agent.requirements ?? {
+                  envVars: [],
+                  cliTools: [],
+                },
+              });
+              return;
+            }
+          }
+
+          // GET /api/agents/:id/manifest — mcp-agent manifest (loaded from repo).
+          {
+            const m = path.match(/^\/api\/agents\/([^/]+)\/manifest$/);
+            if (m && req.method === "GET") {
+              const agent = habitat.getAgent(m[1]);
+              if (!agent) {
+                sendJson(res, { error: "AGENT_NOT_FOUND", id: m[1] }, 404);
+                return;
+              }
+              if (agent.kind !== "mcp-agent") {
+                sendJson(res, {
+                  error: "AGENT_KIND_MISMATCH",
+                  message: `Agent "${agent.id}" is kind:${agent.kind ?? "repo"}, not mcp-agent.`,
+                }, 400);
+                return;
+              }
+              const all = await habitat.getMcpAgents();
+              const found = all.mcpAgents.find(x => x.agent.id === agent.id);
+              if (!found) {
+                const err = all.errors.find(e => e.agent.id === agent.id);
+                sendJson(res, {
+                  error: err ? "MANIFEST_INVALID" : "MANIFEST_NOT_FOUND",
+                  message: err?.error ?? "agent-manifest.json not found in agent repo",
+                }, err ? 422 : 404);
+                return;
+              }
+              sendJson(res, {
+                agentId: agent.id,
+                manifestPath: found.path,
+                manifest: found.manifest,
+              });
+              return;
+            }
           }
 
           // POST /api/inference — attach an inference engine

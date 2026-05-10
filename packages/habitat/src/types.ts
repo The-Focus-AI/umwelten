@@ -38,6 +38,8 @@ export interface AgentHost {
   getWorkDir(): string;
   getSessionsDir(): string;
   getAllowedRoots(): string[];
+  /** Returns the read-only agent (if any) whose root contains the given absolute path. */
+  findReadOnlyAgentForPath?(absPath: string): { agentId: string; root: string } | undefined;
 
   getOrCreateSession(
     type: HabitatSessionType,
@@ -84,6 +86,104 @@ export interface RequiredSecret {
   required: boolean;
 }
 
+// ── Agent identity & scopes (Habitat Runtime spec, Phase 2) ──────────
+
+/**
+ * Where credentials for an agent live.
+ *  - `inline`: per-agent secrets file at /data/agents/<id>/secrets.json (mode 0600)
+ *  - `habitat`: delegate to the container-level secrets.json
+ *  - `1password`: resolved via host-side `op` CLI (deferred)
+ */
+export interface AgentVaultRef {
+  backend: "inline" | "habitat" | "1password";
+  /** Backend-specific locator (e.g. 1Password item path). */
+  ref?: string;
+}
+
+/**
+ * A capability the agent is allowed to use.
+ * Policy enforcement (read-mode, write-mode) inspects scope.kind.
+ */
+export interface AgentScope {
+  kind: "git-read" | "git-write" | "api-key" | "ssh" | "deploy-key";
+  /** Env var names this scope exports when the agent's commands run. */
+  env: string[];
+  /** Optional scopeTemplate id this scope was inherited from. */
+  source?: string;
+}
+
+/**
+ * Identity bundle for an agent — principal, vault, and scopes.
+ */
+export interface AgentIdentity {
+  /** Stable identity slug (e.g. "frontend-deploy"). */
+  principal: string;
+  /** Where the credentials are sourced from. */
+  vault?: AgentVaultRef;
+  /** Operational credentials this agent is allowed to access. */
+  scopes: AgentScope[];
+}
+
+/**
+ * Discovered (or declared) requirements for an agent.
+ * Mirrors the agentConfigureSchema shape from agent-runner-tools so the same
+ * inspector pass can populate either an agent or a skill.
+ */
+export interface AgentRequirements {
+  envVars: { name: string; reason: string; required: boolean }[];
+  cliTools: { name: string; reason: string; required: boolean }[];
+  /** ISO timestamp when these requirements were last computed. */
+  inspectedAt?: string;
+  /** Content hash of the source the requirements were inferred from. */
+  sourceHash?: string;
+}
+
+/**
+ * What surface this agent publishes.
+ * Used by `kind: "mcp-agent"` agents to declare an MCP server, OAuth AS,
+ * and a static UI dir that the container-server should mount.
+ */
+export interface AgentSurface {
+  /** Path (relative to the agent's projectPath) of a static UI directory. */
+  publicUiDir?: string;
+  /** Whether the agent exposes MCP tools to OAuth-authenticated end users. */
+  publicMcp?: boolean;
+  /** OAuth AS configuration for the user-plane MCP. */
+  publicAuth?: {
+    kind: "oauth-server";
+    upstreamProvider: string;       // path to a JS module exporting UpstreamOAuthProvider
+    registerTools: string;          // path to a JS module exporting McpToolRegistrar
+    store?: { driver: "sqlite"; path: string }
+          | { driver: "neon"; envRef: string };
+  };
+  /** Additional public routes the agent owns (e.g. ["/oauth/*", "/.well-known/*"]). */
+  publicRoutes?: string[];
+}
+
+/**
+ * Reusable identity scopes declared once on the habitat and referenced
+ * by agents via `identity.scopes[*].source`.
+ *
+ * Example: a single org-readonly template that grants GITHUB_TOKEN as git-read
+ * to any agent that wants it.
+ */
+export interface ScopeTemplate {
+  /** Where the scope was declared from (e.g. "agents/org-readonly"). */
+  from?: string;
+  kind: AgentScope["kind"];
+  env: string[];
+  description?: string;
+}
+
+/**
+ * Kinds of agent. Drives entrypoint behavior + UI rendering.
+ *  - `repo`            : a code repository, cloned into agents/<id>/repo (default)
+ *  - `credential-only` : no repo, no project — just an identity bundle
+ *  - `mcp-agent`       : a code repo that publishes its own MCP/OAuth surface
+ *  - `remote-habitat`  : a pointer to another habitat reachable via A2A
+ */
+export type AgentKind = "repo" | "credential-only" | "mcp-agent" | "remote-habitat";
+
 /**
  * A known agent -- a reference to another habitat.
  * Secrets are references only (env var names), never stored values.
@@ -95,7 +195,10 @@ export interface AgentEntry {
   /** Optional absolute path for the agent's semantic memory file. */
   memoryPath?: string;
   gitRemote?: string;
-  /** Secret references (env var names). Values are never stored. */
+  /**
+   * Secret references (env var names). Values are never stored.
+   * Backward-compat alias for identity.scopes[*].env when identity is unset.
+   */
   secrets?: string[];
   /** Commands to run or interact with this habitat. */
   commands?: HabitatCommands;
@@ -105,6 +208,23 @@ export interface AgentEntry {
   statusFile?: string;
   /** Git repos for skills this agent needs (e.g. "Focus-AI/chrome-driver"). */
   skillsFromGit?: string[];
+
+  // ── New (Habitat Runtime spec) ─────────────────────────────────────
+  /** What this agent is. Defaults to "repo". */
+  kind?: AgentKind;
+  /**
+   * Read/write mode. Policy-enforced (not kernel-enforced).
+   * `read` blocks write_file/exec into this agent's repo and forces read-only
+   * Claude Code tool subsets.
+   * Defaults to "write".
+   */
+  mode?: "read" | "write";
+  /** Identity bundle (principal + vault + scopes). */
+  identity?: AgentIdentity;
+  /** Discovered requirements (env vars, CLI tools). */
+  requirements?: AgentRequirements;
+  /** Public surface this agent exposes (mcp-agent kind). */
+  surface?: AgentSurface;
 }
 
 /**
@@ -146,6 +266,11 @@ export interface HabitatConfig {
   projectDir?: string;
   /** Secrets required for this habitat to function. */
   requiredSecrets?: RequiredSecret[];
+  /**
+   * Reusable identity scope templates declared once at the habitat level.
+   * Agents reference them via `identity.scopes[*].source = templateId`.
+   */
+  scopeTemplates?: Record<string, ScopeTemplate>;
   /** Extension point for habitat-specific config. */
   extensions?: Record<string, unknown>;
 }

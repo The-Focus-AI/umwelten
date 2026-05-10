@@ -152,6 +152,33 @@ export function getFileAllowedRoots(workDir: string, sessionsDir: string, config
   return [workDir, sessionsDir, projectDir, ...agentRoots];
 }
 
+/**
+ * Roots that are read-only (an agent has `mode: "read"`).
+ * Used by file-tools / exec-tools for write-policy enforcement.
+ * Returns absolute paths.
+ */
+export function getReadOnlyAgentRoots(config: HabitatConfig): { agentId: string; root: string }[] {
+  return config.agents
+    .filter(a => a.mode === "read" && a.projectPath)
+    .map(a => ({ agentId: a.id, root: a.projectPath }));
+}
+
+/** Find the read-only agent (if any) whose root contains the given resolved path. */
+export function findReadOnlyAgentForPath(
+  config: HabitatConfig,
+  absPath: string,
+): { agentId: string; root: string } | undefined {
+  const candidates = getReadOnlyAgentRoots(config);
+  // Pick the deepest matching root (longest path) to handle nested cases.
+  let best: { agentId: string; root: string } | undefined;
+  for (const c of candidates) {
+    if (absPath === c.root || absPath.startsWith(c.root + "/")) {
+      if (!best || c.root.length > best.root.length) best = c;
+    }
+  }
+  return best;
+}
+
 /** Check if a file exists and is readable. */
 export async function fileExists(path: string): Promise<boolean> {
   try {

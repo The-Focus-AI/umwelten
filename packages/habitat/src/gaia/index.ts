@@ -3,14 +3,14 @@
  */
 
 export type {
-  GaiaHabitatEntry,
-  GaiaRegistry,
-  GaiaHabitatWithStatus,
-  ContainerStatus,
-  CreateHabitatOptions,
-  GaiaOrchestratorOptions,
-  CredentialEntry,
-  CredentialStatus,
+	GaiaHabitatEntry,
+	GaiaRegistry,
+	GaiaHabitatWithStatus,
+	ContainerStatus,
+	CreateHabitatOptions,
+	GaiaOrchestratorOptions,
+	CredentialEntry,
+	CredentialStatus,
 } from "./types.js";
 
 export { GaiaRegistryManager } from "./registry.js";
@@ -23,9 +23,9 @@ export type { GaiaToolsContext } from "./gaia-tools.js";
 export { handleGaiaRoute } from "./routes.js";
 export type { GaiaRouteContext } from "./routes.js";
 export {
-  seedOrgReadonly,
-  orgReadonlyBindings,
-  ORG_READONLY_AGENT_ID,
-  ORG_READONLY_TEMPLATE_ID,
-  ORG_READONLY_TOKENS,
+	seedOrgReadonly,
+	orgReadonlyBindings,
+	ORG_READONLY_AGENT_ID,
+	ORG_READONLY_TEMPLATE_ID,
+	ORG_READONLY_TOKENS,
 } from "./gaia-seed.js";

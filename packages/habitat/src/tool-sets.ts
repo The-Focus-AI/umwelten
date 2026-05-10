@@ -13,6 +13,7 @@ import { createAgentRunnerTools } from "./tools/agent-runner-tools.js";
 import { createSecretsTools } from "./tools/secrets-tools.js";
 import { createSearchTools } from "./tools/search-tools.js";
 import { createSelfModifyTools } from "./tools/self-modify-tools.js";
+import { createInspectTools } from "./tools/inspect-tools.js";
 import {
   wgetTool,
   markifyTool,
@@ -126,6 +127,8 @@ export const execToolSet: ToolSet = {
         }
         return undefined;
       },
+      findReadOnlyAgentForPath: (absPath: string) =>
+        habitat.findReadOnlyAgentForPath(absPath),
     }),
 };
 
@@ -162,6 +165,18 @@ export const selfModifyToolSet: ToolSet = {
   createTools: (habitat) => createSelfModifyTools(habitat),
 };
 
+/** Skill / agent inspection: discovers requirements without mutating anything. */
+export const inspectToolSet: ToolSet = {
+  name: "inspect",
+  description:
+    "Inspect skills and aggregate provisioning requirements (env vars, CLI tools)",
+  createTools: (habitat) =>
+    createInspectTools({
+      getSkills: () => habitat.getSkills(),
+      computeRequirements: () => habitat.computeRequirements(),
+    }),
+};
+
 /** All standard tool sets that a typical habitat includes (host orchestrator). */
 export const standardToolSets: ToolSet[] = [
   fileToolSet,
@@ -174,6 +189,7 @@ export const standardToolSets: ToolSet[] = [
   secretsToolSet,
   searchToolSet,
   selfModifyToolSet,
+  inspectToolSet,
 ];
 
 /**
@@ -189,6 +205,7 @@ export const containerToolSets: ToolSet[] = [
   execToolSet,
   provisionToolSet,
   artifactToolSet,
+  inspectToolSet,
 ];
 
 /**
@@ -204,4 +221,5 @@ export const managedContainerToolSets: ToolSet[] = [
   execToolSet,
   provisionToolSet,
   artifactToolSet,
+  inspectToolSet,
 ];

@@ -14,11 +14,21 @@ import { habitatCommand } from './habitat.js';
 import { mcpCommand } from './mcp.js';
 import { introspectCommand, browseCommand } from './introspect.js';
 
-// Get the version from package.json
+// Get the version from package.json. Try both the dist layout
+// (packages/cli/dist/cli.js → ../package.json) and the src layout
+// (packages/cli/src/cli.ts → ../package.json under tsx).
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const packageJsonPath = join(__dirname, '../../package.json');
-const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+let packageJson: { version: string };
+try {
+  packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
+} catch {
+  try {
+    packageJson = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
+  } catch {
+    packageJson = { version: '0.0.0' };
+  }
+}
 
 const program = new Command();
 

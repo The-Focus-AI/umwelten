@@ -15,6 +15,12 @@ export interface ExecToolsContext {
   getWorkDir(): string;
   /** Optional project directory (git clone). Commands default here when set. */
   getProjectDir?(): string | undefined;
+  /**
+   * Optional: returns the read-only agent (if any) whose root contains the path.
+   * When set, bash refuses to run with cwd inside a read-only agent unless the
+   * caller passes `allowMutation: false`.
+   */
+  findReadOnlyAgentForPath?(absPath: string): { agentId: string; root: string } | undefined;
 }
 
 export function createExecTools(ctx: ExecToolsContext): Record<string, Tool> {
@@ -31,13 +37,31 @@ export function createExecTools(ctx: ExecToolsContext): Record<string, Tool> {
         .number()
         .optional()
         .describe("Timeout in milliseconds (default: 120000)"),
+      readOnly: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, asserts the command does not mutate the cwd. Required if cwd falls inside a read-only agent.",
+        ),
     }),
-    execute: async ({ command, cwd, timeout }) => {
+    execute: async ({ command, cwd, timeout, readOnly }) => {
       const workDir = ctx.getWorkDir();
       const projectDir = ctx.getProjectDir?.();
       const defaultCwd = projectDir ?? workDir;
       const execCwd = cwd ? (cwd.startsWith("/") ? cwd : `${defaultCwd}/${cwd}`) : defaultCwd;
       const timeoutMs = timeout ?? 120000;
+
+      // Read-mode policy: refuse to run inside a read-only agent unless the
+      // caller explicitly asserts the command is non-mutating.
+      const ro = ctx.findReadOnlyAgentForPath?.(execCwd);
+      if (ro && !readOnly) {
+        return {
+          stdout: "",
+          stderr: "",
+          exitCode: 126,
+          error: `READ_ONLY_AGENT: cwd "${execCwd}" is inside read-only agent "${ro.agentId}" (${ro.root}). Pass readOnly:true if the command does not mutate state.`,
+        };
+      }
 
       try {
         const { stdout, stderr } = await execFileAsync(

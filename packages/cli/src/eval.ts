@@ -2,9 +2,9 @@ import { Command } from 'commander';
 import { runEvaluation, EvaluationConfig, generateReport, listEvaluations, runEvaluationWithProgress, EnhancedEvaluationConfig } from '@umwelten/evaluation/evaluation/api.js';
 import path from 'path';
 import fs from 'fs';
-import React from 'react';
-import { render } from 'ink';
-import { EvaluationApp } from '@umwelten/ui/EvaluationApp.js';
+// React/ink are lazy-imported in the --ui code path below. Importing them at
+// module top-level breaks every CLI command (react-reconciler@0.29.2 reads a
+// pre-React-19 ReactSharedInternals shape and throws at import time).
 
 
 
@@ -254,7 +254,11 @@ const evalRunCommand = new Command('run')
       };
 
       if (options.ui) {
-        // Use interactive UI
+        // Lazy-load React/ink so non-UI commands aren't penalized by them.
+        const React = (await import('react')).default;
+        const { render } = await import('ink');
+        const { EvaluationApp } = await import('@umwelten/ui/EvaluationApp.js');
+
         const enhancedConfig: EnhancedEvaluationConfig = {
           ...config,
           useUI: true

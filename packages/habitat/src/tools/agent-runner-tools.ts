@@ -17,6 +17,7 @@ import { getAgentMemoryPath } from "../agent-paths.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { runClaudeSDK } from "../claude-sdk-runner.js";
+import { checkAgentCall, withAgentCall } from "../identity/agent-call-context.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -621,10 +622,20 @@ export function createAgentRunnerTools(
           message: `No agent found: ${agentId}`,
         };
 
+      // Recursion guard: refuse if the call would exceed max depth or form a cycle.
+      const check = checkAgentCall(agent.id);
+      if (!check.ok) {
+        return {
+          error: check.reason === "CYCLE" ? "AGENT_CALL_CYCLE" : "AGENT_CALL_DEPTH_EXCEEDED",
+          message: check.message,
+          chain: check.chain,
+        };
+      }
+
       try {
         const habitatAgent = await ctx.getOrCreateHabitatAgent(agentId);
-        const response = await habitatAgent.ask(message);
-        return { agentId: agent.id, response };
+        const response = await withAgentCall(agent.id, () => habitatAgent.ask(message));
+        return { agentId: agent.id, response, callChain: [...check.chain, agent.id] };
       } catch (err: any) {
         return {
           error: "AGENT_ASK_FAILED",

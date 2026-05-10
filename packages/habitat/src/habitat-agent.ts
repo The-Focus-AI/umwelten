@@ -15,6 +15,10 @@ import { getAgentMemoryPath } from "./agent-paths.js";
 import { fileExists } from "./config.js";
 import { createFileTools } from "./tools/file-tools.js";
 
+// Sub-agents are allowed to call agent_ask sideways — recursion is bounded
+// by checkAgentCall() in agent-runner-tools, which enforces a max depth and
+// rejects cycles. Mutating tools (clone, register, configure, CRUD) stay denied
+// so sub-agents can't reshape the habitat from inside a delegation.
 const SUB_AGENT_TOOL_DENYLIST = new Set([
   "agents_list",
   "agents_add",
@@ -22,7 +26,6 @@ const SUB_AGENT_TOOL_DENYLIST = new Set([
   "agents_remove",
   "agent_register_directory",
   "agent_clone",
-  "agent_ask",
   "agent_configure",
 ]);
 
