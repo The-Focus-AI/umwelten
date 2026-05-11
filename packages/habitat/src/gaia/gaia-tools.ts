@@ -14,6 +14,11 @@ import type { DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
 import { CapabilityResolver } from "./capability-resolver.js";
 import {
+	type CredentialAuditLogger,
+	credentialEntry,
+	bindingEntry,
+} from "./credential-audit.js";
+import {
 	fetchAgentCard,
 	sendA2AMessage,
 	type A2AEndpoint,
@@ -87,6 +92,7 @@ export interface GaiaToolsContext {
 	vault: GaiaSecretVault;
 	docker: DockerManager;
 	catalog: CredentialCatalog;
+	audit: CredentialAuditLogger;
 	/** Gaia's own config (from Gaia data-dir config.json). */
 	gaiaConfig?: Pick<
 		import("../types.js").HabitatConfig,
@@ -274,7 +280,7 @@ export async function runStandardsAudit(
 }
 
 function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
-	const { registry, vault, docker, catalog, gaiaConfig } = ctx;
+	const { registry, vault, docker, catalog, audit, gaiaConfig } = ctx;
 
 	return {
 		list_habitats: tool({
@@ -924,6 +930,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 						sourceVaultRef: params.sourceVaultRef,
 						status: "unknown",
 					});
+					await audit.log(credentialEntry("add_credential", params.name));
 					return `Added credential "${params.name}" (${params.provider}).`;
 				} catch (err: any) {
 					return `Error: ${err.message}`;
@@ -967,9 +974,11 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 			}),
 			execute: async ({ name }) => {
 				const removed = await catalog.remove(name);
-				return removed
-					? `Removed credential "${name}".`
-					: `Credential "${name}" not found.`;
+				if (removed) {
+					await audit.log(credentialEntry("remove_credential", name));
+					return `Removed credential "${name}".`;
+				}
+				return `Credential "${name}" not found.`;
 			},
 		}),
 
@@ -982,6 +991,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 			execute: async ({ name }) => {
 				const entry = await catalog.verify(name);
 				if (!entry) return `Credential "${name}" not found.`;
+				await audit.log(credentialEntry("verify_credential", name));
 				return `Verified credential "${name}" (status: active, verified: ${entry.lastVerified}).`;
 			},
 		}),
@@ -1028,6 +1038,10 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					buildSeedFiles(entry, vault, catalog),
 				);
 
+				await audit.log(
+					bindingEntry("bind_capability", habitatId, capability, credential),
+				);
+
 				const status = await docker.getStatus(habitatId);
 				const hint =
 					status === "running"
@@ -1072,6 +1086,17 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 					buildSeedFiles(entry, vault, catalog),
 				);
 
+				for (const b of removed) {
+					await audit.log(
+						bindingEntry(
+							"unbind_capability",
+							habitatId,
+							b.capability,
+							b.credential,
+						),
+					);
+				}
+
 				const credList = removed.map((b) => `"${b.credential}"`).join(", ");
 				const status = await docker.getStatus(habitatId);
 				const hint =
@@ -1079,6 +1104,28 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 						? " Rebuild the habitat for changes to take effect."
 						: "";
 				return `Unbound capability "${capability}" (removed credentials: ${credList}) from habitat "${habitatId}".${hint}`;
+			},
+		}),
+
+		read_credential_audit_log: tool({
+			description:
+				"Read the most recent credential audit log entries. Shows timestamped records of add/remove/verify/bind/unbind operations.",
+			inputSchema: z.object({
+				n: z
+					.number()
+					.optional()
+					.describe("Number of entries to return (default: 50)"),
+			}),
+			execute: async ({ n }) => {
+				const entries = await audit.read(n ?? 50);
+				if (entries.length === 0) return "No audit entries yet.";
+				const lines = entries.map((e) => {
+					const context = e.habitatId
+						? ` habitat=${e.habitatId} cap=${e.capability}`
+						: "";
+					return `[${e.timestamp}] ${e.operation} credential=${e.credential}${context}`;
+				});
+				return `Audit log (${entries.length} entries):\n${lines.join("\n")}`;
 			},
 		}),
 

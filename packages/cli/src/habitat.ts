@@ -16,10 +16,7 @@ import { Command } from "commander";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import type { CoreMessage } from "ai";
-import {
-	Habitat,
-	getAgentMemoryPath,
-} from "@umwelten/habitat";
+import { Habitat, getAgentMemoryPath } from "@umwelten/habitat";
 import type { AgentEntry, DiscordChannelRuntimeMode } from "@umwelten/habitat";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import type { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
@@ -716,7 +713,6 @@ async function discordAction(
 		return bridge.resolveRoute(key, parentKey);
 	};
 
-
 	const buildDiscordBindingPinContent = async (opts: {
 		agentId: string;
 		runtime: DiscordChannelRuntimeMode;
@@ -1237,6 +1233,9 @@ addSharedOptions(gaiaSubcommand)
 			const { CredentialCatalog } = await import(
 				"@umwelten/habitat/gaia/credential-catalog.js"
 			);
+			const { CredentialAuditLogger } = await import(
+				"@umwelten/habitat/gaia/credential-audit.js"
+			);
 			const { createGaiaToolSet } = await import(
 				"@umwelten/habitat/gaia/gaia-tools.js"
 			);
@@ -1366,11 +1365,13 @@ addSharedOptions(gaiaSubcommand)
 			// Create habitat with container tools + gaia orchestrator tools
 			const catalog = new CredentialCatalog(dataDir);
 			await catalog.load();
+			const audit = new CredentialAuditLogger(dataDir);
 			const gaiaToolSet = createGaiaToolSet({
 				registry,
 				vault,
 				docker,
 				catalog,
+				audit,
 				gaiaConfig,
 			});
 			const habitat = await Habitat.create({
@@ -1391,7 +1392,7 @@ addSharedOptions(gaiaSubcommand)
 			const { startContainerServer } = await import(
 				"@umwelten/habitat/container-server.js"
 			);
-			const routeCtx = { registry, vault, docker, catalog };
+			const routeCtx = { registry, vault, docker, catalog, audit };
 			const server = await startContainerServer({
 				habitat,
 				port: parseInt(options.port ?? "7420", 10),

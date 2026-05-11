@@ -7,6 +7,7 @@ import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
+import type { CredentialAuditLogger } from "./credential-audit.js";
 import { proxyRequest, fetchFromContainer } from "./proxy.js";
 import { buildSeedFiles, runStandardsAudit } from "./gaia-tools.js";
 import { CapabilityResolver } from "./capability-resolver.js";
@@ -42,6 +43,7 @@ export interface GaiaRouteContext {
 	vault: GaiaSecretVault;
 	docker: DockerManager;
 	catalog: CredentialCatalog;
+	audit: CredentialAuditLogger;
 }
 
 function parseUrl(url: string): {
@@ -340,6 +342,16 @@ export async function handleGaiaRoute(
 	if (params && method === "DELETE") {
 		const removed = await ctx.vault.remove(params.name);
 		sendJson(res, { removed, name: params.name });
+		return true;
+	}
+
+	// ── Credential audit log ─────────────────────────────────────
+
+	// GET /api/audit — read the credential audit log
+	if (path === "/api/audit" && method === "GET") {
+		const n = parseInt(query.n ?? "50", 10);
+		const entries = await ctx.audit.read(n);
+		sendJson(res, { entries, count: entries.length });
 		return true;
 	}
 
