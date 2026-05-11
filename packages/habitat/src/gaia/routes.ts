@@ -8,18 +8,17 @@ import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
 import { proxyRequest } from "./proxy.js";
-import { buildSeedFiles } from "./gaia-tools.js";
+import { buildSeedFiles, runStandardsAudit } from "./gaia-tools.js";
+import type { AuditSummary } from "./gaia-tools.js";
+
+/** In-memory store for the most recent audit results (ephemeral). */
+let latestAudit: AuditSummary | null = null;
 
 export interface GaiaRouteContext {
 	registry: GaiaRegistryManager;
 	vault: GaiaSecretVault;
 	docker: DockerManager;
 	catalog: CredentialCatalog;
-}
-
-interface RouteMatch {
-	params: Record<string, string>;
-	query: Record<string, string>;
 }
 
 function parseUrl(url: string): {
@@ -339,6 +338,49 @@ export async function handleGaiaRoute(
 		const available = await ctx.docker.isDockerAvailable();
 		const imageExists = available ? await ctx.docker.imageExists() : false;
 		sendJson(res, { dockerAvailable: available, imageExists });
+		return true;
+	}
+
+	// ── Standards audit ─────────────────────────────────────────
+
+	// GET /api/standards-audit/latest — get most recent audit results
+	if (path === "/api/standards-audit/latest" && method === "GET") {
+		if (!latestAudit) {
+			sendJson(res, {
+				audit: null,
+				message: "No audits yet. Run one to check compliance.",
+			});
+			return true;
+		}
+		sendJson(res, { audit: latestAudit });
+		return true;
+	}
+
+	// POST /api/standards-audit — trigger a new audit
+	if (path === "/api/standards-audit" && method === "POST") {
+		const body = JSON.parse(await readBody(req));
+		const habitatId =
+			typeof body.habitatId === "string" ? body.habitatId : undefined;
+
+		res.writeHead(200, {
+			"Content-Type": "text/event-stream",
+			"Cache-Control": "no-cache",
+			Connection: "keep-alive",
+		});
+
+		try {
+			const summary = await runStandardsAudit(
+				{ registry: ctx.registry, docker: ctx.docker },
+				{ habitatId },
+			);
+			latestAudit = summary;
+			res.write(`data: ${JSON.stringify({ type: "done", summary })}\n\n`);
+		} catch (err: any) {
+			res.write(
+				`data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`,
+			);
+		}
+		res.end();
 		return true;
 	}
 

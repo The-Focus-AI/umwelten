@@ -168,6 +168,9 @@ export {
 	CapabilityResolver,
 	createGaiaToolSet,
 	handleGaiaRoute,
+	runStandardsAudit,
+	entryToEndpoint,
+	STANDARDS_AUDIT_MSG,
 } from "./gaia/index.js";
 export type {
 	GaiaHabitatEntry,
@@ -175,9 +178,12 @@ export type {
 	GaiaOrchestratorOptions,
 	GaiaToolsContext,
 	GaiaRouteContext,
+	StandardsAuditContext,
 	CredentialEntry,
 	CredentialStatus,
 	ResolverResult,
+	AuditResult,
+	AuditSummary,
 } from "./gaia/index.js";
 
 // ── Web server / adapter ────────────────────────────────────────────────

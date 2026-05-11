@@ -8,6 +8,7 @@ Add a standards audit panel to the Gaia dashboard Habitats tab (or as a standalo
 
 **Audit results display:**
 A collapsible section or modal that shows:
+
 - Last audit timestamp and who triggered it
 - Summary bar: X passed, Y findings, Z unresponsive, W skipped
 - Per-habitat list with status icon (✅ pass, ⚠️ findings, ❌ unresponsive, ⬜ skipped)
@@ -21,14 +22,14 @@ Audit results are ephemeral — stored in Gaia's memory during the session, not 
 
 ## Acceptance criteria
 
-- [ ] Audit panel appears in the Gaia dashboard (in Habitats tab or as standalone)
-- [ ] "Audit All" button triggers `broadcast_standards` for all running habitats
-- [ ] Per-habitat "Audit" button triggers for a single habitat
-- [ ] Results update in real-time as each habitat responds (or show a progress indicator)
-- [ ] Summary bar shows counts: passed, findings, unresponsive, skipped
-- [ ] Expanding a habitat shows detailed findings with severity badges
-- [ ] Empty state before any audit has been run: "No audits yet. Run one to check compliance."
-- [ ] Panel gracefully handles the "no habitats with standards agent" case
+- [x] Audit panel appears in the Gaia dashboard (in Habitats tab or as standalone)
+- [x] "Audit All" button triggers `broadcast_standards` for all running habitats
+- [x] Per-habitat "Audit" button triggers for a single habitat
+- [x] Results update in real-time as each habitat responds (or show a progress indicator)
+- [x] Summary bar shows counts: passed, findings, unresponsive, skipped
+- [x] Expanding a habitat shows detailed findings with severity badges
+- [x] Empty state before any audit has been run: "No audits yet. Run one to check compliance."
+- [x] Panel gracefully handles the "no habitats with standards agent" case
 
 ## Blocked by
 

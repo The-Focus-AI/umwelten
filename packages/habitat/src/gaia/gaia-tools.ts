@@ -19,10 +19,37 @@ import {
 	type A2AEndpoint,
 	type AgentCardSummary,
 } from "@umwelten/server";
-import { seedOrgReadonly, seedStandardsAgent } from "./gaia-seed.js";
+import {
+	seedOrgReadonly,
+	seedStandardsAgent,
+	STANDARDS_AGENT_ID,
+} from "./gaia-seed.js";
+
+export const STANDARDS_AUDIT_MSG =
+	"Pull the latest standards from the standards agent at /data/agents/standards/repo. Review the current best-practices against this habitat's own project and configuration. Return a structured findings report with: compliant items, non-compliant items with severity, and suggested remediations.";
+
+/** Result for a single habitat in a standards audit. */
+export interface AuditResult {
+	habitatId: string;
+	name: string;
+	status: "responded" | "unresponsive" | "skipped";
+	findings?: string;
+	error?: string;
+}
+
+/** Summary of a standards audit run. */
+export interface AuditSummary {
+	timestamp: string;
+	total: number;
+	passed: number;
+	findings: number;
+	unresponsive: number;
+	skipped: number;
+	results: AuditResult[];
+}
 
 /** Adapt a Gaia registry entry to a generic A2A endpoint. */
-function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
+export function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
 	if (!entry.containerPort) {
 		throw new Error(`Container ${entry.id} not running`);
 	}
@@ -105,6 +132,145 @@ export function buildSeedFiles(
 		},
 		{ path: "secrets.json", content: JSON.stringify(filtered, null, 2) + "\n" },
 	];
+}
+
+/** Minimal context needed to run a standards audit. */
+export interface StandardsAuditContext {
+	registry: GaiaRegistryManager;
+	docker: DockerManager;
+}
+
+/**
+ * Run a standards audit across habitats with standards agents.
+ * Used both by the broadcast_standards tool and the REST API.
+ */
+export async function runStandardsAudit(
+	ctx: StandardsAuditContext,
+	options?: { habitatId?: string },
+): Promise<AuditSummary> {
+	const PER_HABITAT_TIMEOUT_MS = 60_000;
+	const { registry, docker } = ctx;
+
+	const entries = registry.list();
+	const targets = options?.habitatId
+		? entries.filter((e) => e.id === options.habitatId)
+		: entries;
+
+	if (targets.length === 0) {
+		return {
+			timestamp: new Date().toISOString(),
+			total: 0,
+			passed: 0,
+			findings: 0,
+			unresponsive: 0,
+			skipped: 0,
+			results: [],
+		};
+	}
+
+	const auditTargets: GaiaHabitatEntry[] = [];
+	const skipped: AuditResult[] = [];
+
+	for (const entry of targets) {
+		const hasStandards =
+			entry.config.agents?.some((a) => a.id === STANDARDS_AGENT_ID) ?? false;
+		const isRunning =
+			entry.containerPort != null &&
+			(await docker.getStatus(entry.id)) === "running";
+
+		if (!isRunning) {
+			skipped.push({
+				habitatId: entry.id,
+				name: entry.name,
+				status: "skipped",
+				error: `Habitat "${entry.id}" is not running — skipped.`,
+			});
+			continue;
+		}
+		if (!hasStandards) {
+			skipped.push({
+				habitatId: entry.id,
+				name: entry.name,
+				status: "skipped",
+				error: `Habitat "${entry.id}" has no standards agent — skipped.`,
+			});
+			continue;
+		}
+		auditTargets.push(entry);
+	}
+
+	if (auditTargets.length === 0) {
+		return {
+			timestamp: new Date().toISOString(),
+			total: skipped.length,
+			passed: 0,
+			findings: 0,
+			unresponsive: 0,
+			skipped: skipped.length,
+			results: skipped,
+		};
+	}
+
+	const results = await Promise.allSettled(
+		auditTargets.map(async (entry) => {
+			try {
+				const result = await Promise.race([
+					sendA2AMessage(entryToEndpoint(entry), STANDARDS_AUDIT_MSG),
+					new Promise<never>((_, reject) =>
+						setTimeout(
+							() => reject(new Error("timeout")),
+							PER_HABITAT_TIMEOUT_MS,
+						),
+					),
+				]);
+				return {
+					habitatId: entry.id,
+					name: entry.name,
+					status: "responded" as const,
+					findings: result.text,
+				};
+			} catch (err: any) {
+				const reason =
+					err.message === "timeout"
+						? `Timed out after ${PER_HABITAT_TIMEOUT_MS / 1000}s`
+						: err.message;
+				return {
+					habitatId: entry.id,
+					name: entry.name,
+					status: "unresponsive" as const,
+					error: reason,
+				};
+			}
+		}),
+	);
+
+	const allResults: AuditResult[] = results.map((r) =>
+		r.status === "fulfilled"
+			? r.value
+			: {
+					habitatId: "unknown",
+					name: "unknown",
+					status: "unresponsive" as const,
+					error: r.reason?.message ?? "Unknown error",
+				},
+	);
+
+	const responded = allResults.filter((r) => r.status === "responded");
+	const unresponsive = allResults.filter((r) => r.status === "unresponsive");
+
+	return {
+		timestamp: new Date().toISOString(),
+		total: allResults.length + skipped.length,
+		passed: responded.filter(
+			(r) => r.findings && !/non-compliant|violation|finding/i.test(r.findings),
+		).length,
+		findings: responded.filter(
+			(r) => r.findings && /non-compliant|violation|finding/i.test(r.findings),
+		).length,
+		unresponsive: unresponsive.length,
+		skipped: skipped.length,
+		results: [...allResults, ...skipped],
+	};
 }
 
 function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
@@ -943,6 +1109,79 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 
 				return `Capability bindings on "${habitatId}":
 ${summary.join("\n")}`;
+			},
+		}),
+
+		// ── Standards Audit ───────────────────────────────────────────
+
+		broadcast_standards: tool({
+			description:
+				"Send a standards audit message to one or all running habitats that have a standards agent. Each habitat pulls the latest standards, reviews its own project, and returns structured findings. Uses A2A blocking messaging — waits for each habitat to respond.",
+			inputSchema: z.object({
+				habitatId: z
+					.string()
+					.optional()
+					.describe(
+						"Audit only this habitat. If omitted, audits all running habitats with a standards agent.",
+					),
+			}),
+			execute: async ({ habitatId }) => {
+				const summary = await runStandardsAudit(ctx, { habitatId });
+
+				if (summary.total === 0) {
+					return habitatId
+						? `Habitat "${habitatId}" not found.`
+						: "No habitats registered.";
+				}
+
+				if (summary.results.every((r) => r.status === "skipped")) {
+					const skippedReasons = summary.results
+						.map((r) => `  - ${r.error}`)
+						.join("\n");
+					return `No eligible habitats to audit.\n\n${skippedReasons}`;
+				}
+
+				const responded = summary.results.filter(
+					(r) => r.status === "responded",
+				);
+				const unresponsive = summary.results.filter(
+					(r) => r.status === "unresponsive",
+				);
+				const skipped = summary.results.filter((r) => r.status === "skipped");
+
+				const lines: string[] = [];
+				lines.push("## Standards Audit");
+				lines.push(
+					`Responded: ${responded.length}/${summary.total - skipped.length}`,
+				);
+				lines.push(
+					`Unresponsive: ${unresponsive.length}/${summary.total - skipped.length}`,
+				);
+				if (skipped.length > 0) {
+					lines.push(`Skipped: ${skipped.length}`);
+				}
+				lines.push("");
+
+				for (const r of responded) {
+					lines.push(`### ${r.name} (${r.habitatId})`);
+					lines.push(r.findings ?? "(no findings)");
+					lines.push("");
+				}
+
+				for (const r of unresponsive) {
+					lines.push(`### ${r.name} (${r.habitatId})`);
+					lines.push(`⚠️ Unresponsive: ${r.error}`);
+					lines.push("");
+				}
+
+				if (skipped.length > 0) {
+					lines.push("### Warnings");
+					for (const s of skipped) {
+						lines.push(`  - ${s.error}`);
+					}
+				}
+
+				return lines.join("\n");
 			},
 		}),
 	};

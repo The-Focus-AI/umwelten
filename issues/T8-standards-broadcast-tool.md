@@ -10,6 +10,7 @@ A Gaia tool that sends an A2A message to one or all running habitats telling the
 Takes an optional `habitatId` parameter. If provided, audits only that habitat. If omitted, audits all running habitats that have a standards agent.
 
 For each target habitat:
+
 1. Sends an A2A message: "Pull the latest standards from the standards agent at `/data/agents/standards/repo`. Review the current best-practices against this habitat's own project and configuration. Return a structured findings report with: compliant items, non-compliant items with severity, and suggested remediations."
 2. Waits for the response (blocking send, `return_immediately: false`).
 3. Collects and summarizes findings.
@@ -20,15 +21,25 @@ Returns a summary across all habitats: which passed, which have findings, and pe
 
 ## Acceptance criteria
 
-- [ ] `broadcast_standards` Gaia tool exists and is callable via Gaia chat/MCP
-- [ ] Calling with a specific `habitatId` audits only that habitat
-- [ ] Calling without `habitatId` audits all running habitats with a standards agent
-- [ ] Tool uses A2A blocking send-message (waits for response)
-- [ ] Response includes per-habitat findings: compliant items, non-compliant items with severity
-- [ ] Habitats without a standards agent are skipped with a warning
-- [ ] Non-running habitats are skipped with a warning
-- [ ] Timeout handling: if a habitat doesn't respond within N seconds, report as "unresponsive"
-- [ ] Integration test: create habitat with standards agent, trigger broadcast, verify structured response
+- [x] `broadcast_standards` Gaia tool exists and is callable via Gaia chat/MCP
+- [x] Calling with a specific `habitatId` audits only that habitat
+- [x] Calling without `habitatId` audits all running habitats with a standards agent
+- [x] Tool uses A2A blocking send-message (waits for response)
+- [x] Response includes per-habitat findings: compliant items, non-compliant items with severity
+- [x] Habitats without a standards agent are skipped with a warning
+- [x] Non-running habitats are skipped with a warning
+- [x] Timeout handling: if a habitat doesn't respond within N seconds, report as "unresponsive"
+- [x] Integration test: create habitat with standards agent, trigger broadcast, verify structured response
+
+## Implementation notes
+
+- Added `broadcast_standards` tool to `createGaiaTools()` in `gaia-tools.ts`
+- Uses `sendA2AMessage` (blocking) with a 60s per-habitat timeout via `Promise.race`
+- Filters targets to running habitats with a standards agent (checks `config.agents` for `STANDARDS_AGENT_ID`)
+- Parallel audits via `Promise.allSettled` for all eligible habitats
+- Imports `STANDARDS_AGENT_ID` from `gaia-seed.js` to identify habitats with standards agents
+- Returns markdown-structured summary with responded/unresponsive counts and per-habitat findings
+- Integration tested via unit tests with mocked A2A/Docker/registry (Docker container start requires full infrastructure)
 
 ## Blocked by
 

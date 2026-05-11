@@ -694,6 +694,183 @@
         gap: 6px;
       }
 
+      /* Standards audit panel */
+      .audit-panel {
+        margin-top: 20px;
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+      }
+      .audit-panel h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .audit-empty {
+        color: var(--text-dim);
+        font-size: 0.88em;
+        padding: 12px 0;
+        font-style: italic;
+      }
+      .audit-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .audit-actions button {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 6px 14px;
+        border-radius: var(--radius);
+        font-size: 12px;
+        cursor: pointer;
+        font-family: var(--mono);
+      }
+      .audit-actions button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .audit-actions button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .audit-summary-bar {
+        display: flex;
+        gap: 16px;
+        padding: 10px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 14px;
+        font-family: var(--mono);
+        font-size: 0.82em;
+      }
+      .audit-summary-bar .as-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .audit-summary-bar .as-count {
+        font-weight: 700;
+        font-size: 1.1em;
+      }
+      .audit-summary-bar .passed {
+        color: var(--success);
+      }
+      .audit-summary-bar .findings {
+        color: var(--warn);
+      }
+      .audit-summary-bar .unresponsive {
+        color: var(--error);
+      }
+      .audit-summary-bar .skipped {
+        color: var(--text-dim);
+      }
+      .audit-timestamp {
+        color: var(--text-dim);
+        font-size: 0.78em;
+        margin-bottom: 12px;
+      }
+      .audit-result-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 8px;
+        overflow: hidden;
+      }
+      .audit-result-card .arc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .audit-result-card .arc-header:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .audit-result-card .arc-name {
+        font-weight: 500;
+        font-size: 0.9em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .audit-result-card .arc-status {
+        font-family: var(--mono);
+        font-size: 0.78em;
+        padding: 2px 8px;
+        border-radius: 8px;
+      }
+      .audit-result-card .arc-status.responded {
+        background: rgba(34, 197, 94, 0.1);
+        color: var(--success);
+      }
+      .audit-result-card .arc-status.unresponsive {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--error);
+      }
+      .audit-result-card .arc-status.skipped {
+        background: rgba(115, 115, 115, 0.1);
+        color: var(--text-dim);
+      }
+      .audit-result-card .arc-body {
+        padding: 0 14px 14px;
+        font-size: 0.85em;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 400px;
+        overflow-y: auto;
+        color: var(--text);
+        line-height: 1.5;
+      }
+      .audit-result-card .arc-body.hidden {
+        display: none;
+      }
+      .audit-result-card .arc-error {
+        color: var(--error);
+        font-style: italic;
+      }
+      .audit-progress {
+        color: var(--accent);
+        font-size: 0.85em;
+        padding: 10px 0;
+        font-style: italic;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .audit-per-habitat {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .audit-per-habitat button {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        padding: 2px 8px;
+        border-radius: var(--radius);
+        font-size: 11px;
+        cursor: pointer;
+        font-family: var(--mono);
+        white-space: nowrap;
+      }
+      .audit-per-habitat button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
       .habitats-view {
         flex: 1;
         overflow-y: auto;
@@ -1194,6 +1371,7 @@ Loading...</pre
         <h2>Managed Habitats</h2>
         <div class="filter-bar" id="filter-bar"></div>
         <div id="habitats-content"></div>
+        <div class="audit-panel" id="audit-panel"></div>
       </div>
 
       <!-- Artifacts pane (always visible) -->
@@ -1449,7 +1627,10 @@ Loading...</pre
         if (view === "chat") $("input").focus();
         if (view === "sessions") loadSessions();
         if (view === "settings") loadSettings();
-        if (view === "habitats") loadHabitats();
+        if (view === "habitats") {
+          loadHabitats();
+          loadAuditPanel();
+        }
       };
 
       // --- Dashboard ---
@@ -2136,6 +2317,165 @@ Loading...</pre
         }
 
         el.innerHTML = html;
+      }
+
+      // ── Standards Audit Panel ───────────────────────────────────
+
+      let auditData = null; // { audit: AuditSummary } | null
+      let auditRunning = false;
+
+      async function loadAuditPanel() {
+        const panel = $("audit-panel");
+
+        // Always try to fetch the latest audit data
+        try {
+          const res = await fetch("/api/standards-audit/latest", {
+            headers: authHeadersNoBody(),
+          });
+          const data = await res.json();
+          auditData = data;
+        } catch {
+          // non-fatal
+        }
+
+        renderAuditPanel();
+      }
+
+      function renderAuditPanel() {
+        const panel = $("audit-panel");
+        const audit = auditData?.audit;
+
+        if (!audit || !audit.results || audit.results.length === 0) {
+          panel.innerHTML = `
+            <h3>Standards Audit</h3>
+            <div class="audit-empty">No audits yet. Run one to check compliance.</div>
+            <div class="audit-actions">
+              <button onclick="runAudit()" ${auditRunning ? "disabled" : ""}>Audit All</button>
+            </div>
+            ${auditRunning ? '<div class="audit-progress">Running audit...</div>' : ""}
+          `;
+          return;
+        }
+
+        const time = new Date(audit.timestamp).toLocaleString();
+        let html = `
+          <h3>Standards Audit</h3>
+          <div class="audit-timestamp">Last audit: ${esc(time)}</div>
+          <div class="audit-summary-bar">
+            <div class="as-item"><span class="as-count passed">${audit.passed}</span> passed</div>
+            <div class="as-item"><span class="as-count findings">${audit.findings}</span> findings</div>
+            <div class="as-item"><span class="as-count unresponsive">${audit.unresponsive}</span> unresponsive</div>
+            <div class="as-item"><span class="as-count skipped">${audit.skipped}</span> skipped</div>
+          </div>
+          <div class="audit-actions">
+            <button onclick="runAudit()" ${auditRunning ? "disabled" : ""}>Audit All</button>
+          </div>
+        `;
+
+        if (auditRunning) {
+          html += '<div class="audit-progress">Running audit...</div>';
+        }
+
+        // Per-habitat audit buttons
+        if (habitatsData.length > 0) {
+          html +=
+            '<div style="margin-top: 10px; font-size: 0.78em; color: var(--text-dim);">Audit single habitat:</div>';
+          html += '<div class="audit-per-habitat" style="margin: 6px 0 12px;">';
+          for (const h of habitatsData) {
+            const hasStandards = h.config?.agents?.some(
+              (a) => a.id === "standards",
+            );
+            html += `<button onclick="runAudit('${esc(h.id)}')" ${!hasStandards || auditRunning ? "disabled" : ""} title="${hasStandards ? "Audit this habitat" : "No standards agent"}">${esc(h.id)}${!hasStandards ? " ⬜" : ""}</button>`;
+          }
+          html += "</div>";
+        }
+
+        // Per-habitat results
+        for (const r of audit.results) {
+          const icon =
+            r.status === "responded"
+              ? r.findings &&
+                /non-compliant|violation|finding/i.test(r.findings)
+                ? "⚠️"
+                : "✅"
+              : r.status === "unresponsive"
+                ? "❌"
+                : "⬜";
+          html += `
+            <div class="audit-result-card">
+              <div class="arc-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                <span class="arc-name">${icon} ${esc(r.name)} <span style="font-family: var(--mono); font-size: 0.8em; color: var(--text-dim)">${esc(r.habitatId)}</span></span>
+                <span class="arc-status ${r.status}">${r.status}</span>
+              </div>
+              <div class="arc-body hidden">
+                ${
+                  r.status === "responded"
+                    ? renderMarkdown(r.findings || "(no findings reported)")
+                    : r.status === "skipped"
+                      ? `<div class="arc-error">${esc(r.error || "")}</div>`
+                      : `<div class="arc-error">Unresponsive: ${esc(r.error || "")}</div>`
+                }
+              </div>
+            </div>
+          `;
+        }
+
+        panel.innerHTML = html;
+      }
+
+      async function runAudit(habitatId) {
+        if (auditRunning) return;
+        auditRunning = true;
+        renderAuditPanel();
+
+        try {
+          const body = habitatId ? JSON.stringify({ habitatId }) : "{}";
+          const res = await fetch("/api/standards-audit", {
+            method: "POST",
+            headers: authHeaders(),
+            body,
+          });
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+
+          // Read SSE stream
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const payload = line.slice(6);
+              let event;
+              try {
+                event = JSON.parse(payload);
+              } catch {
+                continue;
+              }
+
+              if (event.type === "done") {
+                auditData = { audit: event.summary };
+              } else if (event.type === "error") {
+                auditData = null;
+                console.error("Audit error:", event.error);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Audit failed:", err.message);
+        } finally {
+          auditRunning = false;
+          renderAuditPanel();
+        }
       }
     </script>
   </body>

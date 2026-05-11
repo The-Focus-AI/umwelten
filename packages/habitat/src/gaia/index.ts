@@ -21,8 +21,19 @@ export { CapabilityResolver } from "./capability-resolver.js";
 export type { ResolverResult } from "./capability-resolver.js";
 export { DockerManager } from "./docker.js";
 export { proxyRequest, fetchFromContainer } from "./proxy.js";
-export { createGaiaToolSet, buildSeedFiles } from "./gaia-tools.js";
-export type { GaiaToolsContext } from "./gaia-tools.js";
+export {
+	createGaiaToolSet,
+	buildSeedFiles,
+	runStandardsAudit,
+	entryToEndpoint,
+	STANDARDS_AUDIT_MSG,
+} from "./gaia-tools.js";
+export type {
+	GaiaToolsContext,
+	StandardsAuditContext,
+	AuditResult,
+	AuditSummary,
+} from "./gaia-tools.js";
 export { handleGaiaRoute } from "./routes.js";
 export type { GaiaRouteContext } from "./routes.js";
 export {
