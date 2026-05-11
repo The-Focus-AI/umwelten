@@ -45,3 +45,13 @@ export {
 	STANDARDS_AGENT_ID,
 	seedStandardsAgent,
 } from "./gaia-seed.js";
+export {
+	FnoxResolver,
+	FNOX_TEMPLATE,
+	BOOTSTRAP_TOKEN_ENV_VARS,
+} from "./fnox.js";
+export type {
+	FnoxResolutionResult,
+	FnoxMode,
+	BootstrapToken,
+} from "./fnox.js";

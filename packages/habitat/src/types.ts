@@ -136,6 +136,18 @@ export interface AgentIdentity {
  * Mirrors the agentConfigureSchema shape from agent-runner-tools so the same
  * inspector pass can populate either an agent or a skill.
  */
+/** Mapped capability hint discovered by cross-referencing env vars against a credential catalog. */
+export interface CapabilityHint {
+	/** The env var name found in the skill source (e.g. "QUICKBOOKS_API_KEY"). */
+	envVar: string;
+	/** The capability it maps to (e.g. "quickbooks:read"). */
+	capability: string;
+	/** The credential name from the catalog that provides it. */
+	credential: string;
+	/** Source context (e.g. "scripts/run.ts"). */
+	source: string;
+}
+
 export interface AgentRequirements {
 	envVars: { name: string; reason: string; required: boolean }[];
 	cliTools: { name: string; reason: string; required: boolean }[];
@@ -143,6 +155,19 @@ export interface AgentRequirements {
 	inspectedAt?: string;
 	/** Content hash of the source the requirements were inferred from. */
 	sourceHash?: string;
+	/**
+	 * When a credential catalog is available during inspection, env vars
+	 * discovered in skill sources are cross-referenced against catalog
+	 * entries to produce capability hints.
+	 */
+	capabilityHints?: CapabilityHint[];
+}
+
+/** A capability gap reported at runtime by a habitat. */
+export interface CapabilityGap {
+	capability: string;
+	context: string;
+	timestamp: string;
 }
 
 /**

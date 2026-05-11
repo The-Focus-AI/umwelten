@@ -18,6 +18,8 @@ export type {
 	AgentScope,
 	AgentVaultRef,
 	AgentRequirements,
+	CapabilityHint,
+	CapabilityGap,
 	AgentSurface,
 	ScopeTemplate,
 	HabitatCommands,

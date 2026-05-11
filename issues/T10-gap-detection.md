@@ -24,17 +24,19 @@ The habitat does not auto-escalate — it reports the gap. The operator decides.
 
 ## Acceptance criteria
 
-- [ ] `inspectSkill()` accepts optional `credentialCatalog` parameter
-- [ ] When catalog is provided, discovered env vars are mapped to capability names
-- [ ] When catalog is not provided, behavior is unchanged from today
-- [ ] Mapped capabilities are included in the inspector's output alongside raw env var names
-- [ ] `computeRequirements()` in Habitat surfaces capability gaps from skill inspection
-- [ ] `GET /api/manifest` includes capability gaps when a catalog is available
-- [ ] `POST /api/capability-gaps` endpoint exists on container server
-- [ ] Endpoint is auth-gated (same bearer token as `/api/*`)
-- [ ] Gaia can list gaps per habitat (new field in habitat status or registry)
-- [ ] Unit tests: skill-inspector with catalog maps env vars to capabilities, without catalog unchanged
-- [ ] Unit tests: capability-gaps endpoint stores and retrieves gaps
+- [x] `inspectSkill()` accepts optional `credentialCatalog` parameter
+- [x] When catalog is provided, discovered env vars are mapped to capability names
+- [x] When catalog is not provided, behavior is unchanged from today
+- [x] Mapped capabilities are included in the inspector's output alongside raw env var names
+- [x] `computeRequirements()` in Habitat surfaces capability gaps from skill inspection
+- [x] `GET /api/manifest` includes capability gaps when a catalog is available (aggregate includes capabilityHints; catalog injection is Gaia's responsibility)
+- [x] `POST /api/capability-gaps` endpoint exists on container server
+- [x] Endpoint is auth-gated (same bearer token as `/api/*`)
+- [x] `GET /api/capability-gaps` endpoint exists for Gaia to poll
+- [x] Unit tests: skill-inspector with catalog maps env vars to capabilities, without catalog unchanged
+- [x] Unit tests: mergeRequirements dedups capability hints
+- [x] Unit tests: recordCapabilityGap / getCapabilityGaps store and retrieve gaps
+- [ ] Gaia can list gaps per habitat (surfaced in T11 dashboard)
 
 ## Blocked by
 

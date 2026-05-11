@@ -1202,6 +1202,149 @@
         color: var(--error);
       }
 
+      /* Gaps panel */
+      .gaps-panel {
+        margin-top: 20px;
+        padding: 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+      .gaps-panel h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .gaps-badge {
+        display: inline-block;
+        background: var(--error);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 1px 7px;
+        border-radius: 10px;
+        min-width: 18px;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .gaps-badge.zero {
+        background: var(--text-dim);
+      }
+      .gaps-empty {
+        color: var(--text-dim);
+        font-size: 13px;
+        padding: 8px 0;
+      }
+      .gap-card {
+        background: #0d1117;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+      }
+      .gap-card .gap-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+      }
+      .gap-card .gap-capability {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        color: var(--text);
+      }
+      .gap-card .gap-severity {
+        font-size: 0.72em;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 3px;
+      }
+      .gap-card .gap-severity.critical {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--error);
+      }
+      .gap-card .gap-severity.optional {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warn);
+      }
+      .gap-card .gap-meta {
+        font-size: 0.75em;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+      }
+      .gap-card .gap-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .gap-card .gap-actions button {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        cursor: pointer;
+        font-family: var(--mono);
+      }
+      .gap-card .gap-actions button:hover {
+        opacity: 0.8;
+      }
+      .gap-card .gap-actions button.grant-btn {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .gap-card .gap-actions button.deny-btn {
+        color: var(--error);
+      }
+      .gap-card .gap-status {
+        font-size: 0.75em;
+        color: var(--text-dim);
+        font-style: italic;
+        margin-top: 4px;
+      }
+      .cred-picker {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+      .cred-picker select {
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 3px 8px;
+        font-size: 0.78em;
+        font-family: var(--mono);
+        max-width: 200px;
+      }
+      .cred-picker button {
+        background: var(--accent);
+        border: none;
+        color: #fff;
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        cursor: pointer;
+        font-family: var(--mono);
+      }
+      .cred-picker .cancel-pick {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+      }
+      .cred-picker .needs-rebuild {
+        font-size: 0.72em;
+        color: var(--warn);
+        font-style: italic;
+      }
+
       .hidden {
         display: none !important;
       }
@@ -1220,6 +1363,7 @@
           </button>
           <button id="nav-habitats" onclick="showView('habitats')">
             Habitats
+            <span class="gaps-badge zero hidden" id="gaps-badge">0</span>
           </button>
           <button id="nav-settings" onclick="showView('settings')">
             Settings
@@ -1372,6 +1516,7 @@ Loading...</pre
         <div class="filter-bar" id="filter-bar"></div>
         <div id="habitats-content"></div>
         <div class="audit-panel" id="audit-panel"></div>
+        <div class="gaps-panel" id="gaps-panel"></div>
       </div>
 
       <!-- Artifacts pane (always visible) -->
@@ -1630,6 +1775,7 @@ Loading...</pre
         if (view === "habitats") {
           loadHabitats();
           loadAuditPanel();
+          loadGaps();
         }
       };
 
@@ -2477,6 +2623,233 @@ Loading...</pre
           renderAuditPanel();
         }
       }
+
+      // ── Capability Gaps ─────────────────────────────────────────
+
+      let gapsData = [];
+      let credentialPickers = {}; // habitatId -> { capability -> { visible, credential } }
+
+      async function loadGaps() {
+        try {
+          const res = await fetch("/api/capability-gaps", {
+            headers: authHeadersNoBody(),
+          });
+          const data = await res.json();
+          gapsData = (data.gaps || []).filter((g) => g.status === "pending");
+        } catch {
+          gapsData = [];
+        }
+        renderGaps();
+      }
+
+      function updateGapsBadge() {
+        const badge = $("gaps-badge");
+        const count = gapsData.length;
+        badge.textContent = count;
+        badge.classList.toggle("hidden", count === 0);
+        badge.classList.toggle("zero", count === 0);
+      }
+
+      function renderGaps() {
+        updateGapsBadge();
+        const panel = $("gaps-panel");
+
+        if (!gapsData.length) {
+          panel.innerHTML = `
+            <h3>Capability Gaps</h3>
+            <div class="gaps-empty">No pending gaps — all habitats have the capabilities they need.</div>
+          `;
+          return;
+        }
+
+        // Group by habitat
+        const byHabitat = {};
+        for (const g of gapsData) {
+          if (!byHabitat[g.habitatId])
+            byHabitat[g.habitatId] = { name: g.habitatName, gaps: [] };
+          byHabitat[g.habitatId].gaps.push(g);
+        }
+
+        let html = `<h3>Capability Gaps <span class="gaps-badge">${gapsData.length}</span></h3>`;
+
+        for (const [habitatId, info] of Object.entries(byHabitat)) {
+          html += `<div style="color: var(--text-dim); font-size: 0.78em; margin: 12px 0 6px; font-family: var(--mono)">${esc(habitatId)} (${esc(info.name)})</div>`;
+
+          for (const g of info.gaps) {
+            const sevClass =
+              g.severity === "critical" ? "critical" : "optional";
+            const sevLabel =
+              g.severity === "critical" ? "critical" : "optional";
+            const time = g.timestamp
+              ? new Date(g.timestamp).toLocaleString()
+              : "";
+
+            html += `
+            <div class="gap-card">
+              <div class="gap-header">
+                <span class="gap-capability">${esc(g.capability)}</span>
+                <span class="gap-severity ${sevClass}">${sevLabel}</span>
+              </div>
+              <div class="gap-meta">${esc(g.context)} · ${esc(time)}</div>`;
+
+            // Show credential picker if visible for this gap
+            const pickerKey = `${g.habitatId}:${g.capability}`;
+            if (credentialPickers[pickerKey]?.visible) {
+              html += renderCredentialPicker(g.habitatId, g.capability);
+            }
+
+            html += `
+              <div class="gap-actions">
+                <button class="grant-btn" onclick="toggleCredPicker('${esc(g.habitatId)}', '${esc(g.capability)}')">Grant</button>
+                <button onclick="denyGap('${esc(g.habitatId)}', '${esc(g.capability)}')">Deny</button>
+                <button onclick="ignoreGap('${esc(g.habitatId)}', '${esc(g.capability)}')">Ignore</button>
+              </div>
+            </div>`;
+          }
+        }
+
+        panel.innerHTML = html;
+      }
+
+      function renderCredentialPicker(habitatId, capability) {
+        // This is called inline — it fetches credentials dynamically
+        const pickerKey = `${habitatId}:${capability}`;
+        const state = credentialPickers[pickerKey];
+        if (!state?.credentialOptions) {
+          // Loading state — fetch in toggleCredPicker
+          return '<div class="cred-picker"><span style="font-size:0.75em;color:var(--text-dim)">Loading credentials...</span></div>';
+        }
+        if (state.credentialOptions.length === 0) {
+          return '<div class="cred-picker"><span style="font-size:0.75em;color:var(--warn)">No credentials found for this capability in the catalog.</span></div>';
+        }
+        let html = '<div class="cred-picker">';
+        html += `<select id="cred-select-${esc(habitatId)}-${esc(capability.replace(":", "-"))}">`;
+        for (const c of state.credentialOptions) {
+          const secInfo = c.hasSecret ? "" : " (no secret in vault)";
+          html += `<option value="${esc(c.name)}">${esc(c.name)} [${esc(c.provider)}] ${esc(c.status)}${esc(secInfo)}</option>`;
+        }
+        html += "</select>";
+        html += `<button onclick="grantGap('${esc(habitatId)}','${esc(capability)}')">Grant</button>`;
+        html += `<button class="cancel-pick" onclick="toggleCredPicker('${esc(habitatId)}','${esc(capability)}')">Cancel</button>`;
+        html += "</div>";
+        return html;
+      }
+
+      window.toggleCredPicker = async function (habitatId, capability) {
+        const pickerKey = `${habitatId}:${capability}`;
+        if (!credentialPickers[pickerKey]) {
+          credentialPickers[pickerKey] = { visible: false };
+        }
+        const state = credentialPickers[pickerKey];
+        state.visible = !state.visible;
+
+        if (state.visible && !state.credentialOptions) {
+          // Fetch matching credentials
+          renderGaps(); // re-render to show loading
+          try {
+            const res = await fetch(
+              `/api/credentials/${encodeURIComponent(capability)}`,
+              {
+                headers: authHeadersNoBody(),
+              },
+            );
+            const data = await res.json();
+            state.credentialOptions = data.credentials || [];
+          } catch {
+            state.credentialOptions = [];
+          }
+        }
+        renderGaps();
+      };
+
+      window.grantGap = async function (habitatId, capability) {
+        const sel = document.getElementById(
+          `cred-select-${habitatId}-${capability.replaceAll(":", "-")}`,
+        );
+        if (!sel) return;
+        const credential = sel.value;
+        if (!credential) return;
+
+        try {
+          const res = await fetch(`/api/capability-gaps/${habitatId}/grant`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(authHeadersNoBody().headers || {}),
+            },
+            body: JSON.stringify({ capability, credential }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            alert(`Failed to grant: ${data.error}`);
+            return;
+          }
+          // Remove picker state
+          delete credentialPickers[`${habitatId}:${capability}`];
+          // Remove the gap from the list
+          gapsData = gapsData.filter(
+            (g) => !(g.habitatId === habitatId && g.capability === capability),
+          );
+          if (data.needsRebuild) {
+            alert(
+              `Granted! ⚠️ Habitat "${habitatId}" is running — rebuild for changes to take effect.`,
+            );
+          }
+          renderGaps();
+          loadHabitats(); // refresh capability badges
+        } catch (err) {
+          alert(`Error: ${err.message}`);
+        }
+      };
+
+      window.denyGap = async function (habitatId, capability) {
+        const reason = prompt("Reason for dismissal (optional):");
+        try {
+          const res = await fetch(`/api/capability-gaps/${habitatId}/deny`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(authHeadersNoBody().headers || {}),
+            },
+            body: JSON.stringify({ capability, reason: reason || "" }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            alert(`Failed to deny: ${data.error}`);
+            return;
+          }
+          gapsData = gapsData.filter(
+            (g) => !(g.habitatId === habitatId && g.capability === capability),
+          );
+          renderGaps();
+        } catch (err) {
+          alert(`Error: ${err.message}`);
+        }
+      };
+
+      window.ignoreGap = async function (habitatId, capability) {
+        try {
+          const res = await fetch(`/api/capability-gaps/${habitatId}/ignore`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(authHeadersNoBody().headers || {}),
+            },
+            body: JSON.stringify({ capability }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            alert(`Failed to ignore: ${data.error}`);
+            return;
+          }
+          gapsData = gapsData.filter(
+            (g) => !(g.habitatId === habitatId && g.capability === capability),
+          );
+          renderGaps();
+        } catch (err) {
+          alert(`Error: ${err.message}`);
+        }
+      };
     </script>
   </body>
 </html>

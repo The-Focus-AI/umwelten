@@ -1294,6 +1294,49 @@ addSharedOptions(gaiaSubcommand)
 			const dataDir = pathResolve(options.dataDir ?? "./gaia-data");
 			await mkdir(dataDir, { recursive: true });
 
+			// ── fnox Integration ──────────────────────────────────────
+			const { FnoxResolver } = await import("@umwelten/habitat/gaia/fnox.js");
+			const fnox = new FnoxResolver(dataDir);
+
+			// Always write the fnox.toml template on first boot
+			const templateWritten = await fnox.writeTemplateIfMissing();
+			if (templateWritten) {
+				console.log(`[gaia] Wrote fnox.toml template to ${fnox.configPath}`);
+			}
+
+			// Resolve secrets via fnox (or env fallback)
+			const fnoxResult = await fnox.resolve();
+			switch (fnoxResult.mode) {
+				case "fnox":
+					console.log(
+						`[gaia] Secrets resolved via fnox (${Object.keys(fnoxResult.secrets).length} secrets)`,
+					);
+					if (fnoxResult.bootstrapToken) {
+						console.log(
+							`[gaia] Bootstrap token: ${fnoxResult.bootstrapToken.envVar} → ${fnoxResult.bootstrapToken.provider}`,
+						);
+					}
+					break;
+				case "env":
+					console.log(
+						`[gaia] Secrets loaded from environment (${Object.keys(fnoxResult.secrets).length} secrets)`,
+					);
+					if (!(await fnox.isAvailable()) && fnox.hasConfig()) {
+						console.log(
+							"[gaia] Tip: install fnox to resolve secrets from fnox.toml (https://fnox.jdx.dev)",
+						);
+					}
+					break;
+				case "none":
+					console.log(
+						"[gaia] No secrets found. Set API keys via environment or configure fnox.toml.",
+					);
+					break;
+			}
+			for (const warning of fnoxResult.warnings) {
+				console.warn(`[gaia] ${warning}`);
+			}
+
 			// Write default STIMULUS.md if missing
 			const stimulusPath = pathResolve(dataDir, "STIMULUS.md");
 			if (!(await fileExists(stimulusPath))) {
@@ -1350,6 +1393,14 @@ addSharedOptions(gaiaSubcommand)
 			await registry.load();
 			const vault = new GaiaSecretVault(dataDir);
 			await vault.load();
+
+			// Populate vault with fnox-resolved secrets (skips if already set)
+			for (const [name, value] of Object.entries(fnoxResult.secrets)) {
+				if (!vault.get(name)) {
+					await vault.set(name, value);
+				}
+			}
+
 			const projectRoot = pathResolve(
 				toPath(import.meta.url),
 				"..",

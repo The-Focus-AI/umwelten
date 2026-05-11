@@ -7,12 +7,35 @@ import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
-import { proxyRequest } from "./proxy.js";
+import { proxyRequest, fetchFromContainer } from "./proxy.js";
 import { buildSeedFiles, runStandardsAudit } from "./gaia-tools.js";
+import { CapabilityResolver } from "./capability-resolver.js";
 import type { AuditSummary } from "./gaia-tools.js";
 
 /** In-memory store for the most recent audit results (ephemeral). */
 let latestAudit: AuditSummary | null = null;
+
+// ── Capability gap state ─────────────────────────────────────────
+
+type GapStatus = "pending" | "dismissed" | "ignored";
+
+interface GaiaCapabilityGap {
+	habitatId: string;
+	habitatName: string;
+	capability: string;
+	source: "skill" | "runtime";
+	severity: "critical" | "optional";
+	context: string;
+	timestamp: string;
+	status: GapStatus;
+	dismissalReason?: string;
+}
+
+/** Dismissed/ignored gaps keyed by `habitatId:capability`. */
+const gapDecisions = new Map<
+	string,
+	{ status: "dismissed" | "ignored"; reason?: string }
+>();
 
 export interface GaiaRouteContext {
 	registry: GaiaRegistryManager;
@@ -382,6 +405,188 @@ export async function handleGaiaRoute(
 		}
 		res.end();
 		return true;
+	}
+
+	// ── Capability Gaps ────────────────────────────────────────────
+
+	// GET /api/capability-gaps — aggregate gaps from all habitats
+	if (path === "/api/capability-gaps" && method === "GET") {
+		const entries = ctx.registry.list();
+		const gaps: GaiaCapabilityGap[] = [];
+
+		for (const entry of entries) {
+			// Runtime gaps: poll running habitat's GET /api/capability-gaps
+			if (entry.containerPort) {
+				const status = await ctx.docker.getStatus(entry.id);
+				if (status === "running") {
+					try {
+						const res = await fetchFromContainer<{
+							gaps: Array<{
+								capability: string;
+								context: string;
+								timestamp: string;
+							}>;
+						}>(entry, "/api/capability-gaps");
+						for (const g of res.gaps ?? []) {
+							const key = `${entry.id}:${g.capability}`;
+							const decision = gapDecisions.get(key);
+							gaps.push({
+								habitatId: entry.id,
+								habitatName: entry.name,
+								capability: g.capability,
+								source: "runtime",
+								severity: "optional",
+								context: g.context || "reported by habitat at runtime",
+								timestamp: g.timestamp,
+								status: decision?.status ?? "pending",
+								dismissalReason: decision?.reason,
+							});
+						}
+					} catch {
+						// container unreachable — skip
+					}
+				}
+			}
+		}
+
+		sendJson(res, { gaps });
+		return true;
+	}
+
+	// GET /api/credentials/:capability — list credentials that satisfy a capability
+	{
+		const m = path.match(/^\/api\/credentials\/([^/]+)$/);
+		if (m && method === "GET") {
+			const entries = ctx.catalog.listByCapability(m[1]);
+			sendJson(res, {
+				capability: m[1],
+				credentials: entries.map((e) => ({
+					name: e.name,
+					label: e.label,
+					provider: e.provider,
+					capabilities: e.capabilities,
+					status: e.status,
+					hasSecret: !!ctx.vault.get(e.name),
+				})),
+			});
+			return true;
+		}
+	}
+
+	// POST /api/capability-gaps/:habitatId/grant — grant a capability
+	{
+		const m = path.match(/^\/api\/capability-gaps\/([^/]+)\/grant$/);
+		if (m && method === "POST") {
+			const body = JSON.parse(await readBody(req));
+			const capability: string = body.capability ?? "";
+			const credential: string = body.credential ?? "";
+			const habitatId = m[1];
+
+			if (!capability || !credential) {
+				sendJson(res, { error: "capability and credential required" }, 400);
+				return true;
+			}
+
+			const entry = ctx.registry.get(habitatId);
+			if (!entry) {
+				sendJson(res, { error: "Habitat not found" }, 404);
+				return true;
+			}
+
+			// Validate the credential grants the capability
+			const resolver = new CapabilityResolver();
+			try {
+				resolver.validate({ capability, credential }, ctx.catalog);
+			} catch (err: any) {
+				sendJson(res, { error: `Validation failed: ${err.message}` }, 400);
+				return true;
+			}
+
+			// Check for duplicate binding
+			if (!entry.config.capabilities) entry.config.capabilities = [];
+			const exists = entry.config.capabilities.find(
+				(b) => b.capability === capability && b.credential === credential,
+			);
+			if (exists) {
+				// Already bound — just dismiss the gap
+				const key = `${habitatId}:${capability}`;
+				gapDecisions.set(key, { status: "dismissed", reason: "granted" });
+				sendJson(res, {
+					granted: true,
+					alreadyBound: true,
+					habitatId,
+					capability,
+				});
+				return true;
+			}
+
+			// Add the binding
+			entry.config.capabilities.push({ capability, credential });
+			await ctx.registry.update(habitatId, { config: entry.config });
+			// Re-seed volume
+			await ctx.docker.seedVolume(
+				habitatId,
+				buildSeedFiles(entry, ctx.vault, ctx.catalog),
+			);
+
+			// Mark gap as dismissed
+			const key = `${habitatId}:${capability}`;
+			gapDecisions.set(key, { status: "dismissed", reason: "granted" });
+
+			const status = await ctx.docker.getStatus(habitatId);
+			sendJson(res, {
+				granted: true,
+				habitatId,
+				capability,
+				credential,
+				needsRebuild: status === "running",
+			});
+			return true;
+		}
+	}
+
+	// POST /api/capability-gaps/:habitatId/deny — dismiss a gap
+	{
+		const m = path.match(/^\/api\/capability-gaps\/([^/]+)\/deny$/);
+		if (m && method === "POST") {
+			const body = JSON.parse(await readBody(req));
+			const capability: string = body.capability ?? "";
+			const reason: string = body.reason ?? "";
+			const habitatId = m[1];
+
+			if (!capability) {
+				sendJson(res, { error: "capability required" }, 400);
+				return true;
+			}
+
+			const key = `${habitatId}:${capability}`;
+			gapDecisions.set(key, {
+				status: "dismissed",
+				reason: reason || undefined,
+			});
+			sendJson(res, { denied: true, habitatId, capability });
+			return true;
+		}
+	}
+
+	// POST /api/capability-gaps/:habitatId/ignore — ignore a gap
+	{
+		const m = path.match(/^\/api\/capability-gaps\/([^/]+)\/ignore$/);
+		if (m && method === "POST") {
+			const body = JSON.parse(await readBody(req));
+			const capability: string = body.capability ?? "";
+			const habitatId = m[1];
+
+			if (!capability) {
+				sendJson(res, { error: "capability required" }, 400);
+				return true;
+			}
+
+			const key = `${habitatId}:${capability}`;
+			gapDecisions.set(key, { status: "ignored" });
+			sendJson(res, { ignored: true, habitatId, capability });
+			return true;
+		}
 	}
 
 	return false;

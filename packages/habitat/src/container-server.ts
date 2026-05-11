@@ -821,6 +821,46 @@ export async function startContainerServer(
 						return;
 					}
 
+					// POST /api/capability-gaps — record a runtime gap report
+					if (path === "/api/capability-gaps" && req.method === "POST") {
+						if (apiKey) {
+							user = await auth.authenticate(req);
+							if (!user) {
+								sendJson(res, { error: "Unauthorized" }, 401);
+								return;
+							}
+						}
+						const body = JSON.parse(await readBodyRaw(req));
+						const capability =
+							typeof body.capability === "string" ? body.capability.trim() : "";
+						const context =
+							typeof body.context === "string" ? body.context.trim() : "";
+						if (!capability) {
+							sendJson(res, { error: "capability is required" }, 400);
+							return;
+						}
+						habitat.recordCapabilityGap({
+							capability,
+							context: context || "unknown",
+							timestamp: new Date().toISOString(),
+						});
+						sendJson(res, { recorded: true, capability });
+						return;
+					}
+
+					// GET /api/capability-gaps — list all recorded gaps
+					if (path === "/api/capability-gaps" && req.method === "GET") {
+						if (apiKey) {
+							user = await auth.authenticate(req);
+							if (!user) {
+								sendJson(res, { error: "Unauthorized" }, 401);
+								return;
+							}
+						}
+						sendJson(res, { gaps: habitat.getCapabilityGaps() });
+						return;
+					}
+
 					// GET /api/agents — list of agents with status (no secret values).
 					if (path === "/api/agents" && req.method === "GET") {
 						const config = habitat.getConfig();
