@@ -1,0 +1,1513 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Umwelten Validation Walkthrough — T1–T13</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --stone-50: #fafaf9;
+        --stone-100: #f5f5f4;
+        --stone-200: #e7e5e4;
+        --stone-300: #d6d3d1;
+        --stone-400: #a8a29e;
+        --stone-500: #78716c;
+        --stone-600: #57534e;
+        --stone-700: #44403c;
+        --stone-800: #292524;
+        --stone-900: #1c1917;
+        --green: #059669;
+        --amber: #d97706;
+        --red: #dc2626;
+        --blue: #2563eb;
+        --violet: #7c3aed;
+      }
+
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", "Arial", sans-serif;
+        background: var(--stone-50);
+        color: var(--stone-800);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 6rem;
+      }
+
+      /* ── Header ─────────────────────────────────── */
+      header {
+        padding: 3rem 0 2rem;
+        border-bottom: 1px solid var(--stone-200);
+        margin-bottom: 2rem;
+      }
+      header h1 {
+        font-size: 2.25rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--stone-900);
+      }
+      header .subtitle {
+        margin-top: 0.5rem;
+        font-size: 1.1rem;
+        color: var(--stone-500);
+      }
+
+      /* ── Progress bar ───────────────────────────── */
+      .progress-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--stone-50);
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--stone-200);
+        margin-bottom: 2rem;
+      }
+      .progress-bar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .progress-track {
+        flex: 1;
+        height: 6px;
+        background: var(--stone-200);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--green);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+        width: 0%;
+      }
+      .progress-text {
+        font-size: 0.85rem;
+        color: var(--stone-500);
+        white-space: nowrap;
+        min-width: 60px;
+        text-align: right;
+      }
+
+      /* ── Task Sections ──────────────────────────── */
+      .task {
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--stone-200);
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+        transition: box-shadow 0.2s;
+      }
+      .task:hover {
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+      }
+      .task.completed {
+        border-left: 4px solid var(--green);
+      }
+      .task.in-progress {
+        border-left: 4px solid var(--amber);
+      }
+
+      .task-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        user-select: none;
+      }
+      .task-header:hover {
+        background: var(--stone-50);
+      }
+
+      .task-check {
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--stone-300);
+        border-radius: 4px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .task-check:hover {
+        border-color: var(--green);
+      }
+      .task-check.checked {
+        background: var(--green);
+        border-color: var(--green);
+      }
+      .task-check.checked::after {
+        content: "✓";
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .task-title {
+        flex: 1;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--stone-800);
+      }
+      .task-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: 100px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .badge-core {
+        background: #e0e7ff;
+        color: #3730a3;
+      }
+      .badge-tool {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .badge-ui {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .badge-infra {
+        background: #fce7f3;
+        color: #9d174d;
+      }
+      .badge-meta {
+        background: #e0f2fe;
+        color: #075985;
+      }
+
+      .task-arrow {
+        font-size: 0.8rem;
+        color: var(--stone-400);
+        transition: transform 0.2s;
+      }
+      .task.open .task-arrow {
+        transform: rotate(90deg);
+      }
+
+      /* ── Task Body ──────────────────────────────── */
+      .task-body {
+        display: none;
+        padding: 0 1.5rem 1.5rem;
+        border-top: 1px solid var(--stone-100);
+      }
+      .task.open .task-body {
+        display: block;
+      }
+
+      .task-body h3 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--stone-400);
+        margin: 1.25rem 0 0.5rem;
+      }
+      .task-body h3:first-child {
+        margin-top: 1.25rem;
+      }
+
+      .task-body p,
+      .task-body li {
+        font-size: 0.95rem;
+        color: var(--stone-600);
+        line-height: 1.65;
+      }
+
+      .task-body ol,
+      .task-body ul {
+        padding-left: 1.5rem;
+        margin: 0.5rem 0;
+      }
+      .task-body li {
+        margin-bottom: 0.35rem;
+      }
+
+      /* ── Code blocks ────────────────────────────── */
+      code {
+        font-family: "IBM Plex Mono", "SF Mono", "Menlo", monospace;
+        font-size: 0.85rem;
+        background: var(--stone-100);
+        padding: 1px 5px;
+        border-radius: 3px;
+        color: var(--stone-700);
+      }
+      pre {
+        background: var(--stone-900);
+        color: #e2e8f0;
+        padding: 1rem 1.25rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0.75rem 0;
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+      pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+      }
+
+      /* ── Buttons ────────────────────────────────── */
+      .btn {
+        display: inline-block;
+        padding: 0.5rem 1.25rem;
+        border: 1px solid var(--stone-300);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--stone-700);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn:hover {
+        border-color: var(--stone-900);
+        color: var(--stone-900);
+      }
+      .btn.primary {
+        background: var(--stone-900);
+        color: #fff;
+        border-color: var(--stone-900);
+      }
+      .btn.primary:hover {
+        background: var(--stone-700);
+      }
+
+      .actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      /* ── Responsive ─────────────────────────────── */
+      @media (max-width: 640px) {
+        .container {
+          padding: 1rem;
+        }
+        header h1 {
+          font-size: 1.6rem;
+        }
+        .task-header {
+          padding: 0.75rem 1rem;
+        }
+        .task-body {
+          padding: 0 1rem 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Umwelten Validation Walkthrough</h1>
+        <p class="subtitle">
+          Habitat Credential Catalog &amp; Permissions Model — Tasks T1 through
+          T13
+        </p>
+      </header>
+
+      <div class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <span class="progress-text" id="progress-text">0 / 13</span>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T1: Root Directory Cleanup                                        -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t1">
+        <div class="task-header" onclick="toggleTask('task-t1')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t1');
+            "
+            data-task="task-t1"
+          ></div>
+          <span class="task-title">T1: Root Directory Cleanup</span>
+          <span class="task-badge badge-meta">META</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Move habitat-specific deployment artifacts out of the monorepo root
+            and into <code>packages/habitat/</code>. Tidy the root to contain
+            only library code, project docs, and tooling config.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              Moved <code>Dockerfile</code>, <code>docker-compose.yml</code>,
+              <code>entrypoint.sh</code> → <code>packages/habitat/</code>
+            </li>
+            <li>
+              Updated Dockerfile COPY paths to reference the habitat package
+            </li>
+            <li>
+              Added <code>habitat-data/</code>, <code>input/</code>,
+              <code>output/</code>, <code>test-data/</code>,
+              <code>test-output/</code>, <code>*.tgz</code> to
+              <code>.gitignore</code>
+            </li>
+            <li>Moved 9 architecture PNGs to <code>docs/assets/</code></li>
+            <li>Standard project files remain at root</li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Verify the root is clean:
+              <pre><code>ls /Users/wschenk/The-Focus-AI/umwelten/Dockerfile  # should NOT exist
+ls /Users/wschenk/The-Focus-AI/umwelten/docker-compose.yml  # should NOT exist
+ls /Users/wschenk/The-Focus-AI/umwelten/entrypoint.sh  # should NOT exist</code></pre>
+            </li>
+            <li>
+              Verify they live in the habitat package:
+              <pre><code>ls packages/habitat/Dockerfile packages/habitat/docker-compose.yml packages/habitat/entrypoint.sh</code></pre>
+            </li>
+            <li>
+              Verify architecture PNGs are in docs/assets:
+              <pre><code>ls docs/assets/habitats-*.png docs/assets/umwelten-architecture.png</code></pre>
+            </li>
+            <li>
+              Verify <code>.gitignore</code> includes the new entries:
+              <pre><code>grep -E 'habitat-data|input/|output/|test-data|test-output|\*\.tgz' .gitignore</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T2: Credential Catalog                                            -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t2">
+        <div class="task-header" onclick="toggleTask('task-t2')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t2');
+            "
+            data-task="task-t2"
+          ></div>
+          <span class="task-title"
+            >T2: Credential Catalog — Data Model, File Storage, CRUD Tools</span
+          >
+          <span class="task-badge badge-core">CORE</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Add a structured credential catalog to Gaia's data directory. The
+            catalog stores metadata about every secret in Gaia's master vault —
+            what each key is, what capabilities it grants, what provider it's
+            for, and when it was last verified. No actual secret values are
+            stored in the catalog.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>CredentialEntry</code> type: name, label, provider,
+              capabilities, scopes, dashboardUrl, sourceVaultRef, status,
+              lastVerified, refreshTokenExpiry
+            </li>
+            <li>
+              <code>CredentialCatalog</code> class: load/save from
+              <code>credentials.json</code>,
+              add/remove/get/list/listByCapability/listByProvider/verify
+            </li>
+            <li>
+              Gaia tools: <code>add_credential</code>,
+              <code>list_credentials</code>, <code>remove_credential</code>,
+              <code>verify_credential</code>
+            </li>
+            <li>Duplicate credential names rejected on add</li>
+            <li>23 unit tests in <code>credential-catalog.test.ts</code></li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Start Gaia:
+              <pre><code>dotenvx run -- pnpm run cli habitat gaia -p google -m gemini-3-flash-preview</code></pre>
+            </li>
+            <li>
+              In the Gaia web UI chat (or MCP), add a credential:
+              <pre><code>add_credential name="github-read-key" label="GitHub Read Key" provider="github" capabilities=["github:read"] scopes=["repo:read"]</code></pre>
+            </li>
+            <li>
+              List credentials:
+              <pre><code>list_credentials</code></pre>
+              → Should show the github-read-key with status=unknown
+            </li>
+            <li>
+              Verify the credential:
+              <pre><code>verify_credential name="github-read-key"</code></pre>
+              → Status should change to active, lastVerified timestamp populated
+            </li>
+            <li>
+              Check the on-disk file (no secret values):
+              <pre><code>cat gaia-data/credentials.json | python3 -m json.tool</code></pre>
+            </li>
+            <li>
+              Remove the credential:
+              <pre><code>remove_credential name="github-read-key"</code></pre>
+            </li>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/credential-catalog.test.ts</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T3: Gaia UI Credentials                                           -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t3">
+        <div class="task-header" onclick="toggleTask('task-t3')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t3');
+            "
+            data-task="task-t3"
+          ></div>
+          <span class="task-title"
+            >T3: Gaia UI Credentials (Re‑scoped — LLM‑first)</span
+          >
+          <span class="task-badge badge-ui">UI</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Credential catalog is managed LLM-first via Gaia chat, not through
+            custom HTML tabs. The standard container UI renders tool calls and
+            results inline in the chat view.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              Credential catalog tools (from T2) available via Gaia chat/MCP
+            </li>
+            <li>
+              Standard container UI renders credential tool calls/results inline
+            </li>
+            <li>
+              No custom Gaia-specific credentials tab — LLM drives credential
+              management
+            </li>
+            <li>Legacy <code>gaia/ui/index.html</code> removed</li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>Open the Gaia web UI at <code>http://localhost:7420</code></li>
+            <li>
+              Ask the LLM in chat:
+              <em>"Add a credential for the GitHub org-read key"</em>
+            </li>
+            <li>
+              The LLM should call <code>add_credential</code> and show the
+              result inline
+            </li>
+            <li>
+              Ask: <em>"Show me all credentials"</em> — the LLM calls
+              <code>list_credentials</code>
+            </li>
+            <li>
+              Verify there is no custom "Credentials" tab — all credential
+              management happens through chat
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T4: Capability Bindings                                           -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t4">
+        <div class="task-header" onclick="toggleTask('task-t4')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t4');
+            "
+            data-task="task-t4"
+          ></div>
+          <span class="task-title"
+            >T4: Capability Bindings — HabitatConfig + buildSeedFiles
+            Resolution</span
+          >
+          <span class="task-badge badge-core">CORE</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Extend <code>HabitatConfig</code> with a
+            <code>capabilities</code> field that declaratively binds
+            capabilities to specific credential names. Extend
+            <code>buildSeedFiles</code> in the Gaia seed flow to resolve those
+            bindings into actual secret values from the master vault.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>CapabilityBinding</code> type:
+              <code>{ capability: string; credential: string }</code>
+            </li>
+            <li>
+              <code>CapabilityResolver</code> class:
+              <code>resolve()</code> returns env vars + warnings;
+              <code>validate()</code> checks catalog
+            </li>
+            <li>
+              <code>buildSeedFiles</code> merges capability-resolved secrets
+              into <code>secrets.json</code>
+            </li>
+            <li>
+              Backward compatible — habitats without capabilities are unaffected
+            </li>
+            <li>Unit tests in <code>capability-resolver.test.ts</code></li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/capability-resolver.test.ts</code></pre>
+            </li>
+            <li>
+              Verify the resolver rejects missing credentials and expired ones
+            </li>
+            <li>
+              Check the type definition:
+              <pre><code>grep -A 3 'CapabilityBinding' packages/habitat/src/types.ts</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T5: Gaia Tools for Capability Bindings                            -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t5">
+        <div class="task-header" onclick="toggleTask('task-t5')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t5');
+            "
+            data-task="task-t5"
+          ></div>
+          <span class="task-title">T5: Gaia Tools for Capability Bindings</span>
+          <span class="task-badge badge-tool">TOOL</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Gaia tools that let operators bind and unbind capabilities to
+            habitats. Extend <code>create_habitat</code> to accept an optional
+            <code>capabilities</code> parameter.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>create_habitat</code> extended with
+              <code>capabilities</code> parameter — validates against catalog
+            </li>
+            <li>
+              <code>bind_capability</code> tool — validates credential +
+              capability, adds to habitat config, re-seeds volume
+            </li>
+            <li>
+              <code>unbind_capability</code> tool — removes capability binding,
+              re-seeds volume
+            </li>
+            <li>
+              <code>list_habitat_capabilities</code> tool — shows all bindings
+              with credential status
+            </li>
+            <li>
+              Rejects bindings where credential doesn't exist or doesn't grant
+              the capability
+            </li>
+            <li>6 unit tests in <code>gaia-tools-capability.test.ts</code></li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Start Gaia and add a credential in the catalog:
+              <pre><code>add_credential name="gh-read" label="GitHub Read" provider="github" capabilities=["github:read"]</code></pre>
+            </li>
+            <li>
+              Store the actual secret in the master vault:
+              <pre><code>set_secret name="gh-read" value="ghp_xxxx"</code></pre>
+            </li>
+            <li>
+              Create a habitat with a capability binding:
+              <pre><code>create_habitat id="test-bot" name="Test Bot" provider="google" model="gemini-3-flash-preview" capabilities=[{capability: "github:read", credential: "gh-read"}]</code></pre>
+            </li>
+            <li>
+              List capability bindings:
+              <pre><code>list_habitat_capabilities habitatId="test-bot"</code></pre>
+            </li>
+            <li>
+              Try binding an invalid credential — should get a validation error:
+              <pre><code>bind_capability habitatId="test-bot" capability="quickbooks:read" credential="gh-read"</code></pre>
+              → Should fail: "Credential 'gh-read' does not grant capability
+              'quickbooks:read'"
+            </li>
+            <li>
+              Unbind a capability:
+              <pre><code>unbind_capability habitatId="test-bot" capability="github:read"</code></pre>
+            </li>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/gaia-tools-capability.test.ts</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T6: Gaia UI — Capability Badges                                   -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t6">
+        <div class="task-header" onclick="toggleTask('task-t6')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t6');
+            "
+            data-task="task-t6"
+          ></div>
+          <span class="task-title"
+            >T6: Gaia UI — Capability Badges in Habitats Tab + Filter</span
+          >
+          <span class="task-badge badge-ui">UI</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Extend the Habitats tab in the Gaia dashboard to show capability
+            badges on each habitat entry. Add a filter that lets operators find
+            habitats by capability.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              Each habitat row in the Habitats tab shows capability badges
+              (color-coded by provider)
+            </li>
+            <li>Badges show credential name on hover/tooltip</li>
+            <li>
+              Habitats with no capabilities show a muted "no capabilities"
+              indicator
+            </li>
+            <li>
+              Multi-select capability filter at the top of the Habitats tab
+            </li>
+            <li>
+              "High risk" toggle filters to <code>:write</code> capabilities
+              only
+            </li>
+            <li>Filter persists across tab switches during the session</li>
+            <li>
+              <code>GET /api/habitats</code> enhanced with
+              <code>_credMeta</code> provider/status metadata
+            </li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>Open the Gaia web UI at <code>http://localhost:7420</code></li>
+            <li>Go to the <strong>Habitats</strong> tab</li>
+            <li>
+              If you have habitats with capabilities, they should show colored
+              badges (e.g., "github:read")
+            </li>
+            <li>Hover over a badge — should show the credential name</li>
+            <li>
+              Use the filter bar to filter by capability — list updates in real
+              time
+            </li>
+            <li>
+              Toggle "High risk" — only habitats with
+              <code>:write</code> capabilities remain
+            </li>
+            <li>
+              Check the API directly:
+              <pre><code>curl -s http://localhost:7420/api/habitats | python3 -m json.tool | grep -A5 _credMeta</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T7: Standards Agent Auto-Seed                                     -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t7">
+        <div class="task-header" onclick="toggleTask('task-t7')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t7');
+            "
+            data-task="task-t7"
+          ></div>
+          <span class="task-title">T7: Standards Agent Auto‑Seed</span>
+          <span class="task-badge badge-core">CORE</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Automatically add a read-only "standards" agent to every habitat
+            created by Gaia. This agent clones the org's standards repo at
+            container boot and makes it available for reference and self-audit.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>seedStandardsAgent()</code> in <code>gaia-seed.ts</code> —
+              adds standards agent to habitat config
+            </li>
+            <li>
+              Gaia config supports <code>standardsRepoUrl</code> and
+              <code>standardsRepoBranch</code>
+            </li>
+            <li>
+              Standards agent uses id="standards", kind="repo", mode="read"
+            </li>
+            <li>
+              Shares the org-readonly identity scope (no new token needed)
+            </li>
+            <li>Idempotent — re-running seed does not duplicate</li>
+            <li>
+              Wired into <code>create_habitat</code> — called automatically
+              after <code>seedOrgReadonly</code>
+            </li>
+            <li>
+              Container entrypoint clones the standards repo to
+              <code>/data/agents/standards/repo</code>
+            </li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Set <code>standardsRepoUrl</code> in Gaia's config:
+              <pre><code># Edit gaia-data/config.json and add:
+# "standardsRepoUrl": "https://github.com/your-org/standards.git"</code></pre>
+            </li>
+            <li>
+              Create a new habitat:
+              <pre><code>create_habitat id="audit-me" name="Audit Test" provider="google" model="gemini-3-flash-preview"</code></pre>
+            </li>
+            <li>
+              Check the habitat's config — should include a standards agent:
+              <pre><code># Inspect the entry via the API or list_habitats</code></pre>
+            </li>
+            <li>
+              Should see an agent entry with id="standards", kind="repo",
+              mode="read"
+            </li>
+            <li>
+              If <code>standardsRepoUrl</code> is not set, no standards agent is
+              added
+            </li>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/gaia-seed.test.ts</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T8: Standards Broadcast Tool                                      -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t8">
+        <div class="task-header" onclick="toggleTask('task-t8')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t8');
+            "
+            data-task="task-t8"
+          ></div>
+          <span class="task-title"
+            >T8: Standards Broadcast Tool (A2A Audit Trigger)</span
+          >
+          <span class="task-badge badge-tool">TOOL</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            A Gaia tool that sends an A2A message to one or all running habitats
+            telling them to pull the latest standards and run a self-audit.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>broadcast_standards</code> Gaia tool — takes optional
+              <code>habitatId</code>
+            </li>
+            <li>
+              Uses A2A blocking send-message (<code
+                >return_immediately: false</code
+              >)
+            </li>
+            <li>60-second per-habitat timeout via <code>Promise.race</code></li>
+            <li>Parallel audits via <code>Promise.allSettled</code></li>
+            <li>Filters to running habitats with a standards agent</li>
+            <li>
+              Skips non-running habitats and those without standards agent (with
+              warning)
+            </li>
+            <li>
+              Returns markdown-structured summary: responded, unresponsive,
+              skipped counts + per-habitat findings
+            </li>
+            <li>Unit tests in <code>gaia-tools-standards.test.ts</code></li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Create and start a habitat with a standards agent (via T7's
+              auto-seed)
+            </li>
+            <li>
+              In Gaia chat, run:
+              <pre><code>broadcast_standards</code></pre>
+            </li>
+            <li>
+              Should return a markdown report with sections per habitat:
+              <ul>
+                <li>Responded count, unresponsive count, skipped count</li>
+                <li>
+                  Per-habitat findings: compliant items, non-compliant with
+                  severity
+                </li>
+              </ul>
+            </li>
+            <li>
+              Test single-habitat mode:
+              <pre><code>broadcast_standards habitatId="audit-me"</code></pre>
+            </li>
+            <li>Habitats without a standards agent should show as "skipped"</li>
+            <li>Non-running habitats should show as "unresponsive"</li>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/gaia-tools-standards.test.ts</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T9: Gaia UI — Standards Audit Panel                               -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t9">
+        <div class="task-header" onclick="toggleTask('task-t9')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t9');
+            "
+            data-task="task-t9"
+          ></div>
+          <span class="task-title">T9: Gaia UI — Standards Audit Panel</span>
+          <span class="task-badge badge-ui">UI</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Add a standards audit panel to the Gaia dashboard Habitats tab.
+            Shows the results of the most recent
+            <code>broadcast_standards</code> run.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>Audit panel in the Gaia dashboard Habitats tab</li>
+            <li>
+              "Audit All" button triggers broadcast_standards for all running
+              habitats
+            </li>
+            <li>Per-habitat "Audit" button triggers for a single habitat</li>
+            <li>Summary bar: passed, findings, unresponsive, skipped counts</li>
+            <li>Expandable per-habitat results with severity badges</li>
+            <li>Empty state: "No audits yet. Run one to check compliance."</li>
+            <li>Results are ephemeral (in-memory, lost on restart)</li>
+            <li>
+              <code>POST /api/standards-audit</code> SSE endpoint +
+              <code>GET /api/standards-audit/latest</code>
+            </li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>Open the Gaia web UI at <code>http://localhost:7420</code></li>
+            <li>Go to the <strong>Habitats</strong> tab</li>
+            <li>
+              You should see the standards audit panel (below or beside the
+              habitat list)
+            </li>
+            <li>
+              Before any audit: should show "No audits yet. Run one to check
+              compliance."
+            </li>
+            <li>
+              Click <strong>Audit All</strong> — should trigger audits and show
+              progress
+            </li>
+            <li>
+              After completion: summary bar appears with
+              passed/findings/unresponsive/skipped counts
+            </li>
+            <li>
+              Expand a habitat result to see detailed findings with severity
+              badges
+            </li>
+            <li>
+              Click per-habitat <strong>Audit</strong> button to audit just one
+            </li>
+            <li>
+              Check the API:
+              <pre><code>curl -s http://localhost:7420/api/standards-audit/latest | python3 -m json.tool</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T10: Gap Detection                                                 -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t10">
+        <div class="task-header" onclick="toggleTask('task-t10')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t10');
+            "
+            data-task="task-t10"
+          ></div>
+          <span class="task-title"
+            >T10: Gap Detection — Skill Inspector Capability Mapping + Runtime
+            Endpoint</span
+          >
+          <span class="task-badge badge-core">CORE</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Two mechanisms for discovering what capabilities a habitat needs but
+            doesn't have: (A) skill inspector capability mapping, and (B) a
+            runtime gap reporting endpoint.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <strong>Part A:</strong> <code>inspectSkill()</code> extended with
+              optional <code>InspectorCatalog</code> — maps discovered env vars
+              to capability names via the credential catalog
+            </li>
+            <li>
+              <code>CapabilityHint</code> and <code>CapabilityGap</code> types
+              added to <code>AgentRequirements</code>
+            </li>
+            <li><code>mergeRequirements()</code> dedups capability hints</li>
+            <li><code>computeRequirements()</code> accepts optional catalog</li>
+            <li>
+              <strong>Part B:</strong>
+              <code>POST /api/capability-gaps</code> endpoint on container
+              server (auth-gated)
+            </li>
+            <li>
+              <code>GET /api/capability-gaps</code> endpoint for Gaia to poll
+            </li>
+            <li>
+              <code>recordCapabilityGap()</code> and
+              <code>getCapabilityGaps()</code> on Habitat
+            </li>
+            <li>
+              Unit tests: skill-inspector with/without catalog,
+              mergeRequirements dedup
+            </li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/ --grep "gap\|Gap\|skill-inspector"</code></pre>
+            </li>
+            <li>
+              Check that the capability gaps endpoint exists on a running
+              habitat:
+              <pre><code># After starting a habitat
+curl -s -H "Authorization: Bearer TOKEN" http://localhost:7440/api/capability-gaps</code></pre>
+            </li>
+            <li>
+              Post a test gap:
+              <pre><code>curl -s -X POST -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"capability":"quickbooks:write","context":"tried to create invoice","timestamp":"2026-05-10T14:30:00Z"}' \
+  http://localhost:7440/api/capability-gaps</code></pre>
+            </li>
+            <li>Get gaps — should include the posted gap</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T11: Gaia UI — Gap Alerts + Grant/Deny Workflow                    -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t11">
+        <div class="task-header" onclick="toggleTask('task-t11')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t11');
+            "
+            data-task="task-t11"
+          ></div>
+          <span class="task-title"
+            >T11: Gaia UI — Gap Alerts + Grant/Deny Workflow</span
+          >
+          <span class="task-badge badge-ui">UI</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Show pending capability gaps in the Gaia dashboard and let operators
+            grant or deny them. This ties together T10's gap detection with T5's
+            capability binding tools.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              Badge on Habitats tab shows pending gap count (hidden when zero)
+            </li>
+            <li>
+              Per-habitat gap list: capability name, severity badge, source,
+              context, timestamp
+            </li>
+            <li>
+              Grant button → credential picker (filtered to credentials matching
+              the capability)
+            </li>
+            <li>
+              Granting calls bind_capability, re-seeds volume, marks gap
+              dismissed
+            </li>
+            <li>Warning if habitat is running (needs rebuild)</li>
+            <li>Deny button dismisses gap with optional reason</li>
+            <li>Ignore button marks gap as not-needed</li>
+            <li>Empty state: "No pending gaps"</li>
+            <li>
+              APIs: <code>GET/POST /api/capability-gaps</code>,
+              <code>GET /api/credentials/:capability</code>,
+              <code>POST .../grant</code>, <code>POST .../deny</code>,
+              <code>POST .../ignore</code>
+            </li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>Open the Gaia web UI at <code>http://localhost:7420</code></li>
+            <li>Go to the <strong>Habitats</strong> tab</li>
+            <li>If any habitat has gaps, a badge count appears on the tab</li>
+            <li>
+              Click to expand a habitat — see the list of capability gaps with
+              severity badges
+            </li>
+            <li>
+              Click <strong>Grant</strong> — a credential picker appears showing
+              credentials that satisfy the gap
+            </li>
+            <li>
+              Select a credential and confirm — capability is bound, gap is
+              dismissed
+            </li>
+            <li>
+              If the habitat is running, a "needs rebuild" warning appears
+            </li>
+            <li>
+              Click <strong>Deny</strong> — enter optional reason, gap is
+              dismissed
+            </li>
+            <li>Click <strong>Ignore</strong> — gap is ignored</li>
+            <li>When no gaps exist: shows "No pending gaps"</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T12: fnox Integration                                             -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t12">
+        <div class="task-header" onclick="toggleTask('task-t12')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t12');
+            "
+            data-task="task-t12"
+          ></div>
+          <span class="task-title"
+            >T12: fnox Integration for Gaia's Own Secrets</span
+          >
+          <span class="task-badge badge-infra">INFRA</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Integrate fnox as Gaia's secret resolution layer. Gaia resolves its
+            master vault secrets via fnox at container start, with no plaintext
+            secrets baked into the image.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>FnoxResolver</code> class in
+              <code>packages/habitat/src/gaia/fnox.ts</code>
+            </li>
+            <li>
+              Detects fnox CLI, writes <code>fnox.toml</code> template on first
+              Gaia boot
+            </li>
+            <li>Resolves secrets via <code>fnox export --format json</code></li>
+            <li>
+              Falls back to <code>.env</code>/process.env when fnox not
+              installed
+            </li>
+            <li>
+              Detects bootstrap tokens: <code>OP_SERVICE_ACCOUNT_TOKEN</code>,
+              <code>FNOX_AGE_KEY</code>, <code>FNOX_AGE_KEY_FILE</code>
+            </li>
+            <li>Habitats never call fnox — Gaia is the sole broker</li>
+            <li>fnox is NOT bundled into the habitat Docker image</li>
+            <li>26 unit tests in <code>fnox.test.ts</code></li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/fnox.test.ts</code></pre>
+            </li>
+            <li>
+              Start Gaia — check console output for fnox mode:
+              <pre><code>dotenvx run -- pnpm run cli habitat gaia -p google -m gemini-3-flash-preview</code></pre>
+              → Should log: "[gaia] Secrets resolved via env" (or "via fnox" if
+              fnox is installed)
+            </li>
+            <li>
+              Check that <code>fnox.toml</code> template was written:
+              <pre><code>ls -la gaia-data/fnox.toml</code></pre>
+            </li>
+            <li>
+              If fnox is installed: the template should be populated; secrets
+              resolved via fnox
+            </li>
+            <li>
+              If fnox is NOT installed: template still written, secrets loaded
+              from env
+            </li>
+            <li>
+              Verify the <code>fnox.toml</code> template has the expected secret
+              declarations:
+              <pre><code>cat gaia-data/fnox.toml</code></pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- T13: Credential Operation Logging                                 -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="task" id="task-t13">
+        <div class="task-header" onclick="toggleTask('task-t13')">
+          <div
+            class="task-check"
+            onclick="
+              event.stopPropagation();
+              toggleCheck('task-t13');
+            "
+            data-task="task-t13"
+          ></div>
+          <span class="task-title">T13: Credential Operation Logging</span>
+          <span class="task-badge badge-meta">META</span>
+          <span class="task-arrow">▶</span>
+        </div>
+        <div class="task-body">
+          <h3>Goal</h3>
+          <p>
+            Add timestamped logging for credential-related operations in Gaia.
+            Every add, remove, verify, bind, or unbind of a credential is
+            recorded in a JSONL audit log.
+          </p>
+
+          <h3>What was built</h3>
+          <ul>
+            <li>
+              <code>CredentialAuditLogger</code> class — JSONL append-only log
+              at <code>&lt;dataDir&gt;/credential-audit.jsonl</code>
+            </li>
+            <li>
+              Records: <code>add_credential</code>,
+              <code>remove_credential</code>, <code>verify_credential</code>,
+              <code>bind_capability</code>, <code>unbind_capability</code>
+            </li>
+            <li>
+              Each entry:
+              <code
+                >{ timestamp, operation, habitatId?, capability?, credential?
+                }</code
+              >
+            </li>
+            <li>
+              <code>read_credential_audit_log</code> Gaia tool — returns most
+              recent N entries (default 50)
+            </li>
+            <li><code>GET /api/audit</code> endpoint in routes</li>
+            <li>15 unit tests in <code>credential-audit.test.ts</code></li>
+          </ul>
+
+          <h3>How to validate</h3>
+          <ol>
+            <li>
+              Run unit tests:
+              <pre><code>pnpm test:run packages/habitat/src/gaia/credential-audit.test.ts</code></pre>
+            </li>
+            <li>
+              Start Gaia and perform some credential operations (add, verify,
+              bind):
+              <pre><code>add_credential name="test-key" label="Test" provider="github" capabilities=["github:read"]
+verify_credential name="test-key"
+remove_credential name="test-key"</code></pre>
+            </li>
+            <li>
+              Read the audit log via the tool:
+              <pre><code>read_credential_audit_log</code></pre>
+              → Should show: add_credential, verify_credential,
+              remove_credential with timestamps
+            </li>
+            <li>
+              Check the API:
+              <pre><code>curl -s http://localhost:7420/api/audit | python3 -m json.tool</code></pre>
+            </li>
+            <li>
+              Check the on-disk file is valid JSONL:
+              <pre><code>cat gaia-data/credential-audit.jsonl | while read line; do echo "$line" | python3 -m json.tool > /dev/null || echo "INVALID: $line"; done</code></pre>
+            </li>
+            <li>
+              Perform a bind_capability and verify the log entry includes
+              habitatId:
+              <pre><code>read_credential_audit_log n=5</code></pre>
+              → binding entries should include habitatId and capability fields
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <!-- Global Actions                                                    -->
+      <!-- ═══════════════════════════════════════════════════════════════════ -->
+      <div class="actions">
+        <button class="btn" onclick="expandAll()">Expand All</button>
+        <button class="btn" onclick="collapseAll()">Collapse All</button>
+        <button class="btn" onclick="checkAll()">Check All</button>
+        <button class="btn" onclick="uncheckAll()">Uncheck All</button>
+        <button class="btn primary" id="reset-btn" onclick="resetAll()">
+          Reset Progress
+        </button>
+      </div>
+
+      <p
+        style="
+          text-align: center;
+          margin-top: 2rem;
+          font-size: 0.8rem;
+          color: var(--stone-400);
+        "
+      >
+        Progress is saved in your browser's localStorage. Resets when you click
+        "Reset Progress".
+      </p>
+    </div>
+    <!-- /container -->
+
+    <script>
+      (function () {
+        const TOTAL = 13;
+
+        function taskId(n) {
+          return "task-t" + n;
+        }
+
+        function getState() {
+          try {
+            return JSON.parse(
+              localStorage.getItem("umwelten-walkthrough") || "{}",
+            );
+          } catch {
+            return {};
+          }
+        }
+
+        function saveState(state) {
+          localStorage.setItem("umwelten-walkthrough", JSON.stringify(state));
+        }
+
+        function updateProgress() {
+          const state = getState();
+          let checked = 0;
+          for (let i = 1; i <= TOTAL; i++) {
+            const el = document.querySelector("#" + taskId(i) + " .task-check");
+            if (!el) continue;
+            if (state[taskId(i)]) {
+              el.classList.add("checked");
+              checked++;
+            } else {
+              el.classList.remove("checked");
+            }
+          }
+          const pct = Math.round((checked / TOTAL) * 100);
+          document.getElementById("progress-fill").style.width = pct + "%";
+          document.getElementById("progress-text").textContent =
+            checked + " / " + TOTAL;
+        }
+
+        function restoreOpen() {
+          const state = getState();
+          for (let i = 1; i <= TOTAL; i++) {
+            if (state["open-" + taskId(i)]) {
+              document.getElementById(taskId(i)).classList.add("open");
+            }
+          }
+        }
+
+        window.toggleTask = function (id) {
+          const el = document.getElementById(id);
+          el.classList.toggle("open");
+          const state = getState();
+          state["open-" + id] = el.classList.contains("open");
+          saveState(state);
+        };
+
+        window.toggleCheck = function (id) {
+          const state = getState();
+          state[id] = !state[id];
+          saveState(state);
+          updateProgress();
+        };
+
+        window.expandAll = function () {
+          const state = getState();
+          for (let i = 1; i <= TOTAL; i++) {
+            document.getElementById(taskId(i)).classList.add("open");
+            state["open-" + taskId(i)] = true;
+          }
+          saveState(state);
+        };
+
+        window.collapseAll = function () {
+          const state = getState();
+          for (let i = 1; i <= TOTAL; i++) {
+            document.getElementById(taskId(i)).classList.remove("open");
+            state["open-" + taskId(i)] = false;
+          }
+          saveState(state);
+        };
+
+        window.checkAll = function () {
+          const state = getState();
+          for (let i = 1; i <= TOTAL; i++) {
+            state[taskId(i)] = true;
+          }
+          saveState(state);
+          updateProgress();
+        };
+
+        window.uncheckAll = function () {
+          const state = getState();
+          for (let i = 1; i <= TOTAL; i++) {
+            state[taskId(i)] = false;
+          }
+          saveState(state);
+          updateProgress();
+        };
+
+        window.resetAll = function () {
+          localStorage.removeItem("umwelten-walkthrough");
+          for (let i = 1; i <= TOTAL; i++) {
+            document.getElementById(taskId(i)).classList.remove("open");
+          }
+          updateProgress();
+        };
+
+        updateProgress();
+        restoreOpen();
+      })();
+    </script>
+  </body>
+</html>

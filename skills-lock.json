@@ -25,6 +25,12 @@
       "skillPath": "skills/browser-automation/SKILL.md",
       "computedHash": "2d11976a004bf5aae104118992504d303e5a14ac9bf03fc9f05700286486ba51"
     },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "computedHash": "9e1c8b3103f92fa8092568a44fe64858de7c5c9dc65ce4bea8f168080e889cfd"
+    },
     "firecrawl": {
       "source": "firecrawl/cli",
       "sourceType": "github",
@@ -91,11 +97,29 @@
       "skillPath": "skills/productivity/grill-me/SKILL.md",
       "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea"
     },
+    "grill-with-docs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "computedHash": "31a5b1ae116558bf7d3f633f442835f54bd7645923d4f45c7823e52a97317666"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "c77b86b4332919499608f9af1880074e1fec65a59b95c70c27a9f39cd137865e"
+    },
     "swiss-design": {
       "source": "zeke/swiss-design-skill",
       "sourceType": "github",
       "skillPath": "swiss-design/SKILL.md",
       "computedHash": "06219489ab5db1655af37ddb3efc84242961b9a9ad1fb5a4885c58e8eedf34f3"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "15a7b5e36383ebadb2dec5e586679e55e9663d292da418926b8da6fc0ef27d84"
     },
     "to-issues": {
       "source": "mattpocock/skills",
@@ -108,6 +132,12 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/to-prd/SKILL.md",
       "computedHash": "6d741474efd4bc3db55fabc2722ed78ca9c374cabcb6212936d79d4fd4a30fcb"
+    },
+    "write-a-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/write-a-skill/SKILL.md",
+      "computedHash": "b44d8aab2ead83c716e01af4c9a24ccc4575ce70ad58ec4f1749fb88c9cc82ba"
     }
   }
 }
