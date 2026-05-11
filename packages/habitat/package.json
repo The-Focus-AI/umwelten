@@ -25,7 +25,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "tsc && node -e \"require('node:fs').cpSync('src/container-ui', 'dist/container-ui', { recursive: true })\"",
+    "build": "tsc",
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose"
   },

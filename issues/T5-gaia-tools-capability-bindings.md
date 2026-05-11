@@ -21,16 +21,21 @@ Existing habitats that only have `secretBindings` (no capabilities) continue to 
 
 ## Acceptance criteria
 
-- [ ] `create_habitat` accepts `capabilities: [{ capability, credential }]` parameter
-- [ ] `create_habitat` validates each binding against the catalog before creating
-- [ ] `bind_capability` adds a valid binding and re-seeds volume
-- [ ] `bind_capability` rejects bindings where credential doesn't exist or doesn't grant the capability
-- [ ] `unbind_capability` removes a binding and re-seeds volume
-- [ ] `list_habitat_capabilities` shows all bindings with credential status
-- [ ] Starting a habitat with capabilities produces `secrets.json` containing resolved credential values
-- [ ] Existing habitats without capabilities are unaffected
-- [ ] Tools are accessible via Gaia chat (tested with `ask_habitat` or direct MCP calls)
-- [ ] Unit tests: create with capabilities, bind, unbind, list, validation failures
+- [x] `create_habitat` accepts `capabilities: [{ capability, credential }]` parameter
+- [x] `create_habitat` validates each binding against the catalog before creating
+- [x] `bind_capability` adds a valid binding and re-seeds volume
+- [x] `bind_capability` rejects bindings where credential doesn't exist or doesn't grant the capability
+- [x] `unbind_capability` removes a binding and re-seeds volume
+- [x] `list_habitat_capabilities` shows all bindings with credential status
+- [x] Starting a habitat with capabilities produces `secrets.json` containing resolved credential values
+- [x] Existing habitats without capabilities are unaffected
+- [x] Tools are accessible via Gaia chat (tested with `ask_habitat` or direct MCP calls)
+- [x] Unit tests: create with capabilities, bind, unbind, list, validation failures
+
+- [x] Add `validate()` method to `CapabilityResolver`
+- [x] Extend `CreateHabitatOptions` with `capabilities?: CapabilityBinding[]`
+- [x] Wire capabilities through `registry.create()` into `HabitatConfig`
+- [x] TypeScript clean and tests pass aside from pre-existing better-sqlite3 failures
 
 ## Blocked by
 

@@ -31,4 +31,6 @@ export {
 	ORG_READONLY_AGENT_ID,
 	ORG_READONLY_TEMPLATE_ID,
 	ORG_READONLY_TOKENS,
+	STANDARDS_AGENT_ID,
+	seedStandardsAgent,
 } from "./gaia-seed.js";

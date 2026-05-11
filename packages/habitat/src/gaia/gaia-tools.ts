@@ -19,7 +19,7 @@ import {
 	type A2AEndpoint,
 	type AgentCardSummary,
 } from "@umwelten/server";
-import { seedOrgReadonly } from "./gaia-seed.js";
+import { seedOrgReadonly, seedStandardsAgent } from "./gaia-seed.js";
 
 /** Adapt a Gaia registry entry to a generic A2A endpoint. */
 function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
@@ -60,6 +60,11 @@ export interface GaiaToolsContext {
 	vault: GaiaSecretVault;
 	docker: DockerManager;
 	catalog: CredentialCatalog;
+	/** Gaia's own config (from Gaia data-dir config.json). */
+	gaiaConfig?: Pick<
+		import("../types.js").HabitatConfig,
+		"standardsRepoUrl" | "standardsRepoBranch"
+	>;
 }
 
 /** Build the seed files (config.json + secrets.json) for a habitat volume.
@@ -103,7 +108,7 @@ export function buildSeedFiles(
 }
 
 function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
-	const { registry, vault, docker, catalog } = ctx;
+	const { registry, vault, docker, catalog, gaiaConfig } = ctx;
 
 	return {
 		list_habitats: tool({
@@ -194,6 +199,12 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 						if (!entry.secretBindings.includes(name))
 							entry.secretBindings.push(name);
 					}
+				}
+				const standardsSeed = seedStandardsAgent(
+					entry.config,
+					gaiaConfig ?? {},
+				);
+				if (seed.bindings.length > 0 || standardsSeed.agentAdded) {
 					await registry.update(entry.id, {
 						config: entry.config,
 						secretBindings: entry.secretBindings,
@@ -215,10 +226,16 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 						"WARNING: No secrets bound — the habitat has no API keys. Use bind_secret to add them.",
 					);
 				}
-				const seedNote =
-					seed.scopeAdded || seed.agentAdded
-						? `\n\nAuto-seeded org-readonly identity (${seed.bindings.join(", ")}).`
-						: "";
+				const notes: string[] = [];
+				if (seed.scopeAdded || seed.agentAdded) {
+					notes.push(
+						`Auto-seeded org-readonly identity (${seed.bindings.join(", ")}).`,
+					);
+				}
+				if (standardsSeed.agentAdded) {
+					notes.push(`Auto-seeded standards agent (${standardsSeed.repoUrl}).`);
+				}
+				const seedNote = notes.length > 0 ? `\n\n${notes.join("\n")}` : "";
 				const msg = `Created habitat "${entry.id}" (${entry.name}). Volume: gaia-${entry.id}-data${seedNote}`;
 				return warnings.length > 0 ? `${msg}\n\n${warnings.join("\n")}` : msg;
 			},

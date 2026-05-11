@@ -1,12 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "packages/core" },
-    { "path": "packages/server" },
-    { "path": "packages/habitat" },
-    { "path": "packages/evaluation" },
-    { "path": "packages/ui" },
-    { "path": "packages/cli" },
-    { "path": "packages/umwelten" }
-  ]
+  "references": []
 }

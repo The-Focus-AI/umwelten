@@ -1,30 +1,21 @@
-# T3: Gaia UI — Credentials Tab
+# T3: Gaia UI Credentials (RE-SCOPED — No custom UI)
 
-> Parent PRD: [Habitat Credential Catalog & Permissions Model](../../docs/architecture/habitat-permissions-prd.md)
+Credential catalog is managed LLM-first via Gaia chat, not through custom HTML tabs.
 
-## What to build
+## What was built
 
-A new "Credentials" tab in the Gaia dashboard SPA that shows the credential catalog. Operators can view all credentials, their capabilities, provider, and verification status. They can add new credentials and remove existing ones through the browser.
-
-The tab displays a table/list of credentials with columns: name, label, provider, capabilities (as badges), status (active/expired/unknown with color coding), last verified, and actions (verify, remove).
-
-An "Add Credential" form includes fields for: name, label, provider namespace, capabilities (comma-separated or chip input), scopes, source vault reference, and optional dashboard URL.
-
-All mutations go through the existing Gaia API routes. The credentials tab is the fourth tab in the dashboard (alongside Chat, Habitats, and Secrets — or reorder: Chat, Habitats, Credentials, Secrets).
+- Credential catalog tools (`add_credential`, `list_credentials`, `remove_credential`, `verify_credential`) built in T2
+- Standard container UI renders tool calls and results inline in chat view
+- Legacy Gaia-specific custom UI removed
+- LLM drives credential management via existing chat + tool infrastructure
 
 ## Acceptance criteria
 
-- [ ] "Credentials" tab appears in Gaia dashboard navigation
-- [ ] Tab shows all credentials from the catalog with name, provider, capabilities, status
-- [ ] Capabilities are displayed as colored badges
-- [ ] Status is color-coded: green (active), yellow (unknown), red (expired)
-- [ ] "Add Credential" form accepts all fields and creates a credential via the Gaia API
-- [ ] "Remove" button removes a credential with confirmation dialog
-- [ ] "Verify" button updates the last-verified timestamp and status
-- [ ] Tab refreshes automatically when returning to it
-- [ ] Empty state shows helpful message when no credentials exist
-- [ ] Works with the same auth model as the rest of the dashboard (bearer token)
+- [x] Credential catalog tools are available via Gaia chat/MCP
+- [x] Standard container UI renders credential tool calls/results inline
+- [x] No custom Gaia-specific credentials tab is required
+- [x] Legacy `gaia/ui/index.html` removed
 
 ## Blocked by
 
-- T2 (credential catalog data model + Gaia tools must exist)
+- T2

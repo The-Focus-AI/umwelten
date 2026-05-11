@@ -207,6 +207,8 @@ export interface AgentEntry {
 	/** Optional absolute path for the agent's semantic memory file. */
 	memoryPath?: string;
 	gitRemote?: string;
+	/** Optional branch to clone for repo agents. */
+	gitBranch?: string;
 	/**
 	 * Secret references (env var names). Values are never stored.
 	 * Backward-compat alias for identity.scopes[*].env when identity is unset.
@@ -301,6 +303,10 @@ export interface HabitatConfig {
 	 * resolves these into actual secret values and injects them as env vars.
 	 */
 	capabilities?: CapabilityBinding[];
+	/** Gaia-only: standards repository to auto-seed as a read-only agent in newly created habitats. */
+	standardsRepoUrl?: string;
+	/** Gaia-only: optional branch for the auto-seeded standards repository. */
+	standardsRepoBranch?: string;
 	/** Extension point for habitat-specific config. */
 	extensions?: Record<string, unknown>;
 }

@@ -7,16 +7,10 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist",
-    "declaration": true,
-    "sourceMap": true,
+    "noEmit": true,
     "rootDir": "src",
-    "types": ["node", "vitest/globals"],
-    "composite": true
+    "types": ["node", "vitest/globals"]
   },
-  "references": [
-    { "path": "../core" }
-  ],
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": ["node_modules", "**/*.test.ts"]
 }

@@ -7,20 +7,12 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist",
-    "declaration": true,
-    "sourceMap": true,
+    "noEmit": true,
     "rootDir": "src",
     "types": ["node", "vitest/globals"],
-    "composite": true
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
-  "references": [
-    { "path": "../core" },
-    { "path": "../server" },
-    { "path": "../habitat" },
-    { "path": "../evaluation" },
-    { "path": "../ui" }
-  ],
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": ["node_modules", "**/*.test.ts"]
 }

@@ -34,13 +34,16 @@ These are the only files that actually move. All file content stays the same exc
 
 ## Acceptance criteria
 
-- [ ] `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` exist only in `packages/habitat/`, not at root
-- [ ] `docker build -t habitat .` succeeds from `packages/habitat/`
-- [ ] Dockerfile paths (COPY, WORKDIR, etc.) reference correct locations relative to the habitat package
-- [ ] `.gitignore` includes `habitat-data/`, `input/`, `output/`, `test-data/`, `test-output/`, `*.tgz`
-- [ ] Architecture PNGs are in `docs/assets/` and not at root
-- [ ] All existing tests pass (`pnpm test:run`)
-- [ ] `mise run habitat-build` still works (update task path if needed)
+- [x] `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` exist only in `packages/habitat/`, not at root
+- [x] `docker build -t habitat .` succeeds from `packages/habitat/`
+- [x] Dockerfile paths (COPY, WORKDIR, etc.) reference correct locations relative to the habitat package
+- [x] `.gitignore` includes `habitat-data/`, `input/`, `output/`, `test-data/`, `test-output/`, `*.tgz`
+- [x] Architecture PNGs are in `docs/assets/` and not at root
+- [x] All existing tests pass (`pnpm test:run`)
+- [x] `mise run habitat-build` still works (update task path if needed)
+
+- [x] Move 10 architecture PNGs to `docs/assets/`
+- [x] Root cleanup complete; tests pass aside from pre-existing better-sqlite3 native module failures
 
 ## Blocked by
 

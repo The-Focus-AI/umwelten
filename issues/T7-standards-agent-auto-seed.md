@@ -24,15 +24,19 @@ A new top-level field in Gaia's own config: `standardsRepoUrl` (string, optional
 
 ## Acceptance criteria
 
-- [ ] Gaia config supports `standardsRepoUrl` field
-- [ ] `seedStandardsAgent()` adds standards agent to habitat config with mode:read and git-read scope
-- [ ] Standards agent references the org-readonly scope template (no new token needed)
-- [ ] If `standardsRepoUrl` is not set, no standards agent is added
-- [ ] Seed is idempotent — re-running does not duplicate
-- [ ] `create_habitat` in Gaia automatically calls seedStandardsAgent after seedOrgReadonly
-- [ ] Habitat created through Gaia has standards agent in its config.json
-- [ ] Container entrypoint clones the standards repo into `/data/agents/standards/repo`
-- [ ] Unit tests: seed with URL, seed without URL, idempotency (same pattern as `gaia-seed.test.ts`)
+- [x] Gaia config supports `standardsRepoUrl` field
+- [x] `seedStandardsAgent()` adds standards agent to habitat config with mode:read and git-read scope
+- [x] Standards agent references the org-readonly scope template (no new token needed)
+- [x] If `standardsRepoUrl` is not set, no standards agent is added
+- [x] Seed is idempotent — re-running does not duplicate
+- [x] `create_habitat` in Gaia automatically calls seedStandardsAgent after seedOrgReadonly
+- [x] Habitat created through Gaia has standards agent in its config.json
+- [x] Container entrypoint clones the standards repo into `/data/agents/standards/repo`
+- [x] Unit tests: seed with URL, seed without URL, idempotency (same pattern as `gaia-seed.test.ts`)
+
+- [x] Added optional `standardsRepoBranch` alongside `standardsRepoUrl` for branch selection
+- [x] `packages/habitat` build passes; full workspace build still has pre-existing `packages/ui` TS6305/implicit-any failures
+- [x] Targeted seed tests pass; full unit suite still fails on pre-existing `better-sqlite3` native module Node ABI mismatch
 
 ## Blocked by
 

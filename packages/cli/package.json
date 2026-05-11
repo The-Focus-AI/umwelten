@@ -2,10 +2,10 @@
   "name": "@umwelten/cli",
   "version": "0.4.12",
   "type": "module",
-  "main": "./dist/cli.js",
-  "types": "./dist/cli.d.ts",
+  "main": "./src/cli.ts",
+  "types": "./src/cli.ts",
   "bin": {
-    "umwelten": "dist/entry.js"
+    "umwelten": "src/entry.ts"
   },
   "description": "CLI entry point for umwelten",
   "license": "MIT",
@@ -18,7 +18,6 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "tsc",
     "cli": "NODE_OPTIONS='--no-deprecation' tsx src/entry.ts",
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose"

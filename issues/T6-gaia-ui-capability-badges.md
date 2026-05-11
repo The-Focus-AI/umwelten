@@ -19,14 +19,18 @@ This slice is purely UI — it reads data already available from existing Gaia A
 
 ## Acceptance criteria
 
-- [ ] Each habitat in the Habitats tab shows capability badges (name + credential on hover)
-- [ ] Badges are color-coded by provider namespace
-- [ ] Habitats with no capabilities show a muted indicator
-- [ ] Filter bar allows selecting one or more capabilities
-- [ ] Filtering updates the habitat list in real time (client-side filter)
-- [ ] "High risk" toggle filters to `:write` capabilities only
-- [ ] Filter persists across tab switches during the session
-- [ ] Empty state when no habitats match the filter
+- [x] Each habitat in the Habitats tab shows capability badges (name + credential on hover)
+- [x] Badges are color-coded by provider namespace
+- [x] Habitats with no capabilities show a muted indicator
+- [x] Filter bar allows selecting one or more capabilities
+- [x] Filtering updates the habitat list in real time (client-side filter)
+- [x] "High risk" toggle filters to `:write` capabilities only
+- [x] Filter persists across tab switches during the session
+- [x] Empty state when no habitats match the filter
+
+- [x] Enhance `/api/habitats` endpoint with `_credMeta` provider/status metadata
+- [x] Add `catalog` to `GaiaRouteContext` and wire it into CLI startup
+- [x] TypeScript clean; tests pass aside from pre-existing better-sqlite3 failures
 
 ## Blocked by
 

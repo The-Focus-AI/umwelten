@@ -1266,7 +1266,9 @@ addSharedOptions(gaiaSubcommand)
 			const { resolve: pathResolve } = await import("node:path");
 			const { writeFile, mkdir } = await import("node:fs/promises");
 			const { fileURLToPath: toPath } = await import("node:url");
-			const { fileExists } = await import("@umwelten/habitat/config.js");
+			const { fileExists, loadConfig } = await import(
+				"@umwelten/habitat/config.js"
+			);
 			const { containerToolSets } = await import(
 				"@umwelten/habitat/tool-sets.js"
 			);
@@ -1341,6 +1343,8 @@ addSharedOptions(gaiaSubcommand)
 				);
 			}
 
+			const gaiaConfig = await loadConfig(configPath);
+
 			// Initialize gaia components
 			const registry = new GaiaRegistryManager(dataDir);
 			await registry.load();
@@ -1363,6 +1367,7 @@ addSharedOptions(gaiaSubcommand)
 				vault,
 				docker,
 				catalog,
+				gaiaConfig,
 			});
 			const habitat = await Habitat.create({
 				workDir: dataDir,

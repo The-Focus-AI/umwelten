@@ -22,16 +22,21 @@ No capability binding yet (that's T4). No UI (that's T3). This slice is purely t
 
 ## Acceptance criteria
 
-- [ ] `credentials.json` file is created in Gaia data dir on first catalog operation
-- [ ] Catalog supports add, remove, list, get, listByCapability, listByProvider
-- [ ] `add_credential` Gaia tool works (accessible via Gaia chat or MCP)
-- [ ] `list_credentials` shows all entries with capabilities and status
-- [ ] `remove_credential` removes by name
-- [ ] `verify_credential` updates lastVerified timestamp and status to "active"
-- [ ] Duplicate credential names are rejected on add
-- [ ] Secret values are never written to `credentials.json` (only metadata)
-- [ ] Unit tests: load/save, add, remove, query by capability, query by provider, idempotent add, verify
-- [ ] Prior art pattern: same directory structure + file management as `GaiaRegistryManager`
+- [x] `credentials.json` file is created in Gaia data dir on first catalog operation
+- [x] Catalog supports add, remove, list, get, listByCapability, listByProvider
+- [x] `add_credential` Gaia tool works (accessible via Gaia chat or MCP)
+- [x] `list_credentials` shows all entries with capabilities and status
+- [x] `remove_credential` removes by name
+- [x] `verify_credential` updates lastVerified timestamp and status to "active"
+- [x] Duplicate credential names are rejected on add
+- [x] Secret values are never written to `credentials.json` (only metadata)
+- [x] Unit tests: load/save, add, remove, query by capability, query by provider, idempotent add, verify
+- [x] Prior art pattern: same directory structure + file management as `GaiaRegistryManager`
+
+- [x] Add `CredentialEntry` and `CredentialStatus` types to `gaia/types.ts`
+- [x] Wire `CredentialCatalog` into CLI Gaia startup
+- [x] Export from `gaia/index.ts` and main habitat index
+- [x] All tests pass aside from pre-existing better-sqlite3 native module failures
 
 ## Blocked by
 

@@ -32,15 +32,20 @@ This slice is purely the resolution logic + seed file integration. No Gaia tool 
 
 ## Acceptance criteria
 
-- [ ] `HabitatConfig` type includes optional `capabilities: CapabilityBinding[]`
-- [ ] `CapabilityResolver.resolve()` takes bindings + catalog + vault, returns `{ envVars: Record<string,string>, warnings: string[] }`
-- [ ] Resolver rejects bindings where the credential doesn't exist in the catalog
-- [ ] Resolver warns when a credential has status "expired" or refreshTokenExpiry in the past
-- [ ] `buildSeedFiles` includes resolved capability secrets in `secrets.json`
-- [ ] `secrets.json` produced by buildSeedFiles contains both direct secretBindings AND capability-resolved values
-- [ ] Existing habitats without `capabilities` field are unaffected (backward compat)
-- [ ] Unit tests: resolver with valid bindings, missing credential, expired credential, overlapping capabilities
-- [ ] Unit tests: buildSeedFiles with capabilities produces correct secrets.json
+- [x] `HabitatConfig` type includes optional `capabilities: CapabilityBinding[]`
+- [x] `CapabilityResolver.resolve()` takes bindings + catalog + vault, returns `{ envVars: Record<string,string>, warnings: string[] }`
+- [x] Resolver rejects bindings where the credential doesn't exist in the catalog
+- [x] Resolver warns when a credential has status "expired" or refreshTokenExpiry in the past
+- [x] `buildSeedFiles` includes resolved capability secrets in `secrets.json`
+- [x] `secrets.json` produced by buildSeedFiles contains both direct secretBindings AND capability-resolved values
+- [x] Existing habitats without `capabilities` field are unaffected (backward compat)
+- [x] Unit tests: resolver with valid bindings, missing credential, expired credential, overlapping capabilities
+- [x] Unit tests: buildSeedFiles with capabilities produces correct secrets.json
+
+- [x] Add `CapabilityBinding` type and `capabilities?: CapabilityBinding[]` to config types
+- [x] All Gaia buildSeedFiles call sites pass catalog when resolving capabilities
+- [x] Export `CapabilityBinding`, `CapabilityResolver`, and `ResolverResult`
+- [x] TypeScript clean and tests pass aside from pre-existing better-sqlite3 failures
 
 ## Blocked by
 

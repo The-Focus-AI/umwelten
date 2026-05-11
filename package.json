@@ -5,7 +5,6 @@
   "type": "module",
   "description": "Umwelten monorepo workspace",
   "scripts": {
-    "build": "pnpm -r build",
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose",
     "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose",
