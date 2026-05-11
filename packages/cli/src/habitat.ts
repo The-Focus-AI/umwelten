@@ -14,14 +14,11 @@
 
 import { Command } from "commander";
 import path from "node:path";
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
-import type { CoreMessage, Tool } from "ai";
+import type { CoreMessage } from "ai";
 import {
 	Habitat,
 	getAgentMemoryPath,
-	buildAgentStimulus,
 } from "@umwelten/habitat";
 import type { AgentEntry, DiscordChannelRuntimeMode } from "@umwelten/habitat";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
@@ -39,7 +36,6 @@ import {
 } from "@umwelten/core/context/index.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import { cliStdoutObserver } from "@umwelten/core/cognition/observers.js";
-import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 // Discord routing tools kept for non-bridge paths (e.g. tools exposed to the LLM)
 
 // ── Shared habitat options ────────────────────────────────────────────
@@ -117,26 +113,6 @@ function noDefaultModelCliHint(envPrefix: string): string {
 		`No model configured. Provide --provider and --model, add defaultProvider/defaultModel to config.json, ` +
 		`or set ${envPrefix}_PROVIDER and ${envPrefix}_MODEL.`
 	);
-}
-
-/**
- * Print habitat startup info.
- */
-async function cloneHabitatStimulus(
-	habitat: Habitat,
-	extraTools?: Record<string, Tool>,
-): Promise<Stimulus> {
-	const base = await habitat.getStimulus();
-	const s = new Stimulus(base.options);
-	for (const [name, tool] of Object.entries(base.getTools())) {
-		s.addTool(name, tool);
-	}
-	if (extraTools) {
-		for (const [name, tool] of Object.entries(extraTools)) {
-			s.addTool(name, tool);
-		}
-	}
-	return s;
 }
 
 function printStartupInfo(habitat: Habitat, modelDetails: ModelDetails): void {
@@ -346,15 +322,13 @@ async function repl(
 
 				// Set up keyboard listener to abort stream on Escape key
 				const abortController = new AbortController();
-				let streamAborted = false;
 
 				const keypressHandler = (
-					str: string,
+					_str: string,
 					key: { name?: string; ctrl?: boolean; meta?: boolean },
 				) => {
 					if (key.name === "escape" || (key.ctrl && key.name === "c")) {
 						abortController.abort();
-						streamAborted = true;
 						process.stdout.write("\n[Stream aborted by user]\n");
 					}
 				};
@@ -677,25 +651,6 @@ async function telegramAction(
 
 // ── Discord action ───────────────────────────────────────────────────
 
-async function readClaudeSdkVersionFromRepoPackageJson(): Promise<string> {
-	try {
-		const pkgPath = fileURLToPath(
-			new URL("../../package.json", import.meta.url),
-		);
-		const pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as {
-			dependencies?: Record<string, string>;
-			devDependencies?: Record<string, string>;
-		};
-		return (
-			pkg.dependencies?.["@anthropic-ai/claude-agent-sdk"] ??
-			pkg.devDependencies?.["@anthropic-ai/claude-agent-sdk"] ??
-			"unknown"
-		);
-	} catch {
-		return "unknown";
-	}
-}
-
 async function discordAction(
 	options: HabitatCLIOptions & { token?: string; discordGuild?: string },
 ): Promise<void> {
@@ -720,7 +675,6 @@ async function discordAction(
 
 	printStartupInfo(habitat, modelDetails);
 
-	const routingPath = process.env.DISCORD_ROUTING_PATH;
 	const prefix = habitat.envPrefix;
 	const visionProvider =
 		process.env[`${prefix}_VISION_PROVIDER`] ??
@@ -762,7 +716,6 @@ async function discordAction(
 		return bridge.resolveRoute(key, parentKey);
 	};
 
-	const claudeSdkSpec = await readClaudeSdkVersionFromRepoPackageJson();
 
 	const buildDiscordBindingPinContent = async (opts: {
 		agentId: string;
