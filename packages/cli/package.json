@@ -28,7 +28,7 @@
     "@umwelten/habitat": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
     "@umwelten/ui": "workspace:*",
-    "ai": "^5.0.115",
+    "ai": "^6.0.177",
     "file-type": "^21.3.2",
     "ink": "^5.2.1",
     "react": "^19.1.0",

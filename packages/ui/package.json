@@ -39,7 +39,7 @@
     "@umwelten/core": "workspace:*",
     "@umwelten/habitat": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
-    "ai": "^5.0.115",
+    "ai": "^6.0.177",
     "@ai-sdk/react": "^3.0.170",
     "@grammyjs/files": "^1.2.0",
     "@inkjs/ui": "^2.0.0",
