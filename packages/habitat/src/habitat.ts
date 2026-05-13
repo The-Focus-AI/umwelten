@@ -74,6 +74,10 @@ import {
 	type AgentManifest,
 	AgentManifestError,
 } from "./identity/agent-manifest.js";
+import {
+	getHabitatSlashCommands,
+	type SlashCommand,
+} from "./slash-commands.js";
 
 export class Habitat
 	implements
@@ -202,6 +206,25 @@ export class Habitat
 		}
 
 		return habitat;
+	}
+
+	/**
+	 * Boot a Habitat and start the appropriate HTTP server.
+	 * Thin wrapper over `serveHabitat` from `./serve.js`.
+	 */
+	static async serve(
+		options: import("./serve.js").ServeOptions,
+	): Promise<import("./serve.js").ServedHabitat> {
+		const { serveHabitat } = await import("./serve.js");
+		return serveHabitat(options);
+	}
+
+	/**
+	 * Slash commands a generic REPL can dispatch to.
+	 * Pure data; the REPL provides the I/O channel via `SlashCommandContext.print`.
+	 */
+	getSlashCommands(): SlashCommand[] {
+		return getHabitatSlashCommands();
 	}
 
 	// ── Config management ───────────────────────────────────────────

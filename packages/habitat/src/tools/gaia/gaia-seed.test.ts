@@ -11,7 +11,7 @@ import {
 	seedStandardsAgent,
 } from "./gaia-seed.js";
 import { GaiaSecretVault } from "./secrets.js";
-import type { HabitatConfig } from "../types.js";
+import type { HabitatConfig } from "../../types.js";
 
 function freshConfig(): HabitatConfig {
 	return { agents: [] } as unknown as HabitatConfig;

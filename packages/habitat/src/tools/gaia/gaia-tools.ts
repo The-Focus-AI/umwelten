@@ -3,10 +3,16 @@
  * wrapped as a ToolSet for registration on a Habitat.
  */
 
+import { execFile } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
-import type { ToolSet } from "../tool-sets.js";
+import type { ToolSet } from "../../tool-sets.js";
+
+const execFileAsync = promisify(execFile);
 import type { GaiaHabitatEntry } from "./types.js";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
@@ -23,7 +29,7 @@ import {
 	sendA2AMessage,
 	type A2AEndpoint,
 	type AgentCardSummary,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 import {
 	seedOrgReadonly,
 	seedStandardsAgent,
@@ -93,9 +99,15 @@ export interface GaiaToolsContext {
 	docker: DockerManager;
 	catalog: CredentialCatalog;
 	audit: CredentialAuditLogger;
+	/** Gaia's own data directory (where config.json lives). */
+	gaiaDataDir: string;
+	/** Gaia's provider (for defaulting child habitats). */
+	gaiaProvider?: string;
+	/** Gaia's model (for defaulting child habitats). */
+	gaiaModel?: string;
 	/** Gaia's own config (from Gaia data-dir config.json). */
 	gaiaConfig?: Pick<
-		import("../types.js").HabitatConfig,
+		import("../../types.js").HabitatConfig,
 		"standardsRepoUrl" | "standardsRepoBranch"
 	>;
 }
@@ -280,7 +292,17 @@ export async function runStandardsAudit(
 }
 
 function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
-	const { registry, vault, docker, catalog, audit, gaiaConfig } = ctx;
+	const {
+		registry,
+		vault,
+		docker,
+		catalog,
+		audit,
+		gaiaDataDir,
+		gaiaProvider,
+		gaiaModel,
+		gaiaConfig,
+	} = ctx;
 
 	return {
 		list_habitats: tool({
@@ -312,8 +334,7 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 		}),
 
 		create_habitat: tool({
-			description:
-				"Create a new habitat entry in the registry. IMPORTANT: Always provide provider and model, and bind API key secrets. A habitat without a model or API keys cannot respond to messages.",
+			description: `Create a new habitat entry in the registry. Default provider: ${gaiaProvider ?? "google"}, default model: ${gaiaModel ?? "gemini-3-flash-preview"}. IMPORTANT: Always provide provider and model, and bind API key secrets. A habitat without a model or API keys cannot respond to messages.`,
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
@@ -322,12 +343,12 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 				provider: z
 					.string()
 					.describe(
-						"LLM provider (e.g. google, openrouter). Required for the habitat to work.",
+						`LLM provider (default: ${gaiaProvider ?? "google"}). Required for the habitat to work.`,
 					),
 				model: z
 					.string()
 					.describe(
-						"Model name (e.g. gemini-3-flash-preview). Required for the habitat to work.",
+						`Model name (default: ${gaiaModel ?? "gemini-3-flash-preview"}). Required for the habitat to work.`,
 					),
 				secretBindings: z
 					.array(z.string())
@@ -598,18 +619,97 @@ function createGaiaTools(ctx: GaiaToolsContext): Record<string, Tool> {
 			},
 		}),
 
+		search_skills: tool({
+			description:
+				"Search the agent skills ecosystem for skills matching a query. Runs `npx skills find <query>` and returns parsed results with skill names, install counts, and repo URLs. Use this BEFORE calling add_skill — let the user see what's available and pick one.",
+			inputSchema: z.object({
+				query: z
+					.string()
+					.describe(
+						"Search query (e.g. 'web scraping', 'design', 'firecrawl')",
+					),
+			}),
+			execute: async ({ query }) => {
+				try {
+					const { stdout } = await execFileAsync(
+						"npx",
+						["skills", "find", query, "--yes"],
+						{ timeout: 30_000, env: { ...process.env, FORCE_COLOR: "0" } },
+					);
+					// Strip ANSI escape codes
+					const clean = stdout.replace(/\x1b\[[0-9;]*m/g, "");
+					// Extract skill lines: look for lines with "installs"
+					const lines = clean.split("\n");
+					const results: { name: string; installs: string; url: string }[] = [];
+					for (let i = 0; i < lines.length; i++) {
+						const line = lines[i].trim();
+						const match = line.match(
+							/^(.+?)\s+(\d+\.?\d*[KMB]?\s+installs?)$/i,
+						);
+						if (match) {
+							const name = match[1].trim();
+							const installs = match[2].trim();
+							// next line has the URL (starts with └)
+							let url = "";
+							if (i + 1 < lines.length) {
+								const nextLine = lines[i + 1].trim();
+								const urlMatch = nextLine.match(/https?:\/\/skills\.sh\/\S+/);
+								if (urlMatch) url = urlMatch[0];
+							}
+							results.push({ name, installs, url });
+						}
+					}
+					if (results.length === 0) {
+						return `No skills found for "${query}". Try a different query or browse https://skills.sh/.`;
+					}
+					return JSON.stringify(
+						{
+							query,
+							results,
+							hint: "Use add_skill with the 'owner/repo' part of the name (e.g. 'firecrawl/cli'). The '@skill' suffix is optional — omitting it installs all skills in the repo.",
+						},
+						null,
+						2,
+					);
+				} catch (err: any) {
+					return `Skill search failed: ${err.message}. Try browsing https://skills.sh/ directly.`;
+				}
+			},
+		}),
+
 		add_skill: tool({
 			description:
-				"Add a skill package to a habitat's config. Use 'owner/repo' format (e.g. 'vercel-labs/agent-skills'). The skill is installed via `npx skills` on next start/rebuild. Rebuild the habitat for it to take effect.",
+				"Add a skill package to a habitat's config. Use 'owner/repo' format (e.g. 'firecrawl/cli'). If no habitat id is specified and no child habitats exist, the skill is added to this orchestrator's own config. Do NOT create a new habitat just to add a skill. The skill is installed via `npx skills` on next rebuild. Call rebuild_habitat afterward to apply.",
 			inputSchema: z.object({
-				id: z.string().describe("Habitat ID"),
-				repo: z
+				id: z
 					.string()
-					.describe("Skill package (e.g. 'vercel-labs/agent-skills')"),
+					.optional()
+					.describe("Habitat ID (omit to add to this orchestrator itself)"),
+				repo: z.string().describe("Skill package (e.g. 'firecrawl/cli')"),
 			}),
 			execute: async ({ id, repo }) => {
+				// Self case: add to Gaia's own config
+				if (!id) {
+					const configPath = join(gaiaDataDir, "config.json");
+					let config: Record<string, any>;
+					try {
+						config = JSON.parse(await readFile(configPath, "utf-8"));
+					} catch {
+						config = {};
+					}
+					if (!config.skillsFromGit) config.skillsFromGit = [];
+					if (config.skillsFromGit.includes(repo)) {
+						return `Skill "${repo}" is already configured on this orchestrator.`;
+					}
+					config.skillsFromGit.push(repo);
+					await writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
+					return `Added skill "${repo}" to this orchestrator's config. The skill will be installed on next restart. Restart the Docker container to apply.`;
+				}
+
+				// Child habitat case
 				const entry = registry.get(id);
-				if (!entry) return `Habitat "${id}" not found`;
+				if (!entry)
+					return `Habitat "${id}" not found. List habitats to see available IDs.`;
 
 				if (!entry.config.skillsFromGit) {
 					entry.config.skillsFromGit = [];

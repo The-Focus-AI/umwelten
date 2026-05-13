@@ -30,7 +30,7 @@
   "scripts": {},
   "dependencies": {
     "@umwelten/core": "workspace:*",
-    "@umwelten/server": "workspace:*",
+    "@umwelten/protocols": "workspace:*",
     "@umwelten/habitat": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
     "@umwelten/ui": "workspace:*",

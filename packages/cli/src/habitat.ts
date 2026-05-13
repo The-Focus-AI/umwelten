@@ -14,12 +14,9 @@
 
 import { Command } from "commander";
 import path from "node:path";
-import { createInterface } from "node:readline";
-import type { CoreMessage } from "ai";
 import { Habitat, getAgentMemoryPath } from "@umwelten/habitat";
 import type { AgentEntry, DiscordChannelRuntimeMode } from "@umwelten/habitat";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
-import type { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
 import { writeSessionTranscript } from "@umwelten/habitat/transcript.js";
 import { createCurrentSessionTool } from "@umwelten/habitat/tools/session-tools.js";
 import { fileExists } from "@umwelten/habitat/config.js";
@@ -27,12 +24,8 @@ import {
 	configureManagedAgent,
 	registerManagedAgentDirectory,
 } from "@umwelten/habitat/tools/agent-runner-tools.js";
-import {
-	estimateContextSize,
-	listCompactionStrategies,
-} from "@umwelten/core/context/index.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
-import { cliStdoutObserver } from "@umwelten/core/cognition/observers.js";
+import { runRepl, runOneShot } from "@umwelten/ui/cli/repl.js";
 // Discord routing tools kept for non-bridge paths (e.g. tools exposed to the LLM)
 
 // ── Shared habitat options ────────────────────────────────────────────
@@ -123,255 +116,7 @@ function printStartupInfo(habitat: Habitat, modelDetails: ModelDetails): void {
 	);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
-function formatContextSize(messages: CoreMessage[]): string {
-	const size = estimateContextSize(messages);
-	const kTokens =
-		size.estimatedTokens >= 1000
-			? (size.estimatedTokens / 1000).toFixed(1) + "K"
-			: String(size.estimatedTokens);
-	return `[Context: ${size.messageCount} messages, ~${kTokens} tokens]`;
-}
-
-async function saveInteraction(
-	store: InteractionStore,
-	interaction: Interaction,
-): Promise<void> {
-	try {
-		const normalized = interaction.toNormalizedSession();
-		await store.saveSession(normalized);
-	} catch (err) {
-		console.error("Failed to save session:", err);
-	}
-}
-
-// ── One-shot ─────────────────────────────────────────────────────────
-
-async function oneShotRun(
-	interaction: Interaction,
-	store: InteractionStore,
-	prompt: string,
-): Promise<void> {
-	interaction.addMessage({ role: "user", content: prompt });
-	process.stdout.write("Habitat: ");
-	const response = await interaction.streamText(undefined, cliStdoutObserver());
-	const text =
-		typeof response.content === "string"
-			? response.content
-			: String(response.content ?? "");
-	if (text && !text.trim().endsWith("\n")) {
-		process.stdout.write("\n");
-	}
-	console.log(formatContextSize(interaction.getMessages()));
-	await saveInteraction(store, interaction);
-}
-
-// ── REPL ─────────────────────────────────────────────────────────────
-
-async function repl(
-	interaction: Interaction,
-	store: InteractionStore,
-	habitat: Habitat,
-	options?: {
-		banner?: string;
-	},
-): Promise<void> {
-	const rl = createInterface({ input: process.stdin, output: process.stdout });
-
-	console.log(
-		options?.banner ?? "Habitat agent ready. Type a message and press Enter.",
-	);
-	console.log(
-		"Commands: /exit, /agents, /agent-start <id>, /agent-stop <id>, /agent-status [id], /skills, /tools, /context, /onboard, /compact [strategy], /compact help\n",
-	);
-
-	const ask = () => {
-		rl.question("You: ", async (line) => {
-			const input = line?.trim();
-			if (!input) {
-				ask();
-				return;
-			}
-
-			// ── Commands ──
-
-			if (input === "/exit" || input === "/quit") {
-				await saveInteraction(store, interaction);
-				rl.close();
-				process.exit(0);
-			}
-
-			if (input === "/agents") {
-				const agents = habitat.getAgents();
-				if (agents.length === 0) {
-					console.log(
-						"No agents registered. Use agent_clone or agents_add tools to register agents.",
-					);
-				} else {
-					console.log(`Agents (${agents.length}):`);
-					for (const a of agents) {
-						const cmds = a.commands
-							? ` [${Object.keys(a.commands).join(", ")}]`
-							: "";
-						console.log(`  ${a.id} — ${a.name} (${a.projectPath})${cmds}`);
-					}
-				}
-				console.log("");
-				ask();
-				return;
-			}
-
-			if (input === "/skills") {
-				const skills = habitat.getSkills();
-				if (skills.length === 0) {
-					console.log(
-						"No skills loaded. Add skillsDirs or skillsFromGit to config.json.",
-					);
-				} else {
-					console.log(`Skills (${skills.length}):`);
-					for (const s of skills) {
-						console.log(`  ${s.name} — ${s.description}`);
-					}
-				}
-				console.log("");
-				ask();
-				return;
-			}
-
-			if (input === "/tools") {
-				const tools = habitat.getTools();
-				const names = Object.keys(tools);
-				if (names.length === 0) {
-					console.log("No tools registered.");
-				} else {
-					console.log(`Tools (${names.length}): ${names.join(", ")}`);
-				}
-				console.log("");
-				ask();
-				return;
-			}
-
-			if (input === "/onboard") {
-				const result = await habitat.onboard();
-				console.log("Onboarding complete.");
-				if (result.created.length > 0)
-					console.log("  Created:", result.created.join(", "));
-				if (result.skipped.length > 0)
-					console.log("  Already present:", result.skipped.join(", "));
-				console.log("  Work directory:", result.workDir);
-				console.log("");
-				ask();
-				return;
-			}
-
-			if (input === "/context") {
-				console.log(formatContextSize(interaction.getMessages()));
-				console.log("");
-				ask();
-				return;
-			}
-
-			if (input === "/compact help") {
-				const strategies = await listCompactionStrategies();
-				console.log("Compaction strategies:");
-				for (const s of strategies) {
-					console.log(`  ${s.id} — ${s.description}`);
-				}
-				console.log(
-					"\nUsage: /compact [strategyId]   (default: through-line-and-facts)",
-				);
-				console.log("");
-				ask();
-				return;
-			}
-
-			if (input === "/compact" || input.startsWith("/compact ")) {
-				const strategyId =
-					input === "/compact"
-						? "through-line-and-facts"
-						: input.slice(9).trim();
-				try {
-					const result = await interaction.compactContext(strategyId, {
-						fromCheckpoint: true,
-					});
-					if (result) {
-						console.log(
-							`Compacted segment [${result.segmentStart}..${result.segmentEnd}] into ${result.replacementCount} message(s).`,
-						);
-						console.log(formatContextSize(interaction.getMessages()));
-					} else {
-						console.log("No segment to compact.");
-					}
-				} catch (err) {
-					console.error("Compaction error:", err);
-				}
-				console.log("");
-				ask();
-				return;
-			}
-
-			// ── Regular message → LLM ──
-
-			try {
-				interaction.addMessage({ role: "user", content: input });
-				process.stdout.write("Habitat: ");
-
-				// Set up keyboard listener to abort stream on Escape key
-				const abortController = new AbortController();
-
-				const keypressHandler = (
-					_str: string,
-					key: { name?: string; ctrl?: boolean; meta?: boolean },
-				) => {
-					if (key.name === "escape" || (key.ctrl && key.name === "c")) {
-						abortController.abort();
-						process.stdout.write("\n[Stream aborted by user]\n");
-					}
-				};
-
-				// Enable raw mode to capture keypresses immediately
-				if (process.stdin.isTTY) {
-					process.stdin.setRawMode(true);
-					process.stdin.on("keypress", keypressHandler);
-				}
-
-				const response = await interaction.streamText(
-					undefined,
-					cliStdoutObserver(),
-				);
-				const text =
-					typeof response.content === "string"
-						? response.content
-						: String(response.content ?? "");
-				if (text && !text.trim().endsWith("\n")) {
-					process.stdout.write("\n");
-				}
-
-				// Clean up keypress handler
-				if (process.stdin.isTTY) {
-					process.stdin.setRawMode(false);
-					process.stdin.removeListener("keypress", keypressHandler);
-				}
-
-				console.log(formatContextSize(interaction.getMessages()));
-				await saveInteraction(store, interaction);
-			} catch (err) {
-				if (err instanceof Error && err.name === "AbortError") {
-					// Stream was aborted, this is expected
-					console.log("\n");
-				} else {
-					console.error("Error:", err);
-				}
-			}
-			console.log("");
-			ask();
-		});
-	};
-	ask();
-}
-
-// ── CLI REPL action ───────────────────────────────────────────────────
+// ── CLI REPL action (REPL/one-shot live in @umwelten/ui/cli/repl) ──────
 
 async function cliAction(
 	promptParts: string[],
@@ -425,15 +170,14 @@ async function cliAction(
 	// Wire transcript persistence
 	interaction.setOnTranscriptUpdate((messages) => {
 		void writeSessionTranscript(sessionDir, messages);
-		void saveInteraction(store, interaction);
 	});
 
 	if (oneShot) {
-		await oneShotRun(interaction, store, oneShot);
+		await runOneShot(interaction, store, oneShot);
 		process.exit(0);
 	}
 
-	await repl(interaction, store, habitat);
+	await runRepl({ interaction, store, habitat });
 }
 
 async function ensureLocalAgent(
@@ -535,11 +279,14 @@ async function localAction(
 	console.log(`[habitat] Session: ${habitatAgent.getSessionId()}`);
 
 	if (oneShot) {
-		await oneShotRun(interaction, store, oneShot);
+		await runOneShot(interaction, store, oneShot);
 		process.exit(0);
 	}
 
-	await repl(interaction, store, habitat, {
+	await runRepl({
+		interaction,
+		store,
+		habitat,
 		banner:
 			`Local agent ready for ${localAgent.agent.name}. ` +
 			"You are talking directly to that project sub-agent.",
@@ -1116,80 +863,26 @@ addSharedOptions(serveSubcommand)
 				command,
 				options,
 			) as typeof options;
-
-			// Use container-minimal tool sets by default; --all-tools for full orchestrator set.
-			// Gaia-managed containers (HABITAT_API_KEY set) get managedContainerToolSets
-			// which excludes secretsToolSet — secrets are managed by Gaia's master vault.
-			const { containerToolSets, managedContainerToolSets } = await import(
-				"@umwelten/habitat/tool-sets.js"
-			);
-			const isManaged = !!process.env.HABITAT_API_KEY;
-			const habitat = await Habitat.create({
+			const mode = merged.mcpOnly
+				? "mcp-only"
+				: process.env.HABITAT_API_KEY
+					? "managed"
+					: "standalone";
+			await Habitat.serve({
 				workDir: merged.workDir,
 				sessionsDir: merged.sessionsDir,
 				envPrefix: merged.envPrefix ?? "HABITAT",
 				defaultWorkDirName: "habitats",
-				toolSets: (merged as any).allTools
-					? undefined
-					: isManaged
-						? managedContainerToolSets
-						: containerToolSets,
+				port: parseInt(merged.port ?? "7430", 10),
+				host: merged.host ?? "0.0.0.0",
+				mode,
+				allTools: merged.allTools,
+				skipOnboard: merged.skipOnboard,
+				model:
+					merged.provider && merged.model
+						? { provider: merged.provider, name: merged.model }
+						: undefined,
 			});
-
-			// Onboard if needed
-			if (!merged.skipOnboard && !(await habitat.isOnboarded())) {
-				console.log(
-					"[habitat] Work directory not set up. Running onboarding...",
-				);
-				const result = await habitat.onboard();
-				if (result.created.length > 0)
-					console.log("[habitat] Created:", result.created.join(", "));
-				console.log(`[habitat] Work directory: ${result.workDir}`);
-			}
-
-			// Set runtime model from CLI flags so chat/bridge can find it
-			const modelDetails = resolveModelDetails(habitat, merged);
-			if (modelDetails) {
-				habitat.setRuntimeModelDetails(modelDetails);
-			}
-
-			if ((merged as any).mcpOnly) {
-				// Legacy MCP-only mode
-				const { startHabitatMcpServer } = await import(
-					"@umwelten/habitat/mcp-local-server.js"
-				);
-				const server = await startHabitatMcpServer({
-					habitat,
-					port: parseInt(merged.port ?? "7430", 10),
-					host: merged.host ?? "0.0.0.0",
-					name: habitat.getConfig().name ?? "habitat-mcp",
-				});
-				const shutdown = () => {
-					console.log("\n[habitat-mcp] Shutting down...");
-					server.close();
-					process.exit(0);
-				};
-				process.on("SIGINT", shutdown);
-				process.on("SIGTERM", shutdown);
-			} else {
-				// Unified container server (MCP + chat + web UI)
-				const { startContainerServer } = await import(
-					"@umwelten/habitat/container-server.js"
-				);
-				const server = await startContainerServer({
-					habitat,
-					port: parseInt(merged.port ?? "7430", 10),
-					host: merged.host ?? "0.0.0.0",
-					name: habitat.getConfig().name ?? "habitat",
-				});
-				const shutdown = () => {
-					console.log("\n[container] Shutting down...");
-					server.close();
-					process.exit(0);
-				};
-				process.on("SIGINT", shutdown);
-				process.on("SIGTERM", shutdown);
-			}
 		},
 	);
 
@@ -1212,202 +905,13 @@ addSharedOptions(gaiaSubcommand)
 			command: Command,
 		) => {
 			const merged = mergedHabitatCliOptions(command, options);
-			const { resolve: pathResolve } = await import("node:path");
-			const { writeFile, mkdir } = await import("node:fs/promises");
-			const { fileURLToPath: toPath } = await import("node:url");
-			const { fileExists, loadConfig } = await import(
-				"@umwelten/habitat/config.js"
-			);
-			const { containerToolSets } = await import(
-				"@umwelten/habitat/tool-sets.js"
-			);
-			const { GaiaRegistryManager } = await import(
-				"@umwelten/habitat/gaia/registry.js"
-			);
-			const { GaiaSecretVault } = await import(
-				"@umwelten/habitat/gaia/secrets.js"
-			);
-			const { DockerManager } = await import(
-				"@umwelten/habitat/gaia/docker.js"
-			);
-			const { CredentialCatalog } = await import(
-				"@umwelten/habitat/gaia/credential-catalog.js"
-			);
-			const { CredentialAuditLogger } = await import(
-				"@umwelten/habitat/gaia/credential-audit.js"
-			);
-			const { createGaiaToolSet } = await import(
-				"@umwelten/habitat/gaia/gaia-tools.js"
-			);
-			const { handleGaiaRoute } = await import(
-				"@umwelten/habitat/gaia/routes.js"
-			);
-
-			const dataDir = pathResolve(options.dataDir ?? "./gaia-data");
-			await mkdir(dataDir, { recursive: true });
-
-			// ── fnox Integration ──────────────────────────────────────
-			const { FnoxResolver } = await import("@umwelten/habitat/gaia/fnox.js");
-			const fnox = new FnoxResolver(dataDir);
-
-			// Always write the fnox.toml template on first boot
-			const templateWritten = await fnox.writeTemplateIfMissing();
-			if (templateWritten) {
-				console.log(`[gaia] Wrote fnox.toml template to ${fnox.configPath}`);
-			}
-
-			// Resolve secrets via fnox (or env fallback)
-			const fnoxResult = await fnox.resolve();
-			switch (fnoxResult.mode) {
-				case "fnox":
-					console.log(
-						`[gaia] Secrets resolved via fnox (${Object.keys(fnoxResult.secrets).length} secrets)`,
-					);
-					if (fnoxResult.bootstrapToken) {
-						console.log(
-							`[gaia] Bootstrap token: ${fnoxResult.bootstrapToken.envVar} → ${fnoxResult.bootstrapToken.provider}`,
-						);
-					}
-					break;
-				case "env":
-					console.log(
-						`[gaia] Secrets loaded from environment (${Object.keys(fnoxResult.secrets).length} secrets)`,
-					);
-					if (!(await fnox.isAvailable()) && fnox.hasConfig()) {
-						console.log(
-							"[gaia] Tip: install fnox to resolve secrets from fnox.toml (https://fnox.jdx.dev)",
-						);
-					}
-					break;
-				case "none":
-					console.log(
-						"[gaia] No secrets found. Set API keys via environment or configure fnox.toml.",
-					);
-					break;
-			}
-			for (const warning of fnoxResult.warnings) {
-				console.warn(`[gaia] ${warning}`);
-			}
-
-			// Write default STIMULUS.md if missing
-			const stimulusPath = pathResolve(dataDir, "STIMULUS.md");
-			if (!(await fileExists(stimulusPath))) {
-				await writeFile(
-					stimulusPath,
-					[
-						"# Gaia — Habitat Orchestrator",
-						"",
-						"You are Gaia, the habitat orchestrator. You manage multiple habitat containers — creating, starting, stopping, querying, and configuring them.",
-						"",
-						"You can also manage the master secret vault and delegate tasks to running habitats via A2A (Agent-to-Agent protocol).",
-						"",
-						"## Important: Config-Driven Habitat Management",
-						"",
-						"Habitats are managed declaratively through their config. NEVER ask a running habitat to install skills at runtime — those changes are lost on rebuild.",
-						"",
-						"To add a skill to a habitat, use `add_skill` with the git repo (e.g. 'typefully/agent-skills'). This records it in the habitat's config. Then `rebuild_habitat` to apply. The container will clone and load the skill on startup.",
-						"",
-						"To check what a running habitat knows or can do, use `ask_habitat` or `discover_habitats`.",
-						"",
-						"The goal is that a habitat can be fully recreated from its config: provider, model, secrets, and skills. If you destroy and rebuild a habitat, it should come back exactly as configured.",
-						"",
-						"## Sharing Links",
-						"",
-						"When listing habitats or reporting status, ALWAYS include the web UI URL (from the `url` field in tool results). These URLs contain the auth token so the user can click them directly. Format them as clickable links.",
-						"",
-						"When users ask about their habitats, use your tools to check status, view logs, or relay questions. Be proactive about suggesting next steps.",
-						"",
-					].join("\n"),
-				);
-			}
-
-			// Write default config.json if missing
-			const configPath = pathResolve(dataDir, "config.json");
-			if (!(await fileExists(configPath))) {
-				await writeFile(
-					configPath,
-					JSON.stringify(
-						{
-							name: "Gaia Orchestrator",
-							defaultProvider: merged.provider,
-							defaultModel: merged.model,
-						},
-						null,
-						2,
-					) + "\n",
-				);
-			}
-
-			const gaiaConfig = await loadConfig(configPath);
-
-			// Initialize gaia components
-			const registry = new GaiaRegistryManager(dataDir);
-			await registry.load();
-			const vault = new GaiaSecretVault(dataDir);
-			await vault.load();
-
-			// Populate vault with fnox-resolved secrets (skips if already set)
-			for (const [name, value] of Object.entries(fnoxResult.secrets)) {
-				if (!vault.get(name)) {
-					await vault.set(name, value);
-				}
-			}
-
-			const projectRoot = pathResolve(
-				toPath(import.meta.url),
-				"..",
-				"..",
-				"..",
-			);
-			const docker = new DockerManager(dataDir, projectRoot);
-			await docker.ensureNetwork().catch(() => {});
-
-			// Create habitat with container tools + gaia orchestrator tools
-			const catalog = new CredentialCatalog(dataDir);
-			await catalog.load();
-			const audit = new CredentialAuditLogger(dataDir);
-			const gaiaToolSet = createGaiaToolSet({
-				registry,
-				vault,
-				docker,
-				catalog,
-				audit,
-				gaiaConfig,
-			});
-			const habitat = await Habitat.create({
-				workDir: dataDir,
-				sessionsDir: pathResolve(dataDir, "sessions"),
-				envPrefix: "HABITAT",
-				toolSets: [...containerToolSets, gaiaToolSet],
-			});
-
-			if (merged.provider && merged.model) {
-				habitat.setRuntimeModelDetails({
-					provider: merged.provider,
-					name: merged.model,
-				});
-			}
-
-			// Start the standard container server with gaia routes
-			const { startContainerServer } = await import(
-				"@umwelten/habitat/container-server.js"
-			);
-			const routeCtx = { registry, vault, docker, catalog, audit };
-			const server = await startContainerServer({
-				habitat,
+			const { Gaia } = await import("@umwelten/habitat");
+			await Gaia.start({
+				dataDir: options.dataDir ?? "./gaia-data",
 				port: parseInt(options.port ?? "7420", 10),
-				host: "0.0.0.0",
-				name: "Gaia Orchestrator",
-				extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
+				provider: merged.provider,
+				model: merged.model,
 			});
-
-			const shutdown = () => {
-				console.log("\n[container] Shutting down...");
-				server.close();
-				process.exit(0);
-			};
-			process.on("SIGINT", shutdown);
-			process.on("SIGTERM", shutdown);
 		},
 	);
 
@@ -1428,243 +932,12 @@ const chatSubcommand = new Command("chat")
 	)
 	.option("--one-shot <prompt>", "Send a single prompt and exit")
 	.action(async (opts: { url: string; token?: string; oneShot?: string }) => {
-		const chalk = (await import("chalk")).default;
-		const { createInterface } = await import("node:readline");
-		const { createMarkdownChatObserver } = await import(
-			"@umwelten/core/cognition/observers.js"
-		);
-		const http = await import("node:http");
-		const https = await import("node:https");
-
-		const baseUrl = opts.url.replace(/\/+$/, "");
-		let token = opts.token ?? process.env.HABITAT_CHAT_TOKEN;
-
-		// Auto-discover token from Gaia registry if not provided
-		if (!token) {
-			token = await discoverToken(baseUrl);
-			if (token) {
-				console.log(chalk.dim("(token auto-discovered from gaia registry)"));
-			}
-		}
-
-		// Thread ID for session continuity across turns
-		const threadId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-
-		// Check health first
-		try {
-			const health = await fetchJson(`${baseUrl}/health`, token);
-			console.log(
-				`Connected to ${chalk.green(health.name ?? "habitat")} (${health.tools ?? "?"} tools, model: ${chalk.cyan(health.model ?? "none")})`,
-			);
-			if (!health.model) {
-				console.log(
-					chalk.yellow(
-						"Warning: No model configured — the habitat may not respond.",
-					),
-				);
-			}
-		} catch (err: any) {
-			console.error(chalk.red(`Cannot reach ${baseUrl}: ${err.message}`));
-			process.exit(1);
-		}
-
-		async function sendMessage(text: string): Promise<void> {
-			const obs = await createMarkdownChatObserver();
-			const body = JSON.stringify({
-				id: threadId,
-				messages: [{ role: "user", content: text }],
-			});
-
-			const url = new URL(`${baseUrl}/api/chat`);
-			const isHttps = url.protocol === "https:";
-			const reqModule = isHttps ? https : http;
-
-			return new Promise<void>((resolve, reject) => {
-				const req = reqModule.request(
-					{
-						hostname: url.hostname,
-						port: url.port || (isHttps ? 443 : 80),
-						path: url.pathname,
-						method: "POST",
-						headers: {
-							"content-type": "application/json",
-							...(token ? { authorization: `Bearer ${token}` } : {}),
-						},
-					},
-					(res) => {
-						if (res.statusCode && res.statusCode >= 400) {
-							let data = "";
-							res.on("data", (c) => (data += c));
-							res.on("end", () => {
-								console.error(
-									chalk.red(`HTTP ${res.statusCode}: ${data.slice(0, 300)}`),
-								);
-								resolve();
-							});
-							return;
-						}
-
-						let buffer = "";
-						res.on("data", (chunk: Buffer) => {
-							buffer += chunk.toString();
-							// Process complete SSE lines
-							const lines = buffer.split("\n");
-							buffer = lines.pop() ?? ""; // Keep incomplete last line
-							for (const line of lines) {
-								if (!line.startsWith("data: ")) continue;
-								const payload = line.slice(6).trim();
-								if (payload === "[DONE]") continue;
-								try {
-									const event = JSON.parse(payload);
-									switch (event.type) {
-										case "text-delta":
-											obs.onTextDelta?.(event.delta);
-											break;
-										case "reasoning-delta":
-											process.stdout.write(chalk.dim(event.delta));
-											break;
-										case "tool-input-available":
-											console.log(
-												chalk.dim(
-													`\n  [tool] ${event.toolName}(${truncateJson(event.input, 80)})`,
-												),
-											);
-											break;
-										case "tool-output-available": {
-											const out =
-												typeof event.output === "string"
-													? event.output
-													: JSON.stringify(event.output);
-											const isErr = !!event.errorText;
-											console.log(
-												isErr
-													? chalk.red(`  [error] ${out.slice(0, 200)}`)
-													: chalk.dim(
-															`  [result] ${out.slice(0, 200)}${out.length > 200 ? "..." : ""}`,
-														),
-											);
-											break;
-										}
-										case "error":
-											console.error(chalk.red(`  [error] ${event.errorText}`));
-											break;
-									}
-								} catch {
-									// Skip unparseable lines
-								}
-							}
-						});
-						res.on("end", () => {
-							obs.end();
-							process.stdout.write("\n");
-							resolve();
-						});
-					},
-				);
-				req.on("error", reject);
-				req.write(body);
-				req.end();
-			});
-		}
-
-		// One-shot mode
-		if (opts.oneShot) {
-			await sendMessage(opts.oneShot);
-			return;
-		}
-
-		// REPL mode
-		console.log(chalk.dim("Type a message, or /quit to exit.\n"));
-		const rl = createInterface({
-			input: process.stdin,
-			output: process.stdout,
+		const { a2aChat } = await import("@umwelten/protocols");
+		await a2aChat({
+			url: opts.url,
+			token: opts.token ?? process.env.HABITAT_CHAT_TOKEN,
+			prompt: opts.oneShot,
 		});
-
-		const askQuestion = (): void => {
-			rl.question(chalk.blue("you> "), async (input) => {
-				const trimmed = input.trim();
-				if (!trimmed) {
-					askQuestion();
-					return;
-				}
-				if (trimmed === "/quit" || trimmed === "/exit" || trimmed === "/q") {
-					rl.close();
-					return;
-				}
-				await sendMessage(trimmed);
-				askQuestion();
-			});
-		};
-		askQuestion();
 	});
-
-function truncateJson(input: unknown, max: number): string {
-	const s = typeof input === "string" ? input : JSON.stringify(input);
-	return s.length > max ? s.slice(0, max) + "..." : s;
-}
-
-async function fetchJson(url: string, token?: string): Promise<any> {
-	const http = await import("node:http");
-	const https = await import("node:https");
-	const parsed = new URL(url);
-	const reqModule = parsed.protocol === "https:" ? https : http;
-	const headers: Record<string, string> = { accept: "application/json" };
-	if (token) headers.authorization = `Bearer ${token}`;
-	return new Promise((resolve, reject) => {
-		reqModule
-			.get(
-				{
-					hostname: parsed.hostname,
-					port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
-					path: parsed.pathname + parsed.search,
-					headers,
-				},
-				(res: any) => {
-					let data = "";
-					res.on("data", (c: string) => (data += c));
-					res.on("end", () => {
-						try {
-							resolve(JSON.parse(data));
-						} catch {
-							reject(new Error(`Invalid JSON from ${url}`));
-						}
-					});
-				},
-			)
-			.on("error", reject);
-	});
-}
-
-/**
- * Auto-discover a habitat's API key from a gaia registry file.
- * Looks for gaia-data/registry.json in the cwd and matches by port.
- */
-async function discoverToken(baseUrl: string): Promise<string | undefined> {
-	const { readFile: rf } = await import("node:fs/promises");
-	const { resolve: resolvePath } = await import("node:path");
-
-	// Try common locations for the registry
-	const candidates = [
-		resolvePath("gaia-data", "registry.json"),
-		resolvePath("registry.json"),
-	];
-
-	const parsed = new URL(baseUrl);
-	const port = parseInt(parsed.port || "80", 10);
-
-	for (const candidate of candidates) {
-		try {
-			const raw = await rf(candidate, "utf-8");
-			const registry = JSON.parse(raw);
-			const habitats = registry.habitats ?? [];
-			// Match by port
-			const match = habitats.find((h: any) => h.containerPort === port);
-			if (match?.apiKey) return match.apiKey;
-		} catch {
-			// File doesn't exist — try next
-		}
-	}
-	return undefined;
-}
 
 habitatCommand.addCommand(chatSubcommand);

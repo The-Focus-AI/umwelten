@@ -1,5 +1,5 @@
 /**
- * @umwelten/server/a2a — A2A protocol primitives.
+ * @umwelten/protocols/a2a — A2A protocol primitives.
  *
  * Pure protocol layer: a generic JSON-RPC client for talking to A2A agents,
  * and a thin server scaffold that turns an `AgentExecutor` + `AgentCard`
@@ -26,3 +26,12 @@ export type {
   AgentCard,
   AgentSkill,
 } from "./server.js";
+
+// Habitat HTTP/SSE chat client
+export {
+  a2aChat,
+  fetchJson,
+  truncateJson,
+  discoverToken,
+} from "./chat.js";
+export type { A2AChatOptions } from "./chat.js";

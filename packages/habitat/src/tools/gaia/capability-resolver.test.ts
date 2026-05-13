@@ -6,7 +6,7 @@ import { CapabilityResolver } from "./capability-resolver.js";
 import { CredentialCatalog } from "./credential-catalog.js";
 import { GaiaSecretVault } from "./secrets.js";
 import type { CredentialEntry, GaiaHabitatEntry } from "./types.js";
-import type { CapabilityBinding } from "../types.js";
+import type { CapabilityBinding } from "../../types.js";
 import { buildSeedFiles } from "./gaia-tools.js";
 
 function makeCredential(

@@ -2,6 +2,9 @@
  * Gaia Orchestrator — manages multiple habitat containers.
  */
 
+export { Gaia } from "./gaia.js";
+export type { GaiaStartOptions, StartedGaia } from "./gaia.js";
+
 export type {
 	GaiaHabitatEntry,
 	GaiaRegistry,
@@ -12,7 +15,7 @@ export type {
 	CredentialEntry,
 	CredentialStatus,
 } from "./types.js";
-export type { CapabilityBinding } from "../types.js";
+export type { CapabilityBinding } from "../../types.js";
 
 export { GaiaRegistryManager } from "./registry.js";
 export { GaiaSecretVault } from "./secrets.js";

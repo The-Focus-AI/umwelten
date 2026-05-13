@@ -8,7 +8,7 @@
  * exists, is active). Warnings are emitted for expired credentials.
  */
 
-import type { CapabilityBinding } from "../types.js";
+import type { CapabilityBinding } from "../../types.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
 import type { GaiaSecretVault } from "./secrets.js";
 import type { CredentialEntry } from "./types.js";

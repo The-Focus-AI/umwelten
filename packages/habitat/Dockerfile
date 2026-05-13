@@ -24,6 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git ripgrep ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Docker CLI (for Gaia to manage child containers via mounted socket)
+RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz | \
+    tar xz -C /usr/local/bin --strip-components=1 docker/docker
+
 # Install mise (universal runtime/package manager)
 RUN curl https://mise.run | sh && \
     ln -s /root/.local/bin/mise /usr/local/bin/mise
@@ -34,12 +38,21 @@ ENV PATH="/opt/mise/shims:${PATH}"
 
 WORKDIR /habitat
 
+COPY pnpm-workspace.yaml ./
+COPY packages/core/package.json ./packages/core/
+COPY packages/cli/package.json ./packages/cli/
+COPY packages/server/package.json ./packages/server/
+COPY packages/evaluation/package.json ./packages/evaluation/
+COPY packages/habitat/package.json ./packages/habitat/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/umwelten/package.json ./packages/umwelten/
 COPY package.json pnpm-lock.yaml tsconfig.json ./
 RUN printf '%s\n' 'package-import-method=copy' > .npmrc
 RUN --mount=type=cache,id=pnpm-habitat,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 
-COPY packages/habitat/src ./src/
+# Copy all workspace source (needed for tsx to resolve @umwelten/* imports)
+COPY packages ./packages/
 COPY packages/habitat/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
@@ -57,4 +70,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
     CMD node -e "fetch('http://localhost:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["pnpm", "exec", "tsx", "src/cli/entry.ts", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]
+CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]

@@ -1,13 +1,13 @@
 /**
  * umwelten/mcp-serve — Backwards-compatible re-export.
- * Prefer importing from '@umwelten/server' directly.
+ * Prefer importing from '@umwelten/protocols' directly.
  */
 export {
   createMcpServer,
   NeonStore,
   getPublicBaseUrl,
   hashToken,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 
 export type {
   McpHttpServer,
@@ -19,4 +19,4 @@ export type {
   OAuthClient,
   AuthSession,
   McpTokenRow,
-} from "@umwelten/server";
+} from "@umwelten/protocols";

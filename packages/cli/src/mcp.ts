@@ -2,11 +2,11 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import {
   createQuickMCPConnection,
-} from '@umwelten/server/mcp/integration/stimulus.js';
-import { createSSEConfig, createWebSocketConfig } from '@umwelten/server/mcp/client/client.js';
-import { createMCPServer } from '@umwelten/server/mcp/server/server.js';
-import { StdioTransport } from '@umwelten/server/mcp/types/transport.js';
-import type { TransportConfig } from '@umwelten/server/mcp/types/transport.js';
+} from '@umwelten/protocols/mcp/integration/stimulus.js';
+import { createSSEConfig, createWebSocketConfig } from '@umwelten/protocols/mcp/client/client.js';
+import { createMCPServer } from '@umwelten/protocols/mcp/server/server.js';
+import { StdioTransport } from '@umwelten/protocols/mcp/types/transport.js';
+import type { TransportConfig } from '@umwelten/protocols/mcp/types/transport.js';
 import { createMarkdownChatObserver } from '@umwelten/core/cognition/observers.js';
 
 /**
@@ -404,7 +404,7 @@ mcpCommand
     oneShot?: string;
     maxSteps: string;
   }) => {
-    const { RemoteMcpClient } = await import('@umwelten/server/mcp/client/remote.js');
+    const { RemoteMcpClient } = await import('@umwelten/protocols/mcp/client/remote.js');
     const { Interaction } = await import('@umwelten/core/interaction/core/interaction.js');
     const { Stimulus } = await import('@umwelten/core/stimulus/stimulus.js');
     const { createInterface } = await import('node:readline');

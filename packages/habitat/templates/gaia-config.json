@@ -1,0 +1,5 @@
+{
+  "name": "Gaia Orchestrator",
+  "defaultProvider": "{{provider}}",
+  "defaultModel": "{{model}}"
+}

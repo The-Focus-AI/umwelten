@@ -8,11 +8,10 @@ import { runCommand } from './run.js';
 import { chatCommand } from './chat.js';
 import { addToolsCommand } from './tools.js';
 import { evalCommand } from './eval.js';
-import { sessionsCommand } from './sessions.js';
+import { sessionsCommand, introspectCommand, browseCommand } from '@umwelten/sessions';
 import { telegramCommand } from './telegram.js';
 import { habitatCommand } from './habitat.js';
 import { mcpCommand } from './mcp.js';
-import { introspectCommand, browseCommand } from './introspect.js';
 
 // Get the version from package.json. Try both the dist layout
 // (packages/cli/dist/cli.js → ../package.json) and the src layout

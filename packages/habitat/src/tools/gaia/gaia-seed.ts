@@ -11,7 +11,7 @@
  * provided HabitatConfig in place. No I/O.
  */
 
-import type { HabitatConfig, AgentEntry, ScopeTemplate } from "../types.js";
+import type { HabitatConfig, AgentEntry, ScopeTemplate } from "../../types.js";
 import type { GaiaSecretVault } from "./secrets.js";
 
 /**

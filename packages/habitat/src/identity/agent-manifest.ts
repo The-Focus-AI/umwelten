@@ -4,7 +4,7 @@
  * Lives at the root of the agent's repo (`/data/agents/<id>/repo/agent-manifest.json`).
  * Tells the host habitat how to mount the agent's:
  *   - public UI directory (static files served on /agents/<id>/...)
- *   - MCP / OAuth surface (an `@umwelten/server/mcp-serve` configuration)
+ *   - MCP / OAuth surface (an `@umwelten/protocols/mcp-serve` configuration)
  *   - extra public routes (e.g. ["/oauth/*", "/.well-known/*"])
  *
  * The actual mcp-serve wiring is the runtime's job; this module is just the

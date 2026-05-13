@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
+    "@umwelten/sessions": "workspace:*",
     "ai": "^5.0.115",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",

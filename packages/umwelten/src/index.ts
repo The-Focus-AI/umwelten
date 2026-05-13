@@ -132,6 +132,8 @@ export type {
 // ── @umwelten/habitat ───────────────────────────────────────────────────
 export {
   Habitat,
+  Gaia,
+  serveHabitat,
   HabitatAgent,
   buildAgentStimulus,
   getAgentMemoryPath,
@@ -168,11 +170,6 @@ export {
   createA2AHandler,
   buildAgentCard,
   HabitatAgentExecutor,
-  GaiaRegistryManager,
-  GaiaSecretVault,
-  DockerManager,
-  createGaiaToolSet,
-  handleGaiaRoute,
   startWebServer,
   WebAdapter,
   UiMessageStream,
@@ -216,8 +213,6 @@ export type {
   GaiaHabitatEntry,
   GaiaRegistry,
   GaiaOrchestratorOptions,
-  GaiaToolsContext,
-  GaiaRouteContext,
   AuthProvider,
   UserContext,
   RouteHandler,
@@ -235,7 +230,7 @@ export type {
   RouteResolution,
 } from "@umwelten/habitat";
 
-// ── @umwelten/server ────────────────────────────────────────────────────
+// ── @umwelten/protocols ────────────────────────────────────────────────────
 export {
   createMcpServer,
   NeonStore,
@@ -254,7 +249,7 @@ export {
   fetchAgentCard,
   sendA2AMessage,
   createA2AServer,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 
 export type {
   McpHttpServer,
@@ -281,7 +276,7 @@ export type {
   ExecutionEventBus,
   AgentCard,
   AgentSkill,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 
 // ── @umwelten/evaluation ────────────────────────────────────────────────
 export {

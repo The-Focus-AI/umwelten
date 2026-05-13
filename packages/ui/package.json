@@ -11,6 +11,7 @@
     },
     "./cli/CLIInterface.js": "./src/cli/CLIInterface.ts",
     "./cli/DefaultCommands.js": "./src/cli/DefaultCommands.ts",
+    "./cli/repl.js": "./src/cli/repl.ts",
     "./discord/discord-backfill-sessions.js": "./src/discord/discord-backfill-sessions.ts",
     "./*.js": {
       "types": "./src/*",

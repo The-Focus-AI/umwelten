@@ -2,7 +2,7 @@
  * Types for the Gaia Orchestrator — manages multiple habitat containers.
  */
 
-import type { HabitatConfig, CapabilityBinding } from "../types.js";
+import type { HabitatConfig, CapabilityBinding } from "../../types.js";
 
 /** A registered habitat managed by Gaia. */
 export interface GaiaHabitatEntry {

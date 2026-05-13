@@ -7,11 +7,11 @@ import { GaiaSecretVault } from "./secrets.js";
 import { CredentialCatalog } from "./credential-catalog.js";
 import { createGaiaToolSet, type GaiaToolsContext } from "./gaia-tools.js";
 import { STANDARDS_AGENT_ID, ORG_READONLY_TEMPLATE_ID } from "./gaia-seed.js";
-import type { AgentEntry } from "../types.js";
+import type { AgentEntry } from "../../types.js";
 
 // Mock the A2A server module: define the mock factory inline to avoid
 // the vitest hoisting restriction on top-level variables.
-vi.mock("@umwelten/server", () => {
+vi.mock("@umwelten/protocols", () => {
 	const sendA2AMessage = vi.fn();
 	return {
 		sendA2AMessage,
@@ -80,7 +80,7 @@ describe("broadcast_standards tool", () => {
 		await catalog.load();
 
 		// Re-import the mocked module to get a fresh reference after reset
-		const mod = await import("@umwelten/server");
+		const mod = await import("@umwelten/protocols");
 		mockSendA2AMessage = vi.mocked(mod.sendA2AMessage);
 		mockSendA2AMessage.mockReset();
 	});

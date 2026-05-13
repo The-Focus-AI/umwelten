@@ -24,9 +24,10 @@
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
-    "@umwelten/server": "workspace:*",
+    "@umwelten/protocols": "workspace:*",
     "@umwelten/habitat": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
+    "@umwelten/sessions": "workspace:*",
     "@umwelten/ui": "workspace:*",
     "ai": "^5.0.115",
     "file-type": "^21.3.2",

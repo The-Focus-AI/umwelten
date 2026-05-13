@@ -6,6 +6,13 @@
 
 // ── Habitat core ────────────────────────────────────────────────────────
 export { Habitat } from "./habitat.js";
+export { serveHabitat } from "./serve.js";
+export type { ServeMode, ServeOptions, ServedHabitat } from "./serve.js";
+export { getHabitatSlashCommands } from "./slash-commands.js";
+export type {
+	SlashCommand,
+	SlashCommandContext,
+} from "./slash-commands.js";
 
 export type {
 	AgentHost,
@@ -30,11 +37,8 @@ export type {
 } from "./types.js";
 
 // ── Agent identity / vaults ─────────────────────────────────────────────
-export {
-	InlineVault,
-	HabitatVault,
-	OnePasswordVault,
-} from "./identity/vault.js";
+// Vault classes (InlineVault/HabitatVault/OnePasswordVault) are internals;
+// consumers should call `habitat.getVaultForAgent(id)` instead of instantiating.
 export type { AgentVault } from "./identity/vault.js";
 
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
@@ -120,12 +124,12 @@ export {
 // ── Stimulus loading ────────────────────────────────────────────────────
 export { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
 
-// ── Re-export MCP serve from @umwelten/server ───────────────────────────
+// ── Re-export MCP serve from @umwelten/protocols ───────────────────────────
 export {
 	createMcpServer,
 	NeonStore,
 	getPublicBaseUrl,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 export type {
 	McpHttpServer,
 	UpstreamOAuthProvider,
@@ -133,7 +137,7 @@ export type {
 	McpToolRegistrar,
 	McpServeConfig,
 	McpServeStore,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 
 // ── MCP local server ────────────────────────────────────────────────────
 export { startHabitatMcpServer } from "./mcp-local-server.js";
@@ -161,32 +165,17 @@ export type {
 	AgentCardOptions,
 } from "./a2a-handler.js";
 
-// ── Gaia orchestrator ───────────────────────────────────────────────────
-export {
-	GaiaRegistryManager,
-	GaiaSecretVault,
-	DockerManager,
-	CredentialCatalog,
-	CapabilityResolver,
-	createGaiaToolSet,
-	handleGaiaRoute,
-	runStandardsAudit,
-	entryToEndpoint,
-	STANDARDS_AUDIT_MSG,
-} from "./gaia/index.js";
+// ── Gaia orchestrator (lives in tools/gaia/) ────────────────────────────
+// Public surface: just the factory + types. Internals (registry/vault/docker/
+// catalog/resolver/tool set/route handler) live behind `Gaia.start()` and are
+// not exported.
+export { Gaia } from "./tools/gaia/gaia.js";
+export type { GaiaStartOptions, StartedGaia } from "./tools/gaia/gaia.js";
 export type {
 	GaiaHabitatEntry,
 	GaiaRegistry,
 	GaiaOrchestratorOptions,
-	GaiaToolsContext,
-	GaiaRouteContext,
-	StandardsAuditContext,
-	CredentialEntry,
-	CredentialStatus,
-	ResolverResult,
-	AuditResult,
-	AuditSummary,
-} from "./gaia/index.js";
+} from "./tools/gaia/index.js";
 
 // ── Web server / adapter ────────────────────────────────────────────────
 export {

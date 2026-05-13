@@ -2,7 +2,7 @@
  * Habitat ↔ A2A adapter.
  *
  * Bridges habitat-specific abstractions (`AgentHost`, `ChannelBridge`,
- * published artifacts) to the generic A2A scaffolding in `@umwelten/server`.
+ * published artifacts) to the generic A2A scaffolding in `@umwelten/protocols`.
  *
  * - {@link buildAgentCard} converts a habitat's config + stimulus into an
  *   A2A AgentCard.
@@ -28,7 +28,7 @@ import {
   type AgentExecutor,
   type RequestContext,
   type ExecutionEventBus,
-} from "@umwelten/server";
+} from "@umwelten/protocols";
 import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "./bridge/channel-bridge.js";
 import { listArtifacts, type ArtifactMeta } from "./tools/artifact-tools.js";

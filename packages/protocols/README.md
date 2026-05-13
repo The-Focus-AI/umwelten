@@ -1,11 +1,11 @@
-# @umwelten/server
+# @umwelten/protocols
 
 MCP server framework, MCP client with OAuth, and tool bridge for umwelten.
 
 ## Install
 
 ```bash
-pnpm add @umwelten/server
+pnpm add @umwelten/protocols
 ```
 
 ## What's inside
@@ -19,7 +19,7 @@ pnpm add @umwelten/server
 ## Usage
 
 ```typescript
-import { createMcpServer, RemoteMcpClient } from '@umwelten/server';
+import { createMcpServer, RemoteMcpClient } from '@umwelten/protocols';
 
 // Create an MCP server
 const server = createMcpServer({ name: 'my-server' });

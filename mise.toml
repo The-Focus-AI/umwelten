@@ -24,9 +24,25 @@ dir = "{{ config_root }}"
 run = "dotenvx run -- pnpm exec tsx packages/cli/src/entry.ts habitat serve --port 8080 --skip-onboard"
 
 [tasks.gaia]
-description = "Start Gaia orchestrator (port 7420). Uses .env for GOOGLE_GENERATIVE_AI_API_KEY"
+description = "Start Gaia orchestrator (port 7420). Secrets resolved via fnox (or env fallback). Do NOT use dotenvx — Gaia owns its own secrets."
 dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm run cli -- habitat gaia -p google -m gemini-3-flash-preview"
+run = "pnpm run cli -- habitat gaia -p google -m gemini-3-flash-preview"
+
+[tasks."gaia-docker"]
+description = "Start Gaia orchestrator inside Docker (clean env, no key leaks, port 7420)"
+dir = "{{ config_root }}"
+run = """
+  docker build -t habitat -f packages/habitat/Dockerfile . && \
+  docker rm -f gaia 2>/dev/null || true && \
+  docker run --rm \
+    --name gaia \
+    -p 7420:7420 \
+    -e GOOGLE_GENERATIVE_AI_API_KEY \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v ./gaia-data:/data \
+    habitat \
+    pnpm exec tsx packages/cli/src/entry.ts habitat gaia -p google -m gemini-3-flash-preview --port 7420 --data-dir /data
+"""
 
 # ── Habitat CLI ───────────────────────────────────────────────────────
 # All interfaces share ONE work dir (examples/jeeves-bot/jeeves-bot-data-dir)

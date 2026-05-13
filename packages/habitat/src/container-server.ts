@@ -552,7 +552,7 @@ export async function startContainerServer(
 										error: "NOT_IMPLEMENTED",
 										agentId,
 										message:
-											"mcp-agent MCP endpoint mount is scaffolded but not yet wired to @umwelten/server/mcp-serve. Manifest detected at " +
+											"mcp-agent MCP endpoint mount is scaffolded but not yet wired to @umwelten/protocols/mcp-serve. Manifest detected at " +
 											found.path,
 										manifest: found.manifest,
 									},
