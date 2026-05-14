@@ -71,6 +71,19 @@ export type {
 	UserModelEntryOptions,
 } from "./interaction/knowledge/index.js";
 
+// Session projection — bridge adapters to Explorations
+export {
+	projectSessions,
+	projectSessionEntry,
+	toSourceSession,
+	toSourceSessionFull,
+} from "./interaction/projection/index.js";
+export type {
+	ProjectionResult,
+	ProjectionSourceResult,
+	ProjectionOptions,
+} from "./interaction/projection/index.js";
+
 // Interaction persistence (functions, not classes)
 export {
 	getProjectSessions,
