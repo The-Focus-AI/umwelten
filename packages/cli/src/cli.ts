@@ -12,6 +12,7 @@ import { sessionsCommand, introspectCommand, browseCommand } from '@umwelten/ses
 import { telegramCommand } from './telegram.js';
 import { habitatCommand } from './habitat.js';
 import { mcpCommand } from './mcp.js';
+import { knowledgeCommand } from './knowledge.js';
 
 // Get the version from package.json. Try both the dist layout
 // (packages/cli/dist/cli.js → ../package.json) and the src layout
@@ -47,6 +48,7 @@ program.addCommand(habitatCommand);
 program.addCommand(mcpCommand);
 program.addCommand(introspectCommand);
 program.addCommand(browseCommand);
+program.addCommand(knowledgeCommand);
 addToolsCommand(program);
 
 program.parse(); 
