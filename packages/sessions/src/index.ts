@@ -7,7 +7,11 @@
 
 // CLI commands (registered by @umwelten/cli)
 export { sessionsCommand } from "./sessions.js";
-export { introspectCommand, browseCommand, runBrowseAction } from "./introspect.js";
+export {
+	introspectCommand,
+	browseCommand,
+	runBrowseAction,
+} from "./introspect.js";
 
 // Session-browser data layer (consumed by TUI components)
 export {
