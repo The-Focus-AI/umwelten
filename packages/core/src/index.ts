@@ -48,6 +48,17 @@ export {
 	createVirtualExploration,
 } from "./interaction/types/domain-types.js";
 
+// Reflection — build reflective Interactions over Explorations
+export {
+	buildReflectionContext,
+	buildReflectiveInteraction,
+	buildExplorationDetail,
+} from "./interaction/reflection/reflection.js";
+export type {
+	BuildReflectionOptions,
+	BuildContextOptions,
+} from "./interaction/reflection/reflection.js";
+
 // Knowledge file writers
 export {
 	writeAgentReflection,
