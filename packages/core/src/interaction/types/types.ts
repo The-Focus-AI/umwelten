@@ -21,6 +21,7 @@ export type SessionSourceForEntry =
 	| "aider"
 	| "native"
 	| "pi"
+	| "habitat"
 	| "unknown";
 
 /**

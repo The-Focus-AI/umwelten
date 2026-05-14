@@ -18,6 +18,7 @@ export type SessionSource =
 	| "aider"
 	| "native"
 	| "pi"
+	| "habitat"
 	| "unknown";
 
 /**
