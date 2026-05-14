@@ -59,6 +59,20 @@ export type {
 	BuildContextOptions,
 } from "./interaction/reflection/reflection.js";
 
+// Promotion — classify and route reflection answers
+export {
+	classifyReflectionAnswer,
+	extractTitle,
+	PromotionRouter,
+} from "./interaction/promotion/index.js";
+export type {
+	PromotionTarget,
+	PromotionDecision,
+	ClassificationResult,
+	PromotionResult,
+	PromotionRouterConfig,
+} from "./interaction/promotion/index.js";
+
 // Knowledge file writers
 export {
 	writeAgentReflection,
