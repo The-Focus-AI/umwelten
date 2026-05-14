@@ -34,3 +34,7 @@ export {
 	readUserModel,
 } from "./user-model-writer.js";
 export type { UserModelEntryOptions } from "./user-model-writer.js";
+
+// Saved Exploration store — .umwelten/explorations/
+export { SavedExplorationStore } from "./saved-exploration-store.js";
+export type { SavedExplorationSummary } from "./saved-exploration-store.js";

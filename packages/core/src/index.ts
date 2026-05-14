@@ -61,9 +61,11 @@ export {
 	listArtifacts,
 	writeUserModelEntry,
 	readUserModel,
+	SavedExplorationStore,
 } from "./interaction/knowledge/index.js";
 export type {
 	AgentReflectionOptions,
+	SavedExplorationSummary,
 	ProjectFactOptions,
 	SavedReflectionOptions,
 	ArtifactOptions,
