@@ -30,6 +30,47 @@ export type { StimulusOptions } from "./stimulus/stimulus.js";
 // ── Interaction (conversations) ─────────────────────────────────────────
 export { Interaction } from "./interaction/core/interaction.js";
 
+// Domain types (Source Session, Exploration, Saved Exploration)
+export type {
+	SourceSessionKind,
+	SourceSession,
+	SourceSessionMetrics,
+	ExplorationKind,
+	ExplorationMemberKind,
+	ExplorationMember,
+	Exploration,
+	SavedExploration,
+	ExplorationDiscoveryOptions,
+	DefaultExplorationResult,
+} from "./interaction/types/domain-types.js";
+export {
+	createDefaultExploration,
+	createVirtualExploration,
+} from "./interaction/types/domain-types.js";
+
+// Knowledge file writers
+export {
+	writeAgentReflection,
+	readAgentReflections,
+	writeProjectFact,
+	readProjectFacts,
+	writeSavedReflection,
+	listSavedReflections,
+	slugify,
+	writeArtifact,
+	listArtifacts,
+	writeUserModelEntry,
+	readUserModel,
+} from "./interaction/knowledge/index.js";
+export type {
+	AgentReflectionOptions,
+	ProjectFactOptions,
+	SavedReflectionOptions,
+	ArtifactOptions,
+	ArtifactFormat,
+	UserModelEntryOptions,
+} from "./interaction/knowledge/index.js";
+
 // Interaction persistence (functions, not classes)
 export {
 	getProjectSessions,
@@ -103,10 +144,6 @@ export type {
 	ContextSizeEstimate,
 	CompactionSegment,
 } from "./context/index.js";
-
-// ── Memory ──────────────────────────────────────────────────────────────
-export { MemoryRunner } from "./memory/memory_runner.js";
-export { InMemoryMemoryStore } from "./memory/memory_store.js";
 
 // ── Costs ───────────────────────────────────────────────────────────────
 export {

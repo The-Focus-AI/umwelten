@@ -1,0 +1,10 @@
+{"type": "session", "version": 3, "id": "019e4000-0000-7000-8000-000000000004", "timestamp": "2026-05-13T10:00:00.000Z", "cwd": "/projects/my-app"}
+{"type": "model_change", "id": "d4000001", "parentId": null, "timestamp": "2026-05-13T10:00:01.000Z", "provider": "anthropic", "modelId": "claude-sonnet-4-5"}
+{"type": "session_info", "id": "d4000002", "parentId": "d4000001", "timestamp": "2026-05-13T10:00:02.000Z", "name": "Refactor auth module"}
+{"type": "message", "id": "d4000003", "parentId": "d4000002", "timestamp": "2026-05-13T10:00:05.000Z", "message": {"role": "user", "content": [{"type": "text", "text": "Refactor the auth module to use JWT"}], "timestamp": 1778659205000}}
+{"type": "message", "id": "d4000004", "parentId": "d4000003", "timestamp": "2026-05-13T10:00:15.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Adding JWT support."}], "usage": {"input": 100, "output": 300, "totalTokens": 400}, "stopReason": "toolUse"}}
+{"type": "message", "id": "d4000005", "parentId": "d4000004", "timestamp": "2026-05-13T10:00:20.000Z", "message": {"role": "toolResult", "toolCallId": "call_jwt_1", "toolName": "edit", "content": [{"type": "text", "text": "File updated: auth.ts"}], "isError": false, "timestamp": 1778659220000}}
+{"type": "label", "id": "d4000006", "parentId": "d4000004", "timestamp": "2026-05-13T10:01:00.000Z", "targetId": "d4000004", "label": "jwt-implemented"}
+{"type": "message", "id": "d4000007", "parentId": "d4000005", "timestamp": "2026-05-13T10:01:05.000Z", "message": {"role": "user", "content": [{"type": "text", "text": "Add token refresh endpoint"}], "timestamp": 1778659265000}}
+{"type": "message", "id": "d4000008", "parentId": "d4000007", "timestamp": "2026-05-13T10:01:15.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "Creating refresh endpoint."}], "usage": {"input": 120, "output": 200, "totalTokens": 320}, "stopReason": "stop"}}
+{"type": "label", "id": "d4000009", "parentId": "d4000007", "timestamp": "2026-05-13T10:02:00.000Z", "targetId": "d4000008", "label": "refresh-added"}

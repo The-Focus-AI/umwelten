@@ -12,7 +12,7 @@ For **published / npm-style agent context** (shorter module map, task cheat shee
 - Run tests before building
 - Use `pnpm run cli` to test CLI without building (runs via tsx)
 - **ALWAYS use `dotenvx run --` prefix** when running CLI commands that need env vars (e.g. `dotenvx run -- pnpm run cli -- habitat ...`). The .env file has the API keys. Never run habitat/CLI commands without it.
-- When planning, write out TASKS.md with completed/current/planned tasks and keep it up to date
+- Issue tracking is on GitHub (https://github.com/The-Focus-AI/umwelten/issues). All open work is tracked there as issues with the `ready-for-agent` label. When starting work, pick the next unassigned `ready-for-agent` issue from the top of the list. Update issue status with checkboxes and close when done.
 - **NEVER use gemini-2 models** — always use gemini-3 (e.g. `gemini-3-flash-preview`)
 
 ## HARD RULES — do not violate, do not ask
@@ -49,6 +49,7 @@ umwelten             packages/umwelten/      — meta-package re-exporting every
 ```
 
 Dependency DAG (no cycles):
+
 ```
 @umwelten/core              ← foundation, no internal deps
 @umwelten/server            ← core
@@ -74,13 +75,14 @@ How to call LLMs. Wraps Vercel AI SDK with rate limiting, cost tracking, retries
 Key: `ModelResponse` has `.content` (string), NOT `.text`.
 
 **User tracking:** The runner automatically forwards `interaction.userId` to providers that support it. Set `interaction.userId` to a stable identifier (not PII) and the runner injects it into `providerOptions`:
+
 - **OpenRouter** → `{ openrouter: { user: userId } }` — enables per-user cost analytics and abuse detection
 - **Anthropic** → `{ anthropic: { metadata: { userId } } }` — enables abuse detection
 - Other providers (Google, DeepInfra, Together AI, etc.) have no user tracking — the field is ignored.
 
 ### `src/stimulus/` — Prompt Configuration
 
-Defines *what* to say: role, objective, instructions, tools, model options. A `Stimulus` is a config object — it doesn't run anything.
+Defines _what_ to say: role, objective, instructions, tools, model options. A `Stimulus` is a config object — it doesn't run anything.
 
 - `stimulus.ts` — `Stimulus` class with `StimulusOptions`
 - `creative/` — Pre-built stimuli (cat poems, frankenstein, temperature tests)
@@ -137,14 +139,10 @@ Used via `interaction.compactContext()`.
 
 ### `src/memory/` — Fact Extraction
 
-Extract and store facts from conversations automatically.
+Explicit helpers for extracting and reconciling facts from conversations. `Interaction` always uses the base runner; automatic chat memory is no longer a public runner mode.
 
 - `extract_facts.ts` — Pull facts from an interaction via LLM
-- `determine_operations.ts` — Decide ADD/UPDATE/DELETE for memory store
-- `memory_runner.ts` — `MemoryRunner` (a `SmartModelRunner` that auto-extracts facts)
-- `memory_store.ts` — `InMemoryMemoryStore`
-
-Set `stimulus.runnerType = 'memory'` for automatic fact extraction.
+- `determine_operations.ts` — Decide ADD/UPDATE/DELETE operations for a caller-managed memory store
 
 ### `src/habitat/` — Agent Container
 
@@ -192,18 +190,18 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 
 **Tool Sets** — named collections registered on a habitat:
 
-| ToolSet | Tools | In `standardToolSets`? |
-|---------|-------|----------------------|
-| `fileToolSet` | read_file, write_file, list_directory, ripgrep | Yes |
-| `timeToolSet` | current_time | Yes |
-| `urlToolSet` | wget, markify, parse_feed | Yes |
-| `agentToolSet` | list/add/update/remove agents | Yes |
-| `sessionToolSet` | sessions_* list/show/messages/stats/inspect/read_file, learnings append/read, transcript compact | Yes |
-| `externalInteractionToolSet` | read Claude Code/Cursor history | Yes |
-| `agentRunnerToolSet` | agent_clone, agent_logs, agent_status, agent_ask, bridge_*, bridge_diagnose, bridge_monitor | Yes |
-| `secretsToolSet` | set/remove/list secrets | Yes |
-| `searchToolSet` | web search via Tavily | Yes |
-| `selfModifyToolSet` | create_tool, create_skill, reload, list, remove | Yes |
+| ToolSet                      | Tools                                                                                              | In `standardToolSets`? |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------- |
+| `fileToolSet`                | read_file, write_file, list_directory, ripgrep                                                     | Yes                    |
+| `timeToolSet`                | current_time                                                                                       | Yes                    |
+| `urlToolSet`                 | wget, markify, parse_feed                                                                          | Yes                    |
+| `agentToolSet`               | list/add/update/remove agents                                                                      | Yes                    |
+| `sessionToolSet`             | sessions\_\* list/show/messages/stats/inspect/read_file, learnings append/read, transcript compact | Yes                    |
+| `externalInteractionToolSet` | read Claude Code/Cursor history                                                                    | Yes                    |
+| `agentRunnerToolSet`         | agent*clone, agent_logs, agent_status, agent_ask, bridge*\*, bridge_diagnose, bridge_monitor       | Yes                    |
+| `secretsToolSet`             | set/remove/list secrets                                                                            | Yes                    |
+| `searchToolSet`              | web search via Tavily                                                                              | Yes                    |
+| `selfModifyToolSet`          | create_tool, create_skill, reload, list, remove                                                    | Yes                    |
 
 `standardToolSets` includes all tool sets. All are registered by default.
 
@@ -247,19 +245,23 @@ dotenvx run -- pnpm run cli habitat gaia --data-dir ./my-gaia-data -p google -m 
 Systematic model assessment and comparison.
 
 **High-level (recommended):**
+
 - `suite.ts` — **`EvalSuite`**: declarative eval runner. Define tasks + stimulus + models → get scored results + leaderboard. Two task types: `VerifyTask` (deterministic `verify()`) and `JudgeTask` (LLM judge with Zod schema). Handles CLI flags (`--all`, `--new`, `--run N`), caching, concurrency, and console output.
 
 **Strategies (building blocks used by EvalSuite):**
+
 - `strategies/` — `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`
 - `api.ts` — `runEvaluation(config)`, `parseModel("provider:model")` (used by CLI `eval run`)
 
 **Ranking (post-processing):**
+
 - `ranking/pairwise-ranker.ts` — `PairwiseRanker`: head-to-head LLM judge comparisons → Elo ratings. Swiss tournament or round-robin. Cached per-comparison.
 - `ranking/elo.ts` — `expectedScore()`, `updateElo()`, `buildStandings()`
 - `ranking/pairing.ts` — `allPairs()`, `swissPairs()`
 - `ranking/types.ts` — `RankingEntry`, `PairwiseResult`, `RankedModel`, `RankingOutput`, `PairwiseRankerConfig`
 
 **Infrastructure:**
+
 - `base.ts` — Abstract `Evaluation` — directory and cache management
 - `runner.ts` — Abstract `EvaluationRunner extends Evaluation` — adds model response caching
 - `caching/` — Cache model responses, scores, file metadata
@@ -277,17 +279,28 @@ Combine results from multiple evaluations into a unified leaderboard with cost/s
 - `index.ts` — Barrel exports
 
 **Suite config pattern** — define an `EvalDimension[]` array:
+
 ```typescript
-import type { EvalDimension } from '/evaluation/evaluation/combine/index.js';
+import type { EvalDimension } from "/evaluation/evaluation/combine/index.js";
 export const MY_SUITE: EvalDimension[] = [
-  { evalName: 'my-eval-reasoning', label: 'Reasoning', maxScore: 20,
-    extractScore: (r) => r.score ?? 0, hasResultsSubdir: true },
-  { evalName: 'my-eval-knowledge', label: 'Knowledge', maxScore: 30,
-    extractScore: (r) => r.correct ? 1 : 0 },
+  {
+    evalName: "my-eval-reasoning",
+    label: "Reasoning",
+    maxScore: 20,
+    extractScore: (r) => r.score ?? 0,
+    hasResultsSubdir: true,
+  },
+  {
+    evalName: "my-eval-knowledge",
+    label: "Knowledge",
+    maxScore: 30,
+    extractScore: (r) => (r.correct ? 1 : 0),
+  },
 ];
 ```
 
 **Report formats:**
+
 - `console` — structured tables via `Reporter.toConsole()`
 - `md` / `markdown` — structured markdown via `Reporter.toMarkdown()`
 - `json` — structured JSON via `Reporter.toJson()`
@@ -343,11 +356,13 @@ Browses sessions and their **digests** (produced by `src/interaction/analysis/se
 - `types.ts` — shared types.
 
 TUIs in `src/ui/tui/introspect/`:
+
 - `BrowseApp` / `runIntrospectBrowseTui` — **primary entry**. Fixed-width panes; edge-scroll. Shows digest data when present (summary, key learning, topics, tags, phases, counts). Keys: `enter` detail view, `D` run digest (streams live), `b` beats (no LLM), `v` transcript, `/` search, `q` quit.
 - `detail.tsx` — per-session detail view (tabs over digest: overview, beats, phases, facts, diff-against-CLAUDE.md).
 - `digest-live.tsx` — live streaming progress for the digester pipeline.
 
 CLI in `src/cli/introspect.ts`:
+
 - `umwelten browse` (top-level) — the primary entry.
 - `umwelten introspect browse` — namespaced alias for discoverability.
 
@@ -387,16 +402,21 @@ Commander-based CLI. Entry point: `src/cli/entry.ts` → `src/cli/cli.ts`.
 ## Key Patterns
 
 **Creating a basic interaction:**
+
 ```typescript
-const stimulus = new Stimulus({ role: 'helpful assistant' });
-const model: ModelDetails = { name: 'gemini-3-flash-preview', provider: 'google' };
+const stimulus = new Stimulus({ role: "helpful assistant" });
+const model: ModelDetails = {
+  name: "gemini-3-flash-preview",
+  provider: "google",
+};
 const interaction = new Interaction(model, stimulus);
-const response = await interaction.chat('Hello');
+const response = await interaction.chat("Hello");
 ```
 
 **Using habitat:**
+
 ```typescript
-const habitat = await Habitat.create({ workDir: './my-agent' });
+const habitat = await Habitat.create({ workDir: "./my-agent" });
 const interaction = await habitat.createInteraction(sessionId);
 ```
 
@@ -470,18 +490,18 @@ mise run habitat-browse       # against a habitat's sessions
 
 All umwelten services use the 74xx port range to avoid conflicts with common dev servers.
 
-| Service | Port | Notes |
-|---------|------|-------|
-| Gaia orchestrator | **7420** | `habitat gaia` — multi-habitat dashboard |
-| Legacy `habitat web` | **7421** | `habitat web` — single-habitat web UI |
-| `habitat serve` (host) | **7430** | `habitat serve` — MCP + chat + web UI |
-| Managed containers | **7440–7499** | Gaia assigns sequentially from this range |
-| Internal container port | **8080** | Inside Docker only, never exposed directly |
+| Service                 | Port          | Notes                                      |
+| ----------------------- | ------------- | ------------------------------------------ |
+| Gaia orchestrator       | **7420**      | `habitat gaia` — multi-habitat dashboard   |
+| Legacy `habitat web`    | **7421**      | `habitat web` — single-habitat web UI      |
+| `habitat serve` (host)  | **7430**      | `habitat serve` — MCP + chat + web UI      |
+| Managed containers      | **7440–7499** | Gaia assigns sequentially from this range  |
+| Internal container port | **8080**      | Inside Docker only, never exposed directly |
 
 ## Test Suites
 
-| Command | Scope | Speed |
-|---------|-------|-------|
-| `pnpm test:run` | Unit tests only (`*.test.ts`) — no network, no LLM | ~4s |
-| `pnpm test:integration` | Integration tests (`*.integration.test.ts`) — needs API keys, local servers | slow |
-| `pnpm test:all` | Both suites | both |
+| Command                 | Scope                                                                       | Speed |
+| ----------------------- | --------------------------------------------------------------------------- | ----- |
+| `pnpm test:run`         | Unit tests only (`*.test.ts`) — no network, no LLM                          | ~4s   |
+| `pnpm test:integration` | Integration tests (`*.integration.test.ts`) — needs API keys, local servers | slow  |
+| `pnpm test:all`         | Both suites                                                                 | both  |
