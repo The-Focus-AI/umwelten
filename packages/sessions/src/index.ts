@@ -19,6 +19,7 @@ export {
 	applyFilter,
 	buildExploreBrowse,
 	applyExploreFilter,
+	searchToVirtualExploration,
 	loadDigest,
 	saveDigest,
 	getDigestPath,
@@ -26,6 +27,7 @@ export {
 export type {
 	SessionBrowserEntry,
 	ExplorationBrowserEntry,
+	VirtualExplorationResult,
 	BuildBrowseOptions,
 	DateWindow,
 	StatusFilter,

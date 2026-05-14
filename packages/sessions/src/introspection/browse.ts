@@ -18,6 +18,9 @@ import {
 	buildSessionEntryFromFile,
 } from "@umwelten/core/interaction/persistence/session-store.js";
 import { projectSessions } from "@umwelten/core/interaction/projection/index.js";
+import {
+	createVirtualExploration,
+} from "@umwelten/core/interaction/types/domain-types.js";
 import type {
 	Exploration,
 	SourceSession,
@@ -409,10 +412,14 @@ export async function buildExploreBrowse(opts: BuildBrowseOptions): Promise<{
 				? modifiedMs > new Date(lastAnalyzedAt).getTime()
 				: false;
 
-				const everAnalyzed = analyzedIn.length > 0;
+			const everAnalyzed = analyzedIn.length > 0;
 
 			// Resolve file path for transcript/beats views when possible
-			const filePath = resolveSessionFilePath(member.source, member.sourceSessionId, sourceSession.sourceData);
+			const filePath = resolveSessionFilePath(
+				member.source,
+				member.sourceSessionId,
+				sourceSession.sourceData,
+			);
 
 			entries.push({
 				exploration,
@@ -435,6 +442,69 @@ export async function buildExploreBrowse(opts: BuildBrowseOptions): Promise<{
 
 	entries.sort((a, b) => b.modifiedMs - a.modifiedMs);
 	return { entries, runs };
+}
+
+// ── Search-to-Exploration ──────────────────────────────────────────────
+
+/**
+ * Result of a search that produced a virtual Exploration.
+ */
+export interface VirtualExplorationResult {
+	/** The virtual Exploration created from search results. */
+	exploration: Exploration;
+	/** The query that produced it. */
+	query: string;
+	/** The matching browser entries. */
+	matches: ExplorationBrowserEntry[];
+	/** Total entries searched. */
+	totalSearched: number;
+}
+
+/**
+ * Create a virtual Exploration from a search query against browser entries.
+ *
+ * Filters entries by the query text against exploration name, session ID,
+ * digest tags, and digest topics. Wraps the matches in a virtual Exploration
+ * with the query preserved as metadata.
+ */
+export function searchToVirtualExploration(
+	entries: ExplorationBrowserEntry[],
+	query: string,
+): VirtualExplorationResult {
+	const q = query.trim().toLowerCase();
+	if (!q) {
+		return {
+			exploration: {
+				id: `exp-virtual-empty-${Date.now()}`,
+				name: "Search: (empty query)",
+				kind: "virtual",
+				members: [],
+				created: new Date().toISOString(),
+				modified: new Date().toISOString(),
+				memberCount: 0,
+				searchQuery: query,
+			},
+			query,
+			matches: [],
+			totalSearched: entries.length,
+		};
+	}
+
+	const matches = entries.filter((e) => {
+		const hay = [
+			e.exploration.name,
+			e.sourceSession.id,
+			e.digest?.overallSummary ?? "",
+			...(e.digest?.analysis.tags ?? []),
+			...(e.digest?.analysis.topics ?? []),
+		].join(" ").toLowerCase();
+		return hay.includes(q);
+	});
+
+	const sourceSessions: SourceSession[] = matches.map((m) => m.sourceSession);
+	const exploration = createVirtualExploration(query, sourceSessions);
+
+	return { exploration, query, matches, totalSearched: entries.length };
 }
 
 // ---- Filtering ----
