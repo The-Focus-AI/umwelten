@@ -43,9 +43,6 @@ export {
   listCompactionStrategies,
   serializeSegment,
 
-  // Memory
-  MemoryRunner,
-  InMemoryMemoryStore,
 
   // Costs
   calculateCost,
@@ -301,6 +298,8 @@ export {
   Reporter,
   buildBrowse,
   applyFilter,
+  buildExploreBrowse,
+  applyExploreFilter,
   loadDigest,
   saveDigest,
   getDigestPath,
@@ -333,6 +332,7 @@ export type {
   ReportSection,
   ReportType,
   SessionBrowserEntry,
+  ExplorationBrowserEntry,
   BuildBrowseOptions,
   DateWindow,
   StatusFilter,

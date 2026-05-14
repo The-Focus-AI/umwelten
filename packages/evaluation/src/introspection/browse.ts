@@ -6,12 +6,15 @@
 export {
 	buildBrowse,
 	applyFilter,
+	buildExploreBrowse,
+	applyExploreFilter,
 	loadDigest,
 	saveDigest,
 	getDigestPath,
 } from "@umwelten/sessions/introspection/browse.js";
 export type {
 	SessionBrowserEntry,
+	ExplorationBrowserEntry,
 	BuildBrowseOptions,
 	DateWindow,
 	StatusFilter,

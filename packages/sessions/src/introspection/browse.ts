@@ -11,9 +11,11 @@ import {
   discoverSessionFilesInProject,
   buildSessionEntryFromFile,
 } from '@umwelten/core/interaction/persistence/session-store.js';
+import { projectSessions } from '@umwelten/core/interaction/projection/index.js';
+import type { Exploration, SourceSession } from '@umwelten/core/interaction/types/domain-types.js';
 import type { SessionDigest } from '@umwelten/core/interaction/analysis/analysis-types.js';
 
-export type SessionSourceKind = 'claude-code' | 'habitat';
+export type SessionSourceKind = 'claude-code' | 'habitat' | 'pi';
 
 /** Path convention: digests are written to ~/.umwelten/digests/sessions/<id>.json */
 export function getDigestPath(sessionId: string): string {
@@ -243,6 +245,132 @@ export async function buildBrowse(
   return { entries, runs };
 }
 
+// ── Exploration-oriented browser (v2) ───────────────────────────────────
+
+/**
+ * Browser entry wrapping an Exploration with browser-specific metadata.
+ *
+ * Replaces SessionBrowserEntry as the primary browser data type.
+ * Each entry wraps one Exploration (which wraps one Source Session).
+ */
+export interface ExplorationBrowserEntry {
+  /** The Exploration (domain grouping). */
+  exploration: Exploration;
+  /** The underlying Source Session metadata. */
+  sourceSession: SourceSession;
+  /** Modified timestamp in ms (for sorting). */
+  modifiedMs: number;
+  /** Digest data if available. */
+  digest?: SessionDigest | null;
+  /** Analysis runs that included this session. */
+  analyzedIn: SessionBrowserEntry['analyzedIn'];
+  modifiedSinceAnalysis: boolean;
+  everAnalyzed: boolean;
+}
+
+/**
+ * Build an Exploration-oriented browser for a project.
+ *
+ * Uses the projection layer to discover sessions from all registered
+ * adapters (Claude Code, pi, Cursor, Habitat) and wraps each default
+ * Exploration with browser metadata (digests, analysis runs).
+ */
+export async function buildExploreBrowse(
+  opts: BuildBrowseOptions
+): Promise<{
+  entries: ExplorationBrowserEntry[];
+  runs: IntrospectionRun[];
+}> {
+  const { projectPath } = opts;
+
+  // ---- 1. Project all sessions into Explorations ----
+  const projection = await projectSessions(projectPath);
+
+  // ---- 2. Load all runs + decisions for analysis matching ----
+  const runIds = await listRuns(projectPath);
+  const runs: IntrospectionRun[] = [];
+  for (const id of runIds) {
+    const run = await loadRun(projectPath, id);
+    if (run) runs.push(run);
+  }
+  const decisions = await readDecisions(projectPath);
+
+  // ---- 3. Build browser entries from explorations ----
+  const entries: ExplorationBrowserEntry[] = [];
+
+  for (const projectionSource of projection.sources) {
+    for (const exploration of projection.explorations) {
+      // Only process explorations from this source
+      if (exploration.members[0]?.source !== projectionSource.source) continue;
+
+      const member = exploration.members[0];
+      if (!member) continue;
+
+      // Resolve modifiedMs from the exploration's timestamps
+      const modifiedMs = new Date(exploration.modified).getTime();
+
+      // Reconstruct the SourceSession for this entry
+      // (the projection already built it internally; we rebuild browser metadata here)
+      const sourceSession: SourceSession = {
+        id: member.sourceSessionId,
+        source: member.source,
+        sourceId: member.sourceSessionId,
+        title: exploration.name,
+        created: exploration.created,
+        modified: exploration.modified,
+        messageCount: 0,
+        firstPrompt: exploration.name,
+      };
+
+      // Match analysis runs by source session ID
+      const sessionIdForMatch = member.sourceSessionId;
+      const sessionFirstPromptLower = exploration.name.toLowerCase();
+      const analyzedIn: SessionBrowserEntry['analyzedIn'] = [];
+      for (const run of runs) {
+        if (!matchSessionInRun(run, sessionIdForMatch)) continue;
+        const attributedRaw = attributeProposalToSession(run, sessionFirstPromptLower);
+        const attributed = attributedRaw.map((a) => ({
+          ...a,
+          verdict: verdictForProposal(decisions, a.kind, a.head),
+        }));
+        analyzedIn.push({
+          runId: run.runId,
+          runCreatedAt: run.createdAt,
+          tally: tallyRun(run, decisions),
+          attributedProposals: attributed,
+        });
+      }
+      analyzedIn.sort((a, b) => (a.runCreatedAt < b.runCreatedAt ? 1 : -1));
+
+      const lastAnalyzedAt = analyzedIn[0]?.runCreatedAt;
+      const modifiedSinceAnalysis = lastAnalyzedAt
+        ? modifiedMs > new Date(lastAnalyzedAt).getTime()
+        : false;
+
+      const everAnalyzed = analyzedIn.length > 0;
+
+      entries.push({
+        exploration,
+        sourceSession,
+        modifiedMs,
+        analyzedIn,
+        modifiedSinceAnalysis,
+        everAnalyzed,
+      });
+    }
+  }
+
+  // ---- 4. Load digests in parallel ----
+  await Promise.all(
+    entries.map(async (e) => {
+      e.digest = await loadDigest(e.sourceSession.id);
+    })
+  );
+
+  entries.sort((a, b) => b.modifiedMs - a.modifiedMs);
+  return { entries, runs };
+}
+
 // ---- Filtering ----
 
 export type DateWindow = '24h' | '7d' | '30d' | 'all';
@@ -295,6 +423,53 @@ export function applyFilter(
     if (f.status === 'undigested' && e.digest) return false;
     if (q) {
       const hay = `${e.firstPrompt} ${e.id} ${e.digest?.overallSummary ?? ''} ${(e.digest?.analysis.tags ?? []).join(' ')} ${(e.digest?.analysis.topics ?? []).join(' ')}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ---- Exploration-oriented filter ----
+
+/**
+ * Filter Exploration browser entries by date, source, status, and text query.
+ */
+export function applyExploreFilter(
+  entries: ExplorationBrowserEntry[],
+  f: FilterState
+): ExplorationBrowserEntry[] {
+  let cutoff = 0;
+  const now = Date.now();
+  switch (f.date) {
+    case '24h': cutoff = now - 24 * 60 * 60 * 1000; break;
+    case '7d': cutoff = now - 7 * 24 * 60 * 60 * 1000; break;
+    case '30d': cutoff = now - 30 * 24 * 60 * 60 * 1000; break;
+    case 'all': cutoff = 0; break;
+  }
+
+  const q = f.query.trim().toLowerCase();
+  return entries.filter((e) => {
+    if (e.modifiedMs < cutoff) return false;
+    if (f.source !== 'all' && e.sourceSession.source !== f.source) return false;
+    if (f.status === 'unanalyzed' && e.everAnalyzed) return false;
+    if (f.status === 'pending') {
+      if (!e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
+    }
+    if (f.status === 'decided') {
+      if (!e.everAnalyzed) return false;
+      if (e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
+    }
+    if (f.status === 'fresh' && !(e.modifiedSinceAnalysis || !e.everAnalyzed)) return false;
+    if (f.status === 'digested' && !e.digest) return false;
+    if (f.status === 'undigested' && e.digest) return false;
+    if (q) {
+      const hay = [
+        e.exploration.name,
+        e.sourceSession.id,
+        e.digest?.overallSummary ?? '',
+        ...(e.digest?.analysis.tags ?? []),
+        ...(e.digest?.analysis.topics ?? []),
+      ].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;

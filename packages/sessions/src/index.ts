@@ -13,12 +13,15 @@ export { introspectCommand, browseCommand, runBrowseAction } from "./introspect.
 export {
 	buildBrowse,
 	applyFilter,
+	buildExploreBrowse,
+	applyExploreFilter,
 	loadDigest,
 	saveDigest,
 	getDigestPath,
 } from "./introspection/browse.js";
 export type {
 	SessionBrowserEntry,
+	ExplorationBrowserEntry,
 	BuildBrowseOptions,
 	DateWindow,
 	StatusFilter,

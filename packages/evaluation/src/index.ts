@@ -72,12 +72,15 @@ export type { Report, ReportSection, ReportType } from "./reporting/types.js";
 export {
   buildBrowse,
   applyFilter,
+  buildExploreBrowse,
+  applyExploreFilter,
   loadDigest,
   saveDigest,
   getDigestPath,
 } from "./introspection/browse.js";
 export type {
   SessionBrowserEntry,
+  ExplorationBrowserEntry,
   BuildBrowseOptions,
   DateWindow,
   StatusFilter,
