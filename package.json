@@ -37,11 +37,11 @@
   },
   "packageManager": "pnpm@10.33.0",
   "devDependencies": {
-    "@dagger.io/dagger": "^0.20.1",
+    "@dagger.io/dagger": "^0.20.8",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@tavily/core": "^0.7.2",
-    "@typescript-eslint/eslint-plugin": "^8.57.0",
-    "@typescript-eslint/parser": "^8.57.0",
+    "@tavily/core": "^0.7.3",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
     "@umwelten/sessions": "workspace:*",
@@ -54,13 +54,13 @@
     "dotenv": "^16.4.7",
     "eslint": "^9.39.2",
     "knip": "^5.88.1",
-    "prettier": "^3.8.1",
-    "tsx": "^4.21.0",
+    "prettier": "^3.8.3",
+    "tsx": "^4.22.2",
     "typescript": "^5.9.3",
-    "vite": "^8.0.8",
+    "vite": "^8.0.13",
     "vitepress": "2.0.0-alpha.12",
-    "vitest": "^4.1.0",
-    "zod": "^4.3.6"
+    "vitest": "^4.1.6",
+    "zod": "^4.4.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
