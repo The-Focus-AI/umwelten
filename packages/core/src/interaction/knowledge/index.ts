@@ -38,3 +38,8 @@ export type { UserModelEntryOptions } from "./user-model-writer.js";
 // Saved Exploration store — .umwelten/explorations/
 export { SavedExplorationStore } from "./saved-exploration-store.js";
 export type { SavedExplorationSummary } from "./saved-exploration-store.js";
+
+// Candidate persistence module — .umwelten/candidates/
+export { CandidatePersistence } from "./candidate-persistence.js";
+export type { CandidateKind } from "./candidate-persistence.js";
+
