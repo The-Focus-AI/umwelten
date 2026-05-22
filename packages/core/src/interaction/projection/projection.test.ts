@@ -323,6 +323,54 @@ describe("projectSessions", () => {
 		expect(result.sources).toHaveLength(0);
 	});
 
+	// ── Source Sessions carry real metadata (issue #60) ──────────────────
+
+	it("result includes sourceSessions array alongside explorations", async () => {
+		const result = await projectSessions("/projects/my-app", { registry });
+
+		expect(result.sourceSessions).toBeDefined();
+		expect(result.sourceSessions.length).toBe(3);
+		expect(result.sourceSessions.length).toBe(result.explorations.length);
+	});
+
+	it("sourceSessions carry real messageCount (not zero stubs)", async () => {
+		const result = await projectSessions("/projects/my-app", { registry });
+
+		for (const session of result.sourceSessions) {
+			expect(session.messageCount).toBeGreaterThan(0);
+		}
+
+		const cc1 = result.sourceSessions.find((s) => s.id === "cc-session-1");
+		expect(cc1).toBeDefined();
+		expect(cc1!.messageCount).toBe(15);
+
+		const pi = result.sourceSessions.find((s) => s.id === "pi-session-1");
+		expect(pi).toBeDefined();
+		expect(pi!.messageCount).toBe(6);
+	});
+
+	it("sourceSessions carry metrics when adapter provides them", async () => {
+		const result = await projectSessions("/projects/my-app", { registry });
+
+		const cc1 = result.sourceSessions.find((s) => s.id === "cc-session-1");
+		expect(cc1?.metrics).toBeDefined();
+		expect(cc1!.metrics!.userMessages).toBe(6);
+		expect(cc1!.metrics!.toolCalls).toBe(10);
+		expect(cc1!.metrics!.totalTokens).toBe(45000);
+		expect(cc1!.metrics!.estimatedCost).toBe(0.15);
+	});
+
+	it("sourceSession IDs match exploration member sourceSessionIds", async () => {
+		const result = await projectSessions("/projects/my-app", { registry });
+
+		const sessionIds = new Set(result.sourceSessions.map((s) => s.id));
+		const memberIds = new Set(
+			result.explorations.map((e) => e.members[0]?.sourceSessionId),
+		);
+
+		expect([...sessionIds].sort()).toEqual([...memberIds].sort());
+	});
+
 	it("handles adapters that error gracefully", async () => {
 		const errorAdapter: SessionAdapter = {
 			source: "cursor",

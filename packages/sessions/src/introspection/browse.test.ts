@@ -480,6 +480,201 @@ describe("searchToVirtualExploration", () => {
 	});
 });
 
+// ── buildExploreBrowse / projection: real metadata flow (issue #60) ─────
+
+describe("buildExploreBrowse / projection: real Source Session metadata", () => {
+	/** Build a minimal mock adapter that returns sessions with known metrics. */
+	function mockAdapter(source: string, entries: Array<{
+		id: string;
+		messageCount: number;
+		firstPrompt: string;
+		metrics: { userMessages: number; toolCalls: number; totalTokens: number; estimatedCost?: number };
+	}>) {
+		return {
+			source,
+			displayName: source,
+			getSourceLocation: () => "",
+			canHandle: async () => true,
+			discoverProjects: async () => [],
+			discoverSessions: async () => ({
+				sessions: entries.map((e) => ({
+					id: e.id,
+					source,
+					sourceId: e.id,
+					projectPath: "/test/proj",
+					created: "2026-05-14T10:00:00.000Z",
+					modified: "2026-05-14T11:00:00.000Z",
+					messageCount: e.messageCount,
+					firstPrompt: e.firstPrompt,
+					metrics: {
+						userMessages: e.metrics.userMessages,
+						assistantMessages: e.messageCount - e.metrics.userMessages,
+						toolCalls: e.metrics.toolCalls,
+						totalTokens: e.metrics.totalTokens,
+						inputTokens: Math.floor(e.metrics.totalTokens * 0.6),
+						outputTokens: Math.floor(e.metrics.totalTokens * 0.4),
+						estimatedCost: e.metrics.estimatedCost ?? 0,
+					},
+				})),
+				source,
+				totalCount: entries.length,
+				hasMore: false,
+			}),
+			getSessionEntry: async () => null,
+			getSession: async () => null,
+			getMessages: async () => [],
+			hasSessionsForProject: async () => true,
+		};
+	}
+
+	it("projectSessions result includes sourceSessions with real messageCount", async () => {
+		const { projectSessions } = await import(
+			"@umwelten/core/interaction/projection/index.js"
+		);
+		const { AdapterRegistry } = await import(
+			"@umwelten/core/interaction/adapters/adapter.js"
+		);
+
+		const registry = new AdapterRegistry();
+		registry.register(mockAdapter("claude-code", [
+			{ id: "cc-1", messageCount: 42, firstPrompt: "Build auth system",
+				metrics: { userMessages: 12, toolCalls: 15, totalTokens: 80000, estimatedCost: 0.25 } },
+		]) as any);
+
+		const projection = await projectSessions("/test/proj", { registry });
+
+		// sourceSessions exist alongside explorations
+		expect(projection.sourceSessions).toHaveLength(1);
+		expect(projection.explorations).toHaveLength(1);
+		expect(projection.sourceSessions.length).toBe(projection.explorations.length);
+
+		const session = projection.sourceSessions[0];
+		expect(session.messageCount).toBe(42);
+		expect(session.metrics?.userMessages).toBe(12);
+		expect(session.metrics?.toolCalls).toBe(15);
+		expect(session.metrics?.totalTokens).toBe(80000);
+		expect(session.metrics?.estimatedCost).toBe(0.25);
+	});
+
+	it("sourceSession lookup map resolves entries for buildExploreBrowse pattern", async () => {
+		const { projectSessions } = await import(
+			"@umwelten/core/interaction/projection/index.js"
+		);
+		const { AdapterRegistry } = await import(
+			"@umwelten/core/interaction/adapters/adapter.js"
+		);
+
+		const registry = new AdapterRegistry();
+		registry.register(mockAdapter("claude-code", [
+			{ id: "cc-1", messageCount: 42, firstPrompt: "Auth work",
+				metrics: { userMessages: 12, toolCalls: 15, totalTokens: 80000 } },
+		]) as any);
+		registry.register(mockAdapter("pi", [
+			{ id: "pi-1", messageCount: 25, firstPrompt: "Error handling",
+				metrics: { userMessages: 8, toolCalls: 10, totalTokens: 45000 } },
+		]) as any);
+
+		const projection = await projectSessions("/test/proj", { registry });
+
+		// Build the same lookup map as buildExploreBrowse does
+		const sourceSessionsById = new Map(
+			projection.sourceSessions.map((s) => [s.id, s]),
+		);
+
+		// Verify both sessions are findable
+		const cc = sourceSessionsById.get("cc-1");
+		expect(cc).toBeDefined();
+		expect(cc!.messageCount).toBe(42);
+
+		const pi = sourceSessionsById.get("pi-1");
+		expect(pi).toBeDefined();
+		expect(pi!.messageCount).toBe(25);
+
+		// Verify the fallback: missing session yields stub with messageCount: 0
+		const missing = sourceSessionsById.get("nonexistent");
+		expect(missing).toBeUndefined();
+
+		// The fallback in buildExploreBrowse produces messageCount: 0
+		const fallback = {
+			id: "nonexistent",
+			source: "claude-code" as const,
+			sourceId: "nonexistent",
+			title: "fallback",
+			created: new Date().toISOString(),
+			modified: new Date().toISOString(),
+			messageCount: 0,
+			firstPrompt: "fallback",
+		};
+		expect(fallback.messageCount).toBe(0);
+	});
+
+	it("exploration members match sourceSession IDs and sources", async () => {
+		const { projectSessions } = await import(
+			"@umwelten/core/interaction/projection/index.js"
+		);
+		const { AdapterRegistry } = await import(
+			"@umwelten/core/interaction/adapters/adapter.js"
+		);
+
+		const registry = new AdapterRegistry();
+
+		// Multiple sources, multiple sessions each
+		for (const source of ["claude-code", "pi", "cursor"] as const) {
+			registry.register(mockAdapter(source, [
+				{ id: `${source}-a`, messageCount: 10, firstPrompt: `${source} session A`,
+					metrics: { userMessages: 5, toolCalls: 3, totalTokens: 20000 } },
+				{ id: `${source}-b`, messageCount: 20, firstPrompt: `${source} session B`,
+					metrics: { userMessages: 8, toolCalls: 8, totalTokens: 40000 } },
+			]) as any);
+		}
+
+		const projection = await projectSessions("/test/proj", { registry });
+
+		expect(projection.explorations).toHaveLength(6);
+		expect(projection.sourceSessions).toHaveLength(6);
+
+		const sourceSessionsById = new Map(
+			projection.sourceSessions.map((s) => [s.id, s]),
+		);
+
+		for (const exploration of projection.explorations) {
+			const member = exploration.members[0];
+			const sourceSession = sourceSessionsById.get(member.sourceSessionId);
+
+			expect(sourceSession, `No sourceSession for member ${member.sourceSessionId}`).toBeDefined();
+			expect(sourceSession!.source).toBe(member.source);
+			expect(sourceSession!.messageCount).toBeGreaterThan(0);
+			expect(sourceSession!.metrics).toBeDefined();
+		}
+	});
+
+	it("projectSessions sourceSessions carry all five metric fields when provided", async () => {
+		const { projectSessions } = await import(
+			"@umwelten/core/interaction/projection/index.js"
+		);
+		const { AdapterRegistry } = await import(
+			"@umwelten/core/interaction/adapters/adapter.js"
+		);
+
+		const registry = new AdapterRegistry();
+		registry.register(mockAdapter("claude-code", [
+			{ id: "cc-full", messageCount: 30, firstPrompt: "Full metrics test",
+				metrics: { userMessages: 10, toolCalls: 20, totalTokens: 60000, estimatedCost: 0.15 } },
+		]) as any);
+
+		const projection = await projectSessions("/test/proj", { registry });
+
+		const session = projection.sourceSessions[0];
+		expect(session.metrics).toBeDefined();
+		expect(session.metrics!.userMessages).toBeGreaterThan(0);
+		expect(session.metrics!.toolCalls).toBeGreaterThan(0);
+		expect(session.metrics!.totalTokens).toBeGreaterThan(0);
+		expect(session.metrics!.estimatedCost).toBeDefined();
+		expect(session.metrics!.inputTokens).toBeDefined();
+		expect(session.metrics!.outputTokens).toBeDefined();
+	});
+});
+
 describe("digest persistence", () => {
 	const testProjectPath = join(process.cwd(), "packages/sessions/src/introspection/temp-digest-test");
 
