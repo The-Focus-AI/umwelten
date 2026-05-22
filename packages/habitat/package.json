@@ -33,20 +33,20 @@
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
     "@a2a-js/sdk": "^0.3.13",
-    "discord.js": "^14.26.1",
-    "@anthropic-ai/claude-agent-sdk": "^0.2.92",
+    "discord.js": "^14.26.4",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.143",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@tavily/core": "^0.7.2",
+    "@tavily/core": "^0.7.3",
     "ai": "^5.0.115",
     "chalk": "^5.6.2",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
     "uuid": "^13.0.0",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.10.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.6"
   }
 }
