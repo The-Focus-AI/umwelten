@@ -470,7 +470,7 @@
 <ul class="feature-list">
   <li>&check; <strong>BaseModelRunner</strong> &mdash; <code>generateText</code>, <code>streamText</code>, <code>generateObject</code>, <code>streamObject</code></li>
   <li>&check; <strong>SmartModelRunner</strong> &mdash; before/during/after hooks for intercepting model calls</li>
-  <li>&check; <strong>MemoryRunner</strong> &mdash; SmartModelRunner that auto-extracts facts after each response</li>
+  <li>&check; <strong>Memory helpers</strong> &mdash; explicit fact extraction and reconciliation APIs</li>
   <li>&check; <strong>Rate limiting</strong> &mdash; per-model, built into BaseModelRunner</li>
   <li>&check; <strong>Cost tracking</strong> &mdash; automatic per-call calculation with <code>TokenUsage</code> and <code>CostBreakdown</code></li>
   <li>&check; <strong>Usage extraction</strong> &mdash; normalize input/output/total tokens across providers</li>
@@ -595,13 +595,13 @@
 <ul class="feature-list">
   <li>&check; <strong>Fact extraction</strong> &mdash; LLM-powered, categorized (preference, plan, professional)</li>
   <li>&check; <strong>Memory operations</strong> &mdash; ADD, UPDATE, DELETE</li>
-  <li>&check; <strong>MemoryRunner</strong> &mdash; auto-extract during chat (<code>stimulus.runnerType = 'memory'</code>)</li>
+  <li>&check; <strong>Memory helpers</strong> &mdash; explicit fact extraction for reflection workflows</li>
   <li>&check; <strong>Per-user fact storage</strong> &mdash; MemoryStore interface exists</li>
   <li>&check; <strong>Learnings store</strong> &mdash; <code>FileLearningsStore</code> for session-level learnings</li>
 </ul>
 
 <ul class="gap-list">
-  <li>&cross; <strong>Persistent memory backend</strong> &mdash; only <code>InMemoryMemoryStore</code>; facts lost when process restarts</li>
+  <li>&cross; <strong>Persistent memory backend</strong> &mdash; caller-managed stores are required</li>
   <li>&cross; <strong>Memory retrieval/injection</strong> &mdash; facts extracted but not automatically retrieved for future conversations</li>
   <li>&cross; <strong>Cross-session memory</strong> &mdash; each Interaction creates a fresh store; no sharing between sessions</li>
   <li>&cross; <strong>Memory search/relevance</strong> &mdash; no semantic search over stored facts</li>
@@ -650,7 +650,7 @@
 
 <ul class="feature-list">
   <li>&check; <strong>FileLearningsStore</strong> &mdash; append-only JSONL per kind, per session</li>
-  <li>&check; <strong>Learning kinds</strong> &mdash; facts, playbooks, preferences, open_loops, mistakes</li>
+  <li>&check; <strong>Learning kinds</strong> &mdash; facts, skill_candidates, preferences, open_loops, mistakes</li>
   <li>&check; <strong>Learning provenance tracking</strong> &mdash; links back to session, channel, compaction run</li>
   <li>&check; <strong>Context merge</strong> &mdash; inject learnings into new sessions via <code>buildHabitatIntrospectionContextMessages()</code></li>
   <li>&check; <strong>Compaction events</strong> &mdash; <code>CompactionEventV1</code> marker in transcript</li>

@@ -14,7 +14,6 @@ export const chatCommand = addCommonOptions(
       "Chat interactively with a model using the new Interaction pattern. Requires --provider and --model."
     )
     .option("-f, --file <filePath>", "File to include in the chat")
-    .option("--memory", "Enable memory-augmented chat (uses MemoryRunner)")
     .option("--tools <tools>", "Comma-separated list of tool names to enable (default: none)")
 ).action(async (options: any) => {
   const { provider, model, attach, debug } = parseCommonOptions(options);
@@ -42,7 +41,6 @@ export const chatCommand = addCommonOptions(
         "Only use tools when you need specific information",
         "Be conversational and engaging"
       ],
-      runnerType: options.memory ? 'memory' : 'base',
       maxToolSteps: 5
     });
     

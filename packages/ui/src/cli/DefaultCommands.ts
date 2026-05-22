@@ -51,36 +51,6 @@ export const historyCommand: CLICommand = {
 };
 
 /**
- * Memory command - shows memory facts (if memory is enabled)
- */
-export const memoryCommand: CLICommand = {
-  trigger: "/mem",
-  description: "Show memory facts (if memory enabled)",
-  execute: async (interaction: Interaction, args?: string[]) => {
-    try {
-      const runner = interaction.getRunner();
-      const memoryStore = (runner as any).getMemoryStore?.();
-      
-      if (memoryStore) {
-        const facts = await memoryStore.getFacts(interaction.userId);
-        if (facts.length === 0) {
-          console.log("No memory facts stored.");
-        } else {
-          console.log("Memory facts:");
-          facts.forEach((fact: any) => {
-            console.log(`- ${fact.text}`);
-          });
-        }
-      } else {
-        console.log("Memory not enabled for this interaction.");
-      }
-    } catch (error) {
-      console.error("Error accessing memory:", error);
-    }
-  }
-};
-
-/**
  * Exit command - ends the session
  */
 export const exitCommand: CLICommand = {
@@ -138,7 +108,6 @@ export function getDefaultCommands(): CLICommand[] {
     helpCommand,
     resetCommand,
     historyCommand,
-    memoryCommand,
     statsCommand,
     infoCommand,
     toggleStatsCommand,
@@ -156,7 +125,6 @@ export function getChatCommands(): CLICommand[] {
     helpCommand,
     resetCommand,
     historyCommand,
-    memoryCommand,
     statsCommand,
     infoCommand,
     toggleStatsCommand,
@@ -174,7 +142,6 @@ export function getAgentCommands(): CLICommand[] {
     helpCommand,
     resetCommand,
     historyCommand,
-    memoryCommand,
     statsCommand,
     infoCommand,
     toggleStatsCommand,

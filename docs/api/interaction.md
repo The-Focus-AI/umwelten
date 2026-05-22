@@ -428,7 +428,7 @@ interface StimulusOptions {
   topP?: number;                    // Top-p sampling parameter
   frequencyPenalty?: number;        // Frequency penalty
   presencePenalty?: number;         // Presence penalty
-  runnerType?: 'base' | 'memory';   // Type of model runner
+  runnerType?: 'base';              // Compatibility-only; Interaction uses base runner
   systemContext?: string;           // Additional system context
 }
 ```
@@ -854,27 +854,9 @@ interaction.addMessage({
 const response = await interaction.streamText();
 ```
 
-### With Memory Package
+### With Explicit Fact Extraction
 
-Use memory-enabled stimuli for persistent context:
-
-```typescript
-import { Stimulus } from './core/stimulus/stimulus.js';
-
-const memoryStimulus = new Stimulus({
-  role: "helpful assistant with memory",
-  objective: "remember user preferences and context",
-  runnerType: 'memory'  // Uses MemoryRunner internally
-});
-
-const interaction = new Interaction(model, memoryStimulus);
-interaction.addMessage({
-  role: 'user',
-  content: 'Remember that I prefer detailed explanations.'
-});
-
-const response = await interaction.streamText();
-```
+`Interaction` always manages a base runner internally. If you need fact extraction, call the memory helper functions explicitly after the interaction.
 
 ### With Evaluation Package
 

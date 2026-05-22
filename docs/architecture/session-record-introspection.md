@@ -6,7 +6,7 @@ Unified **session handles**, **learnings** (typed append-only JSONL), and **Habi
 
 - **Canonical content** is the **transcript** (full tool I/O; no default trimming). Scaling uses **compaction + learnings**, not tool-result sidecars.
 - **No global “head”.** Each interface context (Discord channel/thread, Telegram chat, CLI session, Claude UUID, …) has its own namespace—usually a **directory** or a resolved **path set**.
-- **Learnings** are five append-only files keyed by **kind**: `facts`, `playbooks`, `preferences`, `open_loops`, `mistakes`.
+- **Learnings** are five append-only files keyed by **kind**: `facts`, `skill_candidates`, `preferences`, `open_loops`, `mistakes`.
 - **Claude Code:** read transcripts from `~/.claude/projects/{encodedPath}/{uuid}.jsonl`; write learnings only under **`{workDir}/.umwelten/learnings/claude/{safeKey}/`** (umwelten-owned).
 
 ## On-disk layout
@@ -18,7 +18,7 @@ Unified **session handles**, **learnings** (typed append-only JSONL), and **Habi
 {sessionDir}/transcript.jsonl          # live append tail
 {sessionDir}/transcript.{ISO}.jsonl   # frozen after compaction (optional chain)
 {sessionDir}/facts.jsonl             # learnings (optional until first write)
-{sessionDir}/playbooks.jsonl
+{sessionDir}/skill_candidates.jsonl
 ...
 ```
 
@@ -27,7 +27,7 @@ Unified **session handles**, **learnings** (typed append-only JSONL), and **Habi
 ```
 {workDir}/.umwelten/learnings/claude/{safeKey}/
   facts.jsonl
-  playbooks.jsonl
+  skill_candidates.jsonl
   ...
   meta.json    # optional: claude project path + uuid
 ```

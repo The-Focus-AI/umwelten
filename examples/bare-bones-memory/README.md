@@ -36,4 +36,4 @@ If you want a simpler starting point that already loads `AGENTS.md` and a `skill
 
 ## REPL commands
 
-Built-in from `getAgentCommands()`: `/?`, `/reset`, `/history`, `/mem`, `/stats`, `/info`, `/exit`.
+Built-in from `getAgentCommands()`: `/?`, `/reset`, `/history`, `/stats`, `/info`, `/exit`.

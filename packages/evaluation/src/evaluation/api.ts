@@ -124,8 +124,7 @@ function createEvaluationFunction(config: EvaluationConfig) {
         "Provide structured responses when requested"
       ],
       temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      runnerType: 'base' // Evaluations don't need memory
+      maxTokens: config.maxTokens
     });
     
     // Create interaction with stimulus
@@ -217,8 +216,7 @@ function createEvaluationFunction(config: EvaluationConfig) {
                 "Ensure all required fields are present"
               ],
               temperature: config.temperature,
-              maxTokens: config.maxTokens,
-              runnerType: 'base'
+              maxTokens: config.maxTokens
             });
             
             const enhancedConversation = new Interaction(model, schemaStimulus);

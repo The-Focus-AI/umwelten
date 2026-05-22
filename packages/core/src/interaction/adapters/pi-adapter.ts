@@ -215,7 +215,22 @@ export class PiSessionAdapter implements SessionAdapter {
 		return decoded.startsWith("/") ? decoded : "/" + decoded;
 	}
 
-	/** Build the session directory path for a project */
+	/** Build the session directory path for a local project (.pi/sessions) */
+	private localSessionDir(projectPath: string): string {
+		return join(projectPath, ".pi", "sessions");
+	}
+
+	/** Check if a local session directory exists for the project */
+	private async hasLocalSessionsDir(projectPath: string): Promise<boolean> {
+		try {
+			await readdir(this.localSessionDir(projectPath));
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/** Build the session directory path for a project (global ~/.pi/agent/sessions) */
 	private sessionDirForProject(projectPath: string): string {
 		return join(PI_SESSION_BASE, this.encodeProjectPath(projectPath));
 	}
@@ -226,7 +241,7 @@ export class PiSessionAdapter implements SessionAdapter {
 			await readdir(dir);
 			return true;
 		} catch {
-			return false;
+			return this.hasLocalSessionsDir(projectPath);
 		}
 	}
 
@@ -265,25 +280,33 @@ export class PiSessionAdapter implements SessionAdapter {
 			};
 		}
 
-		const dir = this.sessionDirForProject(projectPath);
-		let files: string[];
-		try {
-			files = await readdir(dir);
-		} catch {
-			return { sessions: [], source: SOURCE, totalCount: 0, hasMore: false };
-		}
-
-		const jsonlFiles = files
-			.filter((f) => f.endsWith(".jsonl"))
-			.sort()
-			.reverse(); // newest first
-
+		const globalDir = this.sessionDirForProject(projectPath);
+		const localDir = this.localSessionDir(projectPath);
 		const sessions: NormalizedSessionEntry[] = [];
-		for (const file of jsonlFiles) {
-			const filePath = join(dir, file);
-			const entry = await this.parseSessionEntry(filePath, projectPath);
-			if (entry) sessions.push(entry);
-		}
+
+		const buildFromDir = async (dir: string, isLocal: boolean) => {
+			try {
+				const files = await readdir(dir);
+				const jsonlFiles = files
+					.filter((f) => f.endsWith(".jsonl"))
+					.sort()
+					.reverse();
+				for (const file of jsonlFiles) {
+					const filePath = join(dir, file);
+					const entry = await this.parseSessionEntry(
+						filePath,
+						projectPath,
+						isLocal,
+					);
+					if (entry) sessions.push(entry);
+				}
+			} catch {
+				// directory doesn't exist — skip
+			}
+		};
+
+		await buildFromDir(globalDir, false);
+		await buildFromDir(localDir, true);
 
 		// Apply filters
 		const filtered = this.filterSessions(sessions, options);
@@ -305,7 +328,7 @@ export class PiSessionAdapter implements SessionAdapter {
 	): Promise<NormalizedSessionEntry | null> {
 		const [projectPath, file] = this.resolveSessionId(sessionId);
 		if (!projectPath || !file) return null;
-		return this.parseSessionEntry(file, projectPath);
+		return this.parseSessionEntry(file, projectPath, sessionId.startsWith("piloc:"));
 	}
 
 	async getSession(sessionId: string): Promise<NormalizedSession | null> {
@@ -449,6 +472,7 @@ export class PiSessionAdapter implements SessionAdapter {
 	private async parseSessionEntry(
 		filePath: string,
 		projectPath: string,
+		isLocal = false,
 	): Promise<NormalizedSessionEntry | null> {
 		try {
 			const raw = await readFile(filePath, "utf-8");
@@ -458,16 +482,47 @@ export class PiSessionAdapter implements SessionAdapter {
 			const header = JSON.parse(lines[0]) as PiSessionHeader;
 			if (header.type !== "session") return null;
 
-			const sessionId = this.buildSessionId(filePath);
+			const sessionId = this.buildSessionId(filePath, projectPath, isLocal);
 			const filename = filePath.split(sep).pop() ?? "";
 
 			// Quick parse for metadata without building full tree
 			let messageCount = 0;
+			let userMessages = 0;
+			let assistantMessages = 0;
+			let toolCalls = 0;
+			let totalTokens = 0;
+			let inputTokens = 0;
+			let outputTokens = 0;
+			let cacheReadTokens = 0;
+			let cacheWriteTokens = 0;
+			let estimatedCost = 0;
 			let displayName: string | undefined;
 			for (let i = 1; i < lines.length; i++) {
 				try {
 					const entry = JSON.parse(lines[i]);
-					if (entry.type === "message") messageCount++;
+					if (entry.type === "message") {
+						messageCount++;
+						const role = entry.message?.role;
+						if (role === "user") userMessages++;
+						if (role === "assistant") assistantMessages++;
+
+						const content = entry.message?.content;
+						if (Array.isArray(content)) {
+							toolCalls += content.filter(
+								(block) => block?.type === "toolCall",
+							).length;
+						}
+
+						const usage = entry.message?.usage;
+						if (usage) {
+							totalTokens += usage.totalTokens ?? 0;
+							inputTokens += usage.input ?? 0;
+							outputTokens += usage.output ?? 0;
+							cacheReadTokens += usage.cacheRead ?? 0;
+							cacheWriteTokens += usage.cacheWrite ?? 0;
+							estimatedCost += usage.cost?.total ?? 0;
+						}
+					}
 					if (entry.type === "session_info" && entry.name)
 						displayName = entry.name;
 				} catch {
@@ -484,7 +539,18 @@ export class PiSessionAdapter implements SessionAdapter {
 				modified: this.extractModifiedTime(lines),
 				messageCount,
 				firstPrompt: this.extractFirstPrompt(lines),
-				sourceData: { filename, displayName, cwd: header.cwd },
+				metrics: {
+					userMessages,
+					assistantMessages,
+					toolCalls,
+					totalTokens,
+					inputTokens,
+					outputTokens,
+					cacheReadTokens,
+					cacheWriteTokens,
+					estimatedCost,
+				},
+				sourceData: { filename, displayName, cwd: header.cwd, filePath },
 			};
 		} catch {
 			return null;
@@ -494,7 +560,15 @@ export class PiSessionAdapter implements SessionAdapter {
 	/**
 	 * Build a unique session ID from project path and file.
 	 */
-	private buildSessionId(filePath: string): string {
+	private buildSessionId(
+		filePath: string,
+		projectPath?: string,
+		isLocal = false,
+	): string {
+		if (isLocal && projectPath) {
+			const filename = filePath.split(sep).pop() ?? "";
+			return `piloc:${projectPath}:${filename}`;
+		}
 		const rel = filePath.slice(PI_SESSION_BASE.length).replace(/^\/+/, "");
 		const safe = rel.replace(/\//g, "-").replace(/--+/g, "--");
 		return `pi${safe}`;
@@ -505,18 +579,23 @@ export class PiSessionAdapter implements SessionAdapter {
 	 * Session IDs are like: pi--Users-wschenk-Proj--2026-05-10T...jsonl
 	 */
 	private resolveSessionId(sessionId: string): [string | null, string | null] {
+		if (sessionId.startsWith("piloc:")) {
+			const rest = sessionId.slice(6);
+			const lastColon = rest.lastIndexOf(":");
+			if (lastColon === -1) return [null, null];
+			const projectPath = rest.slice(0, lastColon);
+			const filename = rest.slice(lastColon + 1);
+			const filePath = join(projectPath, ".pi", "sessions", filename);
+			return [projectPath, filePath];
+		}
 		if (!sessionId.startsWith("pi")) return [null, null];
-		const encoded = sessionId.slice(2); // remove 'pi'
-		// The format is: <encoded-dir>--<filename>
-		// encoded-dir uses -- separators
+		const encoded = sessionId.slice(2);
 		const lastDoubleDash = encoded.lastIndexOf("--");
 		if (lastDoubleDash === -1) return [null, null];
-
-		const dirEncoded = encoded.slice(0, lastDoubleDash + 2); // include trailing --
+		const dirEncoded = encoded.slice(0, lastDoubleDash + 2);
 		const filename = encoded.slice(lastDoubleDash + 2);
 		const projectPath = this.decodeProjectPath(dirEncoded);
 		const filePath = join(PI_SESSION_BASE, dirEncoded, filename);
-
 		return [projectPath, filePath];
 	}
 
@@ -528,7 +607,8 @@ export class PiSessionAdapter implements SessionAdapter {
 		projectPath: string,
 		filePath: string,
 	): NormalizedSession {
-		const sessionId = this.buildSessionId(filePath);
+		const isLocal = filePath.startsWith(this.localSessionDir(projectPath));
+		const sessionId = this.buildSessionId(filePath, projectPath, isLocal);
 		const filename = filePath.split(sep).pop() ?? "";
 
 		const messages = this.entriesToMessages(parsed);
@@ -688,7 +768,10 @@ export class PiSessionAdapter implements SessionAdapter {
 	/**
 	 * Extract plain text from pi content (string or content blocks).
 	 */
-	private extractTextContent(content: string | PiContentBlock[]): string {
+	private extractTextContent(
+		content: string | PiContentBlock[] | undefined | null,
+	): string {
+		if (!content) return "";
 		if (typeof content === "string") return content;
 		return content
 			.filter((b) => b.type === "text" && b.text)

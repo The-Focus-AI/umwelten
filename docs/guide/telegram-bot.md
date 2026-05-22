@@ -194,7 +194,7 @@ pnpm run cli -- telegram -p google -m gemini-3-flash-preview --tools calculator,
 Enable persistent memory to maintain context across conversations:
 
 ```bash
-pnpm run cli -- telegram -p google -m gemini-3-flash-preview --memory
+pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 ```
 
 With memory enabled, the bot will:
@@ -212,7 +212,7 @@ pnpm run cli -- telegram [options]
 
 Options:
   --token <token>            Bot token (or TELEGRAM_BOT_TOKEN env)
-  --memory                   Enable memory-augmented conversations
+                    Enable memory-augmented conversations
   --tools <tools>            Comma-separated tools (calculator,statistics,randomNumber)
   --media-dir <dir>          Directory for storing media files (default: ./telegram-media)
   -p, --provider <provider>  Model provider (google, ollama, openrouter, etc.)
@@ -284,7 +284,6 @@ Response → Telegram
 | `Interaction` | Message handling, tool execution |
 | `Stimulus` | Role, objective, tool configuration |
 | `BaseModelRunner` | Model API calls via Vercel AI SDK |
-| `MemoryRunner` | Fact extraction and persistence |
 | `addAttachmentFromPath()` | Media handling with MIME detection |
 
 ## Best Practices
@@ -344,5 +343,4 @@ DEBUG=1 pnpm run cli -- telegram -p google -m gemini-3-flash-preview
 
 - Learn about [Interactive Chat](/guide/interactive-chat) for CLI-based conversations
 - Explore [Tool Calling](/guide/tool-calling) for advanced capabilities
-- See [Memory & Tools](/guide/memory-tools) for persistent context
 - Try [Web Interface](/guide/web) for browser-based chat

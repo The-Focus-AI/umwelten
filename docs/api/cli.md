@@ -93,16 +93,12 @@ Interactive chat mode with AI models.
 ```bash
 # Start interactive chat
 pnpm run cli -- chat --provider google --model gemini-3-flash-preview
-
-# Chat with memory enabled
-pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
 ```
 
 **Options**:
 
 - `--provider <provider>`: AI provider (required)
 - `--model <model>`: Model to use (required)
-- `--memory`: Enable conversation memory (automatic fact extraction)
 - `--temperature <number>`: Model temperature
 
 ### `eval`
@@ -142,9 +138,6 @@ Start a Telegram bot for interactive AI conversations.
 ```bash
 # Start Telegram bot (requires TELEGRAM_BOT_TOKEN env var)
 pnpm run cli -- telegram --provider google --model gemini-3-flash-preview
-
-# With memory enabled
-pnpm run cli -- telegram --provider google --model gemini-3-flash-preview --memory
 ```
 
 **Options**:
@@ -152,7 +145,6 @@ pnpm run cli -- telegram --provider google --model gemini-3-flash-preview --memo
 - `--provider <provider>`: AI provider (required)
 - `--model <model>`: Model to use (required)
 - `--token <token>`: Telegram bot token (or set `TELEGRAM_BOT_TOKEN`)
-- `--memory`: Enable memory-augmented conversations
 
 **Telegram Commands**:
 

@@ -1,6 +1,6 @@
 # @umwelten/core
 
-Foundation package for umwelten — model runners, stimulus configuration, interactions, providers, context management, memory, costs, and session analysis.
+Foundation package for umwelten — model runners, stimulus configuration, interactions, providers, context management, fact extraction, costs, and session analysis.
 
 ## Install
 
@@ -28,7 +28,7 @@ const reply = await interaction.chat('Hello');
 - **interaction/** — `Interaction` class, session persistence, adapters (Claude Code, Cursor), session analysis/digestion
 - **providers/** — Google, OpenRouter, Ollama, LM Studio, LlamaBarn, llama-swap, GitHub, DeepInfra, Together AI
 - **context/** — Token estimation, compaction strategies
-- **memory/** — Fact extraction, `MemoryRunner`
+- **memory/** — Explicit fact-extraction helpers
 - **costs/** — Cost calculation and tracking
 - **schema/** — DSL-to-Zod schema parsing, validation
 - **markdown/** — URL fetching, HTML-to-markdown, feed parsing

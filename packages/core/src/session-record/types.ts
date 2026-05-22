@@ -7,14 +7,14 @@ export type SessionRecordSource = "habitat" | "claude-code";
 /** Learnings bucket — one append-only *.jsonl per kind. */
 export type LearningKind =
   | "facts"
-  | "playbooks"
+  | "skill_candidates"
   | "preferences"
   | "open_loops"
   | "mistakes";
 
 export const LEARNING_KINDS: readonly LearningKind[] = [
   "facts",
-  "playbooks",
+  "skill_candidates",
   "preferences",
   "open_loops",
   "mistakes",
@@ -22,7 +22,7 @@ export const LEARNING_KINDS: readonly LearningKind[] = [
 
 export const LEARNING_FILENAMES: Record<LearningKind, string> = {
   facts: "facts.jsonl",
-  playbooks: "playbooks.jsonl",
+  skill_candidates: "skill_candidates.jsonl",
   preferences: "preferences.jsonl",
   open_loops: "open_loops.jsonl",
   mistakes: "mistakes.jsonl",

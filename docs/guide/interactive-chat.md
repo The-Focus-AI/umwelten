@@ -100,9 +100,6 @@ Within a chat session, you can use special commands to control the conversation:
 - `exit` or `quit`: End the chat session
 
 ### Memory Commands
-- `/mem`: Show memory facts (requires `--memory` flag)
-- `/mem clear`: Clear all stored memory facts
-- `/mem export`: Export memory facts to a file
 
 ### Advanced Commands
 - `/system <message>`: Update the system message
@@ -118,7 +115,7 @@ Enable persistent memory to maintain context across sessions:
 
 ```bash
 # Chat with memory for persistent facts
-pnpm run cli -- chat --provider ollama --model gemma3:latest --memory
+pnpm run cli -- chat --provider ollama --model gemma3:latest
 ```
 
 The memory system automatically:
@@ -130,7 +127,7 @@ The memory system automatically:
 #### Memory Examples
 ```bash
 # Start a memory-enabled chat
-pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # During chat, the AI will remember:
 > "I'm a software developer working on a React project"
@@ -363,9 +360,6 @@ pnpm run cli -- chat \
 
 ### Memory Usage
 - **Enable memory for long-term projects**: Keeps context across sessions
-- **Review memory regularly**: Use `/mem` to see what's been learned
-- **Clear memory when needed**: Use `/mem clear` for fresh starts
-- **Export important facts**: Use `/mem export` to save valuable information
 
 ### Tool Integration
 - **Choose relevant tools**: Select tools that match your use case
@@ -386,7 +380,6 @@ pnpm run cli -- chat \
 1. **Conversation Context Loss**: Use memory-enabled chat or `/history` to review
 2. **Slow Responses**: Increase timeout values or switch to faster models
 3. **Tool Failures**: Check tool availability and provide necessary context
-4. **Memory Issues**: Use `/mem clear` to reset memory if it becomes corrupted
 5. **Provider Errors**: Switch providers or check API key configuration
 
 ### Debug Commands
@@ -399,7 +392,7 @@ pnpm run cli -- chat --provider google --model gemini-3-flash-preview --timeout 
 pnpm run cli -- tools list
 
 # Test memory system
-pnpm run cli -- chat --provider ollama --model gemma3:latest --memory
+pnpm run cli -- chat --provider ollama --model gemma3:latest
 
 # Verify file attachments
 pnpm run cli -- chat --provider google --model gemini-3-flash-preview --file ./test.txt

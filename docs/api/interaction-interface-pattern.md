@@ -61,7 +61,7 @@ interface StimulusOptions {
   presencePenalty?: number;
 
   // Runner
-  runnerType?: 'base' | 'memory';   // 'memory' enables automatic fact extraction
+  runnerType?: 'base';              // Compatibility-only; Interaction uses base runner
 
   // Context
   systemContext?: string;            // Additional system context
@@ -161,7 +161,6 @@ const stimulus = new Stimulus({
   objective: "be conversational, engaging, and helpful",
   instructions: ["Be concise", "Use tools when needed"],
   tools: { calculator: calculatorTool },
-  runnerType: 'memory',    // Remember facts across messages
   maxToolSteps: 5
 });
 
@@ -181,7 +180,6 @@ const r2 = await interaction.chat("What do you remember about me?");
 const stimulus = new Stimulus({
   role: "evaluation system",
   objective: "provide precise, structured responses",
-  runnerType: 'base',
   temperature: 0.1,
   maxTokens: 1000
 });
@@ -211,7 +209,6 @@ const stimulus = new Stimulus({
     markify: markifyTool,
     calculator: calculatorTool
   },
-  runnerType: 'memory',
   maxToolSteps: 10,
   temperature: 0.7
 });

@@ -201,7 +201,6 @@ describe('CLIInterface', () => {
       expect(registry.hasCommand('/?')).toBe(true);
       expect(registry.hasCommand('/reset')).toBe(true);
       expect(registry.hasCommand('/history')).toBe(true);
-      expect(registry.hasCommand('/mem')).toBe(true);
       expect(registry.hasCommand('/exit')).toBe(true);
     });
 

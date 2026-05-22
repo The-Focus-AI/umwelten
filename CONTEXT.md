@@ -13,12 +13,16 @@ A persisted conversation artifact produced by a tool such as pi, Claude Code, Cu
 _Avoid_: Interaction when referring to tool-specific storage
 
 **Exploration**:
-A queryable grouping of one or more **Source Sessions** and their derived **Interactions** that can be reflected on as one coherent undertaking.
-_Avoid_: Session abstraction, conversation bundle, session tree
+A line of inquiry represented by one or more **Source Sessions** and their derived **Interactions**.
+_Avoid_: Question, session abstraction, conversation bundle, session tree
 
 **Saved Exploration**:
 A named **Exploration** persisted in the project so it can be referenced later.
 _Avoid_: Folder, collection, saved search when referring to the domain concept
+
+**Exploration Browser**:
+The user-facing workspace for inspecting **Explorations** and launching **Reflections** about them.
+_Avoid_: Knowledge browser, browse session
 
 **Project Fact**:
 Stable knowledge about this codebase or project that helps future work.
@@ -38,7 +42,11 @@ _Avoid_: Memory when it is only a holding-area answer
 
 **Skill**:
 A reusable procedure derived from past work.
-_Avoid_: Playbook, learning
+_Avoid_: Playbook, learning, skill candidate when referring to the promoted artifact
+
+**Skill Candidate**:
+A possible **Skill** identified during **Reflection** or digest extraction but not yet promoted.
+_Avoid_: Playbook, procedure finding
 
 **Artifact**:
 A dated output produced from an **Exploration** for human use or publication.
@@ -51,11 +59,16 @@ _Avoid_: Report when referring to the general category
 - An **Exploration** may combine multiple **Source Sessions** when they belong to the same line of inquiry.
 - Search results and inferred groupings may be virtual **Explorations** until a user or agent names and saves them.
 - A **Saved Exploration** gives an **Exploration** a stable project-local name for later reference.
+- The **Exploration Browser** presents **Explorations** and can launch **Reflections** about them.
 - Project-local Umwelten files should be human-readable and hand-editable by default.
+- Working data produced by the **Exploration Browser** lives under the project-local `.umwelten/` directory.
+- When extracting working data, the **Exploration Browser** should prioritize the newest undigested **Explorations** first.
+- Confirmed extraction should process both missing and stale working data.
 - An **Exploration** contains one or more **Interactions** connected by relationships such as forks, handoffs, alternatives, cleaned paths, and derived outputs.
 - An **Interaction** may belong to one or more **Explorations**.
 - **Reflection** uses the existing model runner by constructing a new **Interaction** whose context includes relevant material from other **Interactions** or **Explorations**.
 - A reflective **Interaction** produces answers; an agent may save those answers as **Saved Reflections** or promote them into durable **Memory**.
+- A **Skill Candidate** may be promoted into a **Skill**.
 - A **Skill** is a procedural kind of **Memory**.
 - A **Project Fact** should live in the top-level `FACTS.md` file.
 - `FACTS.md` is freeform Markdown, not a marker-managed machine section.
@@ -76,3 +89,5 @@ _Avoid_: Report when referring to the general category
 ## Flagged ambiguities
 
 - "session" was used to mean raw model context, saved transcript, external tool history, and grouped work. Resolved: use **Interaction** for the model-facing conversation, **Source Session** for tool-specific persisted history, and **Exploration** for the grouping across related work.
+- "knowledge browser" and "browse session" were used for the same user-facing workflow. Resolved: use **Exploration Browser** for the entrypoint, and reserve **Reflection**, **Memory**, **Project Fact**, and **Skill** for the knowledge objects/actions it surfaces.
+- "playbook" was used for reusable procedures found during extraction. Resolved: use **Skill Candidate** before promotion and **Skill** after promotion.

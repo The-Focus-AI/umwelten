@@ -328,7 +328,7 @@ DEBUG=1 pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calc
 Combine tools with memory for persistent context:
 
 ```bash
-pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator --memory
+pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator
 ```
 
 ### Structured Output

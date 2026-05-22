@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { readFile } from "node:fs/promises";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readFile, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { PiSessionAdapter, type ParsedPiSession } from "./pi-adapter.js";
@@ -293,3 +293,88 @@ describe("PiSessionAdapter — entry parsing", () => {
 		expect(parsed!.entries.length).toBe(1); // only parses the valid entry
 	});
 });
+
+// ── Project-local sessions ───────────────────────────────────────────────
+
+describe("PiSessionAdapter — project-local sessions", () => {
+	let testProjectDir: string;
+	let localSessionsDir: string;
+	let adapter: PiSessionAdapter;
+
+	beforeEach(async () => {
+		const { tmpdir } = await import("node:os");
+		testProjectDir = join(tmpdir(), `pi-local-test-${Date.now()}`);
+		localSessionsDir = join(testProjectDir, ".pi", "sessions");
+		await mkdir(localSessionsDir, { recursive: true });
+		adapter = new PiSessionAdapter();
+	});
+
+	afterEach(async () => {
+		try {
+			await rm(testProjectDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	it("discovers sessions from project-local directory and assigns piloc prefix", async () => {
+		// Create a mock session JSONL file
+		const mockSessionContent = [
+			'{"type":"session","version":3,"id":"mock-session-123","timestamp":"2026-05-15T12:00:00Z","cwd":"/mock/project"}',
+			'{"type":"message","id":"msg1","parentId":null,"timestamp":"2026-05-15T12:00:05Z","message":{"role":"user","content":[{"type":"text","text":"hello local"}],"timestamp":1778400005000}}',
+			'{"type":"message","id":"msg2","parentId":"msg1","timestamp":"2026-05-15T12:00:10Z","message":{"role":"assistant","content":[{"type":"text","text":"response local"}],"usage":{"input":10,"output":20,"totalTokens":30,"cost":{"input":0.001,"output":0.002,"total":0.003}},"stopReason":"stop"}}'
+		].join("\n");
+
+		await writeFile(join(localSessionsDir, "session1.jsonl"), mockSessionContent);
+
+		const result = await adapter.discoverSessions({ projectPath: testProjectDir });
+		expect(result.sessions).toHaveLength(1);
+		const entry = result.sessions[0];
+		expect(entry.id).toBe(`piloc:${testProjectDir}:session1.jsonl`);
+		expect(entry.source).toBe("pi");
+		expect(entry.projectPath).toBe(testProjectDir);
+		expect(entry.messageCount).toBe(2);
+		expect(entry.metrics.userMessages).toBe(1);
+		expect(entry.metrics.assistantMessages).toBe(1);
+		expect(entry.metrics.toolCalls).toBe(0);
+		expect(entry.metrics.totalTokens).toBe(30);
+		expect(entry.metrics.estimatedCost).toBe(0.003);
+	});
+
+	it("resolveSessionId decodes piloc: prefix correctly", () => {
+		const sessionId = `piloc:${testProjectDir}:session1.jsonl`;
+		const [resolvedProj, resolvedFile] = (adapter as any).resolveSessionId(sessionId);
+		expect(resolvedProj).toBe(testProjectDir);
+		expect(resolvedFile).toBe(join(localSessionsDir, "session1.jsonl"));
+	});
+
+	it("getSessionEntry, getSession, and getMessages work for local sessions", async () => {
+		const mockSessionContent = [
+			'{"type":"session","version":3,"id":"mock-session-123","timestamp":"2026-05-15T12:00:00Z","cwd":"/mock/project"}',
+			'{"type":"message","id":"msg1","parentId":null,"timestamp":"2026-05-15T12:00:05Z","message":{"role":"user","content":[{"type":"text","text":"hello local"}],"timestamp":1778400005000}}',
+			'{"type":"message","id":"msg2","parentId":"msg1","timestamp":"2026-05-15T12:00:10Z","message":{"role":"assistant","content":[{"type":"text","text":"response local"}],"usage":{"input":10,"output":20,"totalTokens":30,"cost":{"input":0.001,"output":0.002,"total":0.003}},"stopReason":"stop"}}'
+		].join("\n");
+
+		await writeFile(join(localSessionsDir, "session1.jsonl"), mockSessionContent);
+		const sessionId = `piloc:${testProjectDir}:session1.jsonl`;
+
+		// Test getSessionEntry
+		const entry = await adapter.getSessionEntry(sessionId);
+		expect(entry).not.toBeNull();
+		expect(entry!.id).toBe(sessionId);
+		expect(entry!.messageCount).toBe(2);
+
+		// Test getSession
+		const session = await adapter.getSession(sessionId);
+		expect(session).not.toBeNull();
+		expect(session!.id).toBe(sessionId);
+		expect(session!.messages).toHaveLength(2);
+		expect(session!.messages[0].content).toBe("hello local");
+
+		// Test getMessages
+		const messages = await adapter.getMessages(sessionId);
+		expect(messages).toHaveLength(2);
+		expect(messages[1].content).toBe("response local");
+	});
+});
+

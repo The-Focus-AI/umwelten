@@ -10,7 +10,7 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 - **[Core Classes](/api/core-classes)**: Essential classes — BaseModelRunner, Interaction, EvaluationRunner
 - **[Providers](/api/providers)**: Working with Google, OpenRouter, Ollama, LM Studio, LlamaBarn, llama-swap, GitHub Models, Fireworks, and MiniMax
 - **[Tools](/api/tools)**: Stimulus tools and Habitat tool sets
-- **[Memory System](/api/memory)**: Conversation memory and fact extraction
+- **[Memory Helpers](/api/memory)**: Explicit conversation fact extraction and reconciliation
 - **[Evaluation Framework](/api/evaluation-framework)**: Building custom evaluation logic and runners
 - **[Schema Validation](/api/schemas)**: Zod schemas and structured output validation
 
@@ -34,7 +34,6 @@ const stimulus = new Stimulus({
   objective: "be conversational and helpful",
   instructions: ["Be concise", "Use tools when needed"],
   tools: { calculator: calculatorTool },
-  runnerType: 'memory',    // automatic fact extraction
   maxToolSteps: 5
 });
 

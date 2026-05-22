@@ -30,8 +30,8 @@ export type StimulusOptions = {
   topP?: number;
   frequencyPenalty?: number;
   presencePenalty?: number;
-  // NEW: Runner configuration
-  runnerType?: 'base' | 'memory';
+  /** Compatibility-only: interactions always use the base runner. */
+  runnerType?: 'base';
   // Additional context
   systemContext?: string;
   // Skills (optional): direct list and/or load from dirs / git
@@ -97,8 +97,13 @@ export class Stimulus {
     return this.options.maxTokens;
   }
 
-  get runnerType(): 'base' | 'memory' | undefined {
-    return this.options.runnerType;
+  /**
+   * Interactions always use the base runner. Kept as a read-only compatibility
+   * accessor for older stimulus presets/tests; runner selection is no longer
+   * configurable through Stimulus.
+   */
+  get runnerType(): 'base' {
+    return this.options.runnerType ?? 'base';
   }
 
   get topP(): number | undefined {
@@ -165,9 +170,13 @@ export class Stimulus {
            this.options.presencePenalty !== undefined;
   }
 
-  // NEW: Runner type methods
-  getRunnerType(): 'base' | 'memory' {
-    return this.options.runnerType || 'base';
+  /**
+   * Interactions always use the base runner. Kept as a read-only compatibility
+   * method for older stimulus presets/tests; runner selection is no longer
+   * configurable through Stimulus.
+   */
+  getRunnerType(): 'base' {
+    return 'base';
   }
 
   /** Load skills from options.skillsDirs and options.skillsFromGit; merge into registry. No-op if only options.skills was set (already built in constructor). Git repos are cloned into options.skillsCacheRoot (work/session scoped); no global cache. */

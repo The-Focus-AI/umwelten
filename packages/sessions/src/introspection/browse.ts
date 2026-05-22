@@ -18,9 +18,7 @@ import {
 	buildSessionEntryFromFile,
 } from "@umwelten/core/interaction/persistence/session-store.js";
 import { projectSessions } from "@umwelten/core/interaction/projection/index.js";
-import {
-	createVirtualExploration,
-} from "@umwelten/core/interaction/types/domain-types.js";
+import { createVirtualExploration } from "@umwelten/core/interaction/types/domain-types.js";
 import type {
 	Exploration,
 	SourceSession,
@@ -29,32 +27,40 @@ import type { SessionDigest } from "@umwelten/core/interaction/analysis/analysis
 
 export type SessionSourceKind = "claude-code" | "habitat" | "pi";
 
-/** Path convention: digests are written to ~/.umwelten/digests/sessions/<id>.json */
-export function getDigestPath(sessionId: string): string {
+function digestFilename(sessionId: string): string {
+	return `${encodeURIComponent(sessionId)}.json`;
+}
+
+/** Path convention: digests are written to <project>/.umwelten/digests/sessions/<encoded-id>.json */
+export function getDigestPath(projectPath: string, sessionId: string): string {
 	return join(
-		homedir(),
+		projectPath,
 		".umwelten",
 		"digests",
 		"sessions",
-		`${sessionId}.json`,
+		digestFilename(sessionId),
 	);
 }
 
 export async function loadDigest(
+	projectPath: string,
 	sessionId: string,
 ): Promise<SessionDigest | null> {
 	try {
-		const text = await readFile(getDigestPath(sessionId), "utf-8");
+		const text = await readFile(getDigestPath(projectPath, sessionId), "utf-8");
 		return JSON.parse(text) as SessionDigest;
 	} catch {
 		return null;
 	}
 }
 
-export async function saveDigest(digest: SessionDigest): Promise<string> {
+export async function saveDigest(
+	projectPath: string,
+	digest: SessionDigest,
+): Promise<string> {
 	const { mkdir, writeFile } = await import("node:fs/promises");
 	const { dirname } = await import("node:path");
-	const path = getDigestPath(digest.sessionId);
+	const path = getDigestPath(projectPath, digest.sessionId);
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, JSON.stringify(digest, null, 2), "utf-8");
 	return path;
@@ -271,7 +277,7 @@ export async function buildBrowse(
 	// ---- 5. Load digests in parallel (cheap filesystem reads; missing is fine) ----
 	await Promise.all(
 		entries.map(async (e) => {
-			e.digest = await loadDigest(e.id);
+			e.digest = await loadDigest(projectPath, e.id);
 		}),
 	);
 
@@ -321,13 +327,17 @@ export function resolveSessionFilePath(
 	_sessionId: string,
 	sourceData?: Record<string, unknown>,
 ): string | undefined {
-	// pi sessions: reconstruct from sourceData
+	const explicitFilePath = sourceData?.["filePath"];
+	if (typeof explicitFilePath === "string" && explicitFilePath.length > 0) {
+		return explicitFilePath;
+	}
+
+	// pi sessions: reconstruct from sourceData for older entries that do not
+	// carry an explicit file path.
 	if (source === "pi" && sourceData) {
-		// sourceData.cwd has the working directory, filename has the JSONL name
 		const filename = sourceData["filename"] as string | undefined;
 		if (!filename) return undefined;
 		const cwd = (sourceData["cwd"] as string) ?? "";
-		// Encode the cwd path to pi's directory format
 		const encoded = "--" + cwd.replace(/\//g, "-").replace(/^-/, "") + "--";
 		return join(homedir(), ".pi", "agent", "sessions", encoded, filename);
 	}
@@ -359,6 +369,9 @@ export async function buildExploreBrowse(opts: BuildBrowseOptions): Promise<{
 
 	// ---- 3. Build browser entries from explorations ----
 	const entries: ExplorationBrowserEntry[] = [];
+	const sourceSessionsById = new Map(
+		projection.sourceSessions.map((session) => [session.id, session]),
+	);
 
 	for (const projectionSource of projection.sources) {
 		for (const exploration of projection.explorations) {
@@ -371,9 +384,9 @@ export async function buildExploreBrowse(opts: BuildBrowseOptions): Promise<{
 			// Resolve modifiedMs from the exploration's timestamps
 			const modifiedMs = new Date(exploration.modified).getTime();
 
-			// Reconstruct the SourceSession for this entry
-			// (the projection already built it internally; we rebuild browser metadata here)
-			const sourceSession: SourceSession = {
+			const sourceSession: SourceSession = sourceSessionsById.get(
+				member.sourceSessionId,
+			) ?? {
 				id: member.sourceSessionId,
 				source: member.source,
 				sourceId: member.sourceSessionId,
@@ -436,7 +449,7 @@ export async function buildExploreBrowse(opts: BuildBrowseOptions): Promise<{
 	// ---- 4. Load digests in parallel ----
 	await Promise.all(
 		entries.map(async (e) => {
-			e.digest = await loadDigest(e.sourceSession.id);
+			e.digest = await loadDigest(projectPath, e.sourceSession.id);
 		}),
 	);
 
@@ -497,7 +510,9 @@ export function searchToVirtualExploration(
 			e.digest?.overallSummary ?? "",
 			...(e.digest?.analysis.tags ?? []),
 			...(e.digest?.analysis.topics ?? []),
-		].join(" ").toLowerCase();
+		]
+			.join(" ")
+			.toLowerCase();
 		return hay.includes(q);
 	});
 

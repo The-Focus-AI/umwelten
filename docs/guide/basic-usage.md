@@ -90,7 +90,7 @@ Start an interactive conversation:
 pnpm run cli -- chat --provider ollama --model gemma3:12b
 
 # Chat with memory enabled
-pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 
 # Chat with tools
 pnpm run cli -- chat --provider ollama --model qwen3:latest --tools calculator,statistics

@@ -31,7 +31,7 @@ For **on-disk Habitat sessions** (under your habitat `sessions/` directory), Umw
 
 - **`transcript.jsonl`** — live tail (full JSONL, same shape as other tools).
 - **`transcript.{ISO}.jsonl`** — frozen segments after **compaction** (older history).
-- **Per-kind learnings** — append-only `facts.jsonl`, `playbooks.jsonl`, `preferences.jsonl`, `open_loops.jsonl`, `mistakes.jsonl` in the same session directory.
+- **Per-kind learnings** — append-only `facts.jsonl`, `skill_candidates.jsonl`, `preferences.jsonl`, `open_loops.jsonl`, `mistakes.jsonl` in the same session directory.
 
 **Claude Code transcripts** stay read-only under `~/.claude/projects/…/{uuid}.jsonl`. Umwelten can still append learnings for that UUID under **`{habitatWorkDir}/.umwelten/learnings/claude/{safeKey}/`**.
 

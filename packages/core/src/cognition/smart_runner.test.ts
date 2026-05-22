@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { SmartModelRunner, RunnerHook, RunnerAbort, RunnerModification } from "./smart_runner.js";
 import { BaseModelRunner } from "./runner.js";
 import { Interaction } from "../interaction/core/interaction.js";
-import { InMemoryMemoryStore } from "../memory/memory_store.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 
 describe("SmartModelRunner", () => {
@@ -54,7 +53,6 @@ describe("SmartModelRunner", () => {
 
     const runner = new SmartModelRunner({
       baseRunner: new DummyBaseRunner(),
-      memoryStore: new InMemoryMemoryStore(),
       beforeHooks: [beforeHook],
       duringHooks: [duringHook],
       afterHooks: [afterHook],
@@ -68,7 +66,6 @@ describe("SmartModelRunner", () => {
     const beforeHook: RunnerHook = async (ctx) => new RunnerAbort("fail");
     const runner = new SmartModelRunner({
       baseRunner: new DummyBaseRunner(),
-      memoryStore: new InMemoryMemoryStore(),
       beforeHooks: [beforeHook],
     });
     await expect(runner.generateText(makeConversation())).rejects.toThrow("Aborted by before hook");
@@ -85,7 +82,6 @@ describe("SmartModelRunner", () => {
     };
     const runner = new SmartModelRunner({
       baseRunner: new DummyBaseRunner(),
-      memoryStore: new InMemoryMemoryStore(),
       beforeHooks: [beforeHook],
       duringHooks: [duringHook],
     });
@@ -100,7 +96,6 @@ describe("SmartModelRunner", () => {
 
     const runner = new SmartModelRunner({
       baseRunner: new DummyBaseRunner(),
-      memoryStore: new InMemoryMemoryStore(),
       beforeHooks: [beforeHook],
       duringHooks: [duringHook],
       afterHooks: [afterHook],

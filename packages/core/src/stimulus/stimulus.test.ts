@@ -98,14 +98,6 @@ describe('Enhanced Stimulus', () => {
     });
   });
 
-  it('should specify runner type', () => {
-    const stimulus = new Stimulus({
-      role: "assistant",
-      runnerType: 'memory'
-    });
-    expect(stimulus.getRunnerType()).toBe('memory');
-  });
-
   it('surfaces toolInstructions but does not enumerate tools (delivered via SDK)', () => {
     const stimulus = new Stimulus({
       role: "math tutor",

@@ -1,38 +1,42 @@
-import { Command } from 'commander';
-import { cwd } from 'node:process';
-import { resolve, join, basename } from 'node:path';
-import { stat } from 'node:fs/promises';
-import chalk from 'chalk';
-import Table from 'cli-table3';
+import { Command } from "commander";
+import { cwd } from "node:process";
+import { resolve, join, basename } from "node:path";
+import { stat } from "node:fs/promises";
+import chalk from "chalk";
+import Table from "cli-table3";
 import {
-  getProjectSessionsIncludingFromDirectory,
-  hasAnalysisIndex,
-  buildSessionEntryFromFile,
-  discoverSessionFilesInProject,
-  getClaudeProjectPath,
-} from '@umwelten/core/interaction/persistence/session-store.js';
-import type { SessionIndexEntry } from '@umwelten/core/interaction/types/types.js';
-import { indexProject } from '@umwelten/core/interaction/persistence/session-indexer.js';
+	getProjectSessionsIncludingFromDirectory,
+	hasAnalysisIndex,
+	buildSessionEntryFromFile,
+	discoverSessionFilesInProject,
+	getClaudeProjectPath,
+} from "@umwelten/core/interaction/persistence/session-store.js";
+import type { SessionIndexEntry } from "@umwelten/core/interaction/types/types.js";
+import { indexProject } from "@umwelten/core/interaction/persistence/session-indexer.js";
 import {
-  searchSessions,
-  formatSearchResults,
-  formatSearchResultsJSON,
-  getTopTopics,
-  getTopTools,
-  getPatterns,
-} from '@umwelten/core/interaction/analysis/session-search.js';
-import type { SearchOptions } from '@umwelten/core/interaction/analysis/analysis-types.js';
-import { getAdapterRegistry } from '@umwelten/core/interaction/adapters/index.js';
-import type { NormalizedSessionEntry, SessionSource } from '@umwelten/core/interaction/types/normalized-types.js';
-import { FileLearningsStore } from '@umwelten/core/session-record/learnings-store.js';
-import type { LearningKind } from '@umwelten/core/session-record/types.js';
-import { LEARNING_KINDS } from '@umwelten/core/session-record/types.js';
-import { resolveClaudeCodeSessionHandle } from '@umwelten/core/session-record/resolve-claude.js';
-import { compactHabitatTranscriptSegment } from '@umwelten/core/session-record/compaction-habitat.js';
-import { registerSessionsHabitatCommands } from './sessions-habitat.js';
+	searchSessions,
+	formatSearchResults,
+	formatSearchResultsJSON,
+	getTopTopics,
+	getTopTools,
+	getPatterns,
+} from "@umwelten/core/interaction/analysis/session-search.js";
+import type { SearchOptions } from "@umwelten/core/interaction/analysis/analysis-types.js";
+import { getAdapterRegistry } from "@umwelten/core/interaction/adapters/index.js";
+import type {
+	NormalizedSessionEntry,
+	SessionSource,
+} from "@umwelten/core/interaction/types/normalized-types.js";
+import { FileLearningsStore } from "@umwelten/core/session-record/learnings-store.js";
+import type { LearningKind } from "@umwelten/core/session-record/types.js";
+import { LEARNING_KINDS } from "@umwelten/core/session-record/types.js";
+import { resolveClaudeCodeSessionHandle } from "@umwelten/core/session-record/resolve-claude.js";
+import { compactHabitatTranscriptSegment } from "@umwelten/core/session-record/compaction-habitat.js";
+import { registerSessionsHabitatCommands } from "./sessions-habitat.js";
 
-export const sessionsCommand = new Command('sessions')
-  .description('View and analyze sessions (Claude Code, Cursor) and native Habitat transcripts');
+export const sessionsCommand = new Command("sessions").description(
+	"View and analyze sessions (Claude Code, Cursor) and native Habitat transcripts",
+);
 
 /**
  * Look up a single session by id (full or prefix) without requiring a full index.
@@ -46,2781 +50,3590 @@ export const sessionsCommand = new Command('sessions')
  * Returns a fully-populated SessionIndexEntry (streams the file for metadata when needed).
  */
 async function findSessionById(
-  projectPath: string,
-  sessionId: string
+	projectPath: string,
+	sessionId: string,
 ): Promise<SessionIndexEntry | null> {
-  if (!sessionId) return null;
+	if (!sessionId) return null;
 
-  const claudeDir = getClaudeProjectPath(projectPath);
+	const claudeDir = getClaudeProjectPath(projectPath);
 
-  // 1. Direct file path (full UUID case)
-  const directPath = join(claudeDir, `${sessionId}.jsonl`);
-  try {
-    await stat(directPath);
-    return await buildSessionEntryFromFile(directPath, projectPath);
-  } catch {
-    // Not a full UUID or file doesn't exist — fall through
-  }
+	// 1. Direct file path (full UUID case)
+	const directPath = join(claudeDir, `${sessionId}.jsonl`);
+	try {
+		await stat(directPath);
+		return await buildSessionEntryFromFile(directPath, projectPath);
+	} catch {
+		// Not a full UUID or file doesn't exist — fall through
+	}
 
-  // 2. Prefix match against directory listing
-  const files = await discoverSessionFilesInProject(projectPath);
-  const match = files.find((f) => basename(f, '.jsonl').startsWith(sessionId));
-  if (match) {
-    return await buildSessionEntryFromFile(match, projectPath);
-  }
+	// 2. Prefix match against directory listing (Claude Code JSONL)
+	const files = await discoverSessionFilesInProject(projectPath);
+	const match = files.find((f) => basename(f, ".jsonl").startsWith(sessionId));
+	if (match) {
+		return await buildSessionEntryFromFile(match, projectPath);
+	}
 
-  // 3. Fall back to merged index + directory (preserves any edge cases)
-  try {
-    const entries = await getProjectSessionsIncludingFromDirectory(projectPath);
-    return (
-      entries.find(
-        (e) => e.sessionId === sessionId || e.sessionId.startsWith(sessionId)
-      ) ?? null
-    );
-  } catch {
-    return null;
-  }
+	// 3. Adapter-based lookup (pi, cursor, habitat, etc.)
+	// Try each adapter: call discoverSessions and find prefix match.
+	const registry = getAdapterRegistry();
+	const adapters = await registry.detectAdapters(projectPath);
+	for (const adapter of adapters) {
+		try {
+			const result = await adapter.discoverSessions({
+				projectPath,
+				sortBy: "modified",
+				sortOrder: "desc",
+				limit: 200,
+			});
+			const match = result.sessions.find(
+				(s) =>
+					s.id === sessionId ||
+					s.id.startsWith(sessionId) ||
+					s.sourceId?.startsWith(sessionId),
+			);
+			if (match) {
+				return {
+					sessionId: match.id,
+					source: match.source,
+					firstPrompt: match.firstPrompt ?? "",
+					messageCount: match.messageCount ?? 0,
+					created: match.created ?? "",
+					modified: match.modified ?? "",
+					gitBranch: match.gitBranch ?? "",
+					projectPath: match.projectPath ?? projectPath,
+					isSidechain: false,
+					fileMtime: 0,
+				};
+			}
+		} catch {
+			// Try next adapter
+		}
+	}
+
+	// 4. Fall back to merged index + directory (preserves any edge cases)
+	try {
+		const entries = await getProjectSessionsIncludingFromDirectory(projectPath);
+		return (
+			entries.find(
+				(e) => e.sessionId === sessionId || e.sessionId.startsWith(sessionId),
+			) ?? null
+		);
+	} catch {
+		return null;
+	}
 }
 
 /**
  * Resolve session for show/messages/stats: from project (lazy lookup), or from --file / --session-dir (Jeeves-style).
  */
 async function resolveSessionEntry(
-  projectPath: string,
-  sessionId: string,
-  filePath?: string,
-  sessionDir?: string
+	projectPath: string,
+	sessionId: string,
+	filePath?: string,
+	sessionDir?: string,
 ): Promise<SessionIndexEntry | null> {
-  if (filePath) {
-    const full = resolve(filePath);
-    try {
-      await stat(full);
-    } catch {
-      return null;
-    }
-    const dir = basename(resolve(full, '..'));
-    return {
-      sessionId: dir,
-      fullPath: full,
-      fileMtime: 0,
-      firstPrompt: '',
-      messageCount: 0,
-      created: '',
-      modified: '',
-      gitBranch: '',
-      projectPath: resolve(full, '..', '..'),
-      isSidechain: false,
-    };
-  }
-  if (sessionDir) {
-    const full = join(resolve(sessionDir), 'transcript.jsonl');
-    try {
-      await stat(full);
-    } catch {
-      return null;
-    }
-    const dirName = basename(resolve(sessionDir));
-    return {
-      sessionId: dirName,
-      fullPath: full,
-      fileMtime: 0,
-      firstPrompt: '',
-      messageCount: 0,
-      created: '',
-      modified: '',
-      gitBranch: '',
-      projectPath: resolve(sessionDir, '..'),
-      isSidechain: false,
-    };
-  }
-  return findSessionById(projectPath, sessionId);
+	if (filePath) {
+		const full = resolve(filePath);
+		try {
+			await stat(full);
+		} catch {
+			return null;
+		}
+		const dir = basename(resolve(full, ".."));
+		return {
+			sessionId: dir,
+			fullPath: full,
+			fileMtime: 0,
+			firstPrompt: "",
+			messageCount: 0,
+			created: "",
+			modified: "",
+			gitBranch: "",
+			projectPath: resolve(full, "..", ".."),
+			isSidechain: false,
+		};
+	}
+	if (sessionDir) {
+		const full = join(resolve(sessionDir), "transcript.jsonl");
+		try {
+			await stat(full);
+		} catch {
+			return null;
+		}
+		const dirName = basename(resolve(sessionDir));
+		return {
+			sessionId: dirName,
+			fullPath: full,
+			fileMtime: 0,
+			firstPrompt: "",
+			messageCount: 0,
+			created: "",
+			modified: "",
+			gitBranch: "",
+			projectPath: resolve(sessionDir, ".."),
+			isSidechain: false,
+		};
+	}
+	return findSessionById(projectPath, sessionId);
 }
 
 // Helper functions
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+	const date = new Date(dateStr);
+	const now = new Date();
+	const diffMs = now.getTime() - date.getTime();
+	const diffHours = diffMs / (1000 * 60 * 60);
+	const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
-  if (diffHours < 1) {
-    const minutes = Math.floor(diffMs / (1000 * 60));
-    return `${minutes}m ago`;
-  } else if (diffHours < 24) {
-    return `${Math.floor(diffHours)}h ago`;
-  } else if (diffDays < 7) {
-    return `${Math.floor(diffDays)}d ago`;
-  }
+	if (diffHours < 1) {
+		const minutes = Math.floor(diffMs / (1000 * 60));
+		return `${minutes}m ago`;
+	} else if (diffHours < 24) {
+		return `${Math.floor(diffHours)}h ago`;
+	} else if (diffDays < 7) {
+		return `${Math.floor(diffDays)}d ago`;
+	}
 
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  });
+	return date.toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+	});
 }
 
 function truncatePrompt(prompt: string, maxLength: number = 50): string {
-  if (prompt.length <= maxLength) return prompt;
-  return prompt.slice(0, maxLength - 3) + '...';
+	if (prompt.length <= maxLength) return prompt;
+	return prompt.slice(0, maxLength - 3) + "...";
 }
 
 function shortSessionId(sessionId: string): string {
-  return sessionId.split('-')[0];
+	return sessionId.split("-")[0];
 }
 
 function formatDuration(durationMs: number): string {
-  const seconds = Math.floor(durationMs / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+	const seconds = Math.floor(durationMs / 1000);
+	const minutes = Math.floor(seconds / 60);
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours / 24);
 
-  if (days > 0) {
-    return `${days}d ${hours % 24}h`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
+	if (days > 0) {
+		return `${days}d ${hours % 24}h`;
+	} else if (hours > 0) {
+		return `${hours}h ${minutes % 60}m`;
+	} else if (minutes > 0) {
+		return `${minutes}m ${seconds % 60}s`;
+	} else {
+		return `${seconds}s`;
+	}
 }
 
 interface ListOptions {
-  project: string;
-  limit: string;
-  branch?: string;
-  sort: 'created' | 'modified' | 'messages';
-  source?: string;
-  json?: boolean;
+	project: string;
+	limit: string;
+	branch?: string;
+	sort: "created" | "modified" | "messages";
+	source?: string;
+	json?: boolean;
 }
 
 // Source color mapping
 function getSourceColor(source: SessionSource): (text: string) => string {
-  switch (source) {
-    case 'claude-code':
-      return chalk.blue;
-    case 'cursor':
-      return chalk.magenta;
-    default:
-      return chalk.gray;
-  }
+	switch (source) {
+		case "claude-code":
+			return chalk.blue;
+		case "cursor":
+			return chalk.magenta;
+		default:
+			return chalk.gray;
+	}
 }
 
 function getSourceLabel(source: SessionSource): string {
-  switch (source) {
-    case 'claude-code':
-      return 'Claude';
-    case 'cursor':
-      return 'Cursor';
-    default:
-      return source;
-  }
+	switch (source) {
+		case "claude-code":
+			return "Claude";
+		case "cursor":
+			return "Cursor";
+		default:
+			return source;
+	}
 }
 
 // List subcommand
 sessionsCommand
-  .command('list')
-  .description('List sessions for a project (auto-detects Claude Code and Cursor)')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--limit <number>', 'Number of sessions to show', '10')
-  .option('--branch <branch>', 'Filter by git branch')
-  .option('--sort <field>', 'Sort by field (created, modified, messages)', 'modified')
-  .option('--source <source>', 'Filter by source (claude-code, cursor, all)', 'all')
-  .option('--json', 'Output in JSON format')
-  .action(async (options: ListOptions) => {
-    try {
-      const projectPath = resolve(options.project);
-      const registry = getAdapterRegistry();
-      const limit = parseInt(options.limit);
-      const sourceFilter = options.source || 'all';
+	.command("list")
+	.description(
+		"List sessions for a project (auto-detects Claude Code and Cursor)",
+	)
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option("--limit <number>", "Number of sessions to show", "10")
+	.option("--branch <branch>", "Filter by git branch")
+	.option(
+		"--sort <field>",
+		"Sort by field (created, modified, messages)",
+		"modified",
+	)
+	.option(
+		"--source <source>",
+		"Filter by source (claude-code, cursor, all)",
+		"all",
+	)
+	.option("--json", "Output in JSON format")
+	.action(async (options: ListOptions) => {
+		try {
+			const projectPath = resolve(options.project);
+			const registry = getAdapterRegistry();
+			const limit = parseInt(options.limit);
+			const sourceFilter = options.source || "all";
 
-      // Collect sessions from all requested sources
-      const allSessions: NormalizedSessionEntry[] = [];
-      const sourceCounts: Record<string, number> = {};
+			// Collect sessions from all requested sources
+			const allSessions: NormalizedSessionEntry[] = [];
+			const sourceCounts: Record<string, number> = {};
 
-      // Get adapters to query
-      const adaptersToQuery =
-        sourceFilter === 'all'
-          ? registry.getAll()
-          : [registry.get(sourceFilter as SessionSource)].filter(Boolean);
+			// Get adapters to query
+			const adaptersToQuery =
+				sourceFilter === "all"
+					? registry.getAll()
+					: [registry.get(sourceFilter as SessionSource)].filter(Boolean);
 
-      if (adaptersToQuery.length === 0) {
-        console.error(chalk.red(`Unknown source: ${sourceFilter}`));
-        console.log(chalk.dim('Available sources: claude-code, cursor, all'));
-        process.exit(1);
-      }
+			if (adaptersToQuery.length === 0) {
+				console.error(chalk.red(`Unknown source: ${sourceFilter}`));
+				console.log(chalk.dim("Available sources: claude-code, cursor, all"));
+				process.exit(1);
+			}
 
-      // Query each adapter
-      for (const adapter of adaptersToQuery) {
-        if (!adapter) continue;
+			// Query each adapter
+			for (const adapter of adaptersToQuery) {
+				if (!adapter) continue;
 
-        try {
-          const result = await adapter.discoverSessions({
-            projectPath,
-            gitBranch: options.branch,
-            sortBy: options.sort === 'messages' ? 'messageCount' : options.sort,
-            sortOrder: 'desc',
-          });
+				try {
+					const result = await adapter.discoverSessions({
+						projectPath,
+						gitBranch: options.branch,
+						sortBy: options.sort === "messages" ? "messageCount" : options.sort,
+						sortOrder: "desc",
+					});
 
-          sourceCounts[adapter.source] = result.totalCount;
-          allSessions.push(...result.sessions);
-        } catch {
-          // Source not available for this project, skip silently
-          sourceCounts[adapter.source] = 0;
-        }
-      }
+					sourceCounts[adapter.source] = result.totalCount;
+					allSessions.push(...result.sessions);
+				} catch {
+					// Source not available for this project, skip silently
+					sourceCounts[adapter.source] = 0;
+				}
+			}
 
-      // Group sessions by source for interleaving
-      const sessionsBySource = new Map<string, NormalizedSessionEntry[]>();
-      for (const session of allSessions) {
-        const list = sessionsBySource.get(session.source) || [];
-        list.push(session);
-        sessionsBySource.set(session.source, list);
-      }
+			// Group sessions by source for interleaving
+			const sessionsBySource = new Map<string, NormalizedSessionEntry[]>();
+			for (const session of allSessions) {
+				const list = sessionsBySource.get(session.source) || [];
+				list.push(session);
+				sessionsBySource.set(session.source, list);
+			}
 
-      // Sort each source's sessions
-      const sortFn = (a: NormalizedSessionEntry, b: NormalizedSessionEntry) => {
-        switch (options.sort) {
-          case 'created':
-            return new Date(b.created).getTime() - new Date(a.created).getTime();
-          case 'modified':
-            return new Date(b.modified).getTime() - new Date(a.modified).getTime();
-          case 'messages':
-            return b.messageCount - a.messageCount;
-          default:
-            return 0;
-        }
-      };
+			// Sort each source's sessions
+			const sortFn = (a: NormalizedSessionEntry, b: NormalizedSessionEntry) => {
+				switch (options.sort) {
+					case "created":
+						return (
+							new Date(b.created).getTime() - new Date(a.created).getTime()
+						);
+					case "modified":
+						return (
+							new Date(b.modified).getTime() - new Date(a.modified).getTime()
+						);
+					case "messages":
+						return b.messageCount - a.messageCount;
+					default:
+						return 0;
+				}
+			};
 
-      for (const [_source, sessions] of sessionsBySource) {
-        sessions.sort(sortFn);
-      }
+			for (const [_source, sessions] of sessionsBySource) {
+				sessions.sort(sortFn);
+			}
 
-      // Interleave sessions from different sources to ensure representation
-      // If we have multiple sources, ensure each gets at least a few slots
-      let limitedSessions: NormalizedSessionEntry[];
-      const activeSources = [...sessionsBySource.entries()].filter(([, s]) => s.length > 0);
+			// Interleave sessions from different sources to ensure representation
+			// If we have multiple sources, ensure each gets at least a few slots
+			let limitedSessions: NormalizedSessionEntry[];
+			const activeSources = [...sessionsBySource.entries()].filter(
+				([, s]) => s.length > 0,
+			);
 
-      if (activeSources.length > 1) {
-        // Multiple sources: interleave to guarantee representation
-        // Reserve at least 2 slots per source, then fill remaining with most recent
-        const minPerSource = Math.min(2, Math.floor(limit / activeSources.length));
-        const reserved: NormalizedSessionEntry[] = [];
-        const remaining: NormalizedSessionEntry[] = [];
+			if (activeSources.length > 1) {
+				// Multiple sources: interleave to guarantee representation
+				// Reserve at least 2 slots per source, then fill remaining with most recent
+				const minPerSource = Math.min(
+					2,
+					Math.floor(limit / activeSources.length),
+				);
+				const reserved: NormalizedSessionEntry[] = [];
+				const remaining: NormalizedSessionEntry[] = [];
 
-        for (const [_source, sessions] of activeSources) {
-          // Take the minimum reserved slots from each source
-          reserved.push(...sessions.slice(0, minPerSource));
-          // Put the rest in remaining pool
-          remaining.push(...sessions.slice(minPerSource));
-        }
+				for (const [_source, sessions] of activeSources) {
+					// Take the minimum reserved slots from each source
+					reserved.push(...sessions.slice(0, minPerSource));
+					// Put the rest in remaining pool
+					remaining.push(...sessions.slice(minPerSource));
+				}
 
-        // Sort remaining by the sort criteria
-        remaining.sort(sortFn);
+				// Sort remaining by the sort criteria
+				remaining.sort(sortFn);
 
-        // Combine: reserved first, then fill with remaining up to limit
-        limitedSessions = [...reserved, ...remaining].slice(0, limit);
+				// Combine: reserved first, then fill with remaining up to limit
+				limitedSessions = [...reserved, ...remaining].slice(0, limit);
 
-        // Re-sort the final combined list so display is consistent
-        limitedSessions.sort(sortFn);
-      } else {
-        // Single source: just sort and limit normally
-        allSessions.sort(sortFn);
-        limitedSessions = allSessions.slice(0, limit);
-      }
+				// Re-sort the final combined list so display is consistent
+				limitedSessions.sort(sortFn);
+			} else {
+				// Single source: just sort and limit normally
+				allSessions.sort(sortFn);
+				limitedSessions = allSessions.slice(0, limit);
+			}
 
-      // Output JSON if requested
-      if (options.json) {
-        console.log(
-          JSON.stringify(
-            {
-              sessions: limitedSessions,
-              totalCount: allSessions.length,
-              sourceCounts,
-            },
-            null,
-            2
-          )
-        );
-        return;
-      }
+			// Output JSON if requested
+			if (options.json) {
+				console.log(
+					JSON.stringify(
+						{
+							sessions: limitedSessions,
+							totalCount: allSessions.length,
+							sourceCounts,
+						},
+						null,
+						2,
+					),
+				);
+				return;
+			}
 
-      // Display results
-      if (limitedSessions.length === 0) {
-        console.log(chalk.yellow('\nNo sessions found.'));
+			// Display results
+			if (limitedSessions.length === 0) {
+				console.log(chalk.yellow("\nNo sessions found."));
 
-        // Show which sources were checked
-        const checkedSources = Object.keys(sourceCounts).join(', ');
-        console.log(chalk.dim(`\nChecked sources: ${checkedSources}`));
-        console.log(chalk.dim('Make sure this is a project directory with sessions (Claude Code, Cursor).'));
-        return;
-      }
+				// Show which sources were checked
+				const checkedSources = Object.keys(sourceCounts).join(", ");
+				console.log(chalk.dim(`\nChecked sources: ${checkedSources}`));
+				console.log(
+					chalk.dim(
+						"Make sure this is a project directory with sessions (Claude Code, Cursor).",
+					),
+				);
+				return;
+			}
 
-      // Show source summary
-      const sourcesSummary = Object.entries(sourceCounts)
-        .filter(([, count]) => count > 0)
-        .map(([source, count]) => {
-          const colorFn = getSourceColor(source as SessionSource);
-          return colorFn(`${getSourceLabel(source as SessionSource)}: ${count}`);
-        })
-        .join(', ');
+			// Show source summary
+			const sourcesSummary = Object.entries(sourceCounts)
+				.filter(([, count]) => count > 0)
+				.map(([source, count]) => {
+					const colorFn = getSourceColor(source as SessionSource);
+					return colorFn(
+						`${getSourceLabel(source as SessionSource)}: ${count}`,
+					);
+				})
+				.join(", ");
 
-      console.log(
-        chalk.bold(`\nFound ${allSessions.length} sessions (showing ${limitedSessions.length})`)
-      );
-      if (Object.keys(sourceCounts).length > 1 || sourceFilter === 'all') {
-        console.log(chalk.dim(`Sources: ${sourcesSummary}`));
-      }
-      console.log();
+			console.log(
+				chalk.bold(
+					`\nFound ${allSessions.length} sessions (showing ${limitedSessions.length})`,
+				),
+			);
+			if (Object.keys(sourceCounts).length > 1 || sourceFilter === "all") {
+				console.log(chalk.dim(`Sources: ${sourcesSummary}`));
+			}
+			console.log();
 
-      // Build table with source column
-      const showSourceColumn = sourceFilter === 'all' && Object.keys(sourceCounts).filter(k => sourceCounts[k] > 0).length > 1;
+			// Build table with source column
+			const showSourceColumn =
+				sourceFilter === "all" &&
+				Object.keys(sourceCounts).filter((k) => sourceCounts[k] > 0).length > 1;
 
-      const tableHead = showSourceColumn
-        ? ['Source', 'ID', 'Branch', 'Msgs', 'Modified', 'First Prompt']
-        : ['ID', 'Branch', 'Msgs', 'Modified', 'First Prompt'];
+			const tableHead = showSourceColumn
+				? ["Source", "ID", "Branch", "Msgs", "Modified", "First Prompt"]
+				: ["ID", "Branch", "Msgs", "Modified", "First Prompt"];
 
-      const tableWidths = showSourceColumn
-        ? [8, 10, 12, 6, 10, 45]
-        : [10, 15, 8, 12, 50];
+			const tableWidths = showSourceColumn
+				? [8, 10, 12, 6, 10, 45]
+				: [10, 15, 8, 12, 50];
 
-      const table = new Table({
-        head: tableHead,
-        colWidths: tableWidths,
-        style: {
-          head: [],
-          border: [],
-        },
-      });
+			const table = new Table({
+				head: tableHead,
+				colWidths: tableWidths,
+				style: {
+					head: [],
+					border: [],
+				},
+			});
 
-      for (const session of limitedSessions) {
-        const colorFn = getSourceColor(session.source);
-        const row = showSourceColumn
-          ? [
-              colorFn(getSourceLabel(session.source)),
-              chalk.cyan(shortSessionId(session.sourceId)),
-              session.gitBranch || '-',
-              session.messageCount.toString(),
-              formatDate(session.modified),
-              truncatePrompt(session.firstPrompt, 42),
-            ]
-          : [
-              chalk.cyan(shortSessionId(session.sourceId)),
-              session.gitBranch || '-',
-              session.messageCount.toString(),
-              formatDate(session.modified),
-              truncatePrompt(session.firstPrompt),
-            ];
+			for (const session of limitedSessions) {
+				const colorFn = getSourceColor(session.source);
+				const row = showSourceColumn
+					? [
+							colorFn(getSourceLabel(session.source)),
+							chalk.cyan(shortSessionId(session.sourceId)),
+							session.gitBranch || "-",
+							session.messageCount.toString(),
+							formatDate(session.modified),
+							truncatePrompt(session.firstPrompt, 42),
+						]
+					: [
+							chalk.cyan(shortSessionId(session.sourceId)),
+							session.gitBranch || "-",
+							session.messageCount.toString(),
+							formatDate(session.modified),
+							truncatePrompt(session.firstPrompt),
+						];
 
-        table.push(row);
-      }
+				table.push(row);
+			}
 
-      console.log(table.toString());
+			console.log(table.toString());
 
-      console.log(chalk.dim('\nTip: Use "sessions show <id>" to view details'));
-      console.log(chalk.dim('     Use --source claude-code or --source cursor to filter'));
-    } catch (error) {
-      console.error(chalk.red('Error listing sessions:'), error);
-      process.exit(1);
-    }
-  });
+			console.log(chalk.dim('\nTip: Use "sessions show <id>" to view details'));
+			console.log(
+				chalk.dim("     Use --source claude-code or --source cursor to filter"),
+			);
+		} catch (error) {
+			console.error(chalk.red("Error listing sessions:"), error);
+			process.exit(1);
+		}
+	});
 
 // Show subcommand
 interface ShowOptions {
-  project: string;
-  json?: boolean;
-  file?: string;
-  sessionDir?: string;
+	project: string;
+	json?: boolean;
+	file?: string;
+	sessionDir?: string;
 }
 
 sessionsCommand
-  .command('show')
-  .description('Show details for a specific session')
-  .argument('[session-id]', 'Session ID (omit when using --file or --session-dir)')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--file <path>', 'Load session from transcript JSONL path (e.g. Jeeves session)')
-  .option('--session-dir <path>', 'Load session from directory containing transcript.jsonl (e.g. JEEVES_SESSIONS_DIR/session-id)')
-  .option('--json', 'Output in JSON format')
-  .action(async (sessionId: string, options: ShowOptions) => {
-    try {
-      const projectPath = resolve(options.project);
-      const session = await resolveSessionEntry(
-        projectPath,
-        sessionId ?? '',
-        options.file,
-        options.sessionDir
-      );
+	.command("show")
+	.description("Show details for a specific session")
+	.argument(
+		"[session-id]",
+		"Session ID (omit when using --file or --session-dir)",
+	)
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option(
+		"--file <path>",
+		"Load session from transcript JSONL path (e.g. Jeeves session)",
+	)
+	.option(
+		"--session-dir <path>",
+		"Load session from directory containing transcript.jsonl (e.g. JEEVES_SESSIONS_DIR/session-id)",
+	)
+	.option("--json", "Output in JSON format")
+	.action(async (sessionId: string, options: ShowOptions) => {
+		try {
+			const projectPath = resolve(options.project);
+			const session = await resolveSessionEntry(
+				projectPath,
+				sessionId ?? "",
+				options.file,
+				options.sessionDir,
+			);
 
-      if (!session) {
-        if (options.file || options.sessionDir) {
-          console.error(chalk.red('File or session directory not found.'));
-        } else {
-          console.error(chalk.red(`Session not found: ${sessionId}`));
-          console.log(
-            chalk.dim('\nTip: Use "sessions list" to see available sessions, or --file / --session-dir for Jeeves sessions')
-          );
-        }
-        process.exit(1);
-      }
+			if (!session) {
+				if (options.file || options.sessionDir) {
+					console.error(chalk.red("File or session directory not found."));
+				} else {
+					console.error(chalk.red(`Session not found: ${sessionId}`));
+					console.log(
+						chalk.dim(
+							'\nTip: Use "sessions list" to see available sessions, or --file / --session-dir for Jeeves sessions',
+						),
+					);
+				}
+				process.exit(1);
+			}
 
-      if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use sessions index with a file-based project or --file/--session-dir.'));
-        process.exit(1);
-      }
+			// Load session content — adapter sessions use the adapter; file sessions use parseSessionFile
+			let messages: any[] = [];
+			let summary: any = null;
 
-      // Parse the session file to get detailed information
-      const { parseSessionFile, summarizeSession } = await import('@umwelten/core/interaction/persistence/session-parser.js');
-      const messages = await parseSessionFile(session.fullPath);
-      const summary = summarizeSession(messages);
+			if (session.fullPath) {
+				const { parseSessionFile, summarizeSession } = await import(
+					"@umwelten/core/interaction/persistence/session-parser.js"
+				);
+				messages = await parseSessionFile(session.fullPath);
+				summary = summarizeSession(messages);
+			} else if (session.source && session.source !== "claude-code") {
+				const registry = getAdapterRegistry();
+				const adapter = registry.get(session.source);
+				if (adapter) {
+					try {
+						const normalizedSession = await adapter.getSession(
+							session.sessionId,
+						);
+						if (normalizedSession) {
+							messages = normalizedSession.messages;
+							const userMsgs = messages.filter(
+								(m: any) => m.role === "user" || m.role === "assistant",
+							);
+							summary = {
+								userMessages: userMsgs.filter((m: any) => m.role === "user")
+									.length,
+								assistantMessages: userMsgs.filter(
+									(m: any) => m.role === "assistant",
+								).length,
+								toolCalls: messages.filter(
+									(m: any) => m.role === "tool" || m.tool,
+								).length,
+								tokenUsage: null,
+								estimatedCost: normalizedSession.metrics?.estimatedCost ?? 0,
+								duration: null,
+							};
+						}
+					} catch (e) {
+						console.error(
+							chalk.yellow(`Warning: could not load messages: ${e}`),
+						);
+					}
+				}
+			}
 
-      // Calculate duration in a human-readable format
-      const durationStr = summary.duration
-        ? formatDuration(summary.duration)
-        : 'N/A';
+			// Calculate duration in a human-readable format
+			const durationStr = summary?.duration
+				? formatDuration(summary.duration)
+				: "N/A";
 
-      // Output JSON if requested
-      if (options.json) {
-        const output = {
-          sessionId: session.sessionId,
-          projectPath: session.projectPath,
-          gitBranch: session.gitBranch,
-          created: session.created,
-          modified: session.modified,
-          duration: durationStr,
-          isSidechain: session.isSidechain,
-          messageCount: session.messageCount,
-          userMessages: summary.userMessages,
-          assistantMessages: summary.assistantMessages,
-          toolCalls: summary.toolCalls,
-          tokenUsage: summary.tokenUsage,
-          estimatedCost: summary.estimatedCost,
-          firstPrompt: session.firstPrompt,
-        };
-        console.log(JSON.stringify(output, null, 2));
-        return;
-      }
+			// Output JSON if requested
+			if (options.json) {
+				const output = {
+					sessionId: session.sessionId,
+					projectPath: session.projectPath,
+					gitBranch: session.gitBranch,
+					created: session.created,
+					modified: session.modified,
+					duration: durationStr,
+					isSidechain: session.isSidechain,
+					messageCount: session.messageCount,
+					userMessages: summary.userMessages,
+					assistantMessages: summary.assistantMessages,
+					toolCalls: summary.toolCalls,
+					tokenUsage: summary.tokenUsage,
+					estimatedCost: summary.estimatedCost,
+					firstPrompt: session.firstPrompt,
+				};
+				console.log(JSON.stringify(output, null, 2));
+				return;
+			}
 
-      // Display formatted output
-      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}\n`));
+			// Display formatted output
+			console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}\n`));
+			if (session.source) {
+				console.log(chalk.dim(`Source: ${session.source}`));
+			}
 
-      const table = new Table({
-        colWidths: [25, 50],
-        style: {
-          head: [],
-          border: [],
-        },
-      });
+			const tableData: Array<[string, string]> = [
+				["Created", formatDate(session.created)],
+				["Modified", formatDate(session.modified)],
+				["Branch", session.gitBranch || "N/A"],
+				["Duration", durationStr],
+			];
 
-      table.push(
-        [chalk.bold('Project Path'), session.projectPath],
-        [chalk.bold('Git Branch'), session.gitBranch],
-        [chalk.bold('Created'), formatDate(session.created)],
-        [chalk.bold('Modified'), formatDate(session.modified)],
-        [chalk.bold('Duration'), durationStr],
-        [chalk.bold('Sidechain'), session.isSidechain ? 'Yes' : 'No'],
-        ['', ''],
-        [chalk.bold('Total Messages'), session.messageCount.toString()],
-        [chalk.bold('User Messages'), summary.userMessages.toString()],
-        [chalk.bold('Assistant Messages'), summary.assistantMessages.toString()],
-        [chalk.bold('Tool Calls'), summary.toolCalls.toString()],
-        ['', ''],
-        [chalk.bold('Input Tokens'), summary.tokenUsage.input_tokens.toLocaleString()],
-        [chalk.bold('Output Tokens'), summary.tokenUsage.output_tokens.toLocaleString()],
-        [
-          chalk.bold('Cache Write Tokens'),
-          (summary.tokenUsage.cache_creation_input_tokens || 0).toLocaleString(),
-        ],
-        [
-          chalk.bold('Cache Read Tokens'),
-          (summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
-        ],
-        ['', ''],
-        [
-          chalk.bold('Estimated Cost'),
-          chalk.green(`$${summary.estimatedCost.toFixed(4)}`),
-        ]
-      );
+			if (summary) {
+				tableData.push(
+					["", ""],
+					["Messages", session.messageCount.toString()],
+					["User msgs", String(summary.userMessages ?? "N/A")],
+					["Assistant msgs", String(summary.assistantMessages ?? "N/A")],
+					["Tool calls", String(summary.toolCalls ?? "N/A")],
+				);
+				if (summary.tokenUsage) {
+					tableData.push(
+						["", ""],
+						[
+							"Input tokens",
+							summary.tokenUsage.input_tokens?.toLocaleString() ?? "N/A",
+						],
+						[
+							"Output tokens",
+							summary.tokenUsage.output_tokens?.toLocaleString() ?? "N/A",
+						],
+					);
+					if (summary.tokenUsage.cache_creation_input_tokens) {
+						tableData.push(
+							[
+								"Cache writes",
+								summary.tokenUsage.cache_creation_input_tokens.toLocaleString(),
+							],
+							[
+								"Cache reads",
+								summary.tokenUsage.cache_read_input_tokens?.toLocaleString() ??
+									"0",
+							],
+						);
+					}
+				}
+				if (summary.estimatedCost) {
+					tableData.push(
+						["", ""],
+						["Est. cost", chalk.green(`$${summary.estimatedCost.toFixed(4)}`)],
+					);
+				}
+			} else if (session.messageCount > 0) {
+				tableData.push(["Messages", session.messageCount.toString()]);
+			}
 
-      console.log(table.toString());
+			const table = new Table({
+				colWidths: [25, 55],
+				style: { head: [], border: [] },
+			});
+			table.push(...tableData);
+			console.log(table.toString());
 
-      console.log(chalk.bold('\nFirst Prompt:'));
-      console.log(chalk.dim(truncatePrompt(session.firstPrompt, 100)));
+			if (session.firstPrompt) {
+				console.log(chalk.bold("\nFirst Prompt:"));
+				console.log(chalk.dim(truncatePrompt(session.firstPrompt, 100)));
+			}
 
-      console.log(
-        chalk.dim('\nTip: Use "sessions messages <id>" to view the conversation')
-      );
-      console.log(
-        chalk.dim('     Use "sessions tools <id>" to view tool calls')
-      );
-    } catch (error) {
-      console.error(chalk.red('Error showing session:'), error);
-      process.exit(1);
-    }
-  });
+			const previewMsgs = messages.slice(0, 10);
+			if (previewMsgs.length > 0) {
+				console.log(chalk.dim("\n--- First messages ---"));
+				for (const msg of previewMsgs) {
+					const role = msg.role ?? msg.sourceData?.piType ?? "?";
+					const content =
+						typeof msg.content === "string"
+							? msg.content
+							: JSON.stringify(msg.content).slice(0, 80);
+					const truncated =
+						content.length > 80 ? content.slice(0, 77) + "..." : content;
+					console.log(`  [${role}] ${truncated}`);
+				}
+				if (messages.length > 10) {
+					console.log(
+						chalk.dim(`  ... and ${messages.length - 10} more messages`),
+					);
+				}
+			}
+
+			console.log(
+				chalk.dim('\nTip: use "sessions messages <id>" for full message view'),
+			);
+		} catch (error) {
+			console.error(chalk.red("Error showing session:"), error);
+			process.exit(1);
+		}
+	});
 
 // Messages subcommand
 interface MessagesOptions {
-  project: string;
-  userOnly?: boolean;
-  assistantOnly?: boolean;
-  limit?: string;
-  json?: boolean;
-  file?: string;
-  sessionDir?: string;
+	project: string;
+	userOnly?: boolean;
+	assistantOnly?: boolean;
+	limit?: string;
+	json?: boolean;
+	file?: string;
+	sessionDir?: string;
 }
 
 sessionsCommand
-  .command('messages')
-  .description('Display conversation messages from a session')
-  .argument('[session-id]', 'Session ID (omit when using --file or --session-dir)')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--file <path>', 'Load session from transcript JSONL path (e.g. Jeeves session)')
-  .option('--session-dir <path>', 'Load session from directory containing transcript.jsonl')
-  .option('--user-only', 'Show only user messages')
-  .option('--assistant-only', 'Show only assistant messages')
-  .option('--limit <number>', 'Number of messages to show (most recent first)')
-  .option('--json', 'Output in JSON format')
-  .action(async (sessionId: string, options: MessagesOptions) => {
-    try {
-      const projectPath = resolve(options.project);
-      const session = await resolveSessionEntry(
-        projectPath,
-        sessionId ?? '',
-        options.file,
-        options.sessionDir
-      );
+	.command("messages")
+	.description("Display conversation messages from a session")
+	.argument(
+		"[session-id]",
+		"Session ID (omit when using --file or --session-dir)",
+	)
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option(
+		"--file <path>",
+		"Load session from transcript JSONL path (e.g. Jeeves session)",
+	)
+	.option(
+		"--session-dir <path>",
+		"Load session from directory containing transcript.jsonl",
+	)
+	.option("--user-only", "Show only user messages")
+	.option("--assistant-only", "Show only assistant messages")
+	.option("--limit <number>", "Number of messages to show (most recent first)")
+	.option("--json", "Output in JSON format")
+	.action(async (sessionId: string, options: MessagesOptions) => {
+		try {
+			const projectPath = resolve(options.project);
+			const session = await resolveSessionEntry(
+				projectPath,
+				sessionId ?? "",
+				options.file,
+				options.sessionDir,
+			);
 
-      if (!session) {
-        if (options.file || options.sessionDir) {
-          console.error(chalk.red('File or session directory not found.'));
-        } else {
-          console.error(chalk.red(`Session not found: ${sessionId}`));
-          console.log(
-            chalk.dim('\nTip: Use "sessions list" or --file/--session-dir for Jeeves sessions')
-          );
-        }
-        process.exit(1);
-      }
+			if (!session) {
+				if (options.file || options.sessionDir) {
+					console.error(chalk.red("File or session directory not found."));
+				} else {
+					console.error(chalk.red(`Session not found: ${sessionId}`));
+					console.log(
+						chalk.dim(
+							'\nTip: Use "sessions list" or --file/--session-dir for Jeeves sessions',
+						),
+					);
+				}
+				process.exit(1);
+			}
 
-      if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use --file/--session-dir.'));
-        process.exit(1);
-      }
+			let normalized: any[] = [];
 
-      // Parse and normalize messages (includes tool results and reasoning)
-      const { parseSessionFile, sessionMessagesToNormalized } = await import('@umwelten/core/interaction/persistence/session-parser.js');
-      const rawMessages = await parseSessionFile(session.fullPath);
+			if (session.fullPath) {
+				const { parseSessionFile, sessionMessagesToNormalized } = await import(
+					"@umwelten/core/interaction/persistence/session-parser.js"
+				);
+				const rawMessages = await parseSessionFile(session.fullPath);
+				normalized = sessionMessagesToNormalized(rawMessages);
+			} else if (session.source) {
+				const registry = getAdapterRegistry();
+				const adapter = registry.get(session.source);
+				if (adapter) {
+					try {
+						const sess = await adapter.getSession(session.sessionId);
+						if (sess) normalized = sess.messages;
+					} catch (e) {
+						console.error(
+							chalk.yellow(
+								`Warning: could not load messages via adapter: ${e}`,
+							),
+						);
+					}
+				}
+			}
 
-      let normalized = sessionMessagesToNormalized(rawMessages);
+			// Apply role filters
 
-      // Apply role filters
-      if (options.userOnly) {
-        normalized = normalized.filter(m => m.role === 'user');
-      } else if (options.assistantOnly) {
-        normalized = normalized.filter(m => m.role === 'assistant' || m.role === 'tool');
-      }
+			// Apply role filters
+			if (options.userOnly) {
+				normalized = normalized.filter((m) => m.role === "user");
+			} else if (options.assistantOnly) {
+				normalized = normalized.filter(
+					(m) => m.role === "assistant" || m.role === "tool",
+				);
+			}
 
-      // Apply limit (most recent)
-      if (options.limit) {
-        const limit = parseInt(options.limit);
-        normalized = normalized.slice(-limit);
-      }
+			// Apply limit (most recent)
+			if (options.limit) {
+				const limit = parseInt(options.limit);
+				normalized = normalized.slice(-limit);
+			}
 
-      // JSON output
-      if (options.json) {
-        const output = normalized.map(m => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-          ...(m.tool && { tool: m.tool }),
-          ...(m.tokens && { tokens: m.tokens }),
-          ...(m.model && { model: m.model }),
-          ...(m.sourceData && { sourceData: m.sourceData }),
-        }));
-        console.log(JSON.stringify(output, null, 2));
-        return;
-      }
+			// JSON output
+			if (options.json) {
+				const output = normalized.map((m) => ({
+					id: m.id,
+					role: m.role,
+					content: m.content,
+					timestamp: m.timestamp,
+					...(m.tool && { tool: m.tool }),
+					...(m.tokens && { tokens: m.tokens }),
+					...(m.model && { model: m.model }),
+					...(m.sourceData && { sourceData: m.sourceData }),
+				}));
+				console.log(JSON.stringify(output, null, 2));
+				return;
+			}
 
-      if (normalized.length === 0) {
-        console.log(chalk.yellow('\nNo messages found.'));
-        return;
-      }
+			if (normalized.length === 0) {
+				console.log(chalk.yellow("\nNo messages found."));
+				return;
+			}
 
-      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
+			console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
 
-      // Helper to format tool input for display
-      const formatToolInput = (input: Record<string, unknown> | undefined): string => {
-        if (!input) return '';
-        const keys = Object.keys(input);
-        if (keys.length === 0) return '';
-        const parts: string[] = [];
-        for (const key of keys.slice(0, 3)) {
-          const value = input[key];
-          let displayValue: string;
-          if (typeof value === 'string') {
-            displayValue = value.length > 60 ? value.slice(0, 60) + '...' : value;
-          } else if (typeof value === 'object') {
-            const json = JSON.stringify(value);
-            displayValue = json.length > 60 ? json.slice(0, 60) + '...' : json;
-          } else {
-            displayValue = String(value);
-          }
-          parts.push(`${key}: ${displayValue}`);
-        }
-        if (keys.length > 3) parts.push(`... +${keys.length - 3} more`);
-        return parts.join(', ');
-      };
+			// Helper to format tool input for display
+			const formatToolInput = (
+				input: Record<string, unknown> | undefined,
+			): string => {
+				if (!input) return "";
+				const keys = Object.keys(input);
+				if (keys.length === 0) return "";
+				const parts: string[] = [];
+				for (const key of keys.slice(0, 3)) {
+					const value = input[key];
+					let displayValue: string;
+					if (typeof value === "string") {
+						displayValue =
+							value.length > 60 ? value.slice(0, 60) + "..." : value;
+					} else if (typeof value === "object") {
+						const json = JSON.stringify(value);
+						displayValue = json.length > 60 ? json.slice(0, 60) + "..." : json;
+					} else {
+						displayValue = String(value);
+					}
+					parts.push(`${key}: ${displayValue}`);
+				}
+				if (keys.length > 3) parts.push(`... +${keys.length - 3} more`);
+				return parts.join(", ");
+			};
 
-      const maxContentLen = 500;
+			const maxContentLen = 500;
 
-      for (const msg of normalized) {
-        const timestamp = msg.timestamp ? formatDate(msg.timestamp) : '';
-        const tsPrefix = timestamp ? `[${timestamp}] ` : '';
+			for (const msg of normalized) {
+				const timestamp = msg.timestamp ? formatDate(msg.timestamp) : "";
+				const tsPrefix = timestamp ? `[${timestamp}] ` : "";
 
-        if (msg.role === 'user') {
-          console.log(chalk.bold(`${tsPrefix}${chalk.green('User')}:`));
-          const text = msg.content.trim();
-          if (text.length > maxContentLen) {
-            console.log(text.slice(0, maxContentLen) + '...');
-            console.log(chalk.dim(`(${text.length - maxContentLen} more characters)`));
-          } else {
-            console.log(text);
-          }
-          console.log('');
+				if (msg.role === "user") {
+					console.log(chalk.bold(`${tsPrefix}${chalk.green("User")}:`));
+					const text = msg.content.trim();
+					if (text.length > maxContentLen) {
+						console.log(text.slice(0, maxContentLen) + "...");
+						console.log(
+							chalk.dim(`(${text.length - maxContentLen} more characters)`),
+						);
+					} else {
+						console.log(text);
+					}
+					console.log("");
+				} else if (msg.role === "assistant") {
+					// Show reasoning/thinking if present
+					const reasoning = (
+						msg.sourceData as Record<string, unknown> | undefined
+					)?.reasoning as string | undefined;
+					if (reasoning) {
+						console.log(chalk.bold(`${tsPrefix}${chalk.yellow("Thinking")}:`));
+						const trimmed = reasoning.trim();
+						if (trimmed.length > maxContentLen) {
+							console.log(chalk.dim(trimmed.slice(0, maxContentLen) + "..."));
+							console.log(
+								chalk.dim(
+									`(${trimmed.length - maxContentLen} more characters)`,
+								),
+							);
+						} else {
+							console.log(chalk.dim(trimmed));
+						}
+						console.log("");
+					}
 
-        } else if (msg.role === 'assistant') {
-          // Show reasoning/thinking if present
-          const reasoning = (msg.sourceData as Record<string, unknown> | undefined)?.reasoning as string | undefined;
-          if (reasoning) {
-            console.log(chalk.bold(`${tsPrefix}${chalk.yellow('Thinking')}:`));
-            const trimmed = reasoning.trim();
-            if (trimmed.length > maxContentLen) {
-              console.log(chalk.dim(trimmed.slice(0, maxContentLen) + '...'));
-              console.log(chalk.dim(`(${trimmed.length - maxContentLen} more characters)`));
-            } else {
-              console.log(chalk.dim(trimmed));
-            }
-            console.log('');
-          }
+					const text = msg.content.trim();
+					if (text) {
+						console.log(chalk.bold(`${tsPrefix}${chalk.blue("Assistant")}:`));
+						if (text.length > maxContentLen) {
+							console.log(text.slice(0, maxContentLen) + "...");
+							console.log(
+								chalk.dim(`(${text.length - maxContentLen} more characters)`),
+							);
+						} else {
+							console.log(text);
+						}
+						console.log("");
+					}
+				} else if (msg.role === "tool" && msg.tool) {
+					const inputSummary = formatToolInput(msg.tool.input);
+					console.log(
+						chalk.magenta(`  ↳ ${msg.tool.name}`) +
+							(inputSummary ? chalk.dim(` (${inputSummary})`) : ""),
+					);
 
-          const text = msg.content.trim();
-          if (text) {
-            console.log(chalk.bold(`${tsPrefix}${chalk.blue('Assistant')}:`));
-            if (text.length > maxContentLen) {
-              console.log(text.slice(0, maxContentLen) + '...');
-              console.log(chalk.dim(`(${text.length - maxContentLen} more characters)`));
-            } else {
-              console.log(text);
-            }
-            console.log('');
-          }
+					// Show tool result
+					if (msg.tool.output) {
+						const output = msg.tool.output.trim();
+						const errorPrefix = msg.tool.isError ? chalk.red("[ERROR] ") : "";
+						if (output.length > 200) {
+							console.log(
+								chalk.dim(`    ${errorPrefix}→ ${output.slice(0, 200)}...`),
+							);
+							console.log(
+								chalk.dim(`    (${output.length - 200} more characters)`),
+							);
+						} else {
+							console.log(chalk.dim(`    ${errorPrefix}→ ${output}`));
+						}
+					}
+					console.log("");
+				}
+			}
 
-        } else if (msg.role === 'tool' && msg.tool) {
-          const inputSummary = formatToolInput(msg.tool.input);
-          console.log(
-            chalk.magenta(`  ↳ ${msg.tool.name}`) +
-            (inputSummary ? chalk.dim(` (${inputSummary})`) : '')
-          );
+			console.log(chalk.dim(`Displayed ${normalized.length} message(s)\n`));
 
-          // Show tool result
-          if (msg.tool.output) {
-            const output = msg.tool.output.trim();
-            const errorPrefix = msg.tool.isError ? chalk.red('[ERROR] ') : '';
-            if (output.length > 200) {
-              console.log(chalk.dim(`    ${errorPrefix}→ ${output.slice(0, 200)}...`));
-              console.log(chalk.dim(`    (${output.length - 200} more characters)`));
-            } else {
-              console.log(chalk.dim(`    ${errorPrefix}→ ${output}`));
-            }
-          }
-          console.log('');
-        }
-      }
-
-      console.log(chalk.dim(`Displayed ${normalized.length} message(s)\n`));
-
-      console.log(
-        chalk.dim('Tip: Use --limit <number> to show specific number of messages')
-      );
-      console.log(
-        chalk.dim('     Use --user-only or --assistant-only to filter by role')
-      );
-      console.log(
-        chalk.dim('     Use --json to get full message content including tool results')
-      );
-    } catch (error) {
-      console.error(chalk.red('Error displaying messages:'), error);
-      process.exit(1);
-    }
-  });
+			console.log(
+				chalk.dim(
+					"Tip: Use --limit <number> to show specific number of messages",
+				),
+			);
+			console.log(
+				chalk.dim("     Use --user-only or --assistant-only to filter by role"),
+			);
+			console.log(
+				chalk.dim(
+					"     Use --json to get full message content including tool results",
+				),
+			);
+		} catch (error) {
+			console.error(chalk.red("Error displaying messages:"), error);
+			process.exit(1);
+		}
+	});
 
 // Tools subcommand
 interface ToolsOptions {
-  project: string;
-  tool?: string;
-  json?: boolean;
+	project: string;
+	tool?: string;
+	json?: boolean;
 }
 
 sessionsCommand
-  .command('tools')
-  .description('Show tool calls from a session')
-  .argument('<session-id>', 'Session ID to extract tool calls from')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--tool <name>', 'Filter by tool name')
-  .option('--json', 'Output in JSON format')
-  .action(async (sessionId: string, options: ToolsOptions) => {
-    try {
-      const projectPath = resolve(options.project);
+	.command("tools")
+	.description("Show tool calls from a session")
+	.argument("<session-id>", "Session ID to extract tool calls from")
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option("--tool <name>", "Filter by tool name")
+	.option("--json", "Output in JSON format")
+	.action(async (sessionId: string, options: ToolsOptions) => {
+		try {
+			const projectPath = resolve(options.project);
 
-      const session = await findSessionById(projectPath, sessionId);
+			const session = await findSessionById(projectPath, sessionId);
 
-      if (!session) {
-        console.error(chalk.red(`Session not found: ${sessionId}`));
-        console.log(
-          chalk.dim('\nTip: Use "sessions list" to see available sessions')
-        );
-        process.exit(1);
-      }
+			if (!session) {
+				console.error(chalk.red(`Session not found: ${sessionId}`));
+				console.log(
+					chalk.dim('\nTip: Use "sessions list" to see available sessions'),
+				);
+				process.exit(1);
+			}
 
-      if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available.'));
-        process.exit(1);
-      }
+			let toolCalls: any[] = [];
 
-      // Parse the session file and extract tool calls
-      const { parseSessionFile, extractToolCalls } = await import('@umwelten/core/interaction/persistence/session-parser.js');
-      const messages = await parseSessionFile(session.fullPath);
-      let toolCalls = extractToolCalls(messages);
+			if (session.fullPath) {
+				const { parseSessionFile, extractToolCalls } = await import(
+					"@umwelten/core/interaction/persistence/session-parser.js"
+				);
+				const messages = await parseSessionFile(session.fullPath);
+				toolCalls = extractToolCalls(messages);
+			} else if (session.source) {
+				const registry = getAdapterRegistry();
+				const adapter = registry.get(session.source);
+				if (adapter) {
+					try {
+						const sess = await adapter.getSession(session.sessionId);
+						if (sess) {
+							toolCalls = sess.messages
+								.filter((m: any) => m.role === "tool" || m.tool)
+								.map((m: any) => ({
+									name: m.tool?.name ?? "unknown",
+									input: typeof m.content === "string" ? {} : m.content,
+									output:
+										typeof m.content === "string"
+											? m.content.slice(0, 100)
+											: "[object]",
+									timestamp: m.timestamp,
+								}));
+						}
+					} catch (e) {
+						console.error(
+							chalk.yellow(`Warning: could not load via adapter: ${e}`),
+						);
+					}
+				}
+			}
 
-      // Filter by tool name if specified
-      if (options.tool) {
-        toolCalls = toolCalls.filter(tc => tc.name === options.tool);
-      }
+			// Filter by tool name if specified
+			if (options.tool) {
+				toolCalls = toolCalls.filter((tc) => tc.name === options.tool);
+			}
 
-      // Output JSON if requested
-      if (options.json) {
-        console.log(JSON.stringify(toolCalls, null, 2));
-        return;
-      }
+			// Output JSON if requested
+			if (options.json) {
+				console.log(JSON.stringify(toolCalls, null, 2));
+				return;
+			}
 
-      // Display formatted output
-      if (toolCalls.length === 0) {
-        if (options.tool) {
-          console.log(chalk.yellow(`\nNo tool calls found for tool: ${options.tool}`));
-        } else {
-          console.log(chalk.yellow('\nNo tool calls found in this session.'));
-        }
-        return;
-      }
+			// Display formatted output
+			if (toolCalls.length === 0) {
+				if (options.tool) {
+					console.log(
+						chalk.yellow(`\nNo tool calls found for tool: ${options.tool}`),
+					);
+				} else {
+					console.log(chalk.yellow("\nNo tool calls found in this session."));
+				}
+				return;
+			}
 
-      console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
-      console.log(chalk.dim(`Found ${toolCalls.length} tool call(s)\n`));
+			console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
+			console.log(chalk.dim(`Found ${toolCalls.length} tool call(s)\n`));
 
-      const table = new Table({
-        head: ['Time', 'Tool', 'Input'],
-        colWidths: [12, 20, 70],
-        style: {
-          head: [],
-          border: [],
-        },
-        wordWrap: true,
-      });
+			const table = new Table({
+				head: ["Time", "Tool", "Input"],
+				colWidths: [12, 20, 70],
+				style: {
+					head: [],
+					border: [],
+				},
+				wordWrap: true,
+			});
 
-      for (const toolCall of toolCalls) {
-        const timestamp = toolCall.timestamp ? formatDate(toolCall.timestamp) : 'unknown';
+			for (const toolCall of toolCalls) {
+				const timestamp = toolCall.timestamp
+					? formatDate(toolCall.timestamp)
+					: "unknown";
 
-        // Format input parameters - show as compact JSON
-        let inputStr = '';
-        if (toolCall.input && typeof toolCall.input === 'object') {
-          // Get key parameter names for common tools
-          const keys = Object.keys(toolCall.input);
-          if (keys.length === 0) {
-            inputStr = '{}';
-          } else {
-            // Show first few keys with truncated values
-            const maxKeys = 3;
-            const displayKeys = keys.slice(0, maxKeys);
-            const parts = displayKeys.map(key => {
-              const value = toolCall.input[key];
-              let valueStr = String(value);
-              if (valueStr.length > 40) {
-                valueStr = valueStr.slice(0, 37) + '...';
-              }
-              return `${key}: ${valueStr}`;
-            });
+				// Format input parameters - show as compact JSON
+				let inputStr = "";
+				if (toolCall.input && typeof toolCall.input === "object") {
+					// Get key parameter names for common tools
+					const keys = Object.keys(toolCall.input);
+					if (keys.length === 0) {
+						inputStr = "{}";
+					} else {
+						// Show first few keys with truncated values
+						const maxKeys = 3;
+						const displayKeys = keys.slice(0, maxKeys);
+						const parts = displayKeys.map((key) => {
+							const value = toolCall.input[key];
+							let valueStr = String(value);
+							if (valueStr.length > 40) {
+								valueStr = valueStr.slice(0, 37) + "...";
+							}
+							return `${key}: ${valueStr}`;
+						});
 
-            if (keys.length > maxKeys) {
-              parts.push(`... +${keys.length - maxKeys} more`);
-            }
+						if (keys.length > maxKeys) {
+							parts.push(`... +${keys.length - maxKeys} more`);
+						}
 
-            inputStr = parts.join('\n');
-          }
-        } else {
-          inputStr = String(toolCall.input);
-        }
+						inputStr = parts.join("\n");
+					}
+				} else {
+					inputStr = String(toolCall.input);
+				}
 
-        table.push([
-          timestamp,
-          chalk.cyan(toolCall.name),
-          chalk.dim(inputStr),
-        ]);
-      }
+				table.push([timestamp, chalk.cyan(toolCall.name), chalk.dim(inputStr)]);
+			}
 
-      console.log(table.toString());
+			console.log(table.toString());
 
-      console.log(
-        chalk.dim('\nTip: Use --tool <name> to filter by specific tool')
-      );
-      console.log(
-        chalk.dim('     Use --json to get full tool call details')
-      );
-    } catch (error) {
-      console.error(chalk.red('Error extracting tool calls:'), error);
-      process.exit(1);
-    }
-  });
+			console.log(
+				chalk.dim("\nTip: Use --tool <name> to filter by specific tool"),
+			);
+			console.log(chalk.dim("     Use --json to get full tool call details"));
+		} catch (error) {
+			console.error(chalk.red("Error extracting tool calls:"), error);
+			process.exit(1);
+		}
+	});
 
 // Stats subcommand
 interface StatsOptions {
-  project: string;
-  json?: boolean;
-  file?: string;
-  sessionDir?: string;
+	project: string;
+	json?: boolean;
+	file?: string;
+	sessionDir?: string;
 }
 
 sessionsCommand
-  .command('stats')
-  .description('Show token usage statistics and costs for a session')
-  .argument('[session-id]', 'Session ID (omit when using --file or --session-dir)')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--file <path>', 'Load session from transcript JSONL path (e.g. Jeeves session)')
-  .option('--session-dir <path>', 'Load session from directory containing transcript.jsonl')
-  .option('--json', 'Output in JSON format')
-  .action(async (sessionId: string, options: StatsOptions) => {
-    try {
-      const projectPath = resolve(options.project);
-      const session = await resolveSessionEntry(
-        projectPath,
-        sessionId ?? '',
-        options.file,
-        options.sessionDir
-      );
+	.command("stats")
+	.description("Show token usage statistics and costs for a session")
+	.argument(
+		"[session-id]",
+		"Session ID (omit when using --file or --session-dir)",
+	)
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option(
+		"--file <path>",
+		"Load session from transcript JSONL path (e.g. Jeeves session)",
+	)
+	.option(
+		"--session-dir <path>",
+		"Load session from directory containing transcript.jsonl",
+	)
+	.option("--json", "Output in JSON format")
+	.action(async (sessionId: string, options: StatsOptions) => {
+		try {
+			const projectPath = resolve(options.project);
+			const session = await resolveSessionEntry(
+				projectPath,
+				sessionId ?? "",
+				options.file,
+				options.sessionDir,
+			);
 
-      if (!session) {
-        if (options.file || options.sessionDir) {
-          console.error(chalk.red('File or session directory not found.'));
-        } else {
-          console.error(chalk.red(`Session not found: ${sessionId}`));
-          console.log(
-            chalk.dim('\nTip: Use "sessions list" or --file/--session-dir for Jeeves sessions')
-          );
-        }
-        process.exit(1);
-      }
+			if (!session) {
+				if (options.file || options.sessionDir) {
+					console.error(chalk.red("File or session directory not found."));
+				} else {
+					console.error(chalk.red(`Session not found: ${sessionId}`));
+					console.log(
+						chalk.dim(
+							'\nTip: Use "sessions list" or --file/--session-dir for Jeeves sessions',
+						),
+					);
+				}
+				process.exit(1);
+			}
 
-      if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available (adapter session). Use --file/--session-dir.'));
-        process.exit(1);
-      }
+			let messages: any[] = [];
+			let summary: any = null;
 
-      // Parse the session file to get detailed information
-      const { parseSessionFile, summarizeSession } = await import('@umwelten/core/interaction/persistence/session-parser.js');
-      const messages = await parseSessionFile(session.fullPath);
-      const summary = summarizeSession(messages);
+			if (session.fullPath) {
+				const { parseSessionFile, summarizeSession } = await import(
+					"@umwelten/core/interaction/persistence/session-parser.js"
+				);
+				messages = await parseSessionFile(session.fullPath);
+				summary = summarizeSession(messages);
+			} else if (session.source) {
+				const registry = getAdapterRegistry();
+				const adapter = registry.get(session.source);
+				if (adapter) {
+					try {
+						const sess = await adapter.getSession(session.sessionId);
+						if (sess) {
+							messages = sess.messages;
+							const userMsgs = messages.filter(
+								(m: any) => m.role === "user" || m.role === "assistant",
+							);
+							summary = {
+								userMessages: userMsgs.filter((m: any) => m.role === "user")
+									.length,
+								assistantMessages: userMsgs.filter(
+									(m: any) => m.role === "assistant",
+								).length,
+								toolCalls: messages.filter(
+									(m: any) => m.role === "tool" || m.tool,
+								).length,
+								tokenUsage: null,
+								estimatedCost: sess.metrics?.estimatedCost ?? 0,
+							};
+						}
+					} catch (e) {
+						console.error(
+							chalk.yellow(`Warning: could not load via adapter: ${e}`),
+						);
+					}
+				}
+			}
 
-      // Calculate cache efficiency
-      const totalInputTokens = summary.tokenUsage.input_tokens +
-        (summary.tokenUsage.cache_creation_input_tokens || 0) +
-        (summary.tokenUsage.cache_read_input_tokens || 0);
+			if (options.json) {
+				const output: any = {
+					sessionId: session.sessionId,
+					source: session.source,
+				};
+				if (summary) {
+					output.messages = session.messageCount;
+					output.userMessages = summary.userMessages;
+					output.assistantMessages = summary.assistantMessages;
+					output.toolCalls = summary.toolCalls;
+					if (summary.tokenUsage) {
+						output.tokenUsage = {
+							input: summary.tokenUsage.input_tokens ?? 0,
+							output: summary.tokenUsage.output_tokens ?? 0,
+							cacheWrite: summary.tokenUsage.cache_creation_input_tokens ?? 0,
+							cacheRead: summary.tokenUsage.cache_read_input_tokens ?? 0,
+						};
+					}
+					output.estimatedCost = summary.estimatedCost;
+					output.duration = summary.duration;
+				}
+				console.log(JSON.stringify(output, null, 2));
+				return;
+			}
 
-      const cacheHitRate = totalInputTokens > 0
-        ? ((summary.tokenUsage.cache_read_input_tokens || 0) / totalInputTokens) * 100
-        : 0;
+			console.log(chalk.bold(`\nSession: ${chalk.cyan(session.sessionId)}`));
+			if (session.source) console.log(chalk.dim(`Source: ${session.source}`));
 
-      // Calculate cost breakdown
-      const INPUT_PRICE_PER_MTK = 3.0;
-      const OUTPUT_PRICE_PER_MTK = 15.0;
-      const CACHE_WRITE_PRICE_PER_MTK = 3.75;
-      const CACHE_READ_PRICE_PER_MTK = 0.3;
+			if (!summary || !summary.tokenUsage) {
+				console.log(
+					chalk.yellow("\nNo token stats available for adapter sessions."),
+				);
+				if (session.messageCount > 0) {
+					console.log(`  Messages: ${session.messageCount}`);
+					console.log(
+						chalk.dim(
+							"  (stats require file-based sessions or indexed Claude Code sessions)",
+						),
+					);
+				}
+				return;
+			}
 
-      const inputCost = (summary.tokenUsage.input_tokens / 1_000_000) * INPUT_PRICE_PER_MTK;
-      const outputCost = (summary.tokenUsage.output_tokens / 1_000_000) * OUTPUT_PRICE_PER_MTK;
-      const cacheWriteCost = ((summary.tokenUsage.cache_creation_input_tokens || 0) / 1_000_000) * CACHE_WRITE_PRICE_PER_MTK;
-      const cacheReadCost = ((summary.tokenUsage.cache_read_input_tokens || 0) / 1_000_000) * CACHE_READ_PRICE_PER_MTK;
+			// Calculate cache efficiency
+			const totalInputTokens =
+				summary.tokenUsage.input_tokens +
+				(summary.tokenUsage.cache_creation_input_tokens || 0) +
+				(summary.tokenUsage.cache_read_input_tokens || 0);
 
-      // Output JSON if requested
-      if (options.json) {
-        const output = {
-          sessionId: session.sessionId,
-          tokenUsage: {
-            input: summary.tokenUsage.input_tokens,
-            output: summary.tokenUsage.output_tokens,
-            cacheWrite: summary.tokenUsage.cache_creation_input_tokens || 0,
-            cacheRead: summary.tokenUsage.cache_read_input_tokens || 0,
-            total: totalInputTokens + summary.tokenUsage.output_tokens,
-          },
-          cacheStats: {
-            hitRate: cacheHitRate,
-            writeTokens: summary.tokenUsage.cache_creation_input_tokens || 0,
-            readTokens: summary.tokenUsage.cache_read_input_tokens || 0,
-          },
-          costs: {
-            input: inputCost,
-            output: outputCost,
-            cacheWrite: cacheWriteCost,
-            cacheRead: cacheReadCost,
-            total: summary.estimatedCost,
-          },
-          messages: {
-            total: summary.totalMessages,
-            user: summary.userMessages,
-            assistant: summary.assistantMessages,
-            toolCalls: summary.toolCalls,
-          },
-        };
-        console.log(JSON.stringify(output, null, 2));
-        return;
-      }
+			const cacheHitRate =
+				totalInputTokens > 0
+					? ((summary.tokenUsage.cache_read_input_tokens || 0) /
+							totalInputTokens) *
+						100
+					: 0;
 
-      // Display formatted output
-      console.log(chalk.bold(`\nToken Usage & Cost Statistics`));
-      console.log(chalk.dim(`Session: ${chalk.cyan(session.sessionId)}\n`));
+			// Calculate cost breakdown
+			const INPUT_PRICE_PER_MTK = 3.0;
+			const OUTPUT_PRICE_PER_MTK = 15.0;
+			const CACHE_WRITE_PRICE_PER_MTK = 3.75;
+			const CACHE_READ_PRICE_PER_MTK = 0.3;
 
-      // Token Usage Table
-      const tokenTable = new Table({
-        head: ['Token Type', 'Count', 'Cost'],
-        colWidths: [25, 20, 15],
-        style: {
-          head: [],
-          border: [],
-        },
-      });
+			const inputCost =
+				(summary.tokenUsage.input_tokens / 1_000_000) * INPUT_PRICE_PER_MTK;
+			const outputCost =
+				(summary.tokenUsage.output_tokens / 1_000_000) * OUTPUT_PRICE_PER_MTK;
+			const cacheWriteCost =
+				((summary.tokenUsage.cache_creation_input_tokens || 0) / 1_000_000) *
+				CACHE_WRITE_PRICE_PER_MTK;
+			const cacheReadCost =
+				((summary.tokenUsage.cache_read_input_tokens || 0) / 1_000_000) *
+				CACHE_READ_PRICE_PER_MTK;
 
-      tokenTable.push(
-        [
-          'Input Tokens',
-          summary.tokenUsage.input_tokens.toLocaleString(),
-          chalk.dim(`$${inputCost.toFixed(4)}`),
-        ],
-        [
-          'Output Tokens',
-          summary.tokenUsage.output_tokens.toLocaleString(),
-          chalk.dim(`$${outputCost.toFixed(4)}`),
-        ],
-        [
-          chalk.yellow('Cache Write Tokens'),
-          (summary.tokenUsage.cache_creation_input_tokens || 0).toLocaleString(),
-          chalk.dim(`$${cacheWriteCost.toFixed(4)}`),
-        ],
-        [
-          chalk.green('Cache Read Tokens'),
-          (summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
-          chalk.dim(`$${cacheReadCost.toFixed(4)}`),
-        ],
-        ['', '', ''],
-        [
-          chalk.bold('Total'),
-          chalk.bold((totalInputTokens + summary.tokenUsage.output_tokens).toLocaleString()),
-          chalk.bold.green(`$${summary.estimatedCost.toFixed(4)}`),
-        ]
-      );
+			// Output JSON if requested
+			if (options.json) {
+				const output = {
+					sessionId: session.sessionId,
+					tokenUsage: {
+						input: summary.tokenUsage.input_tokens,
+						output: summary.tokenUsage.output_tokens,
+						cacheWrite: summary.tokenUsage.cache_creation_input_tokens || 0,
+						cacheRead: summary.tokenUsage.cache_read_input_tokens || 0,
+						total: totalInputTokens + summary.tokenUsage.output_tokens,
+					},
+					cacheStats: {
+						hitRate: cacheHitRate,
+						writeTokens: summary.tokenUsage.cache_creation_input_tokens || 0,
+						readTokens: summary.tokenUsage.cache_read_input_tokens || 0,
+					},
+					costs: {
+						input: inputCost,
+						output: outputCost,
+						cacheWrite: cacheWriteCost,
+						cacheRead: cacheReadCost,
+						total: summary.estimatedCost,
+					},
+					messages: {
+						total: summary.totalMessages,
+						user: summary.userMessages,
+						assistant: summary.assistantMessages,
+						toolCalls: summary.toolCalls,
+					},
+				};
+				console.log(JSON.stringify(output, null, 2));
+				return;
+			}
 
-      console.log(tokenTable.toString());
+			// Display formatted output
+			console.log(chalk.bold(`\nToken Usage & Cost Statistics`));
+			console.log(chalk.dim(`Session: ${chalk.cyan(session.sessionId)}\n`));
 
-      // Cache Statistics
-      console.log(chalk.bold('\nCache Performance\n'));
+			// Token Usage Table
+			const tokenTable = new Table({
+				head: ["Token Type", "Count", "Cost"],
+				colWidths: [25, 20, 15],
+				style: {
+					head: [],
+					border: [],
+				},
+			});
 
-      const cacheStatsTable = new Table({
-        colWidths: [35, 25],
-        style: {
-          head: [],
-          border: [],
-        },
-      });
+			tokenTable.push(
+				[
+					"Input Tokens",
+					summary.tokenUsage.input_tokens.toLocaleString(),
+					chalk.dim(`$${inputCost.toFixed(4)}`),
+				],
+				[
+					"Output Tokens",
+					summary.tokenUsage.output_tokens.toLocaleString(),
+					chalk.dim(`$${outputCost.toFixed(4)}`),
+				],
+				[
+					chalk.yellow("Cache Write Tokens"),
+					(
+						summary.tokenUsage.cache_creation_input_tokens || 0
+					).toLocaleString(),
+					chalk.dim(`$${cacheWriteCost.toFixed(4)}`),
+				],
+				[
+					chalk.green("Cache Read Tokens"),
+					(summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
+					chalk.dim(`$${cacheReadCost.toFixed(4)}`),
+				],
+				["", "", ""],
+				[
+					chalk.bold("Total"),
+					chalk.bold(
+						(
+							totalInputTokens + summary.tokenUsage.output_tokens
+						).toLocaleString(),
+					),
+					chalk.bold.green(`$${summary.estimatedCost.toFixed(4)}`),
+				],
+			);
 
-      cacheStatsTable.push(
-        [
-          'Cache Hit Rate',
-          `${cacheHitRate.toFixed(2)}%`,
-        ],
-        [
-          'Tokens Written to Cache',
-          (summary.tokenUsage.cache_creation_input_tokens || 0).toLocaleString(),
-        ],
-        [
-          'Tokens Read from Cache',
-          (summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
-        ]
-      );
+			console.log(tokenTable.toString());
 
-      console.log(cacheStatsTable.toString());
+			// Cache Statistics
+			console.log(chalk.bold("\nCache Performance\n"));
 
-      // Overview
-      console.log(chalk.bold('\nSession overview\n'));
+			const cacheStatsTable = new Table({
+				colWidths: [35, 25],
+				style: {
+					head: [],
+					border: [],
+				},
+			});
 
-      const overviewTable = new Table({
-        colWidths: [35, 25],
-        style: {
-          head: [],
-          border: [],
-        },
-      });
+			cacheStatsTable.push(
+				["Cache Hit Rate", `${cacheHitRate.toFixed(2)}%`],
+				[
+					"Tokens Written to Cache",
+					(
+						summary.tokenUsage.cache_creation_input_tokens || 0
+					).toLocaleString(),
+				],
+				[
+					"Tokens Read from Cache",
+					(summary.tokenUsage.cache_read_input_tokens || 0).toLocaleString(),
+				],
+			);
 
-      overviewTable.push(
-        ['Total Messages', summary.totalMessages.toString()],
-        ['User Messages', summary.userMessages.toString()],
-        ['Assistant Messages', summary.assistantMessages.toString()],
-        ['Tool Calls', summary.toolCalls.toString()]
-      );
+			console.log(cacheStatsTable.toString());
 
-      console.log(overviewTable.toString());
+			// Overview
+			console.log(chalk.bold("\nSession overview\n"));
 
-      console.log(
-        chalk.dim('\nTip: Use "sessions show <id>" to view full details')
-      );
-      console.log(
-        chalk.dim('     Use --json to get structured output')
-      );
-    } catch (error) {
-      console.error(chalk.red('Error calculating stats:'), error);
-      process.exit(1);
-    }
-  });
+			const overviewTable = new Table({
+				colWidths: [35, 25],
+				style: {
+					head: [],
+					border: [],
+				},
+			});
+
+			overviewTable.push(
+				["Total Messages", summary.totalMessages.toString()],
+				["User Messages", summary.userMessages.toString()],
+				["Assistant Messages", summary.assistantMessages.toString()],
+				["Tool Calls", summary.toolCalls.toString()],
+			);
+
+			console.log(overviewTable.toString());
+
+			console.log(
+				chalk.dim('\nTip: Use "sessions show <id>" to view full details'),
+			);
+			console.log(chalk.dim("     Use --json to get structured output"));
+		} catch (error) {
+			console.error(chalk.red("Error calculating stats:"), error);
+			process.exit(1);
+		}
+	});
 
 // Format subcommand
 interface FormatOptions {
-  assistantOnly?: boolean;
-  userOnly?: boolean;
-  tools?: boolean; // Default true, can be disabled with --no-tools
-  quiet?: boolean;
-  short?: boolean; // Compact table view
+	assistantOnly?: boolean;
+	userOnly?: boolean;
+	tools?: boolean; // Default true, can be disabled with --no-tools
+	quiet?: boolean;
+	short?: boolean; // Compact table view
 }
 
 sessionsCommand
-  .command('format')
-  .description('Format JSONL session stream from stdin to readable text with rich metrics')
-  .option('--assistant-only', 'Show only assistant messages')
-  .option('--user-only', 'Show only user messages')
-  .option('--no-tools', 'Hide tool calls and execution details')
-  .option('--quiet', 'Minimal output - just conversation')
-  .option('--short', 'Compact table view with key metrics')
-  .action(async (options: FormatOptions) => {
-    try {
-      const { createInterface } = await import('node:readline');
-      const { stdin } = await import('node:process');
+	.command("format")
+	.description(
+		"Format JSONL session stream from stdin to readable text with rich metrics",
+	)
+	.option("--assistant-only", "Show only assistant messages")
+	.option("--user-only", "Show only user messages")
+	.option("--no-tools", "Hide tool calls and execution details")
+	.option("--quiet", "Minimal output - just conversation")
+	.option("--short", "Compact table view with key metrics")
+	.action(async (options: FormatOptions) => {
+		try {
+			const { createInterface } = await import("node:readline");
+			const { stdin } = await import("node:process");
 
-      // Check if stdin is being piped
-      if (stdin.isTTY) {
-        console.error(chalk.red('Error: This command requires input from stdin'));
-        console.log(chalk.dim('\nUsage: claude -p "prompt" --output-format stream-json | umwelten sessions format'));
-        console.log(chalk.dim('       cat session.jsonl | umwelten sessions format'));
-        process.exit(1);
-      }
+			// Check if stdin is being piped
+			if (stdin.isTTY) {
+				console.error(
+					chalk.red("Error: This command requires input from stdin"),
+				);
+				console.log(
+					chalk.dim(
+						'\nUsage: claude -p "prompt" --output-format stream-json | umwelten sessions format',
+					),
+				);
+				console.log(
+					chalk.dim("       cat session.jsonl | umwelten sessions format"),
+				);
+				process.exit(1);
+			}
 
-      const rl = createInterface({
-        input: stdin,
-        crlfDelay: Infinity,
-      });
+			const rl = createInterface({
+				input: stdin,
+				crlfDelay: Infinity,
+			});
 
-      // Default to showing tools unless explicitly disabled
-      const showTools = options.tools !== false;
-      const isQuiet = options.quiet === true;
-      const isShort = options.short === true;
+			// Default to showing tools unless explicitly disabled
+			const showTools = options.tools !== false;
+			const isQuiet = options.quiet === true;
+			const isShort = options.short === true;
 
-      // Session tracking
-      let sessionStartTime: number | null = null;
-      let lastMessageTime: number | null = null;
-      let messageCount = 0;
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      let totalCacheRead = 0;
-      let totalCacheWrite = 0;
-      const toolCalls: Array<{ name: string; timestamp: number; resultSize?: number; duration?: number }> = [];
-      const pendingTools = new Map<string, { name: string; timestamp: number }>();
-      let sessionMetadata: any = null;
-      let finalResult: any = null;
-      const modelUsageMap = new Map<string, any>();
+			// Session tracking
+			let sessionStartTime: number | null = null;
+			let lastMessageTime: number | null = null;
+			let messageCount = 0;
+			let totalInputTokens = 0;
+			let totalOutputTokens = 0;
+			let totalCacheRead = 0;
+			let totalCacheWrite = 0;
+			const toolCalls: Array<{
+				name: string;
+				timestamp: number;
+				resultSize?: number;
+				duration?: number;
+			}> = [];
+			const pendingTools = new Map<
+				string,
+				{ name: string; timestamp: number }
+			>();
+			let sessionMetadata: any = null;
+			let finalResult: any = null;
 
-      // For short table view
-      const shortViewMessages: Array<{ type: string; content: string; time: number; tokens?: number; cost?: number }> = [];
+			// Pricing (Claude Sonnet 4.5)
+			const INPUT_PRICE_PER_MTK = 3.0;
+			const OUTPUT_PRICE_PER_MTK = 15.0;
+			const CACHE_WRITE_PRICE_PER_MTK = 3.75;
+			const CACHE_READ_PRICE_PER_MTK = 0.3;
 
-      // Pricing (Claude Sonnet 4.5)
-      const INPUT_PRICE_PER_MTK = 3.0;
-      const OUTPUT_PRICE_PER_MTK = 15.0;
-      const CACHE_WRITE_PRICE_PER_MTK = 3.75;
-      const CACHE_READ_PRICE_PER_MTK = 0.3;
+			for await (const line of rl) {
+				if (!line.trim()) continue;
 
-      for await (const line of rl) {
-        if (!line.trim()) continue;
+				try {
+					const message = JSON.parse(line);
+					const now = Date.now();
 
-        try {
-          const message = JSON.parse(line);
-          const now = Date.now();
+					// Track session start
+					if (message.type === "system" && message.subtype === "init") {
+						sessionStartTime = now;
+						sessionMetadata = message;
 
-          // Track session start
-          if (message.type === 'system' && message.subtype === 'init') {
-            sessionStartTime = now;
-            sessionMetadata = message;
+						if (!isShort && !options.userOnly && !options.assistantOnly) {
+							console.log(chalk.dim("━".repeat(80)));
+							console.log(chalk.cyan.bold("📡 Session started"));
+							console.log(
+								chalk.dim(
+									`ID: ${message.session_id?.split("-")[0] || "unknown"}`,
+								),
+							);
+							console.log(chalk.dim(`Model: ${message.model || "unknown"}`));
+							console.log(chalk.dim(`CWD: ${message.cwd || "unknown"}`));
+							console.log(
+								chalk.dim(
+									`Claude Code: v${message.claude_code_version || "unknown"}`,
+								),
+							);
 
-            if (!isShort && !options.userOnly && !options.assistantOnly) {
-              console.log(chalk.dim('━'.repeat(80)));
-              console.log(chalk.cyan.bold('📡 Session started'));
-              console.log(chalk.dim(`ID: ${message.session_id?.split('-')[0] || 'unknown'}`));
-              console.log(chalk.dim(`Model: ${message.model || 'unknown'}`));
-              console.log(chalk.dim(`CWD: ${message.cwd || 'unknown'}`));
-              console.log(chalk.dim(`Claude Code: v${message.claude_code_version || 'unknown'}`));
+							if (message.agents && message.agents.length > 0) {
+								console.log(
+									chalk.dim(
+										`Agents: ${message.agents.slice(0, 5).join(", ")}${message.agents.length > 5 ? ` +${message.agents.length - 5} more` : ""}`,
+									),
+								);
+							}
 
-              if (message.agents && message.agents.length > 0) {
-                console.log(chalk.dim(`Agents: ${message.agents.slice(0, 5).join(', ')}${message.agents.length > 5 ? ` +${message.agents.length - 5} more` : ''}`));
-              }
+							if (message.plugins && message.plugins.length > 0) {
+								console.log(
+									chalk.dim(`Plugins: ${message.plugins.length} loaded`),
+								);
+							}
 
-              if (message.plugins && message.plugins.length > 0) {
-                console.log(chalk.dim(`Plugins: ${message.plugins.length} loaded`));
-              }
+							if (message.mcp_servers && message.mcp_servers.length > 0) {
+								console.log(
+									chalk.dim(`MCP Servers: ${message.mcp_servers.length}`),
+								);
+							}
 
-              if (message.mcp_servers && message.mcp_servers.length > 0) {
-                console.log(chalk.dim(`MCP Servers: ${message.mcp_servers.length}`));
-              }
+							console.log(chalk.dim("━".repeat(80)));
+						}
+					}
 
-              console.log(chalk.dim('━'.repeat(80)));
-            }
-          }
+					// Filter based on options
+					if (options.userOnly && message.type !== "user") continue;
+					if (options.assistantOnly && message.type !== "assistant") continue;
 
-          // Filter based on options
-          if (options.userOnly && message.type !== 'user') continue;
-          if (options.assistantOnly && message.type !== 'assistant') continue;
+					// Handle different message types
+					if (
+						message.type === "user" &&
+						!message.message?.content?.some(
+							(b: any) => b.type === "tool_result",
+						)
+					) {
+						messageCount++;
+						const timeSinceLast = lastMessageTime ? now - lastMessageTime : 0;
+						lastMessageTime = now;
 
-          // Handle different message types
-          if (message.type === 'user' && !message.message?.content?.some((b: any) => b.type === 'tool_result')) {
-            messageCount++;
-            const timeSinceLast = lastMessageTime ? now - lastMessageTime : 0;
-            lastMessageTime = now;
+						if (!isShort) {
+							console.log(
+								chalk.bold.green(`\n👤 User`) +
+									(timeSinceLast > 1000
+										? chalk.dim(` (+${(timeSinceLast / 1000).toFixed(1)}s)`)
+										: ""),
+							);
 
-            if (!isShort) {
-              console.log(chalk.bold.green(`\n👤 User`) + (timeSinceLast > 1000 ? chalk.dim(` (+${(timeSinceLast / 1000).toFixed(1)}s)`) : ''));
+							const content = message.message?.content;
+							if (typeof content === "string") {
+								console.log(content);
+							} else if (Array.isArray(content)) {
+								for (const block of content) {
+									if (block.type === "text") {
+										console.log(block.text);
+									}
+								}
+							}
+						}
+					} else if (message.type === "assistant") {
+						const timeSinceLast = lastMessageTime ? now - lastMessageTime : 0;
+						lastMessageTime = now;
 
-              const content = message.message?.content;
-              if (typeof content === 'string') {
-                console.log(content);
-              } else if (Array.isArray(content)) {
-                for (const block of content) {
-                  if (block.type === 'text') {
-                    console.log(block.text);
-                  }
-                }
-              }
-            }
-          } else if (message.type === 'assistant') {
-            const timeSinceLast = lastMessageTime ? now - lastMessageTime : 0;
-            lastMessageTime = now;
+						const content = message.message?.content;
+						const usage = message.message?.usage;
 
-            const content = message.message?.content;
-            const usage = message.message?.usage;
+						// Track tokens
+						if (usage) {
+							totalInputTokens += usage.input_tokens || 0;
+							totalOutputTokens += usage.output_tokens || 0;
+							totalCacheRead += usage.cache_read_input_tokens || 0;
+							totalCacheWrite += usage.cache_creation_input_tokens || 0;
+						}
 
-            // Track tokens
-            if (usage) {
-              totalInputTokens += usage.input_tokens || 0;
-              totalOutputTokens += usage.output_tokens || 0;
-              totalCacheRead += usage.cache_read_input_tokens || 0;
-              totalCacheWrite += usage.cache_creation_input_tokens || 0;
-            }
+						// Check if this is a text response or tool call
+						const hasText =
+							Array.isArray(content) &&
+							content.some((b: any) => b.type === "text" && b.text);
+						const toolUses = Array.isArray(content)
+							? content.filter((b: any) => b.type === "tool_use")
+							: [];
 
-            // Check if this is a text response or tool call
-            const hasText = Array.isArray(content) && content.some((b: any) => b.type === 'text' && b.text);
-            const toolUses = Array.isArray(content) ? content.filter((b: any) => b.type === 'tool_use') : [];
+						if (hasText) {
+							messageCount++;
 
-            if (hasText) {
-              messageCount++;
+							if (!isShort) {
+								console.log(
+									chalk.bold.blue(`\n🤖 Assistant`) +
+										(timeSinceLast > 1000
+											? chalk.dim(` (+${(timeSinceLast / 1000).toFixed(1)}s)`)
+											: ""),
+								);
 
-              if (!isShort) {
-                console.log(chalk.bold.blue(`\n🤖 Assistant`) + (timeSinceLast > 1000 ? chalk.dim(` (+${(timeSinceLast / 1000).toFixed(1)}s)`) : ''));
+								if (typeof content === "string") {
+									console.log(content);
+								} else if (Array.isArray(content)) {
+									for (const block of content) {
+										if (block.type === "text") {
+											console.log(block.text);
+										}
+									}
+								}
 
-                if (typeof content === 'string') {
-                  console.log(content);
-                } else if (Array.isArray(content)) {
-                  for (const block of content) {
-                    if (block.type === 'text') {
-                      console.log(block.text);
-                    }
-                  }
-                }
+								// Show token usage inline
+								if (usage && (showTools || !isQuiet)) {
+									const inputCost =
+										(usage.input_tokens / 1_000_000) * INPUT_PRICE_PER_MTK;
+									const outputCost =
+										(usage.output_tokens / 1_000_000) * OUTPUT_PRICE_PER_MTK;
+									const cacheReadCost =
+										((usage.cache_read_input_tokens || 0) / 1_000_000) *
+										CACHE_READ_PRICE_PER_MTK;
+									const totalCost = inputCost + outputCost + cacheReadCost;
 
-                // Show token usage inline
-                if (usage && (showTools || !isQuiet)) {
-                  const inputCost = (usage.input_tokens / 1_000_000) * INPUT_PRICE_PER_MTK;
-                  const outputCost = (usage.output_tokens / 1_000_000) * OUTPUT_PRICE_PER_MTK;
-                  const cacheReadCost = ((usage.cache_read_input_tokens || 0) / 1_000_000) * CACHE_READ_PRICE_PER_MTK;
-                  const totalCost = inputCost + outputCost + cacheReadCost;
+									console.log(
+										chalk.dim(
+											`\n  💰 Cost: $${totalCost.toFixed(4)} | ` +
+												`📊 Tokens: ${usage.output_tokens} out, ${usage.input_tokens} in` +
+												(usage.cache_read_input_tokens
+													? chalk.green(
+															` | ⚡ ${usage.cache_read_input_tokens.toLocaleString()} cached`,
+														)
+													: ""),
+										),
+									);
+								}
+							}
+						}
 
-                  console.log(chalk.dim(`\n  💰 Cost: $${totalCost.toFixed(4)} | ` +
-                    `📊 Tokens: ${usage.output_tokens} out, ${usage.input_tokens} in` +
-                    (usage.cache_read_input_tokens ? chalk.green(` | ⚡ ${usage.cache_read_input_tokens.toLocaleString()} cached`) : '')));
-                }
-              }
-            }
+						// Handle tool calls
+						for (const toolUse of toolUses) {
+							if (!isShort && (showTools || !isQuiet)) {
+								console.log(
+									chalk.yellow(`\n🔧 Tool: ${chalk.bold(toolUse.name)}`),
+								);
 
-            // Handle tool calls
-            for (const toolUse of toolUses) {
-              if (!isShort && (showTools || !isQuiet)) {
-                console.log(chalk.yellow(`\n🔧 Tool: ${chalk.bold(toolUse.name)}`));
+								// Show compact input
+								const inputStr = JSON.stringify(toolUse.input, null, 2);
+								const inputLines = inputStr.split("\n");
+								if (inputLines.length > 10) {
+									console.log(
+										chalk.dim(`   ${inputLines.slice(0, 5).join("\n   ")}`),
+									);
+									console.log(
+										chalk.dim(`   ... (${inputLines.length - 10} more lines)`),
+									);
+									console.log(
+										chalk.dim(`   ${inputLines.slice(-5).join("\n   ")}`),
+									);
+								} else {
+									console.log(
+										chalk.dim(`   ${inputStr.split("\n").join("\n   ")}`),
+									);
+								}
+							}
 
-                // Show compact input
-                const inputStr = JSON.stringify(toolUse.input, null, 2);
-                const inputLines = inputStr.split('\n');
-                if (inputLines.length > 10) {
-                  console.log(chalk.dim(`   ${inputLines.slice(0, 5).join('\n   ')}`));
-                  console.log(chalk.dim(`   ... (${inputLines.length - 10} more lines)`));
-                  console.log(chalk.dim(`   ${inputLines.slice(-5).join('\n   ')}`));
-                } else {
-                  console.log(chalk.dim(`   ${inputStr.split('\n').join('\n   ')}`));
-                }
-              }
+							// Track pending tool call
+							pendingTools.set(toolUse.id, {
+								name: toolUse.name,
+								timestamp: now,
+							});
+						}
+					} else if (message.type === "tool_result") {
+						const toolUseId =
+							message.tool_use_id || message.message?.content?.[0]?.tool_use_id;
+						const pending = pendingTools.get(toolUseId);
 
-              // Track pending tool call
-              pendingTools.set(toolUse.id, { name: toolUse.name, timestamp: now });
-            }
-          } else if (message.type === 'tool_result') {
-            const toolUseId = message.tool_use_id || message.message?.content?.[0]?.tool_use_id;
-            const pending = pendingTools.get(toolUseId);
+						if (pending && !isShort && (showTools || !isQuiet)) {
+							const duration = now - pending.timestamp;
 
-            if (pending && !isShort && (showTools || !isQuiet)) {
-              const duration = now - pending.timestamp;
+							// Get result size
+							let resultSize = 0;
+							const content = message.message?.content;
+							if (typeof content === "string") {
+								resultSize = content.length;
+							} else if (Array.isArray(content)) {
+								for (const block of content) {
+									if (block.type === "text") {
+										resultSize += block.text?.length || 0;
+									} else if (block.content) {
+										resultSize +=
+											typeof block.content === "string"
+												? block.content.length
+												: JSON.stringify(block.content).length;
+									}
+								}
+							}
 
-              // Get result size
-              let resultSize = 0;
-              const content = message.message?.content;
-              if (typeof content === 'string') {
-                resultSize = content.length;
-              } else if (Array.isArray(content)) {
-                for (const block of content) {
-                  if (block.type === 'text') {
-                    resultSize += block.text?.length || 0;
-                  } else if (block.content) {
-                    resultSize += typeof block.content === 'string' ? block.content.length : JSON.stringify(block.content).length;
-                  }
-                }
-              }
+							toolCalls.push({
+								name: pending.name,
+								timestamp: pending.timestamp,
+								resultSize,
+								duration,
+							});
+							pendingTools.delete(toolUseId);
 
-              toolCalls.push({ name: pending.name, timestamp: pending.timestamp, resultSize, duration });
-              pendingTools.delete(toolUseId);
+							console.log(
+								chalk.green(`   ✓ Completed in ${duration}ms`) +
+									(resultSize > 0
+										? chalk.dim(
+												` | ${(resultSize / 1024).toFixed(1)} KB result`,
+											)
+										: ""),
+							);
+						}
+					} else if (message.type === "result") {
+						finalResult = message;
 
-              console.log(chalk.green(`   ✓ Completed in ${duration}ms`) +
-                (resultSize > 0 ? chalk.dim(` | ${(resultSize / 1024).toFixed(1)} KB result`) : ''));
-            }
-          } else if (message.type === 'result') {
-            finalResult = message;
+						if (!isShort && message.subtype === "success" && isQuiet) {
+							// Don't show success messages in quiet mode
+						} else if (!isShort && !isQuiet) {
+							console.log(
+								chalk.dim(`\n[Result: ${message.subtype || "unknown"}]`),
+							);
+							if (message.result) {
+								console.log(chalk.dim(`  ${message.result}`));
+							}
+						}
+					}
+				} catch (parseError) {
+					if (!isQuiet) {
+						console.error(chalk.red(`Failed to parse line: ${parseError}`));
+					}
+				}
+			}
 
-            if (!isShort && message.subtype === 'success' && !!isQuiet) {
-              // Don't show success messages in quiet mode
-            } else if (!isShort && !isQuiet) {
-              console.log(chalk.dim(`\n[Result: ${message.subtype || 'unknown'}]`));
-              if (message.result) {
-                console.log(chalk.dim(`  ${message.result}`));
-              }
-            }
-          }
-        } catch (parseError) {
-          if (!isQuiet) {
-            console.error(chalk.red(`Failed to parse line: ${parseError}`));
-          }
-        }
-      }
+			// Print summary
+			const totalDuration = sessionStartTime
+				? Date.now() - sessionStartTime
+				: 0;
+			const actualDuration = finalResult?.duration_ms || totalDuration;
+			const apiDuration = finalResult?.duration_api_ms || 0;
+			const numTurns = finalResult?.num_turns || 0;
+			const actualCost = finalResult?.total_cost_usd || null;
 
-      // Print summary
-      const totalDuration = sessionStartTime ? Date.now() - sessionStartTime : 0;
-      const actualDuration = finalResult?.duration_ms || totalDuration;
-      const apiDuration = finalResult?.duration_api_ms || 0;
-      const numTurns = finalResult?.num_turns || 0;
-      const actualCost = finalResult?.total_cost_usd || null;
+			const totalCost =
+				(totalInputTokens / 1_000_000) * INPUT_PRICE_PER_MTK +
+				(totalOutputTokens / 1_000_000) * OUTPUT_PRICE_PER_MTK +
+				(totalCacheRead / 1_000_000) * CACHE_READ_PRICE_PER_MTK +
+				(totalCacheWrite / 1_000_000) * CACHE_WRITE_PRICE_PER_MTK;
 
-      const totalCost =
-        (totalInputTokens / 1_000_000) * INPUT_PRICE_PER_MTK +
-        (totalOutputTokens / 1_000_000) * OUTPUT_PRICE_PER_MTK +
-        (totalCacheRead / 1_000_000) * CACHE_READ_PRICE_PER_MTK +
-        (totalCacheWrite / 1_000_000) * CACHE_WRITE_PRICE_PER_MTK;
+			// SHORT TABLE VIEW
+			if (isShort) {
+				if (finalResult) {
+					console.log(chalk.bold.cyan("\n📊 Session summary (short)\n"));
 
-      // SHORT TABLE VIEW
-      if (isShort) {
-        if (finalResult) {
-          console.log(chalk.bold.cyan('\n📊 Session summary (short)\n'));
+					const summaryTable = new Table({
+						head: ["Metric", "Value"],
+						colWidths: [30, 50],
+						style: {
+							head: [],
+							border: [],
+						},
+					});
 
-          const summaryTable = new Table({
-            head: ['Metric', 'Value'],
-            colWidths: [30, 50],
-            style: {
-              head: [],
-              border: [],
-            },
-          });
+					summaryTable.push(
+						[
+							"Session ID",
+							sessionMetadata?.session_id?.split("-")[0] || "unknown",
+						],
+						["Model", sessionMetadata?.model || "unknown"],
+						[
+							"Duration",
+							`${(actualDuration / 1000).toFixed(1)}s (API: ${(apiDuration / 1000).toFixed(1)}s)`,
+						],
+						["Turns", numTurns.toString()],
+						["Messages", messageCount.toString()],
+						["Tool Calls", toolCalls.length.toString()],
+						[
+							"Total Tokens",
+							(
+								totalInputTokens +
+								totalOutputTokens +
+								totalCacheRead +
+								totalCacheWrite
+							).toLocaleString(),
+						],
+						["Cost", chalk.green(`$${(actualCost || totalCost).toFixed(4)}`)],
+					);
 
-          summaryTable.push(
-            ['Session ID', sessionMetadata?.session_id?.split('-')[0] || 'unknown'],
-            ['Model', sessionMetadata?.model || 'unknown'],
-            ['Duration', `${(actualDuration / 1000).toFixed(1)}s (API: ${(apiDuration / 1000).toFixed(1)}s)`],
-            ['Turns', numTurns.toString()],
-            ['Messages', messageCount.toString()],
-            ['Tool Calls', toolCalls.length.toString()],
-            ['Total Tokens', (totalInputTokens + totalOutputTokens + totalCacheRead + totalCacheWrite).toLocaleString()],
-            ['Cost', chalk.green(`$${(actualCost || totalCost).toFixed(4)}`)],
-          );
+					console.log(summaryTable.toString());
 
-          console.log(summaryTable.toString());
+					// Model usage breakdown if multiple models
+					if (
+						finalResult.modelUsage &&
+						Object.keys(finalResult.modelUsage).length > 1
+					) {
+						console.log(chalk.bold("\n🤖 Models Used:\n"));
 
-          // Model usage breakdown if multiple models
-          if (finalResult.modelUsage && Object.keys(finalResult.modelUsage).length > 1) {
-            console.log(chalk.bold('\n🤖 Models Used:\n'));
+						const modelTable = new Table({
+							head: ["Model", "In/Out Tokens", "Cache", "Cost"],
+							colWidths: [30, 20, 20, 15],
+							style: {
+								head: [],
+								border: [],
+							},
+						});
 
-            const modelTable = new Table({
-              head: ['Model', 'In/Out Tokens', 'Cache', 'Cost'],
-              colWidths: [30, 20, 20, 15],
-              style: {
-                head: [],
-                border: [],
-              },
-            });
+						for (const [modelName, usage] of Object.entries(
+							finalResult.modelUsage,
+						)) {
+							const u = usage as any;
+							modelTable.push([
+								modelName.replace("claude-", ""),
+								`${u.inputTokens}/${u.outputTokens}`,
+								u.cacheReadInputTokens
+									? `${u.cacheReadInputTokens.toLocaleString()}`
+									: "0",
+								chalk.green(`$${u.costUSD.toFixed(4)}`),
+							]);
+						}
 
-            for (const [modelName, usage] of Object.entries(finalResult.modelUsage)) {
-              const u = usage as any;
-              modelTable.push([
-                modelName.replace('claude-', ''),
-                `${u.inputTokens}/${u.outputTokens}`,
-                u.cacheReadInputTokens ? `${u.cacheReadInputTokens.toLocaleString()}` : '0',
-                chalk.green(`$${u.costUSD.toFixed(4)}`),
-              ]);
-            }
+						console.log(modelTable.toString());
+					}
 
-            console.log(modelTable.toString());
-          }
+					// Tool usage table
+					if (toolCalls.length > 0) {
+						console.log(chalk.bold("\n🔧 Tool Usage:\n"));
 
-          // Tool usage table
-          if (toolCalls.length > 0) {
-            console.log(chalk.bold('\n🔧 Tool Usage:\n'));
+						const toolTable = new Table({
+							head: ["Tool", "Calls", "Avg Time", "Total Size"],
+							colWidths: [20, 10, 15, 15],
+							style: {
+								head: [],
+								border: [],
+							},
+						});
 
-            const toolTable = new Table({
-              head: ['Tool', 'Calls', 'Avg Time', 'Total Size'],
-              colWidths: [20, 10, 15, 15],
-              style: {
-                head: [],
-                border: [],
-              },
-            });
+						const toolStats = new Map<
+							string,
+							{ count: number; totalDuration: number; totalSize: number }
+						>();
+						for (const call of toolCalls) {
+							const stats = toolStats.get(call.name) || {
+								count: 0,
+								totalDuration: 0,
+								totalSize: 0,
+							};
+							stats.count++;
+							stats.totalDuration += call.duration || 0;
+							stats.totalSize += call.resultSize || 0;
+							toolStats.set(call.name, stats);
+						}
 
-            const toolStats = new Map<string, { count: number; totalDuration: number; totalSize: number }>();
-            for (const call of toolCalls) {
-              const stats = toolStats.get(call.name) || { count: 0, totalDuration: 0, totalSize: 0 };
-              stats.count++;
-              stats.totalDuration += call.duration || 0;
-              stats.totalSize += call.resultSize || 0;
-              toolStats.set(call.name, stats);
-            }
+						for (const [name, stats] of toolStats) {
+							const avgDuration = stats.totalDuration / stats.count;
+							toolTable.push([
+								name,
+								stats.count.toString(),
+								avgDuration > 0 ? `${avgDuration.toFixed(0)}ms` : "-",
+								stats.totalSize > 0
+									? `${(stats.totalSize / 1024).toFixed(1)} KB`
+									: "-",
+							]);
+						}
 
-            for (const [name, stats] of toolStats) {
-              const avgDuration = stats.totalDuration / stats.count;
-              toolTable.push([
-                name,
-                stats.count.toString(),
-                avgDuration > 0 ? `${avgDuration.toFixed(0)}ms` : '-',
-                stats.totalSize > 0 ? `${(stats.totalSize / 1024).toFixed(1)} KB` : '-',
-              ]);
-            }
+						console.log(toolTable.toString());
+					}
+				} else {
+					console.log(chalk.yellow("\nNo session data available yet."));
+				}
+			}
+			// DETAILED VIEW
+			else if (messageCount > 0 || toolCalls.length > 0) {
+				console.log(chalk.dim("\n" + "━".repeat(80)));
+				console.log(chalk.cyan.bold("📊 Session summary"));
+				console.log(chalk.dim("━".repeat(80)));
 
-            console.log(toolTable.toString());
-          }
-        } else {
-          console.log(chalk.yellow('\nNo session data available yet.'));
-        }
-      }
-      // DETAILED VIEW
-      else if (messageCount > 0 || toolCalls.length > 0) {
-        console.log(chalk.dim('\n' + '━'.repeat(80)));
-        console.log(chalk.cyan.bold('📊 Session summary'));
-        console.log(chalk.dim('━'.repeat(80)));
+				if (actualDuration > 0) {
+					const wallClock = (actualDuration / 1000).toFixed(1);
+					const api =
+						apiDuration > 0
+							? ` (API: ${(apiDuration / 1000).toFixed(1)}s)`
+							: "";
+					console.log(
+						chalk.white(
+							`⏱️  Duration: ${chalk.bold(wallClock)}s${chalk.dim(api)}`,
+						),
+					);
+				}
 
-        if (actualDuration > 0) {
-          const wallClock = (actualDuration / 1000).toFixed(1);
-          const api = apiDuration > 0 ? ` (API: ${(apiDuration / 1000).toFixed(1)}s)` : '';
-          console.log(chalk.white(`⏱️  Duration: ${chalk.bold(wallClock)}s${chalk.dim(api)}`));
-        }
+				if (numTurns > 0) {
+					console.log(
+						chalk.white(`🔄 Conversation Turns: ${chalk.bold(numTurns)}`),
+					);
+				}
 
-        if (numTurns > 0) {
-          console.log(chalk.white(`🔄 Conversation Turns: ${chalk.bold(numTurns)}`));
-        }
+				if (messageCount > 0) {
+					console.log(chalk.white(`💬 Messages: ${chalk.bold(messageCount)}`));
+				}
 
-        if (messageCount > 0) {
-          console.log(chalk.white(`💬 Messages: ${chalk.bold(messageCount)}`));
-        }
+				if (toolCalls.length > 0) {
+					console.log(
+						chalk.white(`🔧 Tool Calls: ${chalk.bold(toolCalls.length)}`),
+					);
 
-        if (toolCalls.length > 0) {
-          console.log(chalk.white(`🔧 Tool Calls: ${chalk.bold(toolCalls.length)}`));
+					// Group by tool name
+					const toolStats = new Map<
+						string,
+						{ count: number; totalDuration: number; totalSize: number }
+					>();
+					for (const call of toolCalls) {
+						const stats = toolStats.get(call.name) || {
+							count: 0,
+							totalDuration: 0,
+							totalSize: 0,
+						};
+						stats.count++;
+						stats.totalDuration += call.duration || 0;
+						stats.totalSize += call.resultSize || 0;
+						toolStats.set(call.name, stats);
+					}
 
-          // Group by tool name
-          const toolStats = new Map<string, { count: number; totalDuration: number; totalSize: number }>();
-          for (const call of toolCalls) {
-            const stats = toolStats.get(call.name) || { count: 0, totalDuration: 0, totalSize: 0 };
-            stats.count++;
-            stats.totalDuration += call.duration || 0;
-            stats.totalSize += call.resultSize || 0;
-            toolStats.set(call.name, stats);
-          }
+					for (const [name, stats] of toolStats) {
+						const avgDuration = stats.totalDuration / stats.count;
+						console.log(
+							chalk.dim(
+								`   • ${name}: ${stats.count}x` +
+									(avgDuration > 0 ? `, avg ${avgDuration.toFixed(0)}ms` : "") +
+									(stats.totalSize > 0
+										? `, ${(stats.totalSize / 1024).toFixed(1)} KB`
+										: ""),
+							),
+						);
+					}
+				}
 
-          for (const [name, stats] of toolStats) {
-            const avgDuration = stats.totalDuration / stats.count;
-            console.log(chalk.dim(`   • ${name}: ${stats.count}x` +
-              (avgDuration > 0 ? `, avg ${avgDuration.toFixed(0)}ms` : '') +
-              (stats.totalSize > 0 ? `, ${(stats.totalSize / 1024).toFixed(1)} KB` : '')));
-          }
-        }
+				// Model usage breakdown if available
+				if (
+					finalResult?.modelUsage &&
+					Object.keys(finalResult.modelUsage).length > 0
+				) {
+					console.log(chalk.white(`\n🤖 Models Used:`));
 
-        // Model usage breakdown if available
-        if (finalResult?.modelUsage && Object.keys(finalResult.modelUsage).length > 0) {
-          console.log(chalk.white(`\n🤖 Models Used:`));
+					for (const [modelName, usage] of Object.entries(
+						finalResult.modelUsage,
+					)) {
+						const u = usage as any;
+						const shortName = modelName
+							.replace("claude-", "")
+							.replace("-20250929", "")
+							.replace("-20251001", "");
+						console.log(chalk.dim(`   • ${shortName}:`));
+						console.log(
+							chalk.dim(
+								`     - Tokens: ${u.inputTokens} in, ${u.outputTokens} out` +
+									(u.cacheReadInputTokens
+										? chalk.green(
+												`, ${u.cacheReadInputTokens.toLocaleString()} cached`,
+											)
+										: ""),
+							),
+						);
+						console.log(
+							chalk.dim(
+								`     - Cost: ${chalk.green(`$${u.costUSD.toFixed(4)}`)}`,
+							),
+						);
+					}
+				}
 
-          for (const [modelName, usage] of Object.entries(finalResult.modelUsage)) {
-            const u = usage as any;
-            const shortName = modelName.replace('claude-', '').replace('-20250929', '').replace('-20251001', '');
-            console.log(chalk.dim(`   • ${shortName}:`));
-            console.log(chalk.dim(`     - Tokens: ${u.inputTokens} in, ${u.outputTokens} out` +
-              (u.cacheReadInputTokens ? chalk.green(`, ${u.cacheReadInputTokens.toLocaleString()} cached`) : '')));
-            console.log(chalk.dim(`     - Cost: ${chalk.green(`$${u.costUSD.toFixed(4)}`)}`));
-          }
-        }
+				if (totalInputTokens > 0 || totalOutputTokens > 0) {
+					console.log(chalk.white(`\n📊 Total Tokens:`));
+					console.log(
+						chalk.dim(`   • Input: ${totalInputTokens.toLocaleString()}`),
+					);
+					console.log(
+						chalk.dim(`   • Output: ${totalOutputTokens.toLocaleString()}`),
+					);
+					if (totalCacheRead > 0) {
+						console.log(
+							chalk.green(
+								`   • Cache Read: ${totalCacheRead.toLocaleString()}`,
+							),
+						);
+					}
+					if (totalCacheWrite > 0) {
+						console.log(
+							chalk.yellow(
+								`   • Cache Write: ${totalCacheWrite.toLocaleString()}`,
+							),
+						);
+					}
+					console.log(
+						chalk.dim(
+							`   • Total: ${(totalInputTokens + totalOutputTokens + totalCacheRead + totalCacheWrite).toLocaleString()}`,
+						),
+					);
+				}
 
-        if (totalInputTokens > 0 || totalOutputTokens > 0) {
-          console.log(chalk.white(`\n📊 Total Tokens:`));
-          console.log(chalk.dim(`   • Input: ${totalInputTokens.toLocaleString()}`));
-          console.log(chalk.dim(`   • Output: ${totalOutputTokens.toLocaleString()}`));
-          if (totalCacheRead > 0) {
-            console.log(chalk.green(`   • Cache Read: ${totalCacheRead.toLocaleString()}`));
-          }
-          if (totalCacheWrite > 0) {
-            console.log(chalk.yellow(`   • Cache Write: ${totalCacheWrite.toLocaleString()}`));
-          }
-          console.log(chalk.dim(`   • Total: ${(totalInputTokens + totalOutputTokens + totalCacheRead + totalCacheWrite).toLocaleString()}`));
-        }
+				const displayCost = actualCost !== null ? actualCost : totalCost;
+				if (displayCost > 0) {
+					const costLabel =
+						actualCost !== null ? "Actual Cost" : "Estimated Cost";
+					console.log(
+						chalk.white(
+							`\n💰 ${costLabel}: ${chalk.bold.green(`$${displayCost.toFixed(4)}`)}`,
+						),
+					);
+				}
 
-        const displayCost = actualCost !== null ? actualCost : totalCost;
-        if (displayCost > 0) {
-          const costLabel = actualCost !== null ? 'Actual Cost' : 'Estimated Cost';
-          console.log(chalk.white(`\n💰 ${costLabel}: ${chalk.bold.green(`$${displayCost.toFixed(4)}`)}`));
-        }
+				// Permission denials if any
+				if (
+					finalResult?.permission_denials &&
+					finalResult.permission_denials.length > 0
+				) {
+					console.log(
+						chalk.yellow(
+							`\n⚠️  Permission Denials: ${finalResult.permission_denials.length}`,
+						),
+					);
+				}
 
-        // Permission denials if any
-        if (finalResult?.permission_denials && finalResult.permission_denials.length > 0) {
-          console.log(chalk.yellow(`\n⚠️  Permission Denials: ${finalResult.permission_denials.length}`));
-        }
+				// Web usage if any
+				if (finalResult?.usage?.server_tool_use) {
+					const webSearch =
+						finalResult.usage.server_tool_use.web_search_requests || 0;
+					const webFetch =
+						finalResult.usage.server_tool_use.web_fetch_requests || 0;
+					if (webSearch > 0 || webFetch > 0) {
+						console.log(chalk.white(`\n🌐 Web Usage:`));
+						if (webSearch > 0)
+							console.log(chalk.dim(`   • Search Requests: ${webSearch}`));
+						if (webFetch > 0)
+							console.log(chalk.dim(`   • Fetch Requests: ${webFetch}`));
+					}
+				}
 
-        // Web usage if any
-        if (finalResult?.usage?.server_tool_use) {
-          const webSearch = finalResult.usage.server_tool_use.web_search_requests || 0;
-          const webFetch = finalResult.usage.server_tool_use.web_fetch_requests || 0;
-          if (webSearch > 0 || webFetch > 0) {
-            console.log(chalk.white(`\n🌐 Web Usage:`));
-            if (webSearch > 0) console.log(chalk.dim(`   • Search Requests: ${webSearch}`));
-            if (webFetch > 0) console.log(chalk.dim(`   • Fetch Requests: ${webFetch}`));
-          }
-        }
-
-        console.log(chalk.dim('━'.repeat(80)));
-      } else if (!!isQuiet) {
-        console.log(chalk.yellow('\nNo messages found in stream.'));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error formatting stream:'), error);
-      process.exit(1);
-    }
-  });
+				console.log(chalk.dim("━".repeat(80)));
+			} else if (isQuiet) {
+				console.log(chalk.yellow("\nNo messages found in stream."));
+			}
+		} catch (error) {
+			console.error(chalk.red("Error formatting stream:"), error);
+			process.exit(1);
+		}
+	});
 
 // TUI subcommand
 interface TuiOptions {
-  project: string;
-  file?: string;
-  session?: string;
+	project: string;
+	file?: string;
+	session?: string;
 }
 
 sessionsCommand
-  .command('tui')
-  .description('Interactive session TUI: overview, live stream, file, or session by ID')
-  .argument('[file-or-session-id]', 'Session JSONL file path or session ID to open')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--file <path>', 'Open session from JSONL file path')
-  .option('--session <id>', 'Open session by ID (from sessions list)')
-  .action(async (fileOrSessionId: string | undefined, options: TuiOptions) => {
-    try {
-      const { stdin } = await import('node:process');
-      const projectPath = resolve(options.project);
-      const hasStdin = !stdin.isTTY;
+	.command("tui")
+	.description(
+		"Interactive session TUI: overview, live stream, file, or session by ID",
+	)
+	.argument(
+		"[file-or-session-id]",
+		"Session JSONL file path or session ID to open",
+	)
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option("--file <path>", "Open session from JSONL file path")
+	.option("--session <id>", "Open session by ID (from sessions list)")
+	.action(async (fileOrSessionId: string | undefined, options: TuiOptions) => {
+		try {
+			const { stdin } = await import("node:process");
+			const projectPath = resolve(options.project);
+			const hasStdin = !stdin.isTTY;
 
-      let filePath: string | undefined = options.file;
-      let sessionId: string | undefined = options.session;
+			let filePath: string | undefined = options.file;
+			let sessionId: string | undefined = options.session;
 
-      if (fileOrSessionId) {
-        if (options.file) filePath = options.file;
-        else if (options.session) sessionId = options.session;
-        else if (fileOrSessionId.includes('/') || fileOrSessionId.endsWith('.jsonl')) {
-          filePath = resolve(fileOrSessionId);
-        } else {
-          sessionId = fileOrSessionId;
-        }
-      }
+			if (fileOrSessionId) {
+				if (options.file) filePath = options.file;
+				else if (options.session) sessionId = options.session;
+				else if (
+					fileOrSessionId.includes("/") ||
+					fileOrSessionId.endsWith(".jsonl")
+				) {
+					filePath = resolve(fileOrSessionId);
+				} else {
+					sessionId = fileOrSessionId;
+				}
+			}
 
-      const { runSessionTui } = await import('@umwelten/ui/tui/index.js');
-      await runSessionTui({
-        projectPath,
-        filePath,
-        sessionId,
-        hasStdin,
-      });
-    } catch (error) {
-      console.error(chalk.red('Error starting TUI:'), error);
-      process.exit(1);
-    }
-  });
+			const { runSessionTui } = await import("@umwelten/ui/tui/index.js");
+			await runSessionTui({
+				projectPath,
+				filePath,
+				sessionId,
+				hasStdin,
+			});
+		} catch (error) {
+			console.error(chalk.red("Error starting TUI:"), error);
+			process.exit(1);
+		}
+	});
 
 // Browse subcommand (session browser: search, first messages, index summary)
 interface BrowseOptions {
-  project: string;
+	project: string;
 }
 
 sessionsCommand
-  .command('browse')
-  .description('Session browser: search, first messages, and index summary (Enter to open detail)')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .action(async (options: BrowseOptions) => {
-    try {
-      const projectPath = resolve(options.project);
-      const { runBrowserTui } = await import('@umwelten/ui/tui/browser/index.js');
-      const selectedId = await runBrowserTui({
-        projectPath,
-        onSelectSession: id => {
-          // selectedId is returned; print after TUI exits
-        },
-      });
-      if (selectedId) {
-        console.log(chalk.dim('\nTo view full session:'));
-        console.log(chalk.cyan(`  umwelten sessions show ${selectedId}`));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error starting browser:'), error);
-      process.exit(1);
-    }
-  });
+	.command("browse")
+	.description(
+		"Session browser: search, first messages, and index summary (Enter to open detail)",
+	)
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.action(async (options: BrowseOptions) => {
+		try {
+			const projectPath = resolve(options.project);
+			const { runBrowserTui } = await import(
+				"@umwelten/ui/tui/browser/index.js"
+			);
+			const selectedId = await runBrowserTui({
+				projectPath,
+				onSelectSession: (_id) => {
+					// selectedId is returned; print after TUI exits
+				},
+			});
+			if (selectedId) {
+				console.log(chalk.dim("\nTo view full session:"));
+				console.log(chalk.cyan(`  umwelten sessions show ${selectedId}`));
+			}
+		} catch (error) {
+			console.error(chalk.red("Error starting browser:"), error);
+			process.exit(1);
+		}
+	});
 
 // Export subcommand
 interface ExportOptions {
-  project: string;
-  format: 'markdown' | 'json';
-  output?: string;
-  includeToolCalls?: boolean;
-  includeMetadata?: boolean;
+	project: string;
+	format: "markdown" | "json";
+	output?: string;
+	includeToolCalls?: boolean;
+	includeMetadata?: boolean;
 }
 
 sessionsCommand
-  .command('export')
-  .description('Export session to markdown or JSON format')
-  .argument('<session-id>', 'Session ID to export')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('-f, --format <format>', 'Output format (markdown, json)', 'markdown')
-  .option('-o, --output <file>', 'Output file (prints to stdout if not specified)')
-  .option('--no-tool-calls', 'Exclude tool calls from export')
-  .option('--no-metadata', 'Exclude metadata from export')
-  .action(async (sessionId: string, options: ExportOptions) => {
-    try {
-      const projectPath = resolve(options.project);
+	.command("export")
+	.description("Export session to markdown or JSON format")
+	.argument("<session-id>", "Session ID to export")
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option("-f, --format <format>", "Output format (markdown, json)", "markdown")
+	.option(
+		"-o, --output <file>",
+		"Output file (prints to stdout if not specified)",
+	)
+	.option("--no-tool-calls", "Exclude tool calls from export")
+	.option("--no-metadata", "Exclude metadata from export")
+	.action(async (sessionId: string, options: ExportOptions) => {
+		try {
+			const projectPath = resolve(options.project);
 
-      const session = await findSessionById(projectPath, sessionId);
+			const session = await findSessionById(projectPath, sessionId);
 
-      if (!session) {
-        console.error(chalk.red(`Session not found: ${sessionId}`));
-        console.log(
-          chalk.dim('\nTip: Use "sessions list" to see available sessions')
-        );
-        process.exit(1);
-      }
+			if (!session) {
+				console.error(chalk.red(`Session not found: ${sessionId}`));
+				console.log(
+					chalk.dim('\nTip: Use "sessions list" to see available sessions'),
+				);
+				process.exit(1);
+			}
 
-      if (!session.fullPath) {
-        console.error(chalk.red('Session file path not available.'));
-        process.exit(1);
-      }
+			if (!session.fullPath) {
+				console.error(chalk.red("Session file path not available."));
+				process.exit(1);
+			}
 
-      // Parse the session file
-      const { parseSessionFile, summarizeSession, extractToolCalls, extractTextContent } = await import('@umwelten/core/interaction/persistence/session-parser.js');
-      const messages = await parseSessionFile(session.fullPath);
-      const summary = summarizeSession(messages);
-      const toolCalls = extractToolCalls(messages);
+			// Parse the session file
+			const {
+				parseSessionFile,
+				summarizeSession,
+				extractToolCalls,
+				extractTextContent,
+			} = await import(
+				"@umwelten/core/interaction/persistence/session-parser.js"
+			);
+			const messages = await parseSessionFile(session.fullPath);
+			const summary = summarizeSession(messages);
+			const toolCalls = extractToolCalls(messages);
 
-      // Generate export content based on format
-      let exportContent: string;
+			// Generate export content based on format
+			let exportContent: string;
 
-      if (options.format === 'json') {
-        // JSON export
-        const jsonExport: any = {
-          sessionId: session.sessionId,
-          metadata: options.includeMetadata !== false ? {
-            projectPath: session.projectPath,
-            gitBranch: session.gitBranch,
-            created: session.created,
-            modified: session.modified,
-            isSidechain: session.isSidechain,
-            messageCount: session.messageCount,
-            firstPrompt: session.firstPrompt,
-          } : undefined,
-          summary: {
-            totalMessages: summary.totalMessages,
-            userMessages: summary.userMessages,
-            assistantMessages: summary.assistantMessages,
-            toolCalls: summary.toolCalls,
-            duration: summary.duration,
-            tokenUsage: summary.tokenUsage,
-            estimatedCost: summary.estimatedCost,
-          },
-          conversation: messages
-            .filter(m => m.type === 'user' || m.type === 'assistant')
-            .map(msg => {
-              if (msg.type === 'user' || msg.type === 'assistant') {
-                const content = msg.message.content;
-                const texts = extractTextContent(content);
+			if (options.format === "json") {
+				// JSON export
+				const jsonExport: any = {
+					sessionId: session.sessionId,
+					metadata:
+						options.includeMetadata !== false
+							? {
+									projectPath: session.projectPath,
+									gitBranch: session.gitBranch,
+									created: session.created,
+									modified: session.modified,
+									isSidechain: session.isSidechain,
+									messageCount: session.messageCount,
+									firstPrompt: session.firstPrompt,
+								}
+							: undefined,
+					summary: {
+						totalMessages: summary.totalMessages,
+						userMessages: summary.userMessages,
+						assistantMessages: summary.assistantMessages,
+						toolCalls: summary.toolCalls,
+						duration: summary.duration,
+						tokenUsage: summary.tokenUsage,
+						estimatedCost: summary.estimatedCost,
+					},
+					conversation: messages
+						.filter((m) => m.type === "user" || m.type === "assistant")
+						.map((msg) => {
+							if (msg.type === "user" || msg.type === "assistant") {
+								const content = msg.message.content;
+								const texts = extractTextContent(content);
 
-                return {
-                  type: msg.type,
-                  role: msg.message.role,
-                  timestamp: msg.timestamp,
-                  uuid: msg.uuid,
-                  content: texts.join('\n'),
-                  usage: msg.type === 'assistant' ? msg.message.usage : undefined,
-                };
-              }
-              return msg;
-            }),
-          toolCalls: options.includeToolCalls !== false ? toolCalls : undefined,
-        };
+								return {
+									type: msg.type,
+									role: msg.message.role,
+									timestamp: msg.timestamp,
+									uuid: msg.uuid,
+									content: texts.join("\n"),
+									usage:
+										msg.type === "assistant" ? msg.message.usage : undefined,
+								};
+							}
+							return msg;
+						}),
+					toolCalls: options.includeToolCalls !== false ? toolCalls : undefined,
+				};
 
-        // Remove undefined fields
-        if (jsonExport.metadata === undefined) delete jsonExport.metadata;
-        if (jsonExport.toolCalls === undefined) delete jsonExport.toolCalls;
+				// Remove undefined fields
+				if (jsonExport.metadata === undefined) delete jsonExport.metadata;
+				if (jsonExport.toolCalls === undefined) delete jsonExport.toolCalls;
 
-        exportContent = JSON.stringify(jsonExport, null, 2);
-      } else {
-        // Markdown export
-        const lines: string[] = [];
+				exportContent = JSON.stringify(jsonExport, null, 2);
+			} else {
+				// Markdown export
+				const lines: string[] = [];
 
-        // Header
-        lines.push(`# Session: ${session.sessionId}`);
-        lines.push('');
+				// Header
+				lines.push(`# Session: ${session.sessionId}`);
+				lines.push("");
 
-        // Metadata section
-        if (options.includeMetadata !== false) {
-          lines.push('## Metadata');
-          lines.push('');
-          lines.push(`- **Project Path**: ${session.projectPath}`);
-          lines.push(`- **Git Branch**: ${session.gitBranch}`);
-          lines.push(`- **Created**: ${new Date(session.created).toLocaleString()}`);
-          lines.push(`- **Modified**: ${new Date(session.modified).toLocaleString()}`);
-          if (summary.duration) {
-            const durationStr = formatDuration(summary.duration);
-            lines.push(`- **Duration**: ${durationStr}`);
-          }
-          lines.push(`- **Sidechain**: ${session.isSidechain ? 'Yes' : 'No'}`);
-          lines.push('');
-        }
+				// Metadata section
+				if (options.includeMetadata !== false) {
+					lines.push("## Metadata");
+					lines.push("");
+					lines.push(`- **Project Path**: ${session.projectPath}`);
+					lines.push(`- **Git Branch**: ${session.gitBranch}`);
+					lines.push(
+						`- **Created**: ${new Date(session.created).toLocaleString()}`,
+					);
+					lines.push(
+						`- **Modified**: ${new Date(session.modified).toLocaleString()}`,
+					);
+					if (summary.duration) {
+						const durationStr = formatDuration(summary.duration);
+						lines.push(`- **Duration**: ${durationStr}`);
+					}
+					lines.push(`- **Sidechain**: ${session.isSidechain ? "Yes" : "No"}`);
+					lines.push("");
+				}
 
-        // Summary section
-        lines.push('## Summary');
-        lines.push('');
-        lines.push(`- **Total Messages**: ${summary.totalMessages}`);
-        lines.push(`- **User Messages**: ${summary.userMessages}`);
-        lines.push(`- **Assistant Messages**: ${summary.assistantMessages}`);
-        lines.push(`- **Tool Calls**: ${summary.toolCalls}`);
-        lines.push(`- **Input Tokens**: ${summary.tokenUsage.input_tokens.toLocaleString()}`);
-        lines.push(`- **Output Tokens**: ${summary.tokenUsage.output_tokens.toLocaleString()}`);
-        if (summary.tokenUsage.cache_read_input_tokens) {
-          lines.push(`- **Cache Read Tokens**: ${summary.tokenUsage.cache_read_input_tokens.toLocaleString()}`);
-        }
-        if (summary.tokenUsage.cache_creation_input_tokens) {
-          lines.push(`- **Cache Write Tokens**: ${summary.tokenUsage.cache_creation_input_tokens.toLocaleString()}`);
-        }
-        lines.push(`- **Estimated Cost**: $${summary.estimatedCost.toFixed(4)}`);
-        lines.push('');
+				// Summary section
+				lines.push("## Summary");
+				lines.push("");
+				lines.push(`- **Total Messages**: ${summary.totalMessages}`);
+				lines.push(`- **User Messages**: ${summary.userMessages}`);
+				lines.push(`- **Assistant Messages**: ${summary.assistantMessages}`);
+				lines.push(`- **Tool Calls**: ${summary.toolCalls}`);
+				lines.push(
+					`- **Input Tokens**: ${summary.tokenUsage.input_tokens.toLocaleString()}`,
+				);
+				lines.push(
+					`- **Output Tokens**: ${summary.tokenUsage.output_tokens.toLocaleString()}`,
+				);
+				if (summary.tokenUsage.cache_read_input_tokens) {
+					lines.push(
+						`- **Cache Read Tokens**: ${summary.tokenUsage.cache_read_input_tokens.toLocaleString()}`,
+					);
+				}
+				if (summary.tokenUsage.cache_creation_input_tokens) {
+					lines.push(
+						`- **Cache Write Tokens**: ${summary.tokenUsage.cache_creation_input_tokens.toLocaleString()}`,
+					);
+				}
+				lines.push(
+					`- **Estimated Cost**: $${summary.estimatedCost.toFixed(4)}`,
+				);
+				lines.push("");
 
-        // Conversation section
-        lines.push('## Conversation');
-        lines.push('');
+				// Conversation section
+				lines.push("## Conversation");
+				lines.push("");
 
-        const conversationMessages = messages.filter(m => m.type === 'user' || m.type === 'assistant');
-        for (const msg of conversationMessages) {
-          if (msg.type !== 'user' && msg.type !== 'assistant') {
-            continue;
-          }
+				const conversationMessages = messages.filter(
+					(m) => m.type === "user" || m.type === "assistant",
+				);
+				for (const msg of conversationMessages) {
+					if (msg.type !== "user" && msg.type !== "assistant") {
+						continue;
+					}
 
-          const timestamp = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : 'unknown';
-          const role = msg.type === 'user' ? 'User' : 'Assistant';
+					const timestamp = msg.timestamp
+						? new Date(msg.timestamp).toLocaleString()
+						: "unknown";
+					const role = msg.type === "user" ? "User" : "Assistant";
 
-          lines.push(`### ${role} (${timestamp})`);
-          lines.push('');
+					lines.push(`### ${role} (${timestamp})`);
+					lines.push("");
 
-          const content = msg.message.content;
-          const texts = extractTextContent(content);
+					const content = msg.message.content;
+					const texts = extractTextContent(content);
 
-          for (const text of texts) {
-            lines.push(text);
-            lines.push('');
-          }
+					for (const text of texts) {
+						lines.push(text);
+						lines.push("");
+					}
 
-          // Add token usage for assistant messages
-          if (msg.type === 'assistant' && msg.message.usage) {
-            const usage = msg.message.usage;
-            lines.push(`*Tokens: ${usage.input_tokens} in, ${usage.output_tokens} out*`);
-            if (usage.cache_read_input_tokens) {
-              lines.push(`*Cache: ${usage.cache_read_input_tokens} tokens read*`);
-            }
-            lines.push('');
-          }
-        }
+					// Add token usage for assistant messages
+					if (msg.type === "assistant" && msg.message.usage) {
+						const usage = msg.message.usage;
+						lines.push(
+							`*Tokens: ${usage.input_tokens} in, ${usage.output_tokens} out*`,
+						);
+						if (usage.cache_read_input_tokens) {
+							lines.push(
+								`*Cache: ${usage.cache_read_input_tokens} tokens read*`,
+							);
+						}
+						lines.push("");
+					}
+				}
 
-        // Tool calls section
-        if (options.includeToolCalls !== false && toolCalls.length > 0) {
-          lines.push('## Tool Calls');
-          lines.push('');
+				// Tool calls section
+				if (options.includeToolCalls !== false && toolCalls.length > 0) {
+					lines.push("## Tool Calls");
+					lines.push("");
 
-          for (const toolCall of toolCalls) {
-            const timestamp = toolCall.timestamp ? new Date(toolCall.timestamp).toLocaleString() : 'unknown';
-            lines.push(`### ${toolCall.name} (${timestamp})`);
-            lines.push('');
-            lines.push('**Input:**');
-            lines.push('');
-            lines.push('```json');
-            lines.push(JSON.stringify(toolCall.input, null, 2));
-            lines.push('```');
-            lines.push('');
-          }
-        }
+					for (const toolCall of toolCalls) {
+						const timestamp = toolCall.timestamp
+							? new Date(toolCall.timestamp).toLocaleString()
+							: "unknown";
+						lines.push(`### ${toolCall.name} (${timestamp})`);
+						lines.push("");
+						lines.push("**Input:**");
+						lines.push("");
+						lines.push("```json");
+						lines.push(JSON.stringify(toolCall.input, null, 2));
+						lines.push("```");
+						lines.push("");
+					}
+				}
 
-        exportContent = lines.join('\n');
-      }
+				exportContent = lines.join("\n");
+			}
 
-      // Output to file or stdout
-      if (options.output) {
-        const { writeFile } = await import('node:fs/promises');
-        await writeFile(options.output, exportContent, 'utf-8');
-        console.log(chalk.green(`✓ Exported session to ${options.output}`));
-      } else {
-        console.log(exportContent);
-      }
-    } catch (error) {
-      console.error(chalk.red('Error exporting session:'), error);
-      process.exit(1);
-    }
-  });
+			// Output to file or stdout
+			if (options.output) {
+				const { writeFile } = await import("node:fs/promises");
+				await writeFile(options.output, exportContent, "utf-8");
+				console.log(chalk.green(`✓ Exported session to ${options.output}`));
+			} else {
+				console.log(exportContent);
+			}
+		} catch (error) {
+			console.error(chalk.red("Error exporting session:"), error);
+			process.exit(1);
+		}
+	});
 
 // Index subcommand
 interface IndexCommandOptions {
-  project: string;
-  model?: string;
-  force?: boolean;
-  batchSize?: string;
-  verbose?: boolean;
+	project: string;
+	model?: string;
+	force?: boolean;
+	batchSize?: string;
+	verbose?: boolean;
 }
 
 sessionsCommand
-  .command('index')
-  .description('Index sessions using LLM analysis for intelligent search')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('-m, --model <model>', 'Model for analysis (format: provider:model)', 'google:gemini-3-flash-preview')
-  .option('--force', 'Force reindex all sessions', false)
-  .option('-b, --batch-size <size>', 'Number of sessions to process concurrently', '5')
-  .option('-v, --verbose', 'Show detailed progress', false)
-  .action(async (options: IndexCommandOptions) => {
-    try {
-      const projectPath = resolve(options.project);
+	.command("index")
+	.description("Index sessions using LLM analysis for intelligent search")
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option(
+		"-m, --model <model>",
+		"Model for analysis (format: provider:model)",
+		"google:gemini-3-flash-preview",
+	)
+	.option("--force", "Force reindex all sessions", false)
+	.option(
+		"-b, --batch-size <size>",
+		"Number of sessions to process concurrently",
+		"5",
+	)
+	.option("-v, --verbose", "Show detailed progress", false)
+	.action(async (options: IndexCommandOptions) => {
+		try {
+			const projectPath = resolve(options.project);
 
-      // Use same discovery as list (adapters) so index sees every session list shows
-      const registry = getAdapterRegistry();
-      const adapters = registry.getAll();
-      const allNormalized: NormalizedSessionEntry[] = [];
-      for (const adapter of adapters) {
-        if (!adapter) continue;
-        try {
-          const result = await adapter.discoverSessions({
-            projectPath,
-            sortBy: 'modified',
-            sortOrder: 'desc',
-          });
-          allNormalized.push(...result.sessions);
-        } catch {
-          // Source not available for this project
-        }
-      }
+			// Use same discovery as list (adapters) so index sees every session list shows
+			const registry = getAdapterRegistry();
+			const adapters = registry.getAll();
+			const allNormalized: NormalizedSessionEntry[] = [];
+			for (const adapter of adapters) {
+				if (!adapter) continue;
+				try {
+					const result = await adapter.discoverSessions({
+						projectPath,
+						sortBy: "modified",
+						sortOrder: "desc",
+					});
+					allNormalized.push(...result.sessions);
+				} catch {
+					// Source not available for this project
+				}
+			}
 
-      // Build indexable entries for all sources: Claude (file-based) and Cursor/others (adapter-based)
-      const sessionsOverride: SessionIndexEntry[] = allNormalized.map(s => {
-        const hasFullPath =
-          s.source === 'claude-code' &&
-          s.sourceData != null &&
-          typeof (s.sourceData as any).fullPath === 'string' &&
-          typeof (s.sourceData as any).fileMtime === 'number';
+			// Build indexable entries for all sources: Claude (file-based) and Cursor/others (adapter-based)
+			const sessionsOverride: SessionIndexEntry[] = allNormalized.map((s) => {
+				const hasFullPath =
+					s.source === "claude-code" &&
+					s.sourceData != null &&
+					typeof (s.sourceData as any).fullPath === "string" &&
+					typeof (s.sourceData as any).fileMtime === "number";
 
-        const fileMtime = hasFullPath
-          ? (s.sourceData as any).fileMtime
-          : new Date(s.modified).getTime();
-        const sessionId = hasFullPath ? s.sourceId : s.id;
+				const fileMtime = hasFullPath
+					? (s.sourceData as any).fileMtime
+					: new Date(s.modified).getTime();
+				const sessionId = hasFullPath ? s.sourceId : s.id;
 
-        return {
-          sessionId,
-          ...(hasFullPath && {
-            fullPath: (s.sourceData as any).fullPath,
-          }),
-          fileMtime,
-          firstPrompt: s.firstPrompt ?? '',
-          messageCount: s.messageCount ?? 0,
-          created: s.created ?? '',
-          modified: s.modified ?? '',
-          gitBranch: s.gitBranch ?? 'main',
-          projectPath: s.projectPath ?? projectPath,
-          isSidechain: s.isSidechain ?? false,
-          ...(!hasFullPath && { source: s.source }),
-        };
-      });
+				return {
+					sessionId,
+					...(hasFullPath && {
+						fullPath: (s.sourceData as any).fullPath,
+					}),
+					fileMtime,
+					firstPrompt: s.firstPrompt ?? "",
+					messageCount: s.messageCount ?? 0,
+					created: s.created ?? "",
+					modified: s.modified ?? "",
+					gitBranch: s.gitBranch ?? "main",
+					projectPath: s.projectPath ?? projectPath,
+					isSidechain: s.isSidechain ?? false,
+					...(!hasFullPath && { source: s.source }),
+				};
+			});
 
-      if (sessionsOverride.length === 0) {
-        console.error(chalk.red(`No sessions found for project: ${projectPath}`));
-        process.exit(1);
-      }
+			if (sessionsOverride.length === 0) {
+				console.error(
+					chalk.red(`No sessions found for project: ${projectPath}`),
+				);
+				process.exit(1);
+			}
 
-      const bySource = sessionsOverride.reduce(
-        (acc, s) => {
-          const src = s.fullPath ? 'claude-code' : (s.source ?? 'unknown');
-          acc[src] = (acc[src] ?? 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-      const sourceSummary = Object.entries(bySource)
-        .map(([k, n]) => `${n} ${k}`)
-        .join(', ');
+			const bySource = sessionsOverride.reduce(
+				(acc, s) => {
+					const src = s.fullPath ? "claude-code" : (s.source ?? "unknown");
+					acc[src] = (acc[src] ?? 0) + 1;
+					return acc;
+				},
+				{} as Record<string, number>,
+			);
+			const sourceSummary = Object.entries(bySource)
+				.map(([k, n]) => `${n} ${k}`)
+				.join(", ");
 
-      console.log(chalk.bold('Indexing sessions...'));
-      console.log(chalk.dim(`Project: ${projectPath}`));
-      console.log(chalk.dim(`Sessions: ${sessionsOverride.length} (${sourceSummary})`));
-      console.log(chalk.dim(`Model: ${options.model}`));
-      console.log('');
+			console.log(chalk.bold("Indexing sessions..."));
+			console.log(chalk.dim(`Project: ${projectPath}`));
+			console.log(
+				chalk.dim(`Sessions: ${sessionsOverride.length} (${sourceSummary})`),
+			);
+			console.log(chalk.dim(`Model: ${options.model}`));
+			console.log("");
 
-      const batchSize = parseInt(options.batchSize || '5', 10);
+			const batchSize = parseInt(options.batchSize || "5", 10);
 
-      const result = await indexProject({
-        projectPath,
-        model: options.model,
-        force: options.force,
-        batchSize,
-        verbose: options.verbose,
-        sessionsOverride,
-      });
+			const result = await indexProject({
+				projectPath,
+				model: options.model,
+				force: options.force,
+				batchSize,
+				verbose: options.verbose,
+				sessionsOverride,
+			});
 
-      console.log('');
-      console.log(chalk.green('✓ Indexing complete'));
-      console.log(`  Indexed: ${result.indexed} sessions`);
-      console.log(`  Skipped: ${result.skipped} sessions (already indexed)`);
-      if (result.failed > 0) {
-        console.log(chalk.yellow(`  Failed: ${result.failed} sessions`));
-      }
+			console.log("");
+			console.log(chalk.green("✓ Indexing complete"));
+			console.log(`  Indexed: ${result.indexed} sessions`);
+			console.log(`  Skipped: ${result.skipped} sessions (already indexed)`);
+			if (result.failed > 0) {
+				console.log(chalk.yellow(`  Failed: ${result.failed} sessions`));
+			}
 
-      // Show index location
-      if (await hasAnalysisIndex(projectPath)) {
-        console.log('');
-        console.log(chalk.dim('Use "sessions search" to search indexed sessions'));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error indexing sessions:'), error);
-      process.exit(1);
-    }
-  });
+			// Show index location
+			if (await hasAnalysisIndex(projectPath)) {
+				console.log("");
+				console.log(
+					chalk.dim('Use "sessions search" to search indexed sessions'),
+				);
+			}
+		} catch (error) {
+			console.error(chalk.red("Error indexing sessions:"), error);
+			process.exit(1);
+		}
+	});
 
 // Search subcommand
 interface SearchCommandOptions {
-  project: string;
-  tags?: string;
-  topic?: string;
-  tool?: string;
-  type?: string;
-  success?: string;
-  branch?: string;
-  limit?: string;
-  json?: boolean;
+	project: string;
+	tags?: string;
+	topic?: string;
+	tool?: string;
+	type?: string;
+	success?: string;
+	branch?: string;
+	limit?: string;
+	json?: boolean;
 }
 
 sessionsCommand
-  .command('search')
-  .description('Search indexed sessions by keywords, tags, topics, or filters')
-  .argument('[query]', 'Search query (optional)')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('--tags <tags>', 'Filter by tags (comma-separated)')
-  .option('--topic <topic>', 'Filter by topic')
-  .option('--tool <tool>', 'Filter by tool usage')
-  .option('--type <type>', 'Filter by solution type (bug-fix, feature, refactor, exploration, question, other)')
-  .option('--success <indicator>', 'Filter by success (yes, partial, no, unclear)')
-  .option('--branch <branch>', 'Filter by git branch')
-  .option('-l, --limit <limit>', 'Max results', '10')
-  .option('--json', 'Output as JSON', false)
-  .action(async (query: string | undefined, options: SearchCommandOptions) => {
-    try {
-      const projectPath = resolve(options.project);
+	.command("search")
+	.description("Search indexed sessions by keywords, tags, topics, or filters")
+	.argument("[query]", "Search query (optional)")
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option("--tags <tags>", "Filter by tags (comma-separated)")
+	.option("--topic <topic>", "Filter by topic")
+	.option("--tool <tool>", "Filter by tool usage")
+	.option(
+		"--type <type>",
+		"Filter by solution type (bug-fix, feature, refactor, exploration, question, other)",
+	)
+	.option(
+		"--success <indicator>",
+		"Filter by success (yes, partial, no, unclear)",
+	)
+	.option("--branch <branch>", "Filter by git branch")
+	.option("-l, --limit <limit>", "Max results", "10")
+	.option("--json", "Output as JSON", false)
+	.action(async (query: string | undefined, options: SearchCommandOptions) => {
+		try {
+			const projectPath = resolve(options.project);
 
-      // Check if analysis index exists
-      if (!(await hasAnalysisIndex(projectPath))) {
-        console.error(
-          chalk.red(`No analysis index found for project: ${projectPath}`)
-        );
-        console.log(
-          chalk.dim('\nTip: Run "sessions index" first to create the analysis index.')
-        );
-        process.exit(1);
-      }
+			// Check if analysis index exists
+			if (!(await hasAnalysisIndex(projectPath))) {
+				console.error(
+					chalk.red(`No analysis index found for project: ${projectPath}`),
+				);
+				console.log(
+					chalk.dim(
+						'\nTip: Run "sessions index" first to create the analysis index.',
+					),
+				);
+				process.exit(1);
+			}
 
-      const searchOptions: SearchOptions = {
-        projectPath,
-        tags: options.tags ? options.tags.split(',').map(t => t.trim()) : undefined,
-        topic: options.topic,
-        tool: options.tool,
-        solutionType: options.type,
-        successIndicator: options.success,
-        branch: options.branch,
-        limit: parseInt(options.limit || '10', 10),
-        json: options.json,
-      };
+			const searchOptions: SearchOptions = {
+				projectPath,
+				tags: options.tags
+					? options.tags.split(",").map((t) => t.trim())
+					: undefined,
+				topic: options.topic,
+				tool: options.tool,
+				solutionType: options.type,
+				successIndicator: options.success,
+				branch: options.branch,
+				limit: parseInt(options.limit || "10", 10),
+				json: options.json,
+			};
 
-      const results = await searchSessions(query, searchOptions);
+			const results = await searchSessions(query, searchOptions);
 
-      if (options.json) {
-        console.log(formatSearchResultsJSON(results));
-      } else {
-        console.log(formatSearchResults(results));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error searching sessions:'), error);
-      process.exit(1);
-    }
-  });
+			if (options.json) {
+				console.log(formatSearchResultsJSON(results));
+			} else {
+				console.log(formatSearchResults(results));
+			}
+		} catch (error) {
+			console.error(chalk.red("Error searching sessions:"), error);
+			process.exit(1);
+		}
+	});
 
 // Analyze subcommand
 interface AnalyzeCommandOptions {
-  project: string;
-  type: 'topics' | 'tools' | 'patterns' | 'timeline';
-  json?: boolean;
+	project: string;
+	type: "topics" | "tools" | "patterns" | "timeline";
+	json?: boolean;
 }
 
 sessionsCommand
-  .command('analyze')
-  .description('Aggregate analysis across all indexed sessions')
-  .option('-p, --project <path>', 'Project path (defaults to current directory)', cwd())
-  .option('-t, --type <type>', 'Analysis type: topics, tools, patterns, timeline', 'topics')
-  .option('--json', 'Output as JSON', false)
-  .action(async (options: AnalyzeCommandOptions) => {
-    try {
-      const projectPath = resolve(options.project);
+	.command("analyze")
+	.description("Aggregate analysis across all indexed sessions")
+	.option(
+		"-p, --project <path>",
+		"Project path (defaults to current directory)",
+		cwd(),
+	)
+	.option(
+		"-t, --type <type>",
+		"Analysis type: topics, tools, patterns, timeline",
+		"topics",
+	)
+	.option("--json", "Output as JSON", false)
+	.action(async (options: AnalyzeCommandOptions) => {
+		try {
+			const projectPath = resolve(options.project);
 
-      // Check if analysis index exists
-      if (!(await hasAnalysisIndex(projectPath))) {
-        console.error(
-          chalk.red(`No analysis index found for project: ${projectPath}`)
-        );
-        console.log(
-          chalk.dim('\nTip: Run "sessions index" first to create the analysis index.')
-        );
-        process.exit(1);
-      }
+			// Check if analysis index exists
+			if (!(await hasAnalysisIndex(projectPath))) {
+				console.error(
+					chalk.red(`No analysis index found for project: ${projectPath}`),
+				);
+				console.log(
+					chalk.dim(
+						'\nTip: Run "sessions index" first to create the analysis index.',
+					),
+				);
+				process.exit(1);
+			}
 
-      if (options.type === 'topics') {
-        const topics = await getTopTopics(projectPath, 20);
+			if (options.type === "topics") {
+				const topics = await getTopTopics(projectPath, 20);
 
-        if (options.json) {
-          console.log(JSON.stringify(topics, null, 2));
-        } else {
-          console.log(chalk.bold(`Top Topics (${topics.length} found):`));
-          console.log('');
-          for (let i = 0; i < topics.length; i++) {
-            console.log(`${i + 1}. ${topics[i].topic} (${topics[i].count} sessions)`);
-          }
-        }
-      } else if (options.type === 'tools') {
-        const tools = await getTopTools(projectPath, 20);
+				if (options.json) {
+					console.log(JSON.stringify(topics, null, 2));
+				} else {
+					console.log(chalk.bold(`Top Topics (${topics.length} found):`));
+					console.log("");
+					for (let i = 0; i < topics.length; i++) {
+						console.log(
+							`${i + 1}. ${topics[i].topic} (${topics[i].count} sessions)`,
+						);
+					}
+				}
+			} else if (options.type === "tools") {
+				const tools = await getTopTools(projectPath, 20);
 
-        if (options.json) {
-          console.log(JSON.stringify(tools, null, 2));
-        } else {
-          console.log(chalk.bold(`Tool Usage Analysis (${tools.length} tools):`));
-          console.log('');
+				if (options.json) {
+					console.log(JSON.stringify(tools, null, 2));
+				} else {
+					console.log(
+						chalk.bold(`Tool Usage Analysis (${tools.length} tools):`),
+					);
+					console.log("");
 
-          // Calculate total sessions for percentage
-          const { readAnalysisIndex } = await import('@umwelten/core/interaction/persistence/session-store.js');
-          const index = await readAnalysisIndex(projectPath);
-          const totalSessions = index.entries.length;
+					// Calculate total sessions for percentage
+					const { readAnalysisIndex } = await import(
+						"@umwelten/core/interaction/persistence/session-store.js"
+					);
+					const index = await readAnalysisIndex(projectPath);
+					const totalSessions = index.entries.length;
 
-          for (let i = 0; i < tools.length; i++) {
-            const percentage = ((tools[i].count / totalSessions) * 100).toFixed(1);
-            console.log(`${i + 1}. ${tools[i].tool} - ${tools[i].count} sessions (${percentage}%)`);
-          }
-        }
-      } else if (options.type === 'patterns') {
-        const patterns = await getPatterns(projectPath);
+					for (let i = 0; i < tools.length; i++) {
+						const percentage = ((tools[i].count / totalSessions) * 100).toFixed(
+							1,
+						);
+						console.log(
+							`${i + 1}. ${tools[i].tool} - ${tools[i].count} sessions (${percentage}%)`,
+						);
+					}
+				}
+			} else if (options.type === "patterns") {
+				const patterns = await getPatterns(projectPath);
 
-        if (options.json) {
-          console.log(JSON.stringify(patterns, null, 2));
-        } else {
-          console.log(chalk.bold(`Session Patterns (${patterns.totalSessions} sessions):`));
-          console.log('');
+				if (options.json) {
+					console.log(JSON.stringify(patterns, null, 2));
+				} else {
+					console.log(
+						chalk.bold(
+							`Session Patterns (${patterns.totalSessions} sessions):`,
+						),
+					);
+					console.log("");
 
-          console.log(chalk.bold('Solution Types:'));
-          for (const st of patterns.solutionTypes) {
-            console.log(`  ${st.type}: ${st.count} sessions`);
-          }
-          console.log('');
+					console.log(chalk.bold("Solution Types:"));
+					for (const st of patterns.solutionTypes) {
+						console.log(`  ${st.type}: ${st.count} sessions`);
+					}
+					console.log("");
 
-          console.log(chalk.bold('Success Rates:'));
-          for (const sr of patterns.successRates) {
-            console.log(`  ${sr.indicator}: ${sr.count} sessions (${sr.percentage.toFixed(1)}%)`);
-          }
-          console.log('');
+					console.log(chalk.bold("Success Rates:"));
+					for (const sr of patterns.successRates) {
+						console.log(
+							`  ${sr.indicator}: ${sr.count} sessions (${sr.percentage.toFixed(1)}%)`,
+						);
+					}
+					console.log("");
 
-          console.log(chalk.bold('Languages:'));
-          for (const lang of patterns.languages.slice(0, 10)) {
-            console.log(`  ${lang.language}: ${lang.count} sessions`);
-          }
-        }
-      } else {
-        console.error(chalk.red(`Unknown analysis type: ${options.type}`));
-        console.log(chalk.dim('Available types: topics, tools, patterns, timeline'));
-        process.exit(1);
-      }
-    } catch (error) {
-      console.error(chalk.red('Error analyzing sessions:'), error);
-      process.exit(1);
-    }
-  });
+					console.log(chalk.bold("Languages:"));
+					for (const lang of patterns.languages.slice(0, 10)) {
+						console.log(`  ${lang.language}: ${lang.count} sessions`);
+					}
+				}
+			} else {
+				console.error(chalk.red(`Unknown analysis type: ${options.type}`));
+				console.log(
+					chalk.dim("Available types: topics, tools, patterns, timeline"),
+				);
+				process.exit(1);
+			}
+		} catch (error) {
+			console.error(chalk.red("Error analyzing sessions:"), error);
+			process.exit(1);
+		}
+	});
 
 async function resolveLearningsRootForCli(opts: {
-  sessionDir?: string;
-  workDir?: string;
-  claudeProject?: string;
-  claudeUuid?: string;
+	sessionDir?: string;
+	workDir?: string;
+	claudeProject?: string;
+	claudeUuid?: string;
 }): Promise<string> {
-  if (opts.sessionDir) {
-    return resolve(opts.sessionDir);
-  }
-  if (opts.workDir && opts.claudeProject && opts.claudeUuid) {
-    const h = await resolveClaudeCodeSessionHandle({
-      workDir: resolve(opts.workDir),
-      projectPath: resolve(opts.claudeProject),
-      sessionUuid: opts.claudeUuid,
-    });
-    return h.learningsRoot;
-  }
-  throw new Error(
-    'Provide --session-dir PATH or --work-dir, --claude-project, and --claude-uuid',
-  );
+	if (opts.sessionDir) {
+		return resolve(opts.sessionDir);
+	}
+	if (opts.workDir && opts.claudeProject && opts.claudeUuid) {
+		const h = await resolveClaudeCodeSessionHandle({
+			workDir: resolve(opts.workDir),
+			projectPath: resolve(opts.claudeProject),
+			sessionUuid: opts.claudeUuid,
+		});
+		return h.learningsRoot;
+	}
+	throw new Error(
+		"Provide --session-dir PATH or --work-dir, --claude-project, and --claude-uuid",
+	);
 }
 
 function isLearningKind(s: string): s is LearningKind {
-  return (LEARNING_KINDS as readonly string[]).includes(s);
+	return (LEARNING_KINDS as readonly string[]).includes(s);
 }
 
-const learningsCommand = new Command('learnings').description(
-  'Append or list per-kind learnings JSONL (Habitat session dir or Claude mirror under workDir)',
+const learningsCommand = new Command("learnings").description(
+	"Append or list per-kind learnings JSONL (Habitat session dir or Claude mirror under workDir)",
 );
 
 learningsCommand
-  .command('append')
-  .description('Append one learning row')
-  .option('--session-dir <path>', 'Habitat session directory (learnings files live here)')
-  .option('--work-dir <path>', 'Habitat work directory (with .umwelten/learnings/claude/...)')
-  .option('--claude-project <path>', 'Claude Code project root (with .claude)')
-  .option('--claude-uuid <uuid>', 'Claude session file name without .jsonl')
-  .requiredOption(
-    '--kind <kind>',
-    `One of: ${LEARNING_KINDS.join(', ')}`,
-  )
-  .requiredOption('--payload <json>', 'JSON object for the stored payload')
-  .option('--provenance <json>', 'Optional provenance JSON object')
-  .action(
-    async (options: {
-      sessionDir?: string;
-      workDir?: string;
-      claudeProject?: string;
-      claudeUuid?: string;
-      kind: string;
-      payload: string;
-      provenance?: string;
-    }) => {
-      try {
-        if (!isLearningKind(options.kind)) {
-          console.error(chalk.red(`Invalid kind. Use one of: ${LEARNING_KINDS.join(', ')}`));
-          process.exit(1);
-        }
-        const root = await resolveLearningsRootForCli({
-          sessionDir: options.sessionDir,
-          workDir: options.workDir,
-          claudeProject: options.claudeProject,
-          claudeUuid: options.claudeUuid,
-        });
-        const payload = JSON.parse(options.payload) as Record<string, unknown>;
-        const provenance = options.provenance
-          ? (JSON.parse(options.provenance) as Record<string, unknown>)
-          : undefined;
-        const store = new FileLearningsStore(root);
-        const rec = await store.append(options.kind, { payload, provenance });
-        console.log(JSON.stringify(rec, null, 2));
-      } catch (e) {
-        console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-        process.exit(1);
-      }
-    },
-  );
+	.command("append")
+	.description("Append one learning row")
+	.option(
+		"--session-dir <path>",
+		"Habitat session directory (learnings files live here)",
+	)
+	.option(
+		"--work-dir <path>",
+		"Habitat work directory (with .umwelten/learnings/claude/...)",
+	)
+	.option("--claude-project <path>", "Claude Code project root (with .claude)")
+	.option("--claude-uuid <uuid>", "Claude session file name without .jsonl")
+	.requiredOption("--kind <kind>", `One of: ${LEARNING_KINDS.join(", ")}`)
+	.requiredOption("--payload <json>", "JSON object for the stored payload")
+	.option("--provenance <json>", "Optional provenance JSON object")
+	.action(
+		async (options: {
+			sessionDir?: string;
+			workDir?: string;
+			claudeProject?: string;
+			claudeUuid?: string;
+			kind: string;
+			payload: string;
+			provenance?: string;
+		}) => {
+			try {
+				if (!isLearningKind(options.kind)) {
+					console.error(
+						chalk.red(`Invalid kind. Use one of: ${LEARNING_KINDS.join(", ")}`),
+					);
+					process.exit(1);
+				}
+				const root = await resolveLearningsRootForCli({
+					sessionDir: options.sessionDir,
+					workDir: options.workDir,
+					claudeProject: options.claudeProject,
+					claudeUuid: options.claudeUuid,
+				});
+				const payload = JSON.parse(options.payload) as Record<string, unknown>;
+				const provenance = options.provenance
+					? (JSON.parse(options.provenance) as Record<string, unknown>)
+					: undefined;
+				const store = new FileLearningsStore(root);
+				const rec = await store.append(options.kind, { payload, provenance });
+				console.log(JSON.stringify(rec, null, 2));
+			} catch (e) {
+				console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+				process.exit(1);
+			}
+		},
+	);
 
 learningsCommand
-  .command('list')
-  .description('List learnings (all kinds or one)')
-  .option('--session-dir <path>', 'Habitat session directory')
-  .option('--work-dir <path>', 'Habitat work directory')
-  .option('--claude-project <path>', 'Claude Code project root')
-  .option('--claude-uuid <uuid>', 'Claude session uuid')
-  .option('--kind <kind>', 'Filter to a single kind')
-  .option('--json', 'Print JSON')
-  .action(
-    async (options: {
-      sessionDir?: string;
-      workDir?: string;
-      claudeProject?: string;
-      claudeUuid?: string;
-      kind?: string;
-      json?: boolean;
-    }) => {
-      try {
-        const root = await resolveLearningsRootForCli({
-          sessionDir: options.sessionDir,
-          workDir: options.workDir,
-          claudeProject: options.claudeProject,
-          claudeUuid: options.claudeUuid,
-        });
-        const store = new FileLearningsStore(root);
-        if (options.kind) {
-          if (!isLearningKind(options.kind)) {
-            console.error(chalk.red(`Invalid kind. Use one of: ${LEARNING_KINDS.join(', ')}`));
-            process.exit(1);
-          }
-          const rows = await store.read(options.kind);
-          if (options.json) {
-            console.log(JSON.stringify(rows, null, 2));
-          } else {
-            console.log(chalk.bold(`${options.kind} (${rows.length} rows)`));
-            for (const r of rows) {
-              console.log(JSON.stringify(r));
-            }
-          }
-          return;
-        }
-        const all = await store.readAll();
-        if (options.json) {
-          console.log(JSON.stringify(all, null, 2));
-        } else {
-          for (const k of LEARNING_KINDS) {
-            console.log(chalk.bold(`${k}: ${all[k].length} rows`));
-          }
-        }
-      } catch (e) {
-        console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-        process.exit(1);
-      }
-    },
-  );
+	.command("list")
+	.description("List learnings (all kinds or one)")
+	.option("--session-dir <path>", "Habitat session directory")
+	.option("--work-dir <path>", "Habitat work directory")
+	.option("--claude-project <path>", "Claude Code project root")
+	.option("--claude-uuid <uuid>", "Claude session uuid")
+	.option("--kind <kind>", "Filter to a single kind")
+	.option("--json", "Print JSON")
+	.action(
+		async (options: {
+			sessionDir?: string;
+			workDir?: string;
+			claudeProject?: string;
+			claudeUuid?: string;
+			kind?: string;
+			json?: boolean;
+		}) => {
+			try {
+				const root = await resolveLearningsRootForCli({
+					sessionDir: options.sessionDir,
+					workDir: options.workDir,
+					claudeProject: options.claudeProject,
+					claudeUuid: options.claudeUuid,
+				});
+				const store = new FileLearningsStore(root);
+				if (options.kind) {
+					if (!isLearningKind(options.kind)) {
+						console.error(
+							chalk.red(
+								`Invalid kind. Use one of: ${LEARNING_KINDS.join(", ")}`,
+							),
+						);
+						process.exit(1);
+					}
+					const rows = await store.read(options.kind);
+					if (options.json) {
+						console.log(JSON.stringify(rows, null, 2));
+					} else {
+						console.log(chalk.bold(`${options.kind} (${rows.length} rows)`));
+						for (const r of rows) {
+							console.log(JSON.stringify(r));
+						}
+					}
+					return;
+				}
+				const all = await store.readAll();
+				if (options.json) {
+					console.log(JSON.stringify(all, null, 2));
+				} else {
+					for (const k of LEARNING_KINDS) {
+						console.log(chalk.bold(`${k}: ${all[k].length} rows`));
+					}
+				}
+			} catch (e) {
+				console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+				process.exit(1);
+			}
+		},
+	);
 
 sessionsCommand.addCommand(learningsCommand);
 
-const transcriptCommand = new Command('transcript').description(
-  'Habitat session-directory transcript utilities (on-disk layout under sessions/)',
+const transcriptCommand = new Command("transcript").description(
+	"Habitat session-directory transcript utilities (on-disk layout under sessions/)",
 );
 
 transcriptCommand
-  .command('compact')
-  .description(
-    'Rename live transcript.jsonl to transcript.{iso}.jsonl and write a new live file whose first line is the compaction marker',
-  )
-  .requiredOption('--session-dir <path>', 'Habitat session directory')
-  .requiredOption('--summary <text>', 'Summary stored in the compaction marker')
-  .option('--run-id <id>', 'Optional run id (default: random UUID)')
-  .option(
-    '--learning-counts <json>',
-    'Optional JSON object of learning kind → integer count',
-  )
-  .action(
-    async (options: {
-      sessionDir: string;
-      summary: string;
-      runId?: string;
-      learningCounts?: string;
-    }) => {
-      try {
-        let learningCounts:
-          | import('@umwelten/core/session-record/types.js').CompactionEventV1['learningCounts']
-          | undefined;
-        if (options.learningCounts?.trim()) {
-          const raw = JSON.parse(options.learningCounts) as Record<string, number>;
-          const out: Partial<Record<LearningKind, number>> = {};
-          for (const k of LEARNING_KINDS) {
-            const v = raw[k];
-            if (typeof v === 'number' && Number.isInteger(v) && v >= 0) {
-              out[k] = v;
-            }
-          }
-          learningCounts = Object.keys(out).length > 0 ? out : undefined;
-        }
-        const result = await compactHabitatTranscriptSegment({
-          sessionDir: resolve(options.sessionDir),
-          summary: options.summary,
-          runId: options.runId,
-          learningCounts,
-        });
-        console.log(JSON.stringify(result, null, 2));
-      } catch (e) {
-        console.error(chalk.red(e instanceof Error ? e.message : String(e)));
-        process.exit(1);
-      }
-    },
-  );
+	.command("compact")
+	.description(
+		"Rename live transcript.jsonl to transcript.{iso}.jsonl and write a new live file whose first line is the compaction marker",
+	)
+	.requiredOption("--session-dir <path>", "Habitat session directory")
+	.requiredOption("--summary <text>", "Summary stored in the compaction marker")
+	.option("--run-id <id>", "Optional run id (default: random UUID)")
+	.option(
+		"--learning-counts <json>",
+		"Optional JSON object of learning kind → integer count",
+	)
+	.action(
+		async (options: {
+			sessionDir: string;
+			summary: string;
+			runId?: string;
+			learningCounts?: string;
+		}) => {
+			try {
+				let learningCounts:
+					| import("@umwelten/core/session-record/types.js").CompactionEventV1["learningCounts"]
+					| undefined;
+				if (options.learningCounts?.trim()) {
+					const raw = JSON.parse(options.learningCounts) as Record<
+						string,
+						number
+					>;
+					const out: Partial<Record<LearningKind, number>> = {};
+					for (const k of LEARNING_KINDS) {
+						const v = raw[k];
+						if (typeof v === "number" && Number.isInteger(v) && v >= 0) {
+							out[k] = v;
+						}
+					}
+					learningCounts = Object.keys(out).length > 0 ? out : undefined;
+				}
+				const result = await compactHabitatTranscriptSegment({
+					sessionDir: resolve(options.sessionDir),
+					summary: options.summary,
+					runId: options.runId,
+					learningCounts,
+				});
+				console.log(JSON.stringify(result, null, 2));
+			} catch (e) {
+				console.error(chalk.red(e instanceof Error ? e.message : String(e)));
+				process.exit(1);
+			}
+		},
+	);
 
 sessionsCommand.addCommand(transcriptCommand);
 
 // ─── Digest subcommand group ────────────────────────────────────────────────
 
 import {
-  digestAllProjects,
-  digestSession,
-  askAboutSession,
-} from '@umwelten/core/interaction/analysis/session-digester.js';
+	digestAllProjects,
+	digestSession,
+	askAboutSession,
+} from "@umwelten/core/interaction/analysis/session-digester.js";
 // Stats and knowledge reading now come from digest-search (backed by SessionAnalysisIndex + FileLearningsStore)
 import {
-  searchDigests,
-  searchKnowledge as searchKnowledgeFromIndex,
-  getDigestTopics,
-  getDigestPatterns,
-  getDigestStats as getDigestStatsFromStore,
-  readAllKnowledge as readKnowledgeFromStore,
-  formatDigestResults,
-  formatDigestResultsJSON,
-  buildOverview,
-  formatOverview,
-} from '@umwelten/core/interaction/analysis/digest-search.js';
+	searchDigests,
+	searchKnowledge as searchKnowledgeFromIndex,
+	getDigestTopics,
+	getDigestPatterns,
+	getDigestStats as getDigestStatsFromStore,
+	readAllKnowledge as readKnowledgeFromStore,
+	formatDigestResults,
+	formatDigestResultsJSON,
+	buildOverview,
+	formatOverview,
+} from "@umwelten/core/interaction/analysis/digest-search.js";
 
-const digestCommand = new Command('digest').description(
-  'Digest sessions across all projects: compaction, analysis, and cross-project search',
+const digestCommand = new Command("digest").description(
+	"Digest sessions across all projects: compaction, analysis, and cross-project search",
 );
 
 // digest overview (default view)
 digestCommand
-  .command('overview')
-  .description('Command center: full overview of all digested sessions')
-  .option('--json', 'Output as JSON', false)
-  .action(async (options: { json?: boolean }) => {
-    try {
-      const overview = await buildOverview();
-      if (options.json) {
-        // Serialize Sets to arrays for JSON
-        const serializable = {
-          ...overview,
-          activityByWeek: overview.activityByWeek.map(w => ({
-            ...w,
-            projects: Array.from(w.projects),
-          })),
-        };
-        console.log(JSON.stringify(serializable, null, 2));
-      } else {
-        console.log(formatOverview(overview));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+	.command("overview")
+	.description("Command center: full overview of all digested sessions")
+	.option("--json", "Output as JSON", false)
+	.action(async (options: { json?: boolean }) => {
+		try {
+			const overview = await buildOverview();
+			if (options.json) {
+				// Serialize Sets to arrays for JSON
+				const serializable = {
+					...overview,
+					activityByWeek: overview.activityByWeek.map((w) => ({
+						...w,
+						projects: Array.from(w.projects),
+					})),
+				};
+				console.log(JSON.stringify(serializable, null, 2));
+			} else {
+				console.log(formatOverview(overview));
+			}
+		} catch (error) {
+			console.error(
+				chalk.red("Error:"),
+				error instanceof Error ? error.message : error,
+			);
+			process.exit(1);
+		}
+	});
 
 // digest build
 digestCommand
-  .command('build')
-  .description('Digest all sessions (compaction + analysis + fact extraction)')
-  .option('-p, --project <path>', 'Digest only this project path')
-  .option('-f, --file <path>', 'Digest a single session JSONL file')
-  .option('-m, --model <model>', 'Model for analysis (format: provider:model)', 'google:gemini-3-flash-preview')
-  .option('-o, --output <dir>', 'Write markdown output to this directory')
-  .option('--force', 'Re-digest already digested sessions', false)
-  .option('-v, --verbose', 'Show detailed progress', false)
-  .action(async (options: {
-    project?: string; file?: string; model: string;
-    output?: string; force: boolean; verbose: boolean;
-  }) => {
-    try {
-      // Single file mode
-      if (options.file) {
-        const filePath = resolve(options.file);
-        const sessionId = basename(filePath, '.jsonl');
-        const [provider, ...modelParts] = options.model.split(':');
-        const modelName = modelParts.join(':');
-        const model = { name: modelName, provider: provider as any, temperature: 0.2 };
+	.command("build")
+	.description("Digest all sessions (compaction + analysis + fact extraction)")
+	.option("-p, --project <path>", "Digest only this project path")
+	.option("-f, --file <path>", "Digest a single session JSONL file")
+	.option(
+		"-m, --model <model>",
+		"Model for analysis (format: provider:model)",
+		"google:gemini-3-flash-preview",
+	)
+	.option("-o, --output <dir>", "Write markdown output to this directory")
+	.option("--force", "Re-digest already digested sessions", false)
+	.option("-v, --verbose", "Show detailed progress", false)
+	.action(
+		async (options: {
+			project?: string;
+			file?: string;
+			model: string;
+			output?: string;
+			force: boolean;
+			verbose: boolean;
+		}) => {
+			try {
+				// Single file mode
+				if (options.file) {
+					const filePath = resolve(options.file);
+					const sessionId = basename(filePath, ".jsonl");
+					const [provider, ...modelParts] = options.model.split(":");
+					const modelName = modelParts.join(":");
+					const model = {
+						name: modelName,
+						provider: provider as any,
+						temperature: 0.2,
+					};
 
-        console.log(chalk.bold(`Digesting ${basename(filePath)}...`));
-        console.log(`  Loading session file...`);
+					console.log(chalk.bold(`Digesting ${basename(filePath)}...`));
+					console.log(`  Loading session file...`);
 
-        const { parseSessionFile, summarizeSession } = await import('@umwelten/core/interaction/persistence/session-parser.js');
-        const msgs = await parseSessionFile(filePath);
-        console.log(`  Loaded ${msgs.length} entries`);
-        const summary = summarizeSession(msgs);
-        console.log(`  Messages: ${summary.totalMessages} (${summary.userMessages} user, ${summary.assistantMessages} assistant)`);
-        console.log(`  Tool calls: ${summary.toolCalls}`);
-        console.log(`  Duration: ${Math.round((summary.duration || 0) / 60000)} min`);
-        console.log(`  Model: ${options.model}\n`);
+					const { parseSessionFile, summarizeSession } = await import(
+						"@umwelten/core/interaction/persistence/session-parser.js"
+					);
+					const msgs = await parseSessionFile(filePath);
+					console.log(`  Loaded ${msgs.length} entries`);
+					const summary = summarizeSession(msgs);
+					console.log(
+						`  Messages: ${summary.totalMessages} (${summary.userMessages} user, ${summary.assistantMessages} assistant)`,
+					);
+					console.log(`  Tool calls: ${summary.toolCalls}`);
+					console.log(
+						`  Duration: ${Math.round((summary.duration || 0) / 60000)} min`,
+					);
+					console.log(`  Model: ${options.model}\n`);
 
-        const session = {
-          sessionId,
-          fullPath: filePath,
-          fileMtime: Date.now(),
-          firstPrompt: '',
-          messageCount: summary.totalMessages,
-          created: new Date().toISOString(),
-          modified: new Date().toISOString(),
-          gitBranch: 'main',
-          projectPath: resolve(filePath, '..', '..'),
-          isSidechain: false,
-        };
+					const session = {
+						sessionId,
+						fullPath: filePath,
+						fileMtime: Date.now(),
+						firstPrompt: "",
+						messageCount: summary.totalMessages,
+						created: new Date().toISOString(),
+						modified: new Date().toISOString(),
+						gitBranch: "main",
+						projectPath: resolve(filePath, "..", ".."),
+						isSidechain: false,
+					};
 
-        const digest = await digestSession(
-          session, session.projectPath, basename(resolve(filePath, '..')), model,
-          (p) => console.log(`  [${p.phase}${p.detail ? ': ' + p.detail : ''}]`),
-        );
+					const digest = await digestSession(
+						session,
+						session.projectPath,
+						basename(resolve(filePath, "..")),
+						model,
+						(p) =>
+							console.log(`  [${p.phase}${p.detail ? ": " + p.detail : ""}]`),
+					);
 
-        if (!digest) {
-          console.error(chalk.red('Digest failed'));
-          process.exit(1);
-        }
+					if (!digest) {
+						console.error(chalk.red("Digest failed"));
+						process.exit(1);
+					}
 
-        // Write output
-        const outDir = options.output ? resolve(options.output) : resolve('.');
-        await writeDigestMarkdown(digest, outDir);
+					// Write output
+					const outDir = options.output
+						? resolve(options.output)
+						: resolve(".");
+					await writeDigestMarkdown(digest, outDir);
 
-        console.log(chalk.green(`\n✓ Digest complete: ${digest.segments.length} segments, ${digest.allFacts.length} facts`));
-        return;
-      }
+					console.log(
+						chalk.green(
+							`\n✓ Digest complete: ${digest.segments.length} segments, ${digest.allFacts.length} facts`,
+						),
+					);
+					return;
+				}
 
-      // Multi-project mode
-      console.log(chalk.bold('Digesting sessions...\n'));
+				// Multi-project mode
+				console.log(chalk.bold("Digesting sessions...\n"));
 
-      const result = await digestAllProjects({
-        projectPath: options.project ? resolve(options.project) : undefined,
-        model: options.model,
-        force: options.force,
-        verbose: options.verbose,
-      });
+				const result = await digestAllProjects({
+					projectPath: options.project ? resolve(options.project) : undefined,
+					model: options.model,
+					force: options.force,
+					verbose: options.verbose,
+				});
 
-      console.log('');
-      console.log(chalk.green('✓ Digest complete'));
-      console.log(`  Projects processed: ${result.projectsProcessed}`);
-      console.log(`  Sessions digested: ${result.digested}`);
-      console.log(`  Sessions skipped: ${result.skipped} (already digested)`);
-      if (result.failed > 0) {
-        console.log(chalk.yellow(`  Failed: ${result.failed}`));
-      }
-      console.log('');
-      console.log(chalk.dim('Use "sessions digest search <query>" to search across all sessions'));
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+				console.log("");
+				console.log(chalk.green("✓ Digest complete"));
+				console.log(`  Projects processed: ${result.projectsProcessed}`);
+				console.log(`  Sessions digested: ${result.digested}`);
+				console.log(`  Sessions skipped: ${result.skipped} (already digested)`);
+				if (result.failed > 0) {
+					console.log(chalk.yellow(`  Failed: ${result.failed}`));
+				}
+				console.log("");
+				console.log(
+					chalk.dim(
+						'Use "sessions digest search <query>" to search across all sessions',
+					),
+				);
+			} catch (error) {
+				console.error(
+					chalk.red("Error:"),
+					error instanceof Error ? error.message : error,
+				);
+				process.exit(1);
+			}
+		},
+	);
 
-import { writeFile as writeFileFs } from 'node:fs/promises';
-import { mkdir as mkdirFs } from 'node:fs/promises';
-import type { SessionDigest } from '@umwelten/core/interaction/analysis/analysis-types.js';
+import { writeFile as writeFileFs } from "node:fs/promises";
+import { mkdir as mkdirFs } from "node:fs/promises";
+import type { SessionDigest } from "@umwelten/core/interaction/analysis/analysis-types.js";
 
-async function writeDigestMarkdown(digest: SessionDigest, outDir: string): Promise<void> {
-  await mkdirFs(outDir, { recursive: true });
+async function writeDigestMarkdown(
+	digest: SessionDigest,
+	outDir: string,
+): Promise<void> {
+	await mkdirFs(outDir, { recursive: true });
 
-  // 1. Summary
-  const summaryMd = [
-    `# Session Digest: ${digest.sessionId.slice(0, 8)}`,
-    '',
-    `**Project:** ${digest.projectName}`,
-    `**Date:** ${new Date(digest.created).toLocaleDateString()}`,
-    `**Messages:** ${digest.metrics.messageCount} | **Segments:** ${digest.metrics.segmentCount} | **Facts:** ${digest.allFacts.length}`,
-    `**Solution type:** ${digest.analysis.solutionType} | **Success:** ${digest.analysis.successIndicators}`,
-    '',
-    '---',
-    '',
-    '## Summary',
-    '',
-    digest.overallSummary,
-    '',
-    '## Topics',
-    '',
-    digest.analysis.topics.map(t => `- ${t}`).join('\n'),
-    '',
-    '## Tags',
-    '',
-    digest.analysis.tags.join(', '),
-    '',
-    '## Key Learnings',
-    '',
-    digest.analysis.keyLearnings,
-    '',
-  ].join('\n');
-  await writeFileFs(join(outDir, 'summary.md'), summaryMd);
-  console.log(`  wrote ${join(outDir, 'summary.md')}`);
+	// 1. Summary
+	const summaryMd = [
+		`# Session Digest: ${digest.sessionId.slice(0, 8)}`,
+		"",
+		`**Project:** ${digest.projectName}`,
+		`**Date:** ${new Date(digest.created).toLocaleDateString()}`,
+		`**Messages:** ${digest.metrics.messageCount} | **Segments:** ${digest.metrics.segmentCount} | **Facts:** ${digest.allFacts.length}`,
+		`**Solution type:** ${digest.analysis.solutionType} | **Success:** ${digest.analysis.successIndicators}`,
+		"",
+		"---",
+		"",
+		"## Summary",
+		"",
+		digest.overallSummary,
+		"",
+		"## Topics",
+		"",
+		digest.analysis.topics.map((t) => `- ${t}`).join("\n"),
+		"",
+		"## Tags",
+		"",
+		digest.analysis.tags.join(", "),
+		"",
+		"## Key Learnings",
+		"",
+		digest.analysis.keyLearnings,
+		"",
+	].join("\n");
+	await writeFileFs(join(outDir, "summary.md"), summaryMd);
+	console.log(`  wrote ${join(outDir, "summary.md")}`);
 
-  // 2. Beats (the conversation arc)
-  if (digest.beats && digest.beats.length > 0) {
-    const beatsMd = [
-      `# Session Beats (${digest.beats.length})`,
-      '',
-      ...digest.beats.flatMap((beat, i) => {
-        const toolList = beat.toolsUsed.length > 0
-          ? beat.toolsUsed.map(t => `${t.name} (${t.count}x)`).join(', ')
-          : 'none';
-        const userPreview = beat.userRequest.length > 500
-          ? beat.userRequest.slice(0, 500) + '...'
-          : beat.userRequest;
-        const outcomePreview = beat.outcome.length > 500
-          ? beat.outcome.slice(0, 500) + '...'
-          : beat.outcome;
-        return [
-          `## Beat ${i + 1}`,
-          '',
-          `**User:** ${userPreview.replace(/<[^>]+>/g, '').trim()}`,
-          '',
-          `**Tools:** ${toolList}`,
-          '',
-          `**Outcome:** ${outcomePreview.replace(/<[^>]+>/g, '').trim()}`,
-          '',
-          ...(beat.narrative ? [`**Narrative:** ${beat.narrative}`, ''] : []),
-          ...(beat.keyFacts.length > 0
-            ? ['**Facts:**', ...beat.keyFacts.map(f => `- ${f}`), '']
-            : []),
-          '---',
-          '',
-        ];
-      }),
-    ].join('\n');
-    await writeFileFs(join(outDir, 'beats.md'), beatsMd);
-    console.log(`  wrote ${join(outDir, 'beats.md')}`);
-  }
+	// 2. Beats (the conversation arc)
+	if (digest.beats && digest.beats.length > 0) {
+		const beatsMd = [
+			`# Session Beats (${digest.beats.length})`,
+			"",
+			...digest.beats.flatMap((beat, i) => {
+				const toolList =
+					beat.toolsUsed.length > 0
+						? beat.toolsUsed.map((t) => `${t.name} (${t.count}x)`).join(", ")
+						: "none";
+				const userPreview =
+					beat.userRequest.length > 500
+						? beat.userRequest.slice(0, 500) + "..."
+						: beat.userRequest;
+				const outcomePreview =
+					beat.outcome.length > 500
+						? beat.outcome.slice(0, 500) + "..."
+						: beat.outcome;
+				return [
+					`## Beat ${i + 1}`,
+					"",
+					`**User:** ${userPreview.replace(/<[^>]+>/g, "").trim()}`,
+					"",
+					`**Tools:** ${toolList}`,
+					"",
+					`**Outcome:** ${outcomePreview.replace(/<[^>]+>/g, "").trim()}`,
+					"",
+					...(beat.narrative ? [`**Narrative:** ${beat.narrative}`, ""] : []),
+					...(beat.keyFacts.length > 0
+						? ["**Facts:**", ...beat.keyFacts.map((f) => `- ${f}`), ""]
+						: []),
+					"---",
+					"",
+				];
+			}),
+		].join("\n");
+		await writeFileFs(join(outDir, "beats.md"), beatsMd);
+		console.log(`  wrote ${join(outDir, "beats.md")}`);
+	}
 
-  // 3. Phases (conversation arc)
-  if (digest.phases && digest.phases.length > 0) {
-    const phasesMd = [
-      `# Conversation Phases (${digest.phases.length})`,
-      '',
-      ...digest.phases.flatMap((phase, i) => {
-        const beatStart = phase.beatRange[0] + 1;
-        const beatEnd = phase.beatRange[1] + 1;
-        const phaseBeats = digest.beats?.slice(phase.beatRange[0], phase.beatRange[1] + 1) || [];
-        return [
-          `## Phase ${i + 1}: ${phase.name} (beats ${beatStart}–${beatEnd})`,
-          '',
-          phase.description,
-          '',
-          ...phaseBeats.map(b => `- **Beat ${b.index + 1}:** ${b.narrative}`),
-          '',
-          '---',
-          '',
-        ];
-      }),
-    ].join('\n');
-    await writeFileFs(join(outDir, 'phases.md'), phasesMd);
-    console.log(`  wrote ${join(outDir, 'phases.md')}`);
-  }
+	// 3. Phases (conversation arc)
+	if (digest.phases && digest.phases.length > 0) {
+		const phasesMd = [
+			`# Conversation Phases (${digest.phases.length})`,
+			"",
+			...digest.phases.flatMap((phase, i) => {
+				const beatStart = phase.beatRange[0] + 1;
+				const beatEnd = phase.beatRange[1] + 1;
+				const phaseBeats =
+					digest.beats?.slice(phase.beatRange[0], phase.beatRange[1] + 1) || [];
+				return [
+					`## Phase ${i + 1}: ${phase.name} (beats ${beatStart}–${beatEnd})`,
+					"",
+					phase.description,
+					"",
+					...phaseBeats.map((b) => `- **Beat ${b.index + 1}:** ${b.narrative}`),
+					"",
+					"---",
+					"",
+				];
+			}),
+		].join("\n");
+		await writeFileFs(join(outDir, "phases.md"), phasesMd);
+		console.log(`  wrote ${join(outDir, "phases.md")}`);
+	}
 
-  // 4. Segments (group-level compaction)
-  const segmentsMd = [
-    `# Compaction Groups (${digest.segments.length})`,
-    '',
-    ...digest.segments.flatMap((seg, i) => [
-      `## Group ${i + 1} (beats ${seg.messageRange[0] + 1}–${seg.messageRange[1] + 1})`,
-      '',
-      seg.throughLine,
-      '',
-      ...(seg.keyFacts.length > 0
-        ? ['**Key Facts:**', ...seg.keyFacts.map(f => `- ${f}`), '']
-        : []),
-      '---',
-      '',
-    ]),
-  ].join('\n');
-  await writeFileFs(join(outDir, 'chapters.md'), segmentsMd);
-  console.log(`  wrote ${join(outDir, 'chapters.md')}`);
+	// 4. Segments (group-level compaction)
+	const segmentsMd = [
+		`# Compaction Groups (${digest.segments.length})`,
+		"",
+		...digest.segments.flatMap((seg, i) => [
+			`## Group ${i + 1} (beats ${seg.messageRange[0] + 1}–${seg.messageRange[1] + 1})`,
+			"",
+			seg.throughLine,
+			"",
+			...(seg.keyFacts.length > 0
+				? ["**Key Facts:**", ...seg.keyFacts.map((f) => `- ${f}`), ""]
+				: []),
+			"---",
+			"",
+		]),
+	].join("\n");
+	await writeFileFs(join(outDir, "chapters.md"), segmentsMd);
+	console.log(`  wrote ${join(outDir, "chapters.md")}`);
 
-  // 3. Facts
-  const factsMd = [
-    `# All Facts (${digest.allFacts.length})`,
-    '',
-    ...digest.allFacts.map((f, i) => `${i + 1}. ${f}`),
-    '',
-  ].join('\n');
-  await writeFileFs(join(outDir, 'facts.md'), factsMd);
-  console.log(`  wrote ${join(outDir, 'facts.md')}`);
+	// 3. Facts
+	const factsMd = [
+		`# All Facts (${digest.allFacts.length})`,
+		"",
+		...digest.allFacts.map((f, i) => `${i + 1}. ${f}`),
+		"",
+	].join("\n");
+	await writeFileFs(join(outDir, "facts.md"), factsMd);
+	console.log(`  wrote ${join(outDir, "facts.md")}`);
 
-  // 4. Files touched
-  if (digest.analysis.relatedFiles.length > 0) {
-    const filesMd = [
-      `# Related Files (${digest.analysis.relatedFiles.length})`,
-      '',
-      ...digest.analysis.relatedFiles.map(f => `- \`${f}\``),
-      '',
-    ].join('\n');
-    await writeFileFs(join(outDir, 'files.md'), filesMd);
-    console.log(`  wrote ${join(outDir, 'files.md')}`);
-  }
+	// 4. Files touched
+	if (digest.analysis.relatedFiles.length > 0) {
+		const filesMd = [
+			`# Related Files (${digest.analysis.relatedFiles.length})`,
+			"",
+			...digest.analysis.relatedFiles.map((f) => `- \`${f}\``),
+			"",
+		].join("\n");
+		await writeFileFs(join(outDir, "files.md"), filesMd);
+		console.log(`  wrote ${join(outDir, "files.md")}`);
+	}
 
-  // 5. Full JSON
-  await writeFileFs(join(outDir, 'digest.json'), JSON.stringify(digest, null, 2));
-  console.log(`  wrote ${join(outDir, 'digest.json')}`);
+	// 5. Full JSON
+	await writeFileFs(
+		join(outDir, "digest.json"),
+		JSON.stringify(digest, null, 2),
+	);
+	console.log(`  wrote ${join(outDir, "digest.json")}`);
 }
 
 // digest search
 digestCommand
-  .command('search')
-  .description('Search across all digested sessions')
-  .argument('<query>', 'Search query')
-  .option('-l, --limit <limit>', 'Max results', '10')
-  .option('--project <name>', 'Filter by project name')
-  .option('--tags <tags>', 'Filter by tags (comma-separated)')
-  .option('--topic <topic>', 'Filter by topic')
-  .option('--type <type>', 'Filter by solution type')
-  .option('--success <indicator>', 'Filter by success (yes, partial, no, unclear)')
-  .option('--json', 'Output as JSON', false)
-  .action(async (query: string, options: {
-    limit: string; project?: string; tags?: string; topic?: string;
-    type?: string; success?: string; json?: boolean;
-  }) => {
-    try {
-      const results = await searchDigests(query, {
-        limit: parseInt(options.limit, 10),
-        project: options.project,
-        tags: options.tags?.split(',').map(t => t.trim()),
-        topic: options.topic,
-        solutionType: options.type,
-        success: options.success,
-      });
+	.command("search")
+	.description("Search across all digested sessions")
+	.argument("<query>", "Search query")
+	.option("-l, --limit <limit>", "Max results", "10")
+	.option("--project <name>", "Filter by project name")
+	.option("--tags <tags>", "Filter by tags (comma-separated)")
+	.option("--topic <topic>", "Filter by topic")
+	.option("--type <type>", "Filter by solution type")
+	.option(
+		"--success <indicator>",
+		"Filter by success (yes, partial, no, unclear)",
+	)
+	.option("--json", "Output as JSON", false)
+	.action(
+		async (
+			query: string,
+			options: {
+				limit: string;
+				project?: string;
+				tags?: string;
+				topic?: string;
+				type?: string;
+				success?: string;
+				json?: boolean;
+			},
+		) => {
+			try {
+				const results = await searchDigests(query, {
+					limit: parseInt(options.limit, 10),
+					project: options.project,
+					tags: options.tags?.split(",").map((t) => t.trim()),
+					topic: options.topic,
+					solutionType: options.type,
+					success: options.success,
+				});
 
-      if (options.json) {
-        console.log(formatDigestResultsJSON(results));
-      } else {
-        console.log(formatDigestResults(results));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+				if (options.json) {
+					console.log(formatDigestResultsJSON(results));
+				} else {
+					console.log(formatDigestResults(results));
+				}
+			} catch (error) {
+				console.error(
+					chalk.red("Error:"),
+					error instanceof Error ? error.message : error,
+				);
+				process.exit(1);
+			}
+		},
+	);
 
 // digest stats
 digestCommand
-  .command('stats')
-  .description('Show digest statistics')
-  .option('--json', 'Output as JSON', false)
-  .action(async (options: { json?: boolean }) => {
-    try {
-      const stats = await getDigestStatsFromStore();
+	.command("stats")
+	.description("Show digest statistics")
+	.option("--json", "Output as JSON", false)
+	.action(async (options: { json?: boolean }) => {
+		try {
+			const stats = await getDigestStatsFromStore();
 
-      if (options.json) {
-        console.log(JSON.stringify(stats, null, 2));
-        return;
-      }
+			if (options.json) {
+				console.log(JSON.stringify(stats, null, 2));
+				return;
+			}
 
-      console.log(chalk.bold('Digest Statistics\n'));
-      console.log(`  Total sessions: ${stats.totalSessions}`);
-      console.log(`  Projects: ${stats.projectCount}`);
+			console.log(chalk.bold("Digest Statistics\n"));
+			console.log(`  Total sessions: ${stats.totalSessions}`);
+			console.log(`  Projects: ${stats.projectCount}`);
 
-      if (stats.dateRange) {
-        const oldest = new Date(stats.dateRange.oldest).toLocaleDateString();
-        const newest = new Date(stats.dateRange.newest).toLocaleDateString();
-        console.log(`  Date range: ${oldest} — ${newest}`);
-      }
+			if (stats.dateRange) {
+				const oldest = new Date(stats.dateRange.oldest).toLocaleDateString();
+				const newest = new Date(stats.dateRange.newest).toLocaleDateString();
+				console.log(`  Date range: ${oldest} — ${newest}`);
+			}
 
-      if (stats.projects.length > 0) {
-        console.log(chalk.bold('\nTop Projects:'));
-        for (const p of stats.projects.slice(0, 10)) {
-          console.log(`  ${p.name}: ${p.count} sessions`);
-        }
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+			if (stats.projects.length > 0) {
+				console.log(chalk.bold("\nTop Projects:"));
+				for (const p of stats.projects.slice(0, 10)) {
+					console.log(`  ${p.name}: ${p.count} sessions`);
+				}
+			}
+		} catch (error) {
+			console.error(
+				chalk.red("Error:"),
+				error instanceof Error ? error.message : error,
+			);
+			process.exit(1);
+		}
+	});
 
 // digest topics
 digestCommand
-  .command('topics')
-  .description('Show top topics across all digested sessions')
-  .option('-l, --limit <limit>', 'Max topics', '20')
-  .option('--json', 'Output as JSON', false)
-  .action(async (options: { limit: string; json?: boolean }) => {
-    try {
-      const topics = await getDigestTopics(parseInt(options.limit, 10));
+	.command("topics")
+	.description("Show top topics across all digested sessions")
+	.option("-l, --limit <limit>", "Max topics", "20")
+	.option("--json", "Output as JSON", false)
+	.action(async (options: { limit: string; json?: boolean }) => {
+		try {
+			const topics = await getDigestTopics(parseInt(options.limit, 10));
 
-      if (options.json) {
-        console.log(JSON.stringify(topics, null, 2));
-        return;
-      }
+			if (options.json) {
+				console.log(JSON.stringify(topics, null, 2));
+				return;
+			}
 
-      console.log(chalk.bold(`Top Topics (${topics.length}):\n`));
-      for (let i = 0; i < topics.length; i++) {
-        const t = topics[i];
-        const projectList = t.projects.length <= 3
-          ? t.projects.join(', ')
-          : `${t.projects.slice(0, 3).join(', ')} +${t.projects.length - 3} more`;
-        console.log(`  ${i + 1}. ${t.topic} (${t.count} sessions) — ${projectList}`);
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+			console.log(chalk.bold(`Top Topics (${topics.length}):\n`));
+			for (let i = 0; i < topics.length; i++) {
+				const t = topics[i];
+				const projectList =
+					t.projects.length <= 3
+						? t.projects.join(", ")
+						: `${t.projects.slice(0, 3).join(", ")} +${t.projects.length - 3} more`;
+				console.log(
+					`  ${i + 1}. ${t.topic} (${t.count} sessions) — ${projectList}`,
+				);
+			}
+		} catch (error) {
+			console.error(
+				chalk.red("Error:"),
+				error instanceof Error ? error.message : error,
+			);
+			process.exit(1);
+		}
+	});
 
 // digest knowledge
 digestCommand
-  .command('knowledge')
-  .description('Show accumulated knowledge from digestion')
-  .option('--kind <kind>', 'Filter to a specific kind (facts, playbooks, preferences, open_loops, mistakes)')
-  .option('-q, --query <query>', 'Search within knowledge')
-  .option('-l, --limit <limit>', 'Max results', '20')
-  .option('--json', 'Output as JSON', false)
-  .action(async (options: { kind?: string; query?: string; limit: string; json?: boolean }) => {
-    try {
-      if (options.query) {
-        const results = await searchKnowledgeFromIndex(options.query, {
-          limit: parseInt(options.limit, 10),
-          kind: options.kind as any,
-        });
+	.command("knowledge")
+	.description("Show accumulated knowledge from digestion")
+	.option(
+		"--kind <kind>",
+		"Filter to a specific kind (facts, skill_candidates, preferences, open_loops, mistakes)",
+	)
+	.option("-q, --query <query>", "Search within knowledge")
+	.option("-l, --limit <limit>", "Max results", "20")
+	.option("--json", "Output as JSON", false)
+	.action(
+		async (options: {
+			kind?: string;
+			query?: string;
+			limit: string;
+			json?: boolean;
+		}) => {
+			try {
+				if (options.query) {
+					const results = await searchKnowledgeFromIndex(options.query, {
+						limit: parseInt(options.limit, 10),
+						kind: options.kind as any,
+					});
 
-        if (options.json) {
-          console.log(JSON.stringify(results, null, 2));
-          return;
-        }
+					if (options.json) {
+						console.log(JSON.stringify(results, null, 2));
+						return;
+					}
 
-        console.log(chalk.bold(`Knowledge search: "${options.query}" (${results.length} results)\n`));
-        for (const { record, projectName } of results) {
-          const text = (record.payload as any)?.text || JSON.stringify(record.payload);
-          console.log(`  [${record.kind}] ${text}`);
-          console.log(chalk.dim(`    from: ${projectName} | ${record.id.slice(0, 8)}`));
-        }
-        return;
-      }
+					console.log(
+						chalk.bold(
+							`Knowledge search: "${options.query}" (${results.length} results)\n`,
+						),
+					);
+					for (const { record, projectName } of results) {
+						const text =
+							(record.payload as any)?.text || JSON.stringify(record.payload);
+						console.log(`  [${record.kind}] ${text}`);
+						console.log(
+							chalk.dim(`    from: ${projectName} | ${record.id.slice(0, 8)}`),
+						);
+					}
+					return;
+				}
 
-      // List all knowledge
-      const records = await readKnowledgeFromStore(options.kind as any);
+				// List all knowledge
+				const records = await readKnowledgeFromStore(options.kind as any);
 
-      if (options.json) {
-        console.log(JSON.stringify(records, null, 2));
-        return;
-      }
+				if (options.json) {
+					console.log(JSON.stringify(records, null, 2));
+					return;
+				}
 
-      console.log(chalk.bold(`Knowledge${options.kind ? ` (${options.kind})` : ''}: ${records.length} records\n`));
-      const limit = parseInt(options.limit, 10);
-      for (const record of records.slice(0, limit)) {
-        const text = (record.payload as any)?.text || JSON.stringify(record.payload);
-        const project = record.provenance?.claudeProjectPath || '';
-        console.log(`  [${record.kind}] ${text}`);
-        if (project) console.log(chalk.dim(`    from: ${project}`));
-      }
-      if (records.length > limit) {
-        console.log(chalk.dim(`\n  ... and ${records.length - limit} more`));
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+				console.log(
+					chalk.bold(
+						`Knowledge${options.kind ? ` (${options.kind})` : ""}: ${records.length} records\n`,
+					),
+				);
+				const limit = parseInt(options.limit, 10);
+				for (const record of records.slice(0, limit)) {
+					const text =
+						(record.payload as any)?.text || JSON.stringify(record.payload);
+					const project = record.provenance?.claudeProjectPath || "";
+					console.log(`  [${record.kind}] ${text}`);
+					if (project) console.log(chalk.dim(`    from: ${project}`));
+				}
+				if (records.length > limit) {
+					console.log(chalk.dim(`\n  ... and ${records.length - limit} more`));
+				}
+			} catch (error) {
+				console.error(
+					chalk.red("Error:"),
+					error instanceof Error ? error.message : error,
+				);
+				process.exit(1);
+			}
+		},
+	);
 
 // digest patterns
 digestCommand
-  .command('patterns')
-  .description('Show patterns across all digested sessions')
-  .option('--json', 'Output as JSON', false)
-  .action(async (options: { json?: boolean }) => {
-    try {
-      const patterns = await getDigestPatterns();
+	.command("patterns")
+	.description("Show patterns across all digested sessions")
+	.option("--json", "Output as JSON", false)
+	.action(async (options: { json?: boolean }) => {
+		try {
+			const patterns = await getDigestPatterns();
 
-      if (options.json) {
-        console.log(JSON.stringify(patterns, null, 2));
-        return;
-      }
+			if (options.json) {
+				console.log(JSON.stringify(patterns, null, 2));
+				return;
+			}
 
-      console.log(chalk.bold(`Patterns (${patterns.totalSessions} sessions across ${patterns.projectCount} projects)\n`));
+			console.log(
+				chalk.bold(
+					`Patterns (${patterns.totalSessions} sessions across ${patterns.projectCount} projects)\n`,
+				),
+			);
 
-      console.log(chalk.bold('Solution Types:'));
-      for (const st of patterns.solutionTypes) {
-        console.log(`  ${st.type}: ${st.count} sessions`);
-      }
+			console.log(chalk.bold("Solution Types:"));
+			for (const st of patterns.solutionTypes) {
+				console.log(`  ${st.type}: ${st.count} sessions`);
+			}
 
-      console.log(chalk.bold('\nSuccess Rates:'));
-      for (const sr of patterns.successRates) {
-        console.log(`  ${sr.indicator}: ${sr.count} sessions (${sr.percentage.toFixed(1)}%)`);
-      }
+			console.log(chalk.bold("\nSuccess Rates:"));
+			for (const sr of patterns.successRates) {
+				console.log(
+					`  ${sr.indicator}: ${sr.count} sessions (${sr.percentage.toFixed(1)}%)`,
+				);
+			}
 
-      console.log(chalk.bold('\nTop Projects:'));
-      for (const p of patterns.topProjects.slice(0, 10)) {
-        console.log(`  ${p.name}: ${p.count} sessions`);
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+			console.log(chalk.bold("\nTop Projects:"));
+			for (const p of patterns.topProjects.slice(0, 10)) {
+				console.log(`  ${p.name}: ${p.count} sessions`);
+			}
+		} catch (error) {
+			console.error(
+				chalk.red("Error:"),
+				error instanceof Error ? error.message : error,
+			);
+			process.exit(1);
+		}
+	});
 
 // digest ask — one-shot question or interactive chat about a session
-import { CLIInterface } from '@umwelten/ui/cli/CLIInterface.js';
-import { buildSessionAnalysisInteraction } from '@umwelten/core/interaction/analysis/session-digester.js';
+import { CLIInterface } from "@umwelten/ui/cli/CLIInterface.js";
+import { buildSessionAnalysisInteraction } from "@umwelten/core/interaction/analysis/session-digester.js";
 
 digestCommand
-  .command('ask')
-  .description('Ask questions about a session (interactive chat if no question given)')
-  .argument('[question]', 'Question to ask (omit for interactive chat)')
-  .requiredOption('-f, --file <path>', 'Session JSONL file to analyze')
-  .option('-m, --model <model>', 'Model (format: provider:model)', 'ollama:gemma4:26b')
-  .action(async (question: string | undefined, options: { file: string; model: string }) => {
-    try {
-      const filePath = resolve(options.file);
-      const sessionId = basename(filePath, '.jsonl');
-      const projectPath = resolve(filePath, '..', '..');
-      const [provider, ...modelParts] = options.model.split(':');
-      const modelName = modelParts.join(':');
-      const model = { name: modelName, provider: provider as any, temperature: 0.3 };
+	.command("ask")
+	.description(
+		"Ask questions about a session (interactive chat if no question given)",
+	)
+	.argument("[question]", "Question to ask (omit for interactive chat)")
+	.requiredOption("-f, --file <path>", "Session JSONL file to analyze")
+	.option(
+		"-m, --model <model>",
+		"Model (format: provider:model)",
+		"ollama:gemma4:26b",
+	)
+	.action(
+		async (
+			question: string | undefined,
+			options: { file: string; model: string },
+		) => {
+			try {
+				const filePath = resolve(options.file);
+				const sessionId = basename(filePath, ".jsonl");
+				const projectPath = resolve(filePath, "..", "..");
+				const [provider, ...modelParts] = options.model.split(":");
+				const modelName = modelParts.join(":");
+				const model = {
+					name: modelName,
+					provider: provider as any,
+					temperature: 0.3,
+				};
 
-      if (question) {
-        // One-shot mode
-        const answer = await askAboutSession({
-          sessionFile: filePath,
-          projectPath,
-          sessionId,
-          question,
-          model,
-        });
-        console.log('\n' + answer);
-      } else {
-        // Interactive chat mode
-        console.log(chalk.bold('Loading session for interactive analysis...\n'));
+				if (question) {
+					// One-shot mode
+					const answer = await askAboutSession({
+						sessionFile: filePath,
+						projectPath,
+						sessionId,
+						question,
+						model,
+					});
+					console.log("\n" + answer);
+				} else {
+					// Interactive chat mode
+					console.log(
+						chalk.bold("Loading session for interactive analysis...\n"),
+					);
 
-        const interaction = await buildSessionAnalysisInteraction({
-          sessionFile: filePath,
-          projectPath,
-          sessionId,
-          model,
-        });
+					const interaction = await buildSessionAnalysisInteraction({
+						sessionFile: filePath,
+						projectPath,
+						sessionId,
+						model,
+					});
 
-        console.log(chalk.dim(`Session loaded. Ask questions about it. Type "exit" to quit.\n`));
+					console.log(
+						chalk.dim(
+							`Session loaded. Ask questions about it. Type "exit" to quit.\n`,
+						),
+					);
 
-        const cli = new CLIInterface();
-        await cli.startChat(interaction);
-      }
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+					const cli = new CLIInterface();
+					await cli.startChat(interaction);
+				}
+			} catch (error) {
+				console.error(
+					chalk.red("Error:"),
+					error instanceof Error ? error.message : error,
+				);
+				process.exit(1);
+			}
+		},
+	);
 
 sessionsCommand.addCommand(digestCommand);
 

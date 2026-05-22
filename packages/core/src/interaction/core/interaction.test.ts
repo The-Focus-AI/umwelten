@@ -50,8 +50,7 @@ describe('New Interaction Constructor', () => {
       role: "math tutor",
       objective: "help with calculations",
       tools: { calculator: calculatorTool },
-      temperature: 0.7,
-      runnerType: 'memory'
+      temperature: 0.7
     });
 
     const interaction = new Interaction(mockModel, stimulus);
@@ -67,9 +66,6 @@ describe('New Interaction Constructor', () => {
 
     // Check model options are applied
     expect(interaction.options?.temperature).toBe(0.7);
-
-    // Check runner type is applied
-    expect(interaction.getRunner().constructor.name).toContain('Memory');
   });
 
   it('should update stimulus dynamically', () => {
@@ -155,16 +151,6 @@ describe('New Interaction Constructor', () => {
     const interaction = new Interaction(mockModel, stimulus);
 
     expect(interaction.getRunner().constructor.name).toBe('BaseModelRunner');
-  });
-
-  it('should create memory runner when specified', () => {
-    const stimulus = new Stimulus({
-      role: "assistant",
-      runnerType: 'memory'
-    });
-    const interaction = new Interaction(mockModel, stimulus);
-
-    expect(interaction.getRunner().constructor.name).toContain('Memory');
   });
 
   it('should maintain backward compatibility with existing methods', () => {

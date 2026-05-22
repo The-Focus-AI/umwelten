@@ -56,7 +56,7 @@ const sessionIdSchema = z
 
 const learningKindSchema = z.enum([
   'facts',
-  'playbooks',
+  'skill_candidates',
   'preferences',
   'open_loops',
   'mistakes',
@@ -369,7 +369,7 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
 
   const sessionsLearningsAppendTool = tool({
     description:
-      'Append one structured learning row to the session directory (per-kind JSONL: facts, playbooks, preferences, open_loops, mistakes).',
+      'Append one structured learning row to the session directory (per-kind JSONL: facts, skill_candidates, preferences, open_loops, mistakes).',
     inputSchema: z.object({
       sessionId: sessionIdSchema,
       kind: learningKindSchema,

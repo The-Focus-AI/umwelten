@@ -6,8 +6,6 @@ import {
   ModelResponse,
 } from "../../cognition/types.js";
 import { BaseModelRunner } from "../../cognition/runner.js";
-import { createMemoryRunner } from "../../memory/memory_runner.js";
-import { InMemoryMemoryStore } from "../../memory/memory_store.js";
 // import { getAllTools } from "../../stimulus/tools/index.js";
 import { z } from "zod";
 import { buildAttachmentMessage } from "./attachments.js";
@@ -73,8 +71,8 @@ export class Interaction {
     // Apply stimulus context immediately
     this.applyStimulusContext();
 
-    // Create the appropriate runner
-    this.runner = this.createRunner(this.stimulus.getRunnerType());
+    // Create the runner
+    this.runner = this.createRunner();
   }
 
   private applyStimulusContext(): void {
@@ -146,18 +144,8 @@ export class Interaction {
     this.metadata.updated = new Date();
   }
 
-  protected createRunner(runnerType: "base" | "memory"): ModelRunner {
-    switch (runnerType) {
-      case "memory":
-        return createMemoryRunner({
-          baseRunner: new BaseModelRunner(),
-          llmModel: this.modelDetails.name,
-          memoryStore: new InMemoryMemoryStore(),
-          factExtractionModel: this.modelDetails,
-        });
-      default:
-        return new BaseModelRunner();
-    }
+  protected createRunner(): ModelRunner {
+    return new BaseModelRunner();
   }
 
   /** Optional callback invoked whenever messages change (e.g. so CLI can append transcript). */

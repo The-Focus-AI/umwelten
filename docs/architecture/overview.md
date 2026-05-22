@@ -84,13 +84,12 @@ AI provider implementations using Vercel AI SDK.
 - **Factory Pattern**: `createGoogleProvider()`, `createOpenRouterProvider()`, etc.
 - **Cost Tracking**: Per-provider cost calculation via `packages/core/src/costs/`
 
-### 8. Memory System (`packages/core/src/memory/`)
+### 8. Memory Helpers (`packages/core/src/memory/`)
 
-Persistent memory across interactions.
+Explicit helpers for extracting and reconciling facts from interactions.
 
-- Conversation history management
-- Fact extraction and storage
-- Knowledge retrieval and context
+- Fact extraction from conversations
+- ADD/UPDATE/NONE operation classification for caller-managed stores
 
 ### 9. Context Management (`packages/core/src/context/`)
 
@@ -194,7 +193,7 @@ src/
    pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
 
    # Interactive chat
-   pnpm run cli -- chat --provider google --model gemini-3-flash-preview --memory
+   pnpm run cli -- chat --provider google --model gemini-3-flash-preview
    ```
 
 2. **Start a Habitat**: Set up a full agent environment

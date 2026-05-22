@@ -9,7 +9,6 @@ export const telegramCommand = addCommonOptions(
   new Command("telegram")
     .description("Start a Telegram bot for chatting with AI models")
     .option("--token <token>", "Telegram bot token (or set TELEGRAM_BOT_TOKEN env)")
-    .option("--memory", "Enable memory-augmented conversations")
     .option("--tools <tools>", "Comma-separated list of tools to enable (calculator,statistics,randomNumber)")
     .option("--media-dir <dir>", "Directory for storing media files (default: ./telegram-media)")
 ).action(async (options: any) => {
@@ -39,7 +38,6 @@ export const telegramCommand = addCommonOptions(
       "Provide clear and helpful responses",
       "When sharing code, use proper formatting",
     ],
-    runnerType: options.memory ? "memory" : "base",
     maxToolSteps: 5,
   });
 

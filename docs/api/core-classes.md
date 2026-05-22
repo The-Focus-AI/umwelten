@@ -333,7 +333,7 @@ interface StimulusOptions {
   presencePenalty?: number;
 
   // Runner
-  runnerType?: 'base' | 'memory';   // 'memory' enables automatic fact extraction
+  runnerType?: 'base';              // Compatibility-only; Interaction uses base runner
 
   // Context
   systemContext?: string;

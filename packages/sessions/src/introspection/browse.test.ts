@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import {
 	applyExploreFilter,
 	type ExplorationBrowserEntry,
@@ -455,7 +457,9 @@ describe("searchToVirtualExploration", () => {
 	});
 
 	it("matches against session ID", async () => {
-		const entries = [makeExploreEntry({ id: "src-cc-special-id", title: "Work" })];
+		const entries = [
+			makeExploreEntry({ id: "src-cc-special-id", title: "Work" }),
+		];
 
 		const { searchToVirtualExploration } = await import("./browse.js");
 		const result = searchToVirtualExploration(entries, "special-id");
@@ -473,5 +477,55 @@ describe("searchToVirtualExploration", () => {
 
 		expect(result.totalSearched).toBe(10);
 		expect(result.matches).toHaveLength(10);
+	});
+});
+
+describe("digest persistence", () => {
+	const testProjectPath = join(process.cwd(), "packages/sessions/src/introspection/temp-digest-test");
+
+	afterEach(async () => {
+		try {
+			await rm(testProjectPath, { recursive: true, force: true });
+		} catch {}
+	});
+
+	it("getDigestPath constructs project-local path and URI-encodes session IDs", async () => {
+		const { getDigestPath } = await import("./browse.js");
+
+		// Simple ID
+		const pathSimple = getDigestPath(testProjectPath, "simple-session");
+		expect(pathSimple).toBe(join(testProjectPath, ".umwelten", "digests", "sessions", "simple-session.json"));
+
+		// ID with special characters
+		const pathSpecial = getDigestPath(testProjectPath, "piloc:/Users/test/workspace:session.jsonl");
+		const expectedFilename = `${encodeURIComponent("piloc:/Users/test/workspace:session.jsonl")}.json`;
+		expect(pathSpecial).toBe(join(testProjectPath, ".umwelten", "digests", "sessions", expectedFilename));
+	});
+
+	it("saveDigest and loadDigest perform a successful round-trip", async () => {
+		const { saveDigest, loadDigest } = await import("./browse.js");
+		const digest = {
+			sessionId: "piloc:/Users/test/workspace:session.jsonl",
+			overallSummary: "Test summary",
+			analysis: {
+				tags: ["test", "tdd"],
+				topics: ["persistence"],
+			},
+		} as any;
+
+		// Load non-existent digest returns null
+		const loadedBefore = await loadDigest(testProjectPath, digest.sessionId);
+		expect(loadedBefore).toBeNull();
+
+		// Save digest
+		const savedPath = await saveDigest(testProjectPath, digest);
+		expect(savedPath).toContain(join(testProjectPath, ".umwelten", "digests", "sessions"));
+
+		// Load digest back
+		const loadedAfter = await loadDigest(testProjectPath, digest.sessionId);
+		expect(loadedAfter).not.toBeNull();
+		expect(loadedAfter!.sessionId).toBe(digest.sessionId);
+		expect(loadedAfter!.overallSummary).toBe("Test summary");
+		expect(loadedAfter!.analysis.tags).toEqual(["test", "tdd"]);
 	});
 });

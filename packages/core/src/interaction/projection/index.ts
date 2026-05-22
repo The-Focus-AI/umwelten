@@ -5,13 +5,13 @@
  * them into default Explorations.
  */
 export {
-  projectSessions,
-  projectSessionEntry,
-  toSourceSession,
-  toSourceSessionFull,
-} from './projector.js';
+	projectSessions,
+	projectSessionEntry,
+	toSourceSession,
+	toSourceSessionFull,
+} from "./projector.js";
 export type {
-  ProjectionResult,
-  ProjectionSourceResult,
-  ProjectionOptions,
-} from './projector.js';
+	ProjectionResult,
+	ProjectionSourceResult,
+	ProjectionOptions,
+} from "./projector.js";
