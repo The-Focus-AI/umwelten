@@ -54,7 +54,8 @@ async function findInPackagesSources(
 			if (
 				entry.name === "node_modules" ||
 				entry.name === "dist" ||
-				entry.name === ".git"
+				entry.name === ".git" ||
+				entry.name === ".pi-lens"
 			)
 				continue;
 
@@ -111,7 +112,12 @@ describe("playbooks → skill_candidates: string search", () => {
 			}
 			for (const entry of entries) {
 				const relPath = dir.replace(packagesRoot + "/", "") + "/" + entry.name;
-				if (entry.name === "node_modules" || entry.name === "dist") continue;
+				if (
+					entry.name === "node_modules" ||
+					entry.name === "dist" ||
+					entry.name === ".pi-lens"
+				)
+					continue;
 				if (entry.name.toLowerCase().includes("playbook")) {
 					violations.push(relPath);
 				}

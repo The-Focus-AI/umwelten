@@ -7,14 +7,11 @@
 import { createInterface } from "node:readline";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import { projectSessions } from "@umwelten/core/interaction/projection/index.js";
 import { buildReflectionContext } from "@umwelten/core/interaction/reflection/reflection.js";
 import { classifyReflectionAnswer } from "@umwelten/core/interaction/promotion/classifier.js";
 import { PromotionRouter } from "@umwelten/core/interaction/promotion/router.js";
-import {
-	adapterRegistry,
-	initializeAdapters,
-} from "@umwelten/core/interaction/adapters/index.js";
+import { adapterRegistry } from "@umwelten/core/interaction/adapters/index.js";
+import { loadBrowseProjection } from "@umwelten/sessions/introspect.js";
 import type {
 	Exploration,
 	SourceSession,
@@ -38,10 +35,9 @@ export async function runKnowledgeCommand(
 		? resolve(options.sessionsDir)
 		: undefined;
 
-	// Initialize adapters so all sources are available
-	initializeAdapters();
-
-	// If a Habitat sessions dir is provided, register a Habitat adapter
+	// If a Habitat sessions dir is provided, register a Habitat adapter on
+	// the global registry before projection runs. loadBrowseProjection will
+	// initialize the standard adapters.
 	if (sessionsDir) {
 		const { HabitatSessionAdapter } = await import(
 			"@umwelten/habitat/adapters/habitat-session-adapter.js"
@@ -56,7 +52,7 @@ export async function runKnowledgeCommand(
 
 	// ---- 1. Project sessions into Explorations ----
 	console.log(chalk.dim("Discovering sessions and projecting Explorations..."));
-	const projection = await projectSessions(projectPath);
+	const projection = await loadBrowseProjection({ projectPath });
 
 	if (projection.explorations.length === 0) {
 		console.log(chalk.yellow("\nNo sessions found for this project."));

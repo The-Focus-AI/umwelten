@@ -14,6 +14,41 @@ import { stat } from "node:fs/promises";
 import chalk from "chalk";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import { initializeAdapters } from "@umwelten/core/interaction/adapters/index.js";
+import type { AdapterRegistry } from "@umwelten/core/interaction/adapters/adapter.js";
+import {
+	projectSessions,
+	type ProjectionResult,
+} from "@umwelten/core/interaction/projection/index.js";
+
+/**
+ * Options for loading the browse projection.
+ *
+ * The optional `registry` lets tests pass an isolated AdapterRegistry; in
+ * production callers omit it and the global registry is used (initialized
+ * via initializeAdapters).
+ */
+export interface LoadBrowseProjectionOptions {
+	projectPath: string;
+	registry?: AdapterRegistry;
+}
+
+/**
+ * Initialize adapters (when using the global registry) and project every
+ * discovered Source Session into an Exploration.
+ *
+ * This is the contract behind `pnpm run cli browse -p <project>` — sessions
+ * from every registered adapter (claude-code, pi, cursor, plus any
+ * dynamically-registered habitat adapter) must be discoverable here before
+ * the dashboard mounts.
+ */
+export async function loadBrowseProjection(
+	opts: LoadBrowseProjectionOptions,
+): Promise<ProjectionResult> {
+	if (!opts.registry) {
+		initializeAdapters();
+	}
+	return projectSessions(opts.projectPath, { registry: opts.registry });
+}
 
 interface BrowseOptions {
 	project: string;
@@ -60,7 +95,12 @@ export async function runBrowseAction(options: BrowseOptions): Promise<void> {
 		const projectPath = resolve(options.project);
 		const { primaryTarget } = await resolveTarget(options.target, projectPath);
 		const model = parseModel(options.model);
-		initializeAdapters();
+		// Touch every adapter source via loadBrowseProjection so initialization
+		// happens before the TUI mounts. The returned projection is recomputed
+		// inside runExploreBrowseTui via buildExploreBrowse — calling it here
+		// surfaces adapter errors (missing dirs, malformed sessions) on stderr
+		// before the alt-screen takes over.
+		await loadBrowseProjection({ projectPath });
 		const { runExploreBrowseTui } = await import(
 			"@umwelten/ui/tui/introspect/browse.js"
 		);
