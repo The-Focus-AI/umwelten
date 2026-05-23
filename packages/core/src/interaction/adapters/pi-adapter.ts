@@ -767,16 +767,35 @@ export class PiSessionAdapter implements SessionAdapter {
 
 	/**
 	 * Extract plain text from pi content (string or content blocks).
+	 *
+	 * pi assistant messages are mostly composed of `thinking` + `toolCall`
+	 * blocks; raw `text` blocks are rare. To keep downstream consumers
+	 * (digester, analyzer, dashboard) from seeing empty assistant content,
+	 * surface thinking and toolCall blocks as readable markdown too.
 	 */
 	private extractTextContent(
 		content: string | PiContentBlock[] | undefined | null,
 	): string {
 		if (!content) return "";
 		if (typeof content === "string") return content;
-		return content
-			.filter((b) => b.type === "text" && b.text)
-			.map((b) => b.text)
-			.join("\n");
+		const parts: string[] = [];
+		for (const b of content) {
+			if (b.type === "text" && b.text) {
+				parts.push(b.text);
+			} else if (b.type === "thinking" && b.thinking) {
+				parts.push(`[thinking] ${b.thinking}`);
+			} else if (b.type === "toolCall" && b.name) {
+				const argsPreview = b.arguments
+					? JSON.stringify(b.arguments).slice(0, 200)
+					: "";
+				parts.push(
+					argsPreview
+						? `[tool ${b.name}] ${argsPreview}`
+						: `[tool ${b.name}]`,
+				);
+			}
+		}
+		return parts.join("\n");
 	}
 
 	/**

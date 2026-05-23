@@ -9,6 +9,7 @@ import {
 } from '../persistence/session-parser.js';
 import type { NormalizedSession, NormalizedMessage } from '../types/normalized-types.js';
 import type { SessionIndexEntry, ContentBlock } from '../types/types.js';
+import { adapterRegistry } from '../adapters/adapter.js';
 import type { SessionAnalysis, AnalysisResponse } from './analysis-types.js';
 import { AnalysisSchema } from './analysis-types.js';
 
@@ -461,9 +462,40 @@ export async function analyzeSessionWithRetry(
 ): Promise<{analysis: SessionAnalysis; relatedFiles: string[]} | null> {
   let lastError: Error | null = null;
 
+  // Branch on source the same way the digester does for beats. The
+  // file-based analyzeSession path uses parseSessionFile which is hard-
+  // wired to claude-code's JSONL — pi/cursor/habitat sessions need to be
+  // routed through the adapter so their normalized messages reach the
+  // markdown builder; otherwise the analyzer sees zero conversation and
+  // emits the "Session with no analyzable conversation content." punt.
+  const isClaudeCode =
+    (!session.source || session.source === 'claude-code') && !!session.fullPath;
+
   for (let attempt = 0; attempt < maxRetries + 1; attempt++) {
     try {
-      return await analyzeSession(session, model);
+      if (isClaudeCode) {
+        return await analyzeSession(session, model);
+      }
+      const adapter = adapterRegistry.get(
+        session.source as unknown as Parameters<typeof adapterRegistry.get>[0],
+      );
+      if (!adapter) {
+        throw new Error(
+          `No adapter registered for source "${session.source}" (analyzeSessionWithRetry)`,
+        );
+      }
+      const normalized = await adapter.getSession(session.sessionId);
+      if (!normalized) {
+        throw new Error(
+          `Adapter for "${session.source}" returned no session for ${session.sessionId}`,
+        );
+      }
+      return await analyzeSessionFromNormalizedSession(
+        normalized,
+        session.sessionId,
+        session.fileMtime,
+        model,
+      );
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
