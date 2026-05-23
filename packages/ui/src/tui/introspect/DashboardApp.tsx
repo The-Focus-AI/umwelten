@@ -82,6 +82,7 @@ interface PhasesState {
 
 type PhasesAction =
 	| { type: "PATCH"; sessionId: string; status: DashboardStatus; detail?: string; topic?: string }
+	| { type: "SET_CURRENT"; text: string }
 	| { type: "CLEAR_CURRENT" };
 
 function phasesReducer(state: PhasesState, action: PhasesAction): PhasesState {
@@ -97,12 +98,14 @@ function phasesReducer(state: PhasesState, action: PhasesAction): PhasesState {
 			};
 			const currentItem =
 				action.status === "digesting" && action.topic
-					? `Digesting ${action.topic}`
+					? `Digesting ${action.topic}${action.detail ? ` — ${action.detail}` : ""}`
 					: action.status === "digested"
 						? null
 						: state.currentItem;
 			return { bySession: next, currentItem };
 		}
+		case "SET_CURRENT":
+			return { ...state, currentItem: action.text };
 		case "CLEAR_CURRENT":
 			return { ...state, currentItem: null };
 		default:
@@ -117,7 +120,10 @@ function progressPhaseToStatus(
 ): DashboardStatus | null {
 	switch (phase) {
 		case "pending":
-			return null; // pending isn't a row-status, leave derived status alone
+			// "queued" is rendered as `digesting`-colored on the row so the user
+			// can see that the engine has accepted the work. The bottom status
+			// bar shows the currently-active item separately.
+			return "digesting";
 		case "digesting":
 			return "digesting";
 		case "digested":
@@ -186,6 +192,16 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 			const events = pendingRef.current;
 			pendingRef.current = [];
 			for (const event of events) {
+				// Synthetic kickoff / completion events use sessionId "__kickoff__"
+				// to drive the bottom status bar without touching any real row.
+				if (event.sessionId.startsWith("__")) {
+					if (event.phase === "digested") {
+						dispatch({ type: "CLEAR_CURRENT" });
+					} else if (event.detail) {
+						dispatch({ type: "SET_CURRENT", text: event.detail });
+					}
+					continue;
+				}
 				const status = progressPhaseToStatus(event.phase);
 				if (!status) continue;
 				const topic = entries.find(

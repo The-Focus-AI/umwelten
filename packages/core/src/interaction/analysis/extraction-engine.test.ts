@@ -8,7 +8,10 @@
  * 4. Progress streaming events
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	determineScope,
 	ExtractionEngine,
@@ -44,6 +47,10 @@ const successDigest = {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
+// Module-scope so makeInput() and the per-test mkdtemp share the same value.
+// Reassigned in beforeEach for tests that run the engine and need a real dir.
+let tmpProject = "/test-default-unused";
+
 function makeInput(overrides: Partial<ExtractionInput> = {}): ExtractionInput {
 	return {
 		explorationId: "exp-1",
@@ -58,7 +65,7 @@ function makeInput(overrides: Partial<ExtractionInput> = {}): ExtractionInput {
 			created: "2026-05-20T10:00:00Z",
 			modified: "2026-05-20T10:00:00Z",
 			gitBranch: "main",
-			projectPath: "/test",
+			projectPath: tmpProject,
 			isSidechain: false,
 		},
 		...overrides,
@@ -292,6 +299,16 @@ describe("ExtractionEngine", () => {
 	beforeEach(() => {
 		mockDigestSession.mockReset();
 		mockDigestSession.mockResolvedValue(successDigest);
+		// Per-test temp dir so persistDigest can write to disk.
+		tmpProject = mkdtempSync(join(tmpdir(), "extraction-engine-test-"));
+	});
+
+	afterEach(() => {
+		try {
+			rmSync(tmpProject, { recursive: true, force: true });
+		} catch {
+			// best-effort cleanup
+		}
 	});
 
 	// ── Progress streaming ─────────────────────────────────────────────
@@ -307,7 +324,7 @@ describe("ExtractionEngine", () => {
 		const result = await engine.run(
 			inputs,
 			new Map(),
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 			onProgress,
@@ -328,6 +345,66 @@ describe("ExtractionEngine", () => {
 		expect(digestingIdx).toBeLessThan(digestedIdx);
 	});
 
+	it("treats a null return from digestSession as a failure (not silent digested)", async () => {
+		// digestSession returns null when a session is too small or its adapter
+		// format is unsupported by the parser (e.g. pi v3 JSONL). The engine
+		// must surface that as a failed event so the dashboard doesn't show a
+		// green "digested" pill while nothing was actually persisted.
+		mockDigestSession.mockResolvedValue(null);
+
+		const engine = new ExtractionEngine({ concurrency: 1, schemaVersion: 1 });
+
+		const events: ExtractionProgress[] = [];
+		const onProgress = (e: ExtractionProgress) => events.push(e);
+
+		const inputs = [makeInput({ explorationId: "e1", sessionId: "s1" })];
+
+		const result = await engine.run(
+			inputs,
+			new Map(),
+			tmpProject,
+			"test-project",
+			model,
+			onProgress,
+		);
+
+		expect(result.digested).toBe(0);
+		expect(result.failed).toBe(1);
+		const failedEvent = events.find((e) => e.phase === "failed");
+		expect(failedEvent?.detail).toMatch(/no digest produced|too small|unsupported/i);
+	});
+
+	it("persists the digest to .umwelten/digests/sessions on success", async () => {
+		const engine = new ExtractionEngine({ concurrency: 1, schemaVersion: 1 });
+		const inputs = [makeInput({ explorationId: "e1", sessionId: "persist-1" })];
+
+		// Use a digest whose sessionId is unique so we can stat() the result.
+		mockDigestSession.mockResolvedValue({
+			...successDigest,
+			sessionId: "persist-1",
+		});
+
+		const result = await engine.run(
+			inputs,
+			new Map(),
+			tmpProject,
+			"test-project",
+			model,
+		);
+
+		expect(result.digested).toBe(1);
+		// File must exist on disk.
+		const { statSync } = await import("node:fs");
+		const expected = join(
+			tmpProject,
+			".umwelten",
+			"digests",
+			"sessions",
+			`${encodeURIComponent("persist-1")}.json`,
+		);
+		expect(() => statSync(expected)).not.toThrow();
+	});
+
 	it("emits failed event when digestSession throws", async () => {
 		mockDigestSession.mockRejectedValue(new Error("LLM unavailable"));
 
@@ -341,7 +418,7 @@ describe("ExtractionEngine", () => {
 		const result = await engine.run(
 			inputs,
 			new Map(),
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 			onProgress,
@@ -370,7 +447,7 @@ describe("ExtractionEngine", () => {
 		const result = await engine.run(
 			inputs,
 			new Map(),
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 			onProgress,
@@ -412,7 +489,7 @@ describe("ExtractionEngine", () => {
 		const result = await engine.run(
 			inputs,
 			digests,
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 		);
@@ -440,7 +517,7 @@ describe("ExtractionEngine", () => {
 		const result = await engine.run(
 			inputs,
 			digests,
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 		);
@@ -474,7 +551,7 @@ describe("ExtractionEngine", () => {
 		await engine.run(
 			inputs,
 			new Map(),
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 			onProgress,
@@ -512,7 +589,7 @@ describe("ExtractionEngine", () => {
 		const result = await engine.run(
 			inputs,
 			digests,
-			"/test",
+			tmpProject,
 			"test-project",
 			model,
 		);

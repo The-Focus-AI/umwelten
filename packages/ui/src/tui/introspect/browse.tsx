@@ -276,11 +276,28 @@ async function runExtractionPass(args: {
 
 	const engine = new ExtractionEngine({ concurrency });
 
-	// Wrap engine's onProgress to also persist digests via saveDigest. The
-	// ExtractionEngine delegates to digestSession which builds but does not
-	// save. We mirror runDigestLiveTui's behaviour by saving after digestion
-	// completes; for now we just forward events — saving is handled inside
-	// digestSession via the schema-aware path. (See follow-ups in the PR.)
+	// Surface a kickoff signal immediately so the bottom status bar moves the
+	// moment the user confirms — otherwise the dashboard looks idle until the
+	// first `digesting` event fires (which can take >10s while the digester
+	// loads + beats the first session).
+	if (inputs.length === 0) {
+		emit({
+			explorationId: "",
+			sessionId: "",
+			phase: "failed",
+			detail:
+				"No Explorations had a resolvable filePath. Nothing to extract.",
+		});
+		return;
+	}
+
+	emit({
+		explorationId: "",
+		sessionId: "__kickoff__",
+		phase: "digesting",
+		detail: `Starting extraction across ${inputs.length} exploration${inputs.length === 1 ? "" : "s"}…`,
+	});
+
 	try {
 		await engine.run(
 			inputs,
@@ -297,6 +314,12 @@ async function runExtractionPass(args: {
 				});
 			},
 		);
+		emit({
+			explorationId: "",
+			sessionId: "__kickoff__",
+			phase: "digested",
+			detail: "Extraction pass complete.",
+		});
 	} catch (err) {
 		emit({
 			explorationId: "",

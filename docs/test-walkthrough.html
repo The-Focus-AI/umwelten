@@ -1,0 +1,1392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus.AI Labs — Exploration Browser Walkthrough</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;500;600;700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,700;8..60,900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── Labs Design Tokens ─────────────────────────────────── */
+      :root {
+        --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+        --font-sans: "Inter", system-ui, sans-serif;
+        --font-mono: "Courier Prime", monospace;
+        --color-paper: #f3f2ea;
+        --color-void: #1a1a1a;
+        --color-rand-blue: #0055aa;
+        --color-alert-red: #d93025;
+        --color-surface: #e6e4dc;
+        --color-border: rgba(26, 26, 26, 0.2);
+        --text-primary: var(--color-void);
+        --text-secondary: rgba(26, 26, 26, 0.7);
+        --text-tertiary: rgba(26, 26, 26, 0.4);
+        --text-ghosted: rgba(26, 26, 26, 0.2);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: var(--font-sans);
+        background: var(--color-paper);
+        color: var(--text-primary);
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      /* ── Horizontal Scroll Container ──────────────────────── */
+      .scroll-container {
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        height: 100vh;
+        width: 100vw;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+      }
+      .scroll-container::-webkit-scrollbar {
+        display: none;
+      }
+
+      .slide {
+        scroll-snap-align: start;
+        flex: 0 0 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 48px 64px;
+        position: relative;
+        overflow-y: auto;
+      }
+
+      .slide-content {
+        max-width: 740px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .slide-content-wide {
+        max-width: 1080px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      /* ── Typography ───────────────────────────────────────── */
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 900;
+        font-size: clamp(2rem, 4vw, 3rem);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      h2 {
+        font-family: var(--font-sans);
+        font-weight: 700;
+        font-size: clamp(1.25rem, 2vw, 1.5rem);
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+      }
+      h3 {
+        font-family: var(--font-sans);
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 6px;
+        margin-top: 16px;
+      }
+      h3:first-child {
+        margin-top: 0;
+      }
+      .label {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+      }
+      .label-accent {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-rand-blue);
+        margin-bottom: 12px;
+      }
+      p {
+        font-weight: 400;
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        max-width: 60ch;
+        margin-bottom: 10px;
+      }
+      p.secondary {
+        color: var(--text-secondary);
+      }
+      p.tertiary {
+        color: var(--text-tertiary);
+        font-size: 0.8125rem;
+      }
+      code,
+      .file-path {
+        font-family: var(--font-mono);
+        font-size: 0.8125rem;
+      }
+      .file-path {
+        display: block;
+        color: var(--text-tertiary);
+        margin-bottom: 3px;
+        padding-left: 12px;
+        border-left: 2px solid var(--color-border);
+      }
+      .accent-bar {
+        width: 48px;
+        height: 3px;
+        background: var(--color-alert-red);
+        border-radius: 2px;
+        margin-bottom: 20px;
+      }
+
+      /* ── Step cards ──────────────────────────────────────── */
+      .step-list {
+        margin-top: 12px;
+      }
+      .step {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 10px;
+        align-items: flex-start;
+      }
+      .step-num {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-surface);
+        border: 1.5px solid var(--color-rand-blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        color: var(--color-rand-blue);
+        font-weight: 700;
+        margin-top: 1px;
+      }
+      .step-code {
+        font-family: var(--font-mono);
+        font-size: 0.8125rem;
+        background: var(--color-surface);
+        padding: 8px 12px;
+        border-radius: 3px;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .command-list {
+        list-style: none;
+        font-family: var(--font-mono);
+        font-size: 0.8125rem;
+        background: var(--color-surface);
+        padding: 8px 12px;
+        border-radius: 3px;
+        line-height: 1.5;
+        overflow-x: auto;
+      }
+      .command-list li {
+        white-space: nowrap;
+      }
+      .command-list li + li {
+        margin-top: 2px;
+      }
+      .step-text {
+        flex: 1;
+      }
+      .step-text .note {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        margin-top: 2px;
+      }
+      .step-text .check {
+        color: #1a7f3a;
+        font-weight: 500;
+      }
+
+      /* ── Stats row ────────────────────────────────────────── */
+      .stats-row {
+        display: flex;
+        gap: 32px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+      }
+      .stat-block {
+        text-align: left;
+      }
+      .stat-number {
+        font-family: var(--font-display);
+        font-weight: 900;
+        font-size: clamp(2.5rem, 5vw, 3.5rem);
+        letter-spacing: -0.03em;
+        line-height: 1;
+        color: var(--color-alert-red);
+      }
+      .stat-label {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-secondary);
+      }
+
+      /* ── Badges ──────────────────────────────────────────── */
+      .badge {
+        display: inline-block;
+        font-family: var(--font-mono);
+        font-size: 0.625rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 2px 8px;
+        border-radius: 2px;
+        margin-right: 4px;
+      }
+      .badge-core {
+        background: rgba(0, 85, 170, 0.15);
+        color: var(--color-rand-blue);
+      }
+      .badge-habitat {
+        background: rgba(217, 48, 37, 0.12);
+        color: var(--color-alert-red);
+      }
+      .badge-sessions {
+        background: rgba(26, 26, 26, 0.08);
+        color: var(--text-secondary);
+      }
+      .badge-ui {
+        background: rgba(0, 85, 170, 0.1);
+        color: var(--color-rand-blue);
+      }
+      .badge-cli {
+        background: rgba(26, 26, 26, 0.06);
+        color: var(--text-secondary);
+      }
+      .badge-green {
+        background: rgba(26, 127, 58, 0.12);
+        color: #1a7f3a;
+      }
+      .badge-new {
+        background: rgba(217, 48, 37, 0.12);
+        color: var(--color-alert-red);
+        font-weight: 700;
+      }
+
+      /* ── Progress / issue number ─────────────────────────── */
+      .issue-meta {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .issue-num {
+        font-family: var(--font-display);
+        font-weight: 900;
+        font-size: 1.25rem;
+        color: var(--color-rand-blue);
+      }
+      .issue-num-line {
+        flex: 1;
+        height: 1px;
+        background: var(--color-border);
+      }
+      .commit-hash {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+      }
+
+      /* ── Grid layouts ────────────────────────────────────── */
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 12px;
+      }
+      .two-col h3 {
+        margin-top: 0;
+      }
+      @media (max-width: 768px) {
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Dashboard mockup (ascii-art for the cover) ──────── */
+      .dashboard-mock {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        line-height: 1.45;
+        background: #111;
+        color: #e6e4dc;
+        padding: 14px 16px;
+        border-radius: 4px;
+        margin-top: 18px;
+        white-space: pre;
+        overflow-x: auto;
+        border: 1px solid var(--color-border);
+      }
+      .dashboard-mock .dim {
+        color: rgba(230, 228, 220, 0.45);
+      }
+      .dashboard-mock .blue {
+        color: #6bb3ff;
+      }
+      .dashboard-mock .yellow {
+        color: #e6c34a;
+      }
+      .dashboard-mock .green {
+        color: #6bd07b;
+      }
+      .dashboard-mock .red {
+        color: #ff7a6b;
+      }
+
+      /* ── Progress bar ────────────────────────────────────── */
+      .progress-track {
+        width: 100%;
+        height: 3px;
+        background: var(--color-border);
+        border-radius: 2px;
+        margin-top: 20px;
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--color-rand-blue);
+        border-radius: 2px;
+        transition: width 0.3s;
+      }
+
+      /* ── Nav ─────────────────────────────────────────────── */
+      .nav-dots {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 6px;
+        z-index: 10;
+      }
+      .nav-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-border);
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .nav-dot.active {
+        background: var(--color-rand-blue);
+      }
+      .nav-dot.done {
+        background: rgba(0, 85, 170, 0.35);
+      }
+
+      .keyboard-hint {
+        position: fixed;
+        bottom: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: var(--font-mono);
+        font-size: 0.625rem;
+        color: var(--text-tertiary);
+        letter-spacing: 0.04em;
+        z-index: 10;
+      }
+      .slide-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--color-border);
+        z-index: 10;
+      }
+      .slide-progress-fill {
+        height: 100%;
+        background: var(--color-rand-blue);
+        transition: width 0.2s;
+      }
+      @media (max-width: 768px) {
+        .slide {
+          padding: 32px 20px;
+        }
+        .keyboard-hint {
+          display: none;
+        }
+        .step {
+          flex-direction: column;
+        }
+        .step-num {
+          width: 20px;
+          height: 20px;
+          font-size: 0.625rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="slide-progress">
+      <div class="slide-progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="scroll-container" id="scrollContainer">
+      <!-- ════════════ COVER ════════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="label-accent">
+            Focus.AI Labs &middot; Exploration Browser Walkthrough
+          </div>
+          <div class="accent-bar"></div>
+          <h1>One command center<br />for every AI coding session.</h1>
+          <p style="font-size: 1.0625rem; margin-top: 20px; max-width: 70ch">
+            Umwelten ships a single command —
+            <code>pnpm run cli browse</code> — that scans every AI coding
+            session on the project (pi, Claude Code, Cursor, Habitat),
+            confirms before spending tokens, then streams extraction progress
+            live as it digests what happened, what was learned, and what is
+            worth promoting to durable project knowledge.
+          </p>
+
+          <div class="dashboard-mock">
+<span class="blue">Explorations (12/12)</span> <span class="dim">· all ·</span>
+   <span class="dim">status     src topic                          msgs  tools  cand   age</span>
+ <span class="blue">▶</span> <span class="green">digested</span>   [C] Wire dashboard TUI to engine    218   31     7      2h
+   <span class="yellow">digesting</span>  [P] Fix migration timeout            42   11     —      4h
+   <span class="yellow">stale</span>      [C] Rework promotion classifier      96   18     4      1d
+   <span class="dim">new</span>        [P] Add error handling to auth       24    7     0      2d
+   <span class="dim">new</span>        [X] Refactor session-digester       108   22     0      3d
+<span class="dim">┌──────────────────────────────────────────────────────────────────┐</span>
+<span class="yellow">Digesting Fix migration timeout</span>
+<span class="dim">↑/↓ select · Enter detail · D digest · v transcript · b beats · R reflect · P promote · / search · q quit</span>
+<span class="dim">└──────────────────────────────────────────────────────────────────┘</span>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-block">
+              <div class="stat-number">20</div>
+              <div class="stat-label">Issues shipped</div>
+            </div>
+            <div class="stat-block">
+              <div class="stat-number">1,253</div>
+              <div class="stat-label">Tests passing</div>
+            </div>
+            <div class="stat-block">
+              <div class="stat-number">5</div>
+              <div class="stat-label">Adapter sources</div>
+            </div>
+            <div class="stat-block">
+              <div class="stat-number">0</div>
+              <div class="stat-label">Regressions</div>
+            </div>
+          </div>
+
+          <p class="tertiary" style="margin-top: 16px">
+            ← Scroll horizontally for the live walkthrough
+          </p>
+        </div>
+      </section>
+
+      <!-- ════════════ TRY IT NOW ════════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="label-accent">Try it now</div>
+          <div class="accent-bar"></div>
+          <h1>Three commands, end to end.</h1>
+          <p style="font-size: 1.0625rem; margin-top: 16px">
+            Run these against any project that has AI coding sessions on disk.
+            The dashboard discovers and projects everything before any LLM call.
+          </p>
+
+          <div class="two-col" style="margin-top: 20px">
+            <div>
+              <h3>1. Open the command-center</h3>
+              <div class="step-code">dotenvx run -- pnpm run cli browse -p .</div>
+              <div class="note check">
+                ✓ Discovers sessions across pi / Claude Code / Cursor / Habitat,
+                shows a top-down table, and gates extraction behind a
+                confirmation overlay.
+              </div>
+
+              <h3>2. Confirm to extract</h3>
+              <p class="secondary" style="margin-top: 6px">
+                The overlay states how many Explorations need extraction, the
+                model, the concurrency, and an explicit cost warning. Press
+                <code>y</code> to launch — rows transition
+                <code>new</code> → <code>digesting</code> → <code>digested</code>
+                inline.
+              </p>
+
+              <h3>3. Drill into one</h3>
+              <p class="secondary" style="margin-top: 6px">
+                Arrow keys to navigate.
+                <code>Enter</code> opens detail.
+                <code>v</code> transcript.
+                <code>b</code> beats.
+                <code>D</code> re-digest a single row.
+                <code>/</code> search.
+                <code>q</code> quit.
+              </p>
+            </div>
+
+            <div>
+              <h3>What is happening underneath</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>initializeAdapters()</code> registers Claude Code, pi,
+                Cursor
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>projectSessions()</code> discovers every source session
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>buildExploreBrowse()</code> wraps each into an
+                ExplorationBrowserEntry + digest
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                Dashboard mounts (React Ink)
+              </p>
+              <p class="file-path" style="border-color: var(--color-alert-red)">
+                <code>ExtractionEngine.run()</code> streams progress events
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                Digests + candidate JSONLs written under
+                <code>.umwelten/</code>
+              </p>
+
+              <h3 style="margin-top: 18px">Smoke-test the suite</h3>
+              <ul class="command-list">
+                <li>pnpm test:run                  # 1253 tests · ~8s</li>
+                <li>pnpm test:run DashboardApp     # 26 tests · TUI</li>
+                <li>pnpm test:run introspect.test  # 7 tests · CLI</li>
+                <li>pnpm test:run extraction       # engine + scope</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ DOMAIN LANGUAGE ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#41 · #58 · CONTEXT.md</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">f75ee4e · bd458bb</span>
+          </div>
+          <h1>The domain language<br />was cleaned up.</h1>
+          <div>
+            <span class="badge badge-core">core</span>
+            <span class="badge badge-green">42 tests</span>
+            <span class="badge badge-new">renamed</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>Three nouns, one direction</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <strong>Source Session</strong> — tool-specific persisted
+                history (pi JSONL, Claude transcript, Cursor SQLite row)
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <strong>Interaction</strong> — flat, model-facing conversation
+                handed to the runner
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <strong>Exploration</strong> — queryable grouping of Source
+                Sessions (default / virtual / saved)
+              </p>
+            </div>
+            <div>
+              <h3>Renamed throughout the codebase</h3>
+              <p class="secondary" style="margin-bottom: 6px">
+                <code>playbook</code> → <code>skill_candidate</code>. Types,
+                storage filenames, digester prompts, CLI help, docs, tests
+                — all updated. A regression test pins the rename so the old
+                word cannot creep back into source.
+              </p>
+              <p class="file-path" style="border-color: var(--color-alert-red)">
+                packages/core/src/session-record/skill-candidates-rename.test.ts
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run domain-types.test</div>
+                <div class="note check">✓ 24 tests on the type contracts</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run skill-candidates-rename</div>
+                <div class="note check">
+                  ✓ Scans every source file under <code>packages/</code> for
+                  the old word; the only allowed mention is the flagged
+                  ambiguity in CONTEXT.md.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ ADAPTERS & PROJECTION ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#43 · #44 · #51 · #60</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">f75ee4e · 3727678 · f0beb81 · 2b7437c</span>
+          </div>
+          <h1>One adapter API,<br />four real sources.</h1>
+          <div>
+            <span class="badge badge-core">core</span>
+            <span class="badge badge-habitat">habitat</span>
+            <span class="badge badge-green">59 tests</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>Adapters in the registry</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                ClaudeCodeAdapter — <code>~/.claude/projects/</code>
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                PiSessionAdapter — pi JSONL v3 (branches, compactions, labels)
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                CursorAdapter — Cursor's SQLite store
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                HabitatSessionAdapter — <code>habitats-sessions/</code> dirs
+              </p>
+            </div>
+            <div>
+              <h3>Real metadata flows through</h3>
+              <p class="secondary">
+                The projection layer used to lose adapter metadata when it
+                stubbed Source Sessions. Fixed in #60: <code>messageCount</code>,
+                <code>toolCalls</code>, branch counts, compactions, and
+                estimated cost reach the dashboard intact.
+              </p>
+              <p class="file-path" style="border-color: var(--color-alert-red)">
+                packages/sessions/src/introspection/browse.test.ts
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run projection.test</div>
+                <div class="note check">
+                  ✓ 19 tests cover discoverAllSessions + per-source aggregation
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run pi-adapter.test</div>
+                <div class="note check">
+                  ✓ 26 tests on JSONL v3 parsing — branch summaries,
+                  compactions, labels, model/thinking changes
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">
+                <div class="step-code">
+                  dotenvx run -- pnpm run cli sessions list --limit 5
+                </div>
+                <div class="note">
+                  Lists discovered sessions from every registered adapter on
+                  the current project. The summary line at the top reads
+                  e.g. <code>Sources: pi: 19, Claude: 63, Cursor: 1</code>.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ BROWSE DATA LAYER ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#45 · #47</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">fefb55d · 349adf0</span>
+          </div>
+          <h1>Browse data layer<br />speaks Explorations.</h1>
+          <div>
+            <span class="badge badge-sessions">sessions</span>
+            <span class="badge badge-green">23 tests</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>Public surface</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>buildExploreBrowse()</code> — projects + decorates with
+                digest, analysis runs, modifiedSinceAnalysis
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>applyExploreFilter()</code> — date window, source, status,
+                free-text query
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>searchToVirtualExploration()</code> — query → virtual
+                Exploration wrapping the matches
+              </p>
+            </div>
+            <div>
+              <h3>Why it matters</h3>
+              <p class="secondary">
+                The dashboard reads from this layer. Filtering is pure and
+                tested in isolation, so the TUI can re-derive the row set on
+                every keystroke without touching disk or LLM.
+              </p>
+              <p class="file-path">
+                packages/sessions/src/introspection/browse.ts
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run browse.test</div>
+                <div class="note check">
+                  ✓ 16 tests on <code>applyExploreFilter</code> +
+                  <code>buildExploreBrowse</code>, 7 on
+                  <code>searchToVirtualExploration</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ DIGEST PERSISTENCE ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#61</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">7f2ab6a</span>
+          </div>
+          <h1>Digests live<br />with the project.</h1>
+          <div>
+            <span class="badge badge-sessions">sessions</span>
+            <span class="badge badge-new">project-local</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>New convention</h3>
+              <p class="secondary">
+                Digests used to live under
+                <code>~/.umwelten/digests/</code> (global, mixed across
+                projects). Now they live next to the code:
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>&lt;project&gt;/.umwelten/digests/sessions/&lt;encoded-id&gt;.json</code>
+              </p>
+              <p class="secondary" style="margin-top: 8px">
+                <code>loadDigest()</code> / <code>saveDigest()</code> handle the
+                round-trip with URL-encoded session IDs so cross-platform paths
+                stay safe.
+              </p>
+            </div>
+            <div>
+              <h3>Consequences</h3>
+              <p class="secondary">
+                Knowledge travels with the project. Move the repo, the
+                digests come along. Multi-project setups stop blending
+                Explorations across boundaries.
+              </p>
+              <p class="file-path">
+                packages/sessions/src/introspection/browse.ts:30–66
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">
+                  pnpm test:run browse.test -t "digest persistence"
+                </div>
+                <div class="note check">
+                  ✓ Constructs project-local paths, URL-encodes IDs, round-trips
+                  a SessionDigest cleanly
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">
+                  ls .umwelten/digests/sessions/ 2&gt;/dev/null | head -3
+                </div>
+                <div class="note">
+                  After running <code>browse</code> against this repo and
+                  confirming extraction, the directory exists and contains
+                  one JSON per digested session.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ EXTRACTION ENGINE ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#63</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">53a02c6</span>
+          </div>
+          <h1>Extraction workflow engine.</h1>
+          <div>
+            <span class="badge badge-core">core</span>
+            <span class="badge badge-new">deep module</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>What it does</h3>
+              <p class="secondary">
+                Coordinates LLM extraction across a list of Explorations.
+                Detects scope (newest undigested first, plus stale), controls
+                concurrency (default 1), streams progress, persists candidates
+                project-locally.
+              </p>
+              <p class="file-path">
+                packages/core/src/interaction/analysis/extraction-engine.ts
+              </p>
+            </div>
+            <div>
+              <h3>Progress event shape</h3>
+              <div
+                class="step-code"
+                style="font-size: 0.75rem; margin-top: 0"
+              >{
+  explorationId: string,
+  sessionId: string,
+  phase: "pending" | "digesting"
+       | "digested"  | "failed",
+  detail?: string,
+}</div>
+              <p class="secondary" style="margin-top: 6px">
+                The dashboard buffers these events and flushes id-keyed row
+                patches every 150ms to avoid tmux flicker.
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run extraction-engine.test</div>
+                <div class="note check">
+                  ✓ Covers <code>determineScope()</code> (undigested + stale,
+                  newest first), sequential + concurrent run paths,
+                  schema-version staleness, progress emission, failure
+                  surface
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">
+                  cat reports/2026-05-22-jsonl-persistence-nodejs.md
+                </div>
+                <div class="note">
+                  Tech report that informed the persistence strategy used by
+                  the engine and candidate store.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ CANDIDATE PERSISTENCE ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#66</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">505ca89</span>
+          </div>
+          <h1>Five lanes for<br />candidate knowledge.</h1>
+          <div>
+            <span class="badge badge-core">core</span>
+            <span class="badge badge-new">jsonl</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>Per-kind JSONL files</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>.umwelten/candidates/project-facts.jsonl</code>
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>.umwelten/candidates/skill-candidates.jsonl</code>
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>.umwelten/candidates/open-loops.jsonl</code>
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>.umwelten/candidates/preferences.jsonl</code>
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>.umwelten/candidates/mistakes.jsonl</code>
+              </p>
+            </div>
+            <div>
+              <h3>Append-only, fault-tolerant</h3>
+              <p class="secondary">
+                <code>CandidatePersistence</code> appends one JSON object per
+                line per candidate. Reads gracefully skip malformed lines so a
+                partial write never breaks the store. <code>readAll()</code>
+                returns every kind keyed by name.
+              </p>
+              <p class="file-path">
+                packages/core/src/interaction/knowledge/candidate-persistence.ts
+              </p>
+            </div>
+          </div>
+
+          <h3>Why JSONL</h3>
+          <p class="secondary">
+            Crash-safe (each append is atomic), tail-friendly (you can
+            <code>tail -f</code> a kind as the engine runs), easy to diff and
+            grep. The promote step reads these and decides which become
+            durable in AGENTS.md / FACTS.md / .agents/skills/.
+          </p>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run candidate-persistence.test</div>
+                <div class="note check">
+                  ✓ append + read + readAll, empty-file safety, malformed-line
+                  skip
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ DASHBOARD TUI ════════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="issue-meta">
+            <span class="issue-num">#64</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">4c98966</span>
+          </div>
+          <h1>Command-center dashboard.</h1>
+          <div>
+            <span class="badge badge-ui">ui</span>
+            <span class="badge badge-green">26 tests</span>
+            <span class="badge badge-new">new TUI</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>What replaced the old browser</h3>
+              <p class="secondary">
+                The cramped side-by-side ExploreBrowseApp is gone. A
+                top-down table now shows status · source badge · topic
+                (truncated) · msgs · tools · candidate count · age. Rows
+                update in place as the extraction engine emits progress.
+              </p>
+              <p class="file-path">
+                packages/ui/src/tui/introspect/DashboardApp.tsx
+              </p>
+              <p class="file-path">
+                packages/ui/src/tui/introspect/dashboard/utils.ts
+              </p>
+            </div>
+            <div>
+              <h3>Architecture (informed by report)</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                Custom <code>&lt;Box&gt;</code> table — abandoned ink-table
+                avoided
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                <code>useReducer</code> id-keyed by sessionId
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                Events buffered + flushed every 150ms (tmux-safe)
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                Confirmation overlay = conditional render, owns its own
+                <code>useInput</code>
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                Dashboard / overlay / search input each gated by
+                <code>isActive</code>
+              </p>
+            </div>
+          </div>
+
+          <h3>Keyboard surface</h3>
+          <ul class="command-list" style="margin-top: 6px">
+            <li>↑/↓ navigate    Enter open detail    /   search    q quit</li>
+            <li>D digest        v transcript          b   beats</li>
+            <li>R reflect       P promote   (stubbed; see PRD #56 out-of-scope)</li>
+            <li>y/n            confirm/cancel on the launch overlay</li>
+          </ul>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run DashboardApp</div>
+                <div class="note check">
+                  ✓ 26 tests via <code>ink-testing-library</code>: table
+                  rendering at multiple entry counts, status transitions on
+                  live progress events, overlay open/close, key suspension,
+                  search filtering
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">
+                  cat reports/2026-05-23-ink-dashboard-tui-patterns.md
+                </div>
+                <div class="note">
+                  Research report (Ink table rendering, streaming flicker,
+                  modal patterns) that informed the design.
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">
+                <div class="step-code">
+                  dotenvx run -- pnpm run cli browse -p .
+                </div>
+                <div class="note">
+                  Live mount. Requires an interactive terminal (Ink needs raw
+                  stdin). Confirm the overlay appears when undigested rows
+                  exist; press <code>y</code> and watch statuses flip.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ SINGLE CLI ENTRYPOINT ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#62</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">2e3c214</span>
+          </div>
+          <h1>One CLI door:<br /><code>browse</code>.</h1>
+          <div>
+            <span class="badge badge-cli">cli</span>
+            <span class="badge badge-sessions">sessions</span>
+            <span class="badge badge-green">7 tests</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>Refactor</h3>
+              <p class="secondary">
+                Extracted
+                <code>loadBrowseProjection({ projectPath, registry? })</code>
+                in <code>@umwelten/sessions/introspect</code>. Initializes
+                adapters and projects every Source Session. Both
+                <code>browse</code> and <code>knowledge</code> route
+                through it, so adapter init happens once, before the TUI
+                mounts.
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                packages/sessions/src/introspect.ts
+              </p>
+            </div>
+            <div>
+              <h3>Contract pinned by tests</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                returns sessions from claude-code, pi, and cursor adapters
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                aggregates per-source counts correctly
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                pi sessions carry real messageCount + toolCalls
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                empty registry returns empty result without throwing
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run introspect.test</div>
+                <div class="note check">✓ 7 discovery-contract tests pass</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">dotenvx run -- pnpm run cli browse --help</div>
+                <div class="note">
+                  Top-level command. <code>-p, --project</code> defaults to
+                  cwd. The <code>introspect browse</code> alias still works.
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-text">
+                <div class="step-code">dotenvx run -- pnpm run cli knowledge -p .</div>
+                <div class="note">
+                  Same discovery path. Surfaces pi sessions with real
+                  message and tool counts (no stubs).
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ KNOWLEDGE PROMOTION (CONTEXT) ════════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="issue-meta">
+            <span class="issue-num">#42 · #48 · #49 · #50 · #52</span>
+            <span class="issue-num-line"></span>
+            <span class="commit-hash">f75ee4e · 97c68b0 · 384d98a · 1a32fbc · b39336c</span>
+          </div>
+          <h1>Where the candidates<br />eventually go.</h1>
+          <div>
+            <span class="badge badge-core">core</span>
+            <span class="badge badge-cli">cli</span>
+            <span class="badge badge-green">83 tests</span>
+          </div>
+
+          <div class="two-col" style="margin-top: 16px">
+            <div>
+              <h3>Eight promotion targets</h3>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                agent-instruction → AGENTS.md
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                project-fact → FACTS.md
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                domain-language → CONTEXT.md
+              </p>
+              <p class="file-path" style="border-color: var(--color-alert-red)">
+                adr → docs/adr/YYYY-MM-DD-*.md
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                skill → .agents/skills/&lt;slug&gt;/SKILL.md
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                artifact → .umwelten/artifacts/
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                saved-reflection → .umwelten/reflections/
+              </p>
+              <p class="file-path" style="border-color: var(--color-rand-blue)">
+                user-model → .umwelten/user-model.md
+              </p>
+            </div>
+            <div>
+              <h3>State of the promote flow</h3>
+              <p class="secondary">
+                The classifier, router, writers, and reflective interaction
+                builder are all shipped and tested. The dashboard's
+                <code>R</code> (reflect) and <code>P</code> (promote) keys
+                emit intents that the CLI loop currently logs as
+                "not yet implemented".
+              </p>
+              <p class="secondary" style="margin-top: 6px">
+                Closing the loop — wiring those intents into the existing
+                router — is the next planned slice per PRD #56.
+              </p>
+            </div>
+          </div>
+
+          <h3>Validation</h3>
+          <div class="step-list">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run promotion.test</div>
+                <div class="note check">✓ Classifier + router covered</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                <div class="step-code">pnpm test:run knowledge.test</div>
+                <div class="note check">✓ All 5 writers + saved-exploration store</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ CLOSING ════════════ -->
+      <section class="slide">
+        <div class="slide-content" style="text-align: center">
+          <div class="accent-bar" style="margin: 0 auto 20px"></div>
+          <h1>The command center<br />is live.</h1>
+          <p style="font-size: 1.0625rem; margin-top: 16px; max-width: 60ch; margin-left: auto; margin-right: auto">
+            One door. Adapters initialized up front. Real metadata to the
+            dashboard. Streaming extraction with cost-aware confirmation.
+            Project-local digests and candidate lanes. The whole suite green.
+          </p>
+
+          <div
+            style="
+              margin-top: 40px;
+              display: flex;
+              gap: 32px;
+              justify-content: center;
+              flex-wrap: wrap;
+            "
+          >
+            <div class="stat-block" style="text-align: center">
+              <div class="stat-number" style="font-size: 2rem">20</div>
+              <div class="stat-label">Issues shipped</div>
+            </div>
+            <div class="stat-block" style="text-align: center">
+              <div class="stat-number" style="font-size: 2rem">1,253</div>
+              <div class="stat-label">Tests passing</div>
+            </div>
+            <div class="stat-block" style="text-align: center">
+              <div class="stat-number" style="font-size: 2rem">94</div>
+              <div class="stat-label">Test files</div>
+            </div>
+            <div class="stat-block" style="text-align: center">
+              <div class="stat-number" style="font-size: 2rem">0</div>
+              <div class="stat-label">Regressions</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 40px">
+            <p class="secondary">
+              <code style="font-family: var(--font-mono); font-size: 1rem"
+                >dotenvx run -- pnpm run cli browse -p ./your-project</code
+              >
+            </p>
+          </div>
+
+          <h3 style="margin-top: 40px; font-size: 0.875rem">Next on the roadmap</h3>
+          <p class="secondary" style="margin: 6px auto 0; max-width: 50ch">
+            Wire <code>R</code> reflect and <code>P</code> promote in the
+            dashboard to the existing classifier and router. Expose extraction
+            concurrency as a CLI flag. Remove the unused legacy
+            ExploreBrowseApp.
+          </p>
+
+          <p class="tertiary" style="margin-top: 48px">
+            Focus.AI Labs &middot;
+            <script>
+              document.write(new Date().toISOString().slice(0, 10));
+            </script>
+          </p>
+        </div>
+      </section>
+    </div>
+    <!-- /scroll-container -->
+
+    <div class="nav-dots" id="navDots"></div>
+    <div class="keyboard-hint">
+      ← / → navigate &middot; each slide has runnable validation steps
+    </div>
+
+    <script>
+      const container = document.getElementById("scrollContainer");
+      const slides = container.querySelectorAll(".slide");
+      const dotsContainer = document.getElementById("navDots");
+      const progressFill = document.getElementById("progressFill");
+
+      slides.forEach((_, i) => {
+        const dot = document.createElement("button");
+        dot.className = "nav-dot" + (i === 0 ? " active" : "");
+        dot.setAttribute("aria-label", `Slide ${i + 1}`);
+        dot.addEventListener("click", () =>
+          slides[i].scrollIntoView({ behavior: "smooth" }),
+        );
+        dotsContainer.appendChild(dot);
+      });
+
+      container.addEventListener("scroll", () => {
+        const scrollPos = container.scrollLeft;
+        const slideWidth = container.clientWidth;
+        const totalSlides = slides.length;
+        const activeIndex = Math.round(scrollPos / slideWidth);
+        const pct = (scrollPos / (container.scrollWidth - slideWidth)) * 100;
+
+        dotsContainer.querySelectorAll(".nav-dot").forEach((dot, i) => {
+          dot.classList.toggle("active", i === activeIndex);
+          dot.classList.toggle("done", i < activeIndex);
+        });
+        progressFill.style.width = pct + "%";
+      });
+    </script>
+  </body>
+</html>

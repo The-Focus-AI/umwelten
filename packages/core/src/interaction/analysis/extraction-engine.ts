@@ -14,6 +14,31 @@ import {
 	type CandidateKind,
 } from "../knowledge/candidate-persistence.js";
 import type { SessionIndexEntry } from "../types/types.js";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
+/**
+ * Persist a SessionDigest to <projectPath>/.umwelten/digests/sessions/<encoded-id>.json.
+ *
+ * Mirrors the loadDigest/saveDigest helpers in @umwelten/sessions; duplicated
+ * here so the engine doesn't need to depend on the sessions package.
+ */
+async function persistDigest(
+	projectPath: string,
+	digest: SessionDigest,
+): Promise<string> {
+	const filename = `${encodeURIComponent(digest.sessionId)}.json`;
+	const path = join(
+		projectPath,
+		".umwelten",
+		"digests",
+		"sessions",
+		filename,
+	);
+	await mkdir(dirname(path), { recursive: true });
+	await writeFile(path, JSON.stringify(digest, null, 2), "utf-8");
+	return path;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -170,94 +195,84 @@ export class ExtractionEngine {
 		const staleCount = scope.stale.length; // pre-counted
 		let failed = 0;
 
-		// Process with concurrency control
-		if (this.concurrency === 1) {
-			// Sequential processing (default)
-			for (const input of toProcess) {
-				onProgress?.({
-					explorationId: input.explorationId,
-					sessionId: input.sessionId,
-					phase: "digesting",
-					detail: `Extracting ${input.sessionId.slice(0, 8)}...`,
-				});
+		// Helper used by both the sequential and concurrent paths.
+		const processOne = async (input: ExtractionInput): Promise<void> => {
+			onProgress?.({
+				explorationId: input.explorationId,
+				sessionId: input.sessionId,
+				phase: "digesting",
+				detail: `Extracting ${input.sessionId.slice(0, 8)}...`,
+			});
 
-				try {
-					await digestSession(
-						input.sessionEntry,
-						projectPath,
-						projectName,
-						model,
-						(p) => {
-							onProgress?.({
-								explorationId: input.explorationId,
-								sessionId: input.sessionId,
-								phase: "digesting",
-								detail: `[${p.phase}] ${p.detail ?? input.sessionId.slice(0, 8)}`,
-							});
-						},
-					);
+			try {
+				const digest = await digestSession(
+					input.sessionEntry,
+					projectPath,
+					projectName,
+					model,
+					(p) => {
+						onProgress?.({
+							explorationId: input.explorationId,
+							sessionId: input.sessionId,
+							phase: "digesting",
+							detail: `[${p.phase}] ${p.detail ?? input.sessionId.slice(0, 8)}`,
+						});
+					},
+				);
 
-					digested++;
-					onProgress?.({
-						explorationId: input.explorationId,
-						sessionId: input.sessionId,
-						phase: "digested",
-						detail: `Completed ${input.sessionId.slice(0, 8)}`,
-					});
-				} catch (err) {
+				if (!digest) {
+					// digestSession returns null when the session is too small to
+					// extract anything useful (e.g. < 2 messages, no beats, or
+					// adapter format not supported by parseSessionFile). Treat that
+					// as a failure so the dashboard surfaces it instead of silently
+					// flipping the row to "digested".
 					failed++;
 					onProgress?.({
 						explorationId: input.explorationId,
 						sessionId: input.sessionId,
 						phase: "failed",
-						detail: err instanceof Error ? err.message : "Unknown error",
+						detail:
+							"No digest produced (session too small or unsupported format)",
 					});
+					return;
 				}
+
+				// Persist the digest. digestSession builds but does not save.
+				await persistDigest(projectPath, digest);
+
+				digested++;
+				onProgress?.({
+					explorationId: input.explorationId,
+					sessionId: input.sessionId,
+					phase: "digested",
+					detail: `Completed ${input.sessionId.slice(0, 8)}`,
+				});
+			} catch (err) {
+				failed++;
+				onProgress?.({
+					explorationId: input.explorationId,
+					sessionId: input.sessionId,
+					phase: "failed",
+					detail: err instanceof Error ? err.message : "Unknown error",
+				});
+			}
+		};
+
+		// Process with concurrency control
+		if (this.concurrency === 1) {
+			// Sequential processing (default)
+			for (const input of toProcess) {
+				await processOne(input);
 			}
 		} else {
 			// Concurrent processing with a sliding window
 			let cursor = 0;
-
 			const processNext = async (): Promise<void> => {
 				while (cursor < toProcess.length) {
 					const idx = cursor++;
-					const input = toProcess[idx];
-
-					onProgress?.({
-						explorationId: input.explorationId,
-						sessionId: input.sessionId,
-						phase: "digesting",
-						detail: `Extracting ${input.sessionId.slice(0, 8)}...`,
-					});
-
-					try {
-						await digestSession(
-							input.sessionEntry,
-							projectPath,
-							projectName,
-							model,
-						);
-
-						digested++;
-						onProgress?.({
-							explorationId: input.explorationId,
-							sessionId: input.sessionId,
-							phase: "digested",
-							detail: `Completed ${input.sessionId.slice(0, 8)}`,
-						});
-					} catch (err) {
-						failed++;
-						onProgress?.({
-							explorationId: input.explorationId,
-							sessionId: input.sessionId,
-							phase: "failed",
-							detail: err instanceof Error ? err.message : "Unknown error",
-						});
-					}
+					await processOne(toProcess[idx]);
 				}
 			};
-
-			// Start N concurrent workers
 			const workers = Array.from({ length: this.concurrency }, () =>
 				processNext(),
 			);
