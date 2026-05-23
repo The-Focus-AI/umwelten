@@ -509,9 +509,10 @@ const Row = React.memo(function Row({
 	selected,
 	width,
 }: RowProps): React.ReactElement {
-	const { entry, status, messageCount, toolCount, candidateCount } = view;
+	const { entry, status, messageCount, toolCount, candidateCount, title } =
+		view;
 	const topicW = topicWidth(width);
-	const topic = truncate(entry.exploration.name, topicW - 1);
+	const topic = truncate(title, topicW - 1);
 	const src = sourceBadge(entry.sourceSession.source);
 
 	return (

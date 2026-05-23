@@ -162,6 +162,10 @@ async function showDashboardTui(args: {
 	runCount: number;
 	modelLabel: string;
 	concurrency: number;
+	/** When false, suppress the startup confirmation overlay — used on
+	 * re-entries to the dashboard after the user has already answered (or
+	 * after an extraction pass has been launched). */
+	startupConfirm: boolean;
 	/** Called from the dashboard's overlay confirm. */
 	onLaunchExtraction: (
 		emit: (event: DashboardProgressEvent) => void,
@@ -191,7 +195,7 @@ async function showDashboardTui(args: {
 			runCount={args.runCount}
 			modelLabel={args.modelLabel}
 			concurrency={args.concurrency}
-			startupConfirm
+			startupConfirm={args.startupConfirm}
 			onExit={(i) => {
 				intent = i;
 			}}
@@ -354,6 +358,14 @@ export async function runExploreBrowseTui(
 	const projectPath = resolve(rawProject);
 	const targetPath = resolve(rawTarget);
 
+	// Per-CLI-invocation state. We only ask "extract?" once. Once the user
+	// has answered (yes OR no), subsequent loop iterations (after detail /
+	// transcript / beats views unmount the dashboard) re-mount the dashboard
+	// without the overlay. `extractionLaunched` also gates a second pass — if
+	// one is already in flight from this session, don't kick another.
+	let askedAtLeastOnce = false;
+	let extractionLaunched = false;
+
 	while (true) {
 		const { entries, runs } = await buildExploreBrowse({
 			projectPath,
@@ -375,7 +387,19 @@ export async function runExploreBrowseTui(
 			runCount: runs.length,
 			modelLabel,
 			concurrency: 1,
+			startupConfirm: !askedAtLeastOnce,
 			onLaunchExtraction: (emit) => {
+				askedAtLeastOnce = true;
+				if (extractionLaunched) {
+					emit({
+						explorationId: "",
+						sessionId: "__kickoff__",
+						phase: "digesting",
+						detail: "Extraction already in progress in this session.",
+					});
+					return;
+				}
+				extractionLaunched = true;
 				// Fire and forget — events flow back through `emit`.
 				void runExtractionPass({
 					projectPath,
@@ -386,6 +410,9 @@ export async function runExploreBrowseTui(
 				});
 			},
 		});
+
+		// Remember that we asked, regardless of the user's answer.
+		askedAtLeastOnce = true;
 
 		if (intent.kind === "none") return;
 

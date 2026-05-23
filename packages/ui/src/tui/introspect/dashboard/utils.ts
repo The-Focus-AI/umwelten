@@ -80,6 +80,19 @@ export interface DashboardEntryView {
 	messageCount: number;
 	toolCount: number;
 	candidateCount: number;
+	/**
+	 * Title shown in the row's topic column. Prefers the LLM-generated digest
+	 * summary once the session has been digested; falls back to the first
+	 * prompt (exploration.name) for new/queued/digesting rows.
+	 */
+	title: string;
+}
+
+/** Pick the best title for a row given what's known about the entry. */
+export function rowTitle(entry: ExplorationBrowserEntry): string {
+	const digestSummary = entry.digest?.analysis?.summary?.trim();
+	if (digestSummary) return digestSummary;
+	return entry.exploration.name;
 }
 
 /**
@@ -108,6 +121,7 @@ export function projectEntries(
 			messageCount,
 			toolCount,
 			candidateCount,
+			title: rowTitle(entry),
 		};
 	});
 }

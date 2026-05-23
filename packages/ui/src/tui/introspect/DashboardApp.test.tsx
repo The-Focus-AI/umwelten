@@ -252,6 +252,41 @@ describe("DashboardApp — status column", () => {
 		expect(lastFrame()).toMatch(/\bstale\b/i);
 	});
 
+	it("prefers the digest summary over the first prompt for digested rows", () => {
+		// Source session's firstPrompt = title (used as exploration.name); the
+		// digest carries a much better one-line summary. Once a row has a
+		// digest, the dashboard should surface that summary in the topic
+		// column, not the raw first prompt.
+		const e = makeEntry("a", {
+			title: "where are the sessions for this project stored?",
+			digest: makeDigest("a", {
+				analysis: {
+					summary: "Located pi sessions under <project>/.pi/sessions",
+					keyLearnings: "",
+					topics: [],
+					tags: [],
+					solutionType: "other",
+					successIndicators: "yes",
+					codeLanguages: [],
+					toolsUsed: [],
+					relatedFiles: [],
+				},
+			}),
+		});
+		const { lastFrame } = renderDashboard({ entries: [e] });
+		const frame = lastFrame() ?? "";
+		expect(frame).toMatch(/Located pi sessions under/);
+		expect(frame).not.toMatch(/where are the sessions for this project/);
+	});
+
+	it("falls back to the first prompt when no digest summary exists", () => {
+		const e = makeEntry("a", {
+			title: "Fix migration timeout",
+		});
+		const { lastFrame } = renderDashboard({ entries: [e] });
+		expect(lastFrame()).toMatch(/Fix migration timeout/);
+	});
+
 	it("pending progress events show rows as 'queued', not 'digesting'", async () => {
 		// Regression: the engine emits `pending` for every input up front before
 		// it starts sequential work. Rendering those as `digesting` lies to the
@@ -465,17 +500,48 @@ describe("DashboardApp — confirmation overlay", () => {
 
 	it("does NOT show the overlay at startup when every entry is already digested and fresh", () => {
 		const entries = [
-			makeEntry("a", { digest: makeDigest("a"), title: "Done A" }),
-			makeEntry("b", { digest: makeDigest("b"), title: "Done B" }),
+			makeEntry("a", {
+				digest: makeDigest("a", {
+					analysis: {
+						summary: "Summary for A",
+						keyLearnings: "",
+						topics: [],
+						tags: [],
+						solutionType: "other",
+						successIndicators: "yes",
+						codeLanguages: [],
+						toolsUsed: [],
+						relatedFiles: [],
+					},
+				}),
+				title: "Done A",
+			}),
+			makeEntry("b", {
+				digest: makeDigest("b", {
+					analysis: {
+						summary: "Summary for B",
+						keyLearnings: "",
+						topics: [],
+						tags: [],
+						solutionType: "other",
+						successIndicators: "yes",
+						codeLanguages: [],
+						toolsUsed: [],
+						relatedFiles: [],
+					},
+				}),
+				title: "Done B",
+			}),
 		];
 		const { lastFrame } = renderDashboard({
 			entries,
 			startupConfirm: true,
 		});
 		const frame = lastFrame() ?? "";
-		// We see the rows, not an overlay header.
-		expect(frame).toMatch(/Done A/);
-		expect(frame).toMatch(/Done B/);
+		// We see the rows (digest summaries take priority over the raw title),
+		// not the overlay.
+		expect(frame).toMatch(/Summary for A/);
+		expect(frame).toMatch(/Summary for B/);
 		// The overlay text "Launch extraction" should not appear when nothing
 		// needs extracting.
 		expect(frame).not.toMatch(/Launch extraction/i);
