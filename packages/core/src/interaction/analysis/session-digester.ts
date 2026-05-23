@@ -298,7 +298,13 @@ async function loadClaudeCodeBeats(fullPath: string): Promise<LoadedBeats | null
 async function loadAdapterBeats(
 	session: SessionIndexEntry,
 ): Promise<LoadedBeats | null> {
-	const adapter = adapterRegistry.get(session.source as string);
+	// SessionIndexEntry.source is SessionSourceForEntry which is a superset
+	// of SessionSource (it has "unknown"). The adapter registry is keyed by
+	// SessionSource — anything we get here that the registry doesn't know
+	// returns undefined and we throw below.
+	const adapter = adapterRegistry.get(
+		session.source as unknown as Parameters<typeof adapterRegistry.get>[0],
+	);
 	if (!adapter) {
 		throw new Error(`No adapter registered for source "${session.source}"`);
 	}

@@ -61,6 +61,16 @@ export interface DashboardAppProps {
 	onLaunchExtraction?: () => void;
 	/** Optional subscription to a live progress event stream. */
 	subscribeToExtractionEvents?: ExtractionEventSubscriber;
+	/**
+	 * Live title overrides keyed by sessionId. When the engine finishes a
+	 * digest, the host loads the digest summary and pushes it in here so the
+	 * row's topic column updates inline without remounting.
+	 */
+	subscribeToTitleUpdates?: (
+		listener: (sessionId: string, title: string) => void,
+	) => () => void;
+	/** Initial title snapshot at mount (for backfilling on remount). */
+	initialTitles?: Map<string, string>;
 }
 
 const DEFAULT_FILTER: FilterState = {
@@ -147,6 +157,8 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 		onExit,
 		onLaunchExtraction,
 		subscribeToExtractionEvents,
+		subscribeToTitleUpdates,
+		initialTitles,
 	} = props;
 
 	const { exit } = useApp();
@@ -174,6 +186,25 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 		bySession: {},
 		currentItem: null,
 	} as PhasesState);
+
+	// Live title overrides — populated when a digested event lands and the
+	// host loads the digest summary from disk.
+	const [liveTitles, setLiveTitles] = useState<Map<string, string>>(
+		() => new Map(initialTitles ?? []),
+	);
+
+	useEffect(() => {
+		if (!subscribeToTitleUpdates) return undefined;
+		const unsub = subscribeToTitleUpdates((sessionId, title) => {
+			setLiveTitles((prev) => {
+				if (prev.get(sessionId) === title) return prev;
+				const next = new Map(prev);
+				next.set(sessionId, title);
+				return next;
+			});
+		});
+		return unsub;
+	}, [subscribeToTitleUpdates]);
 
 	// Pending event buffer flushed every 150ms to avoid flicker (see report).
 	const pendingRef = useRef<DashboardProgressEvent[]>([]);
@@ -231,7 +262,7 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 	}, [phases.bySession]);
 
 	const views: DashboardEntryView[] = useMemo(
-		() => projectEntries(filtered, liveMap),
+		() => projectEntries(filtered, liveMap, liveTitles),
 		[filtered, liveMap],
 	);
 

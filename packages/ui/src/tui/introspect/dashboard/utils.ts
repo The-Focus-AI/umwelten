@@ -97,11 +97,13 @@ export function rowTitle(entry: ExplorationBrowserEntry): string {
 
 /**
  * Project the entries into per-row view data, applying any live phase
- * overrides for in-flight extractions.
+ * overrides for in-flight extractions and live-title overrides loaded
+ * from freshly-written digests.
  */
 export function projectEntries(
 	entries: ExplorationBrowserEntry[],
 	phases: Map<string, { status: DashboardStatus; detail?: string }>,
+	liveTitles?: Map<string, string>,
 ): DashboardEntryView[] {
 	return entries.map((entry) => {
 		const live = phases.get(entry.sourceSession.id);
@@ -114,6 +116,7 @@ export function projectEntries(
 		const candidateCount =
 			(entry.digest?.extractedFacts?.length ?? 0) +
 			(entry.digest?.phases?.length ?? 0);
+		const liveTitle = liveTitles?.get(entry.sourceSession.id);
 		return {
 			entry,
 			status,
@@ -121,7 +124,7 @@ export function projectEntries(
 			messageCount,
 			toolCount,
 			candidateCount,
-			title: rowTitle(entry),
+			title: liveTitle ?? rowTitle(entry),
 		};
 	});
 }

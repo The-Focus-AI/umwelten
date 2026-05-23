@@ -155,6 +155,96 @@ export async function runIntrospectBrowseTui(
  * from a host-owned bus into the dashboard's `subscribeToExtractionEvents`
  * prop, and resolves with the user's exit intent.
  */
+/**
+ * Shared extraction bus that survives across dashboard re-mounts.
+ *
+ * The TUI loop unmounts and remounts the dashboard on every detail-view /
+ * transcript / beats round trip. The extraction pass, however, keeps
+ * running in the background once launched. This bus lets that long-lived
+ * pass keep emitting events that the *current* dashboard subscriber sees,
+ * and caches the most recent phase per session so a freshly-mounted
+ * dashboard can render the correct state immediately on render.
+ */
+interface ExtractionBus {
+	subscribe: (
+		listener: (event: DashboardProgressEvent) => void,
+	) => () => void;
+	emit: (event: DashboardProgressEvent) => void;
+	/** Snapshot of the latest non-pending phase observed for each sessionId. */
+	cachedPhases: Map<string, DashboardProgressEvent>;
+	/** Latest synthetic "currentItem" text from a kickoff/digesting event. */
+	cachedCurrentItem: { text: string | null };
+	/** Loaded digest summary per session (populated when a digested event lands). */
+	liveTitles: Map<string, string>;
+	/** Subscribe to live-title updates (called when a digest summary is loaded). */
+	subscribeToTitles: (listener: (sessionId: string, title: string) => void) => () => void;
+}
+
+function createExtractionBus(projectPath: string): ExtractionBus {
+	const listeners = new Set<(event: DashboardProgressEvent) => void>();
+	const titleListeners = new Set<
+		(sessionId: string, title: string) => void
+	>();
+	const cachedPhases = new Map<string, DashboardProgressEvent>();
+	const cachedCurrentItem: { text: string | null } = { text: null };
+	const liveTitles = new Map<string, string>();
+
+	return {
+		subscribe(cb) {
+			listeners.add(cb);
+			return () => {
+				listeners.delete(cb);
+			};
+		},
+		subscribeToTitles(cb) {
+			titleListeners.add(cb);
+			return () => {
+				titleListeners.delete(cb);
+			};
+		},
+		emit(event) {
+			// Cache per-row phase so re-mounted dashboards can backfill.
+			if (event.sessionId && !event.sessionId.startsWith("__")) {
+				cachedPhases.set(event.sessionId, event);
+			}
+			// Track the synthetic kickoff/current-item text.
+			if (event.sessionId.startsWith("__")) {
+				if (event.phase === "digested") {
+					cachedCurrentItem.text = null;
+				} else if (event.detail) {
+					cachedCurrentItem.text = event.detail;
+				}
+			} else if (event.phase === "digesting" && event.detail) {
+				cachedCurrentItem.text = event.detail;
+			} else if (event.phase === "digested") {
+				// Clear when no row is actively in flight; the next digesting
+				// event will overwrite.
+				cachedCurrentItem.text = null;
+			}
+			for (const cb of listeners) cb(event);
+
+			// On digested → load the fresh summary from disk and notify
+			// title-listeners. Fire-and-forget; if loadDigest fails we just
+			// keep the old fallback title.
+			if (
+				event.phase === "digested" &&
+				event.sessionId &&
+				!event.sessionId.startsWith("__")
+			) {
+				void loadDigest(projectPath, event.sessionId).then((digest) => {
+					const summary = digest?.analysis?.summary?.trim();
+					if (!summary) return;
+					liveTitles.set(event.sessionId, summary);
+					for (const cb of titleListeners) cb(event.sessionId, summary);
+				});
+			}
+		},
+		cachedPhases,
+		cachedCurrentItem,
+		liveTitles,
+	};
+}
+
 async function showDashboardTui(args: {
 	projectPath: string;
 	targetPath: string;
@@ -166,25 +256,29 @@ async function showDashboardTui(args: {
 	 * re-entries to the dashboard after the user has already answered (or
 	 * after an extraction pass has been launched). */
 	startupConfirm: boolean;
+	/** Shared bus that survives unmount. */
+	bus: ExtractionBus;
 	/** Called from the dashboard's overlay confirm. */
-	onLaunchExtraction: (
-		emit: (event: DashboardProgressEvent) => void,
-	) => void;
+	onLaunchExtraction: () => void;
 }): Promise<DashboardIntent> {
 	let intent: DashboardIntent = { kind: "none" };
 
-	// Set up a fan-out bus so background extraction can push events to the
-	// dashboard subscriber and we can still call onLaunchExtraction with the
-	// same emit function.
-	const listeners = new Set<(event: DashboardProgressEvent) => void>();
-	const subscribe = (cb: (event: DashboardProgressEvent) => void) => {
-		listeners.add(cb);
-		return () => {
-			listeners.delete(cb);
-		};
-	};
-	const emit = (event: DashboardProgressEvent) => {
-		for (const cb of listeners) cb(event);
+	// On (re-)mount, drain the cached phases into the new subscriber so the
+	// freshly rendered table reflects everything that happened while the
+	// dashboard was unmounted.
+	const subscribeAndReplay = (
+		cb: (event: DashboardProgressEvent) => void,
+	) => {
+		for (const cached of args.bus.cachedPhases.values()) cb(cached);
+		if (args.bus.cachedCurrentItem.text) {
+			cb({
+				explorationId: "",
+				sessionId: "__kickoff__",
+				phase: "digesting",
+				detail: args.bus.cachedCurrentItem.text,
+			});
+		}
+		return args.bus.subscribe(cb);
 	};
 
 	const app = (
@@ -199,8 +293,10 @@ async function showDashboardTui(args: {
 			onExit={(i) => {
 				intent = i;
 			}}
-			onLaunchExtraction={() => args.onLaunchExtraction(emit)}
-			subscribeToExtractionEvents={subscribe}
+			onLaunchExtraction={args.onLaunchExtraction}
+			subscribeToExtractionEvents={subscribeAndReplay}
+			subscribeToTitleUpdates={args.bus.subscribeToTitles}
+			initialTitles={args.bus.liveTitles}
 		/>
 	);
 
@@ -358,13 +454,17 @@ export async function runExploreBrowseTui(
 	const projectPath = resolve(rawProject);
 	const targetPath = resolve(rawTarget);
 
-	// Per-CLI-invocation state. We only ask "extract?" once. Once the user
-	// has answered (yes OR no), subsequent loop iterations (after detail /
-	// transcript / beats views unmount the dashboard) re-mount the dashboard
-	// without the overlay. `extractionLaunched` also gates a second pass — if
-	// one is already in flight from this session, don't kick another.
+	// Per-CLI-invocation state. We only ask "extract?" once; once the user
+	// has answered, subsequent loop iterations remount the dashboard without
+	// the overlay. `extractionLaunched` gates a second pass — if one is
+	// already in flight from this session, don't kick another.
 	let askedAtLeastOnce = false;
 	let extractionLaunched = false;
+
+	// Long-lived bus: extraction runs in the background and emits into this
+	// bus regardless of which TUI is on screen. Cached phases let a freshly
+	// remounted dashboard backfill the table.
+	const bus = createExtractionBus(projectPath);
 
 	while (true) {
 		const { entries, runs } = await buildExploreBrowse({
@@ -388,10 +488,11 @@ export async function runExploreBrowseTui(
 			modelLabel,
 			concurrency: 1,
 			startupConfirm: !askedAtLeastOnce,
-			onLaunchExtraction: (emit) => {
+			bus,
+			onLaunchExtraction: () => {
 				askedAtLeastOnce = true;
 				if (extractionLaunched) {
-					emit({
+					bus.emit({
 						explorationId: "",
 						sessionId: "__kickoff__",
 						phase: "digesting",
@@ -400,18 +501,17 @@ export async function runExploreBrowseTui(
 					return;
 				}
 				extractionLaunched = true;
-				// Fire and forget — events flow back through `emit`.
+				// Fire and forget — events flow back through the bus.
 				void runExtractionPass({
 					projectPath,
 					entries,
 					model,
 					concurrency: 1,
-					emit,
+					emit: bus.emit,
 				});
 			},
 		});
 
-		// Remember that we asked, regardless of the user's answer.
 		askedAtLeastOnce = true;
 
 		if (intent.kind === "none") return;
