@@ -120,10 +120,7 @@ function progressPhaseToStatus(
 ): DashboardStatus | null {
 	switch (phase) {
 		case "pending":
-			// "queued" is rendered as `digesting`-colored on the row so the user
-			// can see that the engine has accepted the work. The bottom status
-			// bar shows the currently-active item separately.
-			return "digesting";
+			return "queued";
 		case "digesting":
 			return "digesting";
 		case "digested":

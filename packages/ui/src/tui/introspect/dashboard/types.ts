@@ -11,13 +11,15 @@ import type { ExplorationBrowserEntry } from "@umwelten/sessions/introspection/b
  * Status of an exploration in the dashboard table.
  *
  * - `new`       — no digest exists yet
- * - `digesting` — extraction in flight
+ * - `queued`    — engine has accepted the work; awaiting its turn
+ * - `digesting` — extraction is actively running for this row
  * - `digested`  — digest is present and up-to-date
  * - `failed`    — last extraction attempt errored
  * - `stale`     — digest exists but the source session has changed since
  */
 export type DashboardStatus =
 	| "new"
+	| "queued"
 	| "digesting"
 	| "digested"
 	| "failed"

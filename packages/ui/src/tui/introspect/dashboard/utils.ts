@@ -57,7 +57,9 @@ export function deriveStatus(e: ExplorationBrowserEntry): DashboardStatus {
 export function statusColor(s: DashboardStatus): string {
 	switch (s) {
 		case "digesting":
-			return "yellow";
+			return "cyan";
+		case "queued":
+			return "gray";
 		case "digested":
 			return "green";
 		case "failed":

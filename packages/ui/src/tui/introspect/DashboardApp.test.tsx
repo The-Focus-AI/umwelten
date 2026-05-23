@@ -251,6 +251,54 @@ describe("DashboardApp — status column", () => {
 		const { lastFrame } = renderDashboard({ entries: [e] });
 		expect(lastFrame()).toMatch(/\bstale\b/i);
 	});
+
+	it("pending progress events show rows as 'queued', not 'digesting'", async () => {
+		// Regression: the engine emits `pending` for every input up front before
+		// it starts sequential work. Rendering those as `digesting` lies to the
+		// user about what's actually running — with concurrency=1 only one row
+		// should ever be `digesting` at a time.
+		const entries = [
+			makeEntry("a", { title: "Alpha" }),
+			makeEntry("b", { title: "Bravo" }),
+			makeEntry("c", { title: "Charlie" }),
+		];
+		let emit: (e: DashboardProgressEvent) => void = () => {};
+		const subscribe = (cb: (e: DashboardProgressEvent) => void) => {
+			emit = cb;
+			return () => {};
+		};
+		const { lastFrame } = renderDashboard({
+			entries,
+			subscribeToExtractionEvents: subscribe,
+		});
+
+		// Engine pre-emits pending for everything.
+		for (const e of entries) {
+			emit({
+				explorationId: e.exploration.id,
+				sessionId: e.sourceSession.id,
+				phase: "pending",
+			});
+		}
+		// Engine then starts the first row.
+		emit({
+			explorationId: entries[0].exploration.id,
+			sessionId: entries[0].sourceSession.id,
+			phase: "digesting",
+			detail: "loading",
+		});
+
+		await new Promise((r) => setTimeout(r, 250));
+		const frame = lastFrame() ?? "";
+
+		// In rows the status is lowercased; in the bottom status bar it's
+		// capitalized ("Digesting <topic>"). We want to assert that exactly one
+		// row reads "digesting" and the others read "queued".
+		const lowercaseDigesting = frame.match(/\bdigesting\b/g) ?? [];
+		expect(lowercaseDigesting.length).toBe(1);
+		const queuedMatches = frame.match(/\bqueued\b/g) ?? [];
+		expect(queuedMatches.length).toBeGreaterThanOrEqual(2);
+	});
 });
 
 // ── 3. Live status updates on progress events ────────────────────────────
