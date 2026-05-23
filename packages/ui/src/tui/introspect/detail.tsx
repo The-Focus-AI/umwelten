@@ -13,8 +13,7 @@
  *   q · esc           back to browser
  */
 
-import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, render, useApp, useInput, useStdout } from "ink";
 import type { SessionBrowserEntry } from "@umwelten/evaluation/introspection/browse.js";
 import { loadDigest } from "@umwelten/evaluation/introspection/browse.js";
