@@ -484,12 +484,20 @@ describe("searchToVirtualExploration", () => {
 
 describe("buildExploreBrowse / projection: real Source Session metadata", () => {
 	/** Build a minimal mock adapter that returns sessions with known metrics. */
-	function mockAdapter(source: string, entries: Array<{
-		id: string;
-		messageCount: number;
-		firstPrompt: string;
-		metrics: { userMessages: number; toolCalls: number; totalTokens: number; estimatedCost?: number };
-	}>) {
+	function mockAdapter(
+		source: string,
+		entries: Array<{
+			id: string;
+			messageCount: number;
+			firstPrompt: string;
+			metrics: {
+				userMessages: number;
+				toolCalls: number;
+				totalTokens: number;
+				estimatedCost?: number;
+			};
+		}>,
+	) {
 		return {
 			source,
 			displayName: source,
@@ -536,17 +544,30 @@ describe("buildExploreBrowse / projection: real Source Session metadata", () => 
 		);
 
 		const registry = new AdapterRegistry();
-		registry.register(mockAdapter("claude-code", [
-			{ id: "cc-1", messageCount: 42, firstPrompt: "Build auth system",
-				metrics: { userMessages: 12, toolCalls: 15, totalTokens: 80000, estimatedCost: 0.25 } },
-		]) as any);
+		registry.register(
+			mockAdapter("claude-code", [
+				{
+					id: "cc-1",
+					messageCount: 42,
+					firstPrompt: "Build auth system",
+					metrics: {
+						userMessages: 12,
+						toolCalls: 15,
+						totalTokens: 80000,
+						estimatedCost: 0.25,
+					},
+				},
+			]) as any,
+		);
 
 		const projection = await projectSessions("/test/proj", { registry });
 
 		// sourceSessions exist alongside explorations
 		expect(projection.sourceSessions).toHaveLength(1);
 		expect(projection.explorations).toHaveLength(1);
-		expect(projection.sourceSessions.length).toBe(projection.explorations.length);
+		expect(projection.sourceSessions.length).toBe(
+			projection.explorations.length,
+		);
 
 		const session = projection.sourceSessions[0];
 		expect(session.messageCount).toBe(42);
@@ -565,14 +586,26 @@ describe("buildExploreBrowse / projection: real Source Session metadata", () => 
 		);
 
 		const registry = new AdapterRegistry();
-		registry.register(mockAdapter("claude-code", [
-			{ id: "cc-1", messageCount: 42, firstPrompt: "Auth work",
-				metrics: { userMessages: 12, toolCalls: 15, totalTokens: 80000 } },
-		]) as any);
-		registry.register(mockAdapter("pi", [
-			{ id: "pi-1", messageCount: 25, firstPrompt: "Error handling",
-				metrics: { userMessages: 8, toolCalls: 10, totalTokens: 45000 } },
-		]) as any);
+		registry.register(
+			mockAdapter("claude-code", [
+				{
+					id: "cc-1",
+					messageCount: 42,
+					firstPrompt: "Auth work",
+					metrics: { userMessages: 12, toolCalls: 15, totalTokens: 80000 },
+				},
+			]) as any,
+		);
+		registry.register(
+			mockAdapter("pi", [
+				{
+					id: "pi-1",
+					messageCount: 25,
+					firstPrompt: "Error handling",
+					metrics: { userMessages: 8, toolCalls: 10, totalTokens: 45000 },
+				},
+			]) as any,
+		);
 
 		const projection = await projectSessions("/test/proj", { registry });
 
@@ -620,12 +653,22 @@ describe("buildExploreBrowse / projection: real Source Session metadata", () => 
 
 		// Multiple sources, multiple sessions each
 		for (const source of ["claude-code", "pi", "cursor"] as const) {
-			registry.register(mockAdapter(source, [
-				{ id: `${source}-a`, messageCount: 10, firstPrompt: `${source} session A`,
-					metrics: { userMessages: 5, toolCalls: 3, totalTokens: 20000 } },
-				{ id: `${source}-b`, messageCount: 20, firstPrompt: `${source} session B`,
-					metrics: { userMessages: 8, toolCalls: 8, totalTokens: 40000 } },
-			]) as any);
+			registry.register(
+				mockAdapter(source, [
+					{
+						id: `${source}-a`,
+						messageCount: 10,
+						firstPrompt: `${source} session A`,
+						metrics: { userMessages: 5, toolCalls: 3, totalTokens: 20000 },
+					},
+					{
+						id: `${source}-b`,
+						messageCount: 20,
+						firstPrompt: `${source} session B`,
+						metrics: { userMessages: 8, toolCalls: 8, totalTokens: 40000 },
+					},
+				]) as any,
+			);
 		}
 
 		const projection = await projectSessions("/test/proj", { registry });
@@ -641,7 +684,10 @@ describe("buildExploreBrowse / projection: real Source Session metadata", () => 
 			const member = exploration.members[0];
 			const sourceSession = sourceSessionsById.get(member.sourceSessionId);
 
-			expect(sourceSession, `No sourceSession for member ${member.sourceSessionId}`).toBeDefined();
+			expect(
+				sourceSession,
+				`No sourceSession for member ${member.sourceSessionId}`,
+			).toBeDefined();
 			expect(sourceSession!.source).toBe(member.source);
 			expect(sourceSession!.messageCount).toBeGreaterThan(0);
 			expect(sourceSession!.metrics).toBeDefined();
@@ -657,10 +703,21 @@ describe("buildExploreBrowse / projection: real Source Session metadata", () => 
 		);
 
 		const registry = new AdapterRegistry();
-		registry.register(mockAdapter("claude-code", [
-			{ id: "cc-full", messageCount: 30, firstPrompt: "Full metrics test",
-				metrics: { userMessages: 10, toolCalls: 20, totalTokens: 60000, estimatedCost: 0.15 } },
-		]) as any);
+		registry.register(
+			mockAdapter("claude-code", [
+				{
+					id: "cc-full",
+					messageCount: 30,
+					firstPrompt: "Full metrics test",
+					metrics: {
+						userMessages: 10,
+						toolCalls: 20,
+						totalTokens: 60000,
+						estimatedCost: 0.15,
+					},
+				},
+			]) as any,
+		);
 
 		const projection = await projectSessions("/test/proj", { registry });
 
@@ -676,7 +733,10 @@ describe("buildExploreBrowse / projection: real Source Session metadata", () => 
 });
 
 describe("digest persistence", () => {
-	const testProjectPath = join(process.cwd(), "packages/sessions/src/introspection/temp-digest-test");
+	const testProjectPath = join(
+		process.cwd(),
+		"packages/sessions/src/introspection/temp-digest-test",
+	);
 
 	afterEach(async () => {
 		try {
@@ -689,12 +749,31 @@ describe("digest persistence", () => {
 
 		// Simple ID
 		const pathSimple = getDigestPath(testProjectPath, "simple-session");
-		expect(pathSimple).toBe(join(testProjectPath, ".umwelten", "digests", "sessions", "simple-session.json"));
+		expect(pathSimple).toBe(
+			join(
+				testProjectPath,
+				".umwelten",
+				"digests",
+				"sessions",
+				"simple-session.json",
+			),
+		);
 
 		// ID with special characters
-		const pathSpecial = getDigestPath(testProjectPath, "piloc:/Users/test/workspace:session.jsonl");
+		const pathSpecial = getDigestPath(
+			testProjectPath,
+			"piloc:/Users/test/workspace:session.jsonl",
+		);
 		const expectedFilename = `${encodeURIComponent("piloc:/Users/test/workspace:session.jsonl")}.json`;
-		expect(pathSpecial).toBe(join(testProjectPath, ".umwelten", "digests", "sessions", expectedFilename));
+		expect(pathSpecial).toBe(
+			join(
+				testProjectPath,
+				".umwelten",
+				"digests",
+				"sessions",
+				expectedFilename,
+			),
+		);
 	});
 
 	it("saveDigest and loadDigest perform a successful round-trip", async () => {
@@ -714,7 +793,9 @@ describe("digest persistence", () => {
 
 		// Save digest
 		const savedPath = await saveDigest(testProjectPath, digest);
-		expect(savedPath).toContain(join(testProjectPath, ".umwelten", "digests", "sessions"));
+		expect(savedPath).toContain(
+			join(testProjectPath, ".umwelten", "digests", "sessions"),
+		);
 
 		// Load digest back
 		const loadedAfter = await loadDigest(testProjectPath, digest.sessionId);
