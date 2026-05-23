@@ -23,7 +23,9 @@ import {
 	extractToolCalls,
 	getBeatsForSession,
 } from "../persistence/session-parser.js";
-import type { messagesToBeats } from "./conversation-beats.js";
+import { messagesToBeats } from "./conversation-beats.js";
+import { adapterRegistry } from "../adapters/adapter.js";
+import type { NormalizedMessage } from "../types/normalized-types.js";
 import { getProjectSessionsIncludingFromDirectory } from "../persistence/session-store.js";
 import { analyzeSessionWithRetry } from "./session-analyzer.js";
 import { homedir } from "node:os";
@@ -268,6 +270,62 @@ export interface DigestProgress {
 	detail?: string;
 }
 
+/** Shared output shape from the two source-specific beat loaders. */
+interface LoadedBeats {
+	rawBeats: Awaited<ReturnType<typeof getBeatsForSession>>["beats"];
+	summaryTotalMessages: number;
+	summaryToolCallCount: number;
+	summaryEstimatedCost: number;
+	summaryDuration: number;
+}
+
+async function loadClaudeCodeBeats(fullPath: string): Promise<LoadedBeats | null> {
+	const rawMessages = await parseSessionFile(fullPath);
+	const summary = summarizeSession(rawMessages);
+	const toolCallsList = extractToolCalls(rawMessages);
+	if (summary.totalMessages < 2) return null;
+	const { beats } = await getBeatsForSession(rawMessages);
+	if (beats.length === 0) return null;
+	return {
+		rawBeats: beats,
+		summaryTotalMessages: summary.totalMessages,
+		summaryToolCallCount: toolCallsList.length,
+		summaryEstimatedCost: summary.estimatedCost,
+		summaryDuration: summary.duration ?? 0,
+	};
+}
+
+async function loadAdapterBeats(
+	session: SessionIndexEntry,
+): Promise<LoadedBeats | null> {
+	const adapter = adapterRegistry.get(session.source as string);
+	if (!adapter) {
+		throw new Error(`No adapter registered for source "${session.source}"`);
+	}
+	const normalized = await adapter.getMessages(session.sessionId);
+	if (normalized.length < 2) return null;
+	const beats = messagesToBeats(normalized);
+	if (beats.length === 0) return null;
+
+	const firstTs = normalized[0]?.timestamp;
+	const lastTs = normalized[normalized.length - 1]?.timestamp;
+	const duration =
+		firstTs && lastTs
+			? new Date(lastTs).getTime() - new Date(firstTs).getTime()
+			: 0;
+
+	return {
+		rawBeats: beats,
+		summaryTotalMessages: normalized.length,
+		summaryToolCallCount: normalized.filter((m) => m.role === "tool").length,
+		// Adapters carry estimatedCost in SourceSession.metrics, not at the
+		// message-bag level. Surface 0 here and let the SourceSession-level
+		// metrics drive cost reporting.
+		summaryEstimatedCost: 0,
+		summaryDuration: duration,
+	};
+}
+
 export async function digestSession(
 	session: SessionIndexEntry,
 	projectPath: string,
@@ -275,19 +333,31 @@ export async function digestSession(
 	model: ModelDetails,
 	onProgress?: (p: DigestProgress) => void,
 ): Promise<SessionDigest | null> {
-	if (!session.fullPath) return null;
+	const isClaudeCode =
+		(!session.source || session.source === "claude-code") &&
+		!!session.fullPath;
+
+	if (!isClaudeCode && !session.source) return null;
 
 	try {
-		// 1. Load session and get beats
+		// 1. Load session and get beats. The claude-code path goes through
+		// parseSessionFile + getBeatsForSession (built around claude's JSONL
+		// shape). Other adapters (pi, cursor, habitat) hand us NormalizedMessage
+		// directly via adapter.getMessages() — we skip the legacy parser.
 		onProgress?.({ phase: "loading", detail: session.sessionId.slice(0, 8) });
-		const rawMessages = await parseSessionFile(session.fullPath);
-		const summary = summarizeSession(rawMessages);
-		const toolCallsList = extractToolCalls(rawMessages);
 
-		if (summary.totalMessages < 2) return null;
+		const loaded = isClaudeCode
+			? await loadClaudeCodeBeats(session.fullPath!)
+			: await loadAdapterBeats(session);
 
-		const { beats: rawBeats } = await getBeatsForSession(rawMessages);
-		if (rawBeats.length === 0) return null;
+		if (!loaded) return null;
+		const {
+			rawBeats,
+			summaryTotalMessages,
+			summaryToolCallCount,
+			summaryEstimatedCost,
+			summaryDuration,
+		} = loaded;
 
 		// 2. Filter noise beats
 		const beats = filterBeats(rawBeats);
@@ -539,11 +609,11 @@ export async function digestSession(
 			analysis,
 			extractedFacts: allFacts.map((f) => ({ type: "facts", text: f })),
 			metrics: {
-				messageCount: summary.totalMessages,
+				messageCount: summaryTotalMessages,
 				segmentCount: digestSegments.length,
-				toolCallCount: toolCallsList.length,
-				estimatedCost: summary.estimatedCost,
-				duration: summary.duration ?? 0,
+				toolCallCount: summaryToolCallCount,
+				estimatedCost: summaryEstimatedCost,
+				duration: summaryDuration,
 			},
 		};
 

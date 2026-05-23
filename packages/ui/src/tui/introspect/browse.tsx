@@ -238,9 +238,12 @@ async function runExtractionPass(args: {
 	);
 	const projectName = projectPath.split("/").slice(-2).join("/");
 
-	// Build ExtractionInputs from entries.
+	// Build ExtractionInputs from entries. We always include the source on the
+	// SessionIndexEntry so the digester can branch to the adapter for pi /
+	// cursor / habitat sessions. Claude-code sessions additionally need a
+	// resolved fullPath since they go through the legacy file parser.
 	const inputs = entries
-		.filter((e) => e.filePath)
+		.filter((e) => e.sourceSession.source !== "claude-code" || e.filePath)
 		.map((e) => ({
 			explorationId: e.exploration.id,
 			sessionId: e.sourceSession.id,
@@ -248,7 +251,7 @@ async function runExtractionPass(args: {
 			source: e.sourceSession.source,
 			sessionEntry: {
 				sessionId: e.sourceSession.id,
-				fullPath: e.filePath as string,
+				fullPath: e.filePath,
 				fileMtime: e.modifiedMs,
 				firstPrompt: e.exploration.name,
 				messageCount: e.sourceSession.messageCount,
@@ -257,6 +260,7 @@ async function runExtractionPass(args: {
 				gitBranch: e.sourceSession.gitBranch ?? "",
 				projectPath,
 				isSidechain: false,
+				source: e.sourceSession.source,
 			},
 		}));
 
