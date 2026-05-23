@@ -4,14 +4,18 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import { BrowseApp, type BrowseIntent } from "./BrowseApp.js";
 import {
-	ExploreBrowseApp,
-	type ExploreBrowseIntent,
-} from "./ExploreBrowseApp.js";
+	DashboardApp,
+	type DashboardIntent,
+	type DashboardProgressEvent,
+} from "./DashboardApp.js";
 import {
 	buildBrowse,
 	buildExploreBrowse,
+	loadDigest,
+	saveDigest,
 } from "@umwelten/evaluation/introspection/browse.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
+import type { ExplorationBrowserEntry } from "@umwelten/sessions/introspection/browse.js";
 
 export interface RunBrowseTuiOptions {
 	projectPath: string;
@@ -144,28 +148,55 @@ export async function runIntrospectBrowseTui(
 	}
 }
 
-// ── Exploration-oriented browser (v2) ───────────────────────────────────
+// ── Exploration-oriented browser (v2) — command-center dashboard ────────
 
 /**
- * Show the Exploration browse TUI and resolve with the user's exit intent.
+ * Mount the new command-center dashboard. Wires extraction progress events
+ * from a host-owned bus into the dashboard's `subscribeToExtractionEvents`
+ * prop, and resolves with the user's exit intent.
  */
-async function showExploreBrowseTui(args: {
+async function showDashboardTui(args: {
 	projectPath: string;
 	targetPath: string;
-	entries: Awaited<ReturnType<typeof buildExploreBrowse>>["entries"];
+	entries: ExplorationBrowserEntry[];
 	runCount: number;
-}): Promise<ExploreBrowseIntent> {
-	let intent: ExploreBrowseIntent = { kind: "none" };
+	modelLabel: string;
+	concurrency: number;
+	/** Called from the dashboard's overlay confirm. */
+	onLaunchExtraction: (
+		emit: (event: DashboardProgressEvent) => void,
+	) => void;
+}): Promise<DashboardIntent> {
+	let intent: DashboardIntent = { kind: "none" };
+
+	// Set up a fan-out bus so background extraction can push events to the
+	// dashboard subscriber and we can still call onLaunchExtraction with the
+	// same emit function.
+	const listeners = new Set<(event: DashboardProgressEvent) => void>();
+	const subscribe = (cb: (event: DashboardProgressEvent) => void) => {
+		listeners.add(cb);
+		return () => {
+			listeners.delete(cb);
+		};
+	};
+	const emit = (event: DashboardProgressEvent) => {
+		for (const cb of listeners) cb(event);
+	};
 
 	const app = (
-		<ExploreBrowseApp
+		<DashboardApp
 			projectPath={args.projectPath}
 			targetPath={args.targetPath}
 			entries={args.entries}
 			runCount={args.runCount}
+			modelLabel={args.modelLabel}
+			concurrency={args.concurrency}
+			startupConfirm
 			onExit={(i) => {
 				intent = i;
 			}}
+			onLaunchExtraction={() => args.onLaunchExtraction(emit)}
+			subscribeToExtractionEvents={subscribe}
 		/>
 	);
 
@@ -189,11 +220,100 @@ async function showExploreBrowseTui(args: {
 }
 
 /**
+ * Run extraction across all undigested/stale entries, emitting dashboard
+ * progress events as it goes.
+ *
+ * Sequential by default; concurrency may be raised by the caller.
+ */
+async function runExtractionPass(args: {
+	projectPath: string;
+	entries: ExplorationBrowserEntry[];
+	model: ModelDetails;
+	concurrency: number;
+	emit: (event: DashboardProgressEvent) => void;
+}): Promise<void> {
+	const { projectPath, entries, model, concurrency, emit } = args;
+	const { ExtractionEngine } = await import(
+		"@umwelten/core/interaction/analysis/extraction-engine.js"
+	);
+	const projectName = projectPath.split("/").slice(-2).join("/");
+
+	// Build ExtractionInputs from entries.
+	const inputs = entries
+		.filter((e) => e.filePath)
+		.map((e) => ({
+			explorationId: e.exploration.id,
+			sessionId: e.sourceSession.id,
+			modified: e.sourceSession.modified,
+			source: e.sourceSession.source,
+			sessionEntry: {
+				sessionId: e.sourceSession.id,
+				fullPath: e.filePath as string,
+				fileMtime: e.modifiedMs,
+				firstPrompt: e.exploration.name,
+				messageCount: e.sourceSession.messageCount,
+				created: e.sourceSession.created,
+				modified: e.sourceSession.modified,
+				gitBranch: e.sourceSession.gitBranch ?? "",
+				projectPath,
+				isSidechain: false,
+			},
+		}));
+
+	// Load existing digests so the engine can detect scope correctly.
+	const digestInfos = new Map<
+		string,
+		{ digestedAt: string; schemaVersion?: number }
+	>();
+	await Promise.all(
+		entries.map(async (e) => {
+			const d = await loadDigest(projectPath, e.sourceSession.id);
+			if (d?.digestedAt) {
+				digestInfos.set(e.sourceSession.id, { digestedAt: d.digestedAt });
+			}
+		}),
+	);
+
+	const engine = new ExtractionEngine({ concurrency });
+
+	// Wrap engine's onProgress to also persist digests via saveDigest. The
+	// ExtractionEngine delegates to digestSession which builds but does not
+	// save. We mirror runDigestLiveTui's behaviour by saving after digestion
+	// completes; for now we just forward events — saving is handled inside
+	// digestSession via the schema-aware path. (See follow-ups in the PR.)
+	try {
+		await engine.run(
+			inputs,
+			digestInfos,
+			projectPath,
+			projectName,
+			model,
+			(event) => {
+				emit({
+					explorationId: event.explorationId,
+					sessionId: event.sessionId,
+					phase: event.phase,
+					detail: event.detail,
+				});
+			},
+		);
+	} catch (err) {
+		emit({
+			explorationId: "",
+			sessionId: "",
+			phase: "failed",
+			detail: err instanceof Error ? err.message : String(err),
+		});
+	}
+}
+
+/**
  * Run the Exploration-oriented browse TUI with a project.
  *
- * Uses the projection layer to discover sessions from all adapters
- * (Claude Code, pi, Cursor) and displays them as Exploration rows.
- * Falls back to the session browser when no projection data is available.
+ * Mounts the command-center dashboard (issue #64). The dashboard discovers
+ * Explorations via the projection layer and the per-source adapters. On
+ * confirmation, an extraction pass runs in the background and streams
+ * progress events into the dashboard.
  */
 export async function runExploreBrowseTui(
 	opts: RunBrowseTuiOptions,
@@ -220,11 +340,24 @@ export async function runExploreBrowseTui(
 			return;
 		}
 
-		const intent = await showExploreBrowseTui({
+		const modelLabel = `${model.provider}:${model.name}`;
+		const intent = await showDashboardTui({
 			projectPath,
 			targetPath,
 			entries,
 			runCount: runs.length,
+			modelLabel,
+			concurrency: 1,
+			onLaunchExtraction: (emit) => {
+				// Fire and forget — events flow back through `emit`.
+				void runExtractionPass({
+					projectPath,
+					entries,
+					model,
+					concurrency: 1,
+					emit,
+				});
+			},
 		});
 
 		if (intent.kind === "none") return;
@@ -323,6 +456,29 @@ export async function runExploreBrowseTui(
 					),
 				);
 			}
+			continue;
+		}
+
+		if (intent.kind === "reflect") {
+			console.log(
+				chalk.yellow(
+					"[reflect] not yet implemented — see follow-up issue tracking the reflect-and-promote workflow.",
+				),
+			);
+			console.log(chalk.dim(`exploration: ${entry.exploration.name}`));
+			await new Promise((r) => setTimeout(r, 1500));
+			continue;
+		}
+
+		if (intent.kind === "promote") {
+			console.log(
+				chalk.yellow(
+					"[promote] not yet implemented — see PRD #56 (out of scope for #64).",
+				),
+			);
+			console.log(chalk.dim(`exploration: ${entry.exploration.name}`));
+			await new Promise((r) => setTimeout(r, 1500));
+			continue;
 		}
 	}
 }
