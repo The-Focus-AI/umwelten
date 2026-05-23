@@ -9,7 +9,10 @@
 import type { SessionDigest } from "./analysis-types.js";
 import type { ModelDetails } from "../../cognition/types.js";
 import { digestSession } from "./session-digester.js";
-import { CandidatePersistence, type CandidateKind } from "../knowledge/candidate-persistence.js";
+import {
+	CandidatePersistence,
+	type CandidateKind,
+} from "../knowledge/candidate-persistence.js";
 import type { SessionIndexEntry } from "../types/types.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────

@@ -111,3 +111,9 @@ test-output/
 
 # Gaia orchestrator data
 gaia-data/
+
+# pi-lens IDE integration
+**/.pi-lens/
+
+# Antigravity CLI state
+.antigravitycli/

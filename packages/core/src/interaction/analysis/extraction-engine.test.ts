@@ -33,7 +33,13 @@ const successDigest = {
 	extractedFacts: [],
 	segments: [],
 	analysis: { tags: [], topics: [] },
-	metrics: { messageCount: 10, segmentCount: 1, toolCallCount: 0, estimatedCost: 0, duration: 0 },
+	metrics: {
+		messageCount: 10,
+		segmentCount: 1,
+		toolCallCount: 0,
+		estimatedCost: 0,
+		duration: 0,
+	},
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -64,8 +70,16 @@ function makeInput(overrides: Partial<ExtractionInput> = {}): ExtractionInput {
 describe("determineScope", () => {
 	it("returns all inputs as undigested when no digests exist", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-20T10:00:00Z" }),
-			makeInput({ explorationId: "e2", sessionId: "s2", modified: "2026-05-19T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-20T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "e2",
+				sessionId: "s2",
+				modified: "2026-05-19T10:00:00Z",
+			}),
 		];
 
 		const scope = determineScope(inputs, new Map());
@@ -78,9 +92,21 @@ describe("determineScope", () => {
 
 	it("sorts undigested by modified date descending (newest first)", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "oldest", sessionId: "s1", modified: "2026-05-10T10:00:00Z" }),
-			makeInput({ explorationId: "middle", sessionId: "s2", modified: "2026-05-15T10:00:00Z" }),
-			makeInput({ explorationId: "newest", sessionId: "s3", modified: "2026-05-20T10:00:00Z" }),
+			makeInput({
+				explorationId: "oldest",
+				sessionId: "s1",
+				modified: "2026-05-10T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "middle",
+				sessionId: "s2",
+				modified: "2026-05-15T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "newest",
+				sessionId: "s3",
+				modified: "2026-05-20T10:00:00Z",
+			}),
 		];
 
 		const scope = determineScope(inputs, new Map());
@@ -94,8 +120,16 @@ describe("determineScope", () => {
 
 	it("excludes already-digested sessions that are up to date", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-10T10:00:00Z" }),
-			makeInput({ explorationId: "e2", sessionId: "s2", modified: "2026-05-20T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-10T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "e2",
+				sessionId: "s2",
+				modified: "2026-05-20T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -111,8 +145,16 @@ describe("determineScope", () => {
 
 	it("detects stale when source session modified after digest", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-20T10:00:00Z" }),
-			makeInput({ explorationId: "e2", sessionId: "s2", modified: "2026-05-10T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-20T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "e2",
+				sessionId: "s2",
+				modified: "2026-05-10T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -129,7 +171,11 @@ describe("determineScope", () => {
 
 	it("detects stale when schema version mismatches", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-10T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-10T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -144,9 +190,21 @@ describe("determineScope", () => {
 
 	it("treats undigested as higher priority than stale", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "stale-new", sessionId: "s1", modified: "2026-05-22T10:00:00Z" }),
-			makeInput({ explorationId: "undigested", sessionId: "s2", modified: "2026-05-15T10:00:00Z" }),
-			makeInput({ explorationId: "stale-old", sessionId: "s3", modified: "2026-05-12T10:00:00Z" }),
+			makeInput({
+				explorationId: "stale-new",
+				sessionId: "s1",
+				modified: "2026-05-22T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "undigested",
+				sessionId: "s2",
+				modified: "2026-05-15T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "stale-old",
+				sessionId: "s3",
+				modified: "2026-05-12T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -166,7 +224,11 @@ describe("determineScope", () => {
 
 	it("handles digest without schemaVersion by only checking time", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-20T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-20T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -181,7 +243,11 @@ describe("determineScope", () => {
 
 	it("treats exact timestamp match as up to date (not stale)", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-15T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-15T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -196,7 +262,11 @@ describe("determineScope", () => {
 
 	it("returns empty scope when all already digested and up to date", () => {
 		const inputs: ExtractionInput[] = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-10T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-10T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
@@ -213,7 +283,11 @@ describe("determineScope", () => {
 // ─── ExtractionEngine (all engine tests share mocked digestSession) ─────
 
 describe("ExtractionEngine", () => {
-	const model = { name: "test", provider: "test" as any, temperature: 0 } as any;
+	const model = {
+		name: "test",
+		provider: "test" as any,
+		temperature: 0,
+	} as any;
 
 	beforeEach(() => {
 		mockDigestSession.mockReset();
@@ -231,7 +305,12 @@ describe("ExtractionEngine", () => {
 		const inputs = [makeInput({ explorationId: "e1", sessionId: "s1" })];
 
 		const result = await engine.run(
-			inputs, new Map(), "/test", "test-project", model, onProgress,
+			inputs,
+			new Map(),
+			"/test",
+			"test-project",
+			model,
+			onProgress,
 		);
 
 		expect(result.digested).toBe(1);
@@ -260,7 +339,12 @@ describe("ExtractionEngine", () => {
 		const inputs = [makeInput({ explorationId: "e1", sessionId: "s1" })];
 
 		const result = await engine.run(
-			inputs, new Map(), "/test", "test-project", model, onProgress,
+			inputs,
+			new Map(),
+			"/test",
+			"test-project",
+			model,
+			onProgress,
 		);
 
 		expect(result.failed).toBe(1);
@@ -284,7 +368,12 @@ describe("ExtractionEngine", () => {
 		];
 
 		const result = await engine.run(
-			inputs, new Map(), "/test", "test-project", model, onProgress,
+			inputs,
+			new Map(),
+			"/test",
+			"test-project",
+			model,
+			onProgress,
 		);
 
 		expect(result.digested).toBe(3);
@@ -304,15 +393,29 @@ describe("ExtractionEngine", () => {
 		const engine = new ExtractionEngine({ concurrency: 1, schemaVersion: 1 });
 
 		const inputs = [
-			makeInput({ explorationId: "new", sessionId: "s1", modified: "2026-05-20T10:00:00Z" }),
-			makeInput({ explorationId: "dug", sessionId: "s2", modified: "2026-05-10T10:00:00Z" }),
+			makeInput({
+				explorationId: "new",
+				sessionId: "s1",
+				modified: "2026-05-20T10:00:00Z",
+			}),
+			makeInput({
+				explorationId: "dug",
+				sessionId: "s2",
+				modified: "2026-05-10T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
 			["s2", { digestedAt: "2026-05-15T10:00:00Z", schemaVersion: 1 }],
 		]);
 
-		const result = await engine.run(inputs, digests, "/test", "test-project", model);
+		const result = await engine.run(
+			inputs,
+			digests,
+			"/test",
+			"test-project",
+			model,
+		);
 
 		expect(result.digested).toBe(1);
 		expect(result.skipped).toBe(1);
@@ -323,14 +426,24 @@ describe("ExtractionEngine", () => {
 		const engine = new ExtractionEngine({ concurrency: 1 });
 
 		const inputs = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-10T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-10T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
 			["s1", { digestedAt: "2026-05-15T10:00:00Z", schemaVersion: 1 }],
 		]);
 
-		const result = await engine.run(inputs, digests, "/test", "test-project", model);
+		const result = await engine.run(
+			inputs,
+			digests,
+			"/test",
+			"test-project",
+			model,
+		);
 
 		expect(result.digested).toBe(0);
 		expect(result.skipped).toBe(1);
@@ -358,7 +471,14 @@ describe("ExtractionEngine", () => {
 			makeInput({ explorationId: "e2", sessionId: "s2" }),
 		];
 
-		await engine.run(inputs, new Map(), "/test", "test-project", model, onProgress);
+		await engine.run(
+			inputs,
+			new Map(),
+			"/test",
+			"test-project",
+			model,
+			onProgress,
+		);
 
 		// Pending events fire for all upfront, then digesting/digested per exploration.
 		// With concurrency=1, e1's digesting must start before e2's digesting.
@@ -378,14 +498,24 @@ describe("ExtractionEngine", () => {
 		const engine = new ExtractionEngine({ concurrency: 1, schemaVersion: 2 });
 
 		const inputs = [
-			makeInput({ explorationId: "e1", sessionId: "s1", modified: "2026-05-10T10:00:00Z" }),
+			makeInput({
+				explorationId: "e1",
+				sessionId: "s1",
+				modified: "2026-05-10T10:00:00Z",
+			}),
 		];
 
 		const digests = new Map<string, DigestInfo>([
 			["s1", { digestedAt: "2026-05-15T10:00:00Z", schemaVersion: 1 }],
 		]);
 
-		const result = await engine.run(inputs, digests, "/test", "test-project", model);
+		const result = await engine.run(
+			inputs,
+			digests,
+			"/test",
+			"test-project",
+			model,
+		);
 
 		expect(result.digested).toBe(1);
 		expect(result.stale).toBe(1);
