@@ -260,6 +260,7 @@ describe("DashboardApp — status column", () => {
 		const e = makeEntry("a", {
 			title: "where are the sessions for this project stored?",
 			digest: makeDigest("a", {
+				overallSummary: "Located pi sessions under <project>/.pi/sessions",
 				analysis: {
 					summary: "Located pi sessions under <project>/.pi/sessions",
 					keyLearnings: "",
@@ -285,6 +286,36 @@ describe("DashboardApp — status column", () => {
 		});
 		const { lastFrame } = renderDashboard({ entries: [e] });
 		expect(lastFrame()).toMatch(/Fix migration timeout/);
+	});
+
+	it("prefers overallSummary over the analyzer's punt summary", () => {
+		// Real failure mode from pi sessions: the analyzer fills
+		// analysis.summary with "Session with no analyzable conversation
+		// content." while overallSummary (compaction output) carries the
+		// real recap. The row title must surface the useful one.
+		const e = makeEntry("a", {
+			title: "raw first prompt",
+			digest: makeDigest("a", {
+				overallSummary:
+					"The user established an automated workflow for transitioning issues from ready to active.",
+				analysis: {
+					summary: "Session with no analyzable conversation content.",
+					keyLearnings: "No user/assistant text to analyze.",
+					topics: [],
+					tags: [],
+					solutionType: "other",
+					successIndicators: "unclear",
+					codeLanguages: [],
+					toolsUsed: [],
+					relatedFiles: [],
+				},
+			}),
+		});
+		const { lastFrame } = renderDashboard({ entries: [e] });
+		const frame = lastFrame() ?? "";
+		expect(frame).toMatch(/established an automated workflow/);
+		expect(frame).not.toMatch(/no analyzable conversation/i);
+		expect(frame).not.toMatch(/raw first prompt/);
 	});
 
 	it("pending progress events show rows as 'queued', not 'digesting'", async () => {
@@ -502,6 +533,7 @@ describe("DashboardApp — confirmation overlay", () => {
 		const entries = [
 			makeEntry("a", {
 				digest: makeDigest("a", {
+					overallSummary: "Summary for A",
 					analysis: {
 						summary: "Summary for A",
 						keyLearnings: "",
@@ -518,6 +550,7 @@ describe("DashboardApp — confirmation overlay", () => {
 			}),
 			makeEntry("b", {
 				digest: makeDigest("b", {
+					overallSummary: "Summary for B",
 					analysis: {
 						summary: "Summary for B",
 						keyLearnings: "",

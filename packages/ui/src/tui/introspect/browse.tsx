@@ -224,15 +224,25 @@ function createExtractionBus(projectPath: string): ExtractionBus {
 			for (const cb of listeners) cb(event);
 
 			// On digested → load the fresh summary from disk and notify
-			// title-listeners. Fire-and-forget; if loadDigest fails we just
-			// keep the old fallback title.
+			// title-listeners. Prefer overallSummary (compaction output) over
+			// analysis.summary because the analyzer often punts on pi sessions
+			// with "no analyzable conversation content".
 			if (
 				event.phase === "digested" &&
 				event.sessionId &&
 				!event.sessionId.startsWith("__")
 			) {
 				void loadDigest(projectPath, event.sessionId).then((digest) => {
-					const summary = digest?.analysis?.summary?.trim();
+					if (!digest) return;
+					const overall = digest.overallSummary?.trim();
+					const analysisSummary = digest.analysis?.summary?.trim();
+					const punt = /^session with no analyzable/i;
+					const summary =
+						overall && !punt.test(overall)
+							? overall
+							: analysisSummary && !punt.test(analysisSummary)
+								? analysisSummary
+								: null;
 					if (!summary) return;
 					liveTitles.set(event.sessionId, summary);
 					for (const cb of titleListeners) cb(event.sessionId, summary);

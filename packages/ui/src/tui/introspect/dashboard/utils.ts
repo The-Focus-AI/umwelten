@@ -90,8 +90,26 @@ export interface DashboardEntryView {
 
 /** Pick the best title for a row given what's known about the entry. */
 export function rowTitle(entry: ExplorationBrowserEntry): string {
-	const digestSummary = entry.digest?.analysis?.summary?.trim();
-	if (digestSummary) return digestSummary;
+	// Prefer overallSummary (the compaction layer's output) over
+	// analysis.summary (the analyzer's output) — for sessions where the
+	// analyzer can't find user/assistant text (e.g. pi sessions where most
+	// assistant content is thinking/toolCall blocks), the compaction
+	// summary is still meaningful while analysis.summary literally reads
+	// "Session with no analyzable conversation content."
+	const overall = entry.digest?.overallSummary?.trim();
+	if (
+		overall &&
+		!/^session with no analyzable/i.test(overall)
+	) {
+		return overall;
+	}
+	const analysisSummary = entry.digest?.analysis?.summary?.trim();
+	if (
+		analysisSummary &&
+		!/^session with no analyzable/i.test(analysisSummary)
+	) {
+		return analysisSummary;
+	}
 	return entry.exploration.name;
 }
 
