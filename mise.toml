@@ -1,6 +1,9 @@
 [tools]
+claude = "latest"
 node = "latest"
 "npm:@anthropic-ai/claude-code" = "latest"
+"npm:@earendil-works/pi-coding-agent" = "latest"
+"npm:@earendil-works/pi-coding-agent\n" = "latest"
 "npm:node-addon-api" = "latest"
 
 # Keep root tasks focused on workflows people run often. Example-specific
