@@ -18,8 +18,8 @@ import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type {
 	ExplorationBrowserEntry,
 	FilterState,
-} from "@umwelten/sessions/introspection/browse.js";
-import { applyExploreFilter } from "@umwelten/sessions/introspection/browse.js";
+} from "@umwelten/core/interaction/types/domain-types.js";
+import { applyExploreFilter } from "@umwelten/core/interaction/types/domain-types.js";
 import {
 	ago,
 	countExtractable,

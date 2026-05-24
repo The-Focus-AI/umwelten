@@ -5,7 +5,7 @@
  * share the type definitions without circular import worries.
  */
 
-import type { ExplorationBrowserEntry } from "@umwelten/sessions/introspection/browse.js";
+import type { ExplorationBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
 
 /**
  * Status of an exploration in the dashboard table.

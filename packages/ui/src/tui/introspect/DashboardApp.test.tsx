@@ -11,7 +11,7 @@ import { render } from "ink-testing-library";
 import type {
 	ExplorationBrowserEntry,
 	FilterState,
-} from "@umwelten/sessions/introspection/browse.js";
+} from "@umwelten/core/interaction/types/domain-types.js";
 import type {
 	SourceSession,
 	Exploration,

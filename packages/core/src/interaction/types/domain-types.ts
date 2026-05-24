@@ -259,3 +259,146 @@ export function createVirtualExploration(
 		searchQuery: query,
 	};
 }
+
+// ── Exploration Browser data shape ──────────────────────────────────────
+
+/**
+ * One entry in an analysis-run tally for a session.
+ *
+ * Kept here (rather than in @umwelten/sessions/introspection) so the
+ * ExplorationBrowserEntry shape can travel with the rest of the domain
+ * types and TUI consumers (in @umwelten/ui) don't need to depend on the
+ * sessions package.
+ */
+export interface ExplorationAnalysisRun {
+	runId: string;
+	runCreatedAt: string;
+	tally: {
+		total: number;
+		accepted: number;
+		skipped: number;
+		pending: number;
+	};
+	/** Subset of proposals whose evidence matched this session. Heuristic. */
+	attributedProposals: Array<{
+		/** "workflowRule" | "architectureFact" | "gotcha" — kept as string here
+		 * so the core package doesn't depend on the sessions enum. */
+		kind: string;
+		head: string;
+		verdict?: "accepted" | "skipped";
+	}>;
+}
+
+/**
+ * Date window for the Exploration Browser filter.
+ */
+export type DateWindow = "24h" | "7d" | "30d" | "all";
+
+/**
+ * Status filter for the Exploration Browser.
+ */
+export type StatusFilter =
+	| "all"
+	| "unanalyzed"
+	| "pending"
+	| "decided"
+	| "fresh"
+	| "digested"
+	| "undigested";
+
+/**
+ * Source filter — narrows to one adapter, or "all".
+ */
+export type SourceFilter = "all" | SourceSessionKind;
+
+/**
+ * Filter state for the Exploration Browser.
+ */
+export interface FilterState {
+	date: DateWindow;
+	status: StatusFilter;
+	source: SourceFilter;
+	query: string;
+}
+
+/**
+ * Browser entry wrapping an Exploration with browser-specific metadata.
+ *
+ * Used by the Exploration Browser (DashboardApp in @umwelten/ui) and
+ * built by buildExploreBrowse in @umwelten/sessions/introspection.
+ */
+export interface ExplorationBrowserEntry {
+	/** The Exploration (domain grouping). */
+	exploration: Exploration;
+	/** The underlying Source Session metadata. */
+	sourceSession: SourceSession;
+	/** Modified timestamp in ms (for sorting). */
+	modifiedMs: number;
+	/** Full path to the session file for transcript/beats views. */
+	filePath?: string;
+	/** Digest data if available. */
+	digest?: import("../analysis/analysis-types.js").SessionDigest | null;
+	/** Analysis runs that included this session. */
+	analyzedIn: ExplorationAnalysisRun[];
+	modifiedSinceAnalysis: boolean;
+	everAnalyzed: boolean;
+}
+
+/**
+ * Filter Exploration browser entries by date, source, status, and text query.
+ *
+ * Pure function — no I/O. Lives here in core so TUI consumers (in
+ * @umwelten/ui) don't need to depend on @umwelten/sessions just to filter.
+ */
+export function applyExploreFilter(
+	entries: ExplorationBrowserEntry[],
+	f: FilterState,
+): ExplorationBrowserEntry[] {
+	let cutoff = 0;
+	const now = Date.now();
+	switch (f.date) {
+		case "24h":
+			cutoff = now - 24 * 60 * 60 * 1000;
+			break;
+		case "7d":
+			cutoff = now - 7 * 24 * 60 * 60 * 1000;
+			break;
+		case "30d":
+			cutoff = now - 30 * 24 * 60 * 60 * 1000;
+			break;
+		case "all":
+			cutoff = 0;
+			break;
+	}
+
+	const q = f.query.trim().toLowerCase();
+	return entries.filter((e) => {
+		if (e.modifiedMs < cutoff) return false;
+		if (f.source !== "all" && e.sourceSession.source !== f.source) return false;
+		if (f.status === "unanalyzed" && e.everAnalyzed) return false;
+		if (f.status === "pending") {
+			if (!e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
+		}
+		if (f.status === "decided") {
+			if (!e.everAnalyzed) return false;
+			if (e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
+		}
+		if (f.status === "fresh" && !(e.modifiedSinceAnalysis || !e.everAnalyzed))
+			return false;
+		if (f.status === "digested" && !e.digest) return false;
+		if (f.status === "undigested" && e.digest) return false;
+		if (q) {
+			const hay = [
+				e.exploration.name,
+				e.sourceSession.id,
+				e.digest?.overallSummary ?? "",
+				...(e.digest?.analysis.tags ?? []),
+				...(e.digest?.analysis.topics ?? []),
+			]
+				.join(" ")
+				.toLowerCase();
+			if (!hay.includes(q)) return false;
+		}
+		return true;
+	});
+}

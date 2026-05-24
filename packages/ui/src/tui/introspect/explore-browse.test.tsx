@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { ExplorationBrowserEntry } from "@umwelten/sessions/introspection/browse.js";
+import type { ExplorationBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
 import type { SourceSession } from "@umwelten/core/interaction/types/domain-types.js";
 import { createDefaultExploration } from "@umwelten/core/interaction/types/domain-types.js";
 

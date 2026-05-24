@@ -2,7 +2,7 @@
  * Pure helpers for the dashboard TUI — no React, no Ink, no I/O.
  */
 
-import type { ExplorationBrowserEntry } from "@umwelten/sessions/introspection/browse.js";
+import type { ExplorationBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
 import type { DashboardStatus } from "./types.js";
 
 /** Compact relative time, e.g. "now" / "5m" / "3h" / "2d" / "4mo". */

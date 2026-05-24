@@ -78,23 +78,11 @@ export interface SessionBrowserEntry {
 	messageCount: number;
 	gitBranch?: string;
 
-	/** Every run that included this session, newest first. */
-	analyzedIn: Array<{
-		runId: string;
-		runCreatedAt: string;
-		tally: {
-			total: number;
-			accepted: number;
-			skipped: number;
-			pending: number;
-		};
-		/** Subset of proposals whose evidence matched this session. Heuristic, not ground truth. */
-		attributedProposals: Array<{
-			kind: DecisionKind;
-			head: string;
-			verdict?: "accepted" | "skipped";
-		}>;
-	}>;
+	/** Every run that included this session, newest first.
+	 * Same shape as ExplorationAnalysisRun (kind is `string`, not the strict
+	 * DecisionKind union, so downstream renderers don't need to know the
+	 * sessions package enum). */
+	analyzedIn: ExplorationAnalysisRun[];
 
 	/** True if session mtime > most-recent-run.createdAt (something new since last analysis). */
 	modifiedSinceAnalysis: boolean;
@@ -153,27 +141,18 @@ export interface BuildBrowseOptions {
 // ── Exploration-oriented browser (v2) ───────────────────────────────────
 
 /**
- * Browser entry wrapping an Exploration with browser-specific metadata.
- *
- * Replaces SessionBrowserEntry as the primary browser data type.
- * Each entry wraps one Exploration (which wraps one Source Session).
+ * Re-exported from @umwelten/core so the type lives next to the rest of
+ * the Exploration domain model and TUI consumers (in @umwelten/ui) don't
+ * have to depend on the sessions package.
  */
-export interface ExplorationBrowserEntry {
-	/** The Exploration (domain grouping). */
-	exploration: Exploration;
-	/** The underlying Source Session metadata. */
-	sourceSession: SourceSession;
-	/** Modified timestamp in ms (for sorting). */
-	modifiedMs: number;
-	/** Full path to the session file for transcript/beats views. */
-	filePath?: string;
-	/** Digest data if available. */
-	digest?: SessionDigest | null;
-	/** Analysis runs that included this session. */
-	analyzedIn: SessionBrowserEntry["analyzedIn"];
-	modifiedSinceAnalysis: boolean;
-	everAnalyzed: boolean;
-}
+import type {
+	ExplorationBrowserEntry,
+	ExplorationAnalysisRun,
+} from "@umwelten/core/interaction/types/domain-types.js";
+export type {
+	ExplorationBrowserEntry,
+	ExplorationAnalysisRun,
+} from "@umwelten/core/interaction/types/domain-types.js";
 
 /**
  * Build an Exploration-oriented browser for a project.
@@ -265,7 +244,7 @@ export async function buildExploreBrowse(opts: BuildBrowseOptions): Promise<{
 			// Match analysis runs by source session ID
 			const sessionIdForMatch = member.sourceSessionId;
 			const sessionFirstPromptLower = exploration.name.toLowerCase();
-			const analyzedIn: SessionBrowserEntry["analyzedIn"] = [];
+			const analyzedIn: ExplorationAnalysisRun[] = [];
 			for (const run of runs) {
 				if (!matchSessionInRun(run, sessionIdForMatch)) continue;
 				const attributedRaw = attributeProposalToSession(
@@ -387,80 +366,12 @@ export function searchToVirtualExploration(
 	return { exploration, query, matches, totalSearched: entries.length };
 }
 
-// ---- Filtering ----
+// ---- Filtering (re-exports from core) ----
 
-export type DateWindow = "24h" | "7d" | "30d" | "all";
-export type StatusFilter =
-	| "all"
-	| "unanalyzed"
-	| "pending"
-	| "decided"
-	| "fresh"
-	| "digested"
-	| "undigested";
-export type SourceFilter = "all" | SessionSourceKind;
-
-export interface FilterState {
-	date: DateWindow;
-	status: StatusFilter;
-	source: SourceFilter;
-	query: string;
-}
-
-// ---- Exploration-oriented filter ----
-
-/**
- * Filter Exploration browser entries by date, source, status, and text query.
- */
-export function applyExploreFilter(
-	entries: ExplorationBrowserEntry[],
-	f: FilterState,
-): ExplorationBrowserEntry[] {
-	let cutoff = 0;
-	const now = Date.now();
-	switch (f.date) {
-		case "24h":
-			cutoff = now - 24 * 60 * 60 * 1000;
-			break;
-		case "7d":
-			cutoff = now - 7 * 24 * 60 * 60 * 1000;
-			break;
-		case "30d":
-			cutoff = now - 30 * 24 * 60 * 60 * 1000;
-			break;
-		case "all":
-			cutoff = 0;
-			break;
-	}
-
-	const q = f.query.trim().toLowerCase();
-	return entries.filter((e) => {
-		if (e.modifiedMs < cutoff) return false;
-		if (f.source !== "all" && e.sourceSession.source !== f.source) return false;
-		if (f.status === "unanalyzed" && e.everAnalyzed) return false;
-		if (f.status === "pending") {
-			if (!e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
-		}
-		if (f.status === "decided") {
-			if (!e.everAnalyzed) return false;
-			if (e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
-		}
-		if (f.status === "fresh" && !(e.modifiedSinceAnalysis || !e.everAnalyzed))
-			return false;
-		if (f.status === "digested" && !e.digest) return false;
-		if (f.status === "undigested" && e.digest) return false;
-		if (q) {
-			const hay = [
-				e.exploration.name,
-				e.sourceSession.id,
-				e.digest?.overallSummary ?? "",
-				...(e.digest?.analysis.tags ?? []),
-				...(e.digest?.analysis.topics ?? []),
-			]
-				.join(" ")
-				.toLowerCase();
-			if (!hay.includes(q)) return false;
-		}
-		return true;
-	});
-}
+export type {
+	DateWindow,
+	StatusFilter,
+	SourceFilter,
+	FilterState,
+} from "@umwelten/core/interaction/types/domain-types.js";
+export { applyExploreFilter } from "@umwelten/core/interaction/types/domain-types.js";
