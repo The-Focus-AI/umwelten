@@ -126,15 +126,20 @@ export const ModelResponseSchema = z.object({
       }),
     )
     .optional(),
-});
-
-export type ModelResponse = z.infer<typeof ModelResponseSchema> & {
   /**
    * Full message transcript (system + user + assistant + any tool turns)
    * captured at end of generation. Snapshot of `interaction.getMessages()`
    * — sufficient to replay the conversation without re-running the model.
    * Cached to disk so 2-pass / multi-turn evals can pick up the thread.
+   *
+   * Typed as `z.unknown()` here because `CoreMessage` is a TS-only type
+   * (not a Zod schema); the exported `ModelResponse` type narrows the
+   * field to `CoreMessage[]` for callers.
    */
+  messages: z.array(z.unknown()).optional(),
+});
+
+export type ModelResponse = Omit<z.infer<typeof ModelResponseSchema>, "messages"> & {
   messages?: CoreMessage[];
 };
 
