@@ -213,6 +213,39 @@ describe("extractStreamUsage", () => {
 		});
 	});
 
+	describe("normalizeTokenUsage refuses shaped-but-undefined", () => {
+		// The MiniMax + GitHub Models streamText case: response.usage is an
+		// object with the right keys, but every value is undefined. Must
+		// return null so makeResult emits the "usage not available" warning
+		// rather than silently writing {promptTokens: 0, completionTokens: 0}
+		// to disk and contaminating benchmark cost data.
+		it("returns null when every numeric field is undefined", () => {
+			const usage = {
+				inputTokens: undefined,
+				outputTokens: undefined,
+				totalTokens: undefined,
+				reasoningTokens: undefined,
+				cachedInputTokens: undefined,
+			};
+			expect(normalizeTokenUsage(usage)).toBeNull();
+		});
+
+		it("still defaults to 0 when at least one field has real data", () => {
+			// Mixed shape: total is real, prompt/completion both undefined.
+			// The MiniMax fallback should kick in and derive promptTokens=0,
+			// completionTokens=total. This documents the "we have *some*
+			// data, lean on the fallback" path that pre-dated the fix.
+			const usage = {
+				totalTokens: 42,
+				inputTokens: undefined,
+				outputTokens: undefined,
+			};
+			const normalized = normalizeTokenUsage(usage);
+			expect(normalized).not.toBeNull();
+			expect(normalized!.total).toBe(42);
+		});
+	});
+
 	describe("normalizeTokenUsage downstream", () => {
 		it("happily accepts what extractStreamUsage returns for Google", async () => {
 			// End-to-end: the extracted shape feeds straight into the cost

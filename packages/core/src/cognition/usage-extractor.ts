@@ -215,6 +215,20 @@ export function normalizeTokenUsage(
 
   const reasoning = toNum(usage.reasoningTokens) ?? toNum(usage.reasoning_tokens);
 
+  // Detect "shaped but empty" — the keys exist on the object but every
+  // value is undefined. This is the streamText-on-MiniMax / streamText-
+  // on-GitHub-Models shape the AI SDK currently returns, and it must
+  // not be silently converted to {promptTokens: 0, completionTokens: 0}
+  // because that contaminates benchmark cost data.
+  if (
+    promptTokens === undefined &&
+    completionTokens === undefined &&
+    total === undefined &&
+    reasoning === undefined
+  ) {
+    return null;
+  }
+
   // MiniMax and some providers return totalTokens/reasoningTokens but omit or zero inputTokens/outputTokens
   if (promptTokens === undefined || completionTokens === undefined) {
     if (typeof total === "number" && total >= 0) {
