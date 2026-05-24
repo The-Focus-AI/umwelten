@@ -53,6 +53,7 @@ export class LMStudioProvider extends BaseProvider {
     const lmstudio = createOpenAICompatible({
       name: "lmstudio",
       baseURL: baseUrl,
+      includeUsage: true,
     });
     return lmstudio(route.name);
   }

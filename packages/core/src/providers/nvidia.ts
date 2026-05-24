@@ -67,6 +67,7 @@ export class NvidiaProvider extends BaseProvider {
     const provider = createOpenAICompatible({
       name: "nvidia",
       baseURL: DEFAULT_BASE_URL,
+      includeUsage: true,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },

@@ -72,6 +72,7 @@ export class DeepInfraProvider extends BaseProvider {
     const provider = createOpenAICompatible({
       name: "deepinfra",
       baseURL: DEFAULT_BASE_URL,
+      includeUsage: true,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },

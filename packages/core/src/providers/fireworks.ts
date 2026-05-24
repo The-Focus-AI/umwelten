@@ -66,6 +66,7 @@ export class FireworksProvider extends BaseProvider {
     const provider = createOpenAICompatible({
       name: "fireworks",
       baseURL: DEFAULT_BASE_URL,
+      includeUsage: true,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },

@@ -92,6 +92,7 @@ export class LlamaSwapProvider extends BaseProvider {
     const llamaswap = createOpenAICompatible({
       name: "llamaswap",
       baseURL: baseUrl,
+      includeUsage: true,
       ...(this.extraBody ? { fetch: fetchWithExtraBody(this.extraBody) } : {}),
     });
     return llamaswap(route.name);

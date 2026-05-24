@@ -74,6 +74,7 @@ export class TogetherAIProvider extends BaseProvider {
     const provider = createOpenAICompatible({
       name: "togetherai",
       baseURL: DEFAULT_BASE_URL,
+      includeUsage: true,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },

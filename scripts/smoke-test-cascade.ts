@@ -51,8 +51,12 @@ const TARGETS: Target[] = [
 ];
 
 // Known-empty: providers whose streamText path returns shaped-but-
-// undefined usage. We expect the warning, we don't fail the run.
-const STREAM_NO_USAGE_EXPECTED = new Set<string>(["minimax", "github-models"]);
+// undefined usage. Empty now — minimax and github-models were fixed
+// by passing `includeUsage: true` to createOpenAICompatible in their
+// provider modules. Keep this set as the escape hatch: if a future
+// AI-SDK upgrade or new provider regresses, add the provider name
+// here so the smoke test stays honest about the partial coverage.
+const STREAM_NO_USAGE_EXPECTED = new Set<string>();
 
 const SKIP = new Set(
 	(process.env.CASCADE_SKIP ?? "")

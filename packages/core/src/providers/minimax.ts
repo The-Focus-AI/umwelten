@@ -289,6 +289,12 @@ export class MiniMaxProvider extends BaseProvider {
     const provider = createOpenAICompatible({
       name: "minimax",
       baseURL: baseUrl,
+      // Required for streamText to populate response.usage. Without
+      // this flag the SDK omits OpenAI's stream_options.include_usage,
+      // which means MiniMax doesn't send the final usage SSE chunk and
+      // we end up with all-undefined token counts. See
+      // scripts/smoke-test-cascade.ts and the Wave-D-hardening commit.
+      includeUsage: true,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
       },

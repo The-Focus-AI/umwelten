@@ -92,6 +92,7 @@ export class LlamaBarnProvider extends BaseProvider {
     const llamabarn = createOpenAICompatible({
       name: "llamabarn",
       baseURL: baseUrl,
+      includeUsage: true,
       ...(this.extraBody ? { fetch: fetchWithExtraBody(this.extraBody) } : {}),
     });
     return llamabarn(route.name);
