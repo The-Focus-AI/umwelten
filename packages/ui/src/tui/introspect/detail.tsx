@@ -15,8 +15,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, render, useApp, useInput, useStdout } from "ink";
-import type { SessionBrowserEntry } from "@umwelten/sessions/introspection/browse.js";
-import { loadDigest } from "@umwelten/sessions/introspection/browse.js";
+import type { SessionBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
+import { loadDigest } from "@umwelten/core/interaction/analysis/digest-persistence.js";
 import type { SessionDigest } from "@umwelten/core/interaction/analysis/analysis-types.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 

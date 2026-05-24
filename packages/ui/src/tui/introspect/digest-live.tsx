@@ -14,10 +14,10 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { resolve } from "node:path";
-import type { SessionBrowserEntry } from "@umwelten/sessions/introspection/browse.js";
+import type { SessionBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import type { DigestProgress } from "@umwelten/core/interaction/analysis/session-digester.js";
-import { saveDigest } from "@umwelten/sessions/introspection/browse.js";
+import { saveDigest } from "@umwelten/core/interaction/analysis/digest-persistence.js";
 
 export interface RunDigestLiveTuiOptions {
 	projectPath: string;

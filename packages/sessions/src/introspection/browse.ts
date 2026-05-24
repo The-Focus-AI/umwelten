@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -18,80 +17,22 @@ import { createVirtualExploration } from "@umwelten/core/interaction/types/domai
 import type {
 	Exploration,
 	SourceSession,
+	SessionBrowserEntry,
 } from "@umwelten/core/interaction/types/domain-types.js";
 import type { SessionDigest } from "@umwelten/core/interaction/analysis/analysis-types.js";
+import { loadDigest } from "@umwelten/core/interaction/analysis/digest-persistence.js";
 
 export type SessionSourceKind = "claude-code" | "habitat" | "pi";
 
-function digestFilename(sessionId: string): string {
-	return `${encodeURIComponent(sessionId)}.json`;
-}
+// ── Digest persistence (re-exported from core) ──────────────────────────
+export {
+	getDigestPath,
+	loadDigest,
+	saveDigest,
+} from "@umwelten/core/interaction/analysis/digest-persistence.js";
 
-/** Path convention: digests are written to <project>/.umwelten/digests/sessions/<encoded-id>.json */
-export function getDigestPath(projectPath: string, sessionId: string): string {
-	return join(
-		projectPath,
-		".umwelten",
-		"digests",
-		"sessions",
-		digestFilename(sessionId),
-	);
-}
-
-export async function loadDigest(
-	projectPath: string,
-	sessionId: string,
-): Promise<SessionDigest | null> {
-	try {
-		const text = await readFile(getDigestPath(projectPath, sessionId), "utf-8");
-		return JSON.parse(text) as SessionDigest;
-	} catch {
-		return null;
-	}
-}
-
-export async function saveDigest(
-	projectPath: string,
-	digest: SessionDigest,
-): Promise<string> {
-	const { mkdir, writeFile } = await import("node:fs/promises");
-	const { dirname } = await import("node:path");
-	const path = getDigestPath(projectPath, digest.sessionId);
-	await mkdir(dirname(path), { recursive: true });
-	await writeFile(path, JSON.stringify(digest, null, 2), "utf-8");
-	return path;
-}
-
-/**
- * One row in the browser: a session plus every time it has been analyzed.
- */
-export interface SessionBrowserEntry {
-	id: string;
-	source: SessionSourceKind;
-	/** Full path to the .jsonl file (for passing to analyze / sessions tui). */
-	filePath: string;
-	/** File mtime — "last activity" on the session. */
-	modifiedISO: string;
-	modifiedMs: number;
-	/** First user prompt, truncated. Useful as a title. */
-	firstPrompt: string;
-	messageCount: number;
-	gitBranch?: string;
-
-	/** Every run that included this session, newest first.
-	 * Same shape as ExplorationAnalysisRun (kind is `string`, not the strict
-	 * DecisionKind union, so downstream renderers don't need to know the
-	 * sessions package enum). */
-	analyzedIn: ExplorationAnalysisRun[];
-
-	/** True if session mtime > most-recent-run.createdAt (something new since last analysis). */
-	modifiedSinceAnalysis: boolean;
-	/** Cached for quick filtering. */
-	everAnalyzed: boolean;
-
-	/** Digest output (topics, tags, summary, key learnings, segments, facts) if the session has been digested. */
-	digest?: SessionDigest | null;
-}
+// ── Session browser entry (re-exported from core) ───────────────────────
+export type { SessionBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
 
 function matchSessionInRun(run: IntrospectionRun, sessionId: string): boolean {
 	// run.sessions stores the session id (short ids like '7c917069-...' or 'claude-code:...'-prefixed).

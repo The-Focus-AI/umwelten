@@ -26,6 +26,9 @@ export interface EvaluationConfig {
   maxConcurrency?: number;
   resume?: boolean;
   showProgress?: boolean;
+  /** Optional AbortSignal forwarded into Interaction.streamText so an
+   * in-flight generation is cancelled cleanly when the suite is interrupted. */
+  signal?: AbortSignal;
 }
 
 export interface EvaluationProgress {

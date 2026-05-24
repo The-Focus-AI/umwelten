@@ -322,6 +322,37 @@ export interface FilterState {
 }
 
 /**
+ * Browser entry for a Source Session — the legacy session-first shape that
+ * the detail / beats / digest-live TUIs still consume after the dashboard
+ * synthesizes it from an ExplorationBrowserEntry.
+ *
+ * Newer code should prefer ExplorationBrowserEntry (below). This shape
+ * stays available because the downstream TUIs aren't dashboard-aware.
+ */
+export interface SessionBrowserEntry {
+	id: string;
+	/** Adapter source name (claude-code, pi, cursor, habitat, ...). */
+	source: SourceSessionKind;
+	/** Full path to the .jsonl file (for adapters that have one). */
+	filePath: string;
+	/** Last-modified timestamp, ISO. */
+	modifiedISO: string;
+	modifiedMs: number;
+	/** First user prompt, truncated. Used as title. */
+	firstPrompt: string;
+	messageCount: number;
+	gitBranch?: string;
+	/** Every analysis run that included this session, newest first. */
+	analyzedIn: ExplorationAnalysisRun[];
+	/** True if session mtime > most-recent-run.createdAt. */
+	modifiedSinceAnalysis: boolean;
+	/** Cached for quick filtering. */
+	everAnalyzed: boolean;
+	/** Digest output if the session has been digested. */
+	digest?: import("../analysis/analysis-types.js").SessionDigest | null;
+}
+
+/**
  * Browser entry wrapping an Exploration with browser-specific metadata.
  *
  * Used by the Exploration Browser (DashboardApp in @umwelten/ui) and

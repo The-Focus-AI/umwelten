@@ -14,31 +14,7 @@ import {
 	type CandidateKind,
 } from "../knowledge/candidate-persistence.js";
 import type { SessionIndexEntry } from "../types/types.js";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-
-/**
- * Persist a SessionDigest to <projectPath>/.umwelten/digests/sessions/<encoded-id>.json.
- *
- * Mirrors the loadDigest/saveDigest helpers in @umwelten/sessions; duplicated
- * here so the engine doesn't need to depend on the sessions package.
- */
-async function persistDigest(
-	projectPath: string,
-	digest: SessionDigest,
-): Promise<string> {
-	const filename = `${encodeURIComponent(digest.sessionId)}.json`;
-	const path = join(
-		projectPath,
-		".umwelten",
-		"digests",
-		"sessions",
-		filename,
-	);
-	await mkdir(dirname(path), { recursive: true });
-	await writeFile(path, JSON.stringify(digest, null, 2), "utf-8");
-	return path;
-}
+import { saveDigest } from "./digest-persistence.js";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -238,7 +214,7 @@ export class ExtractionEngine {
 				}
 
 				// Persist the digest. digestSession builds but does not save.
-				await persistDigest(projectPath, digest);
+				await saveDigest(projectPath, digest);
 
 				digested++;
 				onProgress?.({
