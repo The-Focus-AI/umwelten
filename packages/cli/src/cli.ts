@@ -13,7 +13,6 @@ import {
 	browseCommand,
 } from "@umwelten/sessions";
 import { registerSessionsHabitatCommands } from "@umwelten/habitat";
-import { telegramCommand } from "./telegram.js";
 import { habitatCommand } from "./habitat.js";
 import { mcpCommand } from "./mcp.js";
 import { knowledgeCommand } from "./knowledge.js";
@@ -54,7 +53,6 @@ program.addCommand(sessionsCommand);
 // depend on @umwelten/habitat (sessions-habitat lives in the habitat package
 // because it uses Habitat-specific APIs).
 registerSessionsHabitatCommands(sessionsCommand);
-program.addCommand(telegramCommand);
 program.addCommand(habitatCommand);
 program.addCommand(mcpCommand);
 program.addCommand(introspectCommand);
