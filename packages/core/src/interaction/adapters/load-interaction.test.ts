@@ -3,6 +3,7 @@ import {
 	detectSourceFromSessionId,
 	loadInteraction,
 	interactionFromNormalizedSession,
+	summarizeNormalizedSession,
 } from "./load-interaction.js";
 import { AdapterRegistry, adapterRegistry } from "./adapter.js";
 import type { SessionAdapter } from "./adapter.js";
@@ -226,5 +227,101 @@ describe("interactionFromNormalizedSession", () => {
 		const interaction = interactionFromNormalizedSession(session, FAKE_MODEL);
 		expect(interaction.metadata.source).toBe("pi");
 		expect(interaction.metadata.sourceId).toBe("piloc:/proj:s.jsonl");
+	});
+});
+
+// ── summarizeNormalizedSession ───────────────────────────────────────────
+
+describe("summarizeNormalizedSession", () => {
+	it("counts messages by role", () => {
+		const session = makeSession("piloc:/p:s.jsonl", [
+			makeMessage({ role: "user" }),
+			makeMessage({ id: "m2", role: "assistant", content: "answer" }),
+			makeMessage({ id: "m3", role: "tool", content: "tool result" }),
+			makeMessage({ id: "m4", role: "assistant", content: "more" }),
+		]);
+		const m = summarizeNormalizedSession(session);
+		expect(m.messageCount).toBe(4);
+		expect(m.userMessages).toBe(1);
+		expect(m.assistantMessages).toBe(2);
+		expect(m.toolCalls).toBe(1);
+	});
+
+	it("sums per-message tokens across the session", () => {
+		const session = makeSession("piloc:/p:s.jsonl", [
+			makeMessage({ role: "user", tokens: { input: 100 } }),
+			makeMessage({
+				id: "m2",
+				role: "assistant",
+				tokens: { input: 50, output: 200, cacheRead: 30 },
+			}),
+			makeMessage({
+				id: "m3",
+				role: "assistant",
+				tokens: { output: 100, cacheWrite: 10 },
+			}),
+		]);
+		const m = summarizeNormalizedSession(session);
+		expect(m.inputTokens).toBe(150);
+		expect(m.outputTokens).toBe(300);
+		expect(m.cacheReadTokens).toBe(30);
+		expect(m.cacheWriteTokens).toBe(10);
+		expect(m.totalTokens).toBe(490);
+	});
+
+	it("prefers session.metrics.estimatedCost when present", () => {
+		const session = makeSession("piloc:/p:s.jsonl", [
+			makeMessage({ tokens: { input: 1000, output: 500 } }),
+		]);
+		session.metrics = {
+			userMessages: 1,
+			assistantMessages: 0,
+			toolCalls: 0,
+			estimatedCost: 0.42,
+		};
+		// Even with a model that has costs, the pre-computed wins.
+		const modelWithCost = {
+			...FAKE_MODEL,
+			costs: { promptTokens: 1, completionTokens: 1 },
+		} as any;
+		const m = summarizeNormalizedSession(session, modelWithCost);
+		expect(m.estimatedCost).toBe(0.42);
+	});
+
+	it("falls back to calculateCost(model, sum) when session.metrics is missing", () => {
+		const session = makeSession("piloc:/p:s.jsonl", [
+			makeMessage({ tokens: { input: 1_000_000, output: 0 } }),
+		]);
+		// 1M prompt tokens × $1/1M = $1.00 total.
+		const modelWithCost = {
+			...FAKE_MODEL,
+			costs: { promptTokens: 1, completionTokens: 0 },
+		} as any;
+		const m = summarizeNormalizedSession(session, modelWithCost);
+		expect(m.estimatedCost).toBeCloseTo(1.0, 5);
+	});
+
+	it("returns 0 cost when no model is provided and no metrics are pre-computed", () => {
+		const session = makeSession("piloc:/p:s.jsonl", [
+			makeMessage({ tokens: { input: 999, output: 999 } }),
+		]);
+		const m = summarizeNormalizedSession(session);
+		expect(m.estimatedCost).toBe(0);
+		// Tokens are still summed.
+		expect(m.totalTokens).toBe(1998);
+	});
+
+	it("computes duration from first and last message timestamps", () => {
+		const session = makeSession("piloc:/p:s.jsonl", [
+			makeMessage({ timestamp: "2026-05-20T10:00:00.000Z" }),
+			makeMessage({
+				id: "m2",
+				role: "assistant",
+				timestamp: "2026-05-20T10:30:15.000Z",
+			}),
+		]);
+		const m = summarizeNormalizedSession(session);
+		// 30m 15s = 1815s = 1_815_000ms.
+		expect(m.durationMs).toBe(1_815_000);
 	});
 });

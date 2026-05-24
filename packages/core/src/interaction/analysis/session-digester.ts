@@ -25,6 +25,7 @@ import {
 } from "../persistence/session-parser.js";
 import { messagesToBeats } from "./conversation-beats.js";
 import { adapterRegistry } from "../adapters/adapter.js";
+import { summarizeNormalizedSession } from "../adapters/load-interaction.js";
 import type { NormalizedMessage } from "../types/normalized-types.js";
 import { getProjectSessionsIncludingFromDirectory } from "../persistence/session-store.js";
 import { analyzeSessionWithRetry } from "./session-analyzer.js";
@@ -297,6 +298,7 @@ async function loadClaudeCodeBeats(fullPath: string): Promise<LoadedBeats | null
 
 async function loadAdapterBeats(
 	session: SessionIndexEntry,
+	model: ModelDetails,
 ): Promise<LoadedBeats | null> {
 	// SessionIndexEntry.source is SessionSourceForEntry which is a superset
 	// of SessionSource (it has "unknown"). The adapter registry is keyed by
@@ -308,27 +310,23 @@ async function loadAdapterBeats(
 	if (!adapter) {
 		throw new Error(`No adapter registered for source "${session.source}"`);
 	}
-	const normalized = await adapter.getMessages(session.sessionId);
-	if (normalized.length < 2) return null;
-	const beats = messagesToBeats(normalized);
+	// Fetch the full NormalizedSession (not just messages) so we can read
+	// the adapter's pre-computed metrics + run the canonical costs module
+	// on the per-message token totals when needed.
+	const normalized = await adapter.getSession(session.sessionId);
+	if (!normalized) return null;
+	if (normalized.messages.length < 2) return null;
+	const beats = messagesToBeats(normalized.messages);
 	if (beats.length === 0) return null;
 
-	const firstTs = normalized[0]?.timestamp;
-	const lastTs = normalized[normalized.length - 1]?.timestamp;
-	const duration =
-		firstTs && lastTs
-			? new Date(lastTs).getTime() - new Date(firstTs).getTime()
-			: 0;
+	const summary = summarizeNormalizedSession(normalized, model);
 
 	return {
 		rawBeats: beats,
-		summaryTotalMessages: normalized.length,
-		summaryToolCallCount: normalized.filter((m) => m.role === "tool").length,
-		// Adapters carry estimatedCost in SourceSession.metrics, not at the
-		// message-bag level. Surface 0 here and let the SourceSession-level
-		// metrics drive cost reporting.
-		summaryEstimatedCost: 0,
-		summaryDuration: duration,
+		summaryTotalMessages: summary.messageCount,
+		summaryToolCallCount: summary.toolCalls,
+		summaryEstimatedCost: summary.estimatedCost,
+		summaryDuration: summary.durationMs,
 	};
 }
 
@@ -354,7 +352,7 @@ export async function digestSession(
 
 		const loaded = isClaudeCode
 			? await loadClaudeCodeBeats(session.fullPath!)
-			: await loadAdapterBeats(session);
+			: await loadAdapterBeats(session, model);
 
 		if (!loaded) return null;
 		const {

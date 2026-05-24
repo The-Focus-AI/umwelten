@@ -15,6 +15,7 @@
 import type { CoreMessage } from "ai";
 import type { ModelDetails } from "../../cognition/types.js";
 import type { Stimulus } from "../../stimulus/stimulus.js";
+import { calculateCost, type TokenUsage } from "../../costs/costs.js";
 import { Interaction } from "../core/interaction.js";
 import type {
 	NormalizedMessage,
@@ -140,3 +141,93 @@ export function interactionFromNormalizedSession(
 // Re-export for callers that want to drop straight into Interaction.messages
 // without going through fromNormalizedSession (rare).
 export { toCleanCoreMessages };
+
+/**
+ * Per-session metrics derived from a NormalizedSession.
+ *
+ * Two layers of precedence:
+ *   1. session.metrics — what the adapter pre-computed (pi/cursor today).
+ *   2. fallback: sum per-message NormalizedMessage.tokens and run through
+ *      the canonical costs/calculateCost() module when `modelDetails` is
+ *      provided.
+ *
+ * This is the one path consumers should use; it removes hand-rolled
+ * input_tokens + output_tokens + cache sums (claude-only) scattered
+ * across habitat tools and web routes.
+ */
+export interface NormalizedSessionMetrics {
+	messageCount: number;
+	userMessages: number;
+	assistantMessages: number;
+	toolCalls: number;
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	totalTokens: number;
+	estimatedCost: number;
+	durationMs: number;
+}
+
+export function summarizeNormalizedSession(
+	session: NormalizedSession,
+	modelDetails?: ModelDetails,
+): NormalizedSessionMetrics {
+	const messages = session.messages;
+	let userMessages = 0;
+	let assistantMessages = 0;
+	let toolCalls = 0;
+	let inputTokens = 0;
+	let outputTokens = 0;
+	let cacheReadTokens = 0;
+	let cacheWriteTokens = 0;
+
+	for (const m of messages) {
+		if (m.role === "user") userMessages++;
+		else if (m.role === "assistant") assistantMessages++;
+		else if (m.role === "tool") toolCalls++;
+		if (m.tokens) {
+			inputTokens += m.tokens.input ?? 0;
+			outputTokens += m.tokens.output ?? 0;
+			cacheReadTokens += m.tokens.cacheRead ?? 0;
+			cacheWriteTokens += m.tokens.cacheWrite ?? 0;
+		}
+	}
+
+	const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
+
+	// Prefer the adapter's pre-computed cost when available; otherwise run
+	// the canonical costs module on summed per-message tokens.
+	let estimatedCost = session.metrics?.estimatedCost ?? 0;
+	if (!estimatedCost && modelDetails && (inputTokens > 0 || outputTokens > 0)) {
+		const usage: TokenUsage = {
+			promptTokens: inputTokens,
+			completionTokens: outputTokens,
+			total: inputTokens + outputTokens,
+		};
+		const breakdown = calculateCost(modelDetails, usage);
+		estimatedCost = breakdown?.totalCost ?? 0;
+	}
+
+	// Duration from message timestamps (when present).
+	const firstTs = messages[0]?.timestamp;
+	const lastTs = messages[messages.length - 1]?.timestamp;
+	const durationMs =
+		firstTs && lastTs
+			? new Date(lastTs).getTime() - new Date(firstTs).getTime()
+			: 0;
+
+	return {
+		messageCount: messages.length,
+		userMessages,
+		assistantMessages,
+		toolCalls,
+		inputTokens,
+		outputTokens,
+		cacheReadTokens,
+		cacheWriteTokens,
+		totalTokens,
+		estimatedCost,
+		durationMs,
+	};
+}
