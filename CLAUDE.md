@@ -245,33 +245,50 @@ dotenvx run -- pnpm run cli habitat gaia --data-dir ./my-gaia-data -p google -m 
 
 **Storage**: Named Docker volumes (`gaia-<id>-data`), not bind mounts. Volumes are seeded with `config.json` and `secrets.json` via one-shot Alpine containers. Registry and master secrets live in the data dir on the host.
 
-### `src/evaluation/` — Model Evaluation Framework
+### `@umwelten/evaluation` — Model Evaluation Framework
 
-Systematic model assessment and comparison.
+Systematic model assessment and comparison. **There is no `umwelten eval` CLI command** — evaluations are driven by scripts in `examples/`. The canonical primitive is `EvalSuite`; for end-to-end multi-suite runs, compose via `llm-eval/runFullEval`.
 
-**High-level (recommended):**
+**High-level (the canonical entry):**
 
-- `suite.ts` — **`EvalSuite`**: declarative eval runner. Define tasks + stimulus + models → get scored results + leaderboard. Two task types: `VerifyTask` (deterministic `verify()`) and `JudgeTask` (LLM judge with Zod schema). Handles CLI flags (`--all`, `--new`, `--run N`), caching, concurrency, and console output.
+- `suite.ts` — **`EvalSuite`**: declarative eval runner. Define tasks + stimulus + models → get scored results + leaderboard. Two task types: `VerifyTask` (deterministic `verify()`) and `JudgeTask` (LLM judge with Zod schema). Handles caching, concurrency, AbortSignal propagation, and console output. Run with the same `--all` / `--new` / `--run N` / `--only` flags the example scripts already accept.
 
-**Strategies (building blocks used by EvalSuite):**
+**llm-eval — framework layer composing EvalSuites:**
 
-- `strategies/` — `SimpleEvaluation`, `MatrixEvaluation`, `BatchEvaluation`
-- `api.ts` — `runEvaluation(config)`, `parseModel("provider:model")` (used by CLI `eval run`)
+- `llm-eval/index.ts` — `runFullEval(model, opts)` runs three sub-suites against one model: language (instruction + reasoning), coding (write-from-spec + bugfix), tool-calling (multi-step tool-math). Propagates `AbortSignal` down to the AI SDK call so a watchdog can cancel cleanly.
+- `llm-eval/language.ts`, `llm-eval/coding.ts`, `llm-eval/tool-calling.ts` — the three sub-suite builders.
+- `llm-eval/data/` — fixtures: `coding-challenges.ts`, `instruction-tasks.ts`, `reasoning-puzzles.ts`.
+
+**Strategies:**
+
+- `strategies/simple-evaluation.ts` — `SimpleEvaluation` is the only live strategy. Backs `EvalSuite`.
 
 **Ranking (post-processing):**
 
 - `ranking/pairwise-ranker.ts` — `PairwiseRanker`: head-to-head LLM judge comparisons → Elo ratings. Swiss tournament or round-robin. Cached per-comparison.
 - `ranking/elo.ts` — `expectedScore()`, `updateElo()`, `buildStandings()`
 - `ranking/pairing.ts` — `allPairs()`, `swissPairs()`
-- `ranking/types.ts` — `RankingEntry`, `PairwiseResult`, `RankedModel`, `RankingOutput`, `PairwiseRankerConfig`
+- `ranking/types.ts` — `RankingEntry`, `PairwiseResult`, `RankedModel`, `RankingOutput`, `PairwiseRankerConfig`, `evaluationResultsToRankingEntries`
 
 **Infrastructure:**
 
-- `base.ts` — Abstract `Evaluation` — directory and cache management
-- `runner.ts` — Abstract `EvaluationRunner extends Evaluation` — adds model response caching
-- `caching/` — Cache model responses, scores, file metadata
-- `dagger/` — Container-based code execution for evaluations
-- `combine/` — Multi-evaluation aggregation and combined reporting (see below)
+- `caching/cache-service.ts` — `EvaluationCache`: per-model response cache used by `SimpleEvaluation` and `EvalSuite`.
+- `dagger/` + `dagger-runner.ts` — Container-based code execution for coding evals (consumed by model-showdown).
+- `combine/` — Multi-evaluation aggregation and combined reporting (see below).
+- `replay.ts` — Transcript replay used by 2-pass coding eval.
+- `reporting/` — `Reporter` class + `Report` types + console/markdown renderers (was wrongly listed under core in earlier CLAUDE.md).
+
+**Driving an evaluation — script pattern:**
+
+```typescript
+import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
+import '@umwelten/core/env/load.js';
+
+const suite = new EvalSuite({ name: 'my-eval', stimulus: {...}, tasks: [...], models: [...] });
+await suite.run();
+```
+
+See `examples/evals/` and `examples/local-providers/` (especially `run-matrix.ts`) for live patterns. `examples/local-providers/` wraps `runFullEval` with eviction + watchdog + preflight for local-model benchmarks.
 
 #### `src/evaluation/combine/` — Suite Aggregation
 
@@ -435,22 +452,16 @@ dotenvx run -- pnpm run cli models --search gpt-5
 dotenvx run -- pnpm run cli models --provider openrouter --json
 dotenvx run -- pnpm run cli models --provider ollama
 
-# Run evaluations
-dotenvx run -- pnpm run cli eval run \
-  --prompt "Your prompt" \
-  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
-  --id "my-eval" --concurrent
+# Run an evaluation — there is no CLI command; drive EvalSuite from a script.
+# Examples:
+dotenvx run -- pnpm tsx examples/evals/instruction.ts          # quick (3 models)
+dotenvx run -- pnpm tsx examples/evals/instruction.ts --all    # full
+dotenvx run -- pnpm tsx examples/evals/reasoning.ts --all --new
+dotenvx run -- pnpm tsx examples/local-providers/run-matrix.ts # local-model harness
+dotenvx run -- pnpm tsx examples/local-providers/run-one.ts ollama:gemma4:26b
 
-# Generate reports from evaluations
-dotenvx run -- pnpm run cli eval report --id my-eval --format markdown
-
-# Combine multiple evaluations into a unified report
-dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
-dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts --format narrative --output report.md
-dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts --format md --focus nemotron
-
-# List existing evaluations
-dotenvx run -- pnpm run cli eval list --details
+# Combine multiple eval runs into a unified report — also script-driven
+# (see examples/model-showdown/suite-config.ts for the EvalDimension[] pattern).
 
 # Run a one-shot prompt
 dotenvx run -- pnpm run cli run --provider google --model gemini-3-flash-preview --prompt "Hello"
