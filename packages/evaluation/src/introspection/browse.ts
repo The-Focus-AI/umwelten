@@ -4,8 +4,6 @@
  * via this re-export.
  */
 export {
-	buildBrowse,
-	applyFilter,
 	buildExploreBrowse,
 	applyExploreFilter,
 	loadDigest,

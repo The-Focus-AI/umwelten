@@ -15,8 +15,6 @@ export {
 
 // Session-browser data layer (consumed by TUI components)
 export {
-	buildBrowse,
-	applyFilter,
 	buildExploreBrowse,
 	applyExploreFilter,
 	searchToVirtualExploration,

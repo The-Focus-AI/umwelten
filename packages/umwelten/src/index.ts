@@ -305,8 +305,6 @@ export {
 	buildSuiteReport,
 	buildNarrativeReport,
 	Reporter,
-	buildBrowse,
-	applyFilter,
 	buildExploreBrowse,
 	applyExploreFilter,
 	loadDigest,

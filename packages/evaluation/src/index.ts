@@ -70,8 +70,6 @@ export type { Report, ReportSection, ReportType } from "./reporting/types.js";
 
 // ── Introspection (session browser) ─────────────────────────────────────
 export {
-	buildBrowse,
-	applyFilter,
 	buildExploreBrowse,
 	applyExploreFilter,
 	loadDigest,

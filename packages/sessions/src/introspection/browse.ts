@@ -1,4 +1,4 @@
-import { stat, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,10 +13,6 @@ import type {
 	DecisionLogEntry,
 	DecisionKind,
 } from "./types.js";
-import {
-	discoverSessionFilesInProject,
-	buildSessionEntryFromFile,
-} from "@umwelten/core/interaction/persistence/session-store.js";
 import { projectSessions } from "@umwelten/core/interaction/projection/index.js";
 import { createVirtualExploration } from "@umwelten/core/interaction/types/domain-types.js";
 import type {
@@ -152,137 +148,6 @@ export interface BuildBrowseOptions {
 	projectPath: string;
 	/** Optional habitat sessions root. When set, every <dir>/<id>/transcript.jsonl is pulled in. */
 	sessionsDir?: string;
-}
-
-export async function buildBrowse(
-	opts: BuildBrowseOptions,
-): Promise<{ entries: SessionBrowserEntry[]; runs: IntrospectionRun[] }> {
-	const { projectPath, sessionsDir } = opts;
-
-	// ---- 1. Collect all claude-code session files ----
-	const ccFiles = await discoverSessionFilesInProject(projectPath);
-	const ccEntries: Array<
-		Omit<
-			SessionBrowserEntry,
-			"analyzedIn" | "modifiedSinceAnalysis" | "everAnalyzed"
-		>
-	> = [];
-	for (const filePath of ccFiles) {
-		const entry = await buildSessionEntryFromFile(filePath, projectPath);
-		if (!entry) continue;
-		let modifiedMs = 0;
-		try {
-			const st = await stat(filePath);
-			modifiedMs = st.mtimeMs;
-		} catch {
-			continue;
-		}
-		ccEntries.push({
-			id: entry.sessionId,
-			source: "claude-code",
-			filePath,
-			modifiedISO: new Date(modifiedMs).toISOString(),
-			modifiedMs,
-			firstPrompt: entry.firstPrompt || "(no prompt)",
-			messageCount: entry.messageCount,
-			gitBranch: entry.gitBranch,
-		});
-	}
-
-	// ---- 2. Collect habitat sessions if dir given ----
-	const habitatEntries: typeof ccEntries = [];
-	if (sessionsDir) {
-		const { readdir } = await import("node:fs/promises");
-		let names: string[] = [];
-		try {
-			names = await readdir(sessionsDir);
-		} catch {
-			// no habitat sessions
-		}
-		for (const name of names) {
-			const filePath = join(sessionsDir, name, "transcript.jsonl");
-			let modifiedMs = 0;
-			try {
-				const st = await stat(filePath);
-				modifiedMs = st.mtimeMs;
-			} catch {
-				continue;
-			}
-			// Minimal firstPrompt extraction — streamed parse of first user message
-			const { parseSessionFileMetadata } = await import(
-				"@umwelten/core/interaction/persistence/session-parser.js"
-			);
-			const meta = await parseSessionFileMetadata(filePath, modifiedMs);
-			if (!meta) continue;
-			habitatEntries.push({
-				id: name,
-				source: "habitat",
-				filePath,
-				modifiedISO: new Date(modifiedMs).toISOString(),
-				modifiedMs,
-				firstPrompt: meta.firstPrompt || "(no prompt)",
-				messageCount: meta.messageCount,
-				gitBranch: meta.gitBranch,
-			});
-		}
-	}
-
-	// ---- 3. Load all runs + decisions once for reverse-index ----
-	const runIds = await listRuns(projectPath);
-	const runs: IntrospectionRun[] = [];
-	for (const id of runIds) {
-		const run = await loadRun(projectPath, id);
-		if (run) runs.push(run);
-	}
-	const decisions = await readDecisions(projectPath);
-
-	// ---- 4. Stitch: for each session, which runs included it? ----
-	const all = [...ccEntries, ...habitatEntries];
-	const entries: SessionBrowserEntry[] = all.map((s) => {
-		const sessionFirstPromptLower = s.firstPrompt.toLowerCase();
-		const analyzedIn: SessionBrowserEntry["analyzedIn"] = [];
-		for (const run of runs) {
-			if (!matchSessionInRun(run, s.id)) continue;
-			const attributedRaw = attributeProposalToSession(
-				run,
-				sessionFirstPromptLower,
-			);
-			const attributed = attributedRaw.map((a) => ({
-				...a,
-				verdict: verdictForProposal(decisions, a.kind, a.head),
-			}));
-			analyzedIn.push({
-				runId: run.runId,
-				runCreatedAt: run.createdAt,
-				tally: tallyRun(run, decisions),
-				attributedProposals: attributed,
-			});
-		}
-		// Sort newest-first
-		analyzedIn.sort((a, b) => (a.runCreatedAt < b.runCreatedAt ? 1 : -1));
-
-		const lastAnalyzedAt = analyzedIn[0]?.runCreatedAt;
-		const modifiedSinceAnalysis = lastAnalyzedAt
-			? s.modifiedMs > new Date(lastAnalyzedAt).getTime()
-			: false;
-
-		return {
-			...s,
-			analyzedIn,
-			modifiedSinceAnalysis,
-			everAnalyzed: analyzedIn.length > 0,
-		};
-	});
-
-	// ---- 5. Load digests in parallel (cheap filesystem reads; missing is fine) ----
-	await Promise.all(
-		entries.map(async (e) => {
-			e.digest = await loadDigest(projectPath, e.id);
-		}),
-	);
-
-	entries.sort((a, b) => b.modifiedMs - a.modifiedMs);
-	return { entries, runs };
 }
 
 // ── Exploration-oriented browser (v2) ───────────────────────────────────
@@ -540,53 +405,6 @@ export interface FilterState {
 	status: StatusFilter;
 	source: SourceFilter;
 	query: string;
-}
-
-export function applyFilter(
-	entries: SessionBrowserEntry[],
-	f: FilterState,
-): SessionBrowserEntry[] {
-	let cutoff = 0;
-	const now = Date.now();
-	switch (f.date) {
-		case "24h":
-			cutoff = now - 24 * 60 * 60 * 1000;
-			break;
-		case "7d":
-			cutoff = now - 7 * 24 * 60 * 60 * 1000;
-			break;
-		case "30d":
-			cutoff = now - 30 * 24 * 60 * 60 * 1000;
-			break;
-		case "all":
-			cutoff = 0;
-			break;
-	}
-
-	const q = f.query.trim().toLowerCase();
-	return entries.filter((e) => {
-		if (e.modifiedMs < cutoff) return false;
-		if (f.source !== "all" && e.source !== f.source) return false;
-		if (f.status === "unanalyzed" && e.everAnalyzed) return false;
-		if (f.status === "pending") {
-			const anyPending = e.analyzedIn.some((a) => a.tally.pending > 0);
-			if (!anyPending) return false;
-		}
-		if (f.status === "decided") {
-			if (!e.everAnalyzed) return false;
-			if (e.analyzedIn.some((a) => a.tally.pending > 0)) return false;
-		}
-		if (f.status === "fresh" && !(e.modifiedSinceAnalysis || !e.everAnalyzed))
-			return false;
-		if (f.status === "digested" && !e.digest) return false;
-		if (f.status === "undigested" && e.digest) return false;
-		if (q) {
-			const hay =
-				`${e.firstPrompt} ${e.id} ${e.digest?.overallSummary ?? ""} ${(e.digest?.analysis.tags ?? []).join(" ")} ${(e.digest?.analysis.topics ?? []).join(" ")}`.toLowerCase();
-			if (!hay.includes(q)) return false;
-		}
-		return true;
-	});
 }
 
 // ---- Exploration-oriented filter ----
