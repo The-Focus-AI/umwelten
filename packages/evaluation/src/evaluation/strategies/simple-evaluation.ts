@@ -2,13 +2,45 @@ import { ModelDetails, ModelResponse } from '@umwelten/core/cognition/types.js';
 import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
 import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
 import { EvaluationCache } from '../caching/cache-service.js';
-import { 
-  EvaluationStrategy, 
-  EvaluationResult, 
-  EvaluationMetadata,
-  EvaluationConfig,
-  ProgressCallback 
-} from '../types/evaluation-types.js';
+
+export interface EvaluationMetadata {
+  stimulusId: string;
+  evaluationId: string;
+  timestamp: Date;
+  duration: number;
+  cached: boolean;
+  strategy?: string;
+  error?: string;
+}
+
+export interface EvaluationResult {
+  model: ModelDetails;
+  response: ModelResponse;
+  metadata: EvaluationMetadata;
+}
+
+export interface EvaluationConfig {
+  evaluationId?: string;
+  useCache?: boolean;
+  concurrent?: boolean;
+  maxConcurrency?: number;
+  resume?: boolean;
+  showProgress?: boolean;
+}
+
+export interface EvaluationProgress {
+  modelName: string;
+  status: 'starting' | 'completed' | 'error';
+  content?: string;
+  metadata?: ModelResponse['metadata'];
+  error?: string;
+}
+
+export type ProgressCallback = (progress: EvaluationProgress) => void;
+
+export interface EvaluationStrategy {
+  run(): Promise<EvaluationResult[]>;
+}
 
 /**
  * Simple evaluation strategy for basic text generation tasks

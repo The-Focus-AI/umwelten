@@ -2,8 +2,20 @@
  * Types for pairwise Elo ranking of model responses.
  */
 
-import type { EvaluationResult } from '../api.js';
-import type { ModelDetails } from '@umwelten/core/cognition/types.js';
+import type { ModelDetails, ModelResponse } from '@umwelten/core/cognition/types.js';
+
+/**
+ * Minimal shape accepted by `evaluationResultsToRankingEntries`. Loose by
+ * design so callers can adapt any per-model response collection without
+ * adopting a wider evaluation-result type.
+ */
+export interface RankableEvaluationResult {
+  results: Array<{
+    model: ModelDetails;
+    success: boolean;
+    response?: Pick<ModelResponse, 'content'> | null;
+  }>;
+}
 
 /** A single model response to be ranked. */
 export interface RankingEntry {
@@ -74,11 +86,11 @@ export interface PairwiseRankerConfig {
 }
 
 /**
- * Convert EvaluationResult entries into RankingEntry[].
+ * Convert evaluation results into RankingEntry[].
  * Filters out failed results and results without response content.
  */
 export function evaluationResultsToRankingEntries(
-  evalResult: EvaluationResult
+  evalResult: RankableEvaluationResult
 ): RankingEntry[] {
   return evalResult.results
     .filter(r => r.success && r.response?.content)
@@ -86,6 +98,6 @@ export function evaluationResultsToRankingEntries(
       key: `${r.model.provider}__${r.model.name}`.replace(/[/:]/g, '_'),
       model: r.model.name,
       provider: r.model.provider,
-      responseText: r.response!.content,
+      responseText: r.response!.content!,
     }));
 }
