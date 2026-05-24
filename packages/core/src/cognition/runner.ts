@@ -24,7 +24,11 @@ import {
   extractReasoningMiddleware,
 } from "ai";
 import { getModel, validateModel } from "../providers/index.js";
-import { normalizeTokenUsage, calculateCostBreakdown } from "./usage-extractor.js";
+import {
+  normalizeTokenUsage,
+  calculateCostBreakdown,
+  extractStreamUsage,
+} from "./usage-extractor.js";
 import { assembleSteps } from "./step-assembler.js";
 
 import { Interaction } from "../interaction/core/interaction.js";
@@ -386,7 +390,7 @@ export class BaseModelRunner implements ModelRunner {
       }
 
       // Resolve usage (streamText can return usage as a Promise)
-      let usage = await Promise.resolve(response.usage);
+      const initialUsage = await Promise.resolve(response.usage);
 
       // Debug: Log the response structure for debugging
       if (process.env.DEBUG === "1") {
@@ -396,159 +400,17 @@ export class BaseModelRunner implements ModelRunner {
         );
         console.log(
           `[DEBUG] Usage object before extraction:`,
-          JSON.stringify(usage, null, 2),
+          JSON.stringify(initialUsage, null, 2),
         );
       }
-      if (interaction.modelDetails.provider === "ollama") {
-        // For streaming responses, usage is in _totalUsage.status.value
-        const responseAny = response as any;
-        if (
-          responseAny._totalUsage &&
-          responseAny._totalUsage.status &&
-          responseAny._totalUsage.status.value
-        ) {
-          usage = responseAny._totalUsage.status.value;
-        }
-        // For non-streaming responses, usage might be in steps[0].usage
-        else if (response.steps) {
-          const steps = Array.isArray(response.steps)
-            ? response.steps
-            : await response.steps;
-          if (steps && steps[0] && steps[0].usage) {
-            usage = steps[0].usage;
-          }
-        }
-      }
 
-      // For OpenRouter, MiniMax, and Google, usage is in _totalUsage (may be Promise) or steps[0].usage
-      if (
-        interaction.modelDetails.provider === "openrouter" ||
-        interaction.modelDetails.provider === "minimax" ||
-        interaction.modelDetails.provider === "google"
-      ) {
-        const responseAny = response as any;
-        const totalUsage = responseAny._totalUsage;
-        if (totalUsage != null) {
-          const resolvedTotal = await Promise.resolve(totalUsage);
-          if (resolvedTotal?.status?.value != null) {
-            const val = resolvedTotal.status.value;
-            if (typeof val === "object" && val !== null && Object.keys(val).length > 0) {
-              usage = val;
-            }
-          }
-        }
-        if (
-          !usage ||
-          (typeof usage === "object" && JSON.stringify(usage) === "{}")
-        ) {
-          const stepsVal = responseAny._steps;
-          if (stepsVal != null) {
-            const steps = await Promise.resolve(
-              stepsVal?.status?.value ?? stepsVal
-            );
-            const arr = Array.isArray(steps) ? steps : undefined;
-            if (arr?.[0]?.usage != null) {
-              usage = arr[0].usage;
-            }
-          }
-        }
-        // Force getter-backed usage into a plain object (spread invokes getters)
-        if (usage && typeof usage === "object" && Object.keys(usage).length > 0) {
-          try {
-            const spread = { ...usage };
-            if (Object.keys(spread).length > 0 && JSON.stringify(spread) !== "{}") {
-              usage = spread;
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      // For GitHub models, usage might be in different locations
-      if (interaction.modelDetails.provider === "github-models") {
-        const responseAny = response as any;
-        // Check if usage is in the response object directly
-        if (responseAny.usage) {
-          usage = responseAny.usage;
-        }
-        // Check if usage is in a different property
-        else if (responseAny.usage_stats) {
-          usage = responseAny.usage_stats;
-        }
-        // Check if usage is in the response metadata
-        else if (responseAny.metadata && responseAny.metadata.usage) {
-          usage = responseAny.metadata.usage;
-        }
-        // Check if usage is in _totalUsage.status.value
-        else if (
-          responseAny._totalUsage &&
-          responseAny._totalUsage.status &&
-          responseAny._totalUsage.status.value
-        ) {
-          usage = responseAny._totalUsage.status.value;
-        }
-        // Check if usage is in steps[0].usage
-        else if (
-          responseAny._steps &&
-          responseAny._steps.status &&
-          responseAny._steps.status.value
-        ) {
-          const steps = responseAny._steps.status.value;
-          if (Array.isArray(steps) && steps[0] && steps[0].usage) {
-            usage = steps[0].usage;
-          }
-        }
-        // Try to extract from response headers if available
-        else if (
-          responseAny._steps &&
-          responseAny._steps.status &&
-          responseAny._steps.status.value
-        ) {
-          const steps = responseAny._steps.status.value;
-          if (
-            Array.isArray(steps) &&
-            steps[0] &&
-            steps[0].response &&
-            steps[0].response.headers
-          ) {
-            const headers = steps[0].response.headers;
-            // Try to extract token usage from headers
-            const inputTokens =
-              headers["x-usage-input-tokens"] ||
-              headers["x-usage-prompt-tokens"] ||
-              headers["x-ratelimit-used-prompt-tokens"];
-            const outputTokens =
-              headers["x-usage-output-tokens"] ||
-              headers["x-usage-completion-tokens"] ||
-              headers["x-ratelimit-used-completion-tokens"];
-            const totalTokens =
-              headers["x-usage-total-tokens"] ||
-              headers["x-ratelimit-used-total-tokens"];
-
-            if (inputTokens || outputTokens || totalTokens) {
-              usage = {
-                inputTokens: parseInt(inputTokens) || 0,
-                outputTokens: parseInt(outputTokens) || 0,
-                totalTokens:
-                  parseInt(totalTokens) ||
-                  (parseInt(inputTokens) || 0) + (parseInt(outputTokens) || 0),
-              } as any;
-            }
-          }
-        }
-      }
-
-      // If extraction didn't find usage, use resolved response.usage (streaming may only set it here)
-      if (
-        (!usage || typeof usage !== "object" || (usage && Object.keys(usage).length === 0)) &&
-        response.usage != null
-      ) {
-        const resolved = await Promise.resolve(response.usage);
-        if (resolved && typeof resolved === "object" && Object.keys(resolved).length > 0) {
-          usage = resolved;
-        }
-      }
+      // Provider-specific dig into AI-SDK proxy/getter shapes
+      // (see extractStreamUsage docstring).
+      let usage = await extractStreamUsage(
+        response,
+        initialUsage,
+        interaction.modelDetails.provider,
+      );
 
       const debugUsage = process.env.DEBUG_USAGE === "1" || process.env.DEBUG === "1";
       if (debugUsage) {
