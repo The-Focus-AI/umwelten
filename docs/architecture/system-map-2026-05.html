@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Umwelten System Map — May 2026</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --panel: #ffffff;
+    --ink: #1c1917;
+    --muted: #57534e;
+    --faint: #a8a29e;
+    --rule: #e7e5e4;
+    --accent: #b45309;
+    --accent-soft: #fef3c7;
+    --warn: #b91c1c;
+    --warn-soft: #fee2e2;
+    --ok: #15803d;
+    --ok-soft: #dcfce7;
+    --code-bg: #f5f5f4;
+    --code-ink: #292524;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 64px 32px 96px;
+  }
+  header.doc-head {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: 40px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+  }
+  .lede {
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0;
+    max-width: 680px;
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 64px 0 16px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 36px 0 12px;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 28px 0 8px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 12px;
+  }
+  p { margin: 0 0 16px; }
+  ul, ol { margin: 0 0 16px; padding-left: 24px; }
+  li { margin: 6px 0; }
+  strong { font-weight: 600; color: var(--ink); }
+  em { color: var(--muted); font-style: italic; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: 13.5px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 18px 20px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 24px;
+    border: 1px solid var(--rule);
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 48px;
+  }
+  .toc h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: var(--muted);
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 20px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  .toc li {
+    margin: 4px 0;
+    break-inside: avoid;
+  }
+  .toc a { color: var(--ink); }
+  .toc a:hover { color: var(--accent); }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 14px 18px;
+    margin: 24px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+  .callout.ok {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--code-bg);
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag.health-good { background: var(--ok-soft); color: var(--ok); }
+  .tag.health-mixed { background: var(--accent-soft); color: var(--accent); }
+  .tag.health-bad { background: var(--warn-soft); color: var(--warn); }
+
+  .pass {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .pass-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .pass-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .pass-effort {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--faint);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc-head">
+  <div class="eyebrow">Architecture Audit</div>
+  <h1>Umwelten System Map</h1>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems.</p>
+</header>
+
+<nav class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#s0">Second pass &mdash; what the first pass missed</a></li>
+    <li><a href="#s1">The 30,000-foot picture</a></li>
+    <li><a href="#s2">Subsystem-by-subsystem</a></li>
+    <li><a href="#s3">The drift catalog (consolidated)</a></li>
+    <li><a href="#s4">What&rsquo;s actually clean</a></li>
+    <li><a href="#s5">Documentation strategy</a></li>
+    <li><a href="#s6">Recommended cleanup sequence</a></li>
+  </ol>
+</nav>
+
+<h2 id="s0">0. Second pass &mdash; what the first pass missed</h2>
+
+<p>The six parallel subagents mapped subsystems against CLAUDE.md as the reference. On re-examination, the bigger problem is that CLAUDE.md itself is more broken than reported, and there are entire artifacts that didn&rsquo;t come up. Five additions:</p>
+
+<div class="callout warn">
+<p><strong>0.1 &mdash; The package layout in CLAUDE.md is wrong about which packages exist.</strong></p>
+<p>CLAUDE.md lists six packages: <code>@umwelten/core</code>, <code>@umwelten/server</code>, <code>@umwelten/evaluation</code>, <code>@umwelten/habitat</code>, <code>@umwelten/ui</code>, <code>@umwelten/cli</code>. Reality (<code>ls packages/</code>): <code>cli</code>, <code>core</code>, <code>evaluation</code>, <code>habitat</code>, <code>protocols</code>, <code>sessions</code>, <code>ui</code>, <code>umwelten</code>.</p>
+<ul>
+  <li><code>@umwelten/server</code> &mdash; <strong>does not exist</strong>. It was renamed to <code>@umwelten/protocols</code> (commit 8f44b16 "Aggressive package-layout simplification"). CLAUDE.md still references <code>@umwelten/server</code> four times.</li>
+  <li><code>@umwelten/sessions</code> &mdash; <strong>not mentioned in CLAUDE.md at all</strong>. It&rsquo;s a real package with <code>sessionsCommand</code>, <code>browseCommand</code>, <code>introspectCommand</code>, and the introspection data layer. <code>@umwelten/cli</code> depends on it.</li>
+  <li><code>@umwelten/protocols</code> &mdash; <strong>not mentioned at all</strong>, even though it&rsquo;s where MCP / A2A / OAuth all live.</li>
+  <li><code>umwelten</code> (meta-package) &mdash; mentioned in passing; its actual job (re-export everything for backwards compat) isn&rsquo;t described.</li>
+</ul>
+<p>So the documented DAG (<code>core &larr; server &larr; evaluation &larr; habitat &larr; ui &larr; cli</code>) is missing two nodes. The true DAG is closer to: <code>core &larr; protocols &larr; (sessions, evaluation) &larr; habitat &larr; ui &larr; cli</code>, with <code>umwelten</code> as a meta-barrel.</p>
+</div>
+
+<div class="callout warn">
+<p><strong>0.2 &mdash; The Exploration pipeline isn&rsquo;t undocumented &mdash; it&rsquo;s documented in <code>CONTEXT.md</code>, not <code>CLAUDE.md</code>.</strong></p>
+<p>The first pass flagged <code>interaction/{projection,promotion,reflection,knowledge}/</code> as a &ldquo;hidden feature pipeline.&rdquo; In fact, <code>CONTEXT.md</code> at the repo root is the formal domain glossary and it defines every term these directories implement: <em>Interaction</em>, <em>Source Session</em>, <em>Exploration</em>, <em>Saved Exploration</em>, <em>Project Fact</em>, <em>Memory</em>, <em>Reflection</em>, <em>Saved Reflection</em>, <em>Exploration Browser</em>. ADR-0001 (<code>docs/adr/0001-project-pi-session-trees-as-explorations.md</code>) also commits to this model.</p>
+<p>So the drift is the opposite of what was reported: the <em>code</em> is right, the <em>language</em> is documented, but <code>CLAUDE.md</code> &mdash; the document agents read &mdash; doesn&rsquo;t mention any of it. Two domain docs (CONTEXT.md + CLAUDE.md) describing the same system in different vocabularies is the actual problem.</p>
+</div>
+
+<div class="callout warn">
+<p><strong>0.3 &mdash; There are at least four canonical architecture documents, all stale in different ways.</strong></p>
+<ul>
+  <li><strong>CLAUDE.md</strong> &mdash; agent instructions + module map. Wrong about packages (&sect;0.1), wrong about <code>bridge/</code>, wrong about <code>reporting/</code> and <code>introspection/</code> locations.</li>
+  <li><strong>CONTEXT.md</strong> &mdash; domain language (Interaction / Exploration / Reflection / Memory). Internally consistent but unreferenced from CLAUDE.md except for one AGENTS.md link.</li>
+  <li><strong>docs/architecture/overview.md</strong> &mdash; another high-level map. Uses broken <code>@umwelten/...</code> link syntax (<code>[habitat](@umwelten/habitat/habitat.ts)</code> &mdash; not a valid link), but otherwise mostly aligned with reality.</li>
+  <li><strong>AGENTS.md</strong> &mdash; thin pointer to GitHub Issues + CONTEXT.md.</li>
+</ul>
+<p>Plus <code>docs/architecture/{habitat-runtime,habitat-deployment,session-record-introspection,promote-tools-to-mcp,electron-shell,caching-system,evaluation-framework,stimulus-system}.md</code> &mdash; eight more architecture docs of varying staleness. <code>session-record-introspection.md</code> exists and accurately describes <code>session-record/</code> &mdash; the module CLAUDE.md fails to mention.</p>
+</div>
+
+<div class="callout">
+<p><strong>0.4 &mdash; Tooling artifacts not surveyed:</strong></p>
+<ul>
+  <li><code>knip.json</code> is configured. <code>pnpm knip</code> would catch the dead-code items mechanically. <strong>Run it.</strong></li>
+  <li><code>vitest.config.ts</code> uses <code>singleThread: true</code> (`packages/*/src/**/*.test.ts`); <code>vitest.integration.config.ts</code> is the integration counterpart. Test counts: core 65, habitat 18, evaluation 15, ui 6, sessions 2, cli 2, protocols 0. <strong>Protocols has zero tests</strong> &mdash; worth flagging for the OAuth-bearing modern code (<code>mcp-serve/</code>).</li>
+  <li><code>mise.toml</code> defines <code>habitat-build</code> / <code>habitat-run</code> / <code>habitat-serve</code> / <code>gaia</code> tasks the CLI doesn&rsquo;t document. These are the recommended entry points and only live in mise.</li>
+  <li>Root <code>package.json</code> declares <code>docs:dev</code> / <code>docs:build</code> &mdash; <strong>VitePress site under <code>docs/</code></strong>. Neither CLAUDE.md nor the first-pass report mentions there&rsquo;s a published docs site (<code>homepage: umwelten.thefocus.ai</code>).</li>
+</ul>
+</div>
+
+<div class="callout">
+<p><strong>0.5 &mdash; The <code>umwelten</code> meta-package is doing real work that nobody flagged.</strong></p>
+<p><code>packages/umwelten/src/index.ts</code> is 349 lines of curated re-exports across every package. It&rsquo;s the public API surface for external consumers (the npm <code>umwelten</code> package). When CLAUDE.md&rsquo;s &ldquo;public barrel&rdquo; is mentioned, that&rsquo;s referring to <code>packages/core/src/index.ts</code>, but the actual <em>npm-published</em> barrel is the meta-package. Drift here matters: anything missing from <code>packages/umwelten/src/index.ts</code> is invisible to <code>npm install umwelten</code> users.</p>
+<p>Also: <code>packages/umwelten/src/mcp-serve.ts</code> is a backwards-compat re-export shim &mdash; explicit acknowledgement of a recent rename from <code>@umwelten/server</code> (or the old <code>mcp-serve</code> location) to <code>@umwelten/protocols</code>. The shim is fine; it&rsquo;s evidence the package rename is incomplete in the docs.</p>
+</div>
+
+<h3>Things still not investigated in depth</h3>
+<ul>
+  <li><strong>16 examples under <code>examples/</code></strong>, several non-trivial (<code>local-providers</code> 5272 LoC, <code>memorization</code> 3075, <code>mcp-chat</code> 2812, <code>model-showdown</code> 2780, <code>jeeves-bot</code> 1357). These are reference implementations / fixtures that the subsystem passes didn&rsquo;t enter. If any of them depend on deep-imports (e.g. <code>memory/</code>, the legacy MCP client, <code>discord-routing.ts</code>), those become real migration constraints for the cleanup plan.</li>
+  <li><strong><code>docs/architecture/electron-shell.md</code></strong> describes a planned desktop shell wrapping a habitat&rsquo;s <code>container-server</code>. If this is active, the &ldquo;collapse the 4 HTTP servers&rdquo; recommendation has to preserve the <code>container-server.ts</code> surface area &mdash; not just merge it away.</li>
+  <li><strong><code>docs/architecture/promote-tools-to-mcp.md</code></strong> is an open plan to bridge habitat tools to standalone <code>mcp-serve</code> MCP servers. This directly affects the &ldquo;habitat/mcp-local-server.ts duplicates mcp-serve/mcp-handler.ts&rdquo; finding &mdash; it&rsquo;s actively planned work, not just drift.</li>
+  <li><strong>The full provider list.</strong> CLAUDE.md lists 8 providers but the directory has 11 sources: it omits <code>minimax.ts</code>, <code>nvidia.ts</code>, and <code>fireworks.ts</code>. Each has integration tests. (CLAUDE.md does mention Fireworks in the env-var list but not in the module map.)</li>
+  <li><strong>Hooks &amp; CI.</strong> No pre-commit hooks, GitHub Actions, or release pipeline were surveyed. <code>knip.json</code> is configured but knip isn&rsquo;t in the recommended test flow.</li>
+</ul>
+
+<h2 id="s1">1. The 30,000-foot picture</h2>
+
+<p>The codebase is a <strong>pnpm monorepo</strong> organized around three load-bearing concepts:</p>
+
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│  Stimulus  (config: role + instructions + tools + options)  │
+│        ↓                                                     │
+│  Interaction  (state: messages + model + runner + session)  │
+│        ↓                                                     │
+│  ModelRunner  (execution: AI SDK + costs + rate limits)     │
+│        ↓                                                     │
+│  Provider  (Google, OpenRouter, DeepInfra, Ollama, …)        │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+
+<p>Everything else is built on top:</p>
+
+<ul>
+  <li><strong>Habitat</strong> = a directory + config + sessions + tools + sub-agents, with a multi-protocol HTTP server (MCP, A2A, web chat) on top.</li>
+  <li><strong>Gaia</strong> = a habitat that orchestrates other habitats in Docker containers.</li>
+  <li><strong>Evaluation</strong> = batch / matrix runners over Stimulus × Models, plus ranking &amp; combine.</li>
+  <li><strong>Sessions / Introspection</strong> = adapters that pull conversation history from Claude Code, Cursor, Pi, or habitat sessions, normalize them, digest them, and present them in a TUI.</li>
+  <li><strong>CLI / UI</strong> = Commander tree + React Ink TUIs + Telegram/Discord adapters wrapping <code>Interaction</code>.</li>
+</ul>
+
+<p>The dependency DAG <strong>as designed</strong> (per CLAUDE.md): <code>core &larr; server &larr; evaluation &larr; habitat &larr; ui &larr; cli</code>. The DAG <strong>as built</strong> is mostly right, with two seams: <code>ui/index.ts</code> re-exports habitat internals, and <code>cli &rarr; sessions &rarr; ui</code> is a runtime path that side-steps the documented order.</p>
+
+<h2 id="s2">2. Subsystem-by-subsystem</h2>
+
+<h3>2.1 Cognition <span class="tag health-good">healthy</span></h3>
+<p><code>packages/core/src/cognition/</code></p>
+
+<p>The cleanest subsystem. <code>BaseModelRunner</code> is the workhorse; <code>Stimulus</code> is data; <code>Interaction</code> is state; providers plug in via a thin <code>BaseProvider</code>. The HARD RULE about not capping <code>maxTokens</code> is actively guarded by <code>request-options.test.ts</code>.</p>
+
+<p><strong>Drift:</strong> <code>runner.ts</code> is 876 LoC with a 320-line <code>streamText</code> containing a provider-specific usage-extraction cascade (Ollama / OpenRouter / Google / GitHub Models) that should live in <code>usage-extractor.ts</code>. <code>ModelResponse.messages?</code> is on the TS type but missing from the Zod schema (silent shape drift waiting to bite). <code>ModelRunner.interaction: any</code> is a forward-ref hack. <code>SmartModelRunner.RunnerModification</code> is deprecated dead code. An ASCII-strip regex (<code>runner.ts:264</code>) silently drops non-English reasoning traces.</p>
+
+<h3>2.2 Interaction + Stimulus <span class="tag health-mixed">hidden feature pipeline</span></h3>
+<p><code>packages/core/src/interaction/</code>, <code>stimulus/</code></p>
+
+<p><code>Interaction</code> (382 LoC) and <code>Stimulus</code> are tight and well-bounded. <code>load-interaction.ts</code> is the right single entry point for opening a session by id. The <code>SessionAdapter</code> + <code>AdapterRegistry</code> design is textbook.</p>
+
+<p><strong>Drift:</strong> Four top-level dirs &mdash; <code>projection/</code>, <code>promotion/</code>, <code>reflection/</code>, <code>knowledge/</code> &mdash; implement a self-contained &ldquo;Exploration / knowledge-promotion&rdquo; pipeline that&rsquo;s <strong>not in CLAUDE.md</strong> and has only two external callers (<code>@umwelten/sessions/introspect</code>, <code>@umwelten/cli/knowledge</code>). This is a feature surface masquerading as part of core. <code>persistence/</code> bundles two unrelated stores under one name (Claude-Code-specific session indexing + a generic <code>InteractionStore</code> whose <code>loadSession</code> doesn&rsquo;t persist metadata). <code>session-analyzer.ts</code> and <code>session-digester.ts</code> co-exist; the digester wraps the analyzer; CLAUDE.md&rsquo;s claim that &ldquo;digests are the one source&rdquo; is aspirational. <code>SessionSource</code> is declared twice (<code>normalized-types.ts</code> and <code>types/types.ts</code>).</p>
+
+<h3>2.3 Habitat <span class="tag health-bad">sprawling</span></h3>
+<p><code>packages/habitat/</code> &mdash; four HTTP servers, two routing systems</p>
+
+<p><strong>The biggest concentration of drift.</strong> ~20.5K LoC. Heavy hitters: <code>tools/gaia/gaia-tools.ts</code> (1347), <code>tools/agent-runner-tools.ts</code> (1183), <code>container-server.ts</code> (1128).</p>
+
+<p>What&rsquo;s clean: <code>Habitat</code> factory + <code>ToolRegistry</code>, the <code>identity/</code> module, <code>ChannelBridge</code> as the unified chat plumbing, <code>serve.ts</code> as the single boot entry, and &ldquo;Gaia = habitat + extra ToolSet&rdquo; as a composition principle.</p>
+
+<p><strong>Drift:</strong></p>
+<ul>
+  <li><strong>Four HTTP servers</strong>, three of which independently re-implement <code>parseRoute</code> / <code>matchRoute</code> / <code>serveStatic</code> / <code>sendJson</code>: <code>container-server.ts</code>, <code>web/server.ts</code>, <code>tools/gaia/routes.ts</code>. <code>mcp-local-server.ts</code> duplicates <code>registerAiTool</code> verbatim from container-server. <code>gaia-server.ts</code> is self-labeled legacy but still live on port 7421.</li>
+  <li><strong>Two routing systems</strong> for channel-&rarr;agent mapping: legacy <code>discord-routing.ts</code> + <code>discord-provision.ts</code> (the latter imports <code>discord.js</code> and arguably belongs in <code>@umwelten/ui/discord/</code>) vs modern <code>bridge/routing.ts</code>, which already reads the legacy file as fallback.</li>
+  <li><strong>Two slash-command systems</strong>: <code>slash-commands.ts</code> (CLI REPL) vs <code>bridge/commands.ts</code> (channel bridge), different lists, different consumers.</li>
+  <li><strong>CLAUDE.md is wrong about <code>bridge/</code></strong>: it claims <code>bridge/diagnosis-agent.ts</code>, <code>bridge/monitor-agent.ts</code>, and <code>bridge_diagnose</code> / <code>bridge_monitor</code> tools exist. None do. The Tool Sets table mentions <code>bridge_*</code> tools that are only error strings now.</li>
+  <li><strong>Implicit cross-cutting state</strong>: <code>Habitat._currentSessionId</code> is accessed via <code>(habitat as any)._currentSessionId</code> casts.</li>
+</ul>
+
+<h3>2.4 Evaluation + Sessions + Protocols <span class="tag health-bad">three eval systems, one is live</span></h3>
+
+<p><strong>Evaluation &mdash; deeper look (post second-pass).</strong> On closer inspection there are <em>three distinct evaluation systems</em> in the package, and only one is actively maintained:</p>
+
+<ul>
+  <li><strong>System A &mdash; the CLI path</strong> (<code>cli/eval.ts</code> &rarr; <code>api.ts:runEvaluation</code> &rarr; <code>Evaluation</code> &rarr; <code>EvaluationRunner</code> &rarr; <code>FunctionEvaluationRunner</code>). Output layout: <code>output/evaluations/&lt;id&gt;/responses/</code>. <strong>Frozen since the monorepo split</strong> (last meaningful commit on <code>cli/eval.ts</code> and <code>api.ts</code> is the extraction commit itself; no feature work since). Total: <code>cli/eval.ts</code> 871 LoC, <code>api.ts</code> 825 LoC, <code>base.ts</code> 76, <code>runner.ts</code> 31, <code>evaluate.ts</code> 42, <code>ui/EvaluationApp.tsx</code> 215 = <strong>~2060 LoC of obsolete surface</strong>.</li>
+  <li><strong>System B &mdash; the strategy classes</strong> (<code>SimpleEvaluation</code>, <code>MatrixEvaluation</code>, <code>BatchEvaluation</code>). Only <code>SimpleEvaluation</code> has any consumer (used by <code>EvalSuite</code> and the model-showdown examples). <code>MatrixEvaluation</code> (235 LoC) and <code>BatchEvaluation</code> (218 LoC) have <strong>zero source consumers</strong> &mdash; only their own tests. Last touched at extraction commit.</li>
+  <li><strong>System C &mdash; <code>EvalSuite</code> + <code>llm-eval/</code></strong>. This is the live spine. <code>llm-eval/runFullEval(model, opts)</code> composes three sub-suites (language / coding / tool-calling), each an <code>EvalSuite</code>. Propagates <code>AbortSignal</code> down to the AI SDK call so a watchdog can actually cancel an HTTP request. Driven by <code>examples/local-providers/run-matrix.ts</code> through a 2-layer harness (eviction + preflight + AbortController watchdog). Commits like <code>9548bf9</code> (partial-response salvage + transcript replay), <code>93bb375</code> (watchdog + undici timeout), and the local-providers fleet are the recent activity.</li>
+</ul>
+
+<div class="callout warn">
+<p><strong>The CLI &ldquo;eval&rdquo; command is no longer the canonical eval path &mdash; the examples are.</strong> <code>umwelten eval run/batch/report</code> still works (it&rsquo;s wired) but every feature added in the past six months has gone into <code>EvalSuite</code> / <code>llm-eval/</code> / <code>examples/local-providers</code>, not <code>api.ts</code>. The CLI path can be retired.</p>
+</div>
+
+<p><strong>Verified dead code (zero source consumers):</strong></p>
+<ul>
+  <li><code>evaluation/codebase/</code> &mdash; 4 files, ~1620 LoC. &ldquo;LLM modifies real codebases&rdquo; framework that never landed.</li>
+  <li><code>evaluation/analysis/result-analyzer.ts</code> &mdash; 262 LoC, only its own test.</li>
+  <li><code>evaluation/scorer.ts</code> &mdash; 23 LoC, no subclasses.</li>
+  <li><code>evaluation/strategies/matrix-evaluation.ts</code> &mdash; 235 LoC.</li>
+  <li><code>evaluation/strategies/batch-evaluation.ts</code> &mdash; 218 LoC.</li>
+  <li><code>evaluation/tool-testing/types.ts</code> &mdash; keep only <code>ToolTestResult</code> (used by reporter), drop the other ~180 LoC.</li>
+  <li><code>evaluation/introspection/browse.ts</code> shim &mdash; pure re-export of <code>@umwelten/sessions/introspection/browse.js</code>.</li>
+  <li><code>ui/EvaluationUI.tsx</code> &mdash; 183 LoC, superseded by <code>EvaluationApp.tsx</code>, no importers.</li>
+</ul>
+
+<p><strong>If you commit to phasing out the CLI eval path</strong> (which the activity log says you already have), an additional ~2200 LoC becomes deletable: <code>api.ts</code>, <code>base.ts</code>, <code>runner.ts</code>, <code>evaluate.ts</code>, <code>types/evaluation-types.ts</code>, <code>cli/eval.ts</code>, <code>ui/EvaluationApp.tsx</code>.</p>
+
+<p><strong>Total removable</strong>: ~4600 LoC of ~12,100 = <strong>~38% reduction</strong>. The package distills to one coherent stack: <code>EvalSuite</code> + <code>llm-eval/runFullEval</code> + <code>ranking/</code> + <code>combine/</code> + <code>Reporter</code>, driven by scripts in <code>examples/</code>.</p>
+
+<p>CLAUDE.md says <code>reporting/</code> lives in <code>packages/core/src/reporting/</code> &mdash; <strong>it doesn&rsquo;t</strong>; it lives in evaluation.</p>
+
+<p><strong>Sessions</strong>: A small Commander-command package. CLAUDE.md says <code>src/introspection/</code> is in core &mdash; <strong>it isn&rsquo;t</strong>; it&rsquo;s here. <code>introspection/storage.ts</code> + <code>types.ts</code> still encode the old <code>IntrospectionRun</code> / <code>DecisionLogEntry</code> model that CLAUDE.md says is gone. <code>sessions.ts</code> is 3640 LoC of inline command bodies.</p>
+
+<p><strong>Protocols</strong>: Two MCP clients (legacy hand-rolled <code>mcp/client/client.ts</code> vs <code>mcp/client/remote.ts</code> using the official SDK), two MCP servers (legacy <code>mcp/server/server.ts</code> vs <code>mcp-serve/</code>), exported as peers. <code>habitat/mcp-local-server.ts</code> re-implements <code>mcp-serve/mcp-handler.ts</code> instead of consuming it (acknowledged TODO at <code>container-server.ts:555</code>). <code>a2a/chat.ts</code> isn&rsquo;t A2A protocol &mdash; it talks to habitat&rsquo;s <code>/api/chat</code> and is misplaced.</p>
+
+<div class="callout warn">
+<p><strong>Digest persistence duplicated three ways</strong>: <code>sessions/introspection/browse.ts</code> (<code>getDigestPath</code>/<code>saveDigest</code>/<code>loadDigest</code>), <code>core/interaction/analysis/extraction-engine.ts</code> (<code>persistDigest</code>, with a comment acknowledging the duplication).</p>
+</div>
+
+<h3>2.5 CLI + UI <span class="tag health-mixed">dead UIs, double Telegram</span></h3>
+
+<p><strong>CLI</strong>: 11 top-level commands, mostly clean Command-re-export pattern in <code>cli.ts</code>. But <code>commonOptions.ts</code> is used by only 4 of 11 (the others redefine their own <code>-p/-m</code>). <code>eval.ts</code> is 871 LoC mostly of input validation that belongs in evaluation. <code>habitat.ts</code> is 943 LoC including secrets-command logic. <code>knowledge.ts</code> is undocumented in CLAUDE.md.</p>
+
+<p><strong>UI</strong>: Two REPL frameworks coexist (<code>cli/CLIInterface.ts</code> used only by <code>umwelten chat</code>; <code>cli/repl.ts</code> used by habitat). <code>EvaluationUI.tsx</code> is dead (no importers; superseded by <code>EvaluationApp.tsx</code>). <code>ExploreBrowseApp.tsx</code> is superseded by <code>DashboardApp.tsx</code> but still exists. <code>DiscordAdapter.tsx</code> is 2083 LoC of god-component. <code>ui/index.ts</code> re-exports habitat internals, blurring the dep DAG.</p>
+
+<p><strong>Cross-cutting</strong>: Telegram has two entry points (<code>cli/telegram.ts</code> math demo vs <code>cli habitat telegram</code> habitat-aware) with overlapping intent. <code>cli &rarr; sessions &rarr; ui</code> is a runtime path that side-steps the documented <code>cli &rarr; ui</code> dependency.</p>
+
+<h3>2.6 Core support modules <span class="tag health-mixed">two undocumented modules</span></h3>
+
+<p><code>context/</code>, <code>costs/</code>, <code>markdown/</code>, <code>rate-limit/</code> are clean leaf utilities. <code>schema/</code> is fine but has an empty stale <code>schema-temp/</code> dir.</p>
+
+<p><strong>Drift:</strong></p>
+<ul>
+  <li><strong><code>session-record/</code> and <code>env/</code> are not in CLAUDE.md</strong> but both are real, actively-used core modules. <code>session-record/</code> is the storage substrate for Habitat / Telegram / Discord transcript resume and learnings (extracted from habitat to break a <code>habitat &harr; ui</code> cycle &mdash; the layering implication: core knows about habitat-specific filesystem conventions). <code>env/</code> is the <code>dotenv</code> side-effect import that makes API keys work &mdash; every consumer of core benefits.</li>
+  <li><code>memory/</code> is <strong>not exported from <code>index.ts</code></strong> and has zero callers outside its own tests. Either promote it or move to <code>examples/</code>.</li>
+  <li><code>rate-limit/</code> is <strong>not in <code>index.ts</code></strong> but <code>evaluation/suite.ts</code> deep-imports <code>clearAllRateLimitStates</code>. Pick one.</li>
+  <li><code>memory/determine_operations.ts</code> has leftover <code>console.log</code> debug output.</li>
+  <li><code>markdown/from_html.ts</code> exports an unused <code>fromHtmlViaModel</code>.</li>
+  <li>Two <code>streammark</code> ambient declarations (<code>types.d.ts</code> and <code>types/streammark.d.ts</code>) &mdash; pick one.</li>
+</ul>
+
+<h2 id="s3">3. The drift catalog (consolidated)</h2>
+<p>Sorted by likely return-on-cleanup:</p>
+
+<h3>High-value cleanups <span class="tag">small surface, big clarity win</span></h3>
+<ol>
+  <li><strong>Fix CLAUDE.md&rsquo;s location claims.</strong> It&rsquo;s wrong about <code>reporting/</code> (says core, is evaluation), <code>introspection/</code> (says core, is sessions), and the <code>bridge/</code> module entirely. Two real modules (<code>session-record/</code>, <code>env/</code>) are missing. The <code>bridge_diagnose</code>/<code>bridge_monitor</code> tools it advertises don&rsquo;t exist.</li>
+  <li><strong>Delete dead code.</strong> <code>evaluation/codebase/</code> (~50KB, no consumers), <code>evaluation/analysis/result-analyzer.ts</code>, <code>evaluation/scorer.ts</code>, <code>ui/EvaluationUI.tsx</code>, <code>ui/tui/introspect/ExploreBrowseApp.tsx</code>, <code>schema/schema-temp/</code> (empty), <code>markdown/fromHtmlViaModel</code>, <code>test-utils/load-env.ts</code> (no callers), the leftover <code>console.log</code> in <code>memory/determine_operations.ts</code>, the deprecated <code>RunnerModification</code> in <code>SmartModelRunner</code>.</li>
+  <li><strong>De-duplicate digest persistence.</strong> Move <code>loadDigest</code>/<code>saveDigest</code>/<code>getDigestPath</code> into <code>core/interaction/analysis/</code> next to <code>session-digester.ts</code>; re-export from <code>@umwelten/sessions</code>. Drop <code>extraction-engine.ts</code>&rsquo;s duplicate <code>persistDigest</code> (the comment already acknowledges the duplication).</li>
+  <li><strong>Resolve <code>SessionSource</code> double declaration</strong> between <code>normalized-types.ts</code> and <code>types/types.ts</code>.</li>
+  <li><strong>Consolidate the two <code>streammark</code> ambient declarations.</strong></li>
+</ol>
+
+<h3>Medium-value <span class="tag">structural, but contained</span></h3>
+<ol start="6">
+  <li><strong>Extract <code>streamText</code>&rsquo;s provider-specific usage cascade</strong> from <code>runner.ts:408-546</code> into <code>usage-extractor.ts</code>. Drops runner LoC ~140 with no behavior change.</li>
+  <li><strong>Collapse <code>web/server.ts</code> into <code>container-server.ts</code></strong> (or vice versa) &mdash; extract a small <code>HttpAppShell</code> so all three habitat HTTP entry points reuse one router/static/CORS/sendJson implementation.</li>
+  <li><strong>Make <code>mcp-local-server.ts</code> a mode of <code>container-server.ts</code></strong> (or a thin wrapper around it) instead of a parallel implementation. Resolves the <code>container-server.ts:555</code> TODO.</li>
+  <li><strong>Sunset legacy MCP code</strong> in <code>@umwelten/protocols/mcp/{client/client.ts,server/server.ts}</code>. The only live consumer is one debug subcommand in <code>cli/mcp.ts</code>.</li>
+  <li><strong>Split <code>gaia-tools.ts</code></strong> (1347 LoC) into <code>gaia-tools/{habitats,secrets,skills,standards,index}.ts</code>. Split <code>agent-runner-tools.ts</code> (1183 LoC) one tool per file.</li>
+  <li><strong>Pick one REPL framework</strong>: keep <code>ui/cli/repl.ts</code> (habitat-aware), delete <code>ui/cli/CLIInterface.ts</code> (or rebuild <code>umwelten chat</code> on top of <code>repl.ts</code>). Pick one slash-command system in habitat: <code>bridge/commands.ts</code> is the modern one.</li>
+  <li><strong>Pick one Telegram entry point</strong>: kill <code>cli/telegram.ts</code> (the math-demo) or merge it into <code>cli habitat telegram</code>.</li>
+  <li><strong>Move <code>discord-provision.ts</code> to <code>@umwelten/ui/discord/</code></strong> &mdash; it imports <code>discord.js</code>. Delete <code>discord-routing.ts</code> once <code>bridge/routing.ts</code> has fully absorbed it (already reads the legacy file as fallback).</li>
+  <li><strong>Move evaluation input validation</strong> from <code>cli/eval.ts</code> into <code>@umwelten/evaluation</code>. CLI should parse and dispatch, not validate domain rules.</li>
+  <li><strong>Move <code>Stimulus</code> test</strong> from <code>interaction/stimulus.test.ts</code> &rarr; <code>stimulus/</code> (stray after a refactor).</li>
+</ol>
+
+<h3>Bigger / structural <span class="tag">multi-day, harder</span></h3>
+<ol start="16">
+  <li><strong>The Exploration / knowledge pipeline</strong> (<code>interaction/{projection,promotion,reflection,knowledge}/</code>) should either be split into its own package (<code>@umwelten/knowledge</code> or merged into <code>@umwelten/sessions</code>) or documented in CLAUDE.md as a first-class subsystem. Right now it lives anonymously inside core. Same for <code>domain-types.ts</code> (Exploration / SourceSession types misplaced under <code>interaction/types/</code>).</li>
+  <li><strong>Decide analyzer vs digester</strong>. If digester is canonical, deprecate <code>analyzeSessionWithRetry</code> from the public surface. Right now both exist and the digester wraps the analyzer.</li>
+  <li><strong>Fix the DAG seams</strong>: stop <code>ui/index.ts</code> from re-exporting habitat internals (<code>startWebServer</code>, <code>ChannelBridge</code>, etc.); rethink the <code>cli &rarr; sessions &rarr; ui</code> runtime path.</li>
+  <li><strong><code>session-record/</code> layering</strong>: core knows habitat filesystem conventions. Long-term, either accept this as &ldquo;core hosts the cross-cutting session substrate&rdquo; (and document it) or hoist <code>session-record</code> to its own package and pull both habitat and core to depend on it.</li>
+  <li><strong><code>Habitat._currentSessionId</code></strong> &mdash; make it explicit (thread through tool contexts, the way <code>getSessionId</code> is already a callback in some tools) or rename / document.</li>
+</ol>
+
+<h2 id="s4">4. The &ldquo;what&rsquo;s actually clean&rdquo; inventory</h2>
+
+<div class="callout ok">
+<p>Worth preserving and emulating.</p>
+</div>
+
+<ul>
+  <li><code>Stimulus</code> + <code>Interaction</code> core API (data / state split, single-runner delegate).</li>
+  <li><code>BaseModelRunner</code> HARD RULE compliance, guarded by <code>request-options.test.ts</code>.</li>
+  <li><code>request-options.ts</code> and <code>provider-options.ts</code> &mdash; table-driven, well-commented.</li>
+  <li><code>SessionAdapter</code> + <code>AdapterRegistry</code> pattern.</li>
+  <li><code>load-interaction.ts</code> as the source-agnostic entry point.</li>
+  <li><code>stimulus/tools/agent-kit.ts</code> factory chain (path-sandbox &rarr; fs-tools &rarr; bash-tool &rarr; agent-kit).</li>
+  <li><code>stimulus/skills/</code> progressive-disclosure design.</li>
+  <li><code>Habitat.create()</code> 8-step init + <code>ToolRegistry</code> late-bound stimulus.</li>
+  <li><code>identity/</code> module &mdash; vault + manifest + skill-inspector + call-context.</li>
+  <li><code>ChannelBridge</code> as the unified chat plumbing for every UI adapter.</li>
+  <li><code>serve.ts</code> as the single boot entry for habitat HTTP.</li>
+  <li>Gaia-as-habitat composition (habitat + one extra ToolSet).</li>
+  <li><code>a2a/server.ts</code> and <code>a2a/client.ts</code> &mdash; small, sharp, no habitat coupling.</li>
+  <li><code>mcp-serve/</code> &mdash; the modern OAuth-backed framework with clean <code>UpstreamOAuthProvider</code> / <code>McpToolRegistrar</code> / <code>McpServeStore</code> interfaces.</li>
+  <li><code>EvalSuite</code>, <code>combine/</code>, <code>ranking/</code> in evaluation.</li>
+  <li>The CLAUDE.md HARD RULES section itself &mdash; the prose plus regression tests is exemplary architectural discipline.</li>
+</ul>
+
+<h2 id="s5">5. Documentation strategy</h2>
+<p>CLAUDE.md is the canonical map. Three classes of correction needed:</p>
+
+<h4>Reality fixes (CLAUDE.md is wrong)</h4>
+<ul>
+  <li><code>reporting/</code> is in <code>@umwelten/evaluation</code>, not core.</li>
+  <li><code>introspection/</code> is in <code>@umwelten/sessions</code>, not core.</li>
+  <li>The <code>bridge/</code> description should list <code>channel-bridge.ts</code>, <code>commands.ts</code>, <code>routing.ts</code> &mdash; not <code>diagnosis-agent.ts</code> / <code>monitor-agent.ts</code>.</li>
+  <li>The Tool Sets table should drop <code>bridge_diagnose</code> / <code>bridge_monitor</code> / <code>bridge_*</code> references.</li>
+  <li>The user memory note that &ldquo;File/time/URL tools are NOT in standardToolSets&rdquo; contradicts <code>tool-sets.ts</code> &mdash; code is the truth.</li>
+</ul>
+
+<h4>Additions (real modules absent from CLAUDE.md)</h4>
+<ul>
+  <li><strong><code>src/session-record/</code></strong> &mdash; the storage substrate (transcripts, learnings, compaction events). Heavily used by habitat, Discord, Telegram, the digester.</li>
+  <li><strong><code>src/env/</code></strong> &mdash; the <code>dotenv</code> side-effect import.</li>
+  <li><strong><code>cli/knowledge.ts</code></strong> &mdash; the Exploration / knowledge-promotion command.</li>
+  <li><strong>The Exploration pipeline</strong> (<code>interaction/{projection,promotion,reflection,knowledge}/</code>) &mdash; if it&rsquo;s staying in core, document it as a first-class subsystem.</li>
+</ul>
+
+<h4>Aspirational claims to remove or align</h4>
+<ul>
+  <li>&ldquo;Digests are the one source of session analysis&rdquo; &mdash; both the analyzer and digester are live; either align the code or soften the claim.</li>
+  <li>&ldquo;There is no longer a separate introspection LLM pipeline&rdquo; &mdash; <code>IntrospectionRun</code> / <code>DecisionLogEntry</code> data model still lives in <code>sessions/src/introspection/storage.ts</code> and is read by <code>buildBrowse()</code>.</li>
+</ul>
+
+<h2 id="s6">6. Recommended cleanup sequence</h2>
+<p>If you want to do this in passes, optimizing for low-risk wins first.</p>
+
+<div class="pass">
+  <div class="pass-head">
+    <div class="pass-title">Pass 1 &mdash; Documentation &amp; dead code</div>
+    <div class="pass-effort">~1 day</div>
+  </div>
+  <ul>
+    <li>Fix CLAUDE.md per &sect;5.</li>
+    <li>Delete all the dead-code items listed in High-value Cleanups &sect;3.</li>
+    <li>Resolve <code>SessionSource</code> double-declaration and the two <code>streammark</code> shims.</li>
+  </ul>
+</div>
+
+<div class="pass">
+  <div class="pass-head">
+    <div class="pass-title">Pass 2 &mdash; Extract &amp; consolidate</div>
+    <div class="pass-effort">1&ndash;2 days</div>
+  </div>
+  <ul>
+    <li>Move digest persistence into core.</li>
+    <li>Extract <code>extractStreamUsage()</code> from <code>runner.ts</code> into <code>usage-extractor.ts</code>.</li>
+    <li>Move evaluation validation out of CLI.</li>
+    <li>Pick one REPL, one Telegram entry, one slash-command system.</li>
+  </ul>
+</div>
+
+<div class="pass">
+  <div class="pass-head">
+    <div class="pass-title">Pass 3 &mdash; Server consolidation</div>
+    <div class="pass-effort">2&ndash;3 days</div>
+  </div>
+  <ul>
+    <li>Extract <code>HttpAppShell</code> from <code>container-server.ts</code>.</li>
+    <li>Migrate <code>web/server.ts</code>, <code>mcp-local-server.ts</code>, <code>tools/gaia/routes.ts</code> onto it.</li>
+    <li>Sunset legacy <code>mcp/server/server.ts</code> and <code>mcp/client/client.ts</code>.</li>
+    <li>Migrate <code>mcp-local-server</code> to use <code>mcp-serve</code> (no-auth flavor).</li>
+  </ul>
+</div>
+
+<div class="pass">
+  <div class="pass-head">
+    <div class="pass-title">Pass 4 &mdash; Structural</div>
+    <div class="pass-effort">1 week+</div>
+  </div>
+  <ul>
+    <li>Decide on the Exploration / knowledge pipeline (split out vs document).</li>
+    <li>Decide on <code>session-record</code> layering (stay in core vs new package).</li>
+    <li>Finish the discord-routing migration; delete legacy.</li>
+    <li>Decide analyzer vs digester.</li>
+    <li>Split <code>gaia-tools.ts</code> and <code>agent-runner-tools.ts</code>.</li>
+  </ul>
+</div>
+
+<div class="callout">
+<p>Passes 1 and 2 alone would close ~80% of the documented drift.</p>
+</div>
+
+<footer>
+  docs/architecture/system-map-2026-05 &middot; based on parallel deep-dive across six subsystems
+</footer>
+
+</div>
+</body>
+</html>
