@@ -7,7 +7,6 @@ import { modelsCommand } from "./models.js";
 import { runCommand } from "./run.js";
 import { chatCommand } from "./chat.js";
 import { addToolsCommand } from "./tools.js";
-import { evalCommand } from "./eval.js";
 import {
 	sessionsCommand,
 	introspectCommand,
@@ -50,7 +49,6 @@ program
 program.addCommand(modelsCommand);
 program.addCommand(runCommand);
 program.addCommand(chatCommand);
-program.addCommand(evalCommand);
 program.addCommand(sessionsCommand);
 // Attach `sessions habitat <cmd>` here so @umwelten/sessions doesn't have to
 // depend on @umwelten/habitat (sessions-habitat lives in the habitat package

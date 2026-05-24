@@ -286,11 +286,6 @@ export type {
 
 // ── @umwelten/evaluation ────────────────────────────────────────────────
 export {
-	runEvaluation,
-	generateReport,
-	listEvaluations,
-	runEvaluationWithProgress,
-	parseModel,
 	EvalSuite,
 	PairwiseRanker,
 	expectedScore,
@@ -316,9 +311,6 @@ export {
 } from "@umwelten/sessions";
 
 export type {
-	EvaluationConfig,
-	EvaluationResult,
-	EnhancedEvaluationConfig,
 	EvalSuiteConfig,
 	EvalTask,
 	VerifyTask,

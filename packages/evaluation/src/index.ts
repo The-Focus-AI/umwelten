@@ -1,20 +1,11 @@
 /**
- * @umwelten/evaluation — Model evaluation, ranking, reporting, and introspection.
+ * @umwelten/evaluation — Model evaluation, ranking, reporting.
+ *
+ * The canonical entry point is `EvalSuite` (below); for end-to-end runs
+ * across language / coding / tool-calling, compose with `runFullEval`
+ * from `./evaluation/llm-eval/`. See examples/local-providers and
+ * examples/evals for usage patterns.
  */
-
-// ── Evaluation API ──────────────────────────────────────────────────────
-export {
-	runEvaluation,
-	generateReport,
-	listEvaluations,
-	runEvaluationWithProgress,
-	parseModel,
-} from "./evaluation/api.js";
-export type {
-	EvaluationConfig,
-	EvaluationResult,
-	EnhancedEvaluationConfig,
-} from "./evaluation/api.js";
 
 // ── EvalSuite (declarative eval runner) ─────────────────────────────────
 export { EvalSuite } from "./evaluation/suite.js";
