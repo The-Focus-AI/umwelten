@@ -3,6 +3,8 @@
  * Based on ~/.claude/projects/<project>/sessions-index.json and *.jsonl files
  */
 
+import type { SessionSource } from "./normalized-types.js";
+
 /**
  * Sessions index file structure
  */
@@ -10,19 +12,6 @@ export interface SessionsIndex {
 	version: number;
 	entries: SessionIndexEntry[];
 }
-
-/**
- * Session source for adapter-based sessions (must match normalized-types SessionSource)
- */
-export type SessionSourceForEntry =
-	| "claude-code"
-	| "cursor"
-	| "windsurf"
-	| "aider"
-	| "native"
-	| "pi"
-	| "habitat"
-	| "unknown";
 
 /**
  * Single session entry in the sessions index.
@@ -43,7 +32,7 @@ export interface SessionIndexEntry {
 	projectPath: string;
 	isSidechain: boolean;
 	/** Required when fullPath is omitted; used to load content via adapter. */
-	source?: SessionSourceForEntry;
+	source?: SessionSource;
 }
 
 /**

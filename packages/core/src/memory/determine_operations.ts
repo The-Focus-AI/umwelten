@@ -8,7 +8,6 @@ import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
 import { BaseModelRunner } from "../cognition/runner.js";
 import { ModelDetails } from "../cognition/types.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { Fact } from "./types.js";
 // Memory operation prompt
 const MEMORY_OPERATION_PROMPT = `You are a smart memory manager, who takes in a list of previous memories, and a list of new facts,
@@ -200,10 +199,6 @@ export async function determineOperations(
   const factsContent = JSON.stringify(facts, null, 2);
   const previousMemory = JSON.stringify(existingMemories, null, 2);
 
-  console.log("Previous Memory:", previousMemory);
-  console.log("New Facts:", factsContent);
-  console.log("--------------------------------");
-
   const prompt = MEMORY_OPERATION_PROMPT.replace(
     "{previous_memory}",
     previousMemory
@@ -239,9 +234,6 @@ export async function determineOperations(
   } else {
     memoryArray = result.content as MemoryOperationResult;
   }
-
-  console.log("Memory Operations:", JSON.stringify(memoryArray, null, 2));
-  console.log("--------------------------------");
 
   // Ensure we return the correct structure
   return {

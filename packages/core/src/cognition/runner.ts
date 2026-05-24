@@ -261,14 +261,8 @@ export class BaseModelRunner implements ModelRunner {
                 reasoningDelta !== "" &&
                 typeof reasoningDelta === "string"
               ) {
-                const cleanDelta = reasoningDelta.replace(
-                  /[^\x20-\x7E\s]/g,
-                  "",
-                );
-                if (cleanDelta) {
-                  reasoningText += cleanDelta;
-                  observer?.onReasoningDelta?.(cleanDelta);
-                }
+                reasoningText += reasoningDelta;
+                observer?.onReasoningDelta?.(reasoningDelta);
               }
               break;
             }
