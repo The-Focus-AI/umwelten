@@ -364,36 +364,43 @@ Parse DSL strings into Zod schemas, validate model output.
 - `validator.ts` — `validateSchema()`, `createValidator()`, `coerceData()`
 - `manager.ts` — `SchemaManager` singleton
 
-### `src/mcp/` — Model Context Protocol
+### `@umwelten/protocols` — MCP + A2A
 
-- `client/client.ts` — Low-level MCP client (custom protocol implementation)
-- `client/remote.ts` — **`RemoteMcpClient`**: connect to any remote MCP server over Streamable HTTP with OAuth 2.1 PKCE. File-backed token storage at `~/.umwelten/mcp-auth/`. Converts MCP tools → Vercel AI SDK tools for use with Interactions.
-- `server/server.ts` — MCP server exposing umwelten as a tool provider
-- `integration/stimulus.ts` — Bridge: load MCP tools into a Stimulus
-- `types/` — Transport and protocol types
+External-protocol implementations. Split by role:
 
-### `src/introspection/` — Session Browser Data Layer
+- `mcp/client/client.ts` — Legacy hand-rolled MCP client (custom JSON-RPC). Used by one debug CLI subcommand; pending sunset.
+- `mcp/client/remote.ts` — **`RemoteMcpClient`**: connect to any remote MCP server over Streamable HTTP with OAuth 2.1 PKCE. File-backed token storage at `~/.umwelten/mcp-auth/`. Converts MCP tools → Vercel AI SDK tools for use with Interactions.
+- `mcp/server/server.ts` — Legacy MCP server (pending sunset alongside the legacy client).
+- `mcp/integration/stimulus.ts` — Bridge: load MCP tools into a Stimulus.
+- `mcp/types/` — Transport and protocol types.
+- `mcp-serve/` — **Modern OAuth-backed MCP server framework**. `createMcpServer()` + pluggable `UpstreamOAuthProvider` / `McpToolRegistrar` / `McpServeStore` interfaces. `NeonStore` (Postgres) ships as the production store. Powers Twitter-MCP, Oura-MCP, and similar standalone servers.
+- `a2a/server.ts`, `a2a/client.ts` — A2A protocol scaffolding. Small + sharp, no habitat coupling.
 
-Browses sessions and their **digests** (produced by `src/interaction/analysis/session-digester.ts`). There is no longer a separate "introspection" LLM pipeline — digests are the one source of session analysis, and the browser surfaces them.
+### Session browser — split between sessions, core, and ui
 
-- `browse.ts` — `buildBrowse()` assembles every session (claude-code + habitat) with its digest (loaded from `~/.umwelten/digests/sessions/<id>.json`). `applyFilter()` — date window, source, status, free-text search. `loadDigest()` / `saveDigest()` — digest round-trip.
-- `storage.ts` — legacy run/decision log structure kept for data already on disk; not used for new work.
-- `types.ts` — shared types.
+The session browser data layer lives in **two places** (extracted in commit d74fc26 to break a `ui ↔ sessions` cycle):
 
-TUIs in `src/ui/tui/introspect/`:
+- `@umwelten/sessions/introspection/browse.ts` — `buildExploreBrowse()` assembles every session (claude-code + habitat) with its digest. `loadDigest()` / `saveDigest()` / `getDigestPath()` round-trip digests on disk. `applyExploreFilter()` (re-exported from core) does date window + source + status + free-text filtering.
+- `@umwelten/sessions/introspection/storage.ts`, `types.ts` — supporting types and a legacy `IntrospectionRun` / `DecisionLogEntry` data model kept around because `buildExploreBrowse()` still reads on-disk data with the older shape.
+- `@umwelten/core/interaction/analysis/digest-persistence.ts` — the canonical home of `loadDigest`/`saveDigest`/`getDigestPath` (the sessions package re-exports them).
+- `@umwelten/core/interaction/types/domain-types.ts` — `Exploration`, `SourceSession`, `applyExploreFilter`, and the rest of the Exploration browser type system. (Domain language defined in `CONTEXT.md` at the repo root.)
 
-- `BrowseApp` / `runIntrospectBrowseTui` — **primary entry**. Fixed-width panes; edge-scroll. Shows digest data when present (summary, key learning, topics, tags, phases, counts). Keys: `enter` detail view, `D` run digest (streams live), `b` beats (no LLM), `v` transcript, `/` search, `q` quit.
+TUIs in `@umwelten/ui/src/tui/introspect/`:
+
+- `DashboardApp.tsx` + `browse.tsx` — **primary entry**. Replaces the older session-first `BrowseApp` (deleted in commit d435363).
 - `detail.tsx` — per-session detail view (tabs over digest: overview, beats, phases, facts, diff-against-CLAUDE.md).
 - `digest-live.tsx` — live streaming progress for the digester pipeline.
+- `beats.tsx` — pure-deterministic beats view (no LLM).
 
-CLI in `src/cli/introspect.ts`:
+CLI entry points (registered by `@umwelten/sessions`, mounted by `@umwelten/cli`):
 
 - `umwelten browse` (top-level) — the primary entry.
-- `umwelten introspect browse` — namespaced alias for discoverability.
+- `umwelten introspect browse` — namespaced alias.
+- `umwelten sessions ...` — list / show / messages / tools / stats / format / digest / habitat subcommands.
 
-### `src/reporting/` — Unified Reporter
+### `@umwelten/evaluation/src/reporting/` — Unified Reporter
 
-General-purpose report rendering. Used by tool tests and evaluation suite reports.
+General-purpose report rendering. Lives in evaluation (it consumes evaluation-shaped results); imported by tool tests and suite reports.
 
 - `reporter.ts` — `Reporter` class with `fromToolTest()`, `toConsole()`, `toMarkdown()`, `toHtml()`, `toJson()`
 - `adapters/` — Adapt different result types to `Report`
