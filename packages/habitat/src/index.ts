@@ -6,6 +6,9 @@
 
 // ── Habitat core ────────────────────────────────────────────────────────
 export { Habitat } from "./habitat.js";
+
+// ── CLI subcommand wiring (consumed by @umwelten/cli) ───────────────────
+export { registerSessionsHabitatCommands } from "./cli/sessions-habitat.js";
 export { serveHabitat } from "./serve.js";
 export type { ServeMode, ServeOptions, ServedHabitat } from "./serve.js";
 export { getHabitatSlashCommands } from "./slash-commands.js";

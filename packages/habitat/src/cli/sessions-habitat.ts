@@ -5,9 +5,9 @@
 import { Command } from "commander";
 import { join } from "node:path";
 import chalk from "chalk";
-import { Habitat } from "@umwelten/habitat";
+import { Habitat } from "../habitat.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
-import type { HabitatOptions } from "@umwelten/habitat/types.js";
+import type { HabitatOptions } from "../types.js";
 import {
   parseSessionFile,
   summarizeSession,
@@ -25,7 +25,7 @@ import { formatBeatToolSummary } from "@umwelten/core/interaction/analysis/conve
 import {
   loadPulledBeatPayload,
   replayBeatWithHabitat,
-} from "@umwelten/habitat/beat-replay.js";
+} from "../beat-replay.js";
 
 const TRANSCRIPT = "transcript.jsonl";
 

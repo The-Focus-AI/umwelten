@@ -13,6 +13,7 @@ import {
 	introspectCommand,
 	browseCommand,
 } from "@umwelten/sessions";
+import { registerSessionsHabitatCommands } from "@umwelten/habitat";
 import { telegramCommand } from "./telegram.js";
 import { habitatCommand } from "./habitat.js";
 import { mcpCommand } from "./mcp.js";
@@ -51,6 +52,10 @@ program.addCommand(runCommand);
 program.addCommand(chatCommand);
 program.addCommand(evalCommand);
 program.addCommand(sessionsCommand);
+// Attach `sessions habitat <cmd>` here so @umwelten/sessions doesn't have to
+// depend on @umwelten/habitat (sessions-habitat lives in the habitat package
+// because it uses Habitat-specific APIs).
+registerSessionsHabitatCommands(sessionsCommand);
 program.addCommand(telegramCommand);
 program.addCommand(habitatCommand);
 program.addCommand(mcpCommand);

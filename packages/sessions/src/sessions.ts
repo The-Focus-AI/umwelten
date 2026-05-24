@@ -32,7 +32,6 @@ import type { LearningKind } from "@umwelten/core/session-record/types.js";
 import { LEARNING_KINDS } from "@umwelten/core/session-record/types.js";
 import { resolveClaudeCodeSessionHandle } from "@umwelten/core/session-record/resolve-claude.js";
 import { compactHabitatTranscriptSegment } from "@umwelten/core/session-record/compaction-habitat.js";
-import { registerSessionsHabitatCommands } from "./sessions-habitat.js";
 
 export const sessionsCommand = new Command("sessions").description(
 	"View and analyze sessions (Claude Code, Cursor) and native Habitat transcripts",
@@ -3637,4 +3636,6 @@ digestCommand
 
 sessionsCommand.addCommand(digestCommand);
 
-registerSessionsHabitatCommands(sessionsCommand);
+// Note: `umwelten sessions habitat <cmd>` is attached at the CLI orchestrator
+// layer (packages/cli) so this package doesn't depend on @umwelten/habitat.
+// See packages/cli/src/cli.ts for the wiring.

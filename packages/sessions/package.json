@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
-    "@umwelten/habitat": "workspace:*",
     "@umwelten/ui": "workspace:*",
     "ai": "^5.0.115",
     "chalk": "^5.6.2",
