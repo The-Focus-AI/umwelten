@@ -1,11 +1,12 @@
 /**
- * Optional: create a guild text channel for a habitat agent and append discord.json.
+ * Optional: create a guild text channel for a habitat agent and write the
+ * channel → agent binding into routing.json (via bridge/routing.ts).
  * Gated by DISCORD_AUTO_CHANNELS=1 and Manage Channels permission.
  */
 
 import type { CategoryChannel, Guild, TextChannel } from 'discord.js';
 import { ChannelType, PermissionFlagsBits } from 'discord.js';
-import { appendDiscordChannelRoute } from './discord-routing.js';
+import { setChannelRoute } from './bridge/routing.js';
 
 const CATEGORY_NAME = 'Jeeves';
 
@@ -80,9 +81,9 @@ export async function provisionDiscordAgentChannel(
     };
   }
 
-  await appendDiscordChannelRoute(
+  await setChannelRoute(
     options.workDir,
-    channel.id,
+    `discord:${channel.id}`,
     options.agentId,
     options.routingPath,
   );

@@ -15,7 +15,8 @@
 import { Command } from "commander";
 import path from "node:path";
 import { Habitat, getAgentMemoryPath } from "@umwelten/habitat";
-import type { AgentEntry, DiscordChannelRuntimeMode } from "@umwelten/habitat";
+import type { AgentEntry } from "@umwelten/habitat";
+import type { ChannelRuntimeMode } from "@umwelten/habitat/bridge/types.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { writeSessionTranscript } from "@umwelten/habitat/transcript.js";
 import { createCurrentSessionTool } from "@umwelten/habitat/tools/session-tools.js";
@@ -26,7 +27,6 @@ import {
 } from "@umwelten/habitat/tools/agent-runner-tools.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import { runRepl, runOneShot } from "@umwelten/ui/cli/repl.js";
-// Discord routing tools kept for non-bridge paths (e.g. tools exposed to the LLM)
 
 // ── Shared habitat options ────────────────────────────────────────────
 
@@ -462,7 +462,7 @@ async function discordAction(
 
 	const buildDiscordBindingPinContent = async (opts: {
 		agentId: string;
-		runtime: DiscordChannelRuntimeMode;
+		runtime: ChannelRuntimeMode;
 	}) => {
 		const agent = habitat.getAgent(opts.agentId);
 		const runLine =
