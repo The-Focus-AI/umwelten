@@ -443,49 +443,79 @@ General-purpose report rendering. Lives in evaluation (it consumes evaluation-sh
 - `renderers/` — `ConsoleRenderer`, `MarkdownRenderer`
 - `types.ts` — `Report`, `ReportSection`, `ReportType` (`'tool-test' | 'code-generation' | 'evaluation' | 'batch' | 'suite'`)
 
-### `src/cli/` — Command-Line Interface
+### `@umwelten/cli` — Command-Line Interface
 
-Commander-based CLI. Entry point: `src/cli/entry.ts` → `src/cli/cli.ts`.
+Commander-based CLI. Entry point: `cli/entry.ts` → `cli/cli.ts`.
 
-- `cli.ts` — Main program: registers `models`, `run`, `chat`, `eval`, `sessions`, `telegram`, `habitat`, `mcp` commands
-- `habitat.ts` — `habitat` subcommand (REPL + telegram + discord + web)
-- `mcp.ts` — `mcp` subcommand: `mcp chat` (connect to remote MCP server with OAuth, REPL or one-shot), `mcp connect`, `mcp test-tool`
-- `chat.ts` — Interactive chat
-- `eval.ts` — Evaluation runner
-- `run.ts` — One-shot prompt
-- `models.ts` — Model listing/search
-- `tools.ts` — Tool listing
-- `sessions.ts` — Session management
-- `telegram.ts` — Telegram bot
-- `commonOptions.ts` — Shared CLI options (--provider, --model, etc.)
+Registered top-level commands (`cli.ts`):
 
-### `src/ui/` — User Interfaces
+- `models` — list/search models across providers, `--view info|costs`, JSON output, `llamaswap-config` generator.
+- `run` — one-shot prompt (`--prompt`, `--attach`, `--object`, `--stats`).
+- `chat` — interactive REPL via `@umwelten/ui/cli/CLIInterface` (legacy; see Wave E in the system map for the consolidation plan).
+- `sessions` — sessions tree (list/show/messages/tools/stats/format/digest plus the `habitat` subtree). Registered by `@umwelten/sessions`.
+- `telegram` — standalone math-demo bot (separate from `habitat telegram` — Wave E will consolidate).
+- `habitat` — habitat REPL + subcommands: `local`/`here`, `telegram`, `discord`, `web` (legacy Gaia), `secrets {list,set,remove}`, `serve` (MCP+chat+web), `gaia` (orchestrator), `chat` (A2A client).
+- `mcp` — MCP client/server ops: `mcp connect`, `mcp chat` (remote MCP with OAuth), `mcp test-tool`, `mcp read-resource`, `mcp create-server` (debug), `mcp list`.
+- `introspect` / `browse` — session browser (registered by `@umwelten/sessions`). `browse` is the canonical entry; `introspect browse` is the namespaced alias.
+- `knowledge` — Exploration / knowledge-promotion CLI (reflection → promotion → knowledge writers).
+- `tools` — `tools list` + `tools demo`.
 
-- `cli/` — `CLIInterface`, `CommandRegistry`, `DefaultCommands` (chat/agent/eval commands)
-- `telegram/` — `TelegramAdapter` (Telegram bot interface)
-- `discord/` — `DiscordAdapter` (Discord bot interface; channel→agent via `discord.json`)
-- `tui/` — React Ink TUI with browser components
-- `WebInterface.ts` — Web interface
+There is **no** `eval` command. Evaluations are script-driven (`examples/evals/`, `examples/local-providers/`).
+
+- `commonOptions.ts` — `addCommonOptions` for `-p`/`-m` etc. Currently consumed by `run.ts`/`chat.ts`/`tools.ts`/`telegram.ts`; the bigger subcommands (`habitat`, `mcp`, `knowledge`) define their own.
+
+### `@umwelten/ui` — User Interfaces
+
+- `cli/CLIInterface.ts` — readline-based REPL (legacy; used only by `umwelten chat`).
+- `cli/repl.ts` — habitat-aware REPL used by `umwelten habitat` and its `local` / `here` subcommands.
+- `cli/CommandRegistry.ts` + `DefaultCommands.ts` — slash-command framework for the readline REPL.
+- `telegram/TelegramAdapter.tsx` — grammy-based Telegram bot; per-`chatId` `Interaction` map; optional `ChannelBridge` injection.
+- `discord/DiscordAdapter.tsx` — discord.js bot (god-component, candidate for Wave G splitting).
+- `discord/discord-backfill.ts`, `discord-message-gate.ts`, `discord-transcript-ambient.ts` — ambient-listening, gating, missed-message backfill.
+- `tui/` — React Ink TUI: live/file/session viewer (`tui/index.tsx`), browser components (`tui/browser/`), reusable Ink primitives (`tui/components/`), introspect tree (`tui/introspect/{DashboardApp,browse,detail,beats,digest-live}.tsx`).
 
 ## Key Patterns
 
 **Creating a basic interaction:**
 
 ```typescript
+import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
+import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
+import type { ModelDetails } from "@umwelten/core/cognition/types.js";
+
 const stimulus = new Stimulus({ role: "helpful assistant" });
-const model: ModelDetails = {
-  name: "gemini-3-flash-preview",
-  provider: "google",
-};
+const model: ModelDetails = { name: "gemini-3-flash-preview", provider: "google" };
+
 const interaction = new Interaction(model, stimulus);
-const response = await interaction.chat("Hello");
+interaction.addMessage({ role: "user", content: "Hello" });
+const response = await interaction.streamText();
+console.log(response.content);
+```
+
+**Loading a session from any source (Claude Code / Cursor / Pi / habitat):**
+
+```typescript
+import { loadInteraction } from "@umwelten/core/interaction/adapters/load-interaction.js";
+
+const interaction = await loadInteraction(sessionId, model, stimulus);
 ```
 
 **Using habitat:**
 
 ```typescript
+import { Habitat } from "@umwelten/habitat";
+
 const habitat = await Habitat.create({ workDir: "./my-agent" });
-const interaction = await habitat.createInteraction(sessionId);
+const interaction = await habitat.createInteraction({ sessionId });
+```
+
+**Running an evaluation:**
+
+```typescript
+import { EvalSuite } from "@umwelten/evaluation/evaluation/suite.js";
+
+const suite = new EvalSuite({ name: "my-eval", stimulus: {...}, tasks: [...], models: [...] });
+await suite.run();
 ```
 
 ## CLI Quick Reference
