@@ -79,25 +79,13 @@ export {
 export { HabitatSessionManager } from "./session-manager.js";
 export type { SessionManagerSessionOptions } from "./session-manager.js";
 
-// ── Discord routing ─────────────────────────────────────────────────────
-export {
-	loadDiscordRouting,
-	resolveDiscordChannelRoute,
-	appendDiscordChannelRoute,
-	setDiscordChannelRoute,
-	discordRouteSignature,
-	coerceDiscordChannelBinding,
-	peekExactDiscordBinding,
-	setDiscordChannelInfoMessageId,
-	updateDiscordChannelRuntime,
-} from "./discord-routing.js";
-export type {
-	DiscordRoutingConfig,
-	DiscordRouteResolution,
-	DiscordChannelRuntimeMode,
-	DiscordChannelBinding,
-} from "./discord-routing.js";
-
+// ── Discord ─────────────────────────────────────────────────────────────
+// Discord channel → agent routing was unified with the platform-agnostic
+// bridge/routing.ts in Wave E. Use loadRouting / saveRouting / setChannelRoute
+// / peekExactChannelBinding / setChannelInfoMessageId from ./bridge/routing.js,
+// and the ChannelRuntimeMode / RouteResolution / RoutingConfig / ChannelBinding
+// types from ./bridge/types.js. Existing `discord.json` files are still read as
+// a fallback by loadRouting, so no data migration is required.
 export { provisionDiscordAgentChannel } from "./discord-provision.js";
 export type { DiscordProvisionOptions } from "./discord-provision.js";
 
