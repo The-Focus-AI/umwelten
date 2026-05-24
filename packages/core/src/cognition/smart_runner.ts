@@ -8,15 +8,10 @@ import { z } from "zod";
 
 export type RunnerHook = (
   interaction: Interaction,
-) => Promise<void | RunnerAbort | RunnerModification>;
+) => Promise<void | RunnerAbort>;
 
 export class RunnerAbort {
   constructor(public reason: string) {}
-}
-
-export class RunnerModification {
-  // Deprecated: context modification is not supported in this version.
-  constructor(public modify: (interaction: Interaction) => Interaction) {}
 }
 
 /**
@@ -46,15 +41,12 @@ export class SmartModelRunner implements ModelRunner {
     hooks: RunnerHook[],
     interaction: Interaction,
   ): Promise<{ ok: boolean; interaction: Interaction }> {
-    let ctx = interaction;
     for (const hook of hooks) {
-      const result = await hook(ctx);
-      if (result instanceof RunnerAbort) return { ok: false, interaction: ctx };
-      if (result instanceof RunnerModification) {
-        ctx = result.modify(ctx);
-      }
+      const result = await hook(interaction);
+      if (result instanceof RunnerAbort)
+        return { ok: false, interaction };
     }
-    return { ok: true, interaction: ctx };
+    return { ok: true, interaction };
   }
 
   async generateText(

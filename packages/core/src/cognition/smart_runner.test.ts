@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { SmartModelRunner, RunnerHook, RunnerAbort, RunnerModification } from "./smart_runner.js";
+import { SmartModelRunner, RunnerHook, RunnerAbort } from "./smart_runner.js";
 import { BaseModelRunner } from "./runner.js";
 import { Interaction } from "../interaction/core/interaction.js";
 import { Stimulus } from "../stimulus/stimulus.js";
@@ -69,23 +69,6 @@ describe("SmartModelRunner", () => {
       beforeHooks: [beforeHook],
     });
     await expect(runner.generateText(makeConversation())).rejects.toThrow("Aborted by before hook");
-  });
-
-  it("modifies context if before hook returns RunnerModification", async () => {
-    const beforeHook: RunnerHook = async (ctx) =>
-      new RunnerModification((c) => {
-        (c as any).foo = "bar";
-        return c;
-      });
-    const duringHook: RunnerHook = async (ctx) => {
-      expect((ctx as any).foo).toBe("bar");
-    };
-    const runner = new SmartModelRunner({
-      baseRunner: new DummyBaseRunner(),
-      beforeHooks: [beforeHook],
-      duringHooks: [duringHook],
-    });
-    await runner.generateText(makeConversation());
   });
 
   it("calls hooks for streamText as well", async () => {
