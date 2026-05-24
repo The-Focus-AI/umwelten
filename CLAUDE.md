@@ -1,6 +1,8 @@
 # Umwelten
 
-For **published / npm-style agent context** (shorter module map, task cheat sheet), read **[LLM.txt](LLM.txt)** at the repo root. This file is the maintainer-deep map.
+For **published / npm-style agent context** (shorter module map, task cheat sheet), read **[LLM.txt](LLM.txt)** at the repo root. For the **domain glossary** (Interaction, Source Session, Exploration, Reflection, Memory, Project Fact, Saved Exploration), read **[CONTEXT.md](CONTEXT.md)** — that file defines the language this codebase uses and is the ground truth when prose and code disagree on naming.
+
+This file is the maintainer-deep map.
 
 ## Workflow Rules
 
@@ -104,30 +106,45 @@ Every `Interaction` requires a `Stimulus`.
 
 Holds messages, model, stimulus, and runner. This is where the actual conversation lives.
 
-- `core/interaction.ts` — `Interaction` class: `chat()`, `generateText()`, `streamText()`, `generateObject()`, `compactContext()`
-- `adapters/` — Read external sessions: `ClaudeCodeAdapter`, `CursorAdapter`
-- `analysis/` — Analyze sessions: `SessionAnalyzer`, `SessionSearch`, `ConversationBeats`
-- `persistence/` — Store/retrieve: `InteractionStore`, `SessionStore`, `SessionParser`, `SessionIndexer`
-- `types/` — `NormalizedSession`, `NormalizedMessage`, `SessionSource`
+- `core/interaction.ts` — `Interaction` class: `generateText()`, `streamText()`, `generateObject()`, `streamObject()`, `compactContext()`, `setCheckpoint()` / `getCheckpoint()`, plus `toNormalizedSession()` / `fromNormalizedSession()` round-tripping.
+- `adapters/` — Read external sessions: `ClaudeCodeAdapter`, `CursorAdapter`, `PiAdapter`. Dispatcher: `load-interaction.ts` (`loadInteraction(sessionId, model, stimulus?)`, source detection, `summarizeNormalizedSession`).
+- `analysis/` — Session analysis: `SessionAnalyzer` (legacy single-pass), `session-digester.ts` (modern multi-stage: compaction + analysis + beats + phases + facts), `extraction-engine.ts`, `digest-persistence.ts` (canonical home of `loadDigest`/`saveDigest`/`getDigestPath`), `digest-search.ts`, `session-search.ts`, `ConversationBeats`.
+- `persistence/` — Two stores under one name: `InteractionStore` (small generic JSONL save/load) and the Claude-Code-specific stack (`SessionStore`, `SessionParser`, `SessionIndexer`).
+- `types/normalized-types.ts` — `NormalizedSession`, `NormalizedMessage`, `SessionSource`.
+- `types/domain-types.ts` — `Exploration`, `SourceSession`, `SavedExploration`, `applyExploreFilter`, the Exploration Browser types. See **CONTEXT.md** at the repo root for the canonical domain language.
 
-Usage: `new Interaction(modelDetails, stimulus)` then `interaction.chat("message")`.
+**Exploration / knowledge pipeline** (lives in core but is its own coherent feature surface; see CONTEXT.md for the terms):
+
+- `projection/` — Project a `NormalizedSession` → `SourceSession` → default `Exploration`. `projectSessions(projectPath)` walks every registered adapter.
+- `reflection/` — `buildReflectiveInteraction(explorations, question, opts)` constructs an Interaction whose system prompt is a "reflective analyst" plus exploration context. Not a new runner — just a configured Interaction.
+- `promotion/` — `classifyReflectionAnswer(text)` returns one of 8 `PromotionTarget`s (`agent-instruction`, `project-fact`, `domain-language`, `adr`, `skill`, `artifact`, `saved-reflection`, `user-model`). `PromotionRouter.promote(decision)` writes via the matching `knowledge/` helper.
+- `knowledge/` — Seven file writers: `AGENTS.md`, `FACTS.md`, `user-model.md` (marker-managed sections), `.umwelten/reflections/`, `.umwelten/artifacts/`, `.umwelten/candidates/`, `.umwelten/explorations/`. Plus `SavedExplorationStore`.
+
+Consumed by `@umwelten/sessions/introspect` (projection) and `@umwelten/cli/knowledge` (reflection + promotion). The pipeline is a candidate for splitting out into `@umwelten/knowledge` later — see Wave H in `docs/architecture/system-map-2026-05.md`.
+
+Usage: `new Interaction(modelDetails, stimulus)` then `interaction.streamText()` / `generateText()` etc. There is no `chat()` method on `Interaction`; the CLI/REPL wraps `streamText` plus an observer.
 
 ### `src/providers/` — LLM Backends
 
-Unified access to 8 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
+Unified access to 11 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
 
 - `base.ts` — `BaseProvider` abstract class
 - `google.ts` — Gemini models (needs `GOOGLE_GENERATIVE_AI_API_KEY`)
 - `openrouter.ts` — OpenAI, Anthropic, etc. (needs `OPENROUTER_API_KEY`)
 - `deepinfra.ts` — DeepInfra models (needs `DEEPINFRA_API_KEY`)
 - `togetherai.ts` — Together AI models (needs `TOGETHER_API_KEY`)
+- `fireworks.ts` — Fireworks.ai models (needs `FIREWORKS_API_KEY`)
+- `minimax.ts` — MiniMax models (needs `MINIMAX_API_KEY`)
+- `nvidia.ts` — NVIDIA-hosted models (needs `NVIDIA_API_KEY`)
+- `github-models.ts` — GitHub-hosted models (needs `GITHUB_TOKEN`)
 - `ollama.ts` — Local models (no key needed)
 - `lmstudio.ts` — Local REST API (no key needed)
 - `llamabarn.ts` — [LlamaBarn](https://github.com/ggml-org/LlamaBarn) local llama.cpp models via OpenAI-compatible API at `http://localhost:2276/v1` (no key needed)
 - `llamaswap.ts` — [llama-swap](https://github.com/mostlygeek/llama-swap) proxy; OpenAI-compatible, default `http://localhost:8080/v1` (override with `LLAMASWAP_HOST`). Use `umwelten models llamaswap-config` to generate its YAML config from local GGUF caches.
 - `llamaswap-config.ts` — pure helpers to scan GGUF caches (LM Studio, LlamaBarn, HF hub) and emit a `llama-swap` YAML. Exposed via the `umwelten models llamaswap-config` CLI command.
-- `github-models.ts` — GitHub-hosted models (needs `GITHUB_TOKEN`)
-- `index.ts` — `getModel()`, `validateModel()`, `getModelProvider()`, `getModelDetails()`
+- `local-fetch.ts` — shared HTTP helpers for local providers (Ollama, LM Studio, LlamaBarn, llama-swap).
+- `registry.ts` — `registerProvider`, `getRegisteredProvider`, `listRegisteredProviders`.
+- `index.ts` — `getModel()`, `validateModel()`, `getModelProvider()`, `getModelDetails()`.
 
 Access through `getModel(modelDetails)` — don't instantiate providers directly.
 
@@ -354,6 +371,25 @@ Low-level utilities consumed by `stimulus/tools/url-tools.ts`.
 - `from_html.ts` — `fromHtmlBuiltIn()` (Turndown), `fromHtmlViaMarkify()` (external service)
 - `feed_parser.ts` — `parseFeed()` — RSS/Atom feed parsing
 
+### `src/session-record/` — Session Storage Substrate
+
+Unified **session handles**, **learnings** (typed append-only JSONL), and **transcript compaction** so habitat traffic and Claude Code sessions share one save/load interface for derived knowledge — without writing into Anthropic's `~/.claude` JSONL files. Heavily consumed by habitat (`bridge/channel-bridge.ts`, `tools/session-tools.ts`), Discord/Telegram adapters (transcript resume), and the digester.
+
+- `types.ts` — `SessionHandle`, `LearningKind` / `LearningRecord`, `CompactionEventV1`.
+- `learnings-store.ts` — `FileLearningsStore`, append-only `.jsonl` per kind: `facts`, `skill_candidates`, `preferences`, `open_loops`, `mistakes`.
+- `transcript-segments.ts` — list frozen + live segments.
+- `transcript-write.ts` — write `CoreMessage[]` → Claude-style JSONL.
+- `habitat-transcript-load.ts` — replay.
+- `context-merge.ts` — `buildHabitatIntrospectionContextMessages` prepends compaction summaries + learnings as system messages.
+- `compaction-habitat.ts` — freeze the live tail, start a new live segment with an `umwelten_compaction` marker.
+- `resolve-habitat.ts` / `resolve-claude.ts` — produce a `SessionHandle`.
+
+**Layering note**: this lives in core only because extracting it from habitat broke a `habitat ↔ ui` cycle (`transcript-write.ts:5-7` documents the trade-off). Core therefore knows habitat-specific filesystem conventions. Long-term either accept that ("core hosts the cross-cutting session substrate") or hoist into a `@umwelten/session-record` package. See `docs/architecture/session-record-introspection.md` for the deeper design.
+
+### `src/env/` — dotenv side-effect loader
+
+- `load.ts` — Walks up from cwd to find the nearest `.env`, calls `dotenv.config()` once (idempotent). Invoked at module-load time so importing `@umwelten/core/env/load.js` is enough to ensure API keys are in `process.env`. `cli/entry.ts` and most `examples/*` scripts import it for side-effect.
+
 ### `src/schema/` — Structured Output
 
 Parse DSL strings into Zod schemas, validate model output.
@@ -509,8 +545,13 @@ mise run habitat-browse       # against a habitat's sessions
 - `FIREWORKS_API_KEY` — Fireworks.ai
 - `DEEPINFRA_API_KEY` — DeepInfra
 - `TOGETHER_API_KEY` — Together AI
+- `MINIMAX_API_KEY` — MiniMax
+- `NVIDIA_API_KEY` — NVIDIA-hosted models
 - `TAVILY_API_KEY` — Web search tool
 - `MARKIFY_URL` — Optional external HTML-to-markdown service
+- `LLAMASWAP_HOST` — Override the default `http://localhost:8080/v1` for llama-swap
+
+Loaded automatically by `@umwelten/core/env/load.js` (side-effect import at module-load time). Every package that consumes core gets `.env` for free.
 
 ## Port Scheme (74xx block)
 
