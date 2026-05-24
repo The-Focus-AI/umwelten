@@ -276,13 +276,14 @@ Tests: 1183 → 1182 (the one removed test was for `RunnerModification`).
 
 CLAUDE.md: 507 → 604 lines. Grep-verified no remaining references to deleted symbols.
 
+**Wave D — Cognition extractions** (2 commits, `runner.ts` 870 → 732 LoC):
+
+- `a64a5de` — Extract `extractStreamUsage(response, initialUsage, provider)` from `runner.ts:402-551` into `usage-extractor.ts`. Provider-specific cascade (Ollama / OpenRouter / MiniMax / Google / GitHub Models) now lives next to `normalizeTokenUsage` and `calculateCostBreakdown`. Verified with unit tests + knip + a real `gemini-3-flash-preview` smoke test (`--debug-usage` confirmed all five token keys flowed through cleanly).
+- `c473719` — Sync `ModelResponseSchema` with the `ModelResponse` TS type. Adds `messages: z.array(z.unknown()).optional()` to the schema; collapses the type-side intersection so the schema is the single source of truth.
+
+Still on the cognition wish-list (not done this pass): `ModelRunner<I = Interaction>` generic so `interaction: any` can drop the cast.
+
 ### Next
-
-**Wave D — Cognition extractions** (1-2 days, mechanical, test-covered):
-
-- Extract `extractStreamUsage(provider, response)` from `runner.ts:408-546` into `usage-extractor.ts`. ~140 LoC out of runner, no behavior change.
-- Sync `ModelResponseSchema` and `ModelResponse` TS type: `messages?` is on the TS type but missing from Zod.
-- Optional: `ModelRunner<I = Interaction>` generic to drop the `interaction: any` cast.
 
 **Wave E — UI/habitat "pick one"** (~half day each):
 
@@ -314,4 +315,4 @@ CLAUDE.md: 507 → 604 lines. Grep-verified no remaining references to deleted s
 - `Habitat._currentSessionId` cast-based state (thread explicitly or rename + document).
 - DAG seams (`ui/index.ts` re-exporting habitat; `cli → sessions → ui` runtime path).
 
-**Recommended next step**: Wave D (cognition extractions). With CLAUDE.md now matching reality after Wave C, the next mechanical win is decomposing the 320-line provider-specific usage cascade out of `runner.ts` — isolated, test-covered, no behavior change. After that, Wave E's "pick one" decisions are the obvious follow-on for half-day-at-a-time progress.
+**Recommended next step**: Wave E (UI/habitat "pick one" decisions). Each is bite-sized, contained, and reversible — half-a-day-each work. Concretely: pick the REPL framework (`ui/cli/repl.ts` over `CLIInterface.ts`), pick the Telegram entry (`cli habitat telegram` over `cli/telegram.ts` math-demo), or finish the channel-routing migration. Wave F (HTTP server consolidation) is the bigger structural win after that.

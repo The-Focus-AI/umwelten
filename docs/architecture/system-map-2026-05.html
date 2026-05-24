@@ -264,21 +264,21 @@
 <header class="doc-head">
   <div class="eyebrow">Architecture Audit &middot; Progress Report</div>
   <h1>Umwelten System Map</h1>
-  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Three cleanup waves landed</strong> &mdash; evaluation package overhaul, mechanical sweep, then documentation sync. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Four cleanup waves landed</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, then cognition extractions. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
 </header>
 
 <div class="scoreboard">
   <div class="score">
-    <div class="num">~6900</div>
-    <div class="lab">Lines of code deleted across cleanup waves</div>
+    <div class="num">~7000</div>
+    <div class="lab">Lines of code shifted (deleted, moved, or refactored) across cleanup waves</div>
   </div>
   <div class="score">
-    <div class="num">19</div>
+    <div class="num">21</div>
     <div class="lab">Targeted commits, each independently revertible</div>
   </div>
   <div class="score">
-    <div class="num">CLAUDE.md</div>
-    <div class="lab">Now matches reality &mdash; Wave C synced the docs</div>
+    <div class="num">runner.ts</div>
+    <div class="lab">870 &rarr; 732 LoC after the Wave D extraction</div>
   </div>
 </div>
 
@@ -614,21 +614,21 @@
   <div class="pass-foot">CLAUDE.md: 507 &rarr; 604 lines. Grep-verified no remaining references to any deleted symbol (<code>SessionSourceForEntry</code>, <code>fromHtmlViaModel</code>, <code>RunnerModification</code>, <code>MatrixEvaluation</code>, <code>BatchEvaluation</code>, <code>runEvaluation</code>, <code>@umwelten/server</code>, <code>diagnosis-agent</code>, <code>monitor-agent</code>, <code>bridge_diagnose</code>, <code>bridge_monitor</code>).</div>
 </div>
 
-<h3>Next</h3>
-<p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
-
-<div class="pass">
+<div class="pass done">
   <div class="pass-head">
     <div class="pass-title">Wave D &mdash; Cognition extractions</div>
-    <div class="pass-effort">1&ndash;2 days</div>
+    <div class="pass-effort">2 commits, <code>runner.ts</code> 870 &rarr; 732 LoC</div>
   </div>
-  <p>Two focused refactors in the cleanest subsystem. Both are mechanical and test-covered.</p>
+  <p>Two focused refactors in the cleanest subsystem. Both behavior-preserving and verified against a real model.</p>
   <ul>
-    <li>Extract <code>extractStreamUsage(provider, response)</code> from <code>runner.ts:408&ndash;546</code> into <code>usage-extractor.ts</code>. Drops runner LoC by ~140 with no behavior change. The provider-specific cascade (Ollama / OpenRouter / Google / GitHub Models) belongs next to the rest of usage normalization, not embedded in the <code>streamText</code> event loop.</li>
-    <li>Sync <code>ModelResponseSchema</code> and the <code>ModelResponse</code> TS type: <code>messages?</code> is on the TS type but missing from the Zod schema, so anything that round-trips through Zod loses it. Add <code>messages: z.array(z.unknown()).optional()</code> to the schema (or document the asymmetry).</li>
-    <li>Optional: <code>ModelRunner&lt;I = Interaction&gt;</code> generic so <code>interaction: any</code> can drop the cast.</li>
+    <li><code class="sha">a64a5de</code> &mdash; Extract <code>extractStreamUsage(response, initialUsage, provider)</code> from <code>runner.ts:402&ndash;551</code> into <code>usage-extractor.ts</code>. The provider-specific cascade (Ollama / OpenRouter / MiniMax / Google / GitHub Models) now lives next to <code>normalizeTokenUsage</code> and <code>calculateCostBreakdown</code> where it belongs. <code>runner.ts</code> drops 138 LoC; <code>streamText</code>&rsquo;s event loop is materially shorter. Verified with unit tests + knip + a real <code>gemini-3-flash-preview</code> smoke test (<code>--debug-usage</code> confirmed all five token keys flowed through cleanly).</li>
+    <li><code class="sha">c473719</code> &mdash; Sync <code>ModelResponseSchema</code> with the <code>ModelResponse</code> TS type. The Zod schema was missing the <code>messages?</code> field while the exported type bolted it on via intersection &mdash; anyone calling <code>ModelResponseSchema.parse(json)</code> would have silently dropped <code>messages</code>. Adds <code>messages: z.array(z.unknown()).optional()</code> to the schema and collapses the intersection into <code>Omit&lt;..., "messages"&gt; &amp; { messages?: CoreMessage[] }</code> so the schema is the single source of truth for the field set.</li>
   </ul>
+  <div class="pass-foot">Still on the cognition wish-list (not done this pass): <code>ModelRunner&lt;I = Interaction&gt;</code> generic so <code>interaction: any</code> can drop the cast. Touches more files than the other two; deferred until the next pass.</div>
 </div>
+
+<h3>Next</h3>
+<p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
 
 <div class="pass">
   <div class="pass-head">
@@ -690,11 +690,11 @@
 </div>
 
 <div class="callout">
-<p><strong>Recommended next step:</strong> Wave D (cognition extractions). With CLAUDE.md now matching reality after Wave C, the next mechanical win is decomposing the 320-line provider-specific usage cascade out of <code>runner.ts</code> &mdash; isolated, test-covered, no behavior change, and finally caps the &ldquo;one fat module&rdquo; finding from the cognition survey in &sect;2.1. Wave E&rsquo;s &ldquo;pick one&rdquo; decisions are the obvious follow-on for half-day-at-a-time progress.</p>
+<p><strong>Recommended next step:</strong> Wave E (UI/habitat &ldquo;pick one&rdquo; decisions). Each is bite-sized, contained, and reversible &mdash; the kind of work that fits in half a day. Concretely: pick the REPL framework (<code>ui/cli/repl.ts</code> over <code>CLIInterface.ts</code>), pick the Telegram entry (<code>cli habitat telegram</code> over <code>cli/telegram.ts</code> math-demo), or finish the channel-routing migration. Wave F (HTTP server consolidation) is the bigger structural win after that.</p>
 </div>
 
 <footer>
-  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave C (documentation sync) merged to main
+  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave D (cognition extractions) merged to main
 </footer>
 
 </div>
