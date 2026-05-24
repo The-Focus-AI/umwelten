@@ -300,13 +300,7 @@ async function loadAdapterBeats(
 	session: SessionIndexEntry,
 	model: ModelDetails,
 ): Promise<LoadedBeats | null> {
-	// SessionIndexEntry.source is SessionSourceForEntry which is a superset
-	// of SessionSource (it has "unknown"). The adapter registry is keyed by
-	// SessionSource — anything we get here that the registry doesn't know
-	// returns undefined and we throw below.
-	const adapter = adapterRegistry.get(
-		session.source as unknown as Parameters<typeof adapterRegistry.get>[0],
-	);
+	const adapter = session.source ? adapterRegistry.get(session.source) : undefined;
 	if (!adapter) {
 		throw new Error(`No adapter registered for source "${session.source}"`);
 	}
