@@ -179,7 +179,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `secrets.ts` — Work-dir `secrets.json` (plain JSON map, file mode 0600)
 - `transcript.ts` — Export sessions to JSONL
 - `gaia-server.ts` — Legacy single-habitat web UI server
-- `a2a-handler.ts` — Habitat ↔ A2A adapter (`HabitatAgentExecutor`, `buildAgentCard`); the actual A2A protocol scaffolding lives in `@umwelten/server/a2a/`
+- `a2a-handler.ts` — Habitat ↔ A2A adapter (`HabitatAgentExecutor`, `buildAgentCard`); the actual A2A protocol scaffolding lives in `@umwelten/protocols/a2a/`
 - `mcp-local-server.ts` — **MCP server exposing all habitat tools over Streamable HTTP** (no OAuth, for local/container use)
 - `gaia/` — **Gaia Orchestrator** — manages multiple habitat containers (see Gaia section below)
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
@@ -251,7 +251,7 @@ Manages multiple habitat containers from a single dashboard. Gaia is a **normal 
 - `secrets.ts` — `GaiaSecretVault` — master secret vault + per-container filtering
 - `docker.ts` — `DockerManager` — build/start/stop/logs/status via docker CLI, named volumes, port assignment
 - `proxy.ts` — `proxyRequest()`, `fetchFromContainer()` — reverse proxy with Bearer auth injection
-- `gaia-tools.ts` — `createGaiaToolSet()` — 14 AI SDK tools as a `ToolSet` (closure over registry/vault/docker). Speaks A2A to running containers via `fetchAgentCard()` / `sendA2AMessage()` from `@umwelten/server`.
+- `gaia-tools.ts` — `createGaiaToolSet()` — 14 AI SDK tools as a `ToolSet` (closure over registry/vault/docker). Speaks A2A to running containers via `fetchAgentCard()` / `sendA2AMessage()` from `@umwelten/protocols`.
 - `routes.ts` — API route handlers mounted via `extraRawHandler` on container-server
 - `ui/index.html` — Dashboard SPA (Chat, Habitats, Secrets, Create tabs)
 
