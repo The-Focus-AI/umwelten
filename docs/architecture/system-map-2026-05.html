@@ -186,6 +186,12 @@
     padding: 20px 24px;
     margin-bottom: 16px;
   }
+  .pass.done {
+    background: var(--ok-soft);
+    border-color: var(--ok);
+    opacity: 0.85;
+  }
+  .pass.done .pass-title { color: var(--ok); }
   .pass-head {
     display: flex;
     justify-content: space-between;
@@ -201,6 +207,47 @@
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
+  .pass code.sha {
+    font-size: 11px;
+    background: rgba(0,0,0,0.05);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .pass ul { margin-bottom: 8px; }
+  .pass .pass-foot {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--rule);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .scoreboard {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 24px 0 32px;
+  }
+  .score {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 16px 18px;
+  }
+  .score .num {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ok);
+    font-variant-numeric: tabular-nums;
+  }
+  .score .lab {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-top: 6px;
+  }
 
   footer {
     margin-top: 80px;
@@ -215,10 +262,25 @@
 <div class="wrap">
 
 <header class="doc-head">
-  <div class="eyebrow">Architecture Audit</div>
+  <div class="eyebrow">Architecture Audit &middot; Progress Report</div>
   <h1>Umwelten System Map</h1>
-  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems.</p>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Two cleanup waves landed</strong> &mdash; evaluation package overhaul, then mechanical sweep. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
 </header>
+
+<div class="scoreboard">
+  <div class="score">
+    <div class="num">~6900</div>
+    <div class="lab">Lines deleted across the cleanup waves</div>
+  </div>
+  <div class="score">
+    <div class="num">11</div>
+    <div class="lab">Targeted commits, each independently revertible</div>
+  </div>
+  <div class="score">
+    <div class="num">1182</div>
+    <div class="lab">Tests passing (was 1277 before the eval pass)</div>
+  </div>
+</div>
 
 <nav class="toc">
   <h4>Contents</h4>
@@ -229,7 +291,7 @@
     <li><a href="#s3">The drift catalog (consolidated)</a></li>
     <li><a href="#s4">What&rsquo;s actually clean</a></li>
     <li><a href="#s5">Documentation strategy</a></li>
-    <li><a href="#s6">Recommended cleanup sequence</a></li>
+    <li><a href="#s6">Cleanup progress &amp; next passes</a></li>
   </ol>
 </nav>
 
@@ -497,67 +559,143 @@
   <li>&ldquo;There is no longer a separate introspection LLM pipeline&rdquo; &mdash; <code>IntrospectionRun</code> / <code>DecisionLogEntry</code> data model still lives in <code>sessions/src/introspection/storage.ts</code> and is read by <code>buildBrowse()</code>.</li>
 </ul>
 
-<h2 id="s6">6. Recommended cleanup sequence</h2>
-<p>If you want to do this in passes, optimizing for low-risk wins first.</p>
+<h2 id="s6">6. Cleanup progress &amp; next passes</h2>
+
+<h3>Done</h3>
+
+<div class="pass done">
+  <div class="pass-head">
+    <div class="pass-title">Wave A &mdash; Evaluation package overhaul</div>
+    <div class="pass-effort">~4 commits, &minus;6800 LoC</div>
+  </div>
+  <p>The CLI <code>eval</code> command was frozen since the monorepo split; every recent eval feature (partial-response salvage, transcript replay, AbortSignal propagation, 2-pass coding eval, watchdog + undici timeout fixes) went into <code>EvalSuite</code> + <code>llm-eval/</code> + <code>examples/local-providers/</code>, never <code>api.ts</code>. Wave A retired the obsolete path.</p>
+  <ul>
+    <li><code class="sha">045c89d</code> &mdash; Delete verified dead code: <code>evaluation/codebase/</code> (~1620 LoC, never-landed framework), <code>analysis/result-analyzer</code>, <code>scorer.ts</code>, <code>strategies/matrix-evaluation</code>, <code>strategies/batch-evaluation</code>, <code>introspection/browse.ts</code> shim, <code>ui/EvaluationUI.tsx</code>.</li>
+    <li><code class="sha">f7c6ed3</code> &mdash; Remove obsolete CLI eval path: <code>cli/eval.ts</code>, <code>evaluation/api.ts</code>, <code>Evaluation</code>/<code>EvaluationRunner</code>/<code>FunctionEvaluationRunner</code> hierarchy, <code>types/evaluation-types.ts</code>, <code>ui/EvaluationApp.tsx</code>.</li>
+    <li><code class="sha">056c2e6</code> &mdash; Fix unresolved imports caught by knip: inline types in <code>ranking/types.ts</code> and <code>strategies/simple-evaluation.ts</code>.</li>
+    <li><code class="sha">d74fc26</code> &mdash; Move digest persistence into <code>core/interaction/analysis/digest-persistence.ts</code> (was triplicated across sessions and extraction-engine).</li>
+  </ul>
+  <div class="pass-foot">Evaluation package shrank from ~12,100 LoC to ~8K. Single coherent stack: <code>EvalSuite</code> + <code>llm-eval/runFullEval</code> + <code>ranking/</code> + <code>combine/</code> + <code>Reporter</code>, driven by scripts in <code>examples/</code>. No CLI, no Commander wrapper, no abstract base classes.</div>
+</div>
+
+<div class="pass done">
+  <div class="pass-head">
+    <div class="pass-title">Wave B &mdash; Mechanical sweep (high-value, low-risk)</div>
+    <div class="pass-effort">7 commits, &minus;87 LoC + behavior fixes</div>
+  </div>
+  <p>Seven independently-revertible commits closing the high-value items from the drift catalog. Two are real behavior fixes; the rest are dead-code or duplicate removals.</p>
+  <ul>
+    <li><code class="sha">7bb2e53</code> &mdash; Delete <code>fromHtmlViaModel</code> (orphan LLM HTML&rarr;md converter, zero callers).</li>
+    <li><code class="sha">3088ccf</code> &mdash; Strip debug <code>console.log</code>s + unused <code>zodToJsonSchema</code> from <code>memory/determine_operations.ts</code>.</li>
+    <li><code class="sha">9a66ab7</code> &mdash; Delete deprecated <code>RunnerModification</code> from <code>SmartModelRunner</code> (class was self-deprecated, only its own test exercised it).</li>
+    <li><code class="sha">32372e4</code> &mdash; Delete orphan <code>test-utils/load-env.ts</code> (zero callers).</li>
+    <li><code class="sha">4dbd7cb</code> &mdash; Drop misleading-shape <code>streammark</code> shim; keep bare ambient module.</li>
+    <li><code class="sha">dae6a28</code> &mdash; <strong>Stop stripping non-ASCII from reasoning deltas</strong> (<code>runner.ts:265</code>). Was silently dropping every non-Latin character from Qwen/GLM/DeepSeek/nemotron reasoning traces. The filter was a pre-StreamObserver-era stdout cosmetic guard; the observer pattern means escaping is the consumer&rsquo;s job now.</li>
+    <li><code class="sha">ab1bd8c</code> &mdash; Unify <code>SessionSource</code>: drop <code>SessionSourceForEntry</code> (the comment admitted "must match" &mdash; a hand-maintained duplicate is a bug magnet).</li>
+  </ul>
+  <div class="pass-foot">Net: 9 files touched, &minus;87 LoC. Plus two real behavior wins: reasoning capture now keeps non-Latin characters; memory ops don&rsquo;t print debug output. Tests went from 1183 to 1182 (the one deleted test was for the deprecated <code>RunnerModification</code>).</div>
+</div>
+
+<h3>Next</h3>
+<p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
 
 <div class="pass">
   <div class="pass-head">
-    <div class="pass-title">Pass 1 &mdash; Documentation &amp; dead code</div>
-    <div class="pass-effort">~1 day</div>
+    <div class="pass-title">Wave C &mdash; Documentation sync</div>
+    <div class="pass-effort">~half day</div>
   </div>
+  <p>CLAUDE.md is now the most-drifted artifact in the repo. The evaluation cleanup made it worse: <code>eval</code> commands it documents no longer exist. The whole &sect;5 list applies, plus the now-stale CLI eval references. Pure doc work, zero code risk.</p>
   <ul>
-    <li>Fix CLAUDE.md per &sect;5.</li>
-    <li>Delete all the dead-code items listed in High-value Cleanups &sect;3.</li>
-    <li>Resolve <code>SessionSource</code> double-declaration and the two <code>streammark</code> shims.</li>
+    <li>Drop <code>@umwelten/server</code> (renamed to <code>@umwelten/protocols</code>); add <code>@umwelten/sessions</code>, <code>@umwelten/protocols</code>, <code>umwelten</code> meta to the package map.</li>
+    <li>Fix <code>reporting/</code> location (it&rsquo;s in evaluation, not core).</li>
+    <li>Fix <code>introspection/</code> location (it&rsquo;s in sessions, not core).</li>
+    <li>Rewrite the <code>bridge/</code> section (<code>diagnosis-agent.ts</code> and <code>monitor-agent.ts</code> don&rsquo;t exist; <code>bridge/</code> holds <code>channel-bridge.ts</code> + <code>commands.ts</code> + <code>routing.ts</code>).</li>
+    <li>Drop the <code>eval</code> CLI command references &mdash; point to <code>EvalSuite</code> / <code>llm-eval/runFullEval</code> + <code>examples/local-providers/</code> instead.</li>
+    <li>Drop <code>bridge_diagnose</code>/<code>bridge_monitor</code> from the Tool Sets table.</li>
+    <li>Add <code>src/session-record/</code> and <code>src/env/</code> &mdash; both real, both heavily used, both currently absent.</li>
+    <li>Point CLAUDE.md at <code>CONTEXT.md</code> for the Exploration domain glossary.</li>
+    <li>Sync the provider list (missing <code>minimax</code>, <code>nvidia</code>, <code>fireworks</code>).</li>
   </ul>
 </div>
 
 <div class="pass">
   <div class="pass-head">
-    <div class="pass-title">Pass 2 &mdash; Extract &amp; consolidate</div>
+    <div class="pass-title">Wave D &mdash; Cognition extractions</div>
     <div class="pass-effort">1&ndash;2 days</div>
   </div>
+  <p>Two focused refactors in the cleanest subsystem. Both are mechanical and test-covered.</p>
   <ul>
-    <li>Move digest persistence into core.</li>
-    <li>Extract <code>extractStreamUsage()</code> from <code>runner.ts</code> into <code>usage-extractor.ts</code>.</li>
-    <li>Move evaluation validation out of CLI.</li>
-    <li>Pick one REPL, one Telegram entry, one slash-command system.</li>
+    <li>Extract <code>extractStreamUsage(provider, response)</code> from <code>runner.ts:408&ndash;546</code> into <code>usage-extractor.ts</code>. Drops runner LoC by ~140 with no behavior change. The provider-specific cascade (Ollama / OpenRouter / Google / GitHub Models) belongs next to the rest of usage normalization, not embedded in the <code>streamText</code> event loop.</li>
+    <li>Sync <code>ModelResponseSchema</code> and the <code>ModelResponse</code> TS type: <code>messages?</code> is on the TS type but missing from the Zod schema, so anything that round-trips through Zod loses it. Add <code>messages: z.array(z.unknown()).optional()</code> to the schema (or document the asymmetry).</li>
+    <li>Optional: <code>ModelRunner&lt;I = Interaction&gt;</code> generic so <code>interaction: any</code> can drop the cast.</li>
   </ul>
 </div>
 
 <div class="pass">
   <div class="pass-head">
-    <div class="pass-title">Pass 3 &mdash; Server consolidation</div>
+    <div class="pass-title">Wave E &mdash; UI / habitat consolidation (pick one)</div>
+    <div class="pass-effort">~half day each</div>
+  </div>
+  <p>Three independent "pick one of two" decisions. Each is contained and reversible.</p>
+  <ul>
+    <li><strong>One REPL framework.</strong> Keep <code>ui/cli/repl.ts</code> (habitat-aware, used by <code>umwelten habitat</code>); delete <code>ui/cli/CLIInterface.ts</code> (used only by the now-orphaned <code>umwelten chat</code>) or rebuild chat on top of <code>repl.ts</code>.</li>
+    <li><strong>One Telegram entry point.</strong> Kill <code>cli/telegram.ts</code> (math-demo) or merge it into <code>cli habitat telegram</code> (habitat-aware). Same name, overlapping scope, different feature sets.</li>
+    <li><strong>One channel-routing system.</strong> <code>bridge/routing.ts</code> is the modern replacement and already reads the legacy <code>discord.json</code> as fallback. Delete <code>discord-routing.ts</code>; move <code>discord-provision.ts</code> to <code>@umwelten/ui/discord/</code> (it imports <code>discord.js</code>).</li>
+    <li><strong>One slash-command system.</strong> <code>bridge/commands.ts</code> is the channel-bridge version; <code>slash-commands.ts</code> is the CLI-REPL version. Different lists, no shared code &mdash; consolidate.</li>
+  </ul>
+</div>
+
+<div class="pass">
+  <div class="pass-head">
+    <div class="pass-title">Wave F &mdash; HTTP server consolidation</div>
     <div class="pass-effort">2&ndash;3 days</div>
   </div>
+  <p>The biggest concentration of structural drift. Four HTTP servers in habitat, three of which independently re-implement the same router/static/CORS/sendJson shell.</p>
   <ul>
-    <li>Extract <code>HttpAppShell</code> from <code>container-server.ts</code>.</li>
-    <li>Migrate <code>web/server.ts</code>, <code>mcp-local-server.ts</code>, <code>tools/gaia/routes.ts</code> onto it.</li>
-    <li>Sunset legacy <code>mcp/server/server.ts</code> and <code>mcp/client/client.ts</code>.</li>
-    <li>Migrate <code>mcp-local-server</code> to use <code>mcp-serve</code> (no-auth flavor).</li>
+    <li>Extract <code>HttpAppShell</code> from <code>container-server.ts</code>: route loop, <code>parseRoute</code>, <code>matchRoute</code>, <code>serveStatic</code>, <code>sendJson</code>, CORS, body reader.</li>
+    <li>Migrate <code>web/server.ts</code>, <code>tools/gaia/routes.ts</code>, and <code>mcp-local-server.ts</code> onto the shell.</li>
+    <li>Make <code>mcp-local-server.ts</code> a mode of <code>container-server.ts</code> (resolves the <code>container-server.ts:555</code> TODO that flags <code>mcp-local-server</code> as duplicating <code>mcp-serve/mcp-handler.ts</code>).</li>
+    <li>Sunset legacy MCP: <code>@umwelten/protocols/mcp/client/client.ts</code> + <code>mcp/server/server.ts</code> are pre-official-SDK hand-rolled JSON-RPC. Only debug CLI uses the legacy path.</li>
+    <li>Delete <code>gaia-server.ts</code> + <code>web/server.ts</code> once the legacy Gaia SSE format migrates to <code>container-server</code> (it&rsquo;s already self-labeled legacy and only kept alive for the existing UI).</li>
+    <li><strong>Caveat:</strong> <code>docs/architecture/electron-shell.md</code> is a planned desktop shell wrapping <code>container-server</code>. The consolidation has to preserve the <code>container-server.ts</code> surface area, not just merge it away.</li>
   </ul>
 </div>
 
 <div class="pass">
   <div class="pass-head">
-    <div class="pass-title">Pass 4 &mdash; Structural</div>
-    <div class="pass-effort">1 week+</div>
+    <div class="pass-title">Wave G &mdash; Big files</div>
+    <div class="pass-effort">1&ndash;2 days</div>
   </div>
+  <p>God-files that need decomposition. Mechanical splits, no behavior change.</p>
   <ul>
-    <li>Decide on the Exploration / knowledge pipeline (split out vs document).</li>
-    <li>Decide on <code>session-record</code> layering (stay in core vs new package).</li>
-    <li>Finish the discord-routing migration; delete legacy.</li>
-    <li>Decide analyzer vs digester.</li>
-    <li>Split <code>gaia-tools.ts</code> and <code>agent-runner-tools.ts</code>.</li>
+    <li>Split <code>tools/gaia/gaia-tools.ts</code> (1347 LoC) into <code>gaia-tools/{habitats,secrets,skills,standards,index}.ts</code>.</li>
+    <li>Split <code>tools/agent-runner-tools.ts</code> (1183 LoC) one tool per file.</li>
+    <li>Split <code>packages/sessions/src/sessions.ts</code> (3640 LoC) by subcommand.</li>
+    <li><code>DiscordAdapter.tsx</code> (2083 LoC) &mdash; move ambient-gate/backfill orchestration out (the sibling <code>discord-message-gate.ts</code> + <code>discord-backfill.ts</code> already started this).</li>
+  </ul>
+</div>
+
+<div class="pass">
+  <div class="pass-head">
+    <div class="pass-title">Wave H &mdash; Structural decisions</div>
+    <div class="pass-effort">discussion first, then 1 week+</div>
+  </div>
+  <p>Real architectural choices, not mechanical cleanups. Each needs a decision before code moves.</p>
+  <ul>
+    <li><strong>Exploration / knowledge pipeline location.</strong> <code>interaction/{projection,promotion,reflection,knowledge}/</code> implements CONTEXT.md&rsquo;s domain model but lives anonymously in core. Either split into <code>@umwelten/knowledge</code> (or fold into <code>@umwelten/sessions</code>) or formally adopt it as a first-class core subsystem in CLAUDE.md.</li>
+    <li><strong>Analyzer vs digester.</strong> <code>session-analyzer.ts</code> and <code>session-digester.ts</code> coexist; the digester wraps the analyzer. If digests are canonical (as CLAUDE.md claims), deprecate <code>analyzeSessionWithRetry</code>; if not, soften the claim.</li>
+    <li><strong><code>session-record/</code> layering.</strong> Sits in core but knows Habitat-specific filesystem conventions (<code>transcript.jsonl</code>, learnings dirs, <code>umwelten_compaction</code> markers). Either accept this as &ldquo;core hosts the cross-cutting session substrate&rdquo; (and document it) or hoist into a <code>@umwelten/session-record</code> package.</li>
+    <li><strong><code>Habitat._currentSessionId</code></strong> &mdash; cast-based cross-cutting state (<code>(habitat as any)._currentSessionId</code> in 2+ places). Thread through tool contexts explicitly, or rename and document.</li>
+    <li><strong>DAG seams.</strong> <code>ui/index.ts</code> re-exports habitat internals (<code>startWebServer</code>, <code>ChannelBridge</code>, etc.). <code>cli &rarr; sessions &rarr; ui</code> is a runtime path that side-steps the documented <code>cli &rarr; ui</code> dependency. Both are minor but documented away.</li>
   </ul>
 </div>
 
 <div class="callout">
-<p>Passes 1 and 2 alone would close ~80% of the documented drift.</p>
+<p><strong>Recommended next step:</strong> Wave C (documentation sync). It&rsquo;s the cheapest, has zero code risk, and every later wave depends on a CLAUDE.md that actually matches reality. After that, Wave D (cognition extractions) is the next mechanical win that doesn&rsquo;t need a design discussion.</p>
 </div>
 
 <footer>
-  docs/architecture/system-map-2026-05 &middot; based on parallel deep-dive across six subsystems
+  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave B merged to main
 </footer>
 
 </div>

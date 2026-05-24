@@ -239,32 +239,79 @@ CLAUDE.md is the canonical map. Three classes of correction needed:
 - "Digests are the one source of session analysis" — both the analyzer and digester are live; either align the code or soften the claim.
 - "There is no longer a separate introspection LLM pipeline" — `IntrospectionRun` / `DecisionLogEntry` data model still lives in `sessions/src/introspection/storage.ts` and is read by `buildBrowse()`.
 
-## 6. Recommended cleanup sequence
+## 6. Cleanup progress & next passes
 
-If you want to do this in passes, optimizing for low-risk wins first:
+### Done
 
-**Pass 1 — Documentation & dead code (1 day):**
-- Fix CLAUDE.md per §5.
-- Delete all the dead-code items listed in High-value Cleanups §3.
-- Resolve `SessionSource` double-declaration and the two `streammark` shims.
+**Wave A — Evaluation package overhaul** (4 commits, ~−6800 LoC):
 
-**Pass 2 — Extract & consolidate (1-2 days):**
-- Move digest persistence into core.
-- Extract `extractStreamUsage()` from `runner.ts` into `usage-extractor.ts`.
-- Move evaluation validation out of CLI.
-- Pick one REPL, one Telegram entry, one slash-command system.
+- `045c89d` — Delete verified dead code: `evaluation/codebase/` (~1620 LoC, never-landed), `analysis/result-analyzer`, `scorer.ts`, `strategies/matrix-evaluation`, `strategies/batch-evaluation`, `introspection/browse.ts` shim, `ui/EvaluationUI.tsx`.
+- `f7c6ed3` — Remove obsolete CLI eval path: `cli/eval.ts`, `evaluation/api.ts`, `Evaluation` hierarchy, `evaluation-types.ts`, `ui/EvaluationApp.tsx`.
+- `056c2e6` — Fix unresolved imports (caught by knip): inline types in `ranking/types.ts` and `strategies/simple-evaluation.ts`.
+- `d74fc26` — Move digest persistence into core; break ui↔sessions cycle.
 
-**Pass 3 — Server consolidation (2-3 days):**
+Evaluation package shrank from ~12,100 LoC to ~8K. Single coherent stack: `EvalSuite` + `llm-eval/runFullEval` + `ranking/` + `combine/` + `Reporter`, driven by scripts in `examples/`.
+
+**Wave B — Mechanical sweep** (7 commits, −87 LoC + behavior fixes):
+
+- `7bb2e53` — Delete `fromHtmlViaModel` (orphan LLM HTML→md converter).
+- `3088ccf` — Strip debug `console.log`s + unused `zodToJsonSchema` from `memory/determine_operations.ts`.
+- `9a66ab7` — Delete deprecated `RunnerModification` from `SmartModelRunner`.
+- `32372e4` — Delete orphan `test-utils/load-env.ts`.
+- `4dbd7cb` — Drop misleading-shape `streammark` shim.
+- `dae6a28` — **Stop stripping non-ASCII from reasoning deltas** (was silently dropping Qwen/GLM/DeepSeek/nemotron non-Latin reasoning).
+- `ab1bd8c` — Unify `SessionSource`; drop `SessionSourceForEntry` duplicate.
+
+Tests: 1183 → 1182 (the one removed test was for `RunnerModification`).
+
+### Next
+
+**Wave C — Documentation sync** (~half day, zero code risk):
+
+The most-drifted artifact in the repo right now is CLAUDE.md, and Wave A made it worse (it documents `eval` commands that no longer exist). All §5 items apply, plus:
+- Drop `@umwelten/server` (renamed to `@umwelten/protocols`); add `sessions`, `protocols`, `umwelten` meta.
+- Fix `reporting/` and `introspection/` locations.
+- Rewrite the `bridge/` section (`diagnosis-agent.ts` / `monitor-agent.ts` don't exist).
+- Drop `eval` CLI references; point at `EvalSuite` / `llm-eval/runFullEval` + `examples/local-providers/`.
+- Drop `bridge_diagnose`/`bridge_monitor` from the Tool Sets table.
+- Add `src/session-record/` and `src/env/` (both heavily used, both absent).
+- Point at `CONTEXT.md` for the Exploration domain glossary.
+- Sync the provider list (missing `minimax`, `nvidia`, `fireworks`).
+
+**Wave D — Cognition extractions** (1-2 days, mechanical, test-covered):
+
+- Extract `extractStreamUsage(provider, response)` from `runner.ts:408-546` into `usage-extractor.ts`. ~140 LoC out of runner, no behavior change.
+- Sync `ModelResponseSchema` and `ModelResponse` TS type: `messages?` is on the TS type but missing from Zod.
+- Optional: `ModelRunner<I = Interaction>` generic to drop the `interaction: any` cast.
+
+**Wave E — UI/habitat "pick one"** (~half day each):
+
+- One REPL framework (keep `ui/cli/repl.ts`, delete `CLIInterface.ts`).
+- One Telegram entry (`cli/telegram.ts` vs `cli habitat telegram`).
+- One channel-routing system (`bridge/routing.ts` is the modern; delete legacy `discord-routing.ts`; move `discord-provision.ts` to `@umwelten/ui/discord/`).
+- One slash-command system (`bridge/commands.ts` vs `slash-commands.ts`).
+
+**Wave F — HTTP server consolidation** (2-3 days):
+
 - Extract `HttpAppShell` from `container-server.ts`.
-- Migrate `web/server.ts`, `mcp-local-server.ts`, `tools/gaia/routes.ts` onto it.
-- Sunset legacy `mcp/server/server.ts` and `mcp/client/client.ts`.
-- Migrate `mcp-local-server` to use `mcp-serve` (no-auth flavor).
+- Migrate `web/server.ts`, `tools/gaia/routes.ts`, `mcp-local-server.ts` onto it.
+- Make `mcp-local-server` a mode of `container-server` (resolves `container-server.ts:555` TODO).
+- Sunset legacy MCP code in `protocols/mcp/{client,server}/`.
+- Caveat: `docs/architecture/electron-shell.md` is a planned desktop shell wrapping `container-server` — preserve its surface.
 
-**Pass 4 — Structural (1 week+):**
-- Decide on the Exploration / knowledge pipeline (split out vs document).
-- Decide on `session-record` layering (stay in core vs new package).
-- Finish the discord-routing migration; delete legacy.
-- Decide analyzer vs digester.
-- Split `gaia-tools.ts` and `agent-runner-tools.ts`.
+**Wave G — Big files** (1-2 days, mechanical):
 
-Passes 1 and 2 alone would close ~80% of the documented drift.
+- Split `tools/gaia/gaia-tools.ts` (1347 LoC) by domain.
+- Split `tools/agent-runner-tools.ts` (1183 LoC) one tool per file.
+- Split `packages/sessions/src/sessions.ts` (3640 LoC) by subcommand.
+- `DiscordAdapter.tsx` (2083 LoC) — finish moving ambient-gate/backfill out (siblings already started).
+
+**Wave H — Structural decisions** (discussion first, then 1 week+):
+
+- Exploration / knowledge pipeline location (split out vs document as core subsystem).
+- Analyzer vs digester (deprecate analyzer or soften CLAUDE.md's claim).
+- `session-record/` layering (stay in core with documentation, or hoist to own package).
+- `Habitat._currentSessionId` cast-based state (thread explicitly or rename + document).
+- DAG seams (`ui/index.ts` re-exporting habitat; `cli → sessions → ui` runtime path).
+
+**Recommended next step**: Wave C (documentation sync). It's the cheapest, has zero code risk, and every later wave depends on a CLAUDE.md that matches reality. After that, Wave D (cognition extractions) is the next mechanical win that doesn't need a design discussion.
