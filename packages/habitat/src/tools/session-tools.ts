@@ -19,6 +19,7 @@ import {
   extractReasoning,
   sessionMessagesToNormalized,
 } from '@umwelten/core/interaction/persistence/session-parser.js';
+import { summarizeNormalizedSession } from '@umwelten/core/interaction/adapters/load-interaction.js';
 import { loadHabitatSessionTranscriptMessages } from '@umwelten/core/session-record/habitat-transcript-load.js';
 import { FileLearningsStore } from '@umwelten/core/session-record/learnings-store.js';
 import { compactHabitatTranscriptSegment } from '@umwelten/core/session-record/compaction-habitat.js';
@@ -38,6 +39,27 @@ function formatDuration(durationMs: number): string {
   if (hours > 0) return `${hours}h ${minutes % 60}m`;
   if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
   return `${seconds}s`;
+}
+
+/**
+ * Build a NormalizedSession-shaped wrapper around a habitat transcript's
+ * SessionMessage[] just so we can run it through summarizeNormalizedSession.
+ *
+ * This avoids hand-rolled `input_tokens + output_tokens + cache_*` sums:
+ * cost goes through the canonical costs module instead.
+ */
+function summarizeHabitatMessages(messages: SessionMessage[], entry: HabitatSessionMetadata) {
+  const normalized = sessionMessagesToNormalized(messages);
+  return summarizeNormalizedSession({
+    id: entry.sessionId,
+    source: 'habitat',
+    sourceId: entry.sessionId,
+    created: entry.created,
+    modified: entry.lastUsed,
+    messageCount: normalized.length,
+    firstPrompt: '',
+    messages: normalized,
+  });
 }
 
 function firstPromptFromMeta(meta: { metadata?: Record<string, unknown> }): string {
@@ -138,8 +160,9 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
 
         let summary: ReturnType<typeof summarizeSession>;
         let beatCount: number;
+        let messages: SessionMessage[];
         try {
-          const messages = await loadHabitatSessionTranscriptMessages(sessionDir);
+          messages = await loadHabitatSessionTranscriptMessages(sessionDir);
           summary = summarizeSession(messages);
           const { beats } = await getBeatsForSession(messages);
           beatCount = beats.length;
@@ -155,8 +178,7 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
           };
         }
 
-        const u = summary.tokenUsage;
-        const totalTokens = u.input_tokens + u.output_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+        const normalizedSummary = summarizeHabitatMessages(messages, entry);
 
         return {
           sessionId: entry.sessionId,
@@ -168,7 +190,7 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
           userMessages: summary.userMessages,
           assistantMessages: summary.assistantMessages,
           toolCalls: summary.toolCalls,
-          totalTokens,
+          totalTokens: normalizedSummary.totalTokens,
           estimatedCost: summary.estimatedCost.toFixed(4),
           duration: summary.duration != null ? formatDuration(summary.duration) : undefined,
           beatCount,
@@ -249,14 +271,15 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
           };
         }
         const summary = summarizeSession(messages);
-        const u = summary.tokenUsage;
+        const normalizedSummary = summarizeHabitatMessages(messages, entry);
         return {
           sessionId: entry.sessionId,
           tokens: {
-            input: u.input_tokens, output: u.output_tokens,
-            cacheWrite: u.cache_creation_input_tokens ?? 0,
-            cacheRead: u.cache_read_input_tokens ?? 0,
-            total: u.input_tokens + u.output_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0),
+            input: normalizedSummary.inputTokens,
+            output: normalizedSummary.outputTokens,
+            cacheWrite: normalizedSummary.cacheWriteTokens,
+            cacheRead: normalizedSummary.cacheReadTokens,
+            total: normalizedSummary.totalTokens,
           },
           estimatedCost: summary.estimatedCost.toFixed(4),
           messages: {

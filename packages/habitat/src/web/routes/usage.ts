@@ -15,7 +15,9 @@ import type { AgentHost } from '../../types.js';
 import {
   parseSessionFile,
   summarizeSession,
+  sessionMessagesToNormalized,
 } from '@umwelten/core/interaction/persistence/session-parser.js';
+import { summarizeNormalizedSession } from '@umwelten/core/interaction/adapters/load-interaction.js';
 
 interface SessionUsage {
   sessionId: string;
@@ -77,8 +79,17 @@ export const usageRoute: RouteHandler = {
       try {
         const msgs = await parseSessionFile(path);
         const sum = summarizeSession(msgs);
-        const tokens =
-          sum.tokenUsage.input_tokens + sum.tokenUsage.output_tokens;
+        const normalized = summarizeNormalizedSession({
+          id: s.sessionId,
+          source: 'habitat',
+          sourceId: s.sessionId,
+          created: s.created,
+          modified: s.lastUsed,
+          messageCount: sum.totalMessages,
+          firstPrompt: sum.firstMessage ?? '',
+          messages: sessionMessagesToNormalized(msgs),
+        });
+        const tokens = normalized.inputTokens + normalized.outputTokens;
         const cost = sum.estimatedCost ?? 0;
         totalTokens += tokens;
         totalCost += cost;

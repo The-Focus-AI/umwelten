@@ -14,7 +14,9 @@ import {
   parseSessionFile,
   summarizeSession,
   getBeatsForSession,
+  sessionMessagesToNormalized,
 } from '@umwelten/core/interaction/persistence/session-parser.js';
+import { summarizeNormalizedSession } from '@umwelten/core/interaction/adapters/load-interaction.js';
 import type {
   AssistantMessageEntry,
   UserMessageEntry,
@@ -174,6 +176,16 @@ export const sessionShowRoute: RouteHandler = {
       const messages = await parseSessionFile(transcriptPath);
       const summary = summarizeSession(messages);
       const { beats } = await getBeatsForSession(messages);
+      const normalized = summarizeNormalizedSession({
+        id: entry.sessionId,
+        source: 'habitat',
+        sourceId: entry.sessionId,
+        created: entry.created,
+        modified: entry.lastUsed,
+        messageCount: summary.totalMessages,
+        firstPrompt: summary.firstMessage ?? '',
+        messages: sessionMessagesToNormalized(messages),
+      });
 
       json(ctx.res, {
         sessionId: entry.sessionId,
@@ -185,8 +197,7 @@ export const sessionShowRoute: RouteHandler = {
         userMessages: summary.userMessages,
         assistantMessages: summary.assistantMessages,
         toolCalls: summary.toolCalls,
-        totalTokens:
-          summary.tokenUsage.input_tokens + summary.tokenUsage.output_tokens,
+        totalTokens: normalized.inputTokens + normalized.outputTokens,
         estimatedCost: summary.estimatedCost,
         duration: summary.duration,
         beatCount: beats.length,
