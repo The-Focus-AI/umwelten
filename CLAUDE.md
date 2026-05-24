@@ -39,25 +39,30 @@ instead — never work around it by weakening the rule.
 pnpm workspace monorepo. Each package is under `packages/` and publishable independently.
 
 ```
-@umwelten/cli        packages/cli/           — CLI commands
-@umwelten/ui         packages/ui/            — Telegram, Discord, TUI adapters
-@umwelten/evaluation packages/evaluation/    — EvalSuite, ranking, reporting, introspection
-@umwelten/habitat    packages/habitat/       — agent container, tools, Gaia, web/A2A server
-@umwelten/server     packages/server/        — MCP server/client, OAuth, A2A client/server
-@umwelten/core       packages/core/          — model runners, stimulus, interaction, providers, context, memory
-umwelten             packages/umwelten/      — meta-package re-exporting everything
+@umwelten/core       packages/core/          — model runners, stimulus, interaction, providers, context, memory, session-record, env
+@umwelten/protocols  packages/protocols/     — MCP (legacy + modern + mcp-serve OAuth framework), A2A client/server
+@umwelten/sessions   packages/sessions/      — sessions/browse/introspect CLI commands + session browser data layer
+@umwelten/evaluation packages/evaluation/    — EvalSuite, llm-eval/runFullEval, ranking, combine, reporting
+@umwelten/habitat    packages/habitat/       — agent container, tools, Gaia, container-server (MCP+A2A+web+chat)
+@umwelten/ui         packages/ui/            — Telegram, Discord, TUI (Ink) adapters
+@umwelten/cli        packages/cli/           — Commander CLI entry point
+umwelten             packages/umwelten/      — meta-package re-exporting everything for npm
 ```
 
 Dependency DAG (no cycles):
 
 ```
 @umwelten/core              ← foundation, no internal deps
-@umwelten/server            ← core
-@umwelten/evaluation        ← core
-@umwelten/habitat           ← core, server
-@umwelten/ui                ← core, habitat, evaluation
-@umwelten/cli               ← core, habitat, evaluation, server, ui
+@umwelten/protocols         ← core
+@umwelten/sessions          ← core
+@umwelten/evaluation        ← core, sessions
+@umwelten/habitat           ← core, protocols, sessions
+@umwelten/ui                ← core, sessions, evaluation, habitat
+@umwelten/cli               ← core, sessions, evaluation, habitat, ui
+umwelten (meta)             ← every package above
 ```
+
+Two seams worth noting: `ui/index.ts` re-exports some habitat internals, and `cli → sessions → ui` is a runtime path that side-steps the documented `cli → ui` edge. Both are documented drift, not bugs.
 
 Source paths below use `src/` relative to each package (e.g. `src/cognition/` means `packages/core/src/cognition/`).
 
