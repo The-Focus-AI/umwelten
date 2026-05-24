@@ -453,8 +453,7 @@ Registered top-level commands (`cli.ts`):
 - `run` — one-shot prompt (`--prompt`, `--attach`, `--object`, `--stats`).
 - `chat` — interactive REPL via `@umwelten/ui/cli/CLIInterface` (legacy; see Wave E in the system map for the consolidation plan).
 - `sessions` — sessions tree (list/show/messages/tools/stats/format/digest plus the `habitat` subtree). Registered by `@umwelten/sessions`.
-- `telegram` — standalone math-demo bot (separate from `habitat telegram` — Wave E will consolidate).
-- `habitat` — habitat REPL + subcommands: `local`/`here`, `telegram`, `discord`, `web` (legacy Gaia), `secrets {list,set,remove}`, `serve` (MCP+chat+web), `gaia` (orchestrator), `chat` (A2A client).
+- `habitat` — habitat REPL + subcommands: `local`/`here`, `telegram`, `discord`, `web` (legacy Gaia), `secrets {list,set,remove}`, `serve` (MCP+chat+web), `gaia` (orchestrator), `chat` (A2A client). The Telegram and Discord bots live here; the previous top-level `umwelten telegram` standalone command was retired in Wave E.
 - `mcp` — MCP client/server ops: `mcp connect`, `mcp chat` (remote MCP with OAuth), `mcp test-tool`, `mcp read-resource`, `mcp create-server` (debug), `mcp list`.
 - `introspect` / `browse` — session browser (registered by `@umwelten/sessions`). `browse` is the canonical entry; `introspect browse` is the namespaced alias.
 - `knowledge` — Exploration / knowledge-promotion CLI (reflection → promotion → knowledge writers).
@@ -462,7 +461,7 @@ Registered top-level commands (`cli.ts`):
 
 There is **no** `eval` command. Evaluations are script-driven (`examples/evals/`, `examples/local-providers/`).
 
-- `commonOptions.ts` — `addCommonOptions` for `-p`/`-m` etc. Currently consumed by `run.ts`/`chat.ts`/`tools.ts`/`telegram.ts`; the bigger subcommands (`habitat`, `mcp`, `knowledge`) define their own.
+- `commonOptions.ts` — `addCommonOptions` for `-p`/`-m` etc. Currently consumed by `run.ts`/`chat.ts`/`tools.ts`; the bigger subcommands (`habitat`, `mcp`, `knowledge`) define their own.
 
 ### `@umwelten/ui` — User Interfaces
 
