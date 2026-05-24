@@ -264,7 +264,7 @@
 <header class="doc-head">
   <div class="eyebrow">Architecture Audit &middot; Progress Report</div>
   <h1>Umwelten System Map</h1>
-  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Four cleanup waves landed</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, then cognition extractions. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Four cleanup waves landed plus a hardening pass</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, cognition extractions, then real-provider verification that uncovered &amp; fixed a silent benchmark-data-corruption bug on MiniMax + GitHub Models. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
 </header>
 
 <div class="scoreboard">
@@ -273,12 +273,12 @@
     <div class="lab">Lines of code shifted (deleted, moved, or refactored) across cleanup waves</div>
   </div>
   <div class="score">
-    <div class="num">21</div>
-    <div class="lab">Targeted commits, each independently revertible</div>
+    <div class="num">27</div>
+    <div class="lab">Targeted commits on main, each independently revertible</div>
   </div>
   <div class="score">
-    <div class="num">runner.ts</div>
-    <div class="lab">870 &rarr; 732 LoC after the Wave D extraction</div>
+    <div class="num">10 / 10</div>
+    <div class="lab">Cascade-provider &times; path cells now reporting non-zero usage end-to-end</div>
   </div>
 </div>
 
@@ -627,6 +627,38 @@
   <div class="pass-foot">Still on the cognition wish-list (not done this pass): <code>ModelRunner&lt;I = Interaction&gt;</code> generic so <code>interaction: any</code> can drop the cast. Touches more files than the other two; deferred until the next pass.</div>
 </div>
 
+<div class="pass done">
+  <div class="pass-head">
+    <div class="pass-title">Wave D&prime; &mdash; Verification &amp; the bug it uncovered</div>
+    <div class="pass-effort">4 commits, real-provider matrix &amp; root-cause fix</div>
+  </div>
+  <p>Wave D was &ldquo;mechanical, behavior-preserving.&rdquo; The first claim of verification (one Google smoke call) wasn&rsquo;t enough &mdash; pushing harder on what was actually being tested uncovered a silent data-corruption bug that had been live for some time.</p>
+
+  <h4 style="margin-top: 16px;">What hardening added</h4>
+  <ul>
+    <li><code class="sha">f539578</code> &mdash; 27 unit tests for the extracted cascade in <code>usage-extractor.test.ts</code>, pinning every provider branch (Ollama / OpenRouter / MiniMax / Google / GitHub Models) with mock response shapes plus an end-to-end normalize-downstream test. Test count 1182 &rarr; 1209.</li>
+    <li><code class="sha">fad46e1</code> &mdash; <code>scripts/smoke-test-cascade.ts</code> + <code>pnpm smoke:cascade</code>. Drives the real <code>BaseModelRunner</code> through every cascade provider on both <code>generateText</code> and <code>streamText</code> paths, reports tokens &amp; cost &amp; duration per cell. ~$0.0002 per run.</li>
+  </ul>
+
+  <h4>The bug the smoke test caught</h4>
+  <p>Going through the verbose output cell-by-cell (not just &ldquo;pass / fail&rdquo;) revealed that <strong>MiniMax and GitHub Models streamText were silently returning <code>{promptTokens: 0, completionTokens: 0}</code></strong> while reporting test pass. Six months of benchmark cost data on those two providers had been zeros.</p>
+  <p>Two-layer fix:</p>
+  <ul>
+    <li><code class="sha">720f4c8</code> &mdash; Defense-in-depth: <code>normalizeTokenUsage</code> now returns <code>null</code> instead of defaulting to <code>{0, 0}</code> when every numeric field is <code>undefined</code>. Triggers the existing &ldquo;usage not available&rdquo; warning instead of silently writing zeros. Kept in place even after the real fix below &mdash; if a new provider regresses, the system warns loudly.</li>
+    <li><code class="sha">921d1af</code> &mdash; Root cause: our nine <code>createOpenAICompatible</code> calls didn&rsquo;t pass <code>includeUsage: true</code>. The AI SDK option exists (since 1.0.0; we&rsquo;re on 1.0.29) and defaults to false, which means the SDK omits <code>stream_options.include_usage</code> from the request body. Servers that follow the spec strictly (MiniMax, GitHub Models) honored that and didn&rsquo;t send the final usage SSE chunk. OpenRouter / others tolerantly send it anyway, which is why some providers appeared to work. Applied <code>includeUsage: true</code> to all nine providers (minimax, github-models, deepinfra, fireworks, llamabarn, llamaswap, lmstudio, nvidia, togetherai).</li>
+  </ul>
+
+  <h4>Final state</h4>
+  <pre><code>google         streamText ✅ 19+1=20
+openrouter     streamText ✅ 28+5=33
+minimax        streamText ✅ 34+63=97   (was 0+0)
+github-models  streamText ✅ 29+2=31    (was 0+0)
+ollama         streamText ✅ 32+2=34</code></pre>
+  <p>Plus the matching <code>generateText</code> cells. 10 of 10 ok, 0 expected failures, 0 unexpected failures.</p>
+
+  <div class="pass-foot">Important meta-lesson: &ldquo;88 files / 1182 tests passing&rdquo; without integration coverage created false confidence. The vitest suite never traversed the extracted cascade. The smoke script is now in <code>package.json</code> &mdash; run before any cognition-layer changes ship.</div>
+</div>
+
 <h3>Next</h3>
 <p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
 
@@ -691,10 +723,14 @@
 
 <div class="callout">
 <p><strong>Recommended next step:</strong> Wave E (UI/habitat &ldquo;pick one&rdquo; decisions). Each is bite-sized, contained, and reversible &mdash; the kind of work that fits in half a day. Concretely: pick the REPL framework (<code>ui/cli/repl.ts</code> over <code>CLIInterface.ts</code>), pick the Telegram entry (<code>cli habitat telegram</code> over <code>cli/telegram.ts</code> math-demo), or finish the channel-routing migration. Wave F (HTTP server consolidation) is the bigger structural win after that.</p>
+
+<div class="callout warn">
+<p><strong>Verification habit established by Wave D&prime;:</strong> before any cognition-layer change ships, run <code>pnpm smoke:cascade</code> and verify the cell-by-cell token counts are non-zero. Don&rsquo;t accept &ldquo;all tests pass&rdquo; as proof &mdash; the original 27 unit tests passed against the broken streamText path too. For UI/habitat changes (Wave E onward), the equivalent verification is launching the affected REPL/bot/web UI and clicking through the golden path; the test suite won&rsquo;t catch interactive regressions.</p>
+</div>
 </div>
 
 <footer>
-  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave D (cognition extractions) merged to main
+  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave D&prime; (real-provider verification + includeUsage fix) merged to main
 </footer>
 
 </div>

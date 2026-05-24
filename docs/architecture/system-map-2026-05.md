@@ -283,6 +283,24 @@ CLAUDE.md: 507 → 604 lines. Grep-verified no remaining references to deleted s
 
 Still on the cognition wish-list (not done this pass): `ModelRunner<I = Interaction>` generic so `interaction: any` can drop the cast.
 
+**Wave D′ — Verification & the bug it uncovered** (4 commits):
+
+Wave D claimed "behavior-preserving" off the back of one Google smoke call. The hardening pass turned that into real coverage, and in doing so uncovered a silent data-corruption bug that had been live for months.
+
+- `f539578` — 27 unit tests for the extracted cascade pinning every provider branch with mock response shapes plus end-to-end normalize-downstream checks. Test count 1182 → 1209.
+- `fad46e1` — `scripts/smoke-test-cascade.ts` + `pnpm smoke:cascade`. Drives the real `BaseModelRunner` through every cascade provider on both `generateText` and `streamText` paths and reports tokens / cost / duration per cell.
+
+**The bug:** going through the smoke output cell-by-cell (not just "pass / fail") revealed that MiniMax and GitHub Models `streamText` had been silently returning `{promptTokens: 0, completionTokens: 0}` while reporting tests as green. Six months of benchmark cost data on those two providers was zeros.
+
+Two-layer fix:
+
+- `720f4c8` — Defense-in-depth: `normalizeTokenUsage` now returns `null` instead of `{0, 0}` when every numeric field is `undefined`. Triggers the existing "usage not available" warning instead of silently writing zeros. Kept in place even after the root-cause fix — if a new provider regresses, the system warns loudly.
+- `921d1af` — Root cause: our nine `createOpenAICompatible` calls didn't pass `includeUsage: true`. The AI SDK option exists (since `@ai-sdk/openai-compatible` 1.0.0; we're on 1.0.29) and defaults to false, which means the SDK omits `stream_options.include_usage` from the request body. Servers that follow the spec strictly (MiniMax, GitHub Models) honored that and didn't send the final usage SSE chunk. Applied `includeUsage: true` to all nine providers (minimax, github-models, deepinfra, fireworks, llamabarn, llamaswap, lmstudio, nvidia, togetherai).
+
+Final smoke matrix: **10 of 10 ok, 0 expected failures, 0 unexpected failures.** All five cascade providers return non-zero token counts on both paths.
+
+Meta-lesson: "tests passing" without integration coverage created false confidence. The vitest unit suite never traversed the extracted cascade; the smoke script does. Run `pnpm smoke:cascade` before any cognition-layer change ships.
+
 ### Next
 
 **Wave E — UI/habitat "pick one"** (~half day each):
@@ -316,3 +334,5 @@ Still on the cognition wish-list (not done this pass): `ModelRunner<I = Interact
 - DAG seams (`ui/index.ts` re-exporting habitat; `cli → sessions → ui` runtime path).
 
 **Recommended next step**: Wave E (UI/habitat "pick one" decisions). Each is bite-sized, contained, and reversible — half-a-day-each work. Concretely: pick the REPL framework (`ui/cli/repl.ts` over `CLIInterface.ts`), pick the Telegram entry (`cli habitat telegram` over `cli/telegram.ts` math-demo), or finish the channel-routing migration. Wave F (HTTP server consolidation) is the bigger structural win after that.
+
+**Verification habit established by Wave D′**: before any cognition-layer change ships, run `pnpm smoke:cascade` and verify the cell-by-cell token counts are non-zero. "All tests pass" is not proof on its own — the original 27 unit tests passed against the broken streamText path. For UI/habitat changes (Wave E onward), launch the affected REPL/bot/web UI and click through the golden path; the test suite won't catch interactive regressions.
