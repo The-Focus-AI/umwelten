@@ -22,6 +22,9 @@ export interface RunBrowseTuiOptions {
 	targetPath: string;
 	sessionsDir?: string;
 	model: ModelDetails;
+	/** When true, the extraction pass re-digests every session even if it
+	 * already has a fresh digest on disk. */
+	force?: boolean;
 }
 
 /**
@@ -341,8 +344,11 @@ async function runExtractionPass(args: {
 	model: ModelDetails;
 	concurrency: number;
 	emit: (event: DashboardProgressEvent) => void;
+	/** When true, ignore on-disk digests so determineScope picks every row up. */
+	force?: boolean;
 }): Promise<void> {
-	const { projectPath, entries, model, concurrency, emit } = args;
+	const { projectPath, entries, model, concurrency, emit, force = false } =
+		args;
 	const { ExtractionEngine } = await import(
 		"@umwelten/core/interaction/analysis/extraction-engine.js"
 	);
@@ -374,19 +380,23 @@ async function runExtractionPass(args: {
 			},
 		}));
 
-	// Load existing digests so the engine can detect scope correctly.
+	// Load existing digests so the engine can detect scope correctly. When
+	// --force is set, hand the engine an empty map so every row counts as
+	// undigested and gets re-processed.
 	const digestInfos = new Map<
 		string,
 		{ digestedAt: string; schemaVersion?: number }
 	>();
-	await Promise.all(
-		entries.map(async (e) => {
-			const d = await loadDigest(projectPath, e.sourceSession.id);
-			if (d?.digestedAt) {
-				digestInfos.set(e.sourceSession.id, { digestedAt: d.digestedAt });
-			}
-		}),
-	);
+	if (!force) {
+		await Promise.all(
+			entries.map(async (e) => {
+				const d = await loadDigest(projectPath, e.sourceSession.id);
+				if (d?.digestedAt) {
+					digestInfos.set(e.sourceSession.id, { digestedAt: d.digestedAt });
+				}
+			}),
+		);
+	}
 
 	const engine = new ExtractionEngine({ concurrency });
 
@@ -460,6 +470,7 @@ export async function runExploreBrowseTui(
 		targetPath: rawTarget,
 		sessionsDir,
 		model,
+		force = false,
 	} = opts;
 	const projectPath = resolve(rawProject);
 	const targetPath = resolve(rawTarget);
@@ -518,6 +529,7 @@ export async function runExploreBrowseTui(
 					model,
 					concurrency: 1,
 					emit: bus.emit,
+					force,
 				});
 			},
 		});

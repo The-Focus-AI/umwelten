@@ -55,6 +55,8 @@ interface BrowseOptions {
 	target?: string;
 	sessionsDir?: string;
 	model: string;
+	/** Re-digest every session, ignoring existing digests on disk. */
+	force?: boolean;
 }
 
 function parseModel(spec: string): ModelDetails {
@@ -111,6 +113,7 @@ export async function runBrowseAction(options: BrowseOptions): Promise<void> {
 				? resolve(options.sessionsDir)
 				: undefined,
 			model,
+			force: options.force ?? false,
 		});
 	} catch (err) {
 		console.error(
@@ -136,6 +139,11 @@ function registerBrowseOptions(cmd: Command): Command {
 			"-m, --model <spec>",
 			"Model for digest / analysis (provider:name)",
 			"google:gemini-3-flash-preview",
+		)
+		.option(
+			"--force",
+			"Re-digest every session, ignoring digests already on disk",
+			false,
 		);
 }
 
