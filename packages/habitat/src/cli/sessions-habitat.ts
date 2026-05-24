@@ -16,6 +16,7 @@ import {
   extractTextContent,
   extractReasoning,
 } from "@umwelten/core/interaction/persistence/session-parser.js";
+import { summarizeNormalizedSession } from "@umwelten/core/interaction/adapters/load-interaction.js";
 import type {
   SessionMessage,
   AssistantMessageEntry,
@@ -172,9 +173,19 @@ export function registerSessionsHabitatCommands(sessionsCommand: Command): void 
         console.log(`  Beats: ${beats.length}`);
         if (summary.duration != null)
           console.log(`  Duration: ${formatDurationShort(summary.duration)}`);
-        if (summary.tokenUsage.input_tokens + summary.tokenUsage.output_tokens > 0) {
+        const tokens = summarizeNormalizedSession({
+          id: resolved.sessionId,
+          source: "habitat",
+          sourceId: resolved.sessionId,
+          created: "",
+          modified: "",
+          messageCount: summary.totalMessages,
+          firstPrompt: summary.firstMessage ?? "",
+          messages: sessionMessagesToNormalized(messages),
+        });
+        if (tokens.inputTokens + tokens.outputTokens > 0) {
           console.log(
-            `  Tokens: in ${summary.tokenUsage.input_tokens}, out ${summary.tokenUsage.output_tokens}`,
+            `  Tokens: in ${tokens.inputTokens}, out ${tokens.outputTokens}`,
           );
         }
         if (summary.estimatedCost > 0)

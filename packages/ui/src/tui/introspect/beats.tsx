@@ -16,6 +16,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, render, useApp, useInput, useStdout } from 'ink';
 import type { SessionBrowserEntry } from '@umwelten/evaluation/introspection/browse.js';
+import type { NormalizedMessage } from '@umwelten/core/interaction/types/normalized-types.js';
 
 export interface RunBeatsTuiOptions {
   entry: SessionBrowserEntry;
@@ -204,16 +205,38 @@ function wrap(text: string, width: number): string[] {
 export async function runBeatsTui(opts: RunBeatsTuiOptions): Promise<void> {
   const { entry } = opts;
 
-  // Load + compute beats up-front so the UI can show a stable list.
+  // Load + compute beats up-front so the UI can show a stable list. Routes
+  // through the adapter registry so pi/cursor/habitat sessions work too —
+  // not just claude-format JSONL files on disk.
   const t0 = Date.now();
-  const { parseSessionFile, sessionMessagesToNormalized } = await import(
-    '@umwelten/core/interaction/persistence/session-parser.js'
+  const { adapterRegistry, initializeAdapters } = await import(
+    '@umwelten/core/interaction/adapters/index.js'
+  );
+  const { detectSourceFromSessionId } = await import(
+    '@umwelten/core/interaction/adapters/load-interaction.js'
   );
   const { messagesToBeats } = await import(
     '@umwelten/core/interaction/analysis/conversation-beats.js'
   );
-  const raw = await parseSessionFile(entry.filePath);
-  const normalized = sessionMessagesToNormalized(raw);
+
+  initializeAdapters();
+  // Prefer the source the synthetic entry carries; fall back to prefix
+  // detection on the sessionId for cases where the caller didn't carry it.
+  const source = entry.source ?? detectSourceFromSessionId(entry.id);
+  let normalized: NormalizedMessage[];
+  if (source && source !== 'claude-code') {
+    const adapter = adapterRegistry.get(source);
+    const session = adapter ? await adapter.getSession(entry.id) : null;
+    normalized = session?.messages ?? [];
+  } else if (entry.filePath) {
+    const { parseSessionFile, sessionMessagesToNormalized } = await import(
+      '@umwelten/core/interaction/persistence/session-parser.js'
+    );
+    const raw = await parseSessionFile(entry.filePath);
+    normalized = sessionMessagesToNormalized(raw);
+  } else {
+    normalized = [];
+  }
   const rawBeats = messagesToBeats(normalized);
   const loadDuration = Date.now() - t0;
 
