@@ -166,8 +166,11 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `mcp-local-server.ts` — **MCP server exposing all habitat tools over Streamable HTTP** (no OAuth, for local/container use)
 - `gaia/` — **Gaia Orchestrator** — manages multiple habitat containers (see Gaia section below)
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
-- `bridge/diagnosis-agent.ts` — LLM agent for read-only project inspection and provisioning detection
-- `bridge/monitor-agent.ts` — LLM agent for container health monitoring
+- `bridge/` — Channel-bridge plumbing shared by every UI adapter (Telegram, Discord, web, Gaia):
+  - `channel-bridge.ts` — `ChannelBridge` class; routes a channel/thread → habitat session → `Interaction`; injects runtime selection (base vs claude-sdk).
+  - `routing.ts` — channelKey → agent resolution with fallback chain (`exact → parent → platform default → global default → main`). Reads `routing.json`; falls back to legacy `discord.json` until that migration finishes.
+  - `commands.ts` — slash-command processor (reset / agents / switch / status / help).
+  - `index.ts`, `types.ts` — barrel + shared types.
 
 **Directory layout** — sessions are co-located inside the work directory:
 
@@ -203,7 +206,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 | `agentToolSet`               | list/add/update/remove agents                                                                      | Yes                    |
 | `sessionToolSet`             | sessions\_\* list/show/messages/stats/inspect/read_file, learnings append/read, transcript compact | Yes                    |
 | `externalInteractionToolSet` | read Claude Code/Cursor history                                                                    | Yes                    |
-| `agentRunnerToolSet`         | agent*clone, agent_logs, agent_status, agent_ask, bridge*\*, bridge_diagnose, bridge_monitor       | Yes                    |
+| `agentRunnerToolSet`         | agent_clone, agent_register_directory, agent_logs, agent_status, agent_ask, agent_ask_claude, agent_configure | Yes                    |
 | `secretsToolSet`             | set/remove/list secrets                                                                            | Yes                    |
 | `searchToolSet`              | web search via Tavily                                                                              | Yes                    |
 | `selfModifyToolSet`          | create_tool, create_skill, reload, list, remove                                                    | Yes                    |
@@ -217,7 +220,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 - `agent-tools.ts` — Agent CRUD
 - `session-tools.ts` — Session inspection
 - `external-interaction-tools.ts` — Claude Code/Cursor session reading
-- `agent-runner-tools.ts` — Clone repos, read logs, check status, delegate to sub-agents, bridge_diagnose (LLM provisioning), bridge_monitor (LLM health check)
+- `agent-runner-tools.ts` — Clone repos, register directories as agents, read logs, check status, delegate to sub-agents via base runner (`agent_ask`) or Claude Agent SDK (`agent_ask_claude`), configure an agent's MEMORY.md
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
 - `secrets-tools.ts` — Manage secrets in the habitat store
 - `self-modify-tools.ts` — Create/remove tools and skills at runtime
