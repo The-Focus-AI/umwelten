@@ -264,21 +264,21 @@
 <header class="doc-head">
   <div class="eyebrow">Architecture Audit &middot; Progress Report</div>
   <h1>Umwelten System Map</h1>
-  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Two cleanup waves landed</strong> &mdash; evaluation package overhaul, then mechanical sweep. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Three cleanup waves landed</strong> &mdash; evaluation package overhaul, mechanical sweep, then documentation sync. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
 </header>
 
 <div class="scoreboard">
   <div class="score">
     <div class="num">~6900</div>
-    <div class="lab">Lines deleted across the cleanup waves</div>
+    <div class="lab">Lines of code deleted across cleanup waves</div>
   </div>
   <div class="score">
-    <div class="num">11</div>
+    <div class="num">19</div>
     <div class="lab">Targeted commits, each independently revertible</div>
   </div>
   <div class="score">
-    <div class="num">1182</div>
-    <div class="lab">Tests passing (was 1277 before the eval pass)</div>
+    <div class="num">CLAUDE.md</div>
+    <div class="lab">Now matches reality &mdash; Wave C synced the docs</div>
   </div>
 </div>
 
@@ -596,27 +596,26 @@
   <div class="pass-foot">Net: 9 files touched, &minus;87 LoC. Plus two real behavior wins: reasoning capture now keeps non-Latin characters; memory ops don&rsquo;t print debug output. Tests went from 1183 to 1182 (the one deleted test was for the deprecated <code>RunnerModification</code>).</div>
 </div>
 
-<h3>Next</h3>
-<p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
-
-<div class="pass">
+<div class="pass done">
   <div class="pass-head">
     <div class="pass-title">Wave C &mdash; Documentation sync</div>
-    <div class="pass-effort">~half day</div>
+    <div class="pass-effort">7 commits, CLAUDE.md only (+193 / &minus;96 lines)</div>
   </div>
-  <p>CLAUDE.md is now the most-drifted artifact in the repo. The evaluation cleanup made it worse: <code>eval</code> commands it documents no longer exist. The whole &sect;5 list applies, plus the now-stale CLI eval references. Pure doc work, zero code risk.</p>
+  <p>CLAUDE.md was the most-drifted artifact in the repo &mdash; Wave A&rsquo;s evaluation cleanup made it worse (it documented an <code>eval</code> CLI that no longer existed). Wave C resynchronized it. Pure documentation work; zero code touched.</p>
   <ul>
-    <li>Drop <code>@umwelten/server</code> (renamed to <code>@umwelten/protocols</code>); add <code>@umwelten/sessions</code>, <code>@umwelten/protocols</code>, <code>umwelten</code> meta to the package map.</li>
-    <li>Fix <code>reporting/</code> location (it&rsquo;s in evaluation, not core).</li>
-    <li>Fix <code>introspection/</code> location (it&rsquo;s in sessions, not core).</li>
-    <li>Rewrite the <code>bridge/</code> section (<code>diagnosis-agent.ts</code> and <code>monitor-agent.ts</code> don&rsquo;t exist; <code>bridge/</code> holds <code>channel-bridge.ts</code> + <code>commands.ts</code> + <code>routing.ts</code>).</li>
-    <li>Drop the <code>eval</code> CLI command references &mdash; point to <code>EvalSuite</code> / <code>llm-eval/runFullEval</code> + <code>examples/local-providers/</code> instead.</li>
-    <li>Drop <code>bridge_diagnose</code>/<code>bridge_monitor</code> from the Tool Sets table.</li>
-    <li>Add <code>src/session-record/</code> and <code>src/env/</code> &mdash; both real, both heavily used, both currently absent.</li>
-    <li>Point CLAUDE.md at <code>CONTEXT.md</code> for the Exploration domain glossary.</li>
-    <li>Sync the provider list (missing <code>minimax</code>, <code>nvidia</code>, <code>fireworks</code>).</li>
+    <li><code class="sha">19f1ffe</code> &mdash; Package map + dependency DAG: drop dead <code>@umwelten/server</code> (was renamed to <code>@umwelten/protocols</code> in commit 8f44b16), add <code>@umwelten/sessions</code> and <code>@umwelten/protocols</code>, flag the two known DAG seams (<code>ui/index.ts</code> re-exporting habitat; <code>cli &rarr; sessions &rarr; ui</code> path).</li>
+    <li><code class="sha">4aad868</code> &mdash; Retire <code>umwelten eval</code> CLI references; rewrite the evaluation section around <code>EvalSuite</code> + <code>llm-eval/runFullEval</code> + script patterns in <code>examples/</code>; drop the four <code>eval run/report/list/combine</code> invocations from CLI Quick Reference.</li>
+    <li><code class="sha">489ef79</code> &mdash; Rewrite <code>bridge/</code> section (the claimed <code>diagnosis-agent.ts</code> and <code>monitor-agent.ts</code> never existed; the actual files are <code>channel-bridge.ts</code> + <code>routing.ts</code> + <code>commands.ts</code>); drop the dead <code>bridge_*</code> tools from the Tool Sets table; correct the <code>agent-runner-tools.ts</code> tool list.</li>
+    <li><code class="sha">e1950b5</code> &mdash; Fix module locations: <code>mcp/</code> &rarr; <code>@umwelten/protocols/mcp/</code> + <code>protocols/mcp-serve/</code>; <code>introspection/</code> &rarr; split across <code>@umwelten/sessions</code> + <code>@umwelten/core</code> (post-d74fc26); <code>reporting/</code> &rarr; <code>@umwelten/evaluation</code>.</li>
+    <li><code class="sha">0afc30e</code> &mdash; Add five missing things: <code>CONTEXT.md</code> pointer as the canonical domain glossary, <code>src/session-record/</code> (heavily used, layering trade-off documented), <code>src/env/</code>, the Exploration / knowledge pipeline (<code>projection</code> / <code>reflection</code> / <code>promotion</code> / <code>knowledge</code>), and three missing providers (<code>minimax</code>, <code>nvidia</code>, <code>fireworks</code>).</li>
+    <li><code class="sha">a744ba5</code> &mdash; Fix CLI command list (no more <code>eval</code>; add <code>knowledge</code> / <code>browse</code> / <code>introspect</code>), correct the <code>Interaction</code> usage example (no <code>.chat()</code> method &mdash; use <code>addMessage()</code> + <code>streamText()</code>), update the <code>ui/</code> inventory.</li>
+    <li><code class="sha">b87ea22</code> &mdash; Mop-up: two leftover <code>@umwelten/server</code> references inside the habitat section.</li>
   </ul>
+  <div class="pass-foot">CLAUDE.md: 507 &rarr; 604 lines. Grep-verified no remaining references to any deleted symbol (<code>SessionSourceForEntry</code>, <code>fromHtmlViaModel</code>, <code>RunnerModification</code>, <code>MatrixEvaluation</code>, <code>BatchEvaluation</code>, <code>runEvaluation</code>, <code>@umwelten/server</code>, <code>diagnosis-agent</code>, <code>monitor-agent</code>, <code>bridge_diagnose</code>, <code>bridge_monitor</code>).</div>
 </div>
+
+<h3>Next</h3>
+<p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
 
 <div class="pass">
   <div class="pass-head">
@@ -691,11 +690,11 @@
 </div>
 
 <div class="callout">
-<p><strong>Recommended next step:</strong> Wave C (documentation sync). It&rsquo;s the cheapest, has zero code risk, and every later wave depends on a CLAUDE.md that actually matches reality. After that, Wave D (cognition extractions) is the next mechanical win that doesn&rsquo;t need a design discussion.</p>
+<p><strong>Recommended next step:</strong> Wave D (cognition extractions). With CLAUDE.md now matching reality after Wave C, the next mechanical win is decomposing the 320-line provider-specific usage cascade out of <code>runner.ts</code> &mdash; isolated, test-covered, no behavior change, and finally caps the &ldquo;one fat module&rdquo; finding from the cognition survey in &sect;2.1. Wave E&rsquo;s &ldquo;pick one&rdquo; decisions are the obvious follow-on for half-day-at-a-time progress.</p>
 </div>
 
 <footer>
-  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave B merged to main
+  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave C (documentation sync) merged to main
 </footer>
 
 </div>

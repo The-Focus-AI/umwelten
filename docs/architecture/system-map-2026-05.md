@@ -264,19 +264,19 @@ Evaluation package shrank from ~12,100 LoC to ~8K. Single coherent stack: `EvalS
 
 Tests: 1183 → 1182 (the one removed test was for `RunnerModification`).
 
+**Wave C — Documentation sync** (7 commits, CLAUDE.md only, +193 / −96 lines):
+
+- `19f1ffe` — Package map + DAG: drop dead `@umwelten/server` (renamed in 8f44b16), add `@umwelten/sessions` + `@umwelten/protocols`, flag the two DAG seams.
+- `4aad868` — Retire `umwelten eval` CLI references; rewrite the evaluation section around `EvalSuite` + `llm-eval/runFullEval`.
+- `489ef79` — Rewrite `bridge/` section (the `diagnosis-agent.ts` and `monitor-agent.ts` it claimed never existed); drop dead `bridge_*` tools from the Tool Sets table.
+- `e1950b5` — Fix module locations: `mcp/` → `@umwelten/protocols`, `introspection/` → `@umwelten/sessions` + `@umwelten/core`, `reporting/` → `@umwelten/evaluation`.
+- `0afc30e` — Add `CONTEXT.md` pointer, `src/session-record/`, `src/env/`, the Exploration pipeline, and three missing providers (`minimax`, `nvidia`, `fireworks`).
+- `a744ba5` — Fix CLI command list (no more `eval`; add `knowledge`/`browse`/`introspect`), correct the `Interaction` usage example (no `.chat()` method), update `ui/` inventory.
+- `b87ea22` — Mop-up: two leftover `@umwelten/server` references inside the habitat section.
+
+CLAUDE.md: 507 → 604 lines. Grep-verified no remaining references to deleted symbols.
+
 ### Next
-
-**Wave C — Documentation sync** (~half day, zero code risk):
-
-The most-drifted artifact in the repo right now is CLAUDE.md, and Wave A made it worse (it documents `eval` commands that no longer exist). All §5 items apply, plus:
-- Drop `@umwelten/server` (renamed to `@umwelten/protocols`); add `sessions`, `protocols`, `umwelten` meta.
-- Fix `reporting/` and `introspection/` locations.
-- Rewrite the `bridge/` section (`diagnosis-agent.ts` / `monitor-agent.ts` don't exist).
-- Drop `eval` CLI references; point at `EvalSuite` / `llm-eval/runFullEval` + `examples/local-providers/`.
-- Drop `bridge_diagnose`/`bridge_monitor` from the Tool Sets table.
-- Add `src/session-record/` and `src/env/` (both heavily used, both absent).
-- Point at `CONTEXT.md` for the Exploration domain glossary.
-- Sync the provider list (missing `minimax`, `nvidia`, `fireworks`).
 
 **Wave D — Cognition extractions** (1-2 days, mechanical, test-covered):
 
@@ -314,4 +314,4 @@ The most-drifted artifact in the repo right now is CLAUDE.md, and Wave A made it
 - `Habitat._currentSessionId` cast-based state (thread explicitly or rename + document).
 - DAG seams (`ui/index.ts` re-exporting habitat; `cli → sessions → ui` runtime path).
 
-**Recommended next step**: Wave C (documentation sync). It's the cheapest, has zero code risk, and every later wave depends on a CLAUDE.md that matches reality. After that, Wave D (cognition extractions) is the next mechanical win that doesn't need a design discussion.
+**Recommended next step**: Wave D (cognition extractions). With CLAUDE.md now matching reality after Wave C, the next mechanical win is decomposing the 320-line provider-specific usage cascade out of `runner.ts` — isolated, test-covered, no behavior change. After that, Wave E's "pick one" decisions are the obvious follow-on for half-day-at-a-time progress.
