@@ -8,6 +8,7 @@ export * from "./adapter.js";
 export * from "./claude-code-adapter.js";
 export * from "./cursor-adapter.js";
 export * from "./pi-adapter.js";
+export * from "./load-interaction.js";
 
 import { adapterRegistry } from "./adapter.js";
 import { createClaudeCodeAdapter } from "./claude-code-adapter.js";
