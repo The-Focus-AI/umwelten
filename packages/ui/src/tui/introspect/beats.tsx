@@ -15,7 +15,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, render, useApp, useInput, useStdout } from 'ink';
-import type { SessionBrowserEntry } from '@umwelten/evaluation/introspection/browse.js';
+import type { SessionBrowserEntry } from '@umwelten/sessions/introspection/browse.js';
 import type { NormalizedMessage } from '@umwelten/core/interaction/types/normalized-types.js';
 
 export interface RunBeatsTuiOptions {

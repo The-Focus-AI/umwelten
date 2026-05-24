@@ -10,7 +10,7 @@ import {
 import {
 	buildExploreBrowse,
 	loadDigest,
-} from "@umwelten/evaluation/introspection/browse.js";
+} from "@umwelten/sessions/introspection/browse.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import type { ExplorationBrowserEntry } from "@umwelten/core/interaction/types/domain-types.js";
 

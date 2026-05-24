@@ -305,12 +305,15 @@ export {
 	buildSuiteReport,
 	buildNarrativeReport,
 	Reporter,
+} from "@umwelten/evaluation";
+
+export {
 	buildExploreBrowse,
 	applyExploreFilter,
 	loadDigest,
 	saveDigest,
 	getDigestPath,
-} from "@umwelten/evaluation";
+} from "@umwelten/sessions";
 
 export type {
 	EvaluationConfig,
@@ -338,6 +341,9 @@ export type {
 	Report,
 	ReportSection,
 	ReportType,
+} from "@umwelten/evaluation";
+
+export type {
 	SessionBrowserEntry,
 	ExplorationBrowserEntry,
 	BuildBrowseOptions,
@@ -346,4 +352,4 @@ export type {
 	SourceFilter,
 	FilterState,
 	SessionSourceKind,
-} from "@umwelten/evaluation";
+} from "@umwelten/sessions";

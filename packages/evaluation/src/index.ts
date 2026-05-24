@@ -68,21 +68,3 @@ export type {
 export { Reporter } from "./reporting/reporter.js";
 export type { Report, ReportSection, ReportType } from "./reporting/types.js";
 
-// ── Introspection (session browser) ─────────────────────────────────────
-export {
-	buildExploreBrowse,
-	applyExploreFilter,
-	loadDigest,
-	saveDigest,
-	getDigestPath,
-} from "./introspection/browse.js";
-export type {
-	SessionBrowserEntry,
-	ExplorationBrowserEntry,
-	BuildBrowseOptions,
-	DateWindow,
-	StatusFilter,
-	SourceFilter,
-	FilterState,
-	SessionSourceKind,
-} from "./introspection/browse.js";
