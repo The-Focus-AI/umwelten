@@ -233,9 +233,12 @@ describe("ClassifiedLearnings interface uses skill_candidates field", () => {
 
 describe("CLI help text references skill_candidates", () => {
 	it("sessions CLI source references skill_candidates in --kind option", async () => {
+		// Post-Wave-G: the --kind option help text now lives in the
+		// `digest knowledge` subcommand defined in sessions/digest.ts
+		// (the rename added `--kind facts|skill_candidates|...` there).
 		const sessionsPath = resolve(
 			__dirname,
-			"../../../sessions/src/sessions.ts",
+			"../../../sessions/src/sessions/digest.ts",
 		);
 		const source = await readFile(sessionsPath, "utf-8");
 
@@ -255,7 +258,10 @@ describe("no playbook terminology in phase/summary code", () => {
 			"packages/core/src/interaction/analysis/session-digester.ts",
 			"packages/core/src/session-record/types.ts",
 			"packages/core/src/session-record/learnings-store.ts",
-			"packages/sessions/src/sessions.ts",
+			// Post-Wave-G: sessions.ts is now a 9-line re-export shim; the
+			// real content moved into sessions/{learnings,digest,...}.ts
+			"packages/sessions/src/sessions/learnings.ts",
+			"packages/sessions/src/sessions/digest.ts",
 			"packages/habitat/src/tools/session-tools.ts",
 		];
 
