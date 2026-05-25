@@ -144,7 +144,7 @@ CLAUDE.md says `reporting/` lives in `packages/core/src/reporting/` — **it doe
 
 **CLI**: 11 top-level commands, mostly clean Command-re-export pattern in `cli.ts`. But `commonOptions.ts` is used by only 4 of 11 (the others redefine their own `-p/-m`). `eval.ts` is 871 LoC mostly of input validation that belongs in evaluation. `habitat.ts` is 943 LoC including secrets-command logic. `knowledge.ts` is undocumented in CLAUDE.md.
 
-**UI**: Two REPL frameworks coexist (`cli/CLIInterface.ts` used only by `umwelten chat`; `cli/repl.ts` used by habitat). `EvaluationUI.tsx` is dead (no importers; superseded by `EvaluationApp.tsx`). `ExploreBrowseApp.tsx` is superseded by `DashboardApp.tsx` but still exists. `DiscordAdapter.tsx` is 2083 LoC of god-component. `ui/index.ts` re-exports habitat internals, blurring the dep DAG.
+**UI**: Two REPL loops coexist **by design** — `cli/repl.ts` is habitat-aware (used by `umwelten habitat`) and `cli/CLIInterface.ts` + `CommandRegistry` is the stateful-class non-habitat path (used by `umwelten chat`, one `sessions` subcommand, and the bare-bones example apps). Documented split, not pending drift. `EvaluationUI.tsx` is dead (no importers; superseded by `EvaluationApp.tsx`). `ExploreBrowseApp.tsx` is superseded by `DashboardApp.tsx` but still exists. `DiscordAdapter.tsx` was 2083 LoC of god-component, now 1641 after Wave E. `ui/index.ts` re-exports habitat internals, blurring the dep DAG.
 
 **Cross-cutting**: Telegram has two entry points (`cli/telegram.ts` math demo vs `cli habitat telegram` habitat-aware) with overlapping intent. `cli → sessions → ui` is a runtime path that side-steps the documented `cli → ui` dependency.
 
@@ -180,7 +180,7 @@ Sorted by likely return-on-cleanup:
 8. **Make `mcp-local-server.ts` a mode of `container-server.ts`** (or a thin wrapper around it) instead of a parallel implementation. Resolves the `container-server.ts:555` TODO.
 9. **Sunset legacy MCP code** in `@umwelten/protocols/mcp/{client/client.ts,server/server.ts}`. The only live consumer is one debug subcommand in `cli/mcp.ts`.
 10. **Split `gaia-tools.ts`** (1347 LoC) into `gaia-tools/{habitats,secrets,skills,standards,index}.ts`. Split `agent-runner-tools.ts` (1183 LoC) one tool per file.
-11. **Pick one REPL framework**: keep `ui/cli/repl.ts` (habitat-aware), delete `ui/cli/CLIInterface.ts` (or rebuild `umwelten chat` on top of `repl.ts`). Pick one slash-command system in habitat: `bridge/commands.ts` is the modern one.
+11. **Pick one slash-command system in habitat**: `bridge/commands.ts` is the modern one. (The REPL split — `repl.ts` habitat-aware vs `CLIInterface.ts` non-habitat — is intentional now; both files have header comments explaining the rule of thumb.)
 12. **Pick one Telegram entry point**: kill `cli/telegram.ts` (the math-demo) or merge it into `cli habitat telegram`.
 13. **Move `discord-provision.ts` to `@umwelten/ui/discord/`** — it imports `discord.js`. Delete `discord-routing.ts` once `bridge/routing.ts` has fully absorbed it (already reads the legacy file as fallback).
 14. **Move evaluation input validation** from `cli/eval.ts` into `@umwelten/evaluation`. CLI should parse and dispatch, not validate domain rules.
@@ -301,14 +301,19 @@ Final smoke matrix: **10 of 10 ok, 0 expected failures, 0 unexpected failures.**
 
 Meta-lesson: "tests passing" without integration coverage created false confidence. The vitest unit suite never traversed the extracted cascade; the smoke script does. Run `pnpm smoke:cascade` before any cognition-layer change ships.
 
+**Wave E — UI/habitat consolidation** (3 of 4 items resolved on main):
+
+Each item was framed as a quick "pick one of two." Two became real cleanups, one was kept-on-purpose with documentation, and the last is still pending.
+
+- **Telegram** ✅ `9b0010c` — standalone `umwelten telegram` deleted; `umwelten habitat telegram` is the canonical entry. `docs/guide/telegram-bot.md` rewritten as a redirect.
+- **Channel routing** ✅ `ba8b3f1` — legacy `discord-routing.ts` (265 LoC) deleted; every bridge-vs-legacy branch in DiscordAdapter.tsx collapsed (2083 → 1641 LoC); `discord-provision.ts` ported to `bridge/routing.ts`; `DiscordChannelRuntimeMode` → `ChannelRuntimeMode`. Existing `discord.json` files keep working (bridge reads them as fallback).
+- **discord-routing-tools** ✅ `bdadf5a` — unused 90-LoC AI SDK tool stub deleted.
+- **REPL framework** — kept as a **documented split**. The audit's "delete CLIInterface, only used by `umwelten chat`" was wrong: CLIInterface has six callers, including the `simple-agent`/`bare-bones-memory` example apps that exist specifically to demonstrate the non-habitat path. `runRepl` (habitat-aware) and `CLIInterface` (non-habitat, stateful class with pluggable command registry + stats tracking) serve different consumers. Both files now have header comments explaining the split; CLAUDE.md's `@umwelten/ui` section has the rule of thumb.
+- **Slash-command system** — still pending. `bridge/commands.ts` vs `slash-commands.ts`. Needs deeper audit before scoping (same lesson as REPL).
+
+Meta-lesson: the "pick one of two" framing was systematically optimistic about how independent the two halves of each pair were. Verify before scoping.
+
 ### Next
-
-**Wave E — UI/habitat "pick one"** (~half day each):
-
-- One REPL framework (keep `ui/cli/repl.ts`, delete `CLIInterface.ts`).
-- One Telegram entry (`cli/telegram.ts` vs `cli habitat telegram`).
-- One channel-routing system (`bridge/routing.ts` is the modern; delete legacy `discord-routing.ts`; move `discord-provision.ts` to `@umwelten/ui/discord/`).
-- One slash-command system (`bridge/commands.ts` vs `slash-commands.ts`).
 
 **Wave F — HTTP server consolidation** (2-3 days):
 
@@ -333,6 +338,6 @@ Meta-lesson: "tests passing" without integration coverage created false confiden
 - `Habitat._currentSessionId` cast-based state (thread explicitly or rename + document).
 - DAG seams (`ui/index.ts` re-exporting habitat; `cli → sessions → ui` runtime path).
 
-**Recommended next step**: Wave E (UI/habitat "pick one" decisions). Each is bite-sized, contained, and reversible — half-a-day-each work. Concretely: pick the REPL framework (`ui/cli/repl.ts` over `CLIInterface.ts`), pick the Telegram entry (`cli habitat telegram` over `cli/telegram.ts` math-demo), or finish the channel-routing migration. Wave F (HTTP server consolidation) is the bigger structural win after that.
+**Recommended next step**: Wave G (big-file splits). With Wave E mostly resolved, the biggest remaining LoC reductions are mechanical splits: `gaia-tools.ts` (1347 LoC) into `gaia-tools/{habitats,secrets,skills,standards,index}.ts`; `agent-runner-tools.ts` (1183 LoC) one tool per file; `sessions.ts` (3640 LoC) by subcommand. Pure file-split work, no behavior change, test-covered. After that, Wave F (HTTP server consolidation) is the bigger structural win — but it touches the production `container-server.ts` plus the planned `docs/architecture/electron-shell.md` desktop wrapper, so it warrants more design care.
 
 **Verification habit established by Wave D′**: before any cognition-layer change ships, run `pnpm smoke:cascade` and verify the cell-by-cell token counts are non-zero. "All tests pass" is not proof on its own — the original 27 unit tests passed against the broken streamText path. For UI/habitat changes (Wave E onward), launch the affected REPL/bot/web UI and click through the golden path; the test suite won't catch interactive regressions.
