@@ -13,8 +13,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
-import type { Tool } from "ai";
 import type { Habitat } from "./habitat.js";
+import { registerAiTool } from "./mcp-tool-bridge.js";
 
 export interface HabitatMcpServerOptions {
   habitat: Habitat;
@@ -27,78 +27,6 @@ export interface HabitatMcpServerOptions {
 export interface StartedHabitatMcpServer {
   port: number;
   close: () => void;
-}
-
-/**
- * Convert a Vercel AI SDK Tool into a registration call on an McpServer.
- *
- * The official MCP SDK's `server.tool()` accepts:
- *   - name (string)
- *   - description (string) — optional
- *   - inputSchema (Zod object schema or raw shape)
- *   - handler (params => { content })
- *
- * We pull description + inputSchema from the AI SDK tool, and wrap execute().
- */
-function registerAiTool(
-  mcpServer: McpServer,
-  toolName: string,
-  aiTool: Tool,
-): void {
-  const description = (aiTool as any).description ?? "";
-  const inputSchema = (aiTool as any).inputSchema;
-  const execute = (aiTool as any).execute;
-
-  // If the tool has no execute function (e.g. client-side only tools), skip it
-  if (typeof execute !== "function") {
-    return;
-  }
-
-  // Build the handler that bridges MCP → AI SDK tool execute
-  const handler = async (params: Record<string, unknown>) => {
-    const ts = new Date().toISOString();
-    const argSummary = Object.entries(params)
-      .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
-      .join(" ");
-    console.log(`[${ts}] ⚡ ${toolName}${argSummary ? " " + argSummary : ""}`);
-
-    try {
-      const result = await execute(params, {
-        toolCallId: `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        messages: [],
-        abortSignal: new AbortController().signal,
-      });
-
-      // AI SDK tools return arbitrary objects; serialize to text for MCP
-      const text =
-        typeof result === "string" ? result : JSON.stringify(result, null, 2);
-
-      console.log(`[${new Date().toISOString()}] ✓ ${toolName} (${text.length} chars)`);
-
-      return {
-        content: [{ type: "text" as const, text }],
-      };
-    } catch (error: any) {
-      console.log(`[${new Date().toISOString()}] ✗ ${toolName}: ${error.message ?? String(error)}`);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: `Error: ${error.message ?? String(error)}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  };
-
-  // Use registerTool() which accepts Zod schema instances directly via config object.
-  // The .tool() shorthand doesn't recognize Zod instances as schemas (only raw shapes).
-  (mcpServer as any).registerTool(
-    toolName,
-    { description, inputSchema: inputSchema ?? undefined },
-    handler,
-  );
 }
 
 /**

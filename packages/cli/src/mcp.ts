@@ -4,8 +4,6 @@ import {
   createQuickMCPConnection,
 } from '@umwelten/protocols/mcp/integration/stimulus.js';
 import { createSSEConfig, createWebSocketConfig } from '@umwelten/protocols/mcp/client/client.js';
-import { createMCPServer } from '@umwelten/protocols/mcp/server/server.js';
-import { StdioTransport } from '@umwelten/protocols/mcp/types/transport.js';
 import type { TransportConfig } from '@umwelten/protocols/mcp/types/transport.js';
 import { createMarkdownChatObserver } from '@umwelten/core/cognition/observers.js';
 
@@ -272,108 +270,6 @@ addConnectionOptions(
 
     } catch (error) {
       console.error(chalk.red('❌ Failed to read resource:'));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
-    }
-  });
-
-// =============================================================================
-// MCP Server Commands
-// =============================================================================
-
-// MCP Create Server Command
-mcpCommand
-  .command('create-server')
-  .description('Create a simple MCP server for testing')
-  .option('-n, --name <name>', 'Server name', 'test-mcp-server')
-  .option('-v, --version <version>', 'Server version', '1.0.0')
-  .option('--with-tools', 'Include example tools')
-  .option('--with-resources', 'Include example resources')
-  .action(async (options) => {
-    try {
-      console.log(chalk.blue('🏗️  Creating MCP server...'));
-
-      const server = createMCPServer()
-        .withName(options.name)
-        .withVersion(options.version);
-
-      if (options.withTools) {
-        // Add example tools
-        server.addTool('echo', {
-          description: 'Echo back the input message',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              message: { type: 'string' },
-            },
-            required: ['message'],
-          },
-        }, async (params) => ({
-          content: [
-            {
-              type: 'text',
-              text: `Echo: ${params.message}`,
-            }
-          ],
-        }));
-
-        server.addTool('add', {
-          description: 'Add two numbers',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              a: { type: 'number' },
-              b: { type: 'number' },
-            },
-            required: ['a', 'b'],
-          },
-        }, async (params) => ({
-          content: [
-            {
-              type: 'text',
-              text: String((params.a as number) + (params.b as number)),
-            }
-          ],
-        }));
-      }
-
-      if (options.withResources) {
-        // Add example resources
-        server.addResource('info://server', {
-          name: 'Server Information',
-          description: 'Information about this MCP server',
-        }, async () => ({
-          uri: 'info://server',
-          contents: [
-            {
-              type: 'text',
-              text: `MCP Server: ${options.name} v${options.version}\nCreated at: ${new Date().toISOString()}`,
-            }
-          ],
-        }));
-      }
-
-      const builtServer = server.build();
-
-      // Start server with stdio transport
-      const transport = new StdioTransport({
-        command: 'node', // This would be replaced with actual stdio handling
-      });
-
-      console.log(chalk.green('✅ MCP server created!'));
-      console.log(chalk.yellow('📋 Server Details:'));
-      console.log(`  Name: ${options.name}`);
-      console.log(`  Version: ${options.version}`);
-      console.log(`  Tools: ${options.withTools ? 'Included' : 'None'}`);
-      console.log(`  Resources: ${options.withResources ? 'Included' : 'None'}`);
-      
-      console.log(chalk.blue('\n💡 To use this server, you would typically:'));
-      console.log('  1. Save the server code to a file');
-      console.log('  2. Run it with: node server.js');
-      console.log('  3. Connect to it using: npm run cli mcp connect -c "node server.js"');
-
-    } catch (error) {
-      console.error(chalk.red('❌ Failed to create MCP server:'));
       console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
@@ -806,11 +702,9 @@ mcpCommand
     console.log(chalk.yellow('📡 Client Commands:'));
     console.log('  mcp connect        - Connect to an MCP server and list capabilities');
     console.log('  mcp test-tool      - Test a specific tool from an MCP server');
-    console.log('  mcp read-resource  - Read a resource from an MCP server\n');
-    
-    console.log(chalk.yellow('🏗️  Server Commands:'));
-    console.log('  mcp create-server  - Create a simple MCP server for testing\n');
-    
+    console.log('  mcp read-resource  - Read a resource from an MCP server');
+    console.log('  mcp chat           - Connect to a remote MCP server with OAuth and chat\n');
+
     console.log(chalk.yellow('💡 Usage Examples:'));
     console.log(chalk.gray('  # Connect to a local MCP server'));
     console.log('  npm run cli mcp connect -c "node my-server.js"');
@@ -824,8 +718,8 @@ mcpCommand
     console.log(chalk.gray('  # Read a resource'));
     console.log('  npm run cli mcp read-resource -c "node server.js" -u "file:///path/to/file"');
     console.log('');
-    console.log(chalk.gray('  # Create a test server'));
-    console.log('  npm run cli mcp create-server --with-tools --with-resources');
+    console.log(chalk.gray('  # Chat with a remote OAuth-protected MCP server'));
+    console.log('  npm run cli mcp chat --url https://oura-mcp.fly.dev/mcp');
   });
 
 export default mcpCommand;
