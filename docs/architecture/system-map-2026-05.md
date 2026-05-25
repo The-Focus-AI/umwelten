@@ -313,22 +313,26 @@ Each item was framed as a quick "pick one of two." Two became real cleanups, one
 
 Meta-lesson: the "pick one of two" framing was systematically optimistic about how independent the two halves of each pair were. Verify before scoping.
 
+**Wave F — MCP / shared-helper cleanup** (2 of 4 audit items resolved):
+
+- `d538337` — Deleted `@umwelten/protocols/mcp/server/server.ts` (682 LoC of hand-rolled JSON-RPC) + the broken `umwelten mcp create-server` CLI stub that was its only caller.
+- `e5695ce` — Deduplicated `registerAiTool` between `container-server.ts` and `mcp-local-server.ts` into a new shared `mcp-tool-bridge.ts` (80 LoC).
+
+Held: MCP client port (legacy `MCPClient` → official SDK for `connect`/`test-tool`/`read-resource`) needs live MCP-server testing across stdio/SSE/WS. `HttpAppShell` extraction needs a live `habitat serve` exercise — unit tests won't catch `serveStatic` MIME edges, CORS preflight, or SSE chat stream regressions. Both are genuine refactors, not pure deletes.
+
+**Wave G — Big-file splits** (3 of 4 splits landed):
+
+- `60cb484` — `tools/agent-runner-tools.ts` (1183 LoC, 7 tools) split per-tool-per-file. Tools average ~150 LoC; per-file is the right grain.
+- `da6c041` — `tools/gaia/gaia-tools.ts` (1347 LoC, **30 tools**) split per-domain factory. Per-tool would have been wrong — tools average 33 LoC, half under 25. Domain grouping matches the conceptual structure already in the source.
+- `66b862a` — `packages/sessions/src/sessions.ts` (3640 LoC, 23 Commander subcommands) split per-domain registrar. Factory signature is `registerXxxCommands(parent: Command): void` instead of `createXxxTools(ctx)` — the only thing that changed between passes.
+
+Convention codified after three passes:
+
+> When a file exceeds ~1000 LoC and holds N independent items composed by a single entry function, split it into a sibling directory: `helpers.ts` for shared types/functions, one file per domain (or per item if items are large), `index.ts` to compose, and a thin re-export shim at the original path. The composition factory's signature matches the existing idiom — `createXxxTools(ctx)` for AI SDK tools, `registerXxxCommands(parent)` for Commander, etc. Granularity rule of thumb: target ~100–500 LoC per file; group below 80, split above 500. Behavior preserved verbatim.
+
+Still pending: `DiscordAdapter.tsx` (1641 LoC after the Wave E reductions). Less urgent than the three completed splits because the file is now under 2000 LoC.
+
 ### Next
-
-**Wave F — HTTP server consolidation** (2-3 days):
-
-- Extract `HttpAppShell` from `container-server.ts`.
-- Migrate `web/server.ts`, `tools/gaia/routes.ts`, `mcp-local-server.ts` onto it.
-- Make `mcp-local-server` a mode of `container-server` (resolves `container-server.ts:555` TODO).
-- Sunset legacy MCP code in `protocols/mcp/{client,server}/`.
-- Caveat: `docs/architecture/electron-shell.md` is a planned desktop shell wrapping `container-server` — preserve its surface.
-
-**Wave G — Big files** (1-2 days, mechanical):
-
-- Split `tools/gaia/gaia-tools.ts` (1347 LoC) by domain.
-- Split `tools/agent-runner-tools.ts` (1183 LoC) one tool per file.
-- Split `packages/sessions/src/sessions.ts` (3640 LoC) by subcommand.
-- `DiscordAdapter.tsx` (2083 LoC) — finish moving ambient-gate/backfill out (siblings already started).
 
 **Wave H — Structural decisions** (discussion first, then 1 week+):
 
@@ -338,6 +342,10 @@ Meta-lesson: the "pick one of two" framing was systematically optimistic about h
 - `Habitat._currentSessionId` cast-based state (thread explicitly or rename + document).
 - DAG seams (`ui/index.ts` re-exporting habitat; `cli → sessions → ui` runtime path).
 
-**Recommended next step**: Wave G (big-file splits). With Wave E mostly resolved, the biggest remaining LoC reductions are mechanical splits: `gaia-tools.ts` (1347 LoC) into `gaia-tools/{habitats,secrets,skills,standards,index}.ts`; `agent-runner-tools.ts` (1183 LoC) one tool per file; `sessions.ts` (3640 LoC) by subcommand. Pure file-split work, no behavior change, test-covered. After that, Wave F (HTTP server consolidation) is the bigger structural win — but it touches the production `container-server.ts` plus the planned `docs/architecture/electron-shell.md` desktop wrapper, so it warrants more design care.
+**Recommended next step**: only structural / discussion-required items remain. In increasing order of design weight:
+1. **MCP client port** (held out of Wave F): rewrite `cli/mcp.ts`'s `connect`/`test-tool`/`read-resource` subcommands against the official `@modelcontextprotocol/sdk`, then delete `protocols/mcp/client/client.ts`. Bounded scope; needs live MCP-server testing.
+2. **Wave F3 — `HttpAppShell` extraction**: pull router/static/CORS/sendJson out of `container-server.ts`. Needs a real `habitat serve` exercise.
+3. **Slash-command unification** (held out of Wave E): `bridge/commands.ts` vs `slash-commands.ts`. Likely sits between the Telegram case (real winner) and the REPL case (documented split).
+4. **Wave H structural decisions** above — each needs a design call before code moves.
 
 **Verification habit established by Wave D′**: before any cognition-layer change ships, run `pnpm smoke:cascade` and verify the cell-by-cell token counts are non-zero. "All tests pass" is not proof on its own — the original 27 unit tests passed against the broken streamText path. For UI/habitat changes (Wave E onward), launch the affected REPL/bot/web UI and click through the golden path; the test suite won't catch interactive regressions.

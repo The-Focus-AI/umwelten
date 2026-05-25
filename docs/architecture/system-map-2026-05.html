@@ -264,21 +264,21 @@
 <header class="doc-head">
   <div class="eyebrow">Architecture Audit &middot; Progress Report</div>
   <h1>Umwelten System Map</h1>
-  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Five cleanup waves landed plus a hardening pass</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, cognition extractions, real-provider verification (which uncovered &amp; fixed a silent benchmark-data-corruption bug on MiniMax + GitHub Models), then Wave E UI/habitat consolidation (Telegram + Discord routing retired; REPL split documented). &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Seven cleanup waves landed plus a hardening pass</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, cognition extractions, real-provider verification (which uncovered &amp; fixed a silent benchmark-data-corruption bug on MiniMax + GitHub Models), Wave E UI/habitat consolidation, Wave F MCP / shared-helper cleanup, then Wave G big-file splits (three god-files broken into navigable directories using a convention that now generalizes). &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
 </header>
 
 <div class="scoreboard">
   <div class="score">
-    <div class="num">~7800</div>
+    <div class="num">~14,800</div>
     <div class="lab">Lines of code shifted (deleted, moved, or refactored) across cleanup waves</div>
   </div>
   <div class="score">
-    <div class="num">34</div>
+    <div class="num">40</div>
     <div class="lab">Targeted commits on main, each independently revertible</div>
   </div>
   <div class="score">
-    <div class="num">5 / 5</div>
-    <div class="lab">Waves landed (A, B, C, D + D&prime;, E partial). Wave F next; G &amp; H pending.</div>
+    <div class="num">7 / 8</div>
+    <div class="lab">Waves landed (A, B, C, D + D&prime;, E, F partial, G). Wave H structural decisions remain.</div>
   </div>
 </div>
 
@@ -683,34 +683,35 @@ ollama         streamText ✅ 32+2=34</code></pre>
   <div class="pass-foot">Meta-lesson: the "pick one of two" framing in the original audit was systematically optimistic about how independent the two halves of each pair were. Telegram and channel-routing genuinely had a dominant winner; REPL had two consumers with incompatible contracts. Slash-commands likely sits between &mdash; verify before scoping.</div>
 </div>
 
-<div class="pass">
+<div class="pass done">
   <div class="pass-head">
-    <div class="pass-title">Wave F &mdash; HTTP server consolidation</div>
-    <div class="pass-effort">2&ndash;3 days</div>
+    <div class="pass-title">Wave F &mdash; MCP / shared-helper cleanup (2 of 4 items resolved)</div>
+    <div class="pass-effort">2 commits, &minus;837 LoC</div>
   </div>
-  <p>The biggest concentration of structural drift. Four HTTP servers in habitat, three of which independently re-implement the same router/static/CORS/sendJson shell.</p>
+  <p>Originally framed as &ldquo;extract <code>HttpAppShell</code>; collapse four HTTP servers; sunset legacy MCP.&rdquo; On closer inspection, two of the four items were real pure wins; the other two have real verification cost. Did the safe ones, held the risky ones.</p>
   <ul>
-    <li>Extract <code>HttpAppShell</code> from <code>container-server.ts</code>: route loop, <code>parseRoute</code>, <code>matchRoute</code>, <code>serveStatic</code>, <code>sendJson</code>, CORS, body reader.</li>
-    <li>Migrate <code>web/server.ts</code>, <code>tools/gaia/routes.ts</code>, and <code>mcp-local-server.ts</code> onto the shell.</li>
-    <li>Make <code>mcp-local-server.ts</code> a mode of <code>container-server.ts</code> (resolves the <code>container-server.ts:555</code> TODO that flags <code>mcp-local-server</code> as duplicating <code>mcp-serve/mcp-handler.ts</code>).</li>
-    <li>Sunset legacy MCP: <code>@umwelten/protocols/mcp/client/client.ts</code> + <code>mcp/server/server.ts</code> are pre-official-SDK hand-rolled JSON-RPC. Only debug CLI uses the legacy path.</li>
-    <li>Delete <code>gaia-server.ts</code> + <code>web/server.ts</code> once the legacy Gaia SSE format migrates to <code>container-server</code> (it&rsquo;s already self-labeled legacy and only kept alive for the existing UI).</li>
-    <li><strong>Caveat:</strong> <code>docs/architecture/electron-shell.md</code> is a planned desktop shell wrapping <code>container-server</code>. The consolidation has to preserve the <code>container-server.ts</code> surface area, not just merge it away.</li>
+    <li><code class="sha">d538337</code> &mdash; Deleted <code>@umwelten/protocols/mcp/server/server.ts</code> (682 LoC, hand-rolled JSON-RPC) plus the broken <code>umwelten mcp create-server</code> CLI stub that was its only caller. Updated barrels in protocols + umwelten meta.</li>
+    <li><code class="sha">e5695ce</code> &mdash; Deduplicated <code>registerAiTool</code> between <code>container-server.ts</code> and <code>mcp-local-server.ts</code> into a new shared <code>mcp-tool-bridge.ts</code> (80 LoC). Behavior preserved verbatim &mdash; same logging, same registerTool config.</li>
   </ul>
+  <div class="pass-foot">Held: (1) The <strong>MCP client port</strong> &mdash; the three live <code>connect</code>/<code>test-tool</code>/<code>read-resource</code> subcommands still use <code>protocols/mcp/client/client.ts</code> via <code>MCPStimulusManager</code>; porting to the official SDK is ~4&ndash;6 hours and needs live MCP-server testing across stdio/SSE/WS transports. (2) The <strong><code>HttpAppShell</code> extraction</strong> &mdash; the audit's headline item. Real refactor; the unit tests won't catch regressions in <code>serveStatic</code> MIME edges, CORS preflight, or the SSE chat stream. Wave D&prime; established &ldquo;tests pass without integration coverage = false confidence&rdquo; as a hard rule, and this is the canonical case. Needs a live <code>habitat serve</code> exercise to verify. Plus <code>docs/architecture/electron-shell.md</code> names <code>container-server.ts</code> as the desktop shell's HTTP entry point &mdash; the refactor has to preserve its surface area, not just merge it away.</div>
 </div>
 
-<div class="pass">
+<div class="pass done">
   <div class="pass-head">
-    <div class="pass-title">Wave G &mdash; Big files</div>
-    <div class="pass-effort">1&ndash;2 days</div>
+    <div class="pass-title">Wave G &mdash; Big-file splits (three landed; one to go)</div>
+    <div class="pass-effort">3 commits, ~7K LoC reorganized</div>
   </div>
-  <p>God-files that need decomposition. Mechanical splits, no behavior change.</p>
+  <p>Three god-files broken into navigable directories using a convention that crystallized over the three passes (see callout below). All behavior-preserving; the original import paths still work via re-export shims.</p>
   <ul>
-    <li>Split <code>tools/gaia/gaia-tools.ts</code> (1347 LoC) into <code>gaia-tools/{habitats,secrets,skills,standards,index}.ts</code>.</li>
-    <li>Split <code>tools/agent-runner-tools.ts</code> (1183 LoC) one tool per file.</li>
-    <li>Split <code>packages/sessions/src/sessions.ts</code> (3640 LoC) by subcommand.</li>
-    <li><code>DiscordAdapter.tsx</code> (2083 LoC) &mdash; move ambient-gate/backfill orchestration out (the sibling <code>discord-message-gate.ts</code> + <code>discord-backfill.ts</code> already started this).</li>
+    <li><code class="sha">60cb484</code> &mdash; <code>tools/agent-runner-tools.ts</code> (1183 LoC, 7 tools): per-tool-per-file. The original file becomes a 12-line shim; <code>tools/agent-runner/</code> holds <code>{context, configure-contract, memory-rendering, glob, register-directory, clone, logs, status, ask, ask-claude, configure, index}.ts</code>. Tools average ~150 LoC; per-file is the right grain.</li>
+    <li><code class="sha">da6c041</code> &mdash; <code>tools/gaia/gaia-tools.ts</code> (1347 LoC, <strong>30 tools</strong>): per-domain factory. 20-line shim; <code>gaia-tools/</code> holds <code>{context, seed-files, standards-audit, habitats, secrets, skills, credentials, standards, index}.ts</code>. Per-tool-per-file would have been wrong &mdash; tools average 33 LoC, half under 25. Grouping by domain matches the conceptual structure already in the source.</li>
+    <li><code class="sha">66b862a</code> &mdash; <code>packages/sessions/src/sessions.ts</code> (3640 LoC, 23 Commander subcommands): per-domain registrar (Commander variant of the same pattern). 9-line shim; <code>sessions/</code> holds <code>{helpers, inspect, format, tui, bulk, learnings, transcript, digest, index}.ts</code>. Factory signature is <code>registerXxxCommands(parent: Command): void</code> instead of <code>createXxxTools(ctx)</code> &mdash; the only thing that changed between passes.</li>
   </ul>
+  <div class="pass-foot">Still pending: <strong><code>DiscordAdapter.tsx</code></strong> (1641 LoC after the Wave E reductions; was 2083). The legacy branches are already gone; what's left is a coherent god-component (ambient-gate/backfill orchestration, slash registration, vision routing, thread management). The sibling files <code>discord-message-gate.ts</code> and <code>discord-backfill.ts</code> already started the extraction. Less urgent than the three completed splits because the file is now under 2000 LoC.</div>
+</div>
+
+<div class="callout">
+<p><strong>Big-file-split convention (codified after three passes)</strong>: When a file exceeds ~1000 LoC and holds N independent items composed by a single entry function, split it into a sibling directory: <code>helpers.ts</code> for shared types/functions, one file per domain (or per item if items are large), <code>index.ts</code> to compose, and a thin re-export shim at the original path. The composition factory's signature matches the existing idiom &mdash; <code>createXxxTools(ctx)</code> for AI SDK tools, <code>registerXxxCommands(parent)</code> for Commander, etc. Granularity rule of thumb: target ~100&ndash;500 LoC per file; group below 80, split above 500. Behavior preserved verbatim &mdash; copy bodies, don't optimize during the split.</p>
 </div>
 
 <div class="pass">
@@ -729,7 +730,13 @@ ollama         streamText ✅ 32+2=34</code></pre>
 </div>
 
 <div class="callout">
-<p><strong>Recommended next step:</strong> Wave G (big-file splits). With Wave E mostly resolved, the biggest remaining LoC reductions are mechanical splits: <code>gaia-tools.ts</code> (1347 LoC) into <code>gaia-tools/{habitats,secrets,skills,standards,index}.ts</code>; <code>agent-runner-tools.ts</code> (1183 LoC) one tool per file; <code>sessions.ts</code> (3640 LoC) by subcommand. Pure file-split work, no behavior change, test-covered. After that, Wave F (HTTP server consolidation) is the bigger structural win &mdash; but it touches the production <code>container-server.ts</code> + the planned <code>docs/architecture/electron-shell.md</code> desktop wrapper, so it warrants more design care.</p>
+<p><strong>Recommended next step:</strong> only structural / discussion-required items remain in §6 Next. The cheapest still-pending items, in increasing order of design weight:</p>
+<ol>
+  <li><strong>The MCP client port</strong> (held out of Wave F): rewrite <code>cli/mcp.ts</code>'s <code>connect</code> / <code>test-tool</code> / <code>read-resource</code> subcommands against the official <code>@modelcontextprotocol/sdk</code>, then delete <code>protocols/mcp/client/client.ts</code> + <code>integration/stimulus.ts</code>. Bounded scope; needs live MCP-server testing across stdio + SSE + WS transports.</li>
+  <li><strong>Wave F3 &mdash; <code>HttpAppShell</code> extraction</strong>: pull the router/static/CORS/sendJson primitives out of <code>container-server.ts</code> so <code>web/server.ts</code> and <code>tools/gaia/routes.ts</code> stop re-implementing them. Needs a real <code>habitat serve</code> exercise (file-serving MIME edges, SSE chat, CORS preflight) &mdash; unit tests won't catch the regressions that matter.</li>
+  <li><strong>Slash-command unification</strong> (held out of Wave E): <code>bridge/commands.ts</code> vs <code>slash-commands.ts</code>. Likely sits between the &ldquo;real winner&rdquo; (Telegram) and the &ldquo;documented split&rdquo; (REPL) cases &mdash; needs the deeper audit Wave E&prime; established as the verification habit.</li>
+  <li><strong>Wave H structural decisions</strong>: Exploration pipeline location, analyzer vs digester, <code>session-record/</code> layering, <code>Habitat._currentSessionId</code> casts, DAG seams. Each needs a design call before code moves.</li>
+</ol>
 
 <div class="callout warn">
 <p><strong>Verification habit established by Wave D&prime;:</strong> before any cognition-layer change ships, run <code>pnpm smoke:cascade</code> and verify the cell-by-cell token counts are non-zero. Don&rsquo;t accept &ldquo;all tests pass&rdquo; as proof &mdash; the original 27 unit tests passed against the broken streamText path too. For UI/habitat changes, the equivalent verification is launching the affected REPL/bot/web UI and clicking through the golden path; the test suite won&rsquo;t catch interactive regressions.</p>
@@ -737,7 +744,7 @@ ollama         streamText ✅ 32+2=34</code></pre>
 </div>
 
 <footer>
-  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-25 after Wave E (UI/habitat consolidation: Telegram retired, Discord routing unified, REPL split documented) merged to main
+  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-25 after Wave G (big-file splits: agent-runner-tools, gaia-tools, sessions) merged to main
 </footer>
 
 </div>
