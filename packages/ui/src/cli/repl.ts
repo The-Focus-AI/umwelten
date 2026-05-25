@@ -1,9 +1,19 @@
 /**
- * Generic readline REPL that dispatches `/foo args` lines to slash commands
- * and forwards everything else to an LLM `Interaction.streamText`.
+ * runRepl — habitat-aware readline loop.
  *
- * Habitat-aware code stays in `@umwelten/habitat/slash-commands.ts`; this file
- * is pure I/O glue.
+ * Dispatches `/foo args` lines to the slash commands a `Habitat`
+ * exposes via `habitat.getSlashCommands()`, and forwards everything
+ * else to `interaction.streamText()` with an AbortController so
+ * Escape / Ctrl+C cancels in-flight generation cleanly. Saves the
+ * session to an `InteractionStore` after each turn.
+ *
+ * This is the modern REPL stack used by `umwelten habitat` and its
+ * `local` / `here` subcommands. For consumers that don't have a
+ * `Habitat` (bare `Interaction` only, plus pluggable command
+ * registry and stats tracking), see `./CLIInterface.ts` — the two
+ * coexist deliberately and serve different consumers.
+ *
+ * See docs/architecture/system-map-2026-05 §6 for the split rationale.
  */
 
 import { createInterface } from "node:readline";

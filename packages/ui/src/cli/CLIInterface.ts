@@ -1,13 +1,29 @@
+/**
+ * CLIInterface — stateful readline REPL for non-habitat consumers.
+ *
+ * Use this when you have a bare `Interaction` and want an interactive
+ * loop with a pluggable `CommandRegistry`, response stats tracking, and
+ * separate chat / evaluation / agent modes. The companion
+ * `DefaultCommands.ts` ships /help, /reset, /history, /stats, /info,
+ * /toggle-stats, /exit.
+ *
+ * For habitat-aware REPLs (slash commands resolved from
+ * `Habitat.getSlashCommands()`, AbortController stream cancellation,
+ * automatic `InteractionStore.saveSession` per turn), use
+ * `runRepl` from `./repl.ts` instead — that's the modern stack.
+ *
+ * Live callers (do not delete without porting them):
+ * - cli/chat.ts (umwelten chat)
+ * - sessions/sessions.ts (one subcommand)
+ * - examples/simple-agent, examples/bare-bones-memory
+ *
+ * See docs/architecture/system-map-2026-05 §6 for the split rationale.
+ */
+
 import readline from "readline";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { cliStdoutObserver } from "@umwelten/core/cognition/observers.js";
 import { CommandRegistry, CLICommand } from "./CommandRegistry.js";
-
-/**
- * CLIInterface - Handles command-line interface interactions
- * 
- * Provides readline-based input/output for different interaction types
- */
 export class CLIInterface {
   private rl?: readline.Interface;
   private isActive: boolean = false;
