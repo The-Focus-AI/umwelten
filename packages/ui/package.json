@@ -37,10 +37,10 @@
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.187",
+    "@ai-sdk/react": "^3.0.193",
     "@grammyjs/files": "^1.2.0",
     "@inkjs/ui": "^2.0.0",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.15",
     "@umwelten/core": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
     "@umwelten/habitat": "workspace:*",
@@ -59,6 +59,6 @@
     "ink-testing-library": "^4.0.0",
     "react-dom": "^19.2.6",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   }
 }

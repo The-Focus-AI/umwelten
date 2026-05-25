@@ -41,6 +41,6 @@
     "@dagger.io/dagger": "^0.20.8",
     "@types/node": "^24.10.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   }
 }
