@@ -66,8 +66,5 @@ export type {
   MCPStimulusTransportWrapperConfig,
 } from "./mcp/integration/stimulus.js";
 
-// ── MCP Server (expose umwelten as MCP tool provider) ───────────────────
-export { MCPServer, MCPServerBuilder, createMCPServer } from "./mcp/server/server.js";
-
 // ── MCP Types ───────────────────────────────────────────────────────────
 export type { TransportConfig } from "./mcp/types/transport.js";
