@@ -24,7 +24,7 @@ import { join, resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Tool } from "ai";
+import { registerAiTool } from "./mcp-tool-bridge.js";
 import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
@@ -61,60 +61,6 @@ export interface ContainerServerOptions {
 export interface StartedContainerServer {
 	port: number;
 	close: () => void;
-}
-
-// ── MCP tool registration ─────────────────────────────────────────
-
-function registerAiTool(
-	mcpServer: McpServer,
-	toolName: string,
-	aiTool: Tool,
-): void {
-	const description = (aiTool as any).description ?? "";
-	const inputSchema = (aiTool as any).inputSchema;
-	const execute = (aiTool as any).execute;
-	if (typeof execute !== "function") return;
-
-	const handler = async (params: Record<string, unknown>) => {
-		const ts = new Date().toISOString();
-		const argSummary = Object.entries(params)
-			.map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
-			.join(" ");
-		console.log(`[${ts}] ⚡ ${toolName}${argSummary ? " " + argSummary : ""}`);
-
-		try {
-			const result = await execute(params, {
-				toolCallId: `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-				messages: [],
-				abortSignal: new AbortController().signal,
-			});
-			const text =
-				typeof result === "string" ? result : JSON.stringify(result, null, 2);
-			console.log(
-				`[${new Date().toISOString()}] ✓ ${toolName} (${text.length} chars)`,
-			);
-			return { content: [{ type: "text" as const, text }] };
-		} catch (error: any) {
-			console.log(
-				`[${new Date().toISOString()}] ✗ ${toolName}: ${error.message ?? String(error)}`,
-			);
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: `Error: ${error.message ?? String(error)}`,
-					},
-				],
-				isError: true,
-			};
-		}
-	};
-
-	(mcpServer as any).registerTool(
-		toolName,
-		{ description, inputSchema: inputSchema ?? undefined },
-		handler,
-	);
 }
 
 // ── Static file serving ───────────────────────────────────────────
