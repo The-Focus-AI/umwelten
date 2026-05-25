@@ -451,7 +451,7 @@ Registered top-level commands (`cli.ts`):
 
 - `models` — list/search models across providers, `--view info|costs`, JSON output, `llamaswap-config` generator.
 - `run` — one-shot prompt (`--prompt`, `--attach`, `--object`, `--stats`).
-- `chat` — interactive REPL via `@umwelten/ui/cli/CLIInterface` (legacy; see Wave E in the system map for the consolidation plan).
+- `chat` — interactive REPL via `@umwelten/ui/cli/CLIInterface` (the non-habitat REPL — see the `@umwelten/ui` section below for the deliberate split between `CLIInterface` and `repl.ts`).
 - `sessions` — sessions tree (list/show/messages/tools/stats/format/digest plus the `habitat` subtree). Registered by `@umwelten/sessions`.
 - `habitat` — habitat REPL + subcommands: `local`/`here`, `telegram`, `discord`, `web` (legacy Gaia), `secrets {list,set,remove}`, `serve` (MCP+chat+web), `gaia` (orchestrator), `chat` (A2A client). The Telegram and Discord bots live here; the previous top-level `umwelten telegram` standalone command was retired in Wave E.
 - `mcp` — MCP client/server ops: `mcp connect`, `mcp chat` (remote MCP with OAuth), `mcp test-tool`, `mcp read-resource`, `mcp create-server` (debug), `mcp list`.
@@ -465,9 +465,12 @@ There is **no** `eval` command. Evaluations are script-driven (`examples/evals/`
 
 ### `@umwelten/ui` — User Interfaces
 
-- `cli/CLIInterface.ts` — readline-based REPL (legacy; used only by `umwelten chat`).
-- `cli/repl.ts` — habitat-aware REPL used by `umwelten habitat` and its `local` / `here` subcommands.
-- `cli/CommandRegistry.ts` + `DefaultCommands.ts` — slash-command framework for the readline REPL.
+**Two REPL loops live here by design, not by accident — pick the one whose contract fits your caller:**
+
+- `cli/repl.ts` — **habitat-aware**, the modern stack. `runRepl({ interaction, store, habitat })` resolves slash commands from `habitat.getSlashCommands()`, propagates `AbortController` so Escape / Ctrl+C cancels in-flight `streamText`, and persists the session to an `InteractionStore` after every turn. Used by `umwelten habitat` and its `local` / `here` subcommands. ~180 LoC, function-style.
+- `cli/CLIInterface.ts` + `cli/CommandRegistry.ts` + `cli/DefaultCommands.ts` — **non-habitat**, stateful-class style. `new CLIInterface(commandRegistry).startChat(interaction)`. Pluggable `CommandRegistry` with `/help`, `/reset`, `/history`, `/stats`, `/info`, `/toggle-stats`, `/exit` from `DefaultCommands`; per-turn response stats tracking; separate `startChat` / `startEvaluation` / `startAgent` entry points. Used by `umwelten chat`, one `sessions` subcommand, and the `simple-agent` / `bare-bones-memory` example apps — none of which have a `Habitat`. ~760 LoC across the three files.
+
+The split is deliberate: a single primitive would need to be either (a) habitat-required everywhere (which breaks the example apps that exist precisely to demonstrate the non-habitat path), or (b) habitat-optional with all the framework's nice-to-haves (stats, custom registry) gated behind feature flags. Until there's a real reason to converge, keep them parallel. When a new REPL caller arrives, the test is `do you have a Habitat?` — yes → `runRepl`; no → `CLIInterface`.
 - `telegram/TelegramAdapter.tsx` — grammy-based Telegram bot; per-`chatId` `Interaction` map; optional `ChannelBridge` injection.
 - `discord/DiscordAdapter.tsx` — discord.js bot (god-component, candidate for Wave G splitting).
 - `discord/discord-backfill.ts`, `discord-message-gate.ts`, `discord-transcript-ambient.ts` — ambient-listening, gating, missed-message backfill.

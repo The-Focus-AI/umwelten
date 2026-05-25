@@ -264,21 +264,21 @@
 <header class="doc-head">
   <div class="eyebrow">Architecture Audit &middot; Progress Report</div>
   <h1>Umwelten System Map</h1>
-  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Four cleanup waves landed plus a hardening pass</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, cognition extractions, then real-provider verification that uncovered &amp; fixed a silent benchmark-data-corruption bug on MiniMax + GitHub Models. &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
+  <p class="lede">A system-architect-level audit of the codebase: what the fundamental pieces are, how they fit together, where reality has drifted from the documented design, and what to do about it. Based on a parallel deep-dive across six subsystems. <strong>Five cleanup waves landed plus a hardening pass</strong> &mdash; evaluation overhaul, mechanical sweep, documentation sync, cognition extractions, real-provider verification (which uncovered &amp; fixed a silent benchmark-data-corruption bug on MiniMax + GitHub Models), then Wave E UI/habitat consolidation (Telegram + Discord routing retired; REPL split documented). &sect;6 below tracks what&rsquo;s done and what&rsquo;s next.</p>
 </header>
 
 <div class="scoreboard">
   <div class="score">
-    <div class="num">~7000</div>
+    <div class="num">~7800</div>
     <div class="lab">Lines of code shifted (deleted, moved, or refactored) across cleanup waves</div>
   </div>
   <div class="score">
-    <div class="num">27</div>
+    <div class="num">34</div>
     <div class="lab">Targeted commits on main, each independently revertible</div>
   </div>
   <div class="score">
-    <div class="num">10 / 10</div>
-    <div class="lab">Cascade-provider &times; path cells now reporting non-zero usage end-to-end</div>
+    <div class="num">5 / 5</div>
+    <div class="lab">Waves landed (A, B, C, D + D&prime;, E partial). Wave F next; G &amp; H pending.</div>
   </div>
 </div>
 
@@ -455,7 +455,7 @@
 
 <p><strong>CLI</strong>: 11 top-level commands, mostly clean Command-re-export pattern in <code>cli.ts</code>. But <code>commonOptions.ts</code> is used by only 4 of 11 (the others redefine their own <code>-p/-m</code>). <code>eval.ts</code> is 871 LoC mostly of input validation that belongs in evaluation. <code>habitat.ts</code> is 943 LoC including secrets-command logic. <code>knowledge.ts</code> is undocumented in CLAUDE.md.</p>
 
-<p><strong>UI</strong>: Two REPL frameworks coexist (<code>cli/CLIInterface.ts</code> used only by <code>umwelten chat</code>; <code>cli/repl.ts</code> used by habitat). <code>EvaluationUI.tsx</code> is dead (no importers; superseded by <code>EvaluationApp.tsx</code>). <code>ExploreBrowseApp.tsx</code> is superseded by <code>DashboardApp.tsx</code> but still exists. <code>DiscordAdapter.tsx</code> is 2083 LoC of god-component. <code>ui/index.ts</code> re-exports habitat internals, blurring the dep DAG.</p>
+<p><strong>UI</strong>: Two REPL loops coexist <strong>by design</strong> &mdash; <code>cli/repl.ts</code> is habitat-aware (used by <code>umwelten habitat</code>) and <code>cli/CLIInterface.ts</code> + <code>CommandRegistry</code> is the stateful-class non-habitat path (used by <code>umwelten chat</code>, one <code>sessions</code> subcommand, and the bare-bones example apps). Documented split, not pending drift. <code>EvaluationUI.tsx</code> is dead (no importers; superseded by <code>EvaluationApp.tsx</code>). <code>ExploreBrowseApp.tsx</code> is superseded by <code>DashboardApp.tsx</code> but still exists. <code>DiscordAdapter.tsx</code> is 2083 LoC of god-component. <code>ui/index.ts</code> re-exports habitat internals, blurring the dep DAG.</p>
 
 <p><strong>Cross-cutting</strong>: Telegram has two entry points (<code>cli/telegram.ts</code> math demo vs <code>cli habitat telegram</code> habitat-aware) with overlapping intent. <code>cli &rarr; sessions &rarr; ui</code> is a runtime path that side-steps the documented <code>cli &rarr; ui</code> dependency.</p>
 
@@ -492,7 +492,7 @@
   <li><strong>Make <code>mcp-local-server.ts</code> a mode of <code>container-server.ts</code></strong> (or a thin wrapper around it) instead of a parallel implementation. Resolves the <code>container-server.ts:555</code> TODO.</li>
   <li><strong>Sunset legacy MCP code</strong> in <code>@umwelten/protocols/mcp/{client/client.ts,server/server.ts}</code>. The only live consumer is one debug subcommand in <code>cli/mcp.ts</code>.</li>
   <li><strong>Split <code>gaia-tools.ts</code></strong> (1347 LoC) into <code>gaia-tools/{habitats,secrets,skills,standards,index}.ts</code>. Split <code>agent-runner-tools.ts</code> (1183 LoC) one tool per file.</li>
-  <li><strong>Pick one REPL framework</strong>: keep <code>ui/cli/repl.ts</code> (habitat-aware), delete <code>ui/cli/CLIInterface.ts</code> (or rebuild <code>umwelten chat</code> on top of <code>repl.ts</code>). Pick one slash-command system in habitat: <code>bridge/commands.ts</code> is the modern one.</li>
+  <li><strong>Pick one slash-command system in habitat</strong>: <code>bridge/commands.ts</code> is the modern one. (The REPL split &mdash; <code>repl.ts</code> habitat-aware vs <code>CLIInterface.ts</code> non-habitat &mdash; is intentional now; see Wave E&prime; below.)</li>
   <li><strong>Pick one Telegram entry point</strong>: kill <code>cli/telegram.ts</code> (the math-demo) or merge it into <code>cli habitat telegram</code>.</li>
   <li><strong>Move <code>discord-provision.ts</code> to <code>@umwelten/ui/discord/</code></strong> &mdash; it imports <code>discord.js</code>. Delete <code>discord-routing.ts</code> once <code>bridge/routing.ts</code> has fully absorbed it (already reads the legacy file as fallback).</li>
   <li><strong>Move evaluation input validation</strong> from <code>cli/eval.ts</code> into <code>@umwelten/evaluation</code>. CLI should parse and dispatch, not validate domain rules.</li>
@@ -662,18 +662,25 @@ ollama         streamText ✅ 32+2=34</code></pre>
 <h3>Next</h3>
 <p>Listed in rough order of return-on-effort. Each is scoped tightly enough to land as a few targeted commits.</p>
 
-<div class="pass">
+<div class="pass done">
   <div class="pass-head">
-    <div class="pass-title">Wave E &mdash; UI / habitat consolidation (pick one)</div>
-    <div class="pass-effort">~half day each</div>
+    <div class="pass-title">Wave E &mdash; UI / habitat consolidation</div>
+    <div class="pass-effort">3 of 4 items resolved on main</div>
   </div>
-  <p>Three independent "pick one of two" decisions. Each is contained and reversible.</p>
+  <p>Each item was originally framed as a quick "pick one of two." Two became real cleanups, one was kept-on-purpose with documentation, and the last is still pending. Audit notes inline.</p>
   <ul>
-    <li><strong>One REPL framework.</strong> Keep <code>ui/cli/repl.ts</code> (habitat-aware, used by <code>umwelten habitat</code>); delete <code>ui/cli/CLIInterface.ts</code> (used only by the now-orphaned <code>umwelten chat</code>) or rebuild chat on top of <code>repl.ts</code>.</li>
-    <li><strong>One Telegram entry point.</strong> Kill <code>cli/telegram.ts</code> (math-demo) or merge it into <code>cli habitat telegram</code> (habitat-aware). Same name, overlapping scope, different feature sets.</li>
-    <li><strong>One channel-routing system.</strong> <code>bridge/routing.ts</code> is the modern replacement and already reads the legacy <code>discord.json</code> as fallback. Delete <code>discord-routing.ts</code>; move <code>discord-provision.ts</code> to <code>@umwelten/ui/discord/</code> (it imports <code>discord.js</code>).</li>
-    <li><strong>One slash-command system.</strong> <code>bridge/commands.ts</code> is the channel-bridge version; <code>slash-commands.ts</code> is the CLI-REPL version. Different lists, no shared code &mdash; consolidate.</li>
+    <li><strong>Telegram</strong> &mdash; <span class="tag health-good">done</span> <code class="sha">9b0010c</code>. The standalone <code>umwelten telegram</code> command (math-demo bot, no habitat) was deleted; <code>umwelten habitat telegram</code> is the canonical entry. <code>docs/guide/telegram-bot.md</code> rewritten as a redirect to habitat docs.</li>
+    <li><strong>Channel routing</strong> &mdash; <span class="tag health-good">done</span> <code class="sha">ba8b3f1</code>. Legacy <code>discord-routing.ts</code> (265 LoC) deleted; every <code>if (this.config.bridge) {} else {legacy}</code> branch in <code>DiscordAdapter.tsx</code> collapsed (the file goes 2083 &rarr; 1641 LoC); <code>discord-provision.ts</code> ported to <code>bridge/routing.ts</code>; <code>DiscordChannelRuntimeMode</code> &rarr; <code>ChannelRuntimeMode</code>. Existing <code>discord.json</code> files still work because <code>bridge/routing.ts</code> reads them as fallback.</li>
+    <li><strong>Discord-routing tools file</strong> &mdash; <span class="tag health-good">done</span> <code class="sha">bdadf5a</code>. Unused 90-LoC <code>discord-routing-tools.ts</code> AI SDK tool stub deleted (zero source callers).</li>
+    <li><strong>REPL framework</strong> &mdash; <span class="tag health-mixed">kept as a documented split</span>. The audit&rsquo;s "delete CLIInterface, only used by <code>umwelten chat</code>" was wrong &mdash; <code>CLIInterface</code> has six callers: <code>cli/chat.ts</code>, one <code>sessions</code> subcommand, and the <code>simple-agent</code> / <code>bare-bones-memory</code> examples (which exist specifically to demonstrate the non-habitat path). The two REPLs serve different consumers:
+      <ul>
+        <li><code>cli/repl.ts</code> &mdash; habitat-aware, function-style, AbortController stream cancellation, session persistence built in. Used by <code>umwelten habitat</code> + <code>local</code>/<code>here</code>.</li>
+        <li><code>cli/CLIInterface.ts</code> + <code>CommandRegistry</code> + <code>DefaultCommands</code> &mdash; non-habitat, stateful-class, pluggable command registry, per-turn stats tracking, three modes (chat / evaluation / agent).</li>
+      </ul>
+      A single primitive would either force-couple bare consumers to <code>Habitat</code> or carry every feature behind flags. Both files now have header comments explaining the split; CLAUDE.md&rsquo;s <code>@umwelten/ui</code> section has the rule of thumb (do you have a Habitat? yes &rarr; <code>runRepl</code>; no &rarr; <code>CLIInterface</code>). No code deleted.</li>
+    <li><strong>Slash-command system</strong> &mdash; <span class="tag">still pending</span>. <code>bridge/commands.ts</code> is the channel-bridge version; <code>slash-commands.ts</code> is the CLI-REPL version. Different lists, no shared code. Audit needs a deeper look before deciding (same lesson as the REPL item).</li>
   </ul>
+  <div class="pass-foot">Meta-lesson: the "pick one of two" framing in the original audit was systematically optimistic about how independent the two halves of each pair were. Telegram and channel-routing genuinely had a dominant winner; REPL had two consumers with incompatible contracts. Slash-commands likely sits between &mdash; verify before scoping.</div>
 </div>
 
 <div class="pass">
@@ -722,15 +729,15 @@ ollama         streamText ✅ 32+2=34</code></pre>
 </div>
 
 <div class="callout">
-<p><strong>Recommended next step:</strong> Wave E (UI/habitat &ldquo;pick one&rdquo; decisions). Each is bite-sized, contained, and reversible &mdash; the kind of work that fits in half a day. Concretely: pick the REPL framework (<code>ui/cli/repl.ts</code> over <code>CLIInterface.ts</code>), pick the Telegram entry (<code>cli habitat telegram</code> over <code>cli/telegram.ts</code> math-demo), or finish the channel-routing migration. Wave F (HTTP server consolidation) is the bigger structural win after that.</p>
+<p><strong>Recommended next step:</strong> Wave G (big-file splits). With Wave E mostly resolved, the biggest remaining LoC reductions are mechanical splits: <code>gaia-tools.ts</code> (1347 LoC) into <code>gaia-tools/{habitats,secrets,skills,standards,index}.ts</code>; <code>agent-runner-tools.ts</code> (1183 LoC) one tool per file; <code>sessions.ts</code> (3640 LoC) by subcommand. Pure file-split work, no behavior change, test-covered. After that, Wave F (HTTP server consolidation) is the bigger structural win &mdash; but it touches the production <code>container-server.ts</code> + the planned <code>docs/architecture/electron-shell.md</code> desktop wrapper, so it warrants more design care.</p>
 
 <div class="callout warn">
-<p><strong>Verification habit established by Wave D&prime;:</strong> before any cognition-layer change ships, run <code>pnpm smoke:cascade</code> and verify the cell-by-cell token counts are non-zero. Don&rsquo;t accept &ldquo;all tests pass&rdquo; as proof &mdash; the original 27 unit tests passed against the broken streamText path too. For UI/habitat changes (Wave E onward), the equivalent verification is launching the affected REPL/bot/web UI and clicking through the golden path; the test suite won&rsquo;t catch interactive regressions.</p>
+<p><strong>Verification habit established by Wave D&prime;:</strong> before any cognition-layer change ships, run <code>pnpm smoke:cascade</code> and verify the cell-by-cell token counts are non-zero. Don&rsquo;t accept &ldquo;all tests pass&rdquo; as proof &mdash; the original 27 unit tests passed against the broken streamText path too. For UI/habitat changes, the equivalent verification is launching the affected REPL/bot/web UI and clicking through the golden path; the test suite won&rsquo;t catch interactive regressions.</p>
 </div>
 </div>
 
 <footer>
-  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-24 after Wave D&prime; (real-provider verification + includeUsage fix) merged to main
+  docs/architecture/system-map-2026-05 &middot; last updated 2026-05-25 after Wave E (UI/habitat consolidation: Telegram retired, Discord routing unified, REPL split documented) merged to main
 </footer>
 
 </div>
