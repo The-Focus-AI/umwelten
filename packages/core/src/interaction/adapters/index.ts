@@ -5,12 +5,14 @@
  */
 
 export * from "./adapter.js";
+export * from "./antigravity-adapter.js";
 export * from "./claude-code-adapter.js";
 export * from "./cursor-adapter.js";
 export * from "./pi-adapter.js";
 export * from "./load-interaction.js";
 
 import { adapterRegistry } from "./adapter.js";
+import { createAntigravityAdapter } from "./antigravity-adapter.js";
 import { createClaudeCodeAdapter } from "./claude-code-adapter.js";
 import { createCursorAdapter } from "./cursor-adapter.js";
 import { PiSessionAdapter } from "./pi-adapter.js";
@@ -27,6 +29,9 @@ export function initializeAdapters(): void {
 
 	// Register Pi adapter
 	adapterRegistry.register(new PiSessionAdapter());
+
+	// Register Antigravity adapter
+	adapterRegistry.registerFactory("antigravity", createAntigravityAdapter);
 }
 
 /**

@@ -440,6 +440,10 @@ export async function digestSession(
 			console.log(
 				`  compacting beats ${gi + 1}-${groupEnd} of ${digestBeats.length}... (${inputKb}KB)`,
 			);
+			onProgress?.({
+				phase: "compacting",
+				detail: `beats ${gi + 1}-${groupEnd} of ${digestBeats.length}`,
+			});
 
 			try {
 				const stimulus = new Stimulus({
@@ -490,6 +494,17 @@ export async function digestSession(
 				console.log(
 					`    done (${batchParsed.beatNarratives.filter((n) => n).length}/${group.length} narratives, ${totalExtracted} learnings)`,
 				);
+
+				// Surface the through-line so the dashboard can replace the title.
+				// The through-line is the model's 1-2 sentence summary of this
+				// batch's narrative arc — far better than firstPrompt as a
+				// placeholder while compaction continues.
+				if (batchParsed.throughLine) {
+					onProgress?.({
+						phase: "compacting",
+						detail: `__title__${batchParsed.throughLine}`,
+					});
+				}
 			} catch (err) {
 				console.error(
 					`  beats ${gi + 1}-${groupEnd} failed:`,
@@ -503,6 +518,7 @@ export async function digestSession(
 
 		// 5. Detect phases
 		console.log(`  detecting phases...`);
+		onProgress?.({ phase: "analyzing", detail: "detecting phases" });
 		let phases: DigestPhase[] = [];
 		try {
 			phases = await detectPhases(digestBeats, model);
@@ -518,6 +534,10 @@ export async function digestSession(
 
 		// 6. Run session analysis (delegates to System B's session-analyzer)
 		console.log(`  analyzing session...`);
+		onProgress?.({
+			phase: "analyzing",
+			detail: "topics, tags, solutionType",
+		});
 		const fallbackAnalysis = {
 			topics: phases.map((p) => p.name),
 			tags: ["session", "code", "development"],
@@ -538,6 +558,19 @@ export async function digestSession(
 			analysis = fallbackAnalysis;
 		}
 
+		// Surface the freshly-extracted solutionType + summary so the dashboard
+		// can populate the type column and (better) title before saveDigest.
+		onProgress?.({
+			phase: "analyzing",
+			detail: `__type__${analysis.solutionType}`,
+		});
+		if (analysis.summary) {
+			onProgress?.({
+				phase: "analyzing",
+				detail: `__title__${analysis.summary}`,
+			});
+		}
+
 		// 7. Write all classified learnings to FileLearningsStore via SessionHandle
 		const totalLearnings = Object.values(allLearnings).reduce(
 			(a, b) => a + b.length,
@@ -546,6 +579,10 @@ export async function digestSession(
 		console.log(
 			`  writing ${totalLearnings} learnings across ${Object.entries(allLearnings).filter(([, v]) => v.length > 0).length} categories...`,
 		);
+		onProgress?.({
+			phase: "extracting",
+			detail: `${totalLearnings} learnings`,
+		});
 
 		try {
 			const handle = await resolveClaudeCodeSessionHandle({
@@ -778,7 +815,34 @@ export async function digestProject(
 	try {
 		sessions = await getProjectSessionsIncludingFromDirectory(projectPath);
 	} catch {
-		return { digested: 0, skipped: 0, failed: 0 };
+		sessions = [];
+	}
+
+	// Merge in sessions from every adapter that has data for this project.
+	// Adapter-sourced entries are pseudo-SessionIndexEntry — they lack a
+	// `fullPath` so digestSession will route them through loadAdapterBeats.
+	for (const adapter of adapterRegistry.getAll()) {
+		// Skip claude-code (already covered by the legacy directory scan).
+		if (adapter.source === "claude-code") continue;
+		try {
+			const result = await adapter.discoverSessions({ projectPath });
+			for (const s of result.sessions) {
+				sessions.push({
+					sessionId: s.id,
+					source: s.source,
+					firstPrompt: s.firstPrompt ?? "",
+					messageCount: s.messageCount ?? 0,
+					created: s.created ?? "",
+					modified: s.modified ?? "",
+					gitBranch: s.gitBranch ?? "",
+					projectPath: s.projectPath ?? projectPath,
+					isSidechain: s.isSidechain ?? false,
+					fileMtime: 0,
+				});
+			}
+		} catch {
+			/* adapter doesn't apply to this project, skip */
+		}
 	}
 
 	const toProcess: SessionIndexEntry[] = [];
@@ -849,11 +913,16 @@ export async function digestProject(
 }
 
 /**
- * Discover ALL project paths from ~/.claude/projects/.
+ * Discover ALL project paths from ~/.claude/projects/ AND every registered
+ * adapter that exposes a `discoverProjects()` method (Antigravity surfaces
+ * workspace paths via its history.jsonl files, etc.).
+ *
+ * Results are deduplicated across sources so a project that has both Claude
+ * Code and Antigravity sessions only appears once.
  */
 async function discoverAllProjectPaths(): Promise<string[]> {
 	const claudeDir = join(homedir(), ".claude", "projects");
-	const projects: string[] = [];
+	const projects = new Set<string>();
 
 	try {
 		const entries = await readdir(claudeDir, { withFileTypes: true });
@@ -864,7 +933,7 @@ async function discoverAllProjectPaths(): Promise<string[]> {
 				const hasJsonl = files.some((f) => f.endsWith(".jsonl"));
 				if (hasJsonl) {
 					const projectPath = entry.name.replace(/^-/, "/").replace(/-/g, "/");
-					projects.push(projectPath);
+					projects.add(projectPath);
 				}
 			} catch {
 				/* skip */
@@ -874,7 +943,19 @@ async function discoverAllProjectPaths(): Promise<string[]> {
 		/* ~/.claude/projects/ doesn't exist */
 	}
 
-	return projects;
+	// Add projects from every registered adapter (Antigravity, Cursor, etc.)
+	for (const adapter of adapterRegistry.getAll()) {
+		try {
+			const paths = await adapter.discoverProjects();
+			for (const p of paths) {
+				if (p && p.startsWith("/")) projects.add(p);
+			}
+		} catch {
+			/* adapter may not implement discoverProjects, skip */
+		}
+	}
+
+	return [...projects];
 }
 
 // ─── Ask questions about a session ──────────────────────────────────────────

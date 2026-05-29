@@ -32,7 +32,7 @@ export function registerInspectCommands(parent: Command): void {
 parent
 	.command("list")
 	.description(
-		"List sessions for a project (auto-detects Claude Code and Cursor)",
+		"List sessions for a project (auto-detects Claude Code, Cursor, Antigravity, Pi, and other registered sources)",
 	)
 	.option(
 		"-p, --project <path>",
@@ -48,7 +48,7 @@ parent
 	)
 	.option(
 		"--source <source>",
-		"Filter by source (claude-code, cursor, all)",
+		"Filter by source (claude-code, cursor, antigravity, pi, habitat, all)",
 		"all",
 	)
 	.option("--json", "Output in JSON format")
@@ -71,7 +71,10 @@ parent
 
 			if (adaptersToQuery.length === 0) {
 				console.error(chalk.red(`Unknown source: ${sourceFilter}`));
-				console.log(chalk.dim("Available sources: claude-code, cursor, all"));
+				const available = [
+					...new Set(["all", ...registry.getSources()]),
+				].join(", ");
+				console.log(chalk.dim(`Available sources: ${available}`));
 				process.exit(1);
 			}
 

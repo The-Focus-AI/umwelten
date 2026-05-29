@@ -25,7 +25,10 @@ import {
 import type { SearchOptions } from "@umwelten/core/interaction/analysis/analysis-types.js";
 import { getAdapterRegistry } from "@umwelten/core/interaction/adapters/index.js";
 import type { SessionIndexEntry } from "@umwelten/core/interaction/types/types.js";
-import type { NormalizedSessionEntry } from "@umwelten/core/interaction/types/normalized-types.js";
+import type {
+	NormalizedSession,
+	NormalizedSessionEntry,
+} from "@umwelten/core/interaction/types/normalized-types.js";
 import { FileLearningsStore } from "@umwelten/core/session-record/learnings-store.js";
 import type { LearningKind } from "@umwelten/core/session-record/types.js";
 import { LEARNING_KINDS } from "@umwelten/core/session-record/types.js";
@@ -75,9 +78,31 @@ parent
 				process.exit(1);
 			}
 
+			// Two paths: Claude Code (file-based, with rich token/cost metrics) and
+			// any other adapter source (Antigravity, Cursor, Pi, habitat) which we
+			// resolve through the adapter registry → NormalizedSession.
 			if (!session.fullPath) {
-				console.error(chalk.red("Session file path not available."));
-				process.exit(1);
+				const exportContent = await exportAdapterSession(
+					session,
+					sessionId,
+					options,
+				);
+				if (exportContent == null) {
+					console.error(
+						chalk.red(
+							`No adapter could load session ${sessionId} (source: ${session.source ?? "unknown"}).`,
+						),
+					);
+					process.exit(1);
+				}
+				if (options.output) {
+					const { writeFile } = await import("node:fs/promises");
+					await writeFile(options.output, exportContent, "utf-8");
+					console.log(chalk.green(`✓ Exported session to ${options.output}`));
+				} else {
+					console.log(exportContent);
+				}
+				return;
 			}
 
 			// Parse the session file
@@ -451,7 +476,7 @@ parent
 	.option("--tool <tool>", "Filter by tool usage")
 	.option(
 		"--type <type>",
-		"Filter by solution type (bug-fix, feature, refactor, exploration, question, other)",
+		"Filter by solution type (bug-fix, feature, refactor, exploration, question, planning, other)",
 	)
 	.option(
 		"--success <indicator>",
@@ -654,4 +679,245 @@ function isLearningKind(s: string): s is LearningKind {
 	return (LEARNING_KINDS as readonly string[]).includes(s);
 }
 
+}
+
+/**
+ * Adapter-driven export path used by `sessions export` whenever the resolved
+ * session entry does not have a Claude-Code `fullPath` (i.e. it came from
+ * Antigravity, Cursor, Pi, habitat, or any other adapter source). Resolves the
+ * session through the adapter registry and renders the resulting
+ * NormalizedSession as JSON or markdown.
+ *
+ * Returns the rendered string, or null if no adapter could load the session.
+ */
+async function exportAdapterSession(
+	entry: SessionIndexEntry,
+	requestedId: string,
+	options: {
+		format: "markdown" | "json";
+		includeToolCalls?: boolean;
+		includeMetadata?: boolean;
+	},
+): Promise<string | null> {
+	const registry = getAdapterRegistry();
+
+	// Try every candidate id we know about: the resolved entry's sessionId
+	// (already source-prefixed like `antigravity:UUID`), the original requested
+	// id, and the bare sourceId if any. Each adapter's `getSession` strips its
+	// own prefix, so multiple attempts are safe.
+	const candidateIds = Array.from(
+		new Set(
+			[entry.sessionId, requestedId].filter(
+				(s): s is string => typeof s === "string" && s.length > 0,
+			),
+		),
+	);
+
+	const candidateAdapters = entry.source
+		? [registry.get(entry.source)].filter(
+				(a): a is NonNullable<ReturnType<typeof registry.get>> => a !== undefined,
+			)
+		: registry.getAll();
+
+	let session: NormalizedSession | null = null;
+	for (const adapter of candidateAdapters) {
+		for (const id of candidateIds) {
+			try {
+				const s = await adapter.getSession(id);
+				if (s) {
+					session = s;
+					break;
+				}
+			} catch {
+				// try next combination
+			}
+		}
+		if (session) break;
+	}
+
+	if (!session) return null;
+
+	if (options.format === "json") {
+		return renderNormalizedSessionJson(session, options);
+	}
+	return renderNormalizedSessionMarkdown(session, options);
+}
+
+function renderNormalizedSessionJson(
+	session: NormalizedSession,
+	options: { includeToolCalls?: boolean; includeMetadata?: boolean },
+): string {
+	const conversation = session.messages
+		.filter((m) => m.role === "user" || m.role === "assistant")
+		.map((m) => ({
+			role: m.role,
+			timestamp: m.timestamp,
+			id: m.id,
+			content: m.content,
+			tokens: m.tokens,
+			model: m.model,
+		}));
+
+	const toolCalls = session.messages
+		.filter((m) => m.role === "tool")
+		.map((m) => ({
+			id: m.id,
+			name: m.tool?.name ?? "tool",
+			input: m.tool?.input,
+			output: m.tool?.output,
+			timestamp: m.timestamp,
+			content: m.content,
+		}));
+
+	const out: Record<string, unknown> = {
+		sessionId: session.id,
+		source: session.source,
+		sourceId: session.sourceId,
+		summary: {
+			totalMessages: session.messageCount,
+			userMessages: session.metrics?.userMessages ?? 0,
+			assistantMessages: session.metrics?.assistantMessages ?? 0,
+			toolCalls: session.metrics?.toolCalls ?? 0,
+			duration: session.duration,
+			tokenUsage: {
+				input_tokens: session.metrics?.inputTokens ?? 0,
+				output_tokens: session.metrics?.outputTokens ?? 0,
+				cache_read_input_tokens: session.metrics?.cacheReadTokens ?? 0,
+				cache_creation_input_tokens: session.metrics?.cacheWriteTokens ?? 0,
+			},
+			estimatedCost: session.metrics?.estimatedCost ?? 0,
+		},
+		conversation,
+	};
+
+	if (options.includeMetadata !== false) {
+		out.metadata = {
+			projectPath: session.projectPath,
+			workspacePath: session.workspacePath,
+			gitBranch: session.gitBranch,
+			gitRepo: session.gitRepo,
+			created: session.created,
+			modified: session.modified,
+			isSidechain: session.isSidechain ?? false,
+			messageCount: session.messageCount,
+			firstPrompt: session.firstPrompt,
+			sourceData: session.sourceData,
+		};
+	}
+
+	if (options.includeToolCalls !== false) {
+		out.toolCalls = toolCalls;
+	}
+
+	return JSON.stringify(out, null, 2);
+}
+
+function renderNormalizedSessionMarkdown(
+	session: NormalizedSession,
+	options: { includeToolCalls?: boolean; includeMetadata?: boolean },
+): string {
+	const lines: string[] = [];
+	lines.push(`# Session: ${session.id}`);
+	lines.push("");
+
+	if (options.includeMetadata !== false) {
+		lines.push("## Metadata");
+		lines.push("");
+		lines.push(`- **Source**: ${session.source}`);
+		lines.push(`- **Source ID**: ${session.sourceId}`);
+		if (session.projectPath) {
+			lines.push(`- **Project Path**: ${session.projectPath}`);
+		}
+		if (session.workspacePath) {
+			lines.push(`- **Workspace**: ${session.workspacePath}`);
+		}
+		if (session.gitBranch) {
+			lines.push(`- **Git Branch**: ${session.gitBranch}`);
+		}
+		lines.push(
+			`- **Created**: ${new Date(session.created).toLocaleString()}`,
+		);
+		lines.push(
+			`- **Modified**: ${new Date(session.modified).toLocaleString()}`,
+		);
+		if (session.duration) {
+			lines.push(`- **Duration**: ${formatDuration(session.duration)}`);
+		}
+		lines.push(`- **Sidechain**: ${session.isSidechain ? "Yes" : "No"}`);
+		lines.push("");
+	}
+
+	lines.push("## Summary");
+	lines.push("");
+	lines.push(`- **Total Messages**: ${session.messageCount}`);
+	lines.push(`- **User Messages**: ${session.metrics?.userMessages ?? 0}`);
+	lines.push(
+		`- **Assistant Messages**: ${session.metrics?.assistantMessages ?? 0}`,
+	);
+	lines.push(`- **Tool Calls**: ${session.metrics?.toolCalls ?? 0}`);
+	if (session.metrics?.inputTokens) {
+		lines.push(
+			`- **Input Tokens**: ${session.metrics.inputTokens.toLocaleString()}`,
+		);
+	}
+	if (session.metrics?.outputTokens) {
+		lines.push(
+			`- **Output Tokens**: ${session.metrics.outputTokens.toLocaleString()}`,
+		);
+	}
+	if (session.metrics?.estimatedCost) {
+		lines.push(
+			`- **Estimated Cost**: $${session.metrics.estimatedCost.toFixed(4)}`,
+		);
+	}
+	lines.push("");
+
+	lines.push("## Conversation");
+	lines.push("");
+	for (const msg of session.messages) {
+		if (msg.role !== "user" && msg.role !== "assistant") continue;
+		const timestamp = msg.timestamp
+			? new Date(msg.timestamp).toLocaleString()
+			: "unknown";
+		const role = msg.role === "user" ? "User" : "Assistant";
+		lines.push(`### ${role} (${timestamp})`);
+		lines.push("");
+		lines.push(msg.content || "*(empty)*");
+		lines.push("");
+		if (msg.tokens?.input || msg.tokens?.output) {
+			lines.push(
+				`*Tokens: ${msg.tokens.input ?? 0} in, ${msg.tokens.output ?? 0} out*`,
+			);
+			lines.push("");
+		}
+	}
+
+	if (options.includeToolCalls !== false) {
+		const toolMessages = session.messages.filter((m) => m.role === "tool");
+		if (toolMessages.length > 0) {
+			lines.push("## Tool Calls");
+			lines.push("");
+			for (const t of toolMessages) {
+				const timestamp = t.timestamp
+					? new Date(t.timestamp).toLocaleString()
+					: "unknown";
+				lines.push(`### ${t.tool?.name ?? "tool"} (${timestamp})`);
+				lines.push("");
+				if (t.tool?.input) {
+					lines.push("**Input:**");
+					lines.push("");
+					lines.push("```json");
+					lines.push(JSON.stringify(t.tool.input, null, 2));
+					lines.push("```");
+					lines.push("");
+				}
+				if (t.content && (!t.tool?.input || t.content.length > 0)) {
+					lines.push(t.content);
+					lines.push("");
+				}
+			}
+		}
+	}
+
+	return lines.join("\n");
 }
