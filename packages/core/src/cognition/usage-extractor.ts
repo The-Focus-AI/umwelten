@@ -116,7 +116,7 @@ export async function extractStreamUsage(
     ) {
       usage = responseAny._totalUsage.status.value;
     }
-    // Check if usage is in steps[0].usage
+    // Check if usage is in steps[0].usage, or fall back to response headers
     else if (
       responseAny._steps &&
       responseAny._steps.status &&
@@ -125,23 +125,13 @@ export async function extractStreamUsage(
       const steps = responseAny._steps.status.value;
       if (Array.isArray(steps) && steps[0] && steps[0].usage) {
         usage = steps[0].usage;
-      }
-    }
-    // Try to extract from response headers if available
-    else if (
-      responseAny._steps &&
-      responseAny._steps.status &&
-      responseAny._steps.status.value
-    ) {
-      const steps = responseAny._steps.status.value;
-      if (
+      } else if (
         Array.isArray(steps) &&
         steps[0] &&
         steps[0].response &&
         steps[0].response.headers
       ) {
         const headers = steps[0].response.headers;
-        // Try to extract token usage from headers
         const inputTokens =
           headers["x-usage-input-tokens"] ||
           headers["x-usage-prompt-tokens"] ||

@@ -334,7 +334,7 @@ export function parseAnalysisResponse(response: ModelResponse): AnalysisResponse
   try {
     parsed = JSON.parse(jsonText);
   } catch (error) {
-    throw new Error(`Failed to parse LLM response as JSON: ${error instanceof Error ? error.message : 'unknown error'}`);
+    throw new Error(`Failed to parse LLM response as JSON: ${error instanceof Error ? error.message : 'unknown error'}`, { cause: error });
   }
 
   // Validate with Zod schema
@@ -342,7 +342,7 @@ export function parseAnalysisResponse(response: ModelResponse): AnalysisResponse
     const validated = AnalysisSchema.parse(parsed);
     return validated;
   } catch (error) {
-    throw new Error(`LLM response failed schema validation: ${error instanceof Error ? error.message : 'unknown error'}`);
+    throw new Error(`LLM response failed schema validation: ${error instanceof Error ? error.message : 'unknown error'}`, { cause: error });
   }
 }
 

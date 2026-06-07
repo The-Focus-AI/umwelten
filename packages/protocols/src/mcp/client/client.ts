@@ -97,7 +97,7 @@ export class MCPClient extends EventEmitter {
       await this.initialize();
 
     } catch (error) {
-      throw new Error(`Failed to connect to MCP server: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to connect to MCP server: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 
@@ -274,7 +274,7 @@ export class MCPClient extends EventEmitter {
       await this.sendNotification('notifications/initialized', {});
 
     } catch (error) {
-      throw new Error(`Failed to initialize MCP session: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to initialize MCP session: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 

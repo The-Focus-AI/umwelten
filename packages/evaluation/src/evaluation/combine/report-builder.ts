@@ -569,7 +569,7 @@ function buildCodingDetail(
       const lang = tr.raw.language || '?';
       const challenge = tr.raw.challengeId || tr.taskId;
       const model = parseModelKey(tr.modelKey).model;
-      let reason = '';
+      let reason: string;
       if (!tr.raw.compiled) reason = 'DID NOT COMPILE';
       else if (!tr.raw.ran) reason = 'COMPILED BUT CRASHED';
       else reason = `verify ${tr.raw.verifyScore}/5: ${tr.raw.verifyDetails || 'partial'}`;

@@ -142,7 +142,7 @@ export function interactionToNormalizedSession(
     }
 
     if (msg.role === "tool") {
-      let contentStr = "";
+      let contentStr: string;
       if (typeof msg.content === "string") {
         contentStr = msg.content;
       } else {

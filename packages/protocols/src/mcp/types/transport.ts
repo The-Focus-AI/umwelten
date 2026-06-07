@@ -177,6 +177,7 @@ export class StdioTransport extends BaseTransport {
     } catch (error) {
       throw new Error(
         `Failed to start stdio transport: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -335,6 +336,7 @@ export class SSETransport extends BaseTransport {
     } catch (error) {
       throw new Error(
         `Failed to connect SSE transport: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }

@@ -32,19 +32,20 @@ export class SchemaManager {
         schema = this.parseJSONSchema(source.content);
         break;
 
-      case 'json-file':
+      case 'json-file': {
         if (!await existsSync(source.path)) {
           throw new Error(`JSON schema file not found: ${source.path}`);
         }
         const jsonContent = await readFile(source.path, 'utf-8');
         schema = this.parseJSONSchema(jsonContent);
         break;
+      }
 
       case 'zod-file':
         schema = await loadZodSchema(source.path);
         break;
 
-      case 'template':
+      case 'template': {
         if (!(source.name in SCHEMA_TEMPLATES)) {
           throw new Error(`Unknown schema template: ${source.name}. Available templates: ${Object.keys(SCHEMA_TEMPLATES).join(', ')}`);
         }
@@ -54,6 +55,7 @@ export class SchemaManager {
           required: [...template.required]
         };
         break;
+      }
 
       default:
         throw new Error(`Unknown schema source type: ${(source as any).type}`);
@@ -167,7 +169,7 @@ export class SchemaManager {
         description: jsonSchema.description || `JSON Schema with ${Object.keys(properties).length} fields`
       };
     } catch (error) {
-      throw new Error(`Failed to parse JSON schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to parse JSON schema: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
     }
   }
 

@@ -280,6 +280,7 @@ export class ConsoleRenderer {
    */
   private pad(text: string, width: number, align: 'left' | 'center' | 'right'): string {
     // Strip ANSI codes for length calculation
+    // eslint-disable-next-line no-control-regex -- ANSI escape sequences start with \x1b
     const stripped = text.replace(/\x1b\[[0-9;]*m/g, '');
     const padding = width - stripped.length;
 
@@ -288,10 +289,11 @@ export class ConsoleRenderer {
     switch (align) {
       case 'right':
         return ' '.repeat(padding) + text;
-      case 'center':
+      case 'center': {
         const left = Math.floor(padding / 2);
         const right = padding - left;
         return ' '.repeat(left) + text + ' '.repeat(right);
+      }
       default:
         return text + ' '.repeat(padding);
     }

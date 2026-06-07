@@ -162,7 +162,7 @@ function modelLabel(m: ModelDetails): string {
 
 export function modelKey(m: ModelDetails): string {
   const effort = m.reasoningEffort ? `-effort-${m.reasoningEffort}` : '';
-  return `${m.name.replace(/[\/:]/g, '-')}-${m.provider}${effort}`;
+  return `${m.name.replace(/[/:]/g, '-')}-${m.provider}${effort}`;
 }
 
 function parseRunFlag(): number | null {

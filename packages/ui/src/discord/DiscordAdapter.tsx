@@ -1566,7 +1566,7 @@ export class DiscordAdapter {
 }
 
 function threadTitleFromUserMessage(message: Message): string {
-  let raw = "";
+  let raw: string;
   try {
     raw = message.cleanContent ?? message.content ?? "";
   } catch {

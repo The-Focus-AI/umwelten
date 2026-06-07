@@ -10,6 +10,7 @@ import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 // Utility function to get visible length of string (excluding ANSI codes)
 function visibleLength(str: string): number {
   // Remove ANSI escape codes when calculating length
+  // eslint-disable-next-line no-control-regex -- ANSI escape sequences start with \x1b
   return str.replace(/\u001b\[\d+m/g, '').length;
 }
 
@@ -231,10 +232,11 @@ export const modelsCommand = new Command('models')
               return (a.addedDate?.getTime() || 0) - (b.addedDate?.getTime() || 0);
             case 'contextLength':
               return (a.contextLength || 0) - (b.contextLength || 0);
-            case 'cost':
+            case 'cost': {
               const aCost = a.costs ? a.costs.promptTokens + a.costs.completionTokens : 0;
               const bCost = b.costs ? b.costs.promptTokens + b.costs.completionTokens : 0;
               return aCost - bCost;
+            }
             default:
               return 0;
           }

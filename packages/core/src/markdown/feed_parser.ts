@@ -182,7 +182,7 @@ export async function parseFeed(
     parsed = parser.parse(fetched.content) as Record<string, unknown>;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`Invalid XML: ${msg}`);
+    throw new Error(`Invalid XML: ${msg}`, { cause: e });
   }
 
   const result: FetchResult = { url: fetched.url, content: fetched.content, parsed };
