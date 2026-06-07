@@ -79,7 +79,6 @@ export function convertZodToSchema(zodSchema: z.ZodType): ParsedSchema {
  */
 function convertZodFieldToSchemaField(name: string, zodField: z.ZodType): SchemaField {
   // Unwrap optional, default, and nullable modifiers
-  let innerType = zodField;
   let isRequired = true;
 
   // Handle chained modifiers like .optional().nullable()
@@ -99,7 +98,7 @@ function convertZodFieldToSchemaField(name: string, zodField: z.ZodType): Schema
     }
   }
   
-  innerType = currentType;
+  const innerType = currentType;
 
   const schemaField: SchemaField = {
     name,
