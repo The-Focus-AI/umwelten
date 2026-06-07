@@ -110,13 +110,13 @@ describe("Structured Object Generation with BaseModelRunner", () => {
         if (jsonMatch) {
           jsonData = JSON.parse(jsonMatch[0]);
         } else {
-          throw new Error("Could not extract JSON from response");
+          throw new Error("Could not extract JSON from response", { cause: parseError });
         }
       }
-      
+
       expect(jsonData).toBeDefined();
       expect(typeof jsonData).toBe("object");
-      
+
       // Check if it has the expected fields (but don't require them)
       if (jsonData.message) {
         expect(typeof jsonData.message).toBe("string");
@@ -295,7 +295,7 @@ describe("Structured Object Generation with BaseModelRunner", () => {
           if (fallbackMatch) {
             jsonData = JSON.parse(fallbackMatch[0]);
           } else {
-            throw new Error("Could not extract JSON from response");
+            throw new Error("Could not extract JSON from response", { cause: parseError });
           }
         }
       }

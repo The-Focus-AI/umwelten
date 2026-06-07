@@ -34,7 +34,7 @@ export async function loadZodSchema(filePath: string): Promise<ParsedSchema> {
     return convertZodToSchema(zodSchema);
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to load Zod schema from ${filePath}: ${error.message}`);
+      throw new Error(`Failed to load Zod schema from ${filePath}: ${error.message}`, { cause: error });
     }
     throw error;
   }

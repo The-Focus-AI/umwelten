@@ -114,7 +114,7 @@ export async function fetchUrl(
     clearTimeout(timeoutId);
     if (err instanceof Error) {
       if (err.name === "AbortError") {
-        throw new Error(`Request timed out after ${timeoutMs}ms`);
+        throw new Error(`Request timed out after ${timeoutMs}ms`, { cause: err });
       }
       throw err;
     }

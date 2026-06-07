@@ -60,7 +60,7 @@ export async function readSessionsIndex(projectPath: string): Promise<SessionsIn
     return index;
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw new Error(`No sessions index found for project: ${projectPath}`);
+      throw new Error(`No sessions index found for project: ${projectPath}`, { cause: error });
     }
     throw error;
   }
@@ -328,7 +328,7 @@ export async function readAnalysisIndex(projectPath: string): Promise<SessionAna
     return index;
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw new Error(`No analysis index found for project: ${projectPath}`);
+      throw new Error(`No analysis index found for project: ${projectPath}`, { cause: error });
     }
     throw error;
   }

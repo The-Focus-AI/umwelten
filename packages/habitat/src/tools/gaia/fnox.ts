@@ -232,6 +232,7 @@ export class FnoxResolver {
 			if (err.message.includes("fnox export returned")) throw err;
 			throw new Error(
 				`Failed to parse fnox export output: ${err.message}\nstdout: ${stdout.slice(0, 200)}`,
+				{ cause: err },
 			);
 		}
 	}

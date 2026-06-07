@@ -167,7 +167,7 @@ export class SchemaManager {
         description: jsonSchema.description || `JSON Schema with ${Object.keys(properties).length} fields`
       };
     } catch (error) {
-      throw new Error(`Failed to parse JSON schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to parse JSON schema: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
     }
   }
 
