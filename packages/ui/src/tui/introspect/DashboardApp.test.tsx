@@ -4,14 +4,6 @@
  * Uses ink-testing-library to render the component and assert on the rendered
  * frame string. Tests follow TDD vertical slices: each describe block exercises
  * one slice of behaviour through the public component interface.
- *
- * TODO(release): every describe in this file is currently `.skip`ped because
- * ink-testing-library@4 + ink@6 + react@19 + react-reconciler@0.29 collide on
- * `ReactCurrentOwner` (removed in React 19). Failure shape:
- *   TypeError: Cannot read properties of undefined (reading 'ReactCurrentOwner')
- *     at react-reconciler/cjs/react-reconciler.development.js:491
- * The fix is upstream (Ink shipping a React-19-compatible reconciler) and is
- * not blocking on us. Un-skip once Ink ships the reconciler bump.
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -166,7 +158,7 @@ function renderDashboard(
 
 // ── 1. Dashboard table rendering ─────────────────────────────────────────
 
-describe.skip("DashboardApp — table rendering", () => {
+describe("DashboardApp — table rendering", () => {
 	it("renders an empty-state message when no entries match the filter", () => {
 		const { lastFrame } = renderDashboard({ entries: [] });
 		expect(lastFrame()).toMatch(/no explorations/i);
@@ -241,7 +233,7 @@ describe.skip("DashboardApp — table rendering", () => {
 
 // ── 2. Status column ─────────────────────────────────────────────────────
 
-describe.skip("DashboardApp — status column", () => {
+describe("DashboardApp — status column", () => {
 	it("shows 'new' for entries without a digest", () => {
 		const entries = [makeEntry("a")];
 		const { lastFrame } = renderDashboard({ entries });
@@ -386,7 +378,7 @@ describe.skip("DashboardApp — status column", () => {
 
 // ── 3. Live status updates on progress events ────────────────────────────
 
-describe.skip("DashboardApp — live status updates", () => {
+describe("DashboardApp — live status updates", () => {
 	it("flips a row to 'digesting' when a progress event fires for that exploration", async () => {
 		const entries = [
 			makeEntry("a", { title: "Alpha" }),
@@ -519,7 +511,7 @@ describe.skip("DashboardApp — live status updates", () => {
 
 // ── 4. Confirmation overlay ──────────────────────────────────────────────
 
-describe.skip("DashboardApp — confirmation overlay", () => {
+describe("DashboardApp — confirmation overlay", () => {
 	it("shows an overlay at startup when there are undigested entries", () => {
 		const entries = [
 			makeEntry("a", { title: "Undigested A" }),
@@ -600,7 +592,7 @@ describe.skip("DashboardApp — confirmation overlay", () => {
 
 // ── 5. Keyboard navigation ───────────────────────────────────────────────
 
-describe.skip("DashboardApp — keyboard navigation", () => {
+describe("DashboardApp — keyboard navigation", () => {
 	it("quits and calls onExit when q is pressed", async () => {
 		const onExit = vi.fn();
 		const entries = [makeEntry("a")];
@@ -702,7 +694,7 @@ describe.skip("DashboardApp — keyboard navigation", () => {
 
 // ── 6. Confirmation overlay interactions ─────────────────────────────────
 
-describe.skip("DashboardApp — confirmation overlay interactions", () => {
+describe("DashboardApp — confirmation overlay interactions", () => {
 	it("calls onLaunchExtraction when the user confirms 'y' on the startup overlay", async () => {
 		const onLaunchExtraction = vi.fn();
 		const entries = [makeEntry("a", { title: "Undigested" })];
