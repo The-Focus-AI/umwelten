@@ -30,13 +30,14 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup pnpm
+        # pnpm/action-setup@v6 refuses to accept both `version:` here and
+        # `packageManager` in package.json. Let package.json drive the version.
         uses: pnpm/action-setup@v6
-        with:
-          version: 10.33.0
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          # pnpm 11 (declared in package.json packageManager) needs Node 22.13+
+          node-version: 22
           cache: pnpm
       - name: Setup Pages
         uses: actions/configure-pages@v6
