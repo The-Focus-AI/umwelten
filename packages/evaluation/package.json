@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@dagger.io/dagger": "^0.21.3",
-    "@types/node": "^24.10.4",
+    "@types/node": "^25.9.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.8"
   }
