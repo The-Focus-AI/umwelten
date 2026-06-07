@@ -11,6 +11,7 @@ import {
 	sessionsCommand,
 	introspectCommand,
 	browseCommand,
+	searchCommand,
 } from "@umwelten/sessions";
 import { registerSessionsHabitatCommands } from "@umwelten/habitat";
 import { habitatCommand } from "./habitat.js";
@@ -57,6 +58,7 @@ program.addCommand(habitatCommand);
 program.addCommand(mcpCommand);
 program.addCommand(introspectCommand);
 program.addCommand(browseCommand);
+program.addCommand(searchCommand);
 program.addCommand(knowledgeCommand);
 addToolsCommand(program);
 
