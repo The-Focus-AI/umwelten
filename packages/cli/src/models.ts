@@ -10,6 +10,7 @@ import type { ModelDetails } from '@umwelten/core/cognition/types.js';
 // Utility function to get visible length of string (excluding ANSI codes)
 function visibleLength(str: string): number {
   // Remove ANSI escape codes when calculating length
+  // eslint-disable-next-line no-control-regex -- ANSI escape sequences start with \x1b
   return str.replace(/\u001b\[\d+m/g, '').length;
 }
 

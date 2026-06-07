@@ -42,6 +42,7 @@ export function createSkillsTools(ctx: GaiaToolsContext): Record<string, Tool> {
 						{ timeout: 30_000, env: { ...process.env, FORCE_COLOR: "0" } },
 					);
 					// Strip ANSI escape codes
+					// eslint-disable-next-line no-control-regex -- ANSI escape sequences start with \x1b
 					const clean = stdout.replace(/\x1b\[[0-9;]*m/g, "");
 					// Extract skill lines: look for lines with "installs"
 					const lines = clean.split("\n");
