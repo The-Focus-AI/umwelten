@@ -44,6 +44,8 @@ export default [
 			"@typescript-eslint/triple-slash-reference": "warn",
 			"no-undef": "off",
 			"no-empty": ["warn", { allowEmptyCatch: true }],
+			"no-redeclare": "off",
+			"@typescript-eslint/no-redeclare": "error",
 		},
 	},
 ];
