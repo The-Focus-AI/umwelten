@@ -85,7 +85,7 @@ export interface ScanOptions {
 }
 
 /** Options controlling a search call (passed to SessionSearcher). */
-export interface SearchOptions extends ScanOptions {}
+export type SearchOptions = ScanOptions;
 
 /**
  * Error class for "ripgrep not on PATH". Thrown by RipgrepScanner.scan
