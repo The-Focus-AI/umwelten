@@ -231,10 +231,11 @@ export const modelsCommand = new Command('models')
               return (a.addedDate?.getTime() || 0) - (b.addedDate?.getTime() || 0);
             case 'contextLength':
               return (a.contextLength || 0) - (b.contextLength || 0);
-            case 'cost':
+            case 'cost': {
               const aCost = a.costs ? a.costs.promptTokens + a.costs.completionTokens : 0;
               const bCost = b.costs ? b.costs.promptTokens + b.costs.completionTokens : 0;
               return aCost - bCost;
+            }
             default:
               return 0;
           }

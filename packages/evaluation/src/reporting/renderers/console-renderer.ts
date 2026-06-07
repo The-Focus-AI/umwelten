@@ -288,10 +288,11 @@ export class ConsoleRenderer {
     switch (align) {
       case 'right':
         return ' '.repeat(padding) + text;
-      case 'center':
+      case 'center': {
         const left = Math.floor(padding / 2);
         const right = padding - left;
         return ' '.repeat(left) + text + ' '.repeat(right);
+      }
       default:
         return text + ' '.repeat(padding);
     }

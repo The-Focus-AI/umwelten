@@ -75,7 +75,7 @@ function jsonSchemaToZod(schema: any): z.ZodSchema {
   }
 
   switch (schema.type) {
-    case 'string':
+    case 'string': {
       let stringSchema = z.string();
       if (schema.enum) {
         return z.enum(schema.enum);
@@ -83,26 +83,29 @@ function jsonSchemaToZod(schema: any): z.ZodSchema {
       if (schema.minLength) stringSchema = stringSchema.min(schema.minLength);
       if (schema.maxLength) stringSchema = stringSchema.max(schema.maxLength);
       return stringSchema;
+    }
 
     case 'number':
-    case 'integer':
+    case 'integer': {
       let numberSchema = z.number();
       if (schema.minimum) numberSchema = numberSchema.min(schema.minimum);
       if (schema.maximum) numberSchema = numberSchema.max(schema.maximum);
       if (schema.type === 'integer') numberSchema = numberSchema.int();
       return numberSchema;
+    }
 
     case 'boolean':
       return z.boolean();
 
-    case 'array':
+    case 'array': {
       const itemSchema = schema.items ? jsonSchemaToZod(schema.items) : z.unknown();
       let arraySchema = z.array(itemSchema);
       if (schema.minItems) arraySchema = arraySchema.min(schema.minItems);
       if (schema.maxItems) arraySchema = arraySchema.max(schema.maxItems);
       return arraySchema;
+    }
 
-    case 'object':
+    case 'object': {
       if (!schema.properties) {
         return z.record(z.string(), z.unknown());
       }
@@ -128,6 +131,7 @@ function jsonSchemaToZod(schema: any): z.ZodSchema {
       }
 
       return objectSchema;
+    }
 
     default:
       return z.unknown();
