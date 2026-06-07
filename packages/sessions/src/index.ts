@@ -12,6 +12,7 @@ export {
 	browseCommand,
 	runBrowseAction,
 } from "./introspect.js";
+export { searchCommand } from "./search.js";
 
 // Session-browser data layer (consumed by TUI components)
 export {

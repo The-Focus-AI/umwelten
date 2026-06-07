@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-05-01T10:00:00.000Z","message":{"role":"user","content":"How do we score the industry for this PE deal?"},"isSidechain":false,"uuid":"aaaaaaaa-0001"}
+{"type":"assistant","timestamp":"2026-05-01T10:00:01.000Z","message":{"role":"assistant","model":"claude-opus-4-7","content":[{"type":"text","text":"To score the industry, we apply the seven-pillar framework."}]},"isSidechain":false,"uuid":"aaaaaaaa-0002"}
+{"type":"user","timestamp":"2026-05-01T10:00:02.000Z","message":{"role":"user","content":"Got it. What's next?"},"isSidechain":false,"uuid":"aaaaaaaa-0003"}
+{"type":"assistant","timestamp":"2026-05-01T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Then we score each pillar separately. The total industry score sums those."}]},"isSidechain":false,"uuid":"aaaaaaaa-0004"}
+{"type":"user","timestamp":"2026-05-01T10:00:04.000Z","message":{"role":"user","content":"OK thanks"},"isSidechain":false,"uuid":"aaaaaaaa-0005"}
