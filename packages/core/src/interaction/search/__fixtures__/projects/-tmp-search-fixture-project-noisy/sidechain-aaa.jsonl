@@ -1,0 +1,6 @@
+{"type":"user","timestamp":"2026-05-03T10:00:00.000Z","message":{"role":"user","content":"the noise-test-token sidechain warmup"},"isSidechain":true,"agentId":"af88a3f","uuid":"sc-aaa-0001"}
+{"type":"assistant","timestamp":"2026-05-03T10:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"sub-agent ack: noise-test-token"}]},"isSidechain":true,"agentId":"af88a3f","uuid":"sc-aaa-0002"}
+{"type":"user","timestamp":"2026-05-03T10:00:02.000Z","message":{"role":"user","content":"noise-test-token continuation"},"isSidechain":true,"agentId":"af88a3f","uuid":"sc-aaa-0003"}
+{"type":"assistant","timestamp":"2026-05-03T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"ok noise-test-token"}]},"isSidechain":true,"agentId":"af88a3f","uuid":"sc-aaa-0004"}
+{"type":"user","timestamp":"2026-05-03T10:00:04.000Z","message":{"role":"user","content":"noise-test-token end"},"isSidechain":true,"agentId":"af88a3f","uuid":"sc-aaa-0005"}
+{"type":"assistant","timestamp":"2026-05-03T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"text","text":"final noise-test-token"}]},"isSidechain":true,"agentId":"af88a3f","uuid":"sc-aaa-0006"}

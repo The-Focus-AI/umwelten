@@ -1,0 +1,6 @@
+{"type":"user","timestamp":"2026-05-03T13:00:00.000Z","message":{"role":"user","content":"the noise-test-token regular conversation"},"isSidechain":false,"uuid":"regular-ddd-0001"}
+{"type":"assistant","timestamp":"2026-05-03T13:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"acknowledged noise-test-token"}]},"isSidechain":false,"uuid":"regular-ddd-0002"}
+{"type":"user","timestamp":"2026-05-03T13:00:02.000Z","message":{"role":"user","content":"continue please"},"isSidechain":false,"uuid":"regular-ddd-0003"}
+{"type":"assistant","timestamp":"2026-05-03T13:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"noise-test-token reply two"}]},"isSidechain":false,"uuid":"regular-ddd-0004"}
+{"type":"user","timestamp":"2026-05-03T13:00:04.000Z","message":{"role":"user","content":"thanks"},"isSidechain":false,"uuid":"regular-ddd-0005"}
+{"type":"assistant","timestamp":"2026-05-03T13:00:05.000Z","message":{"role":"assistant","content":[{"type":"text","text":"you're welcome — noise-test-token done"}]},"isSidechain":false,"uuid":"regular-ddd-0006"}

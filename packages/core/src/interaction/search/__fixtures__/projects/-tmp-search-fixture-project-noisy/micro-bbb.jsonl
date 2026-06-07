@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-05-03T11:00:00.000Z","message":{"role":"user","content":"the noise-test-token micro file"},"isSidechain":false,"uuid":"micro-bbb-0001"}
+{"type":"assistant","timestamp":"2026-05-03T11:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"noise-test-token reply"}]},"isSidechain":false,"uuid":"micro-bbb-0002"}
