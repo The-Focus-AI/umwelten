@@ -459,7 +459,7 @@ ${chalk.bold('Commands:')}
           await mcp.disconnect();
           rl.close();
           process.exit(0);
-
+        // eslint-disable-next-line no-fallthrough -- process.exit terminates above
         case '/help':
         case '/?':
           showHelp();
