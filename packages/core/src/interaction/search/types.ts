@@ -40,8 +40,11 @@ export interface RawScanHit {
  * A SessionHit represents one matching message in one Source Session.
  * It's the unit the search TUI renders and the JSON output prints.
  *
- * Slice 1 has only the minimal fields; slices 3-4 add `snippet` and
- * `fullMessageContent`.
+ * The shape matches the PRD #82 type definition exactly. Slice 3 (#85)
+ * introduced the snippet / fullMessageContent split: `snippet` is the
+ * abridged ~80-char ripgrep-style context window the hit list renders;
+ * `fullMessageContent` is the unabridged matched message body, used by
+ * the TUI's lower preview pane.
  */
 export interface SessionHit {
 	/** Decoded absolute project path (the directory the user was in). */
@@ -57,11 +60,18 @@ export interface SessionHit {
 	/** Conversation role on the matching message. */
 	role: "user" | "assistant" | "tool" | "system";
 	/**
-	 * The text content of the matching message (best-effort flattened
-	 * if the message had array content blocks). Slice 1 uses this as
-	 * the snippet too; slice 3 introduces a separate snippet field.
+	 * ~80-char context window centered on the match position within the
+	 * matched message. Has ellipsis (`…`) markers when truncated on
+	 * either side. Messages shorter than the window produce the full
+	 * message as the snippet, with no markers.
 	 */
-	matchedText: string;
+	snippet: string;
+	/**
+	 * The unabridged text content of the matching message (best-effort
+	 * flattened if the message had array content blocks). The TUI's
+	 * lower pane shows this verbatim.
+	 */
+	fullMessageContent: string;
 }
 
 /** Options controlling a single ripgrep scan invocation. */

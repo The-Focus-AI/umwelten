@@ -16,7 +16,13 @@
 
 export { searchSessions } from "./searcher.js";
 export { scanWithRipgrep, defaultSearchRoots } from "./ripgrep-scanner.js";
-export { parseHit, decodeProjectDirName, extractMessageText } from "./hit-parser.js";
+export {
+	parseHit,
+	decodeProjectDirName,
+	extractMessageText,
+	buildSnippet,
+	SNIPPET_WIDTH,
+} from "./hit-parser.js";
 export {
 	peekFile,
 	isNoiseFile,

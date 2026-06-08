@@ -13,6 +13,8 @@ import {
 	parseHit,
 	decodeProjectDirName,
 	extractMessageText,
+	buildSnippet,
+	SNIPPET_WIDTH,
 	type RawScanHit,
 } from "./index.js";
 
@@ -101,7 +103,7 @@ describe("extractMessageText", () => {
 describe("parseHit", () => {
 	it("parses a user-message hit into a SessionHit", async () => {
 		const line = await fixtureLine(FIXTURE_ALPHA, 1);
-		const hit = parseHit(makeRawHit(FIXTURE_ALPHA, line, 1));
+		const hit = parseHit(makeRawHit(FIXTURE_ALPHA, line, 1), "score");
 
 		expect(hit).not.toBeNull();
 		expect(hit!.projectPath).toBe("/tmp/search/fixture/project/alpha");
@@ -110,27 +112,29 @@ describe("parseHit", () => {
 		expect(hit!.filePath).toBe(FIXTURE_ALPHA);
 		expect(hit!.role).toBe("user");
 		expect(hit!.messageTimestamp).toBe("2026-05-01T10:00:00.000Z");
-		expect(hit!.matchedText).toContain("score the industry");
+		expect(hit!.fullMessageContent).toContain("score the industry");
+		expect(hit!.snippet).toContain("score the industry");
 	});
 
 	it("parses an assistant-message hit into a SessionHit", async () => {
 		const line = await fixtureLine(FIXTURE_ALPHA, 2);
-		const hit = parseHit(makeRawHit(FIXTURE_ALPHA, line, 2));
+		const hit = parseHit(makeRawHit(FIXTURE_ALPHA, line, 2), "seven-pillar");
 
 		expect(hit).not.toBeNull();
 		expect(hit!.role).toBe("assistant");
-		expect(hit!.matchedText).toContain("seven-pillar framework");
+		expect(hit!.fullMessageContent).toContain("seven-pillar framework");
+		expect(hit!.snippet).toContain("seven-pillar");
 	});
 
 	it("extracts content from assistant messages with mixed text + tool_use blocks", async () => {
 		const line = await fixtureLine(FIXTURE_BETA, 2);
-		const hit = parseHit(makeRawHit(FIXTURE_BETA, line, 2));
+		const hit = parseHit(makeRawHit(FIXTURE_BETA, line, 2), "score");
 
 		expect(hit).not.toBeNull();
 		expect(hit!.role).toBe("assistant");
 		// Should include both the text block and the tool_use input JSON
-		expect(hit!.matchedText).toContain("Running the search");
-		expect(hit!.matchedText).toContain("score"); // from tool_use input
+		expect(hit!.fullMessageContent).toContain("Running the search");
+		expect(hit!.fullMessageContent).toContain("score"); // from tool_use input
 	});
 
 	it("returns null for unrecognised record types", () => {
@@ -139,12 +143,15 @@ describe("parseHit", () => {
 			timestamp: "2026-05-01T00:00:00Z",
 			sessionId: "abc",
 		});
-		const hit = parseHit(makeRawHit("/tmp/fake/-tmp-x/abc.jsonl", line, 1));
+		const hit = parseHit(makeRawHit("/tmp/fake/-tmp-x/abc.jsonl", line, 1), "abc");
 		expect(hit).toBeNull();
 	});
 
 	it("returns null when the matched line isn't valid JSON", () => {
-		const hit = parseHit(makeRawHit("/tmp/fake/-tmp-x/abc.jsonl", "not json", 1));
+		const hit = parseHit(
+			makeRawHit("/tmp/fake/-tmp-x/abc.jsonl", "not json", 1),
+			"json",
+		);
 		expect(hit).toBeNull();
 	});
 
@@ -154,7 +161,82 @@ describe("parseHit", () => {
 			timestamp: "2026-05-01T00:00:00Z",
 			message: { role: "user", content: [] },
 		});
-		const hit = parseHit(makeRawHit("/tmp/fake/-tmp-x/abc.jsonl", line, 1));
+		const hit = parseHit(
+			makeRawHit("/tmp/fake/-tmp-x/abc.jsonl", line, 1),
+			"x",
+		);
 		expect(hit).toBeNull();
+	});
+});
+
+describe("buildSnippet", () => {
+	const SHORT = "Score the industry.";
+	const LONG =
+		"Once upon a time in a faraway land there was a programmer who wrote " +
+		"twelve thousand lines of Lisp before lunch and then settled in to " +
+		"think very carefully about how to score the industry of widget " +
+		"manufacturing, paying close attention to the seven-pillar framework " +
+		"that had been handed down from previous engagements.";
+
+	it("returns the whole message unchanged when it fits in the window", () => {
+		const snip = buildSnippet(SHORT, "score");
+		expect(snip).toBe(SHORT);
+		expect(snip).not.toContain("…");
+	});
+
+	it("collapses internal whitespace to single spaces", () => {
+		const snip = buildSnippet("score\n  the\tindustry\n", "score");
+		expect(snip).toBe("score the industry");
+	});
+
+	it("centers the window on the match and adds ellipsis markers on both sides", () => {
+		const snip = buildSnippet(LONG, "score");
+		// Long message → must be truncated, leading + trailing ellipsis.
+		expect(snip.startsWith("…")).toBe(true);
+		expect(snip.endsWith("…")).toBe(true);
+		expect(snip).toContain("score");
+		// Width: SNIPPET_WIDTH chars + up to 2 ellipsis chars.
+		expect(snip.length).toBeLessThanOrEqual(SNIPPET_WIDTH + 2);
+	});
+
+	it("omits the leading ellipsis when the match is near the start", () => {
+		const text =
+			"score the industry " +
+			"and then go on with quite a bit more text to push the message past " +
+			"the snippet width threshold so we trigger truncation behaviour.";
+		const snip = buildSnippet(text, "score");
+		expect(snip.startsWith("…")).toBe(false);
+		expect(snip.endsWith("…")).toBe(true);
+		expect(snip).toContain("score the industry");
+	});
+
+	it("omits the trailing ellipsis when the match is near the end", () => {
+		const prefix = "Lots of context goes here before the final word: ";
+		const padding =
+			"and then we keep going with more context that pads out the front of " +
+			"the message so the match is at the tail. ";
+		const text = prefix + padding + "the score";
+		const snip = buildSnippet(text, "score");
+		expect(snip.endsWith("…")).toBe(false);
+		expect(snip.startsWith("…")).toBe(true);
+		expect(snip).toContain("the score");
+	});
+
+	it("falls back to the opening of the message when the query is absent", () => {
+		const snip = buildSnippet(LONG, "this-query-is-not-in-the-text");
+		expect(snip.startsWith("…")).toBe(false);
+		expect(snip.endsWith("…")).toBe(true);
+		expect(snip.slice(0, 10)).toBe(LONG.slice(0, 10));
+	});
+
+	it("is case-insensitive when locating the match", () => {
+		const text =
+			"This is a message about Industry Scoring that needs to be padded out " +
+			"so it goes past the snippet width threshold and triggers truncation.";
+		const snip = buildSnippet(text, "INDUSTRY");
+		// Lowercase 'industry' appears in the source. The snippet should
+		// be centered on it, not at the start of the message.
+		expect(snip).toContain("Industry");
+		expect(snip.length).toBeLessThanOrEqual(SNIPPET_WIDTH + 2);
 	});
 });
