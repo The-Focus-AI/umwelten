@@ -8,11 +8,13 @@
  * Skipped if `rg` isn't on PATH (the scanner needs it).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { searchSessions } from "./index.js";
+import { searchSessions, SNIPPET_WIDTH } from "./index.js";
 
 const HAS_RG = (() => {
 	const result = spawnSync("rg", ["--version"], { stdio: "ignore" });
@@ -48,7 +50,8 @@ describeRg("searchSessions (integration)", () => {
 		expect(h.filePath.endsWith(".jsonl")).toBe(true);
 		expect(h.messageTimestamp).toBeTruthy();
 		expect(h.role).toBe("assistant");
-		expect(h.matchedText).toContain("seven-pillar");
+		expect(h.fullMessageContent).toContain("seven-pillar");
+		expect(h.snippet).toContain("seven-pillar");
 	});
 
 	it("returns an empty array for an empty query", async () => {
@@ -111,4 +114,157 @@ describeRg("searchSessions (integration)", () => {
 			expect(microHits.length).toBe(0);
 		});
 	});
+
+	// Slice 3 (#85) — sort + snippet + cap behaviour against a tmpdir
+	// corpus that has hits interleaved across sessions.
+	describe("slice 3: sort, snippet, caps", () => {
+		let dir: string;
+
+		beforeAll(async () => {
+			dir = await mkdtemp(join(tmpdir(), "umwelten-searcher-slice3-"));
+			// Two projects, each with one session, hits interleaved in time.
+			// Each session has multiple hits to exercise the sort.
+			const projA = join(dir, "-tmp-projA");
+			const projB = join(dir, "-tmp-projB");
+			await mkdir(projA, { recursive: true });
+			await mkdir(projB, { recursive: true });
+
+			const linesA = [
+				makeMessage("user", "2026-05-01T10:00:00.000Z", "marker-token appears at A early"),
+				makeMessage("assistant", "2026-05-01T12:00:00.000Z", "marker-token appears at A mid-day"),
+				makeMessage("user", "2026-05-03T08:00:00.000Z", "marker-token appears at A latest"),
+				// extra non-matching lines so the file isn't a micro-file
+				makeMessage("user", "2026-05-03T08:00:01.000Z", "noise filler line 1"),
+				makeMessage("user", "2026-05-03T08:00:02.000Z", "noise filler line 2"),
+			];
+			const linesB = [
+				makeMessage("user", "2026-05-02T09:00:00.000Z", "marker-token appears at B mid"),
+				makeMessage("assistant", "2026-05-04T11:00:00.000Z", "marker-token appears at B newest"),
+				makeMessage("user", "2026-05-04T11:00:01.000Z", "noise filler line 1"),
+				makeMessage("user", "2026-05-04T11:00:02.000Z", "noise filler line 2"),
+				makeMessage("user", "2026-05-04T11:00:03.000Z", "noise filler line 3"),
+			];
+			await writeFile(join(projA, "ses-a.jsonl"), linesA.join("\n") + "\n");
+			await writeFile(join(projB, "ses-b.jsonl"), linesB.join("\n") + "\n");
+
+			// A session with a long matching message for snippet truncation.
+			const projC = join(dir, "-tmp-projC");
+			await mkdir(projC, { recursive: true });
+			const longText =
+				"Once upon a time there was a very long opening clause that " +
+				"keeps going and going and going and going until eventually " +
+				"someone wrote about marker-token deep inside the message, " +
+				"after which the message keeps going with yet more clauses " +
+				"that pile up well past any reasonable terminal column width.";
+			const linesC = [
+				makeMessage("user", "2026-04-01T00:00:00.000Z", longText),
+				makeMessage("user", "2026-04-01T00:00:01.000Z", "noise filler line 1"),
+				makeMessage("user", "2026-04-01T00:00:02.000Z", "noise filler line 2"),
+				makeMessage("user", "2026-04-01T00:00:03.000Z", "noise filler line 3"),
+				makeMessage("user", "2026-04-01T00:00:04.000Z", "noise filler line 4"),
+			];
+			await writeFile(join(projC, "ses-c.jsonl"), linesC.join("\n") + "\n");
+
+			// A session with > 5 matching messages to verify the default
+			// per-file cap.
+			const projD = join(dir, "-tmp-projD");
+			await mkdir(projD, { recursive: true });
+			const linesD: string[] = [];
+			for (let i = 0; i < 12; i++) {
+				linesD.push(
+					makeMessage(
+						"user",
+						`2026-05-05T00:00:${String(i).padStart(2, "0")}.000Z`,
+						`cap-marker line ${i}`,
+					),
+				);
+			}
+			await writeFile(join(projD, "ses-d.jsonl"), linesD.join("\n") + "\n");
+		});
+
+		afterAll(async () => {
+			if (dir) await rm(dir, { recursive: true, force: true });
+		});
+
+		it("sorts hits by messageTimestamp descending, interleaving sessions", async () => {
+			// Scope to projA + projB only — projC also contains
+			// 'marker-token' but is reserved for the snippet test.
+			const hits = await searchSessions("marker-token", {
+				searchRoots: [join(dir, "-tmp-projA"), join(dir, "-tmp-projB")],
+			});
+			expect(hits.length).toBe(5);
+
+			// Verify strictly non-increasing timestamps.
+			for (let i = 1; i < hits.length; i++) {
+				expect(hits[i - 1].messageTimestamp >= hits[i].messageTimestamp).toBe(
+					true,
+				);
+			}
+			// Newest must be project B (2026-05-04). Oldest must be A early.
+			expect(hits[0].projectName).toBe("projB");
+			expect(hits[0].messageTimestamp).toBe("2026-05-04T11:00:00.000Z");
+			expect(hits[hits.length - 1].projectName).toBe("projA");
+
+			// Sessions are interleaved (not grouped): the second-newest hit
+			// is from projA latest, then projB mid, then projA mid-day,
+			// then projA early.
+			expect(hits.map((h) => h.projectName)).toEqual([
+				"projB", // 2026-05-04
+				"projA", // 2026-05-03
+				"projB", // 2026-05-02
+				"projA", // 2026-05-01 12:00
+				"projA", // 2026-05-01 10:00
+			]);
+		});
+
+		it("builds a centered, ellipsised snippet for long matched messages", async () => {
+			const hits = await searchSessions("marker-token", {
+				searchRoots: [join(dir, "-tmp-projC")],
+			});
+			expect(hits.length).toBe(1);
+			const h = hits[0];
+			expect(h.snippet).toContain("marker-token");
+			// Long message must produce a truncated snippet with both markers.
+			expect(h.snippet.startsWith("…")).toBe(true);
+			expect(h.snippet.endsWith("…")).toBe(true);
+			expect(h.snippet.length).toBeLessThanOrEqual(SNIPPET_WIDTH + 2);
+			// Full message content remains the full text.
+			expect(h.fullMessageContent.length).toBeGreaterThan(SNIPPET_WIDTH);
+			expect(h.fullMessageContent).toContain("marker-token");
+		});
+
+		it("applies the default per-file cap of 5", async () => {
+			// projD has 12 matching messages but the default --max-count=5
+			// limits ripgrep to 5 lines per file.
+			const hits = await searchSessions("cap-marker", {
+				searchRoots: [join(dir, "-tmp-projD")],
+			});
+			expect(hits.length).toBe(5);
+			for (const h of hits) {
+				expect(h.sessionId).toBe("ses-d");
+			}
+		});
+
+		it("respects an explicit maxCountPerFile override above the default", async () => {
+			const hits = await searchSessions("cap-marker", {
+				searchRoots: [join(dir, "-tmp-projD")],
+				maxCountPerFile: 12,
+			});
+			expect(hits.length).toBe(12);
+		});
+	});
 });
+
+function makeMessage(
+	role: "user" | "assistant",
+	timestamp: string,
+	content: string,
+): string {
+	return JSON.stringify({
+		type: role,
+		timestamp,
+		message: { role, content },
+		isSidechain: false,
+		uuid: `${role}-${timestamp}`,
+	});
+}

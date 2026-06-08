@@ -10,7 +10,12 @@
  *   micro-files) have their hits dropped. Each unique file is peeked
  *   ONCE per search and the result reused across all hits from that
  *   file.
- * Slice 3 (#85) will add sort + snippet + per-file caps polish.
+ * Slice 3 (#85): sort hits by message timestamp descending; build a
+ *   ripgrep-style ~80-char snippet centered on the match per
+ *   SessionHit; carry the unabridged matched message text as
+ *   `fullMessageContent` for the TUI's lower preview pane. Per-file
+ *   caps (`--max-count 5`, `--max-filesize 50M`) already enforced by
+ *   the scanner with overridable defaults.
  */
 
 import { scanWithRipgrep } from "./ripgrep-scanner.js";
@@ -54,9 +59,28 @@ export async function searchSessions(
 		// the file as noise and skip. This shouldn't happen.
 		if (!peeked || isNoiseFile(peeked)) continue;
 
-		const parsed = parseHit(raw);
+		const parsed = parseHit(raw, trimmed);
 		if (parsed) hits.push(parsed);
 	}
 
+	// Sort by messageTimestamp desc. Hits with empty/invalid timestamps
+	// sort to the end (stable among themselves). Per PRD #82 user story
+	// 3: "results sorted by message timestamp descending by default."
+	// This is true chronological order across all hits — a session with
+	// multiple matches has its hits interleaved with hits from other
+	// sessions, not grouped.
+	hits.sort((a, b) => compareTimestampsDesc(a.messageTimestamp, b.messageTimestamp));
+
 	return hits;
+}
+
+function compareTimestampsDesc(a: string, b: string): number {
+	// Lexicographic comparison works correctly for ISO-8601 strings.
+	// Empty strings (missing timestamp) sort last.
+	if (!a && !b) return 0;
+	if (!a) return 1;
+	if (!b) return -1;
+	if (a < b) return 1;
+	if (a > b) return -1;
+	return 0;
 }

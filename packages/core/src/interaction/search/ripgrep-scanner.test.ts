@@ -133,6 +133,67 @@ describeRg("scanWithRipgrep", () => {
 			});
 			expect(uncapped.length).toBe(20);
 		});
+
+		it("applies the default per-file cap of 5", async () => {
+			const proj = join(dir, "-tmp-proj-default-cap");
+			await mkdir(proj, { recursive: true });
+			const lines: string[] = [];
+			for (let i = 0; i < 12; i++) {
+				lines.push(
+					JSON.stringify({
+						type: "user",
+						timestamp: `2026-05-01T00:00:${String(i).padStart(2, "0")}Z`,
+						message: { role: "user", content: `default-cap-token line ${i}` },
+					}),
+				);
+			}
+			await writeFile(join(proj, "session.jsonl"), lines.join("\n") + "\n");
+
+			// No override — must hit the default of 5.
+			const hits = await scanWithRipgrep("default-cap-token", {
+				searchRoots: [proj],
+			});
+			expect(hits.length).toBe(5);
+		});
+
+		it("skips files larger than maxFilesizeMB", async () => {
+			const proj = join(dir, "-tmp-proj-filesize");
+			await mkdir(proj, { recursive: true });
+			// A tiny file containing the token.
+			await writeFile(
+				join(proj, "small.jsonl"),
+				JSON.stringify({
+					type: "user",
+					timestamp: "2026-05-01T00:00:00Z",
+					message: { role: "user", content: "filesize-token here" },
+				}) + "\n",
+			);
+			// A "big" file padded out to ~1.5 MB.
+			const padding = "x".repeat(1_500_000);
+			await writeFile(
+				join(proj, "big.jsonl"),
+				JSON.stringify({
+					type: "user",
+					timestamp: "2026-05-01T00:00:00Z",
+					message: { role: "user", content: `filesize-token ${padding}` },
+				}) + "\n",
+			);
+
+			// Default 50 MB cap; both files fit, both should hit.
+			const both = await scanWithRipgrep("filesize-token", {
+				searchRoots: [proj],
+			});
+			expect(both.length).toBe(2);
+
+			// Tighter 1 MB cap — the big file is skipped silently. Only
+			// the tiny file produces a hit.
+			const onlySmall = await scanWithRipgrep("filesize-token", {
+				searchRoots: [proj],
+				maxFilesizeMB: 1,
+			});
+			expect(onlySmall.length).toBe(1);
+			expect(onlySmall[0].filePath.endsWith("small.jsonl")).toBe(true);
+		});
 	});
 });
 
