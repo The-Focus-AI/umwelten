@@ -18,6 +18,12 @@ export { searchSessions } from "./searcher.js";
 export { scanWithRipgrep, defaultSearchRoots } from "./ripgrep-scanner.js";
 export { parseHit, decodeProjectDirName, extractMessageText } from "./hit-parser.js";
 export {
+	peekFile,
+	isNoiseFile,
+	CLAUDE_CODE_MIN_SESSION_LINES,
+	type PeekedFile,
+} from "./noise-filters.js";
+export {
 	type RawScanHit,
 	type SessionHit,
 	type ScanOptions,

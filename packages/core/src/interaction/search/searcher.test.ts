@@ -66,4 +66,49 @@ describeRg("searchSessions (integration)", () => {
 		const hits = await searchSessions("   ", { searchRoots: [FIXTURES] });
 		expect(hits).toEqual([]);
 	});
+
+	// Slice 2 (#84): noise filtering parity with the Claude Code adapter.
+	describe("noise filtering", () => {
+		const NOISY = join(
+			import.meta.dirname,
+			"__fixtures__",
+			"projects",
+			"-tmp-search-fixture-project-noisy",
+		);
+
+		it("filters out hits from sidechain transcripts, micro-files, and queue-op-only files", async () => {
+			const hits = await searchSessions("noise-test-token", {
+				searchRoots: [NOISY],
+			});
+
+			// Only the regular session should survive. All hits must come
+			// from regular-ddd.jsonl, not sidechain-aaa, micro-bbb, or
+			// queueop-ccc.
+			expect(hits.length).toBeGreaterThan(0);
+			for (const h of hits) {
+				expect(h.sessionId).toBe("regular-ddd");
+				expect(h.filePath).toMatch(/regular-ddd\.jsonl$/);
+			}
+		});
+
+		it("sidechain files do not contribute hits even though rg matches their content", async () => {
+			const hits = await searchSessions("noise-test-token", {
+				searchRoots: [NOISY],
+			});
+			const sidechainHits = hits.filter((h) =>
+				h.filePath.endsWith("sidechain-aaa.jsonl"),
+			);
+			expect(sidechainHits.length).toBe(0);
+		});
+
+		it("micro-files do not contribute hits even though rg matches their content", async () => {
+			const hits = await searchSessions("noise-test-token", {
+				searchRoots: [NOISY],
+			});
+			const microHits = hits.filter((h) =>
+				h.filePath.endsWith("micro-bbb.jsonl"),
+			);
+			expect(microHits.length).toBe(0);
+		});
+	});
 });
