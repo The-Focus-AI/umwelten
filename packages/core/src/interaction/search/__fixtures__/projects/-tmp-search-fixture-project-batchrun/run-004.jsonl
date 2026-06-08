@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-05-10T12:00:00.000Z","message":{"role":"user","content":"Score the industry for trinity-hunt-pilot-batchrun candidate D"},"isSidechain":false,"uuid":"run-004-0001"}
+{"type":"assistant","timestamp":"2026-05-10T12:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Acknowledged candidate D — looking at market share."}]},"isSidechain":false,"uuid":"run-004-0002"}
+{"type":"user","timestamp":"2026-05-10T12:00:02.000Z","message":{"role":"user","content":"Cover the regulatory angle."},"isSidechain":false,"uuid":"run-004-0003"}
+{"type":"assistant","timestamp":"2026-05-10T12:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Regulatory angle covered for candidate D."}]},"isSidechain":false,"uuid":"run-004-0004"}
+{"type":"user","timestamp":"2026-05-10T12:00:04.000Z","message":{"role":"user","content":"That's enough."},"isSidechain":false,"uuid":"run-004-0005"}

@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-05-10T09:00:00.000Z","message":{"role":"user","content":"Score the industry for trinity-hunt-pilot-batchrun candidate A"},"isSidechain":false,"uuid":"run-001-0001"}
+{"type":"assistant","timestamp":"2026-05-10T09:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Acknowledged candidate A — beginning analysis."}]},"isSidechain":false,"uuid":"run-001-0002"}
+{"type":"user","timestamp":"2026-05-10T09:00:02.000Z","message":{"role":"user","content":"Continue with pillar one."},"isSidechain":false,"uuid":"run-001-0003"}
+{"type":"assistant","timestamp":"2026-05-10T09:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Pillar one for candidate A complete."}]},"isSidechain":false,"uuid":"run-001-0004"}
+{"type":"user","timestamp":"2026-05-10T09:00:04.000Z","message":{"role":"user","content":"Done, thanks."},"isSidechain":false,"uuid":"run-001-0005"}
