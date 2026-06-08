@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-05-10T10:00:00.000Z","message":{"role":"user","content":"Score the industry for trinity-hunt-pilot-batchrun candidate B"},"isSidechain":false,"uuid":"run-002-0001"}
+{"type":"assistant","timestamp":"2026-05-10T10:00:01.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Acknowledged candidate B — different framing."}]},"isSidechain":false,"uuid":"run-002-0002"}
+{"type":"user","timestamp":"2026-05-10T10:00:02.000Z","message":{"role":"user","content":"Use the alternative pillar set."},"isSidechain":false,"uuid":"run-002-0003"}
+{"type":"assistant","timestamp":"2026-05-10T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Alternative pillar set applied to candidate B."}]},"isSidechain":false,"uuid":"run-002-0004"}
+{"type":"user","timestamp":"2026-05-10T10:00:04.000Z","message":{"role":"user","content":"Done."},"isSidechain":false,"uuid":"run-002-0005"}

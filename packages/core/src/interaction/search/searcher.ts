@@ -30,6 +30,16 @@ import type { SearchOptions, SessionHit } from "./types.js";
  * Hits from noise files (sidechain / micro) are filtered out.
  *
  * Throws RipgrepNotFoundError if `rg` isn't on PATH.
+ *
+ * Deliberate divergence from the Claude Code adapter's discovery
+ * filter set: the adapter's `discoverSessions()` applies a
+ * batch-run-collapse rule that folds 2,610 trinity-hunt-pilot "Score
+ * the industry…" sessions into one representative dashboard row.
+ * Search does NOT apply that collapse — search returns every matching
+ * message in every matching Source Session individually. Rationale:
+ * search is "find every place I said X." A collapsed result hides
+ * exactly what the user is asking for. Pinned by the "batch-run
+ * contract" test in `searcher.test.ts`.
  */
 export async function searchSessions(
 	query: string,

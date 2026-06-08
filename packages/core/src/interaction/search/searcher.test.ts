@@ -253,6 +253,58 @@ describeRg("searchSessions (integration)", () => {
 			expect(hits.length).toBe(12);
 		});
 	});
+
+	// Slice 8 (#90) — search must NOT collapse batch-run sessions the
+	// way the Claude Code adapter's discovery layer does. Search is
+	// "find every place I said X." Collapsing hides what the user is
+	// asking for.
+	//
+	// The fixture has 4 sessions whose first user message shares the
+	// long prefix `Score the industry for trinity-hunt-pilot-batchrun`
+	// — exactly the shape of the real-world trinity-hunt-pilot corpus
+	// that motivated the adapter's `collapseBatchRuns` behavior. The
+	// adapter would surface ONE row for these on the dashboard;
+	// `SessionSearcher.search()` MUST surface every individual hit.
+	describe("batch-run contract", () => {
+		const BATCHRUN = join(
+			import.meta.dirname,
+			"__fixtures__",
+			"projects",
+			"-tmp-search-fixture-project-batchrun",
+		);
+		const SHARED_PREFIX = "Score the industry for trinity-hunt-pilot-batchrun";
+
+		it("returns one hit per matching session, not a collapsed representative", async () => {
+			const hits = await searchSessions(SHARED_PREFIX, {
+				searchRoots: [BATCHRUN],
+			});
+
+			// 4 sessions, one matching message each → 4 hits. If search
+			// ever started applying the adapter's batch-collapse rule,
+			// this would drop to 1.
+			expect(hits.length).toBe(4);
+
+			// All 4 sessions must be represented — every sessionId
+			// distinct.
+			const sessionIds = new Set(hits.map((h) => h.sessionId));
+			expect(sessionIds.size).toBe(4);
+			expect(sessionIds.has("run-001")).toBe(true);
+			expect(sessionIds.has("run-002")).toBe(true);
+			expect(sessionIds.has("run-003")).toBe(true);
+			expect(sessionIds.has("run-004")).toBe(true);
+		});
+
+		it("returns hits with distinct timestamps for the same shared prefix", async () => {
+			const hits = await searchSessions(SHARED_PREFIX, {
+				searchRoots: [BATCHRUN],
+			});
+			const timestamps = new Set(hits.map((h) => h.messageTimestamp));
+			// Each fixture session opens at a distinct hour, so all 4
+			// timestamps should be distinct. A collapsing implementation
+			// would lose 3 of them.
+			expect(timestamps.size).toBe(4);
+		});
+	});
 });
 
 function makeMessage(
