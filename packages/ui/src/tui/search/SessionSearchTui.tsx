@@ -97,6 +97,7 @@ export function SessionSearchTui(
 	const [scanning, setScanning] = useState<boolean>(initialQuery.trim() !== "");
 	const [scanError, setScanError] = useState<string | null>(null);
 	const [cursor, setCursor] = useState(0);
+	const [scrollOffset, setScrollOffset] = useState(0);
 
 	// Track the latest scan so out-of-order results from a stale scan get
 	// discarded.
@@ -193,7 +194,7 @@ export function SessionSearchTui(
 		}
 	});
 
-	// ── Render ────────────────────────────────────────────────────────────
+	// ── Layout ────────────────────────────────────────────────────────────
 
 	const hitCount = hits.length;
 
@@ -204,6 +205,26 @@ export function SessionSearchTui(
 	const listAndDetailRows = Math.max(6, totalRows - chromeRows);
 	const listHeight = Math.max(3, Math.floor(listAndDetailRows / 2));
 	const detailHeight = Math.max(3, listAndDetailRows - listHeight);
+
+	// Keep the highlighted row in the visible window of the hit list. When
+	// the cursor moves off the top, scroll up by one; when it moves past the
+	// bottom edge of the window, scroll down by one. Reset to 0 whenever the
+	// hit list shrinks below the cursor (e.g. after a re-scan).
+	useEffect(() => {
+		setScrollOffset((prev) => {
+			let next = prev;
+			if (bounded < next) next = bounded;
+			else if (bounded >= next + listHeight) next = bounded - listHeight + 1;
+			const maxOffset = Math.max(0, hitCount - listHeight);
+			if (next > maxOffset) next = maxOffset;
+			if (next < 0) next = 0;
+			return next;
+		});
+	}, [bounded, listHeight, hitCount]);
+
+	const visibleHits = hits.slice(scrollOffset, scrollOffset + listHeight);
+
+	// ── Render ────────────────────────────────────────────────────────────
 
 	return (
 		<Box flexDirection="column" height={totalRows}>
@@ -224,14 +245,17 @@ export function SessionSearchTui(
 						</Text>
 					</Box>
 				) : (
-					hits.map((hit, i) => (
-						<HitRow
-							key={`${hit.filePath}:${hit.messageTimestamp}:${i}`}
-							hit={hit}
-							selected={i === bounded}
-							width={totalCols}
-						/>
-					))
+					visibleHits.map((hit, i) => {
+						const absoluteIndex = scrollOffset + i;
+						return (
+							<HitRow
+								key={`${hit.filePath}:${hit.messageTimestamp}:${absoluteIndex}`}
+								hit={hit}
+								selected={absoluteIndex === bounded}
+								width={totalCols}
+							/>
+						);
+					})
 				)}
 			</Box>
 
