@@ -71,6 +71,14 @@ export interface DashboardAppProps {
 	) => () => void;
 	/** Initial title snapshot at mount (for backfilling on remount). */
 	initialTitles?: Map<string, string>;
+	/**
+	 * Pre-select the row matching this source-session id when the dashboard
+	 * mounts. Used by the Session Search → "open hit" flow (issue #88) so the
+	 * row the user clicked through to is the first one highlighted.
+	 *
+	 * If the id doesn't match any entry, the cursor falls back to 0.
+	 */
+	preSelectSessionId?: string;
 }
 
 const DEFAULT_FILTER: FilterState = {
@@ -159,6 +167,7 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 		subscribeToExtractionEvents,
 		subscribeToTitleUpdates,
 		initialTitles,
+		preSelectSessionId,
 	} = props;
 
 	const { exit } = useApp();
@@ -169,7 +178,17 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 	const [filter, setFilter] = useState<FilterState>(
 		initialFilter ?? DEFAULT_FILTER,
 	);
-	const [cursor, setCursor] = useState(0);
+	// Seed the cursor at the pre-selected row if the caller passed one. The
+	// default filter is fully permissive so this index is also valid for the
+	// filtered+projected view; if the row is filtered out the bound below
+	// clamps to 0. If preSelectSessionId is unknown, fall back to 0.
+	const [cursor, setCursor] = useState(() => {
+		if (!preSelectSessionId) return 0;
+		const idx = entries.findIndex(
+			(e) => e.sourceSession.id === preSelectSessionId,
+		);
+		return idx >= 0 ? idx : 0;
+	});
 	const [searchMode, setSearchMode] = useState(false);
 	const [query, setQuery] = useState(filter.query);
 

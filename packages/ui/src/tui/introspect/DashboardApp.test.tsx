@@ -741,3 +741,75 @@ describe("DashboardApp — confirmation overlay interactions", () => {
 		expect(onExit).not.toHaveBeenCalled();
 	});
 });
+
+// ── 7. Pre-selected session (slice 6, #88) ────────────────────────────────
+
+describe("DashboardApp — preSelectSessionId", () => {
+	it("starts with the matching row highlighted when preSelectSessionId points at a known entry", async () => {
+		const onExit = vi.fn();
+		const entries = [
+			makeEntry("alpha", { title: "Alpha topic" }),
+			makeEntry("beta", { title: "Beta topic" }),
+			makeEntry("gamma", { title: "Gamma topic" }),
+		];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			preSelectSessionId: "beta",
+		});
+		// Enter should fire detail for "beta", since it's the pre-selected row
+		// (cursor would otherwise default to 0 = "alpha").
+		stdin.write("\r");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "detail",
+				entry: expect.objectContaining({
+					sourceSession: expect.objectContaining({ id: "beta" }),
+				}),
+			}),
+		);
+	});
+
+	it("falls back to the first row when preSelectSessionId does not match any entry", async () => {
+		const onExit = vi.fn();
+		const entries = [
+			makeEntry("alpha", { title: "Alpha topic" }),
+			makeEntry("beta", { title: "Beta topic" }),
+		];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			preSelectSessionId: "nonexistent-session-id",
+		});
+		stdin.write("\r");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "detail",
+				entry: expect.objectContaining({
+					sourceSession: expect.objectContaining({ id: "alpha" }),
+				}),
+			}),
+		);
+	});
+
+	it("ignores preSelectSessionId when undefined (default behavior)", async () => {
+		const onExit = vi.fn();
+		const entries = [
+			makeEntry("alpha", { title: "Alpha topic" }),
+			makeEntry("beta", { title: "Beta topic" }),
+		];
+		const { stdin } = renderDashboard({ entries, onExit });
+		stdin.write("\r");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "detail",
+				entry: expect.objectContaining({
+					sourceSession: expect.objectContaining({ id: "alpha" }),
+				}),
+			}),
+		);
+	});
+});

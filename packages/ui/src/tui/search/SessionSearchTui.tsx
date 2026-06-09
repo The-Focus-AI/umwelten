@@ -1,5 +1,5 @@
 /**
- * Session Search TUI — slices 4 (#86) + 5 (#87).
+ * Session Search TUI — slices 4 (#86) + 5 (#87) + 6 (#88).
  *
  * Two-pane Ink TUI used by `umwelten search [query]`:
  *
@@ -12,7 +12,7 @@
  *   │  Full body for ALPHA hit — score industry alpha discussion.      │   detail
  *   │                                                                  │   pane
  *   ├──────────────────────────────────────────────────────────────────┤
- *   │  ↑/↓ navigate · type to search · Esc quit                        │   footer
+ *   │  type to search · ↑/↓ navigate · Enter open · Esc quit           │   footer
  *   └──────────────────────────────────────────────────────────────────┘
  *
  * Slice 5 makes the query editable: typing edits the field, a 200 ms
@@ -21,9 +21,10 @@
  * to row 0 on each new result set. Esc / Ctrl+C exit (`q` is now a
  * search character — slice 4's `q` exit gave way to inline editing).
  *
- * Slice 6 (#88) will turn Enter into "launch the Exploration Browser
- * dashboard pre-selected at this hit"; slice 7 (#89) will rebind `q`
- * for the dashboard-launched case; slice 9 (#91) adds `--no-tui`.
+ * Slice 6 turns Enter into "launch the Exploration Browser dashboard
+ * pre-selected at this hit" (via the `onSelectHit` prop and Ink's
+ * `exit()`). Slice 7 (#89) will rebind exit for the dashboard-launched
+ * case; slice 9 (#91) adds `--no-tui`.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
@@ -57,6 +58,13 @@ export interface SessionSearchTuiProps {
 	 * Tests override this so they can drive the timer without waiting.
 	 */
 	debounceMs?: number;
+	/**
+	 * Called when the user presses Enter on a highlighted hit (slice 6, #88).
+	 * The TUI also calls Ink's `useApp().exit()` to unmount cleanly so the
+	 * caller can launch the Exploration Browser dashboard for the hit's
+	 * project. If omitted, Enter is a no-op.
+	 */
+	onSelectHit?: (hit: SessionHit) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -71,6 +79,7 @@ export function SessionSearchTui(
 		runScan,
 		onExit,
 		debounceMs = DEFAULT_DEBOUNCE_MS,
+		onSelectHit,
 	} = props;
 	const { exit } = useApp();
 	const { stdout } = useStdout();
@@ -147,6 +156,17 @@ export function SessionSearchTui(
 			exit();
 			return;
 		}
+		if (key.return) {
+			// Slice 6 (#88): open the highlighted hit. The caller (`run.tsx`)
+			// receives the hit via onSelectHit and is responsible for
+			// launching the Exploration Browser dashboard scoped to its
+			// project. We exit() to unmount Ink so the dashboard can take
+			// over the terminal.
+			if (!current || !onSelectHit) return;
+			onSelectHit(current);
+			exit();
+			return;
+		}
 		if (key.downArrow) {
 			if (hits.length === 0) return;
 			setCursor((c) => Math.min(hits.length - 1, c + 1));
@@ -161,8 +181,9 @@ export function SessionSearchTui(
 			setQuery((q) => q.slice(0, -1));
 			return;
 		}
-		// Ignore tab / return / other non-printable control sequences.
-		if (key.tab || key.return) return;
+		// Ignore tab / other non-printable control sequences. (Enter is
+		// handled above as "open hit".)
+		if (key.tab) return;
 		// Any printable, non-modified character extends the query.
 		if (input && !key.ctrl && !key.meta) {
 			const printable = input.replace(/[^\x20-\x7e]/g, "");
@@ -460,7 +481,7 @@ function Footer(): React.ReactElement {
 			paddingX={1}
 		>
 			<Text dimColor>
-				type to search · ↑/↓ navigate · Esc quit
+				type to search · ↑/↓ navigate · Enter open · Esc quit
 			</Text>
 		</Box>
 	);

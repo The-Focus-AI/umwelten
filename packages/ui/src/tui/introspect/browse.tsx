@@ -20,6 +20,14 @@ export interface RunBrowseTuiOptions {
 	/** When true, the extraction pass re-digests every session even if it
 	 * already has a fresh digest on disk. */
 	force?: boolean;
+	/**
+	 * Pre-select the row matching this source-session id when the dashboard
+	 * first mounts. Used by the Session Search → "open hit" flow (issue #88)
+	 * so the row the user clicked through to is the first one highlighted.
+	 * Applied only on the first mount of this run; subsequent re-mounts
+	 * after detail/transcript/digest views start with the cursor at the top.
+	 */
+	preSelectSessionId?: string;
 }
 
 // ── Exploration-oriented browser (v2) — command-center dashboard ────────
@@ -144,6 +152,8 @@ async function showDashboardTui(args: {
 	bus: ExtractionBus;
 	/** Called from the dashboard's overlay confirm. */
 	onLaunchExtraction: () => void;
+	/** Pre-select the matching row on mount (Session Search → open hit). */
+	preSelectSessionId?: string;
 }): Promise<DashboardIntent> {
 	let intent: DashboardIntent = { kind: "none" };
 
@@ -181,6 +191,7 @@ async function showDashboardTui(args: {
 			subscribeToExtractionEvents={subscribeAndReplay}
 			subscribeToTitleUpdates={args.bus.subscribeToTitles}
 			initialTitles={args.bus.liveTitles}
+			preSelectSessionId={args.preSelectSessionId}
 		/>
 	);
 
@@ -342,6 +353,7 @@ export async function runExploreBrowseTui(
 		sessionsDir,
 		model,
 		force = false,
+		preSelectSessionId,
 	} = opts;
 	const projectPath = resolve(rawProject);
 	const targetPath = resolve(rawTarget);
@@ -352,6 +364,9 @@ export async function runExploreBrowseTui(
 	// already in flight from this session, don't kick another.
 	let askedAtLeastOnce = false;
 	let extractionLaunched = false;
+	// preSelectSessionId is consumed on the first iteration only; subsequent
+	// remounts (after detail/transcript views) start at the top.
+	let pendingPreSelect: string | undefined = preSelectSessionId;
 
 	// Long-lived bus: extraction runs in the background and emits into this
 	// bus regardless of which TUI is on screen. Cached phases let a freshly
@@ -381,6 +396,7 @@ export async function runExploreBrowseTui(
 			concurrency: 1,
 			startupConfirm: !askedAtLeastOnce,
 			bus,
+			preSelectSessionId: pendingPreSelect,
 			onLaunchExtraction: () => {
 				askedAtLeastOnce = true;
 				if (extractionLaunched) {
@@ -406,6 +422,10 @@ export async function runExploreBrowseTui(
 		});
 
 		askedAtLeastOnce = true;
+		// preSelect is a first-mount-only signal; clear so subsequent
+		// re-mounts (after detail/transcript views) don't keep snapping the
+		// cursor back to the same row.
+		pendingPreSelect = undefined;
 
 		if (intent.kind === "none") return;
 
