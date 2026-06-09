@@ -133,7 +133,7 @@ export function SessionSearchTui(
 			<Box flexDirection="column" height={listHeight} overflow="hidden">
 				{scanning ? null : hits && hits.length === 0 ? (
 					<Box paddingX={1}>
-						<Text color="gray">no hits</Text>
+						<Text dimColor>no hits</Text>
 					</Box>
 				) : (
 					hits!.map((hit, i) => (
@@ -177,17 +177,17 @@ function Header(props: HeaderProps): React.ReactElement {
 			</Text>
 			<Text> </Text>
 			<Text color="magenta">"{query}"</Text>
-			<Text color="gray"> · </Text>
+			<Text dimColor> · </Text>
 			{scanning ? (
 				<Text color="yellow">scanning…</Text>
 			) : (
-				<Text color="gray">
+				<Text dimColor>
 					({hitCount} {hitCount === 1 ? "hit" : "hits"})
 				</Text>
 			)}
 			{error ? (
 				<>
-					<Text color="gray"> · </Text>
+					<Text dimColor> · </Text>
 					<Text color="red">scan failed: {error}</Text>
 				</>
 			) : null}
@@ -221,22 +221,22 @@ function HitListHeader({ width }: { width: number }): React.ReactElement {
 				<Text> </Text>
 			</Box>
 			<Box width={COL_TIME_WIDTH}>
-				<Text color="gray" bold>
+				<Text dimColor bold>
 					time
 				</Text>
 			</Box>
 			<Box width={projW}>
-				<Text color="gray" bold>
+				<Text dimColor bold>
 					project
 				</Text>
 			</Box>
 			<Box width={COL_ROLE_WIDTH}>
-				<Text color="gray" bold>
+				<Text dimColor bold>
 					role
 				</Text>
 			</Box>
 			<Box width={snipW}>
-				<Text color="gray" bold>
+				<Text dimColor bold>
 					snippet
 				</Text>
 			</Box>
@@ -261,6 +261,8 @@ const HitRow = React.memo(function HitRow({
 	const role = formatRole(hit.role);
 	const project = truncate(hit.projectName, projW - 1);
 	const snippet = truncate(stripNewlines(hit.snippet), snipW - 1);
+	// Selected rows use the terminal's default foreground (bold) so they pop
+	// against the dimmed unselected rows — works on light and dark themes.
 	return (
 		<Box paddingX={1} flexShrink={0}>
 			<Box width={2}>
@@ -269,16 +271,20 @@ const HitRow = React.memo(function HitRow({
 				</Text>
 			</Box>
 			<Box width={COL_TIME_WIDTH}>
-				<Text color="gray">{time}</Text>
+				<Text dimColor={!selected}>{time}</Text>
 			</Box>
 			<Box width={projW}>
-				<Text color={selected ? "white" : "gray"}>{project}</Text>
+				<Text bold={selected} dimColor={!selected}>
+					{project}
+				</Text>
 			</Box>
 			<Box width={COL_ROLE_WIDTH}>
-				<Text color={roleColor(hit.role)}>{role}</Text>
+				<Text color={roleColor(hit.role)} bold={selected}>
+					{role}
+				</Text>
 			</Box>
 			<Box width={snipW}>
-				<Text color={selected ? "white" : "gray"}>{snippet}</Text>
+				<Text dimColor={!selected}>{snippet}</Text>
 			</Box>
 		</Box>
 	);
@@ -298,17 +304,17 @@ function DetailPane(props: DetailPaneProps): React.ReactElement {
 			flexShrink={0}
 			height={height}
 			borderStyle="single"
-			borderColor="gray"
+			borderColor="cyan"
 			flexDirection="column"
 			paddingX={1}
 			overflow="hidden"
 		>
 			{scanning ? (
-				<Text color="gray">scanning…</Text>
+				<Text color="yellow">scanning…</Text>
 			) : current ? (
 				<DetailBody hit={current} maxLines={height - 2} maxCols={width - 4} />
 			) : (
-				<Text color="gray">(no hit to preview)</Text>
+				<Text dimColor>(no hit to preview)</Text>
 			)}
 		</Box>
 	);
@@ -354,20 +360,22 @@ function DetailBody({
 				<Text color="cyan" bold>
 					{hit.projectName}
 				</Text>
-				<Text color="gray"> · </Text>
-				<Text color={roleColor(hit.role)}>{hit.role}</Text>
-				<Text color="gray"> · </Text>
-				<Text color="gray">{hit.messageTimestamp}</Text>
+				<Text dimColor> · </Text>
+				<Text color={roleColor(hit.role)} bold>
+					{hit.role}
+				</Text>
+				<Text dimColor> · </Text>
+				<Text dimColor>{hit.messageTimestamp}</Text>
 			</Box>
 			<Box>
-				<Text color="gray">path: </Text>
-				<Text color="gray" dimColor>
+				<Text color="cyan">path: </Text>
+				<Text dimColor>
 					{truncate(hit.projectPath, maxCols - 6)}
 				</Text>
 			</Box>
 			<Box>
-				<Text color="gray">file: </Text>
-				<Text color="gray" dimColor>
+				<Text color="cyan">file: </Text>
+				<Text dimColor>
 					{truncate(hit.filePath, maxCols - 6)}
 				</Text>
 			</Box>
@@ -383,12 +391,10 @@ function Footer(): React.ReactElement {
 		<Box
 			flexShrink={0}
 			borderStyle="single"
-			borderColor="gray"
+			borderColor="cyan"
 			paddingX={1}
 		>
-			<Text color="gray" dimColor>
-				↑/↓ navigate · q quit
-			</Text>
+			<Text dimColor>↑/↓ navigate · q quit</Text>
 		</Box>
 	);
 }
@@ -424,11 +430,14 @@ function formatRole(role: SessionHit["role"]): string {
 }
 
 function roleColor(role: SessionHit["role"]): string {
+	// Matches the implicit palette used by DashboardApp: cyan = primary accent,
+	// green = user/confirmation, magenta = secondary/tool, gray = chrome.
+	// Blue is avoided — too dark on many terminal themes.
 	switch (role) {
 		case "user":
 			return "green";
 		case "assistant":
-			return "blue";
+			return "cyan";
 		case "tool":
 			return "magenta";
 		case "system":
