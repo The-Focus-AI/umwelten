@@ -2,17 +2,16 @@
  * `umwelten search` — system-wide full-content search across every
  * Source Session on disk.
  *
- * Slice 4 (#86): adds the two-pane TUI as the default behaviour when a
- * query is passed and `--json` is not. `--json` continues to print a flat
- * array to stdout. The no-arg form still errors out for now — slice 5 (#87)
- * lands the empty TUI / editable query.
+ * Slice 5 (#87): the no-arg form drops into the TUI with an empty query;
+ * the TUI's query is now editable with debounced live re-scan. `--json`
+ * still requires a query and short-circuits to stdout output.
  *
  * Output matrix per PRD #82:
  *
- *   umwelten search "q"           → mount the two-pane TUI (slice 4)
+ *   umwelten search               → empty TUI w/ editable query (slice 5)
+ *   umwelten search "q"           → pre-populated TUI (slice 4)
  *   umwelten search "q" --json    → JSON to stdout, no TUI
  *   umwelten search "q" --no-tui  → plain rows to stdout, no TUI (slice 9)
- *   umwelten search               → empty TUI w/ editable query (slice 5)
  */
 
 import { Command } from "commander";
@@ -34,8 +33,8 @@ export const searchCommand = new Command("search")
 	)
 	.argument(
 		"[query]",
-		"Search query. Required in this build. " +
-			"In a later slice, omitting the query opens the empty TUI.",
+		"Optional search query. When omitted, the TUI launches with an empty " +
+			"editable query. Required with --json.",
 	)
 	.option("--json", "Print results as a JSON array to stdout, no TUI.")
 	.option(
@@ -43,19 +42,16 @@ export const searchCommand = new Command("search")
 		"Match the query case-sensitively (default: case-insensitive).",
 	)
 	.action(async (query: string | undefined, options: SearchActionOptions) => {
-		if (!query) {
-			process.stderr.write(
-				"umwelten search: a query argument is required in this build.\n" +
-					"  Usage: umwelten search 'your query'\n" +
-					"  (Empty-TUI / editable query lands in a later slice.)\n",
-			);
-			process.exit(2);
-		}
-
 		try {
 			if (options.json) {
-				// JSON path: short-circuit and skip the TUI entirely. Keeps the
-				// command scriptable and identical to slice 1 behaviour.
+				// JSON path needs a query — there's nothing to scan otherwise.
+				if (!query) {
+					process.stderr.write(
+						"umwelten search --json: a query argument is required.\n" +
+							"  Usage: umwelten search 'your query' --json\n",
+					);
+					process.exit(2);
+				}
 				const hits = await searchSessions(query, {
 					caseSensitive: options.caseSensitive ?? false,
 				});
@@ -63,13 +59,12 @@ export const searchCommand = new Command("search")
 				return;
 			}
 
-			// Default: mount the two-pane TUI. The runner does its own scan; we
-			// don't pre-scan here because the TUI shows a "scanning…" indicator
-			// while it runs and we want that path exercised in production too.
+			// Default: mount the TUI. An empty query is fine — the TUI launches
+			// with an empty editable field and waits for the user to type.
 			const { runSessionSearchTui } = await import(
 				"@umwelten/ui/tui/search/run.js"
 			);
-			await runSessionSearchTui(query, {
+			await runSessionSearchTui(query ?? "", {
 				scan: { caseSensitive: options.caseSensitive ?? false },
 			});
 		} catch (err) {

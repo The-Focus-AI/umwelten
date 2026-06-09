@@ -1,10 +1,10 @@
 /**
- * Session Search TUI — slice 4 (issue #86).
+ * Session Search TUI — slices 4 (#86) + 5 (#87).
  *
- * Two-pane Ink TUI used by `umwelten search "query"`:
+ * Two-pane Ink TUI used by `umwelten search [query]`:
  *
  *   ┌──────────────────────────────────────────────────────────────────┐
- *   │  Search: "score industry"   (2 hits)                             │   header
+ *   │  Search: "score industry_"   (2 hits)                            │   header
  *   ├──────────────────────────────────────────────────────────────────┤
  *   │ ▶ 2026-05-22  alpha  user  …score industry alpha…                │   hit
  *   │   2026-05-21  beta   asst  …score industry beta…                 │   list
@@ -12,104 +12,169 @@
  *   │  Full body for ALPHA hit — score industry alpha discussion.      │   detail
  *   │                                                                  │   pane
  *   ├──────────────────────────────────────────────────────────────────┤
- *   │  ↑/↓ navigate · q quit                                           │   footer
+ *   │  ↑/↓ navigate · type to search · Esc quit                        │   footer
  *   └──────────────────────────────────────────────────────────────────┘
  *
- * The query is **fixed at launch** in slice 4. Slice 5 (#87) makes it
- * editable with debounced re-scanning; slice 6 (#88) adds the
- * `Enter`-to-launch-dashboard intent; slice 7 (#89) makes `q` bounce back
- * to search instead of exiting; slice 9 (#91) wires `--no-tui`.
+ * Slice 5 makes the query editable: typing edits the field, a 200 ms
+ * debounce timer fires after the last keystroke and re-runs the scan.
+ * Empty query → empty list, no scanning indicator. The highlight resets
+ * to row 0 on each new result set. Esc / Ctrl+C exit (`q` is now a
+ * search character — slice 4's `q` exit gave way to inline editing).
  *
- * The scan is pre-run before mount in production (the caller awaits
- * SessionSearcher first, then renders), but the component still accepts a
- * pending `runScan` promise so tests can exercise the "scanning…" state
- * and so later slices can call the scanner from inside the component.
+ * Slice 6 (#88) will turn Enter into "launch the Exploration Browser
+ * dashboard pre-selected at this hit"; slice 7 (#89) will rebind `q`
+ * for the dashboard-launched case; slice 9 (#91) adds `--no-tui`.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { SessionHit } from "@umwelten/core/interaction/search/index.js";
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
 export interface SessionSearchTuiProps {
-	/** Query string echoed in the header. Fixed at mount for slice 4. */
-	query: string;
 	/**
-	 * Async function that runs the scan and returns the hits. Called once
-	 * on mount; while pending, the "scanning…" indicator is shown.
+	 * Initial query at mount. Empty string is valid — the TUI launches with
+	 * an empty editable field. The query is then owned by component state.
+	 */
+	initialQuery?: string;
+	/**
+	 * Async function that runs a scan for the given query and returns the
+	 * hits. Called on initial mount (if `initialQuery` is non-empty) and
+	 * on every debounced query change.
 	 *
 	 * In production this is a thin wrapper around `searchSessions(query)`;
 	 * tests pass a controllable promise.
 	 */
-	runScan: () => Promise<SessionHit[]>;
+	runScan: (query: string) => Promise<SessionHit[]>;
 	/**
-	 * Called on `q` / Ctrl+C. The caller is responsible for unmounting Ink
-	 * via the instance handle and for any process-level exit. The TUI also
-	 * calls Ink's `useApp().exit()` so the `render()` promise resolves.
+	 * Called on Esc / Ctrl+C. The caller is responsible for any
+	 * process-level exit; the TUI also calls Ink's `useApp().exit()` so the
+	 * `render()` promise resolves.
 	 */
 	onExit: () => void;
+	/**
+	 * Debounce window in milliseconds. Defaults to 200 ms per the PRD.
+	 * Tests override this so they can drive the timer without waiting.
+	 */
+	debounceMs?: number;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
+const DEFAULT_DEBOUNCE_MS = 200;
+
 export function SessionSearchTui(
 	props: SessionSearchTuiProps,
 ): React.ReactElement {
-	const { query, runScan, onExit } = props;
+	const {
+		initialQuery = "",
+		runScan,
+		onExit,
+		debounceMs = DEFAULT_DEBOUNCE_MS,
+	} = props;
 	const { exit } = useApp();
 	const { stdout } = useStdout();
 	const totalCols = Math.max(80, stdout?.columns ?? 100);
 	const totalRows = Math.max(20, (stdout?.rows ?? 30) - 1);
 
-	const [hits, setHits] = useState<SessionHit[] | null>(null);
+	// Editable query state. Owned by the component from this slice forward.
+	const [query, setQuery] = useState<string>(initialQuery);
+
+	// `hits` is null while the very first scan is in flight, [] for an
+	// empty-query state (no scan in progress), and a populated array
+	// otherwise. `scanning` is independent — true while a scan is in
+	// flight (initial *or* re-scan), false otherwise.
+	const [hits, setHits] = useState<SessionHit[]>(() => []);
+	const [scanning, setScanning] = useState<boolean>(initialQuery.trim() !== "");
 	const [scanError, setScanError] = useState<string | null>(null);
 	const [cursor, setCursor] = useState(0);
 
-	// Run the scan exactly once on mount.
+	// Track the latest scan so out-of-order results from a stale scan get
+	// discarded.
+	const scanSeqRef = useRef(0);
+
+	// Debounce-driven scan. The effect re-arms whenever the query changes;
+	// the timer fires after `debounceMs` and runs the scanner. An empty
+	// query short-circuits — clear the hit list, drop the indicator, no
+	// scan.
 	useEffect(() => {
-		let cancelled = false;
-		runScan()
-			.then((result) => {
-				if (cancelled) return;
-				setHits(result);
-			})
-			.catch((err: unknown) => {
-				if (cancelled) return;
-				setScanError(err instanceof Error ? err.message : String(err));
-				setHits([]);
-			});
+		const trimmed = query.trim();
+		if (trimmed === "") {
+			setScanning(false);
+			setScanError(null);
+			setHits([]);
+			setCursor(0);
+			return;
+		}
+		// Show the indicator immediately on a query change. Initial mount
+		// already initialized `scanning = true`.
+		setScanning(true);
+		const handle = setTimeout(() => {
+			const seq = ++scanSeqRef.current;
+			runScan(trimmed)
+				.then((result) => {
+					if (seq !== scanSeqRef.current) return;
+					setHits(result);
+					setScanning(false);
+					setScanError(null);
+					setCursor(0);
+				})
+				.catch((err: unknown) => {
+					if (seq !== scanSeqRef.current) return;
+					setScanError(err instanceof Error ? err.message : String(err));
+					setHits([]);
+					setScanning(false);
+				});
+		}, debounceMs);
 		return () => {
-			cancelled = true;
+			clearTimeout(handle);
 		};
-		// runScan intentionally not in deps — at most one scan per mount.
-		// Slice 5 will redo this when the query becomes editable.
-	}, []);
+	}, [query, runScan, debounceMs]);
 
-	const bounded = hits && hits.length > 0 ? Math.min(cursor, hits.length - 1) : 0;
-	const current = hits && hits.length > 0 ? hits[bounded] : null;
+	const bounded =
+		hits.length > 0 ? Math.min(cursor, hits.length - 1) : 0;
+	const current = hits.length > 0 ? hits[bounded] : null;
 
-	// Keyboard input.
+	// Keyboard input. Two modes share one handler:
+	//   - Navigation: ↑/↓
+	//   - Editing: backspace, printable characters
+	//   - Exit: Esc / Ctrl+C
+	// `q` is *not* an exit — it's a search character now. Esc-or-Ctrl+C is
+	// the only way out.
 	useInput((input, key) => {
-		if (input === "q" || (key.ctrl && input === "c")) {
+		if (key.escape || (key.ctrl && input === "c")) {
 			onExit();
 			exit();
 			return;
 		}
-		if (!hits || hits.length === 0) return;
-		if (key.downArrow || input === "j") {
+		if (key.downArrow) {
+			if (hits.length === 0) return;
 			setCursor((c) => Math.min(hits.length - 1, c + 1));
 			return;
 		}
-		if (key.upArrow || input === "k") {
+		if (key.upArrow) {
+			if (hits.length === 0) return;
 			setCursor((c) => Math.max(0, c - 1));
 			return;
+		}
+		if (key.backspace || key.delete) {
+			setQuery((q) => q.slice(0, -1));
+			return;
+		}
+		// Ignore tab / return / other non-printable control sequences.
+		if (key.tab || key.return) return;
+		// Any printable, non-modified character extends the query.
+		if (input && !key.ctrl && !key.meta) {
+			const printable = input.replace(/[^\x20-\x7e]/g, "");
+			if (printable.length > 0) {
+				setQuery((q) => q + printable);
+			}
 		}
 	});
 
 	// ── Render ────────────────────────────────────────────────────────────
 
-	const scanning = hits === null;
-	const hitCount = hits?.length ?? 0;
+	const hitCount = hits.length;
 
 	// Vertical layout: header (1) + table header (1) + list (flex) + detail (flex)
 	// + footer (1). Give the list and detail equal space within the remaining
@@ -131,12 +196,14 @@ export function SessionSearchTui(
 			<HitListHeader width={totalCols} />
 
 			<Box flexDirection="column" height={listHeight} overflow="hidden">
-				{scanning ? null : hits && hits.length === 0 ? (
+				{scanning ? null : hits.length === 0 ? (
 					<Box paddingX={1}>
-						<Text dimColor>no hits</Text>
+						<Text dimColor>
+							{query.trim() === "" ? "type to search" : "no hits"}
+						</Text>
 					</Box>
 				) : (
-					hits!.map((hit, i) => (
+					hits.map((hit, i) => (
 						<HitRow
 							key={`${hit.filePath}:${hit.messageTimestamp}:${i}`}
 							hit={hit}
@@ -176,7 +243,9 @@ function Header(props: HeaderProps): React.ReactElement {
 				Search:
 			</Text>
 			<Text> </Text>
-			<Text color="magenta">"{query}"</Text>
+			<Text color="magenta">"{query}</Text>
+			<Text color="yellow">_</Text>
+			<Text color="magenta">"</Text>
 			<Text dimColor> · </Text>
 			{scanning ? (
 				<Text color="yellow">scanning…</Text>
@@ -369,15 +438,11 @@ function DetailBody({
 			</Box>
 			<Box>
 				<Text color="cyan">path: </Text>
-				<Text dimColor>
-					{truncate(hit.projectPath, maxCols - 6)}
-				</Text>
+				<Text dimColor>{truncate(hit.projectPath, maxCols - 6)}</Text>
 			</Box>
 			<Box>
 				<Text color="cyan">file: </Text>
-				<Text dimColor>
-					{truncate(hit.filePath, maxCols - 6)}
-				</Text>
+				<Text dimColor>{truncate(hit.filePath, maxCols - 6)}</Text>
 			</Box>
 			{lines.map((line, i) => (
 				<Text key={i}>{line || " "}</Text>
@@ -394,7 +459,9 @@ function Footer(): React.ReactElement {
 			borderColor="cyan"
 			paddingX={1}
 		>
-			<Text dimColor>↑/↓ navigate · q quit</Text>
+			<Text dimColor>
+				type to search · ↑/↓ navigate · Esc quit
+			</Text>
 		</Box>
 	);
 }
