@@ -14,7 +14,7 @@
  * promise + Ink's render scheduler to settle.
  */
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render } from "ink-testing-library";
 import type { SessionHit } from "@umwelten/core/interaction/search/index.js";
 import { SessionSearchTui } from "./SessionSearchTui.js";
@@ -552,5 +552,155 @@ describe("SessionSearchTui — debounced re-scan", () => {
 		const frame = lastFrame() ?? "";
 		expect(frame).toMatch(/queue management/);
 		expect(frame).toMatch(/Body for GAMMA hit/);
+	});
+});
+
+// ── 6b. Scrolling ─────────────────────────────────────────────────────────
+
+describe("SessionSearchTui — scroll window", () => {
+	// Build many hits with unique, identifiable snippets so we can check
+	// which ones are actually in the rendered frame as the cursor moves.
+	const MANY_HITS: SessionHit[] = Array.from({ length: 40 }, (_, i) => ({
+		projectPath: "/Users/me/projects/proj",
+		projectName: "proj",
+		sessionId: `s-${i}`,
+		filePath: `/Users/me/.claude/projects/-Users-me-projects-proj/s-${i}.jsonl`,
+		messageTimestamp: new Date(2026, 0, 1, 12, i).toISOString(),
+		role: "user" as const,
+		snippet: `unique-snippet-${i}`,
+		fullMessageContent: `unique-body-${i}`,
+	}));
+
+	it("scrolls the visible window down once the cursor passes the bottom edge", async () => {
+		const { lastFrame, stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => MANY_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush();
+		// Initially the top of the list is visible — snippet-0 shows up.
+		expect(lastFrame() ?? "").toMatch(/unique-snippet-0/);
+
+		// Hold down ↓ past the bottom of the visible window. The default
+		// terminal in ink-testing-library is ~30 rows, so the list pane is
+		// ~13 rows; pressing ↓ 25× definitely scrolls.
+		for (let i = 0; i < 25; i++) stdin.write(ARROW_DOWN);
+		await flush();
+
+		const frame = lastFrame() ?? "";
+		// snippet-0 has scrolled off the top.
+		expect(frame).not.toMatch(/unique-snippet-0\b/);
+		// The detail pane shows the body of the currently-highlighted (later)
+		// hit, proving the cursor moved and the list followed.
+		expect(frame).toMatch(/unique-body-25/);
+	});
+
+	it("scrolls back to the top when the cursor returns there", async () => {
+		const { lastFrame, stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => MANY_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush();
+		// Scroll down.
+		for (let i = 0; i < 25; i++) stdin.write(ARROW_DOWN);
+		await flush();
+		// Then back to the top.
+		for (let i = 0; i < 25; i++) stdin.write(ARROW_UP);
+		await flush();
+
+		const frame = lastFrame() ?? "";
+		expect(frame).toMatch(/unique-snippet-0/);
+		expect(frame).toMatch(/unique-body-0/);
+	});
+});
+
+// ── 7. Open hit (slice 6, #88) ─────────────────────────────────────────────
+
+describe("SessionSearchTui — open hit on Enter", () => {
+	it("calls onSelectHit with the highlighted hit when Enter is pressed", async () => {
+		const onSelectHit = vi.fn();
+		const { stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => TWO_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+				onSelectHit={onSelectHit}
+			/>,
+		);
+		await flush();
+		stdin.write("\r"); // Enter
+		await flush();
+		expect(onSelectHit).toHaveBeenCalledTimes(1);
+		expect(onSelectHit).toHaveBeenCalledWith(
+			expect.objectContaining({ sessionId: "aaa", projectName: "alpha" }),
+		);
+	});
+
+	it("calls onSelectHit with the second hit after navigating down", async () => {
+		const onSelectHit = vi.fn();
+		const { stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => TWO_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+				onSelectHit={onSelectHit}
+			/>,
+		);
+		await flush();
+		stdin.write(ARROW_DOWN);
+		await flush();
+		stdin.write("\r"); // Enter
+		await flush();
+		expect(onSelectHit).toHaveBeenCalledWith(
+			expect.objectContaining({ sessionId: "bbb", projectName: "beta" }),
+		);
+	});
+
+	it("does nothing on Enter when there are no hits", async () => {
+		const onSelectHit = vi.fn();
+		const { stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => []}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+				onSelectHit={onSelectHit}
+			/>,
+		);
+		await flush();
+		stdin.write("\r");
+		await flush();
+		expect(onSelectHit).not.toHaveBeenCalled();
+	});
+
+	it("does not call onExit when Enter is pressed (Enter is not a quit)", async () => {
+		const onExit = vi.fn();
+		const onSelectHit = vi.fn();
+		const { stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => TWO_HITS}
+				onExit={onExit}
+				debounceMs={TEST_DEBOUNCE_MS}
+				onSelectHit={onSelectHit}
+			/>,
+		);
+		await flush();
+		stdin.write("\r");
+		await flush();
+		// onSelectHit fires; the search TUI unmounts via Ink's exit() so the
+		// caller's runner can drive the next step. The onExit callback is not
+		// invoked because Enter is "open hit", not "quit search".
+		expect(onSelectHit).toHaveBeenCalled();
+		expect(onExit).not.toHaveBeenCalled();
 	});
 });
