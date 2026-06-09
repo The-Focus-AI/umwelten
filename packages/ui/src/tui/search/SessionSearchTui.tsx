@@ -323,9 +323,12 @@ function DetailBody({
 	maxLines: number;
 	maxCols: number;
 }): React.ReactElement {
+	// Header now takes 3 lines (label row + project path + file path), so the
+	// body gets `maxLines - 3` for content.
+	const bodyMaxLines = Math.max(1, maxLines - 3);
 	const lines = useMemo(() => {
 		// Soft-wrap fullMessageContent to fit the pane width. Long messages are
-		// hard-truncated to maxLines (scrolling lands in a later slice).
+		// hard-truncated to fit (scrolling lands in a later slice).
 		const raw = hit.fullMessageContent.split(/\r?\n/);
 		const wrapped: string[] = [];
 		for (const line of raw) {
@@ -339,11 +342,11 @@ function DetailBody({
 				i += maxCols;
 			}
 		}
-		if (wrapped.length <= maxLines) return wrapped;
-		const truncated = wrapped.slice(0, maxLines - 1);
+		if (wrapped.length <= bodyMaxLines) return wrapped;
+		const truncated = wrapped.slice(0, bodyMaxLines - 1);
 		truncated.push(`… (${wrapped.length - truncated.length} more lines)`);
 		return truncated;
-	}, [hit.fullMessageContent, maxCols, maxLines]);
+	}, [hit.fullMessageContent, maxCols, bodyMaxLines]);
 
 	return (
 		<>
@@ -355,6 +358,18 @@ function DetailBody({
 				<Text color={roleColor(hit.role)}>{hit.role}</Text>
 				<Text color="gray"> · </Text>
 				<Text color="gray">{hit.messageTimestamp}</Text>
+			</Box>
+			<Box>
+				<Text color="gray">path: </Text>
+				<Text color="gray" dimColor>
+					{truncate(hit.projectPath, maxCols - 6)}
+				</Text>
+			</Box>
+			<Box>
+				<Text color="gray">file: </Text>
+				<Text color="gray" dimColor>
+					{truncate(hit.filePath, maxCols - 6)}
+				</Text>
 			</Box>
 			{lines.map((line, i) => (
 				<Text key={i}>{line || " "}</Text>

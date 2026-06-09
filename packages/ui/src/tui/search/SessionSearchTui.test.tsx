@@ -255,6 +255,34 @@ describe("SessionSearchTui — exit", () => {
 	});
 });
 
+// ── 5b. Detail pane shows path + file ─────────────────────────────────────
+
+describe("SessionSearchTui — detail pane path/file", () => {
+	it("shows the decoded project path and the session file path", async () => {
+		const hits: SessionHit[] = [
+			makeHit({
+				projectPath: "/Users/me/projects/alpha",
+				projectName: "alpha",
+				filePath: "/Users/me/.claude/projects/-Users-me-projects-alpha/abc.jsonl",
+				fullMessageContent: "Body content",
+			}),
+		];
+		const { lastFrame } = render(
+			<SessionSearchTui
+				query="x"
+				runScan={async () => hits}
+				onExit={() => {}}
+			/>,
+		);
+		await flush();
+		const frame = lastFrame() ?? "";
+		expect(frame).toMatch(/path:/);
+		expect(frame).toMatch(/\/Users\/me\/projects\/alpha/);
+		expect(frame).toMatch(/file:/);
+		expect(frame).toMatch(/abc\.jsonl/);
+	});
+});
+
 // ── 6. Header behaviour ────────────────────────────────────────────────────
 
 describe("SessionSearchTui — header", () => {
