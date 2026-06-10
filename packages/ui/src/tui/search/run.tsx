@@ -12,10 +12,14 @@
  *
  * Slice 6 (#88): pressing Enter on a hit unmounts the search TUI and launches
  * the Exploration Browser dashboard scoped to the hit's project, with the
- * hit's session pre-selected as the highlighted row. `q` in the launched
- * dashboard exits the process (slice 7 will change that to bounce back to
- * search). When the dashboard returns, this runner returns — search is a
- * one-way trip in slice 6.
+ * hit's session pre-selected as the highlighted row.
+ *
+ * Slice 7 (#89): the search ↔ dashboard trip is a round trip. The dashboard
+ * is launched with `returnToCaller`, so `q` resolves it with `"return"`
+ * instead of exiting; the loop then re-mounts search with the snapshot
+ * captured at selection time (same query, same hit list, same highlight) and
+ * without re-running the scan. Ctrl+C in the dashboard — or quitting the
+ * search TUI itself with Esc — still ends the whole run.
  */
 import React from "react";
 import { render } from "ink";
@@ -25,7 +29,10 @@ import {
 	type SearchOptions,
 	type SessionHit,
 } from "@umwelten/core/interaction/search/index.js";
-import { SessionSearchTui } from "./SessionSearchTui.js";
+import {
+	SessionSearchTui,
+	type SearchTuiSnapshot,
+} from "./SessionSearchTui.js";
 
 export interface RunSessionSearchTuiOptions {
 	/** Forwarded to `searchSessions` on every scan. */
@@ -43,66 +50,123 @@ const DEFAULT_DASHBOARD_MODEL: ModelDetails = {
 	name: "gemini-3-flash-preview",
 };
 
+// ── Round-trip loop (slice 7, #89) ──────────────────────────────────────────
+
+/** A hit the user opened, plus the TUI state to restore on bounce-back. */
+export interface SearchSelection {
+	hit: SessionHit;
+	snapshot: SearchTuiSnapshot;
+}
+
+/**
+ * Injected seams for `runSearchDashboardLoop`. Production wires these to the
+ * Ink mounts; tests drive the loop without a terminal.
+ */
+export interface SearchLoopDeps {
+	/**
+	 * Mount the search TUI. Resolves with the user's selection, or null when
+	 * the user quit search (Esc / Ctrl+C) — null ends the loop.
+	 */
+	mountSearch: (mount: {
+		query: string;
+		restore?: SearchTuiSnapshot;
+	}) => Promise<SearchSelection | null>;
+	/**
+	 * Launch the Exploration Browser dashboard for a hit. Resolves "return"
+	 * when the user pressed `q` (bounce back to search) or "exit" when the
+	 * dashboard ended for good (Ctrl+C).
+	 */
+	launchDashboard: (hit: SessionHit) => Promise<"exit" | "return">;
+}
+
+/**
+ * The search ↔ dashboard round trip: search until the user opens a hit,
+ * show the dashboard, and on `q` re-mount search with the preserved
+ * snapshot. Repeats until the user quits search itself or hard-exits the
+ * dashboard.
+ */
+export async function runSearchDashboardLoop(
+	initialQuery: string,
+	deps: SearchLoopDeps,
+): Promise<void> {
+	let restore: SearchTuiSnapshot | undefined;
+	while (true) {
+		const selection = await deps.mountSearch({
+			query: restore?.query ?? initialQuery,
+			restore,
+		});
+		if (!selection) return;
+		restore = selection.snapshot;
+		const outcome = await deps.launchDashboard(selection.hit);
+		if (outcome === "exit") return;
+	}
+}
+
+// ── Production wiring ────────────────────────────────────────────────────────
+
 export async function runSessionSearchTui(
 	initialQuery: string,
 	opts: RunSessionSearchTuiOptions = {},
 ): Promise<void> {
 	const scanOpts = opts.scan ?? {};
+	const runScan = async (q: string): Promise<SessionHit[]> => {
+		return searchSessions(q, scanOpts);
+	};
 
-	let selectedHit: SessionHit | null = null;
+	await runSearchDashboardLoop(initialQuery, {
+		mountSearch: async ({ query, restore }) => {
+			let selection: SearchSelection | null = null;
 
-	await new Promise<void>((resolve) => {
-		let exited = false;
-		const handleExit = () => {
-			if (exited) return;
-			exited = true;
-			resolve();
-		};
+			await new Promise<void>((resolve) => {
+				let exited = false;
+				const handleExit = () => {
+					if (exited) return;
+					exited = true;
+					resolve();
+				};
 
-		const runScan = async (q: string): Promise<SessionHit[]> => {
-			return searchSessions(q, scanOpts);
-		};
+				const app = (
+					<SessionSearchTui
+						initialQuery={query}
+						initialHits={restore?.hits}
+						initialCursor={restore?.cursorIndex}
+						runScan={runScan}
+						onExit={handleExit}
+						onSelectHit={(hit, snapshot) => {
+							// Remember the hit and the TUI state; the dashboard
+							// launch happens after Ink fully unmounts so the
+							// alt-screen / raw mode is released before the next
+							// TUI takes over.
+							selection = { hit, snapshot };
+						}}
+					/>
+				);
 
-		const app = (
-			<SessionSearchTui
-				initialQuery={initialQuery}
-				runScan={runScan}
-				onExit={handleExit}
-				onSelectHit={(hit) => {
-					// Remember the hit; the dashboard launch happens after Ink
-					// fully unmounts so the alt-screen / raw mode is released
-					// before the next TUI takes over.
-					selectedHit = hit;
-				}}
-			/>
-		);
+				const instance = render(app, {
+					stdin: process.stdin,
+					stdout: process.stdout,
+				});
 
-		const instance = render(app, {
-			stdin: process.stdin,
-			stdout: process.stdout,
-		});
+				void instance.waitUntilExit().then(() => {
+					handleExit();
+				});
+			});
 
-		void instance.waitUntilExit().then(() => {
-			handleExit();
-		});
-	});
-
-	if (!selectedHit) return;
-
-	// Slice 6 (#88): the user picked a hit. Hand off to the Exploration
-	// Browser dashboard, scoped to the hit's project with the hit's session
-	// pre-selected. The dashboard runs its own event loop until the user
-	// quits with `q` (slice 7 will make `q` bounce back to search results).
-	const { initializeAdapters } = await import(
-		"@umwelten/core/interaction/adapters/index.js"
-	);
-	initializeAdapters();
-	const { runExploreBrowseTui } = await import("../introspect/browse.js");
-	const hit: SessionHit = selectedHit;
-	await runExploreBrowseTui({
-		projectPath: hit.projectPath,
-		targetPath: hit.projectPath,
-		model: opts.model ?? DEFAULT_DASHBOARD_MODEL,
-		preSelectSessionId: hit.sessionId,
+			return selection;
+		},
+		launchDashboard: async (hit) => {
+			const { initializeAdapters } = await import(
+				"@umwelten/core/interaction/adapters/index.js"
+			);
+			initializeAdapters();
+			const { runExploreBrowseTui } = await import("../introspect/browse.js");
+			return runExploreBrowseTui({
+				projectPath: hit.projectPath,
+				targetPath: hit.projectPath,
+				model: opts.model ?? DEFAULT_DASHBOARD_MODEL,
+				preSelectSessionId: hit.sessionId,
+				returnToCaller: true,
+			});
+		},
 	});
 }

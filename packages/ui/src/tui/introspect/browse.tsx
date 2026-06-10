@@ -28,7 +28,23 @@ export interface RunBrowseTuiOptions {
 	 * after detail/transcript/digest views start with the cursor at the top.
 	 */
 	preSelectSessionId?: string;
+	/**
+	 * When true, `q` in the dashboard resolves the browse loop with
+	 * `"return"` instead of exiting, so the caller (the Session Search TUI,
+	 * slice 7 #89) can re-mount itself. Ctrl+C always resolves `"exit"`.
+	 * Defaults to false — direct launches (`umwelten browse`) exit on `q`.
+	 */
+	returnToCaller?: boolean;
 }
+
+/**
+ * How the browse loop ended:
+ * - `"exit"`   — the user quit (q on a direct launch, or Ctrl+C anywhere);
+ *                the caller should let the process end.
+ * - `"return"` — the user pressed `q` in a dashboard mounted with
+ *                `returnToCaller`; the caller should take control back.
+ */
+export type BrowseTuiOutcome = "exit" | "return";
 
 // ── Exploration-oriented browser (v2) — command-center dashboard ────────
 
@@ -154,6 +170,8 @@ async function showDashboardTui(args: {
 	onLaunchExtraction: () => void;
 	/** Pre-select the matching row on mount (Session Search → open hit). */
 	preSelectSessionId?: string;
+	/** Forwarded to DashboardApp: `q` emits a return intent (slice 7, #89). */
+	returnToCaller?: boolean;
 }): Promise<DashboardIntent> {
 	let intent: DashboardIntent = { kind: "none" };
 
@@ -192,6 +210,7 @@ async function showDashboardTui(args: {
 			subscribeToTitleUpdates={args.bus.subscribeToTitles}
 			initialTitles={args.bus.liveTitles}
 			preSelectSessionId={args.preSelectSessionId}
+			returnToCaller={args.returnToCaller}
 		/>
 	);
 
@@ -346,7 +365,7 @@ async function runExtractionPass(args: {
  */
 export async function runExploreBrowseTui(
 	opts: RunBrowseTuiOptions,
-): Promise<void> {
+): Promise<BrowseTuiOutcome> {
 	const {
 		projectPath: rawProject,
 		targetPath: rawTarget,
@@ -354,6 +373,7 @@ export async function runExploreBrowseTui(
 		model,
 		force = false,
 		preSelectSessionId,
+		returnToCaller = false,
 	} = opts;
 	const projectPath = resolve(rawProject);
 	const targetPath = resolve(rawTarget);
@@ -383,7 +403,9 @@ export async function runExploreBrowseTui(
 			console.log(chalk.yellow("No explorations found for this project."));
 			console.log(chalk.dim(`Project: ${projectPath}`));
 			if (sessionsDir) console.log(chalk.dim(`Sessions dir: ${sessionsDir}`));
-			return;
+			// When launched from search, hand control back instead of killing
+			// the process — the user can pick a different hit.
+			return returnToCaller ? "return" : "exit";
 		}
 
 		const modelLabel = `${model.provider}:${model.name}`;
@@ -397,6 +419,7 @@ export async function runExploreBrowseTui(
 			startupConfirm: !askedAtLeastOnce,
 			bus,
 			preSelectSessionId: pendingPreSelect,
+			returnToCaller,
 			onLaunchExtraction: () => {
 				askedAtLeastOnce = true;
 				if (extractionLaunched) {
@@ -427,7 +450,8 @@ export async function runExploreBrowseTui(
 		// cursor back to the same row.
 		pendingPreSelect = undefined;
 
-		if (intent.kind === "none") return;
+		if (intent.kind === "none") return "exit";
+		if (intent.kind === "return") return "return";
 
 		const entry = intent.entry;
 

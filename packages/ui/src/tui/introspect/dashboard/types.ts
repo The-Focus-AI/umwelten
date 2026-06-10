@@ -28,9 +28,14 @@ export type DashboardStatus =
 /**
  * Intent returned from the dashboard when the user picks an action.
  * The CLI loop acts on this after the TUI exits.
+ *
+ * `none` ends the browse loop entirely. `return` hands control back to the
+ * caller that launched the dashboard (the Session Search TUI, slice 7 #89) —
+ * it is only emitted when the dashboard was mounted with `returnToCaller`.
  */
 export type DashboardIntent =
 	| { kind: "none" }
+	| { kind: "return" }
 	| { kind: "detail"; entry: ExplorationBrowserEntry }
 	| { kind: "transcript"; entry: ExplorationBrowserEntry }
 	| { kind: "digest"; entry: ExplorationBrowserEntry }

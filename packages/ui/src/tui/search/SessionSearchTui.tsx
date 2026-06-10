@@ -32,6 +32,19 @@ import type { SessionHit } from "@umwelten/core/interaction/search/index.js";
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
+/**
+ * Snapshot of the search TUI's interactive state at the moment a hit is
+ * opened (slice 7, #89). The runner holds onto it so that when the launched
+ * dashboard bounces back with `q`, search re-mounts exactly where the user
+ * left it — same query, same hit list, same highlighted row — without
+ * re-running the scan.
+ */
+export interface SearchTuiSnapshot {
+	query: string;
+	hits: SessionHit[];
+	cursorIndex: number;
+}
+
 export interface SessionSearchTuiProps {
 	/**
 	 * Initial query at mount. Empty string is valid — the TUI launches with
@@ -63,8 +76,21 @@ export interface SessionSearchTuiProps {
 	 * The TUI also calls Ink's `useApp().exit()` to unmount cleanly so the
 	 * caller can launch the Exploration Browser dashboard for the hit's
 	 * project. If omitted, Enter is a no-op.
+	 *
+	 * The second argument (slice 7, #89) is a snapshot of the TUI state at
+	 * selection time, so the caller can re-mount search with the same query,
+	 * hit list, and highlight when the dashboard returns.
 	 */
-	onSelectHit?: (hit: SessionHit) => void;
+	onSelectHit?: (hit: SessionHit, snapshot: SearchTuiSnapshot) => void;
+	/**
+	 * Seed the hit list at mount and skip the initial scan for
+	 * `initialQuery` (slice 7, #89). Used when re-mounting search after a
+	 * dashboard round trip so the user lands on the same results without
+	 * waiting for a re-scan. Subsequent query edits re-scan as usual.
+	 */
+	initialHits?: SessionHit[];
+	/** Highlight this row index at mount (clamped to the hit list). */
+	initialCursor?: number;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -80,6 +106,8 @@ export function SessionSearchTui(
 		onExit,
 		debounceMs = DEFAULT_DEBOUNCE_MS,
 		onSelectHit,
+		initialHits,
+		initialCursor,
 	} = props;
 	const { exit } = useApp();
 	const { stdout } = useStdout();
@@ -93,15 +121,25 @@ export function SessionSearchTui(
 	// empty-query state (no scan in progress), and a populated array
 	// otherwise. `scanning` is independent — true while a scan is in
 	// flight (initial *or* re-scan), false otherwise.
-	const [hits, setHits] = useState<SessionHit[]>(() => []);
-	const [scanning, setScanning] = useState<boolean>(initialQuery.trim() !== "");
+	const [hits, setHits] = useState<SessionHit[]>(() => initialHits ?? []);
+	const [scanning, setScanning] = useState<boolean>(
+		initialQuery.trim() !== "" && initialHits === undefined,
+	);
 	const [scanError, setScanError] = useState<string | null>(null);
-	const [cursor, setCursor] = useState(0);
+	const [cursor, setCursor] = useState(initialCursor ?? 0);
 	const [scrollOffset, setScrollOffset] = useState(0);
 
 	// Track the latest scan so out-of-order results from a stale scan get
 	// discarded.
 	const scanSeqRef = useRef(0);
+
+	// When the caller seeds hits (re-mount after a dashboard round trip,
+	// slice 7 #89), the first run of the debounce effect must not re-scan —
+	// the seeded hits ARE the results for `initialQuery`. Consumed once;
+	// later query edits re-scan as usual.
+	const skipInitialScanRef = useRef(
+		initialHits !== undefined && initialQuery.trim() !== "",
+	);
 
 	// Debounce-driven scan. The effect re-arms whenever the query changes;
 	// the timer fires after `debounceMs` and runs the scanner. An empty
@@ -114,6 +152,10 @@ export function SessionSearchTui(
 			setScanError(null);
 			setHits([]);
 			setCursor(0);
+			return;
+		}
+		if (skipInitialScanRef.current) {
+			skipInitialScanRef.current = false;
 			return;
 		}
 		// Show the indicator immediately on a query change. Initial mount
@@ -164,7 +206,7 @@ export function SessionSearchTui(
 			// project. We exit() to unmount Ink so the dashboard can take
 			// over the terminal.
 			if (!current || !onSelectHit) return;
-			onSelectHit(current);
+			onSelectHit(current, { query, hits, cursorIndex: bounded });
 			exit();
 			return;
 		}
