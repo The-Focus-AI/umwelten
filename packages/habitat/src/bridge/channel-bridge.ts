@@ -26,6 +26,8 @@ import type {
   ChannelBridgeOptions,
   ChannelRuntimeMode,
   RouteResolution,
+  RuntimeContext,
+  RuntimeRunner,
 } from './types.js';
 
 // ── Cached interaction entry ─────────────────────────────────────────
@@ -49,13 +51,34 @@ export type BuildAgentStimulusFn = (
 ) => Promise<Stimulus>;
 
 /**
- * Callback to run a message through the Claude Agent SDK.
- * Injected by the caller so ChannelBridge doesn't import claude-sdk-runner.ts directly.
+ * Legacy callback to run a message through the Claude Agent SDK.
+ * Kept for callers that haven't moved to the RuntimeRunner seam (#118);
+ * the bridge wraps it into a RuntimeRunner internally. New code should
+ * register `runtimeRunners: { 'claude-sdk': createClaudeSdkRuntimeRunner() }`.
  */
 export type RunClaudeSdkFn = (
   prompt: string,
   options: { cwd: string; apiKey?: string; maxTurns?: number },
 ) => Promise<{ content: string; success: boolean; errors: string[] }>;
+
+/** Wrap the legacy claude-sdk callback in the RuntimeRunner contract. */
+function wrapLegacyClaudeSdkFn(fn: RunClaudeSdkFn): RuntimeRunner {
+  return {
+    async run(prompt, ctx) {
+      const result = await fn(prompt, {
+        cwd: ctx.agent.projectPath,
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        maxTurns: 25,
+      });
+      // The legacy fn surfaces no native session id — no ref to record.
+      return {
+        content: result.content,
+        success: result.success,
+        errors: result.errors,
+      };
+    },
+  };
+}
 
 export class ChannelBridge {
   private host: AgentHost;
@@ -64,14 +87,17 @@ export class ChannelBridge {
   private platformInstruction?: string;
   private routingPath?: string;
   private buildAgentStimulusFn?: BuildAgentStimulusFn;
-  private runClaudeSdkFn?: RunClaudeSdkFn;
+  private runtimeRunners = new Map<ChannelRuntimeMode, RuntimeRunner>();
 
   constructor(
     host: AgentHost,
     options?: ChannelBridgeOptions & {
       routingPath?: string;
       buildAgentStimulus?: BuildAgentStimulusFn;
+      /** Legacy seam — wrapped into a claude-sdk RuntimeRunner. */
       runClaudeSdk?: RunClaudeSdkFn;
+      /** Runners for non-default runtimes (#118). Takes precedence. */
+      runtimeRunners?: Partial<Record<ChannelRuntimeMode, RuntimeRunner>>;
     },
   ) {
     this.host = host;
@@ -79,7 +105,12 @@ export class ChannelBridge {
     this.platformInstruction = options?.platformInstruction;
     this.routingPath = options?.routingPath;
     this.buildAgentStimulusFn = options?.buildAgentStimulus;
-    this.runClaudeSdkFn = options?.runClaudeSdk;
+    if (options?.runClaudeSdk) {
+      this.runtimeRunners.set('claude-sdk', wrapLegacyClaudeSdkFn(options.runClaudeSdk));
+    }
+    for (const [mode, runner] of Object.entries(options?.runtimeRunners ?? {})) {
+      if (runner) this.runtimeRunners.set(mode as ChannelRuntimeMode, runner);
+    }
   }
 
   // ── Public API ───────────────────────────────────────────────────
@@ -97,10 +128,10 @@ export class ChannelBridge {
     events: BridgeEventHandlers,
   ): Promise<void> {
     try {
-      // Check if this channel routes to claude-sdk
+      // Non-default runtimes dispatch through the RuntimeRunner seam (#118)
       const route = await this.resolveRoute(msg.channelKey, msg.parentChannelKey);
-      if (route.kind === 'agent' && route.runtime === 'claude-sdk') {
-        return await this.handleClaudeSdk(msg, route.agentId, events);
+      if (route.kind === 'agent' && route.runtime !== 'default') {
+        return await this.handleRuntime(msg, route.agentId, route.runtime, events);
       }
 
       const entry = await this.getOrCreateEntry(msg);
@@ -241,27 +272,33 @@ export class ChannelBridge {
     return this.host.getAgents().map(a => ({ id: a.id, name: a.name }));
   }
 
-  // ── Claude SDK pass-through ────────────────────────────────────────
+  // ── Non-default runtime dispatch (#118) ────────────────────────────
 
   /**
-   * Handle a message via Claude Agent SDK.
-   * Spawns a Claude Code subprocess with full tools against the agent's project.
+   * Handle a message via a registered RuntimeRunner (claude-sdk, pi, …).
+   *
+   * The runner does the work; the bridge owns the envelope: it creates
+   * the habitat session, writes the minimal user/assistant transcript
+   * pair, and records the runner's nativeSessionRef in the session
+   * metadata so the full native trace is linked from the Source Session.
    */
-  private async handleClaudeSdk(
+  private async handleRuntime(
     msg: ChannelMessage,
     agentId: string,
+    runtime: ChannelRuntimeMode,
     events: BridgeEventHandlers,
   ): Promise<void> {
     const agent = this.host.getAgent(agentId);
     if (!agent) {
-      const err = `Agent "${agentId}" not found for Claude SDK pass-through`;
+      const err = `Agent "${agentId}" not found for ${runtime} runtime`;
       if (events.onError) events.onError(err);
       else console.error(`[ChannelBridge] ${err}`);
       return;
     }
 
-    if (!this.runClaudeSdkFn) {
-      const err = 'Claude SDK pass-through not available (runClaudeSdk not injected)';
+    const runner = this.runtimeRunners.get(runtime);
+    if (!runner) {
+      const err = `No runner registered for runtime "${runtime}" (channel ${msg.channelKey})`;
       if (events.onError) events.onError(err);
       else console.error(`[ChannelBridge] ${err}`);
       return;
@@ -273,25 +310,39 @@ export class ChannelBridge {
       const identifier = msg.channelKey.slice(msg.channelKey.indexOf(':') + 1);
       const session = await this.host.getOrCreateSession(platform as any, identifier);
 
-      const result = await this.runClaudeSdkFn(msg.text, {
-        cwd: agent.projectPath,
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        maxTurns: 25,
-      });
+      const ctx: RuntimeContext = {
+        agent,
+        sessionId: session.sessionId,
+        sessionDir: session.sessionDir,
+        channelKey: msg.channelKey,
+      };
 
+      const result = await runner.run(msg.text, ctx, events);
       const content = result.content;
 
-      // Write a minimal transcript (user + assistant)
+      // Write the envelope summary (user + assistant). For non-default
+      // runtimes this is a summary alongside a link, not the only record.
       await writeSessionTranscript(session.sessionDir, [
         { role: 'user', content: msg.text },
         { role: 'assistant', content: content || '(no text)' },
       ]);
 
+      // Record the native session linkage in meta.json (#118).
+      if (result.nativeSessionRef) {
+        await this.host
+          .updateSessionMetadata(session.sessionId, {
+            nativeSessionRef: result.nativeSessionRef,
+          })
+          .catch(() => {
+            /* non-fatal — linkage is best-effort */
+          });
+      }
+
       if (!result.success && events.onError) {
-        const hint = result.errors.length > 0
+        const hint = result.errors?.length
           ? result.errors.join('; ')
-          : 'Claude SDK returned no content';
-        events.onError(`Claude SDK pass-through: ${hint}. Check ANTHROPIC_API_KEY.`);
+          : `${runtime} returned no content`;
+        events.onError(`${runtime} runtime: ${hint}. Check ANTHROPIC_API_KEY.`);
         return;
       }
 
@@ -303,9 +354,9 @@ export class ChannelBridge {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (events.onError) {
-        events.onError(`Claude SDK pass-through failed: ${message}`);
+        events.onError(`${runtime} runtime failed: ${message}`);
       } else {
-        console.error(`[ChannelBridge] Claude SDK error for ${msg.channelKey}:`, err);
+        console.error(`[ChannelBridge] ${runtime} error for ${msg.channelKey}:`, err);
       }
     }
   }

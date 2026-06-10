@@ -8,7 +8,10 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
-import { runClaudeSDK } from "../../claude-sdk-runner.js";
+import {
+	claudeNativeSessionPath,
+	runClaudeSDK,
+} from "../../claude-sdk-runner.js";
 import type { AgentRunnerToolsContext } from "./context.js";
 
 export function createAgentAskClaudeTool(
@@ -76,6 +79,18 @@ export function createAgentAskClaudeTool(
 					numTurns: result.numTurns,
 					durationMs: result.durationMs,
 					errors: result.errors.length > 0 ? result.errors : undefined,
+					// Same linkage as channel-bound claude-sdk runs (#118): the
+					// full tool-call trace is reachable from the calling session.
+					nativeSessionRef: result.sessionId
+						? {
+								runtime: "claude-sdk",
+								nativeSessionId: result.sessionId,
+								nativeSessionPath: claudeNativeSessionPath(
+									agent.projectPath,
+									result.sessionId,
+								),
+							}
+						: undefined,
 				};
 			} catch (err: any) {
 				return {
