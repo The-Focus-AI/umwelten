@@ -100,6 +100,7 @@ export class GaiaRegistryManager {
 			},
 			secretBindings: options.secretBindings ?? [],
 			apiKey: generateApiKey(),
+			...(options.image ? { image: options.image } : {}),
 			createdAt: new Date().toISOString(),
 		};
 
@@ -119,7 +120,7 @@ export class GaiaRegistryManager {
 		updates: Partial<
 			Pick<
 				GaiaHabitatEntry,
-				"name" | "config" | "secretBindings" | "containerPort"
+				"name" | "config" | "secretBindings" | "containerPort" | "image"
 			>
 		>,
 	): Promise<GaiaHabitatEntry> {
@@ -135,6 +136,7 @@ export class GaiaRegistryManager {
 			entry.secretBindings = updates.secretBindings;
 		if (updates.containerPort !== undefined)
 			entry.containerPort = updates.containerPort;
+		if (updates.image !== undefined) entry.image = updates.image;
 
 		await this.save();
 		return entry;

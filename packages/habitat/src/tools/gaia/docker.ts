@@ -44,7 +44,8 @@ function spawnWithStdin(
 }
 
 const NETWORK_NAME = "gaia-net";
-const IMAGE_NAME = "habitat";
+/** Default image every habitat runs unless its registry entry says otherwise. */
+export const DEFAULT_IMAGE_NAME = "habitat";
 const CONTAINER_PREFIX = "gaia-";
 
 /** First port in the habitat container range. */
@@ -80,7 +81,7 @@ export class DockerManager {
   async buildImage(): Promise<string> {
     const { stdout, stderr } = await execFile(
       "docker",
-      ["build", "-t", IMAGE_NAME, "."],
+      ["build", "-t", DEFAULT_IMAGE_NAME, "."],
       { cwd: this.projectRoot, maxBuffer: 10 * 1024 * 1024 },
     );
     return stdout + stderr;
@@ -115,6 +116,16 @@ export class DockerManager {
     const name = containerName(entry.id);
     const volume = volumeName(entry.id);
 
+    // Per-entry image: a missing custom image is a hard error, never a
+    // silent fallback to the default.
+    const image = entry.image ?? DEFAULT_IMAGE_NAME;
+    if (entry.image && !(await this.imageExists(entry.image))) {
+      throw new Error(
+        `Image "${entry.image}" for habitat "${entry.id}" not found. ` +
+          `Build or pull it first — the Gaia build task only builds the default "${DEFAULT_IMAGE_NAME}" image.`,
+      );
+    }
+
     // Stop + remove if already exists
     await this.stopContainer(entry.id).catch(() => {});
 
@@ -128,7 +139,7 @@ export class DockerManager {
       "-v", `${volume}:/data`,
       "--env", `HABITAT_API_KEY=${entry.apiKey}`,
       "-p", `127.0.0.1:${hostPort}:8080`,
-      IMAGE_NAME,
+      image,
     ];
 
     await execFile("docker", args);
@@ -245,10 +256,10 @@ export class DockerManager {
     }
   }
 
-  /** Check if the habitat image exists. */
-  async imageExists(): Promise<boolean> {
+  /** Check if an image exists (default: the standard habitat image). */
+  async imageExists(image: string = DEFAULT_IMAGE_NAME): Promise<boolean> {
     try {
-      await execFile("docker", ["image", "inspect", IMAGE_NAME]);
+      await execFile("docker", ["image", "inspect", image]);
       return true;
     } catch {
       return false;
