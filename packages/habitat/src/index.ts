@@ -79,6 +79,10 @@ export {
 export { HabitatSessionManager } from "./session-manager.js";
 export type { SessionManagerSessionOptions } from "./session-manager.js";
 
+// ── Context retrieval (A2A contextId → Source Session) ──────────────────
+export { resolveContextSession } from "./context-resolver.js";
+export type { ResolvedContext, NativeSessionRef } from "./context-resolver.js";
+
 // ── Discord ─────────────────────────────────────────────────────────────
 // Discord channel → agent routing was unified with the platform-agnostic
 // bridge/routing.ts in Wave E. Use loadRouting / saveRouting / setChannelRoute
