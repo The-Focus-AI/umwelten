@@ -23,14 +23,29 @@
  *
  * Slice 6 turns Enter into "launch the Exploration Browser dashboard
  * pre-selected at this hit" (via the `onSelectHit` prop and Ink's
- * `exit()`). Slice 7 (#89) will rebind exit for the dashboard-launched
- * case; slice 9 (#91) adds `--no-tui`.
+ * `exit()`). Slice 7 (#89) makes that a round trip: `onSelectHit` carries a
+ * state snapshot (query, hits, cursor), and `initialHits` / `initialCursor`
+ * let the runner re-mount this TUI exactly where the user left it — without
+ * re-running the scan. Slice 9 (#91) adds `--no-tui`.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { SessionHit } from "@umwelten/core/interaction/search/index.js";
 
 // ── Props ───────────────────────────────────────────────────────────────────
+
+/**
+ * Snapshot of the search TUI's interactive state, taken at the moment the
+ * user opens a hit (slice 7, #89). The runner holds onto it while the
+ * dashboard owns the terminal and feeds it back via `initialHits` /
+ * `initialCursor` so a re-mounted search TUI resumes exactly where the user
+ * left off — same query, same hit list, same highlighted row.
+ */
+export interface SearchTuiSnapshot {
+	query: string;
+	hits: SessionHit[];
+	cursor: number;
+}
 
 export interface SessionSearchTuiProps {
 	/**
@@ -63,8 +78,20 @@ export interface SessionSearchTuiProps {
 	 * The TUI also calls Ink's `useApp().exit()` to unmount cleanly so the
 	 * caller can launch the Exploration Browser dashboard for the hit's
 	 * project. If omitted, Enter is a no-op.
+	 *
+	 * Slice 7 (#89): also receives a snapshot of the current search state so
+	 * the caller can re-mount the TUI with it after the dashboard returns.
 	 */
-	onSelectHit?: (hit: SessionHit) => void;
+	onSelectHit?: (hit: SessionHit, snapshot: SearchTuiSnapshot) => void;
+	/**
+	 * Restored hit list for a re-mount after a dashboard round trip (slice 7,
+	 * #89). When set, the initial debounced scan is skipped — the list is
+	 * trusted as-is and no "scanning…" indicator shows. Subsequent query
+	 * edits re-scan as usual.
+	 */
+	initialHits?: SessionHit[];
+	/** Restored highlight index, paired with `initialHits`. */
+	initialCursor?: number;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -80,6 +107,8 @@ export function SessionSearchTui(
 		onExit,
 		debounceMs = DEFAULT_DEBOUNCE_MS,
 		onSelectHit,
+		initialHits,
+		initialCursor,
 	} = props;
 	const { exit } = useApp();
 	const { stdout } = useStdout();
@@ -93,15 +122,23 @@ export function SessionSearchTui(
 	// empty-query state (no scan in progress), and a populated array
 	// otherwise. `scanning` is independent — true while a scan is in
 	// flight (initial *or* re-scan), false otherwise.
-	const [hits, setHits] = useState<SessionHit[]>(() => []);
-	const [scanning, setScanning] = useState<boolean>(initialQuery.trim() !== "");
+	const [hits, setHits] = useState<SessionHit[]>(() => initialHits ?? []);
+	const [scanning, setScanning] = useState<boolean>(
+		initialQuery.trim() !== "" && initialHits === undefined,
+	);
 	const [scanError, setScanError] = useState<string | null>(null);
-	const [cursor, setCursor] = useState(0);
+	const [cursor, setCursor] = useState(initialCursor ?? 0);
 	const [scrollOffset, setScrollOffset] = useState(0);
 
 	// Track the latest scan so out-of-order results from a stale scan get
 	// discarded.
 	const scanSeqRef = useRef(0);
+
+	// Restored mounts (slice 7, #89) come with a trusted hit list — the first
+	// run of the debounce effect must not re-scan or the restored cursor
+	// would be wiped by the result handler. One-shot: query edits re-arm the
+	// effect and scan as usual.
+	const skipInitialScanRef = useRef(initialHits !== undefined);
 
 	// Debounce-driven scan. The effect re-arms whenever the query changes;
 	// the timer fires after `debounceMs` and runs the scanner. An empty
@@ -114,6 +151,10 @@ export function SessionSearchTui(
 			setScanError(null);
 			setHits([]);
 			setCursor(0);
+			return;
+		}
+		if (skipInitialScanRef.current) {
+			skipInitialScanRef.current = false;
 			return;
 		}
 		// Show the indicator immediately on a query change. Initial mount
@@ -162,9 +203,11 @@ export function SessionSearchTui(
 			// receives the hit via onSelectHit and is responsible for
 			// launching the Exploration Browser dashboard scoped to its
 			// project. We exit() to unmount Ink so the dashboard can take
-			// over the terminal.
+			// over the terminal. Slice 7 (#89): the snapshot lets the caller
+			// re-mount search with this exact state when the dashboard
+			// bounces back.
 			if (!current || !onSelectHit) return;
-			onSelectHit(current);
+			onSelectHit(current, { query, hits, cursor: bounded });
 			exit();
 			return;
 		}

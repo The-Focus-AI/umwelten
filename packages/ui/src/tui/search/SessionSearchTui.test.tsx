@@ -641,6 +641,7 @@ describe("SessionSearchTui — open hit on Enter", () => {
 		expect(onSelectHit).toHaveBeenCalledTimes(1);
 		expect(onSelectHit).toHaveBeenCalledWith(
 			expect.objectContaining({ sessionId: "aaa", projectName: "alpha" }),
+			expect.anything(),
 		);
 	});
 
@@ -662,6 +663,7 @@ describe("SessionSearchTui — open hit on Enter", () => {
 		await flush();
 		expect(onSelectHit).toHaveBeenCalledWith(
 			expect.objectContaining({ sessionId: "bbb", projectName: "beta" }),
+			expect.anything(),
 		);
 	});
 
@@ -702,5 +704,107 @@ describe("SessionSearchTui — open hit on Enter", () => {
 		// invoked because Enter is "open hit", not "quit search".
 		expect(onSelectHit).toHaveBeenCalled();
 		expect(onExit).not.toHaveBeenCalled();
+	});
+});
+
+// ── 8. Snapshot + restored mounts (slice 7, #89) ───────────────────────────
+
+describe("SessionSearchTui — onSelectHit snapshot (slice 7)", () => {
+	it("passes a snapshot with the query, hit list, and cursor on Enter", async () => {
+		const onSelectHit = vi.fn();
+		const { stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => TWO_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+				onSelectHit={onSelectHit}
+			/>,
+		);
+		await flush();
+		stdin.write(ARROW_DOWN);
+		await flush();
+		stdin.write("\r");
+		await flush();
+		expect(onSelectHit).toHaveBeenCalledWith(
+			expect.objectContaining({ sessionId: "bbb" }),
+			expect.objectContaining({
+				query: "x",
+				hits: TWO_HITS,
+				cursor: 1,
+			}),
+		);
+	});
+});
+
+describe("SessionSearchTui — restored mount (slice 7)", () => {
+	it("renders restored hits without re-running the scan", async () => {
+		let scanCalls = 0;
+		const { lastFrame } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				initialHits={TWO_HITS}
+				initialCursor={0}
+				runScan={async () => {
+					scanCalls++;
+					return [];
+				}}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		// Wait well past the debounce window — no scan may fire.
+		await flush(150);
+		const frame = lastFrame() ?? "";
+		expect(scanCalls).toBe(0);
+		expect(frame).not.toMatch(/scanning/i);
+		expect(frame).toMatch(/score industry alpha/);
+		expect(frame).toMatch(/score industry beta/);
+		expect(frame).toMatch(/"x/); // restored query in the header
+	});
+
+	it("restores the highlighted row from initialCursor", async () => {
+		const { lastFrame } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				initialHits={TWO_HITS}
+				initialCursor={1}
+				runScan={async () => []}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush();
+		// Detail pane follows the highlight — row 1 is the BETA hit.
+		expect(lastFrame() ?? "").toMatch(/Full body for BETA hit/);
+	});
+
+	it("editing the query after a restored mount re-runs the scan normally", async () => {
+		// Await the actual scan call instead of wall-clock (same rationale as
+		// the makeRecordingScan helper above — timers drift on busy CI).
+		const calls: string[] = [];
+		let resolveNext: ((q: string) => void) | undefined;
+		const nextCall = new Promise<string>((r) => {
+			resolveNext = r;
+		});
+		const { stdin } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				initialHits={TWO_HITS}
+				initialCursor={0}
+				runScan={async (q) => {
+					calls.push(q);
+					resolveNext?.(q);
+					return ONE_HIT;
+				}}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush(150);
+		expect(calls).toEqual([]); // restored mount: no scan
+		stdin.write("y");
+		await nextCall;
+		expect(calls).toEqual(["xy"]); // edits scan as usual
 	});
 });

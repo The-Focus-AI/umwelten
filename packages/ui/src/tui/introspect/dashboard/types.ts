@@ -28,9 +28,16 @@ export type DashboardStatus =
 /**
  * Intent returned from the dashboard when the user picks an action.
  * The CLI loop acts on this after the TUI exits.
+ *
+ * - `none`   — quit; the host should exit the browse loop entirely.
+ * - `return` — hand control back to the caller that launched the dashboard
+ *   (slice 7, #89: `q` in a dashboard launched from the search TUI bounces
+ *   back to the search results instead of exiting the process). Only emitted
+ *   when the host sets `returnToCaller` on DashboardApp.
  */
 export type DashboardIntent =
 	| { kind: "none" }
+	| { kind: "return" }
 	| { kind: "detail"; entry: ExplorationBrowserEntry }
 	| { kind: "transcript"; entry: ExplorationBrowserEntry }
 	| { kind: "digest"; entry: ExplorationBrowserEntry }

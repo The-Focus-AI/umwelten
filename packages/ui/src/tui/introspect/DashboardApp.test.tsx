@@ -813,3 +813,57 @@ describe("DashboardApp — preSelectSessionId", () => {
 		);
 	});
 });
+
+// ── 8. Return to caller (slice 7, #89) ────────────────────────────────────
+
+describe("DashboardApp — returnToCaller", () => {
+	it("q emits a 'return' intent when returnToCaller is set", async () => {
+		const onExit = vi.fn();
+		const entries = [makeEntry("a")];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			returnToCaller: true,
+		});
+		stdin.write("q");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "return" }),
+		);
+	});
+
+	it("q still emits 'none' (exit) when returnToCaller is not set", async () => {
+		const onExit = vi.fn();
+		const entries = [makeEntry("a")];
+		const { stdin } = renderDashboard({ entries, onExit });
+		stdin.write("q");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "none" }),
+		);
+	});
+
+	it("Ctrl+C stays a hard exit ('none') even when returnToCaller is set", async () => {
+		const onExit = vi.fn();
+		const entries = [makeEntry("a")];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			returnToCaller: true,
+		});
+		stdin.write("\x03"); // Ctrl+C
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "none" }),
+		);
+	});
+
+	it("shows a 'back to search' key hint when returnToCaller is set", () => {
+		const entries = [makeEntry("a")];
+		const { lastFrame } = renderDashboard({
+			entries,
+			returnToCaller: true,
+		});
+		expect(lastFrame() ?? "").toMatch(/q back/i);
+	});
+});
