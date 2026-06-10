@@ -5,6 +5,7 @@
  */
 
 import type { CoreMessage } from 'ai';
+import type { AgentEntry, NativeSessionRef } from '../types.js';
 
 // ── Inbound message ──────────────────────────────────────────────────
 
@@ -70,10 +71,62 @@ export interface BridgeResult {
   reasoning?: string;
 }
 
-// ── Routing ──────────────────────────────────────────────────────────
+// ── Runtime seam (#118) ──────────────────────────────────────────────
 
-/** How a bound channel's messages are executed. */
-export type ChannelRuntimeMode = 'default' | 'claude-sdk';
+/**
+ * How a bound channel's messages are executed.
+ *
+ * - `default`    — the base Interaction tool-loop; full transcript written.
+ * - `claude-sdk` — Claude Agent SDK subprocess against the agent's project.
+ * - `pi`         — pi agentic runtime (runner lands in #122; the mode is
+ *                  part of the contract now so routing/config don't churn).
+ *
+ * Non-default modes dispatch through a registered RuntimeRunner.
+ */
+export type ChannelRuntimeMode = 'default' | 'claude-sdk' | 'pi';
+
+/** What a RuntimeRunner gets to work with, beyond the prompt itself. */
+export interface RuntimeContext {
+  /** The agent the channel is bound to (cwd source for subprocess runtimes). */
+  agent: AgentEntry;
+  /** Habitat session id the run is recorded under. */
+  sessionId: string;
+  /** Habitat session directory (transcript + meta.json live here). */
+  sessionDir: string;
+  /** The originating channel key (e.g. "discord:123"). */
+  channelKey: string;
+}
+
+/** Outcome of a RuntimeRunner.run — the PRD #113 contract shape. */
+export interface RuntimeResult {
+  /** Final assistant text for the channel. */
+  content: string;
+  /** Whether the run completed successfully. */
+  success: boolean;
+  /** Error details when success is false. */
+  errors?: string[];
+  /**
+   * Link to the runtime's native session (id + on-disk log), recorded in
+   * the habitat session's metadata so the full tool-call trace is
+   * reachable from the Source Session envelope.
+   */
+  nativeSessionRef?: NativeSessionRef;
+}
+
+/**
+ * The contract every non-default runtime implements (#118). The bridge
+ * dispatches through this seam — adding a runtime means registering a
+ * runner, not touching the bridge, the transcript writer, or A2A.
+ */
+export interface RuntimeRunner {
+  run(
+    prompt: string,
+    ctx: RuntimeContext,
+    events: BridgeEventHandlers,
+  ): Promise<RuntimeResult>;
+}
+
+// ── Routing ──────────────────────────────────────────────────────────
 
 /** A channel → agent binding in routing.json. */
 export interface ChannelBinding {

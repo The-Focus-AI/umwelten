@@ -382,6 +382,24 @@ export type HabitatSessionType =
 	| string;
 
 /**
+ * Pointer from a habitat session to the native session a non-default
+ * runtime (claude-sdk, pi) created while handling a message (#118).
+ *
+ * The habitat transcript keeps only the user/assistant envelope summary;
+ * the full tool-call trace lives in the runtime's own log format at
+ * `nativeSessionPath`. Normalization happens at read time via the
+ * existing adapters (PRD #113) — this ref is the link, not the data.
+ */
+export interface NativeSessionRef {
+	/** Runtime that produced the native session (e.g. "claude-sdk", "pi"). */
+	runtime: string;
+	/** The runtime's own session identifier (e.g. the SDK session UUID). */
+	nativeSessionId: string;
+	/** Absolute path to the runtime's native log (e.g. the Claude Code JSONL). */
+	nativeSessionPath: string;
+}
+
+/**
  * Session metadata stored in meta.json within each session directory.
  */
 export interface HabitatSessionMetadata {
@@ -402,6 +420,8 @@ export interface HabitatSessionMetadata {
 	agentId?: string;
 	/** Stable routing signature (e.g. `agent:my-agent:default` or `main`) for Discord. */
 	routeSignature?: string;
+	/** Link to the native runtime session for the most recent non-default run (#118). */
+	nativeSessionRef?: NativeSessionRef;
 	metadata?: Record<string, unknown>;
 }
 

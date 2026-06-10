@@ -30,7 +30,9 @@ export function coerceChannelBinding(
     const agentId = value.agentId.trim();
     if (!agentId) return null;
     const runtime: ChannelRuntimeMode =
-      value.runtime === 'claude-sdk' ? 'claude-sdk' : 'default';
+      value.runtime === 'claude-sdk' || value.runtime === 'pi'
+        ? value.runtime
+        : 'default';
     const infoMessageId = typeof value.infoMessageId === 'string' && value.infoMessageId.trim()
       ? value.infoMessageId.trim() : undefined;
     return { agentId, runtime, infoMessageId };

@@ -63,6 +63,11 @@ VOLUME /data
 ENV NODE_ENV=production
 ENV HABITAT_WORK_DIR=/data
 ENV PORT=8080
+# Session co-location (#118 / PRD #113): every runtime's native logs live
+# under the data volume. Claude Code (claude-sdk runtime) honors
+# CLAUDE_CONFIG_DIR, so its projects/<cwd>/<session>.jsonl traces land in
+# /data/claude-config/ — reachable by session egress like habitat sessions.
+ENV CLAUDE_CONFIG_DIR=/data/claude-config
 
 EXPOSE 8080
 
