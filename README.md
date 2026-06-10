@@ -10,6 +10,7 @@ Every AI model lives in its own perceptual bubble — its *Umwelt*. Umwelten let
 git clone https://github.com/The-Focus-AI/umwelten.git
 cd umwelten && pnpm install && cp env.template .env
 # Add your GOOGLE_GENERATIVE_AI_API_KEY to .env
+# `umwelten search` requires ripgrep (rg) on PATH: brew install ripgrep
 ```
 
 ```bash

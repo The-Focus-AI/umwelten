@@ -16,6 +16,7 @@
 
 export { searchSessions } from "./searcher.js";
 export { scanWithRipgrep, defaultSearchRoots } from "./ripgrep-scanner.js";
+export { ripgrepAvailable } from "./ripgrep-available.js";
 export {
 	parseHit,
 	decodeProjectDirName,
