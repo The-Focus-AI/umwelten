@@ -54,6 +54,28 @@ describeRg("searchSessions (integration)", () => {
 		expect(h.snippet).toContain("seven-pillar");
 	});
 
+	// #109 — projectPath must survive dashes in real directory names.
+	// The fixture directory is `-tmp-search-fixture-The-Focus-AI-dashed-project`
+	// and every record carries the authoritative
+	// `cwd: "/tmp/search-fixture/The-Focus-AI/dashed-project"`. The lossy
+	// directory-name decode would mangle this to
+	// `/tmp/search/fixture/The/Focus/AI/dashed/project`.
+	describe("dashed project paths (#109)", () => {
+		it("returns projectPath matching the JSONL cwd, not the lossy decode", async () => {
+			const hits = await searchSessions("dashed-path-token", {
+				searchRoots: [FIXTURES],
+			});
+			expect(hits.length).toBeGreaterThan(0);
+			for (const h of hits) {
+				expect(h.projectPath).toBe(
+					"/tmp/search-fixture/The-Focus-AI/dashed-project",
+				);
+				expect(h.projectName).toBe("dashed-project");
+				expect(h.sessionId).toBe("cccccccc-cccc-4ccc-cccc-cccccccccccc");
+			}
+		});
+	});
+
 	it("returns an empty array for an empty query", async () => {
 		const hits = await searchSessions("", { searchRoots: [FIXTURES] });
 		expect(hits).toEqual([]);

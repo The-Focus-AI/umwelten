@@ -33,6 +33,12 @@ const ELLIPSIS = "…";
  * path. Claude Code maps `/Users/foo/bar/baz` → `-Users-foo-bar-baz`.
  * This is the inverse, matching the convention in
  * core/interaction/adapters/claude-code-adapter.ts.
+ *
+ * WARNING (#109): the encoding is lossy — original `-` characters and
+ * `/` separators both encode to `-`, so `The-Focus-AI` decodes to
+ * `The/Focus/AI`. This is a best-effort FALLBACK only; parseHit prefers
+ * the authoritative `cwd` field carried on every Claude Code JSONL
+ * message record.
  */
 export function decodeProjectDirName(dirName: string): string {
 	return dirName.replace(/^-/, "/").replace(/-/g, "/");
@@ -75,10 +81,16 @@ export function parseHit(raw: RawScanHit, query: string): SessionHit | null {
 
 	const timestamp = typeof record.timestamp === "string" ? record.timestamp : "";
 
-	// Decode the project from the file's parent directory.
+	// Prefer the record's `cwd` field — every Claude Code message line
+	// carries the session's working directory verbatim. The directory-name
+	// decode below is lossy (#109): the encoder maps both `/` and
+	// pre-existing `-` to `-`, so `The-Focus-AI` decodes to `The/Focus/AI`.
+	// Only fall back to decoding when the record has no usable cwd.
+	const cwd =
+		typeof record.cwd === "string" && record.cwd.length > 0 ? record.cwd : null;
 	const parentDir = dirname(raw.filePath);
 	const parentDirName = basename(parentDir);
-	const projectPath = decodeProjectDirName(parentDirName);
+	const projectPath = cwd ?? decodeProjectDirName(parentDirName);
 	const projectName = basename(projectPath) || projectPath;
 
 	const sessionId = basename(raw.filePath, ".jsonl");

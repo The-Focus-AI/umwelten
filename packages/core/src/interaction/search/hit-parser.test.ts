@@ -167,6 +167,54 @@ describe("parseHit", () => {
 		);
 		expect(hit).toBeNull();
 	});
+
+	// #109 — the directory-name encoding is lossy for paths containing
+	// dashes (`The-Focus-AI` decodes to `The/Focus/AI`). The record's
+	// `cwd` field is the authoritative project path when present.
+	describe("cwd-based project path (#109)", () => {
+		const DASHED_DIR_FILE =
+			"/tmp/fake/-Users-wschenk-The-Focus-AI-umwelten/abc.jsonl";
+
+		it("prefers the record's cwd field over the decoded directory name", () => {
+			const line = JSON.stringify({
+				type: "user",
+				timestamp: "2026-05-01T00:00:00Z",
+				cwd: "/Users/wschenk/The-Focus-AI/umwelten",
+				message: { role: "user", content: "hello dashed world" },
+			});
+			const hit = parseHit(makeRawHit(DASHED_DIR_FILE, line, 1), "dashed");
+			expect(hit).not.toBeNull();
+			expect(hit!.projectPath).toBe("/Users/wschenk/The-Focus-AI/umwelten");
+			expect(hit!.projectName).toBe("umwelten");
+		});
+
+		it("falls back to the decoded directory name when cwd is absent", () => {
+			const line = JSON.stringify({
+				type: "user",
+				timestamp: "2026-05-01T00:00:00Z",
+				message: { role: "user", content: "hello dashed world" },
+			});
+			const hit = parseHit(makeRawHit(DASHED_DIR_FILE, line, 1), "dashed");
+			expect(hit).not.toBeNull();
+			// Lossy, but the documented best-effort fallback.
+			expect(hit!.projectPath).toBe("/Users/wschenk/The/Focus/AI/umwelten");
+			expect(hit!.projectName).toBe("umwelten");
+		});
+
+		it("falls back when cwd is empty or not a string", () => {
+			for (const cwd of ["", 42, null, { not: "a string" }]) {
+				const line = JSON.stringify({
+					type: "user",
+					timestamp: "2026-05-01T00:00:00Z",
+					cwd,
+					message: { role: "user", content: "hello dashed world" },
+				});
+				const hit = parseHit(makeRawHit(DASHED_DIR_FILE, line, 1), "dashed");
+				expect(hit).not.toBeNull();
+				expect(hit!.projectPath).toBe("/Users/wschenk/The/Focus/AI/umwelten");
+			}
+		});
+	});
 });
 
 describe("buildSnippet", () => {
