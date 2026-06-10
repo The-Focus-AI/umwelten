@@ -94,6 +94,12 @@ export function createHabitatLifecycleTools(
 					.describe(
 						"Git repos for skills (e.g. 'typefully/agent-skills'). Cloned on container start.",
 					),
+				image: z
+					.string()
+					.optional()
+					.describe(
+						"Docker image for this habitat's container (default: the standard habitat image). Must exist locally — specialized images are built out of band.",
+					),
 			}),
 			execute: async (params) => {
 				// Validate capability bindings before creating
@@ -433,6 +439,7 @@ export function createHabitatLifecycleTools(
 					name: entry.name,
 					config: entry.config,
 					secretBindings: entry.secretBindings,
+					...(entry.image ? { image: entry.image } : {}),
 					requiredSecrets: entry.secretBindings.map((name) => ({
 						name,
 						present: vault.get(name) !== undefined,
@@ -486,6 +493,7 @@ export function createHabitatLifecycleTools(
 					gitBranch: parsed.config.gitBranch,
 					secretBindings: parsed.secretBindings ?? [],
 					skillsFromGit: parsed.config.skillsFromGit,
+					...(typeof parsed.image === "string" ? { image: parsed.image } : {}),
 				});
 				// Preserve agents, scopeTemplates, requiredSecrets, etc.
 				entry.config = { ...entry.config, ...parsed.config, name: entry.name };

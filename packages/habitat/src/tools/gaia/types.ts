@@ -16,6 +16,12 @@ export interface GaiaHabitatEntry {
 	secretBindings: string[];
 	/** Auto-generated per-container API key */
 	apiKey: string;
+	/**
+	 * Docker image this habitat's container runs.
+	 * Omitted ⇒ the default habitat image. Specialized images (coding agent,
+	 * packaged Oura/Twitter agents) are built out of band.
+	 */
+	image?: string;
 	/** Assigned host port (127.0.0.1 only) — set after container starts */
 	containerPort?: number;
 	/** ISO timestamp */
@@ -54,6 +60,8 @@ export interface CreateHabitatOptions {
 	skillsFromGit?: string[];
 	/** Capability-to-credential bindings for the habitat. */
 	capabilities?: CapabilityBinding[];
+	/** Docker image for the container (default: the standard habitat image). */
+	image?: string;
 }
 
 /** Status of a credential (whether it's known to be working). */
