@@ -43,6 +43,18 @@ Manual testing guide for the Bridge MCP system:
 
 ## Session Management
 
+### [Session Search Walkthrough](./session-search-walkthrough.md)
+
+Search every Claude Code session you've ever had by full message content, then hop into the Exploration Browser and back:
+
+- `umwelten search` — interactive two-pane TUI with live debounced re-scan
+- Open a hit in the dashboard with Enter; `q` bounces back to your results
+- `--json` and `--no-tui` stdout modes for scripting and piping
+- Powered by ripgrep — sub-second cold scans, no index to maintain
+
+**Time Required:** 5 minutes
+**Prerequisites:** ripgrep (`rg`) on PATH, Claude Code sessions on disk
+
 ### [Session Analysis Walkthrough](./session-analysis-walkthrough.md)
 
 Learn how to use the session management tools to understand your Claude Code work:
