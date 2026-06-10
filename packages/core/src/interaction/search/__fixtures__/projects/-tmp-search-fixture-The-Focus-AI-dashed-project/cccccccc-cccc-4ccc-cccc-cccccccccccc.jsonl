@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-06-01T09:00:00.000Z","cwd":"/tmp/search-fixture/The-Focus-AI/dashed-project","message":{"role":"user","content":"Can you find the dashed-path-token in this repo?"},"isSidechain":false,"uuid":"cccccccc-0001"}
+{"type":"assistant","timestamp":"2026-06-01T09:00:01.000Z","cwd":"/tmp/search-fixture/The-Focus-AI/dashed-project","message":{"role":"assistant","content":[{"type":"text","text":"Searching for dashed-path-token now."}]},"isSidechain":false,"uuid":"cccccccc-0002"}
+{"type":"user","timestamp":"2026-06-01T09:00:02.000Z","cwd":"/tmp/search-fixture/The-Focus-AI/dashed-project","message":{"role":"user","content":"Great, thanks."},"isSidechain":false,"uuid":"cccccccc-0003"}
+{"type":"assistant","timestamp":"2026-06-01T09:00:03.000Z","cwd":"/tmp/search-fixture/The-Focus-AI/dashed-project","message":{"role":"assistant","content":[{"type":"text","text":"Done. Anything else?"}]},"isSidechain":false,"uuid":"cccccccc-0004"}
+{"type":"user","timestamp":"2026-06-01T09:00:04.000Z","cwd":"/tmp/search-fixture/The-Focus-AI/dashed-project","message":{"role":"user","content":"No, that is all."},"isSidechain":false,"uuid":"cccccccc-0005"}
