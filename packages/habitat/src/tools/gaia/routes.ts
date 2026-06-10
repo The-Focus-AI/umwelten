@@ -100,6 +100,44 @@ function sendJson(res: ServerResponse, data: unknown, status = 200): void {
 	res.end(JSON.stringify(data));
 }
 
+/**
+ * Proxy allowlist: /api/habitats/:id/<route> → path on the container.
+ * Wildcard patterns (`/*`) append the remainder to the target.
+ */
+const PROXY_ROUTES: Array<{ pattern: string; target: string }> = [
+	{ pattern: "/api/habitats/:id/health", target: "/health" },
+	{ pattern: "/api/habitats/:id/chat", target: "/api/chat" },
+	{ pattern: "/api/habitats/:id/mcp", target: "/mcp" },
+	{ pattern: "/api/habitats/:id/a2a", target: "/a2a" },
+	{
+		pattern: "/api/habitats/:id/agent-card",
+		target: "/.well-known/agent-card.json",
+	},
+	{ pattern: "/api/habitats/:id/status", target: "/api/status" },
+	{ pattern: "/api/habitats/:id/sessions", target: "/api/sessions" },
+	{ pattern: "/api/habitats/:id/artifacts", target: "/api/artifacts" },
+	{ pattern: "/api/habitats/:id/contexts/*", target: "/api/contexts/" },
+	{ pattern: "/api/habitats/:id/files/*", target: "/files/" },
+];
+
+/**
+ * Pure mapping from an incoming Gaia path to the habitat entry id and the
+ * container-side target path, or null when the path is not proxied.
+ */
+export function resolveProxyTarget(
+	path: string,
+): { id: string; targetPath: string } | null {
+	for (const route of PROXY_ROUTES) {
+		const params = matchRoute(route.pattern, path);
+		if (!params) continue;
+		const targetPath = route.pattern.endsWith("/*")
+			? `${route.target}${params["*"] ?? ""}`
+			: route.target;
+		return { id: params.id, targetPath };
+	}
+	return null;
+}
+
 function readBody(req: IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let data = "";
@@ -277,36 +315,15 @@ export async function handleGaiaRoute(
 	// ── Proxy to running containers ──────────────────────────────
 
 	// Map /api/habitats/:id/<target> → /<targetPath> on container
-	const proxyRoutes: Array<{ pattern: string; target: string }> = [
-		{ pattern: "/api/habitats/:id/health", target: "/health" },
-		{ pattern: "/api/habitats/:id/chat", target: "/api/chat" },
-		{ pattern: "/api/habitats/:id/mcp", target: "/mcp" },
-		{ pattern: "/api/habitats/:id/a2a", target: "/a2a" },
-		{
-			pattern: "/api/habitats/:id/agent-card",
-			target: "/.well-known/agent-card.json",
-		},
-		{ pattern: "/api/habitats/:id/status", target: "/api/status" },
-		{ pattern: "/api/habitats/:id/sessions", target: "/api/sessions" },
-		{ pattern: "/api/habitats/:id/artifacts", target: "/api/artifacts" },
-		{ pattern: "/api/habitats/:id/files/*", target: "/files/" },
-	];
-
-	for (const route of proxyRoutes) {
-		params = matchRoute(route.pattern, path);
-		if (params) {
-			const entry = ctx.registry.get(params.id);
-			if (!entry) {
-				sendJson(res, { error: "Not found" }, 404);
-				return true;
-			}
-			const targetPath =
-				route.target === "/files/"
-					? `/files/${params["*"] ?? ""}`
-					: route.target;
-			await proxyRequest(entry, targetPath, req, res);
+	const proxied = resolveProxyTarget(path);
+	if (proxied) {
+		const entry = ctx.registry.get(proxied.id);
+		if (!entry) {
+			sendJson(res, { error: "Not found" }, 404);
 			return true;
 		}
+		await proxyRequest(entry, proxied.targetPath, req, res);
+		return true;
 	}
 
 	// ── Master secrets ───────────────────────────────────────────

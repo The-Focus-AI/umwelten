@@ -8,6 +8,7 @@ import {
   sessionMessagesRoute,
   sessionBeatsRoute,
 } from './sessions.js';
+import { contextShowRoute, contextTranscriptRoute } from './contexts.js';
 
 /**
  * The default route set every web app gets for free.
@@ -24,5 +25,7 @@ export function defaultRoutes(): RouteHandler[] {
     sessionMessagesRoute,
     sessionBeatsRoute,
     sessionShowRoute,
+    contextTranscriptRoute,
+    contextShowRoute,
   ];
 }
