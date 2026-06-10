@@ -55,6 +55,20 @@ export type {
 	ClaudeSDKProgress,
 } from "./claude-sdk-runner.js";
 
+// ── pi runner ───────────────────────────────────────────────────────────
+export {
+	runPi,
+	createPiRuntimeRunner,
+	piNativeSessionPath,
+	piProjectDirName,
+	piSessionFileName,
+} from "./pi-runner.js";
+export type {
+	PiRunnerOptions,
+	PiRunResult,
+	PiProgress,
+} from "./pi-runner.js";
+
 // ── Tool sets ───────────────────────────────────────────────────────────
 export type { ToolSet } from "./tool-sets.js";
 export {
