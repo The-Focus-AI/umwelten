@@ -641,6 +641,8 @@ describe("SessionSearchTui — open hit on Enter", () => {
 		expect(onSelectHit).toHaveBeenCalledTimes(1);
 		expect(onSelectHit).toHaveBeenCalledWith(
 			expect.objectContaining({ sessionId: "aaa", projectName: "alpha" }),
+			// Slice 7 (#89): a state snapshot rides along for restore-on-return.
+			expect.anything(),
 		);
 	});
 
@@ -662,6 +664,8 @@ describe("SessionSearchTui — open hit on Enter", () => {
 		await flush();
 		expect(onSelectHit).toHaveBeenCalledWith(
 			expect.objectContaining({ sessionId: "bbb", projectName: "beta" }),
+			// Slice 7 (#89): a state snapshot rides along for restore-on-return.
+			expect.anything(),
 		);
 	});
 
@@ -704,3 +708,111 @@ describe("SessionSearchTui — open hit on Enter", () => {
 		expect(onExit).not.toHaveBeenCalled();
 	});
 });
+
+// ── 8. Return-to-search state restore (slice 7, #89) ───────────────────────
+
+describe("SessionSearchTui — restore state (slice 7, #89)", () => {
+	it("renders initialHits immediately without re-running the scan", async () => {
+		let scanCalls = 0;
+		const { lastFrame } = render(
+			<SessionSearchTui
+				initialQuery="score industry"
+				initialHits={TWO_HITS}
+				runScan={async () => {
+					scanCalls++;
+					return [];
+				}}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush(150);
+		const frame = lastFrame() ?? "";
+		expect(frame).toMatch(/score industry alpha/);
+		expect(frame).not.toMatch(/scanning/i);
+		expect(scanCalls).toBe(0);
+	});
+
+	it("highlights the row given by initialCursor", async () => {
+		const { lastFrame } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				initialHits={TWO_HITS}
+				initialCursor={1}
+				runScan={async () => TWO_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush();
+		expect(lastFrame() ?? "").toMatch(/Full body for BETA hit/);
+	});
+
+	it("editing the query after a restore still triggers a fresh scan", async () => {
+		// Await the actual scan call rather than fixed wall-clock waits —
+		// Ink's async input processing makes fixed waits flaky under load
+		// (same pattern as the debounced re-scan tests above).
+		const calls: string[] = [];
+		let resolveScanCalled: () => void = () => {};
+		const scanCalled = new Promise<void>((r) => {
+			resolveScanCalled = r;
+		});
+		const { stdin, lastFrame } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				initialHits={TWO_HITS}
+				runScan={async (q) => {
+					calls.push(q);
+					resolveScanCalled();
+					return ONE_HIT;
+				}}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+			/>,
+		);
+		await flush();
+		expect(calls).toEqual([]); // the restore itself did not re-scan
+		stdin.write("y");
+		await scanCalled; // resolves the moment the re-scan fires
+		await flush();
+		expect(calls).toEqual(["xy"]);
+		expect(lastFrame() ?? "").toMatch(/queue management/);
+	});
+
+	it("passes a snapshot (query, hits, cursorIndex) to onSelectHit", async () => {
+		const onSelectHit = vi.fn();
+		const { stdin, lastFrame } = render(
+			<SessionSearchTui
+				initialQuery="x"
+				runScan={async () => TWO_HITS}
+				onExit={() => {}}
+				debounceMs={TEST_DEBOUNCE_MS}
+				onSelectHit={onSelectHit}
+			/>,
+		);
+		// Poll for each state transition instead of fixed waits — input
+		// processing latency varies under parallel test load.
+		await waitFor(() => (lastFrame() ?? "").includes("Full body for ALPHA hit"));
+		stdin.write(ARROW_DOWN);
+		await waitFor(() => (lastFrame() ?? "").includes("Full body for BETA hit"));
+		stdin.write("\r");
+		await waitFor(() => onSelectHit.mock.calls.length > 0);
+		expect(onSelectHit).toHaveBeenCalledWith(
+			expect.objectContaining({ sessionId: "bbb" }),
+			expect.objectContaining({ query: "x", cursorIndex: 1, hits: TWO_HITS }),
+		);
+	});
+});
+
+// Poll until `cond` is truthy (20 ms interval, 5 s timeout). Throws on
+// timeout so failures point at the stalled transition instead of a
+// downstream assertion.
+async function waitFor(cond: () => boolean, timeoutMs = 5000): Promise<void> {
+	const start = Date.now();
+	while (!cond()) {
+		if (Date.now() - start > timeoutMs) {
+			throw new Error("waitFor: condition not met within timeout");
+		}
+		await new Promise((r) => setTimeout(r, 20));
+	}
+}

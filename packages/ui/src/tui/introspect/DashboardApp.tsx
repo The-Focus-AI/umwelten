@@ -79,6 +79,14 @@ export interface DashboardAppProps {
 	 * If the id doesn't match any entry, the cursor falls back to 0.
 	 */
 	preSelectSessionId?: string;
+	/**
+	 * When true, `q` emits a `return` intent instead of `none` so the caller
+	 * that launched the dashboard (the Session Search TUI, slice 7 #89) can
+	 * take control back instead of the process exiting. Ctrl+C still emits
+	 * `none` — it is always a hard exit. Defaults to false (direct launches
+	 * via `umwelten browse` keep exiting on `q`).
+	 */
+	returnToCaller?: boolean;
 }
 
 const DEFAULT_FILTER: FilterState = {
@@ -168,6 +176,7 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 		subscribeToTitleUpdates,
 		initialTitles,
 		preSelectSessionId,
+		returnToCaller = false,
 	} = props;
 
 	const { exit } = useApp();
@@ -337,7 +346,12 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 
 	useInput(
 		(input, key) => {
-			if (input === "q" || (key.ctrl && input === "c")) {
+			if (input === "q") {
+				onExit(returnToCaller ? { kind: "return" } : { kind: "none" });
+				exit();
+				return;
+			}
+			if (key.ctrl && input === "c") {
 				onExit({ kind: "none" });
 				exit();
 				return;
@@ -440,7 +454,7 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 				keysHint={
 					searchMode
 						? "Type to filter · Enter/Esc commit"
-						: "↑/↓ select · Enter detail · D digest · v transcript · b beats · R reflect · P promote · / search · q quit"
+						: `↑/↓ select · Enter detail · D digest · v transcript · b beats · R reflect · P promote · / search · ${returnToCaller ? "q back to search" : "q quit"}`
 				}
 			/>
 		</Box>

@@ -813,3 +813,58 @@ describe("DashboardApp — preSelectSessionId", () => {
 		);
 	});
 });
+
+// ── 10. Return to caller (slice 7, #89) ──────────────────────────────────
+
+describe("DashboardApp — return to caller (slice 7, #89)", () => {
+	it("emits a return intent on q when returnToCaller is set", async () => {
+		const onExit = vi.fn();
+		const entries = [makeEntry("a")];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			returnToCaller: true,
+		});
+		stdin.write("q");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "return" }),
+		);
+	});
+
+	it("still emits the exit intent on q when returnToCaller is explicitly false", async () => {
+		const onExit = vi.fn();
+		const entries = [makeEntry("a")];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			returnToCaller: false,
+		});
+		stdin.write("q");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "none" }),
+		);
+	});
+
+	it("hard-exits (none intent) on Ctrl+C even when returnToCaller is set", async () => {
+		const onExit = vi.fn();
+		const entries = [makeEntry("a")];
+		const { stdin } = renderDashboard({
+			entries,
+			onExit,
+			returnToCaller: true,
+		});
+		stdin.write("\x03");
+		await new Promise((r) => setTimeout(r, 50));
+		expect(onExit).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "none" }),
+		);
+	});
+
+	it("labels q as back-to-search in the footer when returnToCaller is set", () => {
+		const entries = [makeEntry("a")];
+		const { lastFrame } = renderDashboard({ entries, returnToCaller: true });
+		expect(lastFrame() ?? "").toMatch(/q back to search/i);
+	});
+});
