@@ -32,6 +32,7 @@ import { listArtifacts } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
 import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
+import { createPiRuntimeRunner } from "./pi-runner.js";
 import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
@@ -182,7 +183,10 @@ export async function startContainerServer(
 			"Do NOT copy files to /files/ — that path is a virtual mount, not a real directory. Files are served directly from /data/.",
 		].join("\n"),
 		buildAgentStimulus,
-		runtimeRunners: { 'claude-sdk': createClaudeSdkRuntimeRunner() },
+		runtimeRunners: {
+			'claude-sdk': createClaudeSdkRuntimeRunner(),
+			pi: createPiRuntimeRunner(),
+		},
 	});
 
 	// Wrap bridge.handleMessage to log chat activity and track session
