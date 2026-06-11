@@ -1,0 +1,98 @@
+# syntax=docker/dockerfile:1.4
+#
+# Coding Agent Container — the standards toolchain on the habitat base (#123).
+#
+# Layers onto the habitat serve image (build that first):
+#   - The-Focus-AI standards corpus at a fixed path (/opt/standards)
+#   - gh CLI, pi, and Claude Code toolchains (mise ships with the base)
+#   - Non-root execution: the server runs as the `node` user (uid 1000);
+#     the entrypoint wrapper does volume ownership as root, then drops.
+#   - Session co-location: CLAUDE_CONFIG_DIR comes from the base
+#     (/data/claude-config); this image adds PI_CODING_AGENT_DIR=/data/pi-agent
+#     so pi's settings AND session traces live on the data volume too.
+#   - Seed persona + routing: first boot with an empty volume gets a
+#     STIMULUS.md pointed at the standards corpus and a routing.json that
+#     binds a2a/web channels to the `workspace` agent on the claude-sdk
+#     runtime. Existing volume files are never overwritten.
+#
+# CMD is unchanged from the base — the container server (A2A + MCP + chat).
+#
+# Build (from monorepo root):
+#   docker build -t habitat -f packages/habitat/Dockerfile .
+#   docker build -t habitat-coding -f packages/habitat/Dockerfile.coding-agent .
+#
+# Smoke check:
+#   scripts/smoke-coding-agent.sh
+#
+# Deploy via Gaia: create a registry entry with "image": "habitat-coding"
+# and bind ANTHROPIC_API_KEY (claude-sdk runtime), GITHUB_TOKEN (gh), and
+# optionally OP_SERVICE_ACCOUNT_TOKEN. Or fly.io: volume at /data,
+# HABITAT_API_KEY + provider keys as fly secrets.
+
+ARG BASE_IMAGE=habitat
+FROM ${BASE_IMAGE}
+
+# Pinned toolchain versions — bump deliberately.
+ARG GH_VERSION=2.94.0
+ARG PI_PACKAGE=@earendil-works/pi-coding-agent@0.79.1
+ARG CLAUDE_PACKAGE=@anthropic-ai/claude-code@2.1.173
+ARG STANDARDS_REPO_URL=https://github.com/The-Focus-AI/standards.git
+ARG STANDARDS_REPO_BRANCH=main
+
+USER root
+
+# gosu: the entrypoint wrapper fixes /data ownership as root, then drops to
+# the node user before starting the server.
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+# GitHub CLI (static release, arch-matched)
+RUN ARCH="$(dpkg --print-architecture)" \
+    && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" \
+      | tar xz -C /tmp \
+    && install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/gh \
+    && rm -rf /tmp/gh_*
+
+# pi and Claude Code CLIs, globally installed (root-owned, world-executable)
+RUN npm install -g "${PI_PACKAGE}" "${CLAUDE_PACKAGE}"
+
+# Standards corpus at a fixed path. Shallow clone — the agent reads it as a
+# reference; updating standards means rebuilding the image (out of band, per
+# PRD #113: the in-repo build task only covers the default habitat image).
+#
+# The repo is private: pass a token as a BuildKit secret —
+#   docker build --secret id=gh_token,env=GITHUB_TOKEN ...
+# The token is used only for this step and never lands in a layer. A public
+# STANDARDS_REPO_URL clones anonymously without the secret.
+RUN --mount=type=secret,id=gh_token \
+    set -e; \
+    if [ -s /run/secrets/gh_token ]; then \
+      AUTH_URL="$(echo "${STANDARDS_REPO_URL}" | sed "s#https://#https://x-access-token:$(cat /run/secrets/gh_token)@#")"; \
+    else \
+      AUTH_URL="${STANDARDS_REPO_URL}"; \
+    fi; \
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${STANDARDS_REPO_BRANCH}" "${AUTH_URL}" /opt/standards; \
+    git -C /opt/standards remote set-url origin "${STANDARDS_REPO_URL}"
+
+# Non-root: the base installs mise behind /root (not traversable by node).
+# Re-home the binary and hand the mise data dir + standards corpus to node.
+RUN rm -f /usr/local/bin/mise \
+    && install -m 0755 /root/.local/bin/mise /usr/local/bin/mise \
+    && mkdir -p /opt/mise \
+    && chown -R node:node /opt/mise /opt/standards
+
+# pi co-location (#122): settings AND session traces under the data volume,
+# so they survive rebuilds and nativeSessionRef paths stay reachable.
+ENV PI_CODING_AGENT_DIR=/data/pi-agent
+ENV STANDARDS_DIR=/opt/standards
+
+# Seed assets + entrypoint wrapper
+COPY packages/habitat/coding-agent/STIMULUS.md \
+     packages/habitat/coding-agent/routing.json \
+     packages/habitat/coding-agent/seed-config.mjs \
+     /opt/coding-agent/
+COPY packages/habitat/coding-agent/entrypoint.sh /coding-agent-entrypoint.sh
+RUN chmod +x /coding-agent-entrypoint.sh
+
+ENTRYPOINT ["/coding-agent-entrypoint.sh"]
+CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]

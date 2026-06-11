@@ -1,0 +1,7 @@
+{
+  "channels": {},
+  "platformDefaults": {
+    "a2a": { "agentId": "workspace", "runtime": "claude-sdk" },
+    "web": { "agentId": "workspace", "runtime": "claude-sdk" }
+  }
+}

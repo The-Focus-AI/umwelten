@@ -16,6 +16,17 @@ description = "Build the habitat Docker container"
 dir = "{{ config_root }}"
 run = "docker build -t habitat -f packages/habitat/Dockerfile ."
 
+[tasks."coding-agent-build"]
+description = "Build the coding-agent container (standards toolchain on the habitat base)"
+dir = "{{ config_root }}"
+run = "docker build -t habitat-coding -f packages/habitat/Dockerfile.coding-agent ."
+depends = ["habitat-build"]
+
+[tasks."coding-agent-smoke"]
+description = "Build + boot smoke check for the coding-agent image"
+dir = "{{ config_root }}"
+run = "scripts/smoke-coding-agent.sh"
+
 [tasks."habitat-run"]
 description = "Run the habitat container (port 8080, volume ./habitat-data:/data)"
 dir = "{{ config_root }}"
