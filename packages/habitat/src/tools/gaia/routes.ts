@@ -115,6 +115,7 @@ const PROXY_ROUTES: Array<{ pattern: string; target: string }> = [
 	},
 	{ pattern: "/api/habitats/:id/status", target: "/api/status" },
 	{ pattern: "/api/habitats/:id/sessions", target: "/api/sessions" },
+	{ pattern: "/api/habitats/:id/sessions/*", target: "/api/sessions/" },
 	{ pattern: "/api/habitats/:id/artifacts", target: "/api/artifacts" },
 	{ pattern: "/api/habitats/:id/contexts/*", target: "/api/contexts/" },
 	{ pattern: "/api/habitats/:id/files/*", target: "/files/" },
