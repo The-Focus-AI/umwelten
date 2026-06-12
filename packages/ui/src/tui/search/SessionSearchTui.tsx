@@ -30,6 +30,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { SessionHit } from "@umwelten/core/interaction/search/index.js";
 
+import { theme, secondary } from "../theme.js";
 // ── Props ───────────────────────────────────────────────────────────────────
 
 /**
@@ -282,7 +283,7 @@ export function SessionSearchTui(
 			<Box flexDirection="column" height={listHeight} overflow="hidden">
 				{scanning ? null : hits.length === 0 ? (
 					<Box paddingX={1}>
-						<Text dimColor>
+						<Text {...secondary}>
 							{query.trim() === "" ? "type to search" : "no hits"}
 						</Text>
 					</Box>
@@ -326,25 +327,25 @@ function Header(props: HeaderProps): React.ReactElement {
 	const { query, scanning, hitCount, error } = props;
 	return (
 		<Box paddingX={1} flexShrink={0}>
-			<Text bold color="cyan">
+			<Text bold color={theme.accent}>
 				Search:
 			</Text>
 			<Text> </Text>
-			<Text color="magenta">"{query}</Text>
-			<Text color="yellow">_</Text>
-			<Text color="magenta">"</Text>
-			<Text dimColor> · </Text>
+			<Text color={theme.userValue}>"{query}</Text>
+			<Text color={theme.pending}>_</Text>
+			<Text color={theme.userValue}>"</Text>
+			<Text {...secondary}> · </Text>
 			{scanning ? (
-				<Text color="yellow">scanning…</Text>
+				<Text color={theme.pending}>scanning…</Text>
 			) : (
-				<Text dimColor>
+				<Text {...secondary}>
 					({hitCount} {hitCount === 1 ? "hit" : "hits"})
 				</Text>
 			)}
 			{error ? (
 				<>
-					<Text dimColor> · </Text>
-					<Text color="red">scan failed: {error}</Text>
+					<Text {...secondary}> · </Text>
+					<Text color={theme.error}>scan failed: {error}</Text>
 				</>
 			) : null}
 		</Box>
@@ -377,22 +378,22 @@ function HitListHeader({ width }: { width: number }): React.ReactElement {
 				<Text> </Text>
 			</Box>
 			<Box width={COL_TIME_WIDTH}>
-				<Text dimColor bold>
+				<Text {...secondary} bold>
 					time
 				</Text>
 			</Box>
 			<Box width={projW}>
-				<Text dimColor bold>
+				<Text {...secondary} bold>
 					project
 				</Text>
 			</Box>
 			<Box width={COL_ROLE_WIDTH}>
-				<Text dimColor bold>
+				<Text {...secondary} bold>
 					role
 				</Text>
 			</Box>
 			<Box width={snipW}>
-				<Text dimColor bold>
+				<Text {...secondary} bold>
 					snippet
 				</Text>
 			</Box>
@@ -422,7 +423,7 @@ const HitRow = React.memo(function HitRow({
 	return (
 		<Box paddingX={1} flexShrink={0}>
 			<Box width={2}>
-				<Text bold color="cyan">
+				<Text bold color={theme.accent}>
 					{selected ? "▶" : " "}
 				</Text>
 			</Box>
@@ -460,17 +461,17 @@ function DetailPane(props: DetailPaneProps): React.ReactElement {
 			flexShrink={0}
 			height={height}
 			borderStyle="single"
-			borderColor="cyan"
+			borderColor={theme.borderAccent}
 			flexDirection="column"
 			paddingX={1}
 			overflow="hidden"
 		>
 			{scanning ? (
-				<Text color="yellow">scanning…</Text>
+				<Text color={theme.pending}>scanning…</Text>
 			) : current ? (
 				<DetailBody hit={current} maxLines={height - 2} maxCols={width - 4} />
 			) : (
-				<Text dimColor>(no hit to preview)</Text>
+				<Text {...secondary}>(no hit to preview)</Text>
 			)}
 		</Box>
 	);
@@ -513,23 +514,23 @@ function DetailBody({
 	return (
 		<>
 			<Box>
-				<Text color="cyan" bold>
+				<Text color={theme.accent} bold>
 					{hit.projectName}
 				</Text>
-				<Text dimColor> · </Text>
+				<Text {...secondary}> · </Text>
 				<Text color={roleColor(hit.role)} bold>
 					{hit.role}
 				</Text>
-				<Text dimColor> · </Text>
-				<Text dimColor>{hit.messageTimestamp}</Text>
+				<Text {...secondary}> · </Text>
+				<Text {...secondary}>{hit.messageTimestamp}</Text>
 			</Box>
 			<Box>
-				<Text color="cyan">path: </Text>
-				<Text dimColor>{truncate(hit.projectPath, maxCols - 6)}</Text>
+				<Text color={theme.accent}>path: </Text>
+				<Text {...secondary}>{truncate(hit.projectPath, maxCols - 6)}</Text>
 			</Box>
 			<Box>
-				<Text color="cyan">file: </Text>
-				<Text dimColor>{truncate(hit.filePath, maxCols - 6)}</Text>
+				<Text color={theme.accent}>file: </Text>
+				<Text {...secondary}>{truncate(hit.filePath, maxCols - 6)}</Text>
 			</Box>
 			{lines.map((line, i) => (
 				<Text key={i}>{line || " "}</Text>
@@ -543,10 +544,10 @@ function Footer(): React.ReactElement {
 		<Box
 			flexShrink={0}
 			borderStyle="single"
-			borderColor="cyan"
+			borderColor={theme.borderAccent}
 			paddingX={1}
 		>
-			<Text dimColor>
+			<Text {...secondary}>
 				type to search · ↑/↓ navigate · Enter open · Esc quit
 			</Text>
 		</Box>

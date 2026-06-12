@@ -36,6 +36,7 @@ import type {
 	ExtractionEventSubscriber,
 } from "./dashboard/types.js";
 
+import { theme, secondary } from "../theme.js";
 export type {
 	DashboardIntent,
 	DashboardProgressEvent,
@@ -434,7 +435,7 @@ export function DashboardApp(props: DashboardAppProps): React.ReactElement {
 			<Box flexDirection="column" flexGrow={1} overflow="hidden">
 				{views.length === 0 ? (
 					<Box paddingX={1} paddingY={1}>
-						<Text color="gray">
+						<Text {...secondary}>
 							No explorations match the current filter.
 						</Text>
 					</Box>
@@ -471,25 +472,25 @@ function Header(props: {
 }): React.ReactElement {
 	return (
 		<Box paddingX={1} flexShrink={0}>
-			<Text bold color="cyan">
+			<Text bold color={theme.accent}>
 				Explorations
 			</Text>
-			<Text color="gray">
+			<Text {...secondary}>
 				{" "}
 				({props.totalShown}/{props.totalAll})
 			</Text>
-			<Text color="gray"> · </Text>
-			<Text color="cyan">{props.filter.date}</Text>
+			<Text {...secondary}> · </Text>
+			<Text color={theme.accent}>{props.filter.date}</Text>
 			{props.searchMode ? (
 				<>
-					<Text color="gray"> · </Text>
-					<Text color="magenta">/{props.filter.query || ""}</Text>
-					<Text color="yellow">_</Text>
+					<Text {...secondary}> · </Text>
+					<Text color={theme.userValue}>/{props.filter.query || ""}</Text>
+					<Text color={theme.pending}>_</Text>
 				</>
 			) : props.filter.query ? (
 				<>
-					<Text color="gray"> · </Text>
-					<Text color="magenta">"{props.filter.query}"</Text>
+					<Text {...secondary}> · </Text>
+					<Text color={theme.userValue}>"{props.filter.query}"</Text>
 				</>
 			) : null}
 		</Box>
@@ -524,37 +525,37 @@ function TableHeader({ width }: { width: number }): React.ReactElement {
 				<Text> </Text>
 			</Box>
 			<Box width={COL_STATUS_WIDTH}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					status
 				</Text>
 			</Box>
 			<Box width={COL_SOURCE_WIDTH}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					src
 				</Text>
 			</Box>
 			<Box width={topicW}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					topic
 				</Text>
 			</Box>
 			<Box width={COL_MSGS_WIDTH}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					msgs
 				</Text>
 			</Box>
 			<Box width={COL_TOOLS_WIDTH}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					tools
 				</Text>
 			</Box>
 			<Box width={COL_CANDS_WIDTH}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					cand
 				</Text>
 			</Box>
 			<Box width={COL_AGE_WIDTH}>
-				<Text color="gray" bold>
+				<Text {...secondary} bold>
 					age
 				</Text>
 			</Box>
@@ -582,7 +583,7 @@ const Row = React.memo(function Row({
 	return (
 		<Box paddingX={1} flexShrink={0}>
 			<Box width={2}>
-				<Text bold color="cyan">
+				<Text bold color={theme.accent}>
 					{selected ? "▶" : " "}
 				</Text>
 			</Box>
@@ -592,22 +593,22 @@ const Row = React.memo(function Row({
 				</Text>
 			</Box>
 			<Box width={COL_SOURCE_WIDTH}>
-				<Text color="cyan">[{src}]</Text>
+				<Text color={theme.accent}>[{src}]</Text>
 			</Box>
 			<Box width={topicW}>
 				<Text color={selected ? "white" : "gray"}>{topic}</Text>
 			</Box>
 			<Box width={COL_MSGS_WIDTH}>
-				<Text color="yellow">{messageCount}</Text>
+				<Text color={theme.pending}>{messageCount}</Text>
 			</Box>
 			<Box width={COL_TOOLS_WIDTH}>
-				<Text color="yellow">{toolCount}</Text>
+				<Text color={theme.pending}>{toolCount}</Text>
 			</Box>
 			<Box width={COL_CANDS_WIDTH}>
-				<Text color="magenta">{candidateCount}</Text>
+				<Text color={theme.userValue}>{candidateCount}</Text>
 			</Box>
 			<Box width={COL_AGE_WIDTH}>
-				<Text color="gray">{ago(entry.modifiedMs)}</Text>
+				<Text {...secondary}>{ago(entry.modifiedMs)}</Text>
 			</Box>
 		</Box>
 	);
@@ -621,14 +622,14 @@ function StatusBar(props: {
 		<Box
 			flexShrink={0}
 			borderStyle="single"
-			borderColor="gray"
+			borderColor={theme.borderMuted}
 			paddingX={1}
 			flexDirection="column"
 		>
 			<Text color={props.currentItem ? "yellow" : "gray"}>
 				{props.currentItem ?? "idle"}
 			</Text>
-			<Text color="gray" dimColor>
+			<Text {...secondary}>
 				{props.keysHint}
 			</Text>
 		</Box>
@@ -654,40 +655,40 @@ function ConfirmOverlay({
 		<Box flexDirection="column" paddingX={2} paddingY={2} height={totalRows}>
 			<Box
 				borderStyle="round"
-				borderColor="yellow"
+				borderColor={theme.borderPending}
 				paddingX={2}
 				paddingY={1}
 				flexDirection="column"
 			>
-				<Text bold color="yellow">
+				<Text bold color={theme.pending}>
 					Launch extraction?
 				</Text>
 				<Box marginTop={1}>
-					<Text color="gray">
+					<Text {...secondary}>
 						{extractable} exploration{extractable === 1 ? "" : "s"} need
 						{extractable === 1 ? "s" : ""} extraction
 					</Text>
 				</Box>
 				<Box>
-					<Text color="gray">model: </Text>
-					<Text color="cyan">{model}</Text>
+					<Text {...secondary}>model: </Text>
+					<Text color={theme.accent}>{model}</Text>
 				</Box>
 				<Box>
-					<Text color="gray">concurrency: </Text>
-					<Text color="cyan">{concurrency}</Text>
+					<Text {...secondary}>concurrency: </Text>
+					<Text color={theme.accent}>{concurrency}</Text>
 				</Box>
 				<Box marginTop={1}>
-					<Text color="yellow">⚠ Uses an LLM (API cost will apply).</Text>
+					<Text color={theme.pending}>⚠ Uses an LLM (API cost will apply).</Text>
 				</Box>
 				<Box marginTop={1}>
-					<Text bold color="green">
+					<Text bold color={theme.success}>
 						[y]
 					</Text>
-					<Text color="gray"> launch </Text>
-					<Text bold color="red">
+					<Text {...secondary}> launch </Text>
+					<Text bold color={theme.error}>
 						[n/Esc]
 					</Text>
-					<Text color="gray"> cancel</Text>
+					<Text {...secondary}> cancel</Text>
 				</Box>
 			</Box>
 		</Box>
