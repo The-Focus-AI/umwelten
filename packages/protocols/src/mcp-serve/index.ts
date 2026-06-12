@@ -16,7 +16,11 @@
 export { createMcpServer } from './server.js';
 export type { McpHttpServer } from './server.js';
 
+export { createMcpServeMount, isMcpServeMountPath } from './mount.js';
+export type { McpServeMount, McpServeMountConfig } from './mount.js';
+
 export { NeonStore } from './neon-store.js';
+export { MemoryStore } from './memory-store.js';
 
 export type {
   UpstreamOAuthProvider,

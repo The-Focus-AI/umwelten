@@ -33,7 +33,10 @@ export type {
 // ── MCP Serve (OAuth MCP server framework) ──────────────────────────────
 export { createMcpServer } from "./mcp-serve/server.js";
 export type { McpHttpServer } from "./mcp-serve/server.js";
+export { createMcpServeMount, isMcpServeMountPath } from "./mcp-serve/mount.js";
+export type { McpServeMount, McpServeMountConfig } from "./mcp-serve/mount.js";
 export { NeonStore } from "./mcp-serve/neon-store.js";
+export { MemoryStore } from "./mcp-serve/memory-store.js";
 export type {
   UpstreamOAuthProvider,
   UpstreamTokens,
