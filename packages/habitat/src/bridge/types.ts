@@ -5,7 +5,11 @@
  */
 
 import type { CoreMessage } from 'ai';
+import type { ModelResponse } from '@umwelten/core/cognition/types.js';
 import type { AgentEntry, NativeSessionRef } from '../types.js';
+
+/** Model-run metadata (token usage, provider, model, cost) — core doesn't export the type directly. */
+export type BridgeResponseMetadata = ModelResponse['metadata'];
 
 // ── Inbound message ──────────────────────────────────────────────────
 
@@ -69,6 +73,14 @@ export interface BridgeResult {
   channelKey: string;
   /** Extended reasoning if the model emitted it. */
   reasoning?: string;
+  /**
+   * Response metadata from the model run (token usage, provider, model,
+   * cost) when the default Interaction runtime produced the response.
+   * Non-default runtimes (claude-sdk, pi) don't surface this yet.
+   * When the tool-call follow-up turn produced the final text, this is
+   * the follow-up turn's metadata (per-run, not cumulative).
+   */
+  metadata?: BridgeResponseMetadata;
 }
 
 // ── Runtime seam (#118) ──────────────────────────────────────────────
