@@ -13,6 +13,8 @@
  */
 
 import { execFile as execFileCb, spawn } from "node:child_process";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type { ContainerStatus, GaiaHabitatEntry } from "./types.js";
 
@@ -104,9 +106,20 @@ export class DockerManager {
   }
 
   /**
+   * Host path where a container's sessions are bind-mounted (#119) — one
+   * subdirectory per habitat entry under the Gaia data dir, so host-side
+   * introspection (`umwelten browse --sessions-dir`, the digester) sees
+   * in-container sessions with configuration only.
+   */
+  hostSessionsDir(id: string): string {
+    return join(this.dataDir, "sessions", id);
+  }
+
+  /**
    * Start a container for a habitat entry.
-   * Uses a named Docker volume and assigns a port from the 7440+ range.
-   * Returns the assigned host port.
+   * Uses a named Docker volume and assigns a port from the 7440+ range;
+   * the sessions subdirectory is additionally bind-mounted to the host
+   * (session egress, #119). Returns the assigned host port.
    */
   async startContainer(
     entry: GaiaHabitatEntry,
@@ -132,11 +145,18 @@ export class DockerManager {
     // Pick a port
     const hostPort = await this.findAvailablePort(allEntries ?? []);
 
+    // Session egress (#119): the sessions subdir lives on the host so it
+    // survives volume lifecycle and is readable by host-side introspection.
+    // Never cleared here — stop/rebuild preserves session files.
+    const sessionsHostDir = this.hostSessionsDir(entry.id);
+    await mkdir(sessionsHostDir, { recursive: true });
+
     const args = [
       "run", "-d",
       "--name", name,
       "--network", NETWORK_NAME,
       "-v", `${volume}:/data`,
+      "-v", `${sessionsHostDir}:/data/sessions`,
       "--env", `HABITAT_API_KEY=${entry.apiKey}`,
       "-p", `127.0.0.1:${hostPort}:8080`,
       image,
