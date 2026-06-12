@@ -475,6 +475,7 @@ The split is deliberate: a single primitive would need to be either (a) habitat-
 - `discord/DiscordAdapter.tsx` — discord.js bot (god-component, candidate for Wave G splitting).
 - `discord/discord-backfill.ts`, `discord-message-gate.ts`, `discord-transcript-ambient.ts` — ambient-listening, gating, missed-message backfill.
 - `tui/` — React Ink TUI: live/file/session viewer (`tui/index.tsx`), browser components (`tui/browser/`), reusable Ink primitives (`tui/components/`), introspect tree (`tui/introspect/{DashboardApp,browse,detail,beats,digest-live}.tsx`).
+- `tui/theme.ts` — **the TUI color palette.** Use `theme.*` tokens (`accent`, `userValue`, `pending`, `error`, `success`, role colors, border colors) instead of Ink color names, and spread `secondary` for labels/metadata instead of `color="gray"` (gray is unreadable on several terminal themes; `dimColor` adapts). Never `color="blue"` for assistant text.
 
 ## Key Patterns
 
