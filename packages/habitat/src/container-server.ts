@@ -30,6 +30,7 @@ import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
+import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
 import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
 import { createPiRuntimeRunner } from "./pi-runner.js";
@@ -227,6 +228,9 @@ export async function startContainerServer(
 
 	const webAdapter = new WebAdapter(bridge);
 
+	// Per-agent public surface (/agents/<id>/... + path-inserted well-known).
+	const agentSurface = createAgentSurface(habitat);
+
 	// A2A handler — initialized lazily on first request (needs port for baseUrl)
 	let a2aHandler: A2AHandler | null = null;
 	async function getA2AHandler(actualPort: number): Promise<A2AHandler> {
@@ -279,6 +283,7 @@ export async function startContainerServer(
 			// Log non-static requests
 			const shouldLog =
 				path.startsWith("/api/") ||
+				path.startsWith("/agents/") ||
 				path === "/mcp" ||
 				path === "/a2a" ||
 				path === "/health";
@@ -462,112 +467,11 @@ export async function startContainerServer(
 				}
 
 				// ── mcp-agent public surface (/agents/<id>/...) ───────
-				// Scaffold for Phase 4 of the Habitat Runtime spec: serve a
-				// mcp-agent's static UI dir, return its manifest, and stub the
-				// MCP endpoint with a 501 + diagnostic until mcp-serve is wired up.
-				{
-					const m = path.match(/^\/agents\/([^/]+)(?:\/(.*))?$/);
-					if (m) {
-						const agentId = m[1];
-						const subPath = m[2] ?? "";
-						const agent = habitat.getAgent(agentId);
-						if (agent && agent.kind === "mcp-agent") {
-							const all = await habitat.getMcpAgents();
-							const found = all.mcpAgents.find((x) => x.agent.id === agentId);
-							const manifestErr = all.errors.find(
-								(e) => e.agent.id === agentId,
-							);
-
-							if (!found) {
-								sendJson(
-									res,
-									{
-										error: manifestErr
-											? "MANIFEST_INVALID"
-											: "MANIFEST_NOT_FOUND",
-										agentId,
-										message:
-											manifestErr?.error ??
-											"agent has no agent-manifest.json (cannot mount)",
-									},
-									manifestErr ? 422 : 503,
-								);
-								return;
-							}
-
-							if (subPath === "mcp") {
-								sendJson(
-									res,
-									{
-										error: "NOT_IMPLEMENTED",
-										agentId,
-										message:
-											"mcp-agent MCP endpoint mount is scaffolded but not yet wired to @umwelten/protocols/mcp-serve. Manifest detected at " +
-											found.path,
-										manifest: found.manifest,
-									},
-									501,
-								);
-								return;
-							}
-
-							if (subPath === "manifest.json") {
-								sendJson(res, found.manifest);
-								return;
-							}
-
-							// Static UI passthrough — serve files under publicUiDir.
-							if (req.method === "GET" && found.manifest.publicUiDir) {
-								const uiRoot = resolve(
-									agent.projectPath,
-									found.manifest.publicUiDir,
-								);
-								const fileName = subPath === "" ? "index.html" : subPath;
-								if (fileName.includes("..")) {
-									sendJson(res, { error: "Invalid path" }, 400);
-									return;
-								}
-								const absPath = resolve(uiRoot, fileName);
-								if (!absPath.startsWith(uiRoot + "/") && absPath !== uiRoot) {
-									sendJson(res, { error: "Path outside ui root" }, 403);
-									return;
-								}
-								try {
-									const fileStat = await stat(absPath);
-									if (fileStat.isDirectory()) {
-										sendJson(res, { error: "Cannot serve directories" }, 400);
-										return;
-									}
-									const ext = extname(absPath).toLowerCase();
-									const types: Record<string, string> = {
-										".html": "text/html; charset=utf-8",
-										".css": "text/css; charset=utf-8",
-										".js": "application/javascript; charset=utf-8",
-										".json": "application/json; charset=utf-8",
-										".png": "image/png",
-										".jpg": "image/jpeg",
-										".svg": "image/svg+xml",
-									};
-									const body = await readFile(absPath);
-									res.writeHead(200, {
-										"Content-Type": types[ext] ?? "application/octet-stream",
-										"Content-Length": body.length,
-										"Cache-Control": "no-cache",
-									});
-									res.end(body);
-								} catch (err: any) {
-									if (err.code === "ENOENT")
-										sendJson(res, { error: "File not found" }, 404);
-									else sendJson(res, { error: err.message }, 500);
-								}
-								return;
-							}
-
-							sendJson(res, { error: "NOT_FOUND", agentId, subPath }, 404);
-							return;
-						}
-					}
-				}
+				// Static UI, manifest, and the mcp-serve OAuth MCP mount,
+				// plus the root-level path-inserted OAuth discovery URLs.
+				// See agent-surface.ts. Not gated by HABITAT_API_KEY — the
+				// mount's own OAuth layer authenticates /mcp.
+				if (await agentSurface.handle(req, res, path)) return;
 
 				// ── File serving (sandboxed to work dir) ───────────────
 				if (path.startsWith("/files/") && req.method === "GET") {
