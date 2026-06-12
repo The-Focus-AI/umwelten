@@ -48,3 +48,19 @@ describe('resolveProxyTarget', () => {
     expect(resolveProxyTarget('/api/secrets')).toBeNull();
   });
 });
+
+describe('resolveProxyTarget — per-session routes (#120)', () => {
+  it('maps the sessions list route', () => {
+    expect(resolveProxyTarget('/api/habitats/h1/sessions')).toEqual({
+      id: 'h1',
+      targetPath: '/api/sessions',
+    });
+  });
+
+  it('maps per-session subpaths (messages) through the wildcard', () => {
+    expect(resolveProxyTarget('/api/habitats/h1/sessions/s-42/messages')).toEqual({
+      id: 'h1',
+      targetPath: '/api/sessions/s-42/messages',
+    });
+  });
+});

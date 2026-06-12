@@ -20,6 +20,7 @@ export type SessionSource =
 	| "native"
 	| "pi"
 	| "habitat"
+	| "gaia"
 	| "unknown";
 
 /**
