@@ -192,38 +192,42 @@ export async function startContainerServer(
 
 	// Wrap bridge.handleMessage to log chat activity and track session
 	const originalHandleMessage = bridge.handleMessage.bind(bridge);
-	bridge.handleMessage = async (msg, events) => {
+	bridge.handleMessage = async (msg, events, signal) => {
 		const ts = () => new Date().toISOString();
 		console.log(
 			`[${ts()}] 💬 chat: "${msg.text.slice(0, 80)}${msg.text.length > 80 ? "..." : ""}"`,
 		);
-		return originalHandleMessage(msg, {
-			...events,
-			onReasoning: (delta) => {
-				events.onReasoning?.(delta);
+		return originalHandleMessage(
+			msg,
+			{
+				...events,
+				onReasoning: (delta) => {
+					events.onReasoning?.(delta);
+				},
+				onToolCall: (name, input) => {
+					// Update session ID for artifact tools (session exists by the time tools run)
+					const sid = bridge.getChannelSessionId(msg.channelKey);
+					if (sid) (habitat as any)._currentSessionId = sid;
+					console.log(`[${ts()}] ⚡ ${name}`);
+					events.onToolCall?.(name, input);
+				},
+				onToolResult: (name, output, isError) => {
+					const marker = isError ? "✗" : "✓";
+					console.log(`[${ts()}] ${marker} ${name}`);
+					events.onToolResult?.(name, output, isError);
+				},
+				onDone: (result) => {
+					const len = result.content?.length ?? 0;
+					console.log(`[${ts()}] ✅ chat done (${len} chars)`);
+					return events.onDone(result);
+				},
+				onError: (err) => {
+					console.error(`[${ts()}] ❌ chat error: ${err}`);
+					events.onError?.(err);
+				},
 			},
-			onToolCall: (name, input) => {
-				// Update session ID for artifact tools (session exists by the time tools run)
-				const sid = bridge.getChannelSessionId(msg.channelKey);
-				if (sid) (habitat as any)._currentSessionId = sid;
-				console.log(`[${ts()}] ⚡ ${name}`);
-				events.onToolCall?.(name, input);
-			},
-			onToolResult: (name, output, isError) => {
-				const marker = isError ? "✗" : "✓";
-				console.log(`[${ts()}] ${marker} ${name}`);
-				events.onToolResult?.(name, output, isError);
-			},
-			onDone: (result) => {
-				const len = result.content?.length ?? 0;
-				console.log(`[${ts()}] ✅ chat done (${len} chars)`);
-				return events.onDone(result);
-			},
-			onError: (err) => {
-				console.error(`[${ts()}] ❌ chat error: ${err}`);
-				events.onError?.(err);
-			},
-		});
+			signal,
+		);
 	};
 
 	const webAdapter = new WebAdapter(bridge);
@@ -241,6 +245,7 @@ export async function startContainerServer(
 				bridge,
 				baseUrl,
 				name: serverName,
+				requiresApiKey: Boolean(apiKey),
 			});
 		}
 		return a2aHandler;

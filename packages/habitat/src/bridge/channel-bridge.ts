@@ -126,6 +126,7 @@ export class ChannelBridge {
   async handleMessage(
     msg: ChannelMessage,
     events: BridgeEventHandlers,
+    signal?: AbortSignal,
   ): Promise<void> {
     try {
       // Non-default runtimes dispatch through the RuntimeRunner seam (#118)
@@ -170,10 +171,11 @@ export class ChannelBridge {
       // Stream the response
       let response;
       try {
-        response = await interaction.streamText(undefined, observer);
+        response = await interaction.streamText(signal, observer);
       } finally {
         interaction.onTranscriptUpdate = originalCallback ?? undefined;
       }
+      let finalResponse = response;
 
       let content = typeof response.content === 'string' ? response.content : '';
       const reasoning = typeof response.reasoning === 'string'
@@ -187,10 +189,11 @@ export class ChannelBridge {
         const meta = response.metadata as { toolCalls?: unknown[] };
         if (Array.isArray(meta.toolCalls) && meta.toolCalls.length > 0) {
           try {
-            const followUp = await interaction.streamText(undefined, observer);
+            const followUp = await interaction.streamText(signal, observer);
             const followText = typeof followUp.content === 'string' ? followUp.content : '';
             if (followText.trim()) {
               content = followText;
+              finalResponse = followUp;
             }
           } catch {
             // fall through with empty content
@@ -207,6 +210,7 @@ export class ChannelBridge {
         sessionId,
         channelKey: msg.channelKey,
         reasoning,
+        metadata: finalResponse.metadata,
       };
       await events.onDone(result);
     } catch (err) {
