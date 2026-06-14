@@ -1,4 +1,9 @@
-# Session Analysis Walkthrough
+# Session Analysis Walkthrough (legacy)
+
+> **⚠️ Deprecated.** This walkthrough covers the older `sessions index / search / analyze` flow.
+> The current path is the **[Knowledge Pipeline Walkthrough](./knowledge-pipeline-walkthrough.md)** —
+> projection → reflection → promotion, with `solutionType` filtering (including `planning`).
+> The commands below still work but are no longer the primary entry point.
 
 This walkthrough demonstrates how to use the session management tools to understand what work has been done in a project (Claude Code and Cursor).
 

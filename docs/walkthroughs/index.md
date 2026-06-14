@@ -55,9 +55,24 @@ Search every Claude Code session you've ever had by full message content, then h
 **Time Required:** 5 minutes
 **Prerequisites:** ripgrep (`rg`) on PATH, Claude Code sessions on disk
 
-### [Session Analysis Walkthrough](./session-analysis-walkthrough.md)
+### [Knowledge Pipeline Walkthrough](./knowledge-pipeline-walkthrough.md)
 
-Learn how to use the session management tools to understand your Claude Code work:
+End-to-end through the Exploration-centered knowledge workflow — the modern path that replaces the older `sessions index/search` flow:
+
+- Project Source Sessions (Claude Code / Cursor / Habitat) into Explorations
+- Run the digester to extract topics, tags, key learnings, and **`solutionType`** (including `planning`)
+- Identify planning sessions specifically — by filter or by tag
+- Build a reflective Interaction (no new runner) to ask questions across one or more Explorations
+- Classify and promote answers to `AGENTS.md`, `FACTS.md`, ADRs, Skills, or Artifacts
+- Save Explorations for later reuse
+
+**Time Required:** 15-20 minutes
+**Prerequisites:** Sessions in a project, a provider API key
+**Best For:** Finding past decisions, turning planning sessions into ADRs
+
+### [Session Analysis Walkthrough (legacy)](./session-analysis-walkthrough.md)
+
+Older `sessions index/search/analyze` flow. Still works, but the [knowledge pipeline](./knowledge-pipeline-walkthrough.md) above is the recommended path:
 
 - List and inspect sessions
 - Index sessions with LLM analysis

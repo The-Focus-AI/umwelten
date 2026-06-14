@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Focus.AI Labs — Exploration Browser Walkthrough</title>
+    <title>Focus.AI Labs — Exploration Browser Test Walkthrough</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,7 +11,6 @@
       rel="stylesheet"
     />
     <style>
-      /* ── Labs Design Tokens ─────────────────────────────────── */
       :root {
         --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
         --font-sans: "Inter", system-ui, sans-serif;
@@ -20,26 +19,18 @@
         --color-void: #1a1a1a;
         --color-rand-blue: #0055aa;
         --color-alert-red: #d93025;
+        --color-warn-amber: #b07900;
+        --color-pass-green: #1a7f3a;
         --color-surface: #e6e4dc;
         --color-border: rgba(26, 26, 26, 0.2);
+        --color-friction-bg: #fef6e0;
+        --color-friction-border: #b07900;
         --text-primary: var(--color-void);
         --text-secondary: rgba(26, 26, 26, 0.7);
         --text-tertiary: rgba(26, 26, 26, 0.4);
-        --text-ghosted: rgba(26, 26, 26, 0.2);
       }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      html {
-        font-size: 16px;
-        -webkit-font-smoothing: antialiased;
-        scroll-behavior: smooth;
-      }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { font-size: 16px; -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
       body {
         font-family: var(--font-sans);
         background: var(--color-paper);
@@ -48,8 +39,6 @@
         height: 100vh;
         width: 100vw;
       }
-
-      /* ── Horizontal Scroll Container ──────────────────────── */
       .scroll-container {
         display: flex;
         overflow-x: auto;
@@ -60,111 +49,144 @@
         scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
       }
-      .scroll-container::-webkit-scrollbar {
-        display: none;
-      }
-
+      .scroll-container::-webkit-scrollbar { display: none; }
       .slide {
         scroll-snap-align: start;
         flex: 0 0 100vw;
         height: 100vh;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        padding: 48px 64px;
+        justify-content: flex-start;
+        padding: 48px 64px 100px;
         position: relative;
         overflow-y: auto;
       }
+      .slide-content { max-width: 820px; margin: 0 auto; width: 100%; }
+      .slide-content-wide { max-width: 1080px; margin: 0 auto; width: 100%; }
 
-      .slide-content {
-        max-width: 740px;
-        margin: 0 auto;
-        width: 100%;
-      }
-      .slide-content-wide {
-        max-width: 1080px;
-        margin: 0 auto;
-        width: 100%;
-      }
-
-      /* ── Typography ───────────────────────────────────────── */
       h1 {
         font-family: var(--font-display);
         font-weight: 900;
-        font-size: clamp(2rem, 4vw, 3rem);
+        font-size: clamp(1.75rem, 3.2vw, 2.5rem);
         letter-spacing: -0.03em;
         line-height: 1.1;
+        margin-bottom: 8px;
       }
       h2 {
         font-family: var(--font-sans);
         font-weight: 700;
-        font-size: clamp(1.25rem, 2vw, 1.5rem);
-        letter-spacing: -0.02em;
-        margin-bottom: 20px;
+        font-size: 1.125rem;
+        letter-spacing: -0.01em;
+        margin-top: 18px;
+        margin-bottom: 8px;
       }
       h3 {
         font-family: var(--font-sans);
         font-weight: 600;
-        font-size: 1rem;
+        font-size: 0.9375rem;
         margin-bottom: 6px;
-        margin-top: 16px;
-      }
-      h3:first-child {
-        margin-top: 0;
-      }
-      .label {
-        font-family: var(--font-mono);
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        margin-top: 14px;
         color: var(--text-secondary);
-        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
       }
+      h3:first-child { margin-top: 0; }
       .label-accent {
         font-family: var(--font-mono);
-        font-size: 0.75rem;
+        font-size: 0.6875rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--color-rand-blue);
-        margin-bottom: 12px;
+        margin-bottom: 10px;
       }
       p {
         font-weight: 400;
         font-size: 0.9375rem;
         line-height: 1.6;
-        max-width: 60ch;
+        max-width: 70ch;
         margin-bottom: 10px;
       }
-      p.secondary {
-        color: var(--text-secondary);
-      }
-      p.tertiary {
-        color: var(--text-tertiary);
-        font-size: 0.8125rem;
-      }
-      code,
-      .file-path {
+      p.lead { font-size: 1rem; }
+      p.secondary { color: var(--text-secondary); }
+      p.tertiary { color: var(--text-tertiary); font-size: 0.8125rem; }
+      code {
         font-family: var(--font-mono);
         font-size: 0.8125rem;
-      }
-      .file-path {
-        display: block;
-        color: var(--text-tertiary);
-        margin-bottom: 3px;
-        padding-left: 12px;
-        border-left: 2px solid var(--color-border);
+        background: var(--color-surface);
+        padding: 1px 5px;
+        border-radius: 2px;
       }
       .accent-bar {
         width: 48px;
         height: 3px;
         background: var(--color-alert-red);
         border-radius: 2px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
       }
 
-      /* ── Step cards ──────────────────────────────────────── */
+      /* Test scenario card */
+      .test-meta {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        margin-bottom: 6px;
+      }
+      .test-num {
+        font-family: var(--font-display);
+        font-weight: 900;
+        font-size: 1.5rem;
+        color: var(--color-rand-blue);
+      }
+      .test-prd-refs {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+        letter-spacing: 0.03em;
+      }
+      .test-prd-refs .ref {
+        background: rgba(0, 85, 170, 0.1);
+        color: var(--color-rand-blue);
+        padding: 1px 6px;
+        border-radius: 2px;
+        margin-left: 4px;
+      }
+      .test-title-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .test-status {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 3px 10px;
+        border-radius: 2px;
+      }
+      .status-pass { background: rgba(26, 127, 58, 0.15); color: var(--color-pass-green); }
+      .status-rough { background: rgba(176, 121, 0, 0.18); color: var(--color-warn-amber); }
+      .status-broken { background: rgba(217, 48, 37, 0.15); color: var(--color-alert-red); }
+
+      /* Steps + commands */
+      .step-code {
+        font-family: var(--font-mono);
+        font-size: 0.8125rem;
+        background: var(--color-surface);
+        padding: 10px 14px;
+        border-radius: 3px;
+        line-height: 1.55;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 6px 0;
+        border-left: 3px solid var(--color-rand-blue);
+      }
       .step-list {
-        margin-top: 12px;
+        margin: 12px 0;
+        list-style: none;
       }
       .step {
         display: flex;
@@ -174,8 +196,8 @@
       }
       .step-num {
         flex-shrink: 0;
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         border-radius: 50%;
         background: var(--color-surface);
         border: 1.5px solid var(--color-rand-blue);
@@ -186,229 +208,91 @@
         font-size: 0.6875rem;
         color: var(--color-rand-blue);
         font-weight: 700;
-        margin-top: 1px;
-      }
-      .step-code {
-        font-family: var(--font-mono);
-        font-size: 0.8125rem;
-        background: var(--color-surface);
-        padding: 8px 12px;
-        border-radius: 3px;
-        line-height: 1.5;
-        overflow-x: auto;
-        white-space: pre-wrap;
-        word-break: break-all;
-      }
-      .command-list {
-        list-style: none;
-        font-family: var(--font-mono);
-        font-size: 0.8125rem;
-        background: var(--color-surface);
-        padding: 8px 12px;
-        border-radius: 3px;
-        line-height: 1.5;
-        overflow-x: auto;
-      }
-      .command-list li {
-        white-space: nowrap;
-      }
-      .command-list li + li {
         margin-top: 2px;
       }
-      .step-text {
-        flex: 1;
-      }
-      .step-text .note {
-        font-size: 0.8125rem;
-        color: var(--text-secondary);
-        margin-top: 2px;
-      }
-      .step-text .check {
-        color: #1a7f3a;
-        font-weight: 500;
-      }
+      .step-text { flex: 1; font-size: 0.9375rem; line-height: 1.5; }
 
-      /* ── Stats row ────────────────────────────────────────── */
-      .stats-row {
-        display: flex;
-        gap: 32px;
-        margin-top: 20px;
-        flex-wrap: wrap;
-      }
-      .stat-block {
-        text-align: left;
-      }
-      .stat-number {
-        font-family: var(--font-display);
-        font-weight: 900;
-        font-size: clamp(2.5rem, 5vw, 3.5rem);
-        letter-spacing: -0.03em;
-        line-height: 1;
-        color: var(--color-alert-red);
-      }
-      .stat-label {
-        font-family: var(--font-mono);
-        font-size: 0.6875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-secondary);
-      }
-
-      /* ── Badges ──────────────────────────────────────────── */
-      .badge {
-        display: inline-block;
-        font-family: var(--font-mono);
-        font-size: 0.625rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 2px 8px;
-        border-radius: 2px;
-        margin-right: 4px;
-      }
-      .badge-core {
-        background: rgba(0, 85, 170, 0.15);
-        color: var(--color-rand-blue);
-      }
-      .badge-habitat {
-        background: rgba(217, 48, 37, 0.12);
-        color: var(--color-alert-red);
-      }
-      .badge-sessions {
-        background: rgba(26, 26, 26, 0.08);
-        color: var(--text-secondary);
-      }
-      .badge-ui {
-        background: rgba(0, 85, 170, 0.1);
-        color: var(--color-rand-blue);
-      }
-      .badge-cli {
-        background: rgba(26, 26, 26, 0.06);
-        color: var(--text-secondary);
-      }
-      .badge-green {
-        background: rgba(26, 127, 58, 0.12);
-        color: #1a7f3a;
-      }
-      .badge-new {
-        background: rgba(217, 48, 37, 0.12);
-        color: var(--color-alert-red);
-        font-weight: 700;
-      }
-
-      /* ── Progress / issue number ─────────────────────────── */
-      .issue-meta {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 16px;
-      }
-      .issue-num {
-        font-family: var(--font-display);
-        font-weight: 900;
-        font-size: 1.25rem;
-        color: var(--color-rand-blue);
-      }
-      .issue-num-line {
-        flex: 1;
-        height: 1px;
-        background: var(--color-border);
-      }
-      .commit-hash {
-        font-family: var(--font-mono);
-        font-size: 0.6875rem;
-        color: var(--text-tertiary);
-      }
-
-      /* ── Grid layouts ────────────────────────────────────── */
-      .two-col {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
+      /* Expected behavior callout */
+      .expect {
         margin-top: 12px;
+        padding: 12px 14px;
+        background: rgba(26, 127, 58, 0.06);
+        border-left: 3px solid var(--color-pass-green);
+        border-radius: 2px;
+        font-size: 0.875rem;
       }
-      .two-col h3 {
-        margin-top: 0;
-      }
-      @media (max-width: 768px) {
-        .two-col {
-          grid-template-columns: 1fr;
-        }
-      }
+      .expect strong { color: var(--color-pass-green); display: block; margin-bottom: 4px; font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; }
+      .expect ul { padding-left: 22px; margin: 4px 0; }
+      .expect li { margin-bottom: 3px; line-height: 1.45; }
 
-      /* ── Dashboard mockup (ascii-art for the cover) ──────── */
+      /* Friction callout */
+      .friction {
+        margin-top: 12px;
+        padding: 12px 14px;
+        background: var(--color-friction-bg);
+        border-left: 3px solid var(--color-friction-border);
+        border-radius: 2px;
+        font-size: 0.875rem;
+      }
+      .friction strong {
+        color: var(--color-warn-amber);
+        display: block;
+        margin-bottom: 4px;
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .friction ul { padding-left: 22px; margin: 4px 0; }
+      .friction li { margin-bottom: 3px; line-height: 1.45; }
+      .friction li::marker { color: var(--color-warn-amber); }
+
       .dashboard-mock {
         font-family: var(--font-mono);
         font-size: 0.6875rem;
         line-height: 1.45;
         background: #111;
         color: #e6e4dc;
-        padding: 14px 16px;
-        border-radius: 4px;
-        margin-top: 18px;
+        padding: 12px 14px;
+        border-radius: 3px;
+        margin: 12px 0;
         white-space: pre;
         overflow-x: auto;
         border: 1px solid var(--color-border);
       }
-      .dashboard-mock .dim {
-        color: rgba(230, 228, 220, 0.45);
-      }
-      .dashboard-mock .blue {
-        color: #6bb3ff;
-      }
-      .dashboard-mock .yellow {
-        color: #e6c34a;
-      }
-      .dashboard-mock .green {
-        color: #6bd07b;
-      }
-      .dashboard-mock .red {
-        color: #ff7a6b;
-      }
+      .dashboard-mock .dim { color: rgba(230, 228, 220, 0.45); }
+      .dashboard-mock .blue { color: #6bb3ff; }
+      .dashboard-mock .yellow { color: #e6c34a; }
+      .dashboard-mock .green { color: #6bd07b; }
+      .dashboard-mock .red { color: #ff7a6b; }
+      .dashboard-mock .magenta { color: #d57bff; }
 
-      /* ── Progress bar ────────────────────────────────────── */
-      .progress-track {
-        width: 100%;
-        height: 3px;
-        background: var(--color-border);
-        border-radius: 2px;
-        margin-top: 20px;
-      }
-      .progress-fill {
-        height: 100%;
-        background: var(--color-rand-blue);
-        border-radius: 2px;
-        transition: width 0.3s;
-      }
-
-      /* ── Nav ─────────────────────────────────────────────── */
       .nav-dots {
         position: fixed;
         bottom: 28px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
-        gap: 6px;
+        gap: 5px;
         z-index: 10;
+        max-width: 90vw;
+        flex-wrap: wrap;
+        justify-content: center;
       }
       .nav-dot {
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: var(--color-border);
         border: none;
         cursor: pointer;
         transition: background 0.2s;
       }
-      .nav-dot.active {
-        background: var(--color-rand-blue);
-      }
-      .nav-dot.done {
-        background: rgba(0, 85, 170, 0.35);
-      }
-
+      .nav-dot.active { background: var(--color-rand-blue); }
+      .nav-dot.done { background: rgba(0, 85, 170, 0.35); }
       .keyboard-hint {
         position: fixed;
-        bottom: 56px;
+        bottom: 60px;
         left: 50%;
         transform: translateX(-50%);
         font-family: var(--font-mono);
@@ -432,21 +316,54 @@
         transition: width 0.2s;
       }
       @media (max-width: 768px) {
-        .slide {
-          padding: 32px 20px;
-        }
-        .keyboard-hint {
-          display: none;
-        }
-        .step {
-          flex-direction: column;
-        }
-        .step-num {
-          width: 20px;
-          height: 20px;
-          font-size: 0.625rem;
-        }
+        .slide { padding: 32px 20px 80px; }
+        .keyboard-hint { display: none; }
       }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+      .summary-card {
+        padding: 14px 16px;
+        background: var(--color-surface);
+        border-radius: 3px;
+        border-left: 3px solid var(--color-rand-blue);
+      }
+      .summary-card h3 { margin-top: 0; margin-bottom: 6px; }
+      .summary-card p { font-size: 0.875rem; margin-bottom: 0; }
+      .summary-card.broken { border-left-color: var(--color-alert-red); background: rgba(217, 48, 37, 0.05); }
+      .summary-card.rough { border-left-color: var(--color-warn-amber); background: var(--color-friction-bg); }
+      .summary-card.pass { border-left-color: var(--color-pass-green); background: rgba(26, 127, 58, 0.06); }
+
+      table.coverage {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+        margin-top: 14px;
+      }
+      table.coverage th, table.coverage td {
+        padding: 6px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--color-border);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+      }
+      table.coverage th {
+        background: var(--color-surface);
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.6875rem;
+      }
+      table.coverage td.us { color: var(--color-rand-blue); }
+      table.coverage td.test { color: var(--text-primary); }
+      table.coverage td.stat-pass { color: var(--color-pass-green); font-weight: 700; }
+      table.coverage td.stat-rough { color: var(--color-warn-amber); font-weight: 700; }
+      table.coverage td.stat-broken { color: var(--color-alert-red); font-weight: 700; }
     </style>
   </head>
   <body>
@@ -455,907 +372,940 @@
     </div>
 
     <div class="scroll-container" id="scrollContainer">
-      <!-- ════════════ COVER ════════════ -->
+
+      <!-- ═══════════ COVER ═══════════ -->
       <section class="slide">
         <div class="slide-content-wide">
-          <div class="label-accent">
-            Focus.AI Labs &middot; Exploration Browser Walkthrough
-          </div>
+          <div class="label-accent">Focus.AI Labs &middot; Exploration Browser Test Walkthrough</div>
           <div class="accent-bar"></div>
-          <h1>One command center<br />for every AI coding session.</h1>
-          <p style="font-size: 1.0625rem; margin-top: 20px; max-width: 70ch">
-            Umwelten ships a single command —
-            <code>pnpm run cli browse</code> — that scans every AI coding
-            session on the project (pi, Claude Code, Cursor, Habitat),
-            confirms before spending tokens, then streams extraction progress
-            live as it digests what happened, what was learned, and what is
-            worth promoting to durable project knowledge.
+          <h1>Is it actually delightful?</h1>
+          <p class="lead" style="margin-top: 12px; max-width: 70ch">
+            17 numbered tests you can run hands-on against the
+            <code>umwelten browse</code> command. Each one maps to specific
+            user stories from PRD #56 (Exploration Browser command-center
+            redesign). Each one names the friction we should tighten.
+          </p>
+          <p class="secondary" style="margin-top: 10px">
+            Green callouts = expected delightful behavior. Yellow callouts =
+            specific rough edges to fix. Run them in order; they build on
+            each other.
           </p>
 
-          <div class="dashboard-mock">
-<span class="blue">Explorations (12/12)</span> <span class="dim">· all ·</span>
-   <span class="dim">status     src topic                          msgs  tools  cand   age</span>
- <span class="blue">▶</span> <span class="green">digested</span>   [C] Wire dashboard TUI to engine    218   31     7      2h
-   <span class="yellow">digesting</span>  [P] Fix migration timeout            42   11     —      4h
-   <span class="yellow">stale</span>      [C] Rework promotion classifier      96   18     4      1d
-   <span class="dim">new</span>        [P] Add error handling to auth       24    7     0      2d
-   <span class="dim">new</span>        [X] Refactor session-digester       108   22     0      3d
-<span class="dim">┌──────────────────────────────────────────────────────────────────┐</span>
-<span class="yellow">Digesting Fix migration timeout</span>
-<span class="dim">↑/↓ select · Enter detail · D digest · v transcript · b beats · R reflect · P promote · / search · q quit</span>
-<span class="dim">└──────────────────────────────────────────────────────────────────┘</span>
-          </div>
+          <h3 style="margin-top: 28px">Setup before you start</h3>
+          <div class="step-code">cd /Users/wschenk/The-Focus-AI/umwelten
+pnpm install         # if you haven't already
+pnpm test:run        # sanity check — should see 1211 tests pass</div>
 
-          <div class="stats-row">
-            <div class="stat-block">
-              <div class="stat-number">20</div>
-              <div class="stat-label">Issues shipped</div>
-            </div>
-            <div class="stat-block">
-              <div class="stat-number">1,253</div>
-              <div class="stat-label">Tests passing</div>
-            </div>
-            <div class="stat-block">
-              <div class="stat-number">5</div>
-              <div class="stat-label">Adapter sources</div>
-            </div>
-            <div class="stat-block">
-              <div class="stat-number">0</div>
-              <div class="stat-label">Regressions</div>
-            </div>
-          </div>
-
-          <p class="tertiary" style="margin-top: 16px">
-            ← Scroll horizontally for the live walkthrough
-          </p>
-        </div>
-      </section>
-
-      <!-- ════════════ TRY IT NOW ════════════ -->
-      <section class="slide">
-        <div class="slide-content-wide">
-          <div class="label-accent">Try it now</div>
-          <div class="accent-bar"></div>
-          <h1>Three commands, end to end.</h1>
-          <p style="font-size: 1.0625rem; margin-top: 16px">
-            Run these against any project that has AI coding sessions on disk.
-            The dashboard discovers and projects everything before any LLM call.
-          </p>
-
-          <div class="two-col" style="margin-top: 20px">
-            <div>
-              <h3>1. Open the command-center</h3>
-              <div class="step-code">dotenvx run -- pnpm run cli browse -p .</div>
-              <div class="note check">
-                ✓ Discovers sessions across pi / Claude Code / Cursor / Habitat,
-                shows a top-down table, and gates extraction behind a
-                confirmation overlay.
-              </div>
-
-              <h3>2. Confirm to extract</h3>
-              <p class="secondary" style="margin-top: 6px">
-                The overlay states how many Explorations need extraction, the
-                model, the concurrency, and an explicit cost warning. Press
-                <code>y</code> to launch — rows transition
-                <code>new</code> → <code>digesting</code> → <code>digested</code>
-                inline.
-              </p>
-
-              <h3>3. Drill into one</h3>
-              <p class="secondary" style="margin-top: 6px">
-                Arrow keys to navigate.
-                <code>Enter</code> opens detail.
-                <code>v</code> transcript.
-                <code>b</code> beats.
-                <code>D</code> re-digest a single row.
-                <code>/</code> search.
-                <code>q</code> quit.
-              </p>
-            </div>
-
-            <div>
-              <h3>What is happening underneath</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>initializeAdapters()</code> registers Claude Code, pi,
-                Cursor
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>projectSessions()</code> discovers every source session
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>buildExploreBrowse()</code> wraps each into an
-                ExplorationBrowserEntry + digest
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                Dashboard mounts (React Ink)
-              </p>
-              <p class="file-path" style="border-color: var(--color-alert-red)">
-                <code>ExtractionEngine.run()</code> streams progress events
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                Digests + candidate JSONLs written under
-                <code>.umwelten/</code>
-              </p>
-
-              <h3 style="margin-top: 18px">Smoke-test the suite</h3>
-              <ul class="command-list">
-                <li>pnpm test:run                  # 1253 tests · ~8s</li>
-                <li>pnpm test:run DashboardApp     # 26 tests · TUI</li>
-                <li>pnpm test:run introspect.test  # 7 tests · CLI</li>
-                <li>pnpm test:run extraction       # engine + scope</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ DOMAIN LANGUAGE ════════════ -->
-      <section class="slide">
-        <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#41 · #58 · CONTEXT.md</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">f75ee4e · bd458bb</span>
-          </div>
-          <h1>The domain language<br />was cleaned up.</h1>
-          <div>
-            <span class="badge badge-core">core</span>
-            <span class="badge badge-green">42 tests</span>
-            <span class="badge badge-new">renamed</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>Three nouns, one direction</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <strong>Source Session</strong> — tool-specific persisted
-                history (pi JSONL, Claude transcript, Cursor SQLite row)
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <strong>Interaction</strong> — flat, model-facing conversation
-                handed to the runner
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <strong>Exploration</strong> — queryable grouping of Source
-                Sessions (default / virtual / saved)
-              </p>
-            </div>
-            <div>
-              <h3>Renamed throughout the codebase</h3>
-              <p class="secondary" style="margin-bottom: 6px">
-                <code>playbook</code> → <code>skill_candidate</code>. Types,
-                storage filenames, digester prompts, CLI help, docs, tests
-                — all updated. A regression test pins the rename so the old
-                word cannot creep back into source.
-              </p>
-              <p class="file-path" style="border-color: var(--color-alert-red)">
-                packages/core/src/session-record/skill-candidates-rename.test.ts
-              </p>
-            </div>
-          </div>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run domain-types.test</div>
-                <div class="note check">✓ 24 tests on the type contracts</div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run skill-candidates-rename</div>
-                <div class="note check">
-                  ✓ Scans every source file under <code>packages/</code> for
-                  the old word; the only allowed mention is the flagged
-                  ambiguity in CONTEXT.md.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ ADAPTERS & PROJECTION ════════════ -->
-      <section class="slide">
-        <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#43 · #44 · #51 · #60</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">f75ee4e · 3727678 · f0beb81 · 2b7437c</span>
-          </div>
-          <h1>One adapter API,<br />four real sources.</h1>
-          <div>
-            <span class="badge badge-core">core</span>
-            <span class="badge badge-habitat">habitat</span>
-            <span class="badge badge-green">59 tests</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>Adapters in the registry</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                ClaudeCodeAdapter — <code>~/.claude/projects/</code>
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                PiSessionAdapter — pi JSONL v3 (branches, compactions, labels)
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                CursorAdapter — Cursor's SQLite store
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                HabitatSessionAdapter — <code>habitats-sessions/</code> dirs
-              </p>
-            </div>
-            <div>
-              <h3>Real metadata flows through</h3>
-              <p class="secondary">
-                The projection layer used to lose adapter metadata when it
-                stubbed Source Sessions. Fixed in #60: <code>messageCount</code>,
-                <code>toolCalls</code>, branch counts, compactions, and
-                estimated cost reach the dashboard intact.
-              </p>
-              <p class="file-path" style="border-color: var(--color-alert-red)">
-                packages/sessions/src/introspection/browse.test.ts
-              </p>
-            </div>
-          </div>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run projection.test</div>
-                <div class="note check">
-                  ✓ 19 tests cover discoverAllSessions + per-source aggregation
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run pi-adapter.test</div>
-                <div class="note check">
-                  ✓ 26 tests on JSONL v3 parsing — branch summaries,
-                  compactions, labels, model/thinking changes
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">3</div>
-              <div class="step-text">
-                <div class="step-code">
-                  dotenvx run -- pnpm run cli sessions list --limit 5
-                </div>
-                <div class="note">
-                  Lists discovered sessions from every registered adapter on
-                  the current project. The summary line at the top reads
-                  e.g. <code>Sources: pi: 19, Claude: 63, Cursor: 1</code>.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ BROWSE DATA LAYER ════════════ -->
-      <section class="slide">
-        <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#45 · #47</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">fefb55d · 349adf0</span>
-          </div>
-          <h1>Browse data layer<br />speaks Explorations.</h1>
-          <div>
-            <span class="badge badge-sessions">sessions</span>
-            <span class="badge badge-green">23 tests</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>Public surface</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>buildExploreBrowse()</code> — projects + decorates with
-                digest, analysis runs, modifiedSinceAnalysis
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>applyExploreFilter()</code> — date window, source, status,
-                free-text query
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>searchToVirtualExploration()</code> — query → virtual
-                Exploration wrapping the matches
-              </p>
-            </div>
-            <div>
-              <h3>Why it matters</h3>
-              <p class="secondary">
-                The dashboard reads from this layer. Filtering is pure and
-                tested in isolation, so the TUI can re-derive the row set on
-                every keystroke without touching disk or LLM.
-              </p>
-              <p class="file-path">
-                packages/sessions/src/introspection/browse.ts
-              </p>
-            </div>
-          </div>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run browse.test</div>
-                <div class="note check">
-                  ✓ 16 tests on <code>applyExploreFilter</code> +
-                  <code>buildExploreBrowse</code>, 7 on
-                  <code>searchToVirtualExploration</code>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ DIGEST PERSISTENCE ════════════ -->
-      <section class="slide">
-        <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#61</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">7f2ab6a</span>
-          </div>
-          <h1>Digests live<br />with the project.</h1>
-          <div>
-            <span class="badge badge-sessions">sessions</span>
-            <span class="badge badge-new">project-local</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>New convention</h3>
-              <p class="secondary">
-                Digests used to live under
-                <code>~/.umwelten/digests/</code> (global, mixed across
-                projects). Now they live next to the code:
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>&lt;project&gt;/.umwelten/digests/sessions/&lt;encoded-id&gt;.json</code>
-              </p>
-              <p class="secondary" style="margin-top: 8px">
-                <code>loadDigest()</code> / <code>saveDigest()</code> handle the
-                round-trip with URL-encoded session IDs so cross-platform paths
-                stay safe.
-              </p>
-            </div>
-            <div>
-              <h3>Consequences</h3>
-              <p class="secondary">
-                Knowledge travels with the project. Move the repo, the
-                digests come along. Multi-project setups stop blending
-                Explorations across boundaries.
-              </p>
-              <p class="file-path">
-                packages/sessions/src/introspection/browse.ts:30–66
-              </p>
-            </div>
-          </div>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">
-                  pnpm test:run browse.test -t "digest persistence"
-                </div>
-                <div class="note check">
-                  ✓ Constructs project-local paths, URL-encodes IDs, round-trips
-                  a SessionDigest cleanly
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">
-                  ls .umwelten/digests/sessions/ 2&gt;/dev/null | head -3
-                </div>
-                <div class="note">
-                  After running <code>browse</code> against this repo and
-                  confirming extraction, the directory exists and contains
-                  one JSON per digested session.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ EXTRACTION ENGINE ════════════ -->
-      <section class="slide">
-        <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#63</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">53a02c6</span>
-          </div>
-          <h1>Extraction workflow engine.</h1>
-          <div>
-            <span class="badge badge-core">core</span>
-            <span class="badge badge-new">deep module</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>What it does</h3>
-              <p class="secondary">
-                Coordinates LLM extraction across a list of Explorations.
-                Detects scope (newest undigested first, plus stale), controls
-                concurrency (default 1), streams progress, persists candidates
-                project-locally.
-              </p>
-              <p class="file-path">
-                packages/core/src/interaction/analysis/extraction-engine.ts
-              </p>
-            </div>
-            <div>
-              <h3>Progress event shape</h3>
-              <div
-                class="step-code"
-                style="font-size: 0.75rem; margin-top: 0"
-              >{
-  explorationId: string,
-  sessionId: string,
-  phase: "pending" | "digesting"
-       | "digested"  | "failed",
-  detail?: string,
-}</div>
-              <p class="secondary" style="margin-top: 6px">
-                The dashboard buffers these events and flushes id-keyed row
-                patches every 150ms to avoid tmux flicker.
-              </p>
-            </div>
-          </div>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run extraction-engine.test</div>
-                <div class="note check">
-                  ✓ Covers <code>determineScope()</code> (undigested + stale,
-                  newest first), sequential + concurrent run paths,
-                  schema-version staleness, progress emission, failure
-                  surface
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">
-                  cat reports/2026-05-22-jsonl-persistence-nodejs.md
-                </div>
-                <div class="note">
-                  Tech report that informed the persistence strategy used by
-                  the engine and candidate store.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ CANDIDATE PERSISTENCE ════════════ -->
-      <section class="slide">
-        <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#66</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">505ca89</span>
-          </div>
-          <h1>Five lanes for<br />candidate knowledge.</h1>
-          <div>
-            <span class="badge badge-core">core</span>
-            <span class="badge badge-new">jsonl</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>Per-kind JSONL files</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>.umwelten/candidates/project-facts.jsonl</code>
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>.umwelten/candidates/skill-candidates.jsonl</code>
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>.umwelten/candidates/open-loops.jsonl</code>
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>.umwelten/candidates/preferences.jsonl</code>
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>.umwelten/candidates/mistakes.jsonl</code>
-              </p>
-            </div>
-            <div>
-              <h3>Append-only, fault-tolerant</h3>
-              <p class="secondary">
-                <code>CandidatePersistence</code> appends one JSON object per
-                line per candidate. Reads gracefully skip malformed lines so a
-                partial write never breaks the store. <code>readAll()</code>
-                returns every kind keyed by name.
-              </p>
-              <p class="file-path">
-                packages/core/src/interaction/knowledge/candidate-persistence.ts
-              </p>
-            </div>
-          </div>
-
-          <h3>Why JSONL</h3>
-          <p class="secondary">
-            Crash-safe (each append is atomic), tail-friendly (you can
-            <code>tail -f</code> a kind as the engine runs), easy to diff and
-            grep. The promote step reads these and decides which become
-            durable in AGENTS.md / FACTS.md / .agents/skills/.
-          </p>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run candidate-persistence.test</div>
-                <div class="note check">
-                  ✓ append + read + readAll, empty-file safety, malformed-line
-                  skip
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════════ DASHBOARD TUI ════════════ -->
-      <section class="slide">
-        <div class="slide-content-wide">
-          <div class="issue-meta">
-            <span class="issue-num">#64</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">4c98966</span>
-          </div>
-          <h1>Command-center dashboard.</h1>
-          <div>
-            <span class="badge badge-ui">ui</span>
-            <span class="badge badge-green">26 tests</span>
-            <span class="badge badge-new">new TUI</span>
-          </div>
-
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>What replaced the old browser</h3>
-              <p class="secondary">
-                The cramped side-by-side ExploreBrowseApp is gone. A
-                top-down table now shows status · source badge · topic
-                (truncated) · msgs · tools · candidate count · age. Rows
-                update in place as the extraction engine emits progress.
-              </p>
-              <p class="file-path">
-                packages/ui/src/tui/introspect/DashboardApp.tsx
-              </p>
-              <p class="file-path">
-                packages/ui/src/tui/introspect/dashboard/utils.ts
-              </p>
-            </div>
-            <div>
-              <h3>Architecture (informed by report)</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                Custom <code>&lt;Box&gt;</code> table — abandoned ink-table
-                avoided
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                <code>useReducer</code> id-keyed by sessionId
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                Events buffered + flushed every 150ms (tmux-safe)
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                Confirmation overlay = conditional render, owns its own
-                <code>useInput</code>
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                Dashboard / overlay / search input each gated by
-                <code>isActive</code>
-              </p>
-            </div>
-          </div>
-
-          <h3>Keyboard surface</h3>
-          <ul class="command-list" style="margin-top: 6px">
-            <li>↑/↓ navigate    Enter open detail    /   search    q quit</li>
-            <li>D digest        v transcript          b   beats</li>
-            <li>R reflect       P promote   (stubbed; see PRD #56 out-of-scope)</li>
-            <li>y/n            confirm/cancel on the launch overlay</li>
+          <h3>What you'll need</h3>
+          <ul style="padding-left: 22px; font-size: 0.9375rem; line-height: 1.55">
+            <li>A project with at least a few AI coding sessions (pi / Claude Code / Cursor / Habitat)</li>
+            <li>Your <code>.env</code> populated with <code>GOOGLE_GENERATIVE_AI_API_KEY</code> (or another provider)</li>
+            <li>A real terminal (Ink needs raw stdin; tmux is fine; piped stdin is not)</li>
           </ul>
 
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run DashboardApp</div>
-                <div class="note check">
-                  ✓ 26 tests via <code>ink-testing-library</code>: table
-                  rendering at multiple entry counts, status transitions on
-                  live progress events, overlay open/close, key suspension,
-                  search filtering
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">
-                  cat reports/2026-05-23-ink-dashboard-tui-patterns.md
-                </div>
-                <div class="note">
-                  Research report (Ink table rendering, streaming flicker,
-                  modal patterns) that informed the design.
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">3</div>
-              <div class="step-text">
-                <div class="step-code">
-                  dotenvx run -- pnpm run cli browse -p .
-                </div>
-                <div class="note">
-                  Live mount. Requires an interactive terminal (Ink needs raw
-                  stdin). Confirm the overlay appears when undigested rows
-                  exist; press <code>y</code> and watch statuses flip.
-                </div>
-              </div>
-            </div>
-          </div>
+          <h3>Recommended target projects</h3>
+          <ul style="padding-left: 22px; font-size: 0.9375rem; line-height: 1.55">
+            <li><code>../artifacts.thefocus.ai</code> — 29 pi sessions, all digested. Best for testing chat + filtering.</li>
+            <li><code>./</code> (umwelten itself) — 79 sessions across all four sources, mostly undigested. Best for testing the full digest pipeline + the <code>--force</code> path.</li>
+          </ul>
+
+          <p class="tertiary" style="margin-top: 24px">
+            ← Scroll horizontally · 17 tests + a coverage matrix + a summary fix-list
+          </p>
         </div>
       </section>
 
-      <!-- ════════════ SINGLE CLI ENTRYPOINT ════════════ -->
+      <!-- ═══════════ TEST 1 — LAUNCH ═══════════ -->
       <section class="slide">
         <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#62</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">2e3c214</span>
+          <div class="test-meta">
+            <span class="test-num">Test 1</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-1</span><span class="ref">US-2</span></span>
           </div>
-          <h1>One CLI door:<br /><code>browse</code>.</h1>
-          <div>
-            <span class="badge badge-cli">cli</span>
-            <span class="badge badge-sessions">sessions</span>
-            <span class="badge badge-green">7 tests</span>
+          <div class="test-title-bar">
+            <h1>Launch and see something immediately</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">Single entrypoint must start instantly with cheap local metadata — no LLM call before the user has seen anything.</p>
+
+          <h3>Steps</h3>
+          <div class="step-code">dotenvx run -- pnpm run cli -- browse -p ../artifacts.thefocus.ai</div>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Dashboard renders within ~1s.</li>
+              <li>Header reads <code>Explorations (29/29) · 30d</code> (or similar — adjusts to your project).</li>
+              <li>Each row shows <code>status · src · type · topic · msgs · tools · cand · started · last</code>.</li>
+              <li>Bottom status bar shows the keymap.</li>
+              <li>No tokens consumed yet (no LLM calls in the discovery path).</li>
+            </ul>
           </div>
 
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>Refactor</h3>
-              <p class="secondary">
-                Extracted
-                <code>loadBrowseProjection({ projectPath, registry? })</code>
-                in <code>@umwelten/sessions/introspect</code>. Initializes
-                adapters and projects every Source Session. Both
-                <code>browse</code> and <code>knowledge</code> route
-                through it, so adapter init happens once, before the TUI
-                mounts.
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                packages/sessions/src/introspect.ts
-              </p>
-            </div>
-            <div>
-              <h3>Contract pinned by tests</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                returns sessions from claude-code, pi, and cursor adapters
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                aggregates per-source counts correctly
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                pi sessions carry real messageCount + toolCalls
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                empty registry returns empty result without throwing
-              </p>
-            </div>
-          </div>
-
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run introspect.test</div>
-                <div class="note check">✓ 7 discovery-contract tests pass</div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">dotenvx run -- pnpm run cli browse --help</div>
-                <div class="note">
-                  Top-level command. <code>-p, --project</code> defaults to
-                  cwd. The <code>introspect browse</code> alias still works.
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-num">3</div>
-              <div class="step-text">
-                <div class="step-code">dotenvx run -- pnpm run cli knowledge -p .</div>
-                <div class="note">
-                  Same discovery path. Surfaces pi sessions with real
-                  message and tool counts (no stubs).
-                </div>
-              </div>
-            </div>
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>No confirmation that this is a project with sessions before the TUI starts — empty projects flash a "No explorations" message and exit, which can read as a crash.</li>
+              <li>The default 30-day window may hide everything for a stale project. The "1/2/3/4" key bindings to widen the window aren't shown in the bottom hint.</li>
+              <li>No explicit indication of which adapters were initialized — silent if Cursor's SQLite isn't available, for instance.</li>
+            </ul>
           </div>
         </div>
       </section>
 
-      <!-- ════════════ KNOWLEDGE PROMOTION (CONTEXT) ════════════ -->
+      <!-- ═══════════ TEST 2 — READ THE DASHBOARD ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="test-meta">
+            <span class="test-num">Test 2</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-3</span><span class="ref">US-5</span><span class="ref">US-20</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Scan the dashboard at a glance</h1>
+            <span class="test-status status-rough">ROUGH</span>
+          </div>
+          <p class="secondary">A dashboard table with status, topic, message count, tool count, and date for all Explorations — newest activity at the top.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Look at the row order — top should be your most recent activity.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Verify msg + tool counts look right (compare to a Claude Code session you remember).</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Press <code>s</code> to toggle to "started" sort. Confirm the order changes and the header marker moves from <code>last▼</code> to <code>started▼</code>.</div></li>
+          </ol>
+
+          <div class="dashboard-mock"><span class="blue">Explorations (29/29)</span> <span class="dim">· 30d ·</span>
+   <span class="dim">status     src type    topic                              msgs  tools  cand   started last▼</span>
+ <span class="blue">▶</span> <span class="green">digested</span>   [P] <span class="red">bug</span>     Fixed Vercel routing for nested…  187   107    12     2d      2d
+   <span class="green">digested</span>   [P] expl    The user sought to understand…    17    8      5      3d      3d
+   <span class="green">digested</span>   [P] feat    Stabilized C library bindings…    107   56     10     3d      3d</div>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Sort by "last" → most recent activity at top.</li>
+              <li>Sort by "started" → most recently <em>begun</em> at top (different for multi-day sessions).</li>
+              <li>Type column shows colored short labels: <code>plan</code>, <code>bug</code>, <code>feat</code>, <code>refac</code>, <code>expl</code>, <code>quest</code>, <code>other</code>.</li>
+              <li>Source badges are correct: <code>[P]</code> pi, <code>[C]</code> claude-code, <code>[H]</code> habitat, <code>[U]</code> cursor.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>Topic column titles are still often a full sentence (avg 33 chars). PRD asks for "topic at a glance" — needs to feel more like a 3-4 word title.</li>
+              <li>No visual indicator distinguishing default Explorations from saved ones (PRD US-15 from #39); they all look the same.</li>
+              <li>Source badge <code>[U]</code> for cursor is not intuitive — would <code>[X]</code> or <code>[Cu]</code> be clearer?</li>
+              <li>The "cand" column shows a count but you can't tell what kind of candidates without drilling in.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 3 — CONFIRM BEFORE LLM ═══════════ -->
       <section class="slide">
         <div class="slide-content">
-          <div class="issue-meta">
-            <span class="issue-num">#42 · #48 · #49 · #50 · #52</span>
-            <span class="issue-num-line"></span>
-            <span class="commit-hash">f75ee4e · 97c68b0 · 384d98a · 1a32fbc · b39336c</span>
+          <div class="test-meta">
+            <span class="test-num">Test 3</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-4</span></span>
           </div>
-          <h1>Where the candidates<br />eventually go.</h1>
-          <div>
-            <span class="badge badge-core">core</span>
-            <span class="badge badge-cli">cli</span>
-            <span class="badge badge-green">83 tests</span>
+          <div class="test-title-bar">
+            <h1>Confirm before LLM extraction (no silent cost)</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">If there's extraction work to do, the overlay must explicitly state scope, model, and cost before any LLM call.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Launch <code>browse</code> on a project with undigested rows.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Confirm overlay appears with the count of extractable rows, the model name, and the concurrency.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Press <code>n</code> or <code>Esc</code> to dismiss without spending tokens. Verify dashboard mounts cleanly.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Press <code>y</code> on the next launch to confirm. Verify the extraction pass starts.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Overlay opens at startup ONLY if there's extraction work (or <code>--force</code> is set).</li>
+              <li>Pressing <code>n</code> dismisses cleanly; no token spend.</li>
+              <li>Pressing <code>y</code> starts the extraction pass; status bar shows <code>Starting extraction across N explorations…</code></li>
+            </ul>
           </div>
 
-          <div class="two-col" style="margin-top: 16px">
-            <div>
-              <h3>Eight promotion targets</h3>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                agent-instruction → AGENTS.md
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                project-fact → FACTS.md
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                domain-language → CONTEXT.md
-              </p>
-              <p class="file-path" style="border-color: var(--color-alert-red)">
-                adr → docs/adr/YYYY-MM-DD-*.md
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                skill → .agents/skills/&lt;slug&gt;/SKILL.md
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                artifact → .umwelten/artifacts/
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                saved-reflection → .umwelten/reflections/
-              </p>
-              <p class="file-path" style="border-color: var(--color-rand-blue)">
-                user-model → .umwelten/user-model.md
-              </p>
-            </div>
-            <div>
-              <h3>State of the promote flow</h3>
-              <p class="secondary">
-                The classifier, router, writers, and reflective interaction
-                builder are all shipped and tested. The dashboard's
-                <code>R</code> (reflect) and <code>P</code> (promote) keys
-                emit intents that the CLI loop currently logs as
-                "not yet implemented".
-              </p>
-              <p class="secondary" style="margin-top: 6px">
-                Closing the loop — wiring those intents into the existing
-                router — is the next planned slice per PRD #56.
-              </p>
-            </div>
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>The cost warning is qualitative ("LLM extraction will be performed") — no actual cost estimate. A real $0.XX estimate would be more delightful.</li>
+              <li>No way to confirm just a <em>subset</em> from the overlay (e.g. "only the 5 newest"). Today it's all-or-nothing for the batch.</li>
+              <li>Overlay can't be re-summoned later in the same session — once dismissed, the user has to quit and relaunch.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 4 — LIVE PROGRESS ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="test-meta">
+            <span class="test-num">Test 4</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-5</span><span class="ref">US-6</span><span class="ref">US-8</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Watch extraction stream live, newest first</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">Rows must update in place as extraction runs. Newest undigested first. Phase visible.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Confirm extraction (<code>y</code>) on a project with multiple undigested rows.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Watch the first (newest) row flip <code>new</code> → <code>pending</code> → <code>digesting</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Watch the topic column show live phase: <code>loading session</code> → <code>compacting (6 beats)</code> → <code>analyzing — topics, tags, solutionType</code> → <code>extracting facts — 16 learnings</code>.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Around the analyzing step, watch the <code>type</code> column light up (e.g. <code>bug</code> in red).</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">When done, status flips to <code>digested</code> and topic snaps to the LLM summary.</div></li>
+          </ol>
+
+          <div class="dashboard-mock"><span class="dim">status     src type    topic                              msgs  tools  cand   started last▼</span>
+ <span class="yellow">digesting</span>  [P] <span class="dim">—</span>       <span class="yellow">compacting (6 beats)</span>               187   107    —      2d      2d
+   <span class="dim">queued</span>     [P] <span class="dim">—</span>       can you check the logs, we…       42    11     —      4h      4h
+   <span class="dim">new</span>        [C] <span class="dim">—</span>       run @loop-prompt.md               253   131    —      5d      5d</div>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Newest undigested row goes first.</li>
+              <li>Concurrency = 1 by default: only one row in <code>digesting</code> at a time.</li>
+              <li>Granular phase visible: <code>loading session</code>, <code>compacting (N beats)</code>, <code>analyzing — …</code>, <code>extracting facts — N learnings</code>.</li>
+              <li>Mid-pipeline (during analyzing), the topic transforms from "raw first prompt" → "LLM 1-sentence summary" and the type column lights up.</li>
+            </ul>
           </div>
 
-          <h3>Validation</h3>
-          <div class="step-list">
-            <div class="step">
-              <div class="step-num">1</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run promotion.test</div>
-                <div class="note check">✓ Classifier + router covered</div>
-              </div>
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>No way to cancel a digest mid-flight from the dashboard (pressing <code>q</code> exits the whole TUI).</li>
+              <li>No ETA estimate. A 6-beat session takes ~30-60s; a 200-beat session takes minutes. No feedback on which.</li>
+              <li>Concurrency is a CLI flag only — no in-TUI way to bump from 1 → 3 if you want to parallelize.</li>
+              <li>When the digester logs to stdout (<code>6 raw beats → 6 after filtering</code>), it scribbles over the Ink-managed area. Looks messy.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 5 — REDIGEST ONE ROW ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 5</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-16</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Re-digest one row on demand (<code>D</code>)</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">User chooses a row, presses D, that row alone re-digests in place.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Highlight any row.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Press <code>D</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Verify only that row transitions to <code>digesting</code>; other rows keep their existing status.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">After completion, verify <code>cand</code> count, type, and topic refresh.</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">During the digest, navigate to other rows with <code>↑/↓</code> — the background digest should keep running.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>D always re-digests, even if the row is already <code>digested</code> and fresh.</li>
+              <li>Other rows stay reactive; you can keep navigating.</li>
+              <li>Type column updates when the analyzer step lands (mid-pipeline).</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>No confirmation that D will spend tokens. Single press = LLM call.</li>
+              <li>If you press D on the same row twice, the second digest piles on. No "already running, skipped" feedback.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 6 — REDIGEST EVERYTHING ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 6</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-7</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Re-digest everything (<code>--force</code>)</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">A fully-digested project should still allow a full re-digest pass when invoked with <code>--force</code>.</p>
+
+          <h3>Steps</h3>
+          <div class="step-code">dotenvx run -- pnpm run cli -- browse -p ../artifacts.thefocus.ai --force</div>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Confirm overlay opens even though every row is already digested.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Press <code>y</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Watch all 29 rows go through extraction sequentially.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Overlay says "N explorations to extract" where N = total entries (not just new/stale).</li>
+              <li>Engine ignores on-disk digests; every row is re-digested.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>For 29 sessions at ~45s each, total time is ~22 minutes with concurrency=1. No batch progress indicator ("3/29 done · ETA 18m").</li>
+              <li>No "stop after row N" — once started, it's all-or-quit.</li>
+              <li>Status bar at the bottom only shows the current row, not the overall queue depth.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 7 — FILTER BY PLANNING ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="test-meta">
+            <span class="test-num">Test 7</span>
+            <span class="test-prd-refs">PRD #56 + extension <span class="ref">solutionType=planning</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Find every planning session</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">The user's specific ask: "I always want to be able to identify planning sessions." Now first-class via the extended solutionType enum.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Press <code>/</code> in the dashboard.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Type <code>planning</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Press Enter.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">List should filter to digested sessions with <code>solutionType: "planning"</code>.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Search haystack includes <code>solutionType</code>, <code>summary</code>, <code>keyLearnings</code>, <code>tags</code>, <code>topics</code>.</li>
+              <li>Type column shows <code>plan</code> badge in yellow (bold) for matches.</li>
+              <li>Header shows "(N/M) · all" so you can see how many were filtered.</li>
+              <li>Press <code>/</code> again then Esc/empty to clear.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>Search is substring match on a flat string. Typing <code>plan</code> also matches "planning" but also any session that mentions planning in its summary — no exact-match modifier.</li>
+              <li>No dedicated filter UI: every filter is text. A "filter by type" picker would be more discoverable.</li>
+              <li>No persistence: if you quit and relaunch, the filter is gone.</li>
+              <li>No saved-search-to-Exploration shortcut (PRD #39 US-12 — virtual Explorations from a search). You can search but you can't save the search as a named group from the dashboard.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 8 — DETAIL VIEW ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 8</span>
+            <span class="test-prd-refs">PRD #56 user stories <span class="ref">US-15</span><span class="ref">US-8</span><span class="ref">US-9</span><span class="ref">US-10</span><span class="ref">US-11</span><span class="ref">US-12</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Drill into one Exploration (<code>Enter</code>)</h1>
+            <span class="test-status status-rough">ROUGH</span>
+          </div>
+          <p class="secondary">Detail view surfaces what happened, key learnings, fact candidates, skill candidates, and open loops.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Highlight a digested row.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Press <code>Enter</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Tab through Overview · Beats · Phases · Facts · Diff (or use 1-5 to jump).</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Scroll within each tab with <code>j/k</code>.</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">Press <code>q</code> to return.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Overview tab shows solutionType, topics, tags, key learnings, success.</li>
+              <li>Beats tab shows the LLM-narrated beats (different from the raw <code>b</code> view).</li>
+              <li>Phases tab shows named groupings of beats.</li>
+              <li>Facts tab lists extracted facts.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li><strong>"Beats" name collision</strong>: this tab shows digested beats; the <code>b</code> key from the dashboard shows raw transcript beats. Same name, very different things. Needs renaming or a clear header.</li>
+              <li>PRD asks for 5 output lanes (narrative/phases/beats, key learnings, fact candidates, skill candidates, open loops). The detail view only surfaces 3 (Overview, Beats, Phases) clearly — skill candidates and open loops are buried in Facts or only visible by reading the JSONL files under <code>.umwelten/candidates/</code>.</li>
+              <li>No "promote from here" key in the detail view — you have to back out and press R.</li>
+              <li>Diff tab compares against CLAUDE.md but the diff format is hard to read in a TUI.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 9 — CHAT WITH A SESSION ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 9</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-17</span> (reflect, extended to multi-turn chat)</span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Chat with one session (<code>c</code>)</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">Open-ended multi-turn conversation with the digest as context. "What are the jobs to be done?", "What's still unresolved?"</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Highlight a digested row.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Press <code>c</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Type <code>what are the jobs to be done here?</code></div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Wait for the response to stream.</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">Follow up: <code>which one would unblock the others?</code></div></li>
+            <li class="step"><div class="step-num">6</div><div class="step-text">Type <code>exit</code> or Ctrl+D to return to the dashboard.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Prompt is <code>you ▸ </code>. Responses stream char-by-char prefixed <code>model ▸ </code>.</li>
+              <li>Multi-turn — earlier turns are visible to the model.</li>
+              <li>Exit returns cleanly to the dashboard; dashboard re-mounts with the same selection.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>No way to save a useful chat turn directly to <code>.umwelten/reflections/</code> from chat mode. You have to exit and press R again with the same question.</li>
+              <li>No "show me what's in context" command. The model sees the digest + beats + facts as system messages, but the user can't inspect them.</li>
+              <li>No streaming cancellation — once a response starts, you wait it out.</li>
+              <li>Chat history is lost on exit. No <code>.umwelten/chats/</code> persistence.</li>
+              <li>No multi-session chat — chat is scoped to one Exploration. PRD #39 US-12 implies search-result virtual Explorations should also be chattable.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 10 — REFLECT + CLASSIFY ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="test-meta">
+            <span class="test-num">Test 10</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-17</span><span class="ref">US-18</span> · PRD #39 <span class="ref">US-37</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Reflect + see classification (<code>R</code>)</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">One question, one answer, plus classifier suggestions for where the answer should go.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Highlight a digested planning session.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Press <code>R</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Ask: <code>What decisions did we make and what were the tradeoffs?</code></div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Wait for the streamed answer.</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">Read the classification block: primary target + alternatives with confidence.</div></li>
+            <li class="step"><div class="step-num">6</div><div class="step-text">Pick <code>[3]</code> Skip to confirm no file is written. Return to dashboard.</div></li>
+          </ol>
+
+          <div class="dashboard-mock"><span class="blue">📊 Classification</span>
+  <span class="green">Primary:</span> Architecture Decision Record (72% confidence)
+  <span class="dim">Alternatives:
+    Project fact (FACTS.md) (45%)
+    Saved Reflection (30%)</span>
+
+<span class="blue">Promote this result?</span>
+  <span class="dim">[1]</span> Save as reflection
+  <span class="dim">[2]</span> Promote to Architecture Decision Record
+  <span class="dim">[3]</span> Skip</div>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Classifier picks <code>adr</code> when the answer mentions "we decided", "we chose", "tradeoff".</li>
+              <li>Picks <code>project-fact</code> for declarative truths ("the pipeline has 4 stages").</li>
+              <li>Confidence is a number; alternatives are shown so the user can correct.</li>
+              <li>Skip = no file written, no mutation.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>Can't preview where the file would land before confirming. "[2] Promote to ADR" doesn't say <em>which</em> ADR filename.</li>
+              <li>Classifier confidence is heuristic (keyword matching). For ambiguous answers it can be flat — multiple alternatives at ~30% each. No LLM-classifier fallback wired in (the type signature has it; the implementation doesn't use it).</li>
+              <li>Can't override the classifier's choice — only "primary" or "saved-reflection." No menu of all 8 targets.</li>
+              <li>The classifier menu uses numbers (1/2/3); navigating it with arrows would feel more natural in a TUI.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 11 — PROMOTE TO ADR ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 11</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-14</span><span class="ref">US-18</span> · PRD #39 <span class="ref">US-30</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Promote a planning answer to an ADR (<code>P</code>)</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">Auto-accept the classifier's primary target. Confirm the file lands in <code>docs/adr/</code>.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Highlight the same planning session.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Press <code>P</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Ask the same question.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">When prompted, press <code>2</code> to accept the primary target.</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">Exit. From shell: <code>ls docs/adr/</code> — confirm a new <code>NNNN-2026-MM-DD-slug.md</code> file.</div></li>
+            <li class="step"><div class="step-num">6</div><div class="step-text">Open it: header includes title, date, the full reflection answer.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li><code>docs/adr/NNNN-YYYY-MM-DD-slug.md</code> created. NNNN auto-incremented.</li>
+              <li>File contains a title (from the answer's first line) and the body.</li>
+              <li>No mutation of AGENTS.md, FACTS.md, or CLAUDE.md.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>Auto-generated ADR slug is mechanical ("marker-managed-sections-in-agents-md") — usually fine, sometimes weird.</li>
+              <li>The ADR template is bare — just title + content. No "Status: Proposed/Accepted", no "Consequences" section, no "Alternatives considered" — the standard MADR structure isn't generated.</li>
+              <li>No way to edit the answer before it's written. Once you press 2, it's saved verbatim.</li>
+              <li>No undo. If you mis-press, you have to delete the file by hand.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 12 — STALE DETECTION ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 12</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-7</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Stale digest detection</h1>
+            <span class="test-status status-rough">ROUGH</span>
+          </div>
+          <p class="secondary">When a source session is updated (more messages added), the digest is stale and the engine should pick it up automatically.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Pick a session in the dashboard that's already digested.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Quit the TUI. From shell: <code>touch ~/.claude/projects/&lt;encoded&gt;/&lt;sessionId&gt;.jsonl</code> to bump its mtime.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Relaunch <code>browse</code>.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Verify the row now shows <code>stale</code>.</div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">Verify the overlay opens with "1 exploration to extract" (the stale one).</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Stale check: source <code>modified</code> &gt; digest <code>digestedAt</code> → row tagged <code>stale</code>.</li>
+              <li>Engine includes stale rows in its scope; overlay opens.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>The schema-version stale check is wired in the engine but the digester doesn't write <code>schemaVersion</code>, so it never fires. Adding a real schemaVersion bump would let us invalidate old digests when we change the prompt or schema.</li>
+              <li>Stale detection requires source mtime > <code>digestedAt</code>. Pi sessions extract <code>modified</code> from the last message timestamp, so adding a message to an old pi session would correctly trigger stale — but cursor uses created-as-modified (before our fix). Need to verify the fix actually flips a real cursor session to stale.</li>
+              <li>No visual marker on the row that says <em>why</em> it's stale (mtime? schema?).</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 13 — PROJECT-LOCAL DATA ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 13</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-13</span><span class="ref">US-14</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Everything lives under .umwelten/</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">All extraction working data is project-local. Knowledge travels with the project. Durable files are never silently mutated.</p>
+
+          <h3>Steps</h3>
+          <div class="step-code">cd ../artifacts.thefocus.ai
+ls -la .umwelten/
+ls -la .umwelten/digests/sessions/ | head
+ls -la .umwelten/candidates/ 2>/dev/null
+ls -la .umwelten/reflections/ 2>/dev/null
+ls -la docs/adr/ 2>/dev/null</div>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li><code>.umwelten/digests/sessions/&lt;encoded-id&gt;.json</code> — one per digested session.</li>
+              <li><code>.umwelten/candidates/&lt;kind&gt;.jsonl</code> — facts, skill_candidates, open_loops, preferences, mistakes (append-only).</li>
+              <li><code>.umwelten/reflections/YYYY-MM-DD-slug.md</code> — holding-area reflections.</li>
+              <li><code>docs/adr/NNNN-YYYY-MM-DD-slug.md</code> — promoted ADRs.</li>
+              <li><code>AGENTS.md</code>, <code>FACTS.md</code>, <code>CONTEXT.md</code> only changed by explicit promotion.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>No <code>.umwelten/.gitignore</code> auto-created. The user has to decide whether to commit digests / candidates / reflections.</li>
+              <li>JSONL candidate files don't show in the dashboard except as a count. To actually <em>see</em> the candidates you have to <code>cat .umwelten/candidates/skill_candidates.jsonl | jq</code>.</li>
+              <li>Promoted ADRs use 4-digit numbering (<code>0042-…</code>) but the auto-numbering doesn't check git history for renames — if you rename an ADR manually the next promotion can collide.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 14 — TRANSCRIPT + BEATS ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 14</span>
+            <span class="test-prd-refs">PRD #56 keys <span class="ref">v</span><span class="ref">b</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Inspect the raw transcript / beats</h1>
+            <span class="test-status status-rough">ROUGH</span>
+          </div>
+          <p class="secondary">Two non-LLM views — fast skim of what's actually in the session.</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Highlight a row. Press <code>v</code> for the raw transcript.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Scroll through; press <code>q</code> to return.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Press <code>b</code> for the deterministic beats view (no LLM).</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Compare to the digested-beats view in <code>Enter</code> → "Beats" tab.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li><code>v</code> shows raw messages in order, no LLM.</li>
+              <li><code>b</code> shows turn-by-turn deterministic beats with tool summaries — fast, no token spend.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li><strong>Two "beats" views with the same name</strong>: <code>b</code> from dashboard shows raw transcript-derived beats; <code>Enter</code> → "Beats" tab shows LLM-narrated digested beats. The names are identical but the data is very different. Rename one (e.g. <code>b</code> → "skim", or the tab → "Beats (digested)").</li>
+              <li>Both views lack a "jump to a specific message timestamp" feature.</li>
+              <li><code>v</code> doesn't show timestamps inline, so it's hard to correlate with the digest.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 15 — MULTI-SOURCE ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 15</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-19</span><span class="ref">US-20</span> · PRD #39 <span class="ref">US-3</span>–<span class="ref">US-10</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>All four sources, one dashboard</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">pi + Claude Code + Cursor + Habitat sessions all appear with real msg/tool counts.</p>
+
+          <h3>Steps</h3>
+          <div class="step-code">dotenvx run -- pnpm run cli -- browse -p .
+# (the umwelten repo itself has all four)</div>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text">Verify rows from at least 3 source types: <code>[P]</code>, <code>[C]</code>, <code>[U]</code>, <code>[H]</code>.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Verify <code>msgs</code> column is non-zero for pi (was a bug — verifies PRD #56 US-20).</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Verify <code>tools</code> column is non-zero for pi (lightweight metrics extraction).</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Press <code>D</code> on a pi row, watch it digest through the adapter path (no <code>fullPath</code>).</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Pi sessions: real msg + tool counts (PRD US-20).</li>
+              <li>Cursor: sessions appear, sort by last-activity correctly (post-fix).</li>
+              <li>Habitat: transcript.jsonl sessions appear when <code>--sessions-dir</code> is set.</li>
+              <li>Each adapter contributes to the same global timeline; sort interleaves them by date.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>Habitat sessions need <code>--sessions-dir</code>; no auto-discovery. PRD US-19 says "from both project-local and global" but we only do project-local for pi, not for habitat.</li>
+              <li>No per-source toggles in the filter UI — to see "just pi sessions" you have to search by source token, awkward.</li>
+              <li>Cursor's metrics (tool counts especially) are still 0 because cursor stores prompts not tool calls. Visible inconsistency in the table.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 16 — DOMAIN LANGUAGE ═══════════ -->
+      <section class="slide">
+        <div class="slide-content">
+          <div class="test-meta">
+            <span class="test-num">Test 16</span>
+            <span class="test-prd-refs">PRD #56 <span class="ref">US-23</span> · PRD #39 <span class="ref">US-29</span></span>
+          </div>
+          <div class="test-title-bar">
+            <h1>Domain language is consistent</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">No "playbooks". The codebase uses <strong>Skill Candidate</strong>. <code>CONTEXT.md</code> is the single source of truth for terminology.</p>
+
+          <h3>Steps</h3>
+          <div class="step-code"># Should return nothing except possibly the flagged-ambiguities note in CONTEXT.md
+rg -i "playbook" packages/ docs/ | grep -v "CONTEXT.md"
+
+# Should return many hits — that's the new canonical term
+rg "skill_candidate|SkillCandidate|skill-candidate" packages/ | wc -l</div>
+
+          <div class="expect">
+            <strong>Expected behaviour</strong>
+            <ul>
+              <li>Zero "playbook" hits in source code or docs.</li>
+              <li>Pipeline writes JSONL to <code>.umwelten/candidates/skill_candidates.jsonl</code>.</li>
+              <li><code>CONTEXT.md</code> defines: Source Session, Interaction, Exploration, Saved Exploration, Exploration Browser, Project Fact, Memory, Reflection, Saved Reflection, Skill, Skill Candidate, Artifact.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction to tighten</strong>
+            <ul>
+              <li>The dashboard says "cand" — short for candidates — but doesn't distinguish skill candidates from fact candidates in the column. Users may not know what's being counted.</li>
+              <li>CONTEXT.md is referenced everywhere but not auto-opened from the dashboard for new users. A "?" key showing the glossary would help discoverability.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ TEST 17 — END TO END ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="test-meta">
+            <span class="test-num">Test 17</span>
+            <span class="test-prd-refs">Combines US-1 → US-18 · the golden path</span>
+          </div>
+          <div class="test-title-bar">
+            <h1>The golden path: planning session → ADR</h1>
+            <span class="test-status status-pass">PASS</span>
+          </div>
+          <p class="secondary">If only one flow has to be delightful, it's this one. Five keystrokes from "what did I work on?" to "ADR is in the repo."</p>
+
+          <h3>Steps</h3>
+          <ol class="step-list">
+            <li class="step"><div class="step-num">1</div><div class="step-text"><code>umwelten browse -p .</code> — see today's work at the top.</div></li>
+            <li class="step"><div class="step-num">2</div><div class="step-text">Find an undigested planning-ish session. Press <code>D</code>.</div></li>
+            <li class="step"><div class="step-num">3</div><div class="step-text">Wait ~45s. Watch the type column light up <code>plan</code> in yellow.</div></li>
+            <li class="step"><div class="step-num">4</div><div class="step-text">Press <code>R</code>. Ask: <em>"what decisions were made and what tradeoffs did we consider?"</em></div></li>
+            <li class="step"><div class="step-num">5</div><div class="step-text">Read the answer. Press <code>2</code> to promote to ADR. Done.</div></li>
+            <li class="step"><div class="step-num">6</div><div class="step-text"><code>git diff docs/adr/</code> — see the new file.</div></li>
+          </ol>
+
+          <div class="expect">
+            <strong>What should feel delightful</strong>
+            <ul>
+              <li>You opened the project, you saw what you did, you asked a question, you got back a decision document. No setup. No copying summaries by hand.</li>
+              <li>The ADR is plain Markdown — diffable, hand-editable, ready to commit.</li>
+              <li>You can run this flow again tomorrow against a different session and the ADR file numbers auto-increment.</li>
+            </ul>
+          </div>
+
+          <div class="friction">
+            <strong>🔍 Friction that breaks the flow today</strong>
+            <ul>
+              <li><strong>Cost discoverability:</strong> in step 2 the user has no idea what <code>D</code> will cost. A "≈$0.02, 45s ETA" preview would let them act with confidence.</li>
+              <li><strong>Wait time:</strong> 45s is a long time to look at "compacting (6 beats)". Either fill the wait (preview the upcoming summary as it's built — already partially done) or set expectations up front.</li>
+              <li><strong>Answer editability:</strong> in step 5 the user reads the answer and might want to tweak it before promoting. There's no "[e]dit and promote" option. Once promoted, they edit the file by hand.</li>
+              <li><strong>ADR template:</strong> a real ADR has Status, Context, Decision, Consequences. We write title + body. Adding a template wouldn't slow anything down.</li>
+              <li><strong>Lost session selection:</strong> after promoting, the dashboard re-renders but cursor returns to row 0. The session you just promoted is no longer highlighted.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════ COVERAGE MATRIX ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="label-accent">PRD coverage matrix</div>
+          <div class="accent-bar"></div>
+          <h1>Every PRD #56 user story has a test</h1>
+          <p class="secondary">26 user stories from the PRD, mapped to the 17 numbered tests above. Status is honest: pass (delightful), rough (works but needs tightening), broken (doesn't work yet).</p>
+
+          <table class="coverage">
+            <thead>
+              <tr><th>US</th><th>One-line ask</th><th>Test</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="us">US-1</td><td>Single entrypoint</td><td class="test">T1, T17</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-2</td><td>Start instantly</td><td class="test">T1</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-3</td><td>Dashboard with status + metrics</td><td class="test">T2</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-4</td><td>Confirm cost before LLM</td><td class="test">T3</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-5</td><td>Newest first</td><td class="test">T4</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-6</td><td>Watch live progress</td><td class="test">T4</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-7</td><td>Stale detection</td><td class="test">T12, T6</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-8</td><td>Narrative / phases / beats</td><td class="test">T8</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-9</td><td>Key learnings</td><td class="test">T8</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-10</td><td>Fact candidates</td><td class="test">T8, T13</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-11</td><td>Skill candidates</td><td class="test">T13</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-12</td><td>Open loops</td><td class="test">T13</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-13</td><td>Project-local <code>.umwelten/</code></td><td class="test">T13</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-14</td><td>Never mutate durables silently</td><td class="test">T11, T13</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-15</td><td>Enter → detail view</td><td class="test">T8</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-16</td><td>D → digest one row</td><td class="test">T5</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-17</td><td>R → reflect</td><td class="test">T10, T9</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-18</td><td>P → promote</td><td class="test">T11, T17</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-19</td><td>Pi project-local + global</td><td class="test">T15</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-20</td><td>Real counts from all sources</td><td class="test">T15</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-21</td><td><code>knowledge</code> deprecated</td><td class="test">— (deleted)</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-22</td><td><code>sessions browse</code> hidden</td><td class="test">— (still exists, undocumented)</td><td class="stat-rough">ROUGH</td></tr>
+              <tr><td class="us">US-23</td><td>Skill Candidate naming</td><td class="test">T16</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-24</td><td>Concurrency default 1</td><td class="test">T4</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-25</td><td>Deep modules</td><td class="test">— (code review)</td><td class="stat-pass">PASS</td></tr>
+              <tr><td class="us">US-26</td><td>TDD vertical slices</td><td class="test">— (1211 tests)</td><td class="stat-pass">PASS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══════════ FIX LIST ═══════════ -->
+      <section class="slide">
+        <div class="slide-content-wide">
+          <div class="label-accent">Punch list to tighten common flows</div>
+          <div class="accent-bar"></div>
+          <h1>What would make this delightful?</h1>
+          <p class="secondary">All "🔍 Friction" callouts above, grouped by where they hurt the golden path the most.</p>
+
+          <div class="summary-grid">
+            <div class="summary-card broken">
+              <h3>High impact · golden path</h3>
+              <p>
+                <strong>Cost preview before D / R / P</strong> — display "≈$0.0X, ~Ns" before any LLM call. Today every key feels like a leap of faith.<br/><br/>
+                <strong>Editable reflection answer before promote</strong> — let the user massage the streamed answer before [2] writes the file. Today it's locked.<br/><br/>
+                <strong>Preserve row selection across re-renders</strong> — after promote/digest, cursor returns to row 0. Should track the previously-highlighted row by id.<br/><br/>
+                <strong>Cancel digest mid-flight</strong> — Esc should cancel the active LLM call, not exit the TUI.
+              </p>
             </div>
-            <div class="step">
-              <div class="step-num">2</div>
-              <div class="step-text">
-                <div class="step-code">pnpm test:run knowledge.test</div>
-                <div class="note check">✓ All 5 writers + saved-exploration store</div>
-              </div>
+
+            <div class="summary-card rough">
+              <h3>Discoverability</h3>
+              <p>
+                <strong>Cost / ETA on the overlay</strong> — "29 explorations, ≈$0.85, ~22 min." Pure number wins.<br/><br/>
+                <strong>"?" key opens CONTEXT.md glossary</strong> — terms like Exploration / Skill Candidate / ADR matter; the dashboard never explains them.<br/><br/>
+                <strong>Rename the two "Beats" views</strong> — <code>b</code> = "Skim", detail tab stays "Beats". Eliminates the collision.<br/><br/>
+                <strong>Filter pickers, not just text search</strong> — by source, by type, by date range. Less typing, more obvious.
+              </p>
+            </div>
+
+            <div class="summary-card rough">
+              <h3>Detail view (US-8 → US-12)</h3>
+              <p>
+                <strong>Surface all 5 PRD lanes</strong> — narrative, key learnings, fact candidates, skill candidates, open loops. Today only 3 are clearly visible.<br/><br/>
+                <strong>Promote from inside the detail view</strong> — adding R/P keys here would save a navigate-out step.<br/><br/>
+                <strong>JSONL candidate browser</strong> — make <code>.umwelten/candidates/*.jsonl</code> readable in the TUI without leaving for <code>jq</code>.
+              </p>
+            </div>
+
+            <div class="summary-card rough">
+              <h3>Chat (US-17 extension)</h3>
+              <p>
+                <strong>Save chat turn → reflection</strong> — currently you have to exit and use R.<br/><br/>
+                <strong>Persist chats to <code>.umwelten/chats/</code></strong> — today they're lost on exit.<br/><br/>
+                <strong>"Show context" command</strong> — the model sees the digest + beats + facts; the user can't.<br/><br/>
+                <strong>Cancel streaming</strong> — once an answer starts, you wait it out.
+              </p>
+            </div>
+
+            <div class="summary-card rough">
+              <h3>ADRs (US-18)</h3>
+              <p>
+                <strong>MADR template</strong> — Status / Context / Decision / Consequences / Alternatives. Currently we write title + body.<br/><br/>
+                <strong>Preview the filename + path before write</strong> — "[2] Promote to <code>docs/adr/0043-2026-05-27-marker-managed-sections.md</code>?"<br/><br/>
+                <strong>Undo for accidental promote</strong> — at minimum, append "(unconfirmed)" suffix until a final confirmation.
+              </p>
+            </div>
+
+            <div class="summary-card pass">
+              <h3>Already delightful</h3>
+              <p>
+                <strong>The whole pipeline is plain Markdown.</strong> No database. Diff-friendly. Hand-editable. This is the foundation everything else builds on — don't lose it.<br/><br/>
+                <strong>Live row updates during digest.</strong> Watching the topic transform mid-pipeline (firstPrompt → compaction summary → analyzer summary) and the type column light up is genuinely satisfying.<br/><br/>
+                <strong>Force re-digest with overlay.</strong> Now works on fully-digested projects.<br/><br/>
+                <strong>1211 unit tests pass.</strong> The pipeline has real coverage. Refactor with confidence.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ════════════ CLOSING ════════════ -->
+      <!-- ═══════════ CLOSING ═══════════ -->
       <section class="slide">
         <div class="slide-content" style="text-align: center">
           <div class="accent-bar" style="margin: 0 auto 20px"></div>
-          <h1>The command center<br />is live.</h1>
-          <p style="font-size: 1.0625rem; margin-top: 16px; max-width: 60ch; margin-left: auto; margin-right: auto">
-            One door. Adapters initialized up front. Real metadata to the
-            dashboard. Streaming extraction with cost-aware confirmation.
-            Project-local digests and candidate lanes. The whole suite green.
+          <h1>17 tests · 26 user stories · 1 question</h1>
+          <p style="font-size: 1.0625rem; margin: 16px auto 0; max-width: 60ch">
+            <em>Would you use this every day?</em>
           </p>
-
-          <div
-            style="
-              margin-top: 40px;
-              display: flex;
-              gap: 32px;
-              justify-content: center;
-              flex-wrap: wrap;
-            "
-          >
-            <div class="stat-block" style="text-align: center">
-              <div class="stat-number" style="font-size: 2rem">20</div>
-              <div class="stat-label">Issues shipped</div>
-            </div>
-            <div class="stat-block" style="text-align: center">
-              <div class="stat-number" style="font-size: 2rem">1,253</div>
-              <div class="stat-label">Tests passing</div>
-            </div>
-            <div class="stat-block" style="text-align: center">
-              <div class="stat-number" style="font-size: 2rem">94</div>
-              <div class="stat-label">Test files</div>
-            </div>
-            <div class="stat-block" style="text-align: center">
-              <div class="stat-number" style="font-size: 2rem">0</div>
-              <div class="stat-label">Regressions</div>
-            </div>
-          </div>
+          <p style="margin: 20px auto 0; max-width: 64ch" class="secondary">
+            The PRD's structural goals are met. The mechanical pieces work:
+            one entrypoint, projection from four sources, confirmation
+            overlay, streaming extraction, classifier, promotion targets,
+            project-local storage. The pieces that aren't yet delightful are
+            mostly <em>discoverability</em> (cost preview, ETAs, MADR
+            template) and <em>recoverability</em> (cancel mid-flight, edit
+            before promote, undo).
+          </p>
 
           <div style="margin-top: 40px">
-            <p class="secondary">
-              <code style="font-family: var(--font-mono); font-size: 1rem"
-                >dotenvx run -- pnpm run cli browse -p ./your-project</code
-              >
-            </p>
+            <code style="font-family: var(--font-mono); font-size: 1rem; background: var(--color-surface); padding: 6px 14px; border-radius: 3px">dotenvx run -- pnpm run cli -- browse -p ./your-project</code>
           </div>
-
-          <h3 style="margin-top: 40px; font-size: 0.875rem">Next on the roadmap</h3>
-          <p class="secondary" style="margin: 6px auto 0; max-width: 50ch">
-            Wire <code>R</code> reflect and <code>P</code> promote in the
-            dashboard to the existing classifier and router. Expose extraction
-            concurrency as a CLI flag. Remove the unused legacy
-            ExploreBrowseApp.
-          </p>
 
           <p class="tertiary" style="margin-top: 48px">
             Focus.AI Labs &middot;
-            <script>
-              document.write(new Date().toISOString().slice(0, 10));
-            </script>
+            PRD: <code>gh issue view 56</code> &middot;
+            canonical walkthrough: <code>docs/walkthroughs/knowledge-pipeline-walkthrough.md</code> &middot;
+            <script>document.write(new Date().toISOString().slice(0, 10));</script>
           </p>
         </div>
       </section>
+
     </div>
-    <!-- /scroll-container -->
 
     <div class="nav-dots" id="navDots"></div>
     <div class="keyboard-hint">
-      ← / → navigate &middot; each slide has runnable validation steps
+      ← / → navigate &middot; 17 tests + coverage matrix + fix list
     </div>
 
     <script>
@@ -1377,7 +1327,6 @@
       container.addEventListener("scroll", () => {
         const scrollPos = container.scrollLeft;
         const slideWidth = container.clientWidth;
-        const totalSlides = slides.length;
         const activeIndex = Math.round(scrollPos / slideWidth);
         const pct = (scrollPos / (container.scrollWidth - slideWidth)) * 100;
 
