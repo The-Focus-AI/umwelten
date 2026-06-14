@@ -917,14 +917,14 @@ addSharedOptions(gaiaSubcommand)
 
 habitatCommand.addCommand(gaiaSubcommand);
 
-// ── habitat chat — connect to a running habitat's /api/chat ──────────────
+// ── habitat chat — connect to a running A2A agent and chat with it ──────
 const chatSubcommand = new Command("chat")
 	.description(
-		"Connect to a running habitat and chat with it (uses the habitat's own LLM).",
+		"Connect to any A2A-speaking agent (habitat, Gaia container, etc.) and chat with it via the A2A protocol.",
 	)
 	.requiredOption(
 		"--url <url>",
-		"Habitat base URL (e.g. http://localhost:7440)",
+		"Agent base URL (e.g. http://localhost:7440)",
 	)
 	.option(
 		"--token <token>",
