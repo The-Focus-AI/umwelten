@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Umwelten — A2A Habitat Connectivity Test</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --font-sans: "Inter", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+        --paper: #f4f3ec;
+        --void: #1a1a1a;
+        --surface: #ffffff;
+        --surface-2: #ebe9df;
+        --border: rgba(26, 26, 26, 0.15);
+        --border-strong: rgba(26, 26, 26, 0.35);
+        --muted: rgba(26, 26, 26, 0.6);
+        --pass: #1a7f3a;
+        --fail: #d93025;
+        --warn: #b07900;
+        --info: #0055aa;
+      }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: var(--font-sans);
+        background: var(--paper);
+        color: var(--void);
+        line-height: 1.5;
+        padding: 32px 24px 64px;
+      }
+      .wrap { max-width: 1100px; margin: 0 auto; }
+      header { border-bottom: 2px solid var(--void); padding-bottom: 16px; margin-bottom: 24px; }
+      h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+      header p { color: var(--muted); margin-top: 4px; font-size: 14px; }
+      h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 28px 0 10px; }
+
+      .endpoints {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        margin-bottom: 16px;
+      }
+      .endpoints-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .endpoints-header .lbl { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .endpoint-row {
+        display: grid;
+        grid-template-columns: 1.4fr 2fr 2fr auto auto;
+        gap: 8px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+      }
+      .endpoint-row:last-child { border-bottom: none; }
+      .endpoint-row input {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        padding: 6px 8px;
+        border: 1px solid var(--border-strong);
+        background: var(--paper);
+        color: var(--void);
+        width: 100%;
+      }
+      .endpoint-row input:focus { outline: 2px solid var(--info); outline-offset: -1px; }
+      .endpoint-row .status-cell {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .endpoint-row .status-cell.pending { color: var(--muted); }
+      .endpoint-row .status-cell.running { color: var(--info); }
+      .endpoint-row .status-cell.pass { color: var(--pass); }
+      .endpoint-row .status-cell.partial { color: var(--warn); }
+      .endpoint-row .status-cell.fail { color: var(--fail); }
+
+      .endpoints-footer {
+        padding: 10px 16px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        background: var(--surface-2);
+        border-top: 1px solid var(--border);
+      }
+
+      button {
+        font-family: var(--font-sans);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 6px 12px;
+        background: var(--void);
+        color: var(--paper);
+        border: 1px solid var(--void);
+        cursor: pointer;
+      }
+      button:hover { background: var(--paper); color: var(--void); }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      button.secondary { background: var(--paper); color: var(--void); }
+      button.secondary:hover { background: var(--void); color: var(--paper); }
+      button.danger { background: transparent; color: var(--fail); border-color: var(--fail); padding: 4px 8px; font-size: 12px; }
+      button.danger:hover { background: var(--fail); color: var(--paper); }
+      button.small { font-size: 12px; padding: 4px 8px; }
+
+      .results-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .result {
+        background: var(--surface);
+        border: 1px solid var(--border);
+      }
+      .result-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        gap: 12px;
+        background: var(--surface-2);
+      }
+      .result-header .name { font-weight: 700; font-size: 14px; }
+      .result-header .url { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+      .result-body {
+        padding: 8px 14px 14px;
+        display: grid;
+        gap: 4px;
+      }
+      .check {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        padding: 2px 0;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .check::before { width: 16px; flex-shrink: 0; text-align: center; }
+      .check.pending::before { content: "·"; color: var(--muted); }
+      .check.running::before { content: "…"; color: var(--info); }
+      .check.pass::before { content: "✓"; color: var(--pass); }
+      .check.fail::before { content: "✗"; color: var(--fail); }
+      .check.warn::before { content: "!"; color: var(--warn); }
+      .check.skip::before { content: "—"; color: var(--muted); }
+      .check .label { flex: 1; }
+      .check .detail { color: var(--muted); font-size: 11px; }
+
+      details.error { margin-top: 6px; }
+      details.error summary { font-size: 11px; color: var(--fail); cursor: pointer; font-family: var(--font-mono); }
+      details.error pre {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        background: var(--paper);
+        padding: 8px;
+        margin-top: 6px;
+        overflow-x: auto;
+        max-height: 200px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .repl {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 16px;
+      }
+      .repl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+      .repl-header .note { font-size: 12px; color: var(--muted); }
+      .repl-header select {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        padding: 4px 8px;
+        background: var(--paper);
+        border: 1px solid var(--border-strong);
+      }
+      .repl-out {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        background: var(--surface-2);
+        padding: 12px;
+        min-height: 160px;
+        max-height: 360px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin-bottom: 10px;
+      }
+      .repl-out .you { color: var(--info); font-weight: 700; }
+      .repl-out .agent { color: var(--void); }
+      .repl-out .meta { color: var(--muted); font-style: italic; font-size: 12px; }
+      .repl-out .err { color: var(--fail); }
+      .repl-input { display: flex; gap: 8px; }
+      .repl-input input {
+        flex: 1;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-strong);
+        background: var(--paper);
+      }
+
+      .run-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--void);
+        color: var(--paper);
+        padding: 14px 16px;
+        margin-bottom: 24px;
+      }
+      .run-bar .actions { display: flex; gap: 8px; }
+      .run-bar button.primary { background: var(--paper); color: var(--void); border-color: var(--paper); }
+      .run-bar button.primary:hover { background: var(--info); color: var(--paper); border-color: var(--info); }
+      .run-bar button.outline { background: transparent; color: var(--paper); border-color: var(--paper); }
+      .run-bar button.outline:hover { background: var(--paper); color: var(--void); }
+      .summary { font-family: var(--font-mono); font-size: 12px; }
+
+      .help {
+        font-size: 13px;
+        color: var(--muted);
+        background: var(--surface-2);
+        border-left: 3px solid var(--warn);
+        padding: 12px 16px;
+        margin-bottom: 20px;
+      }
+      .help code {
+        font-family: var(--font-mono);
+        background: var(--paper);
+        padding: 1px 5px;
+        font-size: 12px;
+      }
+      .help strong { color: var(--void); }
+
+      footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+      footer code { font-family: var(--font-mono); background: var(--surface); padding: 1px 5px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Umwelten — A2A Habitat Connectivity Test</h1>
+        <p>Probe the A2A protocol surface across multiple endpoints — Gaia and every Gaia-managed habitat in one sweep.</p>
+      </header>
+
+      <div class="help">
+        <strong>Setup:</strong> <code>dotenvx run -- pnpm run cli habitat gaia --data-dir ./gaia-data --port 7420 -p google -m gemini-3-flash-preview</code>
+        — Gaia itself listens on <code>7420</code> with no token (it's the host habitat) and managed containers on <code>7440+</code> with auto-assigned tokens.
+        Use <strong>Discover from Gaia</strong> to ask Gaia for its running habitats; their auth tokens are read from Gaia's response and pre-filled.
+      </div>
+
+      <h2>Endpoints</h2>
+      <div class="endpoints">
+        <div class="endpoints-header">
+          <span class="lbl">name · base URL · bearer token</span>
+          <span class="summary" id="summary">0 endpoints</span>
+        </div>
+        <div id="endpoint-list"></div>
+        <div class="endpoints-footer">
+          <button id="add-endpoint" class="secondary small">+ Add endpoint</button>
+          <button id="discover" class="small">Discover from Gaia</button>
+          <input
+            id="gaia-url"
+            type="text"
+            placeholder="Gaia base URL (default: http://localhost:7420)"
+            value="http://localhost:7420"
+            style="font-family: var(--font-mono); font-size: 12px; padding: 4px 8px; border: 1px solid var(--border-strong); background: var(--paper); flex: 1; min-width: 200px;"
+          />
+        </div>
+      </div>
+
+      <div class="run-bar">
+        <div class="summary" id="run-summary">Ready</div>
+        <div class="actions">
+          <button id="run-all" class="primary">Run suite on all endpoints</button>
+          <button id="reset" class="outline">Reset</button>
+        </div>
+      </div>
+
+      <h2>Results</h2>
+      <div class="results-grid" id="results"></div>
+
+      <h2>Interactive REPL</h2>
+      <div class="repl">
+        <div class="repl-header">
+          <div class="note">Streaming chat against the selected endpoint with a stable <code>contextId</code> — mirrors what <code>umwelten habitat chat</code> does on the command line.</div>
+          <select id="repl-endpoint"></select>
+        </div>
+        <div class="repl-out" id="repl-out"></div>
+        <div class="repl-input">
+          <input id="repl-input" type="text" placeholder="Type a message and press enter…" />
+          <button id="repl-send">Send</button>
+          <button id="repl-clear" class="secondary">Clear</button>
+        </div>
+      </div>
+
+      <footer>
+        <div>
+          CLI equivalent: <code>dotenvx run -- pnpm run cli habitat chat --url $URL [--token $TOKEN] [--one-shot "…"]</code>
+        </div>
+        <div style="margin-top:6px;">
+          Source: <code>packages/protocols/src/a2a/{client,chat}.ts</code> · Server: <code>packages/habitat/src/{a2a-handler,container-server}.ts</code> · Gaia: <code>packages/habitat/src/tools/gaia/gaia-tools/habitats.ts</code>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module">
+      const $ = (sel) => document.querySelector(sel);
+      const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+      const esc = (s) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      const newId = (prefix) =>
+        `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      // ── Endpoint model ──────────────────────────────────────────────
+      const STORAGE = "umwelten-a2a-test-v2";
+      const defaultEndpoints = [
+        { id: newId("ep"), name: "Gaia", url: "http://localhost:7420", token: "" },
+      ];
+      const loadEndpoints = () => {
+        try {
+          const stored = JSON.parse(localStorage.getItem(STORAGE) || "null");
+          return Array.isArray(stored?.endpoints) && stored.endpoints.length
+            ? stored.endpoints
+            : defaultEndpoints;
+        } catch {
+          return defaultEndpoints;
+        }
+      };
+      let endpoints = loadEndpoints();
+      const saveEndpoints = () =>
+        localStorage.setItem(STORAGE, JSON.stringify({ endpoints }));
+
+      // ── Render endpoint list ────────────────────────────────────────
+      const renderEndpoints = () => {
+        const list = $("#endpoint-list");
+        list.innerHTML = "";
+        for (const ep of endpoints) {
+          const row = document.createElement("div");
+          row.className = "endpoint-row";
+          row.dataset.id = ep.id;
+          row.innerHTML = `
+            <input data-field="name" type="text" value="${esc(ep.name)}" placeholder="display name" />
+            <input data-field="url" type="text" value="${esc(ep.url)}" placeholder="http://localhost:7440" spellcheck="false" />
+            <input data-field="token" type="text" value="${esc(ep.token ?? "")}" placeholder="bearer token (optional)" spellcheck="false" />
+            <span class="status-cell pending">Pending</span>
+            <button class="danger small" data-action="remove">remove</button>
+          `;
+          row.querySelectorAll("input[data-field]").forEach((inp) => {
+            inp.addEventListener("input", () => {
+              const ep2 = endpoints.find((e) => e.id === ep.id);
+              if (ep2) {
+                ep2[inp.dataset.field] = inp.value;
+                saveEndpoints();
+                renderReplEndpoints();
+              }
+            });
+          });
+          row.querySelector('[data-action="remove"]').addEventListener("click", () => {
+            endpoints = endpoints.filter((e) => e.id !== ep.id);
+            saveEndpoints();
+            renderEndpoints();
+            renderResults();
+            renderReplEndpoints();
+          });
+          list.appendChild(row);
+        }
+        $("#summary").textContent = `${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`;
+      };
+
+      // ── Render result cards ─────────────────────────────────────────
+      const results = new Map(); // endpointId -> { name, url, checks: [{label, kind, detail}] }
+      const setCheck = (epId, key, kind, label, detail) => {
+        const r = results.get(epId) ?? { name: "", url: "", checks: new Map() };
+        r.checks.set(key, { kind, label, detail });
+        results.set(epId, r);
+        renderResults();
+      };
+      const setOverallStatus = (epId, kind, text) => {
+        const row = document.querySelector(`.endpoint-row[data-id="${epId}"] .status-cell`);
+        if (row) {
+          row.className = `status-cell ${kind}`;
+          row.textContent = text;
+        }
+      };
+      const renderResults = () => {
+        const wrap = $("#results");
+        wrap.innerHTML = "";
+        if (results.size === 0) {
+          wrap.innerHTML = `<div style="color: var(--muted); font-size: 13px;">No results yet — click <em>Run suite on all endpoints</em>.</div>`;
+          return;
+        }
+        for (const ep of endpoints) {
+          const r = results.get(ep.id);
+          if (!r) continue;
+          const card = document.createElement("div");
+          card.className = "result";
+          card.innerHTML = `
+            <div class="result-header">
+              <div>
+                <div class="name">${esc(ep.name || "(unnamed)")}</div>
+                <div class="url">${esc(ep.url)}${ep.token ? ` · auth` : ""}</div>
+              </div>
+            </div>
+            <div class="result-body">
+              ${[...r.checks.values()]
+                .map(
+                  (c) =>
+                    `<div class="check ${c.kind}"><span class="label">${esc(c.label)}</span>${c.detail ? `<span class="detail">${esc(c.detail)}</span>` : ""}</div>`,
+                )
+                .join("")}
+            </div>
+          `;
+          wrap.appendChild(card);
+        }
+      };
+
+      const renderReplEndpoints = () => {
+        const sel = $("#repl-endpoint");
+        const prev = sel.value;
+        sel.innerHTML = endpoints
+          .map(
+            (ep) =>
+              `<option value="${esc(ep.id)}">${esc(ep.name || "(unnamed)")} — ${esc(ep.url)}</option>`,
+          )
+          .join("");
+        if (endpoints.some((e) => e.id === prev)) sel.value = prev;
+      };
+
+      // ── A2A wire helpers ────────────────────────────────────────────
+      async function sendMessage(baseUrl, token, text, contextId) {
+        const body = {
+          jsonrpc: "2.0",
+          id: `rpc-${Date.now()}`,
+          method: "message/send",
+          params: {
+            message: {
+              kind: "message",
+              messageId: newId("msg"),
+              role: "user",
+              parts: [{ kind: "text", text }],
+              ...(contextId ? { contextId } : {}),
+            },
+          },
+        };
+        const headers = { "content-type": "application/json" };
+        if (token) headers.authorization = `Bearer ${token}`;
+        const res = await fetch(`${baseUrl}/a2a`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+        const text2 = await res.text();
+        let parsed = null;
+        try { parsed = JSON.parse(text2); } catch {}
+        return { res, parsed, raw: text2 };
+      }
+
+      const extractText = (rpc) => {
+        if (!rpc) return "";
+        const r = rpc.result ?? rpc;
+        const parts =
+          r?.parts ?? r?.status?.message?.parts ?? r?.message?.parts ?? [];
+        return parts
+          .filter((p) => p.kind === "text" || p.type === "text")
+          .map((p) => p.text)
+          .join("\n");
+      };
+
+      async function* streamMessage(baseUrl, token, text, contextId) {
+        const body = {
+          jsonrpc: "2.0",
+          id: `rpc-${Date.now()}`,
+          method: "message/stream",
+          params: {
+            message: {
+              kind: "message",
+              messageId: newId("msg"),
+              role: "user",
+              parts: [{ kind: "text", text }],
+              ...(contextId ? { contextId } : {}),
+            },
+          },
+        };
+        const headers = {
+          "content-type": "application/json",
+          accept: "text/event-stream",
+        };
+        if (token) headers.authorization = `Bearer ${token}`;
+        const res = await fetch(`${baseUrl}/a2a`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buf.indexOf("\n\n")) !== -1) {
+            const frame = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+            const dataLines = frame
+              .split("\n")
+              .filter((l) => l.startsWith("data:"))
+              .map((l) => l.slice(5).trim());
+            if (!dataLines.length) continue;
+            try {
+              yield JSON.parse(dataLines.join("\n"));
+            } catch {}
+          }
+        }
+      }
+
+      // ── Tests ───────────────────────────────────────────────────────
+      async function runCard(ep) {
+        const key = "card";
+        setCheck(ep.id, key, "running", "Agent card discovery", "GET /.well-known/agent-card.json");
+        try {
+          const res = await fetch(`${ep.url}/.well-known/agent-card.json`, {
+            headers: { accept: "application/json" },
+          });
+          if (!res.ok) {
+            setCheck(ep.id, key, "fail", "Agent card discovery", `HTTP ${res.status}`);
+            return false;
+          }
+          const card = await res.json();
+          const sub = [
+            ["name", !!card.name],
+            ["protocolVersion", !!card.protocolVersion],
+            ["streaming capability", card.capabilities?.streaming === true],
+            ["≥1 skill", Array.isArray(card.skills) && card.skills.length > 0],
+          ];
+          const ok = sub.every(([, v]) => v);
+          const detail = ok
+            ? `${esc(card.name)} · v${card.protocolVersion} · ${card.skills.length} skill${card.skills.length === 1 ? "" : "s"}`
+            : `missing: ${sub.filter(([, v]) => !v).map(([l]) => l).join(", ")}`;
+          setCheck(ep.id, key, ok ? "pass" : "fail", "Agent card discovery", detail);
+          return ok;
+        } catch (err) {
+          setCheck(ep.id, key, "fail", "Agent card discovery", err.message);
+          return false;
+        }
+      }
+
+      async function runSend(ep) {
+        const key = "send";
+        setCheck(ep.id, key, "running", "Non-streaming message/send", "POST /a2a");
+        try {
+          const { res, parsed } = await sendMessage(
+            ep.url,
+            ep.token,
+            "Reply with exactly five words.",
+          );
+          if (!res.ok) {
+            setCheck(ep.id, key, "fail", "Non-streaming message/send", `HTTP ${res.status}`);
+            return false;
+          }
+          if (parsed?.error) {
+            setCheck(ep.id, key, "fail", "Non-streaming message/send", parsed.error.message ?? "JSON-RPC error");
+            return false;
+          }
+          const text = extractText(parsed);
+          if (!text) {
+            setCheck(ep.id, key, "warn", "Non-streaming message/send", "no text parts in response");
+            return false;
+          }
+          setCheck(ep.id, key, "pass", "Non-streaming message/send", `${text.length} chars returned`);
+          return true;
+        } catch (err) {
+          setCheck(ep.id, key, "fail", "Non-streaming message/send", err.message);
+          return false;
+        }
+      }
+
+      async function runStream(ep) {
+        const key = "stream";
+        setCheck(ep.id, key, "running", "Streaming message/stream", "POST /a2a SSE");
+        try {
+          const eventKinds = new Map();
+          let firstDelta = null;
+          let streamedText = "";
+          let finalText = "";
+          const startedAt = performance.now();
+          for await (const env of streamMessage(
+            ep.url,
+            ep.token,
+            "Count from one to three, one number per line.",
+          )) {
+            const ev = env.result ?? env;
+            const kind = ev?.kind ?? "(unknown)";
+            eventKinds.set(kind, (eventKinds.get(kind) ?? 0) + 1);
+            if (kind === "status-update") {
+              for (const p of ev.status?.message?.parts ?? []) {
+                if (p.kind === "text") {
+                  if (firstDelta === null) firstDelta = performance.now();
+                  streamedText += p.text;
+                }
+              }
+            } else if (kind === "message") {
+              for (const p of ev.parts ?? []) {
+                if (p.kind === "text") finalText += p.text;
+              }
+            }
+          }
+          const ttfb = firstDelta ? Math.round(firstDelta - startedAt) : null;
+          const sawStatus = (eventKinds.get("status-update") ?? 0) > 0;
+          const sawMessage = (eventKinds.get("message") ?? 0) > 0;
+          const gotText = (streamedText + finalText).length > 0;
+          const ok = sawStatus && sawMessage && gotText;
+          const detail = ok
+            ? `status-update × ${eventKinds.get("status-update")}, message × ${eventKinds.get("message")}${ttfb !== null ? `, first delta ${ttfb}ms` : ""}`
+            : `missing: ${[!sawStatus && "status-update", !sawMessage && "message", !gotText && "text"].filter(Boolean).join(", ")}`;
+          setCheck(ep.id, key, ok ? "pass" : "fail", "Streaming message/stream", detail);
+          return ok;
+        } catch (err) {
+          setCheck(ep.id, key, "fail", "Streaming message/stream", err.message);
+          return false;
+        }
+      }
+
+      async function runContext(ep) {
+        const key = "context";
+        setCheck(ep.id, key, "running", "Context threading (multi-turn)", "two message/send with same contextId");
+        const ctx = newId("ctx");
+        try {
+          const a = await sendMessage(
+            ep.url,
+            ep.token,
+            "Remember this secret word: BANANA. Just acknowledge.",
+            ctx,
+          );
+          if (!a.res.ok) throw new Error(`turn 1 HTTP ${a.res.status}`);
+          const b = await sendMessage(
+            ep.url,
+            ep.token,
+            "What secret word did I just tell you? Respond with only that word.",
+            ctx,
+          );
+          if (!b.res.ok) throw new Error(`turn 2 HTTP ${b.res.status}`);
+          const t2 = extractText(b.parsed);
+          const remembered = /banana/i.test(t2);
+          if (remembered) {
+            setCheck(ep.id, key, "pass", "Context threading", `recalled across turns`);
+            return true;
+          } else if (t2) {
+            setCheck(ep.id, key, "warn", "Context threading", "both turns OK but model didn't recall — transport works, model is weak");
+            return true;
+          } else {
+            setCheck(ep.id, key, "fail", "Context threading", "no text in turn 2");
+            return false;
+          }
+        } catch (err) {
+          setCheck(ep.id, key, "fail", "Context threading", err.message);
+          return false;
+        }
+      }
+
+      async function runAuth(ep) {
+        const key = "auth";
+        if (!ep.token) {
+          setCheck(ep.id, key, "skip", "Auth enforcement", "no token configured · N/A");
+          return true;
+        }
+        setCheck(ep.id, key, "running", "Auth enforcement", "POST /a2a without token expects 401/403");
+        try {
+          const body = {
+            jsonrpc: "2.0",
+            id: `rpc-${Date.now()}`,
+            method: "message/send",
+            params: {
+              message: {
+                kind: "message",
+                messageId: newId("msg"),
+                role: "user",
+                parts: [{ kind: "text", text: "ping" }],
+              },
+            },
+          };
+          const res = await fetch(`${ep.url}/a2a`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const rejected = res.status === 401 || res.status === 403;
+          setCheck(
+            ep.id,
+            key,
+            rejected ? "pass" : "fail",
+            "Auth enforcement",
+            rejected ? `HTTP ${res.status} as expected` : `expected 401/403, got HTTP ${res.status}`,
+          );
+          return rejected;
+        } catch (err) {
+          setCheck(ep.id, key, "fail", "Auth enforcement", err.message);
+          return false;
+        }
+      }
+
+      async function runSuiteOn(ep) {
+        setOverallStatus(ep.id, "running", "Running");
+        // Reset this endpoint's checks
+        results.set(ep.id, { name: ep.name, url: ep.url, checks: new Map() });
+        renderResults();
+        const r1 = await runCard(ep);
+        const r2 = await runSend(ep);
+        const r3 = await runStream(ep);
+        const r4 = await runContext(ep);
+        const r5 = await runAuth(ep);
+        const results5 = [r1, r2, r3, r4, r5];
+        const passed = results5.filter(Boolean).length;
+        const total = results5.length;
+        const status =
+          passed === total ? "pass" : passed === 0 ? "fail" : "partial";
+        const label = `${passed}/${total}`;
+        setOverallStatus(ep.id, status, label);
+        return { passed, total };
+      }
+
+      async function runAll() {
+        $("#run-summary").textContent = `Running ${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}…`;
+        results.clear();
+        let totalPassed = 0;
+        let totalChecks = 0;
+        for (const ep of endpoints) {
+          const { passed, total } = await runSuiteOn(ep);
+          totalPassed += passed;
+          totalChecks += total;
+        }
+        $("#run-summary").textContent = `Done: ${totalPassed} / ${totalChecks} checks passed across ${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}`;
+      }
+
+      // ── Discover from Gaia ──────────────────────────────────────────
+      // Ask Gaia in plain English for its registry, then add each running
+      // habitat as an endpoint. Naive but works because Gaia has a
+      // list_habitats tool and will format the answer.
+      async function discoverFromGaia() {
+        const gaiaUrl = $("#gaia-url").value.trim().replace(/\/+$/, "");
+        if (!gaiaUrl) return alert("Set Gaia URL first");
+        $("#discover").disabled = true;
+        $("#discover").textContent = "Discovering…";
+        try {
+          const { res, parsed } = await sendMessage(
+            gaiaUrl,
+            "",
+            'List all habitats currently in your registry. For each one, output a single line in this exact format and nothing else:\n\nHABITAT id=<id> name=<name> port=<containerPort> apiKey=<apiKey> running=<true|false>\n\nDo not add commentary. Just the lines.',
+          );
+          if (!res.ok) throw new Error(`Gaia HTTP ${res.status}`);
+          const text = extractText(parsed);
+          const lines = text
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l.startsWith("HABITAT"));
+          if (!lines.length) {
+            alert("Gaia returned no HABITAT lines. Check the response shape.\n\n" + text.slice(0, 500));
+            return;
+          }
+          let added = 0;
+          const gaiaHost = new URL(gaiaUrl).hostname;
+          for (const line of lines) {
+            const id = line.match(/id=(\S+)/)?.[1];
+            const name = line.match(/name=(\S+)/)?.[1] ?? id;
+            const port = line.match(/port=(\d+)/)?.[1];
+            const apiKey = line.match(/apiKey=(\S+)/)?.[1] ?? "";
+            const running = line.match(/running=(\S+)/)?.[1] === "true";
+            if (!id || !port || !running) continue;
+            const url = `http://${gaiaHost}:${port}`;
+            if (endpoints.some((e) => e.url === url)) continue;
+            endpoints.push({
+              id: newId("ep"),
+              name,
+              url,
+              token: apiKey === "null" || apiKey === "undefined" ? "" : apiKey,
+            });
+            added++;
+          }
+          saveEndpoints();
+          renderEndpoints();
+          renderReplEndpoints();
+          alert(`Added ${added} habitat${added === 1 ? "" : "s"} from Gaia.`);
+        } catch (err) {
+          alert(`Discovery failed: ${err.message}`);
+        } finally {
+          $("#discover").disabled = false;
+          $("#discover").textContent = "Discover from Gaia";
+        }
+      }
+
+      // ── REPL ────────────────────────────────────────────────────────
+      const replOut = $("#repl-out");
+      const replInput = $("#repl-input");
+      const replContextId = newId("ctx");
+      const replAppend = (cls, text) => {
+        const el = document.createElement("div");
+        el.className = cls;
+        el.textContent = text;
+        replOut.appendChild(el);
+        replOut.scrollTop = replOut.scrollHeight;
+        return el;
+      };
+
+      const replSend = async () => {
+        const text = replInput.value.trim();
+        if (!text) return;
+        const epId = $("#repl-endpoint").value;
+        const ep = endpoints.find((e) => e.id === epId);
+        if (!ep) return replAppend("err", "no endpoint selected");
+        replInput.value = "";
+        $("#repl-send").disabled = true;
+        replAppend("meta", `→ ${ep.name} (${ep.url})`);
+        replAppend("you", `you> ${text}`);
+        const agentLine = replAppend("agent", "agent> ");
+        try {
+          let streamed = "";
+          let saw = false;
+          for await (const env of streamMessage(ep.url, ep.token, text, replContextId)) {
+            const ev = env.result ?? env;
+            if (ev?.kind === "status-update") {
+              for (const p of ev.status?.message?.parts ?? []) {
+                if (p.kind === "text") {
+                  streamed += p.text;
+                  agentLine.textContent = `agent> ${streamed}`;
+                  replOut.scrollTop = replOut.scrollHeight;
+                  saw = true;
+                }
+              }
+            } else if (ev?.kind === "message" && !saw) {
+              for (const p of ev.parts ?? []) {
+                if (p.kind === "text") {
+                  streamed += p.text;
+                  agentLine.textContent = `agent> ${streamed}`;
+                }
+              }
+            } else if (ev?.kind === "artifact-update") {
+              const a = ev.artifact;
+              replAppend("meta", `  [artifact] ${a.name ?? a.artifactId}`);
+            }
+          }
+          if (!streamed) agentLine.textContent = "agent> (no text response)";
+        } catch (err) {
+          replAppend("err", `error: ${err.message}`);
+        } finally {
+          $("#repl-send").disabled = false;
+          replInput.focus();
+        }
+      };
+
+      // ── Wire up ─────────────────────────────────────────────────────
+      $("#add-endpoint").addEventListener("click", () => {
+        endpoints.push({ id: newId("ep"), name: "Habitat", url: "http://localhost:7440", token: "" });
+        saveEndpoints();
+        renderEndpoints();
+        renderReplEndpoints();
+      });
+      $("#discover").addEventListener("click", discoverFromGaia);
+      $("#run-all").addEventListener("click", runAll);
+      $("#reset").addEventListener("click", () => {
+        results.clear();
+        renderResults();
+        $("#run-summary").textContent = "Ready";
+        for (const ep of endpoints) setOverallStatus(ep.id, "pending", "Pending");
+      });
+      $("#repl-send").addEventListener("click", replSend);
+      $("#repl-clear").addEventListener("click", () => (replOut.innerHTML = ""));
+      replInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") replSend();
+      });
+
+      // Initial render
+      renderEndpoints();
+      renderResults();
+      renderReplEndpoints();
+    </script>
+  </body>
+</html>

@@ -1,9 +1,10 @@
 /**
- * Habitat HTTP/SSE chat client.
+ * A2A streaming chat client (CLI-facing).
  *
- * Talks to a habitat's `/api/chat` endpoint (Vercel-AI-SDK SSE stream) and
- * `/health` endpoint. Used by the CLI's `umwelten habitat chat` and any other
- * tool that wants to drive a remote habitat over HTTP.
+ * Connects to any A2A-speaking agent (e.g. a `umwelten habitat serve` container,
+ * a Gaia-managed container, or any third-party A2A server), discovers it via
+ * its `/.well-known/agent-card.json`, and drives a one-shot or REPL chat over
+ * `message/stream` JSON-RPC.
  *
  * `a2aChat({ url, token, prompt })` runs a one-shot or REPL session.
  * `fetchJson` / `truncateJson` / `discoverToken` are exported for callers that
@@ -13,6 +14,8 @@
 import http from "node:http";
 import https from "node:https";
 import { createInterface } from "node:readline";
+import type { FilePart } from "@a2a-js/sdk";
+import { streamA2AMessage } from "./client.js";
 
 export interface A2AChatOptions {
 	url: string;
@@ -92,119 +95,83 @@ export async function discoverToken(
 
 interface SendDeps {
 	chalk: typeof import("chalk").default;
-	createMarkdownChatObserver: typeof import("@umwelten/core/cognition/observers.js")["createMarkdownChatObserver"];
 }
 
 async function sendOne(
 	baseUrl: string,
 	token: string | undefined,
-	threadId: string,
+	contextId: string,
 	text: string,
 	deps: SendDeps,
 ): Promise<void> {
-	const { chalk, createMarkdownChatObserver } = deps;
-	const obs = await createMarkdownChatObserver();
-	const body = JSON.stringify({
-		id: threadId,
-		messages: [{ role: "user", content: text }],
-	});
+	const { chalk } = deps;
 
-	const url = new URL(`${baseUrl}/api/chat`);
-	const isHttps = url.protocol === "https:";
-	const reqModule = isHttps ? https : http;
+	let printedAnything = false;
+	const printDelta = (delta: string): void => {
+		if (!delta) return;
+		process.stdout.write(delta);
+		printedAnything = true;
+	};
 
-	return new Promise<void>((resolve, reject) => {
-		const req = reqModule.request(
-			{
-				hostname: url.hostname,
-				port: url.port || (isHttps ? 443 : 80),
-				path: url.pathname,
-				method: "POST",
-				headers: {
-					"content-type": "application/json",
-					...(token ? { authorization: `Bearer ${token}` } : {}),
-				},
-			},
-			(res) => {
-				if (res.statusCode && res.statusCode >= 400) {
-					let data = "";
-					res.on("data", (c) => (data += c));
-					res.on("end", () => {
-						console.error(
-							chalk.red(`HTTP ${res.statusCode}: ${data.slice(0, 300)}`),
-						);
-						resolve();
-					});
-					return;
+	try {
+		for await (const event of streamA2AMessage({
+			endpoint: `${baseUrl}/a2a`,
+			text,
+			apiKey: token,
+			contextId,
+		})) {
+			switch (event.kind) {
+				case "status-update": {
+					// Streamed text deltas arrive as `working` status updates whose
+					// status.message carries the partial text.
+					const parts = event.status?.message?.parts ?? [];
+					for (const part of parts) {
+						if (part.kind === "text") printDelta(part.text);
+					}
+					break;
 				}
-
-				let buffer = "";
-				res.on("data", (chunk: Buffer) => {
-					buffer += chunk.toString();
-					const lines = buffer.split("\n");
-					buffer = lines.pop() ?? "";
-					for (const line of lines) {
-						if (!line.startsWith("data: ")) continue;
-						const payload = line.slice(6).trim();
-						if (payload === "[DONE]") continue;
-						try {
-							const event = JSON.parse(payload);
-							switch (event.type) {
-								case "text-delta":
-									obs.onTextDelta?.(event.delta);
-									break;
-								case "reasoning-delta":
-									process.stdout.write(chalk.dim(event.delta));
-									break;
-								case "tool-input-available":
-									console.log(
-										chalk.dim(
-											`\n  [tool] ${event.toolName}(${truncateJson(event.input, 80)})`,
-										),
-									);
-									break;
-								case "tool-output-available": {
-									const out =
-										typeof event.output === "string"
-											? event.output
-											: JSON.stringify(event.output);
-									const isErr = !!event.errorText;
-									console.log(
-										isErr
-											? chalk.red(`  [error] ${out.slice(0, 200)}`)
-											: chalk.dim(
-													`  [result] ${out.slice(0, 200)}${out.length > 200 ? "..." : ""}`,
-												),
-									);
-									break;
-								}
-								case "error":
-									console.error(chalk.red(`  [error] ${event.errorText}`));
-									break;
-							}
-						} catch {
-							// Skip unparseable lines
+				case "message": {
+					// Final consolidated response. The executor publishes incremental
+					// text via status-updates first, then a final `message` with the
+					// same full text. To avoid double-printing, only emit if nothing
+					// has been streamed yet.
+					if (!printedAnything) {
+						for (const part of event.parts) {
+							if (part.kind === "text") printDelta(part.text);
 						}
 					}
-				});
-				res.on("end", () => {
-					obs.end();
-					process.stdout.write("\n");
-					resolve();
-				});
-			},
-		);
-		req.on("error", reject);
-		req.write(body);
-		req.end();
-	});
+					break;
+				}
+				case "artifact-update": {
+					const artifact = event.artifact;
+					const files = artifact.parts
+						.filter((p): p is FilePart => p.kind === "file")
+						.map((p) => {
+							const f = p.file;
+							return "uri" in f ? f.uri : (f.name ?? "(inline)");
+						});
+					console.log(
+						chalk.dim(
+							`\n  [artifact] ${artifact.name ?? artifact.artifactId}${files.length ? ` → ${files.join(", ")}` : ""}`,
+						),
+					);
+					break;
+				}
+				case "task":
+					// Initial task acknowledgement; nothing to render.
+					break;
+			}
+		}
+	} catch (err: any) {
+		console.error(chalk.red(`\nA2A error: ${err.message ?? err}`));
+	}
+
+	process.stdout.write("\n");
 }
 
 export async function a2aChat(options: A2AChatOptions): Promise<void> {
 	const { default: chalk } = await import("chalk");
-	const { createMarkdownChatObserver } = await import(
-		"@umwelten/core/cognition/observers.js"
-	);
+	const { fetchAgentCard } = await import("./client.js");
 
 	const baseUrl = options.url.replace(/\/+$/, "");
 	let token = options.token;
@@ -215,30 +182,39 @@ export async function a2aChat(options: A2AChatOptions): Promise<void> {
 		}
 	}
 
-	const threadId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+	// Stable contextId for this CLI session so multi-turn REPL conversations
+	// thread into the same habitat session.
+	const contextId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
-	// Health check
+	// Discover the agent via its well-known card.
+	const parsedUrl = new URL(baseUrl);
 	try {
-		const health = await fetchJson(`${baseUrl}/health`, token);
+		const card = await fetchAgentCard({
+			host: parsedUrl.hostname,
+			port: parseInt(
+				parsedUrl.port ||
+					(parsedUrl.protocol === "https:" ? "443" : "80"),
+				10,
+			),
+		});
+		const skillCount = card.skills?.length ?? 0;
 		console.log(
-			`Connected to ${chalk.green(health.name ?? "habitat")} (${health.tools ?? "?"} tools, model: ${chalk.cyan(health.model ?? "none")})`,
+			`Connected to ${chalk.green(card.name)} (${skillCount} skill${skillCount === 1 ? "" : "s"}${card.version ? `, version ${card.version}` : ""})`,
 		);
-		if (!health.model) {
-			console.log(
-				chalk.yellow(
-					"Warning: No model configured — the habitat may not respond.",
-				),
-			);
+		if (card.description) {
+			console.log(chalk.dim(card.description));
 		}
 	} catch (err: any) {
-		console.error(chalk.red(`Cannot reach ${baseUrl}: ${err.message}`));
+		console.error(
+			chalk.red(`Cannot reach A2A agent at ${baseUrl}: ${err.message ?? err}`),
+		);
 		process.exit(1);
 	}
 
-	const deps = { chalk, createMarkdownChatObserver };
+	const deps = { chalk };
 
 	if (options.prompt) {
-		await sendOne(baseUrl, token, threadId, options.prompt, deps);
+		await sendOne(baseUrl, token, contextId, options.prompt, deps);
 		return;
 	}
 
@@ -252,7 +228,7 @@ export async function a2aChat(options: A2AChatOptions): Promise<void> {
 				rl.close();
 				return;
 			}
-			await sendOne(baseUrl, token, threadId, trimmed, deps);
+			await sendOne(baseUrl, token, contextId, trimmed, deps);
 			ask();
 		});
 	};

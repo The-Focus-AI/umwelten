@@ -9,6 +9,23 @@
  */
 
 import http from "node:http";
+import { JsonRpcTransport } from "@a2a-js/sdk/client";
+import type {
+  Message,
+  Task,
+  TaskStatusUpdateEvent,
+  TaskArtifactUpdateEvent,
+} from "@a2a-js/sdk";
+
+/**
+ * Events yielded by `streamA2AMessage` — re-exposed here because the SDK's
+ * internal `A2AStreamEventData` alias is not part of its public surface.
+ */
+export type A2AStreamEvent =
+  | Message
+  | Task
+  | TaskStatusUpdateEvent
+  | TaskArtifactUpdateEvent;
 
 /** Network coordinates of an A2A-speaking agent. */
 export interface A2AEndpoint {
@@ -181,4 +198,57 @@ export async function sendA2AMessage(
     req.write(rpcBody);
     req.end();
   });
+}
+
+/** Options for {@link streamA2AMessage}. */
+export interface StreamA2AMessageOptions {
+  /** Full URL pointing at the agent's `/a2a` JSON-RPC endpoint. */
+  endpoint: string;
+  /** User text to send. */
+  text: string;
+  /** Optional Bearer token. */
+  apiKey?: string;
+  /** Optional A2A contextId to thread messages into the same session. */
+  contextId?: string;
+}
+
+/**
+ * Open a streaming A2A `message/stream` connection and yield protocol events
+ * as they arrive (Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent).
+ *
+ * Built on top of the `@a2a-js/sdk` JsonRpcTransport so the SSE wire format
+ * is handled by the SDK rather than re-implemented here.
+ */
+export async function* streamA2AMessage(
+  options: StreamA2AMessageOptions,
+): AsyncGenerator<A2AStreamEvent, void, undefined> {
+  const { endpoint, text, apiKey, contextId } = options;
+
+  // If the caller passed a token, inject it on every outbound fetch the
+  // transport makes.
+  const fetchImpl: typeof fetch = apiKey
+    ? (input, init) =>
+        fetch(input, {
+          ...init,
+          headers: {
+            ...(init?.headers as Record<string, string> | undefined),
+            authorization: `Bearer ${apiKey}`,
+          },
+        })
+    : fetch;
+
+  const transport = new JsonRpcTransport({ endpoint, fetchImpl });
+
+  const messageId = `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  for await (const event of transport.sendMessageStream({
+    message: {
+      kind: "message",
+      messageId,
+      role: "user",
+      parts: [{ kind: "text", text }],
+      ...(contextId ? { contextId } : {}),
+    },
+  })) {
+    yield event;
+  }
 }
