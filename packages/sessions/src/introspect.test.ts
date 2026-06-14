@@ -177,14 +177,15 @@ describe("loadBrowseProjection — discovery contract", () => {
 	});
 });
 
-describe("loadBrowseProjection — knowledge / pi metrics contract", () => {
+describe("loadBrowseProjection — browse / pi metrics contract", () => {
 	// Acceptance criterion from issue #62:
-	//   `pnpm run cli knowledge -p ../artifacts.thefocus.ai` finds pi sessions
+	//   `pnpm run cli browse -p ../artifacts.thefocus.ai` finds pi sessions
 	//   with real counts.
 	//
-	// The knowledge command projects sessions exactly the same way browse
-	// does (both call projectSessions). This test pins the contract that pi
-	// sessions surface with real messageCount + toolCalls — no stubs.
+	// `browse` projects sessions via projectSessions. This test pins the
+	// contract that pi sessions surface with real messageCount + toolCalls
+	// — no stubs. (The former `knowledge` command was removed in #65; browse
+	// is the single entrypoint.)
 
 	it("pi sessions carry real message and tool counts through projection", async () => {
 		const registry = new AdapterRegistry();

@@ -24,6 +24,10 @@ _Avoid_: Folder, collection, saved search when referring to the domain concept
 The user-facing workspace for inspecting **Explorations** and launching **Reflections** about them.
 _Avoid_: Knowledge browser, browse session
 
+**Session Search**:
+A system-wide, full-content search across every **Source Session** on disk, regardless of project. Returns matching **Source Sessions** rather than **Explorations**; opening a hit lets the normal browser path lazily project it into a default **Exploration** for digesting or reflection.
+_Avoid_: Project search (too narrow), index search (no index), grep (implementation detail)
+
 **Project Fact**:
 Stable knowledge about this codebase or project that helps future work.
 _Avoid_: Agent instruction, report, raw observation
@@ -80,6 +84,7 @@ _Avoid_: Report when referring to the general category
 - Put gotchas in `AGENTS.md` when they imply future behavior, in `FACTS.md` when they describe a surprising truth, and in a **Skill** when they belong to a repeatable procedure.
 - Project-local user/work-style memory belongs in `.umwelten/user-model.md`.
 - **Saved Reflections** live in `.umwelten/reflections/` and use dated Markdown files.
+- **Session Search** operates on every **Source Session** the registered adapters can discover, not just those rooted in the current project. It returns **Source Sessions**, not **Explorations** — promotion to an **Exploration** happens when the user opens a hit in the **Exploration Browser**.
 
 ## Example dialogue
 
