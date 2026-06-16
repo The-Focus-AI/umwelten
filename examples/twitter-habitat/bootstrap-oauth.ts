@@ -32,7 +32,7 @@ import {
   createPkcePair,
   exchangeCode,
   X_DEFAULT_SCOPES,
-} from '@umwelten/habitat/index.js';
+} from './src/x-oauth.js';
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);

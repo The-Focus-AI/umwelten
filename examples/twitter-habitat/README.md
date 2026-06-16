@@ -1,9 +1,10 @@
 # Twitter habitat
 
 A deployable umwelten Habitat whose Agent answers Twitter/X questions
-conversationally over A2A (PRD #149). This directory is the habitat work
-directory + operator tooling; the reusable deep modules live in
-`@umwelten/habitat` (`src/twitter/`).
+conversationally over A2A (PRD #149). This is a self-contained example agent
+(like `examples/jeeves-bot`) — the deep modules live here under `src/`, not in
+the umwelten library packages. Its tests still run in the default `pnpm test:run`
+(the root vitest config includes `examples/twitter-habitat/**/*.test.ts`).
 
 > Status: scaffolding in progress. This issue (#150) ships the **authentication
 > foundation** — the X OAuth token store + the one-shot bootstrap script. The
@@ -12,8 +13,8 @@ directory + operator tooling; the reusable deep modules live in
 ## Two data sources, split by privacy
 
 - **Private** (bookmarks, mentions, my timeline) → official X API v2 via my own
-  OAuth user token. Handled by the **X token store**
-  (`@umwelten/habitat` → `XTokenStore`).
+  OAuth user token. Handled by the **X token store** (`src/token-store.ts` →
+  `XTokenStore`).
 - **Public** (specific people, lists, digests, engagement) → read from the Neon
   database that the existing `twitter-feed` pipeline syncs. (Issue #153.)
 
