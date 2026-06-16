@@ -1,0 +1,5 @@
+# Runtime state written by `habitat serve` — never commit it.
+secrets.json
+sessions/
+meta.json
+*.log

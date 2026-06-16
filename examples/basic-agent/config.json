@@ -1,0 +1,6 @@
+{
+  "name": "basic-agent",
+  "defaultProvider": "openrouter",
+  "defaultModel": "openai/gpt-4o-mini",
+  "toolsDir": "tools"
+}

@@ -1,0 +1,5 @@
+{
+  "platformDefaults": {
+    "a2a": { "agentId": "coder", "runtime": "pi" }
+  }
+}
