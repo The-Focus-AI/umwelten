@@ -1,0 +1,19 @@
+{
+  "name": "twitter-habitat",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Deployable umwelten Habitat that answers Twitter/X questions over A2A (PRD #149)",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "build": "tsc",
+    "bootstrap": "tsx bootstrap-oauth.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.8"
+  }
+}
