@@ -27,6 +27,8 @@
 
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   buildAuthorizeUrl,
   createPkcePair,
@@ -100,18 +102,39 @@ async function main() {
   console.log('\nExchanging authorization code for tokens ...');
   const tokens = await exchangeCode(client, { code, redirectUri, verifier });
 
-  console.log('\n✅ Success. Store these as Habitat secrets:\n');
-  console.log(`   TWITTER_CLIENT_ID=${clientId}`);
-  console.log(`   TWITTER_CLIENT_SECRET=${clientSecret}`);
-  console.log(`   TWITTER_REFRESH_TOKEN=${tokens.refresh_token}\n`);
-  console.log('e.g.:');
-  console.log(
-    `   dotenvx run -- pnpm run cli habitat secrets set TWITTER_REFRESH_TOKEN '${tokens.refresh_token}'\n`,
-  );
+  const secretValues = {
+    TWITTER_CLIENT_ID: clientId,
+    TWITTER_CLIENT_SECRET: clientSecret,
+    TWITTER_REFRESH_TOKEN: tokens.refresh_token,
+  };
+
+  const outDir = arg('out-secrets');
+  if (outDir) {
+    // Write straight into the habitat's secrets.json (mode 0600) — never print the
+    // values. Merge with any existing secrets.
+    const path = join(outDir, 'secrets.json');
+    let existing: Record<string, string> = {};
+    try {
+      existing = JSON.parse(await readFile(path, 'utf-8'));
+    } catch {
+      /* no existing secrets file */
+    }
+    const merged = { ...existing, ...secretValues };
+    await writeFile(path, JSON.stringify(merged, null, 2) + '\n', { mode: 0o600 });
+    console.log(`\n✅ Wrote TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, TWITTER_REFRESH_TOKEN to ${path}`);
+    console.log(`   (refresh token ${tokens.refresh_token.length} chars; values not printed).\n`);
+  } else {
+    console.log('\n✅ Success. Store these as Habitat secrets:\n');
+    console.log(`   TWITTER_CLIENT_ID=${clientId}`);
+    console.log(`   TWITTER_CLIENT_SECRET=${clientSecret}`);
+    console.log(`   TWITTER_REFRESH_TOKEN=${tokens.refresh_token}\n`);
+    console.log('   (Tip: pass --out-secrets <habitat-dir> to write these straight into');
+    console.log('   the habitat secrets.json instead of printing them.)\n');
+  }
   console.log(
     'Note: X rotates refresh tokens single-use. The habitat persists each rotated\n' +
-      'token back to its secrets.json (on a fly volume), so this bootstrap value is\n' +
-      'only the seed — do not reuse it once the habitat has refreshed at least once.\n',
+      'token back to its secrets.json, so this bootstrap value is only the seed —\n' +
+      'do not reuse it once the habitat has refreshed at least once.\n',
   );
 }
 
