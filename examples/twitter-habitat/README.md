@@ -12,12 +12,44 @@ library packages.
 ```bash
 cd examples/twitter-habitat
 pnpm install        # standalone install (this dir is its own pnpm root)
-pnpm test:run       # runs the token-store + OAuth unit tests (vitest)
+pnpm test:run       # token-store + OAuth + X read-client unit tests (vitest)
 ```
 
-> Status: scaffolding in progress. This issue (#150) ships the **authentication
-> foundation** — the X OAuth token store + the one-shot bootstrap script. The
-> tools, persona, feed reader, and fly deploy land in #151–#155.
+> Status: scaffolding in progress. #150 shipped the **auth foundation** (X OAuth
+> token store + bootstrap). #151 adds the **habitat work dir** (config + persona +
+> `tools/`) and the first read tool — **bookmarks** — chattable end-to-end. The
+> X read client is introduced here (bookmarks call only). Mentions/timeline,
+> the Neon feed reader, the full persona, and the fly deploy land in #152–#155.
+
+## Run it as a habitat
+
+This directory doubles as the habitat work dir (`config.json` + `STIMULUS.md` +
+`tools/`). Boot it with the monorepo CLI and chat over A2A. (Run these from the
+**repo root**, which has the umwelten CLI + `.env`.)
+
+```bash
+# 1. Seed the X credentials as habitat secrets (one-time; see bootstrap below).
+dotenvx run -- pnpm run cli habitat secrets set TWITTER_CLIENT_ID     '...' --work-dir examples/twitter-habitat
+dotenvx run -- pnpm run cli habitat secrets set TWITTER_CLIENT_SECRET '...' --work-dir examples/twitter-habitat
+dotenvx run -- pnpm run cli habitat secrets set TWITTER_REFRESH_TOKEN '...' --work-dir examples/twitter-habitat
+
+# 2. Serve the habitat (A2A + chat). Uses openrouter by default (config.json);
+#    override with --provider/--model. Needs OPENROUTER_API_KEY in .env.
+dotenvx run -- pnpm run cli habitat serve --work-dir examples/twitter-habitat --port 7430
+
+# 3. In another terminal, chat with it:
+dotenvx run -- pnpm run cli habitat chat --url http://localhost:7430 --one-shot "show my bookmarks"
+```
+
+The `bookmarks` tool (`tools/bookmarks/`) is a factory-pattern Agent tool: it
+pulls the X credentials from Habitat secrets, drives the token store → X read
+client, and returns your real bookmarks (text, author, engagement, permalink),
+streamed back through the chat.
+
+> The handler in `tools/bookmarks/handler.ts` imports `ai`/`zod` and the `src/`
+> modules; it is loaded and run by the **monorepo** habitat runtime, so it is not
+> part of this example's standalone `tsc`/`vitest` build (which only covers
+> `src/`). The deep modules it calls (`token-store`, `x-read-client`) are unit-tested.
 
 ## Two data sources, split by privacy
 
