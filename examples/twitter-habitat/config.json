@@ -1,0 +1,8 @@
+{
+  "name": "Twitter",
+  "defaultProvider": "openrouter",
+  "defaultModel": "openai/gpt-4o-mini",
+  "toolsDir": "tools",
+  "stimulusFile": "STIMULUS.md",
+  "agents": []
+}

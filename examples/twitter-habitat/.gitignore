@@ -1,0 +1,4 @@
+# Habitat runtime state (created when this dir is used as a habitat work dir)
+secrets.json
+sessions/
+dist/
