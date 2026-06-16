@@ -1,0 +1,12 @@
+{
+  "name": "pi-coder",
+  "defaultProvider": "openrouter",
+  "defaultModel": "openai/gpt-4o-mini",
+  "agents": [
+    {
+      "id": "coder",
+      "name": "Coder",
+      "projectPath": "./project"
+    }
+  ]
+}

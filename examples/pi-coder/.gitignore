@@ -1,0 +1,10 @@
+# Runtime state written by `habitat serve` — never commit it.
+secrets.json
+sessions/
+meta.json
+*.log
+
+# The pi agent edits ./project at runtime. Keep the baseline app.js committed,
+# but ignore anything pi generates there during a run.
+project/*
+!project/app.js
