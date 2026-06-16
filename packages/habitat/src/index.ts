@@ -223,3 +223,29 @@ export {
 	routeSignature,
 	setChannelRoute,
 } from "./bridge/routing.js";
+
+// ── Twitter/X habitat — OAuth token store + wire helpers ───────────────────
+export {
+	XTokenStore,
+	habitatSecretStore,
+	X_CLIENT_ID_SECRET,
+	X_CLIENT_SECRET_SECRET,
+	X_REFRESH_TOKEN_SECRET,
+} from "./twitter/token-store.js";
+export type { SecretStore, XTokenStoreOptions } from "./twitter/token-store.js";
+export {
+	createPkcePair,
+	buildAuthorizeUrl,
+	exchangeCode,
+	refreshAccessToken,
+	XAuthError,
+	X_TOKEN_URL,
+	X_AUTHORIZE_URL,
+	X_DEFAULT_SCOPES,
+} from "./twitter/x-oauth.js";
+export type {
+	XOAuthClient,
+	XTokenResponse,
+	XAuthErrorKind,
+	FetchLike,
+} from "./twitter/x-oauth.js";
