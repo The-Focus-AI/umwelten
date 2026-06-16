@@ -1,10 +1,19 @@
 # Twitter habitat
 
 A deployable umwelten Habitat whose Agent answers Twitter/X questions
-conversationally over A2A (PRD #149). This is a self-contained example agent
-(like `examples/jeeves-bot`) — the deep modules live here under `src/`, not in
-the umwelten library packages. Its tests still run in the default `pnpm test:run`
-(the root vitest config includes `examples/twitter-habitat/**/*.test.ts`).
+conversationally over A2A (PRD #149). This is a **self-contained example agent**
+(like `examples/twitter-mcp`) — its own `package.json`, `pnpm-workspace.yaml`,
+`tsconfig.json`, and lockfile, installed and tested independently of the
+monorepo workspace. The deep modules live here under `src/`, not in the umwelten
+library packages.
+
+## Develop / test
+
+```bash
+cd examples/twitter-habitat
+pnpm install        # standalone install (this dir is its own pnpm root)
+pnpm test:run       # runs the token-store + OAuth unit tests (vitest)
+```
 
 > Status: scaffolding in progress. This issue (#150) ships the **authentication
 > foundation** — the X OAuth token store + the one-shot bootstrap script. The
