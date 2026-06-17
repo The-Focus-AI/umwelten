@@ -10,8 +10,9 @@
  *   /health        → Health check
  *   /              → Built-in chat UI (static)
  *
- * Auth: if HABITAT_API_KEY is set, /api/* and /mcp require Bearer token.
- *       /health and static UI are always open.
+ * Auth: per-user JWT grants (HABITAT_AUTH_* — verified, sub = user id) when
+ *       configured; legacy shared HABITAT_API_KEY otherwise; open in dev.
+ *       /health and static UI are always open. See ADR 0003.
  */
 
 import {
@@ -38,6 +39,7 @@ import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth } from "./web/auth/bearer-auth.js";
+import { jwtAuth } from "./web/auth/jwt-auth.js";
 import { defaultRoutes } from "./web/routes/index.js";
 import type {
 	AuthProvider,
@@ -63,6 +65,46 @@ export interface ContainerServerOptions {
 export interface StartedContainerServer {
 	port: number;
 	close: () => void;
+}
+
+type AuthMode = "jwt" | "bearer" | "open";
+
+/**
+ * Select the request AuthProvider from the environment. See the precedence note
+ * at the call site and docs/adr/0003-per-user-a2a-identity.md.
+ *
+ * - `HABITAT_AUTH_AUDIENCE` + (`HABITAT_AUTH_JWKS_URL` | `HABITAT_AUTH_PUBLIC_KEY`)
+ *   → per-user JWT verification (production).
+ * - `HABITAT_API_KEY` → legacy shared bearer (retiring).
+ * - nothing → open dev auth (local only).
+ */
+function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
+	const audience = process.env.HABITAT_AUTH_AUDIENCE;
+	const jwksUrl = process.env.HABITAT_AUTH_JWKS_URL;
+	const publicKeyPem = process.env.HABITAT_AUTH_PUBLIC_KEY;
+	if (audience && (jwksUrl || publicKeyPem)) {
+		return {
+			auth: jwtAuth({
+				audience,
+				issuer: process.env.HABITAT_AUTH_ISSUER,
+				jwksUrl,
+				publicKeyPem,
+			}),
+			authMode: "jwt",
+		};
+	}
+	// Misconfiguration guard: a key without an audience (or vice-versa) almost
+	// certainly means the operator intended JWT auth — fail loud rather than
+	// silently falling back to the shared key or open access.
+	if (audience || jwksUrl || publicKeyPem) {
+		throw new Error(
+			"Incomplete JWT auth config: set HABITAT_AUTH_AUDIENCE together with " +
+				"HABITAT_AUTH_JWKS_URL or HABITAT_AUTH_PUBLIC_KEY (see ADR 0003).",
+		);
+	}
+	const apiKey = process.env.HABITAT_API_KEY;
+	if (apiKey) return { auth: bearerAuth(apiKey), authMode: "bearer" };
+	return { auth: devAuth(), authMode: "open" };
 }
 
 // ── Static file serving ───────────────────────────────────────────
@@ -170,9 +212,18 @@ export async function startContainerServer(
 	const tools = habitat.getTools();
 	const toolNames = Object.keys(tools);
 
-	// Auth — bearer if HABITAT_API_KEY is set, otherwise open
-	const apiKey = process.env.HABITAT_API_KEY;
-	const auth: AuthProvider = apiKey ? bearerAuth(apiKey) : devAuth();
+	// Auth provider precedence (see docs/adr/0003-per-user-a2a-identity.md):
+	//   1. jwtAuth — per-user signed grants (HABITAT_AUTH_JWKS_URL / _PUBLIC_KEY + _AUDIENCE).
+	//      The verified `sub` is the speaking user; this is the production path.
+	//   2. bearerAuth — legacy single shared HABITAT_API_KEY. Kept for back-compat
+	//      during rollout; every caller collapses to one identity, so it is being retired.
+	//   3. devAuth — open, single fixed user. Local dev only (nothing configured).
+	const { auth, authMode } = resolveAuthProvider();
+	// Enforce auth on protected routes whenever we're not in open dev mode — this
+	// covers both the JWT path and the legacy shared-key path. (Previously the
+	// gates keyed off HABITAT_API_KEY directly, which would skip enforcement under
+	// JWT auth.)
+	const authRequired = authMode !== "open";
 
 	// Chat bridge + adapter, with logging wrapper
 	const bridge = new ChannelBridge(habitat, {
@@ -245,7 +296,7 @@ export async function startContainerServer(
 				bridge,
 				baseUrl,
 				name: serverName,
-				requiresApiKey: Boolean(apiKey),
+				requiresApiKey: authRequired,
 			});
 		}
 		return a2aHandler;
@@ -304,7 +355,7 @@ export async function startContainerServer(
 						status: "ok",
 						name: serverName,
 						tools: toolNames.length,
-						auth: apiKey ? "bearer" : "open",
+						auth: authMode,
 						model: modelDetails
 							? `${modelDetails.provider}/${modelDetails.name}`
 							: null,
@@ -330,7 +381,7 @@ export async function startContainerServer(
 
 				// ── A2A endpoint ─────────────────────────────────────
 				if (path === "/a2a" && req.method === "POST") {
-					if (apiKey) {
+					if (authRequired) {
 						const user = await auth.authenticate(req);
 						if (!user) {
 							sendJson(res, { error: "Unauthorized" }, 401);
@@ -400,7 +451,7 @@ export async function startContainerServer(
 				// ── MCP endpoint ──────────────────────────────────────
 				if (path === "/mcp") {
 					// Auth check for MCP
-					if (apiKey) {
+					if (authRequired) {
 						const user = await auth.authenticate(req);
 						if (!user) {
 							sendJson(res, { error: "Unauthorized" }, 401);
@@ -480,7 +531,7 @@ export async function startContainerServer(
 
 				// ── File serving (sandboxed to work dir) ───────────────
 				if (path.startsWith("/files/") && req.method === "GET") {
-					if (apiKey) {
+					if (authRequired) {
 						const user = await auth.authenticate(req);
 						if (!user) {
 							sendJson(res, { error: "Unauthorized" }, 401);
@@ -682,7 +733,7 @@ export async function startContainerServer(
 
 					// POST /api/capability-gaps — record a runtime gap report
 					if (path === "/api/capability-gaps" && req.method === "POST") {
-						if (apiKey) {
+						if (authRequired) {
 							user = await auth.authenticate(req);
 							if (!user) {
 								sendJson(res, { error: "Unauthorized" }, 401);
@@ -709,7 +760,7 @@ export async function startContainerServer(
 
 					// GET /api/capability-gaps — list all recorded gaps
 					if (path === "/api/capability-gaps" && req.method === "GET") {
-						if (apiKey) {
+						if (authRequired) {
 							user = await auth.authenticate(req);
 							if (!user) {
 								sendJson(res, { error: "Unauthorized" }, 401);
@@ -812,7 +863,7 @@ export async function startContainerServer(
 
 					// POST /api/inference — attach an inference engine
 					if (path === "/api/inference" && req.method === "POST") {
-						if (apiKey) {
+						if (authRequired) {
 							user = await auth.authenticate(req);
 							if (!user) {
 								sendJson(res, { error: "Unauthorized" }, 401);
@@ -863,7 +914,7 @@ export async function startContainerServer(
 
 					// POST /api/chat
 					if (path === "/api/chat" && req.method === "POST") {
-						if (apiKey) {
+						if (authRequired) {
 							user = await auth.authenticate(req);
 							if (!user) {
 								sendJson(res, { error: "Unauthorized" }, 401);
@@ -895,7 +946,7 @@ export async function startContainerServer(
 						const params = matchRoute(route.path, path);
 						if (!params) continue;
 
-						if (!route.skipAuth && apiKey) {
+						if (!route.skipAuth && authRequired) {
 							user = await auth.authenticate(req);
 							if (!user) {
 								sendJson(res, { error: "Unauthorized" }, 401);
@@ -959,13 +1010,17 @@ export async function startContainerServer(
 			console.log(`[container]   /api/chat    — LLM chat`);
 			console.log(`[container]   /            — Web UI`);
 			console.log(`[container]   /health      — Health check`);
-			if (apiKey) {
+			if (authMode === "jwt") {
 				console.log(
-					`[container]   Auth: Bearer token required for /api/* and /mcp`,
+					`[container]   Auth: per-user JWT grants required (verified, sub = user id)`,
+				);
+			} else if (authMode === "bearer") {
+				console.log(
+					`[container]   Auth: legacy shared HABITAT_API_KEY (no per-user identity — see ADR 0003)`,
 				);
 			} else {
 				console.log(
-					`[container]   Auth: open (set HABITAT_API_KEY to enable bearer auth)`,
+					`[container]   Auth: open dev mode (configure HABITAT_AUTH_* for per-user JWT)`,
 				);
 			}
 
