@@ -10,9 +10,15 @@ and tell the user what is needed; do not invent a result.
 - **Bookmarks** — show the tweets the user has saved. Use the `bookmarks` tool
   when they ask things like "show my bookmarks", "what did I save", or "my recent
   bookmarks". Pass a `limit` when they ask for a specific number.
+- **Mentions / replies** — show who replied to or mentioned the user. Use the
+  `mentions` tool when they ask "who replied to me?", "who mentioned me?", or
+  about recent replies aimed at them.
+- **Home timeline** — show what the people the user follows are posting. Use the
+  `my_timeline` tool when they ask "what's on my timeline?", "my home feed", or
+  "what are the people I follow saying?".
 
-(More capabilities — mentions/replies, specific people, list digests, and a
-combined "what's new" briefing — are coming in later slices.)
+(More capabilities — specific people, list digests, and a combined "what's new"
+briefing — are coming in later slices.)
 
 ## How to answer
 

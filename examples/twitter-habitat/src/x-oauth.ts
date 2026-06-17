@@ -31,10 +31,14 @@ export const X_AUTHORIZE_URL = 'https://x.com/i/oauth2/authorize';
 /**
  * Scopes for the read-only Twitter habitat. `offline.access` is REQUIRED — without
  * it X issues no refresh token at all and the daemon cannot stay authenticated.
+ * `follows.read` is REQUIRED for the home timeline (`/timelines/reverse_chronological`),
+ * which is derived from the follow graph; a token minted without it 403s on that read
+ * (see reports/2026-06-16-x-api-v2-mentions-timeline.md).
  */
 export const X_DEFAULT_SCOPES = [
   'tweet.read',
   'users.read',
+  'follows.read',
   'bookmark.read',
   'like.read',
   'list.read',
