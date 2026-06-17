@@ -10,6 +10,9 @@
     "build": "tsc",
     "bootstrap": "tsx bootstrap-oauth.ts"
   },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
