@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1.4
+#
+# Twitter Habitat Container — the Twitter/X agent on the habitat base (#155, PRD #149).
+#
+# Layers onto the habitat serve image (build that first):
+#   - The Twitter work dir (custom `tools/` + their deep modules `src/` + the
+#     persona STIMULUS.md) baked at /opt/twitter-habitat
+#   - An entrypoint wrapper that seeds those onto the /data volume on boot,
+#     symlinks /data/node_modules → /habitat/node_modules so the work-dir tools
+#     can import `ai`/`zod`/`../../src`, and merges toolsDir/stimulusFile into
+#     config.json (idempotent — Gaia-seeded fields are preserved).
+#   - The rotated X refresh token persists to /data/secrets.json on the volume,
+#     so it survives container restarts (PRD requirement).
+#
+# CMD is unchanged from the base — the container server (A2A + MCP + chat).
+#
+# Build (from monorepo root; requires BuildKit — default in Docker >= 23):
+#   docker build -t habitat -f packages/habitat/Dockerfile .
+#   docker build -t twitter-habitat -f packages/habitat/Dockerfile.twitter-habitat .
+#
+# The root .dockerignore excludes examples/; the adjacent
+# Dockerfile.twitter-habitat.dockerignore re-includes examples/twitter-habitat
+# for this build (a per-Dockerfile ignore is a BuildKit feature).
+#
+# Smoke check:
+#   scripts/smoke-twitter-habitat.sh
+#
+# Deploy via Gaia: create a registry entry with "image": "twitter-habitat" and
+# bind TWITTER_CLIENT_ID / TWITTER_CLIENT_SECRET / TWITTER_REFRESH_TOKEN,
+# DATABASE_URL (feed reader), and an LLM provider key. Or fly.io: volume at
+# /data, HABITAT_API_KEY + the same secrets as fly secrets.
+
+ARG BASE_IMAGE=habitat
+FROM ${BASE_IMAGE}
+
+# Bake the Twitter work dir. Build context is the monorepo root (same as the
+# base image), so these paths are repo-relative.
+COPY examples/twitter-habitat/tools      /opt/twitter-habitat/tools/
+COPY examples/twitter-habitat/src        /opt/twitter-habitat/src/
+COPY examples/twitter-habitat/STIMULUS.md /opt/twitter-habitat/STIMULUS.md
+
+# Seeder + entrypoint wrapper
+COPY packages/habitat/twitter-habitat/seed-config.mjs /opt/twitter-habitat/seed-config.mjs
+COPY packages/habitat/twitter-habitat/entrypoint.sh   /twitter-habitat-entrypoint.sh
+RUN chmod +x /twitter-habitat-entrypoint.sh
+
+ENTRYPOINT ["/twitter-habitat-entrypoint.sh"]
+CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]
