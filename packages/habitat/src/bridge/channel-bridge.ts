@@ -37,6 +37,12 @@ interface InteractionEntry {
   sessionId: string;
   sessionDir: string;
   routeSig: string;
+  /**
+   * Distinct speakers seen on this thread (ADR 0003 step 2). One contextId
+   * can carry many speakers; once there is more than one, user turns are
+   * labeled so the agent can disambiguate "my" and address people by name.
+   */
+  participants: Set<string>;
 }
 
 // ── ChannelBridge ────────────────────────────────────────────────────
@@ -138,6 +144,25 @@ export class ChannelBridge {
       const entry = await this.getOrCreateEntry(msg);
       const { interaction, sessionId, sessionDir } = entry;
 
+      // Per-turn speaker (ADR 0003 step 2): set userId on EVERY message, not
+      // just at entry creation, so the *current* speaker — not just the thread
+      // creator — is attributed, forwarded to providers, and seen by per-user
+      // tools. Track distinct speakers; a newly-seen one is persisted to
+      // session metadata (best-effort) for host-side attribution.
+      if (msg.userId) {
+        interaction.userId = msg.userId;
+        if (!entry.participants.has(msg.userId)) {
+          entry.participants.add(msg.userId);
+          void this.host
+            .updateSessionMetadata(sessionId, {
+              metadata: { participants: [...entry.participants] },
+            })
+            .catch(() => {
+              /* non-fatal — session dir may not exist in some test scenarios */
+            });
+        }
+      }
+
       // Wire transcript persistence (no more event extraction here — the
       // StreamObserver below receives events directly from the runner).
       const originalCallback = interaction.onTranscriptUpdate;
@@ -165,8 +190,15 @@ export class ChannelBridge {
         },
       };
 
-      // Add the user message
-      interaction.addMessage({ role: 'user', content: msg.text });
+      // Add the user message. In a multi-speaker thread, label the turn with
+      // the speaker so the agent can attribute it; single-speaker threads are
+      // unchanged (no label).
+      const multiSpeaker = entry.participants.size > 1;
+      const userContent =
+        multiSpeaker && msg.userId
+          ? `[${msg.displayName ?? msg.userId}]: ${msg.text}`
+          : msg.text;
+      interaction.addMessage({ role: 'user', content: userContent });
 
       // Stream the response
       let response;
@@ -437,6 +469,9 @@ export class ChannelBridge {
       sessionId: session.sessionId,
       sessionDir: session.sessionDir,
       routeSig: sig,
+      // Populated per-turn by handleMessage (the single owner of speaker
+      // tracking), so the first speaker is persisted uniformly with the rest.
+      participants: new Set<string>(),
     };
     this.cache.set(channelKey, entry);
     return entry;
