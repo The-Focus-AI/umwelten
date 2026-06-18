@@ -53,3 +53,52 @@ services:
         --data-dir /opt/gaia-data
         --provider "$$GAIA_PROVIDER"
         --model "$$GAIA_MODEL"
+
+  # Label-driven reverse proxy (#170). Gives every spawned habitat its own
+  # public HTTPS URL so the habitats SaaS can attach to it DIRECTLY (per-habitat
+  # URL + per-habitat credential) — Gaia is the orchestrator, not the request
+  # path. Caddy watches the docker socket and builds routes from the
+  # `caddy=<host>` / `caddy.reverse_proxy={{upstreams 8080}}` labels that
+  # DockerManager.startContainer stamps on each child (driven by GAIA_BASE_DOMAIN
+  # or a per-habitat hostname). It reaches each child by container DNS over
+  # gaia-net, so the children's loopback -p binding is untouched.
+  #
+  # Requires: DNS `*.${GAIA_BASE_DOMAIN}` → this host, and ports 80/443 open
+  # (Caddy auto-provisions Let's Encrypt certs). Auth is pass-through — Caddy
+  # forwards Authorization untouched and each habitat verifies its own token.
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    container_name: gaia-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Only build routes from containers on this network (the children).
+      CADDY_INGRESS_NETWORKS: gaia-net
+      # Email for Let's Encrypt account / expiry notices (optional).
+      CADDY_DOCKER_CADDYFILE_EMAIL: ${CADDY_EMAIL:-}
+    networks:
+      - gaia-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - caddy-data:/data     # certificates — persist across restarts
+      - caddy-config:/config
+
+  # To also expose the Gaia dashboard itself over Caddy, add labels here routing
+  # to the host-networked Gaia (e.g. caddy=${GAIA_HOSTNAME} +
+  # caddy.reverse_proxy=host.docker.internal:${GAIA_PORT} with
+  # extra_hosts: ["host.docker.internal:host-gateway"]). Off by default — the
+  # runbook recommends not exposing 7420 publicly unauthenticated.
+
+networks:
+  # Shared with the children DockerManager spawns (--network gaia-net). Declared
+  # here so `docker compose up` creates it before Caddy attaches; ensureNetwork()
+  # is idempotent when it already exists. `name:` pins the literal name (no
+  # compose project prefix) so it matches what DockerManager looks for.
+  gaia-net:
+    name: gaia-net
+
+volumes:
+  caddy-data:
+  caddy-config:
