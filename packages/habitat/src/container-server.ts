@@ -31,6 +31,7 @@ import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
+import { runWithSpeaker } from "./identity/agent-speaker-context.js";
 import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
 import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
@@ -381,13 +382,27 @@ export async function startContainerServer(
 
 				// ── A2A endpoint ─────────────────────────────────────
 				if (path === "/a2a" && req.method === "POST") {
+					let user: UserContext | null = null;
 					if (authRequired) {
-						const user = await auth.authenticate(req);
+						user = await auth.authenticate(req);
 						if (!user) {
 							sendJson(res, { error: "Unauthorized" }, 401);
 							return;
 						}
 					}
+					// Per-user identity (ADR 0003 step 2): only the JWT path carries a
+					// real end-user `sub`. Bind it as the speaker so the executor uses
+					// it as interaction.userId. Bearer/dev have no per-user identity —
+					// leave the speaker unbound so the executor keeps its thread-scoped
+					// `a2a:${contextId}` fallback (no regression off the JWT path).
+					const speaker =
+						authMode === "jwt" && user
+							? {
+									userId: user.userId,
+									displayName: user.displayName,
+									email: user.email,
+								}
+							: undefined;
 					const addr = httpServer.address();
 					const actualPort =
 						typeof addr === "object" && addr ? addr.port : port;
@@ -409,7 +424,9 @@ export async function startContainerServer(
 					}
 
 					try {
-						const result = await handler.transportHandler.handle(parsedBody);
+						const result = await runWithSpeaker(speaker, () =>
+							handler.transportHandler.handle(parsedBody),
+						);
 						if (
 							result &&
 							typeof (result as any)[Symbol.asyncIterator] === "function"

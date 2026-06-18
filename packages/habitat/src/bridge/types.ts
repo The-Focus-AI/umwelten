@@ -37,6 +37,11 @@ export interface ChannelMessage {
   /** Stable user identifier (for provider analytics, not PII). */
   userId?: string;
   /**
+   * Display name of the speaker, when known (e.g. from a verified A2A grant).
+   * Used to label turns in multi-speaker threads.
+   */
+  displayName?: string;
+  /**
    * Parent channel key — used for thread-based routing inheritance.
    * e.g. a Discord thread inherits its parent channel's agent binding.
    */

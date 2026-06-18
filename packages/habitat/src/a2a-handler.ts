@@ -33,6 +33,7 @@ import {
 import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "./bridge/channel-bridge.js";
 import { listArtifacts, type ArtifactMeta } from "./tools/artifact-tools.js";
+import { getSpeaker } from "./identity/agent-speaker-context.js";
 
 // ── Agent card builder ────────────────────────────────────────────
 
@@ -166,8 +167,13 @@ export class HabitatAgentExecutor implements AgentExecutor {
       } satisfies A2ATask);
     }
 
-    // Use contextId as channel key for session continuity
+    // contextId = the thread (session continuity); the verified speaker =
+    // who is talking *this* turn (ADR 0003 step 2). One thread, many speakers.
     const channelKey = `a2a:${contextId}`;
+    const speaker = getSpeaker();
+    // Fall back to the thread id as identity only when unauthenticated
+    // (dev/open or legacy bearer) — there is no per-user `sub` to use.
+    const userId = speaker?.userId ?? `a2a:${contextId}`;
 
     let fullText = "";
 
@@ -176,7 +182,7 @@ export class HabitatAgentExecutor implements AgentExecutor {
 
     try {
       await this.bridge.handleMessage(
-        { channelKey, text, userId: `a2a:${contextId}` },
+        { channelKey, text, userId, displayName: speaker?.displayName },
         {
           onText: (delta) => {
             // Emit working status with incremental text
