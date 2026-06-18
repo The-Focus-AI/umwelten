@@ -194,6 +194,27 @@ on attach; a rotated token shows the SaaS's "needs reconnect" state.
 > `https://<host>:<childport>/a2a` with that child's `HABITAT_API_KEY`. The
 > proxy path above is the default because children bind to `127.0.0.1`.
 
+### Per-habitat public URLs via Caddy (#170)
+
+The compose file ships a `caddy` service (`lucaslorentz/caddy-docker-proxy`) that
+gives **each spawned habitat its own HTTPS URL** for direct SaaS attach — the
+recommended path, since the SaaS then holds a per-habitat credential (revocable
+per agent) instead of Gaia's master key.
+
+1. Point DNS `*.<base-domain>` at this host and open ports 80/443.
+2. Set `GAIA_BASE_DOMAIN` (and optionally `CADDY_EMAIL`) in `deploy/gaia/.env`.
+3. `docker compose up -d` — Caddy now watches the docker socket.
+
+Every habitat Gaia starts gets `caddy=<id>.<base-domain>` labels stamped on its
+container (`DockerManager.startContainer`), so Caddy publishes it at
+`https://<id>.<base-domain>` and reaches it over `gaia-net` (the loopback `-p`
+binding is untouched — Gaia's internal proxy still uses it). Override the host per
+habitat with the `hostname` field on `create_habitat`. Auth is **pass-through**:
+Caddy forwards `Authorization` and the habitat verifies its own token, so attach
+the SaaS to `https://<id>.<base-domain>/a2a` with **that child's**
+`HABITAT_API_KEY`. Leave `GAIA_BASE_DOMAIN` unset for local dev — no labels are
+emitted and Caddy routes nothing.
+
 ---
 
 ## Troubleshooting

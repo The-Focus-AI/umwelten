@@ -24,6 +24,13 @@ export interface GaiaHabitatEntry {
 	image?: string;
 	/** Assigned host port (127.0.0.1 only) — set after container starts */
 	containerPort?: number;
+	/**
+	 * Public hostname this habitat is served at via the label-driven Caddy
+	 * proxy (#170), e.g. "twitter.example.com". Omitted ⇒ derived from
+	 * `<id>.$GAIA_BASE_DOMAIN` at start time, or no Caddy label when neither
+	 * is set (local dev).
+	 */
+	hostname?: string;
 	/** ISO timestamp */
 	createdAt: string;
 }
@@ -62,6 +69,8 @@ export interface CreateHabitatOptions {
 	capabilities?: CapabilityBinding[];
 	/** Docker image for the container (default: the standard habitat image). */
 	image?: string;
+	/** Public hostname for Caddy routing (#170), e.g. "twitter.example.com". */
+	hostname?: string;
 }
 
 /** Status of a credential (whether it's known to be working). */

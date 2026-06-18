@@ -100,6 +100,12 @@ export function createHabitatLifecycleTools(
 					.describe(
 						"Docker image for this habitat's container (default: the standard habitat image). Must exist locally — specialized images are built out of band.",
 					),
+				hostname: z
+					.string()
+					.optional()
+					.describe(
+						"Public hostname for Caddy routing (e.g. 'twitter.example.com'). Default: '<id>.$GAIA_BASE_DOMAIN' when that env var is set; otherwise no public URL.",
+					),
 			}),
 			execute: async (params) => {
 				// Validate capability bindings before creating

@@ -32,6 +32,7 @@ import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
 import { runWithSpeaker } from "./identity/agent-speaker-context.js";
+import { getPublicBaseUrl } from "@umwelten/protocols";
 import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
 import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
@@ -376,7 +377,15 @@ export async function startContainerServer(
 					const actualPort =
 						typeof addr === "object" && addr ? addr.port : port;
 					const handler = await getA2AHandler(actualPort);
-					sendJson(res, handler.agentCard);
+					// Self-describe with the PUBLIC url, not the cached host:port one
+					// (#170): behind a reverse proxy (Caddy/Gaia) the card must point
+					// callers at the externally reachable origin via X-Forwarded-*.
+					// Mirrors the MCP/OAuth surface (agent-surface.ts). Falls back to
+					// the Host header / BASE_URL when no forwarding headers are present.
+					sendJson(res, {
+						...handler.agentCard,
+						url: `${getPublicBaseUrl(req)}/a2a`,
+					});
 					return;
 				}
 

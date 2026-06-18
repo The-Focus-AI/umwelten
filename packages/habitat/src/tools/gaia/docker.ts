@@ -63,6 +63,19 @@ function volumeName(id: string): string {
   return `${CONTAINER_PREFIX}${id}-data`;
 }
 
+/**
+ * Public hostname a habitat is served at via the Caddy label proxy (#170).
+ * Explicit `entry.hostname` wins; otherwise derive `<id>.$GAIA_BASE_DOMAIN`.
+ * Returns undefined when neither is set — no Caddy label is emitted (local dev).
+ */
+export function resolveHabitatHostname(
+  entry: Pick<GaiaHabitatEntry, "id" | "hostname">,
+): string | undefined {
+  if (entry.hostname) return entry.hostname;
+  const base = process.env.GAIA_BASE_DOMAIN?.trim();
+  return base ? `${entry.id}.${base}` : undefined;
+}
+
 export class DockerManager {
   constructor(
     private readonly dataDir: string,
@@ -159,8 +172,23 @@ export class DockerManager {
       "-v", `${sessionsHostDir}:/data/sessions`,
       "--env", `HABITAT_API_KEY=${entry.apiKey}`,
       "-p", `127.0.0.1:${hostPort}:8080`,
-      image,
     ];
+
+    // Caddy label-driven routing (#170): when a public hostname is configured,
+    // stamp labels so caddy-docker-proxy publishes https://<hostname> → this
+    // container's :8080 over gaia-net (the loopback -p binding above stays for
+    // Gaia's own proxy; Caddy reaches the container by network DNS instead).
+    // Identity is per-container, set at run time — never baked into the image.
+    // No hostname / GAIA_BASE_DOMAIN ⇒ no labels (local dev is unaffected).
+    const hostname = resolveHabitatHostname(entry);
+    if (hostname) {
+      args.push(
+        "--label", `caddy=${hostname}`,
+        "--label", "caddy.reverse_proxy={{upstreams 8080}}",
+      );
+    }
+
+    args.push(image);
 
     await execFile("docker", args);
     return hostPort;

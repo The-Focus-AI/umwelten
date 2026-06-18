@@ -101,6 +101,7 @@ export class GaiaRegistryManager {
 			secretBindings: options.secretBindings ?? [],
 			apiKey: generateApiKey(),
 			...(options.image ? { image: options.image } : {}),
+			...(options.hostname ? { hostname: options.hostname } : {}),
 			createdAt: new Date().toISOString(),
 		};
 
