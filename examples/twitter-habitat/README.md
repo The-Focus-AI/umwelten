@@ -20,8 +20,21 @@ pnpm test:run       # token-store + OAuth + X read-client unit tests (vitest)
 > `tools/`) and the first read tool — **bookmarks** — chattable end-to-end. The
 > X read client is introduced here (bookmarks call only). #153 adds the **Neon
 > feed reader** (public-data path) + the `person_recent`, `list_digest`, and
-> `high_engagement` tools. The full persona ("what's new" briefing) and the fly
-> deploy land in #154–#155.
+> `high_engagement` tools. #154 ships the **full persona** — `STIMULUS.md`
+> documents all six tools and adds the **"what's new" briefing** that assembles
+> mentions + bookmarks + notable activity into one answer. The fly deploy lands
+> in #155.
+
+### The "what's new?" briefing
+
+Ask the habitat an open-ended **"what's new?"** (or "catch me up", "what did I
+miss?") and the persona fans out across `mentions`, `bookmarks`, and
+`high_engagement`, then returns one short labeled briefing. It degrades
+gracefully — a source that's empty or needs auth shows a one-line note instead of
+sinking the whole briefing. Scoped asks ("what's new in my mentions?") answer just
+that source. This is persona/orchestration over the existing tools — no
+briefing-specific tool. Live behavior needs the X OAuth secrets (`TWITTER_*`) and
+`DATABASE_URL` seeded (see below) plus `OPENROUTER_API_KEY`.
 
 ## Run it as a habitat
 
