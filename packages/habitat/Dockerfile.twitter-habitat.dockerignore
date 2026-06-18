@@ -1,0 +1,18 @@
+# Dedicated ignore file for Dockerfile.twitter-habitat (BuildKit uses
+# <dockerfile>.dockerignore when present, overriding the root .dockerignore).
+#
+# The root .dockerignore excludes examples/ wholesale, which would break this
+# image's `COPY examples/twitter-habitat/...`. This variant keeps that dir while
+# still dropping the heavy / irrelevant paths so the build context stays small.
+# It does NOT affect the base `habitat` or `coding-agent` builds — those have no
+# matching per-Dockerfile ignore file and keep using the root .dockerignore.
+
+**/node_modules/
+**/dist/
+.git/
+.env
+.env.*
+output/
+reports/
+docs/
+.claude/

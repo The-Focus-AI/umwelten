@@ -1,0 +1,55 @@
+# Gaia orchestrator — containerized deploy (Docker-out-of-Docker).
+#
+# Gaia spawns sibling habitat containers by driving the HOST docker daemon via
+# the mounted socket. Two non-obvious requirements make that work:
+#
+#   1. network_mode: host
+#      Gaia reaches its children at 127.0.0.1:<port> (DockerManager publishes
+#      each child on 127.0.0.1:7440-7499). Inside a bridged container that
+#      loopback is the container's own — not the host's. Host networking puts
+#      Gaia in the host network namespace so 127.0.0.1:<port> hits the
+#      published child ports. (Linux only — see the runbook. On macOS/Docker
+#      Desktop use the standalone single-container path instead.)
+#
+#   2. Identity bind mount for the data dir (/opt/gaia-data:/opt/gaia-data)
+#      Gaia bind-mounts each child's sessions dir at <dataDir>/sessions/<id>.
+#      That path is resolved by the HOST daemon, so the data dir must live at
+#      the SAME path inside the Gaia container and on the host. Mounting it at
+#      an identical path makes child bind mounts line up.
+#
+# Prereqs: `docker build -t habitat -f packages/habitat/Dockerfile .` and
+# `docker build -t twitter-habitat -f packages/habitat/Dockerfile.twitter-habitat .`
+# have been run on this host. See deploy/gaia/README.md for the full runbook.
+
+services:
+  gaia:
+    image: habitat
+    container_name: gaia
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # Gaia's own chat model. openrouter avoids the fresh-install
+      # @ai-sdk/google v3 vs ai@5 break (PRD #149 "Further Notes").
+      GAIA_PROVIDER: ${GAIA_PROVIDER:-openrouter}
+      GAIA_MODEL: ${GAIA_MODEL:-openai/gpt-4o-mini}
+      GAIA_PORT: ${GAIA_PORT:-7420}
+      HABITAT_WORK_DIR: /opt/gaia-data
+      # The provider key Gaia uses for its own chat. Child habitats get their
+      # own keys via the master vault + secret bindings, not from here.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+    volumes:
+      # Drive the host docker daemon (spawn/seed/stop child habitats).
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Identity mount — see header note #2. Registry + master secrets persist
+      # here; child session dirs are bind-mounted from subpaths of it.
+      - /opt/gaia-data:/opt/gaia-data
+    command:
+      - sh
+      - -c
+      - >
+        pnpm exec tsx packages/cli/src/entry.ts habitat gaia
+        --port "$$GAIA_PORT"
+        --data-dir /opt/gaia-data
+        --provider "$$GAIA_PROVIDER"
+        --model "$$GAIA_MODEL"
