@@ -38,9 +38,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.21.4",
-    "@types/node": "^25.9.2",
+    "@dagger.io/dagger": "^0.21.7",
+    "@types/node": "^25.9.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }
