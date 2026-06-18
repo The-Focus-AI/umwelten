@@ -18,8 +18,10 @@ pnpm test:run       # token-store + OAuth + X read-client unit tests (vitest)
 > Status: scaffolding in progress. #150 shipped the **auth foundation** (X OAuth
 > token store + bootstrap). #151 adds the **habitat work dir** (config + persona +
 > `tools/`) and the first read tool — **bookmarks** — chattable end-to-end. The
-> X read client is introduced here (bookmarks call only). Mentions/timeline,
-> the Neon feed reader, the full persona, and the fly deploy land in #152–#155.
+> X read client is introduced here (bookmarks call only). #153 adds the **Neon
+> feed reader** (public-data path) + the `person_recent`, `list_digest`, and
+> `high_engagement` tools. The full persona ("what's new" briefing) and the fly
+> deploy land in #154–#155.
 
 ## Run it as a habitat
 
@@ -57,7 +59,44 @@ streamed back through the chat.
   OAuth user token. Handled by the **X token store** (`src/token-store.ts` →
   `XTokenStore`).
 - **Public** (specific people, lists, digests, engagement) → read from the Neon
-  database that the existing `twitter-feed` pipeline syncs. (Issue #153.)
+  database that the existing `twitter-feed` pipeline syncs. Handled by the
+  **feed reader** (`src/feed-reader.ts` → `FeedReader`), surfaced as the
+  `person_recent`, `list_digest`, and `high_engagement` tools (#153).
+
+## Public-data tools (the feed reader)
+
+The `FeedReader` (`src/feed-reader.ts`) is a read-only consumer of the Neon tables
+the `twitter-feed` pipeline populates (`cached_tweets`, `twitter_profiles`,
+`twitter_lists` / `twitter_list_members`, `summaries`). It holds **no**
+twitterapi.io key — only a `DATABASE_URL` (a habitat secret, or the `DATABASE_URL`
+env var; fly.io injects secrets as env). Engagement is ranked by
+`likes + retweets + replies`, matching the pipeline's own formula. The Postgres
+boundary is an injected `QueryExecutor`, bound to `@neondatabase/serverless`'s
+`neon()` in production and a seeded in-memory fake in unit tests. Schema +
+driver notes: `reports/2026-06-16-twitter-feed-neon-schema.md` and
+`reports/2026-06-16-neon-serverless-readonly-driver.md`.
+
+Three factory-pattern Agent tools (`tools/{person-recent,list-digest,high-engagement}/`):
+
+| Tool             | Question it answers                    | Key args                    |
+| ---------------- | -------------------------------------- | --------------------------- |
+| `person_recent`  | "what's @person been posting?"         | `handle`, `limit`, `sinceHours` |
+| `list_digest`    | "digest the AI engineers list"         | `list` (slug or name), `limit`, `sinceHours` |
+| `high_engagement`| "what's notable right now?"            | `limit`, `sinceHours`       |
+
+```bash
+# Seed the Neon connection string (the public-data path needs only this secret):
+dotenvx run -- pnpm run cli habitat secrets set DATABASE_URL 'postgres://...' --work-dir examples/twitter-habitat
+
+# Serve, then chat:
+dotenvx run -- pnpm run cli habitat serve --work-dir examples/twitter-habitat --port 7430
+dotenvx run -- pnpm run cli habitat chat --url http://localhost:7430 --one-shot "what's @karpathy been posting?"
+dotenvx run -- pnpm run cli habitat chat --url http://localhost:7430 --one-shot "digest the ai-engineers list"
+dotenvx run -- pnpm run cli habitat chat --url http://localhost:7430 --one-shot "what are the top tweets right now?"
+```
+
+An unknown list degrades to a friendly "I don't track that list"; a missing
+`DATABASE_URL` returns an actionable config error rather than crashing.
 
 ## Authentication: the X token store
 
