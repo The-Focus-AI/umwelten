@@ -215,6 +215,16 @@ the SaaS to `https://<id>.<base-domain>/a2a` with **that child's**
 `HABITAT_API_KEY`. Leave `GAIA_BASE_DOMAIN` unset for local dev — no labels are
 emitted and Caddy routes nothing.
 
+**Reusing an existing caddy.** If the host already runs caddy-docker-proxy (it
+owns 80/443 on its own network), don't start the bundled one. Set
+`GAIA_INGRESS_NETWORK=<that network>` (e.g. `caddy`) so spawned habitats join it
+and the existing proxy picks up their labels, then bring up **only** Gaia:
+
+```bash
+GAIA_INGRESS_NETWORK=caddy GAIA_BASE_DOMAIN=habitats.example.com \
+  docker compose up -d gaia      # not the bundled caddy
+```
+
 ---
 
 ## Troubleshooting

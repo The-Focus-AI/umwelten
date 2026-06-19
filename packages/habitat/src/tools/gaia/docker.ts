@@ -45,7 +45,19 @@ function spawnWithStdin(
   });
 }
 
-const NETWORK_NAME = "gaia-net";
+/** Default Docker network children attach to when none is configured. */
+const DEFAULT_NETWORK_NAME = "gaia-net";
+/**
+ * Which Docker network spawned habitats join for reverse-proxy ingress.
+ * Override with `GAIA_INGRESS_NETWORK` to reuse an existing caddy-docker-proxy
+ * network (e.g. a host that already runs caddy on a network named `caddy` —
+ * #170): set it to that network's name so the existing proxy sees the children
+ * and routes their `caddy=` labels. The network must already exist (ensureNetwork
+ * no-ops when it does); a missing default network is created.
+ */
+function resolveNetworkName(): string {
+  return process.env.GAIA_INGRESS_NETWORK?.trim() || DEFAULT_NETWORK_NAME;
+}
 /** Default image every habitat runs unless its registry entry says otherwise. */
 export const DEFAULT_IMAGE_NAME = "habitat";
 const CONTAINER_PREFIX = "gaia-";
@@ -85,9 +97,10 @@ export class DockerManager {
   /** Create the Docker network (idempotent). */
   async ensureNetwork(): Promise<void> {
     try {
-      await execFile("docker", ["network", "create", NETWORK_NAME]);
+      await execFile("docker", ["network", "create", resolveNetworkName()]);
     } catch (err: any) {
-      // Network already exists — that's fine
+      // Network already exists — that's fine (also the expected case when
+      // reusing an externally-managed network via GAIA_INGRESS_NETWORK).
       if (!err.stderr?.includes("already exists")) throw err;
     }
   }
@@ -167,7 +180,7 @@ export class DockerManager {
     const args = [
       "run", "-d",
       "--name", name,
-      "--network", NETWORK_NAME,
+      "--network", resolveNetworkName(),
       "-v", `${volume}:/data`,
       "-v", `${sessionsHostDir}:/data/sessions`,
       "--env", `HABITAT_API_KEY=${entry.apiKey}`,

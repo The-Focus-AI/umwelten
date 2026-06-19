@@ -80,10 +80,12 @@ describe('Gaia Caddy label emission (#170)', () => {
   let dataDir: string;
   let docker: DockerManager;
   const prevBaseDomain = process.env.GAIA_BASE_DOMAIN;
+  const prevIngress = process.env.GAIA_INGRESS_NETWORK;
 
   beforeEach(async () => {
     recordedCalls = [];
     delete process.env.GAIA_BASE_DOMAIN;
+    delete process.env.GAIA_INGRESS_NETWORK;
     dataDir = await mkdtemp(join(tmpdir(), 'umwl-gaia-caddy-'));
     docker = new DockerManager(dataDir, '/tmp/project');
   });
@@ -91,6 +93,8 @@ describe('Gaia Caddy label emission (#170)', () => {
   afterEach(async () => {
     if (prevBaseDomain === undefined) delete process.env.GAIA_BASE_DOMAIN;
     else process.env.GAIA_BASE_DOMAIN = prevBaseDomain;
+    if (prevIngress === undefined) delete process.env.GAIA_INGRESS_NETWORK;
+    else process.env.GAIA_INGRESS_NETWORK = prevIngress;
     await rm(dataDir, { recursive: true, force: true });
   });
 
@@ -135,6 +139,19 @@ describe('Gaia Caddy label emission (#170)', () => {
     expect(args).toContain('HABITAT_API_KEY=gaia_testkey');
     expect(args.join(' ')).toMatch(/-p 127\.0\.0\.1:\d+:8080/);
     expect(args).toContain('gaia-net');
+  });
+
+  it('defaults the ingress network to gaia-net', async () => {
+    await docker.startContainer(makeEntry(), '', []);
+    const args = runArgs();
+    expect(args[args.indexOf('--network') + 1]).toBe('gaia-net');
+  });
+
+  it('honors GAIA_INGRESS_NETWORK to reuse an existing caddy network (#170)', async () => {
+    process.env.GAIA_INGRESS_NETWORK = 'caddy';
+    await docker.startContainer(makeEntry(), '', []);
+    const args = runArgs();
+    expect(args[args.indexOf('--network') + 1]).toBe('caddy');
   });
 
   describe('resolveHabitatHostname', () => {
