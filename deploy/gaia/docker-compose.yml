@@ -34,6 +34,12 @@ services:
       GAIA_MODEL: ${GAIA_MODEL:-openai/gpt-4o-mini}
       GAIA_PORT: ${GAIA_PORT:-7420}
       HABITAT_WORK_DIR: /opt/gaia-data
+      # Per-habitat public URLs via Caddy (#170). When set, spawned children join
+      # GAIA_INGRESS_NETWORK and get caddy=<id>.$GAIA_BASE_DOMAIN labels. Empty ⇒
+      # no labels / default gaia-net (local dev). Set GAIA_INGRESS_NETWORK to an
+      # existing caddy network to reuse that proxy instead of the bundled one.
+      GAIA_BASE_DOMAIN: ${GAIA_BASE_DOMAIN:-}
+      GAIA_INGRESS_NETWORK: ${GAIA_INGRESS_NETWORK:-}
       # The provider key Gaia uses for its own chat. Child habitats get their
       # own keys via the master vault + secret bindings, not from here.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
