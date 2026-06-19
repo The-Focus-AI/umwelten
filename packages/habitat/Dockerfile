@@ -24,8 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git ripgrep ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CLI (for Gaia to manage child containers via mounted socket)
-RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz | \
+# Install Docker CLI (for Gaia to manage child containers via mounted socket).
+# Use the build host's arch ($(uname -m) → x86_64 | aarch64) — the static
+# download paths use those names — so the image runs on amd64 AND arm64 hosts.
+RUN curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-27.3.1.tgz" | \
     tar xz -C /usr/local/bin --strip-components=1 docker/docker
 
 # Install mise (universal runtime/package manager)
