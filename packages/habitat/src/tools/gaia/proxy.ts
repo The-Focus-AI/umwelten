@@ -6,6 +6,7 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GaiaHabitatEntry } from "./types.js";
+import { containerName, CHILD_INTERNAL_PORT } from "./docker.js";
 
 /**
  * Proxy a request to a running habitat container.
@@ -30,15 +31,16 @@ export async function proxyRequest(
     req.on("end", () => {
       const body = Buffer.concat(chunks);
 
+      const childHost = containerName(entry.id);
       const proxyReq = http.request(
         {
-          hostname: "127.0.0.1",
-          port: entry.containerPort,
+          hostname: childHost,
+          port: CHILD_INTERNAL_PORT,
           path: targetPath,
           method: req.method,
           headers: {
             ...req.headers,
-            host: `127.0.0.1:${entry.containerPort}`,
+            host: `${childHost}:${CHILD_INTERNAL_PORT}`,
             authorization: `Bearer ${entry.apiKey}`,
           },
         },
@@ -80,8 +82,8 @@ export async function fetchFromContainer<T = unknown>(
   return new Promise<T>((resolve, reject) => {
     const req = http.request(
       {
-        hostname: "127.0.0.1",
-        port: entry.containerPort,
+        hostname: containerName(entry.id),
+        port: CHILD_INTERNAL_PORT,
         path,
         method: "GET",
         headers: {

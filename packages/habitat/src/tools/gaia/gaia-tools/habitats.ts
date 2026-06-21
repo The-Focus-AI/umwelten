@@ -11,7 +11,7 @@ import type { Tool } from "ai";
 import { sendA2AMessage } from "@umwelten/protocols";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
-import { type GaiaToolsContext, entryToEndpoint, discoverHabitats } from "./context.js";
+import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 export function createHabitatLifecycleTools(
@@ -44,9 +44,7 @@ export function createHabitatLifecycleTools(
 							model: entry.config.defaultModel ?? "not set",
 							status,
 							port: entry.containerPort ?? null,
-							url: entry.containerPort
-								? `http://localhost:${entry.containerPort}/?token=${entry.apiKey}`
-								: null,
+							url: entryOpenUrl(entry),
 							secretBindings: entry.secretBindings,
 							createdAt: entry.createdAt,
 						};
@@ -199,7 +197,7 @@ export function createHabitatLifecycleTools(
 						"WARNING: No API keys available — the habitat cannot call LLM providers.",
 					);
 				}
-				const url = `http://localhost:${port}/?token=${entry.apiKey}`;
+				const url = entryOpenUrl(entry, port);
 				const msg = `Started habitat "${id}" on port ${port}\nWeb UI: ${url}`;
 				return warnings.length > 0 ? `${msg}\n\n${warnings.join("\n")}` : msg;
 			},
@@ -235,9 +233,7 @@ export function createHabitatLifecycleTools(
 					name: entry.name,
 					containerStatus,
 					port: entry.containerPort ?? null,
-					url: entry.containerPort
-						? `http://localhost:${entry.containerPort}/?token=${entry.apiKey}`
-						: null,
+					url: entryOpenUrl(entry),
 					config: entry.config,
 					secretBindings: entry.secretBindings,
 				};
@@ -400,7 +396,7 @@ export function createHabitatLifecycleTools(
 				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 				const port = await docker.startContainer(entry, "", registry.list());
 				await registry.update(id, { containerPort: port });
-				const url = `http://localhost:${port}/?token=${entry.apiKey}`;
+				const url = entryOpenUrl(entry, port);
 				return `Rebuilt habitat "${id}" on port ${port}\nWeb UI: ${url}`;
 			},
 		}),

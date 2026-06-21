@@ -65,23 +65,26 @@ imports resolve), and merges `toolsDir`/`stimulusFile` into the Gaia-seeded
 
 ```bash
 cd deploy/gaia
-cp .env.example .env          # set OPENROUTER_API_KEY (or GOOGLE_…) + GAIA_*
+cp .env.example .env          # set OPENROUTER_API_KEY (or GOOGLE_…), GAIA_HOSTNAME,
+                              # GAIA_API_KEY (openssl rand -hex 32), GAIA_BASE_DOMAIN
 sudo mkdir -p /opt/gaia-data  # identity bind-mount target (see compose header)
 
-docker compose up -d
-docker compose logs -f gaia   # watch for "[gaia] Orchestrator at http://0.0.0.0:7420"
+docker compose up -d          # Gaia + bundled caddy on gaia-net (owns 80/443)
+docker compose logs -f gaia   # watch for the orchestrator boot line
 ```
 
-Gaia is now at `http://<host>:7420` (host networking → binds the host directly).
-The dashboard has Chat / Habitats / Secrets / Create tabs. Verify:
+Gaia is **not** published on the host — it's reached through caddy at
+`https://$GAIA_HOSTNAME`, gated by `GAIA_API_KEY`. Verify from the host (over the
+gaia-net, the control-plane API requires the bearer):
 
 ```bash
-curl -s http://localhost:7420/health
-# → {"status":"ok","role":"gaia-orchestrator",...,"docker":true,...}
+# health is open; /api/* requires the key
+curl -s https://$GAIA_HOSTNAME/health
+curl -s -H "Authorization: Bearer $GAIA_API_KEY" https://$GAIA_HOSTNAME/api/habitats
 ```
 
-`docker: true` confirms Gaia can reach the host daemon through the mounted
-socket.
+(For the **reuse-existing-caddy** shape — e.g. a host already serving other
+sites — don't run the bundled caddy; see §6.)
 
 ---
 
@@ -207,22 +210,41 @@ per agent) instead of Gaia's master key.
 
 Every habitat Gaia starts gets `caddy=<id>.<base-domain>` labels stamped on its
 container (`DockerManager.startContainer`), so Caddy publishes it at
-`https://<id>.<base-domain>` and reaches it over `gaia-net` (the loopback `-p`
-binding is untouched — Gaia's internal proxy still uses it). Override the host per
-habitat with the `hostname` field on `create_habitat`. Auth is **pass-through**:
-Caddy forwards `Authorization` and the habitat verifies its own token, so attach
-the SaaS to `https://<id>.<base-domain>/a2a` with **that child's**
-`HABITAT_API_KEY`. Leave `GAIA_BASE_DOMAIN` unset for local dev — no labels are
-emitted and Caddy routes nothing.
+`https://<id>.<base-domain>` and reaches it by container DNS over the ingress
+network. Override the host per habitat with the `hostname` field on
+`create_habitat`. Auth is **pass-through**: Caddy forwards `Authorization` and the
+habitat verifies its own token, so attach the SaaS to
+`https://<id>.<base-domain>/a2a` with **that child's** `HABITAT_API_KEY`. Leave
+`GAIA_BASE_DOMAIN` unset for local dev — no labels are emitted and Caddy routes
+nothing.
+
+**Gaia is itself caddy-fronted + authenticated.** Gaia no longer uses host
+networking — it joins the ingress network and addresses children by Docker DNS
+(`gaia-<id>:8080`). Its control plane is served over TLS at `GAIA_HOSTNAME`
+(`{{upstreams 7420}}`) and gated by `GAIA_API_KEY` (→ `HABITAT_API_KEY` inside the
+container). The SaaS provisions habitats by calling
+`https://<GAIA_HOSTNAME>/api/habitats…` with `Authorization: Bearer $GAIA_API_KEY`.
+**Never** leave `7420` open — with the docker socket mounted it's host-root +
+the master secret vault.
 
 **Reusing an existing caddy.** If the host already runs caddy-docker-proxy (it
-owns 80/443 on its own network), don't start the bundled one. Set
-`GAIA_INGRESS_NETWORK=<that network>` (e.g. `caddy`) so spawned habitats join it
-and the existing proxy picks up their labels, then bring up **only** Gaia:
+owns 80/443 on its own network, say `caddy`), don't start the bundled one. Point
+Gaia at that network and attach Gaia to it too (so Gaia↔child DNS + the existing
+proxy both work), set the hostname + key, and bring up **only** Gaia:
 
 ```bash
-GAIA_INGRESS_NETWORK=caddy GAIA_BASE_DOMAIN=habitats.example.com \
-  docker compose up -d gaia      # not the bundled caddy
+# deploy/gaia/.env: GAIA_INGRESS_NETWORK=caddy, GAIA_BASE_DOMAIN=habitats.example.com,
+#                   GAIA_HOSTNAME=gaia.habitats.example.com, GAIA_API_KEY=$(openssl rand -hex 32)
+docker network connect caddy gaia 2>/dev/null || true   # if not already attached
+docker run -d --name gaia --restart unless-stopped \
+  --network caddy \
+  -l caddy=gaia.habitats.example.com -l 'caddy.reverse_proxy={{upstreams 7420}}' \
+  -v /var/run/docker.sock:/var/run/docker.sock -v /opt/gaia-data:/opt/gaia-data \
+  -e GAIA_PORT=7420 -e HABITAT_WORK_DIR=/opt/gaia-data \
+  -e GAIA_PROVIDER -e GAIA_MODEL -e OPENROUTER_API_KEY \
+  -e GAIA_BASE_DOMAIN=habitats.example.com -e GAIA_INGRESS_NETWORK=caddy \
+  -e HABITAT_API_KEY="$GAIA_API_KEY" \
+  habitat sh -c 'pnpm exec tsx packages/cli/src/entry.ts habitat gaia --port 7420 --data-dir /opt/gaia-data --provider "$GAIA_PROVIDER" --model "$GAIA_MODEL"'
 ```
 
 ---
@@ -232,7 +254,7 @@ GAIA_INGRESS_NETWORK=caddy GAIA_BASE_DOMAIN=habitats.example.com \
 | Symptom | Fix |
 |---|---|
 | `health` shows `"docker": false` | Socket not mounted / no daemon access. Check `/var/run/docker.sock` mount + the host user is in the `docker` group. |
-| Gaia can't reach a started child (proxy 502) | Not on Linux host networking. Containerized Gaia requires `network_mode: host` (this compose) on a Linux host. |
+| Gaia can't reach a started child (proxy 502) | Gaia and the child must share a user-defined network for embedded DNS. Ensure Gaia is attached to the same network as `GAIA_INGRESS_NETWORK` (children join it; Gaia must too). |
 | `Image "twitter-habitat" not found` | Build it on this host (§1). Gaia only auto-builds the default `habitat` image. |
 | Child session dirs empty on host | Data dir not identity-mounted. Keep `/opt/gaia-data:/opt/gaia-data` (same path in/out). |
 | Bookmarks tool: `needs_reauth` | `TWITTER_REFRESH_TOKEN` missing/expired — re-run the OAuth bootstrap and re-set the secret, then `rebuild` the habitat. |

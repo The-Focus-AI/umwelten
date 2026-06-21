@@ -19,7 +19,12 @@ import {
 import type { GaiaHabitatEntry } from "../types.js";
 import type { GaiaRegistryManager } from "../registry.js";
 import type { GaiaSecretVault } from "../secrets.js";
-import type { DockerManager } from "../docker.js";
+import {
+	type DockerManager,
+	containerName,
+	CHILD_INTERNAL_PORT,
+	resolveHabitatHostname,
+} from "../docker.js";
 import type { CredentialCatalog } from "../credential-catalog.js";
 import type { CredentialAuditLogger } from "../credential-audit.js";
 
@@ -44,15 +49,33 @@ export interface GaiaToolsContext {
 
 /** Adapt a Gaia registry entry to a generic A2A endpoint. */
 export function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
+	// containerPort is the "running" marker (set when the container is up);
+	// the address itself is the container's embedded-DNS name on the shared
+	// network, so Gaia no longer needs host networking (#170 follow-up).
 	if (!entry.containerPort) {
 		throw new Error(`Container ${entry.id} not running`);
 	}
 	return {
-		host: "127.0.0.1",
-		port: entry.containerPort,
+		host: containerName(entry.id),
+		port: CHILD_INTERNAL_PORT,
 		apiKey: entry.apiKey,
 		label: entry.id,
 	};
+}
+
+/**
+ * "Open in browser" URL for a habitat: prefer its public Caddy hostname
+ * (reachable from anywhere, valid TLS), falling back to the host loopback port
+ * (only useful on the Gaia host itself). Null when neither is available.
+ */
+export function entryOpenUrl(
+	entry: GaiaHabitatEntry,
+	port: number | undefined = entry.containerPort,
+): string | null {
+	const host = resolveHabitatHostname(entry);
+	if (host) return `https://${host}/?token=${entry.apiKey}`;
+	if (port) return `http://localhost:${port}/?token=${entry.apiKey}`;
+	return null;
 }
 
 /** Fetch agent cards from all running habitats; failures are reported per-entry. */
