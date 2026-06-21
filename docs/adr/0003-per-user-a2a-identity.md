@@ -114,3 +114,27 @@ So the speaker is already known at dispatch; the SaaS work is forwarding it, not
 
 Reject `alg:none` and symmetric algs; enforce `aud` and `exp`; verify signature against JWKS /
 pinned key only. Never trust an unsigned identity claim. Short token lifetime.
+
+## Addendum — Gaia (the orchestrator) is on this same path
+
+Gaia is itself a habitat (it runs `container-server` and exposes A2A at
+`https://$GAIA_HOSTNAME/a2a`). So when the SaaS provisions habitats by **attaching
+Gaia as an agent** and chatting with it (rather than calling a bespoke REST
+client), Gaia's caller-identity rides **this exact per-user-JWT path** — the SaaS
+mints a JWT (`aud` = Gaia's host) and Gaia verifies it, identical to any child.
+The control plane (SaaS→Gaia) and the data plane (SaaS→habitat) therefore share
+one auth mechanism; there is no separate "orchestrator auth" to design.
+
+Transitional state (today): exactly as for every habitat — Gaia is reached with
+the legacy shared bearer (`HABITAT_API_KEY` / `GAIA_API_KEY`) until the SaaS
+starts minting (step 1 SaaS half) and step 4 flips to required.
+
+Note on Gaia's REST control plane (`/api/*`, served by `extraRawHandler`): that
+surface is gated by the shared key and is for **direct admin only**. The intended
+SaaS→Gaia path is A2A (so it inherits per-user JWT for free); the REST routes are
+not the per-user surface and don't need separate JWT work. Deploy Gaia like any
+habitat — caddy-fronted, authenticated, never raw on a public port.
+
+(Implemented across umwelten #170/#171/#172/#174/#175; arm64 fix #173. The
+multi-tenant **upstream** token follow-on — e.g. per-user X tokens keyed by the
+verified `sub` — is tracked in umwelten #176 + habitats #56.)
