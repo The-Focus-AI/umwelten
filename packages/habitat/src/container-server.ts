@@ -366,7 +366,19 @@ export async function startContainerServer(
 				}
 
 				// ── Extra raw handler (e.g. Gaia orchestrator routes) ──
+				// This runs BEFORE the per-route auth checks below, so any control
+				// plane it serves under /api/* would otherwise bypass auth entirely
+				// (Gaia's create/start/stop + secret-vault routes). Gate /api/* here.
+				// Static UI + /health stay open (health handled above; UI is served
+				// after this block), matching bearer-auth's "exclude static/health".
 				if (extraRawHandler) {
+					if (authRequired && path.startsWith("/api/")) {
+						const user = await auth.authenticate(req);
+						if (!user) {
+							sendJson(res, { error: "Unauthorized" }, 401);
+							return;
+						}
+					}
 					const handled = await extraRawHandler(req, res);
 					if (handled) return;
 				}
