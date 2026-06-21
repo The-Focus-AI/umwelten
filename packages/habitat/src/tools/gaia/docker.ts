@@ -67,8 +67,22 @@ const HABITAT_PORT_BASE = 7440;
 /** Last port in the habitat container range (inclusive). */
 const HABITAT_PORT_MAX = 7499;
 
-function containerName(id: string): string {
+/** Internal port every habitat container listens on (never published publicly). */
+export const CHILD_INTERNAL_PORT = 8080;
+
+/** Container (and embedded-DNS) name for a habitat: `gaia-<id>`. */
+export function containerName(id: string): string {
   return `${CONTAINER_PREFIX}${id}`;
+}
+
+/**
+ * In-network base URL for reaching a habitat from Gaia (or any container on the
+ * shared ingress network): `http://gaia-<id>:8080`. Gaia addresses children by
+ * Docker embedded DNS over the shared network rather than via host loopback
+ * ports, so Gaia no longer needs host networking (#170 follow-up).
+ */
+export function childBaseUrl(id: string): string {
+  return `http://${containerName(id)}:${CHILD_INTERNAL_PORT}`;
 }
 
 function volumeName(id: string): string {
