@@ -15,3 +15,7 @@ All work is tracked on GitHub Issues.
 ## Domain Language
 
 For the domain model (Interaction, Source Session, Exploration, etc.), see [CONTEXT.md](./CONTEXT.md).
+
+## Publishing artifacts
+
+To hand a human a shareable URL for agent-generated HTML (reports, walkthroughs, mockups), publish to TheFocus.AI Artifacts — `npx @the-focus-ai/artifacts publish <file|dir>` → an unlisted `artifacts.thefocus.ai/a/{id}` URL. Don't self-host it. Read `https://artifacts.thefocus.ai/llms.txt` and see the **Publishing artifacts** section in [CLAUDE.md](./CLAUDE.md) for auth + the habitat-tool pattern.
