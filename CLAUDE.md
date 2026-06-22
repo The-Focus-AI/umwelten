@@ -605,3 +605,31 @@ All umwelten services use the 74xx port range to avoid conflicts with common dev
 | `pnpm test:run`         | Unit tests only (`*.test.ts`) — no network, no LLM                          | ~4s   |
 | `pnpm test:integration` | Integration tests (`*.integration.test.ts`) — needs API keys, local servers | slow  |
 | `pnpm test:all`         | Both suites                                                                 | both  |
+
+## Publishing artifacts (shareable URLs)
+
+When you generate an HTML report / walkthrough / mockup / static bundle and need
+to hand a human a stable, shareable link, publish it to **TheFocus.AI Artifacts**
+(`artifacts.thefocus.ai`) — a CLI-first publishing service. **Do not self-host it
+on a subdomain** (don't stand up nginx/Caddy for it); use the service.
+
+```bash
+# single file, a directory (entry page = index.html), or stdin:
+npx @the-focus-ai/artifacts publish ./report.html
+npx @the-focus-ai/artifacts publish ./dist
+cat report.html | npx @the-focus-ai/artifacts publish -
+# → prints an unlisted URL like https://artifacts.thefocus.ai/a/Ab3xY9kQ
+npx @the-focus-ai/artifacts remove https://artifacts.thefocus.ai/a/Ab3xY9kQ --yes
+```
+
+- **Auth:** non-interactive sessions set `THEFOCUS_ARTIFACTS_TOKEN=tfai_pub_…`;
+  a human can instead run `npx @the-focus-ai/artifacts login` (browser).
+- **Revision window:** re-run the same `publish` shortly after to hotfix the
+  **same** URL. URLs are unlisted (not private) — never put secrets in a publication.
+- The service self-documents: read `https://artifacts.thefocus.ai/llms.txt` first.
+- **Don't confuse domains:** `artifacts.thefocus.ai` is this Vercel service;
+  `*.habitats.thefocus.ai` is the pancake/Caddy habitat host (see the Gaia runbook).
+- **From a habitat:** expose this as a `publish_artifact` tool that shells to the
+  CLI with `THEFOCUS_ARTIFACTS_TOKEN` from habitat secrets (same pattern as
+  `search-tools.ts` + `exec-tools.ts`), complementing the local `artifact-tools.ts`
+  (which serves on the habitat's own `/files/artifacts/…` URL).
