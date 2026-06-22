@@ -56,6 +56,8 @@ export interface SecretStore {
 interface HabitatLike {
   getSecret(name: string): string | undefined;
   setSecret(name: string, value: string): Promise<void>;
+  /** The verified speaking user (ADR 0003) when present — keys per-user tokens. */
+  getCurrentUserId?(): string | undefined;
 }
 
 /** Adapt a `Habitat` (or anything with getSecret/setSecret) into a {@link SecretStore}. */
@@ -74,6 +76,19 @@ export interface XTokenStoreOptions {
   now?: () => number;
   /** Refresh this many ms before expiry. Defaults to 5 minutes. */
   refreshSkewMs?: number;
+  /**
+   * The speaking user (verified A2A `sub`, ADR 0003). When set, the refresh
+   * token is read/written under a per-user secret key
+   * (`TWITTER_REFRESH_TOKEN:<subject>`) so each user has their own X account.
+   * Omitted ⇒ the single shared operator token (`TWITTER_REFRESH_TOKEN`) — the
+   * original single-tenant behavior.
+   */
+  subject?: string;
+}
+
+/** Per-user refresh-token secret key, or the shared operator key when no subject. */
+export function refreshTokenSecretKey(subject?: string): string {
+  return subject ? `${X_REFRESH_TOKEN_SECRET}:${subject}` : X_REFRESH_TOKEN_SECRET;
 }
 
 export class XTokenStore {
@@ -81,6 +96,8 @@ export class XTokenStore {
   private readonly fetchFn: FetchLike;
   private readonly now: () => number;
   private readonly skewMs: number;
+  /** Secret key holding this store's (rotating) refresh token — per-user or shared. */
+  private readonly refreshKey: string;
 
   private cachedAccessToken: string | undefined;
   private expiresAtMs = 0;
@@ -92,6 +109,7 @@ export class XTokenStore {
     this.fetchFn = opts.fetchFn ?? fetch;
     this.now = opts.now ?? Date.now;
     this.skewMs = opts.refreshSkewMs ?? DEFAULT_REFRESH_SKEW_MS;
+    this.refreshKey = refreshTokenSecretKey(opts.subject);
   }
 
   /**
@@ -128,11 +146,12 @@ export class XTokenStore {
   }
 
   private async refresh(): Promise<string> {
-    const refreshToken = this.secrets.get(X_REFRESH_TOKEN_SECRET);
+    const refreshToken = this.secrets.get(this.refreshKey);
     if (!refreshToken) {
       throw new XAuthError(
-        `No X refresh token found. Run the OAuth bootstrap script and store the result ` +
-          `as the ${X_REFRESH_TOKEN_SECRET} habitat secret before using the Twitter tools.`,
+        `No X refresh token found (secret ${this.refreshKey}). Connect this user's ` +
+          `X account (or run the OAuth bootstrap) so the token is stored before using ` +
+          `the Twitter tools.`,
         'needs_reauth',
       );
     }
@@ -142,10 +161,41 @@ export class XTokenStore {
     // Persist the rotated refresh token BEFORE returning (transaction): X has already
     // consumed the old one server-side, so the new one must reach durable storage or
     // the next refresh is dead. Do this before updating the cache or releasing the lock.
-    await this.secrets.set(X_REFRESH_TOKEN_SECRET, tokens.refresh_token);
+    await this.secrets.set(this.refreshKey, tokens.refresh_token);
 
     this.cachedAccessToken = tokens.access_token;
     this.expiresAtMs = this.now() + (tokens.expires_in ?? DEFAULT_EXPIRES_IN_S) * 1000;
     return tokens.access_token;
   }
+}
+
+/**
+ * Per-user token-store registry for the private read tools (ADR 0003 / #176).
+ *
+ * Resolves the current speaker via `habitat.getCurrentUserId()` and hands back a
+ * subject-scoped {@link XTokenStore} (cached per subject so the access-token
+ * cache + single-flight refresh are shared across calls for that user). When
+ * there is no speaker (off the A2A path, or no per-user grant) it falls back to
+ * the shared operator store — preserving single-tenant behavior.
+ */
+export function perUserTokenStores(habitat: HabitatLike) {
+  const secrets = habitatSecretStore(habitat);
+  const bySubject = new Map<string, XTokenStore>();
+  return {
+    /** The current speaker's `sub`, or undefined (operator/shared mode). */
+    currentSubject(): string | undefined {
+      return habitat.getCurrentUserId?.();
+    },
+    /** Token store for the current speaker (or the shared operator token). */
+    current(): XTokenStore {
+      const subject = habitat.getCurrentUserId?.();
+      const key = subject ?? "";
+      let store = bySubject.get(key);
+      if (!store) {
+        store = new XTokenStore({ secrets, subject });
+        bySubject.set(key, store);
+      }
+      return store;
+    },
+  };
 }

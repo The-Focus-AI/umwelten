@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   XTokenStore,
   habitatSecretStore,
+  perUserTokenStores,
+  refreshTokenSecretKey,
   X_CLIENT_ID_SECRET,
   X_CLIENT_SECRET_SECRET,
   X_REFRESH_TOKEN_SECRET,
@@ -219,5 +221,67 @@ describe('habitatSecretStore', () => {
     expect(store.get('FOO')).toBe('bar');
     await store.set('FOO', 'baz');
     expect(data.FOO).toBe('baz');
+  });
+});
+
+// ── Per-user tokens (ADR 0003 / #176) ─────────────────────────────────
+
+describe('refreshTokenSecretKey', () => {
+  it('uses the shared key with no subject, a per-user key with one', () => {
+    expect(refreshTokenSecretKey()).toBe(X_REFRESH_TOKEN_SECRET);
+    expect(refreshTokenSecretKey('user-42')).toBe(`${X_REFRESH_TOKEN_SECRET}:user-42`);
+  });
+});
+
+describe('XTokenStore — per-subject', () => {
+  it('reads/writes the per-user refresh-token secret when a subject is set', async () => {
+    const secrets = fakeSecrets({
+      [X_CLIENT_ID_SECRET]: 'cid',
+      [X_CLIENT_SECRET_SECRET]: 'csecret',
+      [`${X_REFRESH_TOKEN_SECRET}:alice`]: 'alice-refresh-0',
+    });
+    const { fn, calls } = fakeFetch([tokenPayload('alice-access', 'alice-refresh-1')]);
+    const store = new XTokenStore({ secrets, fetchFn: fn, subject: 'alice' });
+
+    expect(await store.getValidToken()).toBe('alice-access');
+    // presented alice's refresh token, rotated it back under alice's key only
+    expect(calls[0].body).toContain('refresh_token=alice-refresh-0');
+    expect(secrets.data[`${X_REFRESH_TOKEN_SECRET}:alice`]).toBe('alice-refresh-1');
+    expect(secrets.data[X_REFRESH_TOKEN_SECRET]).toBeUndefined();
+  });
+
+  it("needs_reauth when the speaker's own token is absent", async () => {
+    const secrets = fakeSecrets({
+      [X_CLIENT_ID_SECRET]: 'cid',
+      [X_CLIENT_SECRET_SECRET]: 'csecret',
+      // no per-user key for bob
+    });
+    const { fn } = fakeFetch([]);
+    const store = new XTokenStore({ secrets, fetchFn: fn, subject: 'bob' });
+    await expect(store.getValidToken()).rejects.toMatchObject({ kind: 'needs_reauth' });
+  });
+});
+
+describe('perUserTokenStores', () => {
+  function habitat(initial: Record<string, string>, currentUser?: string) {
+    const secrets = fakeSecrets(initial);
+    return {
+      getSecret: (n: string) => secrets.get(n),
+      setSecret: (n: string, v: string) => secrets.set(n, v),
+      getCurrentUserId: () => currentUser,
+    };
+  }
+
+  it('returns a subject-scoped store for the current speaker', async () => {
+    const reg = perUserTokenStores(habitat({}, 'carol'));
+    expect(reg.currentSubject()).toBe('carol');
+    // same speaker → same (cached) store instance
+    expect(reg.current()).toBe(reg.current());
+  });
+
+  it('falls back to the shared operator store when there is no speaker', () => {
+    const reg = perUserTokenStores(habitat({}, undefined));
+    expect(reg.currentSubject()).toBeUndefined();
+    expect(reg.current()).toBe(reg.current());
   });
 });
