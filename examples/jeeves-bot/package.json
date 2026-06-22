@@ -11,11 +11,11 @@
     "verify-skills": "tsx verify-skills-load.ts"
   },
   "dependencies": {
-    "@tavily/core": "^0.7.5",
+    "@tavily/core": "^0.7.6",
     "discord.js": "^14.26.4"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.21.4",
+    "@dagger.io/dagger": "^0.21.7",
     "tsx": "^4.22.4"
   },
   "pnpm": {
