@@ -228,6 +228,15 @@ export class DockerManager {
       );
     }
 
+    // Per-user token delivery (#56): enable the narrow POST /api/secrets receiver
+    // on spawned habitats when GAIA_SECRET_WRITE_PREFIXES is set (e.g.
+    // "TWITTER_REFRESH_TOKEN:"), so the SaaS can push per-user X tokens. Unset ⇒
+    // the endpoint stays disabled (404).
+    const secretWritePrefixes = process.env.GAIA_SECRET_WRITE_PREFIXES?.trim();
+    if (secretWritePrefixes) {
+      args.push("--env", `HABITAT_SECRET_WRITE_PREFIXES=${secretWritePrefixes}`);
+    }
+
     args.push(image);
 
     await execFile("docker", args);
