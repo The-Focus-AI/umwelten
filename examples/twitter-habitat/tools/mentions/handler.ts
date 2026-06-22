@@ -11,19 +11,19 @@
 
 import { tool } from 'ai';
 import { z } from 'zod';
-import { XTokenStore, habitatSecretStore } from '../../src/token-store.js';
+import { perUserTokenStores } from '../../src/token-store.js';
 import { XReadClient } from '../../src/x-read-client.js';
 import { XAuthError } from '../../src/x-oauth.js';
 
 interface HabitatLike {
   getSecret(name: string): string | undefined;
   setSecret(name: string, value: string): Promise<void>;
+  /** Verified speaking user (ADR 0003) — keys this user's own X token. */
+  getCurrentUserId?(): string | undefined;
 }
 
 export default (habitat: unknown) => {
-  const secrets = habitatSecretStore(habitat as HabitatLike);
-  const tokens = new XTokenStore({ secrets });
-  const client = new XReadClient(tokens);
+  const userTokens = perUserTokenStores(habitat as HabitatLike);
 
   return tool({
     description:
@@ -39,12 +39,19 @@ export default (habitat: unknown) => {
         .describe('How many mentions to return (default 20, min 5, max 100).'),
     }),
     async execute({ limit }) {
+      const client = new XReadClient(userTokens.current());
       try {
         const mentions = await client.getMentions({ maxResults: limit ?? 20 });
         return { count: mentions.length, mentions };
       } catch (err) {
         if (err instanceof XAuthError && err.kind === 'needs_reauth') {
-          return { error: err.message, kind: err.kind };
+          const sub = userTokens.currentSubject();
+          return {
+            error: sub
+              ? "Your X account isn't connected yet. Connect it in the habitats app to see your mentions."
+              : 'Twitter is not authenticated. Connect an X account (or run the OAuth bootstrap) for this habitat.',
+            kind: 'needs_x_connect',
+          };
         }
         return { error: err instanceof Error ? err.message : String(err) };
       }
