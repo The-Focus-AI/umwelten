@@ -10,6 +10,7 @@ import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
 import { loadToolsFromDirectory } from "@umwelten/core/stimulus/tools/loader.js";
+import { getSpeaker } from "./identity/agent-speaker-context.js";
 import type { SkillDefinition } from "@umwelten/core/stimulus/skills/types.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import type {
@@ -711,6 +712,17 @@ export class Habitat
 
 	getSecret(name: string): string | undefined {
 		return this.secrets[name] ?? process.env[name];
+	}
+
+	/**
+	 * The verified speaking user for the current A2A request (ADR 0003), read
+	 * from the agent-speaker-context ALS. Available inside tool `execute()` on the
+	 * A2A path (container-server wraps dispatch in `runWithSpeaker`). Returns
+	 * undefined off that path (Discord/Telegram/web, or no per-user grant). Tools
+	 * that resolve per-user resources (e.g. a user's X token) key off this.
+	 */
+	getCurrentUserId(): string | undefined {
+		return getSpeaker()?.userId;
 	}
 
 	async setSecret(name: string, value: string): Promise<void> {
