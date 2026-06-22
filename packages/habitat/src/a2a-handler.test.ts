@@ -110,6 +110,31 @@ describe("buildAgentCard — securitySchemes", () => {
 		});
 		expect(card.security).toEqual([{ bearer: [] }]);
 	});
+
+	it("advertises bearerFormat JWT in jwt mode (per-user grants, ADR 0003)", async () => {
+		const card = await buildAgentCard({
+			baseUrl: "http://localhost:7430",
+			habitat: await makeHost(),
+			requiresApiKey: true,
+			jwtMode: true,
+		});
+		expect(
+			(card.securitySchemes as Record<string, { bearerFormat?: string }>).bearer
+				.bearerFormat,
+		).toBe("JWT");
+	});
+
+	it("omits bearerFormat for a plain shared bearer (no jwt mode)", async () => {
+		const card = await buildAgentCard({
+			baseUrl: "http://localhost:7430",
+			habitat: await makeHost(),
+			requiresApiKey: true,
+		});
+		expect(
+			(card.securitySchemes as Record<string, { bearerFormat?: string }>).bearer
+				.bearerFormat,
+		).toBeUndefined();
+	});
 });
 
 // ── 2 + 3. executor: task tracking, usage metadata, cancel ──────
