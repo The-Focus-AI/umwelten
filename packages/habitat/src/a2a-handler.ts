@@ -52,6 +52,13 @@ export interface AgentCardOptions {
    * on 401. Set iff the host enforces an API key on /a2a.
    */
   requiresApiKey?: boolean;
+  /**
+   * When true, the bearer the habitat accepts is a per-user JWT (jwt /
+   * jwt+bearer mode, ADR 0003). Advertised as `bearerFormat: "JWT"` so the
+   * habitats SaaS knows to mint a per-user grant (aud = this habitat) instead
+   * of sending a static shared bearer.
+   */
+  jwtMode?: boolean;
 }
 
 export async function buildAgentCard(
@@ -95,8 +102,10 @@ export async function buildAgentCard(
             bearer: {
               type: "http" as const,
               scheme: "bearer",
-              description:
-                "API key as a bearer token (Authorization: Bearer <HABITAT_API_KEY>).",
+              ...(options.jwtMode ? { bearerFormat: "JWT" as const } : {}),
+              description: options.jwtMode
+                ? "Per-user JWT (ADR 0003): Authorization: Bearer <JWT>, minted by the habitats SaaS and verified via its JWKS. The shared HABITAT_API_KEY is also accepted during the transition."
+                : "API key as a bearer token (Authorization: Bearer <HABITAT_API_KEY>).",
             },
           },
           security: [{ bearer: [] }],
@@ -336,6 +345,8 @@ export interface A2AHandlerOptions {
   description?: string;
   /** Declare bearer auth in the agent card (set iff /a2a enforces an API key). */
   requiresApiKey?: boolean;
+  /** Advertise per-user JWT capability (bearerFormat: JWT) — jwt/jwt+bearer mode. */
+  jwtMode?: boolean;
 }
 
 /**
@@ -354,6 +365,7 @@ export async function createA2AHandler(
     name: options.name,
     description: options.description,
     requiresApiKey: options.requiresApiKey,
+    jwtMode: options.jwtMode,
   });
 
   const executor = new HabitatAgentExecutor(options.habitat, options.bridge);

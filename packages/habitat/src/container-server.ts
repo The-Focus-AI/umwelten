@@ -308,6 +308,7 @@ export async function startContainerServer(
 				baseUrl,
 				name: serverName,
 				requiresApiKey: authRequired,
+				jwtMode: authMode === "jwt" || authMode === "jwt+bearer",
 			});
 		}
 		return a2aHandler;
