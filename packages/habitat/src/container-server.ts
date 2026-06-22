@@ -1062,6 +1062,10 @@ export async function startContainerServer(
 				console.log(
 					`[container]   Auth: per-user JWT grants required (verified, sub = user id)`,
 				);
+			} else if (authMode === "jwt+bearer") {
+				console.log(
+					`[container]   Auth: per-user JWT (verified, sub = user id) OR shared HABITAT_API_KEY — dual-auth transition (ADR 0003)`,
+				);
 			} else if (authMode === "bearer") {
 				console.log(
 					`[container]   Auth: legacy shared HABITAT_API_KEY (no per-user identity — see ADR 0003)`,

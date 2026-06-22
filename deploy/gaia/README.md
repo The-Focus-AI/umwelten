@@ -244,8 +244,21 @@ docker run -d --name gaia --restart unless-stopped \
   -e GAIA_PROVIDER -e GAIA_MODEL -e OPENROUTER_API_KEY \
   -e GAIA_BASE_DOMAIN=habitats.example.com -e GAIA_INGRESS_NETWORK=caddy \
   -e HABITAT_API_KEY="$GAIA_API_KEY" \
+  -e GAIA_JWKS_URL=https://habitats.thefocus.ai/.well-known/jwks.json \
+  -e HABITAT_AUTH_AUDIENCE=https://gaia.habitats.example.com \
+  -e HABITAT_AUTH_JWKS_URL=https://habitats.thefocus.ai/.well-known/jwks.json \
   habitat sh -c 'pnpm exec tsx packages/cli/src/entry.ts habitat gaia --port 7420 --data-dir /opt/gaia-data --provider "$GAIA_PROVIDER" --model "$GAIA_MODEL"'
 ```
+
+> **Per-user identity (ADR 0003).** The last three `-e` flags turn on per-user
+> JWT verification. `GAIA_JWKS_URL` makes spawned **children** verify JWTs;
+> `HABITAT_AUTH_AUDIENCE` (Gaia's own HTTPS origin) + `HABITAT_AUTH_JWKS_URL`
+> make **Gaia itself** verify them on its `/a2a` surface. Because `HABITAT_API_KEY`
+> stays set, Gaia runs dual-auth (`jwt+bearer`): the SaaS can attach it with **no
+> pasted bearer token** (its card advertises `bearerFormat:"JWT"` and the SaaS
+> mints a per-user grant), while the legacy shared bearer still works. Omit all
+> three for legacy bearer-only. To migrate an already-running Gaia in place, use
+> `deploy/gaia/recreate-gaia-jwt.sh` (reversible, derives current env).
 
 ---
 

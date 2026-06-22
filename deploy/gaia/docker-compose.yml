@@ -48,6 +48,17 @@ services:
       # `Authorization: Bearer` to create/start/stop habitats. Empty ⇒ open auth
       # (local dev only — NEVER leave open on a reachable deploy).
       HABITAT_API_KEY: ${GAIA_API_KEY:-}
+      # Per-user identity (ADR 0003). GAIA_JWKS_URL = the SaaS public keys; it is
+      # passed through so spawned CHILDREN verify per-user JWTs, AND reused below
+      # so GAIA ITSELF verifies them on its own A2A surface. With HABITAT_API_KEY
+      # still set, Gaia runs dual-auth (jwt+bearer): it accepts a per-user JWT
+      # (identity, so the SaaS attach flow needs no pasted token) OR the shared
+      # bearer (service trust / relay). Audience = Gaia's own public URL. All
+      # empty ⇒ bearer-only (unchanged). Set GAIA_AUTH_AUDIENCE to Gaia's HTTPS
+      # origin (e.g. https://gaia.habitats.example.com) to turn JWT on.
+      GAIA_JWKS_URL: ${GAIA_JWKS_URL:-}
+      HABITAT_AUTH_AUDIENCE: ${GAIA_AUTH_AUDIENCE:-}
+      HABITAT_AUTH_JWKS_URL: ${GAIA_JWKS_URL:-}
       # The provider key Gaia uses for its own chat. Child habitats get their
       # own keys via the master vault + secret bindings, not from here.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
