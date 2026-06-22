@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup pnpm
         # pnpm/action-setup@v6 refuses to accept both `version:` here and
         # `packageManager` in package.json. Let package.json drive the version.
