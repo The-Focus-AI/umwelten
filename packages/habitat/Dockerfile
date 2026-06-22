@@ -74,8 +74,12 @@ ENV CLAUDE_CONFIG_DIR=/data/claude-config
 
 EXPOSE 8080
 
+# Probe the port the server actually listens on. GAIA_PORT wins because the
+# image sets ENV PORT=8080 (the `habitat serve` default) — only `habitat gaia`
+# containers set GAIA_PORT (e.g. 7420), and there it's authoritative. Hardcoding
+# 8080 made Gaia report (unhealthy) while healthy on 7420.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
-    CMD node -e "fetch('http://localhost:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+    CMD node -e "fetch('http://localhost:'+(process.env.GAIA_PORT||process.env.PORT||8080)+'/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "habitat", "serve", "--port", "8080", "--host", "0.0.0.0", "--skip-onboard"]
