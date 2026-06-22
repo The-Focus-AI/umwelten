@@ -81,11 +81,13 @@ describe('Gaia Caddy label emission (#170)', () => {
   let docker: DockerManager;
   const prevBaseDomain = process.env.GAIA_BASE_DOMAIN;
   const prevIngress = process.env.GAIA_INGRESS_NETWORK;
+  const prevJwks = process.env.GAIA_JWKS_URL;
 
   beforeEach(async () => {
     recordedCalls = [];
     delete process.env.GAIA_BASE_DOMAIN;
     delete process.env.GAIA_INGRESS_NETWORK;
+    delete process.env.GAIA_JWKS_URL;
     dataDir = await mkdtemp(join(tmpdir(), 'umwl-gaia-caddy-'));
     docker = new DockerManager(dataDir, '/tmp/project');
   });
@@ -95,7 +97,39 @@ describe('Gaia Caddy label emission (#170)', () => {
     else process.env.GAIA_BASE_DOMAIN = prevBaseDomain;
     if (prevIngress === undefined) delete process.env.GAIA_INGRESS_NETWORK;
     else process.env.GAIA_INGRESS_NETWORK = prevIngress;
+    if (prevJwks === undefined) delete process.env.GAIA_JWKS_URL;
+    else process.env.GAIA_JWKS_URL = prevJwks;
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  /** Values that follow each `--env` flag in the recorded docker run args. */
+  function envs(args: string[]): string[] {
+    return args.filter((_, i) => args[i - 1] === '--env');
+  }
+
+  it('injects HABITAT_AUTH_* (JWT-verify) when GAIA_JWKS_URL + hostname are set', async () => {
+    process.env.GAIA_BASE_DOMAIN = 'habitats.example.com';
+    process.env.GAIA_JWKS_URL = 'https://habitats.example.com/.well-known/jwks.json';
+    await docker.startContainer(makeEntry(), '', []);
+    const e = envs(runArgs());
+    expect(e).toContain('HABITAT_AUTH_AUDIENCE=https://twitter.habitats.example.com');
+    expect(e).toContain('HABITAT_AUTH_JWKS_URL=https://habitats.example.com/.well-known/jwks.json');
+    // shared bearer stays → dual-auth
+    expect(e).toContain('HABITAT_API_KEY=gaia_testkey');
+  });
+
+  it('omits HABITAT_AUTH_* when GAIA_JWKS_URL is unset (bearer-only)', async () => {
+    process.env.GAIA_BASE_DOMAIN = 'habitats.example.com';
+    await docker.startContainer(makeEntry(), '', []);
+    const e = envs(runArgs());
+    expect(e.some((v) => v.startsWith('HABITAT_AUTH_'))).toBe(false);
+    expect(e).toContain('HABITAT_API_KEY=gaia_testkey');
+  });
+
+  it('omits HABITAT_AUTH_* when there is no hostname even if GAIA_JWKS_URL is set', async () => {
+    process.env.GAIA_JWKS_URL = 'https://habitats.example.com/.well-known/jwks.json';
+    await docker.startContainer(makeEntry(), '', []);
+    expect(envs(runArgs()).some((v) => v.startsWith('HABITAT_AUTH_'))).toBe(false);
   });
 
   it('emits no caddy labels when no hostname is resolvable (local dev)', async () => {
