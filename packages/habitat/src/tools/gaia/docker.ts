@@ -215,6 +215,19 @@ export class DockerManager {
       );
     }
 
+    // Per-user identity (ADR 0003): when a JWKS is configured, spawn the child
+    // in JWT-verify mode (audience = its own public URL, keys from the SaaS
+    // JWKS). HABITAT_API_KEY above stays, so the habitat accepts a per-user JWT
+    // (from the SaaS) OR the shared bearer (Gaia's relay) — dual-auth. Needs a
+    // public hostname to form the audience; unset GAIA_JWKS_URL ⇒ bearer-only.
+    const jwksUrl = process.env.GAIA_JWKS_URL?.trim();
+    if (hostname && jwksUrl) {
+      args.push(
+        "--env", `HABITAT_AUTH_AUDIENCE=https://${hostname}`,
+        "--env", `HABITAT_AUTH_JWKS_URL=${jwksUrl}`,
+      );
+    }
+
     args.push(image);
 
     await execFile("docker", args);

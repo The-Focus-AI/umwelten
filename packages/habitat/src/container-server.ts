@@ -42,6 +42,7 @@ import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth } from "./web/auth/bearer-auth.js";
 import { jwtAuth } from "./web/auth/jwt-auth.js";
+import { compositeAuth } from "./web/auth/composite-auth.js";
 import { defaultRoutes } from "./web/routes/index.js";
 import type {
 	AuthProvider,
@@ -69,31 +70,40 @@ export interface StartedContainerServer {
 	close: () => void;
 }
 
-type AuthMode = "jwt" | "bearer" | "open";
+type AuthMode = "jwt" | "jwt+bearer" | "bearer" | "open";
 
 /**
  * Select the request AuthProvider from the environment. See the precedence note
  * at the call site and docs/adr/0003-per-user-a2a-identity.md.
  *
  * - `HABITAT_AUTH_AUDIENCE` + (`HABITAT_AUTH_JWKS_URL` | `HABITAT_AUTH_PUBLIC_KEY`)
- *   → per-user JWT verification (production).
- * - `HABITAT_API_KEY` → legacy shared bearer (retiring).
+ *   → per-user JWT verification (production). If `HABITAT_API_KEY` is ALSO set,
+ *   the habitat accepts a valid per-user JWT (identity) OR the shared bearer
+ *   (service trust, e.g. Gaia's relay) — the additive ADR-0003 transition.
+ * - `HABITAT_API_KEY` alone → legacy shared bearer (retiring).
  * - nothing → open dev auth (local only).
  */
 function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 	const audience = process.env.HABITAT_AUTH_AUDIENCE;
 	const jwksUrl = process.env.HABITAT_AUTH_JWKS_URL;
 	const publicKeyPem = process.env.HABITAT_AUTH_PUBLIC_KEY;
+	const apiKey = process.env.HABITAT_API_KEY;
 	if (audience && (jwksUrl || publicKeyPem)) {
-		return {
-			auth: jwtAuth({
-				audience,
-				issuer: process.env.HABITAT_AUTH_ISSUER,
-				jwksUrl,
-				publicKeyPem,
-			}),
-			authMode: "jwt",
-		};
+		const jwt = jwtAuth({
+			audience,
+			issuer: process.env.HABITAT_AUTH_ISSUER,
+			jwksUrl,
+			publicKeyPem,
+		});
+		// Dual-auth during the transition: JWT (identity) OR shared bearer
+		// (service trust) so enabling JWT doesn't lock out Gaia's relay.
+		if (apiKey) {
+			return {
+				auth: compositeAuth("jwt+bearer", [jwt, bearerAuth(apiKey)]),
+				authMode: "jwt+bearer",
+			};
+		}
+		return { auth: jwt, authMode: "jwt" };
 	}
 	// Misconfiguration guard: a key without an audience (or vice-versa) almost
 	// certainly means the operator intended JWT auth — fail loud rather than
@@ -104,7 +114,6 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 				"HABITAT_AUTH_JWKS_URL or HABITAT_AUTH_PUBLIC_KEY (see ADR 0003).",
 		);
 	}
-	const apiKey = process.env.HABITAT_API_KEY;
 	if (apiKey) return { auth: bearerAuth(apiKey), authMode: "bearer" };
 	return { auth: devAuth(), authMode: "open" };
 }
