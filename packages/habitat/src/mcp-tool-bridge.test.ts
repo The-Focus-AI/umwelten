@@ -3,6 +3,11 @@ import { tool } from "ai";
 import { z } from "zod";
 import { aiResultToMcpContent, registerAiTool } from "./mcp-tool-bridge.js";
 import { buildHabitatUIResource, withUIResources } from "./ui-resources.js";
+import {
+  runWithSpeaker,
+  getSpeaker,
+  type Speaker,
+} from "./identity/agent-speaker-context.js";
 
 // ADR 0005 slice C (#196) — UI resources pass through as EmbeddedResource blocks.
 describe("aiResultToMcpContent", () => {
@@ -59,5 +64,45 @@ describe("registerAiTool", () => {
     const server = { registerTool: (n: string) => calls.push(n) } as any;
     registerAiTool(server, "noexec", { description: "x" } as any);
     expect(calls).toEqual([]);
+  });
+
+  // ADR 0005 §9 (#197) — interactive callbacks run as the viewer. The /mcp
+  // route wraps tool dispatch in runWithSpeaker; this proves the bridge handler
+  // preserves that identity into the tool's execute (the same primitive /a2a
+  // already uses), so a per-user tool resolves the speaking user, not another.
+  it("a tool dispatched under runWithSpeaker sees the speaker", async () => {
+    const { server, get } = captureHandler();
+    let seen: Speaker | undefined;
+    const whoami = tool({
+      description: "captures the speaker",
+      inputSchema: z.object({}),
+      execute: async () => {
+        seen = getSpeaker();
+        return "ok";
+      },
+    });
+    registerAiTool(server, "whoami", whoami);
+
+    await runWithSpeaker({ userId: "user-b", displayName: "B" }, () =>
+      get()({}),
+    );
+    expect(seen).toEqual({ userId: "user-b", displayName: "B" });
+  });
+
+  it("a tool dispatched with no speaker sees undefined (bearer/dev)", async () => {
+    const { server, get } = captureHandler();
+    let seen: Speaker | undefined = { userId: "stale" };
+    const whoami = tool({
+      description: "captures the speaker",
+      inputSchema: z.object({}),
+      execute: async () => {
+        seen = getSpeaker();
+        return "ok";
+      },
+    });
+    registerAiTool(server, "whoami", whoami);
+
+    await runWithSpeaker(undefined, () => get()({}));
+    expect(seen).toBeUndefined();
   });
 });
