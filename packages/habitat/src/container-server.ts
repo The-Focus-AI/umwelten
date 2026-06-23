@@ -20,6 +20,7 @@ import {
 	type IncomingMessage,
 	type ServerResponse,
 } from "node:http";
+import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +48,8 @@ import {
 	parseSecretWritePrefixes,
 	isSecretWriteAllowed,
 } from "./web/secret-write.js";
+import { buildDefaultConnectors } from "./connectors/registry.js";
+import { startConnect, completeConnect } from "./web/connect.js";
 import { defaultRoutes } from "./web/routes/index.js";
 import type {
 	AuthProvider,
@@ -215,6 +218,14 @@ function sendJson(res: ServerResponse, data: unknown, status = 200): void {
 	res.end(JSON.stringify(data));
 }
 
+/** Escape text for safe interpolation into the small connect result pages. */
+function escapeHtmlText(s: string): string {
+	return s
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
 // ── Main server ───────────────────────────────────────────────────
 
 export async function startContainerServer(
@@ -239,6 +250,14 @@ export async function startContainerServer(
 	// gates keyed off HABITAT_API_KEY directly, which would skip enforcement under
 	// JWT auth.)
 	const authRequired = authMode !== "open";
+
+	// Upstream connectors (ADR 0004 §7): per-user "connect your X / …" flows the
+	// habitat owns. Inert unless a provider's creds are configured. The signed
+	// state secret rides HABITAT_API_KEY when present (stable across restarts),
+	// else a per-process random (fine — a connect round-trip is short-lived).
+	const connectors = buildDefaultConnectors();
+	const connectSecret =
+		process.env.HABITAT_API_KEY?.trim() || randomBytes(32).toString("hex");
 
 	// Chat bridge + adapter, with logging wrapper
 	const bridge = new ChannelBridge(habitat, {
@@ -416,6 +435,76 @@ export async function startContainerServer(
 				}
 
 				// ── A2A endpoint ─────────────────────────────────────
+				// Upstream connect (ADR 0004 section 7):
+				// GET /connect/:provider          -> start (redirect to provider)
+				// GET /connect/:provider/callback -> finish (exchange + store)
+				// Inert (404) unless a connector for :provider is registered.
+				if (path.startsWith("/connect/") && req.method === "GET") {
+					const parts = path.split("/").filter(Boolean);
+					const provider = parts[1];
+					const isCallback = parts.length === 3 && parts[2] === "callback";
+					const connector = provider ? connectors.get(provider) : undefined;
+					if (!connector || (parts.length === 3 && !isCallback) || parts.length > 3) {
+						sendJson(res, { error: "Unknown connector" }, 404);
+						return;
+					}
+					const publicBaseUrl = getPublicBaseUrl(req);
+					const nowSeconds = Math.floor(Date.now() / 1000);
+					if (!isCallback) {
+						// A browser GET can't send an Authorization header, so the SaaS
+						// passes a per-user JWT as ?jwt= (or ?token=); fall back to the
+						// request's own auth otherwise.
+						const tok = query.jwt || query.token;
+						const authReq = tok
+							? ({ headers: { authorization: `Bearer ${tok}` } } as unknown as IncomingMessage)
+							: req;
+						const user = await auth.authenticate(authReq);
+						if (!user) {
+							sendJson(
+								res,
+								{ error: "Unauthorized — the connect link needs a valid per-user token" },
+								401,
+							);
+							return;
+						}
+						const { authorizeUrl } = startConnect({
+							connector,
+							sub: user.userId,
+							publicBaseUrl,
+							secret: connectSecret,
+							nowSeconds,
+						});
+						res.writeHead(302, { Location: authorizeUrl });
+						res.end();
+						return;
+					}
+					// Callback: identity rides the signed state, not auth headers.
+					const result = await completeConnect({
+						connector,
+						provider,
+						query,
+						publicBaseUrl,
+						secret: connectSecret,
+						nowSeconds,
+						setSecret: (name, value) => habitat.setSecret(name, value),
+					});
+					const page = (title: string, body: string) =>
+						`<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${title}</h1><p>${body}</p></body>`;
+					if (!result.ok) {
+						res.writeHead(result.status, { "content-type": "text/html; charset=utf-8" });
+						res.end(page("Connection failed", escapeHtmlText(result.message)));
+						return;
+					}
+					res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+					res.end(
+						page(
+							`Connected ${escapeHtmlText(connector.label)}`,
+							"You can close this window and return to your chat.",
+						),
+					);
+					return;
+				}
+
 				if (path === "/a2a" && req.method === "POST") {
 					let user: UserContext | null = null;
 					if (authRequired) {
