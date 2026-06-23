@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   buildHabitatUIResource,
   publishUIResource,
+  withUIResources,
 } from "../ui-resources.js";
 
 export interface UIResourceToolsContext {
@@ -51,12 +52,17 @@ export function createUIResourceTools(
         origin: ctx.getPublicOrigin?.(),
       });
       await publishUIResource(ctx.getWorkDir(), resource);
-      return {
-        published: true,
-        uri: resource.uri,
-        mimeType: resource.mimeType,
-        note: "UI resource queued for this turn; it renders in the chat client.",
-      };
+      // Carry the resource on the result so the MCP bridge emits it as an
+      // EmbeddedResource block (#196); the A2A path drains it from the buffer.
+      return withUIResources(
+        {
+          published: true,
+          uri: resource.uri,
+          mimeType: resource.mimeType,
+          note: "UI resource queued for this turn; it renders in the chat client.",
+        },
+        [resource],
+      );
     },
   });
 
