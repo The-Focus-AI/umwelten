@@ -23,6 +23,7 @@ import {
 import { createExecTools } from "./tools/exec-tools.js";
 import { createProvisionTools } from "./tools/provision-tools.js";
 import { createArtifactTools } from "./tools/artifact-tools.js";
+import { createUIResourceTools } from "./tools/ui-resource-tools.js";
 import { resolveProjectDir } from "./config.js";
 import { accessSync } from "node:fs";
 
@@ -164,6 +165,21 @@ export const artifactToolSet: ToolSet = {
     }),
 };
 
+export const uiResourceToolSet: ToolSet = {
+  name: "ui-resources",
+  description: "Emit renderable mcp-ui UI resources (charts, forms, cards) to the user",
+  createTools: (habitat) =>
+    createUIResourceTools({
+      getWorkDir: () => habitat.getWorkDir(),
+      // Absolutize a relative externalUrl against the public origin (#194);
+      // BASE_URL is set per child by Gaia / in prod. Undefined ⇒ left relative.
+      getPublicOrigin: () => {
+        const base = process.env.BASE_URL?.trim();
+        return base ? base.replace(/\/$/, "") : undefined;
+      },
+    }),
+};
+
 /** Self-modification: create/remove/reload tools and skills at runtime. */
 export const selfModifyToolSet: ToolSet = {
   name: "self-modify",
@@ -212,6 +228,7 @@ export const containerToolSets: ToolSet[] = [
   execToolSet,
   provisionToolSet,
   artifactToolSet,
+  uiResourceToolSet,
   inspectToolSet,
 ];
 
@@ -228,5 +245,6 @@ export const managedContainerToolSets: ToolSet[] = [
   execToolSet,
   provisionToolSet,
   artifactToolSet,
+  uiResourceToolSet,
   inspectToolSet,
 ];

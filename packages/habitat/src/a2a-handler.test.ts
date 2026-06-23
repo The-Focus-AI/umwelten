@@ -99,6 +99,14 @@ describe("buildAgentCard — securitySchemes", () => {
 		expect(card.security).toBeUndefined();
 	});
 
+	it("advertises the text/html+mcp output mode for UI resources (#195)", async () => {
+		const card = await buildAgentCard({
+			baseUrl: "http://localhost:7430",
+			habitat: await makeHost(),
+		});
+		expect(card.defaultOutputModes).toContain("text/html+mcp");
+	});
+
 	it("declares HTTP bearer auth iff the API key is set", async () => {
 		const card = await buildAgentCard({
 			baseUrl: "http://localhost:7430",
@@ -321,6 +329,49 @@ describe("tasks/cancel via the JSON-RPC transport", () => {
 
 		expect(cancelResponse.error).toBeUndefined();
 		expect(cancelResponse.result?.status?.state).toBe("canceled");
+	});
+});
+
+// ── 3b. UI resources over A2A (#195 / ADR 0005 slice B) ────────────
+describe("HabitatAgentExecutor — UI resources", () => {
+	it("carries a published UI resource as a DataPart and drains the buffer", async () => {
+		const host = await makeHost();
+		const dir = join(host.getWorkDir(), "ui-resources");
+		await mkdir(dir, { recursive: true });
+		await writeFile(
+			`${dir}/2026-x-ui.json`,
+			JSON.stringify({
+				uri: "ui://habitat/widget",
+				mimeType: "text/html;profile=mcp-app",
+				text: "<h1>hi</h1>",
+			}),
+		);
+
+		const executor = new HabitatAgentExecutor(host, instantBridge());
+		const { bus, events } = fakeEventBus();
+		await executor.execute(requestContext(), bus);
+
+		const msg = events.find((e) => e.kind === "message");
+		const dataPart = msg?.parts?.find((p: any) => p.kind === "data");
+		expect(dataPart?.data?.uri).toBe("ui://habitat/widget");
+		expect(dataPart?.metadata).toMatchObject({
+			mcpUi: true,
+			outputMode: "text/html+mcp",
+		});
+		expect(msg?.parts?.some((p: any) => p.kind === "text")).toBe(true);
+
+		// Ephemeral: the buffer is cleared after the turn.
+		const { readdir } = await import("node:fs/promises");
+		expect(await readdir(dir)).toEqual([]);
+	});
+
+	it("emits no data part when no UI resource was published", async () => {
+		const host = await makeHost();
+		const executor = new HabitatAgentExecutor(host, instantBridge());
+		const { bus, events } = fakeEventBus();
+		await executor.execute(requestContext(), bus);
+		const msg = events.find((e) => e.kind === "message");
+		expect(msg?.parts?.some((p: any) => p.kind === "data")).toBe(false);
 	});
 });
 
