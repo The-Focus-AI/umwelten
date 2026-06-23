@@ -43,6 +43,10 @@ import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth } from "./web/auth/bearer-auth.js";
 import { jwtAuth } from "./web/auth/jwt-auth.js";
 import { compositeAuth } from "./web/auth/composite-auth.js";
+import {
+	parseSecretWritePrefixes,
+	isSecretWriteAllowed,
+} from "./web/secret-write.js";
 import { defaultRoutes } from "./web/routes/index.js";
 import type {
 	AuthProvider,
@@ -493,6 +497,58 @@ export async function startContainerServer(
 							);
 						}
 					}
+					return;
+				}
+
+				// ── Secret write (per-user token delivery, #56) ───────
+				// Narrow, opt-in receiver: the habitats SaaS pushes a user's
+				// upstream token (e.g. their X refresh token) here as
+				// TWITTER_REFRESH_TOKEN:<sub>. Disabled unless
+				// HABITAT_SECRET_WRITE_PREFIXES is set; restricted to those
+				// prefixes; auth-gated like every /api route.
+				if (path === "/api/secrets" && req.method === "POST") {
+					const prefixes = parseSecretWritePrefixes(
+						process.env.HABITAT_SECRET_WRITE_PREFIXES,
+					);
+					if (prefixes.length === 0) {
+						sendJson(res, { error: "Not found" }, 404);
+						return;
+					}
+					if (authRequired) {
+						const user = await auth.authenticate(req);
+						if (!user) {
+							sendJson(res, { error: "Unauthorized" }, 401);
+							return;
+						}
+					}
+					let body: { name?: unknown; value?: unknown };
+					try {
+						body = JSON.parse((await readBodyRaw(req)) || "{}");
+					} catch {
+						sendJson(res, { error: "Parse error" }, 400);
+						return;
+					}
+					const { name, value } = body;
+					if (
+						typeof name !== "string" ||
+						typeof value !== "string" ||
+						value.length === 0
+					) {
+						sendJson(res, { error: "name and non-empty value required" }, 400);
+						return;
+					}
+					if (!isSecretWriteAllowed(name, prefixes)) {
+						sendJson(
+							res,
+							{
+								error: `secret name not allowed (must match one of: ${prefixes.join(", ")})`,
+							},
+							403,
+						);
+						return;
+					}
+					await habitat.setSecret(name, value);
+					sendJson(res, { ok: true, name });
 					return;
 				}
 

@@ -82,12 +82,14 @@ describe('Gaia Caddy label emission (#170)', () => {
   const prevBaseDomain = process.env.GAIA_BASE_DOMAIN;
   const prevIngress = process.env.GAIA_INGRESS_NETWORK;
   const prevJwks = process.env.GAIA_JWKS_URL;
+  const prevSecretPrefixes = process.env.GAIA_SECRET_WRITE_PREFIXES;
 
   beforeEach(async () => {
     recordedCalls = [];
     delete process.env.GAIA_BASE_DOMAIN;
     delete process.env.GAIA_INGRESS_NETWORK;
     delete process.env.GAIA_JWKS_URL;
+    delete process.env.GAIA_SECRET_WRITE_PREFIXES;
     dataDir = await mkdtemp(join(tmpdir(), 'umwl-gaia-caddy-'));
     docker = new DockerManager(dataDir, '/tmp/project');
   });
@@ -99,7 +101,22 @@ describe('Gaia Caddy label emission (#170)', () => {
     else process.env.GAIA_INGRESS_NETWORK = prevIngress;
     if (prevJwks === undefined) delete process.env.GAIA_JWKS_URL;
     else process.env.GAIA_JWKS_URL = prevJwks;
+    if (prevSecretPrefixes === undefined) delete process.env.GAIA_SECRET_WRITE_PREFIXES;
+    else process.env.GAIA_SECRET_WRITE_PREFIXES = prevSecretPrefixes;
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('injects HABITAT_SECRET_WRITE_PREFIXES when GAIA_SECRET_WRITE_PREFIXES is set (#56)', async () => {
+    process.env.GAIA_SECRET_WRITE_PREFIXES = 'TWITTER_REFRESH_TOKEN:';
+    await docker.startContainer(makeEntry(), '', []);
+    const e = runArgs().filter((_, i) => runArgs()[i - 1] === '--env');
+    expect(e).toContain('HABITAT_SECRET_WRITE_PREFIXES=TWITTER_REFRESH_TOKEN:');
+  });
+
+  it('omits HABITAT_SECRET_WRITE_PREFIXES when unset (endpoint stays disabled)', async () => {
+    await docker.startContainer(makeEntry(), '', []);
+    const e = runArgs().filter((_, i) => runArgs()[i - 1] === '--env');
+    expect(e.some((v) => v.startsWith('HABITAT_SECRET_WRITE_PREFIXES='))).toBe(false);
   });
 
   /** Values that follow each `--env` flag in the recorded docker run args. */
