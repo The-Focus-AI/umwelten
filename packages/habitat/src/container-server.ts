@@ -49,7 +49,11 @@ import {
 	isSecretWriteAllowed,
 } from "./web/secret-write.js";
 import { buildDefaultConnectors } from "./connectors/registry.js";
-import { startConnect, completeConnect } from "./web/connect.js";
+import {
+	startConnect,
+	completeConnect,
+	renderConnectLanding,
+} from "./web/connect.js";
 import { defaultRoutes } from "./web/routes/index.js";
 import type {
 	AuthProvider,
@@ -439,6 +443,27 @@ export async function startContainerServer(
 				// GET /connect/:provider          -> start (redirect to provider)
 				// GET /connect/:provider/callback -> finish (exchange + store)
 				// Inert (404) unless a connector for :provider is registered.
+				// Generic connect landing (ADR 0004 section 7): the agent's own surface.
+				if (path === "/connect" && req.method === "GET") {
+					const tok = query.jwt || query.token;
+					const authReq = tok
+						? ({ headers: { authorization: `Bearer ${tok}` } } as unknown as IncomingMessage)
+						: req;
+					const user = await auth.authenticate(authReq);
+					if (!user) {
+						sendJson(res, { error: "Unauthorized — the connect link needs a valid per-user token" }, 401);
+						return;
+					}
+					res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+					res.end(
+						renderConnectLanding(
+							[...connectors.values()].map((c) => ({ name: c.name, label: c.label })),
+							tok ?? "",
+						),
+					);
+					return;
+				}
+
 				if (path.startsWith("/connect/") && req.method === "GET") {
 					const parts = path.split("/").filter(Boolean);
 					const provider = parts[1];

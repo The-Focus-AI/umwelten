@@ -15,6 +15,42 @@ export function callbackUri(publicBaseUrl: string, provider: string): string {
   return `${publicBaseUrl.replace(/\/$/, "")}/connect/${provider}/callback`;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * The agent's generic connect landing page (ADR 0004 §7). The SaaS sends the
+ * user here (`/connect?jwt=…`) with their identity; the *agent* decides what can
+ * be connected. Lists each registered connector with a start link that carries
+ * the same token forward. Empty list ⇒ "nothing to connect" (the SaaS stays
+ * fully generic — it never needs to know the agent's providers).
+ */
+export function renderConnectLanding(
+  connectors: { name: string; label: string }[],
+  token: string,
+): string {
+  const q = token ? `?jwt=${encodeURIComponent(token)}` : "";
+  const items =
+    connectors.length === 0
+      ? `<p>This agent has no connections to authorize.</p>`
+      : `<ul style="list-style:none;padding:0">${connectors
+          .map(
+            (c) =>
+              `<li style="margin:.5rem 0"><a href="/connect/${encodeURIComponent(
+                c.name,
+              )}${q}" style="display:inline-block;padding:.6rem 1rem;border:1px solid #ccc;border-radius:8px;text-decoration:none">Connect ${escapeHtml(
+                c.label,
+              )} →</a></li>`,
+          )
+          .join("")}</ul>`;
+  return `<!doctype html><meta charset="utf-8"><title>Authorize connections</title><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>Authorize connections</h1>${items}</body>`;
+}
+
 /** Start: produce the provider authorize URL for this speaker. */
 export function startConnect(args: {
   connector: UpstreamConnector;
