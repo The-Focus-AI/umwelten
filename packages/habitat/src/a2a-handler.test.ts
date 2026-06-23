@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { BridgeResponseMetadata } from "./bridge/types.js";
@@ -321,5 +321,69 @@ describe("tasks/cancel via the JSON-RPC transport", () => {
 
 		expect(cancelResponse.error).toBeUndefined();
 		expect(cancelResponse.result?.status?.state).toBe("canceled");
+	});
+});
+
+// ── 4. artifact URL absolutization (#194 / ADR 0005) ───────────────
+describe("HabitatAgentExecutor — artifact URLs", () => {
+	async function seedArtifact(
+		host: AgentHost,
+		url: string,
+	): Promise<void> {
+		const dir = join(host.getWorkDir(), "artifacts");
+		await mkdir(dir, { recursive: true });
+		const meta = {
+			sourcePath: "/data/out.png",
+			artifactPath: `${dir}/2026-x-foo.png`,
+			name: "Foo",
+			mimeType: "image/png",
+			timestamp: "2026-06-23T00:00:00.000Z",
+			url,
+		};
+		await writeFile(`${dir}/2026-x-foo.meta.json`, JSON.stringify(meta));
+	}
+
+	function artifactUri(events: Array<Record<string, any>>): string | undefined {
+		const ev = events.find((e) => e.kind === "artifact-update");
+		return ev?.artifact?.parts?.[0]?.file?.uri;
+	}
+
+	it("emits absolute-public FilePart URIs when an origin resolves", async () => {
+		const host = await makeHost();
+		await seedArtifact(host, "/files/artifacts/2026-x-foo.png");
+		const executor = new HabitatAgentExecutor(
+			host,
+			instantBridge(),
+			() => "https://agent.example.com",
+		);
+		const { bus, events } = fakeEventBus();
+		await executor.execute(requestContext(), bus);
+		expect(artifactUri(events)).toBe(
+			"https://agent.example.com/files/artifacts/2026-x-foo.png",
+		);
+	});
+
+	it("leaves URIs relative when no origin resolver is provided (back-compat)", async () => {
+		const host = await makeHost();
+		await seedArtifact(host, "/files/artifacts/2026-x-foo.png");
+		const executor = new HabitatAgentExecutor(host, instantBridge());
+		const { bus, events } = fakeEventBus();
+		await executor.execute(requestContext(), bus);
+		expect(artifactUri(events)).toBe("/files/artifacts/2026-x-foo.png");
+	});
+
+	it("never rewrites an already-absolute stored URI", async () => {
+		const host = await makeHost();
+		await seedArtifact(host, "https://cdn.example.com/files/artifacts/a.png");
+		const executor = new HabitatAgentExecutor(
+			host,
+			instantBridge(),
+			() => "https://agent.example.com",
+		);
+		const { bus, events } = fakeEventBus();
+		await executor.execute(requestContext(), bus);
+		expect(artifactUri(events)).toBe(
+			"https://cdn.example.com/files/artifacts/a.png",
+		);
 	});
 });
