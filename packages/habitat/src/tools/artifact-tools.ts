@@ -36,6 +36,32 @@ export interface ArtifactMeta {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+/**
+ * Resolve an artifact URL to an absolute, public-origin URL (#194 / ADR 0005).
+ *
+ * Artifact metadata stores a *relative* path (`/files/artifacts/...`) so it
+ * stays portable across redeploys and origin changes. We absolutize at the
+ * egress boundary — when emitting over A2A, returning from the API, or handing
+ * a URL to the model — using the agent's resolved public origin.
+ *
+ * - No origin → return the URL unchanged (back-compat / local dev).
+ * - Already absolute (`http(s)://`) → return unchanged (never double-join).
+ * - Relative → join against the origin via WHATWG URL semantics. A leading
+ *   slash is origin-rooted, which is exactly what `/files/...` wants.
+ */
+export function toAbsoluteArtifactUrl(
+  url: string,
+  origin: string | undefined,
+): string {
+  if (!origin) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  try {
+    return new URL(url, origin).toString();
+  } catch {
+    return url;
+  }
+}
+
 const MIME_MAP: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -84,6 +110,13 @@ function formatTimestamp(): string {
 export interface ArtifactToolsContext {
   getWorkDir(): string;
   getSessionId?(): string | undefined;
+  /**
+   * Resolve the agent's public origin (e.g. `https://agent.example.com`) so the
+   * published-artifact URL handed back to the model is absolute and resolves
+   * from the SaaS chat / through the Gaia proxy (#194). Undefined → the tool
+   * returns the relative `/files/...` path (local dev).
+   */
+  getPublicOrigin?(): string | undefined;
 }
 
 // ── List artifacts helper (used by API endpoint too) ─────────────────
@@ -170,17 +203,22 @@ export function createArtifactTools(
         url,
       };
 
-      // Write metadata
+      // Write metadata — store the RELATIVE url so it stays portable across
+      // redeploys / origin changes (#194). Absolutize only at egress (below).
       const metaPath = join(
         artifactsDir,
         `${ts}-${slug}.meta.json`,
       );
       await writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
 
+      // Hand the model an absolute, public-origin URL so the link it embeds in
+      // its reply resolves from the SaaS chat / through the Gaia proxy.
+      const publicUrl = toAbsoluteArtifactUrl(url, ctx.getPublicOrigin?.());
+
       return {
         published: true,
         name,
-        url,
+        url: publicUrl,
         mimeType,
         artifactPath,
         sessionId,

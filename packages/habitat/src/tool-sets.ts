@@ -154,6 +154,13 @@ export const artifactToolSet: ToolSet = {
     createArtifactTools({
       getWorkDir: () => habitat.getWorkDir(),
       getSessionId: () => (habitat as any)._currentSessionId,
+      // Absolutize the model-facing artifact URL when a public origin is known
+      // (#194). The tool runs with no inbound request, so fall back to BASE_URL
+      // (set per child by Gaia / in prod). Undefined ⇒ relative URL (local dev).
+      getPublicOrigin: () => {
+        const base = process.env.BASE_URL?.trim();
+        return base ? base.replace(/\/$/, "") : undefined;
+      },
     }),
 };
 

@@ -30,7 +30,7 @@ import { registerAiTool } from "./mcp-tool-bridge.js";
 import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
-import { listArtifacts } from "./tools/artifact-tools.js";
+import { listArtifacts, toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
 import { runWithSpeaker } from "./identity/agent-speaker-context.js";
 import { getPublicBaseUrl } from "@umwelten/protocols";
@@ -327,6 +327,12 @@ export async function startContainerServer(
 
 	// A2A handler — initialized lazily on first request (needs port for baseUrl)
 	let a2aHandler: A2AHandler | null = null;
+	// Most-recent request's resolved public origin (#194). The A2A artifact-emit
+	// path runs mid-stream with no request in hand, so it reads this holder,
+	// which every request refreshes via getPublicBaseUrl(req). The public origin
+	// is a deployment property (BASE_URL / Fly edge headers), so concurrent
+	// requests resolve the same value — the shared holder is race-tolerant.
+	let lastPublicOrigin: string | undefined;
 	async function getA2AHandler(actualPort: number): Promise<A2AHandler> {
 		if (!a2aHandler) {
 			const baseUrl = `http://${host === "0.0.0.0" ? "localhost" : host}:${actualPort}`;
@@ -337,6 +343,7 @@ export async function startContainerServer(
 				name: serverName,
 				requiresApiKey: authRequired,
 				jwtMode: authMode === "jwt" || authMode === "jwt+bearer",
+				resolvePublicOrigin: () => lastPublicOrigin,
 			});
 		}
 		return a2aHandler;
@@ -375,6 +382,11 @@ export async function startContainerServer(
 
 			const { path, query } = parseRoute(req.url ?? "/");
 			const reqStart = Date.now();
+
+			// Refresh the resolved public origin for this request (#194), so the
+			// A2A artifact-emit path (which has no req) mints absolute FilePart
+			// URIs. Mirrors the agent-card self-describe at the /.well-known route.
+			lastPublicOrigin = getPublicBaseUrl(req);
 
 			// Log non-static requests
 			const shouldLog =
@@ -927,7 +939,10 @@ export async function startContainerServer(
 
 					// GET /api/artifacts — list published artifacts
 					if (path === "/api/artifacts" && req.method === "GET") {
-						const metas = await listArtifacts(habitat.getWorkDir());
+						const origin = getPublicBaseUrl(req);
+						const metas = (await listArtifacts(habitat.getWorkDir())).map(
+							(m) => ({ ...m, url: toAbsoluteArtifactUrl(m.url, origin) }),
+						);
 						sendJson(res, { artifacts: metas, count: metas.length });
 						return;
 					}

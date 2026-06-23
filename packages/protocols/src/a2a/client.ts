@@ -175,9 +175,22 @@ export async function sendA2AMessage(
             const textParts = parts
               .filter((p: any) => p.kind === "text" || p.type === "text")
               .map((p: any) => p.text);
+            // Defensive base-join (#194): habitats mint absolute artifact URIs,
+            // but tolerate a relative `/files/...` from older/other agents by
+            // resolving it against this endpoint's origin (WHATWG URL: a
+            // leading slash is origin-rooted). Already-absolute URIs pass through.
+            const origin = `http://${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
+            const resolveUri = (uri: string | undefined): string | undefined => {
+              if (!uri) return uri;
+              try {
+                return new URL(uri, origin).toString();
+              } catch {
+                return uri;
+              }
+            };
             const artifacts = (result?.artifacts ?? []).map((a: any) => ({
               name: a.name,
-              uri: a.parts?.[0]?.file?.uri,
+              uri: resolveUri(a.parts?.[0]?.file?.uri),
             }));
             resolve({
               text: textParts.join("\n") || "(no text response)",

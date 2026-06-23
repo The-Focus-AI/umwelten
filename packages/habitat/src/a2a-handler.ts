@@ -32,7 +32,11 @@ import {
 } from "@umwelten/protocols";
 import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "./bridge/channel-bridge.js";
-import { listArtifacts, type ArtifactMeta } from "./tools/artifact-tools.js";
+import {
+  listArtifacts,
+  toAbsoluteArtifactUrl,
+  type ArtifactMeta,
+} from "./tools/artifact-tools.js";
 import { getSpeaker } from "./identity/agent-speaker-context.js";
 
 // ── Agent card builder ────────────────────────────────────────────
@@ -131,9 +135,23 @@ export class HabitatAgentExecutor implements AgentExecutor {
    */
   private activeTasks = new Map<string, ActiveTask>();
 
-  constructor(habitat: AgentHost, bridge: ChannelBridge) {
+  /**
+   * Resolve the agent's public origin at emit time (#194). The artifact build
+   * runs mid-stream with no inbound request in hand, so the container server
+   * threads a resolver that reads the most recent request's public origin
+   * (X-Forwarded-* / BASE_URL / Host, via getPublicBaseUrl). Undefined → emit
+   * the stored relative URL unchanged (back-compat / local dev).
+   */
+  private resolvePublicOrigin?: () => string | undefined;
+
+  constructor(
+    habitat: AgentHost,
+    bridge: ChannelBridge,
+    resolvePublicOrigin?: () => string | undefined,
+  ) {
     this.habitat = habitat;
     this.bridge = bridge;
+    this.resolvePublicOrigin = resolvePublicOrigin;
   }
 
   async execute(
@@ -311,11 +329,14 @@ export class HabitatAgentExecutor implements AgentExecutor {
   }
 
   private metaToA2AArtifact(meta: ArtifactMeta, index: number): A2AArtifact {
+    // Absolutize the stored relative URL against the resolved public origin so
+    // the FilePart.uri resolves for off-origin consumers (SaaS, Gaia) — #194.
+    const uri = toAbsoluteArtifactUrl(meta.url, this.resolvePublicOrigin?.());
     const parts: (TextPart | FilePart)[] = [
       {
         kind: "file",
         file: {
-          uri: meta.url,
+          uri,
           mimeType: meta.mimeType,
           name: meta.name,
         },
@@ -347,6 +368,12 @@ export interface A2AHandlerOptions {
   requiresApiKey?: boolean;
   /** Advertise per-user JWT capability (bearerFormat: JWT) — jwt/jwt+bearer mode. */
   jwtMode?: boolean;
+  /**
+   * Resolve the agent's public origin at artifact-emit time (#194). The
+   * container server passes a getter over the most recent request's resolved
+   * origin so emitted FilePart URIs are absolute. Omit → relative URLs.
+   */
+  resolvePublicOrigin?: () => string | undefined;
 }
 
 /**
@@ -368,7 +395,11 @@ export async function createA2AHandler(
     jwtMode: options.jwtMode,
   });
 
-  const executor = new HabitatAgentExecutor(options.habitat, options.bridge);
+  const executor = new HabitatAgentExecutor(
+    options.habitat,
+    options.bridge,
+    options.resolvePublicOrigin,
+  );
 
   return createA2AServer({ agentCard, executor });
 }

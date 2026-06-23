@@ -213,6 +213,12 @@ export class DockerManager {
         "--label", `caddy=${hostname}`,
         "--label", "caddy.reverse_proxy={{upstreams 8080}}",
       );
+      // Public origin for absolute artifact/asset URLs (#194). Gaia's proxy
+      // does not set X-Forwarded-* and rewrites Host to the internal docker
+      // name, so getPublicBaseUrl can't infer the public origin from headers
+      // inside the child. BASE_URL (which it prefers when no X-Forwarded-* is
+      // present) pins it to the Caddy-published https origin.
+      args.push("--env", `BASE_URL=https://${hostname}`);
     }
 
     // Per-user identity (ADR 0003): when a JWKS is configured, spawn the child
