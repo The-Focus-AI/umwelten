@@ -4,6 +4,8 @@ import {
 	completeConnect,
 	callbackUri,
 	renderConnectLanding,
+	connectExtension,
+	CONNECT_EXTENSION_URI,
 } from "./connect.js";
 import { createXConnector } from "../connectors/x.js";
 import { signState } from "../connectors/state.js";
@@ -17,6 +19,14 @@ describe("callbackUri", () => {
 		expect(callbackUri("https://h.example/", "x")).toBe(
 			"https://h.example/connect/x/callback",
 		);
+	});
+});
+
+describe("connectExtension", () => {
+	it("advertises the connect surface URL under the stable extension URI", () => {
+		const ext = connectExtension("https://h.example/");
+		expect(ext.uri).toBe(CONNECT_EXTENSION_URI);
+		expect(ext.params.url).toBe("https://h.example/connect");
 	});
 });
 

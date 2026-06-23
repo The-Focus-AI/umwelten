@@ -15,6 +15,26 @@ export function callbackUri(publicBaseUrl: string, provider: string): string {
   return `${publicBaseUrl.replace(/\/$/, "")}/connect/${provider}/callback`;
 }
 
+/**
+ * A2A extension URI advertising the per-user connect surface (ADR 0004 §7).
+ * Consumers (the SaaS) match on this URI in `capabilities.extensions` and read
+ * `params.url` to find the agent's `/connect` landing — self-describing, so no
+ * hardcoded convention or env var on the consumer side.
+ */
+export const CONNECT_EXTENSION_URI = "https://umwelten.dev/a2a/ext/connect/v1";
+
+export function connectExtension(publicBaseUrl: string): {
+  uri: string;
+  description: string;
+  params: { url: string };
+} {
+  return {
+    uri: CONNECT_EXTENSION_URI,
+    description: "Per-user upstream connect surface (ADR 0004).",
+    params: { url: `${publicBaseUrl.replace(/\/$/, "")}/connect` },
+  };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -102,7 +122,11 @@ export async function completeConnect(args: {
   } = args;
 
   if (query.error) {
-    return { ok: false, status: 400, message: `provider error: ${query.error}` };
+    return {
+      ok: false,
+      status: 400,
+      message: `provider error: ${query.error}`,
+    };
   }
   const code = query.code;
   const state = query.state;

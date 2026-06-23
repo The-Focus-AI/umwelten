@@ -53,6 +53,7 @@ import {
 	startConnect,
 	completeConnect,
 	renderConnectLanding,
+	connectExtension,
 } from "./web/connect.js";
 import { defaultRoutes } from "./web/routes/index.js";
 import type {
@@ -431,10 +432,34 @@ export async function startContainerServer(
 					// callers at the externally reachable origin via X-Forwarded-*.
 					// Mirrors the MCP/OAuth surface (agent-surface.ts). Falls back to
 					// the Host header / BASE_URL when no forwarding headers are present.
-					sendJson(res, {
+					const publicBase = getPublicBaseUrl(req);
+					const card: Record<string, unknown> = {
 						...handler.agentCard,
-						url: `${getPublicBaseUrl(req)}/a2a`,
-					});
+						url: `${publicBase}/a2a`,
+					};
+					// provider.url = the agent's own human-facing surface (web UI root)
+					// so the SaaS renders a per-agent link from the card, not an env var.
+					card.provider =
+						(handler.agentCard as { provider?: unknown }).provider ?? {
+							organization: serverName,
+							url: publicBase,
+						};
+					// Advertise the per-user connect surface as an A2A extension when a
+					// connector is registered (self-describing for the SaaS).
+					if (connectors.size > 0) {
+						const caps =
+							(handler.agentCard.capabilities as
+								| { extensions?: unknown[] }
+								| undefined) ?? {};
+						card.capabilities = {
+							...caps,
+							extensions: [
+								...((caps.extensions as unknown[]) ?? []),
+								connectExtension(publicBase),
+							],
+						};
+					}
+					sendJson(res, card);
 					return;
 				}
 
