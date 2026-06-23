@@ -1425,6 +1425,44 @@
         </div>
 
         <div class="card">
+          <h3>Secrets (vault)</h3>
+          <div
+            style="
+              color: var(--text-dim);
+              font-size: 0.85em;
+              margin-bottom: 10px;
+            "
+          >
+            Store credentials here (e.g. TWITTER_CLIENT_ID,
+            TWITTER_CLIENT_SECRET), then bind them to a habitat. Values are
+            write-only — never typed into chat.
+          </div>
+          <div id="secrets-list"></div>
+          <div class="inference-form" style="margin-top: 12px">
+            <div class="field">
+              <label>Name</label>
+              <input
+                type="text"
+                id="sec-name"
+                placeholder="e.g. TWITTER_CLIENT_ID"
+              />
+            </div>
+            <div class="field">
+              <label>Value</label>
+              <input
+                type="password"
+                id="sec-value"
+                placeholder="paste secret value"
+              />
+            </div>
+            <div class="actions">
+              <button id="sec-save" onclick="saveSecret()">Add secret</button>
+            </div>
+            <div class="msg" id="sec-msg"></div>
+          </div>
+        </div>
+
+        <div class="card">
           <h3>Provisioning</h3>
           <div id="provision-status"></div>
         </div>
@@ -2167,6 +2205,7 @@ Loading...</pre
 
       // --- Settings ---
       async function loadSettings() {
+        loadSecrets();
         // Config JSON
         try {
           const res = await fetch("/api/settings", {
@@ -2197,6 +2236,88 @@ Loading...</pre
           $("config-json").textContent = "Error loading: " + err.message;
         }
       }
+
+      // --- Secrets (vault) ---
+      async function loadSecrets() {
+        const el = $("secrets-list");
+        if (!el) return;
+        try {
+          const res = await fetch("/api/secrets", {
+            headers: authHeadersNoBody(),
+          });
+          if (!res.ok) {
+            el.innerHTML =
+              '<div style="color: var(--text-dim)">Secrets vault not available on this habitat.</div>';
+            return;
+          }
+          const data = await res.json();
+          const secrets = data.secrets || [];
+          if (!secrets.length) {
+            el.innerHTML =
+              '<div style="color: var(--text-dim)">No secrets stored yet.</div>';
+            return;
+          }
+          el.innerHTML = secrets
+            .map((s) => {
+              const name = typeof s === "string" ? s : s.name;
+              return `<div class="row"><span class="label" style="font-family: var(--mono); font-size: 0.82em">${esc(name)}</span><button class="grant-btn" onclick="deleteSecret('${esc(name)}')">Remove</button></div>`;
+            })
+            .join("");
+        } catch (err) {
+          el.innerHTML =
+            '<div style="color: var(--text-dim)">Secrets vault not available.</div>';
+        }
+      }
+
+      window.saveSecret = async function () {
+        const name = $("sec-name").value.trim();
+        const value = $("sec-value").value;
+        const msg = $("sec-msg");
+        if (!name || !value) {
+          msg.className = "msg error";
+          msg.textContent = "Name and value are required.";
+          return;
+        }
+        $("sec-save").disabled = true;
+        msg.className = "msg";
+        msg.textContent = "Saving...";
+        try {
+          const res = await fetch("/api/secrets", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ name, value }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && (data.ok ?? data.success ?? true)) {
+            msg.className = "msg ok";
+            msg.textContent = `Saved ${name}.`;
+            $("sec-name").value = "";
+            $("sec-value").value = "";
+            await loadSecrets();
+          } else {
+            msg.className = "msg error";
+            msg.textContent = data.error || `Failed (${res.status})`;
+          }
+        } catch (err) {
+          msg.className = "msg error";
+          msg.textContent = err.message;
+        } finally {
+          $("sec-save").disabled = false;
+        }
+      };
+
+      window.deleteSecret = async function (name) {
+        if (!confirm(`Remove secret "${name}"?`)) return;
+        try {
+          await fetch(`/api/secrets/${encodeURIComponent(name)}`, {
+            method: "DELETE",
+            headers: authHeadersNoBody(),
+          });
+          await loadSecrets();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
 
       // --- Sessions ---
       const sessionsEl = $("sessions-content");
