@@ -20,6 +20,7 @@ import type {
   Task as A2ATask,
   TextPart,
   FilePart,
+  DataPart,
   Artifact as A2AArtifact,
   TaskState,
 } from "@a2a-js/sdk";
@@ -37,6 +38,11 @@ import {
   toAbsoluteArtifactUrl,
   type ArtifactMeta,
 } from "./tools/artifact-tools.js";
+import {
+  drainUIResources,
+  uiResourceToA2APart,
+  UI_OUTPUT_MODE,
+} from "./ui-resources.js";
 import { getSpeaker } from "./identity/agent-speaker-context.js";
 
 // ── Agent card builder ────────────────────────────────────────────
@@ -98,7 +104,9 @@ export async function buildAgentCard(
     protocolVersion: "0.2.5",
     capabilities: { streaming: true },
     defaultInputModes: ["text/plain"],
-    defaultOutputModes: ["text/plain"],
+    // text/html+mcp advertises that tools may emit mcp-ui UI resources
+    // (carried as DataParts) for a client AppRenderer (ADR 0005, #195).
+    defaultOutputModes: ["text/plain", UI_OUTPUT_MODE],
     skills,
     ...(options.requiresApiKey
       ? {
@@ -242,8 +250,13 @@ export class HabitatAgentExecutor implements AgentExecutor {
             // Check for published artifacts
             const artifacts = await this.buildA2AArtifacts();
 
-            const responseParts: (TextPart | FilePart)[] = [
+            // Drain any UI resources this turn emitted (ADR 0005 slice B, #195)
+            // and carry them as DataParts in the response message.
+            const uiParts = await this.buildA2AUIResourceParts();
+
+            const responseParts: (TextPart | FilePart | DataPart)[] = [
               { kind: "text", text: fullText },
+              ...uiParts,
             ];
 
             // Per-run usage so downstream consumers can record cost
@@ -323,6 +336,12 @@ export class HabitatAgentExecutor implements AgentExecutor {
   }
 
   /** Convert published habitat artifacts to A2A Artifact format. */
+  /** Drain this turn's emitted UI resources and normalize them to A2A parts. */
+  private async buildA2AUIResourceParts(): Promise<DataPart[]> {
+    const resources = await drainUIResources(this.habitat.getWorkDir());
+    return resources.map(uiResourceToA2APart);
+  }
+
   private async buildA2AArtifacts(): Promise<A2AArtifact[]> {
     const metas = await listArtifacts(this.habitat.getWorkDir());
     return metas.map((meta, index) => this.metaToA2AArtifact(meta, index));
