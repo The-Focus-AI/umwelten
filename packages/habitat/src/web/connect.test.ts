@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { startConnect, completeConnect, callbackUri } from "./connect.js";
+import {
+	startConnect,
+	completeConnect,
+	callbackUri,
+	renderConnectLanding,
+} from "./connect.js";
 import { createXConnector } from "../connectors/x.js";
 import { signState } from "../connectors/state.js";
 
@@ -12,6 +17,21 @@ describe("callbackUri", () => {
 		expect(callbackUri("https://h.example/", "x")).toBe(
 			"https://h.example/connect/x/callback",
 		);
+	});
+});
+
+describe("renderConnectLanding", () => {
+	it("lists each connector with a start link carrying the token", () => {
+		const html = renderConnectLanding(
+			[{ name: "x", label: "X (Twitter)" }],
+			"tok-123",
+		);
+		expect(html).toContain("/connect/x?jwt=tok-123");
+		expect(html).toContain("Connect X (Twitter)");
+	});
+	it("shows a nothing-to-connect message when empty (SaaS stays generic)", () => {
+		const html = renderConnectLanding([], "tok");
+		expect(html).toContain("no connections to authorize");
 	});
 });
 
