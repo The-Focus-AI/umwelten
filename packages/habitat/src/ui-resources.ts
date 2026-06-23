@@ -131,6 +131,69 @@ export function uiResourceToA2APart(resource: HabitatUIResource): DataPart {
   };
 }
 
+/** An MCP `EmbeddedResource` content block — the tool-result content type. */
+export interface McpEmbeddedResource {
+  type: "resource";
+  resource: HabitatUIResource;
+}
+
+/**
+ * Normalizer (MCP direction): map a UI resource onto an MCP `EmbeddedResource`
+ * content block (ADR 0005 slice C, #196). Same source resource as the A2A
+ * DataPart so the two transports can never drift.
+ */
+export function uiResourceToMcpContent(
+  resource: HabitatUIResource,
+): McpEmbeddedResource {
+  return { type: "resource", resource };
+}
+
+// ── Tool-result carrier ────────────────────────────────────────────────
+//
+// A tool signals "my result contains UI resources" by attaching them under a
+// reserved key. The MCP bridge extracts them into EmbeddedResource content
+// blocks instead of flattening the whole result to text. Generic — any tool
+// (including slice D's interactive tools) can opt in.
+
+/** Reserved key carrying UI resources on a tool result. */
+export const UI_RESOURCE_RESULT_KEY = "_uiResources";
+
+/** Attach UI resources to a tool result object for the MCP bridge to extract. */
+export function withUIResources<T extends Record<string, unknown>>(
+  result: T,
+  resources: HabitatUIResource[],
+): T & { [UI_RESOURCE_RESULT_KEY]: HabitatUIResource[] } {
+  return { ...result, [UI_RESOURCE_RESULT_KEY]: resources };
+}
+
+/** Read UI resources carried on a tool result (empty if none / wrong shape). */
+export function extractUIResources(result: unknown): HabitatUIResource[] {
+  if (!result || typeof result !== "object") return [];
+  const carried = (result as Record<string, unknown>)[UI_RESOURCE_RESULT_KEY];
+  if (!Array.isArray(carried)) return [];
+  return carried.filter(
+    (r): r is HabitatUIResource =>
+      !!r &&
+      typeof r === "object" &&
+      typeof (r as HabitatUIResource).uri === "string",
+  );
+}
+
+/** Return a copy of the tool result with the UI-resource carrier removed. */
+export function stripUIResources(result: unknown): unknown {
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return result;
+  }
+  if (!(UI_RESOURCE_RESULT_KEY in (result as Record<string, unknown>))) {
+    return result;
+  }
+  const { [UI_RESOURCE_RESULT_KEY]: _omit, ...rest } = result as Record<
+    string,
+    unknown
+  >;
+  return rest;
+}
+
 // ── Per-turn filesystem buffer (mirrors the artifact side-channel) ──────
 
 /** Append a UI resource to the per-turn buffer under {workDir}/ui-resources. */

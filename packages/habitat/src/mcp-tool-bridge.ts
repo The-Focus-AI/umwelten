@@ -16,6 +16,34 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Tool } from "ai";
+import {
+	extractUIResources,
+	stripUIResources,
+	uiResourceToMcpContent,
+	type McpEmbeddedResource,
+} from "./ui-resources.js";
+
+/** An MCP tool-result content block: text or an embedded UI resource. */
+export type McpContentBlock =
+	| { type: "text"; text: string }
+	| McpEmbeddedResource;
+
+/**
+ * MCP content blocks for an AI SDK tool result (ADR 0005 slice C, #196).
+ * If the result carries UI resources, emit them as `EmbeddedResource` blocks
+ * (the rest of the result flattens to a text block); otherwise it's text-only,
+ * exactly as before. Kept pure so it's unit-testable without an McpServer.
+ */
+export function aiResultToMcpContent(result: unknown): McpContentBlock[] {
+	const uiResources = extractUIResources(result);
+	const rest = stripUIResources(result);
+	const text =
+		typeof rest === "string" ? rest : JSON.stringify(rest, null, 2);
+	return [
+		...uiResources.map((r) => uiResourceToMcpContent(r)),
+		{ type: "text", text },
+	];
+}
 
 export function registerAiTool(
 	mcpServer: McpServer,
@@ -48,15 +76,19 @@ export function registerAiTool(
 				abortSignal: new AbortController().signal,
 			});
 
-			// AI SDK tools return arbitrary objects; serialize to text for MCP.
-			const text =
-				typeof result === "string" ? result : JSON.stringify(result, null, 2);
-
-			console.log(
-				`[${new Date().toISOString()}] ✓ ${toolName} (${text.length} chars)`,
+			// AI SDK tools return arbitrary objects; serialize to text for MCP,
+			// or pass a UI resource through as an EmbeddedResource block (#196).
+			const content = aiResultToMcpContent(result);
+			const chars = content.reduce(
+				(n, c) => n + (c.type === "text" ? c.text.length : 0),
+				0,
 			);
 
-			return { content: [{ type: "text" as const, text }] };
+			console.log(
+				`[${new Date().toISOString()}] ✓ ${toolName} (${chars} chars)`,
+			);
+
+			return { content };
 		} catch (error: any) {
 			console.log(
 				`[${new Date().toISOString()}] ✗ ${toolName}: ${error.message ?? String(error)}`,

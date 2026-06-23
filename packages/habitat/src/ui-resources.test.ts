@@ -5,6 +5,10 @@ import { tmpdir } from "node:os";
 import {
   buildHabitatUIResource,
   uiResourceToA2APart,
+  uiResourceToMcpContent,
+  withUIResources,
+  extractUIResources,
+  stripUIResources,
   publishUIResource,
   drainUIResources,
   UI_OUTPUT_MODE,
@@ -74,6 +78,32 @@ describe("uiResourceToA2APart (normalizer)", () => {
       outputMode: UI_OUTPUT_MODE,
       mimeType: r.mimeType,
     });
+  });
+});
+
+describe("MCP carrier (#196)", () => {
+  it("uiResourceToMcpContent wraps as an EmbeddedResource block", () => {
+    const r = buildHabitatUIResource({ uri: "ui://h/w", html: "<p>x</p>" });
+    expect(uiResourceToMcpContent(r)).toEqual({ type: "resource", resource: r });
+  });
+
+  it("withUIResources / extractUIResources round-trip", () => {
+    const r = buildHabitatUIResource({ uri: "ui://h/w", html: "<p>x</p>" });
+    expect(extractUIResources(withUIResources({ ok: true }, [r]))).toEqual([r]);
+  });
+
+  it("extractUIResources returns [] for plain / non-object results", () => {
+    expect(extractUIResources({ ok: true })).toEqual([]);
+    expect(extractUIResources("text")).toEqual([]);
+    expect(extractUIResources(null)).toEqual([]);
+  });
+
+  it("stripUIResources removes only the carrier key", () => {
+    const r = buildHabitatUIResource({ uri: "ui://h/w", html: "<p>x</p>" });
+    expect(stripUIResources(withUIResources({ ok: true }, [r]))).toEqual({
+      ok: true,
+    });
+    expect(stripUIResources("text")).toBe("text");
   });
 });
 
