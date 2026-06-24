@@ -230,6 +230,10 @@ export class BaseModelRunner implements ModelRunner {
     let fullText = "";
     let reasoningText = "";
     let reasoningDetails: any[] = [];
+    // Captures an `error` event surfaced on the stream (provider/tool failure)
+    // so we can fail with the real cause instead of the opaque downstream
+    // "No output generated" thrown when we later read response.text.
+    let streamError: unknown;
 
     try {
       const streamOptions = await this.makeStreamOptions(interaction, signal);
@@ -353,6 +357,16 @@ export class BaseModelRunner implements ModelRunner {
               });
               break;
             }
+            case "error": {
+              // The AI SDK surfaces provider/tool/stream failures as an
+              // `error` event in fullStream. Capture the REAL cause here;
+              // without this case it falls through to `default` (swallowed)
+              // and `await response.text` later throws the opaque
+              // "No output generated. Check the stream for errors.", masking
+              // the actual error from every caller (incl. the A2A/habitats UI).
+              streamError = (ev as { error?: unknown }).error ?? ev;
+              break;
+            }
             default:
               break;
           }
@@ -370,6 +384,21 @@ export class BaseModelRunner implements ModelRunner {
         if (fullText !== undefined && fullText !== null) {
           observer?.onTextDelta?.(fullText);
         }
+      }
+
+      // If the stream surfaced an error event, fail now with the real cause.
+      // Otherwise the `await response.text` below throws the opaque AI SDK
+      // "No output generated. Check the stream for errors." and the actual
+      // provider/tool error (only logged via onError) never reaches the
+      // caller — or, over A2A, the habitats room.
+      if (streamError) {
+        throw streamError instanceof Error
+          ? streamError
+          : new Error(
+              typeof streamError === "string"
+                ? streamError
+                : JSON.stringify(streamError),
+            );
       }
 
       // If no text was captured from streaming, try to get it from the response object
