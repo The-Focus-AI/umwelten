@@ -1,0 +1,24 @@
+{
+  "name": "twitter-agent",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Standalone umwelten agent: answers Twitter/X questions (bookmarks, mentions, feed) over a habitat's A2A/MCP surface. Cloned + provisioned into a stock habitat — no custom image.",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "bootstrap": "tsx bootstrap-oauth.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "ai": "^5.0.115",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.8"
+  }
+}

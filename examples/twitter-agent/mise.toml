@@ -1,0 +1,5 @@
+# Toolchain for the twitter-agent, provisioned by the habitat on clone
+# (`mise install`). The habitat then runs `pnpm install` for node deps.
+[tools]
+node = "22"
+"npm:pnpm" = "latest"
