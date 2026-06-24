@@ -39,25 +39,23 @@ a reverse proxy, not a public 7420).
 
 ---
 
-## 1. Build the images
+## 1. Build the image
 
-Both build from the monorepo root. The Twitter image layers onto the base.
+Only the **base** `habitat` image is needed — there is no per-agent image.
+The Twitter agent is a **standalone git repo** (`twitter-agent`) that the habitat
+clones and provisions on boot.
 
 ```bash
-docker build -t habitat          -f packages/habitat/Dockerfile .
-docker build -t twitter-habitat  -f packages/habitat/Dockerfile.twitter-habitat .
+docker build -t habitat -f packages/habitat/Dockerfile .
 ```
 
 > Requires **BuildKit** (the default in Docker ≥ 23; else `export DOCKER_BUILDKIT=1`).
-> The Twitter build relies on `packages/habitat/Dockerfile.twitter-habitat.dockerignore`
-> to include `examples/twitter-habitat` (the root `.dockerignore` excludes
-> `examples/`); per-Dockerfile ignore files are a BuildKit-only feature.
 
-`twitter-habitat` bakes `examples/twitter-habitat/{tools,src,STIMULUS.md}` and,
-on every boot, seeds them onto the container's `/data` volume, symlinks
-`/data/node_modules → /habitat/node_modules` (so the tool's `ai`/`zod`/`../../src`
-imports resolve), and merges `toolsDir`/`stimulusFile` into the Gaia-seeded
-`config.json`.
+How provisioning works: the base entrypoint clones the agent's `gitUrl` into
+`/data/project`, runs `mise install` (the repo's `mise.toml` pins node/pnpm) and
+`pnpm install` (the repo's own deps). The habitat then loads the repo's
+`tools/` via `config.toolsDir` — the tools resolve `ai`/`zod` from the project's
+own `node_modules`, so there is no base-image symlink and no custom Dockerfile.
 
 ---
 
@@ -105,17 +103,19 @@ gaia '{"name":"DATABASE_URL","value":"<neon-postgres-url>"}'        # feed reade
 gaia '{"name":"OPENROUTER_API_KEY","value":"<key>"}'               # child LLM provider
 ```
 
-`TWITTER_REFRESH_TOKEN` is the **seed** from the one-time OAuth bootstrap
-(`examples/twitter-habitat/bootstrap-oauth.ts` — see that dir's README). After
-the first refresh, X rotates it and the habitat persists the new one itself
-(see §5).
+`TWITTER_REFRESH_TOKEN` is the **single-tenant** seed from the one-time OAuth
+bootstrap (`bootstrap-oauth.ts` in the **twitter-agent** repo). For the per-user
+SaaS model, omit it — each user connects their own X and the token is stored
+per-user as `TWITTER_REFRESH_TOKEN:<sub>` (ADR 0004 §7).
 
 ---
 
 ## 4. Create + start the Twitter habitat
 
-Create a registry entry that runs the **`twitter-habitat`** image and binds the
-secrets. (Gaia injects each into the child's `/data/secrets.json`.)
+Create a **stock habitat** (base `habitat` image) that **clones the
+`twitter-agent` repo** and serves its tools. No custom image. The entrypoint
+clones `gitUrl` → `/data/project`, runs `mise install` + `pnpm install`, and the
+habitat loads `toolsDir`/`stimulusFile` from the clone.
 
 ```bash
 curl -s -X POST http://localhost:7420/api/habitats \
@@ -123,11 +123,14 @@ curl -s -X POST http://localhost:7420/api/habitats \
   -d '{
     "id": "twitter",
     "name": "Twitter",
-    "image": "twitter-habitat",
+    "gitUrl": "https://github.com/The-Focus-AI/twitter-agent",
+    "projectDir": "project",
+    "toolsDir": "project/tools",
+    "stimulusFile": "project/STIMULUS.md",
     "provider": "openrouter",
     "model": "openai/gpt-4o-mini",
     "secretBindings": [
-      "TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET", "TWITTER_REFRESH_TOKEN",
+      "TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET",
       "DATABASE_URL", "OPENROUTER_API_KEY"
     ]
   }'
@@ -136,9 +139,9 @@ curl -s -X POST http://localhost:7420/api/habitats/twitter/start
 # → {"started": true, "port": 7440}
 ```
 
-Or just tell Gaia in the **Chat** tab: *"Create a habitat called twitter using
-the twitter-habitat image and openrouter openai/gpt-4o-mini. Bind the Twitter
-and DATABASE_URL and OpenRouter secrets, then start it."*
+Or tell Gaia in the **Chat** tab: *"Create a habitat called twitter that clones
+github.com/The-Focus-AI/twitter-agent, serves its tools, on openrouter
+openai/gpt-4o-mini. Bind the Twitter + DATABASE_URL + OpenRouter secrets, start it."*
 
 ---
 

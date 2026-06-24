@@ -1,0 +1,13 @@
+{
+  "name": "Twitter",
+  "defaultProvider": "openrouter",
+  "defaultModel": "openai/gpt-4o-mini",
+  "toolsDir": "tools",
+  "stimulusFile": "STIMULUS.md",
+  "requiredSecrets": [
+    { "name": "TWITTER_CLIENT_ID", "description": "X app client id (per-user OAuth connect)", "required": true },
+    { "name": "TWITTER_CLIENT_SECRET", "description": "X app client secret", "required": true },
+    { "name": "DATABASE_URL", "description": "Neon Postgres URL for the public feed reader", "required": false }
+  ],
+  "agents": []
+}

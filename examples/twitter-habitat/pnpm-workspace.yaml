@@ -1,8 +1,0 @@
-# Makes this example a standalone pnpm project root (not a member of the
-# monorepo workspace), so `pnpm install` / `pnpm test:run` resolve here and do
-# not climb to the repo root.
-allowBuilds:
-  esbuild: true
-# The example is intentionally decoupled from the monorepo; skip pnpm's pre-run
-# deps check so `pnpm test:run` doesn't try to re-resolve against the parent.
-verifyDepsBeforeRun: false

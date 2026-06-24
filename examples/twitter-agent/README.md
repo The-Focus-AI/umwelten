@@ -1,11 +1,25 @@
-# Twitter habitat
+# twitter-agent
 
-A deployable umwelten Habitat whose Agent answers Twitter/X questions
-conversationally over A2A (PRD #149). This is a **self-contained example agent**
-(like `examples/twitter-mcp`) — its own `package.json`, `pnpm-workspace.yaml`,
-`tsconfig.json`, and lockfile, installed and tested independently of the
-monorepo workspace. The deep modules live here under `src/`, not in the umwelten
-library packages.
+A **standalone umwelten agent** that answers Twitter/X questions (bookmarks,
+mentions, feed) over a habitat's A2A/MCP surface (PRD #149). It is fully
+self-contained — its own `package.json` (deps: `ai`, `zod`,
+`@neondatabase/serverless`), `mise.toml`, `tsconfig`, tools, and persona, with
+**no `@umwelten/*` dependency**. `pnpm install && pnpm test:run` works on its own.
+
+## How it's deployed (no custom image)
+
+This directory is meant to live in its **own git repo** (`twitter-agent`). A
+**stock** habitat clones it and provisions itself:
+
+1. Operator creates a base habitat with `gitUrl` → this repo, `toolsDir` →
+   `project/tools`, `stimulusFile` → `project/STIMULUS.md` (see
+   `deploy/gaia/README.md` §4).
+2. The habitat entrypoint clones it to `/data/project`, runs `mise install`
+   (node/pnpm from `mise.toml`) + `pnpm install` (these deps).
+3. The habitat loads the tools from the clone; they resolve `ai`/`zod` from the
+   project's own `node_modules` — no base-image symlink, no `Dockerfile`.
+
+Until extracted to its own repo, it lives here as the source of truth.
 
 ## Develop / test
 

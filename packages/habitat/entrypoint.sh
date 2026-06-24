@@ -93,6 +93,16 @@ if [ -f "$CONFIG_FILE" ]; then
 			cd "$PROJECT_DIR" && mise install && cd /habitat
 			echo "[entrypoint] mise install complete."
 		fi
+		# Install node deps so work-dir tools (loaded from project/tools via tsx)
+		# resolve their imports (e.g. ai/zod) from the project's own node_modules —
+		# no /habitat symlink, no custom image. mise (above) provides the pinned
+		# node/pnpm; fall back to the base pnpm when the repo declares no toolchain.
+		if [ -f "$PROJECT_DIR/package.json" ] && [ ! -d "$PROJECT_DIR/node_modules" ]; then
+			echo "[entrypoint] Installing node deps in $PROJECT_DIR..."
+			(cd "$PROJECT_DIR" && pnpm install) ||
+				echo "[entrypoint] pnpm install failed for project (continuing)."
+			echo "[entrypoint] Node deps installed."
+		fi
 	fi
 
 	# ── Per-agent provisioning (Habitat Runtime spec) ─────────────────────
@@ -150,6 +160,11 @@ if [ -f "$CONFIG_FILE" ]; then
 		if [ -d "$AGENT_REPO" ] && { [ -f "$AGENT_REPO/mise.toml" ] || [ -f "$AGENT_REPO/.mise.toml" ]; }; then
 			echo "[entrypoint] Running mise install for agent $AGENT_ID..."
 			(cd "$AGENT_REPO" && mise install) || echo "[entrypoint] mise install failed for $AGENT_ID (continuing)."
+		fi
+		# Node deps for the agent repo (same rationale as the single-project path).
+		if [ -d "$AGENT_REPO" ] && [ -f "$AGENT_REPO/package.json" ] && [ ! -d "$AGENT_REPO/node_modules" ]; then
+			echo "[entrypoint] Installing node deps for agent $AGENT_ID..."
+			(cd "$AGENT_REPO" && pnpm install) || echo "[entrypoint] pnpm install failed for $AGENT_ID (continuing)."
 		fi
 
 		# Write a per-agent provision marker for `provision_status` introspection.
