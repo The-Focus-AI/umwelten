@@ -27,11 +27,13 @@ function mint(opts: {
   iss?: string;
   expiresIn?: string; // jose duration, e.g. '5m' or '-1m'
   name?: string;
+  operator?: boolean;
   signer?: CryptoKey;
   alg?: string;
 } = {}): Promise<string> {
   const claims: Record<string, unknown> = {};
   if (opts.name) claims.name = opts.name;
+  if (opts.operator) claims.operator = true;
   let jwt = new SignJWT(claims)
     .setProtectedHeader({ alg: opts.alg ?? 'ES256' })
     .setIssuedAt()
@@ -70,6 +72,7 @@ describe('jwtAuth — valid tokens (pinned public key)', () => {
       displayName: 'Will',
       email: undefined,
       provider: 'oauth',
+      operator: false,
     });
   });
 
@@ -77,6 +80,14 @@ describe('jwtAuth — valid tokens (pinned public key)', () => {
     const provider = jwtAuth({ audience: AUD, publicKeyPem: spkiPem });
     const user = await provider.authenticate(bearer(await mint({ sub: 'u2' })));
     expect(user?.userId).toBe('u2');
+  });
+
+  it('surfaces the operator claim (ADR 0004)', async () => {
+    const provider = jwtAuth({ audience: AUD, issuer: ISS, publicKeyPem: spkiPem });
+    const op = await provider.authenticate(bearer(await mint({ sub: 'admin', operator: true })));
+    expect(op?.operator).toBe(true);
+    const reg = await provider.authenticate(bearer(await mint({ sub: 'user' })));
+    expect(reg?.operator).toBe(false);
   });
 });
 

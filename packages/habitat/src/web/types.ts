@@ -22,6 +22,12 @@ export interface UserContext {
   email?: string;
   /** How this user was authenticated. */
   provider?: 'dev' | 'google' | 'github' | 'oauth';
+  /**
+   * True when the caller is a habitat operator/admin — either the shared
+   * HABITAT_API_KEY, or a JWT carrying the `operator` claim (ADR 0004). Gates
+   * writing the credentials the habitat declares in config.requiredSecrets.
+   */
+  operator?: boolean;
 }
 
 /** Strategy for resolving a UserContext from a request. */
