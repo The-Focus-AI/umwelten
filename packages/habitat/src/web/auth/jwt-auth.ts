@@ -72,6 +72,12 @@ interface HabitatJwtPayload extends JWTPayload {
   email?: string;
   /** Optional org id (habitats is org-scoped). */
   org?: string;
+  /**
+   * Operator grant (ADR 0004): the issuer (habitats SaaS) asserts this caller
+   * is a habitat operator/admin and may set the credentials the habitat
+   * declares in config.requiredSecrets. Minted only for habitat mutators.
+   */
+  operator?: boolean;
 }
 
 /**
@@ -133,6 +139,7 @@ export function jwtAuth(opts: JwtAuthOptions): AuthProvider {
           displayName: claims.name,
           email: claims.email,
           provider: 'oauth',
+          operator: claims.operator === true,
         };
       } catch {
         // Invalid signature / aud / exp / alg → unauthenticated. The caller (the

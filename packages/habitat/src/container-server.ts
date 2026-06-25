@@ -677,10 +677,12 @@ export async function startContainerServer(
 							sendJson(res, { error: "Unauthorized" }, 401);
 							return;
 						}
-						// Shared-key (HABITAT_API_KEY) callers authenticate as the
-						// fixed 'bearer-user' sentinel; per-user JWTs carry a real sub.
-						// Only the operator may set declared app credentials.
-						isOperator = user.userId === "bearer-user";
+						// Operator = the shared HABITAT_API_KEY (fixed 'bearer-user'
+						// sentinel) OR a JWT the SaaS minted with the `operator` claim
+						// for a habitat admin (ADR 0004). Only operators may set the
+						// credentials the habitat declares it needs.
+						isOperator =
+							user.userId === "bearer-user" || user.operator === true;
 					}
 					let body: { name?: unknown; value?: unknown };
 					try {
