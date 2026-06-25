@@ -91,6 +91,21 @@ export interface RequiredSecret {
 	name: string;
 	description?: string;
 	required: boolean;
+	/**
+	 * How a client (e.g. the habitats SaaS attach flow) should collect this
+	 * credential. "secret" → a text/password field the user fills in; "oauth"
+	 * → a "Connect" button that runs the agent's own OAuth at `connectPath`
+	 * (the user never pastes a token). Defaults to "secret".
+	 */
+	type?: "secret" | "oauth";
+	/**
+	 * For `type: "oauth"`: the relative path to the agent's own connect/OAuth
+	 * surface (e.g. "/connect/x"). The client opens it (with the per-user JWT)
+	 * to mint the token directly into the habitat.
+	 */
+	connectPath?: string;
+	/** Human-facing label for a form field (defaults to `name`). */
+	label?: string;
 }
 
 // ── Agent identity & scopes (Habitat Runtime spec, Phase 2) ──────────

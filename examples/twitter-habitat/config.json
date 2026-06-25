@@ -4,5 +4,36 @@
   "defaultModel": "openai/gpt-4o-mini",
   "toolsDir": "tools",
   "stimulusFile": "STIMULUS.md",
-  "agents": []
+  "agents": [],
+  "requiredSecrets": [
+    {
+      "name": "TWITTER_CLIENT_ID",
+      "label": "X / Twitter Client ID",
+      "description": "OAuth 2.0 client ID from your X developer app (confidential client).",
+      "required": true,
+      "type": "secret"
+    },
+    {
+      "name": "TWITTER_CLIENT_SECRET",
+      "label": "X / Twitter Client Secret",
+      "description": "OAuth 2.0 client secret from your X developer app.",
+      "required": true,
+      "type": "secret"
+    },
+    {
+      "name": "TWITTER_REFRESH_TOKEN",
+      "label": "Connect your X account",
+      "description": "Authorize the app once; the refresh token is minted into the habitat — you never paste it.",
+      "required": true,
+      "type": "oauth",
+      "connectPath": "/connect/x"
+    },
+    {
+      "name": "OPENROUTER_API_KEY",
+      "label": "OpenRouter API key",
+      "description": "LLM provider key for this habitat.",
+      "required": true,
+      "type": "secret"
+    }
+  ]
 }

@@ -71,9 +71,28 @@ export interface AgentCardOptions {
   jwtMode?: boolean;
 }
 
+/**
+ * A credential the agent needs to function, advertised on its card so an
+ * attaching client can collect it (ADR 0004). `secret` → a form field; `oauth`
+ * → a "Connect" button driving the agent's own OAuth at `connectPath`.
+ */
+export interface RequiredCredential {
+  name: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  type: "secret" | "oauth";
+  connectPath?: string;
+}
+
+/** An A2A AgentCard plus our `requiredCredentials` extension. */
+export type HabitatAgentCard = AgentCard & {
+  requiredCredentials?: RequiredCredential[];
+};
+
 export async function buildAgentCard(
   options: AgentCardOptions,
-): Promise<AgentCard> {
+): Promise<HabitatAgentCard> {
   const { baseUrl, habitat } = options;
   const config = habitat.getConfig();
   const stimulus = await habitat.getStimulus();
@@ -96,7 +115,22 @@ export async function buildAgentCard(
     },
   ];
 
+  // Declare the app credentials this agent needs to function (ADR 0004), so an
+  // attaching client (the habitats SaaS) can render a form / OAuth "Connect"
+  // instead of anyone hand-setting secrets. Sourced from config.requiredSecrets.
+  const requiredCredentials: RequiredCredential[] = (
+    config.requiredSecrets ?? []
+  ).map((s) => ({
+    name: s.name,
+    label: s.label ?? s.name,
+    description: s.description,
+    required: s.required,
+    type: s.type ?? "secret",
+    ...(s.connectPath ? { connectPath: s.connectPath } : {}),
+  }));
+
   return {
+    ...(requiredCredentials.length ? { requiredCredentials } : {}),
     name,
     description,
     url: `${baseUrl}/a2a`,
