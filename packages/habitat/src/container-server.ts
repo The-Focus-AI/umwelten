@@ -661,16 +661,26 @@ export async function startContainerServer(
 					const prefixes = parseSecretWritePrefixes(
 						process.env.HABITAT_SECRET_WRITE_PREFIXES,
 					);
-					if (prefixes.length === 0) {
+					// Operators may also set credentials the habitat declared it
+					// needs (config.requiredSecrets) — the SaaS attach form (ADR 0004).
+					const declaredNames = (habitat.getConfig().requiredSecrets ?? []).map(
+						(s) => s.name,
+					);
+					if (prefixes.length === 0 && declaredNames.length === 0) {
 						sendJson(res, { error: "Not found" }, 404);
 						return;
 					}
+					let isOperator = false;
 					if (authRequired) {
 						const user = await auth.authenticate(req);
 						if (!user) {
 							sendJson(res, { error: "Unauthorized" }, 401);
 							return;
 						}
+						// Shared-key (HABITAT_API_KEY) callers authenticate as the
+						// fixed 'bearer-user' sentinel; per-user JWTs carry a real sub.
+						// Only the operator may set declared app credentials.
+						isOperator = user.userId === "bearer-user";
 					}
 					let body: { name?: unknown; value?: unknown };
 					try {
@@ -688,14 +698,10 @@ export async function startContainerServer(
 						sendJson(res, { error: "name and non-empty value required" }, 400);
 						return;
 					}
-					if (!isSecretWriteAllowed(name, prefixes)) {
-						sendJson(
-							res,
-							{
-								error: `secret name not allowed (must match one of: ${prefixes.join(", ")})`,
-							},
-							403,
-						);
+					if (
+						!isSecretWriteAllowed(name, prefixes, { declaredNames, isOperator })
+					) {
+						sendJson(res, { error: "secret name not allowed" }, 403);
 						return;
 					}
 					await habitat.setSecret(name, value);
