@@ -45,6 +45,24 @@ function spawnWithStdin(
   });
 }
 
+/**
+ * Merge a freshly-built secrets.json seed with the volume's existing contents.
+ * Operator-seeded keys win on conflict; existing-only keys (per-user
+ * `TOKEN:<sub>` entries and runtime-rotated refresh tokens the habitat owns)
+ * are preserved. Falls back to the raw seed when there's nothing to merge or
+ * either side isn't valid JSON. Pure (no IO) so it's unit-testable.
+ */
+export function mergeSecretsJson(existingRaw: string, seed: string): string {
+  if (!existingRaw.trim()) return seed;
+  try {
+    const existing = JSON.parse(existingRaw) as Record<string, unknown>;
+    const incoming = JSON.parse(seed) as Record<string, unknown>;
+    return JSON.stringify({ ...existing, ...incoming }, null, 2) + "\n";
+  } catch {
+    return seed;
+  }
+}
+
 /** Default Docker network children attach to when none is configured. */
 const DEFAULT_NETWORK_NAME = "gaia-net";
 /**
@@ -286,14 +304,52 @@ export class DockerManager {
 
     // Write each file using a one-shot container with stdin piped via spawn
     for (const file of files) {
+      // secrets.json is owned partly by the operator (seeded bindings from
+      // Gaia's vault) and partly by the running habitat (per-user
+      // `TOKEN:<sub>` entries and single-use refresh tokens it rotates at
+      // runtime). A blind overwrite on rebuild would wipe the habitat-owned
+      // keys — which silently breaks per-user auth (e.g. Twitter) after every
+      // rebuild. Merge instead: keep existing keys the seed doesn't manage,
+      // let seeded keys update.
+      let content = file.content;
+      if (file.path === "secrets.json") {
+        content = await this.mergeSecretsSeed(volume, file.content);
+      }
       await spawnWithStdin("docker", [
         "run", "--rm", "-i",
         "-v", `${volume}:/data`,
         "alpine:3.20",
         "sh", "-c",
         `mkdir -p "$(dirname "/data/${file.path}")" && cat > "/data/${file.path}"`,
-      ], file.content);
+      ], content);
     }
+  }
+
+  /**
+   * Merge a freshly-built secrets.json seed with whatever the volume already
+   * holds, so habitat-rotated / per-user secrets survive a re-seed. Seeded
+   * (operator) keys win on conflict; existing-only keys are preserved. Falls
+   * back to the raw seed if either side isn't valid JSON (first-time seed,
+   * corruption).
+   */
+  private async mergeSecretsSeed(
+    volume: string,
+    seed: string,
+  ): Promise<string> {
+    let existingRaw = "";
+    try {
+      const { stdout } = await execFile("docker", [
+        "run", "--rm",
+        "-v", `${volume}:/data`,
+        "alpine:3.20",
+        "sh", "-c",
+        "cat /data/secrets.json 2>/dev/null || true",
+      ]);
+      existingRaw = stdout;
+    } catch {
+      /* volume may be empty / file absent — treat as no existing secrets */
+    }
+    return mergeSecretsJson(existingRaw, seed);
   }
 
   /** Stop and remove a container (volume is preserved). */
