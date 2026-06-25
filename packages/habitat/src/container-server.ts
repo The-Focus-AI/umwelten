@@ -576,13 +576,19 @@ export async function startContainerServer(
 							return;
 						}
 					}
-					// Per-user identity (ADR 0003 step 2): only the JWT path carries a
-					// real end-user `sub`. Bind it as the speaker so the executor uses
-					// it as interaction.userId. Bearer/dev have no per-user identity —
-					// leave the speaker unbound so the executor keeps its thread-scoped
-					// `a2a:${contextId}` fallback (no regression off the JWT path).
+					// Per-user identity (ADR 0003 step 2): bind the verified end-user
+					// `sub` as the speaker so the executor uses it as
+					// interaction.userId. This must fire in BOTH "jwt" and
+					// "jwt+bearer" modes — a JWT-capable habitat that also accepts the
+					// shared HABITAT_API_KEY during transition still carries a real
+					// per-user sub on the JWT path. The shared key resolves to the
+					// `bearer-user` sentinel (operator, no per-user identity) and
+					// dev/open leave `user` null; in those cases leave the speaker
+					// unbound so the executor keeps its thread-scoped
+					// `a2a:${contextId}` fallback. Never discard a verified per-user
+					// identity by silently falling back to anonymous.
 					const speaker =
-						authMode === "jwt" && user
+						user && user.userId !== "bearer-user"
 							? {
 									userId: user.userId,
 									displayName: user.displayName,
