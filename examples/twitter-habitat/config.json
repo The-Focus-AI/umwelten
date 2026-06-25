@@ -34,6 +34,13 @@
       "description": "LLM provider key for this habitat.",
       "required": true,
       "type": "secret"
+    },
+    {
+      "name": "DATABASE_URL",
+      "label": "Feed database (Neon)",
+      "description": "Postgres/Neon connection string for the twitter-feed data. Powers the feed tools (high_engagement, person_recent, list_digest). Optional — bookmarks and mentions use your connected X account and don't need it.",
+      "required": false,
+      "type": "secret"
     }
   ]
 }
