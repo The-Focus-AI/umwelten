@@ -438,3 +438,38 @@ describe("HabitatAgentExecutor — artifact URLs", () => {
 		);
 	});
 });
+
+describe("buildAgentCard — requiredCredentials (ADR 0004)", () => {
+	function hostWithSecrets(): AgentHost {
+		return {
+			getConfig: () => ({
+				name: "Twitter",
+				agents: [],
+				requiredSecrets: [
+					{ name: "TWITTER_CLIENT_ID", label: "X Client ID", required: true, type: "secret" },
+					{ name: "TWITTER_CLIENT_SECRET", required: true }, // no type → defaults to secret
+					{ name: "TWITTER_REFRESH_TOKEN", label: "Connect X", required: true, type: "oauth", connectPath: "/connect/x" },
+				],
+			}),
+			getStimulus: async () => ({ options: { role: "x agent" } }),
+			getWorkDir: () => "/tmp",
+		} as unknown as AgentHost;
+	}
+
+	it("emits requiredCredentials from config.requiredSecrets", async () => {
+		const card = await buildAgentCard({ baseUrl: "http://h", habitat: hostWithSecrets() });
+		const byName = Object.fromEntries(
+			(card.requiredCredentials ?? []).map((c) => [c.name, c]),
+		);
+		expect(byName.TWITTER_CLIENT_ID).toMatchObject({ label: "X Client ID", type: "secret", required: true });
+		// missing type defaults to "secret"; missing label defaults to name
+		expect(byName.TWITTER_CLIENT_SECRET).toMatchObject({ type: "secret", label: "TWITTER_CLIENT_SECRET" });
+		// oauth credential carries its connect path so the SaaS renders a Connect button
+		expect(byName.TWITTER_REFRESH_TOKEN).toMatchObject({ type: "oauth", connectPath: "/connect/x" });
+	});
+
+	it("omits requiredCredentials when the config declares none", async () => {
+		const card = await buildAgentCard({ baseUrl: "http://h", habitat: await makeHost() });
+		expect(card.requiredCredentials).toBeUndefined();
+	});
+});
