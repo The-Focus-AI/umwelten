@@ -27,7 +27,22 @@ export function parseSecretWritePrefixes(raw: string | undefined): string[] {
  * True when `name` may be written: at least one prefix is configured, and the
  * name starts with a configured prefix and has a non-empty suffix after it.
  */
-export function isSecretWriteAllowed(name: string, prefixes: string[]): boolean {
-  if (prefixes.length === 0) return false;
-  return prefixes.some((p) => name.startsWith(p) && name.length > p.length);
+export function isSecretWriteAllowed(
+  name: string,
+  prefixes: string[],
+  opts: { declaredNames?: string[]; isOperator?: boolean } = {},
+): boolean {
+  // Per-user token delivery: any authed caller may write a prefixed name with a
+  // non-empty suffix (e.g. TWITTER_REFRESH_TOKEN:<sub>).
+  if (prefixes.some((p) => name.startsWith(p) && name.length > p.length)) {
+    return true;
+  }
+  // Operator setup (ADR 0004): the OPERATOR (shared-key auth) may set a
+  // credential the habitat declared it needs in config.requiredSecrets — e.g.
+  // TWITTER_CLIENT_ID/SECRET entered in the SaaS attach form. Gated to the
+  // operator so a per-user JWT can't overwrite app-level secrets.
+  if (opts.isOperator && (opts.declaredNames ?? []).includes(name)) {
+    return true;
+  }
+  return false;
 }

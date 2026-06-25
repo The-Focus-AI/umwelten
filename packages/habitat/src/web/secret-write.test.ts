@@ -39,3 +39,31 @@ describe("isSecretWriteAllowed", () => {
     expect(isSecretWriteAllowed("FOO:bar", ["TWITTER_REFRESH_TOKEN:", "FOO:"])).toBe(true);
   });
 });
+
+describe("isSecretWriteAllowed — operator-set declared credentials (ADR 0004)", () => {
+  const declaredNames = ["TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET"];
+
+  it("lets the operator set a credential the habitat declared", () => {
+    expect(
+      isSecretWriteAllowed("TWITTER_CLIENT_ID", [], { declaredNames, isOperator: true }),
+    ).toBe(true);
+  });
+  it("denies a non-operator (per-user JWT) from setting a declared credential", () => {
+    expect(
+      isSecretWriteAllowed("TWITTER_CLIENT_ID", [], { declaredNames, isOperator: false }),
+    ).toBe(false);
+  });
+  it("denies an UNdeclared name even for the operator", () => {
+    expect(
+      isSecretWriteAllowed("HABITAT_API_KEY", [], { declaredNames, isOperator: true }),
+    ).toBe(false);
+  });
+  it("still allows per-user prefix writes regardless of operator status", () => {
+    expect(
+      isSecretWriteAllowed("TWITTER_REFRESH_TOKEN:u1", ["TWITTER_REFRESH_TOKEN:"], {
+        declaredNames,
+        isOperator: false,
+      }),
+    ).toBe(true);
+  });
+});
