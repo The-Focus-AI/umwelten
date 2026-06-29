@@ -33,7 +33,7 @@
     "@a2a-js/sdk": "^0.3.13",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^1.1.0",
-    "ai": "^5.0.115",
+    "ai": "^7.0.4",
     "chalk": "^5.6.2",
     "undici": "^8.5.0",
     "uuid": "^13.0.0",
