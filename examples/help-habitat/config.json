@@ -1,0 +1,16 @@
+{
+  "name": "Help",
+  "defaultProvider": "openrouter",
+  "defaultModel": "anthropic/claude-sonnet-4.6",
+  "stimulusFile": "STIMULUS.md",
+  "agents": [],
+  "requiredSecrets": [
+    {
+      "name": "OPENROUTER_API_KEY",
+      "label": "OpenRouter API key",
+      "description": "LLM provider key for this habitat.",
+      "required": true,
+      "type": "secret"
+    }
+  ]
+}
