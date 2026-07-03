@@ -9,11 +9,13 @@
 export {
   fetchAgentCard,
   sendA2AMessage,
+  sendA2AMessageToUrl,
 } from "./client.js";
 export type {
   A2AEndpoint,
   AgentCardSummary,
   A2AMessageResponse,
+  SendA2AMessageToUrlOptions,
 } from "./client.js";
 
 export { createA2AServer } from "./server.js";

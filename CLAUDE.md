@@ -227,6 +227,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 | `secretsToolSet`             | set/remove/list secrets                                                                            | Yes                    |
 | `searchToolSet`              | web search via Tavily                                                                              | Yes                    |
 | `selfModifyToolSet`          | create_tool, create_skill, reload, list, remove                                                    | Yes                    |
+| `remoteAgentToolSet`         | ask_remote_agent — A2A to peers declared with kind `remote-habitat` (registers nothing when none)  | Yes                    |
 
 `standardToolSets` includes all tool sets. All are registered by default.
 
@@ -241,6 +242,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
 - `secrets-tools.ts` — Manage secrets in the habitat store
 - `self-modify-tools.ts` — Create/remove tools and skills at runtime
+- `remote-agent-tools.ts` — `ask_remote_agent`: A2A `message/send` to remote habitats declared in `config.agents[]` (kind `remote-habitat`, URL/token via `a2aUrl`/`a2aUrlSecret`/`a2aTokenSecret`)
 
 #### `src/habitat/gaia/` — Gaia Orchestrator
 

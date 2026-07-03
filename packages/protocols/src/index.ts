@@ -10,6 +10,7 @@
 export {
   fetchAgentCard,
   sendA2AMessage,
+  sendA2AMessageToUrl,
   createA2AServer,
   a2aChat,
   fetchJson,
@@ -20,6 +21,7 @@ export type {
   A2AEndpoint,
   AgentCardSummary,
   A2AMessageResponse,
+  SendA2AMessageToUrlOptions,
   A2AServer,
   A2AServerOptions,
   AgentExecutor,

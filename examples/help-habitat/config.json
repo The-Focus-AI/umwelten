@@ -3,13 +3,36 @@
   "defaultProvider": "openrouter",
   "defaultModel": "anthropic/claude-sonnet-4.6",
   "stimulusFile": "STIMULUS.md",
-  "agents": [],
+  "agents": [
+    {
+      "id": "gaia",
+      "name": "Gaia",
+      "kind": "remote-habitat",
+      "projectPath": "agents/gaia",
+      "a2aUrlSecret": "GAIA_A2A_URL",
+      "a2aTokenSecret": "GAIA_A2A_TOKEN"
+    }
+  ],
   "requiredSecrets": [
     {
       "name": "OPENROUTER_API_KEY",
       "label": "OpenRouter API key",
       "description": "LLM provider key for this habitat.",
       "required": true,
+      "type": "secret"
+    },
+    {
+      "name": "GAIA_A2A_URL",
+      "label": "Gaia A2A URL",
+      "description": "Base URL of the Gaia orchestrator's A2A endpoint (e.g. https://gaia.habitats.example.com). Optional — without it Help answers from its built-in product knowledge only.",
+      "required": false,
+      "type": "secret"
+    },
+    {
+      "name": "GAIA_A2A_TOKEN",
+      "label": "Gaia A2A token",
+      "description": "Bearer token for Gaia's /a2a endpoint (its HABITAT_API_KEY). Optional if Gaia runs open.",
+      "required": false,
       "type": "secret"
     }
   ]

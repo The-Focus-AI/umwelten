@@ -54,6 +54,27 @@ agents **declare what they need**, and you grant it from the **Configure** panel
 which are connected, **Authorize** your own accounts, and enter any credentials
 an agent declares.
 
+## Asking Gaia (live status)
+
+You may have an `ask_remote_agent` tool with a remote agent called **gaia** —
+Gaia is the orchestrator that runs and monitors the agent containers behind
+this deployment. Use it when a question needs **live operational facts** you
+don't have, such as:
+
+- "Which agents are available / running right now?"
+- "Is the Twitter agent up? Why isn't it responding?"
+- "What's the status of <some habitat>?"
+
+Send Gaia a short, specific question (e.g. `ask_remote_agent` with agentId
+`gaia` and message "List the managed habitats and their container status") and
+translate its answer into plain user-facing language — users don't know or care
+about containers, ports, or Docker. Never expose tokens, URLs, or raw error
+dumps from Gaia's reply.
+
+If the tool is missing, not configured, or the call fails, just answer from
+what you know and suggest the user ask their habitat's operator — don't
+speculate about live status you can't see.
+
 ## Common questions, and how to answer them
 
 - **"How do I talk to an agent?"** → Make sure it's attached (Configure → Attach),

@@ -58,6 +58,129 @@ const DEFAULT_HOST = "127.0.0.1";
 const AGENT_CARD_TIMEOUT_MS = 5_000;
 const MESSAGE_TIMEOUT_MS = 120_000;
 
+/**
+ * Decode the JSON-RPC payload of a `message/send` response into an
+ * {@link A2AMessageResponse}. Shared by the host:port and full-URL senders.
+ *
+ * The result can be a Message (with .parts directly) or a Task (with
+ * .status.message.parts). Tolerate both shapes. Relative `/files/...`
+ * artifact URIs are resolved against `origin` (#194).
+ */
+export function decodeA2ASendPayload(
+  parsed: any,
+  origin: string,
+): A2AMessageResponse {
+  if (parsed.error) {
+    const errMsg = parsed.error.message ?? JSON.stringify(parsed.error);
+    throw new Error(errMsg);
+  }
+  const result = parsed.result ?? parsed;
+  const parts =
+    result?.parts ??
+    result?.status?.message?.parts ??
+    result?.message?.parts ??
+    [];
+  const textParts = parts
+    .filter((p: any) => p.kind === "text" || p.type === "text")
+    .map((p: any) => p.text);
+  const resolveUri = (uri: string | undefined): string | undefined => {
+    if (!uri) return uri;
+    try {
+      return new URL(uri, origin).toString();
+    } catch {
+      return uri;
+    }
+  };
+  const artifacts = (result?.artifacts ?? []).map((a: any) => ({
+    name: a.name,
+    uri: resolveUri(a.parts?.[0]?.file?.uri),
+  }));
+  return {
+    text: textParts.join("\n") || "(no text response)",
+    artifacts: artifacts.length > 0 ? artifacts : undefined,
+  };
+}
+
+/** Options for {@link sendA2AMessageToUrl}. */
+export interface SendA2AMessageToUrlOptions {
+  /**
+   * Base URL of the agent (e.g. `https://gaia.example.com` or
+   * `http://172.17.0.1:7420`) or its full `/a2a` JSON-RPC endpoint.
+   * A missing `/a2a` path suffix is appended automatically.
+   */
+  endpoint: string;
+  /** User text to send. */
+  text: string;
+  /** Optional Bearer token. */
+  apiKey?: string;
+  /** Optional A2A contextId to thread messages into the same session. */
+  contextId?: string;
+  /** Abort the request after this many ms (default 120s). */
+  timeoutMs?: number;
+}
+
+/**
+ * Send a non-streaming A2A `message/send` to a full URL and collect the
+ * response. Unlike {@link sendA2AMessage} (plain-HTTP host:port, used for
+ * local containers), this speaks to any http(s) URL — e.g. an agent behind
+ * a reverse proxy — via global fetch.
+ */
+export async function sendA2AMessageToUrl(
+  options: SendA2AMessageToUrlOptions,
+): Promise<A2AMessageResponse> {
+  const { endpoint, text, apiKey, contextId, timeoutMs } = options;
+  const url = new URL(endpoint);
+  if (!url.pathname.replace(/\/+$/, "").endsWith("/a2a")) {
+    url.pathname = `${url.pathname.replace(/\/+$/, "")}/a2a`;
+  }
+
+  const messageId = `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const rpcBody = JSON.stringify({
+    jsonrpc: "2.0",
+    id: `a2a-${Date.now()}`,
+    method: "message/send",
+    params: {
+      message: {
+        messageId,
+        role: "user",
+        parts: [{ kind: "text", text }],
+        ...(contextId ? { contextId } : {}),
+      },
+    },
+  });
+
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers,
+    body: rpcBody,
+    signal: AbortSignal.timeout(timeoutMs ?? MESSAGE_TIMEOUT_MS),
+  });
+  const data = await res.text();
+  if (res.status >= 400) {
+    throw new Error(
+      `A2A request to ${url.origin} returned HTTP ${res.status}: ${data.slice(0, 300)}`,
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(data);
+  } catch {
+    throw new Error(`Invalid A2A response from ${url.origin}: ${data.slice(0, 300)}`);
+  }
+  try {
+    return decodeA2ASendPayload(parsed, url.origin);
+  } catch (err) {
+    throw new Error(
+      `A2A error from ${url.origin}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 function describe(endpoint: A2AEndpoint): string {
   return endpoint.label ?? `${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
 }
@@ -157,48 +280,26 @@ export async function sendA2AMessage(
             );
             return;
           }
+          let parsed: unknown;
           try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              const errMsg = parsed.error.message ?? JSON.stringify(parsed.error);
-              reject(new Error(`A2A error from ${where}: ${errMsg}`));
-              return;
-            }
-            // The result can be a Message (with .parts directly) or a Task
-            // (with .status.message.parts). Tolerate both shapes.
-            const result = parsed.result ?? parsed;
-            const parts =
-              result?.parts ??
-              result?.status?.message?.parts ??
-              result?.message?.parts ??
-              [];
-            const textParts = parts
-              .filter((p: any) => p.kind === "text" || p.type === "text")
-              .map((p: any) => p.text);
-            // Defensive base-join (#194): habitats mint absolute artifact URIs,
-            // but tolerate a relative `/files/...` from older/other agents by
-            // resolving it against this endpoint's origin (WHATWG URL: a
-            // leading slash is origin-rooted). Already-absolute URIs pass through.
-            const origin = `http://${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
-            const resolveUri = (uri: string | undefined): string | undefined => {
-              if (!uri) return uri;
-              try {
-                return new URL(uri, origin).toString();
-              } catch {
-                return uri;
-              }
-            };
-            const artifacts = (result?.artifacts ?? []).map((a: any) => ({
-              name: a.name,
-              uri: resolveUri(a.parts?.[0]?.file?.uri),
-            }));
-            resolve({
-              text: textParts.join("\n") || "(no text response)",
-              artifacts: artifacts.length > 0 ? artifacts : undefined,
-            });
+            parsed = JSON.parse(data);
           } catch {
             reject(
               new Error(`Invalid A2A response from ${where}: ${data.slice(0, 300)}`),
+            );
+            return;
+          }
+          try {
+            // Defensive base-join (#194): habitats mint absolute artifact URIs,
+            // but tolerate a relative `/files/...` from older/other agents by
+            // resolving it against this endpoint's origin.
+            const origin = `http://${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
+            resolve(decodeA2ASendPayload(parsed, origin));
+          } catch (err) {
+            reject(
+              new Error(
+                `A2A error from ${where}: ${err instanceof Error ? err.message : String(err)}`,
+              ),
             );
           }
         });

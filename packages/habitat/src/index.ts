@@ -87,6 +87,7 @@ export {
 	provisionToolSet,
 	execToolSet,
 	artifactToolSet,
+	remoteAgentToolSet,
 } from "./tool-sets.js";
 
 // ── Session management ──────────────────────────────────────────────────
