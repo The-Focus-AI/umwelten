@@ -177,6 +177,7 @@ export async function sendA2AMessageToUrl(
   } catch (err) {
     throw new Error(
       `A2A error from ${url.origin}: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
     );
   }
 }
