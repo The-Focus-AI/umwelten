@@ -108,6 +108,40 @@ function volumeName(id: string): string {
 }
 
 /**
+ * Choose the host port for a habitat container (pure; exported for tests).
+ *
+ * Ports recorded by OTHER entries are taken. The entry's own recorded port is
+ * explicitly free — a restart/rebuild reclaims it, so the habitat stays at a
+ * stable address instead of hopping ports on every rebuild (which broke
+ * anything pinned to the old port and leaked the 7440–7499 range dry).
+ */
+export function pickHostPort(
+  entries: GaiaHabitatEntry[],
+  self?: Pick<GaiaHabitatEntry, "id" | "containerPort">,
+): number {
+  const usedPorts = new Set(
+    entries
+      .filter((e) => e.containerPort && e.id !== self?.id)
+      .map((e) => e.containerPort!),
+  );
+  const preferred = self?.containerPort;
+  if (
+    preferred &&
+    preferred >= HABITAT_PORT_BASE &&
+    preferred <= HABITAT_PORT_MAX &&
+    !usedPorts.has(preferred)
+  ) {
+    return preferred;
+  }
+  for (let port = HABITAT_PORT_BASE; port <= HABITAT_PORT_MAX; port++) {
+    if (!usedPorts.has(port)) return port;
+  }
+  throw new Error(
+    `No available ports in range ${HABITAT_PORT_BASE}–${HABITAT_PORT_MAX}`,
+  );
+}
+
+/**
  * Public hostname a habitat is served at via the Caddy label proxy (#170).
  * Explicit `entry.hostname` wins; otherwise derive `<id>.$GAIA_BASE_DOMAIN`.
  * Returns undefined when neither is set — no Caddy label is emitted (local dev).
@@ -151,16 +185,11 @@ export class DockerManager {
    * Find the next available port in the 7440–7499 range.
    * Checks which ports are already bound by running containers.
    */
-  private async findAvailablePort(entries: GaiaHabitatEntry[]): Promise<number> {
-    const usedPorts = new Set(
-      entries
-        .filter((e) => e.containerPort)
-        .map((e) => e.containerPort!),
-    );
-    for (let port = HABITAT_PORT_BASE; port <= HABITAT_PORT_MAX; port++) {
-      if (!usedPorts.has(port)) return port;
-    }
-    throw new Error(`No available ports in range ${HABITAT_PORT_BASE}–${HABITAT_PORT_MAX}`);
+  private async findAvailablePort(
+    entries: GaiaHabitatEntry[],
+    self?: Pick<GaiaHabitatEntry, "id" | "containerPort">,
+  ): Promise<number> {
+    return pickHostPort(entries, self);
   }
 
   /**
@@ -200,8 +229,10 @@ export class DockerManager {
     // Stop + remove if already exists
     await this.stopContainer(entry.id).catch(() => {});
 
-    // Pick a port
-    const hostPort = await this.findAvailablePort(allEntries ?? []);
+    // Pick a port — a restart/rebuild keeps the entry's existing port (its own
+    // registry record must not count as "in use", or every rebuild would hop
+    // to the next port and eventually exhaust the 7440–7499 range).
+    const hostPort = await this.findAvailablePort(allEntries ?? [], entry);
 
     // Session egress (#119): the sessions subdir lives on the host so it
     // survives volume lifecycle and is readable by host-side introspection.

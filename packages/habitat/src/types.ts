@@ -267,6 +267,22 @@ export interface AgentEntry {
 	/** What this agent is. Defaults to "repo". */
 	kind?: AgentKind;
 	/**
+	 * `remote-habitat` only: base URL (or full `/a2a` endpoint) of the remote
+	 * agent, e.g. `https://gaia.habitats.example.com` or `http://172.17.0.1:7420`.
+	 * Prefer {@link a2aUrlSecret} when the URL differs per deployment.
+	 */
+	a2aUrl?: string;
+	/**
+	 * `remote-habitat` only: name of a habitat secret (or env var) holding the
+	 * remote agent's base URL. Checked when {@link a2aUrl} is unset.
+	 */
+	a2aUrlSecret?: string;
+	/**
+	 * `remote-habitat` only: name of a habitat secret (or env var) holding the
+	 * Bearer token for the remote agent's `/a2a` endpoint. Omit for open agents.
+	 */
+	a2aTokenSecret?: string;
+	/**
 	 * Read/write mode. Policy-enforced (not kernel-enforced).
 	 * `read` blocks write_file/exec into this agent's repo and forces read-only
 	 * Claude Code tool subsets.

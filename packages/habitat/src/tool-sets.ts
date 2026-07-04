@@ -14,6 +14,7 @@ import { createSecretsTools } from "./tools/secrets-tools.js";
 import { createSearchTools } from "./tools/search-tools.js";
 import { createSelfModifyTools } from "./tools/self-modify-tools.js";
 import { createInspectTools } from "./tools/inspect-tools.js";
+import { createRemoteAgentTools } from "./tools/remote-agent-tools.js";
 import {
   wgetTool,
   markifyTool,
@@ -180,6 +181,21 @@ export const uiResourceToolSet: ToolSet = {
     }),
 };
 
+/**
+ * Remote habitats: ask_remote_agent — A2A message/send to peers declared in
+ * config.agents[] with kind "remote-habitat" (e.g. the Gaia orchestrator).
+ * Registers no tools when the habitat declares no remote peers.
+ */
+export const remoteAgentToolSet: ToolSet = {
+  name: "remote-agents",
+  description: "Talk to remote habitats (A2A) declared in this habitat's config",
+  createTools: (habitat) =>
+    createRemoteAgentTools({
+      getConfig: () => habitat.getConfig(),
+      getSecret: (name) => habitat.getSecret(name),
+    }),
+};
+
 /** Self-modification: create/remove/reload tools and skills at runtime. */
 export const selfModifyToolSet: ToolSet = {
   name: "self-modify",
@@ -213,6 +229,7 @@ export const standardToolSets: ToolSet[] = [
   searchToolSet,
   selfModifyToolSet,
   inspectToolSet,
+  remoteAgentToolSet,
 ];
 
 /**
@@ -230,6 +247,7 @@ export const containerToolSets: ToolSet[] = [
   artifactToolSet,
   uiResourceToolSet,
   inspectToolSet,
+  remoteAgentToolSet,
 ];
 
 /**
@@ -247,4 +265,5 @@ export const managedContainerToolSets: ToolSet[] = [
   artifactToolSet,
   uiResourceToolSet,
   inspectToolSet,
+  remoteAgentToolSet,
 ];
