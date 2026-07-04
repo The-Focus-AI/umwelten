@@ -384,7 +384,10 @@ export function createHabitatLifecycleTools(
 		}),
 
 		rebuild_habitat: tool({
-			description: "Rebuild a habitat (stop + start with fresh image).",
+			description:
+				"Restart a habitat: stop, re-seed config/secrets onto its volume, start. " +
+				"Runs the image the habitat already uses — it does NOT rebuild any Docker image; " +
+				"run build_image first to pick up new code.",
 			inputSchema: z.object({
 				id: z.string().describe("Habitat ID to rebuild"),
 			}),
