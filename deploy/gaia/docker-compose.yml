@@ -113,12 +113,15 @@ services:
       - caddy-config:/config
 
 networks:
-  # Shared with the children DockerManager spawns. Declared here so
-  # `docker compose up` creates it before Caddy/Gaia attach; ensureNetwork() is
-  # idempotent when it already exists. `name:` pins the literal name (no compose
-  # project prefix) so it matches what DockerManager looks for.
+  # Shared with the children DockerManager spawns. `external: true` because
+  # DockerManager's ensureNetwork() creates it without compose labels — newer
+  # compose versions refuse to adopt an unlabeled network otherwise. Create it
+  # once with `docker network create gaia-net` on a fresh host. `name:` pins
+  # the literal name (no compose project prefix) so it matches what
+  # DockerManager looks for.
   gaia-net:
     name: gaia-net
+    external: true
 
 volumes:
   caddy-data:

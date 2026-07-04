@@ -1,0 +1,38 @@
+name: Deploy Gaia host
+
+# Continuous deploy of the Gaia Docker host (see deploy/gaia/README.md).
+# Runs on the self-hosted runner installed ON the Gaia host itself, so
+# "deploy" is just: build the images locally and cycle the containers.
+#
+# Push-to-main only — never wire this runner to pull_request triggers: the
+# repo is public and the runner drives the production docker daemon.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - "examples/**"
+      - "deploy/gaia/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-gaia.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: gaia-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, gaia]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Redeploy gaia + habitats
+        env:
+          # The compose .env (hostname, API key, ingress network) lives on the
+          # host, not in git — point the script at the canonical copy.
+          GAIA_ENV_FILE: /home/worker_user/umwelten/deploy/gaia/.env
+        run: |
+          chmod +x deploy/gaia/redeploy.sh
+          deploy/gaia/redeploy.sh

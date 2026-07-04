@@ -262,6 +262,44 @@ docker run -d --name gaia --restart unless-stopped \
 
 ---
 
+## 7. Continuous deploy (push to main)
+
+Once the host is standing, later code changes ship automatically:
+`.github/workflows/deploy-gaia.yml` runs on every push to `main` that touches
+`packages/`, `examples/`, or `deploy/gaia/`, on a **self-hosted runner
+installed on this host** (labels: `self-hosted`, `gaia`). It checks out the
+pushed commit and runs `deploy/gaia/redeploy.sh`, which rebuilds both images,
+recreates the gaia service, re-attaches the ingress network, and cycles every
+*running* child through Gaia's API (deliberately-stopped habitats stay
+stopped). Child data persists on named volumes; re-seed merges `secrets.json`
+(#205) so rotated tokens survive.
+
+Setup on the host (once):
+
+```bash
+# Runner user must drive docker without sudo
+sudo usermod -aG docker <runner-user>
+
+# Install the GitHub Actions runner (github.com/<org>/<repo> → Settings →
+# Actions → Runners → New self-hosted runner), then:
+./config.sh --url https://github.com/The-Focus-AI/umwelten \
+  --token <registration-token> --name gaia-host --labels gaia --unattended
+sudo ./svc.sh install <runner-user> && sudo ./svc.sh start
+```
+
+The workflow reads host config from `GAIA_ENV_FILE` (the canonical
+`deploy/gaia/.env` on the host) — nothing secret lives in the repo.
+
+> **Public-repo warning:** this runner drives the production docker daemon.
+> Keep it off `pull_request` triggers, and set *Settings → Actions → General →
+> Fork pull request workflows → Require approval for all outside
+> collaborators*, so fork PRs can never reach it via a modified workflow.
+
+Manual deploy is the same one command: `deploy/gaia/redeploy.sh` (or
+`workflow_dispatch` the workflow from the Actions tab).
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
