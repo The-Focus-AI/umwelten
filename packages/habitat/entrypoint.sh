@@ -69,6 +69,21 @@ secret_value() {
   " 2>/dev/null
 }
 
+# ── Private-repo git auth ──────────────────────────────────────────────
+# If the habitat has a GITHUB_TOKEN secret (vault-bound or env), route
+# github.com HTTPS git operations through it via git's env config — this
+# covers the project clone, per-agent clones, and `npx skills add`.
+# x-access-token works for classic PATs, fine-grained PATs, and app
+# installation tokens alike. The token never lands in config.json, the
+# registry, or the clone URLs persisted in git remotes.
+GITHUB_TOKEN_VALUE=$(secret_value GITHUB_TOKEN)
+if [ -n "$GITHUB_TOKEN_VALUE" ]; then
+	export GIT_CONFIG_COUNT=1
+	export GIT_CONFIG_KEY_0="url.https://x-access-token:$GITHUB_TOKEN_VALUE@github.com/.insteadOf"
+	export GIT_CONFIG_VALUE_0="https://github.com/"
+	echo "[entrypoint] GITHUB_TOKEN present — authenticated github.com clones enabled."
+fi
+
 if [ -f "$CONFIG_FILE" ]; then
 	# ── Legacy single-project provisioning (still supported) ──────────────
 	GIT_URL=$(config_json "return c.gitUrl")
