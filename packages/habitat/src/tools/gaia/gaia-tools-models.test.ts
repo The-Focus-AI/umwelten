@@ -97,6 +97,21 @@ describe("list_models", () => {
 		]);
 	});
 
+	it("matches space-separated search tokens against dashed ids", async () => {
+		await vault.set("OPENROUTER_API_KEY", "sk-or-test");
+		const { t } = tools();
+		// LLMs write "claude sonnet"; ids spell it "claude-sonnet". Every
+		// token must match somewhere, order-independent.
+		const out = await run(t, { search: "claude sonnet" });
+		expect(out.total).toBe(2);
+		expect(out.models.map((m: any) => m.id)).toEqual([
+			"anthropic/claude-sonnet-4.7",
+			"anthropic/claude-sonnet-4.6",
+		]);
+		const swapped = await run(t, { search: "sonnet anthropic" });
+		expect(swapped.total).toBe(2);
+	});
+
 	it("respects limit while reporting the full match count", async () => {
 		await vault.set("OPENROUTER_API_KEY", "sk-or-test");
 		const { t } = tools();

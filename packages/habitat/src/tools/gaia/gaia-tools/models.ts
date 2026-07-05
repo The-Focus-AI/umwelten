@@ -77,9 +77,18 @@ export function createModelDiscoveryTools(
 				};
 			}
 
-			const needle = search?.trim().toLowerCase();
-			const filtered = needle
-				? models.filter((m) => m.name.toLowerCase().includes(needle))
+			// Tokenize the search so LLM-ish queries like "claude sonnet" match
+			// dash-separated ids ("anthropic/claude-sonnet-4.6") — every token
+			// must appear somewhere in the id, order-independent.
+			const tokens = (search ?? "")
+				.toLowerCase()
+				.split(/\s+/)
+				.filter(Boolean);
+			const filtered = tokens.length
+				? models.filter((m) => {
+						const id = m.name.toLowerCase();
+						return tokens.every((t) => id.includes(t));
+					})
 				: models;
 
 			// Newest first — "latest frontier" is the default view.
