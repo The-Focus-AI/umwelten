@@ -3,6 +3,10 @@
   "defaultProvider": "openrouter",
   "defaultModel": "anthropic/claude-sonnet-5",
   "stimulusFile": "STIMULUS.md",
+  "memoryFiles": {
+    "enabled": true,
+    "files": ["CHANGELOG.md"]
+  },
   "agents": [
     {
       "id": "gaia",
