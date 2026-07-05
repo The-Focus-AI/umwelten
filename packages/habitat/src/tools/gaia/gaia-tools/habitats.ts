@@ -55,7 +55,7 @@ export function createHabitatLifecycleTools(
 		}),
 
 		create_habitat: tool({
-			description: `Create a new habitat entry in the registry. Default provider: ${gaiaProvider ?? "google"}, default model: ${gaiaModel ?? "gemini-3-flash-preview"}. IMPORTANT: Always provide provider and model, and bind API key secrets. A habitat without a model or API keys cannot respond to messages.`,
+			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "google"} / ${gaiaModel ?? "gemini-3-flash-preview"}). IMPORTANT: bind API key secrets — a habitat without API keys cannot respond to messages.`,
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
@@ -63,13 +63,15 @@ export function createHabitatLifecycleTools(
 				gitBranch: z.string().optional().describe("Git branch (default: main)"),
 				provider: z
 					.string()
+					.optional()
 					.describe(
-						`LLM provider (default: ${gaiaProvider ?? "google"}). Required for the habitat to work.`,
+						`LLM provider (default: ${gaiaProvider ?? "google"} — Gaia's own provider).`,
 					),
 				model: z
 					.string()
+					.optional()
 					.describe(
-						`Model name (default: ${gaiaModel ?? "gemini-3-flash-preview"}). Required for the habitat to work.`,
+						`Model name (default: ${gaiaModel ?? "gemini-3-flash-preview"} — Gaia's own model).`,
 					),
 				secretBindings: z
 					.array(z.string())
@@ -114,7 +116,15 @@ export function createHabitatLifecycleTools(
 					}
 				}
 
-				const entry = await registry.create(params);
+				// The schema advertises defaults, so implement them: an omitted
+				// provider/model inherits Gaia's own. (These used to be required,
+				// which made models that trusted the "default:" hint fail the tool
+				// call with a missing-parameter error.)
+				const entry = await registry.create({
+					...params,
+					provider: params.provider ?? gaiaProvider ?? "google",
+					model: params.model ?? gaiaModel ?? "gemini-3-flash-preview",
+				});
 
 				// Auto-bind the org-readonly identity if Gaia's master vault has the
 				// relevant tokens. Adds a scopeTemplate + a credential-only agent in
