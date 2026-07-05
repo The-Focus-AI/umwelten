@@ -55,7 +55,7 @@ export function createHabitatLifecycleTools(
 		}),
 
 		create_habitat: tool({
-			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "google"} / ${gaiaModel ?? "gemini-3-flash-preview"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. IMPORTANT: bind API key secrets — a habitat without API keys cannot respond to messages.`,
+			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "openrouter"} / ${gaiaModel ?? "anthropic/claude-sonnet-5"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. IMPORTANT: bind API key secrets — a habitat without API keys cannot respond to messages.`,
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
@@ -65,13 +65,13 @@ export function createHabitatLifecycleTools(
 					.string()
 					.optional()
 					.describe(
-						`LLM provider (default: ${gaiaProvider ?? "google"} — Gaia's own provider).`,
+						`LLM provider (default: ${gaiaProvider ?? "openrouter"} — Gaia's own provider).`,
 					),
 				model: z
 					.string()
 					.optional()
 					.describe(
-						`Model name (default: ${gaiaModel ?? "gemini-3-flash-preview"} — Gaia's own model).`,
+						`Model name (default: ${gaiaModel ?? "anthropic/claude-sonnet-5"} — Gaia's own model).`,
 					),
 				secretBindings: z
 					.array(z.string())
@@ -122,8 +122,8 @@ export function createHabitatLifecycleTools(
 				// call with a missing-parameter error.)
 				const entry = await registry.create({
 					...params,
-					provider: params.provider ?? gaiaProvider ?? "google",
-					model: params.model ?? gaiaModel ?? "gemini-3-flash-preview",
+					provider: params.provider ?? gaiaProvider ?? "openrouter",
+					model: params.model ?? gaiaModel ?? "anthropic/claude-sonnet-5",
 				});
 
 				// Auto-bind the org-readonly identity if Gaia's master vault has the
@@ -504,8 +504,8 @@ export function createHabitatLifecycleTools(
 				const entry = await registry.create({
 					id,
 					name: parsed.name ?? id,
-					provider: parsed.config.defaultProvider ?? "google",
-					model: parsed.config.defaultModel ?? "gemini-3-flash-preview",
+					provider: parsed.config.defaultProvider ?? "openrouter",
+					model: parsed.config.defaultModel ?? "anthropic/claude-sonnet-5",
 					gitUrl: parsed.config.gitUrl,
 					gitBranch: parsed.config.gitBranch,
 					secretBindings: parsed.secretBindings ?? [],

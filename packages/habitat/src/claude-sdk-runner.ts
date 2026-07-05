@@ -27,7 +27,7 @@ export interface ClaudeSDKRunnerOptions {
   cwd: string;
   /** ANTHROPIC_API_KEY — if not set, falls back to process.env */
   apiKey?: string;
-  /** Model to use (default: claude-sonnet-4-6) */
+  /** Model to use (default: claude-sonnet-5) */
   model?: string;
   /** Tools to allow (default: all Claude Code tools) */
   allowedTools?: string[];

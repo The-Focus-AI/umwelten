@@ -1,7 +1,7 @@
 {
   "name": "Twitter",
   "defaultProvider": "openrouter",
-  "defaultModel": "openai/gpt-4o-mini",
+  "defaultModel": "anthropic/claude-sonnet-5",
   "toolsDir": "tools",
   "stimulusFile": "STIMULUS.md",
   "agents": [],

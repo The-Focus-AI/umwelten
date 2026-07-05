@@ -31,7 +31,7 @@ export function createAgentAskClaudeTool(
 				.string()
 				.optional()
 				.describe(
-					"Claude model to use (default: claude-sonnet-4-6). Options: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5-20251001",
+					"Claude model to use (default: claude-sonnet-5). Options: claude-fable-5, claude-sonnet-5, claude-opus-4-8, claude-haiku-4-5-20251001",
 				),
 			maxTurns: z
 				.number()
@@ -66,7 +66,7 @@ export function createAgentAskClaudeTool(
 				const result = await runClaudeSDK(message, {
 					cwd: agent.projectPath,
 					apiKey, // undefined is fine — SDK falls back to CLI login token
-					model: model ?? "claude-sonnet-4-6",
+					model: model ?? "claude-sonnet-5",
 					maxTurns: maxTurns ?? 20,
 					allowedTools,
 					systemPrompt: agent.memoryPath ? undefined : undefined,

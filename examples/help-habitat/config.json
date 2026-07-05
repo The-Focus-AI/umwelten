@@ -1,7 +1,7 @@
 {
   "name": "Help",
   "defaultProvider": "openrouter",
-  "defaultModel": "anthropic/claude-sonnet-4.6",
+  "defaultModel": "anthropic/claude-sonnet-5",
   "stimulusFile": "STIMULUS.md",
   "agents": [
     {

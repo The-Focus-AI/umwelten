@@ -35,7 +35,7 @@ services:
       # Gaia's own chat model. openrouter avoids the fresh-install
       # @ai-sdk/google v3 vs ai@5 break (PRD #149 "Further Notes").
       GAIA_PROVIDER: ${GAIA_PROVIDER:-openrouter}
-      GAIA_MODEL: ${GAIA_MODEL:-openai/gpt-4o-mini}
+      GAIA_MODEL: ${GAIA_MODEL:-anthropic/claude-sonnet-5}
       GAIA_PORT: ${GAIA_PORT:-7420}
       HABITAT_WORK_DIR: /opt/gaia-data
       # Per-habitat public URLs via Caddy (#170). Spawned children join

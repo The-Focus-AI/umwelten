@@ -89,12 +89,12 @@ describe("create_habitat provider/model defaults", () => {
 		expect(entry.config.defaultModel).toBe("gemini-3-flash-preview");
 	});
 
-	it("falls back to google/gemini-3-flash-preview when Gaia has no defaults", async () => {
+	it("falls back to openrouter/anthropic/claude-sonnet-5 when Gaia has no defaults", async () => {
 		const t = tools();
 		await create(t, { id: "bare", name: "Bare" });
 		const entry = registry.get("bare")!;
-		expect(entry.config.defaultProvider).toBe("google");
-		expect(entry.config.defaultModel).toBe("gemini-3-flash-preview");
+		expect(entry.config.defaultProvider).toBe("openrouter");
+		expect(entry.config.defaultModel).toBe("anthropic/claude-sonnet-5");
 	});
 
 	it("declares provider and model as optional in the tool schema", () => {

@@ -1,7 +1,7 @@
 {
   "name": "pi-coder",
   "defaultProvider": "openrouter",
-  "defaultModel": "openai/gpt-4o-mini",
+  "defaultModel": "anthropic/claude-sonnet-5",
   "agents": [
     {
       "id": "coder",
