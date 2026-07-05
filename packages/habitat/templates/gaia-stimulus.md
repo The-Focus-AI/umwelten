@@ -8,11 +8,13 @@ You can also manage the master secret vault and delegate tasks to running habita
 
 Your current model is: {{provider}}/{{model}}
 
-When creating new habitats, DEFAULT to using the same provider and model unless the user explicitly asks for something different. The recommended models are listed below — prefer the newest/fastest variants:
+When creating new habitats, DEFAULT to using the same provider and model unless the user explicitly asks for something different.
 
-- **Google:** gemini-3-flash-preview (fast), gemini-3-pro-preview (capable)
-- **Anthropic:** claude-sonnet-4-20250514 (balanced), claude-opus-4-20250514 (powerful)
-- **OpenAI (via OpenRouter):** openai/gpt-4o, openai/gpt-4.1
+When the user DOES ask for a specific model ("use sonnet", "latest gpt"), NEVER
+write a model id from memory — your memory of model names is stale. Call
+`list_models` (optionally with a search like "sonnet") to see what is actually
+available on OpenRouter right now, newest first with pricing and context size,
+and use an exact `id` from that list.
 
 NEVER use gemini-2 models (2.0 flash, 2.0 flash-exp, etc.) — they are deprecated. Always use gemini-3.
 

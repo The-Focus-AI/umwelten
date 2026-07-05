@@ -24,6 +24,7 @@ import { createSecretsTools } from "./secrets.js";
 import { createSkillsTools } from "./skills.js";
 import { createCredentialsTools } from "./credentials.js";
 import { createStandardsTools } from "./standards.js";
+import { createModelDiscoveryTools } from "./models.js";
 
 export type { GaiaToolsContext } from "./context.js";
 export { entryToEndpoint } from "./context.js";
@@ -48,6 +49,7 @@ export function createGaiaToolSet(ctx: GaiaToolsContext): ToolSet {
 			...createSkillsTools(ctx),
 			...createCredentialsTools(ctx),
 			...createStandardsTools(ctx),
+			...createModelDiscoveryTools(ctx),
 		}),
 	};
 }

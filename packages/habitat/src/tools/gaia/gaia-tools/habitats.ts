@@ -55,7 +55,7 @@ export function createHabitatLifecycleTools(
 		}),
 
 		create_habitat: tool({
-			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "google"} / ${gaiaModel ?? "gemini-3-flash-preview"}). IMPORTANT: bind API key secrets — a habitat without API keys cannot respond to messages.`,
+			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "google"} / ${gaiaModel ?? "gemini-3-flash-preview"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. IMPORTANT: bind API key secrets — a habitat without API keys cannot respond to messages.`,
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
@@ -317,7 +317,9 @@ export function createHabitatLifecycleTools(
 
 		update_habitat_config: tool({
 			description:
-				"Update a habitat's configuration. Can set provider, model, name, gitUrl, gitBranch, or requiredSecrets. Changes are persisted to the registry and the volume is re-seeded. Rebuild the habitat for changes to take effect if it's running.",
+				"Update a habitat's configuration. Can set provider, model, name, gitUrl, gitBranch, or requiredSecrets. " +
+				"When changing the model, verify the exact id with list_models first — NEVER write a model id from memory. " +
+				"Changes are persisted to the registry and the volume is re-seeded. Rebuild the habitat for changes to take effect if it's running.",
 			inputSchema: z.object({
 				id: z.string().describe("Habitat ID"),
 				provider: z
