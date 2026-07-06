@@ -126,7 +126,7 @@ Usage: `new Interaction(modelDetails, stimulus)` then `interaction.streamText()`
 
 ### `src/providers/` — LLM Backends
 
-Unified access to 11 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
+Unified access to 12 providers via `BaseProvider` (abstract class with `listModels()` and `getLanguageModel()`).
 
 - `base.ts` — `BaseProvider` abstract class
 - `google.ts` — Gemini models (needs `GOOGLE_GENERATIVE_AI_API_KEY`)
@@ -136,6 +136,7 @@ Unified access to 11 providers via `BaseProvider` (abstract class with `listMode
 - `fireworks.ts` — Fireworks.ai models (needs `FIREWORKS_API_KEY`)
 - `minimax.ts` — MiniMax models (needs `MINIMAX_API_KEY`)
 - `nvidia.ts` — NVIDIA-hosted models (needs `NVIDIA_API_KEY`)
+- `lunaroute.ts` — [LunaRoute](https://lunaroute.com) hosted inference router for open-weight models. OpenAI-compatible gateway at `https://gw.lunaroute.com/v1` (needs `LUNAROUTE_API_KEY`; override base with `LUNAROUTE_BASE_URL`). Served model IDs carry variant suffixes (e.g. `glm-5.2-nvfp4`) — check `umwelten models --provider lunaroute`
 - `github-models.ts` — GitHub-hosted models (needs `GITHUB_TOKEN`)
 - `ollama.ts` — Local models (no key needed)
 - `lmstudio.ts` — Local REST API (no key needed)
@@ -582,6 +583,7 @@ mise run habitat-browse       # against a habitat's sessions
 - `TOGETHER_API_KEY` — Together AI
 - `MINIMAX_API_KEY` — MiniMax
 - `NVIDIA_API_KEY` — NVIDIA-hosted models
+- `LUNAROUTE_API_KEY` — LunaRoute hosted router (`LUNAROUTE_BASE_URL` overrides `https://gw.lunaroute.com/v1`)
 - `TAVILY_API_KEY` — Web search tool
 - `MARKIFY_URL` — Optional external HTML-to-markdown service
 - `LLAMASWAP_HOST` — Override the default `http://localhost:8080/v1` for llama-swap

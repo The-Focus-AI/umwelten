@@ -9,6 +9,7 @@ import { createMiniMaxProvider } from "../providers/minimax.js";
 import { createDeepInfraProvider } from "../providers/deepinfra.js";
 import { createTogetherAIProvider } from "../providers/togetherai.js";
 import { createNvidiaProvider } from "../providers/nvidia.js";
+import { createLunaRouteProvider } from "../providers/lunaroute.js";
 import type { ModelDetails } from "./types.js";
 // Function to get all available models from all providers
 export async function getAllModels(): Promise<ModelDetails[]> {
@@ -40,6 +41,9 @@ export async function getAllModels(): Promise<ModelDetails[]> {
         : []),
       ...(process.env.NVIDIA_API_KEY
         ? [{ label: "nvidia", listModels: () => createNvidiaProvider(process.env.NVIDIA_API_KEY!).listModels() }]
+        : []),
+      ...(process.env.LUNAROUTE_API_KEY
+        ? [{ label: "lunaroute", listModels: () => createLunaRouteProvider(process.env.LUNAROUTE_API_KEY!, process.env.LUNAROUTE_BASE_URL).listModels() }]
         : []),
     ];
 

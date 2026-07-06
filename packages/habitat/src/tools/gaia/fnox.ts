@@ -87,6 +87,7 @@ if_missing = "warn"
 [secrets]
 # GOOGLE_GENERATIVE_AI_API_KEY = { provider = "onepass", description = "Google Gemini API key" }
 # OPENROUTER_API_KEY = { provider = "onepass", description = "OpenRouter API key" }
+# LUNAROUTE_API_KEY = { provider = "onepass", description = "LunaRoute API key" }
 # GITHUB_TOKEN = { provider = "onepass", description = "GitHub personal access token" }
 # GITHUB_APP_PRIVATE_KEY = { provider = "onepass", description = "GitHub App private key" }
 # GITHUB_APP_ID = { provider = "onepass", description = "GitHub App ID" }
@@ -365,6 +366,7 @@ export class FnoxResolver {
 const FALLBACK_SECRET_NAMES = [
 	"GOOGLE_GENERATIVE_AI_API_KEY",
 	"OPENROUTER_API_KEY",
+	"LUNAROUTE_API_KEY",
 	"GITHUB_TOKEN",
 	"GITHUB_APP_PRIVATE_KEY",
 	"GITHUB_APP_ID",
