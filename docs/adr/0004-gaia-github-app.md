@@ -29,10 +29,11 @@ as `<app>[bot]`. Since April 2026 tokens use a long stateless format
 
 ## Decision
 
-### 1. One GitHub App, private key held only by Gaia
+### 1. One GitHub App — **@habitats** — private key held only by Gaia
 
-Register a GitHub App (e.g. **Gaia @ TheFocus.AI**) installed on the
-`the-focus-ai` org with an explicit repo list — the installation list is the
+Register a GitHub App named **habitats** (public identity:
+`habitats[bot]`) installed on the `the-focus-ai` org with an explicit repo
+list — the installation list is the
 outer blast-radius boundary; genuinely sensitive repos are simply never
 installed. Max App permissions: `contents: rw`, `issues: rw`,
 `pull_requests: rw`, `metadata: r`, `checks: r` (extend deliberately, never
@@ -90,18 +91,58 @@ Custom Docker images (and the `Dockerfile.twitter-habitat` seeding/symlink
 machinery) are retired for repo-backed habitats. Graduating a stable habitat
 to versioned GHCR images stays open as a later hardening step.
 
-### 5. Public work loop (issue-driven workers)
+### 5. Public work loop (issue-driven workers), centered on the SaaS
 
-Webhooks (`issues`, `issue_comment`, `pull_request`) are received by the
-habitats SaaS receiver (already HMAC-verifies and stores every delivery for
-replay) and forwarded to Gaia, or by a Gaia `/webhooks/github` route behind
-Caddy with the same verification. On an authorized trigger (see #2 below),
-Gaia spins an ephemeral coding habitat for the issue: clone via minted
+**Decided: the habitats SaaS is the hub.** Webhooks (`issues`,
+`issue_comment`, `pull_request`) land at the SaaS receiver (already
+HMAC-verifies and stores every delivery for replay), which forwards
+qualifying events to Gaia. GitHub activity surfaces in the product:
+runs spawned from GitHub events appear in **/workstreams**, and their
+lifecycle (worker started, PR opened, PR merged, run failed) feeds the
+notifications system — the bell, the /notifications feed, and email for
+missed events. (The notifications spine — recipients computed at write
+time, a notifications table with read/unread, live SSE delivery — is a
+**dependency of this ADR** and is specified in the notifications design;
+it is not yet built.)
+
+**Trigger policy (decided): org members only.** A worker dispatches only
+when the @habitats mention (or `habitats` label) comes from a member of
+the `the-focus-ai` org. Mentions from anyone else are ignored entirely —
+recorded in the webhook table, no dispatch, no reply. (A
+maintainer-reaction approval flow for outside contributors can be added
+later without changing this architecture.)
+
+On an authorized trigger, Gaia spins an ephemeral coding habitat for the
+issue: clone via minted
 token, work, run the repo's own tests, push `gaia/issue-<n>`, open a PR
 referencing the issue, narrate progress as issue comments. Merge is human.
 Gaia reaps the container on close. Default branches carry **protection
 rulesets requiring PRs** so "write access" structurally means "branches and
 PRs", not "merge to main" (#4).
+
+### 6. Access levels, grants, and the audit log
+
+Access is tiered, and every tier change is a recorded, user-granted event:
+
+- **Level 0 — read**: ambient read token; no grant needed beyond the
+  habitat's declared read scope.
+- **Level 1 — branch + PR** (the default working level): write token
+  scoped to the habitat's own repo; branches and PRs only (enforced by
+  branch protection, not agent obedience).
+- **Level 2 — repo administration** (create repos, change settings,
+  merge): never held by workers; only Gaia's operator tools, and only
+  when a user grant covers it.
+
+Grants live in the habitats SaaS and come in two forms the user chooses
+at approval time: **one-time** (covers exactly this task/run, expires on
+completion) or **standing** (covers this task type for this habitat until
+revoked, e.g. "twitter-habitat workers may always open PRs on their own
+repo"). Every grant, token mint, dispatch, push, and PR event writes to
+the existing `audit_log` (the same RLS-scoped log the product already
+shows at /audit), keyed to the granting user, the habitat, and the run —
+so "who allowed this, and what did the bot do with it" is one query.
+Gaia checks the grant at mint time; the SaaS checks it at dispatch time;
+the audit row is written either way, including denials.
 
 ## Blind spots (adversarial pass) and their mitigations
 
@@ -159,13 +200,23 @@ PRs", not "merge to main" (#4).
 6. Only after the loop is boring: flip the twitter repo public and let the
    activity be the demo.
 
+## Decided (2026-07-06)
+
+- Trigger: **org members only**; outsider mentions are ignored (logged,
+  never dispatched).
+- App identity: **@habitats** (`habitats[bot]`).
+- Hub: **the habitats SaaS** — webhook ingress via its receiver; GitHub
+  activity surfaces in /workstreams; lifecycle events feed notifications.
+  The notifications spine is a build dependency of the worker loop.
+- Grants: tiered access with **one-time vs standing** user grants, all
+  recorded in `audit_log` (see Decision 6).
+- Attribution: everything as `habitats[bot]`; the audit log + issue
+  thread record the initiating human.
+
 ## Open questions
 
-- Attribution: everything as `gaia[bot]` (current plan), or user-access
-  tokens (8h) for human-initiated actions later?
-- Webhook ingress home: SaaS receiver forwarding to Gaia (replay for free,
-  one more hop) vs. Gaia-direct (simpler, needs its own storage). Leaning
-  SaaS-forwarding first.
-- Where the runtime pause-and-ask (A2A `input-required`) lands in this
-  loop — force-push/delete are denied outright in v1, so approval UX can
-  wait for the permissions ADR.
+- Installation repo list: start with `standards` + `twitter-habitat`
+  (recommended) — confirm before registering the App.
+- Where the runtime pause-and-ask (A2A `input-required`) lands — one-time
+  grants cover the near-term need; live mid-run approval waits for the
+  permissions ADR.
