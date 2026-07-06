@@ -21,7 +21,9 @@ export type AuditOperation =
 	| "remove_credential"
 	| "verify_credential"
 	| "bind_capability"
-	| "unbind_capability";
+	| "unbind_capability"
+	| "github_token_mint"
+	| "github_token_denied";
 
 /** A single audit log entry. */
 export interface AuditEntry {
@@ -30,6 +32,12 @@ export interface AuditEntry {
 	habitatId?: string;
 	capability?: string;
 	credential?: string;
+	/** GitHub token operations (ADR 0004): the access kind requested/granted. */
+	kind?: "read" | "write";
+	/** GitHub token mints: repos the token was scoped to ("org" ⇒ omitted). */
+	repositories?: string[];
+	/** Denials: why the request was refused. */
+	reason?: string;
 }
 
 export class CredentialAuditLogger {

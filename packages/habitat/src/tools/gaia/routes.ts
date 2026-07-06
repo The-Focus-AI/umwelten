@@ -12,6 +12,11 @@ import { proxyRequest, fetchFromContainer } from "./proxy.js";
 import { buildSeedFiles, runStandardsAudit } from "./gaia-tools.js";
 import { CapabilityResolver } from "./capability-resolver.js";
 import type { AuditSummary } from "./gaia-tools.js";
+import {
+	deriveGithubTokenScope,
+	type GithubTokenKind,
+	type GithubTokenService,
+} from "./github/token-service.js";
 
 /** In-memory store for the most recent audit results (ephemeral). */
 let latestAudit: AuditSummary | null = null;
@@ -44,6 +49,12 @@ export interface GaiaRouteContext {
 	docker: DockerManager;
 	catalog: CredentialCatalog;
 	audit: CredentialAuditLogger;
+	/**
+	 * GitHub App token minting (ADR 0004). Always present when built via
+	 * Gaia.start (a disabled service when the App is unconfigured); optional
+	 * so tests and embedders without GitHub needs can omit it.
+	 */
+	githubTokens?: GithubTokenService;
 }
 
 function parseUrl(url: string): {
@@ -257,10 +268,14 @@ export async function handleGaiaRoute(
 		}
 		try {
 			await ctx.docker.seedVolume(entry.id, buildSeedFiles(entry, ctx.vault));
+			// Fresh boot tokens per start (ADR 0004): never throws — a GitHub
+			// outage degrades to token-less boot, not a failed start.
+			const githubTokens = await ctx.githubTokens?.bootTokensFor(entry);
 			const port = await ctx.docker.startContainer(
 				entry,
 				"",
 				ctx.registry.list(),
+				{ githubTokens },
 			);
 			await ctx.registry.update(params.id, { containerPort: port });
 			sendJson(res, { started: true, port });
@@ -294,10 +309,12 @@ export async function handleGaiaRoute(
 		}
 		await ctx.docker.stopContainer(params.id).catch(() => {});
 		await ctx.docker.seedVolume(entry.id, buildSeedFiles(entry, ctx.vault));
+		const githubTokens = await ctx.githubTokens?.bootTokensFor(entry);
 		const port = await ctx.docker.startContainer(
 			entry,
 			"",
 			ctx.registry.list(),
+			{ githubTokens },
 		);
 		await ctx.registry.update(params.id, { containerPort: port });
 		sendJson(res, { rebuilt: true, port });
@@ -617,6 +634,95 @@ export async function handleGaiaRoute(
 			sendJson(res, { ignored: true, habitatId, capability });
 			return true;
 		}
+	}
+
+	// ── GitHub App token pull (ADR 0004 decision 3) ─────────────────
+	//
+	// Children refresh their short-lived tokens here: bearer = the child's
+	// OWN HABITAT_API_KEY, which Gaia matches against the registry to
+	// identify the caller, resolves its declared `github` capabilities, and
+	// mints the down-scoped installation token. Every grant AND denial is
+	// written to the credential audit log.
+	//
+	// Deliberately mounted OUTSIDE /api/*: the container-server pre-gates
+	// /api/* with Gaia's OPERATOR auth (Gaia's own HABITAT_API_KEY / JWT),
+	// which children don't hold — this route does its own per-child auth
+	// instead and is never open (401 without a valid child key).
+	if (path === "/github/token" && method === "POST") {
+		const service = ctx.githubTokens;
+		if (!service || !service.enabled) {
+			sendJson(res, { error: "GitHub App not configured on Gaia" }, 501);
+			return true;
+		}
+
+		const authHeader = req.headers.authorization;
+		const bearer =
+			typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+				? authHeader.slice("Bearer ".length).trim()
+				: "";
+		if (!bearer) {
+			sendJson(res, { error: "Missing bearer token" }, 401);
+			return true;
+		}
+		const entry = ctx.registry.list().find((e) => e.apiKey === bearer);
+		if (!entry) {
+			sendJson(res, { error: "Unknown habitat key" }, 403);
+			return true;
+		}
+
+		let body: { kind?: unknown };
+		try {
+			const raw = await readBody(req);
+			body = raw.trim() ? JSON.parse(raw) : {};
+		} catch {
+			sendJson(res, { error: "Invalid JSON body" }, 400);
+			return true;
+		}
+		const kind: GithubTokenKind = body.kind === "write" ? "write" : "read";
+
+		// The mint is always for the ENTIRE declared scope of that kind (the
+		// registry declaration is the capability boundary; callers don't get
+		// to negotiate repo subsets) — which also makes the 50-minute mint
+		// cache in the token service effective across repeated pulls.
+		const scope = deriveGithubTokenScope(entry, kind);
+		if (!scope) {
+			const reason = `habitat "${entry.id}" declares no github ${kind} scope`;
+			await ctx.audit.log({
+				timestamp: new Date().toISOString(),
+				operation: "github_token_denied",
+				habitatId: entry.id,
+				kind,
+				reason,
+			});
+			sendJson(res, { error: reason }, 403);
+			return true;
+		}
+
+		try {
+			const minted = await service.tokenFor(entry, kind);
+			if (!minted) {
+				// Unreachable given the scope check above, but keep the 403 shape.
+				sendJson(res, { error: "No matching github scope" }, 403);
+				return true;
+			}
+			await ctx.audit.log({
+				timestamp: new Date().toISOString(),
+				operation: "github_token_mint",
+				habitatId: entry.id,
+				kind,
+				...(scope.repositories ? { repositories: scope.repositories } : {}),
+			});
+			sendJson(res, {
+				token: minted.token,
+				expiresAt: minted.expiresAt.toISOString(),
+				kind,
+				// "org"-wide read has no repo list; explicit scopes echo theirs.
+				...(scope.repositories ? { repositories: scope.repositories } : {}),
+			});
+		} catch (err: any) {
+			sendJson(res, { error: err.message }, 502);
+		}
+		return true;
 	}
 
 	return false;

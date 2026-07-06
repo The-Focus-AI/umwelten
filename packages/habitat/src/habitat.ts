@@ -38,6 +38,7 @@ import {
 	getAgentById,
 	getFileAllowedRoots,
 	findReadOnlyAgentForPath,
+	resolveToolBases,
 } from "./config.js";
 import {
 	HabitatSessionManager,
@@ -187,17 +188,21 @@ export class Habitat
 		// 7. Load work-dir tools (unless skipped)
 		if (!opts.skipWorkDirTools) {
 			const toolsDirRelative = config.toolsDir ?? "tools";
-			try {
-				const workDirTools = await loadToolsFromDirectory(
-					workDir,
-					toolsDirRelative,
-					habitat,
-				);
-				for (const [name, tool] of Object.entries(workDirTools)) {
-					habitat.addTool(name, tool);
+			// Repo-backed habitats load tools from the cloned project dir first,
+			// then the work dir (operator override wins) — see resolveToolBases.
+			for (const base of resolveToolBases(workDir, config)) {
+				try {
+					const tools = await loadToolsFromDirectory(
+						base,
+						toolsDirRelative,
+						habitat,
+					);
+					for (const [name, tool] of Object.entries(tools)) {
+						habitat.addTool(name, tool);
+					}
+				} catch {
+					// tools/ directory may not exist in this base yet
 				}
-			} catch {
-				// tools/ directory may not exist yet
 			}
 		}
 

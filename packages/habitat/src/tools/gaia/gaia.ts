@@ -30,6 +30,8 @@ import { CredentialAuditLogger } from "./credential-audit.js";
 import { createGaiaToolSet } from "./gaia-tools.js";
 import { handleGaiaRoute } from "./routes.js";
 import { FnoxResolver } from "./fnox.js";
+import { resolveGithubAppConfig } from "./github/app-config.js";
+import { createGithubTokenService } from "./github/token-service.js";
 
 export interface GaiaStartOptions {
 	dataDir: string;
@@ -158,12 +160,25 @@ export class Gaia {
 		await catalog.load();
 		const audit = new CredentialAuditLogger(dataDir);
 
+		// GitHub App token minting (ADR 0004). The private key stays in its own
+		// file (GITHUB_APP_PRIVATE_KEY_FILE), read at mint time — never loaded
+		// into the vault or config. Unconfigured ⇒ a disabled service: mints
+		// return null, the token route answers 501, boot injection is skipped.
+		const githubAppConfig = resolveGithubAppConfig(process.env);
+		const githubTokens = createGithubTokenService(githubAppConfig);
+		if (githubAppConfig) {
+			console.log(
+				`[gaia] GitHub App configured (app ${githubAppConfig.appId}, installation ${githubAppConfig.installationId}) — scoped token minting enabled`,
+			);
+		}
+
 		const gaiaToolSet = createGaiaToolSet({
 			registry,
 			vault,
 			docker,
 			catalog,
 			audit,
+			githubTokens,
 			gaiaDataDir: dataDir,
 			gaiaProvider: provider,
 			gaiaModel: model,
@@ -178,7 +193,7 @@ export class Gaia {
 		});
 		habitat.setRuntimeModelDetails({ provider, name: model });
 
-		const routeCtx = { registry, vault, docker, catalog, audit };
+		const routeCtx = { registry, vault, docker, catalog, audit, githubTokens };
 		const server = await startContainerServer({
 			habitat,
 			port,
