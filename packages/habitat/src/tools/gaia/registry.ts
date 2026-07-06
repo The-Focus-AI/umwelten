@@ -102,6 +102,7 @@ export class GaiaRegistryManager {
 			apiKey: generateApiKey(),
 			...(options.image ? { image: options.image } : {}),
 			...(options.hostname ? { hostname: options.hostname } : {}),
+			...(options.github ? { github: options.github } : {}),
 			createdAt: new Date().toISOString(),
 		};
 
@@ -121,7 +122,12 @@ export class GaiaRegistryManager {
 		updates: Partial<
 			Pick<
 				GaiaHabitatEntry,
-				"name" | "config" | "secretBindings" | "containerPort" | "image"
+				| "name"
+				| "config"
+				| "secretBindings"
+				| "containerPort"
+				| "image"
+				| "github"
 			>
 		>,
 	): Promise<GaiaHabitatEntry> {
@@ -138,6 +144,7 @@ export class GaiaRegistryManager {
 		if (updates.containerPort !== undefined)
 			entry.containerPort = updates.containerPort;
 		if (updates.image !== undefined) entry.image = updates.image;
+		if (updates.github !== undefined) entry.github = updates.github;
 
 		await this.save();
 		return entry;

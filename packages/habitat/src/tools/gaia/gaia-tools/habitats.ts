@@ -25,6 +25,7 @@ export function createHabitatLifecycleTools(
 		gaiaProvider,
 		gaiaModel,
 		gaiaConfig,
+		githubTokens,
 	} = ctx;
 
 	return {
@@ -190,7 +191,12 @@ export function createHabitatLifecycleTools(
 				// Seed volume with fresh config + secrets
 				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
 
-				const port = await docker.startContainer(entry, "", registry.list());
+				// Fresh GitHub boot tokens per start (ADR 0004; never throws —
+				// a GitHub outage degrades to a token-less boot, not a failure).
+				const bootTokens = await githubTokens?.bootTokensFor(entry);
+				const port = await docker.startContainer(entry, "", registry.list(), {
+					githubTokens: bootTokens,
+				});
 				await registry.update(id, { containerPort: port });
 
 				const warnings: string[] = [];
@@ -377,6 +383,45 @@ export function createHabitatLifecycleTools(
 			},
 		}),
 
+		grant_github_access: tool({
+			description:
+				"Declare a habitat's GitHub capabilities (ADR 0004). `read` is a list of repo names, or 'org' for whole-installation read — 'org' is ONLY for habitats whose own repo is private (a public-repo habitat with org read can launder private content into public commits). `write` is a list of repo names the habitat may push branches and open PRs on (merging stays blocked by branch protection). Write repos are readable via the write token, so they don't need repeating in read. Requires the GitHub App configured on Gaia. Rebuild the habitat so it boots with fresh tokens.",
+			inputSchema: z.object({
+				id: z.string().describe("Habitat ID"),
+				read: z
+					.union([z.array(z.string()), z.literal("org")])
+					.optional()
+					.describe(
+						"Repo names to allow reading, or 'org' (private-repo habitats only)",
+					),
+				write: z
+					.array(z.string())
+					.optional()
+					.describe("Repo names to allow writing (branches + PRs)"),
+			}),
+			execute: async ({ id, read, write }) => {
+				const entry = registry.get(id);
+				if (!entry) return `Habitat "${id}" not found`;
+				await registry.update(id, {
+					github: {
+						...(read !== undefined ? { read } : {}),
+						...(write !== undefined ? { write } : {}),
+					},
+				});
+				const readDesc =
+					read === "org"
+						? "whole installation"
+						: read?.length
+							? read.join(", ")
+							: "none";
+				const writeDesc = write?.length ? write.join(", ") : "none";
+				const appNote = githubTokens?.enabled
+					? ""
+					: "\nNOTE: the GitHub App is not configured on Gaia (GITHUB_APP_ID / GITHUB_APP_INSTALLATION_ID / GITHUB_APP_PRIVATE_KEY_FILE) — no tokens will be minted until it is.";
+				return `Declared GitHub access for "${id}": read=${readDesc}, write=${writeDesc}. Rebuild the habitat to boot it with fresh tokens.${appNote}`;
+			},
+		}),
+
 		remove_habitat: tool({
 			description:
 				"Remove a habitat from the registry. Stops the container if running.",
@@ -409,7 +454,10 @@ export function createHabitatLifecycleTools(
 
 				await docker.stopContainer(id).catch(() => {});
 				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
-				const port = await docker.startContainer(entry, "", registry.list());
+				const bootTokens = await githubTokens?.bootTokensFor(entry);
+				const port = await docker.startContainer(entry, "", registry.list(), {
+					githubTokens: bootTokens,
+				});
 				await registry.update(id, { containerPort: port });
 				const url = entryOpenUrl(entry, port);
 				return `Rebuilt habitat "${id}" on port ${port}\nWeb UI: ${url}`;

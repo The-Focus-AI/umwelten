@@ -31,6 +31,33 @@ export interface GaiaHabitatEntry {
 	 * is set (local dev).
 	 */
 	hostname?: string;
+	/**
+	 * Declared GitHub capabilities (ADR 0004) — the boundary both the boot
+	 * injection and the token mint route enforce; a habitat can only obtain
+	 * tokens covering what it declares here. Repo NAMES only (owner implied
+	 * by the App installation).
+	 *
+	 * - `read: "org"` — ambient read across the whole installation
+	 *   (contents: read, repo list omitted at mint time).
+	 * - `read: [...]` — explicit read-list (own repo + standards + declared
+	 *   needs).
+	 * - `write: [...]` — contents/issues/pull_requests write, scoped to
+	 *   exactly these repos. Branches + PRs only in practice — merge to
+	 *   default branches is blocked by branch protection, not the token.
+	 *   Write repos are ALSO readable via the write token (a token's
+	 *   permissions are uniform across its repo list), so they don't need
+	 *   repeating in `read`.
+	 *
+	 * ADR 0004 blind spot #1 (exfiltration laundering): entries whose own
+	 * repo is PUBLIC must use an explicit read list, never `"org"` —
+	 * org-wide read + write-to-a-public-repo lets a prompt-injected worker
+	 * copy private repo contents into public commits/PRs. Only private-repo
+	 * habitats may use the broad `"org"` read.
+	 */
+	github?: {
+		read?: "org" | string[];
+		write?: string[];
+	};
 	/** ISO timestamp */
 	createdAt: string;
 }
@@ -71,6 +98,8 @@ export interface CreateHabitatOptions {
 	image?: string;
 	/** Public hostname for Caddy routing (#170), e.g. "twitter.example.com". */
 	hostname?: string;
+	/** GitHub capability declaration (see GaiaHabitatEntry.github). */
+	github?: GaiaHabitatEntry["github"];
 }
 
 /** Status of a credential (whether it's known to be working). */

@@ -145,6 +145,19 @@ export function resolveProjectDir(workDir: string, config: HabitatConfig): strin
   return join(workDir, config.projectDir ?? 'project');
 }
 
+/**
+ * Directories to load work-dir tools from, in load order (later overrides
+ * earlier on name conflict). Repo-backed habitats (config.gitUrl) keep their
+ * tools inside the cloned project dir; the work dir is loaded last so an
+ * operator override placed there wins. Non-provisioned habitats only use the
+ * work dir — the project dir is a phantom path that never exists.
+ */
+export function resolveToolBases(workDir: string, config: HabitatConfig): string[] {
+  return config.gitUrl
+    ? [resolveProjectDir(workDir, config), workDir]
+    : [workDir];
+}
+
 /** All roots allowed for file access: work dir, sessions dir, project dir, then agent project paths. */
 export function getFileAllowedRoots(workDir: string, sessionsDir: string, config: HabitatConfig): string[] {
   const agentRoots = config.agents.map(a => a.projectPath).filter(Boolean);

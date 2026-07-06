@@ -91,15 +91,28 @@ if [ -f "$CONFIG_FILE" ]; then
 	[ -z "$PROJECT_DIR_NAME" ] && PROJECT_DIR_NAME="project"
 	PROJECT_DIR="$WORK_DIR/$PROJECT_DIR_NAME"
 
+	GIT_BRANCH=$(config_json "return c.gitBranch")
 	if [ -n "$GIT_URL" ] && [ ! -d "$PROJECT_DIR/.git" ]; then
 		echo "[entrypoint] Auto-provisioning from $GIT_URL..."
-		GIT_BRANCH=$(config_json "return c.gitBranch")
 		BRANCH_ARG=""
 		if [ -n "$GIT_BRANCH" ]; then
 			BRANCH_ARG="--branch $GIT_BRANCH"
 		fi
 		git clone $BRANCH_ARG "$GIT_URL" "$PROJECT_DIR"
 		echo "[entrypoint] Clone complete."
+	elif [ -n "$GIT_URL" ] && [ -d "$PROJECT_DIR/.git" ]; then
+		# Already cloned: a rebuild/restart should pick up new commits so
+		# "push to repo → rebuild habitat" is the whole deploy. Fast-forward
+		# only — never clobber local state, and never fail the boot if the
+		# pull can't proceed (offline, diverged, dirty tree).
+		echo "[entrypoint] Updating $PROJECT_DIR (git pull --ff-only)..."
+		if [ -n "$GIT_BRANCH" ]; then
+			(cd "$PROJECT_DIR" && git fetch origin "$GIT_BRANCH" && git pull --ff-only origin "$GIT_BRANCH") ||
+				echo "[entrypoint] Pull skipped (non-fast-forward or offline; keeping current checkout)."
+		else
+			(cd "$PROJECT_DIR" && git pull --ff-only) ||
+				echo "[entrypoint] Pull skipped (non-fast-forward or offline; keeping current checkout)."
+		fi
 	fi
 
 	if [ -d "$PROJECT_DIR" ]; then

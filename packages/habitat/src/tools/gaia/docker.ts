@@ -94,6 +94,37 @@ export function containerName(id: string): string {
 }
 
 /**
+ * In-network base URL children use to reach Gaia itself (injected as
+ * GAIA_URL at container start — ADR 0004 decision 3, the token pull path).
+ *
+ * Gaia's own container is NOT one of its managed `gaia-<id>` children, so
+ * its name/port aren't derivable from containerName(): the shipped deploy
+ * (deploy/gaia/docker-compose.yml) names the container `gaia` and serves on
+ * GAIA_PORT (default 7420, not the children's 8080). Deploys where that
+ * doesn't hold (or where Gaia runs on the host) set GAIA_INTERNAL_URL
+ * explicitly and it is passed through verbatim.
+ */
+export function resolveGaiaInternalUrl(): string {
+  const explicit = process.env.GAIA_INTERNAL_URL?.trim();
+  if (explicit) return explicit;
+  const port = process.env.GAIA_PORT?.trim() || "7420";
+  return `http://gaia:${port}`;
+}
+
+/** Optional extras for startContainer (boot-time credential injection). */
+export interface StartContainerOptions {
+  /**
+   * Freshly minted GitHub installation tokens (ADR 0004 decision 3):
+   * `read` → GITHUB_TOKEN (ambient read; also what entrypoint.sh uses for
+   * authenticated clones), `write` → GITHUB_WRITE_TOKEN (origin-pinned
+   * write). Minted per start/rebuild by the caller via GithubTokenService;
+   * tokens expire in ~1 hour — longer-lived work refreshes via Gaia's
+   * POST /github/token route.
+   */
+  githubTokens?: { read?: string; write?: string };
+}
+
+/**
  * In-network base URL for reaching a habitat from Gaia (or any container on the
  * shared ingress network): `http://gaia-<id>:8080`. Gaia addresses children by
  * Docker embedded DNS over the shared network rather than via host loopback
@@ -212,6 +243,7 @@ export class DockerManager {
     entry: GaiaHabitatEntry,
     _habitatDataDir: string,
     allEntries?: GaiaHabitatEntry[],
+    options?: StartContainerOptions,
   ): Promise<number> {
     const name = containerName(entry.id);
     const volume = volumeName(entry.id);
@@ -291,6 +323,26 @@ export class DockerManager {
     if (secretWritePrefixes) {
       args.push("--env", `HABITAT_SECRET_WRITE_PREFIXES=${secretWritePrefixes}`);
     }
+
+    // GitHub App tokens at boot (ADR 0004 decision 3): fresh, down-scoped
+    // installation tokens minted by the caller for this start/rebuild.
+    // GITHUB_TOKEN covers the entrypoint's clone/pull (and short-lived
+    // workers outright); GITHUB_WRITE_TOKEN is the origin-pinned write
+    // credential. Omitted entirely when the habitat declares no github
+    // capability or the App isn't configured — no env, no capability.
+    if (options?.githubTokens?.read) {
+      args.push("--env", `GITHUB_TOKEN=${options.githubTokens.read}`);
+    }
+    if (options?.githubTokens?.write) {
+      args.push("--env", `GITHUB_WRITE_TOKEN=${options.githubTokens.write}`);
+    }
+
+    // GAIA_URL is injected unconditionally: it's Gaia's in-network address
+    // (children share gaia-net with Gaia), used by the token pull route
+    // (POST /github/token, authenticated by the child's own
+    // HABITAT_API_KEY) and any future child→Gaia callback. Carrying no
+    // secret, it is safe for children without github capability too.
+    args.push("--env", `GAIA_URL=${resolveGaiaInternalUrl()}`);
 
     args.push(image);
 

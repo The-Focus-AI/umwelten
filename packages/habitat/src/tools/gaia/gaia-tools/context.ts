@@ -27,6 +27,7 @@ import {
 } from "../docker.js";
 import type { CredentialCatalog } from "../credential-catalog.js";
 import type { CredentialAuditLogger } from "../credential-audit.js";
+import type { GithubTokenService } from "../github/token-service.js";
 
 export interface GaiaToolsContext {
 	registry: GaiaRegistryManager;
@@ -34,6 +35,12 @@ export interface GaiaToolsContext {
 	docker: DockerManager;
 	catalog: CredentialCatalog;
 	audit: CredentialAuditLogger;
+	/**
+	 * GitHub App token minting (ADR 0004). Always present when built via
+	 * Gaia.start (a disabled service when the App is unconfigured); optional
+	 * so tests and embedders without GitHub needs can omit it.
+	 */
+	githubTokens?: GithubTokenService;
 	/** Gaia's own data directory (where config.json lives). */
 	gaiaDataDir: string;
 	/** Gaia's provider (for defaulting child habitats). */
