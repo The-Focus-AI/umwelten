@@ -17,6 +17,7 @@ import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
 import { createLlamaBarnProvider } from "./llamabarn.js";
 import { createLlamaSwapProvider } from "./llamaswap.js";
+import { createLunaRouteProvider, getLunaRouteModelUrl } from "./lunaroute.js";
 import { installLocalFetchDispatcher } from "./local-fetch.js";
 import { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
 
@@ -70,6 +71,12 @@ registerProvider("togetherai", {
   create: (key) => createTogetherAIProvider(key!),
   envVar: "TOGETHER_API_KEY",
   getModelUrl: getTogetherAIModelUrl,
+});
+
+registerProvider("lunaroute", {
+  create: (key) => createLunaRouteProvider(key!, process.env.LUNAROUTE_BASE_URL),
+  envVar: "LUNAROUTE_API_KEY",
+  getModelUrl: getLunaRouteModelUrl,
 });
 
 registerProvider("ollama", {
