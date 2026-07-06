@@ -35,13 +35,13 @@
     "@neondatabase/serverless": "^1.1.0",
     "ai": "^5.0.115",
     "chalk": "^5.6.2",
-    "undici": "^8.5.0",
+    "undici": "^8.7.0",
     "uuid": "^13.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }
