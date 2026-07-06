@@ -63,6 +63,16 @@ services:
       # own keys via the master vault + secret bindings, not from here.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      # GitHub App (ADR 0004). Gaia is the sole token-minting authority: it
+      # exchanges the App private key for down-scoped, 1-hour installation
+      # tokens per habitat. All three must be set to turn the feature on;
+      # any unset ⇒ feature off (no /github/token route, no boot injection).
+      # The key is a FILE PATH read at mint time — it must NOT live in the
+      # shared vault JSON. Place the PEM on the host under the bind-mounted
+      # data dir (mode 0600) so it appears at the same path in the container.
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
+      GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
     labels:
       # Gaia is itself a caddy-fronted habitat: control plane over TLS + auth at
       # GAIA_HOSTNAME, reached by caddy over the network ({{upstreams 7420}}).
