@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { rm, mkdir, readFile } from "node:fs/promises";
+import { rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -233,8 +233,12 @@ describe("PromotionRouter", () => {
 	});
 
 	it("reports failure gracefully", async () => {
+		// Root a projectRoot under a regular FILE so mkdir fails with ENOTDIR —
+		// a plain nonexistent path is creatable when the suite runs as root.
+		const blockerFile = join(tmpdir(), `promotion-blocker-${randomUUID()}`);
+		await writeFile(blockerFile, "not a directory");
 		const brokenRouter = new PromotionRouter({
-			projectRoot: "/nonexistent/path/that/cannot/be/created",
+			projectRoot: join(blockerFile, "cannot", "be", "created"),
 		});
 		const result = await brokenRouter.promote({
 			target: "saved-reflection",
@@ -247,6 +251,7 @@ describe("PromotionRouter", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.error).toBeDefined();
+		await rm(blockerFile, { force: true });
 	});
 
 	it("promotes multiple decisions", async () => {

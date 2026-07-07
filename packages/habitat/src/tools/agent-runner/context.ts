@@ -61,9 +61,12 @@ export async function inferGitRemote(
 	projectPath: string,
 ): Promise<string | undefined> {
 	try {
+		// Read the raw configured URL, not `remote get-url` — the latter applies
+		// url.insteadOf rewrites (SSH shims, proxies), which are local fetch
+		// policy and must not leak into the stored gitRemote.
 		const { stdout } = await execFileAsync(
 			"git",
-			["-C", projectPath, "remote", "get-url", "origin"],
+			["-C", projectPath, "config", "--get", "remote.origin.url"],
 			{
 				timeout: 5000,
 				maxBuffer: 1024 * 1024,
