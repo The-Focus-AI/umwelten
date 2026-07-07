@@ -52,6 +52,17 @@ export interface GithubTokenServiceDeps {
 const CACHE_TTL_MS = 50 * 60 * 1000;
 
 /**
+ * The mint API's `repositories` field takes bare repo names — the owner is
+ * implied by the installation — but declarations naturally arrive as
+ * `owner/name` (that's how the registry and humans write repos everywhere
+ * else). GitHub 422s on owner-prefixed names, so strip to the final path
+ * segment and dedupe before minting.
+ */
+function toBareRepoNames(repos: string[]): string[] {
+	return [...new Set(repos.map((r) => r.split("/").filter(Boolean).pop() ?? r))].sort();
+}
+
+/**
  * Derive the token scope for an entry + kind, or null when the entry
  * declares no matching capability.
  *
@@ -74,7 +85,7 @@ export function deriveGithubTokenScope(
 		}
 		if (Array.isArray(decl.read) && decl.read.length > 0) {
 			return {
-				repositories: [...decl.read].sort(),
+				repositories: toBareRepoNames(decl.read),
 				permissions: { contents: "read" },
 			};
 		}
@@ -83,7 +94,7 @@ export function deriveGithubTokenScope(
 
 	if (Array.isArray(decl.write) && decl.write.length > 0) {
 		return {
-			repositories: [...decl.write].sort(),
+			repositories: toBareRepoNames(decl.write),
 			permissions: {
 				contents: "write",
 				issues: "write",

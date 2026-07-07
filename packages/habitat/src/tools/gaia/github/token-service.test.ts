@@ -76,6 +76,31 @@ describe("deriveGithubTokenScope", () => {
 		});
 	});
 
+	it("strips owner prefixes to bare repo names and dedupes (mint API 422s on owner/name)", () => {
+		expect(
+			deriveGithubTokenScope(
+				{ github: { read: ["The-Focus-AI/standards", "standards", "The-Focus-AI/zebra"] } },
+				"read",
+			),
+		).toEqual({
+			repositories: ["standards", "zebra"],
+			permissions: { contents: "read" },
+		});
+		expect(
+			deriveGithubTokenScope(
+				{ github: { write: ["The-Focus-AI/twitter-habitat"] } },
+				"write",
+			),
+		).toEqual({
+			repositories: ["twitter-habitat"],
+			permissions: {
+				contents: "write",
+				issues: "write",
+				pull_requests: "write",
+			},
+		});
+	});
+
 	it("returns null when the entry declares no matching scope", () => {
 		expect(deriveGithubTokenScope({}, "read")).toBeNull();
 		expect(deriveGithubTokenScope({ github: {} }, "read")).toBeNull();
