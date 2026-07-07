@@ -76,6 +76,31 @@ describe("deriveGithubTokenScope", () => {
 		});
 	});
 
+	it("strips owner prefixes to bare repo names and dedupes (mint API 422s on owner/name)", () => {
+		expect(
+			deriveGithubTokenScope(
+				{ github: { read: ["The-Focus-AI/standards", "standards", "The-Focus-AI/zebra"] } },
+				"read",
+			),
+		).toEqual({
+			repositories: ["standards", "zebra"],
+			permissions: { contents: "read" },
+		});
+		expect(
+			deriveGithubTokenScope(
+				{ github: { write: ["The-Focus-AI/twitter-habitat"] } },
+				"write",
+			),
+		).toEqual({
+			repositories: ["twitter-habitat"],
+			permissions: {
+				contents: "write",
+				issues: "write",
+				pull_requests: "write",
+			},
+		});
+	});
+
 	it("returns null when the entry declares no matching scope", () => {
 		expect(deriveGithubTokenScope({}, "read")).toBeNull();
 		expect(deriveGithubTokenScope({ github: {} }, "read")).toBeNull();
@@ -130,15 +155,18 @@ describe("createGithubTokenService", () => {
 		expect(readFileImpl).not.toHaveBeenCalled();
 	});
 
-	it("caches per (kind + sorted repo list) for 50 minutes", async () => {
+	it("caches per (habitat + kind + sorted repo list) for 50 minutes", async () => {
 		const clock = makeClock();
 		const mint = makeMint();
 		const service = createGithubTokenService(CFG, { mint, now: clock.now });
 
-		const entry = { github: { read: ["b", "a"] } };
+		const entry = { id: "h1", github: { read: ["b", "a"] } };
 		const first = await service.tokenFor(entry, "read");
-		// Same repo set in a different declaration order → cache hit
-		const second = await service.tokenFor({ github: { read: ["a", "b"] } }, "read");
+		// Same habitat, same repo set in a different declaration order → cache hit
+		const second = await service.tokenFor(
+			{ id: "h1", github: { read: ["a", "b"] } },
+			"read",
+		);
 		expect(second?.token).toBe(first?.token);
 		expect(mint).toHaveBeenCalledTimes(1);
 
@@ -151,6 +179,22 @@ describe("createGithubTokenService", () => {
 		clock.advanceMinutes(2);
 		const fresh = await service.tokenFor(entry, "read");
 		expect(fresh?.token).not.toBe(first?.token);
+		expect(mint).toHaveBeenCalledTimes(2);
+	});
+
+	it("never shares tokens across habitats, even with identical scopes", async () => {
+		const mint = makeMint();
+		const service = createGithubTokenService(CFG, { mint });
+
+		const a = await service.tokenFor(
+			{ id: "habitat-a", github: { read: ["standards"] } },
+			"read",
+		);
+		const b = await service.tokenFor(
+			{ id: "habitat-b", github: { read: ["standards"] } },
+			"read",
+		);
+		expect(a?.token).not.toBe(b?.token);
 		expect(mint).toHaveBeenCalledTimes(2);
 	});
 

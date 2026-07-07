@@ -70,18 +70,40 @@ secret_value() {
 }
 
 # ── Private-repo git auth ──────────────────────────────────────────────
-# If the habitat has a GITHUB_TOKEN secret (vault-bound or env), route
-# github.com HTTPS git operations through it via git's env config — this
-# covers the project clone, per-agent clones, and `npx skills add`.
-# x-access-token works for classic PATs, fine-grained PATs, and app
-# installation tokens alike. The token never lands in config.json, the
-# registry, or the clone URLs persisted in git remotes.
-GITHUB_TOKEN_VALUE=$(secret_value GITHUB_TOKEN)
+# Route github.com HTTPS git operations through a token via git's env
+# config — this covers the project clone, per-agent clones, and
+# `npx skills add`. x-access-token works for classic PATs, fine-grained
+# PATs, and app installation tokens alike. The token never lands in
+# config.json, the registry, or the clone URLs persisted in git remotes.
+#
+# Token source, in order — freshest first (ADR 0004):
+#   1. GitHub App mint — only Gaia has GITHUB_APP_* env; a fresh ambient-read
+#      installation token beats any stored PAT (which can silently go stale).
+#   2. GITHUB_TOKEN env — the per-habitat boot token Gaia's token service
+#      injects into children (docker.ts). Checked BEFORE the vault so a
+#      stale vault PAT can't shadow the fresh per-boot token.
+#   3. GITHUB_TOKEN in the seeded secrets vault — legacy PATs.
+GITHUB_TOKEN_VALUE=""
+if [ -n "$GITHUB_APP_ID" ] && [ -n "$GITHUB_APP_INSTALLATION_ID" ] && [ -n "$GITHUB_APP_PRIVATE_KEY_FILE" ]; then
+	GITHUB_TOKEN_VALUE=$(pnpm exec tsx packages/habitat/src/tools/gaia/github/mint-boot-token.ts 2>/dev/null) || GITHUB_TOKEN_VALUE=""
+	if [ -n "$GITHUB_TOKEN_VALUE" ]; then
+		echo "[entrypoint] GitHub App configured — minted ambient-read token for github.com clones."
+	else
+		echo "[entrypoint] GitHub App configured but token mint failed — falling back to GITHUB_TOKEN."
+	fi
+fi
+if [ -z "$GITHUB_TOKEN_VALUE" ] && [ -n "${GITHUB_TOKEN:-}" ]; then
+	GITHUB_TOKEN_VALUE="$GITHUB_TOKEN"
+	echo "[entrypoint] GITHUB_TOKEN env present (per-habitat boot token) — authenticated github.com clones enabled."
+fi
+if [ -z "$GITHUB_TOKEN_VALUE" ]; then
+	GITHUB_TOKEN_VALUE=$(secret_value GITHUB_TOKEN)
+	[ -n "$GITHUB_TOKEN_VALUE" ] && echo "[entrypoint] GITHUB_TOKEN present — authenticated github.com clones enabled."
+fi
 if [ -n "$GITHUB_TOKEN_VALUE" ]; then
 	export GIT_CONFIG_COUNT=1
 	export GIT_CONFIG_KEY_0="url.https://x-access-token:$GITHUB_TOKEN_VALUE@github.com/.insteadOf"
 	export GIT_CONFIG_VALUE_0="https://github.com/"
-	echo "[entrypoint] GITHUB_TOKEN present — authenticated github.com clones enabled."
 fi
 
 if [ -f "$CONFIG_FILE" ]; then
