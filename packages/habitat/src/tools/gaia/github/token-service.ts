@@ -4,9 +4,11 @@
  * Derives the down-scoped repo list + permissions from a habitat entry's
  * `github` capability declaration and mints tokens via ./app-auth.ts,
  * reading the App private key from disk at mint time (never stored in the
- * vault or config). Mints are cached ~50 minutes per (kind + sorted repo
- * list) to respect the installation's pooled rate limits (blind spot #7) —
- * safely under the 1-hour token expiry.
+ * vault or config). Mints are cached ~50 minutes per (habitat + kind +
+ * sorted repo list) — safely under the 1-hour token expiry, and never
+ * shared across habitats: each workspace holds its own token even when two
+ * declare identical scopes, so one habitat's token leaking or being cycled
+ * says nothing about any other's.
  */
 
 import { readFile } from "node:fs/promises";
@@ -164,7 +166,9 @@ export function createGithubTokenService(
 		const scope = deriveGithubTokenScope(entry, kind);
 		if (!scope) return null;
 
-		const cacheKey = `${kind}|${scope.repositories?.join(",") ?? "<org>"}`;
+		// Habitat id leads the key: tokens are per-workspace, never shared
+		// across habitats with coincidentally identical scopes.
+		const cacheKey = `${entry.id ?? "<anon>"}|${kind}|${scope.repositories?.join(",") ?? "<org>"}`;
 		const cached = cache.get(cacheKey);
 		if (cached && now() - cached.mintedAt < CACHE_TTL_MS) {
 			return cached.token;
