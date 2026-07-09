@@ -117,3 +117,6 @@ gaia-data/
 
 # Antigravity CLI state
 .antigravitycli/
+
+# Docs-site copy of the dialogue web explorer (synced from examples/dialogue-web by docs:sync-assets)
+docs/public/dialogue/

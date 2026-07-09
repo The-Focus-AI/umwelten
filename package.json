@@ -12,8 +12,9 @@
     "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
     "cli": "NODE_OPTIONS='--no-deprecation' tsx packages/cli/src/entry.ts",
     "smoke:cascade": "tsx scripts/smoke-test-cascade.ts",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:sync-assets": "rm -rf docs/public/dialogue && mkdir -p docs/public/dialogue && cp examples/dialogue-web/index.html docs/public/dialogue/index.html",
+    "docs:dev": "pnpm run docs:sync-assets && vitepress dev docs",
+    "docs:build": "pnpm run docs:sync-assets && vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "knip": "knip"
   },

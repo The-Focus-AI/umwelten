@@ -15,6 +15,13 @@ Your API key is kept in `localStorage` and only ever sent to
 
 ## Run it
 
+A hosted copy lives on the docs site: **https://umwelten.thefocus.ai/dialogue/**
+(synced from this directory at docs build time by the root `docs:sync-assets`
+script — edit `index.html` here, never the generated copy under
+`docs/public/dialogue/`).
+
+To run locally:
+
 ```bash
 # any static file server works; from the repo root:
 python3 -m http.server 7439 --directory examples/dialogue-web

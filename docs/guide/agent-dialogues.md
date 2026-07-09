@@ -205,10 +205,16 @@ DEBATE_PROVIDER=google DEBATE_MODEL=gemini-3-flash-preview \
 
 ## Web explorer
 
-`examples/dialogue-web/` is a single static HTML page that runs the same
+The dialogue explorer is a single static HTML page that runs the same
 dialogue conventions in the browser — no build step, no server-side code. It
 talks directly to OpenRouter's CORS-enabled API: pick models, define
 personas, pose a question, and watch the turns stream live.
+
+**Try it right now: [umwelten.thefocus.ai/dialogue/](https://umwelten.thefocus.ai/dialogue/)** —
+it's hosted on this docs site (synced from `examples/dialogue-web/` at build
+time by `docs:sync-assets`).
+
+Or run it locally:
 
 ```bash
 # Serve it with any static file server; from the repo root:
