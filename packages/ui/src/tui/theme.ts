@@ -46,6 +46,14 @@ export const theme = {
 } as const;
 
 /**
+ * Dialogue speaker colors: assigned round-robin by join order (stable for
+ * the life of the dialogue). Chalk-compatible ANSI names, so the same
+ * palette works for Ink components and plain-terminal renderers (the
+ * `umwelten converse` command). Moderator/system lines use {@link secondary}.
+ */
+export const speakerPalette = ["cyan", "green", "magenta", "yellow"] as const;
+
+/**
  * Secondary text: labels, separators, metadata, timestamps.
  *
  * Spread this (`<Text {...secondary}>`) instead of `color="gray"` —

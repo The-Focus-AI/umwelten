@@ -47,6 +47,14 @@ export type { AgentVault } from "./identity/vault.js";
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
 export { getAgentMemoryPath } from "./agent-paths.js";
 
+// ── Dialogue participants (agent-to-agent conversations) ────────────────
+export {
+	createHabitatAgentParticipant,
+	participantFromHabitatAgent,
+	cloneStimulus,
+} from "./dialogue/habitat-agent-participant.js";
+export type { DialogueAgentHost } from "./dialogue/habitat-agent-participant.js";
+
 // ── Claude SDK runner ───────────────────────────────────────────────────
 export { runClaudeSDK } from "./claude-sdk-runner.js";
 export type {

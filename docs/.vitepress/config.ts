@@ -41,6 +41,7 @@ export default defineConfig({
             { text: 'Gaia Orchestrator', link: '/guide/gaia-orchestrator' },
             { text: 'Habitat Interfaces', link: '/guide/habitat-interfaces' },
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
+            { text: 'Agent Dialogues', link: '/guide/agent-dialogues' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },
             { text: 'Habitat Bridge', link: '/guide/habitat-bridge' },
             { text: 'Channel Routing', link: '/guide/habitat-routing' },

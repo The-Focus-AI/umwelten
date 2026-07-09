@@ -28,6 +28,14 @@ _Avoid_: Knowledge browser, browse session
 A system-wide, full-content search across every **Source Session** on disk, regardless of project. Returns matching **Source Sessions** rather than **Explorations**; opening a hit lets the normal browser path lazily project it into a default **Exploration** for digesting or reflection.
 _Avoid_: Project search (too narrow), index search (no index), grep (implementation detail)
 
+**Dialogue**:
+A persisted, turn-orchestrated exchange between two or more named **Participants**, attributed with `[Name]:` labels and stored as a **Source Session** of type `dialogue`.
+_Avoid_: conversation (ambiguous with **Interaction**), group chat, thread
+
+**Participant**:
+A named speaker in a **Dialogue**, backed by an **Interaction** (a habitat agent or an ad-hoc persona) or a human.
+_Avoid_: agent (too narrow — humans and personas participate too), speaker (rendering-level term)
+
 **Project Fact**:
 Stable knowledge about this codebase or project that helps future work.
 _Avoid_: Agent instruction, report, raw observation
@@ -85,6 +93,8 @@ _Avoid_: Report when referring to the general category
 - Project-local user/work-style memory belongs in `.umwelten/user-model.md`.
 - **Saved Reflections** live in `.umwelten/reflections/` and use dated Markdown files.
 - **Session Search** operates on every **Source Session** the registered adapters can discover, not just those rooted in the current project. It returns **Source Sessions**, not **Explorations** — promotion to an **Exploration** happens when the user opens a hit in the **Exploration Browser**.
+- A **Dialogue** owns one canonical, speaker-attributed event log; each model **Participant** keeps its own private **Interaction** as a view of that log (its own turns as assistant, others' turns as labeled user messages). Besides spoken turns the log carries ambient `event` entries — world input nobody said — rendered unattributed as `(text)`.
+- A **Dialogue**'s canonical log persists as a **Source Session** (`transcript.jsonl` + `meta.json` with the participant roster), so the session tooling and **Exploration Browser** read it like any other session.
 
 ## Example dialogue
 

@@ -6,6 +6,9 @@
 export type { ModelDetails, ModelOptions, ModelResponse } from "@umwelten/core";
 export { Interaction } from "@umwelten/core";
 
+// ── Theme (shared by Ink TUIs and plain-terminal renderers) ─────────────
+export { theme, secondary, speakerPalette } from "./tui/theme.js";
+
 // ── CLI interface ───────────────────────────────────────────────────────
 export { CLIInterface } from "./cli/CLIInterface.js";
 export { CommandRegistry } from "./cli/CommandRegistry.js";

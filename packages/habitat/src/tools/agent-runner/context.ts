@@ -25,6 +25,15 @@ export interface AgentRunnerToolsContext {
 	// Agent directory management
 	getAgentDir(agentId: string): string;
 	ensureAgentDir(agentId: string): Promise<void>;
+	/**
+	 * Optional (present when the ctx is a full Habitat): create/resolve a
+	 * session dir. `agent_converse` uses it to persist dialogue sessions;
+	 * without it the tool falls back to `<workDir>/sessions/<id>`.
+	 */
+	getOrCreateSession?(
+		type: string,
+		identifier?: string | number,
+	): Promise<{ sessionId: string; sessionDir: string }>;
 }
 
 export function deriveAgentId(seed: string): string {

@@ -167,6 +167,20 @@ Explicit helpers for extracting and reconciling facts from conversations. `Inter
 - `extract_facts.ts` — Pull facts from an interaction via LLM
 - `determine_operations.ts` — Decide ADD/UPDATE/DELETE operations for a caller-managed memory store
 
+### `src/dialogue/` — Agent Dialogues
+
+Turn-orchestrated conversations between 2+ named Participants (see **Dialogue** in CONTEXT.md). One canonical event log of typed entries — spoken turns plus ambient `event` world input; each model participant keeps a private Interaction view (own turns = assistant, others' = one batched user message rendered per event kind). Persists as a `dialogue` session; habitat dialogues are readable by `umwelten browse`, persona-only ones live under `~/.umwelten/dialogues/`.
+
+- `dialogue.ts` — `Dialogue` orchestrator: `step()` / `run()` / `post()` (spoken interjection or `kind: "event"`), stop conditions (maxTurns default 8, anyDone/allDone, abort signal, until predicate)
+- `types.ts` — `Participant` (with `onDialogueStart`/`onDialogueEnd`), `DialogueEvent`, `TurnPolicy`, `StopConditions`, `DialogueObserver`
+- `render.ts` — `renderEventLine()`: single source of truth for the `[Name]: text` / `(event)` wire format shared by participants, moderator, and persistence
+- `participants/interaction-participant.ts` — wraps any Interaction; structured `bow_out` done tool (trailing `<done/>` honored as fallback), self-prefix strip, tool-only-turn retry, opt-in `historyWindow` (bounded view, own turns stored as self-narration)
+- `participants/human-participant.ts` — human seat via `getInput` callback
+- `policies/round-robin.ts`, `policies/moderator.ts` — stateless round-robin default (rotation derived from the event log); moderator model picks speakers via `generateObject`
+- `persist.ts` — canonical transcript.jsonl + meta.json (`type: "dialogue"`, participant roster in metadata)
+
+Surfaces: `umwelten converse` CLI (agents + personas + `--moderator`), habitat `agent_converse` tool, `examples/dialogue-debate/`. Habitat adapter: `packages/habitat/src/dialogue/habitat-agent-participant.ts` (dialogue-scoped Interactions, `withAgentCall` recursion bounding). Docs: `docs/guide/agent-dialogues.md`.
+
 ### `src/habitat/` — Agent Container
 
 The top-level system. Manages work directory, config, sessions, tools, agents, and secrets.
@@ -224,7 +238,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 | `agentToolSet`               | list/add/update/remove agents                                                                      | Yes                    |
 | `sessionToolSet`             | sessions\_\* list/show/messages/stats/inspect/read_file, learnings append/read, transcript compact | Yes                    |
 | `externalInteractionToolSet` | read Claude Code/Cursor history                                                                    | Yes                    |
-| `agentRunnerToolSet`         | agent_clone, agent_register_directory, agent_logs, agent_status, agent_ask, agent_ask_claude, agent_configure | Yes                    |
+| `agentRunnerToolSet`         | agent_clone, agent_register_directory, agent_logs, agent_status, agent_ask, agent_ask_claude, agent_converse, agent_configure | Yes                    |
 | `secretsToolSet`             | set/remove/list secrets                                                                            | Yes                    |
 | `searchToolSet`              | web search via Tavily                                                                              | Yes                    |
 | `selfModifyToolSet`          | create_tool, create_skill, reload, list, remove                                                    | Yes                    |
@@ -239,7 +253,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 - `agent-tools.ts` — Agent CRUD
 - `session-tools.ts` — Session inspection
 - `external-interaction-tools.ts` — Claude Code/Cursor session reading
-- `agent-runner-tools.ts` — Clone repos, register directories as agents, read logs, check status, delegate to sub-agents via base runner (`agent_ask`) or Claude Agent SDK (`agent_ask_claude`), configure an agent's MEMORY.md
+- `agent-runner-tools.ts` — Clone repos, register directories as agents, read logs, check status, delegate to sub-agents via base runner (`agent_ask`) or Claude Agent SDK (`agent_ask_claude`), run multi-turn dialogues between agents (`agent_converse`), configure an agent's MEMORY.md
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
 - `secrets-tools.ts` — Manage secrets in the habitat store
 - `self-modify-tools.ts` — Create/remove tools and skills at runtime
@@ -455,6 +469,7 @@ Registered top-level commands (`cli.ts`):
 - `models` — list/search models across providers, `--view info|costs`, JSON output, `llamaswap-config` generator.
 - `run` — one-shot prompt (`--prompt`, `--attach`, `--object`, `--stats`).
 - `chat` — interactive REPL via `@umwelten/ui/cli/CLIInterface` (the non-habitat REPL — see the `@umwelten/ui` section below for the deliberate split between `CLIInterface` and `repl.ts`).
+- `converse` — run a Dialogue between 2+ agents/personas (`--agent`, `--persona "Name=prompt"`, `--moderator`, `--max-turns`, `--json`). Persists as a `dialogue` session; see `docs/guide/agent-dialogues.md`.
 - `sessions` — sessions tree (list/show/messages/tools/stats/format/digest plus the `habitat` subtree). Registered by `@umwelten/sessions`.
 - `habitat` — habitat REPL + subcommands: `local`/`here`, `telegram`, `discord`, `web` (legacy Gaia), `secrets {list,set,remove}`, `serve` (MCP+chat+web), `gaia` (orchestrator), `chat` (A2A client). The Telegram and Discord bots live here; the previous top-level `umwelten telegram` standalone command was retired in Wave E.
 - `mcp` — MCP client/server ops: `mcp connect`, `mcp chat` (remote MCP with OAuth), `mcp test-tool`, `mcp read-resource`, `mcp create-server` (debug), `mcp list`.

@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Umwelten · Dialogue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #16130e;
+    --paper-raised: #1d1913;
+    --ink: #ece3cf;
+    --ink-dim: #9b917c;
+    --hairline: #3a342a;
+    --accent: #e7c95c;
+    --error: #e78a7a;
+    --c0: #7fe2d4; /* cyan   */
+    --c1: #a4de84; /* green  */
+    --c2: #e9a3d3; /* magenta*/
+    --c3: #e7c95c; /* yellow */
+    --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+    --display: "Instrument Serif", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  /* film grain */
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px 120px; }
+
+  /* ── Masthead ─────────────────────────────────────────── */
+  header {
+    padding: 44px 0 20px;
+    border-bottom: 1px solid var(--ink);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(42px, 6vw, 72px);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  header h1 em { font-style: italic; color: var(--accent); }
+  .masthead-note {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
+    text-transform: uppercase; letter-spacing: 0.14em; text-align: right; line-height: 1.8;
+  }
+
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 48px; padding-top: 36px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  /* ── Setup column ─────────────────────────────────────── */
+  .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--ink-dim);
+    display: flex; align-items: center; gap: 10px;
+    margin: 26px 0 10px;
+  }
+  .kicker::after { content: ""; flex: 1; border-top: 1px solid var(--hairline); }
+  .kicker:first-child { margin-top: 0; }
+
+  label { display: block; }
+  input[type="password"], input[type="text"], textarea, select {
+    width: 100%;
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    color: var(--ink);
+    font-family: var(--mono); font-size: 13px;
+    padding: 9px 11px;
+    border-radius: 0;
+    outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
+  .hint { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin-top: 6px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+
+  /* participant cards */
+  .participant {
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--pcolor, var(--ink-dim));
+    background: var(--paper-raised);
+    padding: 12px 12px 14px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .participant .row { margin-bottom: 8px; }
+  .participant input[name="pname"] { font-weight: 500; }
+  .participant .remove {
+    position: absolute; top: 6px; right: 6px;
+    background: none; border: none; color: var(--ink-dim);
+    font-family: var(--mono); font-size: 14px; cursor: pointer; padding: 4px 7px;
+  }
+  .participant .remove:hover { color: var(--error); }
+
+  button.action {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    background: none; border: 1px solid var(--ink); color: var(--ink);
+    padding: 11px 18px; cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  button.action:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  button.action.primary { border-color: var(--accent); color: var(--accent); }
+  button.action.primary:hover:not(:disabled) { background: var(--accent); color: var(--paper); }
+  button.action:disabled { opacity: 0.35; cursor: default; }
+  .controls { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+  .field { margin-bottom: 12px; }
+  .turns-row { display: flex; gap: 10px; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+  .turns-row input { width: 72px; }
+
+  /* ── Transcript column ────────────────────────────────── */
+  .stage-topic {
+    font-family: var(--display); font-style: italic;
+    font-size: clamp(22px, 3vw, 30px); line-height: 1.25;
+    color: var(--ink);
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 18px; margin: 0 0 8px;
+    min-height: 40px;
+  }
+  .stage-topic .q { color: var(--ink-dim); font-size: 0.7em; vertical-align: super; margin-right: 8px; font-style: normal; font-family: var(--mono); }
+
+  .turn { padding: 26px 0 4px; animation: rise 0.45s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .turn + .turn { border-top: 1px dotted var(--hairline); }
+  .speaker {
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--pcolor, var(--ink));
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px;
+  }
+  .speaker .model-tag { color: var(--ink-dim); letter-spacing: 0.05em; text-transform: none; font-weight: 400; font-size: 11px; }
+  .turn .body { font-size: 18.5px; max-width: 62ch; white-space: pre-wrap; }
+  .turn .body::after { content: ""; }
+  .turn.streaming .body::after {
+    content: "▍"; color: var(--pcolor, var(--accent));
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .turn.seed .body { font-style: italic; color: var(--ink-dim); font-size: 17px; }
+
+  .verdict {
+    margin-top: 34px; padding: 16px 0 0; border-top: 1px solid var(--ink);
+    font-family: var(--mono); font-size: 12px; color: var(--ink-dim); letter-spacing: 0.08em;
+  }
+  .verdict.error { color: var(--error); }
+
+  .empty-stage {
+    padding: 60px 0; color: var(--ink-dim); font-style: italic; font-size: 18px;
+  }
+  .empty-stage b { color: var(--ink); font-weight: 500; }
+
+  .status-line { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); margin-top: 8px; min-height: 16px; }
+  .status-line.error { color: var(--error); }
+
+  footer { margin-top: 80px; border-top: 1px solid var(--hairline); padding-top: 14px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-dim); letter-spacing: 0.08em; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Umwelten <em>Dialogue</em></h1>
+    <div class="masthead-note">a colloquium of models<br/>streamed live · nothing leaves your browser except calls to openrouter</div>
+  </header>
+
+  <main>
+    <!-- ── Setup ─────────────────────────────────────────── -->
+    <section id="setup">
+      <div class="kicker">Credentials</div>
+      <div class="field">
+        <input type="password" id="apiKey" placeholder="sk-or-v1-… (OpenRouter API key)" autocomplete="off" />
+        <div class="hint">stored in localStorage only · <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">get a key</a></div>
+      </div>
+
+      <div class="kicker">Participants</div>
+      <div id="participants"></div>
+      <button class="action" id="addParticipant">+ Add participant</button>
+
+      <div class="kicker">Question</div>
+      <div class="field">
+        <textarea id="topic" placeholder="What should they argue about?"></textarea>
+      </div>
+      <div class="turns-row">
+        <span>max turns</span>
+        <input type="text" id="maxTurns" value="8" inputmode="numeric" />
+      </div>
+
+      <div class="controls">
+        <button class="action primary" id="run">Begin dialogue</button>
+        <button class="action" id="stop" disabled>Stop</button>
+        <button class="action" id="download" disabled>Save transcript</button>
+      </div>
+      <div class="status-line" id="status"></div>
+    </section>
+
+    <!-- ── Transcript ────────────────────────────────────── -->
+    <section id="stage">
+      <p class="stage-topic" id="stageTopic"></p>
+      <div id="transcript">
+        <div class="empty-stage">Add two or more participants — a <b>name</b>, a <b>model</b>, a <b>persona</b> — pose a question, and watch them talk it out.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    umwelten · examples/dialogue-web · same conventions as <span style="color:var(--ink)">umwelten converse</span>:
+    speaker-labeled turns, round-robin, &lt;done/&gt; to bow out
+  </footer>
+</div>
+
+<datalist id="modelList"></datalist>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════
+   Umwelten Dialogue — static, no-build web example.
+   Mirrors the @umwelten/core dialogue conventions:
+   - one canonical event log, per-participant private histories
+   - others' turns arrive as ONE user message labeled "[Name]: text"
+   - a participant bows out by ending a message with <done/>
+   ════════════════════════════════════════════════════════════ */
+
+const OR_BASE = "https://openrouter.ai/api/v1";
+const DONE_MARKER = "<done/>";
+const PALETTE = ["--c0", "--c1", "--c2", "--c3"];
+const $ = (sel) => document.querySelector(sel);
+
+/* ── persistence ─────────────────────────────────────────── */
+const store = {
+  load() { try { return JSON.parse(localStorage.getItem("umwelten-dialogue") || "{}"); } catch { return {}; } },
+  save(patch) {
+    const cur = store.load();
+    localStorage.setItem("umwelten-dialogue", JSON.stringify({ ...cur, ...patch }));
+  },
+};
+
+/* ── participant roster UI ───────────────────────────────── */
+const DEFAULT_PARTICIPANTS = [
+  { name: "Advocate", model: "google/gemini-3.1-flash-lite", persona: "You argue passionately IN FAVOR of the question at hand. Concede nothing without a fight. Keep each turn to 2-4 sentences." },
+  { name: "Skeptic",  model: "google/gemini-3.1-flash-lite", persona: "You argue AGAINST. Demand evidence, poke holes, stay sharp but fair. Keep each turn to 2-4 sentences." },
+];
+
+function participantCard(p = {}) {
+  const div = document.createElement("div");
+  div.className = "participant";
+  div.innerHTML = `
+    <button class="remove" title="remove">×</button>
+    <div class="row"><input name="pname" type="text" placeholder="Name" value="${p.name ?? ""}" /></div>
+    <div class="row"><input name="pmodel" type="text" list="modelList" placeholder="model (e.g. google/gemini-3.1-flash-lite)" value="${p.model ?? ""}" /></div>
+    <textarea name="ppersona" placeholder="Persona — who are they, how do they argue?">${p.persona ?? ""}</textarea>`;
+  div.querySelector(".remove").addEventListener("click", () => { div.remove(); recolor(); persistSetup(); });
+  div.addEventListener("input", persistSetup);
+  return div;
+}
+
+function recolor() {
+  document.querySelectorAll("#participants .participant").forEach((el, i) => {
+    el.style.setProperty("--pcolor", `var(${PALETTE[i % PALETTE.length]})`);
+  });
+}
+
+function readParticipants() {
+  return [...document.querySelectorAll("#participants .participant")].map((el, i) => ({
+    name: el.querySelector('[name="pname"]').value.trim(),
+    model: el.querySelector('[name="pmodel"]').value.trim(),
+    persona: el.querySelector('[name="ppersona"]').value.trim(),
+    color: `var(${PALETTE[i % PALETTE.length]})`,
+  }));
+}
+
+function persistSetup() {
+  store.save({
+    participants: readParticipants(),
+    topic: $("#topic").value,
+    maxTurns: $("#maxTurns").value,
+  });
+}
+
+/* ── model list (public endpoint, no key needed) ─────────── */
+async function loadModels() {
+  try {
+    const res = await fetch(`${OR_BASE}/models`);
+    const { data } = await res.json();
+    const list = $("#modelList");
+    data
+      .map((m) => m.id)
+      .sort()
+      .forEach((id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        list.appendChild(opt);
+      });
+    setStatus(`${data.length} models available`);
+  } catch {
+    setStatus("could not load model list (offline?) — type a model id manually", true);
+  }
+}
+
+/* ── OpenRouter streaming call ───────────────────────────── */
+async function streamCompletion({ apiKey, model, messages, signal, onDelta }) {
+  const res = await fetch(`${OR_BASE}/chat/completions`, {
+    method: "POST",
+    signal,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://github.com/The-Focus-AI/umwelten",
+      "X-Title": "Umwelten Dialogue",
+    },
+    body: JSON.stringify({ model, messages, stream: true }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try { detail = (await res.json()).error?.message ?? detail; } catch {}
+    throw new Error(detail);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", full = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop(); // keep incomplete tail
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const payload = line.slice(6).trim();
+      if (payload === "[DONE]") return full;
+      try {
+        const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+        if (delta) { full += delta; onDelta(full); }
+      } catch { /* comment/keepalive lines */ }
+    }
+  }
+  return full;
+}
+
+/* ── dialogue engine (mirror of @umwelten/core/dialogue) ─── */
+function systemPromptFor(p, roster) {
+  const others = roster.filter((o) => o !== p).map((o) => o.name).join(", ");
+  return [
+    p.persona,
+    `You are ${p.name} in a conversation with ${others}. Messages from others appear as "[Name]: text". Reply as yourself — never prefix your reply with your own name or any "[Name]:" label.`,
+    `Keep engaging while the conversation is productive. Only when it has truly run its course and you have nothing further to add, end your message with ${DONE_MARKER}`,
+  ].join("\n\n");
+}
+
+const sanitize = (name, text) =>
+  text.replace(new RegExp(`^\\[${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\]:\\s*`, "i"), "")
+      .split(DONE_MARKER).join("").trim();
+
+async function runDialogue({ apiKey, roster, topic, maxTurns, signal }) {
+  const events = [{ name: "You", content: topic }];   // canonical log (seed)
+  roster.forEach((p) => {
+    p.history = [{ role: "system", content: systemPromptFor(p, roster) }];
+    p.cursor = 0;
+    p.done = false;
+  });
+
+  let turn = 0, idx = -1;
+  while (turn < maxTurns) {
+    if (signal.aborted) return { events, stoppedBy: "stopped" };
+    // round-robin, skipping participants that bowed out
+    let speaker = null;
+    for (let i = 1; i <= roster.length; i++) {
+      const cand = roster[(idx + i) % roster.length];
+      if (!cand.done) { speaker = cand; idx = (idx + i) % roster.length; break; }
+    }
+    if (!speaker) return { events, stoppedBy: "everyone is done" };
+
+    // deltas since this speaker's last turn → ONE labeled user message
+    const fresh = events.slice(speaker.cursor).filter((e) => e.content.trim());
+    speaker.history.push({
+      role: "user",
+      content: fresh.length
+        ? fresh.map((e) => `[${e.name}]: ${e.content}`).join("\n\n")
+        : "(you have the floor — continue)",
+    });
+
+    turn++;
+    const el = addTurn(speaker);
+    let raw = "";
+    try {
+      raw = await streamCompletion({
+        apiKey, model: speaker.model, messages: speaker.history, signal,
+        onDelta: (full) => { el.body.textContent = sanitize(speaker.name, full); },
+      });
+    } catch (err) {
+      el.root.classList.remove("streaming");
+      if (err.name === "AbortError") return { events, stoppedBy: "stopped" };
+      throw new Error(`${speaker.name} (${speaker.model}): ${err.message}`);
+    }
+    el.root.classList.remove("streaming");
+
+    speaker.done = raw.includes(DONE_MARKER);
+    const clean = sanitize(speaker.name, raw);
+    el.body.textContent = clean;
+    speaker.history.push({ role: "assistant", content: raw });
+    events.push({ name: speaker.name, content: clean });
+    speaker.cursor = events.length;   // never re-reads its own turn
+
+    if (roster.every((p) => p.done)) return { events, stoppedBy: "everyone is done" };
+  }
+  return { events, stoppedBy: `max turns (${maxTurns})` };
+}
+
+/* ── transcript rendering ────────────────────────────────── */
+function addTurn(speaker) {
+  const root = document.createElement("div");
+  root.className = "turn streaming";
+  root.style.setProperty("--pcolor", speaker.color);
+  root.innerHTML = `
+    <div class="speaker">${speaker.name}<span class="model-tag">${speaker.model}</span></div>
+    <div class="body"></div>`;
+  $("#transcript").appendChild(root);
+  root.scrollIntoView({ behavior: "smooth", block: "end" });
+  return { root, body: root.querySelector(".body") };
+}
+
+function setStatus(text, isError = false) {
+  const el = $("#status");
+  el.textContent = text;
+  el.classList.toggle("error", isError);
+}
+
+/* ── wiring ──────────────────────────────────────────────── */
+let controller = null;
+let lastRun = null;
+
+$("#addParticipant").addEventListener("click", () => {
+  $("#participants").appendChild(participantCard({ model: readParticipants()[0]?.model ?? "" }));
+  recolor(); persistSetup();
+});
+
+$("#run").addEventListener("click", async () => {
+  const apiKey = $("#apiKey").value.trim();
+  const roster = readParticipants().filter((p) => p.name && p.model);
+  const topic = $("#topic").value.trim();
+  const maxTurns = Math.max(1, parseInt($("#maxTurns").value, 10) || 8);
+
+  if (!apiKey) return setStatus("enter your OpenRouter API key first", true);
+  if (roster.length < 2) return setStatus("a dialogue needs at least 2 named participants with models", true);
+  if (!topic) return setStatus("pose a question", true);
+  const names = new Set(roster.map((p) => p.name.toLowerCase()));
+  if (names.size !== roster.length) return setStatus("participant names must be unique", true);
+
+  store.save({ apiKey });
+  persistSetup();
+
+  $("#transcript").innerHTML = "";
+  $("#stageTopic").innerHTML = `<span class="q">Q.</span>` + topic.replace(/</g, "&lt;");
+  $("#run").disabled = true; $("#stop").disabled = false; $("#download").disabled = true;
+  setStatus("in session…");
+
+  controller = new AbortController();
+  try {
+    lastRun = await runDialogue({ apiKey, roster, topic, maxTurns, signal: controller.signal });
+    const verdict = document.createElement("div");
+    verdict.className = "verdict";
+    verdict.textContent = `— dialogue ended: ${lastRun.stoppedBy} —`;
+    $("#transcript").appendChild(verdict);
+    setStatus("");
+    $("#download").disabled = false;
+  } catch (err) {
+    const verdict = document.createElement("div");
+    verdict.className = "verdict error";
+    verdict.textContent = `— ${err.message} —`;
+    $("#transcript").appendChild(verdict);
+    setStatus(err.message, true);
+  } finally {
+    $("#run").disabled = false; $("#stop").disabled = true;
+    controller = null;
+  }
+});
+
+$("#stop").addEventListener("click", () => controller?.abort());
+
+$("#download").addEventListener("click", () => {
+  if (!lastRun) return;
+  const md = [`# Dialogue`, "", ...lastRun.events.map((e) => `**[${e.name}]:** ${e.content}\n`)].join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+  a.download = `dialogue-${Date.now()}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$("#apiKey").addEventListener("change", () => store.save({ apiKey: $("#apiKey").value.trim() }));
+$("#topic").addEventListener("input", persistSetup);
+$("#maxTurns").addEventListener("input", persistSetup);
+
+/* ── boot ────────────────────────────────────────────────── */
+(function boot() {
+  const saved = store.load();
+  $("#apiKey").value = saved.apiKey ?? "";
+  $("#topic").value = saved.topic ?? "Are microservices overrated for small teams?";
+  $("#maxTurns").value = saved.maxTurns ?? "8";
+  const roster = saved.participants?.length ? saved.participants : DEFAULT_PARTICIPANTS;
+  roster.forEach((p) => $("#participants").appendChild(participantCard(p)));
+  recolor();
+  loadModels();
+})();
+</script>
+</body>
+</html>
