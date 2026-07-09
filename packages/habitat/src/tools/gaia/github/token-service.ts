@@ -4,9 +4,11 @@
  * Derives the down-scoped repo list + permissions from a habitat entry's
  * `github` capability declaration and mints tokens via ./app-auth.ts,
  * reading the App private key from disk at mint time (never stored in the
- * vault or config). Mints are cached ~50 minutes per (kind + sorted repo
- * list) to respect the installation's pooled rate limits (blind spot #7) —
- * safely under the 1-hour token expiry.
+ * vault or config). Mints are cached ~50 minutes per (habitat + kind +
+ * sorted repo list) — safely under the 1-hour token expiry, and never
+ * shared across habitats: each workspace holds its own token even when two
+ * declare identical scopes, so one habitat's token leaking or being cycled
+ * says nothing about any other's.
  */
 
 import { readFile } from "node:fs/promises";
@@ -52,6 +54,17 @@ export interface GithubTokenServiceDeps {
 const CACHE_TTL_MS = 50 * 60 * 1000;
 
 /**
+ * The mint API's `repositories` field takes bare repo names — the owner is
+ * implied by the installation — but declarations naturally arrive as
+ * `owner/name` (that's how the registry and humans write repos everywhere
+ * else). GitHub 422s on owner-prefixed names, so strip to the final path
+ * segment and dedupe before minting.
+ */
+function toBareRepoNames(repos: string[]): string[] {
+	return [...new Set(repos.map((r) => r.split("/").filter(Boolean).pop() ?? r))].sort();
+}
+
+/**
  * Derive the token scope for an entry + kind, or null when the entry
  * declares no matching capability.
  *
@@ -74,7 +87,7 @@ export function deriveGithubTokenScope(
 		}
 		if (Array.isArray(decl.read) && decl.read.length > 0) {
 			return {
-				repositories: [...decl.read].sort(),
+				repositories: toBareRepoNames(decl.read),
 				permissions: { contents: "read" },
 			};
 		}
@@ -83,7 +96,7 @@ export function deriveGithubTokenScope(
 
 	if (Array.isArray(decl.write) && decl.write.length > 0) {
 		return {
-			repositories: [...decl.write].sort(),
+			repositories: toBareRepoNames(decl.write),
 			permissions: {
 				contents: "write",
 				issues: "write",
@@ -153,7 +166,9 @@ export function createGithubTokenService(
 		const scope = deriveGithubTokenScope(entry, kind);
 		if (!scope) return null;
 
-		const cacheKey = `${kind}|${scope.repositories?.join(",") ?? "<org>"}`;
+		// Habitat id leads the key: tokens are per-workspace, never shared
+		// across habitats with coincidentally identical scopes.
+		const cacheKey = `${entry.id ?? "<anon>"}|${kind}|${scope.repositories?.join(",") ?? "<org>"}`;
 		const cached = cache.get(cacheKey);
 		if (cached && now() - cached.mintedAt < CACHE_TTL_MS) {
 			return cached.token;
