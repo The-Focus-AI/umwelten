@@ -392,6 +392,10 @@ export async function startContainerServer(
 			const shouldLog =
 				path.startsWith("/api/") ||
 				path.startsWith("/agents/") ||
+				// The connect flow (ADR 0004 §7) must be auditable — an OAuth
+				// callback that stores a token invisibly is undebuggable.
+				path === "/connect" ||
+				path.startsWith("/connect/") ||
 				path === "/mcp" ||
 				path === "/a2a" ||
 				path === "/health";
