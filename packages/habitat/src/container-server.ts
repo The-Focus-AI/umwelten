@@ -460,6 +460,23 @@ export async function startContainerServer(
 							organization: serverName,
 							url: publicBase,
 						};
+					// Annotate declared credentials with live configured status (names
+					// only — never values). Gaia seeds operator credentials into the
+					// habitat's vault; without this flag an attaching client re-asks
+					// the operator for secrets the habitat already holds. Computed at
+					// serve time (not boot) so it tracks /api/secrets writes and
+					// connect-flow token mints.
+					const declared = (
+						handler.agentCard as {
+							requiredCredentials?: Array<{ name: string }>;
+						}
+					).requiredCredentials;
+					if (declared?.length) {
+						card.requiredCredentials = declared.map((c) => ({
+							...c,
+							configured: habitat.isSecretAvailable(c.name),
+						}));
+					}
 					// Advertise the per-user connect surface as an A2A extension when a
 					// connector is registered (self-describing for the SaaS).
 					if (connectors.size > 0) {

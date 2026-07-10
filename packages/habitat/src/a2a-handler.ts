@@ -83,6 +83,13 @@ export interface RequiredCredential {
   required: boolean;
   type: "secret" | "oauth";
   connectPath?: string;
+  /**
+   * Whether the habitat already holds this credential (annotated at card-serve
+   * time from the live secret store; names checked, values never exposed). An
+   * attaching client should treat a configured credential as satisfied instead
+   * of asking the operator to re-enter a value gaia already manages.
+   */
+  configured?: boolean;
 }
 
 /** An A2A AgentCard plus our `requiredCredentials` extension. */
