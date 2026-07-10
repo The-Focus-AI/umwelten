@@ -58,6 +58,8 @@ interface HabitatLike {
   setSecret(name: string, value: string): Promise<void>;
   /** The verified speaking user (ADR 0003) when present — keys per-user tokens. */
   getCurrentUserId?(): string | undefined;
+  /** Secret names, no values — lets {@link perUserTokenStores} diagnose which token keys exist. */
+  listSecretNames?(): string[];
 }
 
 /** Adapt a `Habitat` (or anything with getSecret/setSecret) into a {@link SecretStore}. */
@@ -196,6 +198,58 @@ export function perUserTokenStores(habitat: HabitatLike) {
         bySubject.set(key, store);
       }
       return store;
+    },
+    /**
+     * Actionable "connect X" error for the read tools' needs_reauth catch.
+     *
+     * Looks at which token keys actually exist (names only) to tell apart the
+     * three ways a lookup comes up empty:
+     *
+     *  1. Speaker known, no token under their key → they haven't connected;
+     *     point them at the connect flow.
+     *  2. No speaker (request authenticated with the shared HABITAT_API_KEY /
+     *     off the A2A path) but per-user tokens EXIST → identity mismatch:
+     *     someone connected via the per-user flow, yet this request can only
+     *     see the shared operator token. The usual cause is an agent
+     *     attachment that predates per-user JWT dispatch — re-attaching in
+     *     the habitats app fixes it. Without this hint the habitat says
+     *     "not connected" to a user who just connected, which reads as the
+     *     OAuth silently failing.
+     *  3. Nothing stored at all → original bootstrap message.
+     */
+    connectError(): { error: string; kind: 'needs_x_connect' } {
+      const subject = habitat.getCurrentUserId?.();
+      const names = habitat.listSecretNames?.() ?? [];
+      const perUserCount = names.filter((n) =>
+        n.startsWith(`${X_REFRESH_TOKEN_SECRET}:`),
+      ).length;
+      if (subject) {
+        return {
+          error:
+            "Your X account isn't connected yet for your user identity. " +
+            'Connect it from the habitats app (the agent’s "Connect your X account" flow) and try again.',
+          kind: 'needs_x_connect',
+        };
+      }
+      if (perUserCount > 0) {
+        return {
+          error:
+            `This request arrived without a per-user identity (shared operator key), so only the ` +
+            `shared operator X token is visible — and none is set. However, ${perUserCount} X ` +
+            `account(s) ARE connected under per-user identities. This usually means the agent ` +
+            `attachment still dispatches with the legacy shared bearer while the X connect flow ` +
+            `stored the token under the connecting user’s identity. Fix: detach and re-attach ` +
+            `this agent in the habitats app so messages carry per-user identity (JWT) — the ` +
+            `already-connected account will then be found. (Alternatively, an operator can ` +
+            `connect a habitat-wide account.)`,
+          kind: 'needs_x_connect',
+        };
+      }
+      return {
+        error:
+          'Twitter is not authenticated. Connect an X account (or run the OAuth bootstrap) for this habitat.',
+        kind: 'needs_x_connect',
+      };
     },
   };
 }

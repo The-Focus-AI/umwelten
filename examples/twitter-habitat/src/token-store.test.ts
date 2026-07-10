@@ -264,11 +264,14 @@ describe('XTokenStore — per-subject', () => {
 
 describe('perUserTokenStores', () => {
   function habitat(initial: Record<string, string>, currentUser?: string) {
-    const secrets = fakeSecrets(initial);
+    const store = new Map(Object.entries(initial));
     return {
-      getSecret: (n: string) => secrets.get(n),
-      setSecret: (n: string, v: string) => secrets.set(n, v),
+      getSecret: (n: string) => store.get(n),
+      setSecret: async (n: string, v: string) => {
+        store.set(n, v);
+      },
       getCurrentUserId: () => currentUser,
+      listSecretNames: () => [...store.keys()],
     };
   }
 
@@ -283,5 +286,67 @@ describe('perUserTokenStores', () => {
     const reg = perUserTokenStores(habitat({}, undefined));
     expect(reg.currentSubject()).toBeUndefined();
     expect(reg.current()).toBe(reg.current());
+  });
+});
+
+describe('perUserTokenStores — connectError', () => {
+  function habitat(initial: Record<string, string>, currentUser?: string) {
+    const store = new Map(Object.entries(initial));
+    return {
+      getSecret: (n: string) => store.get(n),
+      setSecret: async (n: string, v: string) => {
+        store.set(n, v);
+      },
+      getCurrentUserId: () => currentUser,
+      listSecretNames: () => [...store.keys()],
+    };
+  }
+
+  it('tells a known speaker to connect their own account', () => {
+    const reg = perUserTokenStores(habitat({}, 'carol'));
+    const e = reg.connectError();
+    expect(e.kind).toBe('needs_x_connect');
+    expect(e.error).toMatch(/your user identity/i);
+  });
+
+  it('diagnoses the identity mismatch: no speaker but per-user tokens exist', () => {
+    const reg = perUserTokenStores(
+      habitat({ 'TWITTER_REFRESH_TOKEN:carol': 'rt-carol' }, undefined),
+    );
+    const e = reg.connectError();
+    expect(e.kind).toBe('needs_x_connect');
+    // The money hint: the account IS connected, the request just can't see it.
+    expect(e.error).toMatch(/1 X account\(s\) ARE connected/);
+    expect(e.error).toMatch(/detach and re-attach/i);
+    // Never leak the connected subject or the token.
+    expect(e.error).not.toContain('carol');
+    expect(e.error).not.toContain('rt-carol');
+  });
+
+  it('falls back to the bootstrap message when nothing is stored', () => {
+    const reg = perUserTokenStores(habitat({}, undefined));
+    const e = reg.connectError();
+    expect(e.kind).toBe('needs_x_connect');
+    expect(e.error).toMatch(/OAuth bootstrap/);
+  });
+
+  it('does not count the shared operator key as a per-user connection', () => {
+    // Shared key present but empty-string lookups aside, a *set* shared key
+    // means refresh would have been attempted — connectError is only reached
+    // when the lookup failed, so treat a lone shared key as "nothing per-user".
+    const reg = perUserTokenStores(habitat({ TWITTER_REFRESH_TOKEN: 'rt' }, undefined));
+    const e = reg.connectError();
+    expect(e.error).toMatch(/OAuth bootstrap/);
+  });
+
+  it('copes with habitats that do not expose listSecretNames', () => {
+    const reg = perUserTokenStores({
+      getSecret: () => undefined,
+      setSecret: async () => {},
+      getCurrentUserId: () => undefined,
+    });
+    const e = reg.connectError();
+    expect(e.kind).toBe('needs_x_connect');
+    expect(e.error).toMatch(/OAuth bootstrap/);
   });
 });
