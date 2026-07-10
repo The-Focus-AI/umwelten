@@ -5,7 +5,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GaiaRegistryManager } from "./registry.js";
 import type { GaiaSecretVault } from "./secrets.js";
-import type { DockerManager } from "./docker.js";
+import { resolveHabitatHostname, type DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
 import type { CredentialAuditLogger } from "./credential-audit.js";
 import { proxyRequest, fetchFromContainer } from "./proxy.js";
@@ -150,6 +150,20 @@ export function resolveProxyTarget(
 	return null;
 }
 
+/**
+ * Public https URL a habitat is reachable at (via the caddy label proxy), or
+ * undefined off-ingress (local dev). Gaia mints this hostname itself when it
+ * launches the container — surfacing it here means operators and the SaaS can
+ * read endpoints from the registry instead of reconstructing them by hand.
+ */
+function habitatPublicUrl(entry: {
+	id: string;
+	hostname?: string;
+}): string | undefined {
+	const hostname = resolveHabitatHostname(entry);
+	return hostname ? `https://${hostname}` : undefined;
+}
+
 function readBody(req: IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let data = "";
@@ -195,6 +209,7 @@ export async function handleGaiaRoute(
 					...entry,
 					apiKey: undefined,
 					containerStatus: status,
+					url: habitatPublicUrl(entry),
 					_credMeta,
 				};
 			}),
@@ -226,7 +241,12 @@ export async function handleGaiaRoute(
 			return true;
 		}
 		const status = await ctx.docker.getStatus(entry.id);
-		sendJson(res, { ...entry, apiKey: undefined, containerStatus: status });
+		sendJson(res, {
+			...entry,
+			apiKey: undefined,
+			containerStatus: status,
+			url: habitatPublicUrl(entry),
+		});
 		return true;
 	}
 
