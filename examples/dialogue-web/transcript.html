@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>Umwelten · Transcript</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600&display=swap" rel="stylesheet" />
+<style>
+  /* Raw-markdown viewer for exported transcripts — same Swiss sheet as index.html */
+  :root {
+    --paper: #fafaf9;
+    --ink: #1c1917;
+    --hairline: #e7e5e4;
+    --accent: #C8102E;
+    --font: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 64rem; margin: 0 auto; padding: 0 32px 120px; }
+  header {
+    padding: 48px 0 24px;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-weight: 300; font-size: 2.5rem; letter-spacing: -0.02em; margin: 0; }
+  header h1 em { font-style: normal; color: var(--accent); }
+  .filename {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding-top: 32px;
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Umwelten <em>Dialogue</em> · transcript</h1>
+    <div class="filename" id="filename">transcripts/…</div>
+  </header>
+  <pre id="md">loading…</pre>
+</div>
+<script>
+"use strict";
+// Shows the newest exported transcript verbatim (raw markdown).
+// Override with ?file=/transcripts/<name>.md
+(async () => {
+  const file = new URLSearchParams(location.search).get("file") ?? "/transcript/latest";
+  try {
+    const res = await fetch(file);
+    if (!res.ok) throw new Error(res.status);
+    document.getElementById("md").textContent = await res.text();
+    const name = res.headers.get("X-Transcript-Name");
+    document.getElementById("filename").textContent = "transcripts/" + (name ?? file.split("/").pop());
+  } catch {
+    document.getElementById("md").textContent = "could not load transcript — run a dialogue first (serve.mjs saves exports to transcripts/)";
+  }
+})();
+</script>
+</body>
+</html>

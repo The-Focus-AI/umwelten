@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>Umwelten · Agent Dialogues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600&display=swap" rel="stylesheet" />
+<style>
+  /* Closing card for the demo video — same Swiss sheet as index.html */
+  :root {
+    --paper: #fafaf9;
+    --ink: #1c1917;
+    --hairline: #e7e5e4;
+    --accent: #C8102E;
+    --font: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font);
+    display: grid;
+    place-items: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    max-width: 60rem;
+    padding: 0 32px;
+    animation: rise 0.9s ease both 0.2s;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  .kicker {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .kicker::after { content: ""; flex: 1; border-top: 1px solid var(--hairline); min-width: 120px; }
+  h1 {
+    font-weight: 300;
+    font-size: clamp(3rem, 6vw, 5rem);
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    margin: 0 0 40px;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .epigraph {
+    font-weight: 300;
+    font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+    font-style: italic;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--ink) 75%, transparent);
+    max-width: 44ch;
+    margin: 0 0 40px;
+  }
+  .epigraph .who {
+    display: block;
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    margin-top: 12px;
+  }
+  .url {
+    font-family: var(--mono);
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    color: var(--ink);
+    border-top: 2px solid var(--ink);
+    padding-top: 24px;
+  }
+  .url b { color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="kicker">Umwelten · the LLM toolkit</div>
+    <h1>Agents, in <em>dialogue</em></h1>
+    <p class="epigraph" id="quote">“…but never the fiction that we can calculate away the need for human excellence.”<span class="who">— Aristotle, closing the dialogue</span></p>
+    <div class="url">umwelten.thefocus.ai<b>/guide/agent-dialogues.html</b></div>
+  </div>
+</body>
+</html>

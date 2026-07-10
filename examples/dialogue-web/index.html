@@ -3,77 +3,117 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<meta name="theme-color" content="#fafaf9" />
 <title>Umwelten · Dialogue</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet" />
 <style>
+  /* Classic Swiss Grid — IBM Plex Sans, stone palette, Swiss red accent */
   :root {
-    --paper: #16130e;
-    --paper-raised: #1d1913;
-    --ink: #ece3cf;
-    --ink-dim: #9b917c;
-    --hairline: #3a342a;
-    --accent: #e7c95c;
-    --error: #e78a7a;
-    --c0: #7fe2d4; /* cyan   */
-    --c1: #a4de84; /* green  */
-    --c2: #e9a3d3; /* magenta*/
-    --c3: #e7c95c; /* yellow */
-    --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
-    --display: "Instrument Serif", Georgia, serif;
+    --paper: #fafaf9;        /* stone-50 */
+    --paper-raised: #f5f5f4; /* stone-100 */
+    --ink: #1c1917;          /* stone-900 */
+    --hairline: #e7e5e4;     /* stone-200 */
+    --accent: #C8102E;
+    --error: #C8102E;
+    /* Participant rail: one accent at stepped opacities */
+    --c0: #C8102E;
+    --c1: #C8102Ecc;
+    --c2: #C8102E99;
+    --c3: #C8102E66;
+    --font: "IBM Plex Sans", "Hanken Grotesk", "Barlow", system-ui, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
   * { box-sizing: border-box; }
+  html { color-scheme: light; }
   html, body { margin: 0; }
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--serif);
-    font-size: 17px;
-    line-height: 1.55;
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.6;
     min-height: 100vh;
-  }
-  /* film grain */
-  body::before {
-    content: "";
-    position: fixed; inset: 0; pointer-events: none; z-index: 999;
-    opacity: 0.05;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px 120px; }
+  .wrap {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 16px 120px;
+  }
+  @media (min-width: 768px) {
+    .wrap { padding: 0 32px 120px; }
+  }
 
   /* ── Masthead ─────────────────────────────────────────── */
   header {
-    padding: 44px 0 20px;
-    border-bottom: 1px solid var(--ink);
-    display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 48px 0 24px;
+    border-bottom: 2px solid var(--ink);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 768px) {
+    header {
+      grid-template-columns: 8fr 4fr;
+      align-items: end;
+    }
   }
   header h1 {
-    font-family: var(--display);
-    font-weight: 400;
-    font-size: clamp(42px, 6vw, 72px);
-    letter-spacing: -0.01em;
+    font-weight: 300;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    letter-spacing: -0.02em;
+    line-height: 1;
     margin: 0;
+    text-wrap: balance;
   }
-  header h1 em { font-style: italic; color: var(--accent); }
+  header h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
   .masthead-note {
-    font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
-    text-transform: uppercase; letter-spacing: 0.14em; text-align: right; line-height: 1.8;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    line-height: 1.7;
+  }
+  @media (min-width: 768px) {
+    .masthead-note { text-align: right; }
   }
 
-  main { display: grid; grid-template-columns: 380px 1fr; gap: 48px; padding-top: 36px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 48px;
+    padding-top: 48px;
+  }
+  @media (min-width: 900px) {
+    main {
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      gap: 64px;
+    }
+  }
 
   /* ── Setup column ─────────────────────────────────────── */
   .kicker {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em;
-    text-transform: uppercase; color: var(--ink-dim);
-    display: flex; align-items: center; gap: 10px;
-    margin: 26px 0 10px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 32px 0 16px;
   }
-  .kicker::after { content: ""; flex: 1; border-top: 1px solid var(--hairline); }
+  .kicker::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--hairline);
+  }
   .kicker:first-child { margin-top: 0; }
 
   label { display: block; }
@@ -82,96 +122,256 @@
     background: var(--paper-raised);
     border: 1px solid var(--hairline);
     color: var(--ink);
-    font-family: var(--mono); font-size: 13px;
-    padding: 9px 11px;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 14px;
     border-radius: 0;
     outline: none;
+    min-height: 44px;
   }
-  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-  textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
-  .hint { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin-top: 6px; }
-  .row { display: flex; gap: 10px; align-items: center; }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+  }
+  input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+  .hint {
+    font-size: 12px;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+  .row { display: flex; gap: 8px; align-items: center; }
 
-  /* participant cards */
   .participant {
     border: 1px solid var(--hairline);
-    border-left: 3px solid var(--pcolor, var(--ink-dim));
+    border-left: 3px solid var(--pcolor, var(--accent));
     background: var(--paper-raised);
-    padding: 12px 12px 14px;
-    margin-bottom: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
     position: relative;
   }
   .participant .row { margin-bottom: 8px; }
   .participant input[name="pname"] { font-weight: 500; }
   .participant .remove {
-    position: absolute; top: 6px; right: 6px;
-    background: none; border: none; color: var(--ink-dim);
-    font-family: var(--mono); font-size: 14px; cursor: pointer; padding: 4px 7px;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    font-family: var(--mono);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 8px 10px;
+    min-width: 44px;
+    min-height: 44px;
+    line-height: 1;
   }
-  .participant .remove:hover { color: var(--error); }
+  .participant .remove:hover { color: var(--accent); }
+  .participant .remove:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 
   button.action {
-    font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
-    background: none; border: 1px solid var(--ink); color: var(--ink);
-    padding: 11px 18px; cursor: pointer; transition: background 0.15s, color 0.15s;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 12px 20px;
+    min-height: 44px;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
   }
-  button.action:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
-  button.action.primary { border-color: var(--accent); color: var(--accent); }
-  button.action.primary:hover:not(:disabled) { background: var(--accent); color: var(--paper); }
+  button.action:hover:not(:disabled) {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  button.action.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.action.primary:hover:not(:disabled) {
+    background: color-mix(in srgb, #C8102E 90%, #000);
+  }
   button.action:disabled { opacity: 0.35; cursor: default; }
-  .controls { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  button.action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .controls { display: flex; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
 
-  .field { margin-bottom: 12px; }
-  .turns-row { display: flex; gap: 10px; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+  .field { margin-bottom: 16px; }
+  .turns-row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+  }
   .turns-row input { width: 72px; }
 
   /* ── Transcript column ────────────────────────────────── */
   .stage-topic {
-    font-family: var(--display); font-style: italic;
-    font-size: clamp(22px, 3vw, 30px); line-height: 1.25;
+    font-weight: 300;
+    font-size: clamp(1.5rem, 3vw, 1.875rem);
+    letter-spacing: -0.02em;
+    line-height: 1.25;
     color: var(--ink);
     border-bottom: 1px solid var(--hairline);
-    padding-bottom: 18px; margin: 0 0 8px;
+    padding-bottom: 24px;
+    margin: 0 0 8px;
     min-height: 40px;
+    text-wrap: balance;
   }
-  .stage-topic .q { color: var(--ink-dim); font-size: 0.7em; vertical-align: super; margin-right: 8px; font-style: normal; font-family: var(--mono); }
+  .stage-topic .q {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.65em;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+    vertical-align: super;
+  }
 
-  .turn { padding: 26px 0 4px; animation: rise 0.45s ease both; }
-  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .turn + .turn { border-top: 1px dotted var(--hairline); }
-  .speaker {
-    font-family: var(--mono); font-size: 12px; font-weight: 500;
-    letter-spacing: 0.2em; text-transform: uppercase;
-    color: var(--pcolor, var(--ink));
-    display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px;
+  .turn {
+    padding: 32px 0 8px;
+    animation: rise 0.45s ease both;
   }
-  .speaker .model-tag { color: var(--ink-dim); letter-spacing: 0.05em; text-transform: none; font-weight: 400; font-size: 11px; }
-  .turn .body { font-size: 18.5px; max-width: 62ch; white-space: pre-wrap; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  .turn + .turn { border-top: 1px solid var(--hairline); }
+  .speaker {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--pcolor, var(--accent));
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .speaker .model-tag {
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-weight: 400;
+    font-size: 11px;
+  }
+  .turn .body {
+    font-size: 17px;
+    line-height: 1.65;
+    max-width: 60ch;
+    white-space: pre-wrap;
+    text-wrap: pretty;
+  }
   .turn .body::after { content: ""; }
   .turn.streaming .body::after {
-    content: "▍"; color: var(--pcolor, var(--accent));
+    content: "▍";
+    color: var(--pcolor, var(--accent));
     animation: blink 1s steps(1) infinite;
   }
   @keyframes blink { 50% { opacity: 0; } }
-  .turn.seed .body { font-style: italic; color: var(--ink-dim); font-size: 17px; }
+  .turn.seed .body {
+    color: color-mix(in srgb, var(--ink) 55%, transparent);
+    font-size: 16px;
+  }
 
   .verdict {
-    margin-top: 34px; padding: 16px 0 0; border-top: 1px solid var(--ink);
-    font-family: var(--mono); font-size: 12px; color: var(--ink-dim); letter-spacing: 0.08em;
+    margin-top: 40px;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    letter-spacing: 0.08em;
   }
   .verdict.error { color: var(--error); }
 
   .empty-stage {
-    padding: 60px 0; color: var(--ink-dim); font-style: italic; font-size: 18px;
+    padding: 64px 0;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    font-weight: 300;
+    font-size: 18px;
+    max-width: 40ch;
   }
-  .empty-stage b { color: var(--ink); font-weight: 500; }
+  .empty-stage b {
+    color: var(--ink);
+    font-weight: 500;
+  }
 
-  .status-line { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); margin-top: 8px; min-height: 16px; }
+  .status-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    margin-top: 16px;
+    min-height: 16px;
+  }
   .status-line.error { color: var(--error); }
 
-  footer { margin-top: 80px; border-top: 1px solid var(--hairline); padding-top: 14px;
-    font-family: var(--mono); font-size: 11px; color: var(--ink-dim); letter-spacing: 0.08em; }
+  footer {
+    margin-top: 96px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: color-mix(in srgb, var(--ink) 40%, transparent);
+    letter-spacing: 0.08em;
+  }
   a { color: var(--accent); }
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .turn { animation: none; }
+    .turn.streaming .body::after { animation: none; }
+  }
+
+  /* ── Model combobox (page-rendered so it shows in recordings) ── */
+  .combo { position: relative; flex: 1; }
+  .combo-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    max-height: 240px;
+    overflow-y: auto;
+    display: none;
+  }
+  .combo-list.open { display: block; }
+  .combo-option {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .combo-option:hover { background: var(--accent); color: #fff; }
+
+  /* Automated (recorded) runs — see ?post= hook below. The recorder clears
+     fields with select-all before typing; hide the selection flash. */
+  body.automated ::selection { background: transparent; }
 </style>
 </head>
 <body>
@@ -226,8 +426,6 @@
   </footer>
 </div>
 
-<datalist id="modelList"></datalist>
-
 <script>
 "use strict";
 /* ════════════════════════════════════════════════════════════
@@ -264,11 +462,40 @@ function participantCard(p = {}) {
   div.innerHTML = `
     <button class="remove" title="remove">×</button>
     <div class="row"><input name="pname" type="text" placeholder="Name" value="${p.name ?? ""}" /></div>
-    <div class="row"><input name="pmodel" type="text" list="modelList" placeholder="model (e.g. google/gemini-3.1-flash-lite)" value="${p.model ?? ""}" /></div>
+    <div class="row"><div class="combo">
+      <input name="pmodel" type="text" autocomplete="off" placeholder="model (e.g. google/gemini-3.1-flash-lite)" value="${p.model ?? ""}" />
+      <div class="combo-list"></div>
+    </div></div>
     <textarea name="ppersona" placeholder="Persona — who are they, how do they argue?">${p.persona ?? ""}</textarea>`;
   div.querySelector(".remove").addEventListener("click", () => { div.remove(); recolor(); persistSetup(); });
   div.addEventListener("input", persistSetup);
+  attachCombo(div);
   return div;
+}
+
+/* filtered model dropdown — rendered in-page (a native datalist popup is
+   browser chrome, invisible to screen recordings) */
+function attachCombo(scope) {
+  const input = scope.querySelector('[name="pmodel"]');
+  const list = scope.querySelector(".combo-list");
+  const hide = () => list.classList.remove("open");
+  const render = () => {
+    const q = input.value.trim().toLowerCase();
+    const matches = (q ? MODEL_IDS.filter((id) => id.toLowerCase().includes(q)) : MODEL_IDS).slice(0, 8);
+    list.innerHTML = "";
+    matches.forEach((id) => {
+      const opt = document.createElement("div");
+      opt.className = "combo-option";
+      opt.textContent = id;
+      opt.addEventListener("mousedown", (e) => { e.preventDefault(); input.value = id; hide(); persistSetup(); });
+      list.appendChild(opt);
+    });
+    list.classList.toggle("open", matches.length > 0);
+  };
+  input.addEventListener("input", render);
+  input.addEventListener("focus", render);
+  input.addEventListener("blur", () => setTimeout(hide, 150));
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
 }
 
 function recolor() {
@@ -295,19 +522,12 @@ function persistSetup() {
 }
 
 /* ── model list (public endpoint, no key needed) ─────────── */
+let MODEL_IDS = [];
 async function loadModels() {
   try {
     const res = await fetch(`${OR_BASE}/models`);
     const { data } = await res.json();
-    const list = $("#modelList");
-    data
-      .map((m) => m.id)
-      .sort()
-      .forEach((id) => {
-        const opt = document.createElement("option");
-        opt.value = id;
-        list.appendChild(opt);
-      });
+    MODEL_IDS = data.map((m) => m.id).sort();
     setStatus(`${data.length} models available`);
   } catch {
     setStatus("could not load model list (offline?) — type a model id manually", true);
@@ -480,6 +700,18 @@ $("#run").addEventListener("click", async () => {
     $("#transcript").appendChild(verdict);
     setStatus("");
     $("#download").disabled = false;
+    // Automation hook: with ?post=<url> the finished transcript is POSTed
+    // there as markdown (used by serve.mjs when recording the demo video —
+    // headless Chrome drops file downloads, so the Save button can't be
+    // captured that way).
+    const postUrl = new URLSearchParams(location.search).get("post");
+    if (postUrl) {
+      fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/markdown" },
+        body: transcriptMarkdown(lastRun),
+      }).catch(() => {});
+    }
   } catch (err) {
     const verdict = document.createElement("div");
     verdict.className = "verdict error";
@@ -494,9 +726,12 @@ $("#run").addEventListener("click", async () => {
 
 $("#stop").addEventListener("click", () => controller?.abort());
 
+const transcriptMarkdown = (run) =>
+  [`# Dialogue`, "", ...run.events.map((e) => `**[${e.name}]:** ${e.content}\n`)].join("\n");
+
 $("#download").addEventListener("click", () => {
   if (!lastRun) return;
-  const md = [`# Dialogue`, "", ...lastRun.events.map((e) => `**[${e.name}]:** ${e.content}\n`)].join("\n");
+  const md = transcriptMarkdown(lastRun);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
   a.download = `dialogue-${Date.now()}.md`;
@@ -510,6 +745,7 @@ $("#maxTurns").addEventListener("input", persistSetup);
 
 /* ── boot ────────────────────────────────────────────────── */
 (function boot() {
+  if (new URLSearchParams(location.search).has("post")) document.body.classList.add("automated");
   const saved = store.load();
   $("#apiKey").value = saved.apiKey ?? "";
   $("#topic").value = saved.topic ?? "Are microservices overrated for small teams?";

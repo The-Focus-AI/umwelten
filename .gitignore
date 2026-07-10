@@ -120,3 +120,12 @@ gaia-data/
 
 # Docs-site copy of the dialogue web explorer (synced from examples/dialogue-web by docs:sync-assets)
 docs/public/dialogue/
+.webreel/
+
+# dialogue-web demo recordings — scripts/pages are committed, outputs are not
+examples/dialogue-web/videos/
+examples/dialogue-web/transcripts/
+
+# Claude Code local state + per-dir agent skill caches
+.claude/
+**/.agents/

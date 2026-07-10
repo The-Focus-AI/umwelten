@@ -1,0 +1,245 @@
+{
+  // JSON Schema for IDE autocompletion (VS Code, Cursor, JetBrains).
+  // Full docs: https://webreel.dev/configuration
+  "$schema": "https://webreel.dev/schema/v1.json",
+
+  // Output directory for recorded videos (relative to this file).
+  "outDir": "./videos",
+
+  // Default delay (ms) after each step. Override per-step with "delay".
+  "defaultDelay": 500,
+
+  "videos": {
+    // A colloquium of six philosophers debating AI regulation, each on a
+    // different OpenRouter model. Records the whole flow: entering the key,
+    // building the roster, posing the question, and the turns streaming in.
+    //
+    // To record:
+    //   1. Serve the page:   node serve.mjs   (from this directory; keep it
+    //      running — it also receives the finished transcript via POST and
+    //      writes it to transcripts/)
+    //   2. Record with the key in the env (never commit it — $VAR is
+    //      substituted at record time):
+    //        dotenvx run -f ../../.env -- npx webreel record philosophers-debate
+    //
+    // The API key is typed into a password field (renders as dots) and the
+    // keystroke HUD is disabled below, so the key never appears in the video.
+    //
+    // Post-editing: .webreel/ keeps the raw video + timeline, so
+    // `npx webreel composite` re-renders cursor/HUD/sfx without re-recording.
+    // For a Ken-Burns zoom on the setup column (webreel has no dynamic zoom),
+    // see "Post-editing" in the README.
+    "philosophers-debate": {
+      "url": "http://localhost:7439/?post=/transcript",
+      "viewport": { "width": 1920, "height": 1080 },
+      "waitFor": "#addParticipant",
+      "fps": 30,
+      // Every field fill needs a mod+a (see note below); rendering each as a
+      // "⌘ A" chip is pure noise, so hide the keystroke HUD entirely.
+      "theme": {
+        "hud": { "background": "rgba(0,0,0,0)", "color": "rgba(0,0,0,0)" }
+      },
+
+      "steps": [
+        { "action": "pause", "ms": 1200 },
+        // model list must be loaded before the dropdown can be shown
+        { "action": "wait", "text": "models available", "timeout": 15000 },
+
+        // ── The question first — the star of the show ────────────────
+        { "action": "click", "selector": "#topic" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "What is the right legal and regulatory framework for developing artificial intelligence in a global society?",
+          "charDelay": 14,
+          "delay": 800
+        },
+
+        // ── Credentials ──────────────────────────────────────────────
+        // NB: two webreel 0.1.4 quirks shape every field fill below.
+        // (1) `type` steps must not carry a selector — the text-to-type wins
+        //     the element search. So: click to focus, then a bare type.
+        // (2) After webreel's click, typing into an EMPTY field drops the
+        //     keystrokes (clickAt rewrites the document selection and breaks
+        //     the input's caret). A mod+a between click and type repairs it
+        //     (sent as a native selectAll), so every fill is click → mod+a
+        //     → type — which also clears prefilled fields.
+        { "action": "click", "selector": "#apiKey" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "$OPENROUTER_API_KEY",
+          "charDelay": 15,
+          "label": "OpenRouter key",
+          "delay": 700
+        },
+
+        // ── Participant 1: Aristotle (edit the default Advocate card) ─
+        { "action": "click", "selector": "#participants .participant:nth-child(1) input[name=pname]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "Aristotle", "charDelay": 40 },
+        // pick Aristotle's model from the dropdown: type a fragment, let the
+        // combobox filter, click the match
+        { "action": "click", "selector": "#participants .participant:nth-child(1) input[name=pmodel]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "claude-haiku", "charDelay": 45 },
+        { "action": "pause", "ms": 1500 },
+        { "action": "click", "text": "anthropic/claude-haiku-4.5", "delay": 700 },
+        { "action": "click", "selector": "#participants .participant:nth-child(1) textarea[name=ppersona]" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "You are Aristotle. Argue from virtue ethics and teleology: ask what AI is FOR, and what habits it cultivates in citizens and institutions. Favor practical wisdom over rigid universal rules. Keep each turn to 2-3 sentences.",
+          "charDelay": 10,
+          "delay": 700
+        },
+
+        // ── Participant 2: Jeremy Bentham (edit the default Skeptic card;
+        //    its model is already google/gemini-3.1-flash-lite — keep it)
+        { "action": "click", "selector": "#participants .participant:nth-child(2) input[name=pname]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "Jeremy Bentham", "charDelay": 40 },
+        { "action": "click", "selector": "#participants .participant:nth-child(2) textarea[name=ppersona]" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "You are Jeremy Bentham, founder of utilitarianism. Judge every framework by the greatest happiness of the greatest number: demand measurable outcomes and honest cost-benefit accounting of AI harms and benefits. Keep each turn to 2-3 sentences.",
+          "charDelay": 10,
+          "delay": 700
+        },
+
+        // ── Participant 3: William James ─────────────────────────────
+        { "action": "click", "text": "+ Add participant", "delay": 700 },
+        { "action": "click", "selector": "#participants .participant:nth-child(3) input[name=pname]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "William James", "charDelay": 40 },
+        // new cards inherit the first card's model — clear it first
+        { "action": "click", "selector": "#participants .participant:nth-child(3) input[name=pmodel]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "deepseek/deepseek-chat-v3.1", "charDelay": 18 },
+        { "action": "key", "key": "Escape" },
+        { "action": "click", "selector": "#participants .participant:nth-child(3) textarea[name=ppersona]" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "You are William James, the pragmatist. Test every proposed rule by its practical consequences, its cash-value in lived experience, and stay pluralist: different societies may need different frameworks. Keep each turn to 2-3 sentences.",
+          "charDelay": 10,
+          "delay": 500
+        },
+        { "action": "scroll", "y": 350, "delay": 400 },
+
+        // ── Participant 4: Friedrich Nietzsche ───────────────────────
+        { "action": "click", "text": "+ Add participant", "delay": 700 },
+        { "action": "click", "selector": "#participants .participant:nth-child(4) input[name=pname]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "Friedrich Nietzsche", "charDelay": 40 },
+        { "action": "click", "selector": "#participants .participant:nth-child(4) input[name=pmodel]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "x-ai/grok-4.5", "charDelay": 18 },
+        { "action": "key", "key": "Escape" },
+        { "action": "click", "selector": "#participants .participant:nth-child(4) textarea[name=ppersona]" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "You are Friedrich Nietzsche. Be suspicious of regulation as herd morality: ask who wills these rules, whose power they serve, and whether law will make AI's creators timid. Provocative and aphoristic. Keep each turn to 2-3 sentences.",
+          "charDelay": 10,
+          "delay": 500
+        },
+        { "action": "scroll", "y": 350, "delay": 400 },
+
+        // ── Participant 5: The Dalai Lama ────────────────────────────
+        { "action": "click", "text": "+ Add participant", "delay": 700 },
+        { "action": "click", "selector": "#participants .participant:nth-child(5) input[name=pname]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "The Dalai Lama", "charDelay": 40 },
+        { "action": "click", "selector": "#participants .participant:nth-child(5) input[name=pmodel]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "qwen/qwen3.6-flash", "charDelay": 18 },
+        { "action": "key", "key": "Escape" },
+        { "action": "click", "selector": "#participants .participant:nth-child(5) textarea[name=ppersona]" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "You are the Dalai Lama. Speak with warmth and humility: compassion, interdependence, and inner discipline must come before outer regulation, though a universal ethic can guide global law. Keep each turn to 2-3 sentences.",
+          "charDelay": 10,
+          "delay": 500
+        },
+        { "action": "scroll", "y": 350, "delay": 400 },
+
+        // ── Participant 6: John Adams ────────────────────────────────
+        { "action": "click", "text": "+ Add participant", "delay": 700 },
+        { "action": "click", "selector": "#participants .participant:nth-child(6) input[name=pname]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "John Adams", "charDelay": 40 },
+        { "action": "click", "selector": "#participants .participant:nth-child(6) input[name=pmodel]" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "meta-llama/llama-4-maverick", "charDelay": 18 },
+        { "action": "key", "key": "Escape" },
+        { "action": "click", "selector": "#participants .participant:nth-child(6) textarea[name=ppersona]" },
+        { "action": "key", "key": "mod+a" },
+        {
+          "action": "type",
+          "text": "You are John Adams. Insist on a government of laws and not of men: checks and balances, separation of powers, and written constitutions to restrain both AI builders and the states that regulate them. Keep each turn to 2-3 sentences.",
+          "charDelay": 10,
+          "delay": 700
+        },
+
+        // Two full rounds: 6 participants x 2 turns each
+        { "action": "click", "selector": "#maxTurns" },
+        { "action": "key", "key": "mod+a" },
+        { "action": "type", "text": "12", "charDelay": 60, "delay": 600 },
+
+        // ── Begin, and watch the turns stream in ─────────────────────
+        { "action": "click", "text": "Begin dialogue", "delay": 300 },
+        // the page auto-scrolls to follow each streaming turn
+        { "action": "wait", "selector": "#transcript .turn", "timeout": 60000 },
+        // dialogue runs to the verdict line ("— dialogue ended: … —")
+        { "action": "wait", "selector": ".verdict", "timeout": 900000 },
+        { "action": "pause", "ms": 1500 },
+        { "action": "screenshot", "output": "videos/philosophers-debate-final.png" },
+        // shown for the camera — the actual transcript file is captured by
+        // serve.mjs via the page's ?post=/transcript hook (headless Chrome
+        // drops real downloads)
+        { "action": "click", "text": "Save transcript" },
+        { "action": "pause", "ms": 2000 }
+      ]
+    },
+
+    // A slow read-through of the newest exported transcript (raw markdown,
+    // served by serve.mjs at /transcript/latest). Appended to the cinematic
+    // cut — see "Post-editing" in the README.
+    "transcript-scroll": {
+      "url": "http://localhost:7439/transcript.html",
+      "viewport": { "width": 1920, "height": 1080 },
+      "waitFor": ".filename",
+      "fps": 30,
+      "thumbnail": { "enabled": false },
+      "steps": [
+        { "action": "pause", "ms": 2500 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "scroll", "y": 450, "delay": 1100 },
+        { "action": "pause", "ms": 1500 }
+      ]
+    },
+
+    // Closing card with the docs link. Appended after the transcript scroll.
+    "end-card": {
+      "url": "http://localhost:7439/end-card.html",
+      "viewport": { "width": 1920, "height": 1080 },
+      "waitFor": ".url",
+      "fps": 30,
+      "thumbnail": { "enabled": false },
+      "steps": [
+        { "action": "pause", "ms": 7000 }
+      ]
+    }
+  }
+}

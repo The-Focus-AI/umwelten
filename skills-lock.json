@@ -133,6 +133,12 @@
       "skillPath": "skills/engineering/to-prd/SKILL.md",
       "computedHash": "6d741474efd4bc3db55fabc2722ed78ca9c374cabcb6212936d79d4fd4a30fcb"
     },
+    "webreel": {
+      "source": "vercel-labs/webreel",
+      "sourceType": "github",
+      "skillPath": "skills/webreel/SKILL.md",
+      "computedHash": "9acf843b0d7baf0afed49309127b4ded8d6c45ce43c9603492e048ba76e5d2d9"
+    },
     "write-a-skill": {
       "source": "mattpocock/skills",
       "sourceType": "github",
