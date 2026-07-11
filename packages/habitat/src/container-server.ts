@@ -616,6 +616,18 @@ export async function startContainerServer(
 									email: user.email,
 								}
 							: undefined;
+					// Ground truth for identity debugging: which credential this
+					// request actually carried. Sub is prefix-truncated — enough to
+					// correlate with a connect, never a full identity in the logs.
+					console.log(
+						`[${new Date().toISOString()}] a2a auth: ${
+							speaker
+								? `jwt sub=${speaker.userId.slice(0, 8)}…`
+								: user
+									? "shared bearer (operator)"
+									: "none (open)"
+						}`,
+					);
 					const addr = httpServer.address();
 					const actualPort =
 						typeof addr === "object" && addr ? addr.port : port;
