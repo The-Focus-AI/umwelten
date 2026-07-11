@@ -61,4 +61,34 @@ describe("agent-speaker-context", () => {
     expect(seen.a).toBe("a");
     expect(seen.b).toBe("b");
   });
+
+  // The message/stream trap (prod, 2026-07-11): transportHandler.handle()
+  // returns an async generator whose body — where the executor and tools run —
+  // executes at CONSUMPTION time. These two tests pin the semantics: a
+  // generator consumed outside the runWithSpeaker scope loses the speaker
+  // (the bug), while wrapping the whole consumption keeps it (the fix in
+  // container-server's /a2a route).
+  it("async generator consumed OUTSIDE the scope loses the speaker (the trap)", async () => {
+    async function* tools(): AsyncGenerator<string | undefined> {
+      yield getSpeaker()?.userId;
+    }
+    // handle()-style: create the generator inside the scope…
+    const gen = runWithSpeaker({ userId: "stream-user" }, () => tools());
+    // …but consume it outside (what the /a2a route used to do).
+    const seen: (string | undefined)[] = [];
+    for await (const v of gen) seen.push(v);
+    expect(seen).toEqual([undefined]);
+  });
+
+  it("async generator consumed INSIDE the scope keeps the speaker (the fix)", async () => {
+    async function* tools(): AsyncGenerator<string | undefined> {
+      await Promise.resolve();
+      yield getSpeaker()?.userId;
+    }
+    const seen: (string | undefined)[] = [];
+    await runWithSpeaker({ userId: "stream-user" }, async () => {
+      for await (const v of tools()) seen.push(v);
+    });
+    expect(seen).toEqual(["stream-user"]);
+  });
 });

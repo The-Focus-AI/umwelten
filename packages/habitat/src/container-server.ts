@@ -649,28 +649,35 @@ export async function startContainerServer(
 					}
 
 					try {
-						const result = await runWithSpeaker(speaker, () =>
-							handler.transportHandler.handle(parsedBody),
-						);
-						if (
-							result &&
-							typeof (result as any)[Symbol.asyncIterator] === "function"
-						) {
-							// Streaming response — SSE
-							res.writeHead(200, {
-								"Content-Type": "text/event-stream",
-								"Cache-Control": "no-cache",
-								Connection: "keep-alive",
-							});
-							const generator = result as AsyncGenerator<any>;
-							for await (const event of generator) {
-								res.write(`data: ${JSON.stringify(event)}\n\n`);
+						// The ENTIRE handle-and-consume must run inside runWithSpeaker:
+						// for message/stream, handle() only returns an async generator —
+						// the executor (and every tool's getCurrentUserId()) runs while
+						// the generator is consumed. Consuming it outside the ALS scope
+						// silently drops the verified speaker, so per-user credentials
+						// resolve to the shared operator on the streaming path while
+						// working fine on message/send (found in prod 2026-07-11).
+						await runWithSpeaker(speaker, async () => {
+							const result = await handler.transportHandler.handle(parsedBody);
+							if (
+								result &&
+								typeof (result as any)[Symbol.asyncIterator] === "function"
+							) {
+								// Streaming response — SSE
+								res.writeHead(200, {
+									"Content-Type": "text/event-stream",
+									"Cache-Control": "no-cache",
+									Connection: "keep-alive",
+								});
+								const generator = result as AsyncGenerator<any>;
+								for await (const event of generator) {
+									res.write(`data: ${JSON.stringify(event)}\n\n`);
+								}
+								res.end();
+							} else {
+								// Single JSON-RPC response
+								sendJson(res, result);
 							}
-							res.end();
-						} else {
-							// Single JSON-RPC response
-							sendJson(res, result);
-						}
+						});
 					} catch (error) {
 						console.error(
 							`[container] A2A error: ${error instanceof Error ? error.message : String(error)}`,
