@@ -414,6 +414,22 @@ describe("HabitatAgentExecutor — artifact URLs", () => {
 		);
 	});
 
+	it("publishes artifact-updates BEFORE the final message (terminal-event order)", async () => {
+		// The A2A transport ends the stream at the agent message — anything
+		// published after it never reaches the wire. Verified against live SSE
+		// 2026-07-11: artifacts emitted post-message were silently dropped.
+		const host = await makeHost();
+		await seedArtifact(host, "/files/artifacts/2026-x-foo.png");
+		const executor = new HabitatAgentExecutor(host, instantBridge());
+		const { bus, events } = fakeEventBus();
+		await executor.execute(requestContext(), bus);
+		const artifactIdx = events.findIndex((e) => e.kind === "artifact-update");
+		const messageIdx = events.findIndex((e) => e.kind === "message");
+		expect(artifactIdx).toBeGreaterThan(-1);
+		expect(messageIdx).toBeGreaterThan(-1);
+		expect(artifactIdx).toBeLessThan(messageIdx);
+	});
+
 	it("leaves URIs relative when no origin resolver is provided (back-compat)", async () => {
 		const host = await makeHost();
 		await seedArtifact(host, "/files/artifacts/2026-x-foo.png");
