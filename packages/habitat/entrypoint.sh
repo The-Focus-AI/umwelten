@@ -143,6 +143,23 @@ if [ -f "$CONFIG_FILE" ]; then
 			cd "$PROJECT_DIR" && mise install && cd /habitat
 			echo "[entrypoint] mise install complete."
 		fi
+		# Node deps for repo-backed projects: tool handlers are dynamic-imported
+		# from the project dir, so their bare specifiers (ai, zod, …) resolve
+		# against the project's own node_modules — the habitat's /habitat
+		# node_modules is not on that resolution path. Prod deps only: dev
+		# deps (tsx, vitest) aren't needed at runtime and their transitive
+		# build scripts (esbuild) trip pnpm's ignored-builds error. Non-fatal:
+		# a failed install degrades to tools-not-loaded, never a boot loop.
+		if [ -f "$PROJECT_DIR/package.json" ]; then
+			echo "[entrypoint] Installing project node deps (pnpm install --prod)..."
+			if [ -f "$PROJECT_DIR/mise.toml" ] || [ -f "$PROJECT_DIR/.mise.toml" ]; then
+				(cd "$PROJECT_DIR" && mise exec -- pnpm install --prod) ||
+					echo "[entrypoint] project pnpm install failed — repo tools may not load."
+			else
+				(cd "$PROJECT_DIR" && pnpm install --prod) ||
+					echo "[entrypoint] project pnpm install failed — repo tools may not load."
+			fi
+		fi
 	fi
 
 	# ── Per-agent provisioning (Habitat Runtime spec) ─────────────────────
