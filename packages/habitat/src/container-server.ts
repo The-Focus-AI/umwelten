@@ -179,6 +179,23 @@ async function serveStatic(
 	}
 }
 
+/**
+ * Best-effort `iss` from an already-VERIFIED compact JWT (auth ran first —
+ * this only reads a claim, it never trusts an unverified token for auth).
+ */
+function jwtIssuer(token: string): string | undefined {
+	try {
+		const payload = JSON.parse(
+			Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
+		) as { iss?: unknown };
+		return typeof payload.iss === "string" && /^https?:\/\//.test(payload.iss)
+			? payload.iss
+			: undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 // ── Route matching ────────────────────────────────────────────────
 
 function parseRoute(url: string): {
@@ -608,12 +625,21 @@ export async function startContainerServer(
 					// unbound so the executor keeps its thread-scoped
 					// `a2a:${contextId}` fallback. Never discard a verified per-user
 					// identity by silently falling back to anonymous.
+					// The raw grant + its issuer ride along for callback tools
+					// (room_history, #102 v2): the tool presents the grant back to
+					// its issuer, so history access is authorized as the speaker.
+					const rawAuth = req.headers.authorization ?? "";
+					const rawGrant = rawAuth.startsWith("Bearer ")
+						? rawAuth.slice(7)
+						: undefined;
 					const speaker =
 						user && user.userId !== "bearer-user"
 							? {
 									userId: user.userId,
 									displayName: user.displayName,
 									email: user.email,
+									grant: rawGrant,
+									issuer: rawGrant ? jwtIssuer(rawGrant) : undefined,
 								}
 							: undefined;
 					// Ground truth for identity debugging: which credential this

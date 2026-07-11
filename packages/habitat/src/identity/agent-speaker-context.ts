@@ -27,6 +27,14 @@ export interface Speaker {
   displayName?: string;
   /** Email, if the grant carried one. */
   email?: string;
+  /**
+   * The raw verified grant this request presented (compact JWT). Callback
+   * tools (room_history, #102 v2) present it back to its issuer so the SaaS
+   * authorizes the call as the SPEAKER — never a habitat-wide credential.
+   */
+  grant?: string;
+  /** The grant's `iss` — the SaaS origin callback tools call back to. */
+  issuer?: string;
 }
 
 const storage = new AsyncLocalStorage<Speaker>();

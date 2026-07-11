@@ -25,6 +25,7 @@ import { createExecTools } from "./tools/exec-tools.js";
 import { createProvisionTools } from "./tools/provision-tools.js";
 import { createArtifactTools } from "./tools/artifact-tools.js";
 import { createUIResourceTools } from "./tools/ui-resource-tools.js";
+import { createRoomHistoryTools } from "./tools/room-history-tools.js";
 import { resolveProjectDir } from "./config.js";
 import { accessSync } from "node:fs";
 
@@ -217,6 +218,14 @@ export const inspectToolSet: ToolSet = {
 };
 
 /** All standard tool sets that a typical habitat includes (host orchestrator). */
+/** Room history (#102 v2): pull the SaaS room's recent discussion on demand. */
+export const roomHistoryToolSet: ToolSet = {
+  name: "room-history",
+  description:
+    "Fetch the recent discussion from the habitats room this conversation lives in",
+  createTools: () => createRoomHistoryTools(),
+};
+
 export const standardToolSets: ToolSet[] = [
   fileToolSet,
   timeToolSet,
@@ -230,6 +239,7 @@ export const standardToolSets: ToolSet[] = [
   selfModifyToolSet,
   inspectToolSet,
   remoteAgentToolSet,
+  roomHistoryToolSet,
 ];
 
 /**
@@ -248,6 +258,7 @@ export const containerToolSets: ToolSet[] = [
   uiResourceToolSet,
   inspectToolSet,
   remoteAgentToolSet,
+  roomHistoryToolSet,
 ];
 
 /**
@@ -266,4 +277,5 @@ export const managedContainerToolSets: ToolSet[] = [
   uiResourceToolSet,
   inspectToolSet,
   remoteAgentToolSet,
+  roomHistoryToolSet,
 ];
