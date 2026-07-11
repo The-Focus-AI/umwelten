@@ -314,6 +314,20 @@ export class HabitatAgentExecutor implements AgentExecutor {
                 }
               : undefined;
 
+            // Artifacts BEFORE the final message: the A2A transport treats the
+            // agent message as the stream's terminal event, so anything
+            // published after it never reaches the wire (verified against the
+            // live SSE 2026-07-11 — artifact-update frames were silently
+            // dropped and no consumer ever saw a published artifact).
+            for (const artifact of artifacts) {
+              eventBus.publish({
+                kind: "artifact-update",
+                taskId,
+                contextId,
+                artifact,
+              });
+            }
+
             eventBus.publish({
               kind: "message",
               messageId: randomUUID(),
@@ -323,15 +337,6 @@ export class HabitatAgentExecutor implements AgentExecutor {
               taskId,
               ...(usageMetadata ? { metadata: usageMetadata } : {}),
             } satisfies A2AMessage);
-
-            for (const artifact of artifacts) {
-              eventBus.publish({
-                kind: "artifact-update",
-                taskId,
-                contextId,
-                artifact,
-              });
-            }
 
             eventBus.finished();
           },
