@@ -19,13 +19,40 @@ them in order; don't start a phase until the previous one has soaked.
   imports resolve.
 - ✅ `The-Focus-AI/twitter-agent` is the source of truth for the Twitter
   habitat: full work dir since June 24, `config.json` synced to canonical
-  (`fcd2ec6` — #206 secret declarations, claude-sonnet-5 default).
+  (`fcd2ec6` — #206 secret declarations, claude-sonnet-5 default), and
+  **code synced to canonical** (`77593cb` — the 2026-07-10 identity-mismatch
+  diagnostics from umwelten #230: `token-store.connectError()` + the three
+  read-tool handlers). The June-24 extraction predated those fixes; any
+  future change to `examples/twitter-habitat` must land in twitter-agent
+  too until Phase 1 step 5 makes the repo the only copy.
 - ✅ End-to-end verified locally: a Gaia agent created + started the habitat
   from the `gitUrl` on the **stock habitat image** — clone, toolchain,
   deps, all 6 twitter tools loaded and executed (bookmarks correctly
   reported stale dev OAuth token; the live one is on the prod volume).
-- ✅ Prod picks up the entrypoint fix on the next `main` redeploy
-  (self-hosted runner, `deploy/gaia/redeploy.sh`).
+- ✅ Prod picked up the entrypoint fix: the 2026-07-11 11:55 UTC deploy
+  shipped `019ec02` and the fleet cycled healthy (Phase 1 step 1 is
+  checkable now).
+
+### Context — the 2026-07-10/11 identity + artifact chain (landed, prod)
+
+The cutover's "SaaS attach still healthy" gate now covers much more than a
+card fetch. The full per-user chain was fixed and verified end-to-end:
+
+- **umwelten #230/#233/#234**: habitat explains the per-user/operator token
+  mismatch instead of "not authenticated"; `/connect/*` and per-request
+  auth identity are logged; and — the root cause — the verified JWT speaker
+  now survives **streaming** A2A responses (the ALS scope used to end
+  before the executor ran, so per-user credentials silently resolved to
+  the shared operator on message/stream).
+- **umwelten #232 + habitats #92**: agent cards annotate credentials with
+  live `configured` status; the attach form stops re-asking for
+  gaia-seeded secrets.
+- **habitats #93–#96**: dispatch self-heals a missing JWT audience (probes
+  the card, TTL re-probe), logs its auth decision per run, and the artifact
+  pipeline works — A2A-spec artifact shape normalized, deduped by
+  (habitat, blobUrl), body fetched server-side with the dispatch credential
+  (habitat `/files/*` is auth-gated), carded on the final message, and
+  artifact-updates emitted after the final message are no longer dropped.
 
 ## Phase 1 — Twitter habitat prod cutover (#236)
 
@@ -44,7 +71,15 @@ Goal: prod `twitter` entry runs from the repo on the stock image; the baked
    - `/mcp` lists all six twitter tools;
    - bookmarks works with the **prod** volume's live refresh token
      (merge-on-reseed #205 preserves it — do NOT wipe the volume);
-   - SaaS attach still healthy (agent card name/credentials, A2A chat).
+   - SaaS attach still healthy (agent card name/credentials, A2A chat);
+   - **run the automated gate**: `scripts/test-twitter-habitat.sh` in the
+     habitats repo (on the Gaia host) — 10 checks including card JWT +
+     credential `configured` flags, the identity-mismatch diagnostic text
+     (regresses if the repo sync is stale), bearer A2A roundtrip, and the
+     registry `url`. All 10 must pass before soak starts;
+   - per-user chain: one SaaS room message as a connected user returns
+     real bookmarks (verifies JWT dispatch → streaming speaker → per-user
+     token, the 2026-07-10 chain).
 4. **Soak ≥ a few days** with the baked image still present on the host.
    Rollback during soak = restore `image: twitter-habitat` on the entry +
    `rebuild` (volume untouched, so tokens survive both directions).
@@ -73,6 +108,22 @@ its whole deploy.
 ## Phase 3 — Runtime plane to GCP (per the 2026-07-10 report)
 
 Goal: same stack, GCE host, managed logging/backup. No code changes.
+
+Motivation sharpened 2026-07-10: the current 7.6 GB / no-swap host logged
+45 kernel OOM kills in 30 days (accelerating); one storm took the twitter
+habitat down for 11 hours because children run `RestartPolicy=no` and
+nothing restarts them (#229). Two #229 gaps move with us unless fixed
+here — Ops Agent alerting is NOT self-healing:
+
+- **Child restart policy / supervision**: start habitat children with
+  `--restart unless-stopped` (or have Gaia supervise health and restart),
+  respecting intentionally-stopped entries. An OOM'd habitat must come
+  back on its own on the new host too.
+- **Runner watchdog**: the self-hosted runner's broker session can die
+  (observed 2026-07-10: socket errors after the OOM storm) while GitHub
+  still shows the runner online — deploys queue silently forever. Add a
+  systemd watchdog or a queued-run-age alert when re-registering the
+  runner on GCE.
 
 1. **Provision**: `e2-standard-4`, Debian + Docker + Ops Agent (not COS),
    100 GB pd-balanced, static IP reserved, firewall 80/443 only, SSH via
@@ -105,6 +156,13 @@ Goal: same stack, GCE host, managed logging/backup. No code changes.
   presses the VM's RAM; a customer needs isolation/SLA; single-host blast
   radius becomes unacceptable. Re-evaluate Cloud Run Instances (Preview)
   at that moment.
+
+## Housekeeping
+
+- PR #203 (June standalone-twitter-agent + clone-based provisioning) is
+  superseded by `019ec02` + this plan — close it.
+- Issue #156 (twitter production cutover HITL runbook) overlaps #236 —
+  link or consolidate.
 
 ## Standing rules during all phases
 
