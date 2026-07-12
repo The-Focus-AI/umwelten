@@ -54,7 +54,7 @@
     "@umwelten/ui": "workspace:*",
     "@vitejs/plugin-react": "^6.0.3",
     "ai": "^7.0.22",
-    "dotenv": "^16.4.7",
+    "dotenv": "^17.4.2",
     "eslint": "^10.6.0",
     "knip": "^6.25.0",
     "prettier": "^3.9.5",
