@@ -53,7 +53,7 @@
     "@umwelten/sessions": "workspace:*",
     "@umwelten/ui": "workspace:*",
     "@vitejs/plugin-react": "^6.0.3",
-    "ai": "^5.0.115",
+    "ai": "^7.0.22",
     "dotenv": "^16.4.7",
     "eslint": "^10.6.0",
     "knip": "^6.25.0",

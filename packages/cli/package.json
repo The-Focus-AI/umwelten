@@ -29,7 +29,7 @@
     "@umwelten/evaluation": "workspace:*",
     "@umwelten/sessions": "workspace:*",
     "@umwelten/ui": "workspace:*",
-    "ai": "^5.0.115",
+    "ai": "^7.0.22",
     "file-type": "^22.0.1",
     "ink": "^7.1.0",
     "react": "^19.2.7",
