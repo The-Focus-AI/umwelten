@@ -27,6 +27,32 @@ function makeInteractionWithMessage(stimulus: Stimulus): Interaction {
   return i;
 }
 
+describe('buildRequestOptions — system message hoisting (AI SDK v7)', () => {
+  it('hoists the stimulus system prompt into `system`, not `messages`', () => {
+    // AI SDK v7 rejects role:"system" entries inside `messages` — the
+    // Interaction stores the stimulus prompt as messages[0] (role:system),
+    // so the builder must move it to the top-level `system` option.
+    // (Regression: the ai@5→7 bump broke every habitat LLM turn with
+    // "System messages are not allowed in the prompt or messages fields".)
+    const stim = new Stimulus({ role: 'a helpful test assistant' });
+    const interaction = makeInteractionWithMessage(stim);
+
+    const opts = buildRequestOptions({
+      interaction,
+      model: {} as any,
+      config: {},
+      label: 'test',
+      streaming: true,
+    });
+
+    expect(typeof opts.system).toBe('string');
+    expect(opts.system as string).toMatch(/test assistant/);
+    const msgs = opts.messages as Array<{ role: string }>;
+    expect(msgs.every((m) => m.role !== 'system')).toBe(true);
+    expect(msgs.some((m) => m.role === 'user')).toBe(true);
+  });
+});
+
 describe('buildRequestOptions — token-cap regression guards', () => {
   it('does NOT inject maxOutputTokens when no caller/stimulus set one', () => {
     const stim = new Stimulus({ role: 'test' });

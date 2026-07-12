@@ -53,6 +53,19 @@ export function buildRequestOptions(input: RequestOptionsInput): Record<string, 
     messages = ensureGoogleThoughtSignatures(messages);
   }
 
+  // AI SDK v5→v7: streamText/generateText reject `system`-role entries inside
+  // `messages` — the system prompt must be the top-level `system` option.
+  // The Interaction stores the stimulus prompt as messages[0] (role:system),
+  // so hoist every system entry out into a single joined `system` string.
+  const systemParts: string[] = [];
+  messages = messages.filter((m) => {
+    if (m.role !== "system") return true;
+    const c = m.content;
+    systemParts.push(typeof c === "string" ? c : JSON.stringify(c));
+    return false;
+  });
+  const system = systemParts.filter(Boolean).join("\n\n") || undefined;
+
   // DO NOT cap output tokens here. This runner powers benchmarks that
   // measure model quality — truncating generation silently invalidates
   // scores (especially for thinking-on models that need room to reason).
@@ -61,6 +74,7 @@ export function buildRequestOptions(input: RequestOptionsInput): Record<string, 
   // the regression guard.
   const options: Record<string, unknown> = {
     model,
+    ...(system ? { system } : {}),
     messages,
     temperature: interaction.modelDetails.temperature,
     topP: interaction.modelDetails.topP,
