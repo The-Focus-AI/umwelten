@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.83",
-    "@ai-sdk/openai-compatible": "^1.0.29",
+    "@ai-sdk/openai-compatible": "^3.0.7",
     "@google/generative-ai": "^0.24.1",
     "@json-render/core": "^0.19.0",
     "@openrouter/ai-sdk-provider": "^2.10.0",
