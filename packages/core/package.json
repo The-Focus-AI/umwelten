@@ -42,7 +42,7 @@
     "file-type": "^22.0.1",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
-    "ollama-ai-provider-v2": "^1.5.5",
+    "ollama-ai-provider-v2": "^4.0.1",
     "streammark": "^1.0.4",
     "tiktoken": "^1.0.22",
     "turndown": "^7.2.4",
