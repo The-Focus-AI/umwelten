@@ -39,7 +39,7 @@
     "@umwelten/protocols": "workspace:*",
     "ai": "^7.0.22",
     "chalk": "^5.6.2",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "discord.js": "^14.26.4",
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
