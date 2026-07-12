@@ -180,6 +180,31 @@ async function serveStatic(
 }
 
 /**
+ * The OAuth authorization server for this habitat's per-user grants — the
+ * origin that mints the JWTs we verify. Explicit HABITAT_AUTH_ISSUER wins;
+ * else derived from the JWKS URL. Undefined when JWT auth isn't configured.
+ */
+function authIssuerOrigin(): string | undefined {
+	const issuer = process.env.HABITAT_AUTH_ISSUER?.trim();
+	if (issuer) {
+		try {
+			return new URL(issuer).origin;
+		} catch {
+			/* fall through */
+		}
+	}
+	const jwks = process.env.HABITAT_AUTH_JWKS_URL?.trim();
+	if (jwks) {
+		try {
+			return new URL(jwks).origin;
+		} catch {
+			/* fall through */
+		}
+	}
+	return undefined;
+}
+
+/**
  * Best-effort `iss` from an already-VERIFIED compact JWT (auth ran first —
  * this only reads a claim, it never trusts an unverified token for auth).
  */
@@ -452,6 +477,30 @@ export async function startContainerServer(
 					}
 					const handled = await extraRawHandler(req, res);
 					if (handled) return;
+				}
+
+				// ── OAuth protected-resource metadata (RFC 9728, always open) ──
+				// MCP clients discover the authorization server here after a 401
+				// challenge; the AS is the habitats SaaS that mints our per-user
+				// grants (issuer of HABITAT_AUTH_JWKS_URL / HABITAT_AUTH_ISSUER).
+				if (
+					(path === "/.well-known/oauth-protected-resource" ||
+						path.startsWith("/.well-known/oauth-protected-resource/")) &&
+					req.method === "GET"
+				) {
+					const issuer = authIssuerOrigin();
+					if (!issuer) {
+						sendJson(res, { error: "Not found" }, 404);
+						return;
+					}
+					const publicBase = getPublicBaseUrl(req);
+					res.setHeader("access-control-allow-origin", "*");
+					sendJson(res, {
+						resource: `${publicBase}/mcp`,
+						authorization_servers: [issuer],
+						bearer_methods_supported: ["header"],
+					});
+					return;
 				}
 
 				// ── A2A agent card (always open) ────────────────────
@@ -790,6 +839,16 @@ export async function startContainerServer(
 					if (authRequired) {
 						user = await auth.authenticate(req);
 						if (!user) {
+							// OAuth challenge (MCP auth spec): point the client at the
+							// protected-resource metadata so it can discover the
+							// authorization server and drive browser sign-in.
+							if (authIssuerOrigin()) {
+								const publicBase = getPublicBaseUrl(req);
+								res.setHeader(
+									"WWW-Authenticate",
+									`Bearer resource_metadata="${publicBase}/.well-known/oauth-protected-resource"`,
+								);
+							}
 							sendJson(res, { error: "Unauthorized" }, 401);
 							return;
 						}
