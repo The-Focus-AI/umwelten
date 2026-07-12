@@ -799,12 +799,24 @@ export async function startContainerServer(
 					// callback runs as the viewing user — per-user connectors resolve for
 					// them, not another tenant. Mirrors the /a2a path exactly. Bearer/dev
 					// carry no per-user identity, so the speaker stays unbound.
+					// Mirror the /a2a condition exactly: a verified per-user JWT binds
+					// the speaker in BOTH "jwt" and "jwt+bearer" modes (prod runs the
+					// dual-auth transition — an authMode==="jwt" check would never fire
+					// there). The shared key resolves to the bearer-user sentinel and
+					// stays unbound. The raw grant + issuer ride along so callback
+					// tools (room_history) work over MCP too.
+					const mcpAuth = req.headers.authorization ?? "";
+					const mcpGrant = mcpAuth.startsWith("Bearer ")
+						? mcpAuth.slice(7)
+						: undefined;
 					const mcpSpeaker =
-						authMode === "jwt" && user
+						user && user.userId !== "bearer-user"
 							? {
 									userId: user.userId,
 									displayName: user.displayName,
 									email: user.email,
+									grant: mcpGrant,
+									issuer: mcpGrant ? jwtIssuer(mcpGrant) : undefined,
 								}
 							: undefined;
 
