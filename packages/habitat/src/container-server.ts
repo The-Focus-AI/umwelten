@@ -786,13 +786,39 @@ export async function startContainerServer(
 				// ── MCP endpoint ──────────────────────────────────────
 				if (path === "/mcp") {
 					// Auth check for MCP
+					let user: UserContext | null = null;
 					if (authRequired) {
-						const user = await auth.authenticate(req);
+						user = await auth.authenticate(req);
 						if (!user) {
 							sendJson(res, { error: "Unauthorized" }, 401);
 							return;
 						}
 					}
+					// Per-user identity (ADR 0003 / 0005 §9): on the JWT path, bind the
+					// verified `sub` as the speaker so an interactive UI-resource `tool`
+					// callback runs as the viewing user — per-user connectors resolve for
+					// them, not another tenant. Mirrors the /a2a path exactly. Bearer/dev
+					// carry no per-user identity, so the speaker stays unbound.
+					// Mirror the /a2a condition exactly: a verified per-user JWT binds
+					// the speaker in BOTH "jwt" and "jwt+bearer" modes (prod runs the
+					// dual-auth transition — an authMode==="jwt" check would never fire
+					// there). The shared key resolves to the bearer-user sentinel and
+					// stays unbound. The raw grant + issuer ride along so callback
+					// tools (room_history) work over MCP too.
+					const mcpAuth = req.headers.authorization ?? "";
+					const mcpGrant = mcpAuth.startsWith("Bearer ")
+						? mcpAuth.slice(7)
+						: undefined;
+					const mcpSpeaker =
+						user && user.userId !== "bearer-user"
+							? {
+									userId: user.userId,
+									displayName: user.displayName,
+									email: user.email,
+									grant: mcpGrant,
+									issuer: mcpGrant ? jwtIssuer(mcpGrant) : undefined,
+								}
+							: undefined;
 
 					if (req.method === "DELETE") {
 						res.writeHead(200);
@@ -836,7 +862,11 @@ export async function startContainerServer(
 							sessionIdGenerator: undefined,
 						});
 						await mcpServer.connect(transport);
-						await transport.handleRequest(req, res, parsedBody);
+						// Run tool dispatch under the speaker so getSpeaker() resolves the
+						// viewer inside a UI-resource `tool` callback (ADR 0005 §9).
+						await runWithSpeaker(mcpSpeaker, () =>
+							transport!.handleRequest(req, res, parsedBody),
+						);
 					} catch (error) {
 						console.error(
 							`[container] MCP error: ${error instanceof Error ? error.message : String(error)}`,
