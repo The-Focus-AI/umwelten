@@ -157,8 +157,8 @@ importers:
         specifier: ^0.19.0
         version: 0.19.0(zod@4.4.3)
       '@openrouter/ai-sdk-provider':
-        specifier: ^1.5.4
-        version: 1.5.4(ai@5.0.115(zod@4.4.3))(zod@4.4.3)
+        specifier: ^2.10.0
+        version: 2.10.0(ai@5.0.115(zod@4.4.3))(zod@4.4.3)
       ai:
         specifier: ^5.0.115
         version: 5.0.115(zod@4.4.3)
@@ -1171,15 +1171,12 @@ packages:
   '@nodable/entities@2.2.0':
     resolution: {integrity: sha512-9uGyhaQavEUMC8AIddIjau4NsnsXhou+j5sBAGojCM1oxmQpVKTWR/9JxABD6UAv12vpIms55fPZKFQEhG6uBg==}
 
-  '@openrouter/ai-sdk-provider@1.5.4':
-    resolution: {integrity: sha512-xrSQPUIH8n9zuyYZR0XK7Ba0h2KsjJcMkxnwaYfmv13pKs3sDkjPzVPPhlhzqBGddHb5cFEwJ9VFuFeDcxCDSw==}
+  '@openrouter/ai-sdk-provider@2.10.0':
+    resolution: {integrity: sha512-FMsAEjLUt5pWuRE2LDC/LCvVrFjLlrEzUITH5+5SZtfq7KZ2wrOHjQVxzz92sju8S9ltpzW87CLW8/b0oBXVCw==}
     engines: {node: '>=18'}
     peerDependencies:
-      ai: ^5.0.0
-      zod: ^3.24.1 || ^v4
-
-  '@openrouter/sdk@0.1.27':
-    resolution: {integrity: sha512-RH//L10bSmc81q25zAZudiI4kNkLgxF2E+WU42vghp3N6TEvZ6F0jK7uT3tOxkEn91gzmMw9YVmDENy7SJsajQ==}
+      ai: ^6.0.0
+      zod: ^3.25.0 || ^4.0.0
 
   '@opentelemetry/api-logs@0.218.0':
     resolution: {integrity: sha512-fmEWp5kXlGEc3i/lR698Hz41DfGyN4Tbe4g7L1AxSc7fF8Xeh/FQ9Quqpa9dVA413Q1Ad43QOLzU4JoXgbFPWw==}
@@ -4905,14 +4902,9 @@ snapshots:
 
   '@nodable/entities@2.2.0': {}
 
-  '@openrouter/ai-sdk-provider@1.5.4(ai@5.0.115(zod@4.4.3))(zod@4.4.3)':
+  '@openrouter/ai-sdk-provider@2.10.0(ai@5.0.115(zod@4.4.3))(zod@4.4.3)':
     dependencies:
-      '@openrouter/sdk': 0.1.27
       ai: 5.0.115(zod@4.4.3)
-      zod: 4.4.3
-
-  '@openrouter/sdk@0.1.27':
-    dependencies:
       zod: 4.4.3
 
   '@opentelemetry/api-logs@0.218.0':
