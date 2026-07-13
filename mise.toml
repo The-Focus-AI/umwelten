@@ -1,5 +1,14 @@
+# gcloud in this repo targets the habitats runtime-plane project (GCE Gaia
+# host, Cloud Logging, snapshots — docs/architecture/migration-plan-2026-07.md).
+# The named configuration is created per-machine:
+#   gcloud config configurations create habitats --no-activate
+#   CLOUDSDK_ACTIVE_CONFIG_NAME=habitats gcloud config set project habitats-502314
+[env]
+CLOUDSDK_ACTIVE_CONFIG_NAME = "habitats"
+
 [tools]
 claude = "latest"
+gcloud = "latest"
 node = "latest"
 "npm:@anthropic-ai/claude-code" = "latest"
 "npm:@earendil-works/pi-coding-agent" = "latest"
