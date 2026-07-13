@@ -33,6 +33,7 @@ import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts, toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
 import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
 import { runWithSpeaker } from "./identity/agent-speaker-context.js";
+import { HabitatScheduler } from "./schedule/scheduler.js";
 import { getPublicBaseUrl } from "@umwelten/protocols";
 import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
@@ -321,6 +322,20 @@ export async function startContainerServer(
 			pi: createPiRuntimeRunner(),
 		},
 	});
+
+	// Habitat-native scheduler (#240): config-declared cron entries run inside
+	// the container as the operator. `tool` entries call the registered tool
+	// directly; `prompt` entries run an agent turn via the bridge.
+	const scheduler = new HabitatScheduler({
+		getTools: () => habitat.getTools(),
+		runPrompt: async (name, prompt) => {
+			await bridge.handleMessage(
+				{ channelKey: `schedule:${name}`, text: prompt },
+				{ onText: () => {}, onDone: async () => {} },
+			);
+		},
+	});
+	scheduler.load(habitat.getConfig().schedules ?? []);
 
 	// Wrap bridge.handleMessage to log chat activity and track session
 	const originalHandleMessage = bridge.handleMessage.bind(bridge);
@@ -1049,6 +1064,7 @@ export async function startContainerServer(
 								projectDir: config.projectDir ?? "project",
 							},
 							tools: toolNames.length,
+							schedules: scheduler.status(),
 							requiredSecrets: (config.requiredSecrets ?? []).map((s) => ({
 								name: s.name,
 								description: s.description,

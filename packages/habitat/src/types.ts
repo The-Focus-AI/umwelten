@@ -9,6 +9,7 @@ import type { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import type { SkillDefinition } from "@umwelten/core/stimulus/skills/types.js";
 import type { SessionManagerSessionOptions } from "./session-manager.js";
+import type { ScheduleEntry } from "./schedule/scheduler.js";
 
 /**
  * AgentHost — the abstract interface that platform adapters (ChannelBridge,
@@ -347,6 +348,12 @@ export interface HabitatConfig {
 	projectDir?: string;
 	/** Secrets required for this habitat to function. */
 	requiredSecrets?: RequiredSecret[];
+	/**
+	 * Cron schedules that run inside the container (#240). Each entry fires a
+	 * registered tool (deterministic, no LLM) or an agent prompt. Runs as the
+	 * operator — no per-user identity. See schedule/scheduler.ts.
+	 */
+	schedules?: ScheduleEntry[];
 	/**
 	 * Reusable identity scope templates declared once at the habitat level.
 	 * Agents reference them via `identity.scopes[*].source = templateId`.
