@@ -61,7 +61,7 @@
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
-    "vitepress": "2.0.0-alpha.17",
+    "vitepress": "2.0.0-alpha.18",
     "vitest": "^4.1.10",
     "zod": "^4.4.3"
   },
