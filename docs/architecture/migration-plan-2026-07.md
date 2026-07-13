@@ -144,6 +144,50 @@ here — Ops Agent alerting is NOT self-healing:
 5. Rollback: old host stays intact until decommission; DNS back is the
    whole revert.
 
+### Phase 3 execution record (2026-07-13)
+
+**New host provisioned**: `gaia-host`, e2-standard-4, us-east4-c in
+`habitats-502314`, static IP **136.107.82.171**, 100 GB pd-balanced with
+daily snapshots (14-day retention), firewall 80/443 + IAP-only SSH,
+Debian 12 + Docker (gcplogs default) + Ops Agent + 4 GB swap via
+`deploy/gcp/gaia-host-startup.sh`. gcloud in this repo is pinned to the
+project via `mise.toml` (`CLOUDSDK_ACTIVE_CONFIG_NAME=habitats`).
+
+**Pancake inventory (what moves)** — everything is one unit behind one
+caddy on one `gaia-net`:
+
+| What | Detail | Move method |
+|---|---|---|
+| Gaia + 6 running habitats | twitter, web-research-agent, help, bens-tesla, twitter-workspace, waffle — all `habitat` image, caddy labels `<id>.habitats.thefocus.ai` | compose up + `start` per entry (registry.json travels in gaia-data) |
+| `/opt/gaia-data` (1.3 MB) | registry, vault, `github-app.pem`, sessions, fnox.toml | tar over SSH at cutover |
+| Named volumes (237 MB total) | incl. stopped habitats' volumes (demo, jwtprod, smoke, standards-agent, tesla-news — per-user tokens live there) + `caddy_data` (certs — copying avoids Let's Encrypt re-issue/rate limits) | per-volume alpine tar stream |
+| `pancake-thefocus-ai` nginx | serves pancake.thefocus.ai from `/home/hermes_user/microsites/pancake-root` (170 MB) | rsync + one `docker run` with the same caddy label |
+| GitHub Actions runner | systemd `actions.runner.The-Focus-AI-umwelten.gaia-host` under `worker_user`, repo at `/home/worker_user/umwelten` | fresh registration on GCE (+ the #229 watchdog) — never copy runner state |
+| Tailscale | pancake is a tailnet node + exit-node offer | fresh `tailscale up` on GCE (needs interactive auth) |
+
+**Prep already done on gaia-host**: worker_user + umwelten clone, staged
+`deploy/gaia/.env` (17 vars, 0600), `habitat` + `twitter-habitat` images
+built. Total state to move is ~410 MB → single-pass copy inside the
+cutover window; no pre-sync needed.
+
+**Cutover runbook** (est. 10–15 min downtime; requires go-ahead):
+
+1. Pancake: `docker stop` children + gaia (leave caddy — it serves a 502,
+   which is honest downtime).
+2. Copy `/opt/gaia-data`, all `gaia-*` volumes + `caddy_data`/`caddy_config`,
+   and the microsites dir (tar over SSH, ~410 MB).
+3. GCE: `docker compose up -d` in `deploy/gaia/` (bundled caddy shape),
+   start the nginx microsite container with its caddy label, then start
+   each habitat through Gaia's API.
+4. Flip Cloudflare DNS: `*.habitats.thefocus.ai`, `gaia.habitats.thefocus.ai`,
+   `pancake.thefocus.ai` → 136.107.82.171 (short TTL beforehand).
+5. Register the Actions runner on GCE (labels `self-hosted, gaia`) with a
+   systemd watchdog; disable pancake's runner service.
+6. Verify: R1 runbook + `scripts/test-twitter-habitat.sh` (habitats repo)
+   + one SaaS room message per attached habitat.
+7. Rollback at any point: restart pancake's containers + flip DNS back —
+   pancake stays frozen-but-intact until soak passes.
+
 ## Phase 4 — Platform evolution (triggered, not scheduled)
 
 - **`ContainerBackend` seam**: extract the interface from `DockerManager`
