@@ -1597,6 +1597,35 @@ Loading...</pre
         return h;
       }
 
+      // No token against an auth-required server means every API call 401s
+      // and the dashboard just sits dead. /health is the one open endpoint
+      // and reports the auth mode, so use it to fail loud with a pointer
+      // instead. auth === "open" (local dev) keeps the UI as-is.
+      if (!authToken) {
+        fetch("/health")
+          .then((r) => r.json())
+          .then((h) => {
+            if (h && h.auth && h.auth !== "open") {
+              const name = String(h.name || "This habitat").replace(/[<>&]/g, "");
+              document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui,sans-serif;text-align:center;padding:24px">
+                  <div style="max-width:480px">
+                    <h1 style="font-size:22px;margin-bottom:10px">${name} is token-protected</h1>
+                    <p style="opacity:.75;line-height:1.6">
+                      This dashboard needs an access token. Chat with and manage
+                      this agent from
+                      <a href="https://habitats.thefocus.ai" style="color:#58a6ff">habitats.thefocus.ai</a>,
+                      or open this page with
+                      <code style="background:rgba(128,128,128,.18);padding:2px 6px;border-radius:4px">?token=&lt;your&nbsp;token&gt;</code>
+                      to use it directly.
+                    </p>
+                  </div>
+                </div>`;
+            }
+          })
+          .catch(() => {});
+      }
+
       const $ = (id) => document.getElementById(id);
 
       // --- Markdown ---
