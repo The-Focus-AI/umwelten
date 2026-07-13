@@ -188,6 +188,39 @@ cutover window; no pre-sync needed.
 7. Rollback at any point: restart pancake's containers + flip DNS back —
    pancake stays frozen-but-intact until soak passes.
 
+### Cutover executed 2026-07-13 — VERIFIED ✅
+
+Timeline (all times UTC, ~90 min end to end, fleet downtime ~2 h wall):
+runner disabled + fleet stopped on pancake → 13 volumes + gaia-data +
+microsites copied (~410 MB over IAP) → bring-up on gaia-host (Gaia + all
+6 habitats healthy first pass) → runner `gaia-host-gce` online
+(`Restart=always` watchdog) → DNS flipped → **10/10 on
+`scripts/test-twitter-habitat.sh`** (health, JWT card, credential flags,
+identity diagnostic, live A2A LLM roundtrip, registry, auth logging).
+All six habitat cards + gaia /health + pancake microsite serve on
+136.107.82.171 with the migrated certs.
+
+Deviations from plan:
+- **gcplogs deferred**: the default compute SA lacks
+  `logging.logWriter`/`monitoring.metricWriter` and the IAM grant needs
+  the operator (classifier-blocked for the agent). Docker runs
+  `json-file` (50m×3 rotation) until the grants land; then flip
+  `/etc/docker/daemon.json` back to gcplogs + `systemctl restart docker`.
+  Ops Agent metrics are also blocked on the same grant.
+- **pancake.thefocus.ai record**: still on 188.245.167.69 at verification
+  time (old nginx serves it) — must move before Hetzner decommission.
+
+Open items (soak period):
+1. Operator: the two IAM grants → flip gcplogs → uptime check + disk
+   alert in Cloud Monitoring.
+2. Operator: `pancake.thefocus.ai` A record → 136.107.82.171.
+3. Operator: `tailscale up` on gaia-host (interactive auth).
+4. Code: `--restart unless-stopped` for children in
+   `DockerManager.startContainer` (#229) — next PR, redeploys via the new
+   runner.
+5. After soak: remove pancake's offline runner registration, cancel the
+   Hetzner box (rollback window closes).
+
 ## Phase 4 — Platform evolution (triggered, not scheduled)
 
 - **`ContainerBackend` seam**: extract the interface from `DockerManager`
