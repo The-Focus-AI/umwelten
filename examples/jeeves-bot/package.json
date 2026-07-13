@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@tavily/core": "^0.7.6",
-    "discord.js": "^14.26.4"
+    "discord.js": "^14.26.5"
   },
   "devDependencies": {
     "@dagger.io/dagger": "^0.21.7",
-    "tsx": "^4.23.0"
+    "tsx": "^4.23.1"
   },
   "pnpm": {
     "overrides": {
