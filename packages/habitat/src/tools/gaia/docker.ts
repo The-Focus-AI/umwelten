@@ -275,6 +275,11 @@ export class DockerManager {
     const args = [
       "run", "-d",
       "--name", name,
+      // Self-heal after OOM kills and daemon restarts (#229): a habitat that
+      // dies comes back on its own. Deliberate stops are unaffected —
+      // stopContainer() removes the container entirely, so there is nothing
+      // left for the policy to restart.
+      "--restart", "unless-stopped",
       "--network", resolveNetworkName(),
       "-v", `${volume}:/data`,
       "-v", `${sessionsHostDir}:/data/sessions`,
