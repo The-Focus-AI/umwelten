@@ -211,13 +211,20 @@ Deviations from plan:
   time (old nginx serves it) — must move before Hetzner decommission.
 
 Open items (soak period):
-1. Operator: the two IAM grants → flip gcplogs → uptime check + disk
-   alert in Cloud Monitoring.
-2. Operator: `pancake.thefocus.ai` A record → 136.107.82.171.
-3. Operator: `tailscale up` on gaia-host (interactive auth).
-4. Code: `--restart unless-stopped` for children in
+1. ✅ DONE 2026-07-13: IAM grants landed (operator), gcplogs live
+   (per-container entries in `gcplogs-docker-driver` log), Ops Agent
+   clean, uptime check `gaia-health` (5 min period) + three alert
+   policies (uptime failure, memory >90%, disk >85%) → email channel.
+   Note: the gcplogs flip required a docker daemon restart, and only
+   caddy/nginx auto-recovered — gaia + all children needed manual
+   starts. Direct, fresh evidence for item 3.
+2. Operator: `pancake.thefocus.ai` A record → 136.107.82.171 (still on
+   Hetzner; old nginx serves it meanwhile).
+3. Code: `--restart unless-stopped` for children in
    `DockerManager.startContainer` (#229) — next PR, redeploys via the new
    runner.
+4. Tailscale: SKIPPED by decision (IAP SSH suffices; don't advertise a
+   GCE exit node — egress billing).
 5. After soak: remove pancake's offline runner registration, cancel the
    Hetzner box (rollback window closes).
 
