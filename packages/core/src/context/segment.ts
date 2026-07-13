@@ -3,7 +3,7 @@
  * Convention: index 0 is system; segment is [start, end] inclusive of conversation messages only.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { CompactionSegment } from "./types.js";
 
 export interface GetCompactionSegmentOptions {
@@ -19,7 +19,7 @@ export interface GetCompactionSegmentOptions {
  * Returns null if there is no assistant message in range or segment is invalid.
  */
 export function getCompactionSegment(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   options: GetCompactionSegmentOptions = {}
 ): CompactionSegment | null {
   const { fromCheckpoint = false, checkpointIndex } = options;

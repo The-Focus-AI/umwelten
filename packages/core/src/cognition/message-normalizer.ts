@@ -1,4 +1,4 @@
-import { type CoreMessage } from "ai";
+import { type ModelMessage } from "ai";
 
 /**
  * Clean provider options to remove nested structures that cause AI SDK v5 Zod validation to fail.
@@ -51,8 +51,8 @@ export function cleanProviderOptions(providerOptions: any): {
  * Outputs only schema-allowed keys for tool-call and tool-result parts to avoid strict validation failures.
  */
 export function normalizeToModelMessages(
-  messages: CoreMessage[],
-): CoreMessage[] {
+  messages: ModelMessage[],
+): ModelMessage[] {
   return messages.map((msg) => {
     if (msg.role !== "assistant" && msg.role !== "tool") return msg;
     if (!Array.isArray(msg.content)) return msg;
@@ -136,7 +136,7 @@ export function normalizeToModelMessages(
       }
       return part;
     });
-    return { ...msg, content: newContent } as unknown as CoreMessage;
+    return { ...msg, content: newContent } as unknown as ModelMessage;
   });
 }
 
@@ -146,8 +146,8 @@ export function normalizeToModelMessages(
  * accepts the request. See https://ai.google.dev/gemini-api/docs/thought-signatures
  */
 export function ensureGoogleThoughtSignatures(
-  messages: CoreMessage[],
-): CoreMessage[] {
+  messages: ModelMessage[],
+): ModelMessage[] {
   return messages.map((msg) => {
     if (msg.role !== "assistant" || !Array.isArray(msg.content)) return msg;
     const content = msg.content as unknown as Array<Record<string, unknown>>;
@@ -185,6 +185,6 @@ export function ensureGoogleThoughtSignatures(
         },
       };
     });
-    return { ...msg, content: newContent } as unknown as CoreMessage;
+    return { ...msg, content: newContent } as unknown as ModelMessage;
   });
 }

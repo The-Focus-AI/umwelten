@@ -2,12 +2,12 @@
  * Compaction types: input to strategies, result, and strategy interface.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { ModelDetails, ModelRunner } from "../cognition/types.js";
 
 export interface CompactionInput {
   /** Full context (strategy can see system if needed). */
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   /** Index of first message to condense (1 = first message after system). */
   segmentStart: number;
   /** Index of last message to condense (inclusive). */
@@ -22,7 +22,7 @@ export interface CompactionInput {
 
 export interface CompactionResult {
   /** Messages to replace the segment (often a single summary message). */
-  replacementMessages: CoreMessage[];
+  replacementMessages: ModelMessage[];
 }
 
 export interface CompactionStrategy {

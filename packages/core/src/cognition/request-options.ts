@@ -1,5 +1,5 @@
 import {
-  type CoreMessage,
+  type ModelMessage,
   type LanguageModel,
   type ToolSet,
   type JSONValue,

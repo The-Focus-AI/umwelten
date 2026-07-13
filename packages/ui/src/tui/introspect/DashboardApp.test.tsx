@@ -118,8 +118,6 @@ function makeEntry(
 		sourceSession: session,
 		modifiedMs:
 			overrides.modifiedMs ?? new Date(session.modified).getTime(),
-		createdMs:
-			overrides.createdMs ?? new Date(session.created).getTime(),
 		filePath: undefined,
 		digest: overrides.digest ?? null,
 		analyzedIn: overrides.analyzedIn ?? [],

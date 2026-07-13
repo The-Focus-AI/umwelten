@@ -230,7 +230,7 @@ export function createExternalInteractionTools(
 
       const out: { role: string; content: string }[] = [];
       const max = limit ?? 1e9;
-      // Interaction.messages is CoreMessage[]. We filtered out tool-role
+      // Interaction.messages is ModelMessage[]. We filtered out tool-role
       // messages in interactionFromNormalizedSession, and the runner's
       // role union is "user" | "assistant" | "system" | "tool" — so we
       // only surface user/assistant turns here for the conversation view.

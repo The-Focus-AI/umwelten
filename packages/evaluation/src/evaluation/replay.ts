@@ -14,7 +14,7 @@
  */
 
 import fs from 'fs';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { Stimulus, type StimulusOptions } from '@umwelten/core/stimulus/stimulus.js';
 import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
 import type { ModelDetails } from '@umwelten/core/cognition/types.js';
@@ -25,7 +25,7 @@ export interface TranscriptFile {
   provider: string;
   prompt: string;
   stimulusOptions: Omit<StimulusOptions, 'tools' | 'runnerType'>;
-  messages: CoreMessage[];
+  messages: ModelMessage[];
 }
 
 export interface ReplayOptions {

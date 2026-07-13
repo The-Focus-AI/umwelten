@@ -1,12 +1,12 @@
 import path from "path";
 import fs from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
-import { CoreMessage } from "ai";
+import { ModelMessage } from "ai";
 
 export async function buildAttachmentMessage(
   filePath: string,
   mimeType?: string,
-): Promise<CoreMessage> {
+): Promise<ModelMessage> {
   const filename = path.basename(filePath);
   console.log("Creating attachment for", filename);
   const fileBuffer = await fs.readFile(filePath);

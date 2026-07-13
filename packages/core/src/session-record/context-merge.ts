@@ -4,7 +4,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import type { CompactionEventV1, LearningKind } from "./types.js";
 import { LEARNING_KINDS } from "./types.js";
@@ -54,7 +54,7 @@ export async function buildHabitatIntrospectionContextMessages(options: {
   maxCompactionBlocks?: number;
   maxLearningsChars?: number;
   maxTotalChars?: number;
-}): Promise<CoreMessage[]> {
+}): Promise<ModelMessage[]> {
   const learningsRoot = options.learningsRoot ?? options.sessionDir;
   const maxCompaction = options.maxCompactionBlocks ?? 12;
   const maxLearnings = options.maxLearningsChars ?? 24_000;
@@ -64,7 +64,7 @@ export async function buildHabitatIntrospectionContextMessages(options: {
   const store = new FileLearningsStore(learningsRoot);
   const learnings = await store.readAll();
 
-  const parts: CoreMessage[] = [];
+  const parts: ModelMessage[] = [];
 
   const slice = events.slice(-maxCompaction);
   if (slice.length > 0) {

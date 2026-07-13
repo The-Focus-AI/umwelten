@@ -182,7 +182,8 @@ export function cleanChatObserver(): StreamObserver {
 export async function createMarkdownChatObserver(): Promise<StreamObserver & { end(): void }> {
   let MarkdownStreamClass: any = null;
   try {
-    const mod = await import("streammark");
+    const streammarkPkg = "streammark"; // non-literal: optional untyped dep
+    const mod = await import(streammarkPkg);
     MarkdownStreamClass = mod.MarkdownStream;
   } catch {
     // streammark not available — fall through to raw output

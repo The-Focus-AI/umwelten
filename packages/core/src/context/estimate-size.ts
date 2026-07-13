@@ -3,12 +3,12 @@
  * Uses character-based token estimate (chars/4); tiktoken can be added later for accuracy.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { ContextSizeEstimate } from "./types.js";
 
 const CHARS_PER_TOKEN_ESTIMATE = 4;
 
-function messageToText(msg: CoreMessage): string {
+function messageToText(msg: ModelMessage): string {
   const parts: string[] = [];
   parts.push(`role:${(msg as { role?: string }).role ?? "unknown"}`);
   const content = (msg as { content?: unknown }).content;
@@ -39,7 +39,7 @@ function messageToText(msg: CoreMessage): string {
  * Estimate context size from messages.
  * Uses character count and chars/4 for estimated tokens (tiktoken can be integrated later for accuracy).
  */
-export function estimateContextSize(messages: CoreMessage[]): ContextSizeEstimate {
+export function estimateContextSize(messages: ModelMessage[]): ContextSizeEstimate {
   const messageCount = messages.length;
   let characterCount = 0;
   for (const msg of messages) {

@@ -9,7 +9,7 @@
  * Interaction constructed to ask questions about other Interactions or
  * Explorations and executed with the existing model runner."
  */
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { Stimulus } from "../../stimulus/stimulus.js";
 import { Interaction } from "../core/interaction.js";
 import type { Exploration } from "../types/domain-types.js";
@@ -108,14 +108,14 @@ export interface BuildContextOptions {
 /**
  * Build context messages describing one or more Explorations.
  *
- * Returns CoreMessage[] that can be injected into any Interaction's
+ * Returns ModelMessage[] that can be injected into any Interaction's
  * message list. Deterministic and testable — no LLM calls involved.
  */
 export function buildReflectionContext(
 	explorations: Exploration[],
 	options?: BuildContextOptions,
-): CoreMessage[] {
-	const messages: CoreMessage[] = [];
+): ModelMessage[] {
+	const messages: ModelMessage[] = [];
 
 	// System-level context
 	if (options?.systemContext) {

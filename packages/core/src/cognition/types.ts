@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CoreMessage, LanguageModel } from "ai";
+import type { ModelMessage, LanguageModel } from "ai";
 import { TokenUsage, TokenUsageSchema } from "../costs/costs.js";
 import { CostBreakdown, CostBreakdownSchema } from "../costs/costs.js";
 
@@ -132,15 +132,15 @@ export const ModelResponseSchema = z.object({
    * — sufficient to replay the conversation without re-running the model.
    * Cached to disk so 2-pass / multi-turn evals can pick up the thread.
    *
-   * Typed as `z.unknown()` here because `CoreMessage` is a TS-only type
+   * Typed as `z.unknown()` here because `ModelMessage` is a TS-only type
    * (not a Zod schema); the exported `ModelResponse` type narrows the
-   * field to `CoreMessage[]` for callers.
+   * field to `ModelMessage[]` for callers.
    */
   messages: z.array(z.unknown()).optional(),
 });
 
 export type ModelResponse = Omit<z.infer<typeof ModelResponseSchema>, "messages"> & {
-  messages?: CoreMessage[];
+  messages?: ModelMessage[];
 };
 
 export const ScoreSchema = z.object({

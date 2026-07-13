@@ -1,5 +1,5 @@
 /**
- * Convert CoreMessage[] to Claude-style JSONL for session transcript persistence.
+ * Convert ModelMessage[] to Claude-style JSONL for session transcript persistence.
  * Handles user messages, assistant messages with tool_use blocks, and tool results.
  *
  * Moved from src/habitat/transcript.ts to break the habitat ↔ ui circular
@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import type {
   UserMessageEntry,
   AssistantMessageEntry,
@@ -39,11 +39,11 @@ type VercelToolInvocation = {
   result?: unknown;
 };
 
-type ExtendedCoreMessage = CoreMessage & {
+type ExtendedCoreMessage = ModelMessage & {
   toolInvocations?: VercelToolInvocation[];
 };
 
-function extractContentBlocks(content: CoreMessage['content']): ContentBlock[] {
+function extractContentBlocks(content: ModelMessage['content']): ContentBlock[] {
   if (typeof content === 'string') {
     return content ? [{ type: 'text', text: content }] : [];
   }
@@ -136,11 +136,11 @@ function extractToolResultsFromInvocations(
 }
 
 /**
- * Convert CoreMessage[] to Claude-style JSONL (one JSON object per line).
+ * Convert ModelMessage[] to Claude-style JSONL (one JSON object per line).
  * @param reasoningForLastAssistant - When set, attach reasoning to the last assistant entry.
  */
 export function coreMessagesToJSONL(
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   _sessionId?: string,
   reasoningForLastAssistant?: string
 ): string {
@@ -253,7 +253,7 @@ export function coreMessagesToJSONL(
  */
 export async function writeSessionTranscript(
   sessionDir: string,
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   reasoningForLastAssistant?: string
 ): Promise<void> {
   const jsonl = coreMessagesToJSONL(messages, undefined, reasoningForLastAssistant);

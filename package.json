@@ -16,7 +16,8 @@
     "docs:dev": "pnpm run docs:sync-assets && vitepress dev docs",
     "docs:build": "pnpm run docs:sync-assets && vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "knip": "knip"
+    "knip": "knip",
+    "typecheck": "tsc --noEmit -p packages/core && tsc --noEmit -p packages/protocols && tsc --noEmit -p packages/habitat && tsc --noEmit -p packages/sessions && tsc --noEmit -p packages/cli && tsc --noEmit -p packages/ui && tsc --noEmit -p packages/evaluation"
   },
   "keywords": [
     "llm",

@@ -12,7 +12,7 @@
  * Platform adapters become thin: receive message → call bridge → format + send.
  */
 
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import type { AgentHost } from '../types.js';
 import { Interaction } from '@umwelten/core/interaction/core/interaction.js';
 import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';

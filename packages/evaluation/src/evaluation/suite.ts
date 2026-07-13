@@ -24,7 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { Stimulus, type StimulusOptions } from '@umwelten/core/stimulus/stimulus.js';
 import { SimpleEvaluation } from './strategies/simple-evaluation.js';
 import { EvaluationCache } from './caching/cache-service.js';
@@ -148,7 +148,7 @@ export interface TaskResultRecord {
    * it. Untruncated. Sidecar transcript file is written next to the
    * task result so the main JSON stays small for report consumers.
    */
-  messages?: CoreMessage[];
+  messages?: ModelMessage[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

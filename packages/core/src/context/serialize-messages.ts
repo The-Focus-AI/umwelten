@@ -1,9 +1,9 @@
 /**
- * Serialize a slice of CoreMessage[] to text for compaction prompts.
+ * Serialize a slice of ModelMessage[] to text for compaction prompts.
  * Shortens or omits large tool outputs to keep the summarizer input bounded.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 const MAX_TOOL_RESULT_CHARS = 500;
 
@@ -36,7 +36,7 @@ function stringifyContent(content: unknown): string {
   return parts.join("\n");
 }
 
-export function serializeSegment(messages: CoreMessage[], start: number, end: number): string {
+export function serializeSegment(messages: ModelMessage[], start: number, end: number): string {
   const lines: string[] = [];
   for (let i = start; i <= end; i++) {
     const msg = messages[i] as { role?: string; content?: unknown; toolInvocations?: unknown[] };

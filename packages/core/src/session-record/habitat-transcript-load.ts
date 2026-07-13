@@ -2,7 +2,7 @@
  * Load full Habitat session transcript: frozen `transcript.*.jsonl` segments then live `transcript.jsonl`.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { SessionMessage } from "../interaction/types/types.js";
 import type { UserMessageEntry, AssistantMessageEntry } from "../interaction/types/types.js";
 import { parseSessionFile } from "../interaction/persistence/session-parser.js";
@@ -48,9 +48,9 @@ export async function loadHabitatSessionTranscriptMessages(
 export async function loadRecentHabitatTranscriptCoreMessages(
   sessionDir: string,
   maxMessages: number,
-): Promise<CoreMessage[]> {
+): Promise<ModelMessage[]> {
   const raw = await loadHabitatSessionTranscriptMessages(sessionDir);
-  const messages: CoreMessage[] = [];
+  const messages: ModelMessage[] = [];
   for (const entry of raw) {
     if (entry.type === "user") {
       const content = (entry as UserMessageEntry).message.content;

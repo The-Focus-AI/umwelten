@@ -17,7 +17,7 @@ import {
   type NewsChannel,
   type ThreadChannel,
 } from "discord.js";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { loadRecentHabitatTranscriptCoreMessages } from "@umwelten/core/session-record/habitat-transcript-load.js";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -83,7 +83,7 @@ export interface DiscordAdapterConfig {
   ) => Promise<{ sessionId: string; sessionDir: string }>;
   writeTranscript?: (
     sessionDir: string,
-    messages: CoreMessage[],
+    messages: ModelMessage[],
     reasoning?: string,
   ) => Promise<void>;
   startNewThread?: (

@@ -12,7 +12,7 @@
  * See reports/2026-05-24-session-types-inventory.md for the full type lineage.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { ModelDetails } from "../../cognition/types.js";
 import type { Stimulus } from "../../stimulus/stimulus.js";
 import { calculateCost, type TokenUsage } from "../../costs/costs.js";
@@ -70,10 +70,10 @@ export function detectSourceFromSessionId(
  */
 function toCleanCoreMessages(
 	messages: NormalizedMessage[],
-): CoreMessage[] {
+): ModelMessage[] {
 	return messages
 		.filter((m) => m.role !== "tool")
-		.map((m) => ({ role: m.role, content: m.content }) as CoreMessage);
+		.map((m) => ({ role: m.role, content: m.content }) as ModelMessage);
 }
 
 /**
@@ -132,7 +132,7 @@ export function interactionFromNormalizedSession(
 		modelDetails,
 		stimulus,
 	);
-	// fromNormalizedSession's CoreMessage cast is { role, content }; we
+	// fromNormalizedSession's ModelMessage cast is { role, content }; we
 	// already filtered out tool-role messages above so what lands on
 	// interaction.messages is schema-clean for v5's ModelMessage union.
 	return interaction;
