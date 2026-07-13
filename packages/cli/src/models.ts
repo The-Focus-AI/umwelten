@@ -183,7 +183,7 @@ export const modelsCommand = new Command('models')
   .action(async (options: CommandOptions) => {
     try {
       // Handle EPIPE errors (e.g., when piping to head)
-      process.stdout.on('error', (err) => {
+      process.stdout.on('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'EPIPE') {
           process.exit(0);
         }

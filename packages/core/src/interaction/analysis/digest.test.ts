@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
 // ─── Test parseCompactionResponse ───────────────────────────────────────────
 
@@ -16,12 +16,12 @@ import type { CoreMessage } from 'ai';
 // This is a unit test of the algorithm; the real function is identical.
 const MAX_SEGMENT_CHARS = 50_000;
 
-function estimateMessageSize(msg: CoreMessage): number {
+function estimateMessageSize(msg: ModelMessage): number {
   const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
   return content.length + 20;
 }
 
-function splitIntoSegments(messages: CoreMessage[]): { start: number; end: number }[] {
+function splitIntoSegments(messages: ModelMessage[]): { start: number; end: number }[] {
   if (messages.length === 0) return [];
   const segments: { start: number; end: number }[] = [];
   let segStart = 0;
@@ -47,7 +47,7 @@ describe('splitIntoSegments', () => {
   });
 
   it('returns single segment for small conversations', () => {
-    const msgs: CoreMessage[] = [
+    const msgs: ModelMessage[] = [
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi there' },
     ];
@@ -58,7 +58,7 @@ describe('splitIntoSegments', () => {
   it('splits by content size, not message count', () => {
     // Create messages that together exceed MAX_SEGMENT_CHARS
     const bigContent = 'x'.repeat(30_000);
-    const msgs: CoreMessage[] = [
+    const msgs: ModelMessage[] = [
       { role: 'user', content: bigContent },
       { role: 'assistant', content: bigContent },
       { role: 'user', content: 'small' },
@@ -72,7 +72,7 @@ describe('splitIntoSegments', () => {
   });
 
   it('every message appears in exactly one segment', () => {
-    const msgs: CoreMessage[] = Array.from({ length: 100 }, (_, i) => ({
+    const msgs: ModelMessage[] = Array.from({ length: 100 }, (_, i) => ({
       role: i % 2 === 0 ? 'user' as const : 'assistant' as const,
       content: 'x'.repeat(1000),
     }));
@@ -87,7 +87,7 @@ describe('splitIntoSegments', () => {
   });
 
   it('handles single huge message', () => {
-    const msgs: CoreMessage[] = [
+    const msgs: ModelMessage[] = [
       { role: 'user', content: 'x'.repeat(100_000) },
     ];
     const segs = splitIntoSegments(msgs);

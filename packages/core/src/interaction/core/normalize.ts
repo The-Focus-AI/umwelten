@@ -1,4 +1,4 @@
-import { CoreMessage } from "ai";
+import { ModelMessage } from "ai";
 import type {
   NormalizedSession,
   NormalizedMessage,
@@ -17,7 +17,7 @@ interface InteractionMetadata {
  */
 export function interactionToNormalizedSession(
   id: string,
-  messages: CoreMessage[],
+  messages: ModelMessage[],
   metadata: InteractionMetadata,
 ): NormalizedSession {
   const normalizedMessages: NormalizedMessage[] = [];
@@ -231,7 +231,7 @@ export function normalizedSessionToMessages(
   updated: Date;
   source: SessionSource;
   sourceId: string;
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   systemContent?: string;
 } {
   const systemMsg = session.messages.find((m) => m.role === "system");
@@ -245,7 +245,7 @@ export function normalizedSessionToMessages(
     messages: session.messages.map((m) => ({
       role: m.role,
       content: m.content,
-    })) as CoreMessage[],
+    })) as ModelMessage[],
     systemContent: systemMsg?.content,
   };
 }

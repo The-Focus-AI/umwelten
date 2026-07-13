@@ -477,6 +477,10 @@ importers:
       '@umwelten/ui':
         specifier: workspace:*
         version: link:../ui
+    devDependencies:
+      '@types/node':
+        specifier: ^26.1.1
+        version: 26.1.1
 
 packages:
 

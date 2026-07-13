@@ -1,4 +1,4 @@
-import { CoreMessage } from "ai";
+import { ModelMessage } from "ai";
 import {
   ModelDetails,
   ModelOptions,
@@ -34,7 +34,7 @@ export class Interaction {
     sourceData?: Record<string, unknown>;
   };
 
-  public messages: CoreMessage[] = [];
+  public messages: ModelMessage[] = [];
   protected runner: ModelRunner;
   public userId: string = "default";
   public modelDetails: ModelDetails;
@@ -149,13 +149,13 @@ export class Interaction {
   }
 
   /** Optional callback invoked whenever messages change (e.g. so CLI can append transcript). */
-  onTranscriptUpdate?: (messages: CoreMessage[]) => void;
+  onTranscriptUpdate?: (messages: ModelMessage[]) => void;
 
-  setOnTranscriptUpdate(callback: (messages: CoreMessage[]) => void): void {
+  setOnTranscriptUpdate(callback: (messages: ModelMessage[]) => void): void {
     this.onTranscriptUpdate = callback;
   }
 
-  addMessage(message: CoreMessage): void {
+  addMessage(message: ModelMessage): void {
     this.messages.push(message);
     this.metadata.updated = new Date();
   }
@@ -236,7 +236,7 @@ export class Interaction {
     return this.tools !== undefined && Object.keys(this.tools).length > 0;
   }
 
-  getMessages(): CoreMessage[] {
+  getMessages(): ModelMessage[] {
     return this.messages;
   }
 

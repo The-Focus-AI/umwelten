@@ -1,6 +1,6 @@
 import { Bot, Context } from "grammy";
 import { hydrateFiles, FileFlavor } from "@grammyjs/files";
-import { type CoreMessage } from "ai";
+import { type ModelMessage } from "ai";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { ModelDetails } from "@umwelten/core/cognition/types.js";
@@ -20,7 +20,7 @@ export interface TelegramAdapterConfig {
   mediaDir?: string; // Deprecated: Directory where media files will be stored (use getSessionMediaDir instead)
   getSessionMediaDir?: (chatId: number) => Promise<string>; // Function to get session-specific media directory
   getSessionDir?: (chatId: number) => Promise<{ sessionId: string; sessionDir: string }>; // For transcript persistence
-  writeTranscript?: (sessionDir: string, messages: import("ai").CoreMessage[], reasoning?: string) => Promise<void>;
+  writeTranscript?: (sessionDir: string, messages: import("ai").ModelMessage[], reasoning?: string) => Promise<void>;
   /** Called when user sends /reset or /start so a new session directory is created for the next messages */
   startNewThread?: (chatId: number) => Promise<void>;
   /** Number of recent user+assistant message pairs to restore from transcript on restart (default 4) */

@@ -4,7 +4,7 @@
  * Slack, Teams, Web) and the Habitat core.
  */
 
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import type { ModelResponse } from '@umwelten/core/cognition/types.js';
 import type { AgentEntry, NativeSessionRef } from '../types.js';
 

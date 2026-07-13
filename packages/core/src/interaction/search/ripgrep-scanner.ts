@@ -178,7 +178,9 @@ function recordToHit(record: any): RawScanHit | null {
 			}
 			return { start: sm.start, end: sm.end, text };
 		})
-		.filter((x): x is { start: number; end: number; text: string } => x !== null);
+		.filter(
+			(x: { start: number; end: number; text: string } | null): x is { start: number; end: number; text: string } => x !== null,
+		);
 
 	return { filePath, lineNumber, matchedLine, submatches };
 }

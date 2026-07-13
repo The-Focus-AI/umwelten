@@ -22,7 +22,7 @@ import type { Interaction } from "@umwelten/core/interaction/core/interaction.js
 import type { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
 import { cliStdoutObserver } from "@umwelten/core/cognition/observers.js";
 import { estimateContextSize } from "@umwelten/core/context/index.js";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 export interface ReplOptions {
 	interaction: Interaction;
@@ -34,7 +34,7 @@ export interface ReplOptions {
 	assistantLabel?: string;
 }
 
-function formatContextSize(messages: CoreMessage[]): string {
+function formatContextSize(messages: ModelMessage[]): string {
 	const size = estimateContextSize(messages);
 	const kTokens =
 		size.estimatedTokens >= 1000

@@ -6,7 +6,7 @@
  * discovery on top.
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { ModelDetails } from "../../cognition/types.js";
 import type { SessionIndexEntry } from "../types/types.js";
 import type {
@@ -231,7 +231,7 @@ async function compactViaStrategy(
 	const runner = new BaseModelRunner();
 
 	if (strategy) {
-		const messages: CoreMessage[] = [
+		const messages: ModelMessage[] = [
 			{ role: "user", content: "placeholder" },
 			{ role: "user", content: text },
 			{ role: "assistant", content: "Acknowledged." },

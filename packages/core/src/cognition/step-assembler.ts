@@ -1,4 +1,4 @@
-import { type CoreMessage } from "ai";
+import { type ModelMessage } from "ai";
 import type { Interaction } from "../interaction/core/interaction.js";
 
 interface ToolCallEntry {
@@ -84,7 +84,7 @@ function addToolResultMessages(
             output: toToolResultOutput(out, tr.isError ?? false),
           },
         ],
-      } as unknown as CoreMessage);
+      } as unknown as ModelMessage);
       interaction.notifyTranscriptUpdate?.();
     }
   }
@@ -195,7 +195,7 @@ export async function assembleSteps(
     interaction.addMessage({
       role: "assistant",
       content: toolCalls.map(normalizeToolCall),
-    } as unknown as CoreMessage);
+    } as unknown as ModelMessage);
     interaction.notifyTranscriptUpdate?.();
     addToolResultMessages(interaction, toolCalls, toolResults);
     if (contentString) {

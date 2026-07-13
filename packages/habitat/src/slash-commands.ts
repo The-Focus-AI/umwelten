@@ -9,7 +9,7 @@
  */
 
 import type { Interaction } from "@umwelten/core/interaction/core/interaction.js";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import {
 	estimateContextSize,
 	listCompactionStrategies,
@@ -30,7 +30,7 @@ export interface SlashCommand {
 	run(args: string, ctx: SlashCommandContext): Promise<void> | void;
 }
 
-function formatContextSize(messages: CoreMessage[]): string {
+function formatContextSize(messages: ModelMessage[]): string {
 	const size = estimateContextSize(messages);
 	const kTokens =
 		size.estimatedTokens >= 1000

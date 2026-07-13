@@ -3,7 +3,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import type { NormalizedMessage } from "@umwelten/core/interaction/types/normalized-types.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { Habitat } from "./habitat.js";
@@ -20,14 +20,14 @@ export interface PulledBeatPayload {
 }
 
 /**
- * Convert NormalizedMessage[] to CoreMessage[] for replay.
+ * Convert NormalizedMessage[] to ModelMessage[] for replay.
  * When dropLastAssistant is true, the last message is removed if it's assistant (so the model regenerates it).
  */
 export function normalizedMessagesToCoreForReplay(
   normalized: NormalizedMessage[],
   dropLastAssistant: boolean,
-): CoreMessage[] {
-  const out: CoreMessage[] = [];
+): ModelMessage[] {
+  const out: ModelMessage[] = [];
   const toDrop =
     dropLastAssistant &&
     normalized.length > 0 &&
@@ -86,7 +86,7 @@ export function normalizedMessagesToCoreForReplay(
                 output,
               },
             ],
-          } as CoreMessage);
+          } as ModelMessage);
         }
         i = j;
       } else {
@@ -114,7 +114,7 @@ export function normalizedMessagesToCoreForReplay(
             output,
           },
         ],
-      } as CoreMessage);
+      } as ModelMessage);
       i++;
     } else {
       i++;
@@ -126,7 +126,7 @@ export function normalizedMessagesToCoreForReplay(
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    process.stdin.on("data", (chunk) => chunks.push(chunk));
+    process.stdin.on("data", (chunk: Buffer) => chunks.push(chunk));
     process.stdin.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
     process.stdin.on("error", reject);
   });

@@ -3,7 +3,7 @@
  * Omit in-call details (full tool outputs, step-by-step).
  */
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { Stimulus } from "../../stimulus/stimulus.js";
 import { Interaction } from "../../interaction/core/interaction.js";
 import { serializeSegment } from "../serialize-messages.js";
@@ -52,7 +52,7 @@ export const throughLineAndFactsStrategy: CompactionStrategy = {
     const summary =
       typeof response.content === "string" ? response.content : String(response.content ?? "");
 
-    const replacementMessages: CoreMessage[] = [
+    const replacementMessages: ModelMessage[] = [
       {
         role: "system",
         content: `Previous context (condensed):\n${summary}`,

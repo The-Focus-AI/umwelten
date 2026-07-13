@@ -16,7 +16,8 @@
     "docs:dev": "pnpm run docs:sync-assets && vitepress dev docs",
     "docs:build": "pnpm run docs:sync-assets && vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "knip": "knip"
+    "knip": "knip",
+    "typecheck": "for d in packages/*/tsconfig.json; do tsc --noEmit -p \"$d\" || exit 1; done"
   },
   "keywords": [
     "llm",

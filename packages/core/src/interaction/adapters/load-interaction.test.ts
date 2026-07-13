@@ -198,7 +198,7 @@ describe("interactionFromNormalizedSession", () => {
 				role: "assistant",
 				content: "[tool bash] {cmd:'ls'}",
 			}),
-			// This one is schema-invalid as a v5 CoreMessage (tool content must
+			// This one is schema-invalid as a v5 ModelMessage (tool content must
 			// be Array<ToolResultPart>, not a string) and must be dropped.
 			makeMessage({
 				id: "m3",

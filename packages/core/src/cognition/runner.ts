@@ -14,7 +14,7 @@ import {
   clearRateLimitState,
 } from "../rate-limit/rate-limit.js";
 import {
-  type CoreMessage,
+  type ModelMessage,
   LanguageModel,
   generateText,
   generateObject,
@@ -317,7 +317,7 @@ export class BaseModelRunner implements ModelRunner {
                     }
                     return part;
                   }),
-                } as unknown as CoreMessage);
+                } as unknown as ModelMessage);
                 pendingToolCalls.length = 0;
                 interaction.notifyTranscriptUpdate?.();
               }
@@ -347,7 +347,7 @@ export class BaseModelRunner implements ModelRunner {
                     output,
                   },
                 ],
-              } as unknown as CoreMessage);
+              } as unknown as ModelMessage);
               interaction.notifyTranscriptUpdate?.();
               observer?.onToolResult?.({
                 toolCallId,

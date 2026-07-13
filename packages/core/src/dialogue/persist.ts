@@ -11,7 +11,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { writeSessionTranscript } from "../session-record/transcript-write.js";
 import { renderEventLine } from "./render.js";
 import type {
@@ -33,7 +33,7 @@ export interface DialogueMeta {
 export function dialogueEventsToCoreMessages(
   events: ReadonlyArray<DialogueEvent>,
   participants: ReadonlyArray<ParticipantInfo>,
-): CoreMessage[] {
+): ModelMessage[] {
   const kinds = new Map(participants.map((p) => [p.id, p.kind]));
   return events
     .filter((e) => e.content.trim())
