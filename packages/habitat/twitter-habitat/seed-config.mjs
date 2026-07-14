@@ -47,6 +47,13 @@ if (config.name === undefined) {
   config.name = "Twitter";
   changed = true;
 }
+// Make the credential policy explicit (ADR 0003): "hybrid" is the historical
+// behavior (per-user tokens with shared-operator fallback). Operators opt into
+// "per-user" (no fallback) or "shared" by editing config.json; never clobbered.
+if (config.credentialMode === undefined) {
+  config.credentialMode = "hybrid";
+  changed = true;
+}
 
 if (changed || !existed) {
   writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   XTokenStore,
   habitatSecretStore,
+  parseCredentialMode,
   perUserTokenStores,
   refreshTokenSecretKey,
   X_CLIENT_ID_SECRET,
@@ -286,6 +287,95 @@ describe('perUserTokenStores', () => {
     const reg = perUserTokenStores(habitat({}, undefined));
     expect(reg.currentSubject()).toBeUndefined();
     expect(reg.current()).toBe(reg.current());
+  });
+});
+
+describe('perUserTokenStores — credentialMode policy', () => {
+  function habitat(
+    initial: Record<string, string>,
+    currentUser?: string,
+    credentialMode?: unknown,
+  ) {
+    const store = new Map(Object.entries(initial));
+    return {
+      getSecret: (n: string) => store.get(n),
+      setSecret: async (n: string, v: string) => {
+        store.set(n, v);
+      },
+      getCurrentUserId: () => currentUser,
+      listSecretNames: () => [...store.keys()],
+      getConfig: () => ({ credentialMode }),
+    };
+  }
+
+  const creds = {
+    [X_CLIENT_ID_SECRET]: 'cid',
+    [X_CLIENT_SECRET_SECRET]: 'csecret',
+  };
+
+  it('parseCredentialMode defaults anything unknown to hybrid', () => {
+    expect(parseCredentialMode('shared')).toBe('shared');
+    expect(parseCredentialMode('per-user')).toBe('per-user');
+    expect(parseCredentialMode('hybrid')).toBe('hybrid');
+    expect(parseCredentialMode(undefined)).toBe('hybrid');
+    expect(parseCredentialMode('nonsense')).toBe('hybrid');
+  });
+
+  it('exposes the configured mode (default hybrid)', () => {
+    expect(perUserTokenStores(habitat({}, undefined)).mode()).toBe('hybrid');
+    expect(perUserTokenStores(habitat({}, undefined, 'shared')).mode()).toBe('shared');
+    expect(perUserTokenStores(habitat({}, undefined, 'per-user')).mode()).toBe('per-user');
+  });
+
+  it('shared mode: an identified speaker still resolves the shared operator key', async () => {
+    // No tokens stored — the needs_reauth message names which key was looked
+    // up, proving the shared key (not carol's) is used in shared mode.
+    const reg = perUserTokenStores(habitat(creds, 'carol', 'shared'));
+    const err = await reg.current().getValidToken().catch((e) => e);
+    expect(err).toBeInstanceOf(XAuthError);
+    expect(err.message).toContain(`secret ${X_REFRESH_TOKEN_SECRET})`);
+    expect(err.message).not.toContain('carol');
+  });
+
+  it('hybrid mode: an identified speaker resolves their own key', async () => {
+    const reg = perUserTokenStores(habitat(creds, 'carol', 'hybrid'));
+    const err = await reg.current().getValidToken().catch((e) => e);
+    expect(err).toBeInstanceOf(XAuthError);
+    expect(err.message).toContain(`${X_REFRESH_TOKEN_SECRET}:carol`);
+  });
+
+  it('per-user mode: an identified speaker resolves their own key', async () => {
+    const reg = perUserTokenStores(habitat(creds, 'carol', 'per-user'));
+    const err = await reg.current().getValidToken().catch((e) => e);
+    expect(err).toBeInstanceOf(XAuthError);
+    expect(err.message).toContain(`${X_REFRESH_TOKEN_SECRET}:carol`);
+  });
+
+  it('per-user mode: NO silent fallback — unidentified callers are refused even when a shared token exists', async () => {
+    const reg = perUserTokenStores(
+      habitat({ ...creds, [X_REFRESH_TOKEN_SECRET]: 'operator-rt' }, undefined, 'per-user'),
+    );
+    const err = await reg.current().getValidToken().catch((e) => e);
+    expect(err).toBeInstanceOf(XAuthError);
+    expect(err.kind).toBe('needs_reauth');
+    expect(err.message).toMatch(/per-user/);
+    // The refusal store is cached like the others.
+    expect(reg.current()).toBe(reg.current());
+  });
+
+  it('per-user mode: connectError explains the identity requirement to unidentified callers', () => {
+    const reg = perUserTokenStores(habitat(creds, undefined, 'per-user'));
+    const e = reg.connectError();
+    expect(e.kind).toBe('needs_x_connect');
+    expect(e.error).toMatch(/per-user/);
+    expect(e.error).toMatch(/verified user identity/i);
+  });
+
+  it('shared mode: connectError points at the operator account', () => {
+    const reg = perUserTokenStores(habitat(creds, 'carol', 'shared'));
+    const e = reg.connectError();
+    expect(e.kind).toBe('needs_x_connect');
+    expect(e.error).toMatch(/shared X account/i);
   });
 });
 

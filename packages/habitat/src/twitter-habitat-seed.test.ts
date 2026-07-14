@@ -49,6 +49,7 @@ describe("twitter-habitat seed-config.mjs", () => {
     expect(config.name).toBe("Twitter");
     expect(config.toolsDir).toBe("tools");
     expect(config.stimulusFile).toBe("STIMULUS.md");
+    expect(config.credentialMode).toBe("hybrid");
   });
 
   it("fills in toolsDir/stimulusFile without clobbering Gaia-seeded fields", async () => {
@@ -79,12 +80,14 @@ describe("twitter-habitat seed-config.mjs", () => {
         name: "Twitter",
         toolsDir: "custom-tools",
         stimulusFile: "PERSONA.md",
+        credentialMode: "per-user",
       }),
     );
     await seed(configPath);
     const config = JSON.parse(await readFile(configPath, "utf8"));
     expect(config.toolsDir).toBe("custom-tools");
     expect(config.stimulusFile).toBe("PERSONA.md");
+    expect(config.credentialMode).toBe("per-user");
   });
 
   it("is idempotent — a second run makes no further changes", async () => {

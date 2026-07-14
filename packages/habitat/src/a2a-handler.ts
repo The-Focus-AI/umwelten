@@ -83,6 +83,8 @@ export interface RequiredCredential {
   required: boolean;
   type: "secret" | "oauth";
   connectPath?: string;
+  /** For `type: "oauth"`: the scopes the connect flow requests (user-facing). */
+  scopes?: string[];
   /**
    * Whether the habitat already holds this credential (annotated at card-serve
    * time from the live secret store; names checked, values never exposed). An
@@ -95,6 +97,13 @@ export interface RequiredCredential {
 /** An A2A AgentCard plus our `requiredCredentials` extension. */
 export type HabitatAgentCard = AgentCard & {
   requiredCredentials?: RequiredCredential[];
+  /**
+   * Whose third-party account the agent's tools act as (config.credentialMode):
+   * "shared" (one operator account for everyone), "per-user" (each user connects
+   * their own, no fallback), or "hybrid" (per-user with shared fallback).
+   * Advertised so attaching clients can display the permission model.
+   */
+  credentialMode?: "shared" | "per-user" | "hybrid";
 };
 
 export async function buildAgentCard(
@@ -134,10 +143,12 @@ export async function buildAgentCard(
     required: s.required,
     type: s.type ?? "secret",
     ...(s.connectPath ? { connectPath: s.connectPath } : {}),
+    ...(s.scopes?.length ? { scopes: s.scopes } : {}),
   }));
 
   return {
     ...(requiredCredentials.length ? { requiredCredentials } : {}),
+    ...(config.credentialMode ? { credentialMode: config.credentialMode } : {}),
     name,
     description,
     url: `${baseUrl}/a2a`,

@@ -86,6 +86,25 @@ export interface LogPattern {
 }
 
 /**
+ * How third-party user credentials (e.g. an X account) resolve for the people
+ * talking to this habitat. This is the explicit policy behind the per-user
+ * token keys (`TOKEN:<sub>`, ADR 0003) vs the shared operator token:
+ *
+ *  - `"shared"`   — everyone acts as the habitat's single operator account,
+ *                   even when a verified per-user identity is present.
+ *  - `"per-user"` — every request must carry a verified identity (JWT `sub`)
+ *                   AND that user must have connected their own account.
+ *                   There is NO fallback to the operator account.
+ *  - `"hybrid"`   — identified users act as their own connected account;
+ *                   requests without a verified identity fall back to the
+ *                   shared operator account. (The historical behavior.)
+ *
+ * Advertised on the agent card so attaching clients (the habitats SaaS) can
+ * show users exactly whose account the agent acts as. Defaults to "hybrid".
+ */
+export type CredentialMode = "shared" | "per-user" | "hybrid";
+
+/**
  * A required secret declaration for reproducible provisioning.
  */
 export interface RequiredSecret {
@@ -107,6 +126,12 @@ export interface RequiredSecret {
 	connectPath?: string;
 	/** Human-facing label for a form field (defaults to `name`). */
 	label?: string;
+	/**
+	 * For `type: "oauth"`: the OAuth scopes the connect flow requests, so an
+	 * attaching client can show users what the connection can do BEFORE they
+	 * authorize (e.g. ["tweet.read", "bookmark.read"]).
+	 */
+	scopes?: string[];
 }
 
 // ── Agent identity & scopes (Habitat Runtime spec, Phase 2) ──────────
@@ -348,6 +373,13 @@ export interface HabitatConfig {
 	projectDir?: string;
 	/** Secrets required for this habitat to function. */
 	requiredSecrets?: RequiredSecret[];
+	/**
+	 * Whose third-party account tools act as: "shared" (operator account for
+	 * everyone), "per-user" (each user must connect their own; no fallback), or
+	 * "hybrid" (per-user with shared fallback — the default). Enforced by the
+	 * per-user token stores and advertised on the agent card.
+	 */
+	credentialMode?: CredentialMode;
 	/**
 	 * Cron schedules that run inside the container (#240). Each entry fires a
 	 * registered tool (deterministic, no LLM) or an agent prompt. Runs as the

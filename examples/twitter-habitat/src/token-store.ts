@@ -52,6 +52,24 @@ export interface SecretStore {
   set(name: string, value: string): Promise<void>;
 }
 
+/**
+ * Whose X account tools act as (config.json `credentialMode`, ADR 0003):
+ *
+ *  - `"shared"`   — everyone acts as the single operator account, even
+ *                   identified users.
+ *  - `"per-user"` — every caller must have a verified identity AND their own
+ *                   connected account. NO fallback to the operator token.
+ *  - `"hybrid"`   — identified users get their own account; unidentified
+ *                   requests fall back to the operator token (historical
+ *                   behavior, the default).
+ */
+export type CredentialMode = 'shared' | 'per-user' | 'hybrid';
+
+/** Parse a config value into a {@link CredentialMode}, defaulting to hybrid. */
+export function parseCredentialMode(value: unknown): CredentialMode {
+  return value === 'shared' || value === 'per-user' ? value : 'hybrid';
+}
+
 /** Subset of the Habitat secret API the store needs. */
 interface HabitatLike {
   getSecret(name: string): string | undefined;
@@ -60,6 +78,8 @@ interface HabitatLike {
   getCurrentUserId?(): string | undefined;
   /** Secret names, no values — lets {@link perUserTokenStores} diagnose which token keys exist. */
   listSecretNames?(): string[];
+  /** Habitat config — read for the `credentialMode` policy. */
+  getConfig?(): { credentialMode?: unknown } | undefined;
 }
 
 /** Adapt a `Habitat` (or anything with getSecret/setSecret) into a {@link SecretStore}. */
@@ -86,6 +106,13 @@ export interface XTokenStoreOptions {
    * original single-tenant behavior.
    */
   subject?: string;
+  /**
+   * When set, this store is a policy refusal: {@link XTokenStore.getValidToken}
+   * throws a `needs_reauth` {@link XAuthError} with this message instead of
+   * touching any token. Used by {@link perUserTokenStores} in `per-user`
+   * credential mode to block the shared-operator fallback.
+   */
+  unavailableReason?: string;
 }
 
 /** Per-user refresh-token secret key, or the shared operator key when no subject. */
@@ -100,6 +127,8 @@ export class XTokenStore {
   private readonly skewMs: number;
   /** Secret key holding this store's (rotating) refresh token — per-user or shared. */
   private readonly refreshKey: string;
+  /** Policy refusal message — set ⇒ every token request throws needs_reauth. */
+  private readonly unavailableReason: string | undefined;
 
   private cachedAccessToken: string | undefined;
   private expiresAtMs = 0;
@@ -112,6 +141,7 @@ export class XTokenStore {
     this.now = opts.now ?? Date.now;
     this.skewMs = opts.refreshSkewMs ?? DEFAULT_REFRESH_SKEW_MS;
     this.refreshKey = refreshTokenSecretKey(opts.subject);
+    this.unavailableReason = opts.unavailableReason;
   }
 
   /**
@@ -122,6 +152,9 @@ export class XTokenStore {
    *   then retry the request once.
    */
   async getValidToken(opts: { forceRefresh?: boolean } = {}): Promise<string> {
+    if (this.unavailableReason) {
+      throw new XAuthError(this.unavailableReason, 'needs_reauth');
+    }
     if (!opts.forceRefresh && this.cachedAccessToken && this.now() < this.expiresAtMs - this.skewMs) {
       return this.cachedAccessToken;
     }
@@ -174,24 +207,55 @@ export class XTokenStore {
 /**
  * Per-user token-store registry for the private read tools (ADR 0003 / #176).
  *
- * Resolves the current speaker via `habitat.getCurrentUserId()` and hands back a
- * subject-scoped {@link XTokenStore} (cached per subject so the access-token
- * cache + single-flight refresh are shared across calls for that user). When
- * there is no speaker (off the A2A path, or no per-user grant) it falls back to
- * the shared operator store — preserving single-tenant behavior.
+ * Resolves the current speaker via `habitat.getCurrentUserId()` and hands back
+ * an {@link XTokenStore} scoped by the habitat's `credentialMode` policy
+ * (cached per subject so the access-token cache + single-flight refresh are
+ * shared across calls for that user):
+ *
+ *  - `hybrid` (default): speaker ⇒ their own token; no speaker ⇒ the shared
+ *    operator token (single-tenant behavior).
+ *  - `shared`: everyone ⇒ the shared operator token, even identified speakers.
+ *  - `per-user`: speaker ⇒ their own token; no speaker ⇒ a refusal store that
+ *    throws `needs_reauth` — the shared operator account is NEVER used
+ *    silently on behalf of an unidentified caller.
  */
 export function perUserTokenStores(habitat: HabitatLike) {
   const secrets = habitatSecretStore(habitat);
   const bySubject = new Map<string, XTokenStore>();
+  const mode = (): CredentialMode =>
+    parseCredentialMode(habitat.getConfig?.()?.credentialMode);
   return {
+    /** The habitat's credential policy (config.json `credentialMode`). */
+    mode,
     /** The current speaker's `sub`, or undefined (operator/shared mode). */
     currentSubject(): string | undefined {
       return habitat.getCurrentUserId?.();
     },
-    /** Token store for the current speaker (or the shared operator token). */
+    /** Token store for the current speaker, per the credentialMode policy. */
     current(): XTokenStore {
-      const subject = habitat.getCurrentUserId?.();
-      const key = subject ?? "";
+      const policy = mode();
+      const subject =
+        policy === 'shared' ? undefined : habitat.getCurrentUserId?.();
+      if (policy === 'per-user' && !subject) {
+        // Refusal store: cached under a key no real subject can collide with
+        // (subjects are non-empty; "" is the shared-operator cache key).
+        const key = ' per-user-refusal';
+        let store = bySubject.get(key);
+        if (!store) {
+          store = new XTokenStore({
+            secrets,
+            unavailableReason:
+              'This agent is configured per-user (credentialMode: "per-user"): ' +
+              'every request must carry a verified user identity, and this one ' +
+              'arrived without one. The shared operator account is not used in ' +
+              'this mode. Fix: talk to the agent through a channel that sends ' +
+              'per-user identity (the habitats app / A2A with JWT).',
+          });
+          bySubject.set(key, store);
+        }
+        return store;
+      }
+      const key = subject ?? '';
       let store = bySubject.get(key);
       if (!store) {
         store = new XTokenStore({ secrets, subject });
@@ -218,11 +282,32 @@ export function perUserTokenStores(habitat: HabitatLike) {
      *  3. Nothing stored at all → original bootstrap message.
      */
     connectError(): { error: string; kind: 'needs_x_connect' } {
+      const policy = mode();
       const subject = habitat.getCurrentUserId?.();
       const names = habitat.listSecretNames?.() ?? [];
       const perUserCount = names.filter((n) =>
         n.startsWith(`${X_REFRESH_TOKEN_SECRET}:`),
       ).length;
+      if (policy === 'shared') {
+        return {
+          error:
+            'This agent acts as a single shared X account (credentialMode: ' +
+            '"shared") and that account is not authenticated. An operator must ' +
+            'connect the habitat-wide X account (or run the OAuth bootstrap).',
+          kind: 'needs_x_connect',
+        };
+      }
+      if (policy === 'per-user' && !subject) {
+        return {
+          error:
+            'This agent requires a per-user X account (credentialMode: ' +
+            '"per-user") and this request arrived without a verified user ' +
+            'identity, so no account may be used on its behalf. Talk to the ' +
+            'agent through a channel that sends per-user identity (the ' +
+            'habitats app / A2A with JWT), then connect your X account.',
+          kind: 'needs_x_connect',
+        };
+      }
       if (subject) {
         return {
           error:

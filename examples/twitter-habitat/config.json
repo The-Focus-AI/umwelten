@@ -5,6 +5,7 @@
   "toolsDir": "tools",
   "stimulusFile": "STIMULUS.md",
   "agents": [],
+  "credentialMode": "hybrid",
   "requiredSecrets": [
     {
       "name": "TWITTER_CLIENT_ID",
@@ -26,7 +27,14 @@
       "description": "Authorize the app once; the refresh token is minted into the habitat — you never paste it.",
       "required": true,
       "type": "oauth",
-      "connectPath": "/connect/x"
+      "connectPath": "/connect/x",
+      "scopes": [
+        "tweet.read",
+        "users.read",
+        "bookmark.read",
+        "list.read",
+        "offline.access"
+      ]
     },
     {
       "name": "OPENROUTER_API_KEY",
