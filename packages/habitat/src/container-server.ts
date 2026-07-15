@@ -31,7 +31,13 @@ import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts, toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
-import { createA2AHandler, type A2AHandler } from "./a2a-handler.js";
+import {
+	createA2AHandler,
+	annotateServedCredentials,
+	effectiveCredentialMode,
+	type A2AHandler,
+	type HabitatAgentCard,
+} from "./a2a-handler.js";
 import { runWithSpeaker } from "./identity/agent-speaker-context.js";
 import { HabitatScheduler } from "./schedule/scheduler.js";
 import { getPublicBaseUrl } from "@umwelten/protocols";
@@ -553,17 +559,23 @@ export async function startContainerServer(
 					// the operator for secrets the habitat already holds. Computed at
 					// serve time (not boot) so it tracks /api/secrets writes and
 					// connect-flow token mints.
-					const declared = (
-						handler.agentCard as {
-							requiredCredentials?: Array<{ name: string }>;
-						}
-					).requiredCredentials;
+					const typedCard = handler.agentCard as HabitatAgentCard;
+					const declared = typedCard.requiredCredentials;
 					if (declared?.length) {
-						card.requiredCredentials = declared.map((c) => ({
-							...c,
-							configured: habitat.isSecretAvailable(c.name),
-						}));
+						card.requiredCredentials = annotateServedCredentials(declared, {
+							isSecretAvailable: (name) => habitat.isSecretAvailable(name),
+							connectorScopes: (provider) =>
+								connectors.get(provider)?.scopes,
+						});
 					}
+					// Advertise the EFFECTIVE credential policy (explicit config wins;
+					// per-user connect surface implies the enforcement default hybrid).
+					const mode = effectiveCredentialMode(
+						typedCard.credentialMode,
+						declared,
+						connectors.size > 0,
+					);
+					if (mode) card.credentialMode = mode;
 					// Advertise the per-user connect surface as an A2A extension when a
 					// connector is registered (self-describing for the SaaS).
 					if (connectors.size > 0) {

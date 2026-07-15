@@ -18,9 +18,13 @@ import type {
 	ExecutionEventBus,
 } from "@umwelten/protocols";
 import {
+	annotateServedCredentials,
 	buildAgentCard,
+	connectorNameFromPath,
 	createA2AHandler,
+	effectiveCredentialMode,
 	HabitatAgentExecutor,
+	type RequiredCredential,
 } from "./a2a-handler.js";
 import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "./bridge/channel-bridge.js";
@@ -487,5 +491,67 @@ describe("buildAgentCard — requiredCredentials (ADR 0004)", () => {
 	it("omits requiredCredentials when the config declares none", async () => {
 		const card = await buildAgentCard({ baseUrl: "http://h", habitat: await makeHost() });
 		expect(card.requiredCredentials).toBeUndefined();
+	});
+});
+
+describe("serve-time card annotation", () => {
+	const oauthCred: RequiredCredential = {
+		name: "TWITTER_REFRESH_TOKEN",
+		label: "Connect your X account",
+		required: true,
+		type: "oauth",
+		connectPath: "/connect/x",
+	};
+	const secretCred: RequiredCredential = {
+		name: "OPENROUTER_API_KEY",
+		label: "OpenRouter API key",
+		required: true,
+		type: "secret",
+	};
+
+	it("parses the provider name from a connect path", () => {
+		expect(connectorNameFromPath("/connect/x")).toBe("x");
+		expect(connectorNameFromPath("/connect/google")).toBe("google");
+		expect(connectorNameFromPath("/connect")).toBeUndefined();
+	});
+
+	it("annotates configured and fills oauth scopes from the live connector", () => {
+		const annotated = annotateServedCredentials([oauthCred, secretCred], {
+			isSecretAvailable: (name) => name === "OPENROUTER_API_KEY",
+			connectorScopes: (provider) =>
+				provider === "x" ? ["tweet.read", "offline.access"] : undefined,
+		});
+		expect(annotated[0]).toMatchObject({
+			configured: false,
+			scopes: ["tweet.read", "offline.access"],
+		});
+		expect(annotated[1]).toMatchObject({ configured: true });
+		expect(annotated[1].scopes).toBeUndefined(); // never invents scopes for plain secrets
+	});
+
+	it("declared scopes win over connector defaults", () => {
+		const declared = { ...oauthCred, scopes: ["bookmark.read"] };
+		const annotated = annotateServedCredentials([declared], {
+			isSecretAvailable: () => false,
+			connectorScopes: () => ["tweet.read"],
+		});
+		expect(annotated[0].scopes).toEqual(["bookmark.read"]);
+	});
+
+	it("effectiveCredentialMode: explicit config always wins", () => {
+		expect(effectiveCredentialMode("per-user", [oauthCred], true)).toBe("per-user");
+		expect(effectiveCredentialMode("shared", [oauthCred], true)).toBe("shared");
+	});
+
+	it("effectiveCredentialMode: per-user connect surface implies hybrid", () => {
+		// This is the fleet-migration path: volumes seeded before credentialMode
+		// existed must advertise the enforcement default rather than nothing.
+		expect(effectiveCredentialMode(undefined, [oauthCred], true)).toBe("hybrid");
+	});
+
+	it("effectiveCredentialMode: no oauth credential or no connector → no policy", () => {
+		expect(effectiveCredentialMode(undefined, [secretCred], true)).toBeUndefined();
+		expect(effectiveCredentialMode(undefined, [oauthCred], false)).toBeUndefined();
+		expect(effectiveCredentialMode(undefined, undefined, true)).toBeUndefined();
 	});
 });

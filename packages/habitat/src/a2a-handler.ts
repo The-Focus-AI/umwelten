@@ -134,6 +134,8 @@ export async function buildAgentCard(
   // Declare the app credentials this agent needs to function (ADR 0004), so an
   // attaching client (the habitats SaaS) can render a form / OAuth "Connect"
   // instead of anyone hand-setting secrets. Sourced from config.requiredSecrets.
+  // (See annotateServedCredentials/effectiveCredentialMode for the serve-time
+  // overlay that reconciles the declared card with live habitat state.)
   const requiredCredentials: RequiredCredential[] = (
     config.requiredSecrets ?? []
   ).map((s) => ({
@@ -176,6 +178,72 @@ export async function buildAgentCard(
         }
       : {}),
   };
+}
+
+// ── Serve-time card annotation ─────────────────────────────────────
+//
+// The card built from config is a declaration; the served card overlays
+// live habitat state. Pure functions so the container server's serving
+// route stays thin and this logic is unit-testable.
+
+export interface ServedCredentialContext {
+  /** Whether the habitat's secret store holds this name (names only). */
+  isSecretAvailable(name: string): boolean;
+  /** Live scopes of a registered upstream connector, by provider name ("x"). */
+  connectorScopes(providerName: string): string[] | undefined;
+}
+
+/** "/connect/x" → "x" (undefined when the path has no provider segment). */
+export function connectorNameFromPath(
+  connectPath: string,
+): string | undefined {
+  return connectPath.split("/").filter(Boolean)[1];
+}
+
+/**
+ * Annotate declared credentials with live state:
+ * - `configured`: the habitat already holds this secret (never values).
+ * - oauth `scopes`: filled from the registered connector when the config
+ *   didn't declare them — the connect flow requests exactly the
+ *   connector's scopes, so the card says so even for configs seeded
+ *   before the scopes field existed. Declared scopes win.
+ */
+export function annotateServedCredentials(
+  declared: RequiredCredential[],
+  ctx: ServedCredentialContext,
+): RequiredCredential[] {
+  return declared.map((c) => {
+    const annotated: RequiredCredential = {
+      ...c,
+      configured: ctx.isSecretAvailable(c.name),
+    };
+    if (c.type === "oauth" && !c.scopes?.length && c.connectPath) {
+      const provider = connectorNameFromPath(c.connectPath);
+      const scopes = provider ? ctx.connectorScopes(provider) : undefined;
+      if (scopes?.length) annotated.scopes = [...scopes];
+    }
+    return annotated;
+  });
+}
+
+/**
+ * The credential policy the served card should advertise. Explicit config
+ * always wins; otherwise a habitat with a per-user connect surface (an
+ * oauth credential + a registered connector) advertises "hybrid" — the
+ * per-user token stores' enforcement default (per-user token with
+ * shared-operator fallback). Without this, fleet volumes seeded before
+ * credentialMode existed would advertise no policy while enforcing one.
+ */
+export function effectiveCredentialMode(
+  declaredMode: HabitatAgentCard["credentialMode"],
+  credentials: RequiredCredential[] | undefined,
+  hasConnectors: boolean,
+): HabitatAgentCard["credentialMode"] {
+  if (declaredMode) return declaredMode;
+  if (hasConnectors && credentials?.some((c) => c.type === "oauth")) {
+    return "hybrid";
+  }
+  return undefined;
 }
 
 // ── Agent executor (bridges A2A → ChannelBridge) ──────────────────
