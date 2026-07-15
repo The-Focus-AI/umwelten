@@ -130,6 +130,12 @@ interface ToolSet {
 }
 ```
 
+`config.json` may set `enabledToolSets` to an allowlist of these `name` values.
+The allowlist narrows the runtime mode's defaults; unknown names fail startup.
+It does not filter custom tools loaded from `toolsDir`.
+Use `loadWorkDirTools: false` and `loadSkills: false` to disable those separate
+extension points for a least-privilege habitat.
+
 ### Available Tool Sets
 
 #### Standard Tool Sets (in `standardToolSets`)

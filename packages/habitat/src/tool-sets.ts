@@ -39,6 +39,32 @@ export interface ToolSet {
   createTools(habitat: Habitat): Record<string, Tool>;
 }
 
+/**
+ * Apply a config-level allowlist to the ToolSets selected by the runtime mode.
+ * Preserve runtime ordering and fail loudly on unknown names: silently
+ * accepting a typo would leave an agent with a different capability boundary
+ * than its operator intended.
+ */
+export function selectEnabledToolSets(
+  available: ToolSet[],
+  enabled: string[] | undefined,
+): ToolSet[] {
+  if (enabled === undefined) return available;
+
+  const availableNames = new Set(available.map((toolSet) => toolSet.name));
+  const unknown = Array.from(new Set(enabled)).filter(
+    (name) => !availableNames.has(name),
+  );
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown enabledToolSets: ${unknown.join(", ")}. Available tool sets: ${Array.from(availableNames).join(", ")}`,
+    );
+  }
+
+  const allowlist = new Set(enabled);
+  return available.filter((toolSet) => allowlist.has(toolSet.name));
+}
+
 /** File operations: read, write, list, ripgrep -- sandboxed to habitat's allowed roots. */
 export const fileToolSet: ToolSet = {
   name: "file-operations",

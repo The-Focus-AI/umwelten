@@ -8,6 +8,19 @@ Keep entries short, dated, and written for end users — what they can see
 or do differently, not internal refactors. Newest first. Redeploy this
 file onto the Help volume (next to STIMULUS.md) when it changes.
 
+## 2026-07-15
+
+- **@Help now understands the full agent lifecycle.** It distinguishes creating
+  a room, attaching an existing agent, and asking an operator to build and
+  deploy a new agent service. It can also explain marketplace and URL attach,
+  authorization, credentials, refresh, transcripts, reconnect, and detach.
+- **Thread guidance is accurate.** The main room and each side thread have
+  separate agent memory, while every conversation can still have many human
+  speakers with per-person identity.
+- **Safer live-status checks.** @Help can ask Gaia for read-only health and
+  availability, but it cannot use that path to change agents or expose
+  token-bearing operational links.
+
 ## 2026-07-05
 
 - **Threads got real memory.** Replying in a thread now keeps that

@@ -100,6 +100,7 @@ export type {
 // ── Tool sets ───────────────────────────────────────────────────────────
 export type { ToolSet } from "./tool-sets.js";
 export {
+	selectEnabledToolSets,
 	standardToolSets,
 	containerToolSets,
 	managedContainerToolSets,

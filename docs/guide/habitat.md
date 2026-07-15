@@ -133,6 +133,9 @@ The telegram subcommand also accepts:
   "skillsFromGit": ["owner/repo"],
   "skillsCacheDir": "repos",
   "toolsDir": "tools",
+  "enabledToolSets": ["time", "remote-agents", "room-history"],
+  "loadWorkDirTools": false,
+  "loadSkills": false,
   "memoryFiles": {
     "enabled": true,
     "files": ["memories.md", "facts.md"],
@@ -222,7 +225,12 @@ These are copied from `packages/habitat/src/builtin-tools/` into your habitat's 
 
 ### Standard Tools (Built-in)
 
-These tools are always registered (unless `skipBuiltinTools` is set):
+These tools are registered from the runtime mode's default ToolSets unless
+`enabledToolSets` in `config.json` narrows them by ToolSet name. Unknown names
+fail startup rather than silently changing the intended capability boundary.
+Work-directory tools under `toolsDir` are separate and remain available.
+Set `loadWorkDirTools: false` and/or `loadSkills: false` when an agent needs a
+strict capability boundary that excludes those extension points.
 
 | Tool                            | Description                                         |
 | ------------------------------- | --------------------------------------------------- |

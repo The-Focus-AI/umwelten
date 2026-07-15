@@ -47,7 +47,7 @@ import {
 import { loadStimulusOptionsFromWorkDir } from "./load-prompts.js";
 import { isOnboarded, runOnboarding } from "./onboard.js";
 import { writeSessionTranscript } from "./transcript.js";
-import { standardToolSets } from "./tool-sets.js";
+import { selectEnabledToolSets, standardToolSets } from "./tool-sets.js";
 import type { ToolSet } from "./tool-sets.js";
 import type { FileToolsContext } from "./tools/file-tools.js";
 import type { AgentToolsContext } from "./tools/agent-tools.js";
@@ -179,14 +179,17 @@ export class Habitat
 
 		// 6. Register tool sets (unless skipped)
 		if (!opts.skipBuiltinTools) {
-			const toolSets = opts.toolSets ?? standardToolSets;
+			const toolSets = selectEnabledToolSets(
+				opts.toolSets ?? standardToolSets,
+				config.enabledToolSets,
+			);
 			for (const toolSet of toolSets) {
 				habitat.addToolSet(toolSet);
 			}
 		}
 
 		// 7. Load work-dir tools (unless skipped)
-		if (!opts.skipWorkDirTools) {
+		if (!opts.skipWorkDirTools && config.loadWorkDirTools !== false) {
 			const toolsDirRelative = config.toolsDir ?? "tools";
 			// Repo-backed habitats load tools from the cloned project dir first,
 			// then the work dir (operator override wins) — see resolveToolBases.
@@ -362,7 +365,7 @@ export class Habitat
 		}
 
 		// Load skills (unless skipped)
-		if (!this.options.skipSkills) {
+		if (!this.options.skipSkills && this.config.loadSkills !== false) {
 			const defaultSkillsDirs = this.config.skillsDirs ?? ["./skills"];
 			// Also check .agents/skills (npx skills install location)
 			if (

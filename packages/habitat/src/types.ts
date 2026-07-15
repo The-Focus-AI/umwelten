@@ -410,6 +410,16 @@ export interface HabitatConfig {
 	skillsCacheDir?: string;
 	/** Directory under workDir containing tool subdirs (default: "tools"). */
 	toolsDir?: string;
+	/**
+	 * Optional allowlist of builtin ToolSet names. When omitted, the runtime's
+	 * mode-specific defaults are used. Work-directory tools are unaffected.
+	 * Unknown names fail startup so a typo cannot silently remove a capability.
+	 */
+	enabledToolSets?: string[];
+	/** Whether to load custom tools from toolsDir/project tools. Default: true. */
+	loadWorkDirTools?: boolean;
+	/** Whether to load skills and expose the skill activation tool. Default: true. */
+	loadSkills?: boolean;
 	/** Path to STIMULUS.md or main prompt file (default: "STIMULUS.md"). */
 	stimulusFile?: string;
 	/** Optional memory file loading configuration. */

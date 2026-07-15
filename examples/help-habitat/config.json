@@ -3,6 +3,9 @@
   "defaultProvider": "openrouter",
   "defaultModel": "anthropic/claude-sonnet-5",
   "stimulusFile": "STIMULUS.md",
+  "enabledToolSets": ["time", "remote-agents", "room-history"],
+  "loadWorkDirTools": false,
+  "loadSkills": false,
   "memoryFiles": {
     "enabled": true,
     "files": ["CHANGELOG.md"]
