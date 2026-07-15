@@ -244,12 +244,16 @@ export const standardToolSets: ToolSet[] = [
 
 /**
  * Minimal tool sets for a habitat container (MCP server mode).
- * Only self-awareness tools: file ops, secrets, self-modify, time, URL fetch.
+ * Self-awareness tools: file ops, secrets, self-modify, time, URL fetch,
+ * plus session introspection — the container's sessions live on its own
+ * volume, so "what's been going on in my sessions" must be answerable
+ * in-container (sessions_* are read-only inspectors + learnings append).
  */
 export const containerToolSets: ToolSet[] = [
   fileToolSet,
   timeToolSet,
   urlToolSet,
+  sessionToolSet,
   secretsToolSet,
   selfModifyToolSet,
   execToolSet,
@@ -270,6 +274,7 @@ export const managedContainerToolSets: ToolSet[] = [
   fileToolSet,
   timeToolSet,
   urlToolSet,
+  sessionToolSet,
   selfModifyToolSet,
   execToolSet,
   provisionToolSet,

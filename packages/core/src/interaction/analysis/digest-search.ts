@@ -18,11 +18,12 @@ import type { LearningRecord } from '../../session-record/types.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readdir } from 'node:fs/promises';
+import { claudeProjectsDir } from '../persistence/claude-dir.js';
 
 // ─── Project discovery ──────────────────────────────────────────────────────
 
 async function discoverAllProjectPaths(): Promise<string[]> {
-  const claudeDir = join(homedir(), '.claude', 'projects');
+  const claudeDir = claudeProjectsDir();
   const projects: string[] = [];
   try {
     const entries = await readdir(claudeDir, { withFileTypes: true });

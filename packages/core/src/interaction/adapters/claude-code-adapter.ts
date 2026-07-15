@@ -5,11 +5,11 @@
  * Location: ~/.claude/projects/{encoded-path}/
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readdir, access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 
+import { claudeProjectsDir } from '../persistence/claude-dir.js';
 import type { SessionAdapter } from './adapter.js';
 import type {
   SessionSource,
@@ -54,7 +54,9 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   private claudeDir: string;
 
   constructor() {
-    this.claudeDir = join(homedir(), '.claude', 'projects');
+    // Honors CLAUDE_CONFIG_DIR so in-container reads (habitat images write
+    // traces under /data/claude-config) resolve the same dir the writers used.
+    this.claudeDir = claudeProjectsDir();
   }
 
   getSourceLocation(): string {

@@ -25,6 +25,7 @@ import {
 } from "../persistence/session-parser.js";
 import { messagesToBeats } from "./conversation-beats.js";
 import { adapterRegistry } from "../adapters/adapter.js";
+import { claudeProjectsDir } from "../persistence/claude-dir.js";
 import { summarizeNormalizedSession } from "../adapters/load-interaction.js";
 import type { NormalizedMessage } from "../types/normalized-types.js";
 import { getProjectSessionsIncludingFromDirectory } from "../persistence/session-store.js";
@@ -921,7 +922,7 @@ export async function digestProject(
  * Code and Antigravity sessions only appears once.
  */
 async function discoverAllProjectPaths(): Promise<string[]> {
-	const claudeDir = join(homedir(), ".claude", "projects");
+	const claudeDir = claudeProjectsDir();
 	const projects = new Set<string>();
 
 	try {

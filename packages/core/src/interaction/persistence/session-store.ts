@@ -1,5 +1,5 @@
-import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
+import { claudeProjectsDir } from './claude-dir.js';
 import { readFile, access, writeFile, readdir, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import type { SessionsIndex, SessionIndexEntry } from '../types/types.js';
@@ -13,7 +13,7 @@ import {
  * Get the path to Claude's sessions directory for a given project
  */
 export function getClaudeProjectPath(projectPath: string): string {
-  const claudeDir = join(homedir(), '.claude', 'projects');
+  const claudeDir = claudeProjectsDir();
 
   // Claude encodes project paths by replacing slashes with hyphens
   // Example: /Users/foo/project -> -Users-foo-project

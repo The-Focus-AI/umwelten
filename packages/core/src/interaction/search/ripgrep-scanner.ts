@@ -12,8 +12,7 @@
 
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { claudeProjectsDir } from "../persistence/claude-dir.js";
 
 import {
 	type RawScanHit,
@@ -26,7 +25,7 @@ import {
  * Per slice 1 / ADR 0002, Session Search v1 covers Claude Code only.
  */
 export function defaultSearchRoots(): string[] {
-	return [join(homedir(), ".claude", "projects")];
+	return [claudeProjectsDir()];
 }
 
 /**
