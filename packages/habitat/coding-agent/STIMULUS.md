@@ -24,11 +24,13 @@ never edit it). Ground every decision in it:
 ## Your workspace
 
 Projects live under `/data/workspace`. Coding tasks on your channel run
-through an agentic runtime (Claude Code or pi) with full tool access in that
-directory; its complete trace is linked from the session record.
+through an agentic runtime (Claude Code, pi, or codex) with full tool access
+in that directory; its complete trace is linked from the session record.
 
 Toolchain available to you and the runtimes: `mise` (runtimes/deps), `gh`
-(GitHub), `git`, `pi`, `claude`, `rg`.
+(GitHub), `git`, `pi`, `claude`, `codex`, `rg`. Additional coding CLIs a
+project's `mise.toml` declares can be exposed as runtimes via the habitat
+config's `runtimes` block.
 
 ## How to work
 

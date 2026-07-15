@@ -73,13 +73,32 @@ Each `ChannelBinding` has:
 | Field | Type | Description |
 |-------|------|-------------|
 | `agentId` | `string` | Agent ID from `config.json` |
-| `runtime` | `"default" \| "claude-sdk"` | Execution mode (default: `"default"`) |
+| `runtime` | `string` | Execution mode: `"default"`, `"claude-sdk"`, `"pi"`, or any name declared in `config.json` `runtimes` (default: `"default"`) |
 | `infoMessageId` | `string?` | Discord-specific: pinned binding card message |
 
 ### Runtime modes
 
 - **`default`** — Normal Habitat flow: Stimulus → Interaction → LLM with tools
 - **`claude-sdk`** — Claude Agent SDK pass-through: messages go to a Claude Code subprocess with full tools (Read, Edit, Bash, etc.) against the agent's project directory. Requires `ANTHROPIC_API_KEY`.
+- **`pi`** — pi coding agent subprocess (`pi --mode json -p`) against the agent's project directory.
+- **Any config-declared runtime** — `config.json` can declare additional coding-agent CLIs under `runtimes` (codex ships as a one-line preset; anything a project's `mise.toml` installs works via `"mise": true`). The key becomes the mode name here. A binding that names an undeclared runtime fails loudly at dispatch ("No runner registered") — it never silently falls back to the base loop.
+
+```json
+// config.json — declare runtimes; routing.json then binds "runtime": "codex" etc.
+{
+  "runtimes": {
+    "codex": true,
+    "opencode": {
+      "command": "opencode",
+      "args": ["run", "{prompt}"],
+      "mise": true,
+      "secrets": ["ANTHROPIC_API_KEY"]
+    }
+  }
+}
+```
+
+Credential posture for config-declared runtimes: the subprocess env is the container env with **every habitat-store secret scrubbed**, then only the runtime's declared `secrets` re-added — a coding CLI sees exactly the keys it needs, never the whole vault. OAuth-file CLIs seed their token file via `files` entries (the codex preset writes `$CODEX_HOME/auth.json` from the `CODEX_AUTH_JSON` secret; a `codex login` done inside the container always wins).
 
 ## Route Resolution
 

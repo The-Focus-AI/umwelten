@@ -334,6 +334,62 @@ export interface CapabilityBinding {
 	credential: string;
 }
 
+/** How a config-declared runtime's stdout is interpreted. */
+export type RuntimeOutputParser = "text" | "codex-json";
+
+/** A secret-backed credential file materialized before a runtime run. */
+export interface RuntimeCredentialFile {
+	/**
+	 * Absolute path to write ({cwd} is substituted with the agent's project
+	 * path). Written 0600, parent dirs created.
+	 */
+	path: string;
+	/**
+	 * Habitat secret whose value becomes the file contents (e.g. a codex
+	 * auth.json for ChatGPT-plan OAuth). Nothing is written when the secret
+	 * is unset or the file already exists — a login done inside the
+	 * container always wins over the seeded copy.
+	 */
+	secret: string;
+}
+
+/**
+ * A config-declared coding-agent runtime: any headless CLI — codex,
+ * opencode, aider, anything a project's mise.toml can install — exposed as
+ * a ChannelBridge runtime mode. The map key in `HabitatConfig.runtimes`
+ * becomes the mode name usable in routing.json (`"runtime": "codex"`).
+ *
+ * Credential posture: the subprocess env starts from the container env with
+ * EVERY habitat-store secret scrubbed, then only the secrets listed in
+ * `secrets` are re-added — a runtime sees exactly the keys it declares,
+ * never the whole vault. OAuth-file CLIs get their token via `files`.
+ */
+export interface RuntimeSpec {
+	/** Executable to spawn (resolved on PATH, or via mise when `mise` is true). */
+	command: string;
+	/**
+	 * Arguments. `{prompt}` and `{cwd}` are substituted; when no argument
+	 * contains `{prompt}`, the prompt is appended as the final argument.
+	 */
+	args?: string[];
+	/**
+	 * Run through `mise x -- <command> …` with the agent's project as cwd,
+	 * so the project's own mise.toml pins the tool and version.
+	 */
+	mise?: boolean;
+	/** stdout interpretation: plain text (default) or codex `--json` JSONL. */
+	parser?: RuntimeOutputParser;
+	/**
+	 * Habitat secret names passed through to the subprocess env. All other
+	 * habitat-store secrets are removed from the inherited env.
+	 */
+	secrets?: string[];
+	/** Extra literal env vars ({cwd} substituted). */
+	env?: Record<string, string>;
+	/** Secret-backed credential files written before each run. */
+	files?: RuntimeCredentialFile[];
+}
+
 /**
  * Habitat configuration stored in config.json.
  */
@@ -386,6 +442,15 @@ export interface HabitatConfig {
 	 * operator — no per-user identity. See schedule/scheduler.ts.
 	 */
 	schedules?: ScheduleEntry[];
+	/**
+	 * Named coding-agent runtimes beyond the built-ins (claude-sdk, pi).
+	 * Keys become ChannelRuntimeMode values usable in routing.json; a key
+	 * that collides with a built-in overrides it. `true` (or a partial
+	 * spec) picks up the named preset's defaults — `"codex": true` is a
+	 * complete codex declaration. See RuntimeSpec for the credential
+	 * posture (declared-secrets-only env).
+	 */
+	runtimes?: Record<string, Partial<RuntimeSpec> | true>;
 	/**
 	 * Reusable identity scope templates declared once at the habitat level.
 	 * Agents reference them via `identity.scopes[*].source = templateId`.

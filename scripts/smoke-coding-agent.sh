@@ -10,7 +10,7 @@ set -euo pipefail
 # Asserts:
 #   1. image builds from the habitat base
 #   2. container boots the container server; /health is OK; bearer auth gates /api/*
-#   3. gh, pi, claude, mise, git, rg available inside
+#   3. gh, pi, claude, codex, mise, git, rg available inside
 #   4. standards corpus present at /opt/standards (entry doc + prompts)
 #   5. server process runs as the node user (non-root)
 #   6. persona + routing + workspace agent seeded into the volume, node-owned
@@ -74,10 +74,10 @@ curl -sf -H "Authorization: Bearer $API_KEY" "http://127.0.0.1:$PORT/.well-known
 pass "bearer auth gates registered /api/* routes; A2A agent card served"
 
 echo "── 3. toolchain"
-for tool in gh pi claude mise git rg; do
+for tool in gh pi claude codex mise git rg; do
   cexec sh -c "command -v $tool >/dev/null" || fail "$tool missing"
 done
-pass "gh, pi, claude, mise, git, rg present"
+pass "gh, pi, claude, codex, mise, git, rg present"
 
 echo "── 4. standards corpus"
 cexec test -f /opt/standards/AGENTS.md || fail "standards entry doc missing"
@@ -95,6 +95,8 @@ cexec grep -q "/opt/standards" /data/STIMULUS.md || fail "persona does not refer
 cexec grep -q '"runtime": "claude-sdk"' /data/routing.json || fail "routing not bound to an agentic runtime"
 cexec node -e 'const c=JSON.parse(require("fs").readFileSync("/data/config.json","utf8")); if(!c.agents.some(a=>a.id==="workspace")) process.exit(1)' \
   || fail "workspace agent not in config.json"
+cexec node -e 'const c=JSON.parse(require("fs").readFileSync("/data/config.json","utf8")); if(!c.runtimes || !c.runtimes.codex) process.exit(1)' \
+  || fail "codex runtime not seeded into config.json"
 [ "$(cexec stat -c %u /data/STIMULUS.md)" = "1000" ] || fail "/data not owned by node"
 pass "persona + routing + workspace agent seeded, node-owned"
 

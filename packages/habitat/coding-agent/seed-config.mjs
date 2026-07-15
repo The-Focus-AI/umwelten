@@ -51,6 +51,16 @@ for (const seed of SEED_AGENTS) {
   }
 }
 
+// Codex ships in the image; declare it as a channel runtime so routing.json
+// can bind `"runtime": "codex"`. `true` = full preset (codex exec --json,
+// OPENAI_API_KEY / CODEX_AUTH_JSON credentials). Never clobbers an existing
+// runtimes block — operators own overrides.
+if (config.runtimes === undefined) {
+  config.runtimes = { codex: true };
+  changed = true;
+  console.log('[coding-agent] Seeded runtimes { codex } into config.json.');
+}
+
 let onDisk;
 try {
   onDisk = readFileSync(configPath, "utf8");

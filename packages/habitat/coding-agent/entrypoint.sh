@@ -32,7 +32,7 @@ fi
 node "$SEED_DIR/seed-config.mjs" "$WORK_DIR/config.json"
 
 # Directories the runtimes expect under the volume.
-mkdir -p "$WORK_DIR/workspace" "$WORK_DIR/pi-agent" "$WORK_DIR/claude-config" "$WORK_DIR/sessions"
+mkdir -p "$WORK_DIR/workspace" "$WORK_DIR/pi-agent" "$WORK_DIR/claude-config" "$WORK_DIR/codex" "$WORK_DIR/sessions"
 
 # Hand the volume to the node user. Gaia re-seeds config/secrets as root on
 # every (re)start, so this must run every boot, not just the first.

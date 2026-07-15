@@ -97,10 +97,15 @@ export interface BridgeResult {
  * - `claude-sdk` — Claude Agent SDK subprocess against the agent's project.
  * - `pi`         — pi agentic runtime (runner lands in #122; the mode is
  *                  part of the contract now so routing/config don't churn).
+ * - any other string — a config-declared runtime from `config.runtimes`
+ *                  (codex, opencode, anything a project's mise.toml
+ *                  installs), registered via createCliRuntimeRunner.
  *
- * Non-default modes dispatch through a registered RuntimeRunner.
+ * Non-default modes dispatch through a registered RuntimeRunner; an
+ * unregistered mode fails loudly at dispatch ("No runner registered"),
+ * never silently falls back to the base loop.
  */
-export type ChannelRuntimeMode = 'default' | 'claude-sdk' | 'pi';
+export type ChannelRuntimeMode = 'default' | 'claude-sdk' | 'pi' | (string & {});
 
 /** What a RuntimeRunner gets to work with, beyond the prompt itself. */
 export interface RuntimeContext {

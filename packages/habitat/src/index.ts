@@ -77,6 +77,26 @@ export type {
 	PiProgress,
 } from "./pi-runner.js";
 
+// ── Config-declared CLI runtimes (codex, opencode, anything via mise) ───
+export {
+	runCliAgent,
+	createCliRuntimeRunner,
+	buildConfiguredRuntimeRunners,
+	resolveRuntimeSpec,
+	buildRuntimeEnv,
+	buildInvocation,
+	materializeCredentialFiles,
+	findCodexSessionPath,
+	RUNTIME_PRESETS,
+} from "./cli-runner.js";
+export type {
+	CliRunOptions,
+	CliRunResult,
+	CliProgress,
+	RuntimeSecretSource,
+	RuntimeConfigSource,
+} from "./cli-runner.js";
+
 // ── Tool sets ───────────────────────────────────────────────────────────
 export type { ToolSet } from "./tool-sets.js";
 export {

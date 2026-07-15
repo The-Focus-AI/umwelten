@@ -155,9 +155,12 @@ describe("routing accommodates the pi mode (#118)", () => {
     });
   });
 
-  it("still defaults unknown runtimes to default", () => {
+  it("preserves config-declared runtime names instead of silently downgrading", () => {
+    // Unknown-to-the-bridge names are legitimate (config.runtimes declares
+    // codex/opencode/…); a typo now fails loudly at dispatch ("No runner
+    // registered") rather than silently running the base loop.
     expect(
-      coerceChannelBinding({ agentId: "coder", runtime: "warp-drive" as never }),
-    ).toEqual({ agentId: "coder", runtime: "default", infoMessageId: undefined });
+      coerceChannelBinding({ agentId: "coder", runtime: "codex" as never }),
+    ).toEqual({ agentId: "coder", runtime: "codex", infoMessageId: undefined });
   });
 });

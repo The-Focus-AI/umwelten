@@ -37,6 +37,18 @@ describe('routing', () => {
       expect(coerceChannelBinding({ agentId: 'ops' }))
         .toEqual({ agentId: 'ops', runtime: 'default' });
     });
+
+    it('preserves config-declared runtime names (codex, opencode, …)', () => {
+      expect(coerceChannelBinding({ agentId: 'workspace', runtime: 'codex' }))
+        .toEqual({ agentId: 'workspace', runtime: 'codex' });
+    });
+
+    it('defaults blank/non-string runtimes to default', () => {
+      expect(coerceChannelBinding({ agentId: 'ops', runtime: '  ' as any }))
+        .toEqual({ agentId: 'ops', runtime: 'default' });
+      expect(coerceChannelBinding({ agentId: 'ops', runtime: 7 as any }))
+        .toEqual({ agentId: 'ops', runtime: 'default' });
+    });
   });
 
   describe('resolveChannelRoute', () => {

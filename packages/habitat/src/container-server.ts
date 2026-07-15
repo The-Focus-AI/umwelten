@@ -39,6 +39,7 @@ import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
 import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
 import { createPiRuntimeRunner } from "./pi-runner.js";
+import { buildConfiguredRuntimeRunners } from "./cli-runner.js";
 import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
@@ -317,9 +318,14 @@ export async function startContainerServer(
 			"Do NOT copy files to /files/ — that path is a virtual mount, not a real directory. Files are served directly from /data/.",
 		].join("\n"),
 		buildAgentStimulus,
+		// Built-ins first; config-declared runtimes (config.runtimes — codex,
+		// opencode, anything mise installs) spread after so a same-named
+		// declaration overrides. Each config runtime gets a scoped env: only
+		// its declared secrets, never the whole vault.
 		runtimeRunners: {
 			'claude-sdk': createClaudeSdkRuntimeRunner(),
 			pi: createPiRuntimeRunner(),
+			...buildConfiguredRuntimeRunners(habitat),
 		},
 	});
 

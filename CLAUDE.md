@@ -199,7 +199,7 @@ The top-level system. Manages work directory, config, sessions, tools, agents, a
 - `gaia/` — **Gaia Orchestrator** — manages multiple habitat containers (see Gaia section below)
 - `load-prompts.ts` — Load stimulus options from work dir files (CLAUDE.md, README.md, etc.)
 - `bridge/` — Channel-bridge plumbing shared by every UI adapter (Telegram, Discord, web, Gaia):
-  - `channel-bridge.ts` — `ChannelBridge` class; routes a channel/thread → habitat session → `Interaction`; injects runtime selection (base vs claude-sdk).
+  - `channel-bridge.ts` — `ChannelBridge` class; routes a channel/thread → habitat session → `Interaction`; injects runtime selection (base loop vs registered RuntimeRunners: built-in `claude-sdk`/`pi` plus any `config.runtimes`-declared CLI via `cli-runner.ts` — codex preset, or anything mise installs; each declared runtime gets a scoped env of only its listed secrets).
   - `routing.ts` — channelKey → agent resolution with fallback chain (`exact → parent → platform default → global default → main`). Reads `routing.json`; falls back to legacy `discord.json` until that migration finishes.
   - `commands.ts` — slash-command processor (reset / agents / switch / status / help).
   - `index.ts`, `types.ts` — barrel + shared types.

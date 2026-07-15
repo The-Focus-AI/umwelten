@@ -29,9 +29,12 @@ export function coerceChannelBinding(
   if (typeof value === 'object' && typeof value.agentId === 'string') {
     const agentId = value.agentId.trim();
     if (!agentId) return null;
+    // Any non-empty string is a valid runtime name — config-declared
+    // runtimes (config.runtimes) are open-ended. A typo'd name fails
+    // loudly at dispatch instead of silently downgrading to the base loop.
     const runtime: ChannelRuntimeMode =
-      value.runtime === 'claude-sdk' || value.runtime === 'pi'
-        ? value.runtime
+      typeof value.runtime === 'string' && value.runtime.trim()
+        ? (value.runtime.trim() as ChannelRuntimeMode)
         : 'default';
     const infoMessageId = typeof value.infoMessageId === 'string' && value.infoMessageId.trim()
       ? value.infoMessageId.trim() : undefined;
