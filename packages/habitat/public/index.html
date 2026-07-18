@@ -1361,6 +1361,9 @@
           <button id="nav-sessions" onclick="showView('sessions')">
             Sessions
           </button>
+          <button id="nav-knowledge" onclick="showView('knowledge')">
+            Knowledge
+          </button>
           <button id="nav-habitats" onclick="showView('habitats')">
             Habitats
             <span class="gaps-badge zero hidden" id="gaps-badge">0</span>
@@ -1546,6 +1549,11 @@ Loading...</pre
       <!-- Sessions view -->
       <div class="sessions-view hidden" id="view-sessions">
         <div id="sessions-content"></div>
+      </div>
+
+      <!-- Knowledge view -->
+      <div class="sessions-view hidden" id="view-knowledge">
+        <div id="knowledge-content"></div>
       </div>
 
       <!-- Habitats view -->
@@ -1831,13 +1839,21 @@ Loading...</pre
         $("view-settings").classList.toggle("hidden", view !== "settings");
         $("view-chat").classList.toggle("hidden", view !== "chat");
         $("view-sessions").classList.toggle("hidden", view !== "sessions");
+        $("view-knowledge").classList.toggle("hidden", view !== "knowledge");
         $("view-habitats").classList.toggle("hidden", view !== "habitats");
         $("nav-settings").classList.toggle("active", view === "settings");
         $("nav-chat").classList.toggle("active", view === "chat");
         $("nav-sessions").classList.toggle("active", view === "sessions");
+        $("nav-knowledge").classList.toggle("active", view === "knowledge");
         $("nav-habitats").classList.toggle("active", view === "habitats");
         if (view === "chat") $("input").focus();
-        if (view === "sessions") loadSessions();
+        if (view === "sessions") {
+          // Skipped when a caller (knowledge view) is about to render a
+          // specific session detail — avoids the list fetch clobbering it.
+          if (window._skipSessionsAutoload) window._skipSessionsAutoload = false;
+          else loadSessions();
+        }
+        if (view === "knowledge") loadKnowledge();
         if (view === "settings") loadSettings();
         if (view === "habitats") {
           loadHabitats();
@@ -2410,7 +2426,14 @@ Loading...</pre
       function renderSessionDetail(sessionId, messages) {
         let html = `<div class="session-detail">
     <button class="back-btn" onclick="loadSessions()">← Back to sessions</button>
-    <h2 style="font-size:14px; color: var(--text-dim)">Session ${esc(sessionId.slice(0, 12))}… (${messages.length} messages)</h2>`;
+    <h2 style="font-size:14px; color: var(--text-dim)">Session ${esc(sessionId.slice(0, 12))}… (${messages.length} messages)</h2>
+    <div id="digest-panel" style="margin:10px 0"></div>
+    <div style="display:flex; gap:6px; margin:8px 0">
+      <input id="ask-input" placeholder="Ask about this session…" style="flex:1; padding:6px 10px; background:var(--bg-input, rgba(128,128,128,.08)); border:1px solid var(--border, rgba(128,128,128,.25)); border-radius:6px; color:inherit"
+        onkeydown="if(event.key==='Enter')askSession('${esc(sessionId)}')" />
+      <button class="back-btn" onclick="askSession('${esc(sessionId)}')">Ask</button>
+    </div>
+    <div id="ask-answer"></div>`;
 
         for (const m of messages) {
           const role = m.role;
@@ -2448,7 +2471,163 @@ Loading...</pre
 
         html += "</div>";
         sessionsEl.innerHTML = html;
+        loadDigestPanel(sessionId);
       }
+
+      // --- Digest / Knowledge / Ask ---
+
+      function digestHtml(d) {
+        let h = `<div class="card" style="padding:10px 14px">`;
+        h += `<div style="font-weight:600; margin-bottom:4px">Digest <span style="color:var(--text-dim); font-weight:400; font-size:0.85em">${d.digestedAt ? new Date(d.digestedAt).toLocaleString() : ""}${d.solutionType ? " · " + esc(d.solutionType) : ""}</span></div>`;
+        if (d.summary) h += `<div style="margin-bottom:6px">${esc(d.summary)}</div>`;
+        if (d.topics?.length)
+          h += `<div style="margin-bottom:6px">${d.topics.map((t) => `<span style="display:inline-block; background:rgba(128,128,255,.12); border-radius:10px; padding:1px 8px; margin:1px 3px 1px 0; font-size:0.82em">${esc(t)}</span>`).join("")}</div>`;
+        if (d.keyLearnings)
+          h += `<div style="font-size:0.9em; color:var(--text-dim); margin-bottom:6px"><b>Learnings:</b> ${esc(d.keyLearnings)}</div>`;
+        if (d.phases?.length) {
+          h += `<div style="font-size:0.9em; margin-bottom:6px"><b>Phases</b><ol style="margin:2px 0 0 18px">`;
+          for (const p of d.phases) h += `<li><b>${esc(p.name || "")}</b> — ${esc(p.description || "")}</li>`;
+          h += `</ol></div>`;
+        }
+        if (d.facts?.length) {
+          h += `<div style="font-size:0.9em"><b>Facts (${d.facts.length})</b><ul style="margin:2px 0 0 18px">`;
+          for (const f of d.facts.slice(0, 25))
+            h += `<li>${f.type ? `<span style="color:var(--text-dim)">[${esc(f.type)}]</span> ` : ""}${esc(f.text || "")}</li>`;
+          if (d.facts.length > 25) h += `<li style="color:var(--text-dim)">… ${d.facts.length - 25} more</li>`;
+          h += `</ul></div>`;
+        }
+        h += `</div>`;
+        return h;
+      }
+
+      async function loadDigestPanel(sessionId) {
+        const el = $("digest-panel");
+        if (!el) return;
+        try {
+          const res = await fetch(
+            `/api/sessions/${encodeURIComponent(sessionId)}/digest`,
+            { headers: authHeadersNoBody() },
+          );
+          const d = await res.json();
+          if (d.digested) {
+            el.innerHTML =
+              digestHtml(d) +
+              `<button class="back-btn" style="margin-top:4px" onclick="runDigest('${esc(sessionId)}')">Re-run digest</button>`;
+          } else {
+            el.innerHTML = `<button class="back-btn" onclick="runDigest('${esc(sessionId)}')">Run digest</button> <span style="color:var(--text-dim); font-size:0.85em">LLM pass: summary, topics, phases, extracted facts</span>`;
+          }
+        } catch {
+          el.innerHTML = "";
+        }
+      }
+
+      window.runDigest = async function (sessionId) {
+        const el = $("digest-panel");
+        el.innerHTML = `<div style="color:var(--text-dim)">Running digest… this uses the habitat's model and can take a minute.</div>`;
+        try {
+          const res = await fetch(
+            `/api/sessions/${encodeURIComponent(sessionId)}/digest`,
+            { method: "POST", headers: authHeaders() },
+          );
+          const d = await res.json();
+          if (d.error) {
+            el.innerHTML = `<div style="color:var(--error)">Digest failed: ${esc(d.error)}</div>`;
+            return;
+          }
+          el.innerHTML =
+            (d.warning
+              ? `<div style="color:var(--warn, orange); margin-bottom:6px">⚠ ${esc(d.warning)}</div>`
+              : "") + digestHtml(d);
+        } catch (err) {
+          el.innerHTML = `<div style="color:var(--error)">Digest failed: ${esc(err.message)}</div>`;
+        }
+      };
+
+      window.askSession = async function (sessionId) {
+        const q = $("ask-input")?.value?.trim();
+        if (!q) return;
+        const out = $("ask-answer");
+        out.innerHTML = `<div style="color:var(--text-dim)">Thinking…</div>`;
+        try {
+          const res = await fetch(
+            `/api/sessions/${encodeURIComponent(sessionId)}/ask`,
+            {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ question: q }),
+            },
+          );
+          const d = await res.json();
+          if (d.error) {
+            out.innerHTML = `<div style="color:var(--error)">${esc(d.error)}</div>`;
+            return;
+          }
+          out.innerHTML = `<div class="card" style="padding:10px 14px"><div style="color:var(--text-dim); font-size:0.85em; margin-bottom:4px">Q: ${esc(d.question)}</div>${renderMarkdown(d.answer || "")}</div>`;
+        } catch (err) {
+          out.innerHTML = `<div style="color:var(--error)">${esc(err.message)}</div>`;
+        }
+      };
+
+      const knowledgeEl = () => $("knowledge-content");
+      const KNOWLEDGE_KINDS = [
+        "",
+        "facts",
+        "skill_candidates",
+        "preferences",
+        "open_loops",
+        "mistakes",
+      ];
+
+      window.loadKnowledge = async function (kind = "", q = "") {
+        const el = knowledgeEl();
+        el.innerHTML = '<div style="color:var(--text-dim)">Loading…</div>';
+        try {
+          const params = new URLSearchParams();
+          if (kind) params.set("kind", kind);
+          if (q) params.set("q", q);
+          const res = await fetch(`/api/knowledge?${params}`, {
+            headers: authHeadersNoBody(),
+          });
+          const data = await res.json();
+          let html = `<h2>Knowledge</h2>
+      <div style="display:flex; gap:6px; margin:8px 0">
+        <select id="knowledge-kind" style="padding:5px 8px; background:var(--bg-input, rgba(128,128,128,.08)); border:1px solid var(--border, rgba(128,128,128,.25)); border-radius:6px; color:inherit">
+          ${KNOWLEDGE_KINDS.map((k) => `<option value="${k}" ${k === kind ? "selected" : ""}>${k || "all kinds"}</option>`).join("")}
+        </select>
+        <input id="knowledge-q" value="${esc(q)}" placeholder="Search knowledge…" style="flex:1; padding:5px 10px; background:var(--bg-input, rgba(128,128,128,.08)); border:1px solid var(--border, rgba(128,128,128,.25)); border-radius:6px; color:inherit"
+          onkeydown="if(event.key==='Enter')refreshKnowledge()" />
+        <button class="back-btn" onclick="refreshKnowledge()">Search</button>
+      </div>`;
+
+          if (data.digests?.length) {
+            html += `<h3 style="font-size:13px; margin:10px 0 4px">Digested sessions (${data.digests.length})</h3>`;
+            for (const d of data.digests) {
+              html += `<div class="session-item" onclick="window._skipSessionsAutoload=true;showView('sessions');loadSessionDetail('${esc(d.sessionId)}')">
+          <div class="session-header"><span class="session-id">${esc((d.sessionId || "").slice(0, 8))}</span><span class="session-time">${d.digestedAt ? new Date(d.digestedAt).toLocaleString() : ""}</span></div>
+          <div class="session-prompt">${esc(d.summary || "")}</div>
+          <div class="session-meta">${(d.topics || []).slice(0, 5).map(esc).join(" · ")} · ${d.facts?.length ?? 0} facts</div>
+        </div>`;
+            }
+          }
+
+          html += `<h3 style="font-size:13px; margin:14px 0 4px">Learnings (${data.records?.length ?? 0})</h3>`;
+          if (!data.records?.length) {
+            html += `<div style="color:var(--text-dim)">No learnings yet — run a digest on a session first (Sessions → open one → Run digest).</div>`;
+          } else {
+            for (const r of data.records) {
+              html += `<div style="padding:5px 0; border-bottom:1px solid rgba(128,128,128,.12)">
+          <span style="display:inline-block; background:rgba(128,255,128,.1); border-radius:8px; padding:0 7px; font-size:0.78em; margin-right:6px">${esc(r.kind)}</span>${esc(r.text)}</div>`;
+            }
+          }
+          el.innerHTML = html;
+        } catch (err) {
+          el.innerHTML = `<div style="color:var(--error)">Error: ${esc(err.message)}</div>`;
+        }
+      };
+
+      window.refreshKnowledge = function () {
+        loadKnowledge($("knowledge-kind")?.value || "", $("knowledge-q")?.value || "");
+      };
 
       // --- Init ---
       loadStatus();
