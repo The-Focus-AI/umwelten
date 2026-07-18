@@ -52,6 +52,40 @@ describe("coding-agent seed-config.mjs", () => {
 		expect(config.runtimes).toEqual({ codex: true });
 	});
 
+	it("declares CLAUDE_CODE_OAUTH_TOKEN so the card advertises the Configure field", async () => {
+		await seed(configPath);
+		const config = JSON.parse(await readFile(configPath, "utf8"));
+		expect(config.requiredSecrets).toHaveLength(1);
+		expect(config.requiredSecrets[0]).toMatchObject({
+			name: "CLAUDE_CODE_OAUTH_TOKEN",
+			required: false,
+			type: "secret",
+		});
+	});
+
+	it("never clobbers an operator-owned requiredSecrets block", async () => {
+		await writeFile(
+			configPath,
+			JSON.stringify({
+				agents: [],
+				requiredSecrets: [{ name: "MY_KEY", required: true }],
+			}),
+		);
+		await seed(configPath);
+		const config = JSON.parse(await readFile(configPath, "utf8"));
+		expect(config.requiredSecrets).toEqual([{ name: "MY_KEY", required: true }]);
+	});
+
+	it("respects an explicit empty requiredSecrets block", async () => {
+		await writeFile(
+			configPath,
+			JSON.stringify({ agents: [], requiredSecrets: [] }),
+		);
+		await seed(configPath);
+		const config = JSON.parse(await readFile(configPath, "utf8"));
+		expect(config.requiredSecrets).toEqual([]);
+	});
+
 	it("preserves Gaia-seeded fields and existing agents", async () => {
 		await writeFile(
 			configPath,

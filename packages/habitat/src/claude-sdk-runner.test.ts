@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { join } from "node:path";
 import {
+  claudeAuthOptions,
   claudeNativeSessionPath,
   claudeProjectDirName,
   createClaudeSdkRuntimeRunner,
@@ -73,6 +74,55 @@ describe("runClaudeSDK session-id extraction (stubbed subprocess)", () => {
       queryFn: makeQueryFn([ASSISTANT_MESSAGE, SUCCESS_RESULT]),
     });
     expect(result.sessionId).toBeUndefined();
+  });
+});
+
+describe("claudeAuthOptions", () => {
+  it("passes ANTHROPIC_API_KEY through when no subscription token is set", () => {
+    expect(claudeAuthOptions({ ANTHROPIC_API_KEY: "sk-ant-api" })).toEqual({
+      apiKey: "sk-ant-api",
+    });
+  });
+
+  it("prefers CLAUDE_CODE_OAUTH_TOKEN: no apiKey, API key cleared from the subprocess env", () => {
+    const auth = claudeAuthOptions({
+      ANTHROPIC_API_KEY: "sk-ant-api",
+      CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat-123",
+    });
+    expect(auth.apiKey).toBeUndefined();
+    // The undefined-valued key unsets ANTHROPIC_API_KEY at spawn, so the
+    // subprocess sees only the OAuth token (Claude Code would otherwise
+    // prefer the API key and silently ignore the subscription).
+    expect(auth.env).toEqual({ ANTHROPIC_API_KEY: undefined });
+  });
+
+  it("ignores a blank subscription token", () => {
+    expect(
+      claudeAuthOptions({
+        ANTHROPIC_API_KEY: "sk-ant-api",
+        CLAUDE_CODE_OAUTH_TOKEN: "   ",
+      }),
+    ).toEqual({ apiKey: "sk-ant-api" });
+  });
+
+  it("clears the API key from the env runClaudeSDK hands the SDK", async () => {
+    let capturedEnv: Record<string, string | undefined> | undefined;
+    const capturingQueryFn: any = ({ options }: { options: any }) => {
+      capturedEnv = options.env;
+      return (async function* () {
+        yield SUCCESS_RESULT;
+      })();
+    };
+    await runClaudeSDK("do the thing", {
+      cwd: "/tmp/x",
+      ...claudeAuthOptions({
+        ANTHROPIC_API_KEY: "sk-ant-api",
+        CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat-123",
+      }),
+      queryFn: capturingQueryFn,
+    });
+    expect(capturedEnv).toBeDefined();
+    expect(capturedEnv?.ANTHROPIC_API_KEY).toBeUndefined();
   });
 });
 

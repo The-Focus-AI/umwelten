@@ -25,7 +25,9 @@
 #   scripts/smoke-coding-agent.sh
 #
 # Deploy via Gaia: create a registry entry with "image": "habitat-coding"
-# and bind ANTHROPIC_API_KEY (claude-sdk runtime), GITHUB_TOKEN (gh),
+# and bind ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN for the claude-sdk
+# runtime (the OAuth token — from `claude setup-token`, or pasted into the
+# SaaS Configure form — wins over the API key), GITHUB_TOKEN (gh),
 # OPENAI_API_KEY or CODEX_AUTH_JSON (codex runtime), and optionally
 # OP_SERVICE_ACCOUNT_TOKEN. Or fly.io: volume at /data, HABITAT_API_KEY +
 # provider keys as fly secrets.

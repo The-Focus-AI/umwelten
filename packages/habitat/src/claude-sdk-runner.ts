@@ -80,6 +80,27 @@ export interface ClaudeSDKResult {
   sessionId?: string;
 }
 
+// ── Auth resolution ──────────────────────────────────────────────────
+
+/**
+ * Which Anthropic credential the SDK subprocess should use. Claude Code
+ * prefers ANTHROPIC_API_KEY whenever both reach the subprocess, so a
+ * CLAUDE_CODE_OAUTH_TOKEN (a subscription login from `claude setup-token`,
+ * typically delivered through the SaaS Configure form into the habitat
+ * secret store) would be silently ignored. An operator who authorizes a
+ * subscription did so deliberately — the token wins: the API key is
+ * cleared from the subprocess env (an undefined-valued key unsets it at
+ * spawn) and no apiKey is injected.
+ */
+export function claudeAuthOptions(
+  env: Record<string, string | undefined> = process.env,
+): Pick<ClaudeSDKRunnerOptions, "apiKey" | "env"> {
+  if (env.CLAUDE_CODE_OAUTH_TOKEN?.trim()) {
+    return { env: { ANTHROPIC_API_KEY: undefined } };
+  }
+  return { apiKey: env.ANTHROPIC_API_KEY };
+}
+
 // ── Native session location (#118) ───────────────────────────────────
 
 /**
@@ -275,7 +296,7 @@ export function createClaudeSdkRuntimeRunner(
     ): Promise<RuntimeResult> {
       const result = await runFn(prompt, {
         cwd: ctx.agent.projectPath,
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        ...claudeAuthOptions(),
         maxTurns: 25,
         onProgress: (update) => {
           if (update.type === "text") {

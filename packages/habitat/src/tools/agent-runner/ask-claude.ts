@@ -9,6 +9,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import {
+	claudeAuthOptions,
 	claudeNativeSessionPath,
 	runClaudeSDK,
 } from "../../claude-sdk-runner.js";
@@ -58,14 +59,14 @@ export function createAgentAskClaudeTool(
 					message: `No agent found: ${agentId}`,
 				};
 
-			// API key is optional — the SDK also supports Claude CLI OAuth login token.
-			// If neither is available, the subprocess will fail with an auth error.
-			const apiKey = process.env.ANTHROPIC_API_KEY;
-
 			try {
 				const result = await runClaudeSDK(message, {
 					cwd: agent.projectPath,
-					apiKey, // undefined is fine — SDK falls back to CLI login token
+					// A CLAUDE_CODE_OAUTH_TOKEN (subscription) wins over
+					// ANTHROPIC_API_KEY; neither present is fine — the SDK falls
+					// back to a CLI login token and fails with an auth error if
+					// none exists.
+					...claudeAuthOptions(),
 					model: model ?? "claude-sonnet-5",
 					maxTurns: maxTurns ?? 20,
 					allowedTools,

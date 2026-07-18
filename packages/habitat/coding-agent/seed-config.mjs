@@ -61,6 +61,30 @@ if (config.runtimes === undefined) {
   console.log('[coding-agent] Seeded runtimes { codex } into config.json.');
 }
 
+// Declare the credentials this agent can use, so the agent card advertises
+// them and an attaching client (the habitats SaaS Configure/attach form)
+// renders paste-in fields and delivers values to /api/secrets — no one
+// hand-sets secrets. CLAUDE_CODE_OAUTH_TOKEN comes from `claude setup-token`
+// and switches the claude-sdk runtime to subscription auth (it wins over
+// ANTHROPIC_API_KEY — see claudeAuthOptions). Never clobbers an existing
+// requiredSecrets block — operators own overrides.
+if (config.requiredSecrets === undefined) {
+  config.requiredSecrets = [
+    {
+      name: "CLAUDE_CODE_OAUTH_TOKEN",
+      label: "Claude Code (subscription)",
+      description:
+        "Long-lived token from `claude setup-token` — runs the claude-sdk runtime on your Claude subscription instead of API billing.",
+      required: false,
+      type: "secret",
+    },
+  ];
+  changed = true;
+  console.log(
+    "[coding-agent] Seeded requiredSecrets (CLAUDE_CODE_OAUTH_TOKEN) into config.json.",
+  );
+}
+
 let onDisk;
 try {
   onDisk = readFileSync(configPath, "utf8");
