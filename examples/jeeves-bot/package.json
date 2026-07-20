@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@tavily/core": "^0.7.6",
-    "discord.js": "^14.26.5"
+    "discord.js": "^14.27.0"
   },
   "devDependencies": {
     "@dagger.io/dagger": "^0.21.7",
