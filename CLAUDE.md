@@ -241,6 +241,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 | `agentRunnerToolSet`         | agent_clone, agent_register_directory, agent_logs, agent_status, agent_ask, agent_ask_claude, agent_converse, agent_configure | Yes                    |
 | `secretsToolSet`             | set/remove/list secrets                                                                            | Yes                    |
 | `searchToolSet`              | web search via Tavily                                                                              | Yes                    |
+| `storageToolSet`             | drive_list/search/fetch/put/export/changes over the habitat's backing-storage Drive folder (habitats ADR 0005); inert unless a token source is configured | Yes                    |
 | `selfModifyToolSet`          | create_tool, create_skill, reload, list, remove                                                    | Yes                    |
 | `remoteAgentToolSet`         | ask_remote_agent — A2A to peers declared with kind `remote-habitat` (registers nothing when none)  | Yes                    |
 
@@ -255,6 +256,7 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7430/mcp
 - `external-interaction-tools.ts` — Claude Code/Cursor session reading
 - `agent-runner-tools.ts` — Clone repos, register directories as agents, read logs, check status, delegate to sub-agents via base runner (`agent_ask`) or Claude Agent SDK (`agent_ask_claude`), run multi-turn dialogues between agents (`agent_converse`), configure an agent's MEMORY.md
 - `search-tools.ts` — Web search via Tavily (needs `TAVILY_API_KEY`)
+- `storage-tools.ts` — Backing-storage Drive tools (habitats ADR 0005): token via Gaia `POST /storage/token` relay (`GAIA_URL` + `HABITAT_API_KEY`) or direct `GOOGLE_DRIVE_ACCESS_TOKEN`; size-capped scratch cache in `storage-cache/`
 - `secrets-tools.ts` — Manage secrets in the habitat store
 - `self-modify-tools.ts` — Create/remove tools and skills at runtime
 - `remote-agent-tools.ts` — `ask_remote_agent`: A2A `message/send` to remote habitats declared in `config.agents[]` (kind `remote-habitat`, URL/token via `a2aUrl`/`a2aUrlSecret`/`a2aTokenSecret`)

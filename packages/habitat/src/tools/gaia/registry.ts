@@ -103,6 +103,7 @@ export class GaiaRegistryManager {
 			...(options.image ? { image: options.image } : {}),
 			...(options.hostname ? { hostname: options.hostname } : {}),
 			...(options.github ? { github: options.github } : {}),
+			...(options.storage ? { storage: options.storage } : {}),
 			createdAt: new Date().toISOString(),
 		};
 

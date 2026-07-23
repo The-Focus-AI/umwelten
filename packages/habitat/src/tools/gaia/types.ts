@@ -58,6 +58,18 @@ export interface GaiaHabitatEntry {
 		read?: "org" | string[];
 		write?: string[];
 	};
+	/**
+	 * Declared backing-storage capability (habitats ADR 0005) — the boundary
+	 * the `/storage/token` relay enforces. At most one per habitat, mirroring
+	 * the git repo. `read` defaults on for declared storage; `write` is
+	 * opt-in. The SaaS holds the actual grant (provisioner's Clerk Google
+	 * connection); this declaration can only narrow it, never widen it.
+	 */
+	storage?: {
+		kind: "google-drive";
+		read?: boolean;
+		write?: boolean;
+	};
 	/** ISO timestamp */
 	createdAt: string;
 }
@@ -100,6 +112,8 @@ export interface CreateHabitatOptions {
 	hostname?: string;
 	/** GitHub capability declaration (see GaiaHabitatEntry.github). */
 	github?: GaiaHabitatEntry["github"];
+	/** Backing-storage declaration (see GaiaHabitatEntry.storage). */
+	storage?: GaiaHabitatEntry["storage"];
 }
 
 /** Status of a credential (whether it's known to be working). */

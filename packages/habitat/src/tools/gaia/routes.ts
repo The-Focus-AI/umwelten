@@ -17,6 +17,7 @@ import {
 	type GithubTokenKind,
 	type GithubTokenService,
 } from "./github/token-service.js";
+import type { StorageTokenService } from "./storage/token-service.js";
 
 /** In-memory store for the most recent audit results (ephemeral). */
 let latestAudit: AuditSummary | null = null;
@@ -55,6 +56,12 @@ export interface GaiaRouteContext {
 	 * so tests and embedders without GitHub needs can omit it.
 	 */
 	githubTokens?: GithubTokenService;
+	/**
+	 * Backing-storage token relay (habitats ADR 0005). Same optionality
+	 * contract as githubTokens: always present when built via Gaia.start,
+	 * omittable by tests and embedders.
+	 */
+	storageTokens?: StorageTokenService;
 }
 
 function parseUrl(url: string): {
@@ -742,6 +749,70 @@ export async function handleGaiaRoute(
 		} catch (err: any) {
 			sendJson(res, { error: err.message }, 502);
 		}
+		return true;
+	}
+
+	// ── Backing-storage token pull (habitats ADR 0005 decision 5) ────
+	//
+	// The storage twin of /github/token: bearer = the child's OWN
+	// HABITAT_API_KEY, the registry `storage` declaration is the capability
+	// boundary, and Gaia relays a fresh token from the SaaS (which fetches
+	// it from Clerk — the provisioner's Google connection). Fetch-fresh,
+	// no cache, so SaaS-side revocation takes effect immediately. Every
+	// grant AND denial hits the credential audit log. Mounted outside
+	// /api/* for the same reason as /github/token: per-child auth, not
+	// Gaia's operator gate.
+	if (path === "/storage/token" && method === "POST") {
+		const service = ctx.storageTokens;
+		if (!service || !service.enabled) {
+			sendJson(res, { error: "Storage token relay not configured on Gaia" }, 501);
+			return true;
+		}
+
+		const authHeader = req.headers.authorization;
+		const bearer =
+			typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+				? authHeader.slice("Bearer ".length).trim()
+				: "";
+		if (!bearer) {
+			sendJson(res, { error: "Missing bearer token" }, 401);
+			return true;
+		}
+		const entry = ctx.registry.list().find((e) => e.apiKey === bearer);
+		if (!entry) {
+			sendJson(res, { error: "Unknown habitat key" }, 403);
+			return true;
+		}
+
+		const result = await service.tokenFor(entry);
+		if (!result.ok) {
+			await ctx.audit.log({
+				timestamp: new Date().toISOString(),
+				operation: "storage_token_denied",
+				habitatId: entry.id,
+				reason: `${result.status}: ${result.message}`,
+			});
+			// not_provisioned ⇒ the habitat asked for something it doesn't
+			// have (403, like an undeclared github scope); needs_reprovision
+			// ⇒ a human must act (409, distinct so tools can surface it);
+			// upstream_error ⇒ SaaS trouble (502).
+			const status =
+				result.status === "not_provisioned"
+					? 403
+					: result.status === "needs_reprovision"
+						? 409
+						: 502;
+			sendJson(res, { error: result.message, status: result.status }, status);
+			return true;
+		}
+
+		await ctx.audit.log({
+			timestamp: new Date().toISOString(),
+			operation: "storage_token_mint",
+			habitatId: entry.id,
+			kind: result.token.scopes.write ? "write" : "read",
+		});
+		sendJson(res, result.token);
 		return true;
 	}
 
