@@ -28,8 +28,18 @@ Gaia                      directory + lifecycle · off the ask path
 
 ## What must be built
 
-Ordered by what blocks what. Items 1–3 are on the critical path: nothing
-else works until a caller can hold a task open across a wake.
+Ordered by what blocks what. Items 1–3 were the critical path: nothing else
+worked until a caller could hold a task open across a wake.
+
+**Status lives in GitHub issues, not here.** Tickets are umwelten #267–#285;
+the dependency graph is a comment on #266. Agents picking this up should
+read [the runbook](../agents/fleet-restructure-runbook.md) first — it covers
+claiming, testing seams, and the SDK findings that are expensive to
+rediscover.
+
+Landed so far: the durable task store and boot sweep (#267, #273), the SDK
+client and task surface (#268), derived read scopes (#272), and the
+cross-hop call chain (#271).
 
 ### 1. Durable task state
 
