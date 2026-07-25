@@ -90,6 +90,14 @@ _Avoid_: Job, run, request, invocation
 A habitat whose container is stopped but whose state is intact, reachable by waking it first.
 _Avoid_: Stopped, cold, asleep, idle, offline
 
+**Habitat vault**:
+The vault holding one habitat's operator-provided secrets, belonging to that habitat alone.
+_Avoid_: Master vault, project vault, secret store, keychain
+
+**Credential contract**:
+A habitat's declaration of what credentials it needs and how each one is obtained — supplied by an operator, authorized by a user, or created while building the environment.
+_Avoid_: Required secrets, env manifest, secret list
+
 ## Relationships
 
 - Every **Source Session** belongs to at least one **Exploration**.
@@ -126,6 +134,8 @@ _Avoid_: Stopped, cold, asleep, idle, offline
 - A habitat's read scope is derived from its **Mounted repos**; its write scope comes only from its **Owned repo** and is never derived.
 - A **Task**, a **Run**, and a **Source Session** are three records of one invocation, kept separate and correlated rather than merged.
 - A **Dormant habitat** answers nothing until woken; the **Directory** is what wakes it.
+- A habitat's operator-provided secrets come from its own **Habitat vault**, resolved and injected on its behalf — a habitat never holds the credential that opens a vault.
+- Credentials a user authorizes, and credentials created while building the environment, never appear in a **Habitat vault**; the **Credential contract** is what says which kind each one is.
 - Habitats call each other in one direction only, so the fleet's call graph stays acyclic.
 
 ## Example dialogue

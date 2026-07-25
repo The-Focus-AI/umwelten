@@ -125,6 +125,26 @@ is the only sanctioned way to create a client habitat. Target, per ADR
 template repo — which also resolves the bootstrap circularity by cloning
 the owned repo under ambient read before narrowing to the derived list.
 
+### 11. Per-habitat vaults
+
+Per ADR 0009. Gaia's master vault is one flat name-to-value map, and
+`capability-resolver.ts` welds the env var name to the vault key — so two
+habitats cannot both see `DATABASE_URL` with different values. The Twitter
+habitat already declares `DATABASE_URL` in its `requiredSecrets`, so this
+lands with the second habitat that needs a database.
+
+Each habitat gets its own vault, declared by a `fnox.toml` in its own repo
+next to `config.json`. Gaia executes that manifest on the host and injects
+the result; containers still never call fnox. `secretBindings` and the
+capability-to-credential binding both need reworking against per-habitat
+vaults rather than the shared namespace.
+
+The three tiers stay distinct and only the first changes: operator-provided
+values (vault), user-authorized values (the habitat's own OAuth at
+`connectPath`, rotated in its own store — the Twitter habitat is the
+reference implementation), and — proposed, not decided — values provisioned
+while building the environment.
+
 ## What changes outside umwelten
 
 `/sync` is a single writer: it reads Granola, pattern-matches each meeting
