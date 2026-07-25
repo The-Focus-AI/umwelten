@@ -25,6 +25,16 @@ export {
   sweepAbandonedTasks,
   ABANDONED_TASK_MARKER,
   DEFAULT_ABANDONED_REASON,
+  resolveA2AEndpointUrl,
+  createA2ATransport,
+  sendA2ATask,
+  getA2ATask,
+  cancelA2ATask,
+  pollA2ATask,
+  sendAndAwaitA2ATask,
+  isA2ATask,
+  isSettledTaskState,
+  A2APollTimeoutError,
 } from "./a2a/index.js";
 export type {
   A2AEndpoint,
@@ -42,6 +52,11 @@ export type {
   FileTaskStoreOptions,
   SweepOptions,
   SweepResult,
+  A2ATaskTarget,
+  SendA2ATaskOptions,
+  GetA2ATaskOptions,
+  PollA2ATaskOptions,
+  SendAndAwaitOptions,
 } from "./a2a/index.js";
 
 // ── MCP Serve (OAuth MCP server framework) ──────────────────────────────
