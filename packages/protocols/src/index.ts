@@ -16,6 +16,15 @@ export {
   fetchJson,
   truncateJson,
   discoverToken,
+  FileTaskStore,
+  TERMINAL_TASK_STATES,
+  INTERRUPTED_TASK_STATES,
+  isTerminalTaskState,
+  isInterruptedTaskState,
+  isAbandonableTaskState,
+  sweepAbandonedTasks,
+  ABANDONED_TASK_MARKER,
+  DEFAULT_ABANDONED_REASON,
 } from "./a2a/index.js";
 export type {
   A2AEndpoint,
@@ -30,6 +39,9 @@ export type {
   AgentCard,
   AgentSkill,
   A2AChatOptions,
+  FileTaskStoreOptions,
+  SweepOptions,
+  SweepResult,
 } from "./a2a/index.js";
 
 // ── MCP Serve (OAuth MCP server framework) ──────────────────────────────

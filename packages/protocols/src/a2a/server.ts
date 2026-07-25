@@ -16,6 +16,7 @@ import {
   DefaultExecutionEventBusManager,
   JsonRpcTransportHandler,
   type AgentExecutor,
+  type TaskStore,
 } from "@a2a-js/sdk/server";
 import type { AgentCard } from "@a2a-js/sdk";
 
@@ -24,6 +25,13 @@ export interface A2AServerOptions {
   agentCard: AgentCard;
   /** Executor that runs the agent for each incoming request. */
   executor: AgentExecutor;
+  /**
+   * Where Tasks are kept. Defaults to the SDK's in-memory store, which loses
+   * every Task when the process exits — fine for tests and one-shot servers,
+   * wrong for any habitat that can be stopped while idle. Long-lived hosts
+   * should pass a `FileTaskStore` on the habitat's volume (ADR 0007).
+   */
+  taskStore?: TaskStore;
 }
 
 export interface A2AServer {
@@ -43,7 +51,7 @@ export interface A2AServer {
 export function createA2AServer(options: A2AServerOptions): A2AServer {
   const { agentCard, executor } = options;
 
-  const taskStore = new InMemoryTaskStore();
+  const taskStore = options.taskStore ?? new InMemoryTaskStore();
   const eventBusManager = new DefaultExecutionEventBusManager();
   const requestHandler = new DefaultRequestHandler(
     agentCard,

@@ -24,8 +24,11 @@ import type {
   Artifact as A2AArtifact,
   TaskState,
 } from "@a2a-js/sdk";
+import { join } from "node:path";
 import {
   createA2AServer,
+  FileTaskStore,
+  sweepAbandonedTasks,
   type A2AServer,
   type AgentExecutor,
   type RequestContext,
@@ -545,5 +548,21 @@ export async function createA2AHandler(
     options.resolvePublicOrigin,
   );
 
-  return createA2AServer({ agentCard, executor });
+  // Tasks live on the habitat's volume, not in memory, so they survive the
+  // container being stopped — which is routine once habitats sleep while idle
+  // (ADR 0007). Then clear out anything the previous container generation left
+  // mid-flight, BEFORE the transport starts accepting requests, so no caller
+  // can observe a task that is about to be moved.
+  const taskStore = new FileTaskStore({
+    dir: join(options.habitat.getWorkDir(), "tasks"),
+  });
+
+  const recovered = await sweepAbandonedTasks(taskStore);
+  if (recovered.swept.length > 0) {
+    console.log(
+      `[a2a] Recovered ${recovered.swept.length} task(s) abandoned when the habitat last stopped: ${recovered.swept.join(", ")}`,
+    );
+  }
+
+  return createA2AServer({ agentCard, executor, taskStore });
 }
