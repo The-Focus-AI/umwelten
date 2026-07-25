@@ -27,6 +27,7 @@
     "@umwelten/protocols": "workspace:*",
     "@umwelten/habitat": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
+    "@umwelten/fission": "workspace:*",
     "@umwelten/sessions": "workspace:*",
     "@umwelten/ui": "workspace:*",
     "ai": "^7.0.22",

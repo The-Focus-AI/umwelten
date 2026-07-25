@@ -49,6 +49,7 @@
     "@umwelten/cli": "workspace:*",
     "@umwelten/core": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
+    "@umwelten/fission": "workspace:*",
     "@umwelten/habitat": "workspace:*",
     "@umwelten/protocols": "workspace:*",
     "@umwelten/sessions": "workspace:*",

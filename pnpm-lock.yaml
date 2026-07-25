@@ -35,6 +35,9 @@ importers:
       '@umwelten/evaluation':
         specifier: workspace:*
         version: link:packages/evaluation
+      '@umwelten/fission':
+        specifier: workspace:*
+        version: link:packages/fission
       '@umwelten/habitat':
         specifier: workspace:*
         version: link:packages/habitat
@@ -92,6 +95,9 @@ importers:
       '@umwelten/evaluation':
         specifier: workspace:*
         version: link:../evaluation
+      '@umwelten/fission':
+        specifier: workspace:*
+        version: link:../fission
       '@umwelten/habitat':
         specifier: workspace:*
         version: link:../habitat
@@ -248,6 +254,37 @@ importers:
       '@dagger.io/dagger':
         specifier: ^0.21.7
         version: 0.21.7
+      '@types/node':
+        specifier: ^26.1.1
+        version: 26.1.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/fission:
+    dependencies:
+      '@umwelten/core':
+        specifier: workspace:*
+        version: link:../core
+      ai:
+        specifier: ^7.0.22
+        version: 7.0.22(zod@4.4.3)
+      chalk:
+        specifier: ^5.6.2
+        version: 5.6.2
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
+      uuid:
+        specifier: ^14.0.1
+        version: 14.0.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1

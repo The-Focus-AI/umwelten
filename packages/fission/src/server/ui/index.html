@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fission — session tree browser</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --good: #0ca30c;
+    --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --plane: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5;
+      --series-2: #d95926;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-2: #232322;
+    --plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--text-primary);
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    padding: .6rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface-1);
+  }
+  header h1 { font-size: 1rem; margin: 0; font-weight: 600; }
+  .stats { display: flex; gap: .9rem; color: var(--text-secondary); font-size: .8rem; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--text-primary); font-weight: 600; }
+  button, select, input[type=text], input[type=number] {
+    font: inherit; color: inherit; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 7px; padding: .3rem .55rem;
+  }
+  button { cursor: pointer; }
+  button:hover { background: var(--surface-2); }
+  button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  main { flex: 1; display: grid; grid-template-columns: 260px 1fr 340px; min-height: 0; }
+  .col { overflow-y: auto; padding: .85rem; min-height: 0; }
+  .col + .col { border-left: 1px solid var(--border); }
+  #tree-col { background: var(--surface-1); }
+  #inspect-col { background: var(--surface-1); }
+  h2 { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin: 0 0 .5rem; font-weight: 600; }
+  h2 + h2 { margin-top: 1.25rem; }
+
+  .node {
+    display: block; width: 100%; text-align: left; margin-bottom: .2rem;
+    border: 1px solid transparent; background: transparent; border-radius: 7px; padding: .35rem .5rem;
+  }
+  .node:hover { background: var(--surface-2); }
+  .node.selected { border-color: var(--series-1); background: color-mix(in srgb, var(--series-1) 10%, transparent); }
+  .node .title { font-weight: 500; display: block; }
+  .node .meta { color: var(--text-secondary); font-size: .74rem; }
+  .node .active-dot { color: var(--good); }
+
+  .turn { border: 1px solid var(--border); border-radius: 10px; margin-bottom: .75rem; background: var(--surface-1); overflow: hidden; }
+  .turn.selected { border-color: var(--series-1); }
+  .turn-body { padding: .7rem .85rem; }
+  .msg-role { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .msg { white-space: pre-wrap; word-break: break-word; margin: .1rem 0 .7rem; }
+  .msg.assistant { color: var(--text-primary); }
+  .decision {
+    border-top: 1px solid var(--border); background: var(--surface-2);
+    padding: .55rem .85rem; font-size: .8rem;
+  }
+  .decision-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .verdict { font-weight: 600; }
+  .verdict.fork { color: var(--series-2); }
+  .verdict.continue { color: var(--text-secondary); }
+  .score-bar { flex: 1 1 120px; height: 6px; background: var(--grid); border-radius: 3px; position: relative; min-width: 80px; }
+  .score-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--series-1); }
+  .score-fill.over { background: var(--series-2); }
+  .score-threshold { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-secondary); }
+  .reason { color: var(--text-secondary); margin: .35rem 0 0; }
+  .signals { margin: .4rem 0 0; padding: 0; list-style: none; font-size: .76rem; color: var(--text-secondary); }
+  .signals li { display: flex; gap: .5rem; justify-content: space-between; }
+  .signals .sv { font-variant-numeric: tabular-nums; }
+  .shadow-row { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .45rem; }
+  .chip { font-size: .7rem; border: 1px solid var(--border); border-radius: 999px; padding: .05rem .5rem; color: var(--text-secondary); background: var(--surface-1); }
+  .chip.fork { border-color: var(--series-2); color: var(--series-2); }
+  .chip.agree { border-color: var(--good); color: var(--good); }
+  .label-row { display: flex; gap: .4rem; align-items: center; margin-top: .5rem; font-size: .76rem; color: var(--text-secondary); }
+  .fork-banner {
+    background: color-mix(in srgb, var(--series-2) 12%, transparent);
+    border-left: 3px solid var(--series-2); padding: .4rem .7rem; font-size: .8rem;
+  }
+  .compaction-line { margin-top: .4rem; font-size: .76rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  #composer { border-top: 1px solid var(--border); background: var(--surface-1); padding: .6rem .85rem; display: flex; gap: .5rem; }
+  #composer textarea {
+    flex: 1; resize: vertical; min-height: 44px; max-height: 200px; font: inherit;
+    background: var(--plane); color: inherit; border: 1px solid var(--border); border-radius: 8px; padding: .45rem .6rem;
+  }
+  #status { padding: 0 .85rem .5rem; font-size: .78rem; color: var(--text-secondary); min-height: 1.2em; }
+
+  .field { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .4rem; font-size: .82rem; }
+  .field label { color: var(--text-secondary); }
+  .field select, .field input { max-width: 170px; }
+  .strategy-result { border: 1px solid var(--border); border-radius: 8px; padding: .55rem .65rem; margin-top: .5rem; background: var(--plane); }
+  .strategy-result .sr-head { display: flex; justify-content: space-between; font-size: .78rem; font-variant-numeric: tabular-nums; }
+  .strategy-result pre { white-space: pre-wrap; word-break: break-word; font-size: .74rem; margin: .4rem 0 0; color: var(--text-secondary); max-height: 220px; overflow-y: auto; }
+  .hint { color: var(--text-secondary); font-size: .78rem; }
+  .err { color: var(--critical); }
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 1fr; }
+    .col + .col { border-left: none; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fission</h1>
+  <select id="tree-select" title="Tree"></select>
+  <button id="new-tree">New tree</button>
+  <a id="report-link" href="#" target="_blank" rel="noopener"><button>Report ↗</button></a>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main>
+  <div class="col" id="tree-col">
+    <h2>Threads</h2>
+    <div id="tree"></div>
+    <h2>Config</h2>
+    <div id="config"></div>
+  </div>
+
+  <div class="col" id="turns-col">
+    <h2 id="node-heading">Turns</h2>
+    <div id="turns"></div>
+  </div>
+
+  <div class="col" id="inspect-col">
+    <h2>Compaction playground</h2>
+    <div id="playground"><p class="hint">Select a turn to compare compaction strategies at that point.</p></div>
+    <h2>Live context</h2>
+    <div id="context"><p class="hint">The messages that would be sent for the next turn in this thread.</p></div>
+  </div>
+</main>
+
+<div id="status"></div>
+<div id="composer">
+  <textarea id="input" placeholder="Ask something. Change the subject and watch it spin off a new thread." rows="2"></textarea>
+  <button id="send" class="primary">Send</button>
+  <button id="send-fork" title="Force this turn into a new thread">Force fork</button>
+</div>
+
+<script>
+const state = {
+  treeId: null,
+  tree: null,
+  turns: [],
+  stats: null,
+  selectedNodeId: null,
+  selectedTurnId: null,
+  strategies: [],
+  detectors: [],
+  streaming: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = (n) => Number(n || 0).toLocaleString();
+
+async function api(path, options) {
+  const res = await fetch(path, {
+    ...options,
+    headers: { 'content-type': 'application/json', ...(options && options.headers) },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+}
+
+function setStatus(text, isError) {
+  const el = $('status');
+  el.textContent = text || '';
+  el.className = isError ? 'err' : '';
+}
+
+// ---------------------------------------------------------------- bootstrap
+
+async function init() {
+  [state.strategies, state.detectors] = await Promise.all([
+    api('/api/strategies'),
+    api('/api/detectors'),
+  ]);
+  const trees = await api('/api/trees');
+  const select = $('tree-select');
+  select.innerHTML = trees.map((t) => `<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('');
+  if (trees.length === 0) {
+    await createTree();
+  } else {
+    await loadTree(trees[0].id);
+  }
+  select.addEventListener('change', () => loadTree(select.value));
+  $('new-tree').addEventListener('click', createTree);
+  $('send').addEventListener('click', () => send(false));
+  $('send-fork').addEventListener('click', () => send(true));
+  $('input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) send(false);
+  });
+}
+
+async function createTree() {
+  const title = prompt('Name this exploration:', 'Untitled exploration');
+  if (title === null) return;
+  const snapshot = await api('/api/trees', { method: 'POST', body: JSON.stringify({ title }) });
+  applySnapshot(snapshot);
+  const trees = await api('/api/trees');
+  $('tree-select').innerHTML = trees.map((t) => `<option value="${esc(t.id)}"${t.id === state.treeId ? ' selected' : ''}>${esc(t.title)}</option>`).join('');
+}
+
+async function loadTree(treeId) {
+  setStatus('Loading…');
+  applySnapshot(await api('/api/trees/' + treeId));
+  setStatus('');
+}
+
+function applySnapshot(snapshot) {
+  state.tree = snapshot.tree;
+  state.turns = snapshot.turns;
+  state.stats = snapshot.stats;
+  state.treeId = snapshot.tree.id;
+  if (!state.selectedNodeId || !snapshot.tree.nodes[state.selectedNodeId]) {
+    state.selectedNodeId = snapshot.tree.activeNodeId;
+  }
+  $('report-link').href = '/api/trees/' + state.treeId + '/report';
+  renderAll();
+}
+
+function renderAll() {
+  renderStats();
+  renderTree();
+  renderConfig();
+  renderTurns();
+  renderPlayground();
+  renderContext();
+}
+
+// -------------------------------------------------------------------- stats
+
+function renderStats() {
+  const s = state.stats;
+  if (!s) return;
+  $('stats').innerHTML =
+    `<span><b>${num(s.turnCount)}</b> turns</span>` +
+    `<span><b>${num(s.nodeCount)}</b> threads</span>` +
+    `<span><b>${num(s.forkCount)}</b> forks</span>` +
+    `<span><b>${(s.meanCompactionRatio * 100).toFixed(0)}%</b> mean ratio</span>` +
+    `<span><b>${num(s.tokensSaved)}</b> tokens saved</span>` +
+    `<span><b>${num(s.labeledTurns)}</b> labeled</span>`;
+}
+
+// --------------------------------------------------------------------- tree
+
+function renderTree() {
+  const nodes = state.tree.nodes;
+  const children = {};
+  for (const node of Object.values(nodes)) {
+    const key = node.parentId || '__root__';
+    (children[key] = children[key] || []).push(node);
+  }
+  const html = [];
+  const walk = (node, depth) => {
+    const turnCount = node.turnIds.length;
+    const isActive = node.id === state.tree.activeNodeId;
+    html.push(
+      `<button class="node${node.id === state.selectedNodeId ? ' selected' : ''}" data-node="${esc(node.id)}" style="margin-left:${depth * 10}px">` +
+      `<span class="title">${depth > 0 ? '└ ' : ''}${esc(node.title)} ${isActive ? '<span class="active-dot">●</span>' : ''}</span>` +
+      `<span class="meta">${turnCount} turn${turnCount === 1 ? '' : 's'}${node.seed ? ' · seeded ' + num(node.seed.tokensAfter) + ' tok' : ''}</span>` +
+      `</button>`
+    );
+    for (const child of (children[node.id] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+      walk(child, depth + 1);
+    }
+  };
+  walk(nodes[state.tree.rootId], 0);
+  $('tree').innerHTML = html.join('');
+
+  for (const button of $('tree').querySelectorAll('.node')) {
+    button.addEventListener('click', async () => {
+      state.selectedNodeId = button.dataset.node;
+      state.selectedTurnId = null;
+      applySnapshot(await api('/api/trees/' + state.treeId + '/active', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: state.selectedNodeId }),
+      }));
+    });
+  }
+}
+
+// ------------------------------------------------------------------- config
+
+function renderConfig() {
+  const config = state.tree.config;
+  const detectorOptions = state.detectors
+    .map((d) => `<option value="${esc(d.id)}"${d.id === config.detectorId ? ' selected' : ''}>${esc(d.name)}</option>`)
+    .join('');
+  const strategyOptions = (selected) => state.strategies
+    .map((s) => `<option value="${esc(s.id)}"${s.id === selected ? ' selected' : ''}>${esc(s.id)}</option>`)
+    .join('');
+
+  $('config').innerHTML =
+    `<div class="field"><label for="cfg-detector">detector</label><select id="cfg-detector">${detectorOptions}</select></div>` +
+    `<div class="field"><label for="cfg-threshold">threshold</label><input id="cfg-threshold" type="number" min="0" max="1" step="0.05" value="${config.driftThreshold}"></div>` +
+    `<div class="field"><label for="cfg-compaction">compaction</label><select id="cfg-compaction">${strategyOptions(config.compactionStrategyId)}</select></div>` +
+    `<div class="field"><label for="cfg-carryover">carry-over</label><select id="cfg-carryover">${strategyOptions(config.carryoverStrategyId)}</select></div>` +
+    `<div class="field"><label for="cfg-keep">keep recent</label><input id="cfg-keep" type="number" min="0" max="20" step="1" value="${config.keepRecentMessages}"></div>` +
+    `<div class="field"><label for="cfg-every">compact every turn</label><input id="cfg-every" type="checkbox" ${config.compactEveryTurn ? 'checked' : ''}></div>` +
+    `<div class="field"><label for="cfg-auto">auto-fork</label><input id="cfg-auto" type="checkbox" ${config.autoFork ? 'checked' : ''}></div>`;
+
+  const push = async () => {
+    applySnapshot(await api('/api/trees/' + state.treeId + '/config', {
+      method: 'POST',
+      body: JSON.stringify({
+        detectorId: $('cfg-detector').value,
+        driftThreshold: Number($('cfg-threshold').value),
+        compactionStrategyId: $('cfg-compaction').value,
+        carryoverStrategyId: $('cfg-carryover').value,
+        keepRecentMessages: Number($('cfg-keep').value),
+        compactEveryTurn: $('cfg-every').checked,
+        autoFork: $('cfg-auto').checked,
+      }),
+    }));
+    setStatus('Config saved — applies to the next turn.');
+  };
+  for (const id of ['cfg-detector', 'cfg-threshold', 'cfg-compaction', 'cfg-carryover', 'cfg-keep', 'cfg-every', 'cfg-auto']) {
+    $(id).addEventListener('change', push);
+  }
+}
+
+// -------------------------------------------------------------------- turns
+
+function scoreBar(result) {
+  const width = Math.round(result.driftScore * 100);
+  const over = result.driftScore >= result.threshold;
+  return `<span class="score-bar">` +
+    `<span class="score-fill${over ? ' over' : ''}" style="width:${width}%"></span>` +
+    `<span class="score-threshold" style="left:${Math.round(result.threshold * 100)}%"></span>` +
+    `</span><span class="sv">${result.driftScore.toFixed(2)}</span>`;
+}
+
+function renderDecision(turn) {
+  const result = turn.detector;
+  if (!result) return '';
+  const signals = (result.signals || [])
+    .map((s) => `<li><span>${esc(s.label)}${s.note ? ' — ' + esc(s.note) : ''}</span><span class="sv">${s.value}</span></li>`)
+    .join('');
+  const shadows = (turn.shadowDetectors || [])
+    .map((s) => {
+      const agrees = s.verdict === result.verdict;
+      return `<span class="chip ${agrees ? 'agree' : 'fork'}" title="${esc(s.reason)}">${esc(s.detectorId)}: ${esc(s.verdict)} ${s.driftScore.toFixed(2)}</span>`;
+    })
+    .join('');
+  const label = turn.label
+    ? `<span class="chip">labeled: ${esc(turn.label.verdict)}</span>`
+    : '';
+
+  const compaction = turn.compaction
+    ? `<div class="compaction-line">compacted with <strong>${esc(turn.compaction.strategyId)}</strong>: ` +
+      `${num(turn.compaction.tokensBefore)} → ${num(turn.compaction.tokensAfter)} tok ` +
+      `(${(turn.compaction.ratio * 100).toFixed(0)}%, ${num(turn.compaction.latencyMs)} ms)` +
+      (turn.compaction.error ? ` <span class="err">${esc(turn.compaction.error)}</span>` : '') +
+      `</div>`
+    : '';
+
+  return `<div class="decision">
+    <div class="decision-head">
+      <span class="verdict ${esc(result.verdict)}">${result.verdict === 'fork' ? '⑂ fork' : '→ continue'}</span>
+      ${scoreBar(result)}
+      <span class="chip">${esc(result.detectorId)}</span>
+      <span class="chip">${result.usedLlm ? 'LLM · ' + num(result.latencyMs) + ' ms' : 'free'}</span>
+      ${label}
+    </div>
+    <p class="reason">${esc(result.reason)}</p>
+    <ul class="signals">${signals}</ul>
+    <div class="shadow-row">${shadows}</div>
+    ${compaction}
+    <div class="label-row">
+      <span>Was this right?</span>
+      <button data-label="continue" data-turn="${esc(turn.id)}">should continue</button>
+      <button data-label="fork" data-turn="${esc(turn.id)}">should fork</button>
+    </div>
+  </div>`;
+}
+
+function renderTurns() {
+  const nodeId = state.selectedNodeId;
+  const node = state.tree.nodes[nodeId];
+  const turns = state.turns.filter((t) => t.nodeId === nodeId);
+  $('node-heading').textContent = node ? node.title + ' — ' + turns.length + ' turn' + (turns.length === 1 ? '' : 's') : 'Turns';
+
+  const seedHtml = node && node.seed
+    ? `<div class="turn"><div class="turn-body"><div class="msg-role">seeded from parent via ${esc(node.seed.strategyId)} · ${num(node.seed.tokensBefore)} → ${num(node.seed.tokensAfter)} tok</div><div class="msg">${esc(node.seed.text)}</div></div></div>`
+    : '';
+
+  const html = turns.map((turn) => {
+    const forkBanner = turn.arrivedAtNodeId !== turn.nodeId
+      ? `<div class="fork-banner">Spun off from <strong>${esc((state.tree.nodes[turn.arrivedAtNodeId] || {}).title || 'parent')}</strong> on this turn.</div>`
+      : '';
+    const tools = (turn.toolCalls || []).length
+      ? `<div class="compaction-line">tools: ${turn.toolCalls.map((t) => esc(t.name)).join(', ')}</div>`
+      : '';
+    const analysis = turn.analysis
+      ? `<div class="compaction-line">${esc(turn.analysis.summary)}${turn.analysis.topics.length ? ' · ' + turn.analysis.topics.map(esc).join(' / ') : ''}</div>`
+      : '';
+    return `<div class="turn${turn.id === state.selectedTurnId ? ' selected' : ''}" data-turn="${esc(turn.id)}">
+      ${forkBanner}
+      <div class="turn-body">
+        <div class="msg-role">user</div>
+        <div class="msg">${esc(turn.userText)}</div>
+        <div class="msg-role">assistant</div>
+        <div class="msg assistant">${esc(turn.assistantText)}</div>
+        ${tools}
+        ${analysis}
+      </div>
+      ${renderDecision(turn)}
+    </div>`;
+  }).join('');
+
+  $('turns').innerHTML = seedHtml + (html || '<p class="hint">No turns in this thread yet.</p>');
+
+  for (const el of $('turns').querySelectorAll('.turn[data-turn]')) {
+    el.addEventListener('click', (event) => {
+      if (event.target.closest('button')) return;
+      state.selectedTurnId = el.dataset.turn;
+      renderTurns();
+      renderPlayground();
+    });
+  }
+  for (const button of $('turns').querySelectorAll('[data-label]')) {
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      applySnapshot(await api('/api/trees/' + state.treeId + '/label', {
+        method: 'POST',
+        body: JSON.stringify({ turnId: button.dataset.turn, verdict: button.dataset.label }),
+      }));
+      setStatus('Labeled. Detector accuracy in the report uses these.');
+    });
+  }
+}
+
+// --------------------------------------------------------------- playground
+
+function renderPlayground() {
+  const turn = state.turns.find((t) => t.id === state.selectedTurnId);
+  if (!turn) {
+    $('playground').innerHTML = '<p class="hint">Select a turn to compare compaction strategies at that point.</p>';
+    return;
+  }
+
+  const options = state.strategies.map((s) => `<option value="${esc(s.id)}">${esc(s.id)}</option>`).join('');
+  const results = Object.entries(turn.altCompactions || {})
+    .concat(turn.compaction ? [[turn.compaction.strategyId + ' (live)', turn.compaction]] : [])
+    .map(([id, record]) => `<div class="strategy-result">
+      <div class="sr-head"><strong>${esc(id)}</strong><span>${num(record.tokensBefore)} → ${num(record.tokensAfter)} tok · ${(record.ratio * 100).toFixed(0)}% · ${num(record.latencyMs)} ms</span></div>
+      ${record.error ? `<p class="err">${esc(record.error)}</p>` : `<pre>${esc(record.summaryText)}</pre>`}
+    </div>`)
+    .join('');
+
+  $('playground').innerHTML =
+    `<p class="hint">Every strategy below runs against the same rebuilt raw context as of this turn, so the ratios are directly comparable.</p>` +
+    `<div class="field"><label for="pg-strategy">strategy</label><select id="pg-strategy">${options}</select></div>` +
+    `<div class="field"><label for="pg-keep">keep recent</label><input id="pg-keep" type="number" min="0" max="20" value="${state.tree.config.keepRecentMessages}"></div>` +
+    `<button id="pg-run" class="primary">Run on this turn</button>` +
+    results;
+
+  $('pg-run').addEventListener('click', async () => {
+    const button = $('pg-run');
+    button.disabled = true;
+    button.textContent = 'Running…';
+    try {
+      const body = {
+        turnId: turn.id,
+        strategyId: $('pg-strategy').value,
+        keepRecentMessages: Number($('pg-keep').value),
+        newTopic: turn.userText,
+      };
+      const result = await api('/api/trees/' + state.treeId + '/compact', { method: 'POST', body: JSON.stringify(body) });
+      applySnapshot(result);
+      setStatus('Compaction run recorded.');
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Run on this turn';
+    }
+  });
+}
+
+async function renderContext() {
+  if (!state.selectedNodeId) return;
+  try {
+    const data = await api('/api/trees/' + state.treeId + '/context?nodeId=' + encodeURIComponent(state.selectedNodeId));
+    const live = data.live || [];
+    $('context').innerHTML =
+      `<p class="hint">${live.length} message(s) would be sent for the next turn here; the raw transcript holds ${(data.raw || []).length}.</p>` +
+      live.map((msg) => {
+        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        return `<div class="strategy-result"><div class="sr-head"><strong>${esc(msg.role)}</strong><span>${num(Math.ceil(content.length / 4))} tok</span></div><pre>${esc(content.slice(0, 1500))}</pre></div>`;
+      }).join('');
+  } catch (error) {
+    $('context').innerHTML = `<p class="err">${esc(error.message)}</p>`;
+  }
+}
+
+// --------------------------------------------------------------------- send
+
+async function send(forceFork) {
+  const input = $('input');
+  const text = input.value.trim();
+  if (!text || state.streaming) return;
+  state.streaming = true;
+  $('send').disabled = true;
+  $('send-fork').disabled = true;
+  input.value = '';
+  setStatus('Detecting drift…');
+
+  try {
+    const res = await fetch('/api/trees/' + state.treeId + '/send', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, forceFork: forceFork || undefined }),
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || '';
+      for (const part of parts) {
+        const line = part.replace(/^data: /, '').trim();
+        if (!line) continue;
+        let event;
+        try { event = JSON.parse(line); } catch { continue; }
+        if (event.type === 'detect' && !event.shadow) {
+          setStatus(`${event.result.detectorId}: ${event.result.verdict} (${event.result.driftScore.toFixed(2)}) — ${event.result.reason}`);
+        } else if (event.type === 'fork') {
+          setStatus(`⑂ Spun off "${event.child.title}" — ${event.reason}`);
+        } else if (event.type === 'answer-delta') {
+          answer += event.delta;
+          setStatus(answer.slice(-160));
+        } else if (event.type === 'tool-call') {
+          setStatus('tool: ' + event.name);
+        } else if (event.type === 'analysis') {
+          setStatus('Analysing…');
+        } else if (event.type === 'compaction') {
+          setStatus(`Compacted ${num(event.record.tokensBefore)} → ${num(event.record.tokensAfter)} tokens.`);
+        } else if (event.type === 'snapshot') {
+          state.selectedNodeId = event.tree.activeNodeId;
+          applySnapshot(event);
+          setStatus('');
+        } else if (event.type === 'error') {
+          setStatus(event.message, true);
+        }
+      }
+    }
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    state.streaming = false;
+    $('send').disabled = false;
+    $('send-fork').disabled = false;
+  }
+}
+
+init().catch((error) => setStatus(error.message, true));
+</script>
+</body>
+</html>

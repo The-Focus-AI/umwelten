@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "rootDir": "src",
+    "types": ["node", "vitest/globals"]
+  },
+  // core/src/markdown/turndown.d.ts declares an untyped dependency that core's
+  // own tsconfig picks up via its include. Compiling core's sources from here
+  // needs the same ambient declaration in scope.
+  "include": ["src/**/*", "../core/src/markdown/turndown.d.ts"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@umwelten/fission",
+  "version": "0.4.13",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./*.js": {
+      "types": "./src/*.ts",
+      "import": "./src/*.ts"
+    }
+  },
+  "description": "Session fission: per-turn compaction, topic-drift detection, and automatic chat spin-off with a tree browser",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
+    "directory": "packages/fission"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "vitest --reporter=verbose",
+    "test:run": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@umwelten/core": "workspace:*",
+    "ai": "^7.0.22",
+    "chalk": "^5.6.2",
+    "commander": "^15.0.0",
+    "uuid": "^14.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
