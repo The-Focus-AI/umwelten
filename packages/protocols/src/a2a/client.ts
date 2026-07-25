@@ -122,6 +122,12 @@ export interface SendA2AMessageToUrlOptions {
   contextId?: string;
   /** Abort the request after this many ms (default 120s). */
   timeoutMs?: number;
+  /**
+   * Extra metadata attached to the outgoing message. Habitats use this to
+   * carry the agent-call chain across the hop so the recursion guard survives
+   * a container boundary.
+   */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -133,7 +139,7 @@ export interface SendA2AMessageToUrlOptions {
 export async function sendA2AMessageToUrl(
   options: SendA2AMessageToUrlOptions,
 ): Promise<A2AMessageResponse> {
-  const { endpoint, text, apiKey, contextId, timeoutMs } = options;
+  const { endpoint, text, apiKey, contextId, timeoutMs, metadata } = options;
   const url = new URL(resolveA2AEndpointUrl(endpoint));
 
   // Blocking send: this function's contract is "give me the answer". Callers
@@ -176,6 +182,7 @@ export async function sendA2AMessageToUrl(
           role: "user",
           parts: [{ kind: "text", text }],
           ...(contextId ? { contextId } : {}),
+          ...(metadata ? { metadata } : {}),
         },
       },
       { signal: timeout } as never,

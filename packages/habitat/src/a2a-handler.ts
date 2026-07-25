@@ -47,6 +47,11 @@ import {
   UI_OUTPUT_MODE,
 } from "./ui-resources.js";
 import { getSpeaker } from "./identity/agent-speaker-context.js";
+import { withInboundAgentCallChain } from "./identity/agent-call-context.js";
+import {
+  decodeAgentChain,
+  extendAgentChain,
+} from "./identity/agent-call-wire.js";
 
 // ── Agent card builder ────────────────────────────────────────────
 
@@ -338,8 +343,19 @@ export class HabitatAgentExecutor implements AgentExecutor {
     const controller = new AbortController();
     this.activeTasks.set(taskId, { controller, contextId });
 
+    // Rehydrate the caller's agent-call chain (ADR 0008). The in-process
+    // guard follows the async call tree and stops at the container boundary,
+    // so without this a cross-container cycle starts fresh at every hop and
+    // runs forever — and output caps are not an available mitigation here.
+    // The chain is untrusted: it can only ever cause work to be refused.
+    const inboundChain = extendAgentChain(
+      decodeAgentChain(userMessage.metadata as Record<string, unknown> | undefined),
+      this.habitat.getConfig?.()?.name,
+    );
+
     try {
-      await this.bridge.handleMessage(
+      await withInboundAgentCallChain(inboundChain, async () =>
+        this.bridge.handleMessage(
         { channelKey, text, userId, displayName: speaker?.displayName },
         {
           onText: (delta) => {
@@ -438,6 +454,7 @@ export class HabitatAgentExecutor implements AgentExecutor {
           },
         },
         controller.signal,
+      ),
       );
     } finally {
       this.activeTasks.delete(taskId);
