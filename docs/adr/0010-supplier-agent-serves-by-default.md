@@ -27,6 +27,14 @@ So the choice of runtime determines what an Offer can do, which means an agent
 that does not choose the runtime cannot commit to what it is selling. That is the
 argument adapt-mode loses on.
 
+Throughput measurement afterwards found a blunter version of the same point
+(`reports/2026-07-26-headroom-ollama-does-not-batch.md`): **Ollama serves
+concurrent requests one at a time.** Aggregate throughput is flat from one to four
+concurrent requests, per-stream decode is identical to three significant figures,
+and TTFT rises 9×–63× — 48 seconds to first token on gemma4:31b. llama-server
+batches, scaling 2.9×–6.8×. The capability gap costs an adapted Offer a feature;
+this costs it the ability to have two customers at once.
+
 ## Consequences
 
 Adapt-mode stays supported, because it is the only onboarding path that costs a
