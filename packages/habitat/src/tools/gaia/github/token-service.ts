@@ -12,6 +12,8 @@
  */
 
 import { readFile } from "node:fs/promises";
+import type { HabitatConfig } from "../../../types.js";
+import { deriveRepoScopes, mergeDerivedReadScope } from "../repo-scopes.js";
 import {
 	mintInstallationToken,
 	type InstallationToken,
@@ -30,6 +32,13 @@ export interface GithubCapabilityDecl {
 export interface GithubScopedEntry {
 	id?: string;
 	github?: GithubCapabilityDecl;
+	/**
+	 * The habitat's own declaration. When present, its Owned repo and Mounted
+	 * repos widen the READ scope automatically (ADR 0006), so mounting a repo
+	 * cannot fail at boot with a GitHub 404 that reads like "no such repo".
+	 * Write is never derived from this — see `repo-scopes.ts`.
+	 */
+	config?: HabitatConfig;
 }
 
 /** Down-scope request derived from an entry's declaration. */
@@ -85,9 +94,16 @@ export function deriveGithubTokenScope(
 		if (decl.read === "org") {
 			return { permissions: { contents: "read" } };
 		}
-		if (Array.isArray(decl.read) && decl.read.length > 0) {
+		// Widen the declared read list with the repos this habitat will actually
+		// clone (ADR 0006). Derivation only ever adds to READ; it can never
+		// touch write, which is what keeps ADR 0004's blind spot #1 closed.
+		const effectiveRead = entry.config
+			? mergeDerivedReadScope(decl, deriveRepoScopes(entry.config)).read
+			: decl.read;
+
+		if (Array.isArray(effectiveRead) && effectiveRead.length > 0) {
 			return {
-				repositories: toBareRepoNames(decl.read),
+				repositories: toBareRepoNames(effectiveRead),
 				permissions: { contents: "read" },
 			};
 		}

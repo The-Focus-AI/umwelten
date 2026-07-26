@@ -70,11 +70,12 @@ describe("createRemoteAgentTools", () => {
 			agentId: "gaia",
 			message: "what's running?",
 		});
-		expect(send).toHaveBeenCalledWith({
+		expect(send).toHaveBeenCalledWith(
+			expect.objectContaining({
 			endpoint: "https://gaia.example.com",
 			text: "what's running?",
-			apiKey: "tok-123",
-		});
+			apiKey: "tok-123",}),
+		);
 		expect(out).toEqual({ agentId: "gaia", response: "3 habitats running" });
 	});
 
@@ -87,10 +88,17 @@ describe("createRemoteAgentTools", () => {
 			}),
 		);
 		const out = await callAsk(tools, { agentId: "GAIA", message: "hi" });
-		expect(send).toHaveBeenCalledWith({
-			endpoint: "http://172.17.0.1:7420",
-			text: "hi",
-			apiKey: undefined,
+		expect(send).toHaveBeenCalledWith(
+			expect.objectContaining({
+				endpoint: "http://172.17.0.1:7420",
+				text: "hi",
+				apiKey: undefined,
+			}),
+		);
+		// The call now carries the agent-call chain so the receiving habitat
+		// extends it instead of starting fresh (ADR 0008).
+		expect(send.mock.calls[0][0].metadata).toEqual({
+			"umwelten.agentChain": ["gaia"],
 		});
 		expect(out.agentId).toBe("gaia");
 	});
