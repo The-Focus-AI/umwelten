@@ -34,12 +34,37 @@ import {
 } from "../identity/agent-call-context.js";
 import { encodeAgentChain } from "../identity/agent-call-wire.js";
 
+/**
+ * A peer resolved from the Directory rather than from frozen config.
+ *
+ * Gaia is the Directory, not the router (ADR 0008): it answers *who exists
+ * and where*, and the caller then talks to the peer directly.
+ */
+export interface ResolvedPeer {
+	id: string;
+	/** Base URL or full /a2a endpoint. */
+	endpoint: string;
+	/** Bearer token for that peer, when the Directory holds one. */
+	apiKey?: string;
+}
+
 /** Narrow habitat surface so tests don't need a full Habitat. */
 export interface RemoteAgentToolsContext {
 	getConfig(): HabitatConfig;
 	getSecret(name: string): string | undefined;
 	/** Injectable A2A sender (tests). Defaults to sendA2AMessageToUrl. */
 	send?: typeof sendA2AMessageToUrl;
+	/**
+	 * Look a peer up in the Directory at call time.
+	 *
+	 * Without this, peers are whatever was declared before the container
+	 * started — so onboarding a client habitat would mean restarting the
+	 * operations habitat, which defeats giving a prospect a habitat on first
+	 * contact. Returns undefined when the Directory has no such peer.
+	 */
+	resolvePeer?: (agentId: string) => Promise<ResolvedPeer | undefined>;
+	/** Names the Directory can offer, for the tool description and errors. */
+	listPeers?: () => Promise<string[]>;
 }
 
 function remoteEntries(config: HabitatConfig): AgentEntry[] {
@@ -67,24 +92,48 @@ function resolveEndpoint(
 	return url || undefined;
 }
 
+/** Declared peers plus whatever the Directory can offer, deduped. */
+async function listKnownPeers(
+	ctx: RemoteAgentToolsContext,
+	declaredIds: string[],
+): Promise<string[]> {
+	const names = [...declaredIds];
+	try {
+		for (const id of (await ctx.listPeers?.()) ?? []) {
+			if (!names.includes(id)) names.push(id);
+		}
+	} catch {
+		// A directory that cannot list is still worth reporting the local half of.
+	}
+	return names;
+}
+
 export function createRemoteAgentTools(
 	ctx: RemoteAgentToolsContext,
 ): Record<string, Tool> {
 	const send = ctx.send ?? sendA2AMessageToUrl;
-	const declared = remoteEntries(ctx.getConfig())
-		.map((a) => a.id)
-		.join(", ");
+	const declaredIds = remoteEntries(ctx.getConfig()).map((a) => a.id);
+	const declared = declaredIds.join(", ");
 
-	// No remote peers declared → no tool. Config changes that add one land via
-	// re-seed + restart, so a creation-time decision is safe.
-	if (!declared) return {};
+	// With a Directory, register the tool even when nothing was declared at
+	// start: a habitat created after this one booted is still reachable, which
+	// is the whole point of resolving at call time (#280). Without one, fall
+	// back to the old rule — no declared peers means no tool.
+	if (!declared && !ctx.resolvePeer) return {};
+
+	const peerSummary = declared
+		? `Declared peers: ${declared}.` +
+			(ctx.resolvePeer
+				? " Other habitats in the fleet resolve through the directory at call time."
+				: "")
+		: "Peers resolve through the fleet directory at call time; ask for one by id.";
 
 	const ask_remote_agent = tool({
 		description:
 			"Send a message to a remote agent (another habitat reachable over A2A) and return its reply. " +
 			"Use this to delegate questions the remote agent can answer better — e.g. ask an orchestrator " +
 			"about the live status of managed agents. " +
-			`Remote agents declared for this habitat: ${declared}.`,
+			peerSummary,
 		inputSchema: z.object({
 			agentId: z
 				.string()
@@ -96,7 +145,56 @@ export function createRemoteAgentTools(
 		execute: async ({ agentId, message }) => {
 			const config = ctx.getConfig();
 			const entry = findRemoteEntry(config, agentId);
-			if (!entry) {
+
+			let peerId: string;
+			let endpoint: string | undefined;
+			let apiKey: string | undefined;
+
+			if (entry) {
+				// A declared peer wins: an explicit local declaration is a
+				// deliberate override of whatever the Directory would say.
+				peerId = entry.id;
+				endpoint = resolveEndpoint(entry, (n) => ctx.getSecret(n));
+				apiKey = entry.a2aTokenSecret
+					? ctx.getSecret(entry.a2aTokenSecret)
+					: undefined;
+
+				if (!endpoint) {
+					return {
+						error: "REMOTE_AGENT_NOT_CONFIGURED",
+						message:
+							`Remote agent "${entry.id}" has no reachable URL. ` +
+							(entry.a2aUrlSecret
+								? `Set the "${entry.a2aUrlSecret}" secret to its base URL.`
+								: `Set "a2aUrl" (or "a2aUrlSecret") on its config entry.`),
+					};
+				}
+			} else if (ctx.resolvePeer) {
+				let resolved: ResolvedPeer | undefined;
+				try {
+					resolved = await ctx.resolvePeer(agentId);
+				} catch (err) {
+					// A Directory outage must not take the caller down with it.
+					return {
+						error: "REMOTE_AGENT_DIRECTORY_UNAVAILABLE",
+						message: `Could not reach the fleet directory to resolve "${agentId}": ${err instanceof Error ? err.message : String(err)}`,
+					};
+				}
+
+				if (!resolved) {
+					const known = await listKnownPeers(ctx, declaredIds);
+					return {
+						error: "REMOTE_AGENT_NOT_FOUND",
+						message: known.length
+							? `No remote agent "${agentId}". Known agents: ${known.join(", ")}`
+							: `No remote agent "${agentId}" — neither this habitat's config nor the fleet directory knows it.`,
+					};
+				}
+
+				peerId = resolved.id;
+				endpoint = resolved.endpoint;
+				apiKey = resolved.apiKey;
+			} else {
 				const available = remoteEntries(config).map((a) => a.id);
 				return {
 					error: "REMOTE_AGENT_NOT_FOUND",
@@ -106,26 +204,11 @@ export function createRemoteAgentTools(
 				};
 			}
 
-			const endpoint = resolveEndpoint(entry, (n) => ctx.getSecret(n));
-			if (!endpoint) {
-				return {
-					error: "REMOTE_AGENT_NOT_CONFIGURED",
-					message:
-						`Remote agent "${entry.id}" has no reachable URL. ` +
-						(entry.a2aUrlSecret
-							? `Set the "${entry.a2aUrlSecret}" secret to its base URL.`
-							: `Set "a2aUrl" (or "a2aUrlSecret") on its config entry.`),
-				};
-			}
-
-			const apiKey = entry.a2aTokenSecret
-				? ctx.getSecret(entry.a2aTokenSecret)
-				: undefined;
 
 			// Depth and cycle guard, now that it survives the hop (ADR 0008).
 			// Refuse before spending anything: with LLM agents on both ends and
 			// output caps forbidden, an unbounded cycle is unbounded spend.
-			const check = checkAgentCall(entry.id);
+			const check = checkAgentCall(peerId);
 			if (!check.ok) {
 				return {
 					error: check.reason === "CYCLE" ? "AGENT_CYCLE" : "AGENT_MAX_DEPTH",
@@ -136,7 +219,7 @@ export function createRemoteAgentTools(
 
 			try {
 				const response: A2AMessageResponse = await withAgentCall(
-					entry.id,
+					peerId,
 					async () =>
 						send({
 							endpoint,
@@ -145,12 +228,12 @@ export function createRemoteAgentTools(
 							// Carry the chain so the receiving habitat can extend it
 							// rather than starting fresh.
 							metadata: encodeAgentChain(
-								getAgentCallContext()?.chain ?? [entry.id],
+								getAgentCallContext()?.chain ?? [peerId],
 							),
 						}),
 				);
 				return {
-					agentId: entry.id,
+					agentId: peerId,
 					response: response.text,
 					...(response.artifacts ? { artifacts: response.artifacts } : {}),
 				};

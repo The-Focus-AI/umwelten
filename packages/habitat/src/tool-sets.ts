@@ -16,6 +16,7 @@ import { createStorageTools } from "./tools/storage-tools.js";
 import { createSelfModifyTools } from "./tools/self-modify-tools.js";
 import { createInspectTools } from "./tools/inspect-tools.js";
 import { createRemoteAgentTools } from "./tools/remote-agent-tools.js";
+import { buildDirectoryResolver } from "./tools/directory-resolver.js";
 import {
   wgetTool,
   markifyTool,
@@ -239,6 +240,10 @@ export const remoteAgentToolSet: ToolSet = {
     createRemoteAgentTools({
       getConfig: () => habitat.getConfig(),
       getSecret: (name) => habitat.getSecret(name),
+      // Peers resolve through the fleet directory at call time (#280), so a
+      // habitat created after this one booted is reachable without a restart.
+      // Unset in local/standalone use, where declared peers are the only ones.
+      ...buildDirectoryResolver(habitat),
     }),
 };
 

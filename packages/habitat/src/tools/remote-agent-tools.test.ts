@@ -23,11 +23,15 @@ function makeCtx(opts: {
 	agents?: HabitatConfig["agents"];
 	secrets?: Record<string, string>;
 	send?: any;
+	resolvePeer?: any;
+	listPeers?: any;
 }) {
 	return {
 		getConfig: () => ({ agents: opts.agents ?? [] }) as HabitatConfig,
 		getSecret: (name: string) => opts.secrets?.[name],
 		send: opts.send,
+		...(opts.resolvePeer ? { resolvePeer: opts.resolvePeer } : {}),
+		...(opts.listPeers ? { listPeers: opts.listPeers } : {}),
 	};
 }
 
@@ -149,5 +153,117 @@ describe("createRemoteAgentTools", () => {
 		);
 		const out = await callAsk(tools, { agentId: "gaia", message: "report" });
 		expect(out.artifacts).toHaveLength(1);
+	});
+});
+
+/**
+ * Call-time resolution (#280). Peers used to be frozen at container start, so
+ * onboarding a client habitat meant restarting the operations habitat — which
+ * defeats giving a prospect a habitat on first contact.
+ */
+describe("createRemoteAgentTools — directory resolution", () => {
+	const peer = {
+		id: "upperhand",
+		endpoint: "https://upperhand.habitats.example.com",
+		apiKey: "peer-tok",
+	};
+
+	it("registers the tool even when no peers were declared at start", () => {
+		const tools = createRemoteAgentTools(
+			makeCtx({ agents: [], resolvePeer: async () => peer } as never),
+		);
+		expect(Object.keys(tools)).toContain("ask_remote_agent");
+	});
+
+	it("still registers nothing when there is no directory and no declared peers", () => {
+		expect(createRemoteAgentTools(makeCtx({ agents: [] }))).toEqual({});
+	});
+
+	it("reaches a habitat created after this one booted", async () => {
+		const send = vi.fn().mockResolvedValue({ text: "on track" });
+		const tools = createRemoteAgentTools(
+			makeCtx({ agents: [], send, resolvePeer: async () => peer } as never),
+		);
+		const out = await callAsk(tools, { agentId: "upperhand", message: "status?" });
+
+		expect(out.agentId).toBe("upperhand");
+		expect(send).toHaveBeenCalledWith(
+			expect.objectContaining({
+				endpoint: "https://upperhand.habitats.example.com",
+				apiKey: "peer-tok",
+			}),
+		);
+	});
+
+	it("prefers a declared peer over the directory", async () => {
+		const send = vi.fn().mockResolvedValue({ text: "ok" });
+		const resolvePeer = vi.fn().mockResolvedValue(peer);
+		const tools = createRemoteAgentTools(
+			makeCtx({
+				agents: [{ ...gaiaEntry, a2aUrlSecret: undefined, a2aUrl: "http://declared:7420" }],
+				send,
+				resolvePeer,
+			} as never),
+		);
+		await callAsk(tools, { agentId: "gaia", message: "hi" });
+
+		expect(resolvePeer).not.toHaveBeenCalled();
+		expect(send.mock.calls[0][0].endpoint).toBe("http://declared:7420");
+	});
+
+	it("names what it knows when the directory has no such peer", async () => {
+		const tools = createRemoteAgentTools(
+			makeCtx({
+				agents: [],
+				resolvePeer: async () => undefined,
+				listPeers: async () => ["alpha", "beta"],
+			} as never),
+		);
+		const out = await callAsk(tools, { agentId: "nope", message: "hi" });
+
+		expect(out.error).toBe("REMOTE_AGENT_NOT_FOUND");
+		expect(out.message).toContain("alpha");
+		expect(out.message).toContain("beta");
+	});
+
+	it("does not crash the caller when the directory is unreachable", async () => {
+		const tools = createRemoteAgentTools(
+			makeCtx({
+				agents: [],
+				resolvePeer: async () => {
+					throw new Error("ECONNREFUSED");
+				},
+			} as never),
+		);
+		const out = await callAsk(tools, { agentId: "upperhand", message: "hi" });
+
+		expect(out.error).toBe("REMOTE_AGENT_DIRECTORY_UNAVAILABLE");
+		expect(out.message).toContain("ECONNREFUSED");
+	});
+
+	it("still reports declared peers when the directory cannot list", async () => {
+		const tools = createRemoteAgentTools(
+			makeCtx({
+				agents: [gaiaEntry],
+				resolvePeer: async () => undefined,
+				listPeers: async () => {
+					throw new Error("directory down");
+				},
+			} as never),
+		);
+		const out = await callAsk(tools, { agentId: "nope", message: "hi" });
+		expect(out.message).toContain("gaia");
+	});
+
+	it("carries the resolved peer id into the call chain", async () => {
+		const send = vi.fn().mockResolvedValue({ text: "ok" });
+		const tools = createRemoteAgentTools(
+			makeCtx({ agents: [], send, resolvePeer: async () => peer } as never),
+		);
+		await callAsk(tools, { agentId: "upperhand", message: "hi" });
+
+		expect(send.mock.calls[0][0].metadata).toEqual({
+			"umwelten.agentChain": ["upperhand"],
+		});
 	});
 });
