@@ -45,6 +45,7 @@ pnpm workspace monorepo. Each package is under `packages/` and publishable indep
 @umwelten/protocols  packages/protocols/     — MCP (legacy + modern + mcp-serve OAuth framework), A2A client/server
 @umwelten/sessions   packages/sessions/      — sessions/browse/introspect CLI commands + session browser data layer
 @umwelten/evaluation packages/evaluation/    — EvalSuite, llm-eval/runFullEval, ranking, combine, reporting
+@umwelten/fission    packages/fission/       — session fission: drift detection, per-turn compaction, thread tree + browser + report
 @umwelten/habitat    packages/habitat/       — agent container, tools, Gaia, container-server (MCP+A2A+web+chat)
 @umwelten/ui         packages/ui/            — Telegram, Discord, TUI (Ink) adapters
 @umwelten/cli        packages/cli/           — Commander CLI entry point
@@ -58,9 +59,10 @@ Dependency DAG (no cycles):
 @umwelten/protocols         ← core
 @umwelten/sessions          ← core
 @umwelten/evaluation        ← core, sessions
+@umwelten/fission           ← core
 @umwelten/habitat           ← core, protocols, sessions
 @umwelten/ui                ← core, sessions, evaluation, habitat
-@umwelten/cli               ← core, sessions, evaluation, habitat, ui
+@umwelten/cli               ← core, sessions, evaluation, fission, habitat, ui
 umwelten (meta)             ← every package above
 ```
 
@@ -116,7 +118,7 @@ Holds messages, model, stimulus, and runner. This is where the actual conversati
 **Exploration / knowledge pipeline** (lives in core but is its own coherent feature surface; see CONTEXT.md for the terms):
 
 - `projection/` — Project a `NormalizedSession` → `SourceSession` → default `Exploration`. `projectSessions(projectPath)` walks every registered adapter.
-- `reflection/` — `buildReflectiveInteraction(explorations, question, opts)` constructs an Interaction whose system prompt is a "reflective analyst" plus exploration context. Not a new runner — just a configured Interaction.
+- `reflection/` — `buildReflectiveInteraction(explorations, question, opts)` constructs an Interaction whose system prompt is a "reflective analyst" plus exploration context. Not a new runner — just a configured Interaction. Also `runFanout(opts)` (`fanout.ts`): runs a batch of **Probes** concurrently over one Interaction's current state after a turn — *annotations* (verbatim history + one short question, so every probe shares a prefix) and *baselines* (a compaction strategy, returning a `replacement` context you can continue from). Records latency/tokens/cost/`sharedPrefix` per probe; a failing probe returns an error result rather than throwing. Driven by `examples/context-explorer/`; see `docs/guide/turn-fanout.md` and ADR 0010.
 - `promotion/` — `classifyReflectionAnswer(text)` returns one of 8 `PromotionTarget`s (`agent-instruction`, `project-fact`, `domain-language`, `adr`, `skill`, `artifact`, `saved-reflection`, `user-model`). `PromotionRouter.promote(decision)` writes via the matching `knowledge/` helper.
 - `knowledge/` — Seven file writers: `AGENTS.md`, `FACTS.md`, `user-model.md` (marker-managed sections), `.umwelten/reflections/`, `.umwelten/artifacts/`, `.umwelten/candidates/`, `.umwelten/explorations/`. Plus `SavedExplorationStore`.
 
@@ -419,6 +421,32 @@ Parse DSL strings into Zod schemas, validate model output.
 - `validator.ts` — `validateSchema()`, `createValidator()`, `coerceData()`
 - `manager.ts` — `SchemaManager` singleton
 
+### `@umwelten/fission` — Session Fission
+
+Treats a conversation as a **tree**. Every user turn is scored for topic drift against the thread it landed in; when it reads as the start of something new it is spun off into a child node seeded with a query-conditioned carry-over of the parent. Every turn is also analysed and compacted. Depends only on core.
+
+- `types.ts` — `FissionTree`/`FissionNode`/`TurnRecord`/`DetectorResult`/`CompactionRecord`, `FissionConfig` + `DEFAULT_FISSION_CONFIG`
+- `tree/signature.ts` — deterministic lexical fingerprints: `tokenize` (stemmed), `surfaceTerms`, `stem`, `buildSignature`, `mergeSignature` (decay), `cosineSimilarity`, `termCoverage`, `topTerms`
+- `tree/tree.ts` — `FissionTree`: fork, path, per-node turns, running signature, `stats()`. Pure data, no I/O
+- `tree/store.ts` — `~/.umwelten/fission/<treeId>/{tree.json, turns.jsonl, nodes/<id>.json}`. `turns.jsonl` is append-only and replayable. Override root with `UMWELTEN_FISSION_DIR`
+- `detect/` — `FissionDetector` interface + registry. `lexical-drift` (free), `llm-judge` (relationship classification → derived score), `hybrid` (lexical gate, LLM tiebreak — **default**), `never` (control)
+- `analysis/turn-analysis.ts` — per-turn summary / facts / topics via `generateObject`, with a deterministic `degraded` fallback
+- `compaction/` — `rolling-summary`, `topic-carryover` (pass `options.newTopic`), `recent-window`. Registered into **core's** shared registry, so `interaction.compactContext(id)` can use them anywhere
+- `engine/fission-chat.ts` — the turn loop: detect → fork → answer → analyse → compact → record. Detection runs *before* the answer by design
+- `engine/compact.ts` — `planCompaction` (leaves `keepRecentMessages` verbatim) + `runCompaction` (never throws; records errors)
+- `engine/tools.ts` — web/math bundles plus `recall_thread`, which searches sibling threads so fission isn't amnesia
+- `server/` — node:http server + single-file SPA: tree browser, per-turn decision cards, decision labeling, compaction playground (every strategy runs against the same rebuilt raw context)
+- `report/` — `buildFissionReport` (pure) + `renderReportHtml` (self-contained, light/dark, inline SVG chart)
+- `cli.ts` — `umwelten fission {chat,serve,report,list,strategies,detectors}`
+
+```bash
+dotenvx run -- pnpm run cli fission chat            # terminal, watching every decision
+dotenvx run -- pnpm run cli fission serve           # http://127.0.0.1:7431
+dotenvx run -- pnpm run cli fission report -o r.html
+```
+
+Thresholds are reasoned, not tuned — label decisions in the browser and the report's accuracy table tells you where they belong. See `packages/fission/README.md`.
+
 ### `@umwelten/protocols` — MCP + A2A
 
 External-protocol implementations. Split by role:
@@ -616,6 +644,7 @@ All umwelten services use the 74xx port range to avoid conflicts with common dev
 | Gaia orchestrator       | **7420**      | `habitat gaia` — multi-habitat dashboard   |
 | Legacy `habitat web`    | **7421**      | `habitat web` — single-habitat web UI      |
 | `habitat serve` (host)  | **7430**      | `habitat serve` — MCP + chat + web UI      |
+| `fission serve`         | **7431**      | `fission serve` — session tree browser     |
 | Managed containers      | **7440–7499** | Gaia assigns sequentially from this range  |
 | Internal container port | **8080**      | Inside Docker only, never exposed directly |
 

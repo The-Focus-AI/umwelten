@@ -52,6 +52,22 @@ _Avoid_: Indexing, analysis, digesting when used as generic names, separate runn
 A persisted answer from a **Reflection** that has not necessarily been promoted into a **Project Fact**, **Skill**, **Artifact**, or agent instruction.
 _Avoid_: Memory when it is only a holding-area answer
 
+**Turn Fan-out**:
+Running several **Probes** concurrently over an **Interaction**, immediately after a turn, to see the state from several angles at once.
+_Avoid_: Fission, spin-off, branching (this creates no branch on its own)
+
+**Probe**:
+One question or compaction run over an **Interaction**'s current state during a **Turn Fan-out**. Either an **Annotation** or a **Baseline**.
+_Avoid_: Detector, check, analysis pass
+
+**Annotation**:
+A **Probe** that returns information *about* the state — its title, its intent, whether it is finished — without offering to replace it.
+_Avoid_: Metadata, label, side info
+
+**Baseline**:
+A **Probe** that returns a candidate replacement context the **Interaction** can continue from.
+_Avoid_: Checkpoint (that is a message index, not a context), snapshot, reset
+
 **Skill**:
 A reusable procedure derived from past work.
 _Avoid_: Playbook, learning, skill candidate when referring to the promoted artifact
@@ -114,6 +130,9 @@ _Avoid_: Required secrets, env manifest, secret list
 - An **Interaction** may belong to one or more **Explorations**.
 - **Reflection** uses the existing model runner by constructing a new **Interaction** whose context includes relevant material from other **Interactions** or **Explorations**.
 - A reflective **Interaction** produces answers; an agent may save those answers as **Saved Reflections** or promote them into durable **Memory**.
+- A **Turn Fan-out** is a batch of **Reflections** run at once; every **Probe** in it reads the same **Interaction** state.
+- An **Annotation** never changes an **Interaction**; adopting a **Baseline** replaces that Interaction's context and is the only way a fan-out alters anything.
+- A **Baseline** is produced by a compaction strategy, so any strategy available to compaction is available as a Baseline.
 - A **Skill Candidate** may be promoted into a **Skill**.
 - A **Skill** is a procedural kind of **Memory**.
 - A **Project Fact** should live in the top-level `FACTS.md` file.

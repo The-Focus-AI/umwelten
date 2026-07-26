@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Context explorer</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --good: #0ca30c;
+    --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --surface-2: #232322; --plane: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --grid: #2c2c2a;
+      --border: rgba(255,255,255,0.10); --series-1: #3987e5; --series-2: #d95926;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--plane); color: var(--text-primary);
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .55rem .9rem; border-bottom: 1px solid var(--border); background: var(--surface-1);
+  }
+  header h1 { font-size: .95rem; margin: 0 .5rem 0 0; font-weight: 600; }
+  label.inline { color: var(--text-secondary); font-size: .78rem; display: inline-flex; align-items: center; gap: .3rem; }
+  input, button, textarea, select {
+    font: inherit; color: inherit; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 7px; padding: .28rem .5rem;
+  }
+  input.model { width: 190px; }
+  button { cursor: pointer; }
+  button:hover { background: var(--surface-2); }
+  button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .stats { margin-left: auto; display: flex; gap: .85rem; font-size: .78rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--text-primary); }
+  main { flex: 1; overflow-y: auto; padding: 1rem; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .turn { margin-bottom: 1.6rem; }
+  .bubble { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); padding: .7rem .85rem; margin-bottom: .5rem; }
+  .bubble .role { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .2rem; }
+  .bubble .text { white-space: pre-wrap; word-break: break-word; }
+  .meta { font-size: .75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-top: .4rem; }
+  .tools { font-size: .75rem; color: var(--series-2); margin-top: .3rem; }
+  .fan-head { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin: .9rem 0 .45rem; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .6rem; }
+  .card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); padding: .6rem .7rem; display: flex; flex-direction: column; }
+  .card.baseline { border-left: 3px solid var(--series-1); }
+  .card.annotation { border-left: 3px solid var(--series-2); }
+  .card.pending { opacity: .55; }
+  .card.failed { border-left-color: var(--critical); }
+  .card h3 { font-size: .82rem; margin: 0 0 .3rem; font-weight: 600; }
+  .card .body { white-space: pre-wrap; word-break: break-word; font-size: .8rem; color: var(--text-secondary); flex: 1; max-height: 220px; overflow-y: auto; }
+  .card .foot { margin-top: .5rem; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chip { border: 1px solid var(--border); border-radius: 999px; padding: .02rem .45rem; font-size: .68rem; }
+  .chip.warm { border-color: var(--good); color: var(--good); }
+  .chip.cold { border-color: var(--series-2); color: var(--series-2); }
+  .chip.chosen { border-color: var(--series-1); color: var(--series-1); }
+  .err { color: var(--critical); }
+  footer { border-top: 1px solid var(--border); background: var(--surface-1); padding: .6rem .9rem; }
+  .composer { max-width: 1180px; margin: 0 auto; display: flex; gap: .5rem; }
+  .composer textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 220px; background: var(--plane); }
+  #status { max-width: 1180px; margin: 0 auto .4rem; font-size: .78rem; color: var(--text-secondary); min-height: 1.2em; }
+  .hint { color: var(--text-secondary); font-size: .85rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Context explorer</h1>
+  <label class="inline">answer <input id="answer-model" class="model" value="google/gemini-3-flash-preview"></label>
+  <label class="inline">fan-out <input id="fanout-model" class="model" placeholder="same as answer"></label>
+  <label class="inline"><input type="checkbox" id="use-tools" checked> tools</label>
+  <button id="new-run">New run</button>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main><div class="wrap" id="turns">
+  <p class="hint">Ask something. The answer streams in, then every probe runs in parallel over the same context — annotations tell you about the state, baselines are contexts you can continue from.</p>
+</div></main>
+
+<footer>
+  <div id="status"></div>
+  <div class="composer">
+    <textarea id="input" rows="2" placeholder="Ask a question…"></textarea>
+    <button id="send" class="primary">Ask</button>
+  </div>
+</footer>
+
+<script>
+const state = { runId: null, run: null, probes: [], busy: false };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const num = (n) => Number(n || 0).toLocaleString();
+const usd = (n) => n == null ? '—' : (n < 0.01 ? '$' + n.toFixed(4) : '$' + n.toFixed(2));
+
+async function api(path, options) {
+  const res = await fetch(path, { ...options, headers: { 'content-type': 'application/json', ...(options && options.headers) } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+}
+
+function parseModel(value, fallback) {
+  const raw = (value || '').trim();
+  if (!raw) return fallback;
+  const slash = raw.indexOf('/');
+  if (slash < 0) return fallback;
+  return { provider: raw.slice(0, slash), name: raw.slice(slash + 1) };
+}
+
+function setStatus(text, isError) {
+  $('status').textContent = text || '';
+  $('status').className = isError ? 'err' : '';
+}
+
+async function newRun() {
+  const answerModel = parseModel($('answer-model').value, { provider: 'google', name: 'gemini-3-flash-preview' });
+  const fanoutModel = parseModel($('fanout-model').value, answerModel);
+  const defaults = await api('/api/defaults');
+  state.probes = defaults.probes;
+  const run = await api('/api/runs', {
+    method: 'POST',
+    body: JSON.stringify({ answerModel, fanoutModel, useTools: $('use-tools').checked, probes: state.probes }),
+  });
+  state.runId = run.id;
+  state.run = run;
+  $('turns').innerHTML = '<p class="hint">New run. Ask something.</p>';
+  renderStats();
+  setStatus('');
+}
+
+function renderStats() {
+  const run = state.run;
+  if (!run) return;
+  const turns = run.turns || [];
+  const fanoutCost = turns.reduce((sum, t) => sum + t.fanout.reduce((s, p) => s + (p.costUsd || 0), 0), 0);
+  const answerCost = turns.reduce((sum, t) => sum + (t.answerCostUsd || 0), 0);
+  $('stats').innerHTML =
+    `<span><b>${turns.length}</b> turns</span>` +
+    `<span><b>${num(run.contextTokens)}</b> ctx tokens</span>` +
+    `<span>answers <b>${usd(answerCost)}</b></span>` +
+    `<span>fan-out <b>${usd(fanoutCost)}</b></span>`;
+}
+
+function probeCard(probe, result, turnIndex, chosen) {
+  const pending = !result;
+  const failed = result && result.error;
+  const classes = ['card', probe.kind, pending ? 'pending' : '', failed ? 'failed' : ''].filter(Boolean).join(' ');
+  const body = pending ? 'running…' : (failed ? esc(result.error) : esc(result.text));
+  const foot = [];
+  if (result && !failed) {
+    foot.push(`<span class="chip ${result.sharedPrefix ? 'warm' : 'cold'}">${result.sharedPrefix ? 'shared prefix' : 'rebuilt prompt'}</span>`);
+    foot.push(`<span>${num(result.latencyMs)} ms</span>`);
+    if (result.promptTokens != null) foot.push(`<span>${num(result.promptTokens)} in</span>`);
+    foot.push(`<span>${usd(result.costUsd)}</span>`);
+    if (result.kind === 'baseline') {
+      foot.push(`<span>→ ${num(result.resultTokens)} tok</span>`);
+      foot.push(chosen === probe.id
+        ? `<span class="chip chosen">continued from</span>`
+        : `<button data-continue="${esc(probe.id)}" data-turn="${turnIndex}">continue from this</button>`);
+    }
+  }
+  return `<div class="${classes}" data-probe="${esc(probe.id)}" data-turn="${turnIndex}">
+    <h3>${esc(probe.label)}</h3>
+    <div class="body ${failed ? 'err' : ''}">${body}</div>
+    <div class="foot">${foot.join('')}</div>
+  </div>`;
+}
+
+function renderTurn(turnIndex) {
+  const existing = document.querySelector(`.turn[data-turn="${turnIndex}"]`);
+  if (existing) return existing;
+  const el = document.createElement('div');
+  el.className = 'turn';
+  el.dataset.turn = String(turnIndex);
+  $('turns').appendChild(el);
+  return el;
+}
+
+function wireContinue(scope) {
+  for (const button of scope.querySelectorAll('[data-continue]')) {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        state.run = await api(`/api/runs/${state.runId}/continue-from`, {
+          method: 'POST',
+          body: JSON.stringify({ turnIndex: Number(button.dataset.turn), probeId: button.dataset.continue }),
+        });
+        renderStats();
+        setStatus(`Context reset to "${button.dataset.continue}" — the next turn continues from there.`);
+        redrawFanoutFoot(Number(button.dataset.turn), button.dataset.continue);
+      } catch (error) {
+        setStatus(error.message, true);
+        button.disabled = false;
+      }
+    });
+  }
+}
+
+function redrawFanoutFoot(turnIndex, chosen) {
+  const turn = state.run.turns[turnIndex];
+  const host = document.querySelector(`.turn[data-turn="${turnIndex}"] .cards`);
+  if (!turn || !host) return;
+  host.innerHTML = state.probes
+    .map((p) => probeCard(p, turn.fanout.find((r) => r.probeId === p.id), turnIndex, chosen))
+    .join('');
+  wireContinue(host);
+}
+
+async function ask() {
+  if (state.busy) return;
+  if (!state.runId) await newRun();
+  const text = $('input').value.trim();
+  if (!text) return;
+  state.busy = true;
+  $('send').disabled = true;
+  $('input').value = '';
+
+  const turnIndex = (state.run.turns || []).length;
+  const el = renderTurn(turnIndex);
+  el.innerHTML =
+    `<div class="bubble"><div class="role">you</div><div class="text">${esc(text)}</div></div>` +
+    `<div class="bubble"><div class="role">assistant</div><div class="text" id="answer-${turnIndex}"></div>` +
+    `<div class="tools" id="tools-${turnIndex}"></div><div class="meta" id="meta-${turnIndex}"></div></div>`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+  const answerEl = $(`answer-${turnIndex}`);
+  const toolsEl = $(`tools-${turnIndex}`);
+  const tools = [];
+
+  try {
+    const res = await fetch(`/api/runs/${state.runId}/ask`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || '';
+      for (const part of parts) {
+        const line = part.replace(/^data: /, '').trim();
+        if (!line) continue;
+        let event;
+        try { event = JSON.parse(line); } catch { continue; }
+
+        if (event.type === 'delta') {
+          answerEl.textContent += event.delta;
+        } else if (event.type === 'tool-call') {
+          tools.push(event.name);
+          toolsEl.textContent = '⚒ ' + tools.join(', ');
+        } else if (event.type === 'answer') {
+          if (!answerEl.textContent) answerEl.textContent = event.text;
+        } else if (event.type === 'fanout-start') {
+          setStatus(`Fanning out ${event.probes.length} probes over the same context…`);
+          const cards = document.createElement('div');
+          cards.innerHTML = `<div class="fan-head">after this turn</div><div class="cards">` +
+            state.probes.map((p) => probeCard(p, null, turnIndex)).join('') + `</div>`;
+          el.appendChild(cards);
+        } else if (event.type === 'probe') {
+          const host = el.querySelector('.cards');
+          const old = host.querySelector(`[data-probe="${CSS.escape(event.result.probeId)}"]`);
+          const probe = state.probes.find((p) => p.id === event.result.probeId);
+          if (old && probe) {
+            old.outerHTML = probeCard(probe, event.result, turnIndex);
+            wireContinue(host);
+          }
+        } else if (event.type === 'turn-complete') {
+          state.run = event.run;
+          const turn = state.run.turns[turnIndex];
+          $(`meta-${turnIndex}`).textContent =
+            `${num(turn.contextTokensBefore)} → ${num(turn.contextTokensAfter)} ctx tokens · ` +
+            `${num(turn.answerLatencyMs)} ms · ${usd(turn.answerCostUsd)}`;
+          renderStats();
+          setStatus('');
+        } else if (event.type === 'error') {
+          setStatus(event.message, true);
+        }
+      }
+    }
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    state.busy = false;
+    $('send').disabled = false;
+  }
+}
+
+$('send').addEventListener('click', ask);
+$('new-run').addEventListener('click', () => newRun().catch((e) => setStatus(e.message, true)));
+$('input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) ask();
+});
+
+newRun().catch((error) => setStatus(error.message, true));
+</script>
+</body>
+</html>
