@@ -11,6 +11,8 @@
  * - `createGaiaToolSet(ctx)` — the ToolSet entry point.
  * - `GaiaToolsContext` — the context interface.
  * - `entryToEndpoint` — A2A endpoint adapter.
+ * - `buildDirectory`, `isAwake` — the Directory (#270), also usable by
+ *   REST handlers and the reaper without going through a tool call.
  * - `buildSeedFiles` — also used by `routes.ts` for REST handlers.
  * - `runStandardsAudit`, `STANDARDS_AUDIT_MSG`,
  *   `AuditResult`, `AuditSummary`, `StandardsAuditContext` —
@@ -28,6 +30,14 @@ import { createModelDiscoveryTools } from "./models.js";
 
 export type { GaiaToolsContext } from "./context.js";
 export { entryToEndpoint } from "./context.js";
+export {
+	buildDirectory,
+	isAwake,
+	type DirectoryEntry,
+	type DirectoryCardSource,
+	type DirectoryDeps,
+	type AgentCardFetcher,
+} from "./directory.js";
 export { buildSeedFiles } from "./seed-files.js";
 export {
 	runStandardsAudit,

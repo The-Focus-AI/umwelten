@@ -7,15 +7,12 @@
  * defaults. `./index.ts:createGaiaToolSet` calls them all with one
  * shared `ctx`.
  *
- * Also hosts two small A2A helpers (`entryToEndpoint`, `discoverHabitats`)
- * used by `ask_habitat`, `discover_habitats`, and the standards audit.
+ * Also hosts two small endpoint helpers (`entryToEndpoint`, `entryOpenUrl`)
+ * used by `ask_habitat`, the standards audit, and `./directory.ts` (which
+ * owns discovery — see #270).
  */
 
-import {
-	fetchAgentCard,
-	type A2AEndpoint,
-	type AgentCardSummary,
-} from "@umwelten/protocols";
+import type { A2AEndpoint } from "@umwelten/protocols";
 import type { GaiaHabitatEntry } from "../types.js";
 import type { GaiaRegistryManager } from "../registry.js";
 import type { GaiaSecretVault } from "../secrets.js";
@@ -85,23 +82,3 @@ export function entryOpenUrl(
 	return null;
 }
 
-/** Fetch agent cards from all running habitats; failures are reported per-entry. */
-export async function discoverHabitats(
-	entries: GaiaHabitatEntry[],
-): Promise<
-	Array<{ id: string; card: AgentCardSummary } | { id: string; error: string }>
-> {
-	const running = entries.filter((e) => e.containerPort);
-	const results = await Promise.allSettled(
-		running.map(async (entry) => {
-			const card = await fetchAgentCard(entryToEndpoint(entry));
-			return { id: entry.id, card };
-		}),
-	);
-
-	return results.map((r, i) =>
-		r.status === "fulfilled"
-			? r.value
-			: { id: running[i].id, error: r.reason?.message ?? "Unknown error" },
-	);
-}

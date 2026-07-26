@@ -2,7 +2,20 @@
  * Types for the Gaia Orchestrator — manages multiple habitat containers.
  */
 
+import type { AgentCardSummary } from "@umwelten/protocols";
 import type { HabitatConfig, CapabilityBinding } from "../../types.js";
+
+/**
+ * An agent card captured from a Habitat while it was awake, cached on its
+ * registry entry so the Directory can answer "what can this Habitat do?"
+ * without starting it (#270, ADR 0008 — Gaia is the directory).
+ */
+export interface CachedAgentCard {
+	/** The card as fetched from the Habitat's `/.well-known/agent-card.json`. */
+	card: AgentCardSummary;
+	/** ISO timestamp of the fetch that produced this card. */
+	capturedAt: string;
+}
 
 /** A registered habitat managed by Gaia. */
 export interface GaiaHabitatEntry {
@@ -58,6 +71,14 @@ export interface GaiaHabitatEntry {
 		read?: "org" | string[];
 		write?: string[];
 	};
+	/**
+	 * Last agent card captured while this Habitat was awake (#270). Absent
+	 * means no card has ever been captured — distinct from a card that is
+	 * merely old, which is present with an older `capturedAt`. Never cleared
+	 * by a failed fetch: a card that once described the Habitat is a better
+	 * answer than nothing.
+	 */
+	cachedCard?: CachedAgentCard;
 	/** ISO timestamp */
 	createdAt: string;
 }

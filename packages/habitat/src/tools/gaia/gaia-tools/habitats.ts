@@ -11,7 +11,8 @@ import type { Tool } from "ai";
 import { sendA2AMessage } from "@umwelten/protocols";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
-import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
+import { type GaiaToolsContext, entryToEndpoint, entryOpenUrl } from "./context.js";
+import { buildDirectory } from "./directory.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 export function createHabitatLifecycleTools(
@@ -312,11 +313,10 @@ export function createHabitatLifecycleTools(
 
 		discover_habitats: tool({
 			description:
-				"Fetch agent cards from all running habitats to learn their capabilities.",
+				"The Directory: every registered habitat and what it can do, including dormant ones. Awake habitats are asked for a fresh agent card; dormant habitats answer from the last card captured while they were awake, so discovery never has to wake anything. Each entry reports cardSource (live/cache/none), capturedAt, and whether the card is stale — a habitat that has never been started has no card at all, which is different from one whose card is merely old.",
 			inputSchema: z.object({}),
 			execute: async () => {
-				const entries = registry.list();
-				const results = await discoverHabitats(entries);
+				const results = await buildDirectory({ registry, docker });
 				return JSON.stringify(results, null, 2);
 			},
 		}),

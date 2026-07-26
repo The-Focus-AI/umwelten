@@ -128,6 +128,7 @@ export class GaiaRegistryManager {
 				| "containerPort"
 				| "image"
 				| "github"
+				| "cachedCard"
 			>
 		>,
 	): Promise<GaiaHabitatEntry> {
@@ -145,6 +146,7 @@ export class GaiaRegistryManager {
 			entry.containerPort = updates.containerPort;
 		if (updates.image !== undefined) entry.image = updates.image;
 		if (updates.github !== undefined) entry.github = updates.github;
+		if (updates.cachedCard !== undefined) entry.cachedCard = updates.cachedCard;
 
 		await this.save();
 		return entry;
