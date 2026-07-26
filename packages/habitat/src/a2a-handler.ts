@@ -426,6 +426,17 @@ export class HabitatAgentExecutor implements AgentExecutor {
               });
             }
 
+            // The Task's own outcome, published BEFORE the message and with
+            // final:false. Both details are load-bearing: the transport stops
+            // at the first message event, so a status published after it is
+            // never processed, and `final: true` would stop the transport
+            // *here* and drop the message instead. This event is what moves
+            // the stored Task off `working` — without it a caller polling
+            // `tasks/get` (the non-blocking task surface, ADR 0007) waits out
+            // its whole timeout on work that finished, and a later boot sweep
+            // reports the answered Task as abandoned.
+            this.publishTerminalStatus(eventBus, taskId, contextId, "completed");
+
             eventBus.publish({
               kind: "message",
               messageId: randomUUID(),
@@ -442,6 +453,10 @@ export class HabitatAgentExecutor implements AgentExecutor {
             // A canceled run surfaces as an abort error — cancelTask already
             // emitted the canceled status, so don't follow it with an error.
             if (controller.signal.aborted) return;
+            // Same ordering as onDone: the Task has to record that it failed,
+            // or it stays `working` forever while the caller has been told
+            // the error only through the message.
+            this.publishTerminalStatus(eventBus, taskId, contextId, "failed");
             eventBus.publish({
               kind: "message",
               messageId: randomUUID(),
@@ -459,6 +474,26 @@ export class HabitatAgentExecutor implements AgentExecutor {
     } finally {
       this.activeTasks.delete(taskId);
     }
+  }
+
+  /**
+   * Record a run's outcome on the Task itself. `final: false` deliberately —
+   * see the call sites: the agent message is the stream's terminal event and
+   * has to stay that way for every existing consumer.
+   */
+  private publishTerminalStatus(
+    eventBus: ExecutionEventBus,
+    taskId: string,
+    contextId: string,
+    state: Extract<TaskState, "completed" | "failed">,
+  ): void {
+    eventBus.publish({
+      kind: "status-update",
+      taskId,
+      contextId,
+      final: false,
+      status: { state, timestamp: new Date().toISOString() },
+    });
   }
 
   async cancelTask(taskId: string, eventBus: ExecutionEventBus): Promise<void> {
