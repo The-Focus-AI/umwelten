@@ -429,7 +429,9 @@ export function createStorageTools(
 			const put = await fetchImpl(uploadUrl, {
 				method: "PUT",
 				headers: { "Content-Type": contentType },
-				body: content,
+				// fetch's BodyInit does not accept a Node Buffer. A Uint8Array view
+				// over the same memory does, and copies nothing.
+				body: new Uint8Array(content),
 			});
 			if (!put.ok) return { error: await driveError(put, "drive_put (upload)") };
 			const body = (await put.json()) as DriveFile;
