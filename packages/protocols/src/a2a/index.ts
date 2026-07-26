@@ -28,8 +28,11 @@ export {
   isAbandonableTaskState,
 } from "./file-task-store.js";
 export type { FileTaskStoreOptions } from "./file-task-store.js";
+export { FilePushNotificationStore } from "./file-push-store.js";
+export type { FilePushNotificationStoreOptions } from "./file-push-store.js";
 export {
   sweepAbandonedTasks,
+  notifySweptTasks,
   ABANDONED_TASK_MARKER,
   DEFAULT_ABANDONED_REASON,
 } from "./task-recovery.js";
@@ -45,8 +48,12 @@ export {
   isA2ATask,
   isSettledTaskState,
   A2APollTimeoutError,
+  registerA2APush,
+  listA2APushConfigs,
+  deleteA2APushConfig,
 } from "./task-client.js";
 export type {
+  RegisterA2APushOptions,
   A2ATaskTarget,
   SendA2ATaskOptions,
   GetA2ATaskOptions,
@@ -61,6 +68,8 @@ export type {
   ExecutionEventBus,
   AgentCard,
   AgentSkill,
+  PushNotificationStore,
+  PushNotificationSender,
 } from "./server.js";
 
 // Habitat HTTP/SSE chat client
