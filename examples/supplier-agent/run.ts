@@ -77,16 +77,40 @@ async function cmdProbe() {
     .map((n) => Number(n.trim()))
     .filter((n) => Number.isFinite(n) && n > 0);
 
-  console.log(`Probing ${targets.length} offer(s) at concurrency ${concurrency.join(", ")}\n`);
+  // A full matrix takes tens of minutes and the operator will Ctrl-C it. Load
+  // whatever a previous run got through, and write after every model so an
+  // interrupt costs one probe rather than the whole run.
+  const results: ProbedOffer[] = loadExistingProbes();
+  const done = new Set(results.map((r) => `${r.provider}:${r.model}`));
 
-  const results: ProbedOffer[] = [];
-  for (const [i, t] of targets.entries()) {
-    process.stdout.write(`[${i + 1}/${targets.length}] ${t.provider}:${t.model} … `);
+  const pending = has("fresh")
+    ? targets
+    : targets.filter((t) => !done.has(`${t.provider}:${t.model}`));
+
+  if (results.length && !has("fresh")) {
+    console.log(`Resuming: ${results.length} already probed, ${pending.length} to go.`);
+    console.log(`(Pass --fresh to re-probe everything.)\n`);
+  }
+  if (pending.length === 0) {
+    console.log("Nothing left to probe.");
+    printCapabilityMatrix(results);
+    return;
+  }
+
+  console.log(`Probing ${pending.length} offer(s) at concurrency ${concurrency.join(", ")}\n`);
+
+  for (const [i, t] of pending.entries()) {
+    process.stdout.write(`[${i + 1}/${pending.length}] ${t.provider}:${t.model} … `);
     const probed = await probeOffer(t.provider, t.model, {
       concurrency,
       skipThroughput: has("no-throughput"),
     });
-    results.push(probed);
+
+    // Replace any stale entry for this pair rather than accumulating duplicates.
+    const idx = results.findIndex((r) => r.provider === t.provider && r.model === t.model);
+    if (idx >= 0) results[idx] = probed;
+    else results.push(probed);
+    saveProbes(results);
 
     if (probed.failed) {
       console.log(`FAILED — ${probed.failed}`);
@@ -99,11 +123,24 @@ async function cmdProbe() {
     );
   }
 
+  console.log(`\nWrote ${PROBES_FILE}`);
+  printCapabilityMatrix(results);
+}
+
+function loadExistingProbes(): ProbedOffer[] {
+  if (!fs.existsSync(PROBES_FILE)) return [];
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PROBES_FILE, "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    console.warn(`Could not read ${PROBES_FILE}; starting fresh.`);
+    return [];
+  }
+}
+
+function saveProbes(results: ProbedOffer[]): void {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(PROBES_FILE, JSON.stringify(results, null, 2));
-  console.log(`\nWrote ${PROBES_FILE}`);
-
-  printCapabilityMatrix(results);
 }
 
 async function cmdPublish() {
