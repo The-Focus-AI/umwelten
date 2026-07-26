@@ -31,14 +31,31 @@ export interface CapabilityProbe {
   elapsedMs: number;
 }
 
-/** One throughput measurement at a given level of concurrency. */
+/**
+ * One throughput measurement at a given level of concurrency.
+ *
+ * Three numbers, because they move in different directions and only together
+ * locate the point where a box stops scaling:
+ *
+ *   - `tokensPerSecond` is the box's aggregate output. It should *rise* with
+ *     concurrency until saturation, then flatten.
+ *   - `decodeTokensPerSecond` is what one stream feels once it starts. It
+ *     *falls* as concurrency climbs.
+ *   - `ttftMs` is how long a request waits to start. It *rises* under queueing.
+ *
+ * A flat aggregate with rising TTFT means queueing; a falling aggregate means
+ * genuine contention. Those want different Dispatch responses, which is why
+ * one throughput number is not enough.
+ */
 export interface ThroughputSample {
   /** Requests in flight during the sample. */
   concurrency: number;
   /** Median time to first token across the sample, in milliseconds. */
   ttftMs: number;
-  /** Completion tokens per second, aggregated across all in-flight requests. */
+  /** Aggregate completion tokens/sec across all in-flight requests, end to end. */
   tokensPerSecond: number;
+  /** Median per-stream decode rate, excluding time spent waiting to start. */
+  decodeTokensPerSecond: number;
   completionTokens: number;
   errors: number;
 }

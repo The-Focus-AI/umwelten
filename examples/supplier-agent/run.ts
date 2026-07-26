@@ -81,14 +81,30 @@ async function cmdProbe() {
   // whatever a previous run got through, and write after every model so an
   // interrupt costs one probe rather than the whole run.
   const results: ProbedOffer[] = loadExistingProbes();
-  const done = new Set(results.map((r) => `${r.provider}:${r.model}`));
+  const skipThroughput = has("no-throughput");
+
+  // "Already probed" has to account for what was asked for. A previous
+  // --no-throughput run leaves entries with no throughput data, and treating
+  // those as complete would make a subsequent --concurrency run silently skip
+  // every offer and measure nothing.
+  const isComplete = (r: ProbedOffer): boolean => {
+    if (r.failed) return true;
+    if (skipThroughput) return true;
+    return concurrency.every((level) =>
+      r.throughput.some((s) => s.concurrency === level),
+    );
+  };
+
+  const complete = new Set(
+    results.filter(isComplete).map((r) => `${r.provider}:${r.model}`),
+  );
 
   const pending = has("fresh")
     ? targets
-    : targets.filter((t) => !done.has(`${t.provider}:${t.model}`));
+    : targets.filter((t) => !complete.has(`${t.provider}:${t.model}`));
 
   if (results.length && !has("fresh")) {
-    console.log(`Resuming: ${results.length} already probed, ${pending.length} to go.`);
+    console.log(`Resuming: ${complete.size} complete, ${pending.length} to go.`);
     console.log(`(Pass --fresh to re-probe everything.)\n`);
   }
   if (pending.length === 0) {
@@ -103,7 +119,7 @@ async function cmdProbe() {
     process.stdout.write(`[${i + 1}/${pending.length}] ${t.provider}:${t.model} … `);
     const probed = await probeOffer(t.provider, t.model, {
       concurrency,
-      skipThroughput: has("no-throughput"),
+      skipThroughput,
     });
 
     // Replace any stale entry for this pair rather than accumulating duplicates.
@@ -117,10 +133,15 @@ async function cmdProbe() {
       continue;
     }
     const supported = probed.capabilities.filter((c) => c.supported).map((c) => c.name);
-    const single = probed.throughput.find((s) => s.concurrency === 1);
-    console.log(
-      `${supported.join(", ") || "none"}${single ? ` · ${single.tokensPerSecond} tok/s · ${single.ttftMs}ms TTFT` : ""}`,
-    );
+    console.log(supported.join(", ") || "none");
+    for (const s of probed.throughput) {
+      console.log(
+        `      c=${s.concurrency}  ${String(s.tokensPerSecond).padStart(6)} tok/s agg` +
+          `  ${String(s.decodeTokensPerSecond).padStart(6)} tok/s decode` +
+          `  ${String(s.ttftMs).padStart(6)}ms TTFT` +
+          (s.errors ? `  ${s.errors} error(s)` : ""),
+      );
+    }
   }
 
   console.log(`\nWrote ${PROBES_FILE}`);

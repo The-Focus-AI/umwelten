@@ -311,6 +311,7 @@ async function measureThroughput(
   concurrency: number,
 ): Promise<ThroughputSample> {
   const ttfts: number[] = [];
+  const decodeRates: number[] = [];
   let completionTokens = 0;
   let errors = 0;
 
@@ -347,8 +348,17 @@ async function measureThroughput(
         errors += 1;
         return;
       }
-      if (firstTokenAt) ttfts.push(firstTokenAt - started);
-      completionTokens += outcome.value.metadata.tokenUsage.completionTokens ?? 0;
+
+      const tokens = outcome.value.metadata.tokenUsage.completionTokens ?? 0;
+      completionTokens += tokens;
+
+      if (firstTokenAt) {
+        ttfts.push(firstTokenAt - started);
+        // Decode rate excludes the wait before generation began, so it isolates
+        // how fast the box emits tokens from how long it made you queue.
+        const decodeSeconds = (Date.now() - firstTokenAt) / 1000;
+        if (decodeSeconds > 0 && tokens > 0) decodeRates.push(tokens / decodeSeconds);
+      }
     }),
   );
 
@@ -357,6 +367,7 @@ async function measureThroughput(
     concurrency,
     ttftMs: Math.round(median(ttfts)),
     tokensPerSecond: wallSeconds > 0 ? Number((completionTokens / wallSeconds).toFixed(1)) : 0,
+    decodeTokensPerSecond: Number(median(decodeRates).toFixed(1)),
     completionTokens,
     errors,
   };
