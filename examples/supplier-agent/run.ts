@@ -24,6 +24,7 @@ import "@umwelten/core/env/load.js";
 import { discoverRuntimes, toProbeTargets } from "./discover.js";
 import { probeOffer } from "./probe.js";
 import { publishOffers, toOfferDrafts } from "./publish.js";
+import { printCapabilityMatrix } from "./report.js";
 import type { ProbedOffer, SupplierProfile } from "./types.js";
 
 const OUT_DIR = "output/supplier-agent";
@@ -102,29 +103,7 @@ async function cmdProbe() {
   fs.writeFileSync(PROBES_FILE, JSON.stringify(results, null, 2));
   console.log(`\nWrote ${PROBES_FILE}`);
 
-  // The whole point of probing rather than declaring: show where two runtimes
-  // serving the same weights disagree.
-  const byModel = new Map<string, ProbedOffer[]>();
-  for (const r of results) {
-    const key = r.model.split(":")[0];
-    byModel.set(key, [...(byModel.get(key) ?? []), r]);
-  }
-  const disagreements = [...byModel.entries()].filter(([, rs]) => {
-    if (rs.length < 2) return false;
-    const sets = rs.map((r) =>
-      r.capabilities.filter((c) => c.supported).map((c) => c.name).sort().join(","),
-    );
-    return new Set(sets).size > 1;
-  });
-  if (disagreements.length) {
-    console.log("\nSame weights, different capabilities — this is why we probe:");
-    for (const [model, rs] of disagreements) {
-      for (const r of rs) {
-        const caps = r.capabilities.filter((c) => c.supported).map((c) => c.name);
-        console.log(`  ${model}  ${r.provider.padEnd(11)} ${caps.join(", ") || "none"}`);
-      }
-    }
-  }
+  printCapabilityMatrix(results);
 }
 
 async function cmdPublish() {
