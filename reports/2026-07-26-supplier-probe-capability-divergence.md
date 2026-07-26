@@ -140,6 +140,57 @@ This is the result that matters for ADR 0009. We identified a client-side cause,
 fixed it, and **every pair still diverges**. Capability sets cannot be declared
 even after the known bug is gone.
 
+## Third round: asking Ollama to think, and being refused
+
+`buildReasoningProviderOptions` had no `ollama` branch, so nothing could ask an
+Ollama model to think, and the probe had never asked — it was measuring each
+runtime's *default* rather than the Offer's *capability*. Added the branch and
+made the probe set `reasoningEffort` (commit 54d018c), predicting the four
+gemma/nemotron reasoning disagreements would collapse.
+
+**They did not.** Ollama still reports no reasoning for any gemma-4 or nemotron
+Offer.
+
+The fix works mechanically. `resolveOllamaThinkFlag` (ollama-ai-provider-v2
+`index.js:1314`) reads `providerOptions.ollama.think` and puts `think` in the
+request body; the provider emits a reasoning part only when
+`response.message.thinking` comes back non-empty (`index.js:741`). So Ollama
+received `think: true` for gemma-4 and returned nothing. The provider documents
+the limit: *"Only supported by certain models like DeepSeek R1 and Qwen 3."*
+Which is precisely the observed pattern — Ollama surfaces reasoning for
+`gpt-oss:latest` and for nothing else.
+
+**This divergence is real and is not ours.** The likely mechanism is the chat
+template: llama.cpp with `--jinja` uses the GGUF's embedded Jinja template,
+Ollama applies its own Go template, and Gemma-4 emits `<think>` blocks that
+llama-server parses into `reasoning_content` while Ollama does not. That
+explanation is inference. What is established is narrower and sufficient: the
+flag is sent, Ollama declines, llama-server delivers 197–1402 characters on the
+same weights.
+
+### Final matrix
+
+| Offer | chat | stream | tool | struct | reason |
+| --- | --- | --- | --- | --- | --- |
+| llamaswap × 5 (gemma-4 26B/31B/E2B, gpt-oss-20b, nemotron-3-nano-4B) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ollama gemma-4 (12b, 26b, 31b, e2b, e4b, latest) | ✓ | ✓ | ✓ | ✓ | ✗ |
+| ollama nemotron (3-nano 4b/latest, cascade-2 30b), qwen3.6:27b | ✓ | ✓ | ✓ | ✓ | ✗ |
+| ollama gpt-oss:latest | ✓ | ✓ | ✓ | **✗** | ✓ |
+
+Four pairs still diverge on reasoning; the gpt-oss pair diverges on structured
+output. **llama-server is strictly more capable than Ollama on this box** — it
+serves reasoning on models Ollama will not, and structured output on a model
+Ollama fails.
+
+### What this settles about Q11
+
+The first two rounds found bugs of ours and told us nothing about adapt vs serve.
+This round does. A client cannot fix the reasoning gap: if the exchange adapts to
+someone's Ollama, it cannot sell reasoning on gemma-4, and if it serves the same
+weights through llama-server, it can. **That is a capability difference
+determined by which runtime serves, and it is the first real argument for
+serve-mode.** It took eliminating two self-inflicted divergences to see it.
+
 ## Secondary observations
 
 - **Cold-start cost is large and uneven.** First-probe latency through

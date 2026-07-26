@@ -27,10 +27,20 @@ model turned out to dominate the result.
 
 We then fixed the flag (8b8975a) and re-probed. Structured output went 0/5 → 5/5
 on llama-swap — **and all five pairs still disagreed**, now on reasoning, plus
-`gpt-oss` still failing structured output through Ollama alone. Identifying a
-cause and eliminating it did not make the runtimes agree. That is the argument
-for this ADR in its strongest form: capability sets cannot be declared even
-after the known bug is gone, because there is always another layer.
+`gpt-oss` still failing structured output through Ollama alone.
+
+So we fixed a second cause: nothing could ask an Ollama model to think, and the
+probe had never asked, so it was measuring each runtime's default rather than the
+Offer's capability (54d018c). Predicted the reasoning disagreements would
+collapse. **They did not** — Ollama accepts `think: true` for gemma-4 and returns
+no thinking content, because the flag is only honored by certain models. That
+divergence is real, is not ours, and cannot be fixed from the client.
+
+Two rounds of eliminating our own bugs, and the runtimes still do not agree. This
+is the argument for the ADR in its strongest form: a capability table cannot be
+declared even after every known bug is gone, because the layers underneath keep
+disagreeing — and it took removing the self-inflicted noise to see which
+divergence was genuine.
 
 ## Consequences
 
