@@ -93,6 +93,9 @@ export class LlamaBarnProvider extends BaseProvider {
       name: "llamabarn",
       baseURL: baseUrl,
       includeUsage: true,
+      // LlamaBarn serves llama.cpp, which implements json_schema response
+      // formats. See the note in llamaswap.ts for what omitting this costs.
+      supportsStructuredOutputs: true,
       ...(this.extraBody ? { fetch: fetchWithExtraBody(this.extraBody) } : {}),
     });
     return llamabarn(route.name);
