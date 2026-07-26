@@ -19,6 +19,40 @@ export type {
 } from "./client.js";
 
 export { createA2AServer } from "./server.js";
+export {
+  FileTaskStore,
+  TERMINAL_TASK_STATES,
+  INTERRUPTED_TASK_STATES,
+  isTerminalTaskState,
+  isInterruptedTaskState,
+  isAbandonableTaskState,
+} from "./file-task-store.js";
+export type { FileTaskStoreOptions } from "./file-task-store.js";
+export {
+  sweepAbandonedTasks,
+  ABANDONED_TASK_MARKER,
+  DEFAULT_ABANDONED_REASON,
+} from "./task-recovery.js";
+export type { SweepOptions, SweepResult } from "./task-recovery.js";
+export {
+  resolveA2AEndpointUrl,
+  createA2ATransport,
+  sendA2ATask,
+  getA2ATask,
+  cancelA2ATask,
+  pollA2ATask,
+  sendAndAwaitA2ATask,
+  isA2ATask,
+  isSettledTaskState,
+  A2APollTimeoutError,
+} from "./task-client.js";
+export type {
+  A2ATaskTarget,
+  SendA2ATaskOptions,
+  GetA2ATaskOptions,
+  PollA2ATaskOptions,
+  SendAndAwaitOptions,
+} from "./task-client.js";
 export type {
   A2AServer,
   A2AServerOptions,

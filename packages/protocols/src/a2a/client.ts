@@ -8,7 +8,6 @@
  * pass a plain {@link A2AEndpoint} describing where the agent lives.
  */
 
-import http from "node:http";
 import { JsonRpcTransport } from "@a2a-js/sdk/client";
 import type {
   Message,
@@ -16,6 +15,12 @@ import type {
   TaskStatusUpdateEvent,
   TaskArtifactUpdateEvent,
 } from "@a2a-js/sdk";
+import { createA2ATransport, resolveA2AEndpointUrl } from "./task-client.js";
+
+/** Message ids are opaque; one generator keeps them consistent across senders. */
+function newA2AMessageId(): string {
+  return `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 /**
  * Events yielded by `streamA2AMessage` — re-exposed here because the SDK's
@@ -117,6 +122,12 @@ export interface SendA2AMessageToUrlOptions {
   contextId?: string;
   /** Abort the request after this many ms (default 120s). */
   timeoutMs?: number;
+  /**
+   * Extra metadata attached to the outgoing message. Habitats use this to
+   * carry the agent-call chain across the hop so the recursion guard survives
+   * a container boundary.
+   */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -128,52 +139,68 @@ export interface SendA2AMessageToUrlOptions {
 export async function sendA2AMessageToUrl(
   options: SendA2AMessageToUrlOptions,
 ): Promise<A2AMessageResponse> {
-  const { endpoint, text, apiKey, contextId, timeoutMs } = options;
-  const url = new URL(endpoint);
-  if (!url.pathname.replace(/\/+$/, "").endsWith("/a2a")) {
-    url.pathname = `${url.pathname.replace(/\/+$/, "")}/a2a`;
-  }
+  const { endpoint, text, apiKey, contextId, timeoutMs, metadata } = options;
+  const url = new URL(resolveA2AEndpointUrl(endpoint));
 
-  const messageId = `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const rpcBody = JSON.stringify({
-    jsonrpc: "2.0",
-    id: `a2a-${Date.now()}`,
-    method: "message/send",
-    params: {
-      message: {
-        messageId,
-        role: "user",
-        parts: [{ kind: "text", text }],
-        ...(contextId ? { contextId } : {}),
-      },
-    },
-  });
-
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
+  // Blocking send: this function's contract is "give me the answer". Callers
+  // who need to survive a cold start or long work want the task surface in
+  // `task-client.ts` instead.
+  //
+  // The transport's own parse errors truncate the response to a few
+  // characters, which loses the single most useful clue when an agent is
+  // fronted by a proxy: that what came back was an HTML error page, not JSON.
+  // Tee the body so the excerpt survives into the thrown error.
+  let lastBody: string | undefined;
+  const teeingFetch: typeof fetch = async (input, init) => {
+    const res = await fetch(input, init);
+    lastBody = await res.clone().text();
+    return res;
   };
-  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
 
-  const res = await fetch(url.toString(), {
-    method: "POST",
-    headers,
-    body: rpcBody,
-    signal: AbortSignal.timeout(timeoutMs ?? MESSAGE_TIMEOUT_MS),
+  const transport = new JsonRpcTransport({
+    endpoint: url.toString(),
+    fetchImpl: apiKey
+      ? (input, init) =>
+          teeingFetch(input, {
+            ...init,
+            headers: {
+              ...(init?.headers as Record<string, string> | undefined),
+              authorization: `Bearer ${apiKey}`,
+            },
+          })
+      : teeingFetch,
   });
-  const data = await res.text();
-  if (res.status >= 400) {
-    throw new Error(
-      `A2A request to ${url.origin} returned HTTP ${res.status}: ${data.slice(0, 300)}`,
+  const timeout = AbortSignal.timeout(timeoutMs ?? MESSAGE_TIMEOUT_MS);
+
+  let result: unknown;
+  try {
+    result = await transport.sendMessage(
+      {
+        message: {
+          kind: "message",
+          messageId: newA2AMessageId(),
+          role: "user",
+          parts: [{ kind: "text", text }],
+          ...(contextId ? { contextId } : {}),
+          ...(metadata ? { metadata } : {}),
+        },
+      },
+      { signal: timeout } as never,
     );
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    // Only append the body when the transport did not already quote it.
+    const excerpt =
+      lastBody && !reason.includes(lastBody.slice(0, 40))
+        ? ` Response body: ${lastBody.slice(0, 300)}`
+        : "";
+    throw new Error(`A2A error from ${url.origin}: ${reason}${excerpt}`, {
+      cause: err,
+    });
   }
-  let parsed: unknown;
+
   try {
-    parsed = JSON.parse(data);
-  } catch {
-    throw new Error(`Invalid A2A response from ${url.origin}: ${data.slice(0, 300)}`);
-  }
-  try {
-    return decodeA2ASendPayload(parsed, url.origin);
+    return decodeA2ASendPayload(result, url.origin);
   } catch (err) {
     throw new Error(
       `A2A error from ${url.origin}: ${err instanceof Error ? err.message : String(err)}`,
@@ -191,42 +218,36 @@ export async function fetchAgentCard(
   endpoint: A2AEndpoint,
 ): Promise<AgentCardSummary> {
   const where = describe(endpoint);
+  const origin = `http://${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
+  const url = new URL("/.well-known/agent-card.json", origin);
 
-  return new Promise<AgentCardSummary>((resolve, reject) => {
-    const req = http.request(
-      {
-        hostname: endpoint.host ?? DEFAULT_HOST,
-        port: endpoint.port,
-        path: "/.well-known/agent-card.json",
-        method: "GET",
-        headers: { accept: "application/json" },
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          if (res.statusCode && res.statusCode >= 400) {
-            reject(
-              new Error(
-                `Agent card request to ${where} returned HTTP ${res.statusCode}: ${data.slice(0, 200)}`,
-              ),
-            );
-            return;
-          }
-          try {
-            resolve(JSON.parse(data) as AgentCardSummary);
-          } catch {
-            reject(new Error(`Invalid agent card from ${where}`));
-          }
-        });
-      },
-    );
-    req.on("error", reject);
-    req.setTimeout(AGENT_CARD_TIMEOUT_MS, () => {
-      req.destroy(new Error(`Timeout fetching agent card from ${where}`));
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (endpoint.apiKey) headers.authorization = `Bearer ${endpoint.apiKey}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(AGENT_CARD_TIMEOUT_MS),
     });
-    req.end();
-  });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`Agent card request to ${where} failed: ${reason}`, {
+      cause: err,
+    });
+  }
+
+  const body = await res.text();
+  if (res.status >= 400) {
+    throw new Error(
+      `Agent card request to ${where} returned HTTP ${res.status}: ${body.slice(0, 200)}`,
+    );
+  }
+  try {
+    return JSON.parse(body) as AgentCardSummary;
+  } catch {
+    throw new Error(`Invalid agent card from ${where}`);
+  }
 }
 
 /**
@@ -239,80 +260,25 @@ export async function sendA2AMessage(
   text: string,
 ): Promise<A2AMessageResponse> {
   const where = describe(endpoint);
-  const messageId = `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const rpcBody = JSON.stringify({
-    jsonrpc: "2.0",
-    id: `a2a-${Date.now()}`,
-    method: "message/send",
-    params: {
-      message: {
-        messageId,
-        role: "user",
-        parts: [{ kind: "text", text }],
-      },
-    },
-  });
+  // A container addressed by host and port is still reachable by URL, so this
+  // goes through the same SDK transport as everything else rather than a
+  // hand-rolled node:http request.
+  const origin = `http://${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
 
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-  if (endpoint.apiKey) {
-    headers.authorization = `Bearer ${endpoint.apiKey}`;
-  }
-
-  return new Promise<A2AMessageResponse>((resolve, reject) => {
-    const req = http.request(
-      {
-        hostname: endpoint.host ?? DEFAULT_HOST,
-        port: endpoint.port,
-        path: "/a2a",
-        method: "POST",
-        headers,
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          if (res.statusCode && res.statusCode >= 400) {
-            reject(
-              new Error(
-                `A2A request to ${where} returned HTTP ${res.statusCode}: ${data.slice(0, 300)}`,
-              ),
-            );
-            return;
-          }
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(data);
-          } catch {
-            reject(
-              new Error(`Invalid A2A response from ${where}: ${data.slice(0, 300)}`),
-            );
-            return;
-          }
-          try {
-            // Defensive base-join (#194): habitats mint absolute artifact URIs,
-            // but tolerate a relative `/files/...` from older/other agents by
-            // resolving it against this endpoint's origin.
-            const origin = `http://${endpoint.host ?? DEFAULT_HOST}:${endpoint.port}`;
-            resolve(decodeA2ASendPayload(parsed, origin));
-          } catch (err) {
-            reject(
-              new Error(
-                `A2A error from ${where}: ${err instanceof Error ? err.message : String(err)}`,
-              ),
-            );
-          }
-        });
-      },
-    );
-    req.on("error", reject);
-    req.setTimeout(MESSAGE_TIMEOUT_MS, () => {
-      req.destroy(new Error(`Timeout waiting for A2A response from ${where}`));
+  try {
+    return await sendA2AMessageToUrl({
+      endpoint: origin,
+      text,
+      apiKey: endpoint.apiKey,
+      timeoutMs: MESSAGE_TIMEOUT_MS,
     });
-    req.write(rpcBody);
-    req.end();
-  });
+  } catch (err) {
+    // Preserve the endpoint label callers rely on in error messages.
+    throw new Error(
+      `A2A error from ${where}: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
+  }
 }
 
 /** Options for {@link streamA2AMessage}. */

@@ -80,6 +80,40 @@ _Avoid_: Playbook, procedure finding
 A dated output produced from an **Exploration** for human use or publication.
 _Avoid_: Report when referring to the general category
 
+### Fleet & provisioning
+
+Terms for the habitat runtime and the fleet it runs in. The product-facing
+vocabulary (Habitat, Agent, Run, Attach, Provisioned resource) is defined in
+the habitats repo's `CONTEXT.md`; these are the terms umwelten itself owns.
+
+**Owned repo**:
+The single git repository a habitat writes to — its own working material. Provisioned, and the only source of a habitat's write scope.
+_Avoid_: Project repo, main repo, habitat repo
+
+**Mounted repo**:
+A repository a habitat reads but never writes, cloned in for reference. A habitat may have many.
+_Avoid_: Attached repo, sub-agent, submodule, linked repo
+
+**Directory**:
+The fleet's registry of record, used to resolve a habitat by id at call time and to wake it. Names and starts habitats; does not carry their conversations.
+_Avoid_: Router, proxy, gateway, service mesh
+
+**Task**:
+The durable lifecycle record of one agent invocation, owned by the habitat that ran it. Distinct from a **Run** (the SaaS's cost and attribution record) and a **Source Session** (what was actually said).
+_Avoid_: Job, run, request, invocation
+
+**Dormant habitat**:
+A habitat whose container is stopped but whose state is intact, reachable by waking it first.
+_Avoid_: Stopped, cold, asleep, idle, offline
+
+**Habitat vault**:
+The vault holding one habitat's operator-provided secrets, belonging to that habitat alone.
+_Avoid_: Master vault, project vault, secret store, keychain
+
+**Credential contract**:
+A habitat's declaration of what credentials it needs and how each one is obtained — supplied by an operator, authorized by a user, or created while building the environment.
+_Avoid_: Required secrets, env manifest, secret list
+
 ## Relationships
 
 - Every **Source Session** belongs to at least one **Exploration**.
@@ -114,6 +148,14 @@ _Avoid_: Report when referring to the general category
 - **Session Search** operates on every **Source Session** the registered adapters can discover, not just those rooted in the current project. It returns **Source Sessions**, not **Explorations** — promotion to an **Exploration** happens when the user opens a hit in the **Exploration Browser**.
 - A **Dialogue** owns one canonical, speaker-attributed event log; each model **Participant** keeps its own private **Interaction** as a view of that log (its own turns as assistant, others' turns as labeled user messages). Besides spoken turns the log carries ambient `event` entries — world input nobody said — rendered unattributed as `(text)`.
 - A **Dialogue**'s canonical log persists as a **Source Session** (`transcript.jsonl` + `meta.json` with the participant roster), so the session tooling and **Exploration Browser** read it like any other session.
+
+- A habitat has at most one **Owned repo** and any number of **Mounted repos**.
+- A habitat's read scope is derived from its **Mounted repos**; its write scope comes only from its **Owned repo** and is never derived.
+- A **Task**, a **Run**, and a **Source Session** are three records of one invocation, kept separate and correlated rather than merged.
+- A **Dormant habitat** answers nothing until woken; the **Directory** is what wakes it.
+- A habitat's operator-provided secrets come from its own **Habitat vault**, resolved and injected on its behalf — a habitat never holds the credential that opens a vault.
+- Credentials a user authorizes, and credentials created while building the environment, never appear in a **Habitat vault**; the **Credential contract** is what says which kind each one is.
+- Habitats call each other in one direction only, so the fleet's call graph stays acyclic.
 
 ## Example dialogue
 

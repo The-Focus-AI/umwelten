@@ -78,6 +78,32 @@ export async function withAgentCall<T>(
 }
 
 /**
+ * Run `fn` with a chain that arrived from another container over A2A.
+ *
+ * The in-process guard follows the async call tree and stops at the container
+ * boundary, so a cross-container cycle would otherwise start fresh at every
+ * hop. Seeding the inbound chain here is what makes the depth and cycle
+ * checks mean anything across the fleet (ADR 0008).
+ *
+ * The chain is untrusted — it is only ever used to refuse work, never to
+ * grant it, so a peer that strips it gains nothing beyond the depth budget it
+ * would have had anyway.
+ */
+export async function withInboundAgentCallChain<T>(
+  chain: string[],
+  fn: () => Promise<T>,
+  options?: { maxDepth?: number },
+): Promise<T> {
+  return storage.run(
+    {
+      chain: [...chain],
+      maxDepth: options?.maxDepth ?? DEFAULT_AGENT_CALL_DEPTH,
+    },
+    fn,
+  );
+}
+
+/**
  * Reset the call context — used by tests and by isolated entry points
  * (top-level Habitat.createInteraction calls happen outside any chain).
  */
