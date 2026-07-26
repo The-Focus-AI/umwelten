@@ -6,6 +6,9 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
+import type { AgentEntry, HabitatConfig } from "../../types.js";
+import { mountsToAgentEntries } from "./mounts.js";
+import { deriveRepoScopes, mergeDerivedReadScope } from "./repo-scopes.js";
 import type {
 	GaiaRegistry,
 	GaiaHabitatEntry,
@@ -23,6 +26,20 @@ function slugify(name: string): string {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-|-$/g, "");
+}
+
+/**
+ * The read entries a human declared, i.e. everything that is not explained
+ * by the habitat's own repos. Recomputed rather than remembered, so removing
+ * a mount narrows the scope.
+ */
+function explicitReads(
+	entry: GaiaHabitatEntry,
+	_mounted: AgentEntry[],
+): string[] | "org" | undefined {
+	if (entry.github?.read === "org") return "org";
+	const derivedNow = new Set(deriveRepoScopes(entry.config).read);
+	return (entry.github?.read ?? []).filter((r) => !derivedNow.has(r));
 }
 
 export class GaiaRegistryManager {
@@ -81,6 +98,11 @@ export class GaiaRegistryManager {
 			throw new Error(`Habitat "${id}" already exists`);
 		}
 
+		// Mounts become read-only agent entries the entrypoint clones (ADR 0006).
+		// Thrown errors here abort the create before anything is registered —
+		// see the half-registered-habitat note below.
+		const mountedAgents = mountsToAgentEntries(options.mounts);
+
 		const entry: GaiaHabitatEntry = {
 			id,
 			name: options.name,
@@ -88,7 +110,7 @@ export class GaiaRegistryManager {
 				name: options.name,
 				defaultProvider: options.provider,
 				defaultModel: options.model,
-				agents: [],
+				agents: mountedAgents,
 				gitUrl: options.gitUrl,
 				gitBranch: options.gitBranch,
 				...(options.skillsFromGit?.length
@@ -102,19 +124,72 @@ export class GaiaRegistryManager {
 			apiKey: generateApiKey(),
 			...(options.image ? { image: options.image } : {}),
 			...(options.hostname ? { hostname: options.hostname } : {}),
-			...(options.github ? { github: options.github } : {}),
+			// Read scope is derived from the Owned repo plus these mounts, so a
+			// mount can never fail at boot with a GitHub 404 that reads like
+			// "no such repo". Write is never derived (ADR 0006).
+			github: mergeDerivedReadScope(
+				options.github,
+				deriveRepoScopes({
+					name: options.name,
+					agents: mountedAgents,
+					gitUrl: options.gitUrl,
+				} as HabitatConfig),
+			),
 			...(options.storage ? { storage: options.storage } : {}),
 			createdAt: new Date().toISOString(),
 		};
 
-		this.registry.habitats.push(entry);
-
-		// Create data directory for this habitat
+		// Everything that can fail happens before the entry is registered, so a
+		// failed create leaves no half-registered habitat behind.
 		const habitatDataDir = join(this.dataDir, "habitats", id);
 		await mkdir(habitatDataDir, { recursive: true });
 
-		await this.save();
+		this.registry.habitats.push(entry);
+		try {
+			await this.save();
+		} catch (err) {
+			// Roll the in-memory registry back, or the next unrelated save would
+			// quietly persist a habitat this call already reported as failed.
+			this.registry.habitats = this.registry.habitats.filter(
+				(h) => h !== entry,
+			);
+			throw err;
+		}
 		return entry;
+	}
+
+	/**
+	 * Replace a habitat's Mounted repos and re-derive its read scope.
+	 *
+	 * Adding a mount without widening the scope is the failure ADR 0006
+	 * exists to prevent, so the two move together here rather than being two
+	 * calls a caller can get half-right.
+	 */
+	async setMounts(
+		id: string,
+		mounts: CreateHabitatOptions["mounts"],
+	): Promise<GaiaHabitatEntry> {
+		const entry = this.get(id);
+		if (!entry) throw new Error(`Habitat "${id}" not found`);
+
+		const mountedAgents = mountsToAgentEntries(mounts);
+		// Preserve anything that is not a code mount — remote-habitat peers and
+		// credential-only entries live in the same array.
+		const kept = (entry.config.agents ?? []).filter(
+			(a) => (a.kind ?? "repo") !== "repo" || a.mode !== "read",
+		);
+		const agents = [...kept, ...mountedAgents];
+
+		const config = { ...entry.config, agents };
+		return this.update(id, {
+			config,
+			github: mergeDerivedReadScope(
+				// Drop the previous derivation before re-deriving, so removing a
+				// mount actually narrows the scope instead of leaving it behind.
+				{ ...entry.github, read: explicitReads(entry, mountedAgents) },
+				deriveRepoScopes(config),
+			),
+		});
 	}
 
 	/** Update a habitat entry. */
