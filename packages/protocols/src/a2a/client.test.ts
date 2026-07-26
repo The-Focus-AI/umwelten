@@ -56,12 +56,33 @@ describe("decodeA2ASendPayload", () => {
 describe("sendA2AMessageToUrl", () => {
 	afterEach(() => vi.unstubAllGlobals());
 
+	/**
+	 * Returns a real `Response`. The previous stub was a bare
+	 * `{ status, text() }` object — enough for the hand-rolled sender that read
+	 * only those two, but not something `fetch` ever actually produces, and the
+	 * SDK transport reads `ok` and the headers too.
+	 */
 	function stubFetch(status: number, body: unknown) {
-		const fetchMock = vi.fn().mockResolvedValue({
-			status,
-			text: async () =>
-				typeof body === "string" ? body : JSON.stringify(body),
-		});
+		const fetchMock = vi.fn().mockImplementation(
+			async (_url: string, init?: RequestInit) => {
+				let payload = body;
+				// Echo the request's JSON-RPC id, as a real server does. The SDK
+				// checks that ids match — a fixture with a hardcoded id fails that
+				// check, which the hand-rolled sender never performed.
+				if (typeof payload === "object" && payload !== null && "id" in payload) {
+					try {
+						const request = JSON.parse(String(init?.body ?? "{}"));
+						payload = { ...(payload as object), id: request.id };
+					} catch {
+						/* leave the fixture's id alone */
+					}
+				}
+				return new Response(
+					typeof payload === "string" ? payload : JSON.stringify(payload),
+					{ status, headers: { "content-type": "application/json" } },
+				);
+			},
+		);
 		vi.stubGlobal("fetch", fetchMock);
 		return fetchMock;
 	}
@@ -88,17 +109,43 @@ describe("sendA2AMessageToUrl", () => {
 		expect(fetchMock.mock.calls[0][0]).toBe("http://172.17.0.1:7420/a2a");
 	});
 
-	it("throws on HTTP error status with the body excerpt", async () => {
+	// The SDK transport words transport failures differently from the
+	// hand-rolled sender it replaced, so these assert on the substance an
+	// operator needs — which agent, what status, what came back — rather than
+	// on an exact phrase.
+	it("throws on HTTP error status, naming the endpoint, the status and the body", async () => {
 		stubFetch(401, "nope");
-		await expect(
-			sendA2AMessageToUrl({ endpoint: "https://gaia.example.com", text: "x" }),
-		).rejects.toThrow(/HTTP 401/);
+		const err = await sendA2AMessageToUrl({
+			endpoint: "https://gaia.example.com",
+			text: "x",
+		}).catch((e: unknown) => e as Error);
+
+		expect(err).toBeInstanceOf(Error);
+		expect(err.message).toContain("https://gaia.example.com");
+		expect(err.message).toContain("401");
+		expect(err.message).toContain("nope");
 	});
 
-	it("throws on invalid JSON", async () => {
+	it("throws on a non-JSON response, surfacing what came back instead", async () => {
 		stubFetch(200, "<html>not json</html>");
+		const err = await sendA2AMessageToUrl({
+			endpoint: "https://gaia.example.com",
+			text: "x",
+		}).catch((e: unknown) => e as Error);
+
+		expect(err).toBeInstanceOf(Error);
+		expect(err.message).toContain("https://gaia.example.com");
+		expect(err.message).toContain("not json");
+	});
+
+	it("surfaces a JSON-RPC error returned by the agent", async () => {
+		stubFetch(200, {
+			jsonrpc: "2.0",
+			id: "1",
+			error: { code: -32603, message: "agent exploded" },
+		});
 		await expect(
 			sendA2AMessageToUrl({ endpoint: "https://gaia.example.com", text: "x" }),
-		).rejects.toThrow(/Invalid A2A response/);
+		).rejects.toThrow(/agent exploded/);
 	});
 });

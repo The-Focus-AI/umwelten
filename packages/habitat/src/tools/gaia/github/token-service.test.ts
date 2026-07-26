@@ -265,3 +265,74 @@ describe("createGithubTokenService", () => {
 		expect(await service.bootTokensFor({ id: "plain" })).toBeUndefined();
 	});
 });
+
+/**
+ * ADR 0006: mounting a repo must widen the read scope on its own. Without
+ * this, a mount whose repo was never added to the declaration fails at boot
+ * with a GitHub 404 that reads exactly like "that repo does not exist".
+ */
+describe("deriveGithubTokenScope — read scope derived from declared repos", () => {
+	const mounted = {
+		name: "t",
+		gitUrl: "https://github.com/x/owned.git",
+		agents: [
+			{
+				id: "m",
+				name: "M",
+				projectPath: "m",
+				kind: "repo" as const,
+				mode: "read" as const,
+				gitRemote: "https://github.com/x/mounted.git",
+			},
+		],
+	};
+
+	it("includes the Owned repo and Mounted repos without a separate declaration", () => {
+		const scope = deriveGithubTokenScope(
+			{ id: "h", github: { read: [] }, config: mounted as never },
+			"read",
+		);
+		expect(scope?.repositories).toEqual(["mounted", "owned"]);
+	});
+
+	it("keeps explicitly declared repos alongside the derived ones", () => {
+		const scope = deriveGithubTokenScope(
+			{ id: "h", github: { read: ["standards"] }, config: mounted as never },
+			"read",
+		);
+		expect(scope?.repositories).toEqual(["mounted", "owned", "standards"]);
+	});
+
+	it("still honours an org-wide read without pinning a list", () => {
+		const scope = deriveGithubTokenScope(
+			{ id: "h", github: { read: "org" }, config: mounted as never },
+			"read",
+		);
+		expect(scope?.repositories).toBeUndefined();
+	});
+
+	it("never lets a mount widen the WRITE scope", () => {
+		const scope = deriveGithubTokenScope(
+			{ id: "h", github: { write: ["owned"] }, config: mounted as never },
+			"write",
+		);
+		expect(scope?.repositories).toEqual(["owned"]);
+	});
+
+	it("grants no write at all when none is declared, however many repos are mounted", () => {
+		expect(
+			deriveGithubTokenScope(
+				{ id: "h", github: { read: [] }, config: mounted as never },
+				"write",
+			),
+		).toBeNull();
+	});
+
+	it("behaves as before for an entry carrying no config", () => {
+		const scope = deriveGithubTokenScope(
+			{ id: "h", github: { read: ["only"] } },
+			"read",
+		);
+		expect(scope?.repositories).toEqual(["only"]);
+	});
+});

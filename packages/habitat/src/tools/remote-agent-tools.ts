@@ -27,6 +27,12 @@ import type { Tool } from "ai";
 import { sendA2AMessageToUrl } from "@umwelten/protocols";
 import type { A2AMessageResponse } from "@umwelten/protocols";
 import type { AgentEntry, HabitatConfig } from "../types.js";
+import {
+	checkAgentCall,
+	getAgentCallContext,
+	withAgentCall,
+} from "../identity/agent-call-context.js";
+import { encodeAgentChain } from "../identity/agent-call-wire.js";
 
 /** Narrow habitat surface so tests don't need a full Habitat. */
 export interface RemoteAgentToolsContext {
@@ -116,12 +122,33 @@ export function createRemoteAgentTools(
 				? ctx.getSecret(entry.a2aTokenSecret)
 				: undefined;
 
+			// Depth and cycle guard, now that it survives the hop (ADR 0008).
+			// Refuse before spending anything: with LLM agents on both ends and
+			// output caps forbidden, an unbounded cycle is unbounded spend.
+			const check = checkAgentCall(entry.id);
+			if (!check.ok) {
+				return {
+					error: check.reason === "CYCLE" ? "AGENT_CYCLE" : "AGENT_MAX_DEPTH",
+					message: check.message,
+					chain: check.chain,
+				};
+			}
+
 			try {
-				const response: A2AMessageResponse = await send({
-					endpoint,
-					text: message,
-					apiKey,
-				});
+				const response: A2AMessageResponse = await withAgentCall(
+					entry.id,
+					async () =>
+						send({
+							endpoint,
+							text: message,
+							apiKey,
+							// Carry the chain so the receiving habitat can extend it
+							// rather than starting fresh.
+							metadata: encodeAgentChain(
+								getAgentCallContext()?.chain ?? [entry.id],
+							),
+						}),
+				);
 				return {
 					agentId: entry.id,
 					response: response.text,
