@@ -27,7 +27,9 @@ import type {
 import { join } from "node:path";
 import {
   createA2AServer,
+  FilePushNotificationStore,
   FileTaskStore,
+  notifySweptTasks,
   sweepAbandonedTasks,
   type A2AServer,
   type AgentExecutor,
@@ -164,7 +166,11 @@ export async function buildAgentCard(
     url: `${baseUrl}/a2a`,
     version: "1.0.0",
     protocolVersion: "0.2.5",
-    capabilities: { streaming: true },
+    // pushNotifications is a gate, not a hint: the SDK refuses every
+    // `tasks/pushNotificationConfig/*` call unless the card declares it, so a
+    // caller cannot register a webhook against an undeclared agent no matter
+    // what the server is willing to store (#275).
+    capabilities: { streaming: true, pushNotifications: true },
     defaultInputModes: ["text/plain"],
     // text/html+mcp advertises that tools may emit mcp-ui UI resources
     // (carried as DataParts) for a client AppRenderer (ADR 0005, #195).
@@ -616,6 +622,14 @@ export async function createA2AHandler(
   // can observe a task that is about to be moved.
   const taskStore = new FileTaskStore({ dir: habitatTaskDir(options.habitat.getWorkDir()) });
 
+  // Webhook registrations live on the volume for the same reason Tasks do, and
+  // with sharper consequences: a registration lost on restart leaves the caller
+  // believing it will be told when the work finishes, waiting on a webhook
+  // nobody will call (#275).
+  const pushNotificationStore = new FilePushNotificationStore({
+    dir: join(options.habitat.getWorkDir(), "push-notifications"),
+  });
+
   const recovered = await sweepAbandonedTasks(taskStore);
   if (recovered.swept.length > 0) {
     console.log(
@@ -623,5 +637,38 @@ export async function createA2AHandler(
     );
   }
 
-  return createA2AServer({ agentCard, executor, taskStore });
+  const server = createA2AServer({
+    agentCard,
+    executor,
+    taskStore,
+    pushNotificationStore,
+  });
+
+  // The sweep moves Tasks by writing to the store, which the request handler
+  // never sees — so nothing notifies the caller who asked to be told. Dispatch
+  // those transitions here, after the server exists and before it serves: a
+  // caller that registered a webhook and went away learns its run died with
+  // the container instead of waiting on a Task that will never move again.
+  if (recovered.swept.length > 0) {
+    const notified = await notifySweptTasks(
+      taskStore,
+      server.pushNotificationSender,
+      recovered.swept,
+      {
+        onError: (taskId, error) =>
+          console.warn(
+            `[a2a] Push notification for recovered task ${taskId} failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          ),
+      },
+    );
+    if (notified.length > 0) {
+      console.log(
+        `[a2a] Notified webhooks for ${notified.length} recovered task(s).`,
+      );
+    }
+  }
+
+  return server;
 }
