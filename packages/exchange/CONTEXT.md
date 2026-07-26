@@ -39,6 +39,12 @@ the Offer rather than the Model, because it is a property of the whole serving
 path — client integration, runtime, build, quantization, and weights together.
 _Avoid_: feature, Guarantee, capacity
 
+**Serving Mode**:
+Whether a Supplier controls the runtime behind an Offer (*managed*) or resells a
+runtime it does not control (*adapted*). Only managed Offers can commit to
+capability and resource properties.
+_Avoid_: mode, tier, hosting, deployment
+
 **Dispatch**:
 The choice of which Offer serves one request.
 _Avoid_: routing, scheduling, load balancing, proxying
