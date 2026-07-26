@@ -9,6 +9,7 @@ import { resolveHabitatHostname, type DockerManager } from "./docker.js";
 import type { CredentialCatalog } from "./credential-catalog.js";
 import type { CredentialAuditLogger } from "./credential-audit.js";
 import { proxyRequest, fetchFromContainer } from "./proxy.js";
+import { recordHabitatActivity } from "./reaper.js";
 import { buildSeedFiles, runStandardsAudit } from "./gaia-tools.js";
 import { CapabilityResolver } from "./capability-resolver.js";
 import type { AuditSummary } from "./gaia-tools.js";
@@ -360,6 +361,10 @@ export async function handleGaiaRoute(
 			sendJson(res, { error: "Not found" }, 404);
 			return true;
 		}
+		// Anything proxied to a habitat is someone using it — the idle reaper
+		// reads this (#278). Health checks are not proxied, so they cannot
+		// masquerade as use.
+		await recordHabitatActivity(ctx.registry, entry.id).catch(() => {});
 		await proxyRequest(entry, proxied.targetPath, req, res);
 		return true;
 	}

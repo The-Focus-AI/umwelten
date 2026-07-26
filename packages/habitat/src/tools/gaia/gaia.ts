@@ -29,6 +29,7 @@ import { CredentialCatalog } from "./credential-catalog.js";
 import { CredentialAuditLogger } from "./credential-audit.js";
 import { createGaiaToolSet } from "./gaia-tools.js";
 import { handleGaiaRoute } from "./routes.js";
+import { startIdleReaper, resolveReaperConfig } from "./reaper.js";
 import { FnoxResolver } from "./fnox.js";
 import { resolveGithubAppConfig } from "./github/app-config.js";
 import { createGithubTokenService } from "./github/token-service.js";
@@ -202,9 +203,20 @@ export class Gaia {
 			extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
 		});
 
+		// ── Idle reaper (#278) ────────────────────────────────────────────
+		// The runtime plane is one 16 GB host with no swap; a fleet that is
+		// mostly asleep is the only shape that fits. Habitats holding work in
+		// flight are never stopped — see reaper.ts.
+		const reaper = startIdleReaper({
+			registry,
+			docker,
+			config: resolveReaperConfig(process.env),
+		});
+
 		if (!options.noSignalHandlers) {
 			const shutdown = () => {
 				console.log("\n[container] Shutting down...");
+				reaper.stop();
 				server.close();
 				process.exit(0);
 			};
