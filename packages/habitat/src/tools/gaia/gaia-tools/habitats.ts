@@ -60,7 +60,28 @@ export function createHabitatLifecycleTools(
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
-				gitUrl: z.string().optional().describe("Git URL for provisioning"),
+				gitUrl: z
+					.string()
+					.optional()
+					.describe(
+						"Git URL of the habitat's Owned repo — the one repo it may write to",
+					),
+				mounts: z
+					.array(
+						z.object({
+							gitRemote: z.string().describe("Git URL to clone read-only"),
+							gitBranch: z.string().optional(),
+							id: z
+								.string()
+								.optional()
+								.describe("Mount id; defaults to the repo name"),
+							name: z.string().optional(),
+						}),
+					)
+					.optional()
+					.describe(
+						"Repos this habitat reads but never writes. The GitHub read scope is derived from these plus the Owned repo, so mounts never need a separate grant. Write scope is never derived.",
+					),
 				gitBranch: z.string().optional().describe("Git branch (default: main)"),
 				provider: z
 					.string()

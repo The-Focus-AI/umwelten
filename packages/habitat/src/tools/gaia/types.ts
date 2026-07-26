@@ -131,6 +131,31 @@ export interface CreateHabitatOptions {
 	github?: GaiaHabitatEntry["github"];
 	/** Backing-storage declaration (see GaiaHabitatEntry.storage). */
 	storage?: GaiaHabitatEntry["storage"];
+	/**
+	 * Repos this habitat reads but never writes (ADR 0006).
+	 *
+	 * Declaring them at creation is the point: standing a client habitat up
+	 * used to be a create call plus a config update plus a scope grant plus a
+	 * rebuild, with nothing tying the mounts to the scopes. Passing them here
+	 * derives the read scope from them in the same step, so the two cannot
+	 * drift.
+	 */
+	mounts?: MountedRepoSpec[];
+}
+
+/** A read-only repo mounted into a habitat. */
+export interface MountedRepoSpec {
+	/** Git remote to clone. */
+	gitRemote: string;
+	/** Branch to clone; defaults to the remote's default. */
+	gitBranch?: string;
+	/**
+	 * Stable id for the mount. Defaults to the repo name, which is what makes
+	 * `mounts: [{ gitRemote }]` the common case.
+	 */
+	id?: string;
+	/** Display name; defaults to the id. */
+	name?: string;
 }
 
 /** Status of a credential (whether it's known to be working). */
