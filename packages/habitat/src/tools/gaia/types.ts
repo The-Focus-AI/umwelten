@@ -2,6 +2,7 @@
  * Types for the Gaia Orchestrator — manages multiple habitat containers.
  */
 
+import type { AgentCardSummary } from "@umwelten/protocols";
 import type { HabitatConfig, CapabilityBinding } from "../../types.js";
 
 /** A registered habitat managed by Gaia. */
@@ -69,6 +70,22 @@ export interface GaiaHabitatEntry {
 		kind: "google-drive";
 		read?: boolean;
 		write?: boolean;
+	};
+	/**
+	 * Last agent card seen for this habitat, with when it was captured.
+	 *
+	 * Discovery used to fetch every card live, which meant it only ever saw
+	 * running habitats. Once habitats sleep while idle (ADR 0007) that would
+	 * report almost nothing, so the Directory serves this instead — a Dormant
+	 * habitat is reported with the capabilities it last advertised rather than
+	 * omitted, and finding out what a habitat can do never requires waking it.
+	 *
+	 * Absent means never successfully fetched, which is distinct from stale.
+	 */
+	cachedCard?: {
+		card: AgentCardSummary;
+		/** ISO timestamp of the fetch that produced this card. */
+		fetchedAt: string;
 	};
 	/** ISO timestamp */
 	createdAt: string;

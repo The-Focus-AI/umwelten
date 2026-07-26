@@ -129,6 +129,7 @@ export class GaiaRegistryManager {
 				| "containerPort"
 				| "image"
 				| "github"
+				| "cachedCard"
 			>
 		>,
 	): Promise<GaiaHabitatEntry> {
