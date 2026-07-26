@@ -47,6 +47,24 @@ export type { AgentVault } from "./identity/vault.js";
 export { HabitatAgent, buildAgentStimulus } from "./habitat-agent.js";
 export { getAgentMemoryPath } from "./agent-paths.js";
 
+// ── Provisioning decision (#269) ────────────────────────────────────────
+// One entry for "what does this boot need to do to the volume". The
+// entrypoint invokes the CLI in provision/provision.ts; callers wanting the
+// decision without the side effects use planProvision().
+export { planProvision, describePlan } from "./provision/plan.js";
+export { readVolumeState } from "./provision/volume-state.js";
+export { executeProvisionPlan, nodeExecutorDeps } from "./provision/execute.js";
+export type {
+	ProvisionExecutorDeps,
+	ProvisionResult,
+} from "./provision/execute.js";
+export type {
+	ProvisionMode,
+	ProvisionPlan,
+	ProvisionStep,
+	VolumeState,
+} from "./provision/types.js";
+
 // ── Dialogue participants (agent-to-agent conversations) ────────────────
 export {
 	createHabitatAgentParticipant,
