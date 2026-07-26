@@ -26,7 +26,8 @@
   },
   "scripts": {
     "test": "vitest --reporter=verbose",
-    "test:run": "vitest run --reporter=verbose"
+    "test:run": "vitest run --reporter=verbose",
+    "conformance": "tsx src/a2a/conformance/run.ts"
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
