@@ -12,6 +12,8 @@
  * - `GaiaToolsContext` — the context interface.
  * - `entryToEndpoint` — A2A endpoint adapter.
  * - `buildSeedFiles` — also used by `routes.ts` for REST handlers.
+ * - `refreshHabitat` — the start/refresh split (#276), also used by tests
+ *   and by anything dispatching refreshes on repository events.
  * - `runStandardsAudit`, `STANDARDS_AUDIT_MSG`,
  *   `AuditResult`, `AuditSummary`, `StandardsAuditContext` —
  *   used by the standards audit REST route + tests.
@@ -25,10 +27,18 @@ import { createSkillsTools } from "./skills.js";
 import { createCredentialsTools } from "./credentials.js";
 import { createStandardsTools } from "./standards.js";
 import { createModelDiscoveryTools } from "./models.js";
+import { createRefreshTools } from "./refresh.js";
 
 export type { GaiaToolsContext } from "./context.js";
 export { entryToEndpoint } from "./context.js";
 export { buildSeedFiles } from "./seed-files.js";
+export {
+	refreshHabitat,
+	REFRESH_COMMAND,
+	type RefreshContext,
+	type RefreshOutcome,
+	type RefreshAction,
+} from "./refresh.js";
 export {
 	runStandardsAudit,
 	STANDARDS_AUDIT_MSG,
@@ -50,6 +60,7 @@ export function createGaiaToolSet(ctx: GaiaToolsContext): ToolSet {
 			...createCredentialsTools(ctx),
 			...createStandardsTools(ctx),
 			...createModelDiscoveryTools(ctx),
+			...createRefreshTools(ctx),
 		}),
 	};
 }

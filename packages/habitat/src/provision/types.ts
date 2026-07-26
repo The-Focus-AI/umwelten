@@ -11,6 +11,16 @@
  * See ADR 0006 for the Owned/Mounted repo split and umwelten #269.
  */
 
+/**
+ * Why the provisioner was invoked (#276).
+ *
+ * `start` is the boot path and must stay cheap: it does the minimum needed to
+ * serve requests, which on a warm volume is nothing at all. `refresh` is the
+ * explicitly triggered operation that pulls, reinstalls and re-restores.
+ * Keeping them apart is what stops wake latency from scaling with mount count.
+ */
+export type ProvisionIntent = "start" | "refresh";
+
 /** How much of the declared environment is already on the volume. */
 export type ProvisionMode =
   /** Nothing declared has been provisioned yet — a brand-new volume. */
@@ -115,10 +125,34 @@ export interface CloneAgentRepoStep extends StepBase {
   envNames: string[];
 }
 
+/** Fast-forward one agent's repo, under the same scoped env as its clone. */
+export interface UpdateAgentRepoStep extends StepBase {
+  kind: "update-agent-repo";
+  agentId: string;
+  dir: string;
+  branch?: string;
+  envNames: string[];
+}
+
 /** Write the `.provisioned` marker `provision_status` reads. */
 export interface MarkAgentProvisionedStep extends StepBase {
   kind: "mark-agent-provisioned";
   agentId: string;
+  path: string;
+}
+
+/**
+ * Write the volume-level `.provisioned` marker. Its absence is what tells a
+ * later `start` that the volume is cold and owes a full provision.
+ */
+export interface MarkVolumeProvisionedStep extends StepBase {
+  kind: "mark-volume-provisioned";
+  path: string;
+}
+
+/** Remove the stale mark once the refresh it asked for has actually run. */
+export interface ClearStaleMarkStep extends StepBase {
+  kind: "clear-stale-mark";
   path: string;
 }
 
@@ -143,9 +177,24 @@ export type ProvisionStep =
   | MiseInstallStep
   | InstallNodeDepsStep
   | CloneAgentRepoStep
+  | UpdateAgentRepoStep
   | MarkAgentProvisionedStep
+  | MarkVolumeProvisionedStep
+  | ClearStaleMarkStep
   | RestoreSkillsStep
   | InstallSkillsStep;
+
+/** Step kinds that shell out. These are what wake latency is made of. */
+export const COSTLY_STEP_KINDS = new Set<ProvisionStep["kind"]>([
+  "clone-owned-repo",
+  "update-owned-repo",
+  "mise-install",
+  "install-node-deps",
+  "clone-agent-repo",
+  "update-agent-repo",
+  "restore-skills",
+  "install-skills",
+]);
 
 /** What one declared agent looks like on disk right now. */
 export interface AgentVolumeState {
@@ -164,6 +213,17 @@ export interface VolumeState {
   ownedRepoCloned: boolean;
   /** `<workDir>/skills-lock.json` exists — skills restore rather than install. */
   skillsLockPresent: boolean;
+  /**
+   * `<workDir>/.provisioned` exists — this volume has been fully provisioned
+   * at least once, so a `start` owes it nothing. A volume last touched by the
+   * pre-#276 entrypoint has no marker and is correctly treated as cold.
+   */
+  volumeProvisioned: boolean;
+  /**
+   * `<workDir>/.needs-refresh` exists — Gaia marked this habitat stale while
+   * it was Dormant. The next start upgrades itself to a refresh.
+   */
+  staleMarkerPresent: boolean;
   /** Keyed by agent id. Agents absent from the map are treated as unprovisioned. */
   agents: Record<string, AgentVolumeState>;
 }
@@ -171,6 +231,10 @@ export interface VolumeState {
 /** The decision: what this boot intends to do, and why. */
 export interface ProvisionPlan {
   mode: ProvisionMode;
+  /** The intent actually planned for — a stale `start` is promoted to `refresh`. */
+  intent: ProvisionIntent;
+  /** True when a `start` was promoted because the volume carried the stale mark. */
+  promotedByStaleMark: boolean;
   workDir: string;
   /** Absolute project directory, when the habitat declares an Owned repo. */
   ownedRepoDir?: string;

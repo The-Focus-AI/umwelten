@@ -9,7 +9,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { fileExists } from "../config.js";
 import type { FileCondition, ProvisionPlan, ProvisionStep } from "./types.js";
 import { join } from "node:path";
@@ -21,8 +21,10 @@ export interface ProvisionExecutorDeps {
   run(command: string, cwd: string): Promise<boolean>;
   /** `mkdir -p`. */
   ensureDir(path: string): Promise<void>;
-  /** Truncate the `.provisioned` marker to mode 0600. */
+  /** Truncate a marker file to mode 0600. */
   writeMarker(path: string): Promise<void>;
+  /** Delete a marker file; a missing file is not an error. */
+  removeMarker(path: string): Promise<void>;
   /** Resolve a secret by name — the habitat vault, then process env. */
   secret(name: string): string | undefined;
   log(message: string): void;
@@ -40,6 +42,23 @@ export interface ProvisionResult {
 /** Wrap a value for a POSIX shell single-quoted context. */
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * `env -i` plus only this agent's declared env, for any git operation against
+ * its repo. Everything else is dropped — including the habitat's github-token
+ * git config — so one agent's credentials can never authenticate another's
+ * remote. `$PATH` / `$HOME` are left for the shell running the command to
+ * expand, so the operation keeps the container's toolchain and nothing else.
+ */
+function scopedEnvPrefix(envNames: string[], deps: ProvisionExecutorDeps): string {
+  const assignments = envNames
+    .map((name) => {
+      const value = deps.secret(name);
+      return value ? ` ${name}=${shellQuote(value)}` : "";
+    })
+    .join("");
+  return `env -i PATH="$PATH" HOME="$HOME"${assignments}`;
 }
 
 async function conditionHolds(
@@ -82,22 +101,17 @@ export async function commandFor(
         cwd: step.dir,
       };
     }
+    case "update-agent-repo": {
+      const pull = step.branch
+        ? `git fetch origin ${step.branch} && git pull --ff-only origin ${step.branch}`
+        : "git pull --ff-only";
+      return { command: `${scopedEnvPrefix(step.envNames, deps)} ${pull}`, cwd: step.dir };
+    }
     case "clone-agent-repo": {
-      // Only this agent's declared env crosses into the clone. `env -i` drops
-      // everything else — including the habitat's github token git config, so
-      // one agent's credentials can never authenticate another's remote.
-      const assignments = step.envNames
-        .map((name) => {
-          const value = deps.secret(name);
-          return value ? ` ${name}=${shellQuote(value)}` : "";
-        })
-        .join("");
       const branch = step.branch ? `--branch ${step.branch} ` : "";
-      // `$PATH` / `$HOME` are left for the shell running this command to
-      // expand, so the clone keeps the container's toolchain and nothing else.
       return {
         command:
-          `env -i PATH="$PATH" HOME="$HOME"${assignments} ` +
+          `${scopedEnvPrefix(step.envNames, deps)} ` +
           `git clone ${branch}"${step.remote}" "${step.dir}"`,
         cwd: ".",
       };
@@ -111,6 +125,16 @@ export async function commandFor(
       };
     default:
       return null;
+  }
+}
+
+/** Run an effect, reporting failure the same way a non-zero exit is reported. */
+async function run(effect: () => Promise<void>): Promise<boolean> {
+  try {
+    await effect();
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -132,8 +156,13 @@ export async function executeProvisionPlan(
       deps.log(step.message);
     } else if (step.kind === "ensure-dir") {
       await deps.ensureDir(step.dir);
-    } else if (step.kind === "mark-agent-provisioned") {
-      await deps.writeMarker(step.path);
+    } else if (
+      step.kind === "mark-agent-provisioned" ||
+      step.kind === "mark-volume-provisioned"
+    ) {
+      ok = await run(() => deps.writeMarker(step.path));
+    } else if (step.kind === "clear-stale-mark") {
+      ok = await run(() => deps.removeMarker(step.path));
     } else {
       const command = await commandFor(step, deps);
       if (command) ok = await deps.run(command.command, command.cwd);
@@ -168,6 +197,9 @@ export function nodeExecutorDeps(
     writeMarker: async (path) => {
       await writeFile(path, "");
       await chmod(path, 0o600).catch(() => {});
+    },
+    removeMarker: async (path) => {
+      await rm(path, { force: true });
     },
     secret,
     log: (message) => console.log(message),

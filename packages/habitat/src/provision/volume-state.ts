@@ -9,6 +9,7 @@
 import { join } from "node:path";
 import { fileExists } from "../config.js";
 import { normalizeAgents } from "./plan.js";
+import { provisionedMarkerPath, staleMarkerPath } from "./stale.js";
 import type { HabitatConfig } from "../types.js";
 import type { AgentVolumeState, VolumeState } from "./types.js";
 
@@ -31,10 +32,18 @@ export async function readVolumeState(
   const ownedRepoDir = join(workDir, config.projectDir ?? "project");
   const agentsDir = join(workDir, "agents");
 
-  const [configPresent, ownedRepoCloned, skillsLockPresent] = await Promise.all([
+  const [
+    configPresent,
+    ownedRepoCloned,
+    skillsLockPresent,
+    volumeProvisioned,
+    staleMarkerPresent,
+  ] = await Promise.all([
     probe.exists(join(workDir, "config.json")),
     probe.exists(join(ownedRepoDir, ".git")),
     probe.exists(join(workDir, "skills-lock.json")),
+    probe.exists(provisionedMarkerPath(workDir)),
+    probe.exists(staleMarkerPath(workDir)),
   ]);
 
   const agents: Record<string, AgentVolumeState> = {};
@@ -46,5 +55,12 @@ export async function readVolumeState(
     }),
   );
 
-  return { configPresent, ownedRepoCloned, skillsLockPresent, agents };
+  return {
+    configPresent,
+    ownedRepoCloned,
+    skillsLockPresent,
+    volumeProvisioned,
+    staleMarkerPresent,
+    agents,
+  };
 }

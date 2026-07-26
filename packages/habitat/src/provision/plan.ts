@@ -1,21 +1,32 @@
 /**
- * The provisioning decision (umwelten #269).
+ * The provisioning decision (umwelten #269, #276).
  *
- * `planProvision` is pure: given a habitat config and a snapshot of the
- * volume, it returns everything the boot intends to do without doing any of
- * it. `entrypoint.sh` used to make these decisions inline in shell, where
+ * `planProvision` is pure: given a habitat config, an intent, and a snapshot
+ * of the volume, it returns everything the run intends to do without doing any
+ * of it. `entrypoint.sh` used to make these decisions inline in shell, where
  * they could not be tested at a useful altitude and where wake time scaled
  * with mount count invisibly.
  *
- * Behaviour is deliberately identical to that shell, log lines included —
- * this is a prefactor. #276 (refresh as an operation separate from starting)
- * and #277 (checkout commit and age) hook in here.
+ * Two intents (#276):
+ *
+ *  - **start** is the boot path and must stay cheap. On a warm volume it
+ *    plans no git, no installs and no skills work at all; on a cold one it
+ *    provisions fully. A mount added since the last start is cold *for that
+ *    mount* and nothing else.
+ *  - **refresh** is the explicitly triggered operation: pull the Owned repo
+ *    and every Mounted repo, reinstall dependencies, re-restore skills.
+ *
+ * A Dormant habitat has no process to ask, so Gaia leaves a stale mark on its
+ * volume; a `start` that finds one promotes itself to a `refresh` and clears
+ * the mark once the work has actually run.
  */
 
 import { join } from "node:path";
 import type { AgentEntry, HabitatConfig } from "../types.js";
+import { provisionedMarkerPath, staleMarkerPath } from "./stale.js";
 import type {
   FileCondition,
+  ProvisionIntent,
   ProvisionMode,
   ProvisionPlan,
   ProvisionStep,
@@ -35,6 +46,8 @@ export interface PlanProvisionInput {
   workDir: string;
   config: HabitatConfig;
   volume: VolumeState;
+  /** Defaults to `start` — the boot path. */
+  intent?: ProvisionIntent;
 }
 
 /** One agent's provisioning-relevant fields, defaulted the way the shell defaulted them. */
@@ -87,20 +100,43 @@ function classify(declared: number, present: number): ProvisionMode {
 }
 
 export function planProvision(input: PlanProvisionInput): ProvisionPlan {
-  const { workDir, config, volume } = input;
+  const { workDir, config, volume, intent = "start" } = input;
 
   // No config.json → the entrypoint's whole provisioning block was skipped.
   if (!volume.configPresent) {
-    return { mode: "refresh", workDir, newMounts: [], knownMounts: [], steps: [] };
+    return {
+      mode: "refresh",
+      intent,
+      promotedByStaleMark: false,
+      workDir,
+      newMounts: [],
+      knownMounts: [],
+      steps: [],
+    };
   }
+
+  // A start that finds the stale mark does the refresh the mark was asking
+  // for. This is the only way a Dormant habitat's refresh ever happens.
+  const promotedByStaleMark = intent === "start" && volume.staleMarkerPresent;
+  const effective: ProvisionIntent = promotedByStaleMark ? "refresh" : intent;
+  const refreshing = effective === "refresh";
 
   const steps: ProvisionStep[] = [];
   const ownedRepoDir = join(workDir, config.projectDir ?? "project");
   const agentsDir = join(workDir, "agents");
   const agents = normalizeAgents(config.agents);
 
+  if (promotedByStaleMark) {
+    steps.push({
+      kind: "log",
+      message: `${LOG} Stale mark found — refreshing before serving.`,
+      onFailure: "warn",
+    });
+  }
+
   // ── Owned repo ──────────────────────────────────────────────────────
-  if (config.gitUrl && !volume.ownedRepoCloned) {
+  const cloningOwned = Boolean(config.gitUrl) && !volume.ownedRepoCloned;
+  if (cloningOwned && config.gitUrl) {
     steps.push({
       kind: "clone-owned-repo",
       dir: ownedRepoDir,
@@ -110,9 +146,10 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
       done: `${LOG} Clone complete.`,
       onFailure: "abort",
     });
-  } else if (config.gitUrl && volume.ownedRepoCloned) {
-    // A restart should pick up new commits so "push to repo → rebuild" is the
-    // whole deploy. Fast-forward only, and never fail the boot over it.
+  } else if (config.gitUrl && refreshing) {
+    // Fast-forward only, and never fail the run over it. Starting no longer
+    // pulls (#276) — "push to repo → up to date" is now a refresh, dispatched
+    // by the webhook hub rather than paid for on every wake.
     steps.push({
       kind: "update-owned-repo",
       dir: ownedRepoDir,
@@ -123,30 +160,33 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
     });
   }
 
+  // Installs are the expensive half. A warm volume already has them, so a
+  // start skips them entirely; a cold volume and every refresh pay in full.
   // The project dir can exist without a gitUrl (a bind-mounted or seeded
-  // volume), so toolchain and dependency installs are guarded on the files
-  // rather than on having just cloned.
-  steps.push({
-    kind: "mise-install",
-    dir: ownedRepoDir,
-    scope: "owned",
-    condition: miseCondition(ownedRepoDir),
-    announce: `${LOG} Running mise install in ${ownedRepoDir}...`,
-    done: `${LOG} mise install complete.`,
-    onFailure: "abort",
-  });
-  // Prod deps only: dev deps aren't needed at runtime and their transitive
-  // build scripts trip pnpm's ignored-builds error. Non-fatal — a failed
-  // install degrades to tools-not-loaded, never a boot loop.
-  steps.push({
-    kind: "install-node-deps",
-    dir: ownedRepoDir,
-    miseWrap: miseCondition(ownedRepoDir),
-    condition: { dir: ownedRepoDir, anyOf: ["package.json"] },
-    announce: `${LOG} Installing project node deps (pnpm install --prod)...`,
-    onFailure: "warn",
-    warning: `${LOG} project pnpm install failed — repo tools may not load.`,
-  });
+  // volume), so the work is guarded on the files rather than on having cloned.
+  if (refreshing || !volume.volumeProvisioned) {
+    steps.push({
+      kind: "mise-install",
+      dir: ownedRepoDir,
+      scope: "owned",
+      condition: miseCondition(ownedRepoDir),
+      announce: `${LOG} Running mise install in ${ownedRepoDir}...`,
+      done: `${LOG} mise install complete.`,
+      onFailure: "abort",
+    });
+    // Prod deps only: dev deps aren't needed at runtime and their transitive
+    // build scripts trip pnpm's ignored-builds error. Non-fatal — a failed
+    // install degrades to tools-not-loaded, never a boot loop.
+    steps.push({
+      kind: "install-node-deps",
+      dir: ownedRepoDir,
+      miseWrap: miseCondition(ownedRepoDir),
+      condition: { dir: ownedRepoDir, anyOf: ["package.json"] },
+      announce: `${LOG} Installing project node deps (pnpm install --prod)...`,
+      onFailure: "warn",
+      warning: `${LOG} project pnpm install failed — repo tools may not load.`,
+    });
+  }
 
   // ── Per-agent provisioning (Habitat Runtime spec) ───────────────────
   steps.push({ kind: "ensure-dir", dir: agentsDir, onFailure: "abort" });
@@ -178,15 +218,19 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
       continue;
     }
 
-    if (volume.agents[agent.id]?.repoCloned) {
+    const cloned = Boolean(volume.agents[agent.id]?.repoCloned);
+    if (cloned) {
       knownMounts.push(agent.id);
-      steps.push({
-        kind: "log",
-        message: `${LOG} Agent ${agent.id} already cloned.`,
-        onFailure: "warn",
-      });
     } else {
       newMounts.push(agent.id);
+    }
+
+    // A present mount costs a start nothing — no clone, no pull, no install.
+    // This is the whole point of #276: wake latency must not scale with the
+    // number of Mounted repos, and the rollup habitat has the most of them.
+    if (cloned && !refreshing) continue;
+
+    if (!cloned) {
       steps.push({ kind: "ensure-dir", dir: agentDir, onFailure: "abort" });
       steps.push({
         kind: "clone-agent-repo",
@@ -200,6 +244,17 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
         announce: `${LOG} Cloning agent ${agent.id} (kind=${agent.kind}, mode=${agent.mode}) from ${agent.gitRemote}...`,
         onFailure: "warn",
         warning: `${LOG} Clone failed for agent ${agent.id} (continuing).`,
+      });
+    } else {
+      steps.push({
+        kind: "update-agent-repo",
+        agentId: agent.id,
+        dir: agentRepo,
+        branch: agent.gitBranch,
+        envNames: agent.envNames,
+        announce: `${LOG} Updating agent ${agent.id} (git pull --ff-only)...`,
+        onFailure: "warn",
+        warning: `${LOG} Pull skipped for agent ${agent.id} (non-fast-forward or offline).`,
       });
     }
 
@@ -224,19 +279,30 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
     });
   }
 
+  if (!refreshing && knownMounts.length > 0) {
+    steps.push({
+      kind: "log",
+      message: `${LOG} ${knownMounts.length} mounted repo(s) already present; not refreshed on start.`,
+      onFailure: "warn",
+    });
+  }
+
   // ── Skills provisioning ─────────────────────────────────────────────
   const skillSources = Array.isArray(config.skillsFromGit) ? config.skillsFromGit : [];
   if (skillSources.length > 0) {
     if (volume.skillsLockPresent) {
-      // Restoring from the lock skips a git clone for unchanged skills.
-      steps.push({
-        kind: "restore-skills",
-        dir: workDir,
-        announce: `${LOG} Restoring skills from skills-lock.json...`,
-        done: `${LOG} Skills restore complete.`,
-        onFailure: "warn",
-        warning: `${LOG} Skills restore had warnings (non-fatal)`,
-      });
+      // The lock plus the installed skills are already on the volume, so a
+      // start needs nothing; a refresh re-restores in case the lock moved.
+      if (refreshing) {
+        steps.push({
+          kind: "restore-skills",
+          dir: workDir,
+          announce: `${LOG} Restoring skills from skills-lock.json...`,
+          done: `${LOG} Skills restore complete.`,
+          onFailure: "warn",
+          warning: `${LOG} Skills restore had warnings (non-fatal)`,
+        });
+      }
     } else {
       steps.push({
         kind: "log",
@@ -262,6 +328,26 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
     }
   }
 
+  // ── Marks ───────────────────────────────────────────────────────────
+  if (refreshing || !volume.volumeProvisioned) {
+    steps.push({
+      kind: "mark-volume-provisioned",
+      path: provisionedMarkerPath(workDir),
+      onFailure: "warn",
+      warning: `${LOG} Could not write the provisioned marker — the next start will provision again.`,
+    });
+  }
+  // Cleared last, and only after the refresh it asked for has actually run.
+  if (promotedByStaleMark) {
+    steps.push({
+      kind: "clear-stale-mark",
+      path: staleMarkerPath(workDir),
+      done: `${LOG} Stale mark cleared.`,
+      onFailure: "warn",
+      warning: `${LOG} Could not clear the stale mark — the next start will refresh again.`,
+    });
+  }
+
   const declaredRepos =
     (config.gitUrl ? 1 : 0) +
     agents.filter((a) => !REPOLESS_KINDS.has(a.kind) && a.gitRemote).length;
@@ -270,6 +356,8 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
 
   return {
     mode: classify(declaredRepos, presentRepos),
+    intent: effective,
+    promotedByStaleMark,
     workDir,
     ownedRepoDir: config.gitUrl ? ownedRepoDir : undefined,
     newMounts,
@@ -281,7 +369,8 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
 /** Render a plan as human-readable lines, for `--dry-run` and boot logging. */
 export function describePlan(plan: ProvisionPlan): string[] {
   const lines = [
-    `${LOG} provision plan: mode=${plan.mode}, steps=${plan.steps.length}` +
+    `${LOG} provision plan: intent=${plan.intent}, mode=${plan.mode}, steps=${plan.steps.length}` +
+      (plan.promotedByStaleMark ? " (promoted by stale mark)" : "") +
       (plan.newMounts.length ? `, new=${plan.newMounts.join(",")}` : "") +
       (plan.knownMounts.length ? `, present=${plan.knownMounts.join(",")}` : ""),
   ];

@@ -376,6 +376,55 @@ export class DockerManager {
   }
 
   /**
+   * Run a command inside a running container.
+   *
+   * Used by `refresh_habitat` (#276) to invoke the habitat's own provisioner
+   * with `--refresh`, so the decision about what needs updating stays in the
+   * habitat rather than being second-guessed from outside.
+   */
+  async execInContainer(
+    id: string,
+    command: string,
+    timeout = 600000,
+  ): Promise<{ ok: boolean; output: string }> {
+    const name = containerName(id);
+    try {
+      const { stdout, stderr } = await execFile(
+        "docker",
+        ["exec", name, "sh", "-c", command],
+        { timeout, maxBuffer: 10 * 1024 * 1024 },
+      );
+      return { ok: true, output: `${stdout}${stderr}`.trim() };
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      return {
+        ok: false,
+        output: `${e.stdout ?? ""}${e.stderr ?? ""}`.trim() || (e.message ?? "exec failed"),
+      };
+    }
+  }
+
+  /**
+   * Write one file into a habitat's named volume, running or not.
+   *
+   * A one-shot Alpine container is the only way to reach a Dormant habitat's
+   * volume, which is exactly what marking it stale needs (#276).
+   */
+  async writeVolumeFile(id: string, path: string, content: string): Promise<void> {
+    const volume = volumeName(id);
+    try {
+      await execFile("docker", ["volume", "create", volume]);
+    } catch { /* may already exist */ }
+    await spawnWithStdin("docker", [
+      "run", "--rm", "-i",
+      "-v", `${volume}:/data`,
+      "alpine:3.20",
+      "sh", "-c",
+      `mkdir -p "$(dirname "/data/${path}")" && cat > "/data/${path}"`,
+    ], content);
+  }
+
+  /**
    * Seed a named volume with config.json and secrets.json.
    * Uses a one-shot Alpine container to write files into the volume.
    */

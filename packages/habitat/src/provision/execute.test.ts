@@ -11,6 +11,7 @@ interface Recorder {
   commands: { command: string; cwd: string }[];
   dirs: string[];
   markers: string[];
+  removed: string[];
   logs: string[];
 }
 
@@ -24,6 +25,7 @@ function recorder(options: {
     commands: [],
     dirs: [],
     markers: [],
+    removed: [],
     logs: [],
     deps: null as unknown as ProvisionExecutorDeps,
   };
@@ -39,6 +41,9 @@ function recorder(options: {
     writeMarker: async (path) => {
       rec.markers.push(path);
     },
+    removeMarker: async (path) => {
+      rec.removed.push(path);
+    },
     secret: (name) => options.secrets?.[name],
     log: (message) => {
       rec.logs.push(message);
@@ -51,11 +56,22 @@ const VOLUME: VolumeState = {
   configPresent: true,
   ownedRepoCloned: false,
   skillsLockPresent: false,
+  volumeProvisioned: false,
+  staleMarkerPresent: false,
   agents: {},
 };
 
-function planFor(config: HabitatConfig, volume: Partial<VolumeState> = {}): ProvisionPlan {
-  return planProvision({ workDir: "/data", config, volume: { ...VOLUME, ...volume } });
+function planFor(
+  config: HabitatConfig,
+  volume: Partial<VolumeState> = {},
+  intent: "start" | "refresh" = "refresh",
+): ProvisionPlan {
+  return planProvision({
+    workDir: "/data",
+    config,
+    volume: { ...VOLUME, ...volume },
+    intent,
+  });
 }
 
 function only(plan: ProvisionPlan, kind: ProvisionStep["kind"]): ProvisionStep {
@@ -200,7 +216,10 @@ describe("executeProvisionPlan", () => {
       'npx skills@latest add "acme/skills" --all -y 2>&1',
     ]);
     expect(rec.dirs).toEqual(["/data/agents", "/data/agents/web"]);
-    expect(rec.markers).toEqual(["/data/agents/web/.provisioned"]);
+    expect(rec.markers).toEqual([
+      "/data/agents/web/.provisioned",
+      "/data/.provisioned",
+    ]);
   });
 
   it("skips conditional steps whose files are absent", async () => {
@@ -235,7 +254,7 @@ describe("executeProvisionPlan", () => {
     expect(result.aborted).toBeUndefined();
     expect(result.warned.map((s) => s.kind)).toEqual(["clone-agent-repo"]);
     expect(rec.logs).toContain("[entrypoint] Clone failed for agent web (continuing).");
-    expect(rec.markers).toEqual(["/data/agents/web/.provisioned"]);
+    expect(rec.markers).toContain("/data/agents/web/.provisioned");
     // Skills still get installed after the failure.
     expect(rec.commands.at(-1)?.command).toContain("npx skills@latest add");
   });
@@ -247,7 +266,7 @@ describe("executeProvisionPlan", () => {
       rec.deps,
     );
     expect(rec.logs).toContain("[entrypoint] Updating /data/project (git pull --ff-only)...");
-    expect(rec.logs).toContain("[entrypoint] Agent web already cloned.");
+    expect(rec.logs).toContain("[entrypoint] Updating agent web (git pull --ff-only)...");
   });
 
   it("reports a non-fast-forward pull as a warning, not a failure", async () => {

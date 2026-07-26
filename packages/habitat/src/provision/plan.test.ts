@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { describePlan, normalizeAgents, planProvision } from "./plan.js";
 import { readVolumeState } from "./volume-state.js";
 import type { HabitatConfig } from "../types.js";
-import type { ProvisionStep, VolumeState } from "./types.js";
+import type { ProvisionIntent, ProvisionStep, VolumeState } from "./types.js";
 
 const WORK = "/data";
 
@@ -11,6 +11,8 @@ function emptyVolume(overrides: Partial<VolumeState> = {}): VolumeState {
     configPresent: true,
     ownedRepoCloned: false,
     skillsLockPresent: false,
+    volumeProvisioned: false,
+    staleMarkerPresent: false,
     agents: {},
     ...overrides,
   };
@@ -20,8 +22,12 @@ function config(overrides: Partial<HabitatConfig> = {}): HabitatConfig {
   return { agents: [], ...overrides };
 }
 
-function plan(cfg: HabitatConfig, volume: VolumeState) {
-  return planProvision({ workDir: WORK, config: cfg, volume });
+function plan(
+  cfg: HabitatConfig,
+  volume: VolumeState,
+  intent: ProvisionIntent = "refresh",
+) {
+  return planProvision({ workDir: WORK, config: cfg, volume, intent });
 }
 
 function kinds(steps: ProvisionStep[]): string[] {
@@ -76,6 +82,7 @@ describe("planProvision — volume states", () => {
       "clone-agent-repo",
       "mise-install",
       "mark-agent-provisioned",
+      "mark-volume-provisioned",
     ]);
 
     const clone = stepOfKind(result.steps, "clone-owned-repo");
@@ -151,9 +158,10 @@ describe("planProvision — volume states", () => {
     expect(clones).toHaveLength(1);
     expect(clones[0]).toMatchObject({ agentId: "billing", dir: "/data/agents/billing/repo" });
 
-    // The already-cloned mount is still re-installed and re-marked, exactly
-    // as the shell did.
-    expect(result.steps.some((s) => s.kind === "log" && s.message.includes("web already cloned"))).toBe(true);
+    // A refresh pulls the mount that is already there rather than re-cloning it.
+    expect(
+      result.steps.filter((s) => s.kind === "update-agent-repo").map((s) => s.agentId),
+    ).toEqual(["web"]);
     expect(
       result.steps.filter((s) => s.kind === "mark-agent-provisioned").map((s) => s.agentId),
     ).toEqual(["web", "billing"]);
@@ -163,7 +171,12 @@ describe("planProvision — volume states", () => {
     const result = plan(config(), emptyVolume());
     expect(result.mode).toBe("refresh");
     expect(result.ownedRepoDir).toBeUndefined();
-    expect(kinds(result.steps)).toEqual(["mise-install", "install-node-deps", "ensure-dir"]);
+    expect(kinds(result.steps)).toEqual([
+      "mise-install",
+      "install-node-deps",
+      "ensure-dir",
+      "mark-volume-provisioned",
+    ]);
   });
 });
 
@@ -240,7 +253,12 @@ describe("planProvision — agents", () => {
       config({ agents: [{ id: "", name: "nameless", projectPath: "" }] }),
       emptyVolume(),
     );
-    expect(kinds(result.steps)).toEqual(["mise-install", "install-node-deps", "ensure-dir"]);
+    expect(kinds(result.steps)).toEqual([
+      "mise-install",
+      "install-node-deps",
+      "ensure-dir",
+      "mark-volume-provisioned",
+    ]);
   });
 
   it("carries the agent branch onto the clone step", () => {
@@ -355,6 +373,7 @@ describe("readVolumeState", () => {
       "/data/config.json",
       "/data/project/.git",
       "/data/agents/web/repo/.git",
+      "/data/.needs-refresh",
     ]);
     const asked: string[] = [];
     const state = await readVolumeState({
@@ -378,6 +397,8 @@ describe("readVolumeState", () => {
       configPresent: true,
       ownedRepoCloned: true,
       skillsLockPresent: false,
+      volumeProvisioned: false,
+      staleMarkerPresent: true,
       agents: { web: { repoCloned: true }, api: { repoCloned: false } },
     });
     expect(asked).toContain("/data/skills-lock.json");
@@ -394,6 +415,8 @@ describe("readVolumeState", () => {
       configPresent: false,
       ownedRepoCloned: false,
       skillsLockPresent: false,
+      volumeProvisioned: false,
+      staleMarkerPresent: false,
       agents: {},
     });
   });
