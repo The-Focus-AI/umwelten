@@ -312,11 +312,17 @@ export function createHabitatLifecycleTools(
 
 		discover_habitats: tool({
 			description:
-				"Fetch agent cards from all running habitats to learn their capabilities.",
+				"List every habitat in the fleet with its capabilities. Running habitats are queried live; dormant ones answer from their last known agent card, so this never needs to wake anything.",
 			inputSchema: z.object({}),
 			execute: async () => {
 				const entries = registry.list();
-				const results = await discoverHabitats(entries);
+				const results = await discoverHabitats(entries, {
+					// Warm the cache as we go, so the next call can answer for a
+					// habitat that has gone to sleep in the meantime.
+					saveCard: async (id, card, fetchedAt) => {
+						await registry.update(id, { cachedCard: { card, fetchedAt } });
+					},
+				});
 				return JSON.stringify(results, null, 2);
 			},
 		}),

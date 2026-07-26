@@ -85,23 +85,85 @@ export function entryOpenUrl(
 	return null;
 }
 
-/** Fetch agent cards from all running habitats; failures are reported per-entry. */
+/** One habitat's entry in the Directory. */
+export type DiscoveredHabitat =
+	| { id: string; card: AgentCardSummary; cached: boolean; fetchedAt?: string }
+	| { id: string; error: string; card?: AgentCardSummary; fetchedAt?: string };
+
+export interface DiscoverHabitatsOptions {
+	/**
+	 * Persist a freshly fetched card back onto the registry entry. Omitted in
+	 * tests and in read-only callers; without it discovery still answers, it
+	 * just does not warm the cache.
+	 */
+	saveCard?: (
+		id: string,
+		card: AgentCardSummary,
+		fetchedAt: string,
+	) => Promise<void>;
+	/** Injectable clock so tests do not depend on wall time. */
+	now?: () => string;
+	/** Injectable card fetch (tests). */
+	fetchCard?: typeof fetchAgentCard;
+}
+
+/**
+ * Report every habitat in the fleet, running or not.
+ *
+ * Running habitats are fetched live and their card is cached on the way
+ * through. Dormant habitats answer from that cache — the whole point, since
+ * a fleet that sleeps by design would otherwise report almost nothing
+ * (ADR 0008). A habitat that has never been started has no card at all,
+ * which is reported as such rather than as an error, because "we have never
+ * seen this one" and "this one failed" are different situations.
+ *
+ * A failed fetch against a running habitat keeps the previously cached card:
+ * a transient blip should degrade the Directory to stale, not to empty.
+ */
 export async function discoverHabitats(
 	entries: GaiaHabitatEntry[],
-): Promise<
-	Array<{ id: string; card: AgentCardSummary } | { id: string; error: string }>
-> {
-	const running = entries.filter((e) => e.containerPort);
-	const results = await Promise.allSettled(
-		running.map(async (entry) => {
-			const card = await fetchAgentCard(entryToEndpoint(entry));
-			return { id: entry.id, card };
-		}),
-	);
+	options: DiscoverHabitatsOptions = {},
+): Promise<DiscoveredHabitat[]> {
+	const now = options.now ?? (() => new Date().toISOString());
+	const fetchCard = options.fetchCard ?? fetchAgentCard;
 
-	return results.map((r, i) =>
-		r.status === "fulfilled"
-			? r.value
-			: { id: running[i].id, error: r.reason?.message ?? "Unknown error" },
+	return Promise.all(
+		entries.map(async (entry): Promise<DiscoveredHabitat> => {
+			const cached = entry.cachedCard;
+
+			if (!entry.containerPort) {
+				// Dormant. Answer from cache rather than waking it.
+				if (cached) {
+					return {
+						id: entry.id,
+						card: cached.card,
+						cached: true,
+						fetchedAt: cached.fetchedAt,
+					};
+				}
+				return {
+					id: entry.id,
+					error: "No cached agent card — this habitat has not been started yet.",
+				};
+			}
+
+			try {
+				const card = await fetchCard(entryToEndpoint(entry));
+				const fetchedAt = now();
+				// Best effort: a registry write failure must not fail discovery.
+				await options.saveCard?.(entry.id, card, fetchedAt).catch(() => {});
+				return { id: entry.id, card, cached: false, fetchedAt };
+			} catch (err) {
+				const message = err instanceof Error ? err.message : "Unknown error";
+				return cached
+					? {
+							id: entry.id,
+							error: message,
+							card: cached.card,
+							fetchedAt: cached.fetchedAt,
+						}
+					: { id: entry.id, error: message };
+			}
+		}),
 	);
 }
