@@ -221,13 +221,23 @@ async function probeStructuredOutput(model: ModelDetails): Promise<CapabilityPro
     };
   }
 
-  const parsed = schema.safeParse(JSON.parse(outcome.value.content || "{}"));
+  // The runner stringifies generateObject's result into `content`, so this
+  // parses in practice — but a probe that crashes the whole run because one
+  // model returned something odd is worse than a probe that records a failure.
+  let parsedOk = false;
+  let detail = "";
+  try {
+    const parsed = schema.safeParse(JSON.parse(outcome.value.content || "{}"));
+    parsedOk = parsed.success;
+    if (!parsed.success) detail = `schema mismatch: ${outcome.value.content.slice(0, 120)}`;
+  } catch {
+    detail = `unparseable output: ${outcome.value.content.slice(0, 120)}`;
+  }
+
   return {
     name: "structured-output",
-    supported: parsed.success,
-    evidence: parsed.success
-      ? "returned schema-valid JSON"
-      : `schema mismatch: ${outcome.value.content.slice(0, 120)}`,
+    supported: parsedOk,
+    evidence: parsedOk ? "returned schema-valid JSON" : detail,
     elapsedMs: elapsedSince(start),
   };
 }
