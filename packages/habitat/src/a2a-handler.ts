@@ -547,6 +547,15 @@ export interface A2AHandlerOptions {
  */
 export type A2AHandler = A2AServer;
 
+/**
+ * Where a habitat keeps its durable Tasks on its own volume (ADR 0007).
+ * Exported because the container's activity endpoint reads the same store to
+ * report what the habitat is holding (#278) — one definition, not two.
+ */
+export function habitatTaskDir(workDir: string): string {
+  return join(workDir, "tasks");
+}
+
 export async function createA2AHandler(
   options: A2AHandlerOptions,
 ): Promise<A2AHandler> {
@@ -570,9 +579,7 @@ export async function createA2AHandler(
   // (ADR 0007). Then clear out anything the previous container generation left
   // mid-flight, BEFORE the transport starts accepting requests, so no caller
   // can observe a task that is about to be moved.
-  const taskStore = new FileTaskStore({
-    dir: join(options.habitat.getWorkDir(), "tasks"),
-  });
+  const taskStore = new FileTaskStore({ dir: habitatTaskDir(options.habitat.getWorkDir()) });
 
   const recovered = await sweepAbandonedTasks(taskStore);
   if (recovered.swept.length > 0) {

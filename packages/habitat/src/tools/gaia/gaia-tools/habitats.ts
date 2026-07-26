@@ -14,6 +14,7 @@ import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
 import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
 import { applyHabitatDeclaration } from "../apply-declaration.js";
 import { readDeclarationFromRepo } from "../read-declaration.js";
+import { recordHabitatActivity } from "../reaper.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 export function createHabitatLifecycleTools(
@@ -221,6 +222,9 @@ export function createHabitatLifecycleTools(
 					githubTokens: bootTokens,
 				});
 				await registry.update(id, { containerPort: port });
+				// A start counts as activity, so a habitat is not reaped in the
+				// window between being started and first being asked anything.
+				await recordHabitatActivity(registry, id);
 
 				const warnings: string[] = [];
 				if (!entry.config.defaultProvider || !entry.config.defaultModel) {
@@ -314,6 +318,9 @@ export function createHabitatLifecycleTools(
 				const entry = registry.get(id);
 				if (!entry) return `Habitat "${id}" not found`;
 				if (!entry.containerPort) return `Habitat "${id}" is not running`;
+
+				// Asking a habitat is the clearest form of using it (#278).
+				await recordHabitatActivity(registry, id).catch(() => {});
 
 				try {
 					const response = await sendA2AMessage(
