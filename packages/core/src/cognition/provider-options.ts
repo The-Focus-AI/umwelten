@@ -36,6 +36,18 @@ export function buildReasoningProviderOptions(
     };
   }
 
+  // Ollama exposes thinking as a boolean, not a budget — `think: true` splits
+  // the model's reasoning into a separate channel from its answer. Handled
+  // before the guard below so that an explicit "none" can turn thinking *off*
+  // for models that think by default (gpt-oss), the same way Google's branch
+  // does. Leaving `effort` unset sends nothing, so existing behavior — and the
+  // comparability of benchmark data collected without it — is unchanged.
+  if (provider === "ollama") {
+    if (effort === "none") return { ollama: { think: false } };
+    if (!effort) return undefined;
+    return { ollama: { think: true } };
+  }
+
   if (!effort || effort === "none") return undefined;
 
   if (provider === "openrouter") {

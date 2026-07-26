@@ -242,14 +242,26 @@ async function probeStructuredOutput(model: ModelDetails): Promise<CapabilityPro
   };
 }
 
-/** Does the runtime surface reasoning tokens separately from the answer? */
+/**
+ * Can this Offer surface reasoning tokens separately from the answer?
+ *
+ * Note the question: *can it*, not *does it by default*. Those differ, and the
+ * difference was worth a bug — llama-server splits thinking into its own
+ * channel unprompted, while Ollama only does so when asked via `think: true`.
+ * Probing without asking measured a default, not a capability, and reported
+ * that four models had no reasoning when they had it all along.
+ *
+ * So we ask, by setting `reasoningEffort`. Providers that ignore it are
+ * unaffected; providers that honor it now answer the question we meant.
+ */
 async function probeReasoning(model: ModelDetails): Promise<CapabilityProbe> {
   const start = Date.now();
+  const asking: ModelDetails = { ...model, reasoningEffort: "medium" };
   const outcome = await runWithWatchdog({
     timeoutMs: CAPABILITY_TIMEOUT_MS,
     task: async (signal) => {
       const interaction = new Interaction(
-        model,
+        asking,
         new Stimulus({ role: "a careful reasoner", maxTokens: 1024 }),
       );
       interaction.addMessage({
