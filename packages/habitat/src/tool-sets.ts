@@ -12,6 +12,7 @@ import { createExternalInteractionTools } from "./tools/external-interaction-too
 import { createAgentRunnerTools } from "./tools/agent-runner-tools.js";
 import { createSecretsTools } from "./tools/secrets-tools.js";
 import { createSearchTools } from "./tools/search-tools.js";
+import { createStorageTools } from "./tools/storage-tools.js";
 import { createSelfModifyTools } from "./tools/self-modify-tools.js";
 import { createInspectTools } from "./tools/inspect-tools.js";
 import { createRemoteAgentTools } from "./tools/remote-agent-tools.js";
@@ -134,6 +135,24 @@ export const searchToolSet: ToolSet = {
   name: "search",
   description: "Search the web for current information",
   createTools: (habitat) => createSearchTools(habitat),
+};
+
+/**
+ * Backing storage (habitats ADR 0005): Drive API tools over the habitat's
+ * provisioned Drive folder. Inert unless a token source is configured
+ * (Gaia relay via GAIA_URL + HABITAT_API_KEY, or a direct
+ * GOOGLE_DRIVE_ACCESS_TOKEN for dev) — createStorageTools returns {} when
+ * unconfigured, so registering the set is always safe.
+ */
+export const storageToolSet: ToolSet = {
+  name: "storage",
+  description:
+    "Read and write the habitat's backing-storage Drive folder (search, fetch, upload, export, changes)",
+  createTools: (habitat) =>
+    createStorageTools({
+      getWorkDir: () => habitat.getWorkDir(),
+      getSecret: (name) => habitat.getSecret(name),
+    }),
 };
 
 /** Shell execution: run commands in the habitat work directory. */
@@ -262,6 +281,7 @@ export const standardToolSets: ToolSet[] = [
   agentRunnerToolSet,
   secretsToolSet,
   searchToolSet,
+  storageToolSet,
   selfModifyToolSet,
   inspectToolSet,
   remoteAgentToolSet,
@@ -281,6 +301,7 @@ export const containerToolSets: ToolSet[] = [
   urlToolSet,
   sessionToolSet,
   secretsToolSet,
+  storageToolSet,
   selfModifyToolSet,
   execToolSet,
   provisionToolSet,
@@ -301,6 +322,7 @@ export const managedContainerToolSets: ToolSet[] = [
   timeToolSet,
   urlToolSet,
   sessionToolSet,
+  storageToolSet,
   selfModifyToolSet,
   execToolSet,
   provisionToolSet,

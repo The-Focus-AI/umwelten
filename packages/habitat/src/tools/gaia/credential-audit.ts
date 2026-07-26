@@ -23,7 +23,9 @@ export type AuditOperation =
 	| "bind_capability"
 	| "unbind_capability"
 	| "github_token_mint"
-	| "github_token_denied";
+	| "github_token_denied"
+	| "storage_token_mint"
+	| "storage_token_denied";
 
 /** A single audit log entry. */
 export interface AuditEntry {

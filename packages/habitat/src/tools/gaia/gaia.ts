@@ -32,6 +32,10 @@ import { handleGaiaRoute } from "./routes.js";
 import { FnoxResolver } from "./fnox.js";
 import { resolveGithubAppConfig } from "./github/app-config.js";
 import { createGithubTokenService } from "./github/token-service.js";
+import {
+	createStorageTokenService,
+	resolveStorageRelayConfig,
+} from "./storage/token-service.js";
 
 export interface GaiaStartOptions {
 	dataDir: string;
@@ -172,6 +176,16 @@ export class Gaia {
 			);
 		}
 
+		// Backing-storage token relay (habitats ADR 0005). Unconfigured ⇒ a
+		// disabled service: the /storage/token route answers 501.
+		const storageRelayConfig = resolveStorageRelayConfig(process.env);
+		const storageTokens = createStorageTokenService(storageRelayConfig);
+		if (storageRelayConfig) {
+			console.log(
+				`[gaia] Storage token relay configured (${storageRelayConfig.tokenUrl}) — backing-storage tokens enabled`,
+			);
+		}
+
 		const gaiaToolSet = createGaiaToolSet({
 			registry,
 			vault,
@@ -193,7 +207,15 @@ export class Gaia {
 		});
 		habitat.setRuntimeModelDetails({ provider, name: model });
 
-		const routeCtx = { registry, vault, docker, catalog, audit, githubTokens };
+		const routeCtx = {
+			registry,
+			vault,
+			docker,
+			catalog,
+			audit,
+			githubTokens,
+			storageTokens,
+		};
 		const server = await startContainerServer({
 			habitat,
 			port,
