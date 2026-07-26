@@ -25,6 +25,13 @@ other). Capability is a property of the whole path: client integration ×
 runtime × build × quantization × weights. A layer we would not have thought to
 model turned out to dominate the result.
 
+We then fixed the flag (8b8975a) and re-probed. Structured output went 0/5 → 5/5
+on llama-swap — **and all five pairs still disagreed**, now on reasoning, plus
+`gpt-oss` still failing structured output through Ollama alone. Identifying a
+cause and eliminating it did not make the runtimes agree. That is the argument
+for this ADR in its strongest form: capability sets cannot be declared even
+after the known bug is gone, because there is always another layer.
+
 ## Consequences
 
 Every Offer carries the cost of a probe run, and a probe is a snapshot that goes

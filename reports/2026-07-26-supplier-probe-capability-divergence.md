@@ -108,6 +108,38 @@ exchange should know "can this Offer do X, at what price, with what headroom" �
 and nothing about *why*, because the why turns out to live in a layer the
 exchange has no business modelling.
 
+## Post-fix re-probe (same session)
+
+`supportsStructuredOutputs: true` was added to `llamaswap`, `llamabarn`, and
+`lmstudio` (commit 8b8975a) and the full 16-Offer matrix re-probed.
+
+**The fix worked: llama-swap went 0/5 → 5/5 on structured output.** Every model
+that had returned an invented shape now returns schema-valid JSON.
+`unsloth/gemma-4-E2B-it-GGUF:Q4_K_M` moved from "response did not match schema"
+to "returned schema-valid JSON".
+
+**And all five pairs still disagree.** The divergence moved rather than
+vanished:
+
+| Same weights | Ollama | llama-swap | Diverges on |
+| --- | --- | --- | --- |
+| gemma-4 26B | struct ✓, reason ✗ | struct ✓, reason ✓ | reasoning |
+| gemma-4 31B | struct ✓, reason ✗ | struct ✓, reason ✓ | reasoning |
+| gemma-4 E2B | struct ✓, reason ✗ | struct ✓, reason ✓ | reasoning |
+| nemotron-3-nano 4B | struct ✓, reason ✗ | struct ✓, reason ✓ | reasoning |
+| gpt-oss | struct **✗**, reason ✓ | struct ✓, reason ✓ | structured output |
+
+llama-swap is now 5/5 across all five capabilities. Ollama is 11/11 on chat,
+streaming, and tool calling; 10/11 on structured output; and **1/11 on
+reasoning** — the sole exception being `gpt-oss:latest`, which is also the only
+Ollama Offer that fails structured output ("the model did not return a
+response"). That failure is untouched by the fix because Ollama routes through
+`ollama-ai-provider-v2`, not `createOpenAICompatible`.
+
+This is the result that matters for ADR 0009. We identified a client-side cause,
+fixed it, and **every pair still diverges**. Capability sets cannot be declared
+even after the known bug is gone.
+
 ## Secondary observations
 
 - **Cold-start cost is large and uneven.** First-probe latency through
@@ -125,13 +157,28 @@ exchange has no business modelling.
 
 ## Follow-ups
 
-1. Verify `supportsStructuredOutputs: true` against llama-server b10098 and
-   propose a patch to `llamaswap.ts` / `lmstudio.ts`. Flag loudly that this
-   invalidates comparability with prior benchmark data.
-2. Re-probe after the fix. If both runtimes then agree, the capability
-   divergence was entirely self-inflicted — which is the best possible outcome
-   and still does not remove the need to probe.
-3. Re-ask Q11 on resource properties: does the agent need to pin context size
-   and quantization to make an Offer sellable?
-4. Throughput sampling (`--concurrency 1,4`) has not been run. That is the
-   Headroom half, and it is what E2 needs.
+1. ~~Verify and patch `supportsStructuredOutputs`.~~ Done (8b8975a), verified by
+   re-probe. Invalidates comparability with prior local structured-output
+   benchmark data.
+2. ~~Re-probe after the fix.~~ Done — see above. The divergence was *not*
+   entirely self-inflicted.
+3. **Reasoning through the Ollama path.** Ollama surfaces no reasoning channel
+   for any model except `gpt-oss:latest`, while the same weights through
+   llama-server produce 197–1402 characters of it. Ollama's API takes a `think`
+   parameter; the provider may simply never set it. Same bug class as the
+   structured-output flag, and not yet investigated.
+4. **`gpt-oss:latest` structured output on Ollama.** Fails with "the model did
+   not return a response" while `gpt-oss-20b` through llama-swap passes. Note
+   that it is also the only Ollama Offer *with* a reasoning channel — a
+   plausible mechanism is that the response is entirely reasoning tokens with no
+   object payload, but that is a guess, not a finding.
+5. **The six unpatched hosted providers.** `deepinfra`, `fireworks`,
+   `github-models`, `lunaroute`, `minimax`, `nvidia`, and `togetherai` all
+   construct `createOpenAICompatible` without the flag. LunaRoute is the most
+   likely to matter — its `/v1/models` advertises `json_schema` support
+   explicitly (see `reports/2026-07-06-lunaroute-provider-integration.md`).
+6. **Throughput sampling** (`--concurrency 1,4`) has still not been run. That is
+   the Headroom half, and what E2 needs.
+7. **`examples/local-providers/README.md` claim 6** can move from *not tested* to
+   resolved: structured output was broken, the cause was ours, and it is fixed
+   for the llama.cpp-family providers.
