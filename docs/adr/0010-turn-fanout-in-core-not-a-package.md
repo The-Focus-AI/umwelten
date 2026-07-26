@@ -1,4 +1,4 @@
-# 0006 — Turn fan-out lives in core reflection, not its own package
+# 0010 — Turn fan-out lives in core reflection, not its own package
 
 Status: **Accepted**
 Date: 2026-07-25

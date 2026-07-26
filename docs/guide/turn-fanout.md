@@ -125,6 +125,6 @@ the standard session format, plus `fanout.jsonl` with one line per turn.
 
 ## Design notes
 
-See [ADR 0006](../adr/0006-turn-fanout-in-core-not-a-package.md) for why this is
+See [ADR 0010](../adr/0010-turn-fanout-in-core-not-a-package.md) for why this is
 a function in `reflection/` rather than a package of its own, and what was
 deleted to get here.
