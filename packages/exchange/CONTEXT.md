@@ -35,7 +35,8 @@ _Avoid_: listing, endpoint, deployment, model entry
 
 **Capability**:
 Something an Offer can do, such as tool calling or a context length. Belongs to
-the Offer rather than the Model, because the same Model differs by where it runs.
+the Offer rather than the Model, because it is a property of the whole serving
+path — client integration, runtime, build, quantization, and weights together.
 _Avoid_: feature, Guarantee, capacity
 
 **Dispatch**:
