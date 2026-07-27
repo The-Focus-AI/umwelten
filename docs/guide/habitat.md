@@ -502,4 +502,4 @@ See the [Habitat Bridge Walkthrough](../walkthroughs/habitat-bridge-walkthrough.
 - [Habitat Testing](./habitat-testing.md) — Automated and manual test procedures
 - [Telegram Bot](./telegram-bot.md) — Standalone Telegram adapter docs
 - [Tool Calling](./tool-calling.md) — How tools work in Umwelten
-- [Session Management](./session-management.md) — Sessions and transcripts
+- [Source Sessions](./source-sessions.md) — Sessions and transcripts

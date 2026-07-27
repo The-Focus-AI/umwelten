@@ -145,9 +145,9 @@ npx umwelten sessions search "authentication"
 npx umwelten sessions browse
 ```
 
-Supports Claude Code (JSONL) and Cursor (SQLite). Your Habitat can append learnings to sessions for continuous improvement.
+Reads Claude Code (JSONL), Cursor (SQLite), pi, Antigravity, and remote habitats via Gaia. Your Habitat can append learnings to sessions for continuous improvement.
 
-→ [Session management guide](./guide/session-management.md) · [Session analysis walkthrough](./walkthroughs/session-analysis-walkthrough.md)
+→ [Source Sessions](./guide/source-sessions.md) · [Explorations](./guide/explorations.md) · [Reflections & Knowledge](./guide/reflections-and-knowledge.md) · [CLI reference](./guide/session-management.md) · [Session analysis walkthrough](./walkthroughs/session-analysis-walkthrough.md)
 
 ## Install
 
