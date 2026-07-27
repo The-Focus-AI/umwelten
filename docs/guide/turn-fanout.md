@@ -111,10 +111,11 @@ One failing probe never takes the others, or the turn, down with it.
 ## Seeing it
 
 `examples/context-explorer/` is an interactive page built on this: ask a
-question, watch the answer stream, watch the probes fill in as cards, and click
-**continue from this** on any baseline to adopt it as the live context. Answer
-model and fan-out model are selected separately, so running the fan-out on a
-cheap or local model against a large answer model is a one-field change.
+question, watch the answer stream as markdown, watch the probes fill in as cards,
+and click **continue from this** on any baseline to adopt it as the live context.
+Answer model and fan-out model are selected separately (defaults:
+`ollama/gemma4:26b`), so running the fan-out on a cheap or local model against a
+large answer model is a one-field change.
 
 ```bash
 dotenvx run -- pnpm tsx examples/context-explorer/server.ts   # http://127.0.0.1:7432
@@ -122,6 +123,10 @@ dotenvx run -- pnpm tsx examples/context-explorer/server.ts   # http://127.0.0.1
 
 State lands in `~/.umwelten/context-explorer/<runId>/` as `transcript.jsonl` in
 the standard session format, plus `fanout.jsonl` with one line per turn.
+
+For the full walkthrough — model lock UX, local vs cloud, reading cards,
+editing probes, and the HTTP surface — see
+[Context Explorer](./context-explorer.md).
 
 ## Design notes
 

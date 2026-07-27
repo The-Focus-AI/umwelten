@@ -72,6 +72,8 @@ export default defineConfig({
             { text: 'Cost Analysis', link: '/guide/cost-analysis' },
             { text: 'Session Management', link: '/guide/session-management' },
             { text: 'Context Management', link: '/guide/context-management' },
+            { text: 'Turn Fan-out', link: '/guide/turn-fanout' },
+            { text: 'Context Explorer', link: '/guide/context-explorer' },
             { text: 'Memory & Tools', link: '/guide/memory-tools' },
             { text: 'Batch Processing', link: '/guide/batch-processing' },
             { text: 'Concurrent Processing', link: '/guide/concurrent-processing' },
