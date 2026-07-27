@@ -168,7 +168,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     json(res, 200, {
       probes: DEFAULT_PROBES,
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
-      answerModel: { provider: "google", name: "gemini-3-flash-preview" },
+      answerModel: { provider: "ollama", name: "gemma4:26b" },
     });
     return;
   }
@@ -183,8 +183,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }>(req);
 
     const answerModel = modelFrom(body.answerModel, {
-      provider: "google",
-      name: "gemini-3-flash-preview",
+      provider: "ollama",
+      name: "gemma4:26b",
     });
     const id = randomUUID();
     const run: Run = {
