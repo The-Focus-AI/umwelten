@@ -170,6 +170,7 @@ You have a working Habitat and you've run your first eval. Go deeper:
 
 - **[Habitat Guide](/guide/habitat)** — tools, sub-agents, sessions, Telegram/Discord bots
 - **[Creating Evaluations](/guide/creating-evaluations)** — LLM judges, multi-model comparison, the full eval API
-- **[Session Management](/guide/session-management)** — understand and search your Claude Code and Cursor history
+- **[Source Sessions](/guide/source-sessions)** — read history from Claude Code, Cursor, pi, Antigravity and remote habitats
+- **[Explorations](/guide/explorations)** — group sessions into lines of inquiry, browse and digest them
 - **[Model Showdown](/walkthroughs/model-showdown)** — 49 models, 5 dimensions, full analysis
 - **[API Reference](/api/overview)** — TypeScript API for custom integrations

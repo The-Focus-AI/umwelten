@@ -408,4 +408,4 @@ Sub-agents are cached in a `Map<string, HabitatAgent>` on the Habitat instance. 
 - [Habitat Setup Walkthrough](../walkthroughs/habitat-setup-walkthrough.md) — Step-by-step guide to setting up a habitat with sub-agents
 - [Jeeves Bot](./jeeves-bot.md) — Example of a Habitat-based agent
 - [Stimulus System](../architecture/stimulus-system.md) — How Stimulus objects work
-- [Session Management](./session-management.md) — How sessions and transcripts are persisted
+- [Source Sessions](./source-sessions.md) — How sessions and transcripts are persisted

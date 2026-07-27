@@ -1,5 +1,9 @@
 # Fact Extraction & Tools
 
+> See **[Reflections & Knowledge](./reflections-and-knowledge.md)** for the full
+> picture: reflecting on past work, and promoting the answers into `FACTS.md` /
+> `AGENTS.md` / ADRs / skills.
+
 Umwelten no longer exposes automatic chat memory as a public chat mode. `Interaction` always uses the base runner.
 
 For knowledge workflows, use the explicit memory helper APIs from `packages/core/src/memory/`:

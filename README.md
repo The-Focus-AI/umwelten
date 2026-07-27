@@ -122,7 +122,7 @@ npx umwelten sessions browse                         # interactive browser
 - [Getting started](https://umwelten.thefocus.ai/guide/getting-started) — build an agent in 10 minutes
 - [Habitat](https://umwelten.thefocus.ai/guide/habitat) — tools, agents, sessions, interfaces
 - [Creating evaluations](https://umwelten.thefocus.ai/guide/creating-evaluations) — EvalSuite, VerifyTask, JudgeTask
-- [Session management](https://umwelten.thefocus.ai/guide/session-management) — Claude Code & Cursor history
+- [Source sessions](https://umwelten.thefocus.ai/guide/source-sessions) — Claude Code, Cursor, pi, Antigravity & remote habitat history
 - [Model Showdown](https://umwelten.thefocus.ai/walkthroughs/model-showdown) — 49 models, 5 dimensions
 - [API reference](https://umwelten.thefocus.ai/api/overview)
 
