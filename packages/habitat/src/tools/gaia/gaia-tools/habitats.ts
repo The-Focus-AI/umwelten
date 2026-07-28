@@ -15,7 +15,40 @@ import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl 
 import { applyHabitatDeclaration } from "../apply-declaration.js";
 import { readDeclarationFromRepo } from "../read-declaration.js";
 import { recordHabitatActivity } from "../reaper.js";
+import { HabitatWaker, createWakeTools } from "../waker.js";
 import { buildSeedFiles } from "./seed-files.js";
+
+/**
+ * The whole start path, in one place (#279).
+ *
+ * It used to live inline in `start_habitat`, which meant wake-on-ask would
+ * have had to duplicate it — and a second copy of "seed, mint boot tokens,
+ * run, record the port" is exactly the kind of thing that drifts until two
+ * ways of starting a habitat produce two different containers.
+ */
+export async function startHabitatContainer(
+	ctx: GaiaToolsContext,
+	id: string,
+): Promise<number> {
+	const { registry, vault, docker, catalog, githubTokens } = ctx;
+	const entry = registry.get(id);
+	if (!entry) throw new Error(`Habitat "${id}" not found`);
+
+	// Seed volume with fresh config + secrets
+	await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
+
+	// Fresh GitHub boot tokens per start (ADR 0004; never throws —
+	// a GitHub outage degrades to a token-less boot, not a failure).
+	const bootTokens = await githubTokens?.bootTokensFor(entry);
+	const port = await docker.startContainer(entry, "", registry.list(), {
+		githubTokens: bootTokens,
+	});
+	await registry.update(id, { containerPort: port });
+	// A start counts as activity, so a habitat is not reaped in the
+	// window between being started and first being asked anything.
+	await recordHabitatActivity(registry, id);
+	return port;
+}
 
 export function createHabitatLifecycleTools(
 	ctx: GaiaToolsContext,
@@ -31,7 +64,14 @@ export function createHabitatLifecycleTools(
 		githubTokens,
 	} = ctx;
 
+	const waker = new HabitatWaker({
+		getEntry: (id) => registry.get(id),
+		getStatus: (id) => docker.getStatus(id),
+		start: (id) => startHabitatContainer(ctx, id),
+	});
+
 	return {
+		...createWakeTools(waker, { listIds: () => registry.list().map((h) => h.id) }),
 		list_habitats: tool({
 			description:
 				"List all registered habitats with their container status. Includes the web UI URL with auth token for running habitats.",
@@ -212,19 +252,12 @@ export function createHabitatLifecycleTools(
 				const entry = registry.get(id);
 				if (!entry) return `Habitat "${id}" not found`;
 
-				// Seed volume with fresh config + secrets
-				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
-
-				// Fresh GitHub boot tokens per start (ADR 0004; never throws —
-				// a GitHub outage degrades to a token-less boot, not a failure).
-				const bootTokens = await githubTokens?.bootTokensFor(entry);
-				const port = await docker.startContainer(entry, "", registry.list(), {
-					githubTokens: bootTokens,
-				});
-				await registry.update(id, { containerPort: port });
-				// A start counts as activity, so a habitat is not reaped in the
-				// window between being started and first being asked anything.
-				await recordHabitatActivity(registry, id);
+				// Through the waker so an explicit start and a wake-on-ask
+				// (#279) cannot race into two containers for one habitat.
+				const outcome = await waker.wake(id);
+				if (outcome.action === "failed") return outcome.detail;
+				const port = outcome.port;
+				if (port === undefined) return outcome.detail;
 
 				const warnings: string[] = [];
 				if (!entry.config.defaultProvider || !entry.config.defaultModel) {
@@ -309,15 +342,25 @@ export function createHabitatLifecycleTools(
 
 		ask_habitat: tool({
 			description:
-				"Send a message to a running habitat via A2A and get the response.",
+				"Send a message to a habitat via A2A and get the response. A dormant habitat is woken first, so this works whether or not it is running — expect the first question after a period of quiet to take longer.",
 			inputSchema: z.object({
 				id: z.string().describe("Habitat ID"),
 				message: z.string().describe("Message to send"),
 			}),
 			execute: async ({ id, message }) => {
+				// Wake on ask (#279). Once habitats sleep by design, "not
+				// running" is the normal state of most of the fleet, so
+				// refusing here would make sleeping look like breakage.
+				const wake = await waker.wake(id);
+				if (wake.action === "not-found" || wake.action === "failed") {
+					return wake.detail;
+				}
+
+				// Re-read: waking rewrote containerPort on the entry.
 				const entry = registry.get(id);
-				if (!entry) return `Habitat "${id}" not found`;
-				if (!entry.containerPort) return `Habitat "${id}" is not running`;
+				if (!entry?.containerPort) {
+					return `Habitat "${id}" started but is not reachable — no port recorded.`;
+				}
 
 				// Asking a habitat is the clearest form of using it (#278).
 				await recordHabitatActivity(registry, id).catch(() => {});
