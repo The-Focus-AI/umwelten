@@ -66,6 +66,21 @@ export type {
 	ProvisionResult,
 } from "./provision/execute.js";
 export { COSTLY_STEP_KINDS } from "./provision/types.js";
+// Where an answer came from (#277). Consumers that aggregate across habitats
+// — the operations rollup, the control plane workstream — read this to decide
+// whether an answer is fit to combine, so it has to be reachable from outside.
+export {
+	readHabitatProvenance,
+	describeProvenance,
+	ProvenanceCache,
+} from "./provision/provenance.js";
+export { realProvenanceProbe } from "./provision/provenance-probe.js";
+export type {
+	HabitatProvenance,
+	RepoProvenance,
+	RepoRole,
+	ProvenanceProbe,
+} from "./provision/provenance.js";
 export type {
 	ProvisionIntent,
 	ProvisionMode,

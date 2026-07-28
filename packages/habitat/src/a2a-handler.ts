@@ -48,6 +48,12 @@ import {
   uiResourceToA2APart,
   UI_OUTPUT_MODE,
 } from "./ui-resources.js";
+import {
+  ProvenanceCache,
+  readHabitatProvenance,
+  type HabitatProvenance,
+} from "./provision/provenance.js";
+import { realProvenanceProbe } from "./provision/provenance-probe.js";
 import { getSpeaker } from "./identity/agent-speaker-context.js";
 import { withInboundAgentCallChain } from "./identity/agent-call-context.js";
 import {
@@ -286,6 +292,14 @@ export class HabitatAgentExecutor implements AgentExecutor {
    */
   private resolvePublicOrigin?: () => string | undefined;
 
+  /**
+   * What this habitat's answers are computed from (#277). Cached because it
+   * goes on every answer and reading it shells out to git once per repo —
+   * for the rollup habitat, the one with the most mounts, that is the
+   * difference between a fact and a cost.
+   */
+  private provenance: ProvenanceCache;
+
   constructor(
     habitat: AgentHost,
     bridge: ChannelBridge,
@@ -294,6 +308,27 @@ export class HabitatAgentExecutor implements AgentExecutor {
     this.habitat = habitat;
     this.bridge = bridge;
     this.resolvePublicOrigin = resolvePublicOrigin;
+    this.provenance = new ProvenanceCache(() =>
+      readHabitatProvenance({
+        workDir: habitat.getWorkDir(),
+        config: habitat.getConfig(),
+        probe: realProvenanceProbe,
+      }),
+    );
+  }
+
+  /**
+   * Never throws: provenance is context on a result, not the result. A
+   * habitat that cannot describe its checkout must still be able to answer —
+   * the caller then sees provenance absent, which is itself informative and
+   * distinct from provenance claiming everything is current.
+   */
+  private async readProvenance(): Promise<HabitatProvenance | undefined> {
+    try {
+      return await this.provenance.get();
+    } catch {
+      return undefined;
+    }
   }
 
   async execute(
@@ -418,6 +453,17 @@ export class HabitatAgentExecutor implements AgentExecutor {
                 }
               : undefined;
 
+            // What this answer was computed from (#277). Structured, on the
+            // same metadata channel as usage, because prose provenance gets
+            // summarised away by the next model in the chain — and a rollup
+            // that cannot tell a current habitat from a three-week-stale one
+            // is confidently wrong in a way nobody notices.
+            const provenance = await this.readProvenance();
+            const answerMetadata =
+              usageMetadata || provenance
+                ? { ...usageMetadata, ...(provenance ? { provenance } : {}) }
+                : undefined;
+
             // Artifacts BEFORE the final message: the A2A transport treats the
             // agent message as the stream's terminal event, so anything
             // published after it never reaches the wire (verified against the
@@ -450,7 +496,7 @@ export class HabitatAgentExecutor implements AgentExecutor {
               parts: responseParts,
               contextId,
               taskId,
-              ...(usageMetadata ? { metadata: usageMetadata } : {}),
+              ...(answerMetadata ? { metadata: answerMetadata } : {}),
             } satisfies A2AMessage);
 
             eventBus.finished();
