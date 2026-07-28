@@ -28,6 +28,7 @@ export default [
 			"packages/*/src/**/*.{ts,tsx}",
 			"examples/supplier-agent/**/*.ts",
 			"examples/exchange-metering/**/*.ts",
+			"examples/exchange-e2e/**/*.ts",
 		],
 		languageOptions: {
 			parser: tsParser,

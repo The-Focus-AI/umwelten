@@ -12,6 +12,7 @@ import http from "node:http";
 import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
 import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js";
+import { createModelsHandler } from "./buyer/models.js";
 import type { ExchangeStore } from "./store/types.js";
 
 export interface ExchangeServerOptions {
@@ -36,6 +37,7 @@ export function createExchangeApp(
 ) {
   const handlers = [
     createSupplyHandler({ store }),
+    createModelsHandler({ store }),
     createBuyerHandler({ store, verifyCaller: opts.verifyCaller, staleAfterMs: opts.staleAfterMs }),
   ];
 

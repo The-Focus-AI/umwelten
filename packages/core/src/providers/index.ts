@@ -18,6 +18,7 @@ import { createLMStudioProvider } from "./lmstudio.js";
 import { createLlamaBarnProvider } from "./llamabarn.js";
 import { createLlamaSwapProvider } from "./llamaswap.js";
 import { createLunaRouteProvider, getLunaRouteModelUrl } from "./lunaroute.js";
+import { createExchangeProvider, getExchangeModelUrl } from "./exchange.js";
 import { installLocalFetchDispatcher } from "./local-fetch.js";
 import { registerProvider, getRegisteredProvider, listRegisteredProviders } from "./registry.js";
 
@@ -90,6 +91,15 @@ registerProvider("lmstudio", {
 
 registerProvider("llamabarn", {
   create: () => { installLocalFetchDispatcher(); return createLlamaBarnProvider(); },
+});
+
+// The Exchange, reached over HTTP. This package imports nothing from
+// @umwelten/exchange — core is the root of the dependency DAG, and importing a
+// package that depends on core would introduce the repo's first cycle.
+registerProvider("exchange", {
+  create: (key) => createExchangeProvider(key),
+  envVar: "EXCHANGE_API_KEY",
+  getModelUrl: getExchangeModelUrl,
 });
 
 registerProvider("llamaswap", {
