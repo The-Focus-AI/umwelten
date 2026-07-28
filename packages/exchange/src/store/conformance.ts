@@ -201,6 +201,72 @@ export function runExchangeStoreConformance(
       });
     });
 
+    describe("clients and applications", () => {
+      it("round-trips an application", async () => {
+        await store.createClient({ id: "acme", name: "Acme" });
+        await store.createApplication({
+          id: "hairstyle",
+          clientId: "acme",
+          jwksUrl: "https://app.example/jwks.json",
+          requiredGuarantees: ["on-premise"],
+          allowedModels: ["gemma-4-26b"],
+          enabled: true,
+          createdAt: new Date("2026-07-28T00:00:00Z"),
+        });
+
+        const found = await store.getApplication("hairstyle");
+        expect(found?.clientId).toBe("acme");
+        expect(found?.jwksUrl).toBe("https://app.example/jwks.json");
+        expect(found?.requiredGuarantees).toEqual(["on-premise"]);
+        expect(found?.allowedModels).toEqual(["gemma-4-26b"]);
+      });
+
+      it("distinguishes an unset allowedModels from an empty one", async () => {
+        // Unset means "any Model"; empty means "none". Collapsing them would
+        // either open an Application up or lock it out.
+        await store.createClient({ id: "acme", name: "Acme" });
+        await store.createApplication({
+          id: "open",
+          clientId: "acme",
+          jwksUrl: "https://x/jwks",
+          requiredGuarantees: [],
+          enabled: true,
+          createdAt: new Date(),
+        });
+        await store.createApplication({
+          id: "closed",
+          clientId: "acme",
+          jwksUrl: "https://x/jwks",
+          requiredGuarantees: [],
+          allowedModels: [],
+          enabled: true,
+          createdAt: new Date(),
+        });
+
+        expect((await store.getApplication("open"))?.allowedModels).toBeUndefined();
+        expect((await store.getApplication("closed"))?.allowedModels).toEqual([]);
+      });
+
+      it("returns null for an unknown application", async () => {
+        expect(await store.getApplication("nobody")).toBeNull();
+      });
+
+      it("disables an application without losing it", async () => {
+        await store.createClient({ id: "acme", name: "Acme" });
+        await store.createApplication({
+          id: "app",
+          clientId: "acme",
+          jwksUrl: "https://x/jwks",
+          requiredGuarantees: [],
+          enabled: true,
+          createdAt: new Date(),
+        });
+        await store.setApplicationEnabled("app", false);
+
+        expect((await store.getApplication("app"))?.enabled).toBe(false);
+      });
+    });
+
     describe("listing what dispatch can select from", () => {
       it("omits offers from a disabled supplier", async () => {
         await store.createSupplier(supplierFixture());

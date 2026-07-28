@@ -13,7 +13,9 @@
 import { neon } from "@neondatabase/serverless";
 import { DEFAULT_PRICING } from "../types.js";
 import type {
+  Application,
   CapabilityName,
+  Client,
   HeadroomSample,
   Offer,
   OfferPricing,
@@ -81,6 +83,72 @@ export class NeonStore implements ExchangeStore {
         PRIMARY KEY (supplier_id, model)
       )
     `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_client (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL
+      )
+    `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_application (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL REFERENCES exchange_client(id) ON DELETE CASCADE,
+        jwks_url TEXT NOT NULL,
+        required_guarantees JSONB NOT NULL DEFAULT '[]'::jsonb,
+        allowed_models JSONB,
+        enabled BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+  }
+
+  // ── Demand ────────────────────────────────────────────────────────
+
+  async createClient(client: Client): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_client (id, name) VALUES (${client.id}, ${client.name})
+      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+    `;
+  }
+
+  async getClient(id: string): Promise<Client | null> {
+    const rows = (await this.sql`SELECT * FROM exchange_client WHERE id = ${id}`) as Row[];
+    return rows[0] ? { id: String(rows[0].id), name: String(rows[0].name) } : null;
+  }
+
+  async createApplication(application: Application): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_application
+        (id, client_id, jwks_url, required_guarantees, allowed_models, enabled, created_at)
+      VALUES (
+        ${application.id}, ${application.clientId}, ${application.jwksUrl},
+        ${JSON.stringify(application.requiredGuarantees)}::jsonb,
+        ${application.allowedModels ? JSON.stringify(application.allowedModels) : null}::jsonb,
+        ${application.enabled}, ${application.createdAt.toISOString()}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        jwks_url = EXCLUDED.jwks_url,
+        required_guarantees = EXCLUDED.required_guarantees,
+        allowed_models = EXCLUDED.allowed_models,
+        enabled = EXCLUDED.enabled
+    `;
+  }
+
+  async getApplication(id: string): Promise<Application | null> {
+    const rows = (await this.sql`SELECT * FROM exchange_application WHERE id = ${id}`) as Row[];
+    return rows[0] ? toApplication(rows[0]) : null;
+  }
+
+  async listApplications(): Promise<Application[]> {
+    const rows = (await this.sql`SELECT * FROM exchange_application ORDER BY id`) as Row[];
+    return rows.map(toApplication);
+  }
+
+  async setApplicationEnabled(id: string, enabled: boolean): Promise<void> {
+    await this.sql`UPDATE exchange_application SET enabled = ${enabled} WHERE id = ${id}`;
   }
 
   // ── Suppliers ─────────────────────────────────────────────────────
@@ -223,6 +291,18 @@ export class NeonStore implements ExchangeStore {
 }
 
 // ── Row mapping ─────────────────────────────────────────────────────
+
+function toApplication(row: Row): Application {
+  return {
+    id: String(row.id),
+    clientId: String(row.client_id),
+    jwksUrl: String(row.jwks_url),
+    requiredGuarantees: (row.required_guarantees as string[]) ?? [],
+    allowedModels: (row.allowed_models as string[] | null) ?? undefined,
+    enabled: Boolean(row.enabled),
+    createdAt: new Date(row.created_at as string),
+  };
+}
 
 function toSupplier(row: Row): Supplier {
   return {

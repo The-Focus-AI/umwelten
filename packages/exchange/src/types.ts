@@ -127,6 +127,36 @@ export interface PublishedOffer {
   contextTokens?: number;
 }
 
+/** An organization invoiced for the usage of the Applications it owns. */
+export interface Client {
+  id: string;
+  name: string;
+}
+
+/**
+ * A product built on the Exchange.
+ *
+ * Holds a signing key (published as a JWKS the Exchange fetches), the
+ * Guarantees every one of its requests requires, and the Models it may reach.
+ * It does not hold a Balance field — Balances are their own records, keyed on
+ * the Application or on an (Application, subject) pair (#298).
+ */
+export interface Application {
+  id: string;
+  clientId: string;
+  /** Where the Exchange fetches this Application's public keys. */
+  jwksUrl: string;
+  /**
+   * Applied to every request from this Application, whether or not the request
+   * asks. An Application that must stay on-premise cannot opt out per-request.
+   */
+  requiredGuarantees: string[];
+  /** When set, a request for a Model outside this list is refused. */
+  allowedModels?: string[];
+  enabled: boolean;
+  createdAt: Date;
+}
+
 /** Prices for one (Supplier, Model) pair, set by the operator. */
 export interface OfferPricing {
   wholesalePromptPerMillion: MicroDollars;

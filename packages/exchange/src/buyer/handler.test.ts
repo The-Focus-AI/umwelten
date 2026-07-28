@@ -13,6 +13,9 @@ import { supplierFixture } from "../store/conformance.js";
 import { startMockUpstream, type MockUpstream, type UpstreamMode } from "../testing/mock-upstream.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
 import { REQUIRE_CAPABILITY_HEADER, REQUIRE_GUARANTEE_HEADER } from "./handler.js";
+import { createIdentityVerifier } from "../auth/identity.js";
+import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
+import type { Application } from "../types.js";
 
 const MODEL = "gemma-4-26b";
 
@@ -20,8 +23,9 @@ describe("buyer surface", () => {
   let store: MemoryStore;
   let upstream: MockUpstream;
   let exchange: RunningExchange;
+  let app: TestApplicationKeys;
 
-  async function boot(mode: UpstreamMode = "ok") {
+  async function boot(mode: UpstreamMode = "ok", appOverrides: Partial<Application> = {}) {
     upstream = await startMockUpstream(mode);
     store = new MemoryStore();
     await store.createSupplier(
@@ -30,13 +34,22 @@ describe("buyer surface", () => {
     await store.replaceOffers("office-spark", [
       { model: MODEL, capabilities: ["chat", "streaming"], servingMode: "managed" },
     ]);
-    exchange = await createExchangeServer({ store, port: 0, host: "127.0.0.1" });
+    app = await makeTestApplication(appOverrides);
+    await store.createClient({ id: "acme", name: "Acme" });
+    await store.createApplication(app.application);
+    exchange = await createExchangeServer({
+      store,
+      port: 0,
+      host: "127.0.0.1",
+      verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
+    });
   }
 
-  async function chat(body: unknown, init: RequestInit = {}) {
+  async function chat(body: unknown, init: RequestInit = {}, subject = "user-1") {
+    const token = await app.sign(subject);
     return fetch(`${exchange.url}/v1/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
       ...init,
     });
@@ -172,7 +185,10 @@ describe("buyer surface", () => {
       await boot();
       const res = await fetch(`${exchange.url}/v1/chat/completions`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${await app.sign("user-1")}`,
+        },
         body: "{ not json",
       });
       expect(res.status).toBe(400);
@@ -183,6 +199,77 @@ describe("buyer surface", () => {
       await boot();
       const res = await fetch(`${exchange.url}/v1/chat/completions`);
       expect(res.status).toBe(405);
+    });
+  });
+
+  describe("authentication", () => {
+    it("refuses a request with no token", async () => {
+      await boot();
+      const res = await fetch(`${exchange.url}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: MODEL, messages: [] }),
+      });
+
+      expect(res.status).toBe(401);
+      // Nothing reaches a Supplier for a caller we cannot name.
+      expect(upstream.requests).toHaveLength(0);
+    });
+
+    it("refuses an expired token", async () => {
+      await boot();
+      const token = await app.sign("user-1", { expiresIn: "-1s" });
+      const res = await fetch(`${exchange.url}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ model: MODEL, messages: [] }),
+      });
+
+      expect(res.status).toBe(401);
+    });
+
+    it("gives one opaque body for every auth failure", async () => {
+      // A caller that can tell "unknown application" from "bad signature" has
+      // an oracle for which Applications exist.
+      await boot();
+      const res = await fetch(`${exchange.url}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: MODEL, messages: [] }),
+      });
+      expect(await res.json()).toEqual({ error: "unauthorized" });
+    });
+  });
+
+  describe("Application-level requirements", () => {
+    it("applies required Guarantees the request never asked for", async () => {
+      // The Supplier in boot() carries on-premise, so this passes; the next
+      // test is the one that proves the requirement is doing work.
+      await boot("ok", { requiredGuarantees: ["on-premise"] });
+      const res = await chat({ model: MODEL, messages: [] });
+      expect(res.status).toBe(200);
+    });
+
+    it("cannot be opted out of by omitting the header", async () => {
+      // An Application pinned to a Guarantee no Supplier carries must fail,
+      // not silently serve. Otherwise the pin is decoration.
+      await boot("ok", { requiredGuarantees: ["fips-140"] });
+      const res = await chat({ model: MODEL, messages: [] });
+
+      expect(res.status).toBe(503);
+      expect((await res.json()).error).toBe("no_eligible_offer");
+      expect(upstream.requests).toHaveLength(0);
+    });
+
+    it("refuses a Model outside the Application's allowed list", async () => {
+      await boot("ok", { allowedModels: ["some-other-model"] });
+      const res = await chat({ model: MODEL, messages: [] });
+
+      expect(res.status).toBe(503);
+      const json = await res.json();
+      expect(json.considered.some((c: { reason: string }) => c.reason === "model-not-allowed")).toBe(
+        true,
+      );
     });
   });
 
@@ -206,6 +293,7 @@ describe("dispatch through the buyer surface", () => {
   let store: MemoryStore;
   let upstream: MockUpstream;
   let exchange: RunningExchange;
+  let app: TestApplicationKeys;
 
   beforeEach(async () => {
     upstream = await startMockUpstream("ok");
@@ -241,7 +329,15 @@ describe("dispatch through the buyer surface", () => {
       retailPromptPerMillion: 9000,
       retailCompletionPerMillion: 9000,
     });
-    exchange = await createExchangeServer({ store, port: 0, host: "127.0.0.1" });
+    app = await makeTestApplication();
+    await store.createClient({ id: "acme", name: "Acme" });
+    await store.createApplication(app.application);
+    exchange = await createExchangeServer({
+      store,
+      port: 0,
+      host: "127.0.0.1",
+      verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
+    });
   });
 
   afterEach(async () => {
@@ -252,7 +348,11 @@ describe("dispatch through the buyer surface", () => {
   async function ask(headers: Record<string, string> = {}) {
     return fetch(`${exchange.url}/v1/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", ...headers },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${await app.sign("user-1")}`,
+        ...headers,
+      },
       body: JSON.stringify({ model: MODEL, messages: [] }),
     });
   }

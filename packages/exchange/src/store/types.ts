@@ -7,7 +7,14 @@
  * rather than a convenient lie — the same pattern `mcp-serve` already uses.
  */
 
-import type { Offer, OfferPricing, PublishedOffer, Supplier } from "../types.js";
+import type {
+  Application,
+  Client,
+  Offer,
+  OfferPricing,
+  PublishedOffer,
+  Supplier,
+} from "../types.js";
 
 export interface ExchangeStore {
   /** Idempotent schema creation. A no-op for stores that need none. */
@@ -46,4 +53,14 @@ export interface ExchangeStore {
   getOffer(supplierId: string, model: string): Promise<Offer | null>;
   setOfferEnabled(supplierId: string, model: string, enabled: boolean): Promise<void>;
   setOfferPricing(supplierId: string, model: string, pricing: OfferPricing): Promise<void>;
+
+  // ── Demand ────────────────────────────────────────────────────────
+
+  createClient(client: Client): Promise<void>;
+  getClient(id: string): Promise<Client | null>;
+
+  createApplication(application: Application): Promise<void>;
+  getApplication(id: string): Promise<Application | null>;
+  listApplications(): Promise<Application[]>;
+  setApplicationEnabled(id: string, enabled: boolean): Promise<void>;
 }

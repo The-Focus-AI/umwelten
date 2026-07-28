@@ -10,6 +10,7 @@ export type {
 } from "./types.js";
 export { CAPABILITY_NAMES, DEFAULT_PRICING } from "./types.js";
 
+export type { Application, Client } from "./types.js";
 export type { ExchangeStore } from "./store/types.js";
 export { MemoryStore } from "./store/memory-store.js";
 export { NeonStore } from "./store/neon-store.js";
@@ -33,6 +34,9 @@ export type {
   DispatchResult,
   RejectionReason,
 } from "./dispatch.js";
+
+export { AuthError, balanceKey, createIdentityVerifier } from "./auth/identity.js";
+export type { AuthFailure, Caller } from "./auth/identity.js";
 
 export { GuaranteeNotGrantedError, Operator } from "./operator.js";
 export type { RegisteredSupplier, RegisterSupplierInput } from "./operator.js";
