@@ -1,0 +1,129 @@
+/**
+ * Exchange domain types.
+ *
+ * Vocabulary follows `CONTEXT.md` in this package. Two rules from the ADRs are
+ * encoded structurally here rather than left to convention:
+ *
+ *   - **Capabilities belong to the Offer, not the Model** (ADR 0009). The same
+ *     Model served two ways is two Offers with two capability sets, because
+ *     the whole serving path — client, runtime, build, quantization — decides
+ *     what it can do.
+ *   - **Money is integer micro-dollars** (ADR 0007). No amount is ever held in
+ *     a float, and Cost and Charge are independent fields rather than one
+ *     derived from the other.
+ */
+
+/** One millionth of a dollar. The only denomination in this package. */
+export type MicroDollars = number;
+
+/**
+ * Something an Offer can do. Established by probing the serving path, never
+ * declared — see ADR 0009 and the supplier agent's probe battery.
+ */
+export type CapabilityName =
+  | "chat"
+  | "streaming"
+  | "tool-calling"
+  | "structured-output"
+  | "reasoning";
+
+export const CAPABILITY_NAMES: readonly CapabilityName[] = [
+  "chat",
+  "streaming",
+  "tool-calling",
+  "structured-output",
+  "reasoning",
+];
+
+/**
+ * Whether the Supplier controls the runtime behind an Offer, or is reselling
+ * one it does not control. Only managed Offers can commit to resource
+ * properties like context size and quantization (ADR 0010).
+ */
+export type ServingMode = "managed" | "adapted";
+
+/** One throughput measurement. Always measured, never declared. */
+export interface HeadroomSample {
+  concurrency: number;
+  ttftMs: number;
+  tokensPerSecond: number;
+  decodeTokensPerSecond: number;
+}
+
+/**
+ * A party that produces model tokens — hardware the operator owns, a partner's
+ * on-premise machine, or a commercial vendor. Google and a DGX are the same
+ * kind of thing here (ADR 0006).
+ */
+export interface Supplier {
+  id: string;
+  displayName: string;
+  /**
+   * Guarantees this Supplier may publish under. Granted by the operator, who
+   * is the party liable for them — never self-declared (ADR 0006). Enforcing
+   * the grant on publish is #299.
+   */
+  grantedGuarantees: string[];
+  /** sha256 of the bearer credential. The credential itself is never stored. */
+  credentialHash: string;
+  enabled: boolean;
+  createdAt: Date;
+}
+
+/** A commitment by one Supplier to serve one Model. */
+export interface Offer {
+  supplierId: string;
+  model: string;
+  capabilities: CapabilityName[];
+  servingMode: ServingMode;
+  headroom: HeadroomSample[];
+  /** Context length this Offer actually accepts, when the Supplier probed it. */
+  contextTokens?: number;
+  /**
+   * What the Supplier is owed per million tokens. Zero for hardware the
+   * operator owns. Set by the operator, never by the Supplier.
+   */
+  wholesalePromptPerMillion: MicroDollars;
+  wholesaleCompletionPerMillion: MicroDollars;
+  /**
+   * What the Exchange charges per million tokens. Deliberately independent of
+   * wholesale (ADR 0007) — this is the routing lever.
+   */
+  retailPromptPerMillion: MicroDollars;
+  retailCompletionPerMillion: MicroDollars;
+  enabled: boolean;
+  publishedAt: Date;
+}
+
+/**
+ * What a Supplier sends when it publishes. Note what is absent: prices, and
+ * the enabled flag. A Supplier that could price itself would take away the
+ * Exchange's routing lever (ADR 0007).
+ */
+export interface PublishedOffer {
+  model: string;
+  capabilities: CapabilityName[];
+  servingMode: ServingMode;
+  headroom?: HeadroomSample[];
+  contextTokens?: number;
+}
+
+/** Prices for one (Supplier, Model) pair, set by the operator. */
+export interface OfferPricing {
+  wholesalePromptPerMillion: MicroDollars;
+  wholesaleCompletionPerMillion: MicroDollars;
+  retailPromptPerMillion: MicroDollars;
+  retailCompletionPerMillion: MicroDollars;
+}
+
+/**
+ * Applied to any Offer with no operator-set price. Zero wholesale is correct
+ * for owned hardware; a non-zero retail is what rations it — a free-to-serve
+ * Offer priced at zero would be defenceless (ADR 0007).
+ */
+export const DEFAULT_PRICING: OfferPricing = {
+  wholesalePromptPerMillion: 0,
+  wholesaleCompletionPerMillion: 0,
+  retailPromptPerMillion: 100_000,
+  retailCompletionPerMillion: 400_000,
+};
