@@ -41,6 +41,9 @@ export type { BalanceOwner } from "./metering/balances.js";
 export type { Balance, BalanceOwnerKind, LedgerEntry } from "./types.js";
 export type { RequestRecord } from "./types.js";
 
+export { createModelsHandler, summarizeOffers, MODELS_PATH } from "./buyer/models.js";
+export type { ModelEntry } from "./buyer/models.js";
+
 export { dispatch, rankingPrice } from "./dispatch.js";
 export type {
   Considered,
