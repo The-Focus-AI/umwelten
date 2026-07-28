@@ -12,6 +12,8 @@ import { sendA2AMessage } from "@umwelten/protocols";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
 import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
+import { applyHabitatDeclaration } from "../apply-declaration.js";
+import { readDeclarationFromRepo } from "../read-declaration.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 export function createHabitatLifecycleTools(
@@ -407,6 +409,58 @@ export function createHabitatLifecycleTools(
 						? " Rebuild the habitat for changes to take effect."
 						: "";
 				return `Updated habitat "${id}": ${changes.join(", ")}.${hint}`;
+			},
+		}),
+
+		apply_habitat_declaration: tool({
+			description:
+				"Stand a habitat up from the habitat.json in its own repo (ADR 0006), creating it if it does not exist and updating it if it does. This is the sanctioned way to provision a repo-backed habitat — it reads the declaration and derives the GitHub read scope from the mounts it declares, so mounts and scopes cannot drift. Rebuild the habitat afterwards for the changes to reach a running container.",
+			inputSchema: z.object({
+				id: z.string().describe("Habitat id to create or update"),
+				gitUrl: z
+					.string()
+					.describe("The habitat's Owned repo — where habitat.json lives"),
+				gitBranch: z
+					.string()
+					.optional()
+					.describe("Branch to read the declaration from (default: the repo's default branch)"),
+			}),
+			execute: async ({ id, gitUrl, gitBranch }) => {
+				try {
+					// Ambient read: the narrowed scope is not knowable until the
+					// declaration has been read (ADR 0006's bootstrap circularity).
+					const ambient = await githubTokens?.tokenFor(
+						{ id, github: { read: "org" } },
+						"read",
+					);
+
+					const result = await applyHabitatDeclaration(registry, {
+						id,
+						gitUrl,
+						...(gitBranch ? { gitBranch } : {}),
+						readDeclaration: (url, ref) =>
+							readDeclarationFromRepo(url, ref, { token: ambient?.token }),
+					});
+
+					const read = result.entry.github?.read;
+					const scope = read === "org" ? "org-wide" : (read ?? []).join(", ");
+					const mounts = result.entry.config.agents
+						.filter((a) => (a.kind ?? "repo") === "repo" && a.mode === "read")
+						.map((a) => a.id);
+
+					return [
+						`${result.action === "created" ? "Created" : "Updated"} habitat "${id}" from ${gitUrl}.`,
+						`Mounts: ${mounts.length ? mounts.join(", ") : "(none)"}`,
+						`Derived read scope: ${scope || "(none)"}`,
+						result.entry.github?.write?.length
+							? `Write scope (declared, never derived): ${result.entry.github.write.join(", ")}`
+							: "Write scope: (none declared)",
+						`Rebuild "${id}" for this to reach a running container.`,
+					].join("\n");
+				} catch (err) {
+					// Nothing was registered — apply validates before it writes.
+					return `Could not apply the declaration for "${id}": ${err instanceof Error ? err.message : String(err)}`;
+				}
 			},
 		}),
 
