@@ -88,6 +88,12 @@ export interface Offer {
   supplierId: string;
   model: string;
   capabilities: CapabilityName[];
+  /**
+   * Inherited from the Supplier, never published by it. Guarantees are granted
+   * by the operator because the operator is liable for them (ADR 0006); an
+   * Offer carries a copy so Dispatch can filter without a second lookup.
+   */
+  guarantees: string[];
   servingMode: ServingMode;
   headroom: HeadroomSample[];
   /** Context length this Offer actually accepts, when the Supplier probed it. */

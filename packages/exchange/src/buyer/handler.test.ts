@@ -12,8 +12,7 @@ import { MemoryStore } from "../store/memory-store.js";
 import { supplierFixture } from "../store/conformance.js";
 import { startMockUpstream, type MockUpstream, type UpstreamMode } from "../testing/mock-upstream.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
-import { selectOffer } from "./handler.js";
-import type { Offer } from "../types.js";
+import { REQUIRE_CAPABILITY_HEADER, REQUIRE_GUARANTEE_HEADER } from "./handler.js";
 
 const MODEL = "gemma-4-26b";
 
@@ -203,33 +202,95 @@ describe("buyer surface", () => {
   });
 });
 
-describe("selectOffer", () => {
-  // Kept as a pure function so #296 can replace the body — guarantee filter,
-  // capability filter, ranking by Charge — without touching the handler.
-  const offer = (overrides: Partial<Offer>): Offer => ({
-    supplierId: "s",
-    model: MODEL,
-    capabilities: ["chat"],
-    servingMode: "managed",
-    headroom: [],
-    wholesalePromptPerMillion: 0,
-    wholesaleCompletionPerMillion: 0,
-    retailPromptPerMillion: 1,
-    retailCompletionPerMillion: 1,
-    enabled: true,
-    publishedAt: new Date(),
-    ...overrides,
+describe("dispatch through the buyer surface", () => {
+  let store: MemoryStore;
+  let upstream: MockUpstream;
+  let exchange: RunningExchange;
+
+  beforeEach(async () => {
+    upstream = await startMockUpstream("ok");
+    store = new MemoryStore();
+    // Two Suppliers for the same Model: a cheap one with no Guarantees and a
+    // dearer one that is on-premise.
+    await store.createSupplier(
+      supplierFixture({ id: "vendor", grantedGuarantees: [], baseUrl: upstream.baseUrl }),
+    );
+    await store.createSupplier(
+      supplierFixture({
+        id: "office",
+        credentialHash: "hash-office2",
+        grantedGuarantees: ["on-premise"],
+        baseUrl: upstream.baseUrl,
+      }),
+    );
+    await store.replaceOffers("vendor", [
+      { model: MODEL, capabilities: ["chat"], servingMode: "adapted" },
+    ]);
+    await store.replaceOffers("office", [
+      { model: MODEL, capabilities: ["chat", "tool-calling"], servingMode: "managed" },
+    ]);
+    await store.setOfferPricing("vendor", MODEL, {
+      wholesalePromptPerMillion: 0,
+      wholesaleCompletionPerMillion: 0,
+      retailPromptPerMillion: 1,
+      retailCompletionPerMillion: 1,
+    });
+    await store.setOfferPricing("office", MODEL, {
+      wholesalePromptPerMillion: 0,
+      wholesaleCompletionPerMillion: 0,
+      retailPromptPerMillion: 9000,
+      retailCompletionPerMillion: 9000,
+    });
+    exchange = await createExchangeServer({ store, port: 0, host: "127.0.0.1" });
   });
 
-  it("finds an enabled offer for the model", () => {
-    expect(selectOffer([offer({})], MODEL)?.model).toBe(MODEL);
+  afterEach(async () => {
+    await exchange?.close();
+    await upstream?.close();
   });
 
-  it("ignores other models", () => {
-    expect(selectOffer([offer({ model: "other" })], MODEL)).toBeUndefined();
+  async function ask(headers: Record<string, string> = {}) {
+    return fetch(`${exchange.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ model: MODEL, messages: [] }),
+    });
+  }
+
+  it("takes the cheapest Offer when nothing is required", async () => {
+    await ask();
+    expect(upstream.requests).toHaveLength(1);
   });
 
-  it("ignores a disabled offer", () => {
-    expect(selectOffer([offer({ enabled: false })], MODEL)).toBeUndefined();
+  it("routes to the guaranteed Offer even though it is far dearer", async () => {
+    const res = await ask({ [REQUIRE_GUARANTEE_HEADER]: "on-premise" });
+    expect(res.status).toBe(200);
+  });
+
+  it("fails rather than falling back when nothing carries the Guarantee", async () => {
+    const res = await ask({ [REQUIRE_GUARANTEE_HEADER]: "fips-140" });
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.error).toBe("no_eligible_offer");
+    // The failure explains itself — "everything was rejected for
+    // missing-guarantee" is a different problem from "nobody serves this".
+    expect(json.considered.every((c: { reason: string }) => c.reason === "missing-guarantee")).toBe(
+      true,
+    );
+    expect(upstream.requests).toHaveLength(0);
+  });
+
+  it("excludes an Offer lacking a required Capability", async () => {
+    const res = await ask({ [REQUIRE_CAPABILITY_HEADER]: "tool-calling" });
+    expect(res.status).toBe(200);
+    // Only the office Offer probed tool-calling true.
+    const json = await res.json();
+    expect(json.object).toBe("chat.completion");
+  });
+
+  it("fails when no Offer has the required Capability", async () => {
+    const res = await ask({ [REQUIRE_CAPABILITY_HEADER]: "reasoning" });
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe("no_eligible_offer");
   });
 });

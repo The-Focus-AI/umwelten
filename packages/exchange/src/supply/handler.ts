@@ -14,6 +14,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CAPABILITY_NAMES } from "../types.js";
+import { GuaranteeNotGrantedError, Operator } from "../operator.js";
 import type { CapabilityName, PublishedOffer, ServingMode } from "../types.js";
 import type { ExchangeStore } from "../store/types.js";
 
@@ -43,6 +44,12 @@ export interface SupplyHandlerOptions {
 
 export interface PublishRequest {
   offers: unknown;
+  /**
+   * Guarantees the Supplier believes it is offered under. Echoed for
+   * confirmation, never authoritative — the operator's grant decides, and a
+   * claim beyond it is rejected (ADR 0006).
+   */
+  guarantees?: unknown;
 }
 
 class PublishError extends Error {
@@ -185,9 +192,35 @@ export function createSupplyHandler(opts: SupplyHandlerOptions) {
 
     try {
       const body = await readBody(req);
-      const offers = parsePublishedOffers(JSON.parse(body || "{}"));
+      const parsed = JSON.parse(body || "{}") as PublishRequest;
+
+      // Rejected outright, not silently downgraded. A compromised agent must
+      // not be able to promote itself into eligibility for on-premise traffic,
+      // and a misconfigured one should hear about it rather than quietly serve
+      // without the guarantee it thinks it has.
+      const claimed = Array.isArray(parsed.guarantees) ? (parsed.guarantees as string[]) : [];
+      try {
+        Operator.assertGuaranteesGranted(supplier, claimed);
+      } catch (error) {
+        if (error instanceof GuaranteeNotGrantedError) {
+          send(res, 403, {
+            error: "guarantee_not_granted",
+            guarantee: error.guarantee,
+            message: error.message,
+            granted: supplier.grantedGuarantees,
+          });
+          return true;
+        }
+        throw error;
+      }
+
+      const offers = parsePublishedOffers(parsed);
       await store.replaceOffers(supplier.id, offers);
-      send(res, 200, { supplierId: supplier.id, offers: offers.length });
+      send(res, 200, {
+        supplierId: supplier.id,
+        offers: offers.length,
+        guarantees: supplier.grantedGuarantees,
+      });
     } catch (error) {
       if (error instanceof PublishError) {
         send(res, error.status, { error: error.code, message: error.message });
