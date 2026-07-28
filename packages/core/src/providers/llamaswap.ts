@@ -93,6 +93,13 @@ export class LlamaSwapProvider extends BaseProvider {
       name: "llamaswap",
       baseURL: baseUrl,
       includeUsage: true,
+      // llama-server implements `response_format: { type: 'json_schema' }`
+      // (and GBNF grammars underneath it). Without this flag the AI SDK never
+      // sends the schema, warns "responseFormat is not supported", and falls
+      // back to asking for JSON in the prompt — so generateObject returns
+      // well-formed JSON in a shape the model invented, which then fails
+      // validation. See reports/2026-07-26-supplier-probe-capability-divergence.md.
+      supportsStructuredOutputs: true,
       ...(this.extraBody ? { fetch: fetchWithExtraBody(this.extraBody) } : {}),
     });
     return llamaswap(route.name);

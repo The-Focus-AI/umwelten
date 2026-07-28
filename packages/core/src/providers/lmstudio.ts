@@ -54,6 +54,9 @@ export class LMStudioProvider extends BaseProvider {
       name: "lmstudio",
       baseURL: baseUrl,
       includeUsage: true,
+      // LM Studio's server supports json_schema response formats. See the note
+      // in llamaswap.ts for what omitting this costs.
+      supportsStructuredOutputs: true,
     });
     return lmstudio(route.name);
   }

@@ -1,0 +1,26 @@
+{
+  // Typecheck gate for examples.
+  //
+  // `pnpm typecheck` only globbed packages/*/tsconfig.json, so nothing under
+  // examples/ was ever checked by CI — the prototypes here typechecked only
+  // because someone ran tsc against them by hand.
+  //
+  // `include` is an explicit opt-in list rather than "**/*.ts" on purpose: the
+  // older examples carry 36 pre-existing errors across roughly a dozen files,
+  // and switching them all on at once would break CI for everyone. Add a
+  // directory here once it is clean. Fixing the rest is separate work.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // examples/ is not a workspace package, so @types/node does not resolve
+    // from here by the usual walk-up.
+    "typeRoots": ["../node_modules/@types", "../packages/core/node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": ["supplier-agent/**/*.ts", "exchange-metering/**/*.ts"]
+}

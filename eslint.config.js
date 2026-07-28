@@ -12,6 +12,10 @@ export default [
 			"**/.vitepress/dist/**",
 			"docs/.vitepress/dist/**",
 			"packages/*/dist/**",
+			// examples/ is ignored wholesale here because ESLint prunes ignored
+			// directories, so negations inside one have no effect. The two
+			// prototype dirs are linted by a second, explicitly-scoped
+			// invocation in the root `lint` script — see package.json.
 			"examples/**",
 			"scripts/**",
 			"output/**",
@@ -20,7 +24,11 @@ export default [
 	},
 	js.configs.recommended,
 	{
-		files: ["packages/*/src/**/*.{ts,tsx}"],
+		files: [
+			"packages/*/src/**/*.{ts,tsx}",
+			"examples/supplier-agent/**/*.ts",
+			"examples/exchange-metering/**/*.ts",
+		],
 		languageOptions: {
 			parser: tsParser,
 			ecmaVersion: 2024,
