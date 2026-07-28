@@ -20,6 +20,7 @@ import type {
   Offer,
   OfferPricing,
   PublishedOffer,
+  RequestRecord,
   ServingMode,
   Supplier,
 } from "../types.js";
@@ -102,6 +103,63 @@ export class NeonStore implements ExchangeStore {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `;
+
+    // Append-only. A usage record is never rewritten — a disputed charge has
+    // to be traceable to the request that caused it.
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_request (
+        id TEXT PRIMARY KEY,
+        application_id TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        supplier_id TEXT NOT NULL,
+        model TEXT NOT NULL,
+        prompt_tokens INTEGER NOT NULL,
+        completion_tokens INTEGER NOT NULL,
+        cost BIGINT NOT NULL,
+        charge BIGINT NOT NULL,
+        aborted BOOLEAN NOT NULL DEFAULT false,
+        upstream_prompt_tokens INTEGER,
+        upstream_completion_tokens INTEGER,
+        started_at TIMESTAMPTZ NOT NULL,
+        finished_at TIMESTAMPTZ NOT NULL
+      )
+    `;
+
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_request_application_subject_idx
+        ON exchange_request (application_id, subject)
+    `;
+  }
+
+  // ── Usage ─────────────────────────────────────────────────────────
+
+  async recordRequest(record: RequestRecord): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_request
+        (id, application_id, subject, supplier_id, model, prompt_tokens,
+         completion_tokens, cost, charge, aborted, upstream_prompt_tokens,
+         upstream_completion_tokens, started_at, finished_at)
+      VALUES (
+        ${record.id}, ${record.applicationId}, ${record.subject}, ${record.supplierId},
+        ${record.model}, ${record.promptTokens}, ${record.completionTokens},
+        ${record.cost}, ${record.charge}, ${record.aborted},
+        ${record.upstreamPromptTokens ?? null}, ${record.upstreamCompletionTokens ?? null},
+        ${record.startedAt.toISOString()}, ${record.finishedAt.toISOString()}
+      )
+    `;
+  }
+
+  async listRequests(
+    filter: { applicationId?: string; subject?: string } = {},
+  ): Promise<RequestRecord[]> {
+    const rows = (await this.sql`
+      SELECT * FROM exchange_request
+      WHERE (${filter.applicationId ?? null}::text IS NULL
+             OR application_id = ${filter.applicationId ?? null})
+        AND (${filter.subject ?? null}::text IS NULL OR subject = ${filter.subject ?? null})
+      ORDER BY started_at
+    `) as Row[];
+    return rows.map(toRequestRecord);
   }
 
   // ── Demand ────────────────────────────────────────────────────────
@@ -291,6 +349,27 @@ export class NeonStore implements ExchangeStore {
 }
 
 // ── Row mapping ─────────────────────────────────────────────────────
+
+function toRequestRecord(row: Row): RequestRecord {
+  return {
+    id: String(row.id),
+    applicationId: String(row.application_id),
+    subject: String(row.subject),
+    supplierId: String(row.supplier_id),
+    model: String(row.model),
+    promptTokens: Number(row.prompt_tokens),
+    completionTokens: Number(row.completion_tokens),
+    cost: Number(row.cost),
+    charge: Number(row.charge),
+    aborted: Boolean(row.aborted),
+    upstreamPromptTokens:
+      row.upstream_prompt_tokens === null ? undefined : Number(row.upstream_prompt_tokens),
+    upstreamCompletionTokens:
+      row.upstream_completion_tokens === null ? undefined : Number(row.upstream_completion_tokens),
+    startedAt: new Date(row.started_at as string),
+    finishedAt: new Date(row.finished_at as string),
+  };
+}
 
 function toApplication(row: Row): Application {
   return {

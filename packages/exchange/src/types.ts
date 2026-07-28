@@ -157,6 +157,38 @@ export interface Application {
   createdAt: Date;
 }
 
+/**
+ * What one request consumed and what it was worth, both directions.
+ *
+ * Cost and Charge are recorded independently (ADR 0007) — Client invoices read
+ * Cost, End User balances read Charge, and every report must say which. Getting
+ * that backwards bills a customer for GPU time we never paid for.
+ */
+export interface RequestRecord {
+  id: string;
+  applicationId: string;
+  /** The End User subject the Application asserted. */
+  subject: string;
+  supplierId: string;
+  model: string;
+  /** Counted at admission, on our side of the wire. */
+  promptTokens: number;
+  /** Counted as chunks were relayed. Survives an abort by construction. */
+  completionTokens: number;
+  cost: MicroDollars;
+  charge: MicroDollars;
+  /** True when the caller hung up. The prompt is charged regardless. */
+  aborted: boolean;
+  /**
+   * What the upstream said it used, when it said anything. Recorded for
+   * reconciliation against our own count, never used to compute a Charge.
+   */
+  upstreamPromptTokens?: number;
+  upstreamCompletionTokens?: number;
+  startedAt: Date;
+  finishedAt: Date;
+}
+
 /** Prices for one (Supplier, Model) pair, set by the operator. */
 export interface OfferPricing {
   wholesalePromptPerMillion: MicroDollars;
