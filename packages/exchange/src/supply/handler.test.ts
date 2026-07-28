@@ -111,7 +111,14 @@ describe("supply surface", () => {
     it("accepts a valid credential", async () => {
       const out = await publish(publishBody([VALID_OFFER]));
       expect(out.status).toBe(200);
-      expect(out.json).toEqual({ supplierId: "office-spark", offers: 1 });
+      // The response echoes the operator's grant, so an agent can confirm what
+      // it is actually offered under rather than assume its own config was
+      // honored.
+      expect(out.json).toEqual({
+        supplierId: "office-spark",
+        offers: 1,
+        guarantees: ["on-premise", "no-training"],
+      });
     });
 
     it("refuses a missing credential", async () => {
@@ -198,6 +205,36 @@ describe("supply surface", () => {
       const offers = await store.listOffers();
       expect(offers[0].wholesalePromptPerMillion).toBe(0);
       expect(offers[0].retailPromptPerMillion).toBeGreaterThan(0);
+    });
+  });
+
+  describe("guarantees are the operator's to grant", () => {
+    it("accepts a claim within the grant", async () => {
+      const out = await publish(
+        JSON.stringify({ offers: [VALID_OFFER], guarantees: ["on-premise"] }),
+      );
+      expect(out.status).toBe(200);
+    });
+
+    it("rejects a claim beyond the grant and names it", async () => {
+      // Rejected, not silently downgraded — a compromised agent must not be
+      // able to promote itself into on-premise traffic, and a misconfigured
+      // one should hear about it rather than quietly serve without the
+      // guarantee it believes it has.
+      const out = await publish(
+        JSON.stringify({ offers: [VALID_OFFER], guarantees: ["fips-140"] }),
+      );
+      expect(out.status).toBe(403);
+      expect(out.json.error).toBe("guarantee_not_granted");
+      expect(out.json.guarantee).toBe("fips-140");
+      expect(out.json.granted).toEqual(["on-premise", "no-training"]);
+      expect(await store.listOffers()).toEqual([]);
+    });
+
+    it("attaches the operator's grant to published offers", async () => {
+      await publish(publishBody([VALID_OFFER]));
+      const offers = await store.listOffers();
+      expect(offers[0].guarantees).toEqual(["on-premise", "no-training"]);
     });
   });
 

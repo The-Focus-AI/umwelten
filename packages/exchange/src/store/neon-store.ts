@@ -157,9 +157,10 @@ export class NeonStore implements ExchangeStore {
 
   async listOffersBySupplier(supplierId: string): Promise<Offer[]> {
     const rows = (await this.sql`
-      SELECT o.*, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
+      SELECT o.*, s.granted_guarantees, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
              p.retail_prompt_per_million, p.retail_completion_per_million
       FROM exchange_offer o
+      JOIN exchange_supplier s ON s.id = o.supplier_id
       LEFT JOIN exchange_offer_pricing p
         ON p.supplier_id = o.supplier_id AND p.model = o.model
       WHERE o.supplier_id = ${supplierId}
@@ -170,7 +171,7 @@ export class NeonStore implements ExchangeStore {
 
   async listOffers(): Promise<Offer[]> {
     const rows = (await this.sql`
-      SELECT o.*, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
+      SELECT o.*, s.granted_guarantees, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
              p.retail_prompt_per_million, p.retail_completion_per_million
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
@@ -184,9 +185,10 @@ export class NeonStore implements ExchangeStore {
 
   async getOffer(supplierId: string, model: string): Promise<Offer | null> {
     const rows = (await this.sql`
-      SELECT o.*, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
+      SELECT o.*, s.granted_guarantees, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
              p.retail_prompt_per_million, p.retail_completion_per_million
       FROM exchange_offer o
+      JOIN exchange_supplier s ON s.id = o.supplier_id
       LEFT JOIN exchange_offer_pricing p
         ON p.supplier_id = o.supplier_id AND p.model = o.model
       WHERE o.supplier_id = ${supplierId} AND o.model = ${model}
@@ -252,6 +254,7 @@ function toOffer(row: Row): Offer {
     supplierId: String(row.supplier_id),
     model: String(row.model),
     capabilities: (row.capabilities as CapabilityName[]) ?? [],
+    guarantees: (row.granted_guarantees as string[]) ?? [],
     servingMode: String(row.serving_mode) as ServingMode,
     headroom: (row.headroom as HeadroomSample[]) ?? [],
     contextTokens: row.context_tokens === null ? undefined : Number(row.context_tokens),

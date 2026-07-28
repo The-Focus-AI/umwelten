@@ -21,9 +21,21 @@ export {
   BuyerError,
   CHAT_COMPLETIONS_PATH,
   createBuyerHandler,
-  selectOffer,
+  REQUIRE_CAPABILITY_HEADER,
+  REQUIRE_GUARANTEE_HEADER,
 } from "./buyer/handler.js";
 export type { BuyerHandlerOptions } from "./buyer/handler.js";
+
+export { dispatch, rankingPrice } from "./dispatch.js";
+export type {
+  Considered,
+  DispatchRequirements,
+  DispatchResult,
+  RejectionReason,
+} from "./dispatch.js";
+
+export { GuaranteeNotGrantedError, Operator } from "./operator.js";
+export type { RegisteredSupplier, RegisterSupplierInput } from "./operator.js";
 
 export { createExchangeApp, createExchangeServer } from "./server.js";
 export type { ExchangeServerOptions, RunningExchange } from "./server.js";

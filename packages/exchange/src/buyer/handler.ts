@@ -13,7 +13,8 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Offer } from "../types.js";
+import type { CapabilityName } from "../types.js";
+import { dispatch, type DispatchRequirements } from "../dispatch.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -28,6 +29,22 @@ export interface BuyerHandlerOptions {
    */
   readCredential?: (envName: string | undefined) => string | undefined;
   fetchImpl?: typeof fetch;
+  /** Offers not republished within this window stop being dispatched to. */
+  staleAfterMs?: number;
+}
+
+/**
+ * Per-request requirements, until Application-level defaults arrive with
+ * identity in #295. Headers rather than body fields so the request stays a
+ * plain OpenAI payload that any client can send unmodified.
+ */
+export const REQUIRE_GUARANTEE_HEADER = "x-exchange-require-guarantee";
+export const REQUIRE_CAPABILITY_HEADER = "x-exchange-require-capability";
+
+function headerList(value: string | string[] | undefined): string[] {
+  if (!value) return [];
+  const raw = Array.isArray(value) ? value.join(",") : value;
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 /** Error codes a caller can branch on. Stable, and worth keeping that way. */
@@ -61,17 +78,6 @@ async function readBody(req: IncomingMessage): Promise<string> {
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(payload));
-}
-
-/**
- * Pick an Offer for a Model.
- *
- * Deliberately naive: first enabled Offer wins. #296 replaces this with a
- * Guarantee filter, a Capability filter, and a ranking by Charge. Keeping it
- * a separate function means that change touches one place.
- */
-export function selectOffer(offers: Offer[], model: string): Offer | undefined {
-  return offers.find((offer) => offer.model === model && offer.enabled);
 }
 
 export function createBuyerHandler(opts: BuyerHandlerOptions) {
@@ -110,17 +116,35 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       return true;
     }
 
-    const offer = selectOffer(await store.listOffers(), model);
-    if (!offer) {
+    const requirements: DispatchRequirements = {
+      model,
+      guarantees: headerList(req.headers[REQUIRE_GUARANTEE_HEADER] as string | undefined),
+      capabilities: headerList(
+        req.headers[REQUIRE_CAPABILITY_HEADER] as string | undefined,
+      ) as CapabilityName[],
+    };
+
+    const decision = dispatch(await store.listOffers(), requirements, {
+      staleAfterMs: opts.staleAfterMs,
+    });
+
+    if (!decision.offer) {
       // Its own status and code. A caller must be able to tell "nothing can
       // serve this" from an upstream failure — and later, from being out of
       // credit (#298). Conflating them makes every one of those undebuggable.
+      //
+      // The considered list ships with the failure: an Application that
+      // required on-premise and got nothing needs to see *why* rather than
+      // guess, and "everything eligible was rejected for missing-guarantee" is
+      // a different problem from "no Supplier serves this model at all".
       sendJson(res, 503, {
         error: BuyerError.NO_ELIGIBLE_OFFER,
-        message: `No enabled Offer for model "${model}".`,
+        message: `No eligible Offer for model "${model}".`,
+        considered: decision.considered,
       });
       return true;
     }
+    const offer = decision.offer;
 
     const supplier = await store.getSupplier(offer.supplierId);
     if (!supplier) {
