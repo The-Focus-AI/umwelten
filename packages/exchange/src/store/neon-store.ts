@@ -39,6 +39,8 @@ export class NeonStore implements ExchangeStore {
         display_name TEXT NOT NULL,
         granted_guarantees JSONB NOT NULL DEFAULT '[]'::jsonb,
         credential_hash TEXT NOT NULL,
+        base_url TEXT NOT NULL DEFAULT '',
+        upstream_credential_env TEXT,
         enabled BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
@@ -86,16 +88,21 @@ export class NeonStore implements ExchangeStore {
   async createSupplier(supplier: Supplier): Promise<void> {
     await this.sql`
       INSERT INTO exchange_supplier
-        (id, display_name, granted_guarantees, credential_hash, enabled, created_at)
+        (id, display_name, granted_guarantees, credential_hash, base_url,
+         upstream_credential_env, enabled, created_at)
       VALUES (
         ${supplier.id}, ${supplier.displayName},
         ${JSON.stringify(supplier.grantedGuarantees)}::jsonb,
-        ${supplier.credentialHash}, ${supplier.enabled}, ${supplier.createdAt.toISOString()}
+        ${supplier.credentialHash}, ${supplier.baseUrl},
+        ${supplier.upstreamCredentialEnv ?? null},
+        ${supplier.enabled}, ${supplier.createdAt.toISOString()}
       )
       ON CONFLICT (id) DO UPDATE SET
         display_name = EXCLUDED.display_name,
         granted_guarantees = EXCLUDED.granted_guarantees,
         credential_hash = EXCLUDED.credential_hash,
+        base_url = EXCLUDED.base_url,
+        upstream_credential_env = EXCLUDED.upstream_credential_env,
         enabled = EXCLUDED.enabled
     `;
   }
@@ -221,6 +228,11 @@ function toSupplier(row: Row): Supplier {
     displayName: String(row.display_name),
     grantedGuarantees: (row.granted_guarantees as string[]) ?? [],
     credentialHash: String(row.credential_hash),
+    baseUrl: String(row.base_url ?? ""),
+    upstreamCredentialEnv:
+      row.upstream_credential_env === null || row.upstream_credential_env === undefined
+        ? undefined
+        : String(row.upstream_credential_env),
     enabled: Boolean(row.enabled),
     createdAt: new Date(row.created_at as string),
   };

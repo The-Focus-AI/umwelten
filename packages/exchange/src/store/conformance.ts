@@ -21,6 +21,8 @@ export function supplierFixture(overrides: Partial<Supplier> = {}): Supplier {
     displayName: "Office DGX Spark",
     grantedGuarantees: ["on-premise", "no-training"],
     credentialHash: "hash-office",
+    baseUrl: "http://127.0.0.1:9/v1",
+    upstreamCredentialEnv: "OFFICE_SPARK_KEY",
     enabled: true,
     createdAt: new Date("2026-07-26T00:00:00Z"),
     ...overrides,
@@ -63,6 +65,10 @@ export function runExchangeStoreConformance(
         const found = await store.getSupplier(supplier.id);
         expect(found?.displayName).toBe("Office DGX Spark");
         expect(found?.grantedGuarantees).toEqual(["on-premise", "no-training"]);
+        expect(found?.baseUrl).toBe("http://127.0.0.1:9/v1");
+        // The env var *name*, never the secret — a database compromise must
+        // not hand over the keys we buy with.
+        expect(found?.upstreamCredentialEnv).toBe("OFFICE_SPARK_KEY");
         expect(found?.enabled).toBe(true);
       });
 
