@@ -464,7 +464,7 @@ export function createHabitatLifecycleTools(
 
 		apply_habitat_declaration: tool({
 			description:
-				"Stand a habitat up from the habitat.json in its own repo (ADR 0006), creating it if it does not exist and updating it if it does. This is the sanctioned way to provision a repo-backed habitat — it reads the declaration and derives the GitHub read scope from the mounts it declares, so mounts and scopes cannot drift. Rebuild the habitat afterwards for the changes to reach a running container.",
+				"Stand a habitat up from the habitat.json in its own repo (ADR 0006), creating it if it does not exist and updating it if it does. This is the sanctioned way to provision a repo-backed habitat — it reads the declaration and derives the GitHub read scope from the mounts it declares, so mounts and scopes cannot drift. A habitat that was not running needs no further step: asking it starts it (#279). A habitat that is already running needs a rebuild for the new declaration to reach its container.",
 			inputSchema: z.object({
 				id: z.string().describe("Habitat id to create or update"),
 				gitUrl: z
@@ -505,7 +505,9 @@ export function createHabitatLifecycleTools(
 						result.entry.github?.write?.length
 							? `Write scope (declared, never derived): ${result.entry.github.write.join(", ")}`
 							: "Write scope: (none declared)",
-						`Rebuild "${id}" for this to reach a running container.`,
+						result.action === "created"
+							? `Ask "${id}" anything to start it — no separate start step is needed.`
+							: `Rebuild "${id}" if it is already running, so the new declaration reaches its container.`,
 					].join("\n");
 				} catch (err) {
 					// Nothing was registered — apply validates before it writes.
