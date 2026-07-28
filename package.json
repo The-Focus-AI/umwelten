@@ -9,7 +9,7 @@
     "test:run": "vitest run --reporter=verbose",
     "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose",
     "test:all": "pnpm test:run && pnpm test:integration",
-    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\"",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\" && eslint --no-ignore \"examples/supplier-agent/**/*.ts\" \"examples/exchange-metering/**/*.ts\"",
     "cli": "NODE_OPTIONS='--no-deprecation' tsx packages/cli/src/entry.ts",
     "smoke:cascade": "tsx scripts/smoke-test-cascade.ts",
     "docs:sync-assets": "rm -rf docs/public/dialogue && mkdir -p docs/public/dialogue && cp examples/dialogue-web/index.html docs/public/dialogue/index.html",
@@ -17,7 +17,7 @@
     "docs:build": "pnpm run docs:sync-assets && vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "knip": "knip",
-    "typecheck": "for d in packages/*/tsconfig.json; do tsc --noEmit -p \"$d\" || exit 1; done"
+    "typecheck": "for d in packages/*/tsconfig.json examples/tsconfig.json; do tsc --noEmit -p \"$d\" || exit 1; done"
   },
   "keywords": [
     "llm",
