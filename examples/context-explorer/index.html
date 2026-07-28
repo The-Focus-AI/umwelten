@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Context explorer</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
 <style>
   :root {
     color-scheme: light;
@@ -19,6 +20,7 @@
     --series-2: #eb6834;
     --good: #0ca30c;
     --critical: #d03b3b;
+    --code-bg: #f0efeb;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
@@ -26,6 +28,7 @@
       --surface-1: #1a1a19; --surface-2: #232322; --plane: #0d0d0d;
       --text-primary: #ffffff; --text-secondary: #c3c2b7; --grid: #2c2c2a;
       --border: rgba(255,255,255,0.10); --series-1: #3987e5; --series-2: #d95926;
+      --code-bg: #121211;
     }
   }
   * { box-sizing: border-box; }
@@ -45,19 +48,21 @@
     font: inherit; color: inherit; background: var(--surface-1);
     border: 1px solid var(--border); border-radius: 7px; padding: .28rem .5rem;
   }
-  input.model { width: 190px; }
+  input.model { width: 220px; }
   button { cursor: pointer; }
   button:hover { background: var(--surface-2); }
   button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
   button:disabled { opacity: .5; cursor: not-allowed; }
-  .stats { margin-left: auto; display: flex; gap: .85rem; font-size: .78rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .stats { margin-left: auto; display: flex; gap: .85rem; font-size: .78rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; flex-wrap: wrap; justify-content: flex-end; }
   .stats b { color: var(--text-primary); }
+  .stats .models { color: var(--text-primary); max-width: 42ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   main { flex: 1; overflow-y: auto; padding: 1rem; }
   .wrap { max-width: 1180px; margin: 0 auto; }
   .turn { margin-bottom: 1.6rem; }
   .bubble { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); padding: .7rem .85rem; margin-bottom: .5rem; }
   .bubble .role { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .2rem; }
-  .bubble .text { white-space: pre-wrap; word-break: break-word; }
+  .bubble .text { word-break: break-word; }
+  .bubble .text.plain { white-space: pre-wrap; }
   .meta { font-size: .75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-top: .4rem; }
   .tools { font-size: .75rem; color: var(--series-2); margin-top: .3rem; }
   .fan-head { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin: .9rem 0 .45rem; }
@@ -80,13 +85,78 @@
   .composer textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 220px; background: var(--plane); }
   #status { max-width: 1180px; margin: 0 auto .4rem; font-size: .78rem; color: var(--text-secondary); min-height: 1.2em; }
   .hint { color: var(--text-secondary); font-size: .85rem; }
+
+  /* Markdown in assistant answers */
+  .md { line-height: 1.55; }
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p, .md ul, .md ol, .md pre, .md blockquote, .md table { margin: .55em 0; }
+  .md h1, .md h2, .md h3, .md h4 { margin: .9em 0 .35em; line-height: 1.25; font-weight: 600; }
+  .md h1 { font-size: 1.25rem; }
+  .md h2 { font-size: 1.1rem; }
+  .md h3 { font-size: 1rem; }
+  .md ul, .md ol { padding-left: 1.35em; }
+  .md li { margin: .2em 0; }
+  .md a { color: var(--series-1); }
+  .md blockquote {
+    margin-left: 0; padding: .2rem .75rem; border-left: 3px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .md code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .86em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .05em .3em;
+  }
+  .md pre {
+    position: relative;
+    margin: .7em 0;
+    padding: .7rem .8rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  .md pre code {
+    background: none; border: none; padding: 0; font-size: .82rem;
+    white-space: pre; display: block; line-height: 1.45;
+  }
+  .md table { border-collapse: collapse; width: 100%; font-size: .9em; }
+  .md th, .md td { border: 1px solid var(--border); padding: .3rem .5rem; text-align: left; }
+  .md th { background: var(--surface-2); }
+  .md hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+  .code-block {
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute;
+    top: .4rem;
+    right: .4rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    font-size: .68rem;
+    line-height: 1;
+    padding: .28rem .45rem;
+    border-radius: 6px;
+    background: var(--surface-1);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    opacity: .85;
+  }
+  .copy-btn:hover { opacity: 1; background: var(--surface-2); color: var(--text-primary); }
+  .copy-btn.copied { color: var(--good); border-color: var(--good); }
+  .copy-btn svg { width: 12px; height: 12px; display: block; }
 </style>
 </head>
 <body>
 <header>
   <h1>Context explorer</h1>
-  <label class="inline">answer <input id="answer-model" class="model" value="google/gemini-3-flash-preview"></label>
-  <label class="inline">fan-out <input id="fanout-model" class="model" placeholder="same as answer"></label>
+  <label class="inline">answer <input id="answer-model" class="model" value="ollama/gemma4:26b"></label>
+  <label class="inline">fan-out <input id="fanout-model" class="model" placeholder="same as answer" value="ollama/gemma4:26b"></label>
   <label class="inline"><input type="checkbox" id="use-tools" checked> tools</label>
   <button id="new-run">New run</button>
   <div class="stats" id="stats"></div>
@@ -105,11 +175,19 @@
 </footer>
 
 <script>
+const DEFAULT_MODEL = { provider: 'ollama', name: 'gemma4:26b' };
 const state = { runId: null, run: null, probes: [], busy: false };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const num = (n) => Number(n || 0).toLocaleString();
 const usd = (n) => n == null ? '—' : (n < 0.01 ? '$' + n.toFixed(4) : '$' + n.toFixed(2));
+
+const COPY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const CHECK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+if (window.marked) {
+  marked.setOptions({ gfm: true, breaks: false });
+}
 
 async function api(path, options) {
   const res = await fetch(path, { ...options, headers: { 'content-type': 'application/json', ...(options && options.headers) } });
@@ -125,25 +203,115 @@ function parseModel(value, fallback) {
   return { provider: raw.slice(0, slash), name: raw.slice(slash + 1) };
 }
 
+function formatModel(model) {
+  if (!model || !model.provider || !model.name) return '—';
+  return `${model.provider}/${model.name}`;
+}
+
+function sameModel(a, b) {
+  return !!a && !!b && a.provider === b.provider && a.name === b.name;
+}
+
+/** Models/tools from the header — what the next New run will lock in. */
+function headerConfig() {
+  const answerModel = parseModel($('answer-model').value, DEFAULT_MODEL);
+  const fanoutModel = parseModel($('fanout-model').value, answerModel);
+  return { answerModel, fanoutModel, useTools: $('use-tools').checked };
+}
+
 function setStatus(text, isError) {
   $('status').textContent = text || '';
   $('status').className = isError ? 'err' : '';
 }
 
-async function newRun() {
-  const answerModel = parseModel($('answer-model').value, { provider: 'google', name: 'gemini-3-flash-preview' });
-  const fanoutModel = parseModel($('fanout-model').value, answerModel);
+function renderMarkdown(md) {
+  if (!window.marked) return `<div class="plain">${esc(md)}</div>`;
+  return marked.parse(md || '');
+}
+
+/** Render markdown into el and attach copy buttons on fenced code blocks. */
+function setMarkdown(el, md, { final = false } = {}) {
+  el.classList.add('md');
+  el.classList.remove('plain');
+  el.dataset.raw = md;
+  el.innerHTML = renderMarkdown(md);
+  enhanceCodeBlocks(el);
+  if (final) el.dataset.final = '1';
+}
+
+function enhanceCodeBlocks(root) {
+  for (const pre of root.querySelectorAll('pre')) {
+    if (pre.closest('.code-block')) continue;
+    const wrap = document.createElement('div');
+    wrap.className = 'code-block';
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copy-btn';
+    btn.title = 'Copy code';
+    btn.innerHTML = `${COPY_ICON}<span>Copy</span>`;
+    btn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const code = pre.querySelector('code');
+      const text = code ? code.textContent : pre.textContent;
+      try {
+        await navigator.clipboard.writeText(text || '');
+        btn.classList.add('copied');
+        btn.innerHTML = `${CHECK_ICON}<span>Copied</span>`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `${COPY_ICON}<span>Copy</span>`;
+        }, 1400);
+      } catch {
+        btn.innerHTML = `${COPY_ICON}<span>Failed</span>`;
+      }
+    });
+    wrap.appendChild(btn);
+  }
+}
+
+async function newRun(options = {}) {
+  const { answerModel, fanoutModel, useTools } = headerConfig();
   const defaults = await api('/api/defaults');
   state.probes = defaults.probes;
   const run = await api('/api/runs', {
     method: 'POST',
-    body: JSON.stringify({ answerModel, fanoutModel, useTools: $('use-tools').checked, probes: state.probes }),
+    body: JSON.stringify({ answerModel, fanoutModel, useTools, probes: state.probes }),
   });
   state.runId = run.id;
   state.run = run;
-  $('turns').innerHTML = '<p class="hint">New run. Ask something.</p>';
+  state.useTools = useTools;
+  if (!options.keepMessages) {
+    $('turns').innerHTML =
+      `<p class="hint">New run using <b>${esc(formatModel(run.answerModel))}</b>` +
+      (sameModel(run.answerModel, run.fanoutModel)
+        ? ''
+        : ` (fan-out <b>${esc(formatModel(run.fanoutModel))}</b>)`) +
+      `. Ask something.</p>`;
+  }
   renderStats();
-  setStatus('');
+  setStatus(options.status || '');
+  return run;
+}
+
+/** If the header no longer matches the live run, start a new one so typing a model actually takes effect. */
+async function ensureRunMatchesHeader() {
+  const wanted = headerConfig();
+  if (!state.runId || !state.run) {
+    return newRun({ status: `Using ${formatModel(wanted.answerModel)}` });
+  }
+  const answerOk = sameModel(state.run.answerModel, wanted.answerModel);
+  const fanoutOk = sameModel(state.run.fanoutModel, wanted.fanoutModel);
+  const toolsOk = state.useTools === wanted.useTools;
+  if (answerOk && fanoutOk && toolsOk) return state.run;
+  return newRun({
+    status: `Switched to ${formatModel(wanted.answerModel)}` +
+      (sameModel(wanted.answerModel, wanted.fanoutModel) ? '' : ` / fan-out ${formatModel(wanted.fanoutModel)}`) +
+      ' — previous run abandoned.',
+  });
 }
 
 function renderStats() {
@@ -152,7 +320,11 @@ function renderStats() {
   const turns = run.turns || [];
   const fanoutCost = turns.reduce((sum, t) => sum + t.fanout.reduce((s, p) => s + (p.costUsd || 0), 0), 0);
   const answerCost = turns.reduce((sum, t) => sum + (t.answerCostUsd || 0), 0);
+  const modelsLabel = sameModel(run.answerModel, run.fanoutModel)
+    ? formatModel(run.answerModel)
+    : `ans ${formatModel(run.answerModel)} · fan ${formatModel(run.fanoutModel)}`;
   $('stats').innerHTML =
+    `<span class="models" title="Models locked for this run (change header + New run, or just Ask to auto-switch)"><b>${esc(modelsLabel)}</b></span>` +
     `<span><b>${turns.length}</b> turns</span>` +
     `<span><b>${num(run.contextTokens)}</b> ctx tokens</span>` +
     `<span>answers <b>${usd(answerCost)}</b></span>` +
@@ -226,9 +398,10 @@ function redrawFanoutFoot(turnIndex, chosen) {
 
 async function ask() {
   if (state.busy) return;
-  if (!state.runId) await newRun();
   const text = $('input').value.trim();
   if (!text) return;
+  // Header models only used to apply on New run before; now Ask also rebinds if they changed.
+  await ensureRunMatchesHeader();
   state.busy = true;
   $('send').disabled = true;
   $('input').value = '';
@@ -236,14 +409,29 @@ async function ask() {
   const turnIndex = (state.run.turns || []).length;
   const el = renderTurn(turnIndex);
   el.innerHTML =
-    `<div class="bubble"><div class="role">you</div><div class="text">${esc(text)}</div></div>` +
-    `<div class="bubble"><div class="role">assistant</div><div class="text" id="answer-${turnIndex}"></div>` +
+    `<div class="bubble"><div class="role">you</div><div class="text plain">${esc(text)}</div></div>` +
+    `<div class="bubble"><div class="role">assistant</div><div class="text md" id="answer-${turnIndex}"></div>` +
     `<div class="tools" id="tools-${turnIndex}"></div><div class="meta" id="meta-${turnIndex}"></div></div>`;
   el.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
   const answerEl = $(`answer-${turnIndex}`);
   const toolsEl = $(`tools-${turnIndex}`);
   const tools = [];
+  let raw = '';
+  let renderQueued = false;
+
+  const queueMarkdown = (final = false) => {
+    if (final) {
+      setMarkdown(answerEl, raw, { final: true });
+      return;
+    }
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => {
+      renderQueued = false;
+      setMarkdown(answerEl, raw);
+    });
+  };
 
   try {
     const res = await fetch(`/api/runs/${state.runId}/ask`, {
@@ -251,6 +439,10 @@ async function ask() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ text }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || res.statusText);
+    }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -268,14 +460,18 @@ async function ask() {
         try { event = JSON.parse(line); } catch { continue; }
 
         if (event.type === 'delta') {
-          answerEl.textContent += event.delta;
+          raw += event.delta;
+          queueMarkdown();
         } else if (event.type === 'tool-call') {
           tools.push(event.name);
           toolsEl.textContent = '⚒ ' + tools.join(', ');
         } else if (event.type === 'answer') {
-          if (!answerEl.textContent) answerEl.textContent = event.text;
+          if (!raw) raw = event.text || '';
+          queueMarkdown(true);
+        } else if (event.type === 'answer-start') {
+          setStatus(`Answering with ${formatModel(state.run.answerModel)}…`);
         } else if (event.type === 'fanout-start') {
-          setStatus(`Fanning out ${event.probes.length} probes over the same context…`);
+          setStatus(`Fanning out with ${formatModel(state.run.fanoutModel)} (${event.probes.length} probes)…`);
           const cards = document.createElement('div');
           cards.innerHTML = `<div class="fan-head">after this turn</div><div class="cards">` +
             state.probes.map((p) => probeCard(p, null, turnIndex)).join('') + `</div>`;
@@ -291,6 +487,7 @@ async function ask() {
         } else if (event.type === 'turn-complete') {
           state.run = event.run;
           const turn = state.run.turns[turnIndex];
+          if (raw) setMarkdown(answerEl, raw, { final: true });
           $(`meta-${turnIndex}`).textContent =
             `${num(turn.contextTokensBefore)} → ${num(turn.contextTokensAfter)} ctx tokens · ` +
             `${num(turn.answerLatencyMs)} ms · ${usd(turn.answerCostUsd)}`;
@@ -301,6 +498,7 @@ async function ask() {
         }
       }
     }
+    if (raw) setMarkdown(answerEl, raw, { final: true });
   } catch (error) {
     setStatus(error.message, true);
   } finally {
