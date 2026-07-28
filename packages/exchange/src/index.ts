@@ -32,9 +32,13 @@ export {
   countCompletionTokens,
   countStreamedTokens,
   estimatePromptTokens,
+  MINIMUM_CHARGE,
   priceRequest,
 } from "./metering/counter.js";
 export type { Amounts } from "./metering/counter.js";
+export { Balances, applicationOwner, endUserOwner } from "./metering/balances.js";
+export type { BalanceOwner } from "./metering/balances.js";
+export type { Balance, BalanceOwnerKind, LedgerEntry } from "./types.js";
 export type { RequestRecord } from "./types.js";
 
 export { dispatch, rankingPrice } from "./dispatch.js";

@@ -157,6 +157,39 @@ export interface Application {
   createdAt: Date;
 }
 
+/** Who a Balance belongs to. The same mechanism serves all three. */
+export type BalanceOwnerKind = "client" | "application" | "end-user";
+
+/**
+ * Money available to be spent.
+ *
+ * A Balance is the **sum of its ledger entries**, never a mutated total. No
+ * figure is ever overwritten, so history is always reconstructable and a
+ * disputed charge can be traced to the request that caused it.
+ */
+export interface Balance {
+  ownerKind: BalanceOwnerKind;
+  /**
+   * Client id, Application id, or `applicationId:subject` for an End User.
+   * The pair matters: "user-1" at two Applications is two different people.
+   */
+  ownerKey: string;
+  microDollars: MicroDollars;
+}
+
+/** One append-only movement. Positive is a grant, negative is a debit. */
+export interface LedgerEntry {
+  id: string;
+  ownerKind: BalanceOwnerKind;
+  ownerKey: string;
+  /** Signed. The Balance is the sum of these. */
+  microDollars: MicroDollars;
+  /** The request that caused it, when there was one. */
+  requestId?: string;
+  reason: string;
+  createdAt: Date;
+}
+
 /**
  * What one request consumed and what it was worth, both directions.
  *

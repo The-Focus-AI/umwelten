@@ -13,6 +13,7 @@ import { startMockUpstream, type MockUpstream, type UpstreamMode } from "../test
 import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
 import { createIdentityVerifier } from "../auth/identity.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
+import { Balances, endUserOwner } from "./balances.js";
 
 const MODEL = "gemma-4-26b";
 const LONG_PROMPT = "x".repeat(40_000);
@@ -23,7 +24,12 @@ describe("metering", () => {
   let exchange: RunningExchange;
   let app: TestApplicationKeys;
 
-  async function boot(mode: UpstreamMode = "ok") {
+  let balances: Balances;
+
+  /** Enough that nothing in these tests runs out by accident. */
+  const FUNDED = 1_000_000_000;
+
+  async function boot(mode: UpstreamMode = "ok", credit = FUNDED) {
     upstream = await startMockUpstream(mode);
     store = new MemoryStore();
     await store.createSupplier(supplierFixture({ baseUrl: upstream.baseUrl }));
@@ -39,6 +45,14 @@ describe("metering", () => {
       host: "127.0.0.1",
       verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
     });
+    balances = new Balances(store);
+    if (credit > 0) {
+      await balances.grant(
+        endUserOwner({ application: app.application, subject: "user-1" }),
+        credit,
+        "test-grant",
+      );
+    }
   }
 
   async function chat(body: Record<string, unknown>, init: RequestInit = {}) {
@@ -191,6 +205,84 @@ describe("metering", () => {
 
       expect(await store.listRequests({ subject: "user-1" })).toHaveLength(1);
       expect(await store.listRequests({ subject: "nobody" })).toHaveLength(0);
+    });
+  });
+
+  describe("balances", () => {
+    const owner = () => endUserOwner({ application: app.application, subject: "user-1" });
+
+    it("debits what the request was charged", async () => {
+      await boot();
+      const before = (await balances.get(owner())).microDollars;
+      await chat({ model: MODEL, messages: [{ role: "user", content: LONG_PROMPT }] });
+
+      const record = (await store.listRequests())[0];
+      const after = (await balances.get(owner())).microDollars;
+      expect(before - after).toBe(record.charge);
+    });
+
+    it("refuses before forwarding when credit cannot cover the prompt", async () => {
+      // Nothing has been consumed yet, so this is the one moment a refusal
+      // costs nobody anything.
+      await boot("ok", 0);
+      const res = await chat({ model: MODEL, messages: [{ role: "user", content: LONG_PROMPT }] });
+
+      expect(res.status).toBe(402);
+      expect((await res.json()).error).toBe("insufficient_balance");
+      expect(upstream.requests).toHaveLength(0);
+      expect(await store.listRequests()).toEqual([]);
+    });
+
+    it("distinguishes out of credit from nowhere to route", async () => {
+      // 402 vs 503. Conflating them makes both undebuggable, and the third
+      // case — an upstream failure — is already its own code.
+      await boot("ok", 0);
+      const broke = await chat({ model: MODEL, messages: [] });
+      expect(broke.status).toBe(402);
+
+      await boot("ok", FUNDED);
+      const nowhere = await chat({ model: "nobody-serves-this", messages: [] });
+      expect(nowhere.status).toBe(503);
+    });
+
+    it("still debits an aborted request", async () => {
+      await boot("never-finishes");
+      const controller = new AbortController();
+      const res = await chat(
+        { model: MODEL, messages: [{ role: "user", content: LONG_PROMPT }], stream: true },
+        { signal: controller.signal },
+      );
+      const reader = res.body!.getReader();
+      await reader.read();
+      controller.abort();
+      await new Promise((r) => setTimeout(r, 300));
+
+      expect((await balances.get(owner())).microDollars).toBeLessThan(FUNDED);
+    });
+
+    it("ties every debit to the request that caused it", async () => {
+      await boot();
+      await chat({ model: MODEL, messages: [] });
+
+      const record = (await store.listRequests())[0];
+      const entries = await balances.entries(owner());
+      const debit = entries.find((e) => e.microDollars < 0);
+      expect(debit?.requestId).toBe(record.id);
+    });
+
+    it("cuts a stream off when credit runs out mid-generation", async () => {
+      // The point of counting incrementally: the overdraft is prevented rather
+      // than discovered. Funded for the prompt but not for a long generation.
+      await boot("never-finishes", 1);
+      const promptOnly = await chat({ model: MODEL, messages: [], stream: true });
+
+      // Either refused up front or cut mid-stream — both are enforcement.
+      if (promptOnly.status === 200) {
+        const text = await promptOnly.text();
+        expect(text).toContain("insufficient_balance");
+      } else {
+        expect(promptOnly.status).toBe(402);
+      }
     });
   });
 

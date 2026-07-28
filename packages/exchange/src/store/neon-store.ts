@@ -14,8 +14,11 @@ import { neon } from "@neondatabase/serverless";
 import { DEFAULT_PRICING } from "../types.js";
 import type {
   Application,
+  Balance,
+  BalanceOwnerKind,
   CapabilityName,
   Client,
+  LedgerEntry,
   HeadroomSample,
   Offer,
   OfferPricing,
@@ -129,6 +132,83 @@ export class NeonStore implements ExchangeStore {
       CREATE INDEX IF NOT EXISTS exchange_request_application_subject_idx
         ON exchange_request (application_id, subject)
     `;
+
+    // Append-only: no row is ever updated, and a Balance is SUM(micro_dollars).
+    // Storing a running total instead would make a disputed charge
+    // unreconstructable and invite exactly the lost-update race this avoids.
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_ledger_entry (
+        id TEXT PRIMARY KEY,
+        owner_kind TEXT NOT NULL,
+        owner_key TEXT NOT NULL,
+        micro_dollars BIGINT NOT NULL,
+        request_id TEXT,
+        reason TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_ledger_owner_idx
+        ON exchange_ledger_entry (owner_kind, owner_key)
+    `;
+  }
+
+  // ── Money ─────────────────────────────────────────────────────────
+
+  async appendLedgerEntry(entry: LedgerEntry): Promise<Balance> {
+    // Insert and re-sum in one statement. Reading the balance in a second
+    // round trip would let two concurrent requests each see credit only one of
+    // them had.
+    const rows = (await this.sql`
+      WITH inserted AS (
+        INSERT INTO exchange_ledger_entry
+          (id, owner_kind, owner_key, micro_dollars, request_id, reason, created_at)
+        VALUES (
+          ${entry.id}, ${entry.ownerKind}, ${entry.ownerKey}, ${entry.microDollars},
+          ${entry.requestId ?? null}, ${entry.reason}, ${entry.createdAt.toISOString()}
+        )
+        RETURNING owner_kind, owner_key
+      )
+      SELECT COALESCE(SUM(l.micro_dollars), 0) AS balance
+      FROM exchange_ledger_entry l
+      JOIN inserted i ON i.owner_kind = l.owner_kind AND i.owner_key = l.owner_key
+    `) as Row[];
+
+    return {
+      ownerKind: entry.ownerKind,
+      ownerKey: entry.ownerKey,
+      microDollars: Number(rows[0]?.balance ?? 0),
+    };
+  }
+
+  async getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance> {
+    const rows = (await this.sql`
+      SELECT COALESCE(SUM(micro_dollars), 0) AS balance
+      FROM exchange_ledger_entry
+      WHERE owner_kind = ${ownerKind} AND owner_key = ${ownerKey}
+    `) as Row[];
+    return { ownerKind, ownerKey, microDollars: Number(rows[0]?.balance ?? 0) };
+  }
+
+  async listLedgerEntries(
+    ownerKind: BalanceOwnerKind,
+    ownerKey: string,
+  ): Promise<LedgerEntry[]> {
+    const rows = (await this.sql`
+      SELECT * FROM exchange_ledger_entry
+      WHERE owner_kind = ${ownerKind} AND owner_key = ${ownerKey}
+      ORDER BY created_at, id
+    `) as Row[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      ownerKind: String(row.owner_kind) as BalanceOwnerKind,
+      ownerKey: String(row.owner_key),
+      microDollars: Number(row.micro_dollars),
+      requestId: row.request_id === null ? undefined : String(row.request_id),
+      reason: String(row.reason),
+      createdAt: new Date(row.created_at as string),
+    }));
   }
 
   // ── Usage ─────────────────────────────────────────────────────────

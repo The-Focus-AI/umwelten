@@ -166,4 +166,19 @@ describe("priceRequest", () => {
     const { charge } = priceRequest(offer(), 1_000_000, 0);
     expect(charge).toBe(100_000);
   });
+
+  it("never charges zero for a request that was served", () => {
+    // A short prompt at a low rate rounds to zero. Without a floor the request
+    // is free, an End User with an empty Balance can be served indefinitely,
+    // and hardware priced to be rationed is not rationed at all.
+    const { charge } = priceRequest(offer(), 1, 0);
+    expect(charge).toBeGreaterThan(0);
+  });
+
+  it("still reports Cost zero for owned hardware", () => {
+    // The floor is on Charge only. Zero is the honest answer for a machine we
+    // own, and collapsing the two columns is what ADR 0007 exists to prevent.
+    const { cost } = priceRequest(offer(), 1, 1);
+    expect(cost).toBe(0);
+  });
 });
