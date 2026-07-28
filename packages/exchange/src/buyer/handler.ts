@@ -10,14 +10,25 @@
  * 0008). Dispatch then filters on Guarantees and Capabilities and ranks by
  * Charge.
  *
- * Still absent: metering (#297) and Balances (#298). Requests are served
- * without being counted or charged, so this is not yet a billing surface.
+ * Every request is metered at our own boundary (ADR 0011): the prompt is
+ * counted at admission, before anything is forwarded, and completion tokens are
+ * counted as chunks are relayed. Because the count lives on our side of the
+ * wire it survives an aborted stream by construction.
+ *
+ * Still absent: Balances (#298). Usage is recorded but nothing is debited.
  */
 
+import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CapabilityName } from "../types.js";
 import { dispatch, type DispatchRequirements } from "../dispatch.js";
 import { AuthError, createIdentityVerifier, type Caller } from "../auth/identity.js";
+import {
+  StreamCounter,
+  countCompletionTokens,
+  estimatePromptTokens,
+  priceRequest,
+} from "../metering/counter.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -79,6 +90,28 @@ async function readBody(req: IncomingMessage): Promise<string> {
     req.on("end", () => resolve(raw));
     req.on("error", reject);
   });
+}
+
+/**
+ * Pull whatever usage the upstream volunteered. Recorded for reconciliation
+ * against our own count (ADR 0011) and never used to compute a Charge — two of
+ * three realistic upstreams report nothing usable, and one of those reports a
+ * shape whose every field is undefined.
+ */
+function readUpstreamUsage(responseBody: string): { prompt?: number; completion?: number } {
+  try {
+    const parsed = JSON.parse(responseBody) as {
+      usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
+    };
+    const prompt = parsed.usage?.prompt_tokens;
+    const completion = parsed.usage?.completion_tokens;
+    return {
+      prompt: typeof prompt === "number" ? prompt : undefined,
+      completion: typeof completion === "number" ? completion : undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
@@ -184,6 +217,38 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       return true;
     }
 
+    // Counted before anything is forwarded. This is the number that survives an
+    // abort: the prompt was submitted and processed whatever happens next, so
+    // it is always chargeable (ADR 0011).
+    const startedAt = new Date();
+    const promptTokens = estimatePromptTokens(body);
+    const counter = new StreamCounter();
+    let aborted = false;
+    let recorded = false;
+    let upstreamUsage: { prompt?: number; completion?: number } = {};
+
+    const record = async (completionTokens: number) => {
+      if (recorded) return;
+      recorded = true;
+      const { cost, charge } = priceRequest(offer, promptTokens, completionTokens);
+      await store.recordRequest({
+        id: randomUUID(),
+        applicationId: caller.application.id,
+        subject: caller.subject,
+        supplierId: offer.supplierId,
+        model: offer.model,
+        promptTokens,
+        completionTokens,
+        cost,
+        charge,
+        aborted,
+        upstreamPromptTokens: upstreamUsage.prompt,
+        upstreamCompletionTokens: upstreamUsage.completion,
+        startedAt,
+        finishedAt: new Date(),
+      });
+    };
+
     // The caller hanging up must stop generation upstream, not leave a Supplier
     // burning GPU seconds nobody will read.
     //
@@ -194,6 +259,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     const upstream = new AbortController();
     let cancelBody: (() => void) | undefined;
     const clientGone = () => {
+      aborted = true;
       upstream.abort();
       cancelBody?.();
     };
@@ -222,7 +288,9 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       });
     } catch (error) {
       if (upstream.signal.aborted) {
-        // The caller left. Nothing to report to.
+        // The caller left before the upstream answered. The prompt was still
+        // submitted, so it is still charged.
+        await record(0);
         if (!res.writableEnded) res.end();
         return true;
       }
@@ -248,6 +316,8 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
 
     if (!streaming || !upstreamRes.body) {
       const text = await upstreamRes.text();
+      upstreamUsage = readUpstreamUsage(text);
+      await record(countCompletionTokens(text));
       res.writeHead(200, { "content-type": "application/json" });
       res.end(text);
       return true;
@@ -268,12 +338,20 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         const { done, value } = await reader.read();
         if (done) break;
         if (res.writableEnded) break;
-        res.write(Buffer.from(value));
+        const fragment = Buffer.from(value).toString();
+        // Counted before it is written out, so a caller that vanishes between
+        // the count and the write does not lose the tokens we already bought.
+        counter.push(fragment);
+        res.write(fragment);
       }
     } catch {
       // An upstream that dies mid-stream leaves the caller with a truncated
       // response and no way to signal an error — headers are already sent.
     } finally {
+      // Runs on every path out of the relay — normal completion, an upstream
+      // that died mid-stream, and a caller that hung up. That is the point:
+      // there is no exit from here that does not record what was consumed.
+      await record(counter.completionTokens);
       if (!res.writableEnded) res.end();
     }
     return true;

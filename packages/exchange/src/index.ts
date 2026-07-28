@@ -27,6 +27,16 @@ export {
 } from "./buyer/handler.js";
 export type { BuyerHandlerOptions } from "./buyer/handler.js";
 
+export {
+  StreamCounter,
+  countCompletionTokens,
+  countStreamedTokens,
+  estimatePromptTokens,
+  priceRequest,
+} from "./metering/counter.js";
+export type { Amounts } from "./metering/counter.js";
+export type { RequestRecord } from "./types.js";
+
 export { dispatch, rankingPrice } from "./dispatch.js";
 export type {
   Considered,

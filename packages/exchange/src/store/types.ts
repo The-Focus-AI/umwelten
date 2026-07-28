@@ -13,6 +13,7 @@ import type {
   Offer,
   OfferPricing,
   PublishedOffer,
+  RequestRecord,
   Supplier,
 } from "../types.js";
 
@@ -63,4 +64,9 @@ export interface ExchangeStore {
   getApplication(id: string): Promise<Application | null>;
   listApplications(): Promise<Application[]>;
   setApplicationEnabled(id: string, enabled: boolean): Promise<void>;
+
+  // ── Usage ─────────────────────────────────────────────────────────
+
+  recordRequest(record: RequestRecord): Promise<void>;
+  listRequests(filter?: { applicationId?: string; subject?: string }): Promise<RequestRecord[]>;
 }
