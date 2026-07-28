@@ -174,14 +174,33 @@ describe("HabitatAgentExecutor — execute", () => {
 
 		const final = events.find((e) => e.kind === "message");
 		expect(final).toBeDefined();
-		expect(final!.metadata).toEqual({
+		expect(final!.metadata).toMatchObject({
 			usage: { promptTokens: 42, completionTokens: 7, totalTokens: 49 },
 			provider: "google",
 			model: "gemini-3-flash-preview",
 		});
 	});
 
-	it("omits metadata when the bridge result has none (non-default runtimes)", async () => {
+	/**
+	 * #277: every answer carries what it was computed from, so metadata is no
+	 * longer optional — a habitat with nothing checked out reports an empty
+	 * repo list, which is a claim, not an absence.
+	 */
+	it("carries provenance on every answer, even one with no repos", async () => {
+		const executor = new HabitatAgentExecutor(await makeHost(), instantBridge());
+		const { bus, events } = fakeEventBus();
+
+		await executor.execute(requestContext(), bus);
+
+		const final = events.find((e) => e.kind === "message");
+		expect(final!.metadata?.provenance).toMatchObject({
+			stale: false,
+			repos: [],
+		});
+		expect(final!.metadata?.provenance?.capturedAt).toEqual(expect.any(String));
+	});
+
+	it("omits usage when the bridge result has none (non-default runtimes)", async () => {
 		const bridge = {
 			handleMessage: async (msg: ChannelMessage, events: BridgeEventHandlers) => {
 				await events.onDone({
@@ -197,7 +216,9 @@ describe("HabitatAgentExecutor — execute", () => {
 		await executor.execute(requestContext(), bus);
 
 		const final = events.find((e) => e.kind === "message");
-		expect(final!.metadata).toBeUndefined();
+		expect(final!.metadata?.usage).toBeUndefined();
+		expect(final!.metadata?.provider).toBeUndefined();
+		expect(final!.metadata?.model).toBeUndefined();
 	});
 });
 
