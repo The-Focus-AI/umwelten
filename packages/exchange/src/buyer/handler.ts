@@ -5,16 +5,19 @@
  * client — including umwelten's own provider layer — reach the Exchange by
  * changing a base URL and a key, rather than adopting anything new.
  *
- * This ticket is the thinnest complete path: find an Offer for the requested
- * Model, forward, relay the answer back. There is no authentication yet (#295)
- * and no metering (#297), so nothing from this stage should reach a public
- * address before those land. Dispatch here picks the first eligible Offer;
- * filtering on Guarantees and ranking by Charge is #296.
+ * Every request is authenticated: the Application signs a short-lived token and
+ * the Exchange verifies it against that Application's published keys (ADR
+ * 0008). Dispatch then filters on Guarantees and Capabilities and ranks by
+ * Charge.
+ *
+ * Still absent: metering (#297) and Balances (#298). Requests are served
+ * without being counted or charged, so this is not yet a billing surface.
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CapabilityName } from "../types.js";
 import { dispatch, type DispatchRequirements } from "../dispatch.js";
+import { AuthError, createIdentityVerifier, type Caller } from "../auth/identity.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -31,12 +34,14 @@ export interface BuyerHandlerOptions {
   fetchImpl?: typeof fetch;
   /** Offers not republished within this window stop being dispatched to. */
   staleAfterMs?: number;
+  /** Injectable so tests need not stand up a real JWKS endpoint. */
+  verifyCaller?: (authorization: string | undefined) => Promise<Caller>;
 }
 
 /**
- * Per-request requirements, until Application-level defaults arrive with
- * identity in #295. Headers rather than body fields so the request stays a
- * plain OpenAI payload that any client can send unmodified.
+ * Per-request requirements, added on top of the Application's own. Headers
+ * rather than body fields so the request stays a plain OpenAI payload that any
+ * client can send unmodified. These can only narrow eligibility, never widen it.
  */
 export const REQUIRE_GUARANTEE_HEADER = "x-exchange-require-guarantee";
 export const REQUIRE_CAPABILITY_HEADER = "x-exchange-require-capability";
@@ -54,6 +59,7 @@ export const BuyerError = {
   INVALID_BODY: "invalid_body",
   INVALID_JSON: "invalid_json",
   UPSTREAM_ERROR: "upstream_error",
+  UNAUTHORIZED: "unauthorized",
   METHOD_NOT_ALLOWED: "method_not_allowed",
   BODY_TOO_LARGE: "body_too_large",
 } as const;
@@ -85,6 +91,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
   const doFetch = opts.fetchImpl ?? fetch;
   const readCredential =
     opts.readCredential ?? ((envName?: string) => (envName ? process.env[envName] : undefined));
+  const verifyCaller = opts.verifyCaller ?? createIdentityVerifier({ store });
 
   return async function handleChatCompletions(
     req: IncomingMessage,
@@ -95,6 +102,21 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
 
     if (req.method !== "POST") {
       sendJson(res, 405, { error: BuyerError.METHOD_NOT_ALLOWED });
+      return true;
+    }
+
+    // Identity first: nothing else should run for a caller we cannot name.
+    let caller: Caller;
+    try {
+      caller = await verifyCaller(req.headers.authorization);
+    } catch (error) {
+      // One opaque body for every failure. The specific reason is precise in
+      // logs and vague on the wire — a caller that can tell "unknown
+      // application" from "bad signature" has an oracle for which Applications
+      // exist and which keys are current.
+      const reason = error instanceof AuthError ? error.reason : "invalid_signature";
+      sendJson(res, 401, { error: BuyerError.UNAUTHORIZED });
+      void reason;
       return true;
     }
 
@@ -116,12 +138,22 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       return true;
     }
 
+    // An Application's required Guarantees apply to every one of its requests.
+    // A per-request header may *add* to them and can never remove one — an
+    // Application pinned to on-premise must not be able to opt out by omitting
+    // a header, or the pin is decoration.
     const requirements: DispatchRequirements = {
       model,
-      guarantees: headerList(req.headers[REQUIRE_GUARANTEE_HEADER] as string | undefined),
+      guarantees: [
+        ...new Set([
+          ...caller.application.requiredGuarantees,
+          ...headerList(req.headers[REQUIRE_GUARANTEE_HEADER] as string | undefined),
+        ]),
+      ],
       capabilities: headerList(
         req.headers[REQUIRE_CAPABILITY_HEADER] as string | undefined,
       ) as CapabilityName[],
+      allowedModels: caller.application.allowedModels,
     };
 
     const decision = dispatch(await store.listOffers(), requirements, {

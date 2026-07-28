@@ -11,13 +11,16 @@
 import http from "node:http";
 import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
-import { createBuyerHandler } from "./buyer/handler.js";
+import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js";
 import type { ExchangeStore } from "./store/types.js";
 
 export interface ExchangeServerOptions {
   store: ExchangeStore;
   port?: number;
   host?: string;
+  /** Injectable identity verification, so tests need no JWKS endpoint. */
+  verifyCaller?: BuyerHandlerOptions["verifyCaller"];
+  staleAfterMs?: number;
 }
 
 export interface RunningExchange {
@@ -27,8 +30,14 @@ export interface RunningExchange {
   close: () => Promise<void>;
 }
 
-export function createExchangeApp(store: ExchangeStore) {
-  const handlers = [createSupplyHandler({ store }), createBuyerHandler({ store })];
+export function createExchangeApp(
+  store: ExchangeStore,
+  opts: Pick<ExchangeServerOptions, "verifyCaller" | "staleAfterMs"> = {},
+) {
+  const handlers = [
+    createSupplyHandler({ store }),
+    createBuyerHandler({ store, verifyCaller: opts.verifyCaller, staleAfterMs: opts.staleAfterMs }),
+  ];
 
   return async function handle(
     req: http.IncomingMessage,
@@ -66,7 +75,10 @@ export function createExchangeApp(store: ExchangeStore) {
 export async function createExchangeServer(
   opts: ExchangeServerOptions,
 ): Promise<RunningExchange> {
-  const app = createExchangeApp(opts.store);
+  const app = createExchangeApp(opts.store, {
+    verifyCaller: opts.verifyCaller,
+    staleAfterMs: opts.staleAfterMs,
+  });
   await opts.store.setup();
 
   const server = http.createServer((req, res) => {
