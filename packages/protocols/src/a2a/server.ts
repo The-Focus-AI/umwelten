@@ -14,8 +14,12 @@ import {
   DefaultRequestHandler,
   InMemoryTaskStore,
   DefaultExecutionEventBusManager,
+  DefaultPushNotificationSender,
+  InMemoryPushNotificationStore,
   JsonRpcTransportHandler,
   type AgentExecutor,
+  type PushNotificationSender,
+  type PushNotificationStore,
   type TaskStore,
 } from "@a2a-js/sdk/server";
 import type { AgentCard } from "@a2a-js/sdk";
@@ -32,6 +36,23 @@ export interface A2AServerOptions {
    * should pass a `FileTaskStore` on the habitat's volume (ADR 0007).
    */
   taskStore?: TaskStore;
+  /**
+   * Where webhook registrations are kept. Defaults to the SDK's in-memory
+   * store — which is worse than no registration for anything that restarts: a
+   * caller that registered and went away waits forever for a webhook nobody
+   * will call. Pass a `FilePushNotificationStore` on the volume.
+   *
+   * Only consulted when the agent card declares
+   * `capabilities.pushNotifications`; without it the SDK refuses every
+   * `tasks/pushNotificationConfig/*` call before reaching the store.
+   */
+  pushNotificationStore?: PushNotificationStore;
+  /**
+   * Delivers status updates to registered webhooks. Defaults to the SDK's
+   * sender over `pushNotificationStore`; override to change timeout or token
+   * header, or to deliver by some means other than an HTTP POST.
+   */
+  pushNotificationSender?: PushNotificationSender;
 }
 
 export interface A2AServer {
@@ -39,6 +60,13 @@ export interface A2AServer {
   agentCard: AgentCard;
   /** JSON-RPC transport handler. Mount on the `/a2a` POST route. */
   transportHandler: JsonRpcTransportHandler;
+  /**
+   * The sender the request handler notifies through. Exposed so a host can
+   * dispatch for a transition the handler never saw — the boot recovery sweep
+   * moves Tasks by writing to the store directly, and those are precisely the
+   * ones a caller is waiting to hear about.
+   */
+  pushNotificationSender: PushNotificationSender;
 }
 
 /**
@@ -52,16 +80,24 @@ export function createA2AServer(options: A2AServerOptions): A2AServer {
   const { agentCard, executor } = options;
 
   const taskStore = options.taskStore ?? new InMemoryTaskStore();
+  const pushNotificationStore = options.pushNotificationStore;
+  const pushNotificationSender =
+    options.pushNotificationSender ??
+    new DefaultPushNotificationSender(
+      pushNotificationStore ?? new InMemoryPushNotificationStore(),
+    );
   const eventBusManager = new DefaultExecutionEventBusManager();
   const requestHandler = new DefaultRequestHandler(
     agentCard,
     taskStore,
     executor,
     eventBusManager,
+    pushNotificationStore,
+    pushNotificationSender,
   );
   const transportHandler = new JsonRpcTransportHandler(requestHandler);
 
-  return { agentCard, transportHandler };
+  return { agentCard, transportHandler, pushNotificationSender };
 }
 
 // Re-export the executor contract so hosts can implement it without
@@ -70,5 +106,7 @@ export type {
   AgentExecutor,
   RequestContext,
   ExecutionEventBus,
+  PushNotificationStore,
+  PushNotificationSender,
 } from "@a2a-js/sdk/server";
 export type { AgentCard, AgentSkill } from "@a2a-js/sdk";

@@ -87,6 +87,13 @@ export interface GaiaHabitatEntry {
 		/** ISO timestamp of the fetch that produced this card. */
 		fetchedAt: string;
 	};
+	/**
+	 * When this Habitat was last used, as far as Gaia knows (#278). Persisted
+	 * so the idle reaper does not forget who was busy when Gaia restarts, and
+	 * reconciled on every reap pass with what the Habitat reports about its
+	 * own traffic — Gaia only sees the requests that came through Gaia.
+	 */
+	lastActivityAt?: string;
 	/** ISO timestamp */
 	createdAt: string;
 }

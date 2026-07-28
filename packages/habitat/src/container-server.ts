@@ -33,6 +33,7 @@ import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
 import { listArtifacts, toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
 import {
 	createA2AHandler,
+	habitatTaskDir,
 	annotateServedCredentials,
 	effectiveCredentialMode,
 	type A2AHandler,
@@ -40,7 +41,11 @@ import {
 } from "./a2a-handler.js";
 import { runWithSpeaker } from "./identity/agent-speaker-context.js";
 import { HabitatScheduler } from "./schedule/scheduler.js";
-import { getPublicBaseUrl } from "@umwelten/protocols";
+import {
+	getPublicBaseUrl,
+	FileTaskStore,
+	summarizeTasks,
+} from "@umwelten/protocols";
 import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
 import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
@@ -394,6 +399,14 @@ export async function startContainerServer(
 	// Per-agent public surface (/agents/<id>/... + path-inserted well-known).
 	const agentSurface = createAgentSurface(habitat);
 
+	// ── Idle tracking (#278) ───────────────────────────────────────────
+	// When this habitat was last used by someone. Gaia's idle reaper asks for
+	// it rather than guessing from its own traffic, because a habitat reached
+	// directly through its public hostname never touches Gaia at all — and a
+	// reaper that cannot see that traffic would stop a habitat mid-use.
+	const serverStartedAt = new Date().toISOString();
+	let lastRequestAt: string | null = null;
+
 	// A2A handler — initialized lazily on first request (needs port for baseUrl)
 	let a2aHandler: A2AHandler | null = null;
 	// Most-recent request's resolved public origin (#194). The A2A artifact-emit
@@ -451,6 +464,13 @@ export async function startContainerServer(
 
 			const { path, query } = parseRoute(req.url ?? "/");
 			const reqStart = Date.now();
+
+			// Health checks and the idle probe itself are deliberately not
+			// activity: an orchestrator polling to decide whether we are idle
+			// must not be the reason we never look idle (#278).
+			if (path !== "/health" && path !== "/api/activity") {
+				lastRequestAt = new Date().toISOString();
+			}
 
 			// Refresh the resolved public origin for this request (#194), so the
 			// A2A artifact-emit path (which has no req) mints absolute FilePart
@@ -1089,6 +1109,29 @@ export async function startContainerServer(
 								required: s.required,
 								set: !!habitat.getSecret(s.name),
 							})),
+						});
+						return;
+					}
+
+					// GET /api/activity — idle state + what Tasks this habitat holds.
+					// The reaper's safety property (#278) needs to know whether
+					// stopping would abandon work in flight. The pinned A2A SDK has
+					// no tasks/list, so the durable store is summarised here instead.
+					if (path === "/api/activity" && req.method === "GET") {
+						if (authRequired) {
+							user = await auth.authenticate(req);
+							if (!user) {
+								sendJson(res, { error: "Unauthorized" }, 401);
+								return;
+							}
+						}
+						const store = new FileTaskStore({
+							dir: habitatTaskDir(habitat.getWorkDir()),
+						});
+						sendJson(res, {
+							startedAt: serverStartedAt,
+							lastRequestAt,
+							tasks: summarizeTasks(await store.listAll()),
 						});
 						return;
 					}

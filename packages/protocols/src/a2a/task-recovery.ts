@@ -17,6 +17,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Task } from "@a2a-js/sdk";
+import type { PushNotificationSender } from "@a2a-js/sdk/server";
 import { type FileTaskStore, isAbandonableTaskState } from "./file-task-store.js";
 
 /** Marker on the failing status message, so an abandoned Task is identifiable. */
@@ -79,6 +80,7 @@ export async function sweepAbandonedTasks(
 
 	const result: SweepResult = { swept: [], terminal: [], interrupted: [] };
 
+
 	for (const task of await store.listAll()) {
 		const state = task.status?.state;
 
@@ -101,4 +103,38 @@ export async function sweepAbandonedTasks(
 	}
 
 	return result;
+}
+
+/**
+ * Deliver the sweep's transitions to whoever registered for them.
+ *
+ * The sweep moves a Task by writing to the store, which is the one path the
+ * request handler never sees — so its push notifications never fire on their
+ * own. That is exactly backwards: a caller who registered a webhook and went
+ * away is the caller who most needs to hear that the run died with the
+ * container, and polling is what push exists to avoid.
+ *
+ * A webhook that is down, slow, or gone must not change anything about the
+ * Task. Failures are reported and dropped.
+ */
+export async function notifySweptTasks(
+	store: Pick<FileTaskStore, "load">,
+	sender: PushNotificationSender,
+	swept: readonly string[],
+	options: { onError?: (taskId: string, error: unknown) => void } = {},
+): Promise<string[]> {
+	const notified: string[] = [];
+
+	for (const taskId of swept) {
+		try {
+			const task = await store.load(taskId);
+			if (!task) continue;
+			await sender.send(task);
+			notified.push(taskId);
+		} catch (error) {
+			options.onError?.(taskId, error);
+		}
+	}
+
+	return notified;
 }

@@ -23,7 +23,12 @@
  */
 
 import { JsonRpcTransport } from "@a2a-js/sdk/client";
-import type { Message, Task, TaskState } from "@a2a-js/sdk";
+import type {
+	Message,
+	Task,
+	TaskPushNotificationConfig,
+	TaskState,
+} from "@a2a-js/sdk";
 import {
 	isInterruptedTaskState,
 	isTerminalTaskState,
@@ -262,5 +267,65 @@ export async function sendAndAwaitA2ATask(
 		onState: options.onState,
 		sleep: options.sleep,
 		now: options.now,
+	});
+}
+
+// ── Push notifications ────────────────────────────────────────────
+//
+// The other half of the task surface: instead of asking repeatedly whether a
+// Task has moved, hand the agent a URL and be told. Every method here is
+// refused unless the agent's card declares `capabilities.pushNotifications` —
+// the SDK checks the card before it reaches any store, so a caller that gets
+// `PushNotificationNotSupported` is talking to an agent that has not declared
+// it, not to one whose registration failed.
+
+export interface RegisterA2APushOptions extends A2ATaskTarget {
+	taskId: string;
+	/** Where the agent POSTs the Task on each status change. */
+	url: string;
+	/**
+	 * Sent back in the `X-A2A-Notification-Token` header, so the receiver can
+	 * tell a real callback from anyone who guessed the URL.
+	 */
+	token?: string;
+	/**
+	 * Names this registration. Defaults to the task id, which is also what
+	 * `deleteA2APushConfig` removes when given no id — so a caller that
+	 * registers one webhook per Task never has to track config ids.
+	 */
+	configId?: string;
+}
+
+/** Register (or replace) a webhook for a Task. */
+export async function registerA2APush(
+	options: RegisterA2APushOptions,
+): Promise<TaskPushNotificationConfig> {
+	const transport = createA2ATransport(options.endpoint, options.apiKey);
+	return transport.setTaskPushNotificationConfig({
+		taskId: options.taskId,
+		pushNotificationConfig: {
+			url: options.url,
+			...(options.token ? { token: options.token } : {}),
+			...(options.configId ? { id: options.configId } : {}),
+		},
+	});
+}
+
+/** Every webhook registered for a Task. */
+export async function listA2APushConfigs(
+	options: A2ATaskTarget & { taskId: string },
+): Promise<TaskPushNotificationConfig[]> {
+	const transport = createA2ATransport(options.endpoint, options.apiKey);
+	return transport.listTaskPushNotificationConfig({ id: options.taskId });
+}
+
+/** Remove a webhook. Defaults to the one named after the Task. */
+export async function deleteA2APushConfig(
+	options: A2ATaskTarget & { taskId: string; configId?: string },
+): Promise<void> {
+	const transport = createA2ATransport(options.endpoint, options.apiKey);
+	await transport.deleteTaskPushNotificationConfig({
+		id: options.taskId,
+		pushNotificationConfigId: options.configId ?? options.taskId,
 	});
 }

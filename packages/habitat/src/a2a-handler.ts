@@ -27,7 +27,9 @@ import type {
 import { join } from "node:path";
 import {
   createA2AServer,
+  FilePushNotificationStore,
   FileTaskStore,
+  notifySweptTasks,
   sweepAbandonedTasks,
   type A2AServer,
   type AgentExecutor,
@@ -164,7 +166,11 @@ export async function buildAgentCard(
     url: `${baseUrl}/a2a`,
     version: "1.0.0",
     protocolVersion: "0.2.5",
-    capabilities: { streaming: true },
+    // pushNotifications is a gate, not a hint: the SDK refuses every
+    // `tasks/pushNotificationConfig/*` call unless the card declares it, so a
+    // caller cannot register a webhook against an undeclared agent no matter
+    // what the server is willing to store (#275).
+    capabilities: { streaming: true, pushNotifications: true },
     defaultInputModes: ["text/plain"],
     // text/html+mcp advertises that tools may emit mcp-ui UI resources
     // (carried as DataParts) for a client AppRenderer (ADR 0005, #195).
@@ -426,6 +432,17 @@ export class HabitatAgentExecutor implements AgentExecutor {
               });
             }
 
+            // The Task's own outcome, published BEFORE the message and with
+            // final:false. Both details are load-bearing: the transport stops
+            // at the first message event, so a status published after it is
+            // never processed, and `final: true` would stop the transport
+            // *here* and drop the message instead. This event is what moves
+            // the stored Task off `working` — without it a caller polling
+            // `tasks/get` (the non-blocking task surface, ADR 0007) waits out
+            // its whole timeout on work that finished, and a later boot sweep
+            // reports the answered Task as abandoned.
+            this.publishTerminalStatus(eventBus, taskId, contextId, "completed");
+
             eventBus.publish({
               kind: "message",
               messageId: randomUUID(),
@@ -442,6 +459,10 @@ export class HabitatAgentExecutor implements AgentExecutor {
             // A canceled run surfaces as an abort error — cancelTask already
             // emitted the canceled status, so don't follow it with an error.
             if (controller.signal.aborted) return;
+            // Same ordering as onDone: the Task has to record that it failed,
+            // or it stays `working` forever while the caller has been told
+            // the error only through the message.
+            this.publishTerminalStatus(eventBus, taskId, contextId, "failed");
             eventBus.publish({
               kind: "message",
               messageId: randomUUID(),
@@ -459,6 +480,26 @@ export class HabitatAgentExecutor implements AgentExecutor {
     } finally {
       this.activeTasks.delete(taskId);
     }
+  }
+
+  /**
+   * Record a run's outcome on the Task itself. `final: false` deliberately —
+   * see the call sites: the agent message is the stream's terminal event and
+   * has to stay that way for every existing consumer.
+   */
+  private publishTerminalStatus(
+    eventBus: ExecutionEventBus,
+    taskId: string,
+    contextId: string,
+    state: Extract<TaskState, "completed" | "failed">,
+  ): void {
+    eventBus.publish({
+      kind: "status-update",
+      taskId,
+      contextId,
+      final: false,
+      status: { state, timestamp: new Date().toISOString() },
+    });
   }
 
   async cancelTask(taskId: string, eventBus: ExecutionEventBus): Promise<void> {
@@ -547,6 +588,15 @@ export interface A2AHandlerOptions {
  */
 export type A2AHandler = A2AServer;
 
+/**
+ * Where a habitat keeps its durable Tasks on its own volume (ADR 0007).
+ * Exported because the container's activity endpoint reads the same store to
+ * report what the habitat is holding (#278) — one definition, not two.
+ */
+export function habitatTaskDir(workDir: string): string {
+  return join(workDir, "tasks");
+}
+
 export async function createA2AHandler(
   options: A2AHandlerOptions,
 ): Promise<A2AHandler> {
@@ -570,8 +620,14 @@ export async function createA2AHandler(
   // (ADR 0007). Then clear out anything the previous container generation left
   // mid-flight, BEFORE the transport starts accepting requests, so no caller
   // can observe a task that is about to be moved.
-  const taskStore = new FileTaskStore({
-    dir: join(options.habitat.getWorkDir(), "tasks"),
+  const taskStore = new FileTaskStore({ dir: habitatTaskDir(options.habitat.getWorkDir()) });
+
+  // Webhook registrations live on the volume for the same reason Tasks do, and
+  // with sharper consequences: a registration lost on restart leaves the caller
+  // believing it will be told when the work finishes, waiting on a webhook
+  // nobody will call (#275).
+  const pushNotificationStore = new FilePushNotificationStore({
+    dir: join(options.habitat.getWorkDir(), "push-notifications"),
   });
 
   const recovered = await sweepAbandonedTasks(taskStore);
@@ -581,5 +637,38 @@ export async function createA2AHandler(
     );
   }
 
-  return createA2AServer({ agentCard, executor, taskStore });
+  const server = createA2AServer({
+    agentCard,
+    executor,
+    taskStore,
+    pushNotificationStore,
+  });
+
+  // The sweep moves Tasks by writing to the store, which the request handler
+  // never sees — so nothing notifies the caller who asked to be told. Dispatch
+  // those transitions here, after the server exists and before it serves: a
+  // caller that registered a webhook and went away learns its run died with
+  // the container instead of waiting on a Task that will never move again.
+  if (recovered.swept.length > 0) {
+    const notified = await notifySweptTasks(
+      taskStore,
+      server.pushNotificationSender,
+      recovered.swept,
+      {
+        onError: (taskId, error) =>
+          console.warn(
+            `[a2a] Push notification for recovered task ${taskId} failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          ),
+      },
+    );
+    if (notified.length > 0) {
+      console.log(
+        `[a2a] Notified webhooks for ${notified.length} recovered task(s).`,
+      );
+    }
+  }
+
+  return server;
 }
