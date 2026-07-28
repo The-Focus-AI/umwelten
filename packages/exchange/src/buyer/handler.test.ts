@@ -16,6 +16,7 @@ import { REQUIRE_CAPABILITY_HEADER, REQUIRE_GUARANTEE_HEADER } from "./handler.j
 import { createIdentityVerifier } from "../auth/identity.js";
 import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
 import type { Application } from "../types.js";
+import { Balances, endUserOwner } from "../metering/balances.js";
 
 const MODEL = "gemma-4-26b";
 
@@ -43,6 +44,13 @@ describe("buyer surface", () => {
       host: "127.0.0.1",
       verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
     });
+    // Funded generously: these tests are about relaying, not about credit.
+    // Balance enforcement has its own suite in metering/.
+    await new Balances(store).grant(
+      endUserOwner({ application: app.application, subject: "user-1" }),
+      1_000_000_000,
+      "test-grant",
+    );
   }
 
   async function chat(body: unknown, init: RequestInit = {}, subject = "user-1") {
@@ -338,6 +346,11 @@ describe("dispatch through the buyer surface", () => {
       host: "127.0.0.1",
       verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
     });
+    await new Balances(store).grant(
+      endUserOwner({ application: app.application, subject: "user-1" }),
+      1_000_000_000,
+      "test-grant",
+    );
   });
 
   afterEach(async () => {

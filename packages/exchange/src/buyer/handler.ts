@@ -15,7 +15,11 @@
  * counted as chunks are relayed. Because the count lives on our side of the
  * wire it survives an aborted stream by construction.
  *
- * Still absent: Balances (#298). Usage is recorded but nothing is debited.
+ * Balances are enforced *during* generation, not after: the prompt must be
+ * covered before anything is forwarded, and a stream is cut when credit runs
+ * out mid-flight. That is only possible because the count is incremental and
+ * ours — a count that only arrives at the end can detect an overdraft but
+ * never prevent one.
  */
 
 import { randomUUID } from "node:crypto";
@@ -29,11 +33,18 @@ import {
   estimatePromptTokens,
   priceRequest,
 } from "../metering/counter.js";
+import { Balances, endUserOwner, type BalanceOwner } from "../metering/balances.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
 
 const MAX_BODY_BYTES = 10_000_000;
+
+/**
+ * How many relayed chunks between Balance checks. Per-chunk would put a store
+ * round trip between every token; never would make the Balance a suggestion.
+ */
+const BALANCE_CHECK_INTERVAL = 16;
 
 export interface BuyerHandlerOptions {
   store: ExchangeStore;
@@ -67,6 +78,8 @@ function headerList(value: string | string[] | undefined): string[] {
 export const BuyerError = {
   /** Nothing can serve this Model. Distinct from every other failure. */
   NO_ELIGIBLE_OFFER: "no_eligible_offer",
+  /** Out of credit. Deliberately distinct from having nowhere to route. */
+  INSUFFICIENT_BALANCE: "insufficient_balance",
   INVALID_BODY: "invalid_body",
   INVALID_JSON: "invalid_json",
   UPSTREAM_ERROR: "upstream_error",
@@ -125,6 +138,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
   const readCredential =
     opts.readCredential ?? ((envName?: string) => (envName ? process.env[envName] : undefined));
   const verifyCaller = opts.verifyCaller ?? createIdentityVerifier({ store });
+  const balances = new Balances(store);
 
   return async function handleChatCompletions(
     req: IncomingMessage,
@@ -226,13 +240,27 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     let aborted = false;
     let recorded = false;
     let upstreamUsage: { prompt?: number; completion?: number } = {};
+    const owner: BalanceOwner = endUserOwner(caller);
+
+    // Refuse before forwarding when the prompt alone cannot be covered. There
+    // is no point buying tokens the buyer cannot pay for, and this is the only
+    // moment nothing has been consumed yet.
+    const promptCharge = priceRequest(offer, promptTokens, 0).charge;
+    if (!(await balances.canCover(owner, promptCharge))) {
+      sendJson(res, 402, {
+        error: BuyerError.INSUFFICIENT_BALANCE,
+        message: "Balance does not cover this request.",
+      });
+      return true;
+    }
 
     const record = async (completionTokens: number) => {
       if (recorded) return;
       recorded = true;
+      const requestId = randomUUID();
       const { cost, charge } = priceRequest(offer, promptTokens, completionTokens);
       await store.recordRequest({
-        id: randomUUID(),
+        id: requestId,
         applicationId: caller.application.id,
         subject: caller.subject,
         supplierId: offer.supplierId,
@@ -247,6 +275,9 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         startedAt,
         finishedAt: new Date(),
       });
+      // Debited whatever happened — including an abort, where the prompt was
+      // still submitted and paid for upstream (ADR 0011).
+      await balances.debit(owner, charge, requestId);
     };
 
     // The caller hanging up must stop generation upstream, not leave a Supplier
@@ -333,6 +364,8 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     // tokens right here, which is what makes the count survive an abort.
     const reader = upstreamRes.body.getReader();
     cancelBody = () => void reader.cancel().catch(() => {});
+    let chunksSinceCheck = 0;
+    let creditExhausted = false;
     try {
       for (;;) {
         const { done, value } = await reader.read();
@@ -343,6 +376,22 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         // the count and the write does not lose the tokens we already bought.
         counter.push(fragment);
         res.write(fragment);
+
+        // Enforce the Balance mid-flight rather than discovering an overdraft
+        // afterwards. Checked every few chunks: per-chunk would put a store
+        // round trip between every token, and never would make the Balance a
+        // suggestion.
+        chunksSinceCheck += 1;
+        if (chunksSinceCheck >= BALANCE_CHECK_INTERVAL) {
+          chunksSinceCheck = 0;
+          const running = priceRequest(offer, promptTokens, counter.completionTokens).charge;
+          if (!(await balances.canCover(owner, running))) {
+            creditExhausted = true;
+            upstream.abort();
+            cancelBody?.();
+            break;
+          }
+        }
       }
     } catch {
       // An upstream that dies mid-stream leaves the caller with a truncated
@@ -352,7 +401,16 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       // that died mid-stream, and a caller that hung up. That is the point:
       // there is no exit from here that does not record what was consumed.
       await record(counter.completionTokens);
-      if (!res.writableEnded) res.end();
+      if (!res.writableEnded) {
+        if (creditExhausted) {
+          // Headers are long gone, so this is the only way to tell a caller
+          // why their stream stopped short.
+          res.write(
+            `data: ${JSON.stringify({ error: BuyerError.INSUFFICIENT_BALANCE })}\n\n`,
+          );
+        }
+        res.end();
+      }
     }
     return true;
   };

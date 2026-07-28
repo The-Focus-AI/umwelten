@@ -9,7 +9,10 @@
 
 import type {
   Application,
+  Balance,
+  BalanceOwnerKind,
   Client,
+  LedgerEntry,
   Offer,
   OfferPricing,
   PublishedOffer,
@@ -69,4 +72,18 @@ export interface ExchangeStore {
 
   recordRequest(record: RequestRecord): Promise<void>;
   listRequests(filter?: { applicationId?: string; subject?: string }): Promise<RequestRecord[]>;
+
+  // ── Money ─────────────────────────────────────────────────────────
+
+  /**
+   * Append a ledger entry and return the resulting Balance.
+   *
+   * Must be atomic against concurrent callers: two requests that each pass a
+   * check only one had credit for must not both succeed. Implementations that
+   * read-then-write without a guard will let a Balance go negative under load.
+   */
+  appendLedgerEntry(entry: LedgerEntry): Promise<Balance>;
+
+  getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance>;
+  listLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<LedgerEntry[]>;
 }
