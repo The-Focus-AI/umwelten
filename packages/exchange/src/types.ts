@@ -66,6 +66,19 @@ export interface Supplier {
   grantedGuarantees: string[];
   /** sha256 of the bearer credential. The credential itself is never stored. */
   credentialHash: string;
+  /**
+   * Where the Exchange sends work. An OpenAI-compatible base URL, which covers
+   * a commercial vendor and a tunnelled on-prem box identically — the point of
+   * unifying them as one concept (ADR 0006).
+   */
+  baseUrl: string;
+  /**
+   * Name of the environment variable holding the credential we present *to*
+   * this Supplier. The name, not the secret: keeping upstream keys out of
+   * Postgres means a database compromise does not hand over every Supplier
+   * we buy from.
+   */
+  upstreamCredentialEnv?: string;
   enabled: boolean;
   createdAt: Date;
 }

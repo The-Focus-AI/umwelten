@@ -16,3 +16,14 @@ export { NeonStore } from "./store/neon-store.js";
 
 export { createSupplyHandler, hashCredential, SUPPLY_PATH } from "./supply/handler.js";
 export type { SupplyHandlerOptions } from "./supply/handler.js";
+
+export {
+  BuyerError,
+  CHAT_COMPLETIONS_PATH,
+  createBuyerHandler,
+  selectOffer,
+} from "./buyer/handler.js";
+export type { BuyerHandlerOptions } from "./buyer/handler.js";
+
+export { createExchangeApp, createExchangeServer } from "./server.js";
+export type { ExchangeServerOptions, RunningExchange } from "./server.js";
