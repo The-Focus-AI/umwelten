@@ -31,7 +31,7 @@
   "dependencies": {
     "@umwelten/core": "workspace:*",
     "@umwelten/sessions": "workspace:*",
-    "ai": "^7.0.22",
+    "ai": "^7.0.41",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "glob": "^13.0.6",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@dagger.io/dagger": "^0.21.7",
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   }
