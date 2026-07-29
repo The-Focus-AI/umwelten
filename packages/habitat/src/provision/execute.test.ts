@@ -253,7 +253,14 @@ describe("executeProvisionPlan", () => {
 
     expect(result.aborted).toBeUndefined();
     expect(result.warned.map((s) => s.kind)).toEqual(["clone-agent-repo"]);
-    expect(rec.logs).toContain("[entrypoint] Clone failed for agent web (continuing).");
+    // The warning names the likely cause, not just the fact of failure —
+    // git reports a repo outside the App installation as "could not read
+    // Username", which sends people looking at credentials rather than at
+    // the App's repo list.
+    const warning = rec.logs.find((l) => l.includes("Clone failed for agent web"));
+    expect(warning).toBeDefined();
+    expect(warning).toContain("GitHub App is probably not installed");
+    expect(warning).toContain("separate grants");
     expect(rec.markers).toContain("/data/agents/web/.provisioned");
     // Skills still get installed after the failure.
     expect(rec.commands.at(-1)?.command).toContain("npx skills@latest add");
