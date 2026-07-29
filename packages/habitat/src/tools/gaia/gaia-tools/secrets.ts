@@ -15,6 +15,10 @@ import {
 	fleetSecretStatus,
 	habitatSecretStatus,
 } from "../secret-status.js";
+import {
+	describeVaultMigration,
+	planVaultMigration,
+} from "../vault-migration.js";
 
 export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> {
 	const { registry, vault } = ctx;
@@ -51,6 +55,31 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 					"Vaults:",
 					...vaults,
 				].join("\n");
+			},
+		}),
+
+		plan_vault_migration: tool({
+			description:
+				"Work out what a habitat's own vault would need to declare to replace its share of the flat master vault (#284). Emits an fnox.toml to commit to the habitat's repo — it does NOT write anything, because the repo is the source of truth for what a habitat is, and that is also what makes each migration revertible by deleting one file. Never copies secret values; the output is references only, so it is safe to review and diff.",
+			inputSchema: z.object({
+				id: z.string().describe("Habitat ID to plan a migration for"),
+				vaultName: z
+					.string()
+					.optional()
+					.describe("1Password vault name (default: the habitat id)"),
+			}),
+			execute: async ({ id, vaultName }) => {
+				const entry = registry.get(id);
+				if (!entry) return `Habitat "${id}" not found`;
+				return describeVaultMigration(
+					planVaultMigration({
+						habitatId: id,
+						secretBindings: entry.secretBindings ?? [],
+						hasOwnVault: Boolean(entry.vaultToml),
+						masterHas: (name) => Boolean(vault.get(name)),
+						...(vaultName ? { vaultName } : {}),
+					}),
+				);
 			},
 		}),
 
