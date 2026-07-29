@@ -10,11 +10,36 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import type { GaiaToolsContext } from "./context.js";
+import {
+	describeFleetSecretStatus,
+	fleetSecretStatus,
+	habitatSecretStatus,
+} from "../secret-status.js";
 
 export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> {
 	const { registry, vault } = ctx;
 
 	return {
+		secret_status: tool({
+			description:
+				"Show which habitat is bound to which secret, and whether the master vault can actually supply it. A binding the vault cannot satisfy is dropped from the habitat's secrets.json rather than failing the start — so the container boots, health-checks fine, and then fails on first use. Check this before blaming the container. Optionally scope to one habitat.",
+			inputSchema: z.object({
+				habitatId: z
+					.string()
+					.optional()
+					.describe("Limit to one habitat; omit for the whole fleet"),
+			}),
+			execute: async ({ habitatId }) => {
+				const entries = habitatId
+					? registry.list().filter((h) => h.id === habitatId)
+					: registry.list();
+				if (habitatId && entries.length === 0) {
+					return `Habitat "${habitatId}" not found`;
+				}
+				return describeFleetSecretStatus(fleetSecretStatus(entries, vault));
+			},
+		}),
+
 		set_secret: tool({
 			description: "Add or update a secret in the master vault.",
 			inputSchema: z.object({
@@ -56,7 +81,14 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 						secretBindings: entry.secretBindings,
 					});
 				}
-				return `Secret "${secretName}" bound to habitat "${habitatId}"`;
+				// Report the whole picture, not just this one binding. A habitat
+				// with one good binding and one unsatisfiable one still starts
+				// and still fails, and this is the moment someone is looking.
+				const status = habitatSecretStatus(entry, vault);
+				const gap = status.missing.length
+					? `\nStill unsatisfiable for "${habitatId}": ${status.missing.join(", ")} — bound, but the vault has no value, so they will be missing from the container.`
+					: "";
+				return `Secret "${secretName}" bound to habitat "${habitatId}". Rebuild for it to reach a running container.${gap}`;
 			},
 		}),
 	};
