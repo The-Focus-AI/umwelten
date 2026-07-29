@@ -61,6 +61,45 @@ Also affected when the bump happens: the **conformance harness**
 the **agent-browser example** (`discoverAgentEndpoint` reads cards version-agnostically;
 fine, but its card fixtures say `0.2.5`).
 
+## Migration findings (bump attempted 2026-07-29, deliberately reverted)
+
+The `^0.3.14 → ^1.0.1` bump was attempted on this branch to size the work. Findings, so the
+real migration starts with a map instead of a surprise:
+
+- **The 1.x SDK is protobuf-generated end to end.** `TaskState` is a numeric enum
+  (`TASK_STATE_COMPLETED`; `taskStateFromJSON`/`taskStateToJSON` convert), `Role` is an enum,
+  `Part` is a oneof (`content: { $case: "text" | "raw" | "url" | "data", value }` plus
+  required `filename`/`mediaType`), fields are required-by-default, and `Task.status` is
+  optional. Every place we construct or destructure `kind:`-discriminated shapes changes.
+- **`compat/v0_3` is wire-only.** It exports legacy transports
+  (`LegacyJsonRpcTransportHandler`, `LegacyJsonRpcTransport`, `parseLegacyAgentCard`) that
+  keep 0.3 peers working, but the legacy *programming model* (kind-discriminated types,
+  string task states) is not exported. The type migration cannot be dodged: ~95 type errors
+  across the workspace (conformance suite 30, `a2a-handler.ts` 28, the core a2a files the
+  rest).
+- **The `final` flag is gone.** v1's `TaskStatusUpdateEvent` carries only
+  taskId/contextId/status/metadata; the executor contract is a `kind`/`data` union
+  (`AgentEvent.statusUpdate(...)` factories) with stream termination owned by the event bus
+  (`finished`), not the event. Our habitat executor's load-bearing ordering — artifacts →
+  terminal status with `final: false` → final message, empirically verified against live SSE
+  (see `a2a-handler.ts:466-491`) — is **unrepresentable** in v1 and must be redesigned
+  around the new termination model, then re-verified against a live streaming peer. This is
+  the single highest-risk item.
+- **`TaskStore` grows a required `list()`** (ListTasks arrives) and methods thread a
+  `ServerCallContext`; the push-notification store interface changed shape too. Both file
+  stores need interface work, and `FileTaskStore`'s on-disk JSON (string states) needs a
+  read-path normalization (`taskStateFromJSON`) or an explicit toJSON wire format so
+  existing habitat volumes keep replaying.
+- **The client stack is new.** `JsonRpcTransport` no longer exists; the SDK now ships
+  `Client`/`ClientFactory`/`TransportFactory` with card-driven transport selection
+  (`AgentCardResolver`, `isLegacyAgentCard`). Our hand-rolled senders either adopt the
+  factory stack or pin `LegacyJsonRpcTransport` from compat.
+
+Conclusion: this is a redesign-scale migration of the A2A layer (protocols + habitat +
+conformance + on-disk format), not a dependency bump. It was reverted to keep the branch
+green and is scoped below as its own project, gated on the conformance harness *plus* live
+SSE verification against a running habitat — the piece a keyless CI container cannot do.
+
 ## Recommended sequencing
 
 1. **Now (this report):** record the facts; correct the May report's version claim; stop
