@@ -36,8 +36,8 @@ const root = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT ?? 7433);
 
 const model: ModelDetails = {
-  provider: process.env.AGENT_BROWSER_PROVIDER ?? "google",
-  name: process.env.AGENT_BROWSER_MODEL ?? "gemini-3-flash-preview",
+  provider: process.env.AGENT_BROWSER_PROVIDER ?? "ollama",
+  name: process.env.AGENT_BROWSER_MODEL ?? "gemma4:26b",
 };
 
 interface ConnectedEndpoint {
@@ -48,10 +48,17 @@ interface ConnectedEndpoint {
   mcp?: RemoteMcpClient;
 }
 
+interface UiResource {
+  tool: string;
+  uri?: string;
+  html: string;
+}
+
 interface TranscriptRow {
   role: "user" | "assistant";
   text: string;
   toolCalls: string[];
+  ui?: UiResource[];
 }
 
 /** One chat for the whole app — this is a demo, not a product. */
@@ -134,10 +141,12 @@ function ensureInteraction(): Interaction {
     state.interaction = new Interaction(model, state.stimulus);
     state.interaction.setMaxSteps(20);
   } else {
-    // Endpoints may have changed since the last turn; tools and role are
-    // read at request-build time, so refreshing the stimulus is enough.
+    // Endpoints may have changed since the last turn. The stimulus is the
+    // source of truth, but Interaction snapshots tools and system prompt —
+    // setStimulus() is what re-applies them to the live conversation.
     state.stimulus.setRole(role);
     state.stimulus.setTools(collectTools());
+    state.interaction.setStimulus(state.stimulus);
   }
   return state.interaction;
 }
@@ -154,6 +163,41 @@ function extractToolCalls(interaction: Interaction, fromIndex: number): string[]
     }
   }
   return calls;
+}
+
+/**
+ * mcp-ui HTML resources (`ui://…`, mimeType text/html) that MCP tools
+ * returned in messages appended after `fromIndex`. RemoteMcpClient passes
+ * non-text content blocks through verbatim, so the resource shape survives
+ * into the tool-result parts.
+ */
+function extractUiResources(interaction: Interaction, fromIndex: number): UiResource[] {
+  const found: UiResource[] = [];
+  for (const msg of interaction.getMessages().slice(fromIndex)) {
+    const content = (msg as { content?: unknown }).content;
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      const p = part as { type?: string; toolName?: string; output?: unknown; result?: unknown };
+      if (p?.type !== "tool-result") continue;
+      const output = p.output as { value?: unknown } | unknown;
+      const value =
+        (output as { value?: unknown })?.value ?? output ?? p.result;
+      const data = (value as { data?: unknown })?.data;
+      if (!Array.isArray(data)) continue;
+      for (const item of data) {
+        const resource = (item as { type?: string; resource?: { uri?: string; mimeType?: string; text?: string } })
+          ?.resource;
+        if (
+          (item as { type?: string })?.type === "resource" &&
+          resource?.mimeType?.startsWith("text/html") &&
+          typeof resource.text === "string"
+        ) {
+          found.push({ tool: p.toolName ?? "tool", uri: resource.uri, html: resource.text });
+        }
+      }
+    }
+  }
+  return found;
 }
 
 async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -267,8 +311,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       interaction.addMessage({ role: "user", content: message });
       const response = await interaction.generateText();
       const toolCalls = extractToolCalls(interaction, before);
+      const ui = extractUiResources(interaction, before);
       state.transcript.push({ role: "user", text: message, toolCalls: [] });
-      state.transcript.push({ role: "assistant", text: response.content, toolCalls });
+      state.transcript.push({
+        role: "assistant",
+        text: response.content,
+        toolCalls,
+        ...(ui.length ? { ui } : {}),
+      });
       sendJson(res, 200, { reply: response.content, toolCalls, ...publicState() });
       return;
     }

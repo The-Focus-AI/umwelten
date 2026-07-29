@@ -39,6 +39,48 @@ const agentCard = {
   ],
 };
 
+/** Self-contained interactive dice widget: renders the server's rolls, and a Reroll button re-randomizes client-side so the UI flow is testable end to end. */
+function diceWidgetHtml(rolls: number[]): string {
+  const PIPS: Record<number, number[]> = {
+    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+  };
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  body { margin:0; padding:14px; background:#1c2129; color:#e6e9ee;
+         font:14px -apple-system,"Segoe UI",Roboto,sans-serif; }
+  #dice { display:flex; gap:10px; flex-wrap:wrap; }
+  .die { width:52px; height:52px; background:#f4f1e8; border-radius:9px;
+         display:grid; grid-template:repeat(3,1fr)/repeat(3,1fr); padding:7px;
+         box-shadow:0 2px 6px rgba(0,0,0,.4); transition:transform .15s; }
+  .die.rolling { transform:rotate(360deg) scale(.8); }
+  .pip { border-radius:50%; margin:2px; }
+  .pip.on { background:#22262e; }
+  #bar { margin-top:12px; display:flex; align-items:center; gap:12px; }
+  #total { font-weight:700; font-size:15px; }
+  button { padding:6px 14px; border:none; border-radius:6px; background:#7aa2f7;
+           color:#10131a; font:inherit; font-weight:600; cursor:pointer; }
+  .note { color:#9aa4b2; font-size:11px; margin-top:8px; }
+  </style></head><body>
+  <div id="dice"></div>
+  <div id="bar"><span id="total"></span><button id="reroll">Reroll</button></div>
+  <div class="note">Rolled by the demo-tools MCP server · reroll is client-side</div>
+  <script>
+  const PIPS = ${JSON.stringify(PIPS)};
+  let rolls = ${JSON.stringify(rolls)};
+  function render() {
+    document.getElementById("dice").innerHTML = rolls.map(v =>
+      '<div class="die">' + Array.from({length:9}, (_, i) =>
+        '<div class="pip' + (PIPS[v].includes(i) ? ' on' : '') + '"></div>').join('') + '</div>'
+    ).join('');
+    document.getElementById("total").textContent = "Total: " + rolls.reduce((s,n)=>s+n,0);
+  }
+  document.getElementById("reroll").onclick = () => {
+    for (const d of document.querySelectorAll(".die")) d.classList.add("rolling");
+    setTimeout(() => { rolls = rolls.map(() => 1 + Math.floor(Math.random()*6)); render(); }, 160);
+  };
+  render();
+  </script></body></html>`;
+}
+
 function readBody(req: import("node:http").IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -105,12 +147,28 @@ const server = createServer((req, res) => {
       mcp.registerTool(
         "roll_dice",
         {
-          description: "Roll N six-sided dice and return the results",
+          description:
+            "Roll N six-sided dice. Returns the rolls as JSON plus an interactive dice widget the client may render.",
           inputSchema: { count: z.number().int().min(1).max(20) },
         },
         async ({ count }) => {
           const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * 6));
-          return { content: [{ type: "text", text: JSON.stringify({ rolls, total: rolls.reduce((s, n) => s + n, 0) }) }] };
+          const total = rolls.reduce((s, n) => s + n, 0);
+          return {
+            content: [
+              { type: "text", text: JSON.stringify({ rolls, total }) },
+              {
+                // mcp-ui-style HTML resource: hosts that render UI show the
+                // widget; text-only hosts still have the JSON above.
+                type: "resource",
+                resource: {
+                  uri: `ui://demo-tools/dice/${randomUUID()}`,
+                  mimeType: "text/html",
+                  text: diceWidgetHtml(rolls),
+                },
+              },
+            ],
+          };
         },
       );
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });

@@ -64,6 +64,12 @@
     background: #232a35; border: 1px solid var(--line); border-radius: 4px;
     padding: 1px 7px; margin: 2px 4px 0 0; color: var(--warn);
   }
+  .ui-resource { margin-top: 8px; }
+  .ui-resource .ui-label { font-size: 11px; color: var(--dim); font-family: ui-monospace, monospace; margin-bottom: 3px; }
+  .ui-resource iframe {
+    width: 100%; max-width: 560px; height: 160px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--panel);
+  }
   #composer { border-top: 1px solid var(--line); padding: 14px 24px; }
   #composer .inner { max-width: 780px; margin: 0 auto; display: flex; gap: 8px; }
   #composer input { flex: 1; margin: 0; }
@@ -154,6 +160,10 @@ function renderState(s) {
       <div class="who">${m.role}</div>
       <div class="body">${esc(m.text)}</div>
       ${m.toolCalls?.length ? `<div class="tools">${m.toolCalls.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}
+      ${(m.ui || []).map((u) => `<div class="ui-resource">
+        <div class="ui-label">${esc(u.tool)}${u.uri ? " · " + esc(u.uri) : ""}</div>
+        <iframe sandbox="allow-scripts" srcdoc="${esc(u.html)}"></iframe>
+      </div>`).join("")}
     </div>`).join("");
   t.scrollTop = t.scrollHeight;
 }

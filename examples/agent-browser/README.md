@@ -18,12 +18,19 @@ This is the demo surface for `discoverAgentEndpoint()` in
 ## Run
 
 ```bash
-dotenvx run -- pnpm tsx examples/agent-browser/server.ts
+pnpm tsx examples/agent-browser/server.ts
 # → http://localhost:7433
 ```
 
-Model defaults to `google/gemini-3-flash-preview`; override with
-`AGENT_BROWSER_PROVIDER` / `AGENT_BROWSER_MODEL`. `PORT` overrides 7433.
+Model defaults to `ollama/gemma4:26b` (local, no keys); override with
+`AGENT_BROWSER_PROVIDER` / `AGENT_BROWSER_MODEL` (hosted providers need
+their key in `.env`, run via `dotenvx run --`). `PORT` overrides 7433.
+
+**Fresh-machine walkthrough for testing this PR: see [TESTING.md](./TESTING.md).**
+
+The demo endpoint's `roll_dice` tool returns an mcp-ui-style HTML resource
+alongside its JSON — the chat renders it as an interactive sandboxed dice
+widget, so the UI-resource flow is testable without any real habitat.
 
 Things to point it at:
 
