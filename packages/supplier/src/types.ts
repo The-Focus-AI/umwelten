@@ -5,14 +5,14 @@
  * Exchange share a bounded context even though they are different deployables.
  * Two rules from the ADRs are structural here:
  *
- *   - **Capabilities are probed, never declared** (ADR 0009). Nothing in this
+ *   - **Capabilities are probed, never declared** (ADR 0015). Nothing in this
  *     file lets an operator assert what a Model can do.
  *   - **Headroom is measured, never declared.** Same reason, and it is why
  *     there is no way to hand-write a throughput number.
  *
  * Note what is absent: prices. The agent publishes evidence about what a
  * machine can do; the Exchange decides what to pay and what to charge, because
- * a Supplier that prices itself takes away the routing lever (ADR 0007).
+ * a Supplier that prices itself takes away the routing lever (ADR 0013).
  */
 
 export type CapabilityName =
@@ -24,7 +24,7 @@ export type CapabilityName =
 
 /**
  * Whether the agent controls the runtime behind an Offer or is reselling one it
- * does not control. Managed is the default (ADR 0010); adapted is the zero-cost
+ * does not control. Managed is the default (ADR 0016); adapted is the zero-cost
  * onboarding path and a lesser tier.
  */
 export type ServingMode = "managed" | "adapted";
@@ -89,7 +89,7 @@ export interface SupplierConfig {
   /**
    * Guarantees the operator says this machine is offered under. Echoed to the
    * Exchange for confirmation only — the Exchange's grant decides, and a claim
-   * beyond it is rejected (ADR 0006).
+   * beyond it is rejected (ADR 0012).
    */
   guarantees: string[];
   servingMode: ServingMode;

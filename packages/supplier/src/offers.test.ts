@@ -62,7 +62,7 @@ describe("probeTargets", () => {
 describe("toOfferDrafts", () => {
   it("carries probed capabilities through verbatim", () => {
     // Nothing inferred, defaulted, or added. An Offer's capability set is
-    // evidence (ADR 0009), and the moment something is added it stops being.
+    // evidence (ADR 0015), and the moment something is added it stops being.
     const [draft] = toOfferDrafts([probed()], { servingMode: "managed" });
     expect(draft.capabilities).toEqual(["chat", "streaming"]);
   });
@@ -91,7 +91,7 @@ describe("toOfferDrafts", () => {
 
   it("publishes no price", () => {
     // The Exchange sets Cost and Charge. A Supplier that prices itself takes
-    // away the routing lever (ADR 0007).
+    // away the routing lever (ADR 0013).
     const [draft] = toOfferDrafts([probed()], { servingMode: "managed" });
     expect(JSON.stringify(draft)).not.toMatch(/price|retail|wholesale|cost|charge/i);
   });

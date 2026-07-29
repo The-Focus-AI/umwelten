@@ -2,7 +2,7 @@
  * Metering through the real relay.
  *
  * Unit tests, not integration: no keys, no GPU, nothing beyond localhost. What
- * they assert is the thing E3 measured and ADR 0011 decided — that a request
+ * they assert is the thing E3 measured and ADR 0017 decided — that a request
  * which consumed real tokens is never recorded as free.
  */
 
@@ -112,7 +112,7 @@ describe("metering", () => {
 
       const record = await onlyRecord();
       // The mock reports 137 prompt tokens; our own count differs, and that
-      // difference is the signal rather than an error (ADR 0011).
+      // difference is the signal rather than an error (ADR 0017).
       expect(record.upstreamPromptTokens).toBe(137);
       expect(record.promptTokens).not.toBe(137);
     });
@@ -147,7 +147,7 @@ describe("metering", () => {
       // THE EXPLOIT. Submit a long prompt, abort near the end of generation:
       // the Exchange paid its Supplier for nearly all of it. If this test ever
       // fails because someone made aborted requests free, that is the bug —
-      // not this assertion. See ADR 0011.
+      // not this assertion. See ADR 0017.
       await boot("never-finishes");
       const controller = new AbortController();
 

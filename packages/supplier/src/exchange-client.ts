@@ -39,7 +39,7 @@ export class ExchangeClient {
   /**
    * Send the Offer set. Guarantees are echoed for confirmation — the Exchange's
    * grant decides, and a claim beyond it is rejected rather than downgraded
-   * (ADR 0006), which is why the rejection is surfaced rather than swallowed.
+   * (ADR 0012), which is why the rejection is surfaced rather than swallowed.
    */
   async publish(offers: OfferDraft[], guarantees: string[]): Promise<PublishResult> {
     let response: Response;

@@ -187,7 +187,7 @@ describe("supply surface", () => {
   });
 
   describe("suppliers do not set prices", () => {
-    // ADR 0007: price is the Exchange's routing lever. Rejecting rather than
+    // ADR 0013: price is the Exchange's routing lever. Rejecting rather than
     // ignoring matters — a silently dropped field lets a Supplier believe its
     // price was honored.
     it.each(["retailPromptPerMillion", "wholesaleCompletionPerMillion", "price", "costPerToken"])(

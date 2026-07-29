@@ -4,11 +4,11 @@
  * Vocabulary follows `CONTEXT.md` in this package. Two rules from the ADRs are
  * encoded structurally here rather than left to convention:
  *
- *   - **Capabilities belong to the Offer, not the Model** (ADR 0009). The same
+ *   - **Capabilities belong to the Offer, not the Model** (ADR 0015). The same
  *     Model served two ways is two Offers with two capability sets, because
  *     the whole serving path — client, runtime, build, quantization — decides
  *     what it can do.
- *   - **Money is integer micro-dollars** (ADR 0007). No amount is ever held in
+ *   - **Money is integer micro-dollars** (ADR 0013). No amount is ever held in
  *     a float, and Cost and Charge are independent fields rather than one
  *     derived from the other.
  */
@@ -18,7 +18,7 @@ export type MicroDollars = number;
 
 /**
  * Something an Offer can do. Established by probing the serving path, never
- * declared — see ADR 0009 and the supplier agent's probe battery.
+ * declared — see ADR 0015 and the supplier agent's probe battery.
  */
 export type CapabilityName =
   | "chat"
@@ -38,7 +38,7 @@ export const CAPABILITY_NAMES: readonly CapabilityName[] = [
 /**
  * Whether the Supplier controls the runtime behind an Offer, or is reselling
  * one it does not control. Only managed Offers can commit to resource
- * properties like context size and quantization (ADR 0010).
+ * properties like context size and quantization (ADR 0016).
  */
 export type ServingMode = "managed" | "adapted";
 
@@ -53,14 +53,14 @@ export interface HeadroomSample {
 /**
  * A party that produces model tokens — hardware the operator owns, a partner's
  * on-premise machine, or a commercial vendor. Google and a DGX are the same
- * kind of thing here (ADR 0006).
+ * kind of thing here (ADR 0012).
  */
 export interface Supplier {
   id: string;
   displayName: string;
   /**
    * Guarantees this Supplier may publish under. Granted by the operator, who
-   * is the party liable for them — never self-declared (ADR 0006). Enforcing
+   * is the party liable for them — never self-declared (ADR 0012). Enforcing
    * the grant on publish is #299.
    */
   grantedGuarantees: string[];
@@ -69,7 +69,7 @@ export interface Supplier {
   /**
    * Where the Exchange sends work. An OpenAI-compatible base URL, which covers
    * a commercial vendor and a tunnelled on-prem box identically — the point of
-   * unifying them as one concept (ADR 0006).
+   * unifying them as one concept (ADR 0012).
    */
   baseUrl: string;
   /**
@@ -90,7 +90,7 @@ export interface Offer {
   capabilities: CapabilityName[];
   /**
    * Inherited from the Supplier, never published by it. Guarantees are granted
-   * by the operator because the operator is liable for them (ADR 0006); an
+   * by the operator because the operator is liable for them (ADR 0012); an
    * Offer carries a copy so Dispatch can filter without a second lookup.
    */
   guarantees: string[];
@@ -106,7 +106,7 @@ export interface Offer {
   wholesaleCompletionPerMillion: MicroDollars;
   /**
    * What the Exchange charges per million tokens. Deliberately independent of
-   * wholesale (ADR 0007) — this is the routing lever.
+   * wholesale (ADR 0013) — this is the routing lever.
    */
   retailPromptPerMillion: MicroDollars;
   retailCompletionPerMillion: MicroDollars;
@@ -117,7 +117,7 @@ export interface Offer {
 /**
  * What a Supplier sends when it publishes. Note what is absent: prices, and
  * the enabled flag. A Supplier that could price itself would take away the
- * Exchange's routing lever (ADR 0007).
+ * Exchange's routing lever (ADR 0013).
  */
 export interface PublishedOffer {
   model: string;
@@ -193,7 +193,7 @@ export interface LedgerEntry {
 /**
  * What one request consumed and what it was worth, both directions.
  *
- * Cost and Charge are recorded independently (ADR 0007) — Client invoices read
+ * Cost and Charge are recorded independently (ADR 0013) — Client invoices read
  * Cost, End User balances read Charge, and every report must say which. Getting
  * that backwards bills a customer for GPU time we never paid for.
  */
@@ -233,7 +233,7 @@ export interface OfferPricing {
 /**
  * Applied to any Offer with no operator-set price. Zero wholesale is correct
  * for owned hardware; a non-zero retail is what rations it — a free-to-serve
- * Offer priced at zero would be defenceless (ADR 0007).
+ * Offer priced at zero would be defenceless (ADR 0013).
  */
 export const DEFAULT_PRICING: OfferPricing = {
   wholesalePromptPerMillion: 0,

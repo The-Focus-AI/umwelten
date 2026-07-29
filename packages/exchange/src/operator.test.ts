@@ -147,7 +147,7 @@ describe("Operator", () => {
 
       const offer = (await store.getOffer("s", "gemma-4-26b"))!;
       // Owned hardware: nothing is owed, and it still costs the buyer
-      // something. That gap is the whole of ADR 0007.
+      // something. That gap is the whole of ADR 0013.
       expect(offer.wholesalePromptPerMillion).toBe(0);
       expect(offer.retailPromptPerMillion).toBe(42);
     });

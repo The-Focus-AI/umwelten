@@ -98,7 +98,7 @@ export const supplierCommand = new Command("supplier")
 Serving modes:
   managed   The agent owns the runtime, pinning context size and quantization.
             Only managed Offers can commit to resource properties, which is why
-            it is the default posture (ADR 0010).
+            it is the default posture (ADR 0016).
   adapted   Resell a runtime already running on this machine. Costs the owner
             nothing to join, and carries no resource commitments — a lesser
             tier, priced as one.
