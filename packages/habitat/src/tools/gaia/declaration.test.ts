@@ -134,12 +134,7 @@ describe("declarationToCreateOptions — fleet defaults (#277 follow-up)", () =>
 	const ctx = {
 		id: "upperhand",
 		gitUrl: "https://github.com/The-Focus-AI/client-upperhand.git",
-		defaults: {
-			provider: "google",
-			model: "gemini-3-flash-preview",
-			providerEnvVar: (p: string) =>
-				p === "google" ? "GOOGLE_GENERATIVE_AI_API_KEY" : undefined,
-		},
+		defaults: { provider: "google", model: "gemini-3-flash-preview" },
 	};
 
 	it("inherits Gaia's provider and model when the declaration says nothing", () => {
@@ -151,39 +146,27 @@ describe("declarationToCreateOptions — fleet defaults (#277 follow-up)", () =>
 	it("lets the declaration override the fleet default", () => {
 		const opts = declarationToCreateOptions(
 			{ provider: "openrouter", model: "anthropic/claude-sonnet-5" },
-			{ ...ctx, defaults: { ...ctx.defaults, providerEnvVar: () => "OPENROUTER_API_KEY" } },
+			ctx,
 		);
 		expect(opts.provider).toBe("openrouter");
 		expect(opts.model).toBe("anthropic/claude-sonnet-5");
 	});
 
-	it("binds the provider's key without the declaration naming it", () => {
+	/**
+	 * secretBindings means exactly one thing: secrets this habitat's own work
+	 * requires. The model credential is platform infrastructure, injected at
+	 * start like the GitHub boot token (`runtime-credentials.ts`), so it never
+	 * appears here — that is what keeps an unsatisfied binding meaningful
+	 * rather than platform noise.
+	 */
+	it("does not bind the provider's key — that is not a declared need", () => {
 		const opts = declarationToCreateOptions({}, ctx);
-		expect(opts.secretBindings).toEqual(["GOOGLE_GENERATIVE_AI_API_KEY"]);
-	});
-
-	it("does not duplicate a key the declaration already binds", () => {
-		const opts = declarationToCreateOptions(
-			{ secretBindings: ["GOOGLE_GENERATIVE_AI_API_KEY"] },
-			ctx,
-		);
-		expect(opts.secretBindings).toEqual(["GOOGLE_GENERATIVE_AI_API_KEY"]);
-	});
-
-	it("keeps declared bindings alongside the provider key", () => {
-		const opts = declarationToCreateOptions({ secretBindings: ["TAVILY_API_KEY"] }, ctx);
-		expect(opts.secretBindings).toEqual([
-			"TAVILY_API_KEY",
-			"GOOGLE_GENERATIVE_AI_API_KEY",
-		]);
-	});
-
-	it("binds nothing extra for a provider with no known env var", () => {
-		const opts = declarationToCreateOptions(
-			{ provider: "ollama" },
-			{ ...ctx, defaults: { ...ctx.defaults, providerEnvVar: () => undefined } },
-		);
 		expect(opts.secretBindings).toBeUndefined();
+	});
+
+	it("carries only what the declaration actually asked for", () => {
+		const opts = declarationToCreateOptions({ secretBindings: ["TAVILY_API_KEY"] }, ctx);
+		expect(opts.secretBindings).toEqual(["TAVILY_API_KEY"]);
 	});
 
 	it("works with no defaults at all, as before", () => {
