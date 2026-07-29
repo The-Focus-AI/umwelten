@@ -26,12 +26,19 @@ export function buildSeedFiles(
 	entry: GaiaHabitatEntry,
 	vault: GaiaSecretVault,
 	catalog?: CredentialCatalog,
+	/**
+	 * Values from the habitat's **own** vault (#283). When present these are
+	 * the habitat's secrets outright — the master vault is not consulted, so
+	 * two habitats can declare the same env var name and get different values.
+	 * Absent means no vault of its own; the master vault answers, as before.
+	 */
+	resolved?: Record<string, string>,
 ): Array<{ path: string; content: string }> {
 	const filtered: Record<string, string> = {};
 
 	// Direct secret bindings
 	for (const name of entry.secretBindings) {
-		const val = vault.get(name);
+		const val = resolved ? resolved[name] : vault.get(name);
 		if (val) filtered[name] = val;
 	}
 

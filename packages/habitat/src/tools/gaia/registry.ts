@@ -206,6 +206,7 @@ export class GaiaRegistryManager {
 				| "github"
 				| "cachedCard"
 				| "lastActivityAt"
+				| "vaultToml"
 			>
 		>,
 	): Promise<GaiaHabitatEntry> {
@@ -226,6 +227,9 @@ export class GaiaRegistryManager {
 		if (updates.cachedCard !== undefined) entry.cachedCard = updates.cachedCard;
 		if (updates.lastActivityAt !== undefined)
 			entry.lastActivityAt = updates.lastActivityAt;
+		// Assigned unconditionally: undefined means the repo no longer
+		// declares a vault, which must clear it rather than keep a stale copy.
+		if ("vaultToml" in updates) entry.vaultToml = updates.vaultToml;
 
 		await this.save();
 		return entry;

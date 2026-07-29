@@ -10,16 +10,11 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import type { GaiaToolsContext } from "./context.js";
-import { getRegisteredProvider } from "@umwelten/core/providers/index.js";
 import {
 	describeFleetSecretStatus,
 	fleetSecretStatus,
 	habitatSecretStatus,
 } from "../secret-status.js";
-import {
-	describeRuntimeCredential,
-	resolveRuntimeCredential,
-} from "../runtime-credentials.js";
 
 export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> {
 	const { registry, vault } = ctx;
@@ -41,29 +36,20 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 				if (habitatId && entries.length === 0) {
 					return `Habitat "${habitatId}" not found`;
 				}
-				const declared = describeFleetSecretStatus(
-					fleetSecretStatus(entries, vault),
+				// Which vault each habitat resolves against (#283). A habitat with
+				// its own is self-contained; one still on the shared master vault
+				// cannot hold a different value for a name another habitat uses,
+				// which is the collision per-habitat vaults exist to remove.
+				const vaults = entries.map(
+					(e) =>
+						`  ${e.id}: ${e.vaultToml ? "its own vault (fnox.toml in its repo)" : "shared master vault"}`,
 				);
 
-				// The model credential is not a binding — it is injected at start
-				// like the GitHub boot token. Reported alongside anyway, because
-				// "why can't this habitat answer" is one question, not two, and
-				// splitting the answer across two tools is how the first client
-				// habitat took several rebuilds to diagnose.
-				const runtime = entries.map((entry) => {
-					const result = resolveRuntimeCredential(entry, {
-						providerEnvVar: (name) => getRegisteredProvider(name)?.envVar,
-						secret: (name) => vault.get(name),
-					});
-					return `  ${entry.id}: ${describeRuntimeCredential(result).replace(/^Model credential: /, "")}`;
-				});
-
 				return [
-					"DECLARED — secrets each habitat's own work requires:",
-					declared,
+					describeFleetSecretStatus(fleetSecretStatus(entries, vault)),
 					"",
-					"PLATFORM — the model credential, injected at start, never declared:",
-					...runtime,
+					"Vaults:",
+					...vaults,
 				].join("\n");
 			},
 		}),

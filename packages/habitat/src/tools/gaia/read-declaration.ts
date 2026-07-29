@@ -65,6 +65,22 @@ export async function readDeclarationFromRepo(
 	ref?: string,
 	deps: ReadDeclarationDeps = {},
 ): Promise<string | undefined> {
+	return readRepoFile(gitUrl, HABITAT_DECLARATION_FILE, ref, deps);
+}
+
+/**
+ * Fetch one file from a repo's default branch, or a named ref.
+ *
+ * Generalised out of `readDeclarationFromRepo` for the vault declaration
+ * (#283), which sits next to `habitat.json` in the same repo and has the same
+ * bootstrap problem: Gaia must read it before it has any reason to clone.
+ */
+export async function readRepoFile(
+	gitUrl: string,
+	path: string,
+	ref?: string,
+	deps: ReadDeclarationDeps = {},
+): Promise<string | undefined> {
 	const parsed = parseGitHubRepo(gitUrl);
 	if (!parsed) {
 		throw new DeclarationFetchError(
@@ -74,7 +90,7 @@ export async function readDeclarationFromRepo(
 
 	const base = deps.apiBase ?? "https://api.github.com";
 	const url = new URL(
-		`/repos/${parsed.owner}/${parsed.repo}/contents/${HABITAT_DECLARATION_FILE}`,
+		`/repos/${parsed.owner}/${parsed.repo}/contents/${path}`,
 		base,
 	);
 	if (ref) url.searchParams.set("ref", ref);
@@ -111,14 +127,14 @@ export async function readDeclarationFromRepo(
 
 	if (!res.ok) {
 		throw new DeclarationFetchError(
-			`GitHub returned HTTP ${res.status} reading ${HABITAT_DECLARATION_FILE} from ${parsed.owner}/${parsed.repo}.`,
+			`GitHub returned HTTP ${res.status} reading ${path} from ${parsed.owner}/${parsed.repo}.`,
 		);
 	}
 
 	const body = (await res.json()) as { content?: string; encoding?: string };
 	if (typeof body.content !== "string") {
 		throw new DeclarationFetchError(
-			`Unexpected contents-API response for ${HABITAT_DECLARATION_FILE} — no content field. Is it a directory?`,
+			`Unexpected contents-API response for ${path} — no content field. Is it a directory?`,
 		);
 	}
 
