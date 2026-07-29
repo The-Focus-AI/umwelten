@@ -9,6 +9,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import { sendA2AMessage } from "@umwelten/protocols";
+import { getRegisteredProvider } from "@umwelten/core/providers/index.js";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
 import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
@@ -503,6 +504,13 @@ export function createHabitatLifecycleTools(
 						...(gitBranch ? { gitBranch } : {}),
 						readDeclaration: (url, ref) =>
 							readDeclarationFromRepo(url, ref, { token: ambient?.token }),
+						// Fleet policy the repo does not have to restate: Gaia's own
+						// provider and model, and where a provider keeps its key.
+						defaults: {
+							...(gaiaProvider ? { provider: gaiaProvider } : {}),
+							...(gaiaModel ? { model: gaiaModel } : {}),
+							providerEnvVar: (p) => getRegisteredProvider(p)?.envVar,
+						},
 					});
 
 					const read = result.entry.github?.read;

@@ -161,28 +161,68 @@ export function parseHabitatDeclaration(source: string): HabitatDeclaration {
 	};
 }
 
+/** Fleet-level defaults a declaration inherits when it says nothing. */
+export interface DeclarationDefaults {
+	/** Gaia's own provider. */
+	provider?: string;
+	/** Gaia's own model. */
+	model?: string;
+	/**
+	 * Provider name → the env var its key lives in, from the core provider
+	 * registry. Injected rather than imported so this file stays pure.
+	 */
+	providerEnvVar?: (provider: string) => string | undefined;
+}
+
 /**
  * Turn a declaration into creation options.
  *
  * `id` and `gitUrl` come from outside the declaration — the id is how the
  * fleet addresses this habitat and the Owned repo is where the declaration
  * was found, so neither is the declaration's to state.
+ *
+ * Neither is the LLM. A client repo has no opinion about which model reads
+ * it or where that key is kept — that is fleet policy, and repeating it in
+ * fifteen client declarations is fifteen places for it to drift. So an
+ * omitted provider/model inherits Gaia's own, exactly as `create_habitat`
+ * has always done; a declaration only has to state what is *particular* to
+ * this habitat, which is usually just its mounts.
+ *
+ * The provider's key is bound automatically for the same reason. A habitat
+ * running on `google` needs `GOOGLE_GENERATIVE_AI_API_KEY`; making someone
+ * write that down is asking them to restate a fact the provider registry
+ * already knows, and getting it wrong produces a habitat that starts and
+ * then fails on its first question.
  */
 export function declarationToCreateOptions(
 	declaration: HabitatDeclaration,
-	context: { id: string; gitUrl: string; gitBranch?: string },
+	context: {
+		id: string;
+		gitUrl: string;
+		gitBranch?: string;
+		defaults?: DeclarationDefaults;
+	},
 ): CreateHabitatOptions {
+	const defaults = context.defaults ?? {};
+	const provider = declaration.provider ?? defaults.provider;
+	const model = declaration.model ?? defaults.model;
+
+	// Declared bindings win; the provider's own key is added if absent.
+	const secretBindings = [...(declaration.secretBindings ?? [])];
+	const providerKey = provider ? defaults.providerEnvVar?.(provider) : undefined;
+	if (providerKey && !secretBindings.includes(providerKey)) {
+		secretBindings.push(providerKey);
+	}
+
 	return {
 		id: context.id,
 		name: declaration.name ?? context.id,
 		gitUrl: context.gitUrl,
 		...(context.gitBranch ? { gitBranch: context.gitBranch } : {}),
-		...(declaration.provider ? { provider: declaration.provider } : {}),
-		...(declaration.model ? { model: declaration.model } : {}),
+		...(provider ? { provider } : {}),
+		...(model ? { model } : {}),
 		...(declaration.mounts ? { mounts: declaration.mounts } : {}),
-		...(declaration.secretBindings
-			? { secretBindings: declaration.secretBindings }
-			: {}),
+		...(secretBindings.length ? { secretBindings } : {}),
 		...(declaration.skillsFromGit
 			? { skillsFromGit: declaration.skillsFromGit }
 			: {}),

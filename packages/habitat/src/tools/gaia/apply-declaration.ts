@@ -22,6 +22,7 @@ import {
 	HabitatDeclarationError,
 	declarationToCreateOptions,
 	parseHabitatDeclaration,
+	type DeclarationDefaults,
 	type HabitatDeclaration,
 } from "./declaration.js";
 import { mountsToAgentEntries } from "./mounts.js";
@@ -54,6 +55,12 @@ export interface ApplyDeclarationOptions {
 		gitUrl: string,
 		gitBranch?: string,
 	) => Promise<string | undefined>;
+	/**
+	 * Fleet policy the declaration inherits when it says nothing: Gaia's own
+	 * provider and model, and how to find a provider's key. A client repo
+	 * has no opinion about which model reads it.
+	 */
+	defaults?: DeclarationDefaults;
 }
 
 export interface ApplyResult {
@@ -89,6 +96,7 @@ export async function applyHabitatDeclaration(
 		id: options.id,
 		gitUrl: options.gitUrl,
 		...(options.gitBranch ? { gitBranch: options.gitBranch } : {}),
+		...(options.defaults ? { defaults: options.defaults } : {}),
 	});
 
 	const existing = registry.get(options.id);
@@ -123,8 +131,12 @@ export async function applyHabitatDeclaration(
 	const entry = await registry.update(options.id, {
 		name: createOptions.name,
 		config,
-		...(declaration.secretBindings
-			? { secretBindings: declaration.secretBindings }
+		// Use the resolved bindings, not the raw declaration: they include the
+		// provider's own key, which the declaration is not required to state.
+		// Taking the raw list here would strip that key on every re-apply and
+		// silently break a habitat that was working.
+		...(createOptions.secretBindings
+			? { secretBindings: createOptions.secretBindings }
 			: {}),
 		// Read is re-derived from what the declaration says to mount, so removing
 		// a mount in the repo actually narrows the scope. Write comes only from
