@@ -20,9 +20,13 @@ import {
 	planVaultMigration,
 } from "../vault-migration.js";
 import { describeSecretNeeds, secretNeeds } from "../required-secrets.js";
+import {
+	describeModelCredential,
+	resolveModelCredential,
+} from "../model-credentials.js";
 
 export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> {
-	const { registry, vault } = ctx;
+	const { registry, vault, gaiaConfig } = ctx;
 
 	return {
 		secret_status: tool({
@@ -52,10 +56,24 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 						const v = vault.get(name);
 						if (v) resolved[name] = v;
 					}
+					// Model access is Gaia's to supply, not the habitat's to declare,
+					// so it is reported apart from anything in the contract.
+					const modelLine = `    ${describeModelCredential(
+						resolveModelCredential(e.config.defaultProvider, {
+							...(gaiaConfig?.modelCredentials
+								? { map: gaiaConfig.modelCredentials }
+								: {}),
+							secret: (name) => vault.get(name),
+						}),
+					)}`;
 					const vaultLine = e.vaultToml
 						? "    vault: its own (fnox.toml in its repo)"
 						: "    vault: shared master vault — not yet migrated (#284)";
-					return [describeSecretNeeds(e.id, needs, resolved), vaultLine].join("\n");
+					return [
+						describeSecretNeeds(e.id, needs, resolved),
+						modelLine,
+						vaultLine,
+					].join("\n");
 				});
 
 				return blocks.length ? blocks.join("\n\n") : "No habitats registered.";

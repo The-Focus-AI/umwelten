@@ -24,6 +24,10 @@ import {
 	HABITAT_VAULT_FILE,
 } from "../habitat-vault.js";
 import { secretNeeds, unmetNeeds } from "../required-secrets.js";
+import {
+	describeModelCredential,
+	resolveModelCredential,
+} from "../model-credentials.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 /**
@@ -38,7 +42,7 @@ export async function startHabitatContainer(
 	ctx: GaiaToolsContext,
 	id: string,
 ): Promise<number> {
-	const { registry, vault, docker, catalog, githubTokens } = ctx;
+	const { registry, vault, docker, catalog, githubTokens, gaiaConfig } = ctx;
 	const entry = registry.get(id);
 	if (!entry) throw new Error(`Habitat "${id}" not found`);
 
@@ -90,8 +94,24 @@ export async function startHabitatContainer(
 	// a GitHub outage degrades to a token-less boot, not a failure).
 	const bootTokens = await githubTokens?.bootTokensFor(entry);
 
+	// Model access is platform infrastructure: Gaia chose this habitat's
+	// provider, so Gaia supplies the credential for it, from its own vault and
+	// its own declared map. Never written to the volume, never declared by the
+	// habitat's repo. A provider Gaia declares nothing for gets nothing — the
+	// container still starts, and the gap is reported wherever someone looks.
+	const model = resolveModelCredential(entry.config.defaultProvider, {
+		...(gaiaConfig?.modelCredentials
+			? { map: gaiaConfig.modelCredentials }
+			: {}),
+		secret: (name) => vault.get(name),
+	});
+	if (!model.ok && model.reason !== "no-provider") {
+		console.warn(`[gaia] ${id}: ${describeModelCredential(model)}`);
+	}
+
 	const port = await docker.startContainer(entry, "", registry.list(), {
 		githubTokens: bootTokens,
+		...(model.ok ? { modelCredential: model.credential } : {}),
 	});
 	await registry.update(id, { containerPort: port });
 	// A start counts as activity, so a habitat is not reaped in the
@@ -289,6 +309,14 @@ export function createHabitatLifecycleTools(
 							`Add them with set_secret, then rebuild.`,
 					);
 				}
+				const model = resolveModelCredential(entry.config.defaultProvider, {
+					...(gaiaConfig?.modelCredentials
+						? { map: gaiaConfig.modelCredentials }
+						: {}),
+					secret: (name) => vault.get(name),
+				});
+				if (!model.ok) warnings.push(`WARNING: ${describeModelCredential(model)}`);
+
 				const notes: string[] = [];
 				if (seed.scopeAdded || seed.agentAdded) {
 					notes.push(
@@ -601,6 +629,16 @@ export function createHabitatLifecycleTools(
 							// Which vault this habitat resolves against (#283). A habitat
 							// with its own vault is self-contained; one without still
 							// shares the flat master vault, which is worth knowing.
+							lines.push(
+								describeModelCredential(
+									resolveModelCredential(result.entry.config.defaultProvider, {
+										...(gaiaConfig?.modelCredentials
+											? { map: gaiaConfig.modelCredentials }
+											: {}),
+										secret: (name) => vault.get(name),
+									}),
+								),
+							);
 							lines.push(
 								result.entry.vaultToml
 									? `Vault: its own (${HABITAT_VAULT_FILE} in its repo), resolved by Gaia on the host.`

@@ -1,5 +1,8 @@
 {
   "name": "Gaia Orchestrator",
   "defaultProvider": "{{provider}}",
-  "defaultModel": "{{model}}"
+  "defaultModel": "{{model}}",
+  "modelCredentials": {
+    "{{provider}}": "CHANGEME_API_KEY"
+  }
 }

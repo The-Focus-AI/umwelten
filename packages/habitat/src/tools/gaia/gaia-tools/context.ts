@@ -50,7 +50,7 @@ export interface GaiaToolsContext {
 	/** Gaia's own config (from Gaia data-dir config.json). */
 	gaiaConfig?: Pick<
 		import("../../../types.js").HabitatConfig,
-		"standardsRepoUrl" | "standardsRepoBranch"
+		"standardsRepoUrl" | "standardsRepoBranch" | "modelCredentials"
 	>;
 }
 
