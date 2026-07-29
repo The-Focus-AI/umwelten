@@ -135,6 +135,11 @@ export async function applyHabitatDeclaration(
 		...(declaration.skillsFromGit
 			? { skillsFromGit: declaration.skillsFromGit }
 			: {}),
+		// Re-applied from the declaration so the contract in the repo is what
+		// Gaia provisions against — the whole point of it being a contract.
+		...(declaration.requiredSecrets
+			? { requiredSecrets: declaration.requiredSecrets }
+			: {}),
 	};
 
 	const entry = await registry.update(options.id, {

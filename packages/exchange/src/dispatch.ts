@@ -10,11 +10,11 @@
  * that Offer is unavailable the request fails rather than falling back to a
  * cheaper ineligible one. Silently serving from a Supplier that lacks a
  * required Guarantee is the worst outcome this system can produce, because the
- * operator is the party liable for that Guarantee (ADR 0006) — and the "fix"
+ * operator is the party liable for that Guarantee (ADR 0012) — and the "fix"
  * for it looks like a resilience improvement, which is why this comment is here.
  *
  * Capabilities come from what was probed, never from what was declared
- * (ADR 0009).
+ * (ADR 0015).
  */
 
 import type { CapabilityName, MicroDollars, Offer } from "./types.js";

@@ -20,10 +20,10 @@ import { habitatSecretStatus } from "../secret-status.js";
 import {
 	nodeVaultDeps,
 	resolveHabitatVault,
-	unmetBindings,
 	VaultResolutionError,
 	HABITAT_VAULT_FILE,
 } from "../habitat-vault.js";
+import { secretNeeds, unmetNeeds } from "../required-secrets.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 /**
@@ -65,11 +65,15 @@ export async function startHabitatContainer(
 	// not call a model — and fails on the first real question, several
 	// rebuilds from the cause.
 	if (resolved) {
-		const unmet = unmetBindings(entry.secretBindings ?? [], resolved);
-		if (unmet.length) {
+		// Checked against what the habitat declared, so an OAuth credential it
+		// mints itself is never counted as missing — it is absent until a user
+		// connects, which is normal. Optional entries do not block either.
+		const needs = secretNeeds(entry.config, entry.secretBindings);
+		const { missingRequired } = unmetNeeds(needs, resolved);
+		if (missingRequired.length) {
 			throw new VaultResolutionError(
-				`Habitat "${id}" declares ${unmet.join(", ")}, which its vault did not supply. ` +
-					`Add them to fnox.toml in its repo, or remove them from habitat.json. ` +
+				`Habitat "${id}" requires ${missingRequired.join(", ")}, which its vault did not supply. ` +
+					`Add them to ${HABITAT_VAULT_FILE} in its repo, or stop declaring them. ` +
 					`Not starting it under-configured.`,
 				id,
 			);

@@ -21,6 +21,7 @@ import type { GaiaHabitatEntry } from "../types.js";
 import type { GaiaSecretVault } from "../secrets.js";
 import type { CredentialCatalog } from "../credential-catalog.js";
 import { CapabilityResolver } from "../capability-resolver.js";
+import { secretNeeds } from "../required-secrets.js";
 
 export function buildSeedFiles(
 	entry: GaiaHabitatEntry,
@@ -36,8 +37,12 @@ export function buildSeedFiles(
 ): Array<{ path: string; content: string }> {
 	const filtered: Record<string, string> = {};
 
-	// Direct secret bindings
-	for (const name of entry.secretBindings) {
+	// What the habitat says it needs, from its own declaration where it has
+	// one. Self-minted (`type: "oauth"`) names are deliberately absent — the
+	// habitat creates those itself when a user connects, and seeding a blank
+	// would overwrite a token it already holds.
+	const needs = secretNeeds(entry.config, entry.secretBindings);
+	for (const name of needs.fromVault) {
 		const val = resolved ? resolved[name] : vault.get(name);
 		if (val) filtered[name] = val;
 	}

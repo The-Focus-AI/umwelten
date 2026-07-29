@@ -2,7 +2,7 @@
 /**
  * E3 — can the exchange bill what it sold?
  *
- * Every money decision we have recorded (ADR 0007, ADR 0008) assumes the
+ * Every money decision we have recorded (ADR 0013, ADR 0014) assumes the
  * exchange can count what a request consumed. Nothing had checked that. This
  * spike drives the real runner against a mock upstream and reports what token
  * counts and cost come back in three situations:

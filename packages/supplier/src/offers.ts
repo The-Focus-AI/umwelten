@@ -29,7 +29,7 @@ export function probeTargets(
  * first would have Dispatch route around a Model that works.
  *
  * Capabilities are carried through verbatim. Nothing is inferred, defaulted, or
- * added — an Offer's capability set is evidence (ADR 0009), and the moment
+ * added — an Offer's capability set is evidence (ADR 0015), and the moment
  * something is added here it stops being evidence.
  */
 export function toOfferDrafts(

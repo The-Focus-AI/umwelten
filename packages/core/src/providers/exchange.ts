@@ -12,7 +12,7 @@
  * `core` would introduce the repo's first cycle. The relationship is one-way
  * and over HTTP — see `CONTEXT-MAP.md`.
  *
- * Auth: the Exchange verifies a token the *Application* signs (ADR 0008), so
+ * Auth: the Exchange verifies a token the *Application* signs (ADR 0014), so
  * the credential here is whatever the caller has been issued. For a habitat
  * that is a service token; for a multi-user Application it is a per-request
  * user assertion, which is why the key is read per call rather than captured.

@@ -28,6 +28,7 @@
  */
 
 import type { CreateHabitatOptions, GaiaHabitatEntry, MountedRepoSpec } from "./types.js";
+import type { RequiredSecret } from "../../types.js";
 
 /** Filename Gaia looks for at the root of a habitat's Owned repo. */
 export const HABITAT_DECLARATION_FILE = "habitat.json";
@@ -38,6 +39,18 @@ export interface HabitatDeclaration {
 	model?: string;
 	/** Repos this habitat reads and never writes. */
 	mounts?: MountedRepoSpec[];
+	/**
+	 * What this habitat needs in order to run — the contract it also publishes
+	 * on its agent card as `requiredCredentials` (ADR 0004). Each entry says
+	 * how it is obtained: `type: "secret"` is an operator value Gaia resolves
+	 * from this habitat's vault; `type: "oauth"` the habitat mints itself at
+	 * its `connectPath` when a user authorizes, and Gaia supplies nothing.
+	 *
+	 * This is the field to use. `secretBindings` is the older bare-name list
+	 * that carried no such distinction.
+	 */
+	requiredSecrets?: RequiredSecret[];
+	/** @deprecated Declare `requiredSecrets` instead — it says how each is obtained. */
 	secretBindings?: string[];
 	skillsFromGit?: string[];
 	/**
@@ -131,6 +144,44 @@ export function parseHabitatDeclaration(source: string): HabitatDeclaration {
 		);
 	}
 
+	let requiredSecrets: RequiredSecret[] | undefined;
+	if (d.requiredSecrets !== undefined) {
+		if (!Array.isArray(d.requiredSecrets)) {
+			fail(`"requiredSecrets" must be an array.`);
+		}
+		requiredSecrets = d.requiredSecrets.map((raw, i) => {
+			if (typeof raw !== "object" || raw === null) {
+				fail(`requiredSecrets[${i}] must be an object.`);
+			}
+			const r = raw as Record<string, unknown>;
+			if (typeof r.name !== "string" || !r.name.trim()) {
+				fail(`requiredSecrets[${i}] needs a non-empty "name".`);
+			}
+			if (r.type !== undefined && r.type !== "secret" && r.type !== "oauth") {
+				fail(`requiredSecrets[${i}].type must be "secret" or "oauth".`);
+			}
+			if (r.required !== undefined && typeof r.required !== "boolean") {
+				fail(`requiredSecrets[${i}].required must be a boolean.`);
+			}
+			// An oauth entry with no connectPath cannot actually be obtained —
+			// the client has nowhere to send the user, so it would sit
+			// permanently unmet with no way to fix it.
+			if (r.type === "oauth" && typeof r.connectPath !== "string") {
+				fail(
+					`requiredSecrets[${i}] is type "oauth" but declares no "connectPath" — there would be nowhere to send the user.`,
+				);
+			}
+			return {
+				name: r.name,
+				required: r.required === undefined ? true : (r.required as boolean),
+				...(r.type ? { type: r.type as "secret" | "oauth" } : {}),
+				...(typeof r.connectPath === "string" ? { connectPath: r.connectPath } : {}),
+				...(typeof r.description === "string" ? { description: r.description } : {}),
+				...(typeof r.label === "string" ? { label: r.label } : {}),
+			} as RequiredSecret;
+		});
+	}
+
 	let github: HabitatDeclaration["github"];
 	if (d.github !== undefined) {
 		if (typeof d.github !== "object" || d.github === null) {
@@ -150,6 +201,7 @@ export function parseHabitatDeclaration(source: string): HabitatDeclaration {
 		...(d.image ? { image: d.image as string } : {}),
 		...(d.hostname ? { hostname: d.hostname as string } : {}),
 		...(parseMounts(d.mounts) ? { mounts: parseMounts(d.mounts) } : {}),
+		...(requiredSecrets ? { requiredSecrets } : {}),
 		...(asStringArray(d.secretBindings, "secretBindings")
 			? { secretBindings: asStringArray(d.secretBindings, "secretBindings") }
 			: {}),
@@ -179,7 +231,7 @@ export function declarationToCreateOptions(
 	declaration: HabitatDeclaration,
 	context: { id: string; gitUrl: string; gitBranch?: string },
 ): CreateHabitatOptions {
-	const { provider, model, secretBindings } = declaration;
+	const { provider, model, secretBindings, requiredSecrets } = declaration;
 
 	return {
 		id: context.id,
@@ -189,6 +241,7 @@ export function declarationToCreateOptions(
 		...(provider ? { provider } : {}),
 		...(model ? { model } : {}),
 		...(declaration.mounts ? { mounts: declaration.mounts } : {}),
+		...(requiredSecrets ? { requiredSecrets } : {}),
 		...(secretBindings ? { secretBindings } : {}),
 		...(declaration.skillsFromGit
 			? { skillsFromGit: declaration.skillsFromGit }

@@ -88,7 +88,7 @@ pair, no comparison.
 **1. Ollama is effectively single-tenant.** At four concurrent requests, a buyer
 waits 21 seconds for gemma4:12b and 48 seconds for gemma4:31b to *start*. An
 exchange reselling an adapted Ollama cannot serve concurrent traffic at all. This
-is a considerably stronger argument for ADR 0010 (serve-mode) than the reasoning
+is a considerably stronger argument for ADR 0016 (serve-mode) than the reasoning
 capability gap that originally motivated it — that gap costs you a feature, this
 costs you the ability to have two customers.
 
@@ -107,7 +107,7 @@ toward the former is not a micro-optimization; it is most of the economics.
 **4. TTFT is the admission-control signal.** Ollama's TTFT explosion is what
 queueing looks like from outside. Dispatch must cap concurrency per Offer from
 measured Headroom rather than discovering the limit by degrading real requests —
-which is ADR 0007's "money answers how much this month, concurrency answers how
+which is ADR 0013's "money answers how much this month, concurrency answers how
 much right now," now with a number attached.
 
 ## Follow-ups
@@ -118,7 +118,7 @@ much right now," now with a number attached.
    still scaling at 6.8×, so the ceiling is above the range tested.
 3. **Investigate whether Ollama can batch at all** (`OLLAMA_NUM_PARALLEL`). If it
    can, this is a configuration finding rather than an architectural one, and
-   adapt-mode over Ollama becomes viable again. If it cannot, ADR 0010 is settled
+   adapt-mode over Ollama becomes viable again. If it cannot, ADR 0016 is settled
    on throughput grounds as well as capability grounds.
 4. **Cold-start is still unpriced.** llama-swap's on-demand loads were 14–28s
    earlier. Dispatch preferring a warm Offer over a nominally faster cold one is

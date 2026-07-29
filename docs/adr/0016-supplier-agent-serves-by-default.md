@@ -48,6 +48,6 @@ on hardware we may not own — including the failure modes that come with it
 (a partner's box rebooting, a GPU claimed by whoever is sitting at the desk).
 
 This decision constrains capability but not Guarantees: a Guarantee is asserted
-by the operator and carried by the Supplier (ADR 0006), so an adapted Offer can
+by the operator and carried by the Supplier (ADR 0012), so an adapted Offer can
 still be on-premise and not-trained-on. It is capability and resource
 commitments — context size, quantization, concurrency — that require serving.

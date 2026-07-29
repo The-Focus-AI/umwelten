@@ -47,7 +47,7 @@ export interface PublishRequest {
   /**
    * Guarantees the Supplier believes it is offered under. Echoed for
    * confirmation, never authoritative — the operator's grant decides, and a
-   * claim beyond it is rejected (ADR 0006).
+   * claim beyond it is rejected (ADR 0012).
    */
   guarantees?: unknown;
 }
@@ -66,7 +66,7 @@ class PublishError extends Error {
  * Validate a published Offer set.
  *
  * Rejects, rather than ignores, a payload carrying prices. A Supplier setting
- * its own price would take away the Exchange's routing lever (ADR 0007), and
+ * its own price would take away the Exchange's routing lever (ADR 0013), and
  * silently dropping the field would let a Supplier believe it had been honored.
  */
 export function parsePublishedOffers(input: unknown): PublishedOffer[] {
