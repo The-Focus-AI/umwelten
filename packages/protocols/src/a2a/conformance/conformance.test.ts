@@ -12,9 +12,10 @@
 
 import { describe, it, expect } from "vitest";
 import { createServer } from "node:http";
+import { TaskState } from "@a2a-js/sdk";
 import { InMemoryTaskStore } from "@a2a-js/sdk/server";
 import { createA2AServer } from "../server.js";
-import { startConformanceAgent } from "./local-agent.js";
+import { conformanceAgentCard, startConformanceAgent } from "./local-agent.js";
 import { createHttpConformanceSubject } from "./http-subject.js";
 import { runA2AConformance, formatConformanceReport } from "./runner.js";
 import { ScriptedConformanceAgent } from "./scripted-agent.js";
@@ -151,7 +152,9 @@ describe("A2A conformance — reporting", () => {
 			expect(failure.status).toBe("failed");
 			expect(failure.assertion).toBe("poll.reaches-completed");
 			expect(failure.message).toMatch(/did not reach `completed`/);
-			expect(failure.observedState).toBe("working");
+			// v1 SDK: observedState is the numeric TaskState enum, not the legacy
+			// string — the report renders "working" but carries the enum value.
+			expect(failure.observedState).toBe(TaskState.TASK_STATE_WORKING);
 			expect(failure.criterion).toBe("Polling tracks a Task to completion");
 			expect(formatConformanceReport(report)).toContain(
 				"poll.reaches-completed",
@@ -194,18 +197,14 @@ describe("A2A conformance — reporting", () => {
  */
 async function startForgetfulAgent() {
 	let executor = new ScriptedConformanceAgent();
+	// Same v1 card shape as the reference agent; only the store is wrong.
+	const forgetfulCard = {
+		...conformanceAgentCard("http://127.0.0.1"),
+		name: "Forgetful Agent",
+		description: "Loses its tasks on restart.",
+	};
 	let a2a = createA2AServer({
-		agentCard: {
-			name: "Forgetful Agent",
-			description: "Loses its tasks on restart.",
-			url: "http://127.0.0.1/a2a",
-			version: "1.0.0",
-			protocolVersion: "0.2.5",
-			capabilities: { streaming: true },
-			defaultInputModes: ["text/plain"],
-			defaultOutputModes: ["text/plain"],
-			skills: [],
-		},
+		agentCard: forgetfulCard,
 		executor,
 		taskStore: new InMemoryTaskStore(),
 	});

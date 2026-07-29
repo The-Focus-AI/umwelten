@@ -164,10 +164,12 @@ describe("habitat push notifications", () => {
 				taskId: task.id,
 			});
 			expect(configs).toHaveLength(1);
-			expect(configs[0].pushNotificationConfig.url).toBe(webhook.url);
+			// v1 configs are flat ({id, taskId, url, token}) — no nested
+			// pushNotificationConfig envelope.
+			expect(configs[0].url).toBe(webhook.url);
 			// An unnamed registration is named after its Task, so a caller with one
 			// webhook per Task never has to track config ids.
-			expect(configs[0].pushNotificationConfig.id).toBe(task.id);
+			expect(configs[0].id).toBe(task.id);
 
 			await deleteA2APushConfig({ endpoint: agent.url, taskId: task.id });
 			expect(
@@ -222,7 +224,7 @@ describe("habitat push notifications", () => {
 				taskId: task.id,
 			});
 			expect(configs).toHaveLength(1);
-			expect(configs[0].pushNotificationConfig.url).toBe(webhook.url);
+			expect(configs[0].url).toBe(webhook.url);
 		} finally {
 			await webhook.stop();
 			await agent.stop();

@@ -2,13 +2,19 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Task, TaskState } from "@a2a-js/sdk";
+import { TaskState, type Task } from "@a2a-js/sdk";
 import { FileTaskStore } from "./file-task-store.js";
 import {
 	ABANDONED_TASK_MARKER,
 	DEFAULT_ABANDONED_REASON,
 	sweepAbandonedTasks,
 } from "./task-recovery.js";
+import {
+	partText,
+	taskStateFromLegacy,
+	textPart,
+	type LegacyTaskState,
+} from "./v1-compat.js";
 
 let dir: string;
 
@@ -20,13 +26,19 @@ afterEach(async () => {
 	await rm(dir, { recursive: true, force: true });
 });
 
-function makeTask(id: string, state: TaskState): Task {
+function makeTask(id: string, state: LegacyTaskState): Task {
 	return {
-		kind: "task",
 		id,
 		contextId: `ctx-${id}`,
-		status: { state, timestamp: "2026-07-25T00:00:00.000Z" },
-	} as Task;
+		status: {
+			state: taskStateFromLegacy(state),
+			message: undefined,
+			timestamp: "2026-07-25T00:00:00.000Z",
+		},
+		artifacts: [],
+		history: [],
+		metadata: undefined,
+	};
 }
 
 /** Seeds a store as a previous container generation would have left it. */
@@ -46,13 +58,13 @@ describe("sweepAbandonedTasks", () => {
 		const result = await sweepAbandonedTasks(store, { now: fixedClock, messageId: fixedIds });
 
 		expect(result.swept).toEqual(["a"]);
-		expect((await store.load("a"))?.status.state).toBe("failed");
+		expect((await store.load("a"))?.status?.state).toBe(TaskState.TASK_STATE_FAILED);
 	});
 
 	it("fails a task that never got past submitted", async () => {
 		const store = await seed(makeTask("a", "submitted"));
 		await sweepAbandonedTasks(store, { now: fixedClock, messageId: fixedIds });
-		expect((await store.load("a"))?.status.state).toBe("failed");
+		expect((await store.load("a"))?.status?.state).toBe(TaskState.TASK_STATE_FAILED);
 	});
 
 	it("records a reason that says the habitat stopped, not a generic error", async () => {
@@ -60,15 +72,16 @@ describe("sweepAbandonedTasks", () => {
 		await sweepAbandonedTasks(store, { now: fixedClock, messageId: fixedIds });
 
 		const status = (await store.load("a"))?.status;
-		const text = status?.message?.parts?.[0];
-		expect(text).toMatchObject({ kind: "text", text: DEFAULT_ABANDONED_REASON });
+		const part = status?.message?.parts?.[0];
+		expect(part).toBeDefined();
+		expect(partText(part!)).toBe(DEFAULT_ABANDONED_REASON);
 		expect(status?.message?.metadata).toMatchObject({ [ABANDONED_TASK_MARKER]: true });
 	});
 
 	it("marks the failure with the sweep's timestamp", async () => {
 		const store = await seed(makeTask("a", "working"));
 		await sweepAbandonedTasks(store, { now: fixedClock, messageId: fixedIds });
-		expect((await store.load("a"))?.status.timestamp).toBe("2026-07-25T12:00:00.000Z");
+		expect((await store.load("a"))?.status?.timestamp).toBe("2026-07-25T12:00:00.000Z");
 	});
 
 	it("accepts a caller-supplied reason", async () => {
@@ -78,12 +91,11 @@ describe("sweepAbandonedTasks", () => {
 			messageId: fixedIds,
 			reason: "reaped for idleness",
 		});
-		expect((await store.load("a"))?.status.message?.parts?.[0]).toMatchObject({
-			text: "reaped for idleness",
-		});
+		const part = (await store.load("a"))?.status?.message?.parts?.[0];
+		expect(part && partText(part)).toBe("reaped for idleness");
 	});
 
-	it.each(["completed", "failed", "canceled", "rejected"] as TaskState[])(
+	it.each(["completed", "failed", "canceled", "rejected"] as LegacyTaskState[])(
 		"leaves an already-terminal %s task untouched",
 		async (state) => {
 			const store = await seed(makeTask("a", state));
@@ -91,14 +103,14 @@ describe("sweepAbandonedTasks", () => {
 
 			expect(result.swept).toEqual([]);
 			expect(result.terminal).toEqual(["a"]);
-			expect((await store.load("a"))?.status.state).toBe(state);
+			expect((await store.load("a"))?.status?.state).toBe(taskStateFromLegacy(state));
 			// An already-failed task must keep its original reason, not be
 			// relabelled as abandoned.
-			expect((await store.load("a"))?.status.message).toBeUndefined();
+			expect((await store.load("a"))?.status?.message).toBeUndefined();
 		},
 	);
 
-	it.each(["input-required", "auth-required"] as TaskState[])(
+	it.each(["input-required", "auth-required"] as LegacyTaskState[])(
 		"never sweeps a %s task, which is legitimately waiting",
 		async (state) => {
 			const store = await seed(makeTask("a", state));
@@ -106,7 +118,7 @@ describe("sweepAbandonedTasks", () => {
 
 			expect(result.swept).toEqual([]);
 			expect(result.interrupted).toEqual(["a"]);
-			expect((await store.load("a"))?.status.state).toBe(state);
+			expect((await store.load("a"))?.status?.state).toBe(taskStateFromLegacy(state));
 		},
 	);
 
@@ -129,7 +141,9 @@ describe("sweepAbandonedTasks", () => {
 		const store = await seed(makeTask("a", "working"));
 		await sweepAbandonedTasks(store, { now: fixedClock, messageId: fixedIds });
 
-		expect((await new FileTaskStore({ dir }).load("a"))?.status.state).toBe("failed");
+		expect((await new FileTaskStore({ dir }).load("a"))?.status?.state).toBe(
+			TaskState.TASK_STATE_FAILED,
+		);
 	});
 
 	it("is idempotent — a second sweep finds nothing left to do", async () => {
@@ -142,10 +156,19 @@ describe("sweepAbandonedTasks", () => {
 	});
 
 	it("preserves the task's identity and artifacts while failing it", async () => {
-		const task = {
+		const task: Task = {
 			...makeTask("a", "working"),
-			artifacts: [{ artifactId: "a1", parts: [{ kind: "text", text: "partial" }] }],
-		} as Task;
+			artifacts: [
+				{
+					artifactId: "a1",
+					name: "",
+					description: "",
+					parts: [textPart("partial")],
+					metadata: undefined,
+					extensions: [],
+				},
+			],
+		};
 		const store = await seed(task);
 
 		await sweepAbandonedTasks(store, { now: fixedClock, messageId: fixedIds });

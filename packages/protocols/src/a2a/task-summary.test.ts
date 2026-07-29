@@ -1,18 +1,31 @@
 import { describe, expect, it } from "vitest";
-import type { Task, TaskState } from "@a2a-js/sdk";
+import type { Task } from "@a2a-js/sdk";
 import {
 	INTERRUPTED_TASK_STATES,
 	TERMINAL_TASK_STATES,
 } from "./file-task-store.js";
 import { MAX_LISTED_TASK_IDS, summarizeTasks } from "./task-summary.js";
+import { taskStateFromLegacy, type LegacyTaskState } from "./v1-compat.js";
+
+import type { TaskState } from "@a2a-js/sdk";
 
 function task(id: string, state: TaskState): Task {
 	return {
-		kind: "task",
 		id,
 		contextId: `ctx-${id}`,
-		status: { state, timestamp: "2026-07-26T00:00:00.000Z" },
-	} as Task;
+		status: {
+			state,
+			message: undefined,
+			timestamp: "2026-07-26T00:00:00.000Z",
+		},
+		artifacts: [],
+		history: [],
+		metadata: undefined,
+	};
+}
+
+function legacyTask(id: string, state: LegacyTaskState): Task {
+	return task(id, taskStateFromLegacy(state));
 }
 
 describe("summarizeTasks", () => {
@@ -50,9 +63,9 @@ describe("summarizeTasks", () => {
 
 	it("counts mid-flight states as active and names them", () => {
 		const summary = summarizeTasks([
-			task("a", "working"),
-			task("b", "submitted"),
-			task("c", "completed"),
+			legacyTask("a", "working"),
+			legacyTask("b", "submitted"),
+			legacyTask("c", "completed"),
 		]);
 		expect(summary.active).toBe(2);
 		expect(summary.activeTaskIds).toEqual(["a", "b"]);
@@ -61,17 +74,26 @@ describe("summarizeTasks", () => {
 	});
 
 	it("reports raw per-state counts alongside the categories", () => {
+		// `byState` keys keep the legacy spellings — published summaries must
+		// read the same before and after the v1 SDK migration.
 		const summary = summarizeTasks([
-			task("a", "working"),
-			task("b", "working"),
-			task("c", "input-required"),
+			legacyTask("a", "working"),
+			legacyTask("b", "working"),
+			legacyTask("c", "input-required"),
 		]);
 		expect(summary.byState).toEqual({ working: 2, "input-required": 1 });
 	});
 
 	it("treats a Task with no status as active rather than assuming it finished", () => {
 		// A record we cannot classify must not be read as "safe to stop".
-		const broken = { kind: "task", id: "x", contextId: "ctx" } as Task;
+		const broken = {
+			id: "x",
+			contextId: "ctx",
+			status: undefined,
+			artifacts: [],
+			history: [],
+			metadata: undefined,
+		} as Task;
 		const summary = summarizeTasks([broken]);
 		expect(summary.active).toBe(1);
 		expect(summary.byState).toEqual({ unknown: 1 });
@@ -79,7 +101,7 @@ describe("summarizeTasks", () => {
 
 	it("caps the listed ids but not the count", () => {
 		const many = Array.from({ length: MAX_LISTED_TASK_IDS + 10 }, (_, i) =>
-			task(`t${i}`, "working"),
+			legacyTask(`t${i}`, "working"),
 		);
 		const summary = summarizeTasks(many);
 		expect(summary.active).toBe(MAX_LISTED_TASK_IDS + 10);

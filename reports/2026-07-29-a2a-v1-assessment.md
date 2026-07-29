@@ -61,10 +61,13 @@ Also affected when the bump happens: the **conformance harness**
 the **agent-browser example** (`discoverAgentEndpoint` reads cards version-agnostically;
 fine, but its card fixtures say `0.2.5`).
 
-## Migration findings (bump attempted 2026-07-29, deliberately reverted)
+## Migration findings — and execution (2026-07-29, same day)
 
-The `^0.3.14 → ^1.0.1` bump was attempted on this branch to size the work. Findings, so the
-real migration starts with a map instead of a surprise:
+The `^0.3.14 → ^1.0.1` bump was first attempted to size the work, reverted, mapped (the
+findings below), and then **executed to green on this branch**: full typecheck across all
+packages, 2421 unit tests passing including the migrated conformance suite (9/9 cases
+against the reference agent) and the habitat A2A surface (36 tests). What the sizing
+predicted, held:
 
 - **The 1.x SDK is protobuf-generated end to end.** `TaskState` is a numeric enum
   (`TASK_STATE_COMPLETED`; `taskStateFromJSON`/`taskStateToJSON` convert), `Role` is an enum,
@@ -95,10 +98,36 @@ real migration starts with a map instead of a surprise:
   (`AgentCardResolver`, `isLegacyAgentCard`). Our hand-rolled senders either adopt the
   factory stack or pin `LegacyJsonRpcTransport` from compat.
 
-Conclusion: this is a redesign-scale migration of the A2A layer (protocols + habitat +
-conformance + on-disk format), not a dependency bump. It was reverted to keep the branch
-green and is scoped below as its own project, gated on the conformance harness *plus* live
-SSE verification against a running habitat — the piece a keyless CI container cannot do.
+### What the executed migration looks like
+
+- **One shim module** (`a2a/v1-compat.ts`) owns both eras: legacy⇄enum state maps, Part
+  oneof builders/readers, message builders, and a stored-task normalizer that reads
+  0.3-era disk files transparently (v2 records are proto-JSON; old volumes replay).
+- **Dual-dialect server**: one `DefaultRequestHandler`; legacy method names dispatch to the
+  compat transport handler, v1 names to the v1 handler (`DualJsonRpcTransportHandler`).
+  The `A2A-Version` header threads from the container server into the call context.
+- **Executor redesigned** to the v1 event model: task snapshot first (new hard contract),
+  working status deltas, artifacts, then one terminal status update whose `status.message`
+  carries the reply + usage/provenance metadata. Blocking `message/send` now returns a
+  Task (spec-legal both eras; our decode always handled it).
+- **Cards split into two projections**: the served card stays legacy-shaped for the fleet
+  and the SaaS (`protocolVersion: "0.3"`, finally honest), and `toV1AgentCard` projects it
+  for the SDK, declaring both `1.0` and `0.3` interfaces on the same URL.
+- **Clients ride the compat transport** (`LegacyJsonRpcTransport`): 0.3 wire out, v1 typed
+  objects in. Every peer — including v1.0 servers, which must accept unversioned requests
+  as 0.3 — keeps working. `FileTaskStore.list()` implements v1 `ListTasks` server-side.
+- **Two compat defenses added** where the SDK's defaults would have broken the fleet:
+  webhook dispatches wrap status updates back into full-Task bodies (the 0.3 sender's
+  contract, which the wake path reads `task.id`/`task.status.state` from), and a
+  legacy-error bridge restores spec error codes (`-32001` TaskNotFound et al.) on the
+  legacy wire — **upstream SDK 1.0.1 bug**: its server, compat, and errors bundles each
+  define their own copy of the error hierarchy, so the compat mapper's `instanceof` fails
+  on v1-handler errors and everything degrades to `-32603`. Worth filing upstream.
+
+Remaining before fleet rollout: **live SSE verification against a running habitat** — the
+conformance harness covers the event ordering on loopback, but the empirically-tuned
+streaming behavior deserves one real-deployment check (the same bar the 0.3 ordering fix
+was held to on 2026-07-11).
 
 ## Recommended sequencing
 

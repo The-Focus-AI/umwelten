@@ -30,11 +30,17 @@ import {
   type User,
 } from "@a2a-js/sdk/server";
 import {
+  LegacyA2AError,
   LegacyJsonRpcTransportHandler,
   createLegacyAwarePushNotificationSender,
 } from "@a2a-js/sdk/compat/v0_3/server";
 import { isLegacyJsonRpcMethod } from "@a2a-js/sdk/compat/v0_3";
-import { A2A_PROTOCOL_VERSION, type AgentCard } from "@a2a-js/sdk";
+import {
+  A2A_PROTOCOL_VERSION,
+  type AgentCard,
+  type StreamResponse,
+} from "@a2a-js/sdk";
+import type { A2ARequestHandler } from "@a2a-js/sdk/server";
 
 /** One JSON-RPC response envelope (either wire dialect), or an SSE stream of them. */
 export type A2AJsonRpcResult =
@@ -60,6 +66,72 @@ export function buildServerCallContext(
     ...(options.requestedVersion
       ? { requestedVersion: options.requestedVersion }
       : {}),
+  });
+}
+
+/**
+ * A2A-spec JSON-RPC error codes by SDK error class name. The SDK's server
+ * and compat bundles each define their own copy of the error hierarchy, so
+ * the compat mapper's `instanceof` check fails on errors thrown by the v1
+ * request handler and every semantic error degrades to -32603 (internal).
+ * Bridging by class *name* restores the spec codes on the legacy wire.
+ * (Upstream SDK 1.0.1 bundling bug — remove when fixed.)
+ */
+const LEGACY_ERROR_CODES: Record<string, number> = {
+  TaskNotFoundError: -32001,
+  TaskNotCancelableError: -32002,
+  PushNotificationNotSupportedError: -32003,
+  UnsupportedOperationError: -32004,
+  ContentTypeNotSupportedError: -32005,
+  InvalidAgentResponseError: -32006,
+};
+
+function toLegacyError(err: unknown): unknown {
+  const name = (err as { name?: string } | null)?.name;
+  const code = name ? LEGACY_ERROR_CODES[name] : undefined;
+  if (code === undefined) return err;
+  const message = err instanceof Error ? err.message : String(err);
+  return new LegacyA2AError(code, message);
+}
+
+/**
+ * Wrap a request handler so errors thrown by the v1 server bundle are
+ * re-thrown as compat-bundle error instances the legacy mapper recognizes.
+ */
+function withLegacyErrorBridge(handler: A2ARequestHandler): A2ARequestHandler {
+  const wrap = (fn: (...args: never[]) => unknown) =>
+    function (this: unknown, ...args: never[]) {
+      let result: unknown;
+      try {
+        result = fn.apply(handler, args);
+      } catch (err) {
+        throw toLegacyError(err);
+      }
+      if (result && typeof (result as Promise<unknown>).then === "function") {
+        return (result as Promise<unknown>).catch((err) => {
+          throw toLegacyError(err);
+        });
+      }
+      if (result && typeof (result as AsyncGenerator<unknown>)[Symbol.asyncIterator] === "function") {
+        const inner = result as AsyncGenerator<unknown>;
+        return (async function* bridged() {
+          try {
+            yield* inner;
+          } catch (err) {
+            throw toLegacyError(err);
+          }
+        })();
+      }
+      return result;
+    };
+
+  return new Proxy(handler, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function"
+        ? wrap(value as (...args: never[]) => unknown)
+        : value;
+    },
   });
 }
 
@@ -145,6 +217,31 @@ export interface A2AServer {
  * single JSON-RPC response object or an `AsyncGenerator` of SSE events,
  * depending on the requested method (`message/send` vs `message/stream`).
  */
+/**
+ * Wrap a sender so status-update dispatches deliver the **full Task**
+ * (loaded from the store) rather than the bare event. The 0.3-era sender
+ * always POSTed the Task snapshot — the fleet's wake contract (ADR 0007)
+ * and every registered webhook read `task.id` / `task.status.state` from
+ * the body — and a task-cased payload is equally legal on the v1 wire.
+ */
+function taskResolvingSender(
+  inner: PushNotificationSender,
+  store: TaskStore,
+): PushNotificationSender {
+  return {
+    async send(streamResponse: StreamResponse, context) {
+      if (streamResponse.payload?.$case === "statusUpdate") {
+        const { taskId } = streamResponse.payload.value;
+        const task = await store.load(taskId, context).catch(() => undefined);
+        if (task) {
+          return inner.send({ payload: { $case: "task", value: task } }, context);
+        }
+      }
+      return inner.send(streamResponse, context);
+    },
+  };
+}
+
 export function createA2AServer(options: A2AServerOptions): A2AServer {
   const { agentCard, executor } = options;
 
@@ -153,7 +250,10 @@ export function createA2AServer(options: A2AServerOptions): A2AServer {
     options.pushNotificationStore ?? new InMemoryPushNotificationStore();
   const pushNotificationSender =
     options.pushNotificationSender ??
-    createLegacyAwarePushNotificationSender(pushNotificationStore);
+    taskResolvingSender(
+      createLegacyAwarePushNotificationSender(pushNotificationStore),
+      taskStore,
+    );
   const eventBusManager = new DefaultExecutionEventBusManager();
   const requestHandler = new DefaultRequestHandler(
     agentCard,
@@ -165,7 +265,7 @@ export function createA2AServer(options: A2AServerOptions): A2AServer {
   );
   const transportHandler = new DualJsonRpcTransportHandler(
     new JsonRpcTransportHandler(requestHandler),
-    new LegacyJsonRpcTransportHandler(requestHandler),
+    new LegacyJsonRpcTransportHandler(withLegacyErrorBridge(requestHandler)),
   );
 
   return { agentCard, transportHandler, pushNotificationSender };

@@ -10,10 +10,17 @@ import { decodeA2ASendPayload, sendA2AMessageToUrl } from "./client.js";
 const ORIGIN = "https://gaia.example.com";
 
 function messageResult(text: string) {
+	// The v1 SDK's compat transport validates the wire Message strictly —
+	// `messageId` (and a role) are required, as any real 0.3 server sends.
 	return {
 		jsonrpc: "2.0",
 		id: "1",
-		result: { kind: "message", parts: [{ kind: "text", text }] },
+		result: {
+			kind: "message",
+			role: "agent",
+			messageId: "m1",
+			parts: [{ kind: "text", text }],
+		},
 	};
 }
 

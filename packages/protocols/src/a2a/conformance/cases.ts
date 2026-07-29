@@ -9,8 +9,13 @@
  *
  * Adding a case belongs here, not in a downstream copy — that is the whole
  * point of the arrangement (ADR 0007).
+ *
+ * SDK 1.x note: the subject returns v1-typed Tasks, so states here are
+ * `TaskState` enum members. The legacy spellings ("working", "completed")
+ * survive only in prose and assertion labels.
  */
 
+import { TaskState } from "@a2a-js/sdk";
 import {
 	isInterruptedTaskState,
 	isTerminalTaskState,
@@ -53,7 +58,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			// the send having blocked until the work was done.
 			assertTaskState(
 				task,
-				["submitted", "working"],
+				[TaskState.TASK_STATE_SUBMITTED, TaskState.TASK_STATE_WORKING],
 				"send.returns-in-flight-state",
 			);
 			await cancelQuietly(ctx, task.id);
@@ -72,12 +77,16 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 
 			const settled = await ctx.awaitTask({
 				taskId: task.id,
-				until: (t) => t.status?.state === "completed",
+				until: (t) => t.status?.state === TaskState.TASK_STATE_COMPLETED,
 				assertion: "poll.reaches-completed",
 				describe: "reach `completed`",
 			});
 			assertSameTask(settled, task.id, "poll.tracks-the-same-task");
-			assertTaskState(settled, "completed", "poll.reaches-completed");
+			assertTaskState(
+				settled,
+				TaskState.TASK_STATE_COMPLETED,
+				"poll.reaches-completed",
+			);
 			assertTrue(
 				Boolean(settled.status?.timestamp),
 				"expected the terminal status to carry a timestamp",
@@ -101,7 +110,8 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			await ctx.awaitTask({
 				taskId: task.id,
 				until: (t) =>
-					t.status?.state === "working" || t.status?.state === "submitted",
+					t.status?.state === TaskState.TASK_STATE_WORKING ||
+					t.status?.state === TaskState.TASK_STATE_SUBMITTED,
 				assertion: "cancel.task-is-in-flight-first",
 				describe: "be in flight before cancellation",
 			});
@@ -109,18 +119,26 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			const canceled = await ctx.step("cancel.request", () =>
 				ctx.subject.cancelTask(task.id),
 			);
-			assertTaskState(canceled, "canceled", "cancel.returns-canceled");
+			assertTaskState(
+				canceled,
+				TaskState.TASK_STATE_CANCELED,
+				"cancel.returns-canceled",
+			);
 
 			// The response saying `canceled` is not the claim; the claim is that a
 			// caller who was polling — and never saw the cancel response — observes
 			// it too. That only holds if cancellation reached the store.
 			const observed = await ctx.awaitTask({
 				taskId: task.id,
-				until: (t) => t.status?.state === "canceled",
+				until: (t) => t.status?.state === TaskState.TASK_STATE_CANCELED,
 				assertion: "cancel.observable-to-a-poller",
 				describe: "be observed as `canceled` by a poller",
 			});
-			assertTaskState(observed, "canceled", "cancel.observable-to-a-poller");
+			assertTaskState(
+				observed,
+				TaskState.TASK_STATE_CANCELED,
+				"cancel.observable-to-a-poller",
+			);
 		},
 	},
 	{
@@ -135,11 +153,11 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			const task = assertIsTask(sent, "send.returns-task");
 			const settled = await ctx.awaitTask({
 				taskId: task.id,
-				until: (t) => t.status?.state === "failed",
+				until: (t) => t.status?.state === TaskState.TASK_STATE_FAILED,
 				assertion: "terminal.failed",
 				describe: "reach `failed`",
 			});
-			assertTaskState(settled, "failed", "terminal.failed");
+			assertTaskState(settled, TaskState.TASK_STATE_FAILED, "terminal.failed");
 		},
 	},
 	{
@@ -154,11 +172,15 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			const task = assertIsTask(sent, "send.returns-task");
 			const settled = await ctx.awaitTask({
 				taskId: task.id,
-				until: (t) => t.status?.state === "rejected",
+				until: (t) => t.status?.state === TaskState.TASK_STATE_REJECTED,
 				assertion: "terminal.rejected",
 				describe: "reach `rejected`",
 			});
-			assertTaskState(settled, "rejected", "terminal.rejected");
+			assertTaskState(
+				settled,
+				TaskState.TASK_STATE_REJECTED,
+				"terminal.rejected",
+			);
 		},
 	},
 	{
@@ -179,7 +201,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			});
 			assertTaskState(
 				settled,
-				"input-required",
+				TaskState.TASK_STATE_INPUT_REQUIRED,
 				"interrupted.reaches-input-required",
 			);
 			// A poller must be able to tell "waiting for me" from "finished", or it
@@ -203,7 +225,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			const task = assertIsTask(sent, "send.returns-task");
 			const before = await ctx.awaitTask({
 				taskId: task.id,
-				until: (t) => t.status?.state === "completed",
+				until: (t) => t.status?.state === TaskState.TASK_STATE_COMPLETED,
 				assertion: "restart.completed-before-restart",
 				describe: "reach `completed` before the restart",
 			});
@@ -214,7 +236,11 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 				ctx.subject.getTask(task.id),
 			);
 			assertSameTask(after, task.id, "restart.same-task-id");
-			assertTaskState(after, "completed", "restart.state-survives");
+			assertTaskState(
+				after,
+				TaskState.TASK_STATE_COMPLETED,
+				"restart.state-survives",
+			);
 			assertTrue(
 				after.contextId === before.contextId,
 				`expected contextId ${before.contextId} to survive the restart, got ${after.contextId}`,
@@ -240,7 +266,8 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			await ctx.awaitTask({
 				taskId: task.id,
 				until: (t) =>
-					t.status?.state === "working" || t.status?.state === "submitted",
+					t.status?.state === TaskState.TASK_STATE_WORKING ||
+					t.status?.state === TaskState.TASK_STATE_SUBMITTED,
 				assertion: "abandoned.in-flight-before-restart",
 				describe: "be in flight before the restart",
 			});
@@ -284,7 +311,7 @@ export const CONFORMANCE_CASES: readonly ConformanceCase[] = [
 			);
 			assertTaskState(
 				after,
-				"input-required",
+				TaskState.TASK_STATE_INPUT_REQUIRED,
 				"interrupted.survives-the-sweep",
 			);
 		},
