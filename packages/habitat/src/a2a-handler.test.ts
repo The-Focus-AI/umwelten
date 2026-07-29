@@ -3,7 +3,14 @@
  *  1. the agent card declares bearer auth iff the API key is enforced
  *  2. tasks/cancel aborts an in-flight run; canceling an unknown task
  *     returns a proper JSON-RPC error (via the real SDK transport)
- *  3. the final A2A message carries token usage + model identity metadata
+ *  3. the answer carries token usage + model identity metadata
+ *
+ * v1 event model (SDK 1.x): executor events are `AgentEvent` wrappers
+ * ({kind, data}); the reply rides the terminal status update's
+ * `status.message` — there is no separate final Message event and no
+ * `final` flag. The JSON-RPC-level tests deliberately speak the legacy
+ * (0.3) wire: that is what the fleet speaks, and it exercises the compat
+ * transport handler end to end.
  *
  * The bridge is stubbed — no models, no network.
  */
@@ -12,10 +19,15 @@ import { describe, it, expect, vi } from "vitest";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { TaskState } from "@a2a-js/sdk";
 import type { BridgeResponseMetadata } from "./bridge/types.js";
-import type {
-	RequestContext,
-	ExecutionEventBus,
+import {
+	partData,
+	partFileUrl,
+	partText,
+	userMessage,
+	type RequestContext,
+	type ExecutionEventBus,
 } from "@umwelten/protocols";
 import {
 	annotateServedCredentials,
@@ -24,6 +36,7 @@ import {
 	createA2AHandler,
 	effectiveCredentialMode,
 	HabitatAgentExecutor,
+	toV1AgentCard,
 	type RequiredCredential,
 } from "./a2a-handler.js";
 import type { AgentHost } from "./types.js";
@@ -40,27 +53,31 @@ async function makeHost(): Promise<AgentHost> {
 }
 
 function fakeEventBus() {
-	const events: unknown[] = [];
+	const events: Array<Record<string, any>> = [];
 	const bus = {
 		publish: vi.fn((e: unknown) => {
-			events.push(e);
+			events.push(e as Record<string, any>);
 		}),
 		finished: vi.fn(),
 	} as unknown as ExecutionEventBus;
-	return { bus, events: events as Array<Record<string, any>> };
+	return { bus, events };
 }
 
 function requestContext(taskId = "task-1", contextId = "ctx-1", text = "hello"): RequestContext {
 	return {
 		taskId,
 		contextId,
-		userMessage: {
-			kind: "message",
-			messageId: "msg-user-1",
-			role: "user",
-			parts: [{ kind: "text", text }],
-		},
+		userMessage: userMessage({ text, messageId: "msg-user-1" }),
 	} as unknown as RequestContext;
+}
+
+/** The terminal status update event, whose status.message carries the reply. */
+function terminalStatus(events: Array<Record<string, any>>) {
+	return events.find(
+		(e) =>
+			e.kind === "statusUpdate" &&
+			e.data?.status?.state === TaskState.TASK_STATE_COMPLETED,
+	);
 }
 
 const SAMPLE_METADATA = {
@@ -147,6 +164,27 @@ describe("buildAgentCard — securitySchemes", () => {
 				.bearerFormat,
 		).toBeUndefined();
 	});
+
+	it("serves a legacy-dialect protocolVersion and projects both versions to v1", async () => {
+		const card = await buildAgentCard({
+			baseUrl: "http://localhost:7430",
+			habitat: await makeHost(),
+			requiresApiKey: true,
+		});
+		// Served card: legacy shape for 0.3-era peers and the SaaS.
+		expect(card.protocolVersion).toBe("0.3");
+		// v1 projection: both protocol versions on the same URL, bearer
+		// security carried across.
+		const v1 = toV1AgentCard(card);
+		expect(v1.supportedInterfaces.map((i) => i.protocolVersion)).toEqual([
+			"1.0",
+			"0.3",
+		]);
+		expect(v1.supportedInterfaces.every((i) => i.url === card.url)).toBe(true);
+		expect(v1.securitySchemes.bearer?.scheme?.$case).toBe(
+			"httpAuthSecurityScheme",
+		);
+	});
 });
 
 // ── 2 + 3. executor: task tracking, usage metadata, cancel ──────
@@ -160,21 +198,23 @@ describe("HabitatAgentExecutor — execute", () => {
 
 		const task = events.find((e) => e.kind === "task");
 		expect(task).toBeDefined();
-		expect(task!.id).toBe("task-1");
-		expect(task!.contextId).toBe("ctx-1");
-		expect(task!.status.state).toBe("submitted");
-		expect(task!.history?.[0]?.messageId).toBe("msg-user-1");
+		expect(task!.data.id).toBe("task-1");
+		expect(task!.data.contextId).toBe("ctx-1");
+		expect(task!.data.status.state).toBe(TaskState.TASK_STATE_SUBMITTED);
+		expect(task!.data.history?.[0]?.messageId).toBe("msg-user-1");
+		// v1 executor contract: the first published event is the task snapshot.
+		expect(events[0]!.kind).toBe("task");
 	});
 
-	it("attaches token usage and model identity to the final message metadata", async () => {
+	it("attaches token usage and model identity to the answer metadata", async () => {
 		const executor = new HabitatAgentExecutor(await makeHost(), instantBridge());
 		const { bus, events } = fakeEventBus();
 
 		await executor.execute(requestContext(), bus);
 
-		const final = events.find((e) => e.kind === "message");
+		const final = terminalStatus(events);
 		expect(final).toBeDefined();
-		expect(final!.metadata).toMatchObject({
+		expect(final!.data.status.message?.metadata).toMatchObject({
 			usage: { promptTokens: 42, completionTokens: 7, totalTokens: 49 },
 			provider: "google",
 			model: "gemini-3-flash-preview",
@@ -192,12 +232,13 @@ describe("HabitatAgentExecutor — execute", () => {
 
 		await executor.execute(requestContext(), bus);
 
-		const final = events.find((e) => e.kind === "message");
-		expect(final!.metadata?.provenance).toMatchObject({
+		const final = terminalStatus(events);
+		const metadata = final!.data.status.message?.metadata;
+		expect(metadata?.provenance).toMatchObject({
 			stale: false,
 			repos: [],
 		});
-		expect(final!.metadata?.provenance?.capturedAt).toEqual(expect.any(String));
+		expect(metadata?.provenance?.capturedAt).toEqual(expect.any(String));
 	});
 
 	it("omits usage when the bridge result has none (non-default runtimes)", async () => {
@@ -215,15 +256,16 @@ describe("HabitatAgentExecutor — execute", () => {
 
 		await executor.execute(requestContext(), bus);
 
-		const final = events.find((e) => e.kind === "message");
-		expect(final!.metadata?.usage).toBeUndefined();
-		expect(final!.metadata?.provider).toBeUndefined();
-		expect(final!.metadata?.model).toBeUndefined();
+		const final = terminalStatus(events);
+		const metadata = final!.data.status.message?.metadata;
+		expect(metadata?.usage).toBeUndefined();
+		expect(metadata?.provider).toBeUndefined();
+		expect(metadata?.model).toBeUndefined();
 	});
 });
 
 describe("HabitatAgentExecutor — cancelTask", () => {
-	it("aborts the in-flight run and emits a final canceled status", async () => {
+	it("aborts the in-flight run and emits a terminal canceled status", async () => {
 		// A bridge that only settles when the abort signal fires.
 		let sawAbort = false;
 		const bridge = {
@@ -253,19 +295,20 @@ describe("HabitatAgentExecutor — cancelTask", () => {
 
 		expect(sawAbort).toBe(true);
 		const canceled = events.find(
-			(e) => e.kind === "status-update" && e.status?.state === "canceled",
+			(e) =>
+				e.kind === "statusUpdate" &&
+				e.data?.status?.state === TaskState.TASK_STATE_CANCELED,
 		);
 		expect(canceled).toBeDefined();
-		expect(canceled!.final).toBe(true);
-		expect(canceled!.contextId).toBe("ctx-9");
-		// The abort-driven onError must not publish an error message on top
-		// of the canceled status.
-		const errorMsg = events.find(
+		expect(canceled!.data.contextId).toBe("ctx-9");
+		// The abort-driven onError must not publish a failed status on top of
+		// the canceled one — one terminal event per run.
+		const failed = events.find(
 			(e) =>
-				e.kind === "message" &&
-				e.parts?.[0]?.text?.startsWith("Error:"),
+				e.kind === "statusUpdate" &&
+				e.data?.status?.state === TaskState.TASK_STATE_FAILED,
 		);
-		expect(errorMsg).toBeUndefined();
+		expect(failed).toBeUndefined();
 	});
 
 	it("still emits a canceled status when no run is active", async () => {
@@ -274,14 +317,18 @@ describe("HabitatAgentExecutor — cancelTask", () => {
 
 		await executor.cancelTask("ghost-task", bus);
 
-		const canceled = events.find((e) => e.kind === "status-update");
-		expect(canceled!.status.state).toBe("canceled");
+		const canceled = events.find((e) => e.kind === "statusUpdate");
+		expect(canceled!.data.status.state).toBe(TaskState.TASK_STATE_CANCELED);
 	});
 });
 
 // ── Protocol-level: tasks/cancel routed through the real SDK ────
+//
+// These speak the LEGACY (0.3) wire on purpose: it is what the fleet
+// speaks today, and it exercises the compat transport handler end to end
+// (v1 executor events → legacy wire shapes with string states).
 
-describe("tasks/cancel via the JSON-RPC transport", () => {
+describe("tasks/cancel via the JSON-RPC transport (legacy wire)", () => {
 	it("returns a proper JSON-RPC error for an unknown task", async () => {
 		const handler = await createA2AHandler({
 			habitat: await makeHost(),
@@ -353,13 +400,14 @@ describe("tasks/cancel via the JSON-RPC transport", () => {
 		})) as Record<string, any>;
 
 		expect(cancelResponse.error).toBeUndefined();
+		// Legacy wire spells states as strings.
 		expect(cancelResponse.result?.status?.state).toBe("canceled");
 	});
 });
 
 // ── 3b. UI resources over A2A (#195 / ADR 0005 slice B) ────────────
 describe("HabitatAgentExecutor — UI resources", () => {
-	it("carries a published UI resource as a DataPart and drains the buffer", async () => {
+	it("carries a published UI resource as a data part and drains the buffer", async () => {
 		const host = await makeHost();
 		const dir = join(host.getWorkDir(), "ui-resources");
 		await mkdir(dir, { recursive: true });
@@ -376,14 +424,17 @@ describe("HabitatAgentExecutor — UI resources", () => {
 		const { bus, events } = fakeEventBus();
 		await executor.execute(requestContext(), bus);
 
-		const msg = events.find((e) => e.kind === "message");
-		const dataPart = msg?.parts?.find((p: any) => p.kind === "data");
-		expect(dataPart?.data?.uri).toBe("ui://habitat/widget");
-		expect(dataPart?.metadata).toMatchObject({
+		const parts = terminalStatus(events)?.data.status.message?.parts ?? [];
+		const data = parts.map((p: any) => partData(p)).find(Boolean) as
+			| Record<string, unknown>
+			| undefined;
+		expect(data?.uri).toBe("ui://habitat/widget");
+		const dataPartEntry = parts.find((p: any) => partData(p) !== undefined);
+		expect(dataPartEntry?.metadata).toMatchObject({
 			mcpUi: true,
 			outputMode: "text/html+mcp",
 		});
-		expect(msg?.parts?.some((p: any) => p.kind === "text")).toBe(true);
+		expect(parts.some((p: any) => partText(p) !== undefined)).toBe(true);
 
 		// Ephemeral: the buffer is cleared after the turn.
 		const { readdir } = await import("node:fs/promises");
@@ -395,8 +446,8 @@ describe("HabitatAgentExecutor — UI resources", () => {
 		const executor = new HabitatAgentExecutor(host, instantBridge());
 		const { bus, events } = fakeEventBus();
 		await executor.execute(requestContext(), bus);
-		const msg = events.find((e) => e.kind === "message");
-		expect(msg?.parts?.some((p: any) => p.kind === "data")).toBe(false);
+		const parts = terminalStatus(events)?.data.status.message?.parts ?? [];
+		expect(parts.some((p: any) => partData(p) !== undefined)).toBe(false);
 	});
 });
 
@@ -420,11 +471,12 @@ describe("HabitatAgentExecutor — artifact URLs", () => {
 	}
 
 	function artifactUri(events: Array<Record<string, any>>): string | undefined {
-		const ev = events.find((e) => e.kind === "artifact-update");
-		return ev?.artifact?.parts?.[0]?.file?.uri;
+		const ev = events.find((e) => e.kind === "artifactUpdate");
+		const part = ev?.data?.artifact?.parts?.[0];
+		return part ? partFileUrl(part) : undefined;
 	}
 
-	it("emits absolute-public FilePart URIs when an origin resolves", async () => {
+	it("emits absolute-public file-part URLs when an origin resolves", async () => {
 		const host = await makeHost();
 		await seedArtifact(host, "/files/artifacts/2026-x-foo.png");
 		const executor = new HabitatAgentExecutor(
@@ -439,20 +491,25 @@ describe("HabitatAgentExecutor — artifact URLs", () => {
 		);
 	});
 
-	it("publishes artifact-updates BEFORE the final message (terminal-event order)", async () => {
-		// The A2A transport ends the stream at the agent message — anything
-		// published after it never reaches the wire. Verified against live SSE
-		// 2026-07-11: artifacts emitted post-message were silently dropped.
+	it("publishes artifact-updates BEFORE the terminal status (stream-end order)", async () => {
+		// In the v1 event model a terminal status update ends the stream —
+		// anything published after it never reaches the wire. (Same hazard
+		// as the 0.3-era message-terminates-stream behavior, verified against
+		// live SSE 2026-07-11.)
 		const host = await makeHost();
 		await seedArtifact(host, "/files/artifacts/2026-x-foo.png");
 		const executor = new HabitatAgentExecutor(host, instantBridge());
 		const { bus, events } = fakeEventBus();
 		await executor.execute(requestContext(), bus);
-		const artifactIdx = events.findIndex((e) => e.kind === "artifact-update");
-		const messageIdx = events.findIndex((e) => e.kind === "message");
+		const artifactIdx = events.findIndex((e) => e.kind === "artifactUpdate");
+		const terminalIdx = events.findIndex(
+			(e) =>
+				e.kind === "statusUpdate" &&
+				e.data?.status?.state === TaskState.TASK_STATE_COMPLETED,
+		);
 		expect(artifactIdx).toBeGreaterThan(-1);
-		expect(messageIdx).toBeGreaterThan(-1);
-		expect(artifactIdx).toBeLessThan(messageIdx);
+		expect(terminalIdx).toBeGreaterThan(-1);
+		expect(artifactIdx).toBeLessThan(terminalIdx);
 	});
 
 	it("leaves URIs relative when no origin resolver is provided (back-compat)", async () => {

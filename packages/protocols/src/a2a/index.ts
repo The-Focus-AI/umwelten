@@ -10,15 +10,49 @@ export {
   fetchAgentCard,
   sendA2AMessage,
   sendA2AMessageToUrl,
+  streamA2AMessage,
+  decodeA2ASendPayload,
 } from "./client.js";
 export type {
   A2AEndpoint,
   AgentCardSummary,
   A2AMessageResponse,
   SendA2AMessageToUrlOptions,
+  StreamA2AMessageOptions,
+  A2AStreamEvent,
 } from "./client.js";
 
-export { createA2AServer } from "./server.js";
+// v1 SDK compatibility helpers — legacy ⇄ v1 state and shape conversion,
+// Part/Message builders and readers. The one sanctioned way to construct or
+// read protobuf-shaped A2A objects outside the SDK itself.
+export {
+  taskStateFromLegacy,
+  taskStateToLegacy,
+  stateOf,
+  textPart,
+  dataPart,
+  filePart,
+  partText,
+  partData,
+  partFileUrl,
+  messageText,
+  userMessage,
+  agentMessage,
+  taskFromStoredJson,
+  taskToStoredJson,
+} from "./v1-compat.js";
+export type { LegacyTaskState, BuildMessageOptions } from "./v1-compat.js";
+
+export {
+  createA2AServer,
+  DualJsonRpcTransportHandler,
+  buildServerCallContext,
+  AgentEvent,
+  ServerCallContext,
+  UnauthenticatedUser,
+  A2A_SERVER_PROTOCOL_VERSION,
+} from "./server.js";
+export type { A2AJsonRpcResult, BuildContextOptions } from "./server.js";
 export {
   FileTaskStore,
   TERMINAL_TASK_STATES,

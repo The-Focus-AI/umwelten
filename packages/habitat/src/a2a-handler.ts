@@ -4,38 +4,47 @@
  * Bridges habitat-specific abstractions (`AgentHost`, `ChannelBridge`,
  * published artifacts) to the generic A2A scaffolding in `@umwelten/protocols`.
  *
- * - {@link buildAgentCard} converts a habitat's config + stimulus into an
- *   A2A AgentCard.
- * - {@link HabitatAgentExecutor} implements `AgentExecutor` by delegating
- *   each incoming message to a {@link ChannelBridge}.
- * - {@link createA2AHandler} wires both pieces into an
- *   {@link A2AServer} ready to mount on the container HTTP server.
+ * - {@link buildAgentCard} converts a habitat's config + stimulus into the
+ *   **served** agent card (legacy 0.3 shape — what every current peer and the
+ *   habitats SaaS parse at `/.well-known/agent-card.json`).
+ * - {@link toV1AgentCard} projects that served card into the v1 SDK's
+ *   protobuf-shaped `AgentCard` for the request handler — one definition,
+ *   two projections.
+ * - {@link HabitatAgentExecutor} implements the v1 `AgentExecutor` contract.
+ * - {@link createA2AHandler} wires everything into an {@link A2AHandler}
+ *   ready to mount on the container HTTP server.
+ *
+ * v1 event-model note (SDK 1.x migration): the stream terminates on a
+ * Message event, a terminal task status, or INPUT_REQUIRED — there is no
+ * `final` flag anymore. The 0.3-era ordering (artifacts → terminal status
+ * with `final:false` → final message) is therefore replaced by: task
+ * snapshot → working status deltas → artifacts → **one terminal status
+ * update whose `status.message` carries the reply** (and the usage /
+ * provenance metadata). Blocking senders receive the Task and read
+ * `status.message`; our `decodeA2ASendPayload` has always understood that
+ * shape.
  */
 
 import { randomUUID } from "node:crypto";
-import type {
-  AgentCard,
-  AgentSkill,
-  Message as A2AMessage,
-  Task as A2ATask,
-  TextPart,
-  FilePart,
-  DataPart,
-  Artifact as A2AArtifact,
-  TaskState,
-} from "@a2a-js/sdk";
+import { TaskState, type AgentCard, type Artifact, type Task } from "@a2a-js/sdk";
 import { join } from "node:path";
 import {
+  AgentEvent,
   createA2AServer,
   FilePushNotificationStore,
   FileTaskStore,
   notifySweptTasks,
   sweepAbandonedTasks,
+  agentMessage,
+  filePart,
+  messageText,
+  textPart,
   type A2AServer,
   type AgentExecutor,
   type RequestContext,
   type ExecutionEventBus,
 } from "@umwelten/protocols";
+import type { Message, Part } from "@a2a-js/sdk";
 import type { AgentHost } from "./types.js";
 import type { ChannelBridge } from "./bridge/channel-bridge.js";
 import {
@@ -110,8 +119,42 @@ export interface RequiredCredential {
   configured?: boolean;
 }
 
-/** An A2A AgentCard plus our `requiredCredentials` extension. */
-export type HabitatAgentCard = AgentCard & {
+/** A skill entry as served on the legacy-shaped card. */
+export interface ServedAgentSkill {
+  id: string;
+  name: string;
+  description?: string;
+  tags?: string[];
+  examples?: string[];
+}
+
+/**
+ * The card served at `/.well-known/agent-card.json`, in the legacy (0.3)
+ * shape every current peer parses, plus our extensions. The v1 SDK's
+ * `AgentCard` type is protobuf-shaped and no longer matches the served
+ * wire form — {@link toV1AgentCard} converts when the SDK needs one.
+ */
+export interface HabitatAgentCard {
+  name: string;
+  description?: string;
+  url: string;
+  version: string;
+  /**
+   * The legacy wire dialect this card's URL speaks for pre-1.0 peers.
+   * v1.0-aware clients treat a legacy-range version as "use the compat
+   * transport", which our dual-dialect endpoint serves. (Was "0.2.5"
+   * before the SDK 1.x migration — stale even then.)
+   */
+  protocolVersion: string;
+  capabilities: { streaming?: boolean; pushNotifications?: boolean };
+  defaultInputModes: string[];
+  defaultOutputModes: string[];
+  skills: ServedAgentSkill[];
+  securitySchemes?: Record<
+    string,
+    { type: "http"; scheme: string; bearerFormat?: string; description?: string }
+  >;
+  security?: Array<Record<string, string[]>>;
   requiredCredentials?: RequiredCredential[];
   /**
    * Whose third-party account the agent's tools act as (config.credentialMode):
@@ -120,7 +163,7 @@ export type HabitatAgentCard = AgentCard & {
    * Advertised so attaching clients can display the permission model.
    */
   credentialMode?: "shared" | "per-user" | "hybrid";
-};
+}
 
 export async function buildAgentCard(
   options: AgentCardOptions,
@@ -137,7 +180,7 @@ export async function buildAgentCard(
     `An AI agent powered by ${config.defaultProvider ?? "unknown"}/${config.defaultModel ?? "unknown"}`;
 
   // Group tools into a single "general" skill — the agent handles routing internally
-  const skills: AgentSkill[] = [
+  const skills: ServedAgentSkill[] = [
     {
       id: "general",
       name: "General",
@@ -171,9 +214,9 @@ export async function buildAgentCard(
     description,
     url: `${baseUrl}/a2a`,
     version: "1.0.0",
-    protocolVersion: "0.2.5",
+    protocolVersion: "0.3",
     // pushNotifications is a gate, not a hint: the SDK refuses every
-    // `tasks/pushNotificationConfig/*` call unless the card declares it, so a
+    // push-notification-config call unless the card declares it, so a
     // caller cannot register a webhook against an undeclared agent no matter
     // what the server is willing to store (#275).
     capabilities: { streaming: true, pushNotifications: true },
@@ -197,6 +240,68 @@ export async function buildAgentCard(
           security: [{ bearer: [] }],
         }
       : {}),
+  };
+}
+
+/**
+ * Project the served (legacy-shaped) card into the v1 SDK's `AgentCard`
+ * for `DefaultRequestHandler`. Declares both protocol versions on the same
+ * URL so the SDK's version validation accepts v1.0 requests and defaulted
+ * 0.3 requests alike.
+ */
+export function toV1AgentCard(card: HabitatAgentCard): AgentCard {
+  const securitySchemes: AgentCard["securitySchemes"] = {};
+  for (const [key, scheme] of Object.entries(card.securitySchemes ?? {})) {
+    securitySchemes[key] = {
+      scheme: {
+        $case: "httpAuthSecurityScheme",
+        value: {
+          description: scheme.description ?? "",
+          scheme: scheme.scheme,
+          bearerFormat: scheme.bearerFormat ?? "",
+        },
+      },
+    };
+  }
+
+  return {
+    name: card.name,
+    description: card.description ?? "",
+    version: card.version,
+    supportedInterfaces: ["1.0", "0.3"].map((protocolVersion) => ({
+      url: card.url,
+      protocolBinding: "JSONRPC",
+      tenant: "",
+      protocolVersion,
+    })),
+    provider: undefined,
+    documentationUrl: undefined,
+    capabilities: {
+      streaming: card.capabilities.streaming ?? false,
+      pushNotifications: card.capabilities.pushNotifications ?? false,
+      extensions: [],
+      extendedAgentCard: false,
+    },
+    securitySchemes,
+    securityRequirements: (card.security ?? []).map((req) => ({
+      schemes: Object.fromEntries(
+        Object.entries(req).map(([k, scopes]) => [k, { list: scopes }]),
+      ),
+    })),
+    defaultInputModes: card.defaultInputModes,
+    defaultOutputModes: card.defaultOutputModes,
+    skills: card.skills.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description ?? "",
+      tags: s.tags ?? [],
+      examples: s.examples ?? [],
+      inputModes: [],
+      outputModes: [],
+      securityRequirements: [],
+    })),
+    signatures: [],
+    iconUrl: undefined,
   };
 }
 
@@ -337,39 +442,39 @@ export class HabitatAgentExecutor implements AgentExecutor {
   ): Promise<void> {
     const { userMessage, taskId, contextId } = requestContext;
 
-    // Extract text from user message parts
-    const text = userMessage.parts
-      .filter((p): p is TextPart => p.kind === "text")
-      .map((p) => p.text)
-      .join("\n");
+    const text = messageText(userMessage);
 
     if (!text.trim()) {
-      const responseMessage: A2AMessage = {
-        kind: "message",
-        messageId: randomUUID(),
-        role: "agent",
-        parts: [{ kind: "text", text: "No text content received." }],
-      };
-      eventBus.publish(responseMessage);
+      // A Message event terminates the stream (v1 rule) and satisfies the
+      // "first event is task or message" contract for this degenerate turn.
+      eventBus.publish(
+        AgentEvent.message(
+          agentMessage({ text: "No text content received.", taskId, contextId }),
+        ),
+      );
       eventBus.finished();
       return;
     }
 
-    // Publish the initial Task so the request handler's task store tracks
-    // this run — without a Task record, tasks/cancel returns taskNotFound
-    // and the working status-updates below are dropped as "unknown task".
-    if (!requestContext.task) {
-      eventBus.publish({
-        kind: "task",
-        id: taskId,
-        contextId,
-        status: {
-          state: "submitted" as TaskState,
-          timestamp: new Date().toISOString(),
-        },
-        history: [userMessage],
-      } satisfies A2ATask);
-    }
+    // The v1 executor contract: every call MUST publish a `task` or
+    // `message` event first — including follow-up turns where the Task
+    // already exists. Publishing the snapshot keeps the request handler's
+    // task store tracking this run; without a Task record, tasks/cancel
+    // returns taskNotFound and the working status-updates below are
+    // dropped as "unknown task".
+    const initialTask: Task = requestContext.task ?? {
+      id: taskId,
+      contextId,
+      status: {
+        state: TaskState.TASK_STATE_SUBMITTED,
+        message: undefined,
+        timestamp: new Date().toISOString(),
+      },
+      artifacts: [],
+      history: [userMessage],
+      metadata: undefined,
+    };
+    eventBus.publish(AgentEvent.task(initialTask));
 
     // contextId = the thread (session continuity); the verified speaker =
     // who is talking *this* turn (ADR 0003 step 2). One thread, many speakers.
@@ -378,8 +483,6 @@ export class HabitatAgentExecutor implements AgentExecutor {
     // Fall back to the thread id as identity only when unauthenticated
     // (dev/open or legacy bearer) — there is no per-user `sub` to use.
     const userId = speaker?.userId ?? `a2a:${contextId}`;
-
-    let fullText = "";
 
     const controller = new AbortController();
     this.activeTasks.set(taskId, { controller, contextId });
@@ -400,23 +503,20 @@ export class HabitatAgentExecutor implements AgentExecutor {
         { channelKey, text, userId, displayName: speaker?.displayName },
         {
           onText: (delta) => {
-            // Emit working status with incremental text
-            eventBus.publish({
-              kind: "status-update",
-              taskId,
-              contextId,
-              final: false,
-              status: {
-                state: "working" as TaskState,
-                timestamp: new Date().toISOString(),
-                message: {
-                  kind: "message",
-                  messageId: randomUUID(),
-                  role: "agent",
-                  parts: [{ kind: "text", text: delta }],
+            // Emit working status with incremental text. Non-terminal, so
+            // the v1 queue keeps streaming.
+            eventBus.publish(
+              AgentEvent.statusUpdate({
+                taskId,
+                contextId,
+                status: {
+                  state: TaskState.TASK_STATE_WORKING,
+                  timestamp: new Date().toISOString(),
+                  message: agentMessage({ text: delta, taskId, contextId }),
                 },
-              },
-            });
+                metadata: undefined,
+              }),
+            );
           },
           onToolCall: (_name, _input) => {
             // Optionally emit status updates for tool calls
@@ -425,8 +525,6 @@ export class HabitatAgentExecutor implements AgentExecutor {
             // Optionally emit status updates for tool results
           },
           onDone: async (result) => {
-            fullText = result.content;
-
             // Check for published artifacts
             const artifacts = await this.buildA2AArtifacts();
 
@@ -434,8 +532,8 @@ export class HabitatAgentExecutor implements AgentExecutor {
             // and carry them as DataParts in the response message.
             const uiParts = await this.buildA2AUIResourceParts();
 
-            const responseParts: (TextPart | FilePart | DataPart)[] = [
-              { kind: "text", text: fullText },
+            const responseParts: Part[] = [
+              textPart(result.content),
               ...uiParts,
             ];
 
@@ -464,40 +562,49 @@ export class HabitatAgentExecutor implements AgentExecutor {
                 ? { ...usageMetadata, ...(provenance ? { provenance } : {}) }
                 : undefined;
 
-            // Artifacts BEFORE the final message: the A2A transport treats the
-            // agent message as the stream's terminal event, so anything
-            // published after it never reaches the wire (verified against the
-            // live SSE 2026-07-11 — artifact-update frames were silently
-            // dropped and no consumer ever saw a published artifact).
+            // Artifacts BEFORE the terminal status: in the v1 event model a
+            // terminal status update ends the stream, so anything published
+            // after it never reaches the wire. (Same hazard as the 0.3-era
+            // message-terminates-stream behavior, verified against live SSE
+            // 2026-07-11 — artifact frames after the terminator were
+            // silently dropped.)
             for (const artifact of artifacts) {
-              eventBus.publish({
-                kind: "artifact-update",
-                taskId,
-                contextId,
-                artifact,
-              });
+              eventBus.publish(
+                AgentEvent.artifactUpdate({
+                  taskId,
+                  contextId,
+                  artifact,
+                  append: false,
+                  lastChunk: true,
+                  metadata: undefined,
+                }),
+              );
             }
 
-            // The Task's own outcome, published BEFORE the message and with
-            // final:false. Both details are load-bearing: the transport stops
-            // at the first message event, so a status published after it is
-            // never processed, and `final: true` would stop the transport
-            // *here* and drop the message instead. This event is what moves
-            // the stored Task off `working` — without it a caller polling
-            // `tasks/get` (the non-blocking task surface, ADR 0007) waits out
-            // its whole timeout on work that finished, and a later boot sweep
-            // reports the answered Task as abandoned.
-            this.publishTerminalStatus(eventBus, taskId, contextId, "completed");
-
-            eventBus.publish({
-              kind: "message",
-              messageId: randomUUID(),
-              role: "agent",
-              parts: responseParts,
-              contextId,
-              taskId,
-              ...(answerMetadata ? { metadata: answerMetadata } : {}),
-            } satisfies A2AMessage);
+            // The terminal status update ends the stream and carries the
+            // reply in `status.message` (the v1 idiom — there is no
+            // separate final Message event anymore). This is what moves the
+            // stored Task off `working`: without it a caller polling
+            // `tasks/get` (ADR 0007) waits out its whole timeout on work
+            // that finished, and a later boot sweep reports the answered
+            // Task as abandoned.
+            eventBus.publish(
+              AgentEvent.statusUpdate({
+                taskId,
+                contextId,
+                status: {
+                  state: TaskState.TASK_STATE_COMPLETED,
+                  timestamp: new Date().toISOString(),
+                  message: agentMessage({
+                    parts: responseParts,
+                    taskId,
+                    contextId,
+                    ...(answerMetadata ? { metadata: answerMetadata } : {}),
+                  }),
+                },
+                metadata: undefined,
+              }),
+            );
 
             eventBus.finished();
           },
@@ -505,18 +612,25 @@ export class HabitatAgentExecutor implements AgentExecutor {
             // A canceled run surfaces as an abort error — cancelTask already
             // emitted the canceled status, so don't follow it with an error.
             if (controller.signal.aborted) return;
-            // Same ordering as onDone: the Task has to record that it failed,
-            // or it stays `working` forever while the caller has been told
-            // the error only through the message.
-            this.publishTerminalStatus(eventBus, taskId, contextId, "failed");
-            eventBus.publish({
-              kind: "message",
-              messageId: randomUUID(),
-              role: "agent",
-              parts: [{ kind: "text", text: `Error: ${error}` }],
-              contextId,
-              taskId,
-            } satisfies A2AMessage);
+            // The failure is recorded on the Task itself, with the error
+            // text as the status message — one terminal event, same as the
+            // success path.
+            eventBus.publish(
+              AgentEvent.statusUpdate({
+                taskId,
+                contextId,
+                status: {
+                  state: TaskState.TASK_STATE_FAILED,
+                  timestamp: new Date().toISOString(),
+                  message: agentMessage({
+                    text: `Error: ${error}`,
+                    taskId,
+                    contextId,
+                  }),
+                },
+                metadata: undefined,
+              }),
+            );
             eventBus.finished();
           },
         },
@@ -528,81 +642,57 @@ export class HabitatAgentExecutor implements AgentExecutor {
     }
   }
 
-  /**
-   * Record a run's outcome on the Task itself. `final: false` deliberately —
-   * see the call sites: the agent message is the stream's terminal event and
-   * has to stay that way for every existing consumer.
-   */
-  private publishTerminalStatus(
-    eventBus: ExecutionEventBus,
-    taskId: string,
-    contextId: string,
-    state: Extract<TaskState, "completed" | "failed">,
-  ): void {
-    eventBus.publish({
-      kind: "status-update",
-      taskId,
-      contextId,
-      final: false,
-      status: { state, timestamp: new Date().toISOString() },
-    });
-  }
-
   async cancelTask(taskId: string, eventBus: ExecutionEventBus): Promise<void> {
     const active = this.activeTasks.get(taskId);
     if (active) {
       active.controller.abort();
       this.activeTasks.delete(taskId);
     }
-    eventBus.publish({
-      kind: "status-update",
-      taskId,
-      contextId: active?.contextId ?? "",
-      final: true,
-      status: {
-        state: "canceled" as TaskState,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    // Terminal state — ends the stream under the v1 model.
+    eventBus.publish(
+      AgentEvent.statusUpdate({
+        taskId,
+        contextId: active?.contextId ?? "",
+        status: {
+          state: TaskState.TASK_STATE_CANCELED,
+          message: undefined,
+          timestamp: new Date().toISOString(),
+        },
+        metadata: undefined,
+      }),
+    );
     eventBus.finished();
   }
 
-  /** Convert published habitat artifacts to A2A Artifact format. */
   /** Drain this turn's emitted UI resources and normalize them to A2A parts. */
-  private async buildA2AUIResourceParts(): Promise<DataPart[]> {
+  private async buildA2AUIResourceParts(): Promise<Part[]> {
     const resources = await drainUIResources(this.habitat.getWorkDir());
     return resources.map(uiResourceToA2APart);
   }
 
-  private async buildA2AArtifacts(): Promise<A2AArtifact[]> {
+  /** Convert published habitat artifacts to A2A Artifact format. */
+  private async buildA2AArtifacts(): Promise<Artifact[]> {
     const metas = await listArtifacts(this.habitat.getWorkDir());
     return metas.map((meta, index) => this.metaToA2AArtifact(meta, index));
   }
 
-  private metaToA2AArtifact(meta: ArtifactMeta, index: number): A2AArtifact {
+  private metaToA2AArtifact(meta: ArtifactMeta, index: number): Artifact {
     // Absolutize the stored relative URL against the resolved public origin so
-    // the FilePart.uri resolves for off-origin consumers (SaaS, Gaia) — #194.
+    // the file part's URL resolves for off-origin consumers (SaaS, Gaia) — #194.
     const uri = toAbsoluteArtifactUrl(meta.url, this.resolvePublicOrigin?.());
-    const parts: (TextPart | FilePart)[] = [
-      {
-        kind: "file",
-        file: {
-          uri,
-          mimeType: meta.mimeType,
-          name: meta.name,
-        },
-      },
-    ];
+    const parts: Part[] = [filePart(uri, meta.mimeType, meta.name)];
 
     if (meta.description) {
-      parts.push({ kind: "text", text: meta.description });
+      parts.push(textPart(meta.description));
     }
 
     return {
       artifactId: `artifact-${index}`,
       name: meta.name,
-      description: meta.description,
+      description: meta.description ?? "",
       parts,
+      metadata: undefined,
+      extensions: [],
     };
   }
 }
@@ -629,10 +719,12 @@ export interface A2AHandlerOptions {
 
 /**
  * Returned shape kept stable for `container-server.ts` and any external
- * consumers: an agent card for the well-known endpoint plus the JSON-RPC
- * transport handler for `/a2a` POST.
+ * consumers: the **served** (legacy-shaped) agent card for the well-known
+ * endpoint plus the dual-dialect JSON-RPC transport handler for `/a2a`.
  */
-export type A2AHandler = A2AServer;
+export interface A2AHandler extends Omit<A2AServer, "agentCard"> {
+  agentCard: HabitatAgentCard;
+}
 
 /**
  * Where a habitat keeps its durable Tasks on its own volume (ADR 0007).
@@ -684,7 +776,7 @@ export async function createA2AHandler(
   }
 
   const server = createA2AServer({
-    agentCard,
+    agentCard: toV1AgentCard(agentCard),
     executor,
     taskStore,
     pushNotificationStore,
@@ -716,5 +808,5 @@ export async function createA2AHandler(
     }
   }
 
-  return server;
+  return { ...server, agentCard };
 }

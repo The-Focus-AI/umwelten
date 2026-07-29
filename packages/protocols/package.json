@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
-    "@a2a-js/sdk": "^0.3.14",
+    "@a2a-js/sdk": "^1.0.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^1.1.0",
     "ai": "^7.0.22",

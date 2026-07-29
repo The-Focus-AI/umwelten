@@ -25,7 +25,8 @@ import { createUIResource } from "@mcp-ui/server";
 import { readdir, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { DataPart } from "@a2a-js/sdk";
+import type { Part } from "@a2a-js/sdk";
+import { dataPart } from "@umwelten/protocols";
 import { toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
 
 /** A2A output mode advertised on the agent card when UI resources are emitted. */
@@ -119,16 +120,12 @@ export function buildHabitatUIResource(
  * The single, transport-specific egress point — keep A2A and (future) MCP
  * derivations here so they never drift.
  */
-export function uiResourceToA2APart(resource: HabitatUIResource): DataPart {
-  return {
-    kind: "data",
-    data: resource as Record<string, unknown>,
-    metadata: {
-      mcpUi: true,
-      outputMode: UI_OUTPUT_MODE,
-      mimeType: resource.mimeType,
-    },
-  };
+export function uiResourceToA2APart(resource: HabitatUIResource): Part {
+  return dataPart(resource as Record<string, unknown>, {
+    mcpUi: true,
+    outputMode: UI_OUTPUT_MODE,
+    mimeType: resource.mimeType,
+  });
 }
 
 /** An MCP `EmbeddedResource` content block — the tool-result content type. */

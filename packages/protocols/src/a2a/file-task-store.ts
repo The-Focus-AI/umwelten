@@ -18,20 +18,26 @@
  * crash mid-write leaves the previous record intact rather than a truncated
  * one. Saves for the same task are serialised, so two concurrent writers
  * cannot interleave into a corrupt record.
+ *
+ * On-disk format: v2 records hold the Task in proto-JSON form (v1 SDK,
+ * states as `TASK_STATE_*` names). v1 records from the 0.3-SDK era (legacy
+ * state strings, `kind`-discriminated parts) are read transparently via
+ * `taskFromStoredJson` and upgraded the next time they are saved.
  */
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Task, TaskState } from "@a2a-js/sdk";
-import type { TaskStore } from "@a2a-js/sdk/server";
+import { TaskState, type ListTasksRequest, type ListTasksResponse, type Task } from "@a2a-js/sdk";
+import type { ServerCallContext, TaskStore } from "@a2a-js/sdk/server";
+import { taskFromStoredJson, taskToStoredJson } from "./v1-compat.js";
 
 /** States from which a Task will never move again. */
 export const TERMINAL_TASK_STATES: readonly TaskState[] = [
-	"completed",
-	"canceled",
-	"failed",
-	"rejected",
+	TaskState.TASK_STATE_COMPLETED,
+	TaskState.TASK_STATE_CANCELED,
+	TaskState.TASK_STATE_FAILED,
+	TaskState.TASK_STATE_REJECTED,
 ];
 
 /**
@@ -40,8 +46,8 @@ export const TERMINAL_TASK_STATES: readonly TaskState[] = [
  * authorize. These are NOT abandoned work and must never be swept.
  */
 export const INTERRUPTED_TASK_STATES: readonly TaskState[] = [
-	"input-required",
-	"auth-required",
+	TaskState.TASK_STATE_INPUT_REQUIRED,
+	TaskState.TASK_STATE_AUTH_REQUIRED,
 ];
 
 export function isTerminalTaskState(state: TaskState | undefined): boolean {
@@ -66,9 +72,10 @@ const TASK_FILE_SUFFIX = ".task.json";
 
 /** Envelope written to disk. The id is stored because the filename is a hash. */
 interface PersistedTask {
-	version: 1;
+	version: 1 | 2;
 	id: string;
-	task: Task;
+	/** v1: legacy-shaped Task JSON; v2: proto-JSON. Both readable. */
+	task: unknown;
 }
 
 function fileNameFor(taskId: string): string {
@@ -103,7 +110,10 @@ export class FileTaskStore implements TaskStore {
 		return join(this.dir, fileNameFor(taskId));
 	}
 
-	async save(task: Task): Promise<void> {
+	// The habitat store is single-tenant: the container *is* the boundary
+	// (ADR 0007/0003), so `context` tenant/user scoping is intentionally
+	// unused. The parameters exist to satisfy the v1 TaskStore contract.
+	async save(task: Task, _context?: ServerCallContext): Promise<void> {
 		// Copy on the way in so a caller mutating its Task afterwards cannot
 		// drift what we hold or what we are about to write.
 		const snapshot = structuredClone(task);
@@ -131,7 +141,11 @@ export class FileTaskStore implements TaskStore {
 		const target = this.pathFor(task.id);
 		// Unique temp name: two writers for *different* tasks may run at once.
 		const tmp = `${target}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
-		const payload: PersistedTask = { version: 1, id: task.id, task };
+		const payload: PersistedTask = {
+			version: 2,
+			id: task.id,
+			task: taskToStoredJson(task),
+		};
 		try {
 			await writeFile(tmp, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
 			await rename(tmp, target);
@@ -143,17 +157,17 @@ export class FileTaskStore implements TaskStore {
 		}
 	}
 
-	async load(taskId: string): Promise<Task | undefined> {
+	async load(taskId: string, _context?: ServerCallContext): Promise<Task | undefined> {
 		const cached = this.cache.get(taskId);
 		if (cached) return structuredClone(cached);
 
-		const record = await this.readRecord(this.pathFor(taskId));
-		if (!record) return undefined;
-		this.cache.set(record.id, record.task);
-		return structuredClone(record.task);
+		const task = await this.readTask(this.pathFor(taskId));
+		if (!task) return undefined;
+		this.cache.set(task.id, task);
+		return structuredClone(task);
 	}
 
-	private async readRecord(path: string): Promise<PersistedTask | undefined> {
+	private async readTask(path: string): Promise<Task | undefined> {
 		let raw: string;
 		try {
 			raw = await readFile(path, "utf-8");
@@ -162,18 +176,76 @@ export class FileTaskStore implements TaskStore {
 		}
 		try {
 			const parsed = JSON.parse(raw) as PersistedTask;
-			// A record without a task is corrupt; treat it as absent rather than
-			// letting `undefined` masquerade as a Task downstream.
-			if (!parsed?.task?.id) return undefined;
-			return parsed;
+			// A record without a task id is corrupt; treat it as absent rather
+			// than letting `undefined` masquerade as a Task downstream.
+			if (!parsed?.id || parsed.task === undefined) return undefined;
+			const task = taskFromStoredJson(parsed.task);
+			if (!task.id) return undefined;
+			return task;
 		} catch {
 			return undefined;
 		}
 	}
 
 	/**
-	 * Every persisted Task. Used by the boot recovery sweep; the A2A surface
-	 * itself has no list method in this protocol version.
+	 * v1 `ListTasks` (ADR 0007's polling surface finally has a spec home).
+	 * Filters by contextId / status / statusTimestampAfter, paginates by
+	 * pageSize/pageToken (opaque offset), trims history to historyLength,
+	 * and strips artifacts unless includeArtifacts.
+	 */
+	async list(
+		params: ListTasksRequest,
+		_context?: ServerCallContext,
+	): Promise<ListTasksResponse> {
+		let tasks = await this.listAll();
+
+		if (params.contextId) {
+			tasks = tasks.filter((t) => t.contextId === params.contextId);
+		}
+		if (params.status !== undefined && params.status !== TaskState.TASK_STATE_UNSPECIFIED) {
+			tasks = tasks.filter((t) => t.status?.state === params.status);
+		}
+		if (params.statusTimestampAfter) {
+			const after = Date.parse(params.statusTimestampAfter);
+			tasks = tasks.filter((t) => {
+				const ts = t.status?.timestamp ? Date.parse(t.status.timestamp) : NaN;
+				return Number.isFinite(ts) && ts >= after;
+			});
+		}
+
+		// Newest status first, matching what a poller wants to see.
+		tasks.sort((a, b) => {
+			const ta = a.status?.timestamp ? Date.parse(a.status.timestamp) : 0;
+			const tb = b.status?.timestamp ? Date.parse(b.status.timestamp) : 0;
+			return tb - ta;
+		});
+
+		const totalSize = tasks.length;
+		const pageSize = Math.min(Math.max(params.pageSize ?? 50, 1), 100);
+		const offset = params.pageToken ? Number.parseInt(params.pageToken, 10) || 0 : 0;
+		const page = tasks.slice(offset, offset + pageSize);
+		const nextOffset = offset + page.length;
+
+		const shaped = page.map((task) => {
+			const copy = structuredClone(task);
+			if (params.historyLength !== undefined && params.historyLength >= 0) {
+				copy.history = copy.history.slice(-params.historyLength);
+			}
+			if (!params.includeArtifacts) copy.artifacts = [];
+			return copy;
+		});
+
+		return {
+			tasks: shaped,
+			nextPageToken: nextOffset < totalSize ? String(nextOffset) : "",
+			pageSize,
+			totalSize,
+		};
+	}
+
+	/**
+	 * Every persisted Task. Used by the boot recovery sweep, which wants the
+	 * unfiltered set regardless of pagination.
 	 */
 	async listAll(): Promise<Task[]> {
 		await this.ensureDir();
@@ -187,10 +259,10 @@ export class FileTaskStore implements TaskStore {
 		const tasks: Task[] = [];
 		for (const entry of entries) {
 			if (!entry.endsWith(TASK_FILE_SUFFIX)) continue;
-			const record = await this.readRecord(join(this.dir, entry));
+			const task = await this.readTask(join(this.dir, entry));
 			// Unreadable or half-written files are skipped rather than throwing —
 			// one bad file must not make the whole fleet's recovery fail.
-			if (record) tasks.push(record.task);
+			if (task) tasks.push(task);
 		}
 		return tasks;
 	}

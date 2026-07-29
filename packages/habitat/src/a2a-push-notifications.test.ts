@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createServer, type Server } from "node:http";
-import type { Task } from "@a2a-js/sdk";
+import { TaskState, type Task } from "@a2a-js/sdk";
 import {
 	deleteA2APushConfig,
 	getA2ATask,
@@ -31,8 +31,13 @@ import {
 	startLoopbackHabitat,
 } from "./test-utils/a2a-loopback.js";
 
+/**
+ * What arrives at the webhook. Registrations in these tests ride the legacy
+ * (0.3) wire, so the legacy-aware sender serializes deliveries in the legacy
+ * shape — string task states — regardless of the server's internal v1 types.
+ */
 interface Delivery {
-	task: Task;
+	task: { id: string; status?: { state?: string } };
 	token: string | undefined;
 }
 
@@ -46,7 +51,7 @@ async function startWebhook(options: { status?: number } = {}) {
 			const raw = Buffer.concat(chunks).toString("utf-8");
 			try {
 				deliveries.push({
-					task: JSON.parse(raw) as Task,
+					task: JSON.parse(raw) as Delivery["task"],
 					token: req.headers["x-a2a-notification-token"] as string | undefined,
 				});
 			} catch {
@@ -245,7 +250,7 @@ describe("habitat push notifications", () => {
 				endpoint: agent.url,
 				taskId: task.id,
 			});
-			expect(afterwards.status?.state).toBe("failed");
+			expect(afterwards.status?.state).toBe(TaskState.TASK_STATE_FAILED);
 		} finally {
 			await webhook.stop();
 			await agent.stop();
@@ -262,7 +267,7 @@ describe("habitat push notifications", () => {
 			await webhook.waitFor((d) => d.task.id === task.id);
 
 			const settled = await getA2ATask({ endpoint: agent.url, taskId: task.id });
-			expect(settled.status?.state).toBe("completed");
+			expect(settled.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
 		} finally {
 			await webhook.stop();
 			await agent.stop();
@@ -282,7 +287,7 @@ describe("habitat push notifications", () => {
 					endpoint: agent.url,
 					taskId: task.id,
 				});
-				if (current.status?.state === "completed") return;
+				if (current.status?.state === TaskState.TASK_STATE_COMPLETED) return;
 				await new Promise((resolve) => setTimeout(resolve, 20));
 			}
 			throw new Error("Task never completed with an unreachable webhook");
