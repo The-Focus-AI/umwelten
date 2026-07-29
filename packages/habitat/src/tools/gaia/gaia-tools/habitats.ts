@@ -9,6 +9,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import { sendA2AMessage } from "@umwelten/protocols";
+import { getRegisteredProvider } from "@umwelten/core/providers/index.js";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
 import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
@@ -16,6 +17,7 @@ import { applyHabitatDeclaration } from "../apply-declaration.js";
 import { readDeclarationFromRepo } from "../read-declaration.js";
 import { recordHabitatActivity } from "../reaper.js";
 import { HabitatWaker, createWakeTools } from "../waker.js";
+import { habitatSecretStatus } from "../secret-status.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 /**
@@ -225,6 +227,18 @@ export function createHabitatLifecycleTools(
 				if (entry.secretBindings.length === 0) {
 					warnings.push(
 						"WARNING: No secrets bound — the habitat has no API keys. Use bind_secret to add them.",
+					);
+				}
+				// A binding the vault cannot satisfy is dropped from the seeded
+				// secrets.json rather than failing, so the habitat boots and
+				// health-checks fine and fails on first use. Say it here, where
+				// the person who declared the binding is still looking.
+				const gaps = habitatSecretStatus(entry, vault).missing;
+				if (gaps.length) {
+					warnings.push(
+						`WARNING: bound but missing from the master vault: ${gaps.join(", ")}. ` +
+							`These were NOT written to the volume — the container will start and then fail on first use. ` +
+							`Add them with set_secret, then rebuild.`,
 					);
 				}
 				const notes: string[] = [];
@@ -490,6 +504,13 @@ export function createHabitatLifecycleTools(
 						...(gitBranch ? { gitBranch } : {}),
 						readDeclaration: (url, ref) =>
 							readDeclarationFromRepo(url, ref, { token: ambient?.token }),
+						// Fleet policy the repo does not have to restate: Gaia's own
+						// provider and model, and where a provider keeps its key.
+						defaults: {
+							...(gaiaProvider ? { provider: gaiaProvider } : {}),
+							...(gaiaModel ? { model: gaiaModel } : {}),
+							providerEnvVar: (p) => getRegisteredProvider(p)?.envVar,
+						},
 					});
 
 					const read = result.entry.github?.read;
@@ -519,6 +540,18 @@ export function createHabitatLifecycleTools(
 						secrets.length
 							? `Secret bindings (from the declaration): ${secrets.join(", ")}`
 							: `Secret bindings: none declared.`,
+						...(() => {
+							// The declaration can bind a secret the vault has never
+							// heard of. That is not an error here — but it is the
+							// difference between a habitat that works and one that
+							// starts and then fails, so it does not get to be quiet.
+							const gaps = habitatSecretStatus(result.entry, vault).missing;
+							return gaps.length
+								? [
+										`MISSING from the master vault: ${gaps.join(", ")}. Declared, but there is no value to seed — add with set_secret before asking it anything.`,
+									]
+								: [];
+						})(),
 						result.action === "created"
 							? `Nothing further is required. Asking "${id}" starts it, and starting seeds the volume with this config and these secrets — do not seed, grant or rebuild by hand first.`
 							: `Rebuild "${id}" if it is already running, so the new declaration reaches its container.`,

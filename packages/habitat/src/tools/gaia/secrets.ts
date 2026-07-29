@@ -74,25 +74,21 @@ export class GaiaSecretVault {
     return true;
   }
 
-  /**
-   * Write filtered secrets for a specific habitat container.
-   * Only secrets listed in `entry.secretBindings` are included.
-   */
-  async writeFilteredSecrets(entry: GaiaHabitatEntry, habitatDataDir: string): Promise<void> {
-    this.ensureLoaded();
-
-    const filtered: Record<string, string> = {};
-    for (const name of entry.secretBindings) {
-      if (name in this.secrets) {
-        filtered[name] = this.secrets[name];
-      }
-    }
-
-    await mkdir(habitatDataDir, { recursive: true });
-    await writeFile(
-      join(habitatDataDir, SECRETS_FILE),
-      JSON.stringify(filtered, null, 2) + "\n",
-      { mode: 0o600 },
-    );
-  }
 }
+
+/*
+ * `writeFilteredSecrets` used to live here: it filtered the vault by a
+ * habitat's bindings and wrote the result to that habitat's data dir. It had
+ * no callers — every seeding path goes through `buildSeedFiles`, which does
+ * the same filtering and hands the files to `docker.seedVolume`.
+ *
+ * Removed rather than left in place because it was a trap. It silently
+ * dropped a bound name the vault had no value for, which is the bug that
+ * cost three rebuilds on the first client habitat, and anyone finding it
+ * would reasonably assume it was the live path and fix it here instead of in
+ * `buildSeedFiles`. Two implementations of one rule, one of them dead, is
+ * worse than one.
+ *
+ * See `secret-status.ts` for how a binding the vault cannot satisfy is
+ * surfaced now.
+ */
