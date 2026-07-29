@@ -161,14 +161,6 @@ export function parseHabitatDeclaration(source: string): HabitatDeclaration {
 	};
 }
 
-/** Fleet-level defaults a declaration inherits when it says nothing. */
-export interface DeclarationDefaults {
-	/** Gaia's own provider. */
-	provider?: string;
-	/** Gaia's own model. */
-	model?: string;
-}
-
 /**
  * Turn a declaration into creation options.
  *
@@ -176,31 +168,18 @@ export interface DeclarationDefaults {
  * fleet addresses this habitat and the Owned repo is where the declaration
  * was found, so neither is the declaration's to state.
  *
- * Neither is the LLM. A client repo has no opinion about which model reads
- * it — that is fleet policy, and repeating it in fifteen client declarations
- * is fifteen places for it to drift. So an omitted provider/model inherits
- * Gaia's own, exactly as `create_habitat` has always done; a declaration only
- * has to state what is *particular* to this habitat, usually just its mounts.
- *
- * The provider's **key** is not bound here at all. It is platform
- * infrastructure, injected at start like the GitHub boot token — see
- * `runtime-credentials.ts`. `secretBindings` therefore means exactly one
- * thing: secrets this habitat's own work requires. That is what makes an
- * unsatisfied binding meaningful rather than platform noise.
+ * Everything else comes from the declaration verbatim. Nothing is inherited,
+ * defaulted or inferred: a habitat states what it needs, and its own vault
+ * (#283) supplies it. Earlier versions of this function derived a provider
+ * from Gaia and a key name from the provider registry, which only existed to
+ * work around a flat shared vault and made a habitat's real requirements
+ * impossible to read off its declaration.
  */
 export function declarationToCreateOptions(
 	declaration: HabitatDeclaration,
-	context: {
-		id: string;
-		gitUrl: string;
-		gitBranch?: string;
-		defaults?: DeclarationDefaults;
-	},
+	context: { id: string; gitUrl: string; gitBranch?: string },
 ): CreateHabitatOptions {
-	const defaults = context.defaults ?? {};
-	const provider = declaration.provider ?? defaults.provider;
-	const model = declaration.model ?? defaults.model;
-	const secretBindings = declaration.secretBindings;
+	const { provider, model, secretBindings } = declaration;
 
 	return {
 		id: context.id,

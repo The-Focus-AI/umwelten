@@ -122,15 +122,6 @@ export interface StartContainerOptions {
    * POST /github/token route.
    */
   githubTokens?: { read?: string; write?: string };
-  /**
-   * The model credential (`runtime-credentials.ts`). Injected the same way
-   * GitHub tokens are, and for the same reason: every habitat needs one to
-   * think, so it is platform infrastructure rather than something the
-   * habitat's own repo declares. Omitted when the provider needs no key
-   * (ollama and friends) or when the vault cannot supply one — in which case
-   * the container still starts, and fails on its first question.
-   */
-  modelCredential?: { envName: string; value: string };
 }
 
 /**
@@ -349,18 +340,6 @@ export class DockerManager {
     }
     if (options?.githubTokens?.write) {
       args.push("--env", `GITHUB_WRITE_TOKEN=${options.githubTokens.write}`);
-    }
-
-    // The model credential, on the same footing as the GitHub tokens above:
-    // platform-supplied, never declared by the habitat's repo, never written
-    // to the volume's secrets.json. Its name comes from the core provider
-    // registry, so a habitat on a different provider gets a different env var
-    // without anything else changing.
-    if (options?.modelCredential) {
-      args.push(
-        "--env",
-        `${options.modelCredential.envName}=${options.modelCredential.value}`,
-      );
     }
 
     // GAIA_URL is injected unconditionally: it's Gaia's in-network address

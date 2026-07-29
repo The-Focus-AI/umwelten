@@ -22,7 +22,6 @@ import {
 	HabitatDeclarationError,
 	declarationToCreateOptions,
 	parseHabitatDeclaration,
-	type DeclarationDefaults,
 	type HabitatDeclaration,
 } from "./declaration.js";
 import { mountsToAgentEntries } from "./mounts.js";
@@ -56,11 +55,14 @@ export interface ApplyDeclarationOptions {
 		gitBranch?: string,
 	) => Promise<string | undefined>;
 	/**
-	 * Fleet policy the declaration inherits when it says nothing: Gaia's own
-	 * provider and model, and how to find a provider's key. A client repo
-	 * has no opinion about which model reads it.
+	 * Read the habitat's vault declaration (#283) from the same repo. Absent
+	 * means no vault of its own — it resolves through the master vault, as
+	 * every habitat did before per-habitat vaults existed.
 	 */
-	defaults?: DeclarationDefaults;
+	readVault?: (
+		gitUrl: string,
+		gitBranch?: string,
+	) => Promise<string | undefined>;
 }
 
 export interface ApplyResult {
@@ -96,13 +98,20 @@ export async function applyHabitatDeclaration(
 		id: options.id,
 		gitUrl: options.gitUrl,
 		...(options.gitBranch ? { gitBranch: options.gitBranch } : {}),
-		...(options.defaults ? { defaults: options.defaults } : {}),
 	});
+
+	// The vault declaration lives next to habitat.json and is read at the same
+	// time, so a habitat's needs and where they resolve from can never be read
+	// from two different commits.
+	const vaultToml = await options.readVault?.(options.gitUrl, options.gitBranch);
 
 	const existing = registry.get(options.id);
 	if (!existing) {
+		const created = await registry.create(createOptions);
 		return {
-			entry: await registry.create(createOptions),
+			entry: vaultToml
+				? await registry.update(options.id, { vaultToml })
+				: created,
 			action: "created",
 			declaration,
 		};
@@ -155,6 +164,9 @@ export async function applyHabitatDeclaration(
 		...(declaration.storage ? { storage: declaration.storage } : {}),
 		...(declaration.image ? { image: declaration.image } : {}),
 		...(declaration.hostname ? { hostname: declaration.hostname } : {}),
+		// Undefined clears it: removing fnox.toml from the repo removes the
+		// habitat's own vault, rather than leaving a stale copy behind.
+		vaultToml,
 	} as Partial<GaiaHabitatEntry>);
 
 	return { entry, action: "updated", declaration };

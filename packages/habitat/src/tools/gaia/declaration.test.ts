@@ -124,57 +124,46 @@ describe("declarationToCreateOptions", () => {
 });
 
 /**
- * A client repo has no opinion about which model reads it, or where that
- * model's key is kept. Making fifteen client declarations restate the same
- * provider, model and key name is fifteen places for it to drift — and the
- * first one that got it wrong produced a habitat that started and then
- * failed on its first question.
+ * Nothing is inherited, defaulted or inferred. A habitat declares what it
+ * needs and its own vault (#283) supplies it — earlier versions derived a
+ * provider from Gaia and a key name from the provider registry, which only
+ * existed to work around a flat shared vault and made a habitat's real
+ * requirements impossible to read off its declaration.
  */
-describe("declarationToCreateOptions — fleet defaults (#277 follow-up)", () => {
+describe("declarationToCreateOptions — nothing is inferred", () => {
 	const ctx = {
 		id: "upperhand",
 		gitUrl: "https://github.com/The-Focus-AI/client-upperhand.git",
-		defaults: { provider: "google", model: "gemini-3-flash-preview" },
 	};
 
-	it("inherits Gaia's provider and model when the declaration says nothing", () => {
+	it("leaves provider and model unset when the declaration omits them", () => {
 		const opts = declarationToCreateOptions({}, ctx);
+		expect(opts.provider).toBeUndefined();
+		expect(opts.model).toBeUndefined();
+	});
+
+	it("carries provider and model through when the declaration states them", () => {
+		const opts = declarationToCreateOptions(
+			{ provider: "google", model: "gemini-3-flash-preview" },
+			ctx,
+		);
 		expect(opts.provider).toBe("google");
 		expect(opts.model).toBe("gemini-3-flash-preview");
 	});
 
-	it("lets the declaration override the fleet default", () => {
-		const opts = declarationToCreateOptions(
-			{ provider: "openrouter", model: "anthropic/claude-sonnet-5" },
-			ctx,
-		);
-		expect(opts.provider).toBe("openrouter");
-		expect(opts.model).toBe("anthropic/claude-sonnet-5");
-	});
-
-	/**
-	 * secretBindings means exactly one thing: secrets this habitat's own work
-	 * requires. The model credential is platform infrastructure, injected at
-	 * start like the GitHub boot token (`runtime-credentials.ts`), so it never
-	 * appears here — that is what keeps an unsatisfied binding meaningful
-	 * rather than platform noise.
-	 */
-	it("does not bind the provider's key — that is not a declared need", () => {
-		const opts = declarationToCreateOptions({}, ctx);
+	it("does not invent a key binding from the provider", () => {
+		const opts = declarationToCreateOptions({ provider: "google" }, ctx);
 		expect(opts.secretBindings).toBeUndefined();
 	});
 
-	it("carries only what the declaration actually asked for", () => {
-		const opts = declarationToCreateOptions({ secretBindings: ["TAVILY_API_KEY"] }, ctx);
-		expect(opts.secretBindings).toEqual(["TAVILY_API_KEY"]);
-	});
-
-	it("works with no defaults at all, as before", () => {
+	it("carries only the bindings the declaration actually asked for", () => {
 		const opts = declarationToCreateOptions(
-			{ provider: "google", secretBindings: ["K"] },
-			{ id: "x", gitUrl: "https://example.com/r.git" },
+			{ secretBindings: ["GOOGLE_GENERATIVE_AI_API_KEY", "TAVILY_API_KEY"] },
+			ctx,
 		);
-		expect(opts.provider).toBe("google");
-		expect(opts.secretBindings).toEqual(["K"]);
+		expect(opts.secretBindings).toEqual([
+			"GOOGLE_GENERATIVE_AI_API_KEY",
+			"TAVILY_API_KEY",
+		]);
 	});
 });
