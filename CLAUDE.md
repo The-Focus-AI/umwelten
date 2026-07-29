@@ -617,6 +617,8 @@ All umwelten services use the 74xx port range to avoid conflicts with common dev
 | Legacy `habitat web`    | **7421**      | `habitat web` — single-habitat web UI      |
 | `habitat serve` (host)  | **7430**      | `habitat serve` — MCP + chat + web UI      |
 | Context explorer        | **7432**      | `examples/context-explorer` — turn fan-out |
+| Agent browser           | **7433**      | `examples/agent-browser` — MCP/A2A discovery + chat |
+| Agent browser demo      | **7434**      | `examples/agent-browser/demo-endpoint.ts`  |
 | Managed containers      | **7440–7499** | Gaia assigns sequentially from this range  |
 | Internal container port | **8080**      | Inside Docker only, never exposed directly |
 

@@ -91,6 +91,16 @@ export type {
 export { getPublicBaseUrl } from "./mcp-serve/public-url.js";
 export { hashToken } from "./mcp-serve/oauth/token.js";
 
+// ── Endpoint discovery (unified MCP + A2A probe) ────────────────────────
+export { discoverAgentEndpoint, agentCardCandidates } from "./discovery/discover.js";
+export type {
+  EndpointCard,
+  EndpointCapability,
+  EndpointKind,
+  EndpointAuth,
+  DiscoverOptions,
+} from "./discovery/discover.js";
+
 // ── MCP Client (remote connection with OAuth PKCE) ──────────────────────
 export { RemoteMcpClient } from "./mcp/client/remote.js";
 
