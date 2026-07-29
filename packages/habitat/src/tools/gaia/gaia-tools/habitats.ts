@@ -498,6 +498,14 @@ export function createHabitatLifecycleTools(
 						.filter((a) => (a.kind ?? "repo") === "repo" && a.mode === "read")
 						.map((a) => a.id);
 
+					// Report what was applied, not just what was mounted. An
+					// omitted field reads to a model as an unset one: leaving
+					// provider/model/secrets unmentioned had Gaia conclude they
+					// were missing and go do remedial work that was not needed.
+					// A tool result's silence gets interpreted, so say it.
+					const cfg = result.entry.config;
+					const secrets = result.entry.secretBindings ?? [];
+
 					return [
 						`${result.action === "created" ? "Created" : "Updated"} habitat "${id}" from ${gitUrl}.`,
 						`Mounts: ${mounts.length ? mounts.join(", ") : "(none)"}`,
@@ -505,8 +513,14 @@ export function createHabitatLifecycleTools(
 						result.entry.github?.write?.length
 							? `Write scope (declared, never derived): ${result.entry.github.write.join(", ")}`
 							: "Write scope: (none declared)",
+						cfg.defaultProvider || cfg.defaultModel
+							? `Provider/model (from the declaration): ${cfg.defaultProvider ?? "(unset)"} / ${cfg.defaultModel ?? "(unset)"}`
+							: `Provider/model: not declared — inherits Gaia's defaults.`,
+						secrets.length
+							? `Secret bindings (from the declaration): ${secrets.join(", ")}`
+							: `Secret bindings: none declared.`,
 						result.action === "created"
-							? `Ask "${id}" anything to start it — no separate start step is needed.`
+							? `Nothing further is required. Asking "${id}" starts it, and starting seeds the volume with this config and these secrets — do not seed, grant or rebuild by hand first.`
 							: `Rebuild "${id}" if it is already running, so the new declaration reaches its container.`,
 					].join("\n");
 				} catch (err) {
