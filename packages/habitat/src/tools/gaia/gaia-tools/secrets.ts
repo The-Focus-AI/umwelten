@@ -19,6 +19,7 @@ import {
 	describeVaultMigration,
 	planVaultMigration,
 } from "../vault-migration.js";
+import { describeSecretNeeds, secretNeeds } from "../required-secrets.js";
 
 export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> {
 	const { registry, vault } = ctx;
@@ -26,7 +27,7 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 	return {
 		secret_status: tool({
 			description:
-				"Show which habitat is bound to which secret, and whether the master vault can actually supply it. A binding the vault cannot satisfy is dropped from the habitat's secrets.json rather than failing the start — so the container boots, health-checks fine, and then fails on first use. Also reports each habitat's model credential, which is platform-injected rather than declared. Check this before blaming the container. Optionally scope to one habitat.",
+				"Show what each habitat declares it needs, whether its vault can supply it, and which vault it resolves against. Reads the habitat's own requiredSecrets contract where it has one; a habitat still on the old bare secretBindings list is flagged as un-migrated. Credentials the habitat mints itself (type: oauth) are listed separately \u2014 Gaia supplies nothing for those and never counts them missing. Optionally scope to one habitat.",
 			inputSchema: z.object({
 				habitatId: z
 					.string()
@@ -40,21 +41,24 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 				if (habitatId && entries.length === 0) {
 					return `Habitat "${habitatId}" not found`;
 				}
-				// Which vault each habitat resolves against (#283). A habitat with
-				// its own is self-contained; one still on the shared master vault
-				// cannot hold a different value for a name another habitat uses,
-				// which is the collision per-habitat vaults exist to remove.
-				const vaults = entries.map(
-					(e) =>
-						`  ${e.id}: ${e.vaultToml ? "its own vault (fnox.toml in its repo)" : "shared master vault"}`,
-				);
+				// Reported against what each habitat DECLARES, not the
+				// hand-maintained binding list. A habitat that has not migrated is
+				// named as such rather than having its bindings quietly presented
+				// as though they were a contract it agreed to.
+				const blocks = entries.map((e) => {
+					const needs = secretNeeds(e.config, e.secretBindings);
+					const resolved: Record<string, string> = {};
+					for (const name of needs.fromVault) {
+						const v = vault.get(name);
+						if (v) resolved[name] = v;
+					}
+					const vaultLine = e.vaultToml
+						? "    vault: its own (fnox.toml in its repo)"
+						: "    vault: shared master vault — not yet migrated (#284)";
+					return [describeSecretNeeds(e.id, needs, resolved), vaultLine].join("\n");
+				});
 
-				return [
-					describeFleetSecretStatus(fleetSecretStatus(entries, vault)),
-					"",
-					"Vaults:",
-					...vaults,
-				].join("\n");
+				return blocks.length ? blocks.join("\n\n") : "No habitats registered.";
 			},
 		}),
 

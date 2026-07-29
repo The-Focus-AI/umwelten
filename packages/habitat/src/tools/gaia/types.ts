@@ -3,7 +3,7 @@
  */
 
 import type { AgentCardSummary } from "@umwelten/protocols";
-import type { HabitatConfig, CapabilityBinding } from "../../types.js";
+import type { HabitatConfig, CapabilityBinding, RequiredSecret } from "../../types.js";
 
 /** A registered habitat managed by Gaia. */
 export interface GaiaHabitatEntry {
@@ -135,6 +135,9 @@ export interface CreateHabitatOptions {
 	gitBranch?: string;
 	provider?: string;
 	model?: string;
+	/** What the habitat needs, and how each is obtained (ADR 0004 contract). */
+	requiredSecrets?: RequiredSecret[];
+	/** @deprecated Bare name list; `requiredSecrets` says how each is obtained. */
 	secretBindings?: string[];
 	skillsFromGit?: string[];
 	/** Capability-to-credential bindings for the habitat. */

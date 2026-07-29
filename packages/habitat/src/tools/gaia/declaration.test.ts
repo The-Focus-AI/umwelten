@@ -167,3 +167,74 @@ describe("declarationToCreateOptions — nothing is inferred", () => {
 		]);
 	});
 });
+
+/**
+ * A habitat declares what it needs and publishes it as `requiredCredentials`
+ * on its agent card (ADR 0004). Gaia never read that — it provisioned from a
+ * separate hand-maintained `secretBindings` list, and `export_habitat` even
+ * generated the contract *from* the list, inverting the relationship. These
+ * assert the declaration carries the real contract.
+ */
+describe("parseHabitatDeclaration — requiredSecrets contract", () => {
+	const parse = (o: unknown) => parseHabitatDeclaration(JSON.stringify(o));
+
+	it("carries a declared requirement through", () => {
+		const d = parse({
+			requiredSecrets: [{ name: "DATABASE_URL", description: "Postgres" }],
+		});
+		expect(d.requiredSecrets).toEqual([
+			{ name: "DATABASE_URL", required: true, description: "Postgres" },
+		]);
+	});
+
+	it("defaults required to true — a declared need is needed", () => {
+		expect(parse({ requiredSecrets: [{ name: "K" }] }).requiredSecrets?.[0].required).toBe(
+			true,
+		);
+	});
+
+	it("keeps an explicit optional", () => {
+		expect(
+			parse({ requiredSecrets: [{ name: "K", required: false }] }).requiredSecrets?.[0]
+				.required,
+		).toBe(false);
+	});
+
+	it("carries an oauth requirement with its connect path", () => {
+		const d = parse({
+			requiredSecrets: [
+				{ name: "TWITTER_REFRESH_TOKEN", type: "oauth", connectPath: "/connect/x" },
+			],
+		});
+		expect(d.requiredSecrets?.[0]).toMatchObject({
+			type: "oauth",
+			connectPath: "/connect/x",
+		});
+	});
+
+	/**
+	 * An oauth entry with nowhere to send the user can never be satisfied —
+	 * it would sit permanently unmet with no way to fix it.
+	 */
+	it("rejects an oauth requirement with no connectPath", () => {
+		expect(() => parse({ requiredSecrets: [{ name: "T", type: "oauth" }] })).toThrow(
+			/nowhere to send the user/,
+		);
+	});
+
+	it("rejects an unknown type rather than guessing", () => {
+		expect(() =>
+			parse({ requiredSecrets: [{ name: "T", type: "magic" }] }),
+		).toThrow(/must be "secret" or "oauth"/);
+	});
+
+	it("rejects a nameless requirement", () => {
+		expect(() => parse({ requiredSecrets: [{ type: "secret" }] })).toThrow(
+			/non-empty "name"/,
+		);
+	});
+
+	it("still accepts the older secretBindings list", () => {
+		expect(parse({ secretBindings: ["A"] }).secretBindings).toEqual(["A"]);
+	});
+});

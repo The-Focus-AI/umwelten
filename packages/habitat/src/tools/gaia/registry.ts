@@ -119,6 +119,11 @@ export class GaiaRegistryManager {
 				...(options.capabilities?.length
 					? { capabilities: options.capabilities }
 					: {}),
+				// The habitat's own statement of what it needs. Gaia provisions
+				// from this; secretBindings is the older bare-name fallback.
+				...(options.requiredSecrets
+					? { requiredSecrets: options.requiredSecrets }
+					: {}),
 			},
 			secretBindings: options.secretBindings ?? [],
 			apiKey: generateApiKey(),
