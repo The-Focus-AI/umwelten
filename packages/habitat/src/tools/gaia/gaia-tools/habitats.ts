@@ -18,6 +18,10 @@ import { readDeclarationFromRepo } from "../read-declaration.js";
 import { recordHabitatActivity } from "../reaper.js";
 import { HabitatWaker, createWakeTools } from "../waker.js";
 import { habitatSecretStatus } from "../secret-status.js";
+import {
+	describeRuntimeCredential,
+	resolveRuntimeCredential,
+} from "../runtime-credentials.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 /**
@@ -42,8 +46,20 @@ export async function startHabitatContainer(
 	// Fresh GitHub boot tokens per start (ADR 0004; never throws —
 	// a GitHub outage degrades to a token-less boot, not a failure).
 	const bootTokens = await githubTokens?.bootTokensFor(entry);
+
+	// The model credential travels the same road: resolved per start from the
+	// habitat's provider, injected as env, never written to the volume and
+	// never named in the habitat's own repo. A habitat that needs no key, or
+	// whose key the vault cannot supply, simply gets none — the container
+	// still starts, which is what makes the gap reportable rather than fatal.
+	const runtime = resolveRuntimeCredential(entry, {
+		providerEnvVar: (p) => getRegisteredProvider(p)?.envVar,
+		secret: (name) => vault.get(name),
+	});
+
 	const port = await docker.startContainer(entry, "", registry.list(), {
 		githubTokens: bootTokens,
+		...(runtime.ok ? { modelCredential: runtime.credential } : {}),
 	});
 	await registry.update(id, { containerPort: port });
 	// A start counts as activity, so a habitat is not reaped in the
@@ -240,6 +256,13 @@ export function createHabitatLifecycleTools(
 							`These were NOT written to the volume — the container will start and then fail on first use. ` +
 							`Add them with set_secret, then rebuild.`,
 					);
+				}
+				const runtime = resolveRuntimeCredential(entry, {
+					providerEnvVar: (name) => getRegisteredProvider(name)?.envVar,
+					secret: (name) => vault.get(name),
+				});
+				if (!runtime.ok && runtime.reason !== "provider-needs-no-key") {
+					warnings.push(`WARNING: ${describeRuntimeCredential(runtime)}`);
 				}
 				const notes: string[] = [];
 				if (seed.scopeAdded || seed.agentAdded) {
@@ -509,7 +532,6 @@ export function createHabitatLifecycleTools(
 						defaults: {
 							...(gaiaProvider ? { provider: gaiaProvider } : {}),
 							...(gaiaModel ? { model: gaiaModel } : {}),
-							providerEnvVar: (p) => getRegisteredProvider(p)?.envVar,
 						},
 					});
 
@@ -541,16 +563,25 @@ export function createHabitatLifecycleTools(
 							? `Secret bindings (from the declaration): ${secrets.join(", ")}`
 							: `Secret bindings: none declared.`,
 						...(() => {
+							const lines: string[] = [];
 							// The declaration can bind a secret the vault has never
-							// heard of. That is not an error here — but it is the
-							// difference between a habitat that works and one that
-							// starts and then fails, so it does not get to be quiet.
+							// heard of. Not an error here — but the difference between
+							// a habitat that works and one that starts and then fails.
 							const gaps = habitatSecretStatus(result.entry, vault).missing;
-							return gaps.length
-								? [
-										`MISSING from the master vault: ${gaps.join(", ")}. Declared, but there is no value to seed — add with set_secret before asking it anything.`,
-									]
-								: [];
+							if (gaps.length) {
+								lines.push(
+									`MISSING from the master vault: ${gaps.join(", ")}. Declared by this habitat, but there is no value to seed.`,
+								);
+							}
+							// The model credential is platform infrastructure, not a
+							// declared binding — reported here because this is where
+							// someone finds out whether the habitat can think at all.
+							const runtime = resolveRuntimeCredential(result.entry, {
+								providerEnvVar: (name) => getRegisteredProvider(name)?.envVar,
+								secret: (name) => vault.get(name),
+							});
+							lines.push(describeRuntimeCredential(runtime));
+							return lines;
 						})(),
 						result.action === "created"
 							? `Nothing further is required. Asking "${id}" starts it, and starting seeds the volume with this config and these secrets — do not seed, grant or rebuild by hand first.`

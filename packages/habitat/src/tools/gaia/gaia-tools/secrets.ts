@@ -10,11 +10,16 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import type { GaiaToolsContext } from "./context.js";
+import { getRegisteredProvider } from "@umwelten/core/providers/index.js";
 import {
 	describeFleetSecretStatus,
 	fleetSecretStatus,
 	habitatSecretStatus,
 } from "../secret-status.js";
+import {
+	describeRuntimeCredential,
+	resolveRuntimeCredential,
+} from "../runtime-credentials.js";
 
 export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> {
 	const { registry, vault } = ctx;
@@ -22,7 +27,7 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 	return {
 		secret_status: tool({
 			description:
-				"Show which habitat is bound to which secret, and whether the master vault can actually supply it. A binding the vault cannot satisfy is dropped from the habitat's secrets.json rather than failing the start — so the container boots, health-checks fine, and then fails on first use. Check this before blaming the container. Optionally scope to one habitat.",
+				"Show which habitat is bound to which secret, and whether the master vault can actually supply it. A binding the vault cannot satisfy is dropped from the habitat's secrets.json rather than failing the start — so the container boots, health-checks fine, and then fails on first use. Also reports each habitat's model credential, which is platform-injected rather than declared. Check this before blaming the container. Optionally scope to one habitat.",
 			inputSchema: z.object({
 				habitatId: z
 					.string()
@@ -36,7 +41,30 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 				if (habitatId && entries.length === 0) {
 					return `Habitat "${habitatId}" not found`;
 				}
-				return describeFleetSecretStatus(fleetSecretStatus(entries, vault));
+				const declared = describeFleetSecretStatus(
+					fleetSecretStatus(entries, vault),
+				);
+
+				// The model credential is not a binding — it is injected at start
+				// like the GitHub boot token. Reported alongside anyway, because
+				// "why can't this habitat answer" is one question, not two, and
+				// splitting the answer across two tools is how the first client
+				// habitat took several rebuilds to diagnose.
+				const runtime = entries.map((entry) => {
+					const result = resolveRuntimeCredential(entry, {
+						providerEnvVar: (name) => getRegisteredProvider(name)?.envVar,
+						secret: (name) => vault.get(name),
+					});
+					return `  ${entry.id}: ${describeRuntimeCredential(result).replace(/^Model credential: /, "")}`;
+				});
+
+				return [
+					"DECLARED — secrets each habitat's own work requires:",
+					declared,
+					"",
+					"PLATFORM — the model credential, injected at start, never declared:",
+					...runtime,
+				].join("\n");
 			},
 		}),
 
