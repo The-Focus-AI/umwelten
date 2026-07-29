@@ -111,7 +111,7 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 
 		bind_secret: tool({
 			description:
-				"Bind a master secret to a habitat (add to its secretBindings).",
+				"Bind a master secret to a habitat by adding it to the legacy secretBindings list. Only has any effect on a habitat that has NOT declared requiredSecrets — once a habitat declares its own contract, that contract decides what gets seeded and this list is ignored. Prefer editing requiredSecrets in the habitat's repo.",
 			inputSchema: z.object({
 				habitatId: z.string(),
 				secretName: z.string(),
@@ -122,6 +122,25 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 				if (!vault.listNames().includes(secretName)) {
 					return `Secret "${secretName}" not in master vault`;
 				}
+
+				// Refuse rather than succeed-and-do-nothing. A habitat that
+				// declares requiredSecrets is provisioned from that contract, so
+				// appending here changes nothing — and reporting success for a
+				// write with no effect is the exact failure mode this whole
+				// sequence exists to remove.
+				const needs = secretNeeds(entry.config, entry.secretBindings);
+				if (needs.source === "contract" && !needs.fromVault.includes(secretName)) {
+					const declared = needs.fromVault.length
+						? needs.fromVault.join(", ")
+						: "(nothing)";
+					return (
+						`Refusing: "${habitatId}" declares its own requiredSecrets contract, so secretBindings is ignored — ` +
+						`binding "${secretName}" here would have no effect and the container would still not receive it.\n` +
+						`It currently declares: ${declared}.\n` +
+						`Add "${secretName}" to requiredSecrets in habitat.json in its repo, then re-apply the declaration and rebuild.`
+					);
+				}
+
 				if (!entry.secretBindings.includes(secretName)) {
 					entry.secretBindings.push(secretName);
 					await registry.update(habitatId, {

@@ -152,3 +152,37 @@ describe("describeSecretNeeds", () => {
 		);
 	});
 });
+
+/**
+ * The failure this file's contract-wins rule introduced, and the guard for it.
+ *
+ * `requiredSecrets: []` means "I need nothing", so nothing is seeded — correct.
+ * But `bind_secret` still appended to `secretBindings` and reported success,
+ * so an operator could bind a key, be told it worked, rebuild, and watch the
+ * container fail on a missing env var. Found live on the upperhand habitat.
+ *
+ * A write with no effect must not report success. These assert the condition
+ * `bind_secret` checks.
+ */
+describe("a contract makes secretBindings inert", () => {
+	it("ignores a bound name the contract does not declare", () => {
+		const needs = secretNeeds(cfg([]), ["OPENROUTER_API_KEY"]);
+
+		expect(needs.source).toBe("contract");
+		expect(needs.fromVault).toEqual([]);
+		// So nothing is seeded, and binding it changed nothing.
+		expect(needs.fromVault).not.toContain("OPENROUTER_API_KEY");
+	});
+
+	it("still honours bindings for a habitat with no contract", () => {
+		const needs = secretNeeds(cfg(undefined), ["OPENROUTER_API_KEY"]);
+
+		expect(needs.source).toBe("bindings");
+		expect(needs.fromVault).toEqual(["OPENROUTER_API_KEY"]);
+	});
+
+	it("uses the contract's own name when it declares one", () => {
+		const needs = secretNeeds(cfg([secret("OPENROUTER_API_KEY")]), []);
+		expect(needs.fromVault).toEqual(["OPENROUTER_API_KEY"]);
+	});
+});
