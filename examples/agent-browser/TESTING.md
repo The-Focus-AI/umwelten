@@ -118,6 +118,14 @@ faces), then try:
 - `Turn on the porch light and set the furnace to 72` — the house dashboard
   should show the porch glowing amber and the furnace flame lit, with the
   indoor temperature drifting toward target on later calls.
+- **Click the dashboard itself.** Room cards and the furnace are live
+  controls: a click posts a `ui-tool-call` to the host page, the host runs
+  the real tool through the chat server, the widget refreshes in place with
+  the new state, and the row gains a `set_light ⚡` chip. Then ask
+  `What's the house status?` — the model already knows about your click,
+  because the bridge feeds UI actions back into the conversation context
+  (the MCP Apps host-mediated pattern in miniature). Opening the widget
+  outside the chat falls back to a local preview after a beat.
 - `What's the 14-day outlook for Chicago?` — a hi/lo temperature band chart
   with precipitation bars and per-day glyph cards. Ask again: forecasts are
   deterministic per location + day, so the numbers agree.

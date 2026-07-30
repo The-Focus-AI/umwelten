@@ -323,6 +323,79 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/ui-tool") {
+      // Host side of the widget bridge (the MCP Apps pattern in miniature):
+      // a widget asked the host to run a tool call on its behalf. Execute it
+      // on the already-connected client, swap the originating widget's
+      // transcript entry for the fresh one, and — crucially — tell the model
+      // what happened so the conversation doesn't go stale behind the UI.
+      const body = await readBody(req);
+      const toolName = String(body.tool ?? "");
+      const args = (body.args ?? {}) as Record<string, unknown>;
+      const sourceUri = body.uri ? String(body.uri) : undefined;
+      const toolImpl = collectTools()[toolName];
+      if (!toolImpl?.execute) {
+        sendJson(res, 404, { error: `unknown tool: ${toolName}` });
+        return;
+      }
+
+      const result = (await toolImpl.execute(args, {
+        toolCallId: `ui-${Date.now()}`,
+        messages: [],
+      } as never)) as { success?: boolean; data?: unknown };
+
+      const blocks = Array.isArray(result.data) ? (result.data as Array<Record<string, any>>) : [];
+      const ui: UiResource[] = blocks
+        .filter(
+          (b) =>
+            b?.type === "resource" &&
+            typeof b.resource?.text === "string" &&
+            String(b.resource?.mimeType ?? "").startsWith("text/html"),
+        )
+        .map((b) => ({ tool: toolName, uri: b.resource.uri, html: b.resource.text }));
+      const text =
+        blocks.find((b) => b?.type === "text")?.text ??
+        (typeof result.data === "string" ? result.data : "");
+
+      // Replace the originating widget in place so the transcript shows the
+      // house as it now is, and mark the row with a widget-driven call chip.
+      if (sourceUri) {
+        for (let i = state.transcript.length - 1; i >= 0; i--) {
+          const row = state.transcript[i];
+          const idx = row.ui?.findIndex((u) => u.uri === sourceUri) ?? -1;
+          if (idx >= 0 && row.ui) {
+            if (ui[0]) row.ui[idx] = ui[0];
+            row.toolCalls.push(`${toolName} ⚡`);
+            break;
+          }
+        }
+      } else if (ui.length) {
+        state.transcript.push({
+          role: "assistant",
+          text: `⚡ ${toolName} via widget`,
+          toolCalls: [toolName],
+          ui,
+        });
+      }
+
+      // MCP Apps' "update the model's context" leg: the next turn's model
+      // sees what the user did in the UI instead of reasoning from stale state.
+      ensureInteraction().addMessage({
+        role: "user",
+        content: `[widget] I used the ${toolName} control (${JSON.stringify(args)}). Result: ${
+          text || (result.success !== false ? "ok" : "failed")
+        }. No reply needed.`,
+      });
+
+      sendJson(res, 200, {
+        success: result.success !== false,
+        text,
+        ui,
+        ...publicState(),
+      });
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/reset") {
       state.transcript = [];
       state.contextId = randomUUID();
