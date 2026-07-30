@@ -24,19 +24,28 @@ import { BRIEFS, type Brief } from './briefs.js';
 
 export const EVAL_NAME = 'language-styles';
 
+// Everything runs on GitHub Models (models.github.ai) — one GITHUB_TOKEN, no
+// other keys. Note the free tier has per-minute and per-day request caps that
+// vary by model tier; concurrency is kept low below to stay under them.
 const LOCAL = [
-  { name: 'gemini-3-flash-preview', provider: 'google' },
-  { name: 'openai/gpt-5.4-nano', provider: 'openrouter' },
-  { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
+  { name: 'openai/gpt-5-mini', provider: 'github-models' },
+  { name: 'meta/llama-3.3-70b-instruct', provider: 'github-models' },
+  { name: 'mistral-ai/mistral-small-2503', provider: 'github-models' },
 ] as const;
 
 const ALL = [
   ...LOCAL,
-  { name: 'anthropic/claude-sonnet-4.6', provider: 'openrouter' },
-  { name: 'openai/gpt-5.4-mini', provider: 'openrouter' },
-  { name: 'deepseek/deepseek-v3.2', provider: 'openrouter' },
-  { name: 'moonshotai/kimi-k2', provider: 'openrouter' },
+  { name: 'openai/gpt-5', provider: 'github-models' },
+  { name: 'openai/gpt-4.1', provider: 'github-models' },
+  { name: 'deepseek/deepseek-v3-0324', provider: 'github-models' },
+  { name: 'meta/llama-4-maverick-17b-128e-instruct-fp8', provider: 'github-models' },
+  { name: 'cohere/cohere-command-a', provider: 'github-models' },
+  { name: 'microsoft/phi-4', provider: 'github-models' },
 ] as const;
+
+/** Strong instruction-follower for the JSON rubric; the suite default judge is
+ *  an Anthropic model via openrouter, which GitHub Models does not carry. */
+const JUDGE = { name: 'openai/gpt-4.1', provider: 'github-models' };
 
 export const judgeSchema = z.object({
   style_fidelity: z.coerce.number().min(0).max(10)
@@ -123,6 +132,8 @@ async function main() {
     },
     models: [...LOCAL],
     allModels: [...ALL],
+    judgeModel: JUDGE,
+    concurrency: 2,
     tasks: activeStyles.flatMap((style) => activeBriefs.map((brief) => buildTask(style, brief))),
   });
 

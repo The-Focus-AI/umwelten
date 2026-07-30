@@ -21,6 +21,14 @@ The same directories work as normal opt-in skills in any habitat: point
 
 ## Running
 
+Everything — generation **and** the judge — runs on
+[GitHub Models](https://models.github.ai) (`github-models` provider), so the
+only credential needed is a `GITHUB_TOKEN` in `.env` with the **`models: read`**
+permission (fine-grained PAT → Account permissions → Models). A plain repo
+token can list the catalog but gets 401 on inference. The free tier has
+per-minute and per-day caps that vary by model tier; the suite runs at
+`concurrency: 2` to stay polite.
+
 ```bash
 # Quick roster (3 models), 5 styles x 4 briefs
 dotenvx run -- pnpm tsx examples/language-styles/style-eval.ts
