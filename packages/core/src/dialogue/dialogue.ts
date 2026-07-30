@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { StreamObserver } from "../cognition/types.js";
 import { RoundRobinPolicy } from "./policies/round-robin.js";
 import { writeDialogueSession } from "./persist.js";
@@ -66,7 +66,7 @@ export class Dialogue {
     if (ids.size !== options.participants.length) {
       throw new Error("Dialogue participant ids must be unique");
     }
-    this.id = options.id ?? `dialogue-${uuidv4()}`;
+    this.id = options.id ?? `dialogue-${randomUUID()}`;
     this.participants = options.participants;
     this.policy = options.policy ?? new RoundRobinPolicy();
     // ?? per field (not a spread) so an explicitly-undefined maxTurns can't

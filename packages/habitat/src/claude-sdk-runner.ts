@@ -4,23 +4,100 @@
  * Wraps @anthropic-ai/claude-agent-sdk's query() to run Claude Code
  * as an agentic subprocess. Used by agent_ask_claude to delegate
  * coding tasks to Claude's full toolset (Read, Edit, Bash, Grep, etc.).
+ *
+ * The SDK is an optional peer dependency (~280 MB installed — it bundles
+ * the Claude Code binary), loaded lazily on first use. The lite types
+ * below mirror the slice of the SDK's message stream this runner reads,
+ * so nothing here needs the SDK present at typecheck or import time.
  */
 
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import type {
-  SDKMessage,
-  SDKResultMessage,
-  SDKAssistantMessage,
-  Options,
-} from "@anthropic-ai/claude-agent-sdk";
 import type {
   BridgeEventHandlers,
   RuntimeContext,
   RuntimeResult,
   RuntimeRunner,
 } from "./bridge/types.js";
+
+// ── Lite SDK types (structural subset of @anthropic-ai/claude-agent-sdk) ──
+
+export interface SDKContentBlock {
+  type: string;
+  text?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface SDKAssistantMessage {
+  type: "assistant";
+  error?: string;
+  message?: {
+    content?: SDKContentBlock[];
+  };
+}
+
+export interface SDKResultMessage {
+  type: "result";
+  subtype: string;
+  result?: string;
+  error?: string;
+  num_turns?: number;
+  duration_ms?: number;
+}
+
+export interface SDKSystemMessage {
+  type: "system";
+  subtype?: string;
+  session_id?: string;
+}
+
+export type SDKMessage =
+  | SDKAssistantMessage
+  | SDKResultMessage
+  | SDKSystemMessage
+  | { type: string; [key: string]: unknown };
+
+export interface ClaudeSDKQueryOptions {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  model?: string;
+  maxTurns?: number;
+  abortController?: AbortController;
+  permissionMode?: string;
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  systemPrompt?: string;
+}
+
+export type ClaudeSdkQueryFn = (args: {
+  prompt: string;
+  options: ClaudeSDKQueryOptions;
+}) => AsyncIterable<SDKMessage>;
+
+let cachedQuery: ClaudeSdkQueryFn | undefined;
+
+/**
+ * Resolve the SDK's query() on first use. Non-literal specifier so tsc
+ * doesn't require the optional peer to be installed (same posture as
+ * streammark in core and @tavily/core in search-tools).
+ */
+async function loadSdkQuery(): Promise<ClaudeSdkQueryFn> {
+  if (!cachedQuery) {
+    const pkg = "@anthropic-ai/claude-agent-sdk"; // non-literal: optional peer
+    try {
+      const mod = await import(pkg);
+      cachedQuery = mod.query as ClaudeSdkQueryFn;
+    } catch {
+      throw new Error(
+        "The claude-sdk runtime requires @anthropic-ai/claude-agent-sdk. " +
+          "Install it (pnpm add @anthropic-ai/claude-agent-sdk) to use " +
+          "agent_ask_claude or the claude-sdk channel runtime.",
+      );
+    }
+  }
+  return cachedQuery;
+}
 
 export interface ClaudeSDKRunnerOptions {
   /** Working directory for Claude Code (typically agent's projectPath) */
@@ -50,7 +127,7 @@ export interface ClaudeSDKRunnerOptions {
    * query). Lets unit tests drive the message loop — init session-id
    * extraction, result handling — with the subprocess layer stubbed.
    */
-  queryFn?: typeof query;
+  queryFn?: ClaudeSdkQueryFn;
 }
 
 export interface ClaudeSDKProgress {
@@ -141,7 +218,7 @@ export async function runClaudeSDK(
     env.ANTHROPIC_API_KEY = options.apiKey;
   }
 
-  const queryOptions: Options = {
+  const queryOptions: ClaudeSDKQueryOptions = {
     cwd: options.cwd,
     env,
     maxTurns: options.maxTurns ?? 20,
@@ -167,7 +244,7 @@ export async function runClaudeSDK(
 
   let resultMessage: SDKResultMessage | undefined;
   let nativeSessionId: string | undefined;
-  const queryFn = options.queryFn ?? query;
+  const queryFn = options.queryFn ?? (await loadSdkQuery());
 
   for await (const message of queryFn({ prompt, options: queryOptions })) {
     switch (message.type) {

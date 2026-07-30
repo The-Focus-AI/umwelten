@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { ModelOptions } from "../cognition/types.js";
 import { Tool } from "ai";
 import type { SkillDefinition } from "./skills/types.js";
@@ -130,7 +129,13 @@ export class Stimulus {
   }
 
   setOutputSchema(schema: z.ZodType<any>) {
-    const schemaString = JSON.stringify(zodToJsonSchema(schema as any), null, 2);
+    // zod v4's native converter; unrepresentable: "any" matches the old
+    // zod-to-json-schema behavior of degrading rather than throwing.
+    const schemaString = JSON.stringify(
+      z.toJSONSchema(schema as any, { unrepresentable: "any" }),
+      null,
+      2,
+    );
     this.options.output = [schemaString];
   }
 

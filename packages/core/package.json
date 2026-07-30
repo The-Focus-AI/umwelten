@@ -31,25 +31,19 @@
   "dependencies": {
     "@ai-sdk/google": "^4.0.27",
     "@ai-sdk/openai-compatible": "^3.0.16",
-    "@google/generative-ai": "^0.24.1",
     "@json-render/core": "^0.19.0",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.41",
     "better-sqlite3": "^12.11.1",
-    "chalk": "^5.6.2",
     "dotenv": "^17.4.2",
     "fast-xml-parser": "^5.10.1",
     "file-type": "^22.0.1",
-    "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
     "ollama-ai-provider-v2": "^4.0.1",
     "streammark": "^1.0.4",
-    "tiktoken": "^1.0.22",
     "turndown": "^7.2.4",
     "undici": "^8.9.0",
-    "uuid": "^14.0.1",
-    "zod": "^4.4.3",
-    "zod-to-json-schema": "^3.25.2"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

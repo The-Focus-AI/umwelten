@@ -31,7 +31,6 @@
   "dependencies": {
     "@umwelten/core": "workspace:*",
     "@umwelten/ui": "workspace:*",
-    "ai": "^7.0.41",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^15.0.0"

@@ -32,9 +32,6 @@
     "@umwelten/core": "workspace:*",
     "@umwelten/sessions": "workspace:*",
     "ai": "^7.0.41",
-    "chalk": "^5.6.2",
-    "cli-table3": "^0.6.5",
-    "glob": "^13.0.6",
     "zod": "^4.4.3"
   },
   "devDependencies": {
