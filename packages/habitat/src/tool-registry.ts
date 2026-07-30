@@ -8,6 +8,7 @@ import type { ToolSet } from "./tool-sets.js";
 import type { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import type { SkillDefinition } from "@umwelten/core/stimulus/skills/types.js";
 import type { Habitat } from "./habitat.js";
+import { guardTool } from "./identity/caller-scope.js";
 
 export class ToolRegistry {
   private registeredTools: Record<string, Tool> = {};
@@ -23,9 +24,14 @@ export class ToolRegistry {
   }
 
   addTool(name: string, tool: Tool): void {
-    this.registeredTools[name] = tool;
+    // Guard at registration, check at call time: the assembled Stimulus is
+    // cached per channel and outlives the request that built it, so the scope
+    // has to be read when the tool runs. No-op for every existing caller —
+    // unscoped requests and the operator bearer are unaffected.
+    const guarded = guardTool(name, tool);
+    this.registeredTools[name] = guarded;
     if (this.stimulus) {
-      this.stimulus.addTool(name, tool);
+      this.stimulus.addTool(name, guarded);
     }
   }
 

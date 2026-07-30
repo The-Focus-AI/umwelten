@@ -109,6 +109,46 @@ repo, (2) declare `github.read`/`github.write` on its registry entry,
 (3) rebuild. Nothing else — no PATs, no keys in the repo, no secrets in
 the image.
 
+## Handing out a watch-only credential
+
+`HABITAT_API_KEY` is the operator key. Anyone holding it can
+`remove_habitat`, `set_secret`, stop containers and cycle the fleet — and
+it is the same value everywhere, so it cannot be revoked for one consumer
+without breaking the rest. Most things that want fleet access only want to
+*watch*: a monitoring job, a dashboard, an agent checking its own work.
+
+Set **`HABITAT_READONLY_API_KEY`** to a second, independent value and hand
+that out instead:
+
+```bash
+# on gaia-host, in Gaia's own environment
+HABITAT_READONLY_API_KEY=$(openssl rand -hex 32)
+```
+
+A caller presenting it authenticates as the `readonly-bearer` principal,
+never as an operator, and its toolset is narrowed to an explicit allowlist
+(`packages/habitat/src/identity/caller-scope.ts`): fleet state, habitat
+status and logs, secret *names* and whether they are satisfied, the model
+catalogue, sessions. It cannot start, stop, rebuild, configure, write a
+secret, or message another agent — `ask_habitat` is excluded on purpose,
+because asking a habitat a question makes it act and spend money.
+
+Three properties worth knowing:
+
+- **Default deny.** The allowlist names what is permitted; anything
+  unlisted is refused, including tools added later. A new tool is
+  unavailable to read-only callers until someone classifies it.
+- **It cannot shadow the operator key.** The read-only provider is tried
+  last. If both variables were somehow set to the same value, the caller
+  comes out an operator rather than being silently downgraded.
+- **Setting it alone changes nothing.** With no `HABITAT_API_KEY` and no
+  JWT config the surface is open, and the mode stays `open` — advertising
+  a restriction that isn't enforced would be worse than not having one.
+
+Rotating or revoking it does not touch the operator key: change the value
+and restart. Existing callers are unaffected — a habitat with the variable
+unset behaves exactly as before.
+
 ## Local development (umwelten)
 
 - `pnpm` only; `pnpm test:run` for units (~5s, no network);

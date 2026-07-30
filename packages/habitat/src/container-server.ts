@@ -40,6 +40,11 @@ import {
 	type HabitatAgentCard,
 } from "./a2a-handler.js";
 import { runWithSpeaker } from "./identity/agent-speaker-context.js";
+import { runWithCallerScope } from "./identity/caller-scope.js";
+import {
+	READONLY_PRINCIPAL,
+	readonlyBearerAuth,
+} from "./web/auth/readonly-bearer-auth.js";
 import { HabitatScheduler } from "./schedule/scheduler.js";
 import {
 	getPublicBaseUrl,
@@ -96,7 +101,14 @@ export interface StartedContainerServer {
 	close: () => void;
 }
 
-type AuthMode = "jwt" | "jwt+bearer" | "bearer" | "open";
+type AuthMode =
+	| "jwt"
+	| "jwt+bearer"
+	| "bearer"
+	| "open"
+	| "jwt+readonly"
+	| "jwt+bearer+readonly"
+	| "bearer+readonly";
 
 /**
  * Select the request AuthProvider from the environment. See the precedence note
@@ -114,6 +126,28 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 	const jwksUrl = process.env.HABITAT_AUTH_JWKS_URL;
 	const publicKeyPem = process.env.HABITAT_AUTH_PUBLIC_KEY;
 	const apiKey = process.env.HABITAT_API_KEY;
+	// A separate, revocable bearer that authenticates to a read-only scope
+	// (#165 groundwork). Always tried LAST so it can never shadow the operator
+	// key or a valid JWT — if both keys were somehow equal, the caller still
+	// gets full operator rights rather than being silently downgraded.
+	const readonlyKey = process.env.HABITAT_READONLY_API_KEY?.trim();
+	const withReadonly = (providers: AuthProvider[], mode: AuthMode) =>
+		readonlyKey
+			? {
+					auth: compositeAuth(`${mode}+readonly` as AuthMode, [
+						...providers,
+						readonlyBearerAuth(readonlyKey),
+					]),
+					authMode: `${mode}+readonly` as AuthMode,
+				}
+			: {
+					auth:
+						providers.length === 1
+							? providers[0]!
+							: compositeAuth(mode, providers),
+					authMode: mode,
+				};
+
 	if (audience && (jwksUrl || publicKeyPem)) {
 		const jwt = jwtAuth({
 			audience,
@@ -124,12 +158,9 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 		// Dual-auth during the transition: JWT (identity) OR shared bearer
 		// (service trust) so enabling JWT doesn't lock out Gaia's relay.
 		if (apiKey) {
-			return {
-				auth: compositeAuth("jwt+bearer", [jwt, bearerAuth(apiKey)]),
-				authMode: "jwt+bearer",
-			};
+			return withReadonly([jwt, bearerAuth(apiKey)], "jwt+bearer");
 		}
-		return { auth: jwt, authMode: "jwt" };
+		return withReadonly([jwt], "jwt");
 	}
 	// Misconfiguration guard: a key without an audience (or vice-versa) almost
 	// certainly means the operator intended JWT auth — fail loud rather than
@@ -140,7 +171,10 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 				"HABITAT_AUTH_JWKS_URL or HABITAT_AUTH_PUBLIC_KEY (see ADR 0003).",
 		);
 	}
-	if (apiKey) return { auth: bearerAuth(apiKey), authMode: "bearer" };
+	if (apiKey) return withReadonly([bearerAuth(apiKey)], "bearer");
+	// A read-only key alone is not an auth mode: with nothing else configured
+	// the surface is open, and pretending otherwise would advertise a
+	// restriction that isn't enforced.
 	return { auth: devAuth(), authMode: "open" };
 }
 
@@ -736,7 +770,9 @@ export async function startContainerServer(
 						? rawAuth.slice(7)
 						: undefined;
 					const speaker =
-						user && user.userId !== "bearer-user"
+						user &&
+						user.userId !== "bearer-user" &&
+						user.userId !== READONLY_PRINCIPAL
 							? {
 									userId: user.userId,
 									displayName: user.displayName,
@@ -752,6 +788,8 @@ export async function startContainerServer(
 						`[${new Date().toISOString()}] a2a auth: ${
 							speaker
 								? `jwt sub=${speaker.userId.slice(0, 8)}…`
+								: user?.readOnly
+								? "read-only bearer"
 								: user
 									? "shared bearer (operator)"
 									: "none (open)"
@@ -785,40 +823,53 @@ export async function startContainerServer(
 						// silently drops the verified speaker, so per-user credentials
 						// resolve to the shared operator on the streaming path while
 						// working fine on message/send (found in prod 2026-07-11).
-						await runWithSpeaker(speaker, async () => {
-							// Thread the A2A-Version header into the call context so the
-							// v1 handler validates against what the client asked for;
-							// absent means the spec default of 0.3 (legacy peers).
-							const requestedVersion = req.headers["a2a-version"];
-							const result = await handler.transportHandler.handle(
-								parsedBody as Record<string, unknown>,
-								buildServerCallContext({
-									requestedVersion:
-										typeof requestedVersion === "string"
-											? requestedVersion
-											: undefined,
-								}),
-							);
-							if (
-								result &&
-								typeof (result as any)[Symbol.asyncIterator] === "function"
-							) {
-								// Streaming response — SSE
-								res.writeHead(200, {
-									"Content-Type": "text/event-stream",
-									"Cache-Control": "no-cache",
-									Connection: "keep-alive",
+						// The caller scope wraps it for exactly the same reason: tool
+						// assembly happens inside the executor, so it has to see the
+						// scope of the credential this request actually carried.
+						await runWithCallerScope(
+							{
+								principal: user?.readOnly
+									? READONLY_PRINCIPAL
+									: (user?.userId ?? "anonymous"),
+								readOnly: user?.readOnly === true,
+							},
+							async () => {
+								await runWithSpeaker(speaker, async () => {
+									// Thread the A2A-Version header into the call context so
+									// the v1 handler validates against what the client asked
+									// for; absent means the spec default of 0.3 (legacy peers).
+									const requestedVersion = req.headers["a2a-version"];
+									const result = await handler.transportHandler.handle(
+										parsedBody as Record<string, unknown>,
+										buildServerCallContext({
+											requestedVersion:
+												typeof requestedVersion === "string"
+													? requestedVersion
+													: undefined,
+										}),
+									);
+									if (
+										result &&
+										typeof (result as any)[Symbol.asyncIterator] === "function"
+									) {
+										// Streaming response — SSE
+										res.writeHead(200, {
+											"Content-Type": "text/event-stream",
+											"Cache-Control": "no-cache",
+											Connection: "keep-alive",
+										});
+										const generator = result as AsyncGenerator<any>;
+										for await (const event of generator) {
+											res.write(`data: ${JSON.stringify(event)}\n\n`);
+										}
+										res.end();
+									} else {
+										// Single JSON-RPC response
+										sendJson(res, result);
+									}
 								});
-								const generator = result as AsyncGenerator<any>;
-								for await (const event of generator) {
-									res.write(`data: ${JSON.stringify(event)}\n\n`);
-								}
-								res.end();
-							} else {
-								// Single JSON-RPC response
-								sendJson(res, result);
-							}
-						});
+							},
+						);
 					} catch (error) {
 						console.error(
 							`[container] A2A error: ${error instanceof Error ? error.message : String(error)}`,
