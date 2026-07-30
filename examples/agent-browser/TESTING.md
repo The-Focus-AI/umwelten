@@ -100,6 +100,31 @@ dotenvx run -- pnpm run cli habitat serve     # then paste http://localhost:7430
 # local browser (works because the agent browser runs on your machine).
 ```
 
+## 6. Optional: attach the menagerie
+
+Three richer demo agents ship alongside the dice endpoint — each answers as
+both protocols and returns a dashboard/chart/map widget with every tool call:
+
+```bash
+pnpm tsx examples/agent-browser/demo-house.ts     # Hearthstone · http://localhost:7435
+pnpm tsx examples/agent-browser/demo-weather.ts   # Meteora     · http://localhost:7436
+pnpm tsx examples/agent-browser/demo-atlas.ts     # Atlas       · http://localhost:7437
+```
+
+Add `http://localhost:7435/mcp`, `http://localhost:7436/mcp`, and
+`http://localhost:7437/mcp` to the chat (or the bare origins for their A2A
+faces), then try:
+
+- `Turn on the porch light and set the furnace to 72` — the house dashboard
+  should show the porch glowing amber and the furnace flame lit, with the
+  indoor temperature drifting toward target on later calls.
+- `What's the 14-day outlook for Chicago?` — a hi/lo temperature band chart
+  with precipitation bars and per-day glyph cards. Ask again: forecasts are
+  deterministic per location + day, so the numbers agree.
+- `Plan a bike route from Harbor Point to the Observatory via the Old Mill` —
+  an animated dashed route across Atlas's terrain chart, with numbered stops
+  and a per-leg distance/ETA legend. `What landmarks do you know?` pins them.
+
 ## Troubleshooting
 
 - **`Unknown command: "tsx"`** — you typed `npm`; use `pnpm`.
