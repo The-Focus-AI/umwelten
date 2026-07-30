@@ -44,6 +44,15 @@ every tool result:
 | `demo-weather.ts` | 7436 | **Meteora** — a long-range forecaster with deterministic pseudo-forecasts: 14-day hi/lo band charts and monthly climate outlooks |
 | `demo-atlas.ts` | 7437 | **Atlas** — a route planner over fake-but-coherent geography: place names hash to stable map coordinates, routes animate across a terrain chart |
 
+How the widgets render in the chat (Hearthstone's controls are live — clicks
+go through the host as real tool calls, the MCP Apps pattern in miniature):
+
+![Hearthstone house dashboard — porch lit, furnace heating to 72°](./screenshots/house.png)
+
+![Meteora 14-day forecast for Chicago — hi/lo band, precipitation bars, day cards](./screenshots/weather.png)
+
+![Atlas cycling route — Harbor Point to the Observatory via the Old Mill](./screenshots/atlas.png)
+
 ```bash
 pnpm tsx examples/agent-browser/demo-house.ts     # http://localhost:7435
 pnpm tsx examples/agent-browser/demo-weather.ts   # http://localhost:7436
