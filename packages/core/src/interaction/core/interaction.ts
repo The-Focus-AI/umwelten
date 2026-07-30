@@ -13,7 +13,7 @@ import { Stimulus } from "../../stimulus/stimulus.js";
 import { getCompactionSegment } from "../../context/segment.js";
 import { getCompactionStrategy } from "../../context/registry.js";
 
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import {
   NormalizedSession,
   SessionSource,
@@ -60,7 +60,7 @@ export class Interaction {
     this.modelDetails = modelDetails;
     this.stimulus = stimulus;
 
-    this.id = options?.id || uuidv4();
+    this.id = options?.id || randomUUID();
     this.metadata = {
       created: options?.created || new Date(),
       updated: options?.updated || new Date(),

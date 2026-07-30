@@ -4,14 +4,45 @@
  * Gated by DISCORD_AUTO_CHANNELS=1 and Manage Channels permission.
  */
 
-import type { CategoryChannel, Guild, TextChannel } from 'discord.js';
-import { ChannelType, PermissionFlagsBits } from 'discord.js';
 import { setChannelRoute } from './bridge/routing.js';
 
 const CATEGORY_NAME = 'Jeeves';
 
+// Discord API constants, inlined so habitat doesn't depend on discord.js
+// (the actual bot lives in @umwelten/ui). Values are wire-protocol stable:
+// https://discord.com/developers/docs/resources/channel#channel-object-channel-types
+const CHANNEL_TYPE_GUILD_TEXT = 0;
+const CHANNEL_TYPE_GUILD_CATEGORY = 4;
+const PERMISSION_MANAGE_CHANNELS = 1n << 4n;
+
+/** Structural subset of a discord.js guild channel used by provisioning. */
+export interface ProvisionGuildChannel {
+  id: string;
+  name: string;
+  type: number;
+}
+
+/**
+ * Structural subset of discord.js's Guild used by provisioning. A real
+ * `Guild` satisfies this shape; callers outside discord.js can stub it.
+ */
+export interface ProvisionGuild {
+  members: {
+    me: { permissions: { has(permission: bigint): boolean } } | null;
+  };
+  channels: {
+    cache: { values(): IterableIterator<ProvisionGuildChannel> };
+    create(options: {
+      name: string;
+      type: number;
+      parent?: string;
+      reason?: string;
+    }): Promise<ProvisionGuildChannel>;
+  };
+}
+
 export interface DiscordProvisionOptions {
-  guild: Guild;
+  guild: ProvisionGuild;
   workDir: string;
   agentId: string;
   /** Channel name (slug), e.g. operations */
@@ -42,20 +73,23 @@ export async function provisionDiscordAgentChannel(
   }
 
   const me = options.guild.members.me;
-  if (!me?.permissions.has(PermissionFlagsBits.ManageChannels)) {
+  if (!me?.permissions.has(PERMISSION_MANAGE_CHANNELS)) {
     return { ok: false, error: 'Bot lacks Manage Channels permission in this server.' };
   }
 
   const slug = slugChannelName(options.channelName);
-  let category = options.guild.channels.cache.find(
-    (c): c is CategoryChannel =>
-      c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME,
-  );
+  let category: ProvisionGuildChannel | undefined;
+  for (const c of options.guild.channels.cache.values()) {
+    if (c.type === CHANNEL_TYPE_GUILD_CATEGORY && c.name === CATEGORY_NAME) {
+      category = c;
+      break;
+    }
+  }
   if (!category) {
     try {
       category = await options.guild.channels.create({
         name: CATEGORY_NAME,
-        type: ChannelType.GuildCategory,
+        type: CHANNEL_TYPE_GUILD_CATEGORY,
         reason: 'Jeeves habitat agent channels',
       });
     } catch (e) {
@@ -66,11 +100,11 @@ export async function provisionDiscordAgentChannel(
     }
   }
 
-  let channel: TextChannel;
+  let channel: ProvisionGuildChannel;
   try {
     channel = await options.guild.channels.create({
       name: slug,
-      type: ChannelType.GuildText,
+      type: CHANNEL_TYPE_GUILD_TEXT,
       parent: category.id,
       reason: `Agent ${options.agentId}`,
     });
