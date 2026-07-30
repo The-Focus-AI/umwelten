@@ -17,13 +17,64 @@ as a first-class eval axis (cf. persona-augmented benchmarking, arXiv 2507.22168
 > **Assumption:** "strict and white" in the original voice note = **Strunk & White**
 > (*The Elements of Style*). It contrasts cleanly with Victorian/Self and is distinct
 > from the `standard` baseline (standard = neutral default; strunk-white = actively
-> compressed). Swap the definition in `styles.ts` if that guess is wrong.
+> compressed). Swap the definition in `skills/strunk-white/SKILL.md` if that guess is wrong.
 
-Each style is defined **once** as `{ id, label, role, rules: string[], temperature }`
-in `styles.ts`. The same `rules` array feeds three consumers: the generation stimulus
-(`role` + `instructions`), the judge rubric ("the response was asked to follow these
-rules…"), and the report methodology section. No drift between what we ask for and
-what we score.
+## Styles are authored as skills
+
+Each register is a standard agentskills-spec **skill** — a directory with a
+`SKILL.md` — so the styles are first-class, editable, versionable artifacts you can
+iterate on (and drop into any habitat later), not constants buried in a TS file.
+
+```
+examples/language-styles/skills/
+  victorian-english/SKILL.md
+  will-self/SKILL.md
+  iambic-pentameter/SKILL.md
+  standard-english/SKILL.md
+  strunk-white/SKILL.md
+```
+
+```markdown
+---
+name: iambic-pentameter
+description: Write in blank verse — ten-syllable iambic lines. Use when asked to compose or rewrite text as iambic pentameter.
+metadata:
+  label: Iambic pentameter
+  role: verse dramatist
+  temperature: "0.6"
+---
+Write exclusively in iambic pentameter (blank verse).
+
+- Every line has exactly ten syllables, stress on the even syllables.
+- Prefer enjambment over padding a line to length.
+- No archaic filler ("doth", "'tis") to rescue the meter.
+- 12-20 lines unless the brief demands otherwise.
+...
+```
+
+Mechanics (all existing, `packages/core/src/stimulus/skills/loader.ts`):
+`loadSkillsFromDirectory()` scans immediate subdirs for `SKILL.md`; frontmatter
+`name`/`description` are required, the `metadata:` map comes through as strings
+(per-style `role`, `label`, `temperature` live there), and the markdown body lands
+verbatim in `skill.instructions`.
+
+The **same SKILL.md body** feeds three consumers: the generation stimulus (injected
+*unconditionally* — see below), the judge rubric ("the response was asked to follow
+these rules…"), and the report methodology section. No drift between what we author,
+what we ask for, and what we score.
+
+One deliberate deviation from normal skill runtime: skills usually work by
+progressive disclosure (only the description is in the system prompt; the model must
+call the `skill` tool to fetch the body). For a style eval the voice must be
+**always-on**, so the eval loads each skill and injects its body directly into the
+stimulus `instructions` rather than relying on the model to opt in. The exact same
+skill directories still work as normal opt-in skills in a habitat (`skillsDirs`
+pointed at `examples/language-styles/skills/`), which is the payoff of authoring
+them in this format.
+
+**The iteration loop:** edit a SKILL.md → rerun with `--new` → diff runs. EvalSuite
+already snapshots `stimulusOptions` into every result record, so each run
+permanently captures which version of the rules it was scored against.
 
 ## The shared briefs (same content across all five styles)
 
@@ -41,7 +92,8 @@ directly checkable. 5 styles × 4 briefs = **20 tasks per model**.
 
 ```
 examples/language-styles/
-  styles.ts            # the 5 register definitions (single source of truth)
+  skills/<id>/SKILL.md # the 5 register definitions (single source of truth, see above)
+  load-styles.ts       # loadSkillsFromDirectory + metadata parsing → StyleDef[]
   briefs.ts            # the 4 shared briefs + the retell source paragraph
   style-eval.ts        # EvalSuite: stimulus factory keyed by task.section
   stylometrics.ts      # deterministic metrics over cached responses (no LLM)
@@ -58,13 +110,14 @@ stimulus-factory idea from `packages/evaluation/src/evaluation/llm-eval/language
 - `tasks`: cross product of styles × briefs. `id: '<style>:<brief>'`, `section: <style>`
   (section is the grouping label the combine layer reads).
 - `stimulus` as a **factory** `(task) => StimulusOptions`: looks up the task's style and
-  returns `{ role, objective, instructions: rules, temperature }`. EvalSuite takes plain
+  returns `{ role: skill.metadata.role, objective, instructions: [skill.instructions],
+  temperature: Number(skill.metadata.temperature) }`. EvalSuite takes plain
   `StimulusOptions`, not `Stimulus` instances (`suite.ts:292` news one up internally).
 - Every task is a `JudgeTask` with one shared Zod schema:
   `style_fidelity` 0–10, `content_fidelity` 0–10, `fluency` 0–10,
   `rule_violations: string`, `explanation: string`;
   `extractScore: j => 0.6 * j.style_fidelity + 0.4 * j.content_fidelity`, `maxScore: 10`.
-- Judge instructions are generated per style from the same `rules` array.
+- Judge instructions are generated per style from the same SKILL.md body.
 - Model rosters: reuse `examples/model-showdown/shared/models.ts` helpers — a quick
   3-model roster for iteration, `allModels` for `--all` runs. **gemini-3 only, never
   gemini-2** (house rule).
@@ -103,7 +156,7 @@ builder rather than `buildNarrativeReport` (the narrative writer dispatches sect
 by evalName substring — `reasoning`/`coding`/etc. — and would emit *nothing* for a
 style eval; the structured `buildSuiteReport` only gives generic tables). Sections:
 
-1. Methodology — registers, rules (rendered from `styles.ts`), briefs, judge setup
+1. Methodology — registers, rules (rendered from the SKILL.md files), briefs, judge setup
 2. Leaderboard — per style and combined (style_fidelity / content_fidelity split out)
 3. **Style separation** — the stylometrics table: did each register measurably move
    the needle vs `standard`?
@@ -129,7 +182,8 @@ is done.
   measurement, turn allocation is uneven, and the dialogue preamble is a confound.
   But it's the right instrument for a different question — *do styles converge when
   they talk to each other?* One `Dialogue` with 5 `InteractionParticipant`s (one per
-  register, pattern: `examples/dialogue-debate/debate.ts`), round-robin,
+  register, each built from the same SKILL.md via `load-styles.ts`; pattern:
+  `examples/dialogue-debate/debate.ts`), round-robin,
   `stop: { maxTurns: 20 }`, `persistDir` set. Then run stylometrics over the
   per-speaker turns (capture `result.events`, not the flattened JSONL) and compare
   each register's in-dialogue metrics against its solo-generation metrics: style
@@ -138,7 +192,7 @@ is done.
 
 ## Execution order
 
-1. `styles.ts` + `briefs.ts` (pure data)
+1. `skills/*/SKILL.md` + `load-styles.ts` + `briefs.ts` (pure data)
 2. `style-eval.ts`; smoke-run one brief × two styles on the quick roster
 3. `stylometrics.ts`; run over the smoke results
 4. `generate-report.ts`; render the smoke report end-to-end
