@@ -122,3 +122,119 @@ describe("declarationToCreateOptions", () => {
 		).toBe("main");
 	});
 });
+
+/**
+ * Nothing is inherited, defaulted or inferred. A habitat declares what it
+ * needs and its own vault (#283) supplies it — earlier versions derived a
+ * provider from Gaia and a key name from the provider registry, which only
+ * existed to work around a flat shared vault and made a habitat's real
+ * requirements impossible to read off its declaration.
+ */
+describe("declarationToCreateOptions — nothing is inferred", () => {
+	const ctx = {
+		id: "upperhand",
+		gitUrl: "https://github.com/The-Focus-AI/client-upperhand.git",
+	};
+
+	it("leaves provider and model unset when the declaration omits them", () => {
+		const opts = declarationToCreateOptions({}, ctx);
+		expect(opts.provider).toBeUndefined();
+		expect(opts.model).toBeUndefined();
+	});
+
+	it("carries provider and model through when the declaration states them", () => {
+		const opts = declarationToCreateOptions(
+			{ provider: "google", model: "gemini-3-flash-preview" },
+			ctx,
+		);
+		expect(opts.provider).toBe("google");
+		expect(opts.model).toBe("gemini-3-flash-preview");
+	});
+
+	it("does not invent a key binding from the provider", () => {
+		const opts = declarationToCreateOptions({ provider: "google" }, ctx);
+		expect(opts.secretBindings).toBeUndefined();
+	});
+
+	it("carries only the bindings the declaration actually asked for", () => {
+		const opts = declarationToCreateOptions(
+			{ secretBindings: ["GOOGLE_GENERATIVE_AI_API_KEY", "TAVILY_API_KEY"] },
+			ctx,
+		);
+		expect(opts.secretBindings).toEqual([
+			"GOOGLE_GENERATIVE_AI_API_KEY",
+			"TAVILY_API_KEY",
+		]);
+	});
+});
+
+/**
+ * A habitat declares what it needs and publishes it as `requiredCredentials`
+ * on its agent card (ADR 0004). Gaia never read that — it provisioned from a
+ * separate hand-maintained `secretBindings` list, and `export_habitat` even
+ * generated the contract *from* the list, inverting the relationship. These
+ * assert the declaration carries the real contract.
+ */
+describe("parseHabitatDeclaration — requiredSecrets contract", () => {
+	const parse = (o: unknown) => parseHabitatDeclaration(JSON.stringify(o));
+
+	it("carries a declared requirement through", () => {
+		const d = parse({
+			requiredSecrets: [{ name: "DATABASE_URL", description: "Postgres" }],
+		});
+		expect(d.requiredSecrets).toEqual([
+			{ name: "DATABASE_URL", required: true, description: "Postgres" },
+		]);
+	});
+
+	it("defaults required to true — a declared need is needed", () => {
+		expect(parse({ requiredSecrets: [{ name: "K" }] }).requiredSecrets?.[0].required).toBe(
+			true,
+		);
+	});
+
+	it("keeps an explicit optional", () => {
+		expect(
+			parse({ requiredSecrets: [{ name: "K", required: false }] }).requiredSecrets?.[0]
+				.required,
+		).toBe(false);
+	});
+
+	it("carries an oauth requirement with its connect path", () => {
+		const d = parse({
+			requiredSecrets: [
+				{ name: "TWITTER_REFRESH_TOKEN", type: "oauth", connectPath: "/connect/x" },
+			],
+		});
+		expect(d.requiredSecrets?.[0]).toMatchObject({
+			type: "oauth",
+			connectPath: "/connect/x",
+		});
+	});
+
+	/**
+	 * An oauth entry with nowhere to send the user can never be satisfied —
+	 * it would sit permanently unmet with no way to fix it.
+	 */
+	it("rejects an oauth requirement with no connectPath", () => {
+		expect(() => parse({ requiredSecrets: [{ name: "T", type: "oauth" }] })).toThrow(
+			/nowhere to send the user/,
+		);
+	});
+
+	it("rejects an unknown type rather than guessing", () => {
+		expect(() =>
+			parse({ requiredSecrets: [{ name: "T", type: "magic" }] }),
+		).toThrow(/must be "secret" or "oauth"/);
+	});
+
+	it("rejects a nameless requirement", () => {
+		expect(() => parse({ requiredSecrets: [{ type: "secret" }] })).toThrow(
+			/non-empty "name"/,
+		);
+	});
+
+	it("still accepts the older secretBindings list", () => {
+		expect(parse({ secretBindings: ["A"] }).secretBindings).toEqual(["A"]);
+	});
+});

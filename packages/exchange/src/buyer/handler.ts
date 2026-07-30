@@ -10,7 +10,7 @@
  * 0008). Dispatch then filters on Guarantees and Capabilities and ranks by
  * Charge.
  *
- * Every request is metered at our own boundary (ADR 0011): the prompt is
+ * Every request is metered at our own boundary (ADR 0017): the prompt is
  * counted at admission, before anything is forwarded, and completion tokens are
  * counted as chunks are relayed. Because the count lives on our side of the
  * wire it survives an aborted stream by construction.
@@ -107,7 +107,7 @@ async function readBody(req: IncomingMessage): Promise<string> {
 
 /**
  * Pull whatever usage the upstream volunteered. Recorded for reconciliation
- * against our own count (ADR 0011) and never used to compute a Charge — two of
+ * against our own count (ADR 0017) and never used to compute a Charge — two of
  * three realistic upstreams report nothing usable, and one of those reports a
  * shape whose every field is undefined.
  */
@@ -233,7 +233,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
 
     // Counted before anything is forwarded. This is the number that survives an
     // abort: the prompt was submitted and processed whatever happens next, so
-    // it is always chargeable (ADR 0011).
+    // it is always chargeable (ADR 0017).
     const startedAt = new Date();
     const promptTokens = estimatePromptTokens(body);
     const counter = new StreamCounter();
@@ -276,7 +276,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         finishedAt: new Date(),
       });
       // Debited whatever happened — including an abort, where the prompt was
-      // still submitted and paid for upstream (ADR 0011).
+      // still submitted and paid for upstream (ADR 0017).
       await balances.debit(owner, charge, requestId);
     };
 

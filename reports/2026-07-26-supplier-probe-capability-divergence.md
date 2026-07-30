@@ -98,12 +98,12 @@ serve-mode still buys is control over context size, quantization, and
 concurrency — *resource* properties, not *capability* properties. The question
 needs re-asking on those terms.
 
-**ADR 0009 falls out of this directly.** Capability is a property of the whole
+**ADR 0015 falls out of this directly.** Capability is a property of the whole
 path — client integration × runtime × build × quantization × weights — and the
 only honest way to populate an Offer's capability set is to exercise it through
 the code path that will serve production traffic.
 
-**It also confirms ADR 0006's Supplier abstraction is right to be thin.** The
+**It also confirms ADR 0012's Supplier abstraction is right to be thin.** The
 exchange should know "can this Offer do X, at what price, with what headroom" —
 and nothing about *why*, because the why turns out to live in a layer the
 exchange has no business modelling.
@@ -136,7 +136,7 @@ Ollama Offer that fails structured output ("the model did not return a
 response"). That failure is untouched by the fix because Ollama routes through
 `ollama-ai-provider-v2`, not `createOpenAICompatible`.
 
-This is the result that matters for ADR 0009. We identified a client-side cause,
+This is the result that matters for ADR 0015. We identified a client-side cause,
 fixed it, and **every pair still diverges**. Capability sets cannot be declared
 even after the known bug is gone.
 

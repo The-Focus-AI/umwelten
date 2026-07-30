@@ -208,7 +208,7 @@ Main routes:
   holds, marginal cost is mostly the short question. Whether it holds is a
   property of the backend — `sharedPrefix` records the claim; cache stats
   (e.g. llama.cpp `timings.cache_n`) turn it into a measurement.
-- **Why not a separate package?** See [ADR 0006](../adr/0006-turn-fanout-in-core-not-a-package.md).
+- **Why not a separate package?** See [ADR 0010](../adr/0010-turn-fanout-in-core-not-a-package.md).
   Fan-out is reflection over an `Interaction`; baselines reuse the existing
   compaction registry rather than inventing a parallel tree.
 - **API deep dive:** [Turn Fan-out](./turn-fanout.md).

@@ -1,0 +1,21 @@
+{
+  "name": "@umwelten/supplier",
+  "version": "0.1.0",
+  "description": "Turns a machine into a Supplier the Exchange can dispatch to",
+  "type": "module",
+  "exports": {
+    ".": { "types": "./src/index.ts", "import": "./src/index.ts" },
+    "./*.js": { "types": "./src/*.ts", "import": "./src/*.ts" }
+  },
+  "scripts": { "typecheck": "tsc --noEmit -p tsconfig.json" },
+  "dependencies": {
+    "@umwelten/core": "workspace:*",
+    "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "license": "MIT"
+}

@@ -3,7 +3,7 @@
  */
 
 import type { AgentCardSummary } from "@umwelten/protocols";
-import type { HabitatConfig, CapabilityBinding } from "../../types.js";
+import type { HabitatConfig, CapabilityBinding, RequiredSecret } from "../../types.js";
 
 /** A registered habitat managed by Gaia. */
 export interface GaiaHabitatEntry {
@@ -94,6 +94,15 @@ export interface GaiaHabitatEntry {
 	 * own traffic — Gaia only sees the requests that came through Gaia.
 	 */
 	lastActivityAt?: string;
+	/**
+	 * This habitat's own vault declaration (#283), verbatim from `fnox.toml`
+	 * in its Owned repo. Gaia resolves it on the host; the container never
+	 * sees it, and never holds anything that could open a vault.
+	 *
+	 * Absent means the habitat has no vault of its own and resolves through
+	 * the master vault, as everything did before.
+	 */
+	vaultToml?: string;
 	/** ISO timestamp */
 	createdAt: string;
 }
@@ -126,6 +135,9 @@ export interface CreateHabitatOptions {
 	gitBranch?: string;
 	provider?: string;
 	model?: string;
+	/** What the habitat needs, and how each is obtained (ADR 0004 contract). */
+	requiredSecrets?: RequiredSecret[];
+	/** @deprecated Bare name list; `requiredSecrets` says how each is obtained. */
 	secretBindings?: string[];
 	skillsFromGit?: string[];
 	/** Capability-to-credential bindings for the habitat. */

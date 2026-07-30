@@ -1,7 +1,7 @@
 /**
  * Counting what a request consumed, at our own boundary.
  *
- * Per ADR 0011 this is **not** read from the upstream's response. Prompt tokens
+ * Per ADR 0017 this is **not** read from the upstream's response. Prompt tokens
  * are counted at admission, before anything is forwarded. Completion tokens are
  * counted incrementally as chunks are relayed to the caller. Because the count
  * lives on our side of the wire it survives an aborted stream by construction.
@@ -28,7 +28,7 @@ import type { MicroDollars, Offer } from "../types.js";
  * Deliberately crude and deliberately ours. It must be the *same* estimator for
  * every Supplier so Charges are comparable, which guarantees it disagrees with
  * each upstream's own tokenizer — that disagreement is the reconciliation
- * signal (ADR 0011), not an error.
+ * signal (ADR 0017), not an error.
  *
  * Four characters per token is the standard rough ratio. Swapping in a real
  * tokenizer is a drop-in replacement here and changes no caller.
@@ -151,7 +151,7 @@ export const MINIMUM_CHARGE: MicroDollars = 1;
 
 /**
  * What the Supplier is owed and what the buyer is charged, as two independent
- * numbers (ADR 0007). Cost is zero for hardware the operator owns; Charge is
+ * numbers (ADR 0013). Cost is zero for hardware the operator owns; Charge is
  * not, and that gap is what rations the box.
  */
 export function priceRequest(

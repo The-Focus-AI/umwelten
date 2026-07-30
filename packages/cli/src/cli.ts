@@ -17,6 +17,7 @@ import {
 import { registerSessionsHabitatCommands } from "@umwelten/habitat";
 import { habitatCommand } from "./habitat.js";
 import { mcpCommand } from "./mcp.js";
+import { supplierCommand } from "@umwelten/supplier";
 
 // Get the version from package.json. Try both the dist layout
 // (packages/cli/dist/cli.js → ../package.json) and the src layout
@@ -57,6 +58,7 @@ program.addCommand(sessionsCommand);
 registerSessionsHabitatCommands(sessionsCommand);
 program.addCommand(habitatCommand);
 program.addCommand(mcpCommand);
+program.addCommand(supplierCommand);
 program.addCommand(introspectCommand);
 program.addCommand(browseCommand);
 program.addCommand(searchCommand);

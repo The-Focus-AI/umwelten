@@ -11,7 +11,7 @@ against a mock OpenAI-compatible upstream (no API keys, no GPU).
 
 ## Why this needed asking
 
-ADR 0007 (Charge independent of Cost) and ADR 0008 (balances keyed on
+ADR 0013 (Charge independent of Cost) and ADR 0014 (balances keyed on
 `(Application, sub)`) both assume the exchange can count what a request
 consumed. Nothing had checked that assumption, and there was already a hint it
 was shaky: `runner.ts` carries a fallback that warns *"Usage statistics
@@ -40,7 +40,7 @@ Upstream truth for a completed stream: `prompt=137, completion=18`.
 
 When the upstream reports usage, extraction is exact. Note that `cost` is `0`
 rather than absent — llama-swap has no pricing table, because it is local
-hardware. That is ADR 0007's argument made concrete: if Charge tracked Cost, every
+hardware. That is ADR 0013's argument made concrete: if Charge tracked Cost, every
 request to your own GPU would be free and the box would be defenceless.
 
 ### An upstream that reports no usage yields a free request
@@ -103,7 +103,7 @@ afterwards.
 
 ## Follow-ups
 
-1. **ADR 0011** records the metering boundary decision.
+1. **ADR 0017** records the metering boundary decision.
 2. **Choose a tokenizer for admission-time counting.** It only has to be
    accurate enough to charge on, and it must be the same one for every Supplier
    so Charge is comparable — which means it will disagree with each upstream's

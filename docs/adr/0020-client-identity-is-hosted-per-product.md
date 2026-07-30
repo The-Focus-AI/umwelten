@@ -1,4 +1,4 @@
-# 0014 — OAuth client identity is hosted per product, not centrally
+# 0020 — OAuth client identity is hosted per product, not centrally
 
 Status: Accepted
 Date: 2026-07-29

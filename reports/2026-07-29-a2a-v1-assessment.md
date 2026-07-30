@@ -136,7 +136,7 @@ was held to on 2026-07-11).
 2. **A2A Wave 1 — the SDK bump (gated on green conformance):** upgrade both packages to
    `@a2a-js/sdk ^1.0.1` in one change; follow the SDK's new types wherever we construct
    `kind:` shapes; set the card `protocolVersion` and the `A2A-Version` header from the SDK,
-   not from a string literal (one source of truth — same rule as ADR 0012 applies to
+   not from a string literal (one source of truth — same rule as ADR 0018 applies to
    discovery surfaces); update conformance fixtures and re-run the harness against a live
    habitat before merging. This is shared runtime (`a2a-handler.ts` carries load-bearing
    event-ordering fixes) — it gets its own PR with the conformance suite as the gate.
@@ -150,7 +150,7 @@ was held to on 2026-07-11).
   (labs repo, same branch).
 - MCP-side companion: `reports/2026-07-29-mcp-spec-2026-07-28-deep-dive.md` — note the
   symmetry: both protocols now converge on tasks + discovery + extensions, which is why
-  ADR 0012 (one task substrate) matters more, not less, after v1.0.
+  ADR 0018 (one task substrate) matters more, not less, after v1.0.
 
 ## Sources
 

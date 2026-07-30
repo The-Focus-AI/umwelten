@@ -1,7 +1,7 @@
 /**
  * Verifying who is asking.
  *
- * Per ADR 0008 the Exchange **never authenticates End Users**. It has no login,
+ * Per ADR 0014 the Exchange **never authenticates End Users**. It has no login,
  * no password, no session, and no account recovery, and it never sees an end
  * user's credentials. An Application holds a signing key and mints a
  * short-lived token per request; the Exchange verifies the signature against

@@ -29,17 +29,18 @@
     "@umwelten/evaluation": "workspace:*",
     "@umwelten/sessions": "workspace:*",
     "@umwelten/ui": "workspace:*",
-    "ai": "^7.0.22",
+    "ai": "^7.0.41",
     "file-type": "^22.0.1",
-    "ink": "^7.1.0",
-    "react": "^19.2.7",
+    "ink": "^7.1.1",
+    "react": "^19.2.8",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^15.0.0",
-    "ora": "^9.4.1"
+    "ora": "^9.4.1",
+    "@umwelten/supplier": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

@@ -13,9 +13,17 @@ import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
 import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
 import { applyHabitatDeclaration } from "../apply-declaration.js";
-import { readDeclarationFromRepo } from "../read-declaration.js";
+import { readDeclarationFromRepo, readRepoFile } from "../read-declaration.js";
 import { recordHabitatActivity } from "../reaper.js";
 import { HabitatWaker, createWakeTools } from "../waker.js";
+import { habitatSecretStatus } from "../secret-status.js";
+import {
+	nodeVaultDeps,
+	resolveHabitatVault,
+	VaultResolutionError,
+	HABITAT_VAULT_FILE,
+} from "../habitat-vault.js";
+import { secretNeeds, unmetNeeds } from "../required-secrets.js";
 import { buildSeedFiles } from "./seed-files.js";
 
 /**
@@ -34,12 +42,54 @@ export async function startHabitatContainer(
 	const entry = registry.get(id);
 	if (!entry) throw new Error(`Habitat "${id}" not found`);
 
+	// A habitat with its own vault resolves against it; one without falls back
+	// to the master vault, exactly as before (#283 is the expand step). Gaia
+	// resolves on the host either way — no container ever holds a credential
+	// that could open a vault.
+	const resolved = entry.vaultToml
+		? (
+				await resolveHabitatVault(
+					{ id, vaultToml: entry.vaultToml },
+					nodeVaultDeps(registry.habitatDataDir(id), (event) =>
+						console.log(
+							`[vault] ${event.habitatId} ${event.ok ? "ok" : "FAILED"} ` +
+								`${event.names.join(",") || "-"}${event.error ? ` ${event.error}` : ""}`,
+						),
+					),
+				)
+			).secrets
+		: undefined;
+
+	// A declared need its vault cannot supply fails the start. Starting anyway
+	// produces a container that boots, passes its health check — health does
+	// not call a model — and fails on the first real question, several
+	// rebuilds from the cause.
+	if (resolved) {
+		// Checked against what the habitat declared, so an OAuth credential it
+		// mints itself is never counted as missing — it is absent until a user
+		// connects, which is normal. Optional entries do not block either.
+		const needs = secretNeeds(entry.config, entry.secretBindings);
+		const { missingRequired } = unmetNeeds(needs, resolved);
+		if (missingRequired.length) {
+			throw new VaultResolutionError(
+				`Habitat "${id}" requires ${missingRequired.join(", ")}, which its vault did not supply. ` +
+					`Add them to ${HABITAT_VAULT_FILE} in its repo, or stop declaring them. ` +
+					`Not starting it under-configured.`,
+				id,
+			);
+		}
+	}
+
 	// Seed volume with fresh config + secrets
-	await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
+	await docker.seedVolume(
+		id,
+		buildSeedFiles(entry, vault, catalog, resolved),
+	);
 
 	// Fresh GitHub boot tokens per start (ADR 0004; never throws —
 	// a GitHub outage degrades to a token-less boot, not a failure).
 	const bootTokens = await githubTokens?.bootTokensFor(entry);
+
 	const port = await docker.startContainer(entry, "", registry.list(), {
 		githubTokens: bootTokens,
 	});
@@ -225,6 +275,18 @@ export function createHabitatLifecycleTools(
 				if (entry.secretBindings.length === 0) {
 					warnings.push(
 						"WARNING: No secrets bound — the habitat has no API keys. Use bind_secret to add them.",
+					);
+				}
+				// A binding the vault cannot satisfy is dropped from the seeded
+				// secrets.json rather than failing, so the habitat boots and
+				// health-checks fine and fails on first use. Say it here, where
+				// the person who declared the binding is still looking.
+				const gaps = habitatSecretStatus(entry, vault).missing;
+				if (gaps.length) {
+					warnings.push(
+						`WARNING: bound but missing from the master vault: ${gaps.join(", ")}. ` +
+							`These were NOT written to the volume — the container will start and then fail on first use. ` +
+							`Add them with set_secret, then rebuild.`,
 					);
 				}
 				const notes: string[] = [];
@@ -490,6 +552,12 @@ export function createHabitatLifecycleTools(
 						...(gitBranch ? { gitBranch } : {}),
 						readDeclaration: (url, ref) =>
 							readDeclarationFromRepo(url, ref, { token: ambient?.token }),
+						// The vault declaration sits next to habitat.json, so both
+						// are read from the same commit.
+						readVault: (url, ref) =>
+							readRepoFile(url, HABITAT_VAULT_FILE, ref, {
+								token: ambient?.token,
+							}),
 					});
 
 					const read = result.entry.github?.read;
@@ -519,6 +587,27 @@ export function createHabitatLifecycleTools(
 						secrets.length
 							? `Secret bindings (from the declaration): ${secrets.join(", ")}`
 							: `Secret bindings: none declared.`,
+						...(() => {
+							const lines: string[] = [];
+							// The declaration can bind a secret the vault has never
+							// heard of. Not an error here — but the difference between
+							// a habitat that works and one that starts and then fails.
+							const gaps = habitatSecretStatus(result.entry, vault).missing;
+							if (gaps.length) {
+								lines.push(
+									`MISSING from the master vault: ${gaps.join(", ")}. Declared by this habitat, but there is no value to seed.`,
+								);
+							}
+							// Which vault this habitat resolves against (#283). A habitat
+							// with its own vault is self-contained; one without still
+							// shares the flat master vault, which is worth knowing.
+							lines.push(
+								result.entry.vaultToml
+									? `Vault: its own (${HABITAT_VAULT_FILE} in its repo), resolved by Gaia on the host.`
+									: `Vault: none declared — resolves through the shared master vault. Add ${HABITAT_VAULT_FILE} to its repo to give it its own.`,
+							);
+							return lines;
+						})(),
 						result.action === "created"
 							? `Nothing further is required. Asking "${id}" starts it, and starting seeds the volume with this config and these secrets — do not seed, grant or rebuild by hand first.`
 							: `Rebuild "${id}" if it is already running, so the new declaration reaches its container.`,

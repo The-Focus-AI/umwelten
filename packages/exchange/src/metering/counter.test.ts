@@ -137,7 +137,7 @@ describe("priceRequest", () => {
   });
 
   it("charges for owned hardware that costs nothing", () => {
-    // ADR 0007 made concrete: Cost zero, Charge not. That gap is what rations
+    // ADR 0013 made concrete: Cost zero, Charge not. That gap is what rations
     // a box that is free in dollars and scarce in capacity.
     const { cost, charge } = priceRequest(offer(), 1_000_000, 1_000_000);
     expect(cost).toBe(0);
@@ -177,7 +177,7 @@ describe("priceRequest", () => {
 
   it("still reports Cost zero for owned hardware", () => {
     // The floor is on Charge only. Zero is the honest answer for a machine we
-    // own, and collapsing the two columns is what ADR 0007 exists to prevent.
+    // own, and collapsing the two columns is what ADR 0013 exists to prevent.
     const { cost } = priceRequest(offer(), 1, 1);
     expect(cost).toBe(0);
   });

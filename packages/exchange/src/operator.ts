@@ -4,7 +4,7 @@
  * Registering a Supplier, granting the Guarantees it may be offered under,
  * taking an Offer out of rotation, pricing.
  *
- * **Guarantees are asserted by the operator, never self-declared** (ADR 0006).
+ * **Guarantees are asserted by the operator, never self-declared** (ADR 0012).
  * The operator is liable for every Guarantee passed through to a buyer, so a
  * Supplier claiming one it was not granted is rejected outright rather than
  * silently downgraded. That rejection is what stops a compromised supplier

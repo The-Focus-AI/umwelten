@@ -1,4 +1,4 @@
-# 0012 — One task substrate, projected to both A2A and MCP
+# 0018 — One task substrate, projected to both A2A and MCP
 
 Status: Accepted
 Date: 2026-07-29

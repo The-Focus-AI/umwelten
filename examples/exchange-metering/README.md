@@ -20,7 +20,7 @@ usage-extraction cascade at it — nothing is stubbed on our side.
 request that looks free while real tokens were served. Findings and the design
 consequence are in
 [`reports/2026-07-26-can-the-exchange-bill-what-it-sold.md`](../../reports/2026-07-26-can-the-exchange-bill-what-it-sold.md);
-the decision is [ADR 0011](../../docs/adr/0011-the-exchange-meters-at-its-own-boundary.md).
+the decision is [ADR 0017](../../docs/adr/0017-the-exchange-meters-at-its-own-boundary.md).
 
 Note the deliberate `process.exit(0)` at the end of `run.ts`: the local providers
 install a global undici dispatcher whose keep-alive sockets hold the event loop

@@ -3,7 +3,7 @@
  *
  * OpenAI-compatible, so an existing client can enumerate without knowing
  * anything about Offers or Suppliers. A buyer names a Model; which machine
- * serves it is Dispatch's business (ADR 0006).
+ * serves it is Dispatch's business (ADR 0012).
  *
  * One entry per Model, not per Offer. Two Suppliers serving `gemma-4-26b` are
  * one thing a buyer can ask for, and exposing them separately would leak the

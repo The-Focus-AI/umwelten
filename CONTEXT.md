@@ -152,7 +152,7 @@ _Avoid_: Required secrets, env manifest, secret list
 - A habitat has at most one **Owned repo** and any number of **Mounted repos**.
 - A habitat's read scope is derived from its **Mounted repos**; its write scope comes only from its **Owned repo** and is never derived.
 - A **Task**, a **Run**, and a **Source Session** are three records of one invocation, kept separate and correlated rather than merged.
-- A **Task** is one record however it is observed: the A2A surface and the MCP tasks extension are projections of the same **Task**, never separate stores (ADR 0012).
+- A **Task** is one record however it is observed: the A2A surface and the MCP tasks extension are projections of the same **Task**, never separate stores (ADR 0018).
 - A **Dormant habitat** answers nothing until woken; the **Directory** is what wakes it.
 - A habitat's operator-provided secrets come from its own **Habitat vault**, resolved and injected on its behalf — a habitat never holds the credential that opens a vault.
 - Credentials a user authorizes, and credentials created while building the environment, never appear in a **Habitat vault**; the **Credential contract** is what says which kind each one is.

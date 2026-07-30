@@ -32,16 +32,16 @@
   "dependencies": {
     "@umwelten/core": "workspace:*",
     "@a2a-js/sdk": "^1.0.1",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@neondatabase/serverless": "^1.1.0",
-    "ai": "^7.0.22",
+    "ai": "^7.0.41",
     "chalk": "^5.6.2",
-    "undici": "^8.7.0",
+    "undici": "^8.9.0",
     "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   }

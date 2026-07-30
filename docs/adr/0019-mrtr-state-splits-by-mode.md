@@ -1,8 +1,8 @@
-# 0013 — MRTR elicitation state splits by mode: blob when synchronous, Task when not
+# 0019 — MRTR elicitation state splits by mode: blob when synchronous, Task when not
 
 Status: Accepted
 Date: 2026-07-29
-Related: [0012 — One task substrate](./0012-one-task-substrate-two-protocol-projections.md),
+Related: [0018 — One task substrate](./0018-one-task-substrate-two-protocol-projections.md),
 [0007 — A2A tasks are the wake contract](./0007-a2a-tasks-as-the-wake-contract.md)
 
 ## Context
@@ -32,7 +32,7 @@ Elicitation state lives in exactly one of two places, chosen by mode:
   implementation; habitat servers use the same helper rather than growing
   a local variant.
 - **Task-mediated operations** store pending `inputRequests` on the Task
-  record (ADR 0012); the client answers via `tasks/update` and no blob is
+  record (ADR 0018); the client answers via `tasks/update` and no blob is
   involved, because the Task *is* the durable state.
 
 There is no third mechanism, and no server-side pending-elicitation table

@@ -54,6 +54,15 @@ export interface ApplyDeclarationOptions {
 		gitUrl: string,
 		gitBranch?: string,
 	) => Promise<string | undefined>;
+	/**
+	 * Read the habitat's vault declaration (#283) from the same repo. Absent
+	 * means no vault of its own — it resolves through the master vault, as
+	 * every habitat did before per-habitat vaults existed.
+	 */
+	readVault?: (
+		gitUrl: string,
+		gitBranch?: string,
+	) => Promise<string | undefined>;
 }
 
 export interface ApplyResult {
@@ -91,10 +100,18 @@ export async function applyHabitatDeclaration(
 		...(options.gitBranch ? { gitBranch: options.gitBranch } : {}),
 	});
 
+	// The vault declaration lives next to habitat.json and is read at the same
+	// time, so a habitat's needs and where they resolve from can never be read
+	// from two different commits.
+	const vaultToml = await options.readVault?.(options.gitUrl, options.gitBranch);
+
 	const existing = registry.get(options.id);
 	if (!existing) {
+		const created = await registry.create(createOptions);
 		return {
-			entry: await registry.create(createOptions),
+			entry: vaultToml
+				? await registry.update(options.id, { vaultToml })
+				: created,
 			action: "created",
 			declaration,
 		};
@@ -118,13 +135,22 @@ export async function applyHabitatDeclaration(
 		...(declaration.skillsFromGit
 			? { skillsFromGit: declaration.skillsFromGit }
 			: {}),
+		// Re-applied from the declaration so the contract in the repo is what
+		// Gaia provisions against — the whole point of it being a contract.
+		...(declaration.requiredSecrets
+			? { requiredSecrets: declaration.requiredSecrets }
+			: {}),
 	};
 
 	const entry = await registry.update(options.id, {
 		name: createOptions.name,
 		config,
-		...(declaration.secretBindings
-			? { secretBindings: declaration.secretBindings }
+		// Use the resolved bindings, not the raw declaration: they include the
+		// provider's own key, which the declaration is not required to state.
+		// Taking the raw list here would strip that key on every re-apply and
+		// silently break a habitat that was working.
+		...(createOptions.secretBindings
+			? { secretBindings: createOptions.secretBindings }
 			: {}),
 		// Read is re-derived from what the declaration says to mount, so removing
 		// a mount in the repo actually narrows the scope. Write comes only from
@@ -143,6 +169,9 @@ export async function applyHabitatDeclaration(
 		...(declaration.storage ? { storage: declaration.storage } : {}),
 		...(declaration.image ? { image: declaration.image } : {}),
 		...(declaration.hostname ? { hostname: declaration.hostname } : {}),
+		// Undefined clears it: removing fnox.toml from the repo removes the
+		// habitat's own vault, rather than leaving a stale copy behind.
+		vaultToml,
 	} as Partial<GaiaHabitatEntry>);
 
 	return { entry, action: "updated", declaration };

@@ -243,7 +243,17 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
         envNames: agent.envNames,
         announce: `${LOG} Cloning agent ${agent.id} (kind=${agent.kind}, mode=${agent.mode}) from ${agent.gitRemote}...`,
         onFailure: "warn",
-        warning: `${LOG} Clone failed for agent ${agent.id} (continuing).`,
+        // Name the likely cause. Under an installation token git reports a
+        // repo outside the installation as `could not read Username for
+        // 'https://github.com'` — which reads like a missing prompt, not a
+        // missing grant, and sends people looking at credentials instead of
+        // at the App's repo list. Declaring read scope in Gaia does not
+        // install the App; those are two separate grants and only one of
+        // them is ours.
+        warning:
+          `${LOG} Clone failed for agent ${agent.id} from ${agent.gitRemote} (continuing without it).\n` +
+          `${LOG}   If git said "could not read Username", the @habitats GitHub App is probably not installed on that repo.\n` +
+          `${LOG}   Gaia's read scope and the App's installation are separate grants — declaring the scope does not add the repo to the App.`,
       });
     } else {
       steps.push({
