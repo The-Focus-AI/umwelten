@@ -268,6 +268,45 @@ const server = createServer((req, res) => {
 
     if (req.method === "POST" && path === "/a2a") {
       const rpc = JSON.parse(await readBody(req));
+      const asked: string = (rpc?.params?.message?.parts ?? [])
+        .filter((p: { kind?: string }) => p.kind === "text")
+        .map((p: { text?: string }) => p.text ?? "")
+        .join(" ")
+        .toLowerCase();
+
+      // The butler doesn't just report — simple spoken commands work too,
+      // so the A2A face lives up to its card. (The MCP face is still the
+      // one that returns the visual dashboard.)
+      const actions: string[] = [];
+      advanceHouse();
+      const wantsOff = /\b(off|out|kill|douse)\b/.test(asked);
+      const wantsOn = /\bon\b/.test(asked);
+      if (/light|lamp/.test(asked) && (wantsOn || wantsOff)) {
+        const named = ROOMS.filter((r) => asked.includes(r));
+        const targets = named.length ? named : [...ROOMS];
+        for (const r of targets) house.rooms[r].light = wantsOn && !wantsOff;
+        actions.push(
+          `${wantsOn && !wantsOff ? "lit" : "darkened"} ${named.length ? named.join(", ") : "every room"}`,
+        );
+      }
+      const tempMatch = asked.match(/\b(?:to|at)\s+(\d{2})\b/);
+      if (/furnace|heat|thermostat|warm/.test(asked)) {
+        if (tempMatch) {
+          house.furnace.targetF = Math.min(85, Math.max(50, Number(tempMatch[1])));
+          house.furnace.on = true;
+          actions.push(`set the furnace to ${house.furnace.targetF}°F`);
+        } else if (wantsOff) {
+          house.furnace.on = false;
+          actions.push("shut the furnace down");
+        } else if (wantsOn) {
+          house.furnace.on = true;
+          actions.push(`lit the furnace (target ${house.furnace.targetF}°F)`);
+        }
+      }
+
+      const preface = actions.length
+        ? `Very good — I have ${actions.join(" and ")}. `
+        : "";
       res.writeHead(200, { "content-type": "application/json" });
       res.end(
         JSON.stringify({
@@ -277,7 +316,12 @@ const server = createServer((req, res) => {
             kind: "message",
             messageId: randomUUID(),
             role: "agent",
-            parts: [{ kind: "text", text: `Hearthstone reporting: ${statusLine()}` }],
+            parts: [
+              {
+                kind: "text",
+                text: `${preface}Hearthstone reporting: ${statusLine()} (Attach my /mcp face to see the dashboard.)`,
+              },
+            ],
           },
         }),
       );
