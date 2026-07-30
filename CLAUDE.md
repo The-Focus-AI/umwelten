@@ -619,6 +619,9 @@ All umwelten services use the 74xx port range to avoid conflicts with common dev
 | Context explorer        | **7432**      | `examples/context-explorer` — turn fan-out |
 | Agent browser           | **7433**      | `examples/agent-browser` — MCP/A2A discovery + chat |
 | Agent browser demo      | **7434**      | `examples/agent-browser/demo-endpoint.ts`  |
+| House demo (Hearthstone)| **7435**      | `examples/agent-browser/demo-house.ts`     |
+| Weather demo (Meteora)  | **7436**      | `examples/agent-browser/demo-weather.ts`   |
+| Atlas demo (routes)     | **7437**      | `examples/agent-browser/demo-atlas.ts`     |
 | Managed containers      | **7440–7499** | Gaia assigns sequentially from this range  |
 | Internal container port | **8080**      | Inside Docker only, never exposed directly |
 

@@ -32,6 +32,24 @@ The demo endpoint's `roll_dice` tool returns an mcp-ui-style HTML resource
 alongside its JSON — the chat renders it as an interactive sandboxed dice
 widget, so the UI-resource flow is testable without any real habitat.
 
+## More demo agents
+
+Three richer demo servers, each answering as both protocols (MCP at `/mcp`,
+A2A card + `message/send`) and returning a self-contained HTML widget with
+every tool result:
+
+| Server | Port | What it is |
+| --- | --- | --- |
+| `demo-house.ts` | 7435 | **Hearthstone** — a smart-house controller with real in-process state: lights, furnace, and a lazily drifting indoor temperature, reflected in a glowing house dashboard |
+| `demo-weather.ts` | 7436 | **Meteora** — a long-range forecaster with deterministic pseudo-forecasts: 14-day hi/lo band charts and monthly climate outlooks |
+| `demo-atlas.ts` | 7437 | **Atlas** — a route planner over fake-but-coherent geography: place names hash to stable map coordinates, routes animate across a terrain chart |
+
+```bash
+pnpm tsx examples/agent-browser/demo-house.ts     # http://localhost:7435
+pnpm tsx examples/agent-browser/demo-weather.ts   # http://localhost:7436
+pnpm tsx examples/agent-browser/demo-atlas.ts     # http://localhost:7437
+```
+
 Things to point it at:
 
 ```bash
