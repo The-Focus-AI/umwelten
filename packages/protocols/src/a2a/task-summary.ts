@@ -1,7 +1,7 @@
 /**
  * A count of an agent's Tasks by lifecycle category.
  *
- * The pinned SDK (0.3.14) has no `tasks/list`, so nothing outside a process
+ * The legacy (0.3) wire serves no `tasks/list`, so nothing outside a process
  * can ask an agent what it is holding. That is fine for callers — they know
  * their own task ids — and not fine for an orchestrator deciding whether a
  * Habitat is safe to stop (#278). This turns the durable store's `listAll()`
@@ -22,6 +22,7 @@ import {
 	isInterruptedTaskState,
 	isTerminalTaskState,
 } from "./file-task-store.js";
+import { taskStateToLegacy } from "./v1-compat.js";
 
 export interface TaskStateSummary {
 	/** Every Task the store holds. */
@@ -34,7 +35,11 @@ export interface TaskStateSummary {
 	terminal: number;
 	/** Ids of the active Tasks, so a refusal can say what it is protecting. */
 	activeTaskIds: string[];
-	/** Raw per-state counts, for diagnostics that outlive these categories. */
+	/**
+	 * Raw per-state counts, for diagnostics that outlive these categories.
+	 * Keyed by the legacy state spellings (`working`, `input-required`, …) so
+	 * published summaries read the same before and after the v1 SDK migration.
+	 */
 	byState: Record<string, number>;
 }
 
@@ -51,7 +56,7 @@ export function summarizeTasks(tasks: Task[]): TaskStateSummary {
 
 	for (const task of tasks) {
 		const state: TaskState | undefined = task.status?.state;
-		const key = state ?? "unknown";
+		const key = taskStateToLegacy(state);
 		byState[key] = (byState[key] ?? 0) + 1;
 
 		if (isTerminalTaskState(state)) {

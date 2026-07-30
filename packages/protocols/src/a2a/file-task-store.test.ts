@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Task, TaskState } from "@a2a-js/sdk";
+import { TaskState, type Task, type TaskStatus } from "@a2a-js/sdk";
 import { InMemoryTaskStore, type TaskStore } from "@a2a-js/sdk/server";
 import {
 	FileTaskStore,
@@ -12,15 +12,37 @@ import {
 	isInterruptedTaskState,
 	isTerminalTaskState,
 } from "./file-task-store.js";
+import { buildServerCallContext } from "./server.js";
+import {
+	agentMessage,
+	taskStateFromLegacy,
+	textPart,
+	userMessage,
+	type LegacyTaskState,
+} from "./v1-compat.js";
+
+// The v1 SDK's InMemoryTaskStore scopes its buckets by call context, so the
+// contract runs with one; FileTaskStore is single-tenant and ignores it.
+const ctx = buildServerCallContext();
+
+function status(state: LegacyTaskState): TaskStatus {
+	return {
+		state: taskStateFromLegacy(state),
+		message: undefined,
+		timestamp: "2026-07-25T00:00:00.000Z",
+	};
+}
 
 function makeTask(overrides: Partial<Task> = {}): Task {
 	return {
-		kind: "task",
 		id: "task-1",
 		contextId: "ctx-1",
-		status: { state: "working", timestamp: "2026-07-25T00:00:00.000Z" },
+		status: status("working"),
+		artifacts: [],
+		history: [],
+		metadata: undefined,
 		...overrides,
-	} as Task;
+	};
 }
 
 let dir: string;
@@ -43,66 +65,76 @@ describe.each([
 	["FileTaskStore", () => new FileTaskStore({ dir }) as TaskStore],
 ])("TaskStore contract — %s", (_name, create) => {
 	it("returns undefined for a task that was never saved", async () => {
-		await expect(create().load("nope")).resolves.toBeUndefined();
+		await expect(create().load("nope", ctx)).resolves.toBeUndefined();
 	});
 
 	it("round-trips a saved task", async () => {
 		const store = create();
 		const task = makeTask();
-		await store.save(task);
-		expect(await store.load(task.id)).toEqual(task);
+		await store.save(task, ctx);
+		expect(await store.load(task.id, ctx)).toEqual(task);
 	});
 
 	it("overwrites an existing task with the same id", async () => {
 		const store = create();
-		await store.save(makeTask());
-		await store.save(makeTask({ status: { state: "completed" } }));
-		expect((await store.load("task-1"))?.status.state).toBe("completed");
+		await store.save(makeTask(), ctx);
+		await store.save(makeTask({ status: status("completed") }), ctx);
+		expect((await store.load("task-1", ctx))?.status?.state).toBe(
+			TaskState.TASK_STATE_COMPLETED,
+		);
 	});
 
 	it("keeps tasks with different ids independent", async () => {
 		const store = create();
-		await store.save(makeTask({ id: "a" }));
-		await store.save(makeTask({ id: "b", status: { state: "failed" } }));
-		expect((await store.load("a"))?.status.state).toBe("working");
-		expect((await store.load("b"))?.status.state).toBe("failed");
+		await store.save(makeTask({ id: "a" }), ctx);
+		await store.save(makeTask({ id: "b", status: status("failed") }), ctx);
+		expect((await store.load("a", ctx))?.status?.state).toBe(
+			TaskState.TASK_STATE_WORKING,
+		);
+		expect((await store.load("b", ctx))?.status?.state).toBe(
+			TaskState.TASK_STATE_FAILED,
+		);
 	});
 
 	it("preserves artifacts and history", async () => {
 		const store = create();
 		const task = makeTask({
-			artifacts: [{ artifactId: "a1", parts: [{ kind: "text", text: "hi" }] }],
-			history: [
+			artifacts: [
 				{
-					kind: "message",
-					role: "user",
-					messageId: "m1",
-					parts: [{ kind: "text", text: "question" }],
+					artifactId: "a1",
+					name: "",
+					description: "",
+					parts: [textPart("hi")],
+					metadata: undefined,
+					extensions: [],
 				},
 			],
-		} as Partial<Task>);
-		await store.save(task);
-		expect(await store.load(task.id)).toEqual(task);
+			history: [userMessage({ text: "question", messageId: "m1" })],
+		});
+		await store.save(task, ctx);
+		expect(await store.load(task.id, ctx)).toEqual(task);
 	});
 });
 
 describe("FileTaskStore durability", () => {
 	/**
-	 * A deliberate divergence from this SDK version's `InMemoryTaskStore`,
-	 * which keeps the caller's object by reference — mutate it afterwards and
-	 * the store changes under you. A persisted store cannot reproduce that
+	 * A deliberate divergence from the 0.3 SDK's `InMemoryTaskStore`,
+	 * which kept the caller's object by reference — mutate it afterwards and
+	 * the store changed under you. A persisted store cannot reproduce that
 	 * aliasing, and should not: every mutation in the SDK is followed by an
-	 * explicit `save()`, so nothing depends on it, and later SDK versions
-	 * deep-clone on the way in for exactly this reason. Isolation is the
-	 * safer behaviour, so the durable store is stricter here rather than
+	 * explicit `save()`, so nothing depends on it, and the v1 SDK deep-clones
+	 * on the way in for exactly this reason. Isolation is the safer
+	 * behaviour, so the durable store is stricter here rather than
 	 * bug-compatible.
 	 */
 	it("does not let a caller mutate stored state through the object it saved", async () => {
 		const store = new FileTaskStore({ dir });
 		const task = makeTask();
 		await store.save(task);
-		task.status.state = "canceled";
-		expect((await store.load("task-1"))?.status.state).toBe("working");
+		task.status!.state = TaskState.TASK_STATE_CANCELED;
+		expect((await store.load("task-1"))?.status?.state).toBe(
+			TaskState.TASK_STATE_WORKING,
+		);
 	});
 
 	it("returns a task saved by a previous store instance", async () => {
@@ -111,23 +143,29 @@ describe("FileTaskStore durability", () => {
 		// A new instance stands in for a new container generation: same volume,
 		// no shared memory.
 		const restarted = new FileTaskStore({ dir });
-		expect((await restarted.load("task-1"))?.status.state).toBe("working");
+		expect((await restarted.load("task-1"))?.status?.state).toBe(
+			TaskState.TASK_STATE_WORKING,
+		);
 	});
 
 	it("survives a restart with artifacts and status history intact", async () => {
 		const task = makeTask({
 			status: {
-				state: "input-required",
+				state: taskStateFromLegacy("input-required"),
 				timestamp: "2026-07-25T01:00:00.000Z",
-				message: {
-					kind: "message",
-					role: "agent",
-					messageId: "m9",
-					parts: [{ kind: "text", text: "which repo?" }],
-				},
+				message: agentMessage({ text: "which repo?", messageId: "m9" }),
 			},
-			artifacts: [{ artifactId: "a1", parts: [{ kind: "text", text: "report" }] }],
-		} as Partial<Task>);
+			artifacts: [
+				{
+					artifactId: "a1",
+					name: "",
+					description: "",
+					parts: [textPart("report")],
+					metadata: undefined,
+					extensions: [],
+				},
+			],
+		});
 		await new FileTaskStore({ dir }).save(task);
 
 		expect(await new FileTaskStore({ dir }).load(task.id)).toEqual(task);
@@ -136,7 +174,7 @@ describe("FileTaskStore durability", () => {
 	it("writes one file per task and reuses it on overwrite", async () => {
 		const store = new FileTaskStore({ dir });
 		await store.save(makeTask());
-		await store.save(makeTask({ status: { state: "completed" } }));
+		await store.save(makeTask({ status: status("completed") }));
 		const files = (await readdir(dir)).filter((f) => f.endsWith(".task.json"));
 		expect(files).toHaveLength(1);
 	});
@@ -159,21 +197,57 @@ describe("FileTaskStore durability", () => {
 
 	it("serialises concurrent saves of the same task without corrupting it", async () => {
 		const store = new FileTaskStore({ dir });
-		const states: TaskState[] = ["submitted", "working", "completed"];
+		const states: LegacyTaskState[] = ["submitted", "working", "completed"];
 		await Promise.all(
-			states.map((state) => store.save(makeTask({ status: { state } }))),
+			states.map((state) => store.save(makeTask({ status: status(state) }))),
 		);
 
 		const persisted = await new FileTaskStore({ dir }).load("task-1");
 		// Whichever write landed last, the record must be a whole valid Task.
 		expect(persisted).toBeDefined();
-		expect(states).toContain(persisted?.status.state);
+		expect(states.map(taskStateFromLegacy)).toContain(persisted?.status?.state);
 	});
 
 	it("creates its directory on demand", async () => {
 		const nested = join(dir, "deep", "tasks");
 		await new FileTaskStore({ dir: nested }).save(makeTask());
 		expect((await readdir(nested)).length).toBeGreaterThan(0);
+	});
+
+	it("reads a record written by the 0.3-era store", async () => {
+		// v1 envelope: legacy-shaped Task JSON (string states, `kind`
+		// discriminators), exactly as the previous SDK generation wrote it.
+		const legacyRecord = {
+			version: 1,
+			id: "task-legacy",
+			task: {
+				kind: "task",
+				id: "task-legacy",
+				contextId: "ctx-legacy",
+				status: {
+					state: "input-required",
+					timestamp: "2026-07-25T01:00:00.000Z",
+					message: {
+						kind: "message",
+						role: "agent",
+						messageId: "m9",
+						parts: [{ kind: "text", text: "which repo?" }],
+					},
+				},
+				artifacts: [
+					{ artifactId: "a1", parts: [{ kind: "text", text: "report" }] },
+				],
+			},
+		};
+		const { createHash } = await import("node:crypto");
+		const hashed = `${createHash("sha256").update("task-legacy").digest("hex")}.task.json`;
+		await writeFile(join(dir, hashed), JSON.stringify(legacyRecord), "utf-8");
+
+		const loaded = await new FileTaskStore({ dir }).load("task-legacy");
+		expect(loaded?.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+		expect(loaded?.status?.message?.parts?.[0]).toMatchObject({
+			content: { $case: "text", value: "which repo?" },
+		});
 	});
 
 	describe("listAll", () => {
@@ -207,20 +281,23 @@ describe("FileTaskStore durability", () => {
 });
 
 describe("task state classification", () => {
-	it.each(TERMINAL_TASK_STATES)("treats %s as terminal", (state) => {
+	it.each(TERMINAL_TASK_STATES)("treats state %s as terminal", (state) => {
 		expect(isTerminalTaskState(state)).toBe(true);
 		expect(isAbandonableTaskState(state)).toBe(false);
 	});
 
-	it.each(INTERRUPTED_TASK_STATES)("treats %s as interrupted, not abandonable", (state) => {
-		expect(isInterruptedTaskState(state)).toBe(true);
-		expect(isAbandonableTaskState(state)).toBe(false);
-	});
+	it.each(INTERRUPTED_TASK_STATES)(
+		"treats state %s as interrupted, not abandonable",
+		(state) => {
+			expect(isInterruptedTaskState(state)).toBe(true);
+			expect(isAbandonableTaskState(state)).toBe(false);
+		},
+	);
 
-	it.each(["submitted", "working", "unknown"] as TaskState[])(
+	it.each(["submitted", "working", "unknown"] as LegacyTaskState[])(
 		"treats %s as abandonable",
 		(state) => {
-			expect(isAbandonableTaskState(state)).toBe(true);
+			expect(isAbandonableTaskState(taskStateFromLegacy(state))).toBe(true);
 		},
 	);
 

@@ -14,8 +14,8 @@
 import http from "node:http";
 import https from "node:https";
 import { createInterface } from "node:readline";
-import type { FilePart } from "@a2a-js/sdk";
 import { streamA2AMessage } from "./client.js";
+import { messageText, partFileUrl } from "./v1-compat.js";
 
 export interface A2AChatOptions {
 	url: string;
@@ -120,14 +120,11 @@ async function sendOne(
 			apiKey: token,
 			contextId,
 		})) {
-			switch (event.kind) {
-				case "status-update": {
+			switch (event.payload?.$case) {
+				case "statusUpdate": {
 					// Streamed text deltas arrive as `working` status updates whose
 					// status.message carries the partial text.
-					const parts = event.status?.message?.parts ?? [];
-					for (const part of parts) {
-						if (part.kind === "text") printDelta(part.text);
-					}
+					printDelta(messageText(event.payload.value.status?.message));
 					break;
 				}
 				case "message": {
@@ -136,23 +133,23 @@ async function sendOne(
 					// same full text. To avoid double-printing, only emit if nothing
 					// has been streamed yet.
 					if (!printedAnything) {
-						for (const part of event.parts) {
-							if (part.kind === "text") printDelta(part.text);
-						}
+						printDelta(messageText(event.payload.value));
 					}
 					break;
 				}
-				case "artifact-update": {
-					const artifact = event.artifact;
-					const files = artifact.parts
-						.filter((p): p is FilePart => p.kind === "file")
-						.map((p) => {
-							const f = p.file;
-							return "uri" in f ? f.uri : (f.name ?? "(inline)");
-						});
+				case "artifactUpdate": {
+					const artifact = event.payload.value.artifact;
+					const files = (artifact?.parts ?? [])
+						.map((p) =>
+							partFileUrl(p) ??
+							(p.content?.$case === "raw"
+								? p.filename || "(inline)"
+								: undefined),
+						)
+						.filter((f): f is string => typeof f === "string");
 					console.log(
 						chalk.dim(
-							`\n  [artifact] ${artifact.name ?? artifact.artifactId}${files.length ? ` → ${files.join(", ")}` : ""}`,
+							`\n  [artifact] ${artifact?.name || artifact?.artifactId}${files.length ? ` → ${files.join(", ")}` : ""}`,
 						),
 					);
 					break;

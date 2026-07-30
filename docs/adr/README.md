@@ -18,6 +18,9 @@
 | [0015](0015-capabilities-are-probed-through-the-serving-path.md) | Capabilities are probed through the serving path |
 | [0016](0016-supplier-agent-serves-by-default.md) | Supplier agent serves by default |
 | [0017](0017-the-exchange-meters-at-its-own-boundary.md) | The Exchange meters at its own boundary |
+| [0018](0018-one-task-substrate-two-protocol-projections.md) | One task substrate, projected to both A2A and MCP |
+| [0019](0019-mrtr-state-splits-by-mode.md) | MRTR elicitation state splits by mode |
+| [0020](0020-client-identity-is-hosted-per-product.md) | OAuth client identity is hosted per product |
 
 0011 is unused — see below.
 

@@ -8,21 +8,24 @@
  * minutes (a rollup across every client habitat). Both exceed any sane HTTP
  * timeout.
  *
- * A2A already models this. A send with `configuration.blocking: false` returns
- * a **Task** in a non-terminal state straight away; the caller then tracks it
- * with `tasks/get` until it reaches a terminal or interrupted state. Per
+ * A2A already models this. A non-blocking send returns a **Task** in a
+ * non-terminal state straight away; the caller then tracks it with
+ * `tasks/get` until it reaches a terminal or interrupted state. Per
  * ADR 0007 a dormant habitat is not a special case — it is a task that takes
  * longer to reach `working`.
  *
- * Everything here is built on the SDK's `JsonRpcTransport` rather than
- * hand-rolled JSON-RPC, so wire-format handling is the SDK's problem.
+ * Everything here is built on the SDK's compat `LegacyJsonRpcTransport`
+ * rather than hand-rolled JSON-RPC, so wire-format handling is the SDK's
+ * problem: it speaks the 0.3 wire every current peer accepts while handing
+ * back v1-typed objects.
  *
- * Note for readers comparing against the A2A docs: the pinned SDK (0.3.14)
- * spells non-blocking as `configuration.blocking: false`, not
- * `returnImmediately`, and serves no `tasks/list`.
+ * Note for readers comparing against the A2A docs: the v1 SDK spells
+ * non-blocking as `configuration.returnImmediately: true`; the compat
+ * transport translates that to the 0.3 wire's `blocking: false`. The legacy
+ * wire serves no `tasks/list`.
  */
 
-import { JsonRpcTransport } from "@a2a-js/sdk/client";
+import { LegacyJsonRpcTransport } from "@a2a-js/sdk/compat/v0_3/client";
 import type {
 	Message,
 	Task,
@@ -33,6 +36,7 @@ import {
 	isInterruptedTaskState,
 	isTerminalTaskState,
 } from "./file-task-store.js";
+import { taskStateToLegacy, userMessage } from "./v1-compat.js";
 
 /** Default ceiling on how long `pollA2ATask` will wait. */
 const DEFAULT_POLL_TIMEOUT_MS = 15 * 60_000;
@@ -71,8 +75,8 @@ function authenticatedFetch(apiKey?: string): typeof fetch {
 export function createA2ATransport(
 	endpoint: string,
 	apiKey?: string,
-): JsonRpcTransport {
-	return new JsonRpcTransport({
+): LegacyJsonRpcTransport {
+	return new LegacyJsonRpcTransport({
 		endpoint: resolveA2AEndpointUrl(endpoint),
 		fetchImpl: authenticatedFetch(apiKey),
 	});
@@ -99,10 +103,6 @@ export interface SendA2ATaskOptions extends A2ATaskTarget {
 	pushNotificationUrl?: string;
 }
 
-function newMessageId(): string {
-	return `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 /**
  * Send a message without waiting for the answer. Resolves as soon as the agent
  * acknowledges, normally with a Task in `submitted` or `working`.
@@ -115,25 +115,41 @@ export async function sendA2ATask(
 ): Promise<Task | Message> {
 	const transport = createA2ATransport(options.endpoint, options.apiKey);
 	return transport.sendMessage({
-		message: {
-			kind: "message",
-			messageId: newMessageId(),
-			role: "user",
-			parts: [{ kind: "text", text: options.text }],
-			...(options.contextId ? { contextId: options.contextId } : {}),
-		},
+		tenant: "",
+		message: userMessage({
+			text: options.text,
+			contextId: options.contextId,
+		}),
 		configuration: {
-			blocking: options.blocking ?? false,
-			...(options.pushNotificationUrl
-				? { pushNotificationConfig: { url: options.pushNotificationUrl } }
-				: {}),
+			acceptedOutputModes: [],
+			// v1 inverts the 0.3 wire's `blocking`; the compat transport
+			// translates back, so `blocking: false` still goes out by default.
+			returnImmediately: !(options.blocking ?? false),
+			taskPushNotificationConfig: options.pushNotificationUrl
+				? {
+						tenant: "",
+						id: "",
+						taskId: "",
+						url: options.pushNotificationUrl,
+						token: "",
+						authentication: undefined,
+					}
+				: undefined,
 		},
-	}) as Promise<Task | Message>;
+		metadata: undefined,
+	});
 }
 
 /** True when the result of a send is a Task rather than an immediate Message. */
 export function isA2ATask(result: Task | Message): result is Task {
-	return (result as Task)?.kind === "task";
+	// v1 objects carry no `kind` discriminator: a Task has an `id` and no
+	// `messageId`, a Message always has a `messageId`.
+	return (
+		typeof result === "object" &&
+		result !== null &&
+		!("messageId" in result) &&
+		typeof (result as Task).id === "string"
+	);
 }
 
 export interface GetA2ATaskOptions extends A2ATaskTarget {
@@ -146,6 +162,7 @@ export interface GetA2ATaskOptions extends A2ATaskTarget {
 export async function getA2ATask(options: GetA2ATaskOptions): Promise<Task> {
 	const transport = createA2ATransport(options.endpoint, options.apiKey);
 	return transport.getTask({
+		tenant: "",
 		id: options.taskId,
 		...(options.historyLength !== undefined
 			? { historyLength: options.historyLength }
@@ -158,7 +175,11 @@ export async function cancelA2ATask(
 	options: A2ATaskTarget & { taskId: string },
 ): Promise<Task> {
 	const transport = createA2ATransport(options.endpoint, options.apiKey);
-	return transport.cancelTask({ id: options.taskId });
+	return transport.cancelTask({
+		tenant: "",
+		id: options.taskId,
+		metadata: undefined,
+	});
 }
 
 /**
@@ -193,7 +214,7 @@ export class A2APollTimeoutError extends Error {
 		timeoutMs: number,
 	) {
 		super(
-			`Task ${taskId} did not settle within ${timeoutMs}ms (last state: ${lastState ?? "unknown"})`,
+			`Task ${taskId} did not settle within ${timeoutMs}ms (last state: ${taskStateToLegacy(lastState)})`,
 		);
 		this.name = "A2APollTimeoutError";
 	}
@@ -301,13 +322,15 @@ export async function registerA2APush(
 	options: RegisterA2APushOptions,
 ): Promise<TaskPushNotificationConfig> {
 	const transport = createA2ATransport(options.endpoint, options.apiKey);
-	return transport.setTaskPushNotificationConfig({
+	return transport.createTaskPushNotificationConfig({
+		tenant: "",
 		taskId: options.taskId,
-		pushNotificationConfig: {
-			url: options.url,
-			...(options.token ? { token: options.token } : {}),
-			...(options.configId ? { id: options.configId } : {}),
-		},
+		// Empty proto strings are absent on the 0.3 wire, so an unset configId
+		// still lets the server name the registration after the task.
+		id: options.configId ?? "",
+		url: options.url,
+		token: options.token ?? "",
+		authentication: undefined,
 	});
 }
 
@@ -316,7 +339,13 @@ export async function listA2APushConfigs(
 	options: A2ATaskTarget & { taskId: string },
 ): Promise<TaskPushNotificationConfig[]> {
 	const transport = createA2ATransport(options.endpoint, options.apiKey);
-	return transport.listTaskPushNotificationConfig({ id: options.taskId });
+	const response = await transport.listTaskPushNotificationConfig({
+		tenant: "",
+		taskId: options.taskId,
+		pageSize: 0,
+		pageToken: "",
+	});
+	return response.configs;
 }
 
 /** Remove a webhook. Defaults to the one named after the Task. */
@@ -325,7 +354,8 @@ export async function deleteA2APushConfig(
 ): Promise<void> {
 	const transport = createA2ATransport(options.endpoint, options.apiKey);
 	await transport.deleteTaskPushNotificationConfig({
-		id: options.taskId,
-		pushNotificationConfigId: options.configId ?? options.taskId,
+		tenant: "",
+		taskId: options.taskId,
+		id: options.configId ?? options.taskId,
 	});
 }

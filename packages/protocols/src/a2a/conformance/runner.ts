@@ -11,7 +11,8 @@
  *   transport error surfaces as the step it broke at, not as a bare HTTP code.
  */
 
-import type { Task } from "@a2a-js/sdk";
+import type { Task, TaskState } from "@a2a-js/sdk";
+import { taskStateToLegacy } from "../v1-compat.js";
 import { ConformanceAssertionError } from "./assertions.js";
 import { CONFORMANCE_CASES } from "./cases.js";
 import type {
@@ -45,6 +46,11 @@ const defaultSleep = (ms: number) =>
 
 function errorMessage(err: unknown): string {
 	return err instanceof Error ? err.message : String(err);
+}
+
+/** v1 states are numeric enum members; report the legacy spelling humans read. */
+function showState(state: TaskState | undefined): string {
+	return state === undefined ? "no state" : taskStateToLegacy(state);
 }
 
 /**
@@ -103,7 +109,7 @@ function makeContext(
 			if (now() - startedAt >= timeoutMs) {
 				throw new ConformanceAssertionError(
 					opts.assertion,
-					`Task ${opts.taskId} did not ${opts.describe} within ${timeoutMs}ms (last observed: ${last?.status?.state ?? "no state"})`,
+					`Task ${opts.taskId} did not ${opts.describe} within ${timeoutMs}ms (last observed: ${showState(last?.status?.state)})`,
 					last?.status?.state,
 				);
 			}

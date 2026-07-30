@@ -4,33 +4,31 @@
  * Speaks A2A JSON-RPC over plain HTTP to any agent that implements the
  * protocol — fetch its agent card, send a message, collect the response.
  *
+ * Wire dialect: the v0.3 legacy JSON-RPC via the SDK's compat transport.
+ * That is deliberate — every current peer (our fleet included) accepts the
+ * legacy wire, and v1.0 servers MUST treat requests without an
+ * `A2A-Version` header as 0.3. The compat transport still returns
+ * v1-typed objects, so callers live in the v1 data model.
+ *
  * Has no knowledge of habitats, Gaia, or any specific runtime; callers
  * pass a plain {@link A2AEndpoint} describing where the agent lives.
  */
 
-import { JsonRpcTransport } from "@a2a-js/sdk/client";
+import { LegacyJsonRpcTransport } from "@a2a-js/sdk/compat/v0_3/client";
 import type {
   Message,
+  StreamResponse,
   Task,
-  TaskStatusUpdateEvent,
-  TaskArtifactUpdateEvent,
 } from "@a2a-js/sdk";
-import { createA2ATransport, resolveA2AEndpointUrl } from "./task-client.js";
-
-/** Message ids are opaque; one generator keeps them consistent across senders. */
-function newA2AMessageId(): string {
-  return `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
+import { resolveA2AEndpointUrl } from "./task-client.js";
+import { messageText, partFileUrl, userMessage } from "./v1-compat.js";
 
 /**
- * Events yielded by `streamA2AMessage` — re-exposed here because the SDK's
- * internal `A2AStreamEventData` alias is not part of its public surface.
+ * Events yielded by `streamA2AMessage` — the v1 SDK's stream envelope.
+ * Discriminate on `payload.$case`: `"task" | "message" | "statusUpdate" |
+ * "artifactUpdate"`.
  */
-export type A2AStreamEvent =
-  | Message
-  | Task
-  | TaskStatusUpdateEvent
-  | TaskArtifactUpdateEvent;
+export type A2AStreamEvent = StreamResponse;
 
 /** Network coordinates of an A2A-speaking agent. */
 export interface A2AEndpoint {
@@ -64,30 +62,39 @@ const AGENT_CARD_TIMEOUT_MS = 5_000;
 const MESSAGE_TIMEOUT_MS = 120_000;
 
 /**
- * Decode the JSON-RPC payload of a `message/send` response into an
- * {@link A2AMessageResponse}. Shared by the host:port and full-URL senders.
+ * Decode the payload of a `message/send` response into an
+ * {@link A2AMessageResponse}.
  *
- * The result can be a Message (with .parts directly) or a Task (with
- * .status.message.parts). Tolerate both shapes. Relative `/files/...`
- * artifact URIs are resolved against `origin` (#194).
+ * Accepts the SDK transport's typed result (a v1 `Message` or `Task`) as
+ * well as raw parsed JSON in either wire dialect — callers that fetch the
+ * endpoint directly (tests, debug tools) hand us legacy-shaped objects.
+ * Relative `/files/...` artifact URIs are resolved against `origin` (#194).
  */
 export function decodeA2ASendPayload(
   parsed: any,
   origin: string,
 ): A2AMessageResponse {
-  if (parsed.error) {
+  if (parsed?.error) {
     const errMsg = parsed.error.message ?? JSON.stringify(parsed.error);
     throw new Error(errMsg);
   }
-  const result = parsed.result ?? parsed;
-  const parts =
+  const result = parsed?.result ?? parsed;
+
+  const parts: any[] =
     result?.parts ??
     result?.status?.message?.parts ??
     result?.message?.parts ??
     [];
   const textParts = parts
-    .filter((p: any) => p.kind === "text" || p.type === "text")
-    .map((p: any) => p.text);
+    .map((p: any) => {
+      // v1 oneof shape first, then the two legacy spellings.
+      if (p?.content?.$case === "text") return p.content.value as string;
+      if (p?.kind === "text" || p?.type === "text") return p.text as string;
+      if (typeof p?.text === "string") return p.text as string;
+      return undefined;
+    })
+    .filter((t): t is string => typeof t === "string");
+
   const resolveUri = (uri: string | undefined): string | undefined => {
     if (!uri) return uri;
     try {
@@ -96,10 +103,15 @@ export function decodeA2ASendPayload(
       return uri;
     }
   };
-  const artifacts = (result?.artifacts ?? []).map((a: any) => ({
-    name: a.name,
-    uri: resolveUri(a.parts?.[0]?.file?.uri),
-  }));
+  const artifacts = (result?.artifacts ?? []).map((a: any) => {
+    const firstPart = a.parts?.[0];
+    const uri =
+      (firstPart ? partFileUrl(firstPart) : undefined) ??
+      firstPart?.file?.uri ??
+      firstPart?.url;
+    return { name: a.name, uri: resolveUri(uri) };
+  });
+
   return {
     text: textParts.join("\n") || "(no text response)",
     artifacts: artifacts.length > 0 ? artifacts : undefined,
@@ -151,42 +163,33 @@ export async function sendA2AMessageToUrl(
   // fronted by a proxy: that what came back was an HTML error page, not JSON.
   // Tee the body so the excerpt survives into the thrown error.
   let lastBody: string | undefined;
+  const timeout = AbortSignal.timeout(timeoutMs ?? MESSAGE_TIMEOUT_MS);
   const teeingFetch: typeof fetch = async (input, init) => {
-    const res = await fetch(input, init);
+    const res = await fetch(input, {
+      ...init,
+      signal: timeout,
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+      },
+    });
     lastBody = await res.clone().text();
     return res;
   };
 
-  const transport = new JsonRpcTransport({
+  const transport = new LegacyJsonRpcTransport({
     endpoint: url.toString(),
-    fetchImpl: apiKey
-      ? (input, init) =>
-          teeingFetch(input, {
-            ...init,
-            headers: {
-              ...(init?.headers as Record<string, string> | undefined),
-              authorization: `Bearer ${apiKey}`,
-            },
-          })
-      : teeingFetch,
+    fetchImpl: teeingFetch,
   });
-  const timeout = AbortSignal.timeout(timeoutMs ?? MESSAGE_TIMEOUT_MS);
 
-  let result: unknown;
+  let result: Message | Task;
   try {
-    result = await transport.sendMessage(
-      {
-        message: {
-          kind: "message",
-          messageId: newA2AMessageId(),
-          role: "user",
-          parts: [{ kind: "text", text }],
-          ...(contextId ? { contextId } : {}),
-          ...(metadata ? { metadata } : {}),
-        },
-      },
-      { signal: timeout } as never,
-    );
+    result = await transport.sendMessage({
+      tenant: "",
+      message: userMessage({ text, contextId, metadata }),
+      configuration: undefined,
+      metadata: undefined,
+    });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     // Only append the body when the transport did not already quote it.
@@ -294,11 +297,12 @@ export interface StreamA2AMessageOptions {
 }
 
 /**
- * Open a streaming A2A `message/stream` connection and yield protocol events
- * as they arrive (Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent).
+ * Open a streaming A2A `message/stream` connection and yield protocol
+ * events as they arrive. Each yielded {@link StreamResponse} carries its
+ * payload under `payload.$case` / `payload.value`.
  *
- * Built on top of the `@a2a-js/sdk` JsonRpcTransport so the SSE wire format
- * is handled by the SDK rather than re-implemented here.
+ * Built on top of the SDK's compat transport so the SSE wire format is
+ * handled by the SDK rather than re-implemented here.
  */
 export async function* streamA2AMessage(
   options: StreamA2AMessageOptions,
@@ -318,18 +322,18 @@ export async function* streamA2AMessage(
         })
     : fetch;
 
-  const transport = new JsonRpcTransport({ endpoint, fetchImpl });
+  const transport = new LegacyJsonRpcTransport({ endpoint, fetchImpl });
 
-  const messageId = `a2a-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   for await (const event of transport.sendMessageStream({
-    message: {
-      kind: "message",
-      messageId,
-      role: "user",
-      parts: [{ kind: "text", text }],
-      ...(contextId ? { contextId } : {}),
-    },
+    tenant: "",
+    message: userMessage({ text, contextId }),
+    configuration: undefined,
+    metadata: undefined,
   })) {
     yield event;
   }
 }
+
+// Re-exported so downstream consumers can read message text without
+// depending on the oneof spelling.
+export { messageText } from "./v1-compat.js";

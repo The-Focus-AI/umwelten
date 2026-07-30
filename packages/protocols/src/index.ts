@@ -11,7 +11,29 @@ export {
   fetchAgentCard,
   sendA2AMessage,
   sendA2AMessageToUrl,
+  streamA2AMessage,
+  decodeA2ASendPayload,
   createA2AServer,
+  DualJsonRpcTransportHandler,
+  buildServerCallContext,
+  AgentEvent,
+  ServerCallContext,
+  UnauthenticatedUser,
+  A2A_SERVER_PROTOCOL_VERSION,
+  taskStateFromLegacy,
+  taskStateToLegacy,
+  stateOf,
+  textPart,
+  dataPart,
+  filePart,
+  partText,
+  partData,
+  partFileUrl,
+  messageText,
+  userMessage,
+  agentMessage,
+  taskFromStoredJson,
+  taskToStoredJson,
   a2aChat,
   fetchJson,
   truncateJson,
@@ -48,6 +70,9 @@ export type {
   AgentCardSummary,
   A2AMessageResponse,
   SendA2AMessageToUrlOptions,
+  StreamA2AMessageOptions,
+  A2AStreamEvent,
+  LegacyTaskState,
   A2AServer,
   A2AServerOptions,
   AgentExecutor,
@@ -90,6 +115,16 @@ export type {
 } from "./mcp-serve/types.js";
 export { getPublicBaseUrl } from "./mcp-serve/public-url.js";
 export { hashToken } from "./mcp-serve/oauth/token.js";
+
+// ── Endpoint discovery (unified MCP + A2A probe) ────────────────────────
+export { discoverAgentEndpoint, agentCardCandidates } from "./discovery/discover.js";
+export type {
+  EndpointCard,
+  EndpointCapability,
+  EndpointKind,
+  EndpointAuth,
+  DiscoverOptions,
+} from "./discovery/discover.js";
 
 // ── MCP Client (remote connection with OAuth PKCE) ──────────────────────
 export { RemoteMcpClient } from "./mcp/client/remote.js";

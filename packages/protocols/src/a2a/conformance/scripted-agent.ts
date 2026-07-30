@@ -7,20 +7,24 @@
  * `AgentExecutor` that reads a directive out of the message text and produces
  * exactly the lifecycle asked for.
  *
- * It is also the reference for what a *correct* A2A agent looks like from the
- * task surface's point of view: every run ends by publishing a terminal (or
- * deliberately interrupted) status, so a caller polling `tasks/get` learns the
- * outcome. An agent whose last event is a bare message leaves its Task at
- * `working` forever.
+ * It is also the reference for what a *correct* v1 A2A agent looks like from
+ * the task surface's point of view (same idiom as `HabitatAgentExecutor`):
+ * the first published event is the Task snapshot, then working status
+ * updates, then **one terminal (or deliberately interrupting) status update
+ * whose `status.message` carries the reply**. There is no `final` flag in the
+ * v1 event model — the stream ends because the state itself is terminal
+ * (completed / canceled / failed / rejected) or INPUT_REQUIRED. An agent
+ * whose last event leaves the Task `working` strands every poller forever.
  */
 
-import { randomUUID } from "node:crypto";
-import type { Task, TaskState, TextPart } from "@a2a-js/sdk";
-import type {
-	AgentExecutor,
-	ExecutionEventBus,
-	RequestContext,
-} from "@a2a-js/sdk/server";
+import { TaskState, type Task } from "@a2a-js/sdk";
+import {
+	AgentEvent,
+	type AgentExecutor,
+	type ExecutionEventBus,
+	type RequestContext,
+} from "../server.js";
+import { agentMessage, messageText } from "../v1-compat.js";
 import type { ConformanceIntent } from "./types.js";
 
 /** Directive text that drives each intent. */
@@ -47,13 +51,6 @@ interface ActiveRun {
 	release(outcome: "canceled" | "killed"): void;
 }
 
-function textOf(context: RequestContext): string {
-	return (context.userMessage.parts ?? [])
-		.filter((part): part is TextPart => part.kind === "text")
-		.map((part) => part.text)
-		.join("\n");
-}
-
 export class ScriptedConformanceAgent implements AgentExecutor {
 	private readonly active = new Map<string, ActiveRun>();
 
@@ -62,22 +59,29 @@ export class ScriptedConformanceAgent implements AgentExecutor {
 		eventBus: ExecutionEventBus,
 	): Promise<void> {
 		const { taskId, contextId, userMessage } = context;
-		const intent = intentFromText(textOf(context));
+		const intent = intentFromText(messageText(userMessage));
 
-		// The initial Task record is what makes the run addressable: without it
+		// The v1 executor contract: the FIRST event of every execute() call
+		// MUST be a `task` or `message` event — including follow-up turns where
+		// the Task already exists, so the snapshot is published unconditionally.
+		// It is also what makes the run addressable: without a Task record,
 		// `tasks/cancel` reports taskNotFound and every status update after this
 		// is dropped as belonging to an unknown task.
-		if (!context.task) {
-			eventBus.publish({
-				kind: "task",
-				id: taskId,
-				contextId,
-				status: { state: "submitted", timestamp: new Date().toISOString() },
-				history: [userMessage],
-			} satisfies Task);
-		}
+		const initialTask: Task = context.task ?? {
+			id: taskId,
+			contextId,
+			status: {
+				state: TaskState.TASK_STATE_SUBMITTED,
+				message: undefined,
+				timestamp: new Date().toISOString(),
+			},
+			artifacts: [],
+			history: [userMessage],
+			metadata: undefined,
+		};
+		eventBus.publish(AgentEvent.task(initialTask));
 
-		this.publishStatus(eventBus, taskId, contextId, "working", false);
+		this.publishStatus(eventBus, taskId, contextId, TaskState.TASK_STATE_WORKING);
 
 		switch (intent) {
 			case "quick":
@@ -85,20 +89,20 @@ export class ScriptedConformanceAgent implements AgentExecutor {
 					eventBus,
 					taskId,
 					contextId,
-					"completed",
-					true,
+					TaskState.TASK_STATE_COMPLETED,
 					"Done.",
 				);
 				eventBus.finished();
 				return;
 
 			case "fail":
+				// The v1 failure idiom: one FAILED terminal status update whose
+				// `status.message` carries the error text.
 				this.publishStatus(
 					eventBus,
 					taskId,
 					contextId,
-					"failed",
-					true,
+					TaskState.TASK_STATE_FAILED,
 					"Failed on request.",
 				);
 				eventBus.finished();
@@ -109,20 +113,20 @@ export class ScriptedConformanceAgent implements AgentExecutor {
 					eventBus,
 					taskId,
 					contextId,
-					"rejected",
-					true,
+					TaskState.TASK_STATE_REJECTED,
 					"Rejected on request.",
 				);
 				eventBus.finished();
 				return;
 
 			case "input-required":
+				// Non-terminal, but stream-interrupting under the v1 model: the
+				// run stops here and waits for the caller, and the queue closes.
 				this.publishStatus(
 					eventBus,
 					taskId,
 					contextId,
-					"input-required",
-					true,
+					TaskState.TASK_STATE_INPUT_REQUIRED,
 					"Waiting for input.",
 				);
 				eventBus.finished();
@@ -147,12 +151,12 @@ export class ScriptedConformanceAgent implements AgentExecutor {
 		eventBus: ExecutionEventBus,
 	): Promise<void> {
 		const run = this.active.get(taskId);
+		// Terminal state — ends the stream under the v1 model.
 		this.publishStatus(
 			eventBus,
 			taskId,
 			run?.contextId ?? "",
-			"canceled",
-			true,
+			TaskState.TASK_STATE_CANCELED,
 			"Canceled by the caller.",
 		);
 		eventBus.finished();
@@ -178,30 +182,23 @@ export class ScriptedConformanceAgent implements AgentExecutor {
 		taskId: string,
 		contextId: string,
 		state: TaskState,
-		final: boolean,
 		text?: string,
 	): void {
-		eventBus.publish({
-			kind: "status-update",
-			taskId,
-			contextId,
-			final,
-			status: {
-				state,
-				timestamp: new Date().toISOString(),
-				...(text
-					? {
-							message: {
-								kind: "message" as const,
-								messageId: randomUUID(),
-								role: "agent" as const,
-								taskId,
-								contextId,
-								parts: [{ kind: "text" as const, text }],
-							},
-						}
-					: {}),
-			},
-		});
+		// No `final` flag in v1 — whether this ends the stream is decided by
+		// the server from `status.state` itself (terminal or INPUT_REQUIRED).
+		eventBus.publish(
+			AgentEvent.statusUpdate({
+				taskId,
+				contextId,
+				status: {
+					state,
+					timestamp: new Date().toISOString(),
+					message: text
+						? agentMessage({ text, taskId, contextId })
+						: undefined,
+				},
+				metadata: undefined,
+			}),
+		);
 	}
 }

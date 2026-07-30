@@ -45,6 +45,7 @@ import {
 	getPublicBaseUrl,
 	FileTaskStore,
 	summarizeTasks,
+	buildServerCallContext,
 } from "@umwelten/protocols";
 import { createAgentSurface } from "./agent-surface.js";
 import { buildAgentStimulus } from "./habitat-agent.js";
@@ -785,7 +786,19 @@ export async function startContainerServer(
 						// resolve to the shared operator on the streaming path while
 						// working fine on message/send (found in prod 2026-07-11).
 						await runWithSpeaker(speaker, async () => {
-							const result = await handler.transportHandler.handle(parsedBody);
+							// Thread the A2A-Version header into the call context so the
+							// v1 handler validates against what the client asked for;
+							// absent means the spec default of 0.3 (legacy peers).
+							const requestedVersion = req.headers["a2a-version"];
+							const result = await handler.transportHandler.handle(
+								parsedBody as Record<string, unknown>,
+								buildServerCallContext({
+									requestedVersion:
+										typeof requestedVersion === "string"
+											? requestedVersion
+											: undefined,
+								}),
+							);
 							if (
 								result &&
 								typeof (result as any)[Symbol.asyncIterator] === "function"

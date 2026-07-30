@@ -48,14 +48,34 @@ export interface ConformanceAgentHandle {
 	stop(): Promise<void>;
 }
 
-function agentCardFor(baseUrl: string): AgentCard {
+/**
+ * The v1 (protobuf-shaped) card `createA2AServer` needs. Declares both
+ * protocol versions on the same URL so the SDK's version validation accepts
+ * v1.0 requests and defaulted 0.3 requests alike — the dual-dialect transport
+ * serves both. Exported so the test file can derive intentionally broken
+ * variants (the forgetful agent) without restating the shape.
+ */
+export function conformanceAgentCard(baseUrl: string): AgentCard {
 	return {
 		name: "Conformance Agent",
 		description: "Scripted A2A agent used by the conformance suite.",
-		url: `${baseUrl}/a2a`,
 		version: "1.0.0",
-		protocolVersion: "0.2.5",
-		capabilities: { streaming: true },
+		supportedInterfaces: ["1.0", "0.3"].map((protocolVersion) => ({
+			url: `${baseUrl}/a2a`,
+			protocolBinding: "JSONRPC",
+			tenant: "",
+			protocolVersion,
+		})),
+		provider: undefined,
+		documentationUrl: undefined,
+		capabilities: {
+			streaming: true,
+			pushNotifications: false,
+			extensions: [],
+			extendedAgentCard: false,
+		},
+		securitySchemes: {},
+		securityRequirements: [],
 		defaultInputModes: ["text/plain"],
 		defaultOutputModes: ["text/plain"],
 		skills: [
@@ -64,8 +84,14 @@ function agentCardFor(baseUrl: string): AgentCard {
 				name: "Conformance",
 				description: "Drives a Task to a requested lifecycle state.",
 				tags: ["test"],
+				examples: [],
+				inputModes: [],
+				outputModes: [],
+				securityRequirements: [],
 			},
 		],
+		signatures: [],
+		iconUrl: undefined,
 	};
 }
 
@@ -92,7 +118,7 @@ export async function startConformanceAgent(
 
 	function build(): A2AServer {
 		return createA2AServer({
-			agentCard: agentCardFor(baseUrl()),
+			agentCard: conformanceAgentCard(baseUrl()),
 			executor,
 			taskStore: new FileTaskStore({ dir: tasksDir }),
 		});
@@ -127,10 +153,10 @@ export async function startConformanceAgent(
 					return;
 				}
 
-				let body: unknown;
+				let body: Record<string, unknown> | undefined;
 				try {
 					const raw = await readBody(req);
-					body = raw ? JSON.parse(raw) : undefined;
+					body = raw ? (JSON.parse(raw) as Record<string, unknown>) : undefined;
 				} catch {
 					res.writeHead(400, { "content-type": "application/json" });
 					res.end(
@@ -144,7 +170,9 @@ export async function startConformanceAgent(
 				}
 
 				try {
-					const result = await a2a.transportHandler.handle(body);
+					// An empty POST body becomes an empty envelope; the v1 handler
+					// answers it with a JSON-RPC invalid-request error.
+					const result = await a2a.transportHandler.handle(body ?? {});
 					if (
 						result &&
 						typeof (result as AsyncGenerator<unknown>)[Symbol.asyncIterator] ===

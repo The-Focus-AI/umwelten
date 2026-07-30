@@ -353,6 +353,12 @@ export interface RemoteMcpClientOptions {
   clientName?: string;
   /** Filter which tools to expose (return false to exclude) */
   toolFilter?: (tool: MCPToolDescriptor) => boolean;
+  /**
+   * Extra headers sent on every request (e.g. a pre-provisioned
+   * `Authorization: Bearer …`). OAuth via the auth provider still applies
+   * when the server challenges despite these headers.
+   */
+  headers?: Record<string, string>;
 }
 
 export class RemoteMcpClient {
@@ -360,6 +366,7 @@ export class RemoteMcpClient {
   private readonly oauthPort: number;
   private readonly oauthTimeoutMs: number;
   private readonly toolFilter: (tool: MCPToolDescriptor) => boolean;
+  private readonly headers: Record<string, string> | undefined;
   private readonly provider: FileOAuthClientProvider;
   private client: Client | null = null;
   private transport: StreamableHTTPClientTransport | null = null;
@@ -372,6 +379,7 @@ export class RemoteMcpClient {
     this.oauthPort = options.oauthPort ?? 3339;
     this.oauthTimeoutMs = options.oauthTimeoutMs ?? 300_000;
     this.toolFilter = options.toolFilter ?? (() => true);
+    this.headers = options.headers;
 
     const scope = (options.scope || 'mcp').split(/\s+/).map(p => p.trim()).filter(Boolean).join(' ');
     const redirectUri = `http://127.0.0.1:${this.oauthPort}/callback`;
@@ -384,6 +392,7 @@ export class RemoteMcpClient {
     const client = new Client({ name: 'umwelten-mcp-client', version: '1.0.0' }, { capabilities: {} });
     const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl), {
       authProvider: this.provider,
+      ...(this.headers ? { requestInit: { headers: this.headers } } : {}),
     });
     return { client, transport };
   }

@@ -71,8 +71,9 @@ describe("uiResourceToA2APart (normalizer)", () => {
   it("maps a UI resource to a DataPart tagged text/html+mcp", () => {
     const r = buildHabitatUIResource({ uri: "ui://h/w", html: "<p>hi</p>" });
     const part = uiResourceToA2APart(r);
-    expect(part.kind).toBe("data");
-    expect(part.data).toEqual(r);
+    // v1 Part oneof: the resource rides the `data` content branch.
+    expect(part.content?.$case).toBe("data");
+    expect(part.content?.$case === "data" && part.content.value).toEqual(r);
     expect(part.metadata).toMatchObject({
       mcpUi: true,
       outputMode: UI_OUTPUT_MODE,

@@ -16,9 +16,15 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Task } from "@a2a-js/sdk";
+import { TaskState, type Task } from "@a2a-js/sdk";
 import type { PushNotificationSender } from "@a2a-js/sdk/server";
-import { type FileTaskStore, isAbandonableTaskState } from "./file-task-store.js";
+import {
+	type FileTaskStore,
+	isAbandonableTaskState,
+	isInterruptedTaskState,
+} from "./file-task-store.js";
+import { buildServerCallContext } from "./server.js";
+import { agentMessage } from "./v1-compat.js";
 
 /** Marker on the failing status message, so an abandoned Task is identifiable. */
 export const ABANDONED_TASK_MARKER = "umwelten.task.abandoned";
@@ -52,17 +58,15 @@ function abandonedStatus(
 	messageId: string,
 ): Task["status"] {
 	return {
-		state: "failed",
+		state: TaskState.TASK_STATE_FAILED,
 		timestamp,
-		message: {
-			kind: "message",
-			role: "agent",
+		message: agentMessage({
+			text: reason,
 			messageId,
 			taskId: task.id,
 			contextId: task.contextId,
-			parts: [{ kind: "text", text: reason }],
 			metadata: { [ABANDONED_TASK_MARKER]: true },
-		},
+		}),
 	};
 }
 
@@ -87,7 +91,7 @@ export async function sweepAbandonedTasks(
 		if (!isAbandonableTaskState(state)) {
 			// Sorting the untouched ones lets a caller log *why* each was skipped;
 			// "interrupted" and "already finished" are very different situations.
-			if (state === "input-required" || state === "auth-required") {
+			if (isInterruptedTaskState(state)) {
 				result.interrupted.push(task.id);
 			} else {
 				result.terminal.push(task.id);
@@ -129,7 +133,13 @@ export async function notifySweptTasks(
 		try {
 			const task = await store.load(taskId);
 			if (!task) continue;
-			await sender.send(task);
+			// The v1 sender takes a StreamResponse. A `task` payload carries the
+			// whole swept Task — the same body the 0.3 sender used to POST, so
+			// 0.3-registered webhooks see an unchanged notification shape.
+			await sender.send(
+				{ payload: { $case: "task", value: task } },
+				buildServerCallContext(),
+			);
 			notified.push(taskId);
 		} catch (error) {
 			options.onError?.(taskId, error);

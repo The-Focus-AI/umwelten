@@ -137,7 +137,10 @@ export interface ConformanceCaseResult {
 	assertion?: string;
 	/** What was expected and what was seen. */
 	message?: string;
-	/** Task state observed at the point of failure, when there was one. */
+	/**
+	 * Task state observed at the point of failure, when there was one.
+	 * A v1 numeric enum member — render with `taskStateToLegacy` for humans.
+	 */
 	observedState?: TaskState;
 	/** Why the case did not run. Set iff `status === "skipped"`. */
 	skipReason?: string;
