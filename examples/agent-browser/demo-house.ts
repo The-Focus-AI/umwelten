@@ -158,7 +158,7 @@ function dashboardHtml(): string {
       <div id="temp"></div>
     </div>
   </div>
-  <div id="note">Click rooms or the furnace for a local preview — ask the agent to actually switch anything.</div>
+  <div id="note">Click rooms or the furnace — changes go through the host (or stay a local preview without one).</div>
   <script>
   const ROOMS = ${JSON.stringify(ROOMS)};
   let s = ${JSON.stringify(s)};
@@ -190,9 +190,42 @@ function dashboardHtml(): string {
       (s.furnace.on ? s.furnace.targetF : ${COLD_FLOOR_F}) + '°F</span>' +
       '<div class="mode">' + modeText + '</div></div>';
     for (const el of document.querySelectorAll(".room"))
-      el.onclick = () => { s.rooms[el.dataset.room] = !s.rooms[el.dataset.room]; poke(); };
-    f.onclick = () => { s.furnace.on = !s.furnace.on; retrend(); poke(); };
+      el.onclick = () => {
+        const room = el.dataset.room;
+        bridge("set_light", { room, on: !s.rooms[room] },
+          () => { s.rooms[room] = !s.rooms[room]; poke(); });
+      };
+    f.onclick = () => {
+      bridge("set_furnace", { on: !s.furnace.on },
+        () => { s.furnace.on = !s.furnace.on; retrend(); poke(); });
+    };
   }
+  // The MCP Apps pattern in miniature: the sandboxed app never talks to the
+  // server itself — it asks the HOST to run the tool call. A host that
+  // implements the bridge answers with ui-tool-result and replaces this
+  // widget with the fresh dashboard; without a host we fall back to the
+  // local preview after a short wait.
+  function bridge(tool, args, localFallback) {
+    const id = Math.random().toString(36).slice(2);
+    let settled = false;
+    const onMsg = (e) => {
+      const m = e.data;
+      if (!m || m.type !== "ui-tool-result" || m.id !== id) return;
+      settled = true;
+      window.removeEventListener("message", onMsg);
+      if (!m.ok) note("⚠ " + (m.error || tool + " failed"));
+    };
+    window.addEventListener("message", onMsg);
+    try { window.parent.postMessage({ type: "ui-tool-call", id, tool, args }, "*"); } catch {}
+    note("… " + tool);
+    setTimeout(() => {
+      if (settled) return;
+      window.removeEventListener("message", onMsg);
+      localFallback();
+      note("local preview — no host bridge answered; ask the agent instead");
+    }, 1200);
+  }
+  function note(t) { document.getElementById("note").textContent = t; }
   function retrend() {
     const target = s.furnace.on ? s.furnace.targetF : ${COLD_FLOOR_F};
     s.trend = Math.abs(target - s.indoorF) < .3 ? 'holding'

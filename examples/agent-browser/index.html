@@ -162,7 +162,7 @@ function renderState(s) {
       ${m.toolCalls?.length ? `<div class="tools">${m.toolCalls.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}
       ${(m.ui || []).map((u) => `<div class="ui-resource">
         <div class="ui-label">${esc(u.tool)}${u.uri ? " · " + esc(u.uri) : ""}</div>
-        <iframe sandbox="allow-scripts" srcdoc="${esc(u.html)}"></iframe>
+        <iframe sandbox="allow-scripts" data-uri="${esc(u.uri || "")}" srcdoc="${esc(u.html)}"></iframe>
       </div>`).join("")}
     </div>`).join("");
   t.scrollTop = t.scrollHeight;
@@ -228,6 +228,31 @@ async function send() {
 $("send").onclick = send;
 $("message").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
 $("reset").onclick = async () => renderState(await api("/api/reset", {}));
+
+// Host side of the widget bridge (the MCP Apps pattern in miniature): a
+// sandboxed widget posts { type: "ui-tool-call", id, tool, args } to this
+// page, the page runs the tool through the chat server — which also tells
+// the model what happened — and the fresh widget replaces the old one.
+window.addEventListener("message", async (e) => {
+  const m = e.data;
+  if (!m || m.type !== "ui-tool-call" || typeof m.tool !== "string") return;
+  const iframe = [...document.querySelectorAll(".ui-resource iframe")]
+    .find((f) => f.contentWindow === e.source);
+  try {
+    const res = await api("/api/ui-tool", {
+      tool: m.tool,
+      args: m.args ?? {},
+      uri: iframe?.dataset.uri || undefined,
+    });
+    e.source?.postMessage({ type: "ui-tool-result", id: m.id, ok: res.success !== false }, "*");
+    renderState(res); // transcript row updated in place server-side
+  } catch (err) {
+    e.source?.postMessage(
+      { type: "ui-tool-result", id: m.id, ok: false, error: err.message || String(err) },
+      "*",
+    );
+  }
+});
 
 api("/api/state").then(renderState).catch(() => {});
 </script>
