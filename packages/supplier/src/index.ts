@@ -20,6 +20,23 @@ export { ExchangeClient } from "./exchange-client.js";
 export type { ExchangeClientOptions, PublishResult } from "./exchange-client.js";
 
 export {
+  detectResources,
+  estimateCandidates,
+  estimateLoadBytes,
+  estimateParamsB,
+} from "./candidates.js";
+export type {
+  Accelerator,
+  AcceleratorKind,
+  Candidate,
+  CandidateSet,
+  DetectEffects,
+  Exclusion,
+  MachineResources,
+} from "./candidates.js";
+export { detectMachineResources, nodeDetectEffects } from "./candidates-node.js";
+
+export {
   HEADROOM_POLICY,
   MAX_SAMPLE_CONCURRENCY,
   classifySaturation,

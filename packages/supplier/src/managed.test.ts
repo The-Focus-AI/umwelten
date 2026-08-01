@@ -144,8 +144,12 @@ describe("planManagedRuntime", () => {
   });
 
   it("refuses an empty Model list rather than serving whatever it finds", () => {
+    // Reached either when nothing was named and nothing survived the size
+    // estimate, or when an operator named nothing on a machine with no weights.
+    // Serving "everything on disk" instead would publish Offers for models
+    // that cannot load.
     expect(() => planManagedRuntime({ managed: managed({ models: [] }), available: DISK })).toThrow(
-      /explicit list of Models/,
+      /nothing to serve/,
     );
   });
 
