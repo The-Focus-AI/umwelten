@@ -55,7 +55,7 @@ import { buildConfiguredRuntimeRunners } from "./cli-runner.js";
 import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
-import { bearerAuth } from "./web/auth/bearer-auth.js";
+import { bearerAuth, parseApiKeys } from "./web/auth/bearer-auth.js";
 import { jwtAuth } from "./web/auth/jwt-auth.js";
 import { compositeAuth } from "./web/auth/composite-auth.js";
 import {
@@ -108,12 +108,16 @@ type AuthMode = "jwt" | "jwt+bearer" | "bearer" | "open";
  *   (service trust, e.g. Gaia's relay) — the additive ADR-0003 transition.
  * - `HABITAT_API_KEY` alone → legacy shared bearer (retiring).
  * - nothing → open dev auth (local only).
+ *
+ * `HABITAT_API_KEY` may hold several comma-separated keys. They are equivalent
+ * — same rights, same identity — so each consumer can hold a distinct value and
+ * be revoked on its own. A single key parses to a one-element list.
  */
 function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 	const audience = process.env.HABITAT_AUTH_AUDIENCE;
 	const jwksUrl = process.env.HABITAT_AUTH_JWKS_URL;
 	const publicKeyPem = process.env.HABITAT_AUTH_PUBLIC_KEY;
-	const apiKey = process.env.HABITAT_API_KEY;
+	const apiKeys = parseApiKeys(process.env.HABITAT_API_KEY);
 	if (audience && (jwksUrl || publicKeyPem)) {
 		const jwt = jwtAuth({
 			audience,
@@ -123,9 +127,9 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 		});
 		// Dual-auth during the transition: JWT (identity) OR shared bearer
 		// (service trust) so enabling JWT doesn't lock out Gaia's relay.
-		if (apiKey) {
+		if (apiKeys.length > 0) {
 			return {
-				auth: compositeAuth("jwt+bearer", [jwt, bearerAuth(apiKey)]),
+				auth: compositeAuth("jwt+bearer", [jwt, bearerAuth(apiKeys)]),
 				authMode: "jwt+bearer",
 			};
 		}
@@ -140,7 +144,8 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 				"HABITAT_AUTH_JWKS_URL or HABITAT_AUTH_PUBLIC_KEY (see ADR 0003).",
 		);
 	}
-	if (apiKey) return { auth: bearerAuth(apiKey), authMode: "bearer" };
+	if (apiKeys.length > 0)
+		return { auth: bearerAuth(apiKeys), authMode: "bearer" };
 	return { auth: devAuth(), authMode: "open" };
 }
 
@@ -317,8 +322,11 @@ export async function startContainerServer(
 	// state secret rides HABITAT_API_KEY when present (stable across restarts),
 	// else a per-process random (fine — a connect round-trip is short-lived).
 	const connectors = buildDefaultConnectors();
+	// The FIRST key, not the raw variable: adding or revoking a second key must
+	// not silently change this secret and invalidate in-flight connect flows.
 	const connectSecret =
-		process.env.HABITAT_API_KEY?.trim() || randomBytes(32).toString("hex");
+		parseApiKeys(process.env.HABITAT_API_KEY)[0] ||
+		randomBytes(32).toString("hex");
 
 	// Chat bridge + adapter, with logging wrapper
 	const bridge = new ChannelBridge(habitat, {

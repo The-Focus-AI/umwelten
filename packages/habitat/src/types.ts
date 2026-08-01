@@ -440,6 +440,18 @@ export interface HabitatConfig {
 	/** Secrets required for this habitat to function. */
 	requiredSecrets?: RequiredSecret[];
 	/**
+	 * GAIA ONLY. Provider name → the env var its key is read from, e.g.
+	 * `{ "openrouter": "OPENROUTER_API_KEY" }`. Gaia uses this to supply the
+	 * model credential to every habitat it provisions, so no habitat has to
+	 * declare one — the model it thinks with is platform infrastructure, not a
+	 * fact about the habitat's work.
+	 *
+	 * Declared rather than inferred on purpose: deriving it would mean Gaia
+	 * inventing a requirement nobody wrote down. A provider with no entry gets
+	 * nothing, and that is reported.
+	 */
+	modelCredentials?: Record<string, string>;
+	/**
 	 * Whose third-party account tools act as: "shared" (operator account for
 	 * everyone), "per-user" (each user must connect their own; no fallback), or
 	 * "hybrid" (per-user with shared fallback — the default). Enforced by the
