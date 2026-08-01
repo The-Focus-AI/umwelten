@@ -1,4 +1,4 @@
-# 0007 — Charge is recorded independently of Cost
+# 0013 — Charge is recorded independently of Cost
 
 Status: Accepted
 Date: 2026-07-26

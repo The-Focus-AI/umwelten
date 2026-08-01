@@ -48,6 +48,45 @@ export interface HeadroomSample {
   ttftMs: number;
   tokensPerSecond: number;
   decodeTokensPerSecond: number;
+  /** How long generation ran. A short window understates, so it is published. */
+  decodeSeconds?: number;
+  /** Whether the sample met the Supplier's stated sampling policy. */
+  meetsPolicy?: boolean;
+  errors?: number;
+}
+
+/**
+ * What a set of samples says about concurrent work.
+ *
+ * A flat aggregate with rising time-to-first-token is queueing; a falling
+ * aggregate is contention. Dispatch cares about the difference: a Supplier
+ * that queues cannot take a second customer without the first one noticing.
+ */
+export type SaturationVerdict = "batches" | "queues" | "contends" | "inconclusive";
+
+/**
+ * How a Headroom was measured, published alongside it.
+ *
+ * Carried rather than assumed, so two Suppliers' numbers can be compared
+ * knowing they were taken the same way — and so it is visible when one of them
+ * was not.
+ */
+export interface HeadroomMeta {
+  sampledAt: string;
+  /** Time to first token when the Model was not already resident. */
+  coldStartMs?: number;
+  coldStartFirstTouch?: boolean;
+  policy?: {
+    levels: number[];
+    minDecodeSeconds: number;
+    maxSampleSeconds: number;
+    cooldownMs: number;
+    resampleAfterSeconds: number;
+    countTo: number;
+  };
+  saturation?: SaturationVerdict;
+  /** Set when sampling failed. The Offer is still live, with the gap visible. */
+  failed?: string;
 }
 
 /**
@@ -96,8 +135,16 @@ export interface Offer {
   guarantees: string[];
   servingMode: ServingMode;
   headroom: HeadroomSample[];
+  /** How the Headroom was sampled, and whether sampling succeeded. */
+  headroomMeta?: HeadroomMeta;
   /** Context length this Offer actually accepts, when the Supplier probed it. */
   contextTokens?: number;
+  /**
+   * The quantization behind this Offer. Only a managed Offer can say — an
+   * adapted one is reselling a configuration its Supplier does not control
+   * (ADR 0016).
+   */
+  quantization?: string;
   /**
    * What the Supplier is owed per million tokens. Zero for hardware the
    * operator owns. Set by the operator, never by the Supplier.
@@ -124,7 +171,9 @@ export interface PublishedOffer {
   capabilities: CapabilityName[];
   servingMode: ServingMode;
   headroom?: HeadroomSample[];
+  headroomMeta?: HeadroomMeta;
   contextTokens?: number;
+  quantization?: string;
 }
 
 /** An organization invoiced for the usage of the Applications it owns. */

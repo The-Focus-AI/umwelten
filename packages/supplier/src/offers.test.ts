@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { findDuplicateModels, probeTargets, toOfferDrafts } from "./offers.js";
+import { HEADROOM_POLICY } from "./headroom.js";
 import type { MachineState, ProbedOffer } from "./types.js";
 
 const machine = (overrides: Partial<MachineState> = {}): MachineState => ({
@@ -28,8 +29,32 @@ const probed = (overrides: Partial<ProbedOffer> = {}): ProbedOffer => ({
     { name: "tool-calling", supported: false, evidence: "no tool call", elapsedMs: 1 },
   ],
   headroom: [
-    { concurrency: 1, ttftMs: 300, tokensPerSecond: 94, decodeTokensPerSecond: 114, errors: 0 },
+    {
+      concurrency: 1,
+      ttftMs: 300,
+      tokensPerSecond: 94,
+      decodeTokensPerSecond: 114,
+      errors: 0,
+      decodeSeconds: 25,
+      meetsPolicy: true,
+    },
+    {
+      concurrency: 4,
+      ttftMs: 900,
+      tokensPerSecond: 310,
+      decodeTokensPerSecond: 88,
+      errors: 0,
+      decodeSeconds: 31,
+      meetsPolicy: true,
+    },
   ],
+  headroomMeta: {
+    sampledAt: "2026-07-28T00:00:00Z",
+    coldStartMs: 18_400,
+    coldStartFirstTouch: true,
+    policy: HEADROOM_POLICY,
+    saturation: "batches",
+  },
   ...overrides,
 });
 
@@ -85,8 +110,75 @@ describe("toOfferDrafts", () => {
 
   it("carries Headroom samples through as measured", () => {
     const [draft] = toOfferDrafts([probed()], { servingMode: "managed" });
-    expect(draft.headroom).toHaveLength(1);
+    expect(draft.headroom).toHaveLength(2);
     expect(draft.headroom[0].tokensPerSecond).toBe(94);
+    // Unchanged, not summarized. A single number would have presented a
+    // serializing runtime and a batching one as comparable Offers.
+    expect(draft.headroom).toEqual(probed().headroom);
+  });
+
+  it("publishes every Offer with more than one concurrency level", () => {
+    const [draft] = toOfferDrafts([probed()], { servingMode: "managed" });
+    const levels = new Set(draft.headroom.map((h) => h.concurrency));
+    expect(levels.size).toBeGreaterThan(1);
+  });
+
+  it("carries how the Headroom was sampled, not just the numbers", () => {
+    // Two Suppliers' figures are only comparable if they were taken the same
+    // way, so the policy travels with them.
+    const [draft] = toOfferDrafts([probed()], { servingMode: "managed" });
+    expect(draft.headroomMeta?.policy).toEqual(HEADROOM_POLICY);
+    expect(draft.headroomMeta?.saturation).toBe("batches");
+  });
+
+  it("publishes the cold-to-first-token cost", () => {
+    // The difference between dispatching to a warm Offer and a sleeping one,
+    // observed at 14–28 seconds and previously unpriced.
+    const [draft] = toOfferDrafts([probed()], { servingMode: "managed" });
+    expect(draft.headroomMeta?.coldStartMs).toBe(18_400);
+  });
+
+  it("publishes an Offer whose Headroom sample failed, with the failure recorded", () => {
+    // Different from a failed probe. The Model serves; we just could not
+    // measure how fast. Withholding it would have Dispatch route around a
+    // Model that works.
+    const drafts = toOfferDrafts(
+      [
+        probed({
+          headroom: [],
+          headroomMeta: {
+            sampledAt: "2026-07-28T00:00:00Z",
+            coldStartFirstTouch: true,
+            policy: HEADROOM_POLICY,
+            saturation: "inconclusive",
+            failed: "every sample errored or produced no tokens",
+          },
+        }),
+      ],
+      { servingMode: "managed" },
+    );
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].headroomMeta?.failed).toContain("errored");
+  });
+
+  it("offers no way to declare a Headroom figure", () => {
+    // Headroom is measured, never declared. There is no options field that
+    // could set one, and this is the assertion that keeps it that way.
+    const [draft] = toOfferDrafts([probed({ headroom: [] })], { servingMode: "managed" });
+    expect(draft.headroom).toEqual([]);
+  });
+
+  it("records a pinned quantization only when the agent pinned one", () => {
+    // Only a managed Offer can say — an adapted one is reselling a
+    // configuration its Supplier does not control.
+    const [pinned] = toOfferDrafts([probed()], {
+      servingMode: "managed",
+      quantization: { "gemma4:26b": "Q4_K_M" },
+    });
+    expect(pinned.quantization).toBe("Q4_K_M");
+
+    const [adapted] = toOfferDrafts([probed()], { servingMode: "adapted" });
+    expect(adapted.quantization).toBeUndefined();
   });
 
   it("publishes no price", () => {

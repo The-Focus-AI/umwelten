@@ -1,4 +1,4 @@
-# 0008 — The exchange never authenticates End Users
+# 0014 — The exchange never authenticates End Users
 
 Status: Accepted
 Date: 2026-07-26

@@ -23,7 +23,14 @@ import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import { runWithWatchdog } from "./watchdog.js";
-import type { CapabilityProbe, HeadroomSample, ProbedOffer } from "./types.js";
+import {
+  HEADROOM_POLICY,
+  classifySaturation,
+  countingPrompt,
+  meetsPolicy,
+  sanitizeLevels,
+} from "./headroom.js";
+import type { CapabilityProbe, HeadroomMeta, HeadroomSample, ProbedOffer } from "./types.js";
 
 /** Binary probes are short by construction; 3 minutes is already generous. */
 const CAPABILITY_TIMEOUT_MS = 3 * 60_000;
@@ -298,6 +305,43 @@ async function probeReasoning(model: ModelDetails): Promise<CapabilityProbe> {
 // ── Throughput ───────────────────────────────────────────────────────────────
 
 /**
+ * Time to first token on the very first request of the run.
+ *
+ * Published because cold and warm are worth seconds apart — on-demand model
+ * loads were observed at 14–28 seconds, which is the whole difference between
+ * dispatching to a warm Offer and a sleeping one, and it was previously
+ * unpriced.
+ *
+ * "Cold" here means *first-touch*, not forced-cold. A runtime that already had
+ * the Model resident reports a warm number, which is why the flag travels with
+ * the figure rather than the figure travelling alone.
+ */
+async function measureColdStart(model: ModelDetails): Promise<number | undefined> {
+  let firstTokenAt: number | undefined;
+  const started = Date.now();
+
+  const outcome = await runWithWatchdog({
+    timeoutMs: THROUGHPUT_TIMEOUT_MS,
+    task: async (signal) => {
+      const interaction = new Interaction(
+        model,
+        // Short on purpose: we are timing the load, not the generation.
+        new Stimulus({ role: "a terse assistant", maxTokens: 8 }),
+      );
+      interaction.addMessage({ role: "user", content: "Say: hi" });
+      return interaction.streamText(signal, {
+        onTextDelta: () => {
+          firstTokenAt ??= Date.now();
+        },
+      });
+    },
+  });
+
+  if (!outcome.ok || !firstTokenAt) return undefined;
+  return firstTokenAt - started;
+}
+
+/**
  * Measure TTFT and tokens/sec at a given concurrency. Run at 1 to get the
  * single-stream number a buyer experiences, and at N to find where the box
  * stops scaling — that inflection is the Headroom the exchange needs.
@@ -309,6 +353,7 @@ async function probeReasoning(model: ModelDetails): Promise<CapabilityProbe> {
 async function measureThroughput(
   model: ModelDetails,
   concurrency: number,
+  countTo: number = HEADROOM_POLICY.countTo,
 ): Promise<HeadroomSample> {
   const ttfts: number[] = [];
   const decodeRates: number[] = [];
@@ -332,10 +377,7 @@ async function measureThroughput(
               instructions: ["Output only the numbers. No commentary."],
             }),
           );
-          interaction.addMessage({
-            role: "user",
-            content: "Count from 1 to 200. One number per line.",
-          });
+          interaction.addMessage({ role: "user", content: countingPrompt(countTo) });
           return interaction.streamText(signal, {
             onTextDelta: () => {
               firstTokenAt ??= Date.now();
@@ -363,19 +405,87 @@ async function measureThroughput(
   );
 
   const wallSeconds = (Date.now() - wallStart) / 1000;
-  return {
+  // How long generation actually ran, net of the queue wait. This is the number
+  // that decides whether the sample is a rate or a floor, so it is published
+  // rather than checked and thrown away.
+  const decodeSeconds = Number(
+    Math.max(0, wallSeconds - median(ttfts) / 1000).toFixed(1),
+  );
+
+  const sample: HeadroomSample = {
     concurrency,
     ttftMs: Math.round(median(ttfts)),
     tokensPerSecond: wallSeconds > 0 ? Number((completionTokens / wallSeconds).toFixed(1)) : 0,
     decodeTokensPerSecond: Number(median(decodeRates).toFixed(1)),
     errors,
+    decodeSeconds,
+    meetsPolicy: false,
+  };
+  return { ...sample, meetsPolicy: meetsPolicy(sample) };
+}
+
+/**
+ * Sample Headroom across the policy's levels.
+ *
+ * Sequential, with a cooldown between levels: on a single-GPU box, overlapping
+ * levels would measure our own interference, and sampling is not supposed to
+ * be the load. The whole run is bounded by `maxSampleSeconds` — a Model slow
+ * enough to blow the budget gets the levels we managed rather than an
+ * open-ended measurement of a machine that is meant to be earning.
+ */
+async function sampleHeadroom(
+  model: ModelDetails,
+  opts: {
+    concurrency?: number[];
+    sleep?: (ms: number) => Promise<void>;
+    coldStartMs?: number;
+    coldStartFirstTouch: boolean;
+  },
+): Promise<{ samples: HeadroomSample[]; meta: HeadroomMeta }> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const levels = sanitizeLevels(opts.concurrency);
+  const started = Date.now();
+
+  const samples: HeadroomSample[] = [];
+  let failed: string | undefined;
+
+  for (const [index, level] of levels.entries()) {
+    const spent = (Date.now() - started) / 1000;
+    if (spent > HEADROOM_POLICY.maxSampleSeconds) {
+      failed =
+        `sampling budget of ${HEADROOM_POLICY.maxSampleSeconds}s spent after ${index} of ` +
+        `${levels.length} level(s); remaining levels not measured`;
+      break;
+    }
+    if (index > 0) await sleep(HEADROOM_POLICY.cooldownMs);
+    samples.push(await measureThroughput(model, level));
+  }
+
+  const allFailed = samples.length > 0 && samples.every((s) => s.tokensPerSecond === 0);
+  if (allFailed) failed ??= "every sample errored or produced no tokens";
+  if (samples.length === 0) failed ??= "no samples were taken";
+
+  return {
+    samples,
+    meta: {
+      sampledAt: new Date().toISOString(),
+      coldStartMs: opts.coldStartMs,
+      coldStartFirstTouch: opts.coldStartFirstTouch,
+      policy: { ...HEADROOM_POLICY, levels },
+      saturation: classifySaturation(samples),
+      failed,
+    },
   };
 }
 
 // ── Orchestration ────────────────────────────────────────────────────────────
 
 export interface ProbeOptions {
-  /** Concurrency levels to sample. Default [1]. Try [1, 4] to find the knee. */
+  /**
+   * Concurrency levels to sample. Clamped by `sanitizeLevels` — an operator
+   * chooses where to sample, not how hard, and a single level is padded
+   * because one point measures a speed rather than a Headroom.
+   */
   concurrency?: number[];
   /** Skip the headroom stage — capabilities only, much faster. */
   skipHeadroom?: boolean;
@@ -393,6 +503,10 @@ export async function probeOffer(
 ): Promise<ProbedOffer> {
   const details: ModelDetails = { name: model, provider };
   const probedAt = new Date().toISOString();
+
+  // First, before anything else has touched this Model — otherwise we would be
+  // timing a load that the capability probes already paid for.
+  const coldStartMs = opts.skipHeadroom ? undefined : await measureColdStart(details);
 
   const chat = await probeChat(details);
   if (!chat.supported) {
@@ -413,12 +527,19 @@ export async function probeOffer(
   capabilities.push(await probeStructuredOutput(details));
   capabilities.push(await probeReasoning(details));
 
-  const headroom: HeadroomSample[] = [];
-  if (!opts.skipHeadroom) {
-    for (const level of opts.concurrency ?? [1]) {
-      headroom.push(await measureThroughput(details, level));
-    }
+  if (opts.skipHeadroom) {
+    return { provider, model, probedAt, capabilities, headroom: [] };
   }
 
-  return { provider, model, probedAt, capabilities, headroom };
+  const { samples, meta } = await sampleHeadroom(details, {
+    concurrency: opts.concurrency,
+    coldStartMs,
+    coldStartFirstTouch: true,
+  });
+
+  // Note what does *not* happen when sampling fails: the Offer is still
+  // returned. A Model that serves but whose throughput we could not measure is
+  // more useful to Dispatch than no Model at all, so long as the gap is on the
+  // Offer rather than hidden in a log.
+  return { provider, model, probedAt, capabilities, headroom: samples, headroomMeta: meta };
 }
