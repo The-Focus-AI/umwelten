@@ -36,7 +36,12 @@ set +a
 : "${GAIA_API_KEY:?GAIA_API_KEY must be set in $ENV_FILE}"
 
 GAIA_URL="https://$GAIA_HOSTNAME"
-AUTH=(-H "Authorization: Bearer $GAIA_API_KEY")
+# GAIA_API_KEY may hold several comma-separated keys — Gaia accepts any of them,
+# but a bearer header carries exactly one. Take the first; the whole list would
+# be sent as a single token and 401 on every child cycle below.
+GAIA_PRIMARY_KEY="$(printf '%s' "${GAIA_API_KEY%%,*}" | tr -d '[:space:]')"
+: "${GAIA_PRIMARY_KEY:?GAIA_API_KEY must contain at least one non-empty key}"
+AUTH=(-H "Authorization: Bearer $GAIA_PRIMARY_KEY")
 
 log() { echo "[redeploy] $*"; }
 
