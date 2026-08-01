@@ -146,6 +146,16 @@ export class ManagedRuntime {
     return this.plan.baseUrl;
   }
 
+  /** Recorded so a start after an unclean shutdown can reap what we left. */
+  get pid(): number | undefined {
+    return this.child.pid;
+  }
+
+  /** Has the runtime we started stopped answering? */
+  isAlive(): Promise<boolean> {
+    return this.effects.isReady(this.plan.baseUrl);
+  }
+
   static async start(
     plan: ManagedPlan,
     effects: RuntimeEffects = nodeRuntimeEffects,
