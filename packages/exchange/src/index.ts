@@ -44,7 +44,7 @@ export type { RequestRecord } from "./types.js";
 export { createModelsHandler, summarizeOffers, MODELS_PATH } from "./buyer/models.js";
 export type { ModelEntry } from "./buyer/models.js";
 
-export { dispatch, rankingPrice } from "./dispatch.js";
+export { DEFAULT_STALE_AFTER_MS, dispatch, rankingPrice } from "./dispatch.js";
 export type {
   Considered,
   DispatchRequirements,

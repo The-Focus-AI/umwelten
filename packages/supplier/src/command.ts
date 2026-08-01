@@ -69,6 +69,7 @@ interface CliOptions {
   resume?: boolean;
   reprobeInterval?: string;
   healthInterval?: string;
+  heartbeatInterval?: string;
   kind?: string;
   user?: string;
 }
@@ -655,6 +656,8 @@ addProbeOptions(
     .option("--guarantees <names>", "Guarantees to claim, comma-separated")
     .option("--reprobe-interval <hours>", "Backstop re-probe interval", "24")
     .option("--health-interval <seconds>", "How often to check what we published", "30")
+    .option("--heartbeat-interval <minutes>", "How often to republish an unchanged set", "5")
+    .option("--heartbeat-interval <minutes>", "How often to republish an unchanged set", "5")
     .option("--resume", "Reuse the saved configuration and credential"),
 ).action(async (opts: CliOptions) => {
   // Resume first: a machine coming back from a reboot has nobody at the
@@ -739,6 +742,9 @@ addProbeOptions(
     await runServeLoop(supervisor, buildServeEffects({ config, client, runtime, opts, inputs }), {
       healthIntervalMs: Number(opts.healthInterval ?? 30) * 1_000,
       reprobeIntervalMs: Number(opts.reprobeInterval ?? 24) * 3_600_000,
+      // The Exchange expires a quiet Supplier. Staying audible is what makes
+      // that expiry mean "gone" rather than "has not changed lately".
+      heartbeatIntervalMs: Number(opts.heartbeatInterval ?? 5) * 60_000,
       signal: abort.signal,
       probeInputs: inputs,
       previous: {

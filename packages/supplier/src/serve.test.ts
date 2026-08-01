@@ -141,6 +141,9 @@ async function runFor(
   await runServeLoop(supervisor, wrapped, {
     healthIntervalMs: 30_000,
     reprobeIntervalMs: 24 * 3_600_000,
+    // Off unless a test is about it, so an unrelated assertion on `published`
+    // is not counting heartbeats.
+    heartbeatIntervalMs: 365 * 24 * 3_600_000,
     signal: abort.signal,
     probeInputs: INPUTS,
     previous: {
@@ -153,12 +156,38 @@ async function runFor(
 }
 
 describe("runServeLoop", () => {
-  it("publishes nothing while everything is healthy", async () => {
-    // Republishing on a timer would be a write per interval that says exactly
-    // what the last one said.
+  it("publishes nothing extra between heartbeats while everything is healthy", async () => {
     const h = harness();
-    await runFor(4, new OfferSupervisor([draft("a"), draft("b")]), h);
+    await runFor(4, new OfferSupervisor([draft("a"), draft("b")]), h, {
+      heartbeatIntervalMs: 60 * 60_000,
+    });
     expect(h.published).toEqual([]);
+  });
+
+  it("heartbeats an unchanged Offer set", async () => {
+    // Not churn. The Exchange expires Offers from a Supplier that has gone
+    // quiet, and that only means anything if a healthy agent is reliably
+    // noisy — it is the half of withdrawal that survives this process being
+    // killed, losing power, or losing its network.
+    const h = harness();
+    // 30s cycles, 5-minute heartbeat: 12 cycles is two heartbeats.
+    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h, {
+      heartbeatIntervalMs: 5 * 60_000,
+    });
+
+    expect(h.published.length).toBeGreaterThanOrEqual(2);
+    // And every heartbeat carries the whole live set, because publishing is
+    // total — a heartbeat that sent nothing would withdraw the machine.
+    for (const publish of h.published) expect(publish.map((o) => o.model)).toEqual(["a", "b"]);
+  });
+
+  it("heartbeats only the Offers that are still live", async () => {
+    const h = harness();
+    h.broken.add("b");
+    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h, {
+      heartbeatIntervalMs: 5 * 60_000,
+    });
+    expect(h.published[h.published.length - 1].map((o) => o.model)).toEqual(["a"]);
   });
 
   it("republishes the moment an Offer crosses the withdrawal threshold", async () => {

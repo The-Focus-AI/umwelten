@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { dispatch, rankingPrice } from "./dispatch.js";
+import { DEFAULT_STALE_AFTER_MS, dispatch, rankingPrice } from "./dispatch.js";
 import type { Offer } from "./types.js";
+
+/**
+ * The supplier agent's heartbeat interval, restated rather than imported: the
+ * exchange does not depend on the supplier package and must not start.
+ */
+const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 
 const MODEL = "gemma-4-26b";
 
@@ -17,7 +23,9 @@ function offer(overrides: Partial<Offer> = {}): Offer {
     retailPromptPerMillion: 100,
     retailCompletionPerMillion: 100,
     enabled: true,
-    publishedAt: new Date("2026-07-28T00:00:00Z"),
+    // Freshly published, because staleness is on by default and these tests
+    // are about the other filters. The staleness tests set this explicitly.
+    publishedAt: new Date(),
     ...overrides,
   };
 }
@@ -154,6 +162,44 @@ describe("dispatch", () => {
       );
 
       expect(result.offer).toBeDefined();
+    });
+
+    it("expires without being configured to", () => {
+      // An expiry window nobody remembered to switch on is a window that never
+      // fires, and then the live agent's withdrawal and the Exchange's expiry
+      // stop being two mechanisms and become one.
+      const old = new Date(Date.now() - DEFAULT_STALE_AFTER_MS - 1_000);
+      const result = dispatch([offer({ publishedAt: old })], { model: MODEL });
+
+      expect(result.offer).toBeUndefined();
+      expect(result.considered[0].reason).toBe("offer-stale");
+    });
+
+    it("leaves room for a missed heartbeat", () => {
+      // The agent republishes every five minutes. One publish lost to a flaky
+      // link must not take a working machine out of the pool.
+      const oneMissed = new Date(Date.now() - 2 * HEARTBEAT_INTERVAL_MS);
+      expect(dispatch([offer({ publishedAt: oneMissed })], { model: MODEL }).offer).toBeDefined();
+    });
+
+    it("can be turned off deliberately", () => {
+      // Distinct from never having been turned on: an operator running a
+      // Supplier that publishes by hand should be able to say so.
+      const ancient = new Date("2020-01-01T00:00:00Z");
+      const result = dispatch([offer({ publishedAt: ancient })], { model: MODEL }, {
+        staleAfterMs: 0,
+      });
+      expect(result.offer).toBeDefined();
+    });
+
+    it("brings a resumed Supplier's Offers back without operator action", () => {
+      // Republishing is the whole recovery path — nothing to re-enable, and
+      // nothing to re-register.
+      const wasStale = offer({ publishedAt: new Date(Date.now() - 60 * 60_000) });
+      expect(dispatch([wasStale], { model: MODEL }).offer).toBeUndefined();
+
+      const republished = { ...wasStale, publishedAt: new Date() };
+      expect(dispatch([republished], { model: MODEL }).offer).toBeDefined();
     });
   });
 
