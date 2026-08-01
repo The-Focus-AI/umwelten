@@ -176,8 +176,8 @@ export function planManagedRuntime(opts: {
 
   if (managed.models.length === 0) {
     throw new ManagedModeError(
-      "Managed mode needs an explicit list of Models to serve.",
-      "Pass --serve model-a,model-b. Working the list out automatically is #308.",
+      "There is nothing to serve.",
+      "No Models were named with --serve, and none of the weights on this machine survived the size estimate.",
     );
   }
   if (!Number.isFinite(managed.contextTokens) || managed.contextTokens <= 0) {
