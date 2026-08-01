@@ -23,6 +23,23 @@ import { ExchangeClient } from "./exchange-client.js";
 import { ManagedModeError, planManagedRuntime, verifyConcurrency } from "./managed.js";
 import { ManagedRuntime, RuntimeStartError } from "./runtime.js";
 import { HEADROOM_POLICY } from "./headroom.js";
+import { defaultServiceKind, renderService, type ServiceKind } from "./service.js";
+import { OfferSupervisor } from "./supervisor.js";
+import { runServeLoop, type ServeEffects } from "./serve.js";
+import { fingerprint, reprobeReason, type ProbeInputs } from "./fingerprint.js";
+import {
+  STATE_VERSION,
+  clearRuntimePid,
+  loadConfig,
+  loadCredential,
+  loadState,
+  reapOrphanedRuntime,
+  recordRuntimePid,
+  saveConfig,
+  saveCredential,
+  saveState,
+  supplierDir,
+} from "./state.js";
 import type {
   MachineState,
   ManagedOptions,
@@ -48,7 +65,23 @@ interface CliOptions {
   port?: string;
   config?: string;
   binary?: string;
+  // serve
+  resume?: boolean;
+  reprobeInterval?: string;
+  healthInterval?: string;
+  kind?: string;
+  user?: string;
 }
+
+/**
+ * The agent's own version, as a re-probe trigger.
+ *
+ * Bumped when a change to this package could plausibly change what a Model
+ * appears able to do — a provider flag, a probe prompt, a parsing rule. That
+ * has already happened twice: `supportsStructuredOutputs` and Ollama's `think`
+ * parameter both changed probe results without any weights moving.
+ */
+const AGENT_VERSION = "1";
 
 const DEFAULT_MANAGED_PORT = 7450;
 const DEFAULT_MANAGED_CONFIG = path.join(os.homedir(), ".umwelten", "supplier", "llama-swap.yaml");
@@ -133,6 +166,122 @@ function resolveServeList(
   return { ...managed, models: set.candidates.map((c) => c.alias) };
 }
 
+/**
+ * Rebuild the configuration from disk, so a reboot needs nobody at the keyboard.
+ *
+ * Flags still win where given — resuming should not make a machine impossible
+ * to redirect at a different Exchange without deleting a file.
+ */
+function resumeConfig(opts: CliOptions): SupplierConfig {
+  const saved = loadConfig();
+  if (!saved) {
+    throw new Error(
+      `Nothing to resume: no saved configuration in ${supplierDir()}. ` +
+        "Run serve once with --exchange and --credential.",
+    );
+  }
+  const credential = opts.credential ?? loadCredential();
+  if (!credential) {
+    throw new Error(`Nothing to resume with: no credential in ${supplierDir()}.`);
+  }
+  return {
+    exchangeUrl: opts.exchange ?? saved.exchangeUrl,
+    credential,
+    guarantees: saved.guarantees,
+    servingMode: saved.servingMode,
+    providers: saved.providers,
+    modelFilter: saved.modelFilter,
+    managed: saved.managed,
+  };
+}
+
+/** Write what a restart needs. The credential goes in its own 0600 file. */
+function persistForRestart(config: SupplierConfig): void {
+  saveConfig({
+    exchangeUrl: config.exchangeUrl,
+    guarantees: config.guarantees,
+    servingMode: config.servingMode,
+    providers: config.providers,
+    modelFilter: config.modelFilter,
+    managed: config.managed,
+  });
+  saveCredential(config.credential);
+}
+
+/** Everything a probe result depends on that we can observe cheaply. */
+function probeInputsFor(config: SupplierConfig, runtime?: ManagedRuntime): ProbeInputs {
+  return {
+    // Our own version, first-class. It is the layer nobody re-probes for and
+    // the one measurement found dominating the result (ADR 0022).
+    agentVersion: AGENT_VERSION,
+    runtimeVersion: runtime ? `llama-swap@${runtime.plan.parallel}x` : undefined,
+    weights: findLlamaSwapModels().map((w) => ({ path: w.path, sizeBytes: w.sizeBytes })),
+    contextTokens: config.managed?.contextTokens,
+    parallel: config.managed?.parallel,
+    servingMode: config.servingMode,
+  };
+}
+
+/** Bind the serve loop to the real runtime, Exchange, and clock. */
+function buildServeEffects(ctx: {
+  config: SupplierConfig;
+  client: ExchangeClient;
+  runtime?: ManagedRuntime;
+  opts: CliOptions;
+  inputs: ProbeInputs;
+}): ServeEffects {
+  const { config, client, runtime, opts } = ctx;
+  return {
+    // With no runtime of our own there is nothing to watch die, and an adapted
+    // Supplier reselling someone else's process should not claim otherwise.
+    runtimeAlive: () => (runtime ? runtime.isAlive() : Promise.resolve(true)),
+
+    async checkModel(model) {
+      // Deliberately the cheapest thing that proves the Model still loads and
+      // answers. A full re-probe every 30 seconds would be the load rather
+      // than the check, and this runs against the live runtime so existing
+      // Offers keep serving throughout.
+      const provider = config.servingMode === "managed" ? "llamaswap" : (config.providers?.[0] ?? "ollama");
+      const result = await probeOffer(provider, model, { skipHeadroom: true });
+      if (result.failed) return { ok: false, reason: result.failed };
+      const chat = result.capabilities.find((c) => c.name === "chat");
+      return chat?.supported ? { ok: true } : { ok: false, reason: chat?.evidence ?? "no answer" };
+    },
+
+    async reprobe() {
+      const { probed } = await probeMachine(
+        config,
+        opts,
+        (l) => console.log(l),
+        config.servingMode === "managed" ? config.managed?.models : undefined,
+      );
+      return {
+        probed,
+        drafts: toOfferDrafts(probed, { servingMode: config.servingMode }),
+      };
+    },
+
+    async publish(offers) {
+      const result = await client.publish(offers, config.guarantees);
+      return { ok: result.ok, detail: result.message ?? result.error };
+    },
+
+    persist(probed, print) {
+      saveState({
+        version: STATE_VERSION,
+        fingerprint: print,
+        probedAt: new Date().toISOString(),
+        probed,
+        inputs: ctx.inputs as unknown as Record<string, unknown>,
+      });
+    },
+
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    log: (line) => console.log(line),
+  };
+}
+
 function parseLevels(raw: string | undefined): number[] | undefined {
   if (!raw) return undefined;
   const levels = raw.split(",").map((n) => Number(n.trim())).filter((n) => Number.isFinite(n));
@@ -174,7 +323,13 @@ async function startManaged(
     onProgress(`pinned ${model.alias.padEnd(38)} ${model.quantization} @ ${plan.contextTokens} ctx`);
   }
 
+  // A power cut is not a shutdown we get to observe, and what it leaves behind
+  // is a llama-server holding the GPU that we did not create and cannot use.
+  const reaped = reapOrphanedRuntime();
+  if (reaped) onProgress(`⚠ ${reaped}`);
+
   const runtime = await ManagedRuntime.start(plan, undefined, { onProgress });
+  recordRuntimePid(runtime.pid);
 
   // The probe reaches llama-swap through the provider registry, which reads
   // this at model-resolution time.
@@ -244,7 +399,30 @@ function reportGaps(probed: ProbedOffer[], onProgress: (line: string) => void): 
   }
 }
 
+/**
+ * A missing flag is not a crash.
+ *
+ * This command exists to be run by someone onboarding a machine for the first
+ * time, and the first thing they will do is run it without enough arguments. A
+ * stack trace tells them nothing they can act on.
+ */
+class ConfigError extends Error {}
+
+function configured<T>(build: () => T): T {
+  try {
+    return build();
+  } catch (error) {
+    throw error instanceof Error ? new ConfigError(error.message) : error;
+  }
+}
+
 function reportManagedError(error: unknown): void {
+  if (error instanceof ConfigError) {
+    console.error(error.message);
+    process.exitCode = 1;
+    return;
+  }
+
   if (error instanceof ManagedModeError || error instanceof RuntimeStartError) {
     // Never a silent downgrade to adapted mode: an operator who asked for a
     // pinned configuration and got somebody else's would not find out until
@@ -405,7 +583,13 @@ addProbeOptions(
     .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
     .option("--guarantees <names>", "Guarantees to claim, comma-separated"),
 ).action(async (opts: CliOptions) => {
-  const config = resolveConfig(opts);
+  let config: SupplierConfig;
+  try {
+    config = configured(() => resolveConfig(opts));
+  } catch (error) {
+    reportManagedError(error);
+    return;
+  }
 
   let runtime: ManagedRuntime | undefined;
   try {
@@ -462,13 +646,179 @@ addProbeOptions(
   }
 });
 
+addProbeOptions(
+  supplierCommand
+    .command("serve")
+    .description("Stay running: publish, watch, withdraw what breaks, re-probe when stale")
+    .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
+    .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
+    .option("--guarantees <names>", "Guarantees to claim, comma-separated")
+    .option("--reprobe-interval <hours>", "Backstop re-probe interval", "24")
+    .option("--health-interval <seconds>", "How often to check what we published", "30")
+    .option("--resume", "Reuse the saved configuration and credential"),
+).action(async (opts: CliOptions) => {
+  // Resume first: a machine coming back from a reboot has nobody at the
+  // keyboard to re-enter a credential.
+  let config: SupplierConfig;
+  try {
+    config = configured(() => (opts.resume ? resumeConfig(opts) : resolveConfig(opts)));
+    if (!opts.resume) persistForRestart(config);
+  } catch (error) {
+    reportManagedError(error);
+    return;
+  }
+
+  const abort = new AbortController();
+  let runtime: ManagedRuntime | undefined;
+  let quantization: Record<string, string> | undefined;
+  let managedModels: string[] | undefined;
+
+  const client = new ExchangeClient({
+    exchangeUrl: config.exchangeUrl,
+    credential: config.credential,
+  });
+
+  const shutdown = async () => {
+    abort.abort();
+    // Withdrawing on the way out is the machine's owner getting it back. A
+    // machine somebody else owns is lent, not given, so stopping has to be
+    // immediate and complete rather than leaving the Exchange to notice.
+    console.log("\nwithdrawing offers and releasing the machine…");
+    await client.withdraw().catch(() => undefined);
+    await runtime?.stop();
+    clearRuntimePid();
+    process.exit(0);
+  };
+  process.once("SIGINT", () => void shutdown());
+  process.once("SIGTERM", () => void shutdown());
+
+  try {
+    if (config.servingMode === "managed") {
+      const started = await startManaged(config, (line) => console.log(line));
+      runtime = started.runtime;
+      quantization = started.quantization;
+      managedModels = started.models;
+    }
+
+    const inputs = probeInputsFor(config, runtime);
+    const previous = loadState();
+    // Always probe on start. A restart that republishes a snapshot from before
+    // a reboot is publishing a claim about a machine that no longer exists.
+    const reason =
+      reprobeReason({
+        previous: previous && {
+          fingerprint: previous.fingerprint,
+          probedAt: previous.probedAt,
+          inputs: previous.inputs as Partial<ProbeInputs> | undefined,
+        },
+        current: inputs,
+        now: Date.now(),
+        intervalMs: Number(opts.reprobeInterval ?? 24) * 3_600_000,
+      }) ?? "resuming a probe from this same machine";
+    console.log(`\nprobing: ${reason}`);
+
+    const { probed } = await probeMachine(config, opts, (l) => console.log(l), managedModels);
+    const drafts = toOfferDrafts(probed, { servingMode: config.servingMode, quantization });
+    reportGaps(probed, (l) => console.log(l));
+    saveState({
+      version: STATE_VERSION,
+      fingerprint: fingerprint(inputs),
+      probedAt: new Date().toISOString(),
+      probed,
+      inputs: inputs as unknown as Record<string, unknown>,
+    });
+
+    const supervisor = new OfferSupervisor(drafts);
+    const published = await client.publish(supervisor.live(), config.guarantees);
+    console.log(
+      published.ok
+        ? `published ${published.offers} offer(s); watching`
+        : `publish failed (${published.status}): ${published.error ?? "unknown"}`,
+    );
+
+    await runServeLoop(supervisor, buildServeEffects({ config, client, runtime, opts, inputs }), {
+      healthIntervalMs: Number(opts.healthInterval ?? 30) * 1_000,
+      reprobeIntervalMs: Number(opts.reprobeInterval ?? 24) * 3_600_000,
+      signal: abort.signal,
+      probeInputs: inputs,
+      previous: {
+        fingerprint: fingerprint(inputs),
+        probedAt: new Date().toISOString(),
+        inputs,
+      },
+    });
+  } catch (error) {
+    reportManagedError(error);
+    await runtime?.stop();
+    clearRuntimePid();
+  }
+});
+
+supplierCommand
+  .command("install-service")
+  .description("Print a service unit so the agent comes back after a reboot")
+  .option("--kind <kind>", "systemd or launchd (default: this platform)")
+  .option("--user <name>", "Run the service as this user (systemd)")
+  .action((opts: CliOptions) => {
+    const kind = (opts.kind as ServiceKind | undefined) ?? defaultServiceKind(process.platform);
+    if (!kind) {
+      console.error(`No service format for ${process.platform}. Pass --kind systemd or launchd.`);
+      process.exitCode = 1;
+      return;
+    }
+    // Nothing inside a process can restart that process, so the agent does not
+    // pretend to. This hands the job to the thing the operating system already
+    // has for it.
+    console.log(
+      renderService(kind, {
+        command: process.argv[1]?.endsWith("umwelten") ? process.argv[1] : "umwelten",
+        supplierDir: supplierDir(),
+        user: opts.user,
+      }),
+    );
+  });
+
+supplierCommand
+  .command("status")
+  .description("Show the saved configuration and the last probe")
+  .action(() => {
+    const config = loadConfig();
+    const state = loadState();
+    if (!config) {
+      console.log(`No saved configuration in ${supplierDir()}.`);
+      console.log("Run `umwelten supplier serve --exchange … --credential …` once.");
+      return;
+    }
+
+    console.log(`Exchange:   ${config.exchangeUrl}`);
+    console.log(`Mode:       ${config.servingMode}`);
+    console.log(`Guarantees: ${config.guarantees.join(", ") || "none claimed"}`);
+    console.log(`Credential: ${loadCredential() ? "present" : "MISSING"}`);
+
+    if (!state) {
+      console.log("\nNo saved probe — the next start will probe from scratch.");
+      return;
+    }
+    console.log(`\nLast probed ${state.probedAt} (fingerprint ${state.fingerprint})`);
+    for (const offer of state.probed) {
+      const caps = offer.capabilities.filter((c) => c.supported).map((c) => c.name);
+      console.log(`  ${offer.model.padEnd(38)} ${offer.failed ?? (caps.join(", ") || "none")}`);
+    }
+  });
+
 supplierCommand
   .command("withdraw")
   .description("Remove this machine's Offers from the Exchange")
   .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
   .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
   .action(async (opts: CliOptions) => {
-    const config = resolveConfig({ ...opts, mode: "adapted" });
+    let config: SupplierConfig;
+    try {
+      config = configured(() => resolveConfig({ ...opts, mode: "adapted" }));
+    } catch (error) {
+      reportManagedError(error);
+      return;
+    }
     const client = new ExchangeClient({
       exchangeUrl: config.exchangeUrl,
       credential: config.credential,

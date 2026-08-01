@@ -60,4 +60,37 @@ export type { ManagedPlan, PinnedModel } from "./managed.js";
 export { ManagedRuntime, RuntimeStartError, nodeRuntimeEffects } from "./runtime.js";
 export type { RuntimeEffects, SpawnedProcess } from "./runtime.js";
 
+export { OfferSupervisor, WITHDRAW_AFTER_FAILURES } from "./supervisor.js";
+export type { OfferHealth, SupervisorChange } from "./supervisor.js";
+
+export { HEALTH_INTERVAL_MS, runServeLoop } from "./serve.js";
+export type { ServeEffects, ServeOptions } from "./serve.js";
+
+export {
+  DEFAULT_REPROBE_INTERVAL_MS,
+  capabilitiesChanged,
+  fingerprint,
+  reprobeReason,
+} from "./fingerprint.js";
+export type { ProbeInputs, StalenessInput } from "./fingerprint.js";
+
+export {
+  STATE_VERSION,
+  clearRuntimePid,
+  loadConfig,
+  loadCredential,
+  loadState,
+  nodeOrphanEffects,
+  reapOrphanedRuntime,
+  recordRuntimePid,
+  saveConfig,
+  saveCredential,
+  saveState,
+  supplierDir,
+} from "./state.js";
+export type { OrphanEffects, PersistedConfig, PersistedState } from "./state.js";
+
+export { defaultServiceKind, launchdPlist, renderService, systemdUnit } from "./service.js";
+export type { ServiceKind, ServiceOptions } from "./service.js";
+
 export { supplierCommand } from "./command.js";
