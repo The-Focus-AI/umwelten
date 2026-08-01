@@ -657,7 +657,6 @@ addProbeOptions(
     .option("--reprobe-interval <hours>", "Backstop re-probe interval", "24")
     .option("--health-interval <seconds>", "How often to check what we published", "30")
     .option("--heartbeat-interval <minutes>", "How often to republish an unchanged set", "5")
-    .option("--heartbeat-interval <minutes>", "How often to republish an unchanged set", "5")
     .option("--resume", "Reuse the saved configuration and credential"),
 ).action(async (opts: CliOptions) => {
   // Resume first: a machine coming back from a reboot has nobody at the
