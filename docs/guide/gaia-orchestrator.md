@@ -368,6 +368,24 @@ dotenvx run -- pnpm run cli mcp chat --url http://localhost:7420/mcp
 
 This gives you access to all orchestrator tools (list_habitats, start_habitat, etc.) plus all standard habitat tools (file ops, web search, etc.) via MCP.
 
+### One key per consumer
+
+Every habitat Gaia starts gets its own auto-generated `HABITAT_API_KEY`, so
+keys are already per-consumer down there. Gaia itself works the same way:
+`HABITAT_API_KEY` accepts a **comma-separated list**, and any key in it
+authenticates.
+
+```bash
+HABITAT_API_KEY=<dashboard-key>,<cli-key>,<agent-key>
+```
+
+The keys are equivalent — same rights, same identity. This is a list of
+accepted values, not a set of roles. The point is revocation: give each
+consumer its own value, and drop one from the list to cut it off without
+rotating the others. Generate them with `openssl rand -hex 32`.
+
+A single key still works exactly as before.
+
 ### MCP access to child habitats
 
 You can also connect to a child habitat's MCP endpoint through Gaia's proxy:
