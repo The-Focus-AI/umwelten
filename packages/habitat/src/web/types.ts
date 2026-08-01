@@ -23,12 +23,6 @@ export interface UserContext {
   /** How this user was authenticated. */
   provider?: 'dev' | 'google' | 'github' | 'oauth';
   /**
-   * True when this caller may only invoke allowlisted read tools — the
-   * separate read-only bearer (#165 groundwork). Absent/false leaves every
-   * existing path unchanged.
-   */
-  readOnly?: boolean;
-  /**
    * True when the caller is a habitat operator/admin — either the shared
    * HABITAT_API_KEY, or a JWT carrying the `operator` claim (ADR 0004). Gates
    * writing the credentials the habitat declares in config.requiredSecrets.

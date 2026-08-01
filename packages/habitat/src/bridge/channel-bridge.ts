@@ -19,7 +19,6 @@ import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
 import { writeSessionTranscript } from '@umwelten/core/session-record/transcript-write.js';
 import { loadRecentHabitatTranscriptCoreMessages } from '@umwelten/core/session-record/habitat-transcript-load.js';
 import { resolveChannelRoute, loadRouting, routeSignature, setChannelRoute } from './routing.js';
-import { filterToolsForScope, getCallerScope } from '../identity/caller-scope.js';
 import type {
   ChannelMessage,
   BridgeEventHandlers,
@@ -410,14 +409,7 @@ export class ChannelBridge {
     // Resolve current route
     const routing = await loadRouting(this.host.workDir, this.routingPath);
     const resolution = resolveChannelRoute(channelKey, routing, parentChannelKey);
-    // The caller's scope is part of what the cached entry *is*: its stimulus
-    // carries a toolset narrowed for that scope. Folding it into the signature
-    // means a scope change rebuilds rather than reusing someone else's toolset.
-    // Tools are guarded at call time regardless (see identity/caller-scope.ts);
-    // this keeps the model from being shown tools it would only be refused.
-    const sig = getCallerScope()?.readOnly
-      ? `${routeSignature(resolution)}|read-only`
-      : routeSignature(resolution);
+    const sig = routeSignature(resolution);
 
     // Check cache: hit if entry exists and route hasn't changed
     const existing = this.cache.get(channelKey);
@@ -511,9 +503,7 @@ export class ChannelBridge {
 
     // Clone so we don't mutate the habitat's cached stimulus
     const stimulus = new Stimulus(baseStimulus.options);
-    for (const [name, tool] of Object.entries(
-      filterToolsForScope(baseStimulus.getTools()),
-    )) {
+    for (const [name, tool] of Object.entries(baseStimulus.getTools())) {
       stimulus.addTool(name, tool);
     }
 
