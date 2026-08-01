@@ -129,8 +129,11 @@ export async function runServeLoop(
     // Immediately, not at the next scheduled publish. An agent that waits is
     // an agent that lets Dispatch route into a known failure.
     if (dirty || effects.now() - lastPublished >= heartbeatMs) {
-      await republish(supervisor, effects);
-      lastPublished = effects.now();
+      // Only a publish the Exchange accepted resets the heartbeat clock. A
+      // failed one leaves it due, so the next health cycle retries in seconds
+      // rather than minutes — three failed heartbeats is an expired Offer, and
+      // a machine sitting healthy and unlisted is the worst way to lose money.
+      if (await republish(supervisor, effects)) lastPublished = effects.now();
     }
 
     const reason = reprobeReason({
@@ -164,12 +167,12 @@ export async function runServeLoop(
 
     for (const line of diff.summary) effects.log(line);
     supervisor.replace(drafts);
-    await republish(supervisor, effects);
-    lastPublished = effects.now();
+    if (await republish(supervisor, effects)) lastPublished = effects.now();
   }
 }
 
-async function republish(supervisor: OfferSupervisor, effects: ServeEffects): Promise<void> {
+/** Send the live set. Returns whether the Exchange accepted it. */
+async function republish(supervisor: OfferSupervisor, effects: ServeEffects): Promise<boolean> {
   const live = supervisor.live();
   const result = await effects.publish(live);
   effects.log(
@@ -177,4 +180,5 @@ async function republish(supervisor: OfferSupervisor, effects: ServeEffects): Pr
       ? `published ${live.length} offer(s)`
       : `publish failed: ${result.detail ?? "unknown"}`,
   );
+  return result.ok;
 }
