@@ -10,12 +10,24 @@
  * every umwelten install for a command that never opens a database.
  */
 
+import path from "node:path";
+import os from "node:os";
 import { Command } from "commander";
+import { findLlamaSwapModels } from "@umwelten/core/providers/llamaswap-config.js";
 import { discoverRuntimes } from "./discover.js";
 import { probeOffer } from "./probe.js";
 import { findDuplicateModels, probeTargets, toOfferDrafts } from "./offers.js";
 import { ExchangeClient } from "./exchange-client.js";
-import type { MachineState, ProbedOffer, ServingMode, SupplierConfig } from "./types.js";
+import { ManagedModeError, planManagedRuntime, verifyConcurrency } from "./managed.js";
+import { ManagedRuntime, RuntimeStartError } from "./runtime.js";
+import { HEADROOM_POLICY } from "./headroom.js";
+import type {
+  MachineState,
+  ManagedOptions,
+  ProbedOffer,
+  ServingMode,
+  SupplierConfig,
+} from "./types.js";
 
 interface CliOptions {
   exchange?: string;
@@ -26,6 +38,43 @@ interface CliOptions {
   model?: string;
   concurrency?: string;
   noHeadroom?: boolean;
+  // Managed mode
+  serve?: string;
+  ctxSize?: string;
+  quant?: string;
+  parallel?: string;
+  port?: string;
+  config?: string;
+  binary?: string;
+}
+
+const DEFAULT_MANAGED_PORT = 7450;
+const DEFAULT_MANAGED_CONFIG = path.join(os.homedir(), ".umwelten", "supplier", "llama-swap.yaml");
+
+function resolveMode(opts: CliOptions): ServingMode {
+  const mode = (opts.mode ?? "adapted") as ServingMode;
+  if (mode !== "managed" && mode !== "adapted") {
+    throw new Error(`Unknown serving mode "${mode}". Expected managed or adapted.`);
+  }
+  return mode;
+}
+
+/**
+ * Managed mode's pins. Every one of them is a commitment the Offer then makes,
+ * which is why none of them fall back to "whatever the machine was doing".
+ */
+function resolveManaged(opts: CliOptions): ManagedOptions | undefined {
+  if (resolveMode(opts) !== "managed") return undefined;
+
+  return {
+    models: (opts.serve ?? "").split(",").map((m) => m.trim()).filter(Boolean),
+    contextTokens: Number(opts.ctxSize ?? 32768),
+    quantization: opts.quant,
+    parallel: Number(opts.parallel ?? 4),
+    port: Number(opts.port ?? DEFAULT_MANAGED_PORT),
+    configPath: opts.config ?? DEFAULT_MANAGED_CONFIG,
+    binaryPath: opts.binary,
+  };
 }
 
 function resolveConfig(opts: CliOptions): SupplierConfig {
@@ -36,18 +85,62 @@ function resolveConfig(opts: CliOptions): SupplierConfig {
     throw new Error("No credential. Pass --credential or set SUPPLIER_CREDENTIAL.");
   }
 
-  const mode = (opts.mode ?? "adapted") as ServingMode;
-  if (mode !== "managed" && mode !== "adapted") {
-    throw new Error(`Unknown serving mode "${mode}". Expected managed or adapted.`);
-  }
-
   return {
     exchangeUrl,
     credential,
     guarantees: (opts.guarantees ?? "").split(",").map((g) => g.trim()).filter(Boolean),
-    servingMode: mode,
+    servingMode: resolveMode(opts),
     providers: opts.provider?.split(",").map((p) => p.trim()).filter(Boolean),
     modelFilter: opts.model,
+    managed: resolveManaged(opts),
+  };
+}
+
+function parseLevels(raw: string | undefined): number[] | undefined {
+  if (!raw) return undefined;
+  const levels = raw.split(",").map((n) => Number(n.trim())).filter((n) => Number.isFinite(n));
+  return levels.length ? levels : undefined;
+}
+
+/**
+ * Start the runtime this agent owns, and arrange for probing to go through it.
+ *
+ * Pointing the provider at our own runtime is the whole point: a Capability is
+ * evidence about a serving path (ADR 0015), so probing anything other than the
+ * process we started would produce Offers describing a configuration we are
+ * not serving.
+ */
+async function startManaged(
+  config: SupplierConfig,
+  onProgress: (line: string) => void,
+): Promise<{ runtime: ManagedRuntime; quantization: Record<string, string>; models: string[] }> {
+  const managed = config.managed!;
+  const plan = planManagedRuntime({ managed, available: findLlamaSwapModels() });
+
+  if (plan.missing.length > 0) {
+    onProgress(`⚠ no weights found for: ${plan.missing.join(", ")}`);
+  }
+  if (plan.models.length === 0) {
+    throw new ManagedModeError(
+      "None of the requested Models have weights on this machine.",
+      `Looked for: ${managed.models.join(", ")}`,
+    );
+  }
+
+  for (const model of plan.models) {
+    onProgress(`pinned ${model.alias.padEnd(38)} ${model.quantization} @ ${plan.contextTokens} ctx`);
+  }
+
+  const runtime = await ManagedRuntime.start(plan, undefined, { onProgress });
+
+  // The probe reaches llama-swap through the provider registry, which reads
+  // this at model-resolution time.
+  process.env.LLAMASWAP_HOST = runtime.baseUrl;
+
+  return {
+    runtime,
+    quantization: Object.fromEntries(plan.models.map((m) => [m.alias, m.quantization])),
+    models: plan.models.map((m) => m.alias),
   };
 }
 
@@ -55,8 +148,11 @@ async function probeMachine(
   config: SupplierConfig,
   opts: CliOptions,
   onProgress: (line: string) => void,
+  managedModels?: string[],
 ): Promise<{ machine: MachineState; probed: ProbedOffer[] }> {
-  const runtimes = await discoverRuntimes(config.providers);
+  // In managed mode there is exactly one runtime worth asking: ours.
+  const providers = managedModels ? ["llamaswap"] : config.providers;
+  const runtimes = await discoverRuntimes(providers);
   const machine: MachineState = { runtimes };
 
   for (const runtime of runtimes) {
@@ -67,14 +163,10 @@ async function probeMachine(
     );
   }
 
-  const targets = probeTargets(machine, {
-    providers: config.providers,
-    modelFilter: config.modelFilter,
-  });
-  const concurrency = (opts.concurrency ?? "1")
-    .split(",")
-    .map((n) => Number(n.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0);
+  let targets = probeTargets(machine, { providers, modelFilter: config.modelFilter });
+  if (managedModels) targets = targets.filter((t) => managedModels.includes(t.model));
+
+  const concurrency = parseLevels(opts.concurrency);
 
   const probed: ProbedOffer[] = [];
   for (const [i, target] of targets.entries()) {
@@ -90,6 +182,39 @@ async function probeMachine(
   return { machine, probed };
 }
 
+/** Report what a probe run left out, so a gap is never silent. */
+function reportGaps(probed: ProbedOffer[], onProgress: (line: string) => void): void {
+  const failed = probed.filter((p) => p.failed);
+  if (failed.length) {
+    // A failed probe produces no Offer rather than an Offer with a hole in it,
+    // so an operator has to be told which Models fell out and why.
+    onProgress(`\n${failed.length} model(s) produced no offer:`);
+    for (const f of failed) onProgress(`  ${f.model} — ${f.failed}`);
+  }
+
+  const unmeasured = probed.filter((p) => !p.failed && p.headroomMeta?.failed);
+  if (unmeasured.length) {
+    // Published anyway, with the gap on the Offer. Dispatch can weigh
+    // "throughput unknown"; it cannot weigh a Model nobody mentioned.
+    onProgress(`\n${unmeasured.length} model(s) published without full Headroom:`);
+    for (const p of unmeasured) onProgress(`  ${p.model} — ${p.headroomMeta?.failed}`);
+  }
+}
+
+function reportManagedError(error: unknown): void {
+  if (error instanceof ManagedModeError || error instanceof RuntimeStartError) {
+    // Never a silent downgrade to adapted mode: an operator who asked for a
+    // pinned configuration and got somebody else's would not find out until
+    // the Offer under-delivered.
+    console.error(`\nManaged mode failed: ${error.message}`);
+    if (error.detail) console.error(`  ${error.detail}`);
+    console.error("  No offers were published.");
+    process.exitCode = 1;
+    return;
+  }
+  throw error;
+}
+
 export const supplierCommand = new Command("supplier")
   .description("Turn this machine into a Supplier the Exchange can dispatch to")
   .addHelpText(
@@ -98,52 +223,77 @@ export const supplierCommand = new Command("supplier")
 Serving modes:
   managed   The agent owns the runtime, pinning context size and quantization.
             Only managed Offers can commit to resource properties, which is why
-            it is the default posture (ADR 0016).
+            it is the default posture (ADR 0016). Requires --serve.
   adapted   Resell a runtime already running on this machine. Costs the owner
             nothing to join, and carries no resource commitments — a lesser
             tier, priced as one.
 
+Headroom is always measured, never declared. Sampling runs at ${HEADROOM_POLICY.levels.join(
+      " and ",
+    )} concurrent
+requests within a ${HEADROOM_POLICY.maxSampleSeconds}s budget per Model (ADR 0021).
+
 Examples:
   umwelten supplier probe --no-headroom
   umwelten supplier publish --exchange https://exchange.example --credential $KEY
+  umwelten supplier publish --mode managed --serve gemma-4-26b,qwen-4-32b --ctx-size 32768
 `,
   );
 
-supplierCommand
-  .command("probe")
-  .description("Show what this machine can do, without publishing anything")
-  .option("--provider <names>", "Restrict to these runtimes (comma-separated)")
-  .option("--model <substring>", "Restrict to Models matching this")
-  .option("--concurrency <levels>", "Headroom sample levels, e.g. 1,4", "1")
-  .option("--no-headroom", "Capabilities only — much faster")
-  .option("--mode <mode>", "managed or adapted", "adapted")
-  .action(async (opts: CliOptions) => {
-    // A dry run needs no Exchange: an operator inspecting a new machine should
-    // not have to register it first.
-    const config: SupplierConfig = {
-      exchangeUrl: "",
-      credential: "",
-      guarantees: [],
-      servingMode: (opts.mode ?? "adapted") as ServingMode,
-      providers: opts.provider?.split(",").map((p) => p.trim()).filter(Boolean),
-      modelFilter: opts.model,
-    };
+function addProbeOptions(command: Command): Command {
+  return command
+    .option("--provider <names>", "Restrict to these runtimes (comma-separated)")
+    .option("--model <substring>", "Restrict to Models matching this")
+    .option("--concurrency <levels>", "Headroom sample levels, e.g. 1,4")
+    .option("--no-headroom", "Capabilities only — much faster")
+    .option("--mode <mode>", "managed or adapted", "adapted")
+    .option("--serve <models>", "Models the agent should serve (managed mode)")
+    .option("--ctx-size <tokens>", "Context length to pin (managed mode)", "32768")
+    .option("--quant <name>", "Quantization to pin, e.g. Q4_K_M (managed mode)")
+    .option("--parallel <n>", "Concurrent slots the runtime is configured for", "4")
+    .option("--port <port>", "Port the agent's runtime listens on", String(DEFAULT_MANAGED_PORT))
+    .option("--config <path>", "Where to write the generated serving config")
+    .option("--binary <path>", "Path to llama-server, when not on PATH");
+}
 
-    const { probed } = await probeMachine(config, opts, (line) => console.log(line));
-    const drafts = toOfferDrafts(probed, { servingMode: config.servingMode });
+addProbeOptions(
+  supplierCommand
+    .command("probe")
+    .description("Show what this machine can do, without publishing anything"),
+).action(async (opts: CliOptions) => {
+  // A dry run needs no Exchange: an operator inspecting a new machine should
+  // not have to register it first.
+  const config: SupplierConfig = {
+    exchangeUrl: "",
+    credential: "",
+    guarantees: [],
+    servingMode: resolveMode(opts),
+    providers: opts.provider?.split(",").map((p) => p.trim()).filter(Boolean),
+    modelFilter: opts.model,
+    managed: resolveManaged(opts),
+  };
+
+  let runtime: ManagedRuntime | undefined;
+  try {
+    let quantization: Record<string, string> | undefined;
+    let managedModels: string[] | undefined;
+
+    if (config.servingMode === "managed") {
+      const started = await startManaged(config, (line) => console.log(line));
+      runtime = started.runtime;
+      quantization = started.quantization;
+      managedModels = started.models;
+    }
+
+    const { probed } = await probeMachine(config, opts, (l) => console.log(l), managedModels);
+    const drafts = toOfferDrafts(probed, { servingMode: config.servingMode, quantization });
 
     console.log(`\nWould publish ${drafts.length} offer(s):`);
     for (const draft of drafts) {
       console.log(`  ${draft.model.padEnd(46)} ${draft.capabilities.join(", ") || "none"}`);
     }
 
-    const failed = probed.filter((p) => p.failed);
-    if (failed.length) {
-      // A failed probe produces no Offer rather than an Offer with a hole in
-      // it, so an operator has to be told which Models fell out and why.
-      console.log(`\n${failed.length} model(s) produced no offer:`);
-      for (const f of failed) console.log(`  ${f.model} — ${f.failed}`);
-    }
+    reportGaps(probed, (l) => console.log(l));
 
     const duplicates = findDuplicateModels(drafts);
     if (duplicates.length) {
@@ -152,23 +302,51 @@ supplierCommand
           `one will overwrite the other: ${duplicates.join(", ")}`,
       );
     }
-  });
+  } catch (error) {
+    reportManagedError(error);
+  } finally {
+    await runtime?.stop();
+  }
+});
 
-supplierCommand
-  .command("publish")
-  .description("Probe this machine and publish its Offers to the Exchange")
-  .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
-  .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
-  .option("--guarantees <names>", "Guarantees to claim, comma-separated")
-  .option("--mode <mode>", "managed or adapted", "adapted")
-  .option("--provider <names>", "Restrict to these runtimes")
-  .option("--model <substring>", "Restrict to Models matching this")
-  .option("--concurrency <levels>", "Headroom sample levels", "1")
-  .option("--no-headroom", "Capabilities only")
-  .action(async (opts: CliOptions) => {
-    const config = resolveConfig(opts);
-    const { probed } = await probeMachine(config, opts, (line) => console.log(line));
-    const drafts = toOfferDrafts(probed, { servingMode: config.servingMode });
+addProbeOptions(
+  supplierCommand
+    .command("publish")
+    .description("Probe this machine and publish its Offers to the Exchange")
+    .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
+    .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
+    .option("--guarantees <names>", "Guarantees to claim, comma-separated"),
+).action(async (opts: CliOptions) => {
+  const config = resolveConfig(opts);
+
+  let runtime: ManagedRuntime | undefined;
+  try {
+    let quantization: Record<string, string> | undefined;
+    let managedModels: string[] | undefined;
+
+    if (config.servingMode === "managed") {
+      const started = await startManaged(config, (line) => console.log(line));
+      runtime = started.runtime;
+      quantization = started.quantization;
+      managedModels = started.models;
+    }
+
+    const { probed } = await probeMachine(config, opts, (l) => console.log(l), managedModels);
+
+    // A runtime that batches on paper and serializes on this box would be
+    // published as an Offer that cannot take a second customer. The table says
+    // llama-swap batches; this checks that this build, with this --parallel,
+    // actually does.
+    if (config.servingMode === "managed" && !opts.noHeadroom) {
+      const measured = probed.find((p) => !p.failed && p.headroomMeta);
+      const verdict = verifyConcurrency(measured?.headroomMeta?.saturation ?? "inconclusive");
+      if (!verdict.ok) {
+        throw new ManagedModeError("The runtime does not serve concurrent work.", verdict.reason);
+      }
+    }
+
+    const drafts = toOfferDrafts(probed, { servingMode: config.servingMode, quantization });
+    reportGaps(probed, (l) => console.log(l));
 
     const client = new ExchangeClient({
       exchangeUrl: config.exchangeUrl,
@@ -187,7 +365,14 @@ supplierCommand
     console.error(`\nPublish failed (${result.status}): ${result.error ?? "unknown"}`);
     if (result.message) console.error(`  ${result.message}`);
     process.exitCode = 1;
-  });
+  } catch (error) {
+    reportManagedError(error);
+  } finally {
+    // Managed mode owns the runtime, so managed mode takes it down — including
+    // on the failure paths, which is where orphans come from.
+    await runtime?.stop();
+  }
+});
 
 supplierCommand
   .command("withdraw")

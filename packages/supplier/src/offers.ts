@@ -34,7 +34,14 @@ export function probeTargets(
  */
 export function toOfferDrafts(
   probed: ProbedOffer[],
-  opts: { servingMode: ProbedOffer extends never ? never : OfferDraft["servingMode"] },
+  opts: {
+    servingMode: OfferDraft["servingMode"];
+    /**
+     * The quantization the agent pinned, per Model. Only managed mode has one —
+     * an adapted Offer is reselling a configuration it does not control.
+     */
+    quantization?: Record<string, string>;
+  },
 ): OfferDraft[] {
   return probed
     .filter((p) => !p.failed)
@@ -44,8 +51,14 @@ export function toOfferDrafts(
         .filter((c) => c.supported)
         .map((c) => c.name as CapabilityName),
       servingMode: opts.servingMode,
+      // Verbatim, including a failed sample. An Offer whose Headroom could not
+      // be measured is published with the failure recorded, rather than
+      // withheld — Dispatch can weigh "unknown throughput" but cannot weigh a
+      // Model it was never told about.
       headroom: p.headroom,
+      headroomMeta: p.headroomMeta,
       contextTokens: p.contextTokens,
+      quantization: opts.quantization?.[p.model],
     }));
 }
 

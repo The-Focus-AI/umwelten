@@ -1,4 +1,4 @@
-# 0011 — The exchange meters at its own boundary
+# 0017 — The exchange meters at its own boundary
 
 Status: Accepted
 Date: 2026-07-26

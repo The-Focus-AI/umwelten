@@ -21,8 +21,12 @@ _Avoid_: Capability, policy, SLA, tag
 
 **Headroom**:
 A Supplier's capacity to accept more work right now. Always measured, never
-declared.
-_Avoid_: capacity, availability, load, SLA
+declared, and never one number: aggregate throughput, per-stream decode rate and
+time to first token, at more than one concurrency level, because a flat
+aggregate with rising time-to-first-token means *queueing* while a falling
+aggregate means *contention* and one figure cannot tell them apart. Sampled to a
+published policy (ADR 0021 — headroom sampling policy).
+_Avoid_: capacity, availability, load, SLA, throughput (singular)
 
 **Model**:
 The named thing a buyer asks for, independent of who produces its tokens.

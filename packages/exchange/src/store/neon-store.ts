@@ -20,6 +20,7 @@ import type {
   Client,
   LedgerEntry,
   HeadroomSample,
+  HeadroomMeta,
   Offer,
   OfferPricing,
   PublishedOffer,
@@ -66,12 +67,20 @@ export class NeonStore implements ExchangeStore {
         capabilities JSONB NOT NULL DEFAULT '[]'::jsonb,
         serving_mode TEXT NOT NULL,
         headroom JSONB NOT NULL DEFAULT '[]'::jsonb,
+        headroom_meta JSONB,
         context_tokens INTEGER,
+        quantization TEXT,
         enabled BOOLEAN NOT NULL DEFAULT true,
         published_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (supplier_id, model)
       )
     `;
+
+    // Added after the table shipped. `CREATE TABLE IF NOT EXISTS` is a no-op on
+    // a database that already has the older shape, so the columns need saying
+    // twice — harmless on a fresh database, necessary on an existing one.
+    await this.sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS headroom_meta JSONB`;
+    await this.sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS quantization TEXT`;
 
     // Pricing is a separate table on purpose: it is operator-owned and must
     // outlive the Offer it applies to, so that a re-probe — or a Model that
@@ -349,13 +358,16 @@ export class NeonStore implements ExchangeStore {
     for (const offer of published) {
       await this.sql`
         INSERT INTO exchange_offer
-          (supplier_id, model, capabilities, serving_mode, headroom, context_tokens, enabled)
+          (supplier_id, model, capabilities, serving_mode, headroom, headroom_meta,
+           context_tokens, quantization, enabled)
         VALUES (
           ${supplierId}, ${offer.model},
           ${JSON.stringify(offer.capabilities)}::jsonb,
           ${offer.servingMode},
           ${JSON.stringify(offer.headroom ?? [])}::jsonb,
-          ${offer.contextTokens ?? null}, true
+          ${offer.headroomMeta ? JSON.stringify(offer.headroomMeta) : null}::jsonb,
+          ${offer.contextTokens ?? null},
+          ${offer.quantization ?? null}, true
         )
       `;
     }
@@ -496,7 +508,9 @@ function toOffer(row: Row): Offer {
     guarantees: (row.granted_guarantees as string[]) ?? [],
     servingMode: String(row.serving_mode) as ServingMode,
     headroom: (row.headroom as HeadroomSample[]) ?? [],
+    headroomMeta: (row.headroom_meta as HeadroomMeta | null) ?? undefined,
     contextTokens: row.context_tokens === null ? undefined : Number(row.context_tokens),
+    quantization: row.quantization === null ? undefined : String(row.quantization),
     wholesalePromptPerMillion: money(
       row.wholesale_prompt_per_million,
       DEFAULT_PRICING.wholesalePromptPerMillion,

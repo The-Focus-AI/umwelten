@@ -21,6 +21,7 @@
 | [0018](0018-one-task-substrate-two-protocol-projections.md) | One task substrate, projected to both A2A and MCP |
 | [0019](0019-mrtr-state-splits-by-mode.md) | MRTR elicitation state splits by mode |
 | [0020](0020-client-identity-is-hosted-per-product.md) | OAuth client identity is hosted per product |
+| [0021](0021-headroom-sampling-policy.md) | Headroom is sampled to a fixed policy, published with the numbers |
 
 0011 is unused — see below.
 

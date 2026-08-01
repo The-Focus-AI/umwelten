@@ -1,4 +1,4 @@
-# 0009 — An Offer's Capabilities are probed through the path that serves traffic
+# 0015 — An Offer's Capabilities are probed through the path that serves traffic
 
 Status: Accepted
 Date: 2026-07-26

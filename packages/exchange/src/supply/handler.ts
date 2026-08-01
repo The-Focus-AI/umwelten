@@ -122,7 +122,15 @@ export function parsePublishedOffers(input: unknown): PublishedOffer[] {
       capabilities: offer.capabilities as CapabilityName[],
       servingMode: offer.servingMode as ServingMode,
       headroom: Array.isArray(offer.headroom) ? (offer.headroom as PublishedOffer["headroom"]) : [],
+      // Kept even when it records a failed sample. An Offer whose throughput
+      // could not be measured is still serveable, and Dispatch is better off
+      // knowing the number is missing than believing there wasn't one.
+      headroomMeta:
+        offer.headroomMeta && typeof offer.headroomMeta === "object"
+          ? (offer.headroomMeta as PublishedOffer["headroomMeta"])
+          : undefined,
       contextTokens: typeof offer.contextTokens === "number" ? offer.contextTokens : undefined,
+      quantization: typeof offer.quantization === "string" ? offer.quantization : undefined,
     };
   });
 }

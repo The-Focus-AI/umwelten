@@ -36,8 +36,16 @@ export function offerFixture(overrides: Partial<PublishedOffer> = {}): Published
     servingMode: "managed",
     headroom: [
       { concurrency: 1, ttftMs: 300, tokensPerSecond: 94, decodeTokensPerSecond: 114 },
+      { concurrency: 4, ttftMs: 900, tokensPerSecond: 310, decodeTokensPerSecond: 88 },
     ],
+    headroomMeta: {
+      sampledAt: "2026-07-28T00:00:00.000Z",
+      coldStartMs: 18_400,
+      coldStartFirstTouch: true,
+      saturation: "batches",
+    },
     contextTokens: 131072,
+    quantization: "Q4_K_M",
     ...overrides,
   };
 }
@@ -109,8 +117,42 @@ export function runExchangeStoreConformance(
         expect(offer?.capabilities).toEqual(["chat", "streaming", "tool-calling"]);
         expect(offer?.servingMode).toBe("managed");
         expect(offer?.contextTokens).toBe(131072);
-        expect(offer?.headroom).toHaveLength(1);
+        expect(offer?.headroom).toHaveLength(2);
         expect(offer?.headroom[0].tokensPerSecond).toBe(94);
+        // Only a managed Offer can say what quantization is behind it.
+        expect(offer?.quantization).toBe("Q4_K_M");
+      });
+
+      it("keeps how the Headroom was measured, not just the numbers", async () => {
+        // Two Suppliers' throughput figures are only comparable if they were
+        // sampled the same way, so the sampling context travels with them.
+        await store.replaceOffers("office-spark", [offerFixture()]);
+
+        const offer = await store.getOffer("office-spark", "gemma-4-26b");
+        expect(offer?.headroomMeta?.saturation).toBe("batches");
+        // Cold-start is the difference between a warm Offer and a sleeping one.
+        expect(offer?.headroomMeta?.coldStartMs).toBe(18_400);
+      });
+
+      it("publishes an Offer whose Headroom sample failed, with the failure visible", async () => {
+        // Withholding it would have Dispatch route around a Model that serves
+        // fine. "Throughput unknown" is a weighable fact; absence is not.
+        await store.replaceOffers("office-spark", [
+          offerFixture({
+            headroom: [],
+            headroomMeta: {
+              sampledAt: "2026-07-28T00:00:00.000Z",
+              coldStartFirstTouch: true,
+              saturation: "inconclusive",
+              failed: "every sample errored or produced no tokens",
+            },
+          }),
+        ]);
+
+        const offer = await store.getOffer("office-spark", "gemma-4-26b");
+        expect(offer).not.toBeNull();
+        expect(offer?.headroom).toEqual([]);
+        expect(offer?.headroomMeta?.failed).toContain("errored");
       });
 
       it("applies default pricing to a newly published offer", async () => {

@@ -1,4 +1,4 @@
-# 0010 — The supplier agent serves models itself; adapting is a lesser Offer tier
+# 0016 — The supplier agent serves models itself; adapting is a lesser Offer tier
 
 Status: Accepted
 Date: 2026-07-26

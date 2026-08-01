@@ -1,4 +1,4 @@
-# 0006 — The exchange is a marketplace in its model, closed in its membership
+# 0012 — The exchange is a marketplace in its model, closed in its membership
 
 Status: Accepted
 Date: 2026-07-26
