@@ -63,7 +63,7 @@ export type { RuntimeEffects, SpawnedProcess } from "./runtime.js";
 export { OfferSupervisor, WITHDRAW_AFTER_FAILURES } from "./supervisor.js";
 export type { OfferHealth, SupervisorChange } from "./supervisor.js";
 
-export { HEALTH_INTERVAL_MS, runServeLoop } from "./serve.js";
+export { HEALTH_INTERVAL_MS, HEARTBEAT_INTERVAL_MS, runServeLoop } from "./serve.js";
 export type { ServeEffects, ServeOptions } from "./serve.js";
 
 export {

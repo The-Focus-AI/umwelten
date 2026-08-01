@@ -70,6 +70,21 @@ export function rankingPrice(offer: Offer): MicroDollars {
 }
 
 /**
+ * How long an Offer stays dispatchable without being republished.
+ *
+ * A supplier agent heartbeats every five minutes, so fifteen is three chances
+ * to be heard — one missed publish over a flaky link does not take a working
+ * machine out of the pool, and a machine that has genuinely been unplugged is
+ * out of it within a quarter of an hour.
+ *
+ * This is the half of withdrawal that survives an agent it cannot run: a live
+ * agent withdraws the moment it knows, and this catches everything that killed
+ * the agent before it could say anything. Neither is the single point of
+ * failure, which is only true because both are on by default.
+ */
+export const DEFAULT_STALE_AFTER_MS = 15 * 60_000;
+
+/**
  * @param now  Injected so staleness is testable without waiting.
  */
 export function dispatch(
@@ -98,10 +113,11 @@ export function dispatch(
       note("offer-disabled");
       continue;
     }
-    if (
-      opts.staleAfterMs !== undefined &&
-      now.getTime() - offer.publishedAt.getTime() > opts.staleAfterMs
-    ) {
+    // Defaulted rather than opt-in. An expiry window nobody remembered to
+    // configure is an expiry window that never fires, and then the two
+    // mechanisms that were supposed to overlap are one.
+    const staleAfterMs = opts.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+    if (staleAfterMs > 0 && now.getTime() - offer.publishedAt.getTime() > staleAfterMs) {
       // A Supplier that stopped reporting has probably gone. Its last known
       // capabilities are a guess, and dispatching on a guess is how a buyer
       // discovers an unplugged machine.

@@ -92,3 +92,30 @@ which is a cost with no corresponding benefit.
 Runtime death skips the threshold entirely. It is not per-Model and it is not in
 doubt, and waiting three cycles to say so would route three cycles of traffic
 into a process that is not running.
+
+## The heartbeat, and why silence has to mean something
+
+Withdrawal has two halves, and they are meant to overlap so that neither is a
+single point of failure:
+
+- A **live agent withdraws** the moment it knows an Offer is broken.
+- The **Exchange expires** Offers from a Supplier that has gone quiet.
+
+The second half is the one that survives everything the first cannot cover — the
+agent process killed, the machine losing power, the network going away. But it
+only works if silence actually means something, and silence cannot mean anything
+unless a healthy agent is reliably noisy.
+
+So a healthy agent republishes its unchanged Offer set every **5 minutes**, and
+the Exchange expires an Offer not republished within **15 minutes** — three
+chances to be heard, so one publish lost to a flaky link does not take a working
+machine out of the pool.
+
+This is the one place the no-churn rule does not apply, and the distinction is
+worth stating: a re-probe republish carries *new information* and is suppressed
+when there is none, while a heartbeat republish carries *the fact that we are
+still here*, which is new every time.
+
+The Exchange's window is **on by default**. An expiry window nobody remembered
+to configure is a window that never fires, and then the two mechanisms above
+stop being two.

@@ -29,6 +29,21 @@ import type { OfferDraft, ProbedOffer } from "./types.js";
  */
 export const HEALTH_INTERVAL_MS = 30_000;
 
+/**
+ * How often a healthy agent republishes an unchanged Offer set.
+ *
+ * Not churn — a heartbeat. The Exchange expires Offers from a Supplier that has
+ * gone quiet, which is the half of withdrawal that survives this process being
+ * killed, losing power, or losing its network. That mechanism only works if
+ * silence actually means something, and it cannot mean anything unless a
+ * healthy agent is reliably noisy.
+ *
+ * Five minutes against the Exchange's fifteen gives three chances to be heard
+ * before an Offer goes stale, so one missed publish over a flaky link does not
+ * take a working machine out of the pool.
+ */
+export const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
+
 export interface ServeEffects {
   /** Is the runtime we started still answering? */
   runtimeAlive(): Promise<boolean>;
@@ -50,6 +65,7 @@ export interface ServeEffects {
 export interface ServeOptions {
   healthIntervalMs?: number;
   reprobeIntervalMs?: number;
+  heartbeatIntervalMs?: number;
   /** Stops the loop. */
   signal?: AbortSignal;
   probeInputs: ProbeInputs;
@@ -71,7 +87,9 @@ export async function runServeLoop(
 ): Promise<void> {
   const healthMs = opts.healthIntervalMs ?? HEALTH_INTERVAL_MS;
   const reprobeMs = opts.reprobeIntervalMs ?? DEFAULT_REPROBE_INTERVAL_MS;
+  const heartbeatMs = opts.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS;
   let lastProbe = opts.previous;
+  let lastPublished = effects.now();
 
   const report = (change: SupervisorChange) => {
     for (const note of change.notes) effects.log(note);
@@ -110,7 +128,10 @@ export async function runServeLoop(
 
     // Immediately, not at the next scheduled publish. An agent that waits is
     // an agent that lets Dispatch route into a known failure.
-    if (dirty) await republish(supervisor, effects);
+    if (dirty || effects.now() - lastPublished >= heartbeatMs) {
+      await republish(supervisor, effects);
+      lastPublished = effects.now();
+    }
 
     const reason = reprobeReason({
       previous: lastProbe,
@@ -144,6 +165,7 @@ export async function runServeLoop(
     for (const line of diff.summary) effects.log(line);
     supervisor.replace(drafts);
     await republish(supervisor, effects);
+    lastPublished = effects.now();
   }
 }
 
