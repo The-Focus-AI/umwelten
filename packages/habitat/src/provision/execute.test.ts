@@ -6,6 +6,10 @@ import type { ProvisionExecutorDeps, ProvisionResult } from "./execute.js";
 import type { HabitatConfig } from "../types.js";
 import type { ProvisionPlan, ProvisionStep, VolumeState } from "./types.js";
 
+/** The habitat boot-token passthrough every scoped git command carries. */
+const GIT_CRED =
+  'GIT_CONFIG_COUNT="$GIT_CONFIG_COUNT" GIT_CONFIG_KEY_0="$GIT_CONFIG_KEY_0" GIT_CONFIG_VALUE_0="$GIT_CONFIG_VALUE_0"';
+
 interface Recorder {
   deps: ProvisionExecutorDeps;
   commands: { command: string; cwd: string }[];
@@ -145,10 +149,86 @@ describe("commandFor", () => {
 
     expect(await commandFor(only(plan, "clone-agent-repo"), withSecrets)).toEqual({
       command:
-        'env -i PATH="$PATH" HOME="$HOME" DEPLOY_KEY=\'s3cr3t\' ' +
+        'env -i PATH="$PATH" HOME="$HOME" ' + GIT_CRED + ' DEPLOY_KEY=\'s3cr3t\' ' +
         'git clone --branch trunk "git@github.com:acme/web.git" "/data/agents/web/repo"',
       cwd: ".",
     });
+  });
+
+  /**
+   * The regression this guards: `env -i` used to drop the habitat's
+   * github-token git config along with everything else, so a read-only mount
+   * had no credential at all and every clone of a private repo died with
+   * "could not read Username". Mounts are private repos by definition
+   * (ADR 0006), so this broke the whole feature.
+   */
+  it("carries the habitat's github credential into a mount clone", async () => {
+    const plan = planFor({
+      agents: [
+        {
+          id: "web",
+          name: "web",
+          projectPath: "",
+          gitRemote: "https://github.com/acme/web.git",
+          mode: "read",
+        },
+      ],
+    });
+
+    const { command } = await commandFor(
+      only(plan, "clone-agent-repo"),
+      recorder({}).deps,
+    );
+
+    for (const name of [
+      "GIT_CONFIG_COUNT",
+      "GIT_CONFIG_KEY_0",
+      "GIT_CONFIG_VALUE_0",
+    ]) {
+      expect(command).toContain(`${name}="$${name}"`);
+    }
+  });
+
+  /**
+   * By reference, never by value: the token lives inside GIT_CONFIG_KEY_0, and
+   * command strings are the one place a provisioning secret could surface in a
+   * log or an error. The running shell expands it; we never interpolate it.
+   */
+  it("passes the credential by reference so the token never enters the command", async () => {
+    const plan = planFor({
+      agents: [
+        { id: "web", name: "web", projectPath: "", gitRemote: "https://github.com/acme/web.git" },
+      ],
+    });
+    const leaky = recorder({
+      secrets: {
+        GIT_CONFIG_KEY_0:
+          "url.https://x-access-token:ghs_SUPERSECRET@github.com/.insteadOf",
+      },
+    }).deps;
+
+    const { command } = await commandFor(only(plan, "clone-agent-repo"), leaky);
+
+    expect(command).not.toContain("ghs_SUPERSECRET");
+  });
+
+  /** Agent isolation is unchanged — only the habitat's own grant is shared. */
+  it("still keeps one agent's declared secrets out of another's clone", async () => {
+    const plan = planFor({
+      agents: [
+        { id: "a", name: "a", projectPath: "", gitRemote: "git@github.com:acme/a.git", secrets: ["A_KEY"] },
+        { id: "b", name: "b", projectPath: "", gitRemote: "git@github.com:acme/b.git", secrets: ["B_KEY"] },
+      ],
+    });
+    const deps = recorder({ secrets: { A_KEY: "aaa", B_KEY: "bbb" } }).deps;
+
+    const clones = plan.steps.filter((s) => s.kind === "clone-agent-repo");
+    const [a, b] = await Promise.all(clones.map((s) => commandFor(s, deps)));
+
+    expect(a!.command).toContain("A_KEY='aaa'");
+    expect(a!.command).not.toContain("bbb");
+    expect(b!.command).toContain("B_KEY='bbb'");
+    expect(b!.command).not.toContain("aaa");
   });
 
   it("shell-quotes secret values so they cannot break out of the assignment", async () => {
@@ -212,7 +292,7 @@ describe("executeProvisionPlan", () => {
     expect(rec.commands.map((c) => c.command)).toEqual([
       'git clone "https://example.com/ops.git" "/data/project"',
       "pnpm install --prod",
-      'env -i PATH="$PATH" HOME="$HOME" git clone "git@github.com:acme/web.git" "/data/agents/web/repo"',
+      `env -i PATH="$PATH" HOME="$HOME" ${GIT_CRED} git clone "git@github.com:acme/web.git" "/data/agents/web/repo"`,
       'npx skills@latest add "acme/skills" --all -y 2>&1',
     ]);
     expect(rec.dirs).toEqual(["/data/agents", "/data/agents/web"]);

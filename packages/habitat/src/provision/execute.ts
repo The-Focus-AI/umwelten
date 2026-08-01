@@ -45,11 +45,36 @@ function shellQuote(value: string): string {
 }
 
 /**
+ * The habitat's github.com credential, as `entrypoint.sh` exports it.
+ *
+ * This is the habitat's *own* boot token (ADR 0004) — Gaia mints it scoped to
+ * exactly the repos the registry entry declares under `github.read`. It is not
+ * an agent credential, so carrying it into a per-agent clone grants nothing the
+ * habitat was not already granted for that repo.
+ */
+const GIT_CREDENTIAL_ENV = [
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_KEY_0",
+  "GIT_CONFIG_VALUE_0",
+] as const;
+
+/**
  * `env -i` plus only this agent's declared env, for any git operation against
- * its repo. Everything else is dropped — including the habitat's github-token
- * git config — so one agent's credentials can never authenticate another's
- * remote. `$PATH` / `$HOME` are left for the shell running the command to
- * expand, so the operation keeps the container's toolchain and nothing else.
+ * its repo. Agent-specific secrets stay agent-specific: one agent's declared
+ * env can never authenticate another's remote.
+ *
+ * The habitat's github-token git config IS carried through. It was dropped
+ * originally, on the reasoning that any credential is an agent credential —
+ * but the boot token is the habitat's ambient read grant, already narrowed by
+ * Gaia to the declared repos. Dropping it left read-only mounts with no
+ * credential at all, so every mounted-repo clone fell back to anonymous and
+ * failed with "could not read Username" against a private repo, which is the
+ * whole population of mounts (ADR 0006). Isolation between agents is unchanged;
+ * what changes is that the habitat may use its own grant.
+ *
+ * `$PATH` / `$HOME` and the credential are left for the shell running the
+ * command to expand — so the token never appears in a command string — and an
+ * unset credential expands to empty, which git ignores.
  */
 function scopedEnvPrefix(envNames: string[], deps: ProvisionExecutorDeps): string {
   const assignments = envNames
@@ -58,7 +83,8 @@ function scopedEnvPrefix(envNames: string[], deps: ProvisionExecutorDeps): strin
       return value ? ` ${name}=${shellQuote(value)}` : "";
     })
     .join("");
-  return `env -i PATH="$PATH" HOME="$HOME"${assignments}`;
+  const credential = GIT_CREDENTIAL_ENV.map((name) => ` ${name}="$${name}"`).join("");
+  return `env -i PATH="$PATH" HOME="$HOME"${credential}${assignments}`;
 }
 
 async function conditionHolds(
