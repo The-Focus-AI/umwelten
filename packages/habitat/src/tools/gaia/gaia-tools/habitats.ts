@@ -21,6 +21,7 @@ import {
 	nodeVaultDeps,
 	resolveHabitatVault,
 	VaultResolutionError,
+	VaultToolingMissingError,
 	HABITAT_VAULT_FILE,
 } from "../habitat-vault.js";
 import { secretNeeds, unmetNeeds } from "../required-secrets.js";
@@ -50,8 +51,20 @@ export async function startHabitatContainer(
 	// to the master vault, exactly as before (#283 is the expand step). Gaia
 	// resolves on the host either way — no container ever holds a credential
 	// that could open a vault.
-	const resolved = entry.vaultToml
-		? (
+	// Declared needs are read first because they decide what a missing fnox
+	// means. A habitat that needs nothing is not made safer by refusing to
+	// start it over a vault it would never have read.
+	const declaredNeeds = secretNeeds(entry.config, entry.secretBindings);
+	// Asked of `unmetNeeds` rather than recomputed: it already owns the
+	// required-vs-optional and contract-vs-bindings rules, and a second copy
+	// here would be a second place for them to drift. Against an empty
+	// resolution it answers exactly "is any vault secret required at all".
+	const requiresSecrets = unmetNeeds(declaredNeeds, {}).missingRequired.length > 0;
+
+	let resolved: Record<string, string> | undefined;
+	if (entry.vaultToml) {
+		try {
+			resolved = (
 				await resolveHabitatVault(
 					{ id, vaultToml: entry.vaultToml },
 					nodeVaultDeps(registry.habitatDataDir(id), (event) =>
@@ -61,8 +74,19 @@ export async function startHabitatContainer(
 						),
 					),
 				)
-			).secrets
-		: undefined;
+			).secrets;
+		} catch (err) {
+			// Missing tooling only blocks a habitat that actually declared a need.
+			// Anything else — bad toml, refused credential, non-JSON — is this
+			// habitat's own misconfiguration and still fails the start.
+			if (!(err instanceof VaultToolingMissingError) || requiresSecrets) throw err;
+			console.log(
+				`[vault] ${id} skipped — ${HABITAT_VAULT_FILE} present but fnox is not installed, ` +
+					`and this habitat declares no required secrets. Starting without vault secrets. ` +
+					`Install fnox on the Gaia host to give it its own vault.`,
+			);
+		}
+	}
 
 	// A declared need its vault cannot supply fails the start. Starting anyway
 	// produces a container that boots, passes its health check — health does
@@ -72,8 +96,7 @@ export async function startHabitatContainer(
 		// Checked against what the habitat declared, so an OAuth credential it
 		// mints itself is never counted as missing — it is absent until a user
 		// connects, which is normal. Optional entries do not block either.
-		const needs = secretNeeds(entry.config, entry.secretBindings);
-		const { missingRequired } = unmetNeeds(needs, resolved);
+		const { missingRequired } = unmetNeeds(declaredNeeds, resolved);
 		if (missingRequired.length) {
 			throw new VaultResolutionError(
 				`Habitat "${id}" requires ${missingRequired.join(", ")}, which its vault did not supply. ` +
