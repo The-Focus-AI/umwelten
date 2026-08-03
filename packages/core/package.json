@@ -34,7 +34,7 @@
     "@json-render/core": "^0.19.0",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.41",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.2",
     "dotenv": "^17.4.2",
     "fast-xml-parser": "^5.10.1",
     "file-type": "^22.0.1",
