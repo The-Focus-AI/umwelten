@@ -29,11 +29,11 @@
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.27",
-    "@ai-sdk/openai-compatible": "^3.0.16",
+    "@ai-sdk/google": "^4.0.29",
+    "@ai-sdk/openai-compatible": "^3.0.18",
     "@json-render/core": "^0.19.0",
     "@openrouter/ai-sdk-provider": "^3.0.0",
-    "ai": "^7.0.41",
+    "ai": "^7.0.44",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
     "fast-xml-parser": "^5.10.1",

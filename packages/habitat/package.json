@@ -35,11 +35,11 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
-    "ai": "^7.0.41",
+    "ai": "^7.0.44",
     "chalk": "^5.6.2",
     "commander": "^15.0.0",
     "gray-matter": "^4.0.3",
-    "jose": "^6.2.4",
+    "jose": "^6.2.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
