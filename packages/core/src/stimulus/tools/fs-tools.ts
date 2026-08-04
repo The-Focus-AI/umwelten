@@ -7,7 +7,7 @@
  * over these.
  */
 
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat, open } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -44,6 +44,109 @@ const ripgrepSchema = z.object({
   fileType: z.string().optional().describe('File type filter (e.g., "ts", "js", "md")'),
 });
 
+/**
+ * Most bytes a single read returns when the caller did not ask for a slice.
+ *
+ * A file read is the one tool result whose size is set by the repo rather than
+ * by anything the model chose, and it cannot see the size before asking. An
+ * unbounded read of a big file does not degrade the turn, it ends it: the
+ * provider rejects the whole request and the model gets no answer and no way
+ * to recover. Observed against a 5.2 MB `.eml` in a habitat's mounted repo —
+ * 1,154,415 tokens against a 1,000,000 limit, from one `read_file`.
+ *
+ * 256 KiB clears every source and document file in practice while staying far
+ * enough under the smallest context window that a truncated read is always
+ * survivable. Files above it are not refused — the head comes back with the
+ * real size and an instruction to page, which is a thing the model can act on.
+ *
+ * This bounds an *input* the model did not choose. It is not an output cap:
+ * nothing here touches maxOutputTokens/maxTokens, and generation still runs to
+ * its natural stop.
+ */
+export const DEFAULT_MAX_READ_BYTES = 256 * 1024;
+
+export interface BoundedRead {
+  content: string;
+  /** Whole-file byte length, whether or not the read was truncated. */
+  totalBytes: number;
+  /** Set only when bytes were withheld, so a full read stays shaped as before. */
+  truncated?: true;
+  bytesReturned?: number;
+  hint?: string;
+}
+
+/**
+ * Read at most `maxBytes`, cutting on a line boundary.
+ *
+ * Opens a handle and reads only the prefix rather than reading the file and
+ * slicing: a 8.5 MB read that gets thrown away is still 8.5 MB through the
+ * process, and habitats run many of these concurrently.
+ */
+export async function readBounded(
+  resolved: string,
+  maxBytes: number = DEFAULT_MAX_READ_BYTES,
+): Promise<BoundedRead> {
+  const { size } = await stat(resolved);
+  if (size <= maxBytes) {
+    return { content: await readFile(resolved, 'utf-8'), totalBytes: size };
+  }
+
+  const handle = await open(resolved, 'r');
+  let raw: string;
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    const { bytesRead } = await handle.read(buf, 0, maxBytes, 0);
+    raw = buf.subarray(0, bytesRead).toString('utf-8');
+  } finally {
+    await handle.close();
+  }
+
+  // Drop the trailing partial line so the model never parses half a record —
+  // and a final partial multi-byte character with it.
+  const cut = raw.lastIndexOf('\n');
+  const content = cut > 0 ? raw.slice(0, cut) : raw;
+
+  return {
+    content,
+    totalBytes: size,
+    truncated: true,
+    bytesReturned: Buffer.byteLength(content, 'utf-8'),
+    hint:
+      `File is ${size} bytes; returned the first ${Buffer.byteLength(content, 'utf-8')}. ` +
+      `Use offset and limit to page through the rest, or ripgrep to search it without reading it whole.`,
+  };
+}
+
+/**
+ * Bound an already-materialised slice, on a line boundary.
+ *
+ * The offset/limit path asks in lines, so the cap has to be applied after the
+ * slice exists. Shared by both read tools so a paged read of a file with very
+ * long lines is bounded the same way an unpaged one is.
+ */
+export function boundSlice(
+  sliced: string,
+  maxBytes: number = DEFAULT_MAX_READ_BYTES,
+): { content: string; meta: Record<string, unknown> } {
+  const size = Buffer.byteLength(sliced, 'utf-8');
+  if (size <= maxBytes) return { content: sliced, meta: {} };
+
+  const head = Buffer.from(sliced, 'utf-8').subarray(0, maxBytes).toString('utf-8');
+  const cut = head.lastIndexOf('\n');
+  const content = cut > 0 ? head.slice(0, cut) : head;
+  return {
+    content,
+    meta: {
+      truncated: true,
+      totalBytes: size,
+      bytesReturned: Buffer.byteLength(content, 'utf-8'),
+      hint:
+        `The requested range is ${size} bytes; returned the first ` +
+        `${Buffer.byteLength(content, 'utf-8')}. Narrow the range with limit, or use ripgrep.`,
+    },
+  };
+}
+
 function classify(err: unknown, rawPath: string) {
   if (err instanceof Error) {
     if (err.message.startsWith(OUTSIDE_ALLOWED_PATH)) return { error: err.message };
@@ -66,25 +169,42 @@ export function createReadTool(roots: string[]): Tool {
       try {
         const resolved = resolveSandboxPath(rawPath, roots);
         ensureAllowed(resolved, roots);
-        const fullContent = await readFile(resolved, 'utf-8');
 
         if (offset !== undefined || limit !== undefined) {
+          // Line addressing needs whole lines, so this path reads the file and
+          // slices — then bounds the slice, because a line count says nothing
+          // about byte size and one row of a data file can be megabytes.
+          const fullContent = await readFile(resolved, 'utf-8');
           const lines = fullContent.split('\n');
           const totalLines = lines.length;
           const startLine = offset ?? 0;
           const endLine = limit !== undefined ? startLine + limit : totalLines;
-          const slicedContent = lines.slice(startLine, endLine).join('\n');
+          const sliced = lines.slice(startLine, endLine).join('\n');
+          const capped = boundSlice(sliced);
           return {
             path: resolved,
-            content: slicedContent,
+            content: capped.content,
             totalLines,
             startLine,
             endLine: Math.min(endLine, totalLines),
             hasMore: endLine < totalLines,
+            ...capped.meta,
           };
         }
 
-        return { path: resolved, content: fullContent };
+        const read = await readBounded(resolved);
+        return {
+          path: resolved,
+          content: read.content,
+          ...(read.truncated
+            ? {
+                truncated: true,
+                totalBytes: read.totalBytes,
+                bytesReturned: read.bytesReturned,
+                hint: read.hint,
+              }
+            : {}),
+        };
       } catch (err) {
         return classify(err, rawPath);
       }
