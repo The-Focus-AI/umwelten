@@ -43,6 +43,31 @@ export class VaultResolutionError extends Error {
 	}
 }
 
+/**
+ * The vault tooling itself is absent — fnox is not on this host.
+ *
+ * Distinguished from a failed resolution because the two want opposite
+ * handling. A bad `fnox.toml`, a rejected credential, or a vault that answers
+ * with nonsense is a misconfiguration of *this habitat*, and starting it
+ * anyway produces the under-configured container `startHabitatContainer`
+ * exists to prevent. Missing tooling is a property of the *host*, and it says
+ * nothing about whether this habitat needs a secret: a habitat that declares
+ * none is blocked by a vault it would never have read.
+ *
+ * So the caller decides, and it can only decide if it can tell the two apart.
+ */
+export class VaultToolingMissingError extends VaultResolutionError {
+	constructor(message: string, habitatId: string) {
+		super(message, habitatId);
+		this.name = "VaultToolingMissingError";
+	}
+}
+
+/** ENOENT from spawning fnox — the binary is not installed, not a vault fault. */
+function isMissingTooling(err: unknown): boolean {
+	return (err as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+}
+
 export interface VaultResolution {
 	/** Resolved name → value. Never logged. */
 	secrets: Record<string, string>;
@@ -99,9 +124,15 @@ export async function resolveHabitatVault(
 		await writeFile(join(dir, HABITAT_VAULT_FILE), vaultToml, { mode: 0o600 });
 		stdout = await deps.exportVault(dir, profile);
 	} catch (err) {
-		return fail(
-			`Could not resolve the vault for "${id}": ${err instanceof Error ? err.message : String(err)}`,
-		);
+		const message = err instanceof Error ? err.message : String(err);
+		if (isMissingTooling(err)) {
+			const text =
+				`Could not resolve the vault for "${id}": fnox is not installed on this host. ` +
+				`Gaia brokers every habitat's secrets itself, so fnox belongs on the host, not in the habitat image.`;
+			deps.audit?.({ habitatId: id, ok: false, names: [], profile, error: text });
+			throw new VaultToolingMissingError(text, id);
+		}
+		return fail(`Could not resolve the vault for "${id}": ${message}`);
 	} finally {
 		// Best effort — a leftover declaration is a stale copy, not a secret.
 		await rm(dir, { recursive: true, force: true }).catch(() => {});
