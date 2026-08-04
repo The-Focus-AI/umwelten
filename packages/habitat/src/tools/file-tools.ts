@@ -23,6 +23,7 @@ import {
   ensureAllowed,
   OUTSIDE_ALLOWED_PATH,
 } from '@umwelten/core/stimulus/tools/path-sandbox.js';
+import { readBounded, boundSlice } from '@umwelten/core/stimulus/tools/fs-tools.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -90,25 +91,38 @@ export function createFileTools(ctx: FileToolsContext): Record<string, Tool> {
       try {
         const resolved = resolveHabitatPath(rawPath, agentId, ctx);
         ensureAllowed(resolved, allowedRoots);
-        const fullContent = await readFile(resolved, 'utf-8');
 
         if (offset !== undefined || limit !== undefined) {
+          const fullContent = await readFile(resolved, 'utf-8');
           const lines = fullContent.split('\n');
           const totalLines = lines.length;
           const startLine = offset ?? 0;
           const endLine = limit !== undefined ? startLine + limit : totalLines;
-          const slicedContent = lines.slice(startLine, endLine).join('\n');
+          const capped = boundSlice(lines.slice(startLine, endLine).join('\n'));
           return {
             path: resolved,
-            content: slicedContent,
+            content: capped.content,
             totalLines,
             startLine,
             endLine: Math.min(endLine, totalLines),
             hasMore: endLine < totalLines,
+            ...capped.meta,
           };
         }
 
-        return { path: resolved, content: fullContent };
+        const read = await readBounded(resolved);
+        return {
+          path: resolved,
+          content: read.content,
+          ...(read.truncated
+            ? {
+                truncated: true,
+                totalBytes: read.totalBytes,
+                bytesReturned: read.bytesReturned,
+                hint: read.hint,
+              }
+            : {}),
+        };
       } catch (err: unknown) {
         if (err instanceof Error) {
           if (err.message.startsWith('AGENT_NOT_FOUND')) return { error: err.message };
