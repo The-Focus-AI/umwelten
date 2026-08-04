@@ -129,3 +129,6 @@ examples/dialogue-web/transcripts/
 # Claude Code local state + per-dir agent skill caches
 .claude/
 **/.agents/
+
+# personality-quiz — the people it builds are generated, not source
+examples/personality-quiz/profiles/

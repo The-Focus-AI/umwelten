@@ -29,6 +29,7 @@ export default [
 			"examples/supplier-agent/**/*.ts",
 			"examples/exchange-metering/**/*.ts",
 			"examples/exchange-e2e/**/*.ts",
+			"examples/personality-quiz/**/*.ts",
 		],
 		languageOptions: {
 			parser: tsParser,

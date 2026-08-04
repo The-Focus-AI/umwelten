@@ -9,7 +9,7 @@
     "test:run": "vitest run --reporter=verbose",
     "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose",
     "test:all": "pnpm test:run && pnpm test:integration",
-    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\" && eslint --no-ignore \"examples/supplier-agent/**/*.ts\" \"examples/exchange-metering/**/*.ts\" \"examples/exchange-e2e/**/*.ts\"",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\" && eslint --no-ignore \"examples/supplier-agent/**/*.ts\" \"examples/exchange-metering/**/*.ts\" \"examples/exchange-e2e/**/*.ts\" \"examples/personality-quiz/**/*.ts\"",
     "cli": "NODE_OPTIONS='--no-deprecation' tsx packages/cli/src/entry.ts",
     "smoke:cascade": "tsx scripts/smoke-test-cascade.ts",
     "docs:sync-assets": "rm -rf docs/public/dialogue && mkdir -p docs/public/dialogue && cp examples/dialogue-web/index.html docs/public/dialogue/index.html",
