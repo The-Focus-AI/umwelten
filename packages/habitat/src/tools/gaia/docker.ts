@@ -78,6 +78,12 @@ function resolveNetworkName(): string {
 }
 /** Default image every habitat runs unless its registry entry says otherwise. */
 export const DEFAULT_IMAGE_NAME = "habitat";
+
+/**
+ * Habitat Dockerfile, relative to the repo root that is the build context.
+ * Kept next to the image name so the two cannot drift apart.
+ */
+export const HABITAT_DOCKERFILE = "packages/habitat/Dockerfile";
 const CONTAINER_PREFIX = "gaia-";
 
 /** First port in the habitat container range. */
@@ -212,11 +218,25 @@ export class DockerManager {
     }
   }
 
-  /** Build the habitat image from the project root. */
+  /**
+   * Build the habitat image.
+   *
+   * The context is the repo root — the Dockerfile copies `pnpm-workspace.yaml`
+   * and the whole `packages/` tree, so it cannot build from its own directory —
+   * but the Dockerfile itself lives in `packages/habitat/`, so `-f` is required.
+   * Without it docker looks for a Dockerfile at the context root, which does
+   * not exist, and `build_image` fails for every caller:
+   *
+   *   unable to prepare context: unable to evaluate symlinks in Dockerfile
+   *   path: lstat /habitat/Dockerfile: no such file or directory
+   *
+   * That made the tool unusable exactly when it is needed — after merging a fix
+   * to shared code, which only reaches habitats through a rebuilt image.
+   */
   async buildImage(): Promise<string> {
     const { stdout, stderr } = await execFile(
       "docker",
-      ["build", "-t", DEFAULT_IMAGE_NAME, "."],
+      ["build", "-f", HABITAT_DOCKERFILE, "-t", DEFAULT_IMAGE_NAME, "."],
       { cwd: this.projectRoot, maxBuffer: 10 * 1024 * 1024 },
     );
     return stdout + stderr;
