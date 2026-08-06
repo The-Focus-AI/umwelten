@@ -15,7 +15,7 @@
     "discord.js": "^14.27.0"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.21.7",
+    "@dagger.io/dagger": "^0.21.8",
     "tsx": "^4.23.1"
   },
   "pnpm": {
