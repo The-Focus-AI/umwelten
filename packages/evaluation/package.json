@@ -31,11 +31,11 @@
   "dependencies": {
     "@umwelten/core": "workspace:*",
     "@umwelten/sessions": "workspace:*",
-    "ai": "^7.0.41",
+    "ai": "^7.0.51",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.21.7",
+    "@dagger.io/dagger": "^0.21.8",
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
