@@ -1,7 +1,7 @@
 /**
  * The Exchange provider, against a stand-in for the Exchange.
  *
- * Deliberately not the real `@umwelten/exchange`: `core` sits at the root of
+ * Deliberately not the real `@umwelten/mycel`: `core` sits at the root of
  * the dependency DAG and importing a package that depends on it would create
  * the repo's first cycle. That constraint is the point of the last assertion
  * here — the whole relationship is one HTTP call, so a fake that speaks the
@@ -10,7 +10,7 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import http from "node:http";
-import { createExchangeProvider } from "./exchange.js";
+import { createMycelProvider } from "./mycel.js";
 
 let server: http.Server | undefined;
 
@@ -29,7 +29,7 @@ afterEach(async () => {
   server = undefined;
 });
 
-describe("ExchangeProvider", () => {
+describe("MycelProvider", () => {
   it("lists models from the Exchange catalogue", async () => {
     const url = await startFakeExchange((req, res) => {
       expect(req.url).toBe("/v1/models");
@@ -51,9 +51,9 @@ describe("ExchangeProvider", () => {
       );
     });
 
-    const models = await createExchangeProvider(undefined, url).listModels();
+    const models = await createMycelProvider(undefined, url).listModels();
     expect(models).toHaveLength(1);
-    expect(models[0].provider).toBe("exchange");
+    expect(models[0].provider).toBe("mycel");
     expect(models[0].name).toBe("gemma-4-26b");
     expect(models[0].contextLength).toBe(131072);
     // Retail — what a buyer is charged, not what the Supplier is owed.
@@ -70,7 +70,7 @@ describe("ExchangeProvider", () => {
       res.end(JSON.stringify({ object: "list", data: [] }));
     });
 
-    await expect(createExchangeProvider(undefined, url).listModels()).resolves.toEqual([]);
+    await expect(createMycelProvider(undefined, url).listModels()).resolves.toEqual([]);
   });
 
   it("presents a credential when it has one", async () => {
@@ -81,7 +81,7 @@ describe("ExchangeProvider", () => {
       res.end(JSON.stringify({ object: "list", data: [] }));
     });
 
-    await createExchangeProvider("app-token", url).listModels();
+    await createMycelProvider("app-token", url).listModels();
     expect(seen).toBe("Bearer app-token");
   });
 
@@ -93,16 +93,16 @@ describe("ExchangeProvider", () => {
       res.end(JSON.stringify({ error: "no_eligible_offer" }));
     });
 
-    await expect(createExchangeProvider(undefined, url).listModels()).rejects.toThrow(
+    await expect(createMycelProvider(undefined, url).listModels()).rejects.toThrow(
       /Exchange API error/,
     );
   });
 
   it("builds a language model pointed at the Exchange's /v1", async () => {
     const url = await startFakeExchange((_req, res) => res.end("{}"));
-    const model = createExchangeProvider("k", url).getLanguageModel({
+    const model = createMycelProvider("k", url).getLanguageModel({
       name: "gemma-4-26b",
-      provider: "exchange",
+      provider: "mycel",
     });
     expect(model).toBeDefined();
   });
@@ -115,6 +115,6 @@ describe("ExchangeProvider", () => {
       res.end(JSON.stringify({ object: "list", data: [] }));
     });
 
-    await createExchangeProvider(undefined, `${url}/`).listModels();
+    await createMycelProvider(undefined, `${url}/`).listModels();
   });
 });

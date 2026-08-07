@@ -4,7 +4,7 @@
 
 The box-side half of the token exchange. It finds out what this machine can
 actually do, and publishes that up as **Offer** drafts. Vocabulary follows
-[`packages/exchange/CONTEXT.md`](../../packages/exchange/CONTEXT.md).
+[`packages/mycel/CONTEXT.md`](../../packages/mycel/CONTEXT.md).
 
 **Status: prototype.** Written against real interfaces and typechecked, but not
 yet run against real hardware — there is no GPU or local runtime in CI. The
@@ -36,8 +36,8 @@ dotenvx run -- pnpm tsx examples/supplier-agent/run.ts publish --supplier office
 ```
 
 `probe` writes `output/supplier-agent/probes.json`; `publish` reads it, so the
-slow stage runs once and can be republished freely. Set `EXCHANGE_URL` and
-`EXCHANGE_TOKEN` (or pass `--to`) to actually POST.
+slow stage runs once and can be republished freely. Set `MYCEL_URL` and
+`MYCEL_TOKEN` (or pass `--to`) to actually POST.
 
 Flags: `--provider` and `--model` filter targets, `--concurrency 1,4` samples
 throughput at multiple levels, `--no-throughput` runs capabilities only.

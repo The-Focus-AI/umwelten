@@ -13,7 +13,7 @@ Experiment report, 2026-07-26. Run on an M4 Max via
 
 ## What the experiment was for
 
-The exchange (see `packages/exchange/CONTEXT.md`) needs to know what each Offer
+The exchange (see `packages/mycel/CONTEXT.md`) needs to know what each Offer
 can do before it dispatches to one. The open question was whether a supplier
 agent can simply **adapt** — resell whatever runtimes are already up on a box —
 or whether it must **serve** the models itself to make any guarantee stick.

@@ -22,5 +22,5 @@
     "typeRoots": ["../node_modules/@types", "../packages/core/node_modules/@types"],
     "types": ["node"]
   },
-  "include": ["supplier-agent/**/*.ts", "exchange-metering/**/*.ts", "exchange-e2e/**/*.ts"]
+  "include": ["supplier-agent/**/*.ts", "mycel-metering/**/*.ts", "mycel-e2e/**/*.ts"]
 }

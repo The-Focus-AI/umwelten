@@ -1,7 +1,7 @@
 /**
  * Supplier-agent domain types.
  *
- * Vocabulary follows `packages/exchange/CONTEXT.md` — the agent and the
+ * Vocabulary follows `packages/mycel/CONTEXT.md` — the agent and the
  * Exchange share a bounded context even though they are different deployables.
  * Two rules from the ADRs are structural here:
  *
