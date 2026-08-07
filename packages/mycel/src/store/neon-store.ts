@@ -109,11 +109,21 @@ export class NeonStore implements ExchangeStore {
         id TEXT PRIMARY KEY,
         client_id TEXT NOT NULL REFERENCES exchange_client(id) ON DELETE CASCADE,
         jwks_url TEXT NOT NULL,
+        credential_hash TEXT,
         required_guarantees JSONB NOT NULL DEFAULT '[]'::jsonb,
         allowed_models JSONB,
         enabled BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
+    `;
+
+    await this.sql`ALTER TABLE exchange_application ADD COLUMN IF NOT EXISTS credential_hash TEXT`;
+
+    // Resolving an Application by presented credential is on the hot path of
+    // every request from a static-credential caller.
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_application_credential_hash_idx
+        ON exchange_application (credential_hash)
     `;
 
     // Append-only. A usage record is never rewritten — a disputed charge has
@@ -189,6 +199,17 @@ export class NeonStore implements ExchangeStore {
       ownerKey: entry.ownerKey,
       microDollars: Number(rows[0]?.balance ?? 0),
     };
+  }
+
+  async hasLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<boolean> {
+    // LIMIT 1 rather than a count: this runs on the hot path of every request,
+    // and the question is existence, not how many.
+    const rows = (await this.sql`
+      SELECT 1 FROM exchange_ledger_entry
+      WHERE owner_kind = ${ownerKind} AND owner_key = ${ownerKey}
+      LIMIT 1
+    `) as Row[];
+    return rows.length > 0;
   }
 
   async getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance> {
@@ -268,9 +289,11 @@ export class NeonStore implements ExchangeStore {
   async createApplication(application: Application): Promise<void> {
     await this.sql`
       INSERT INTO exchange_application
-        (id, client_id, jwks_url, required_guarantees, allowed_models, enabled, created_at)
+        (id, client_id, jwks_url, credential_hash, required_guarantees, allowed_models,
+         enabled, created_at)
       VALUES (
         ${application.id}, ${application.clientId}, ${application.jwksUrl},
+        ${application.credentialHash ?? null},
         ${JSON.stringify(application.requiredGuarantees)}::jsonb,
         ${application.allowedModels ? JSON.stringify(application.allowedModels) : null}::jsonb,
         ${application.enabled}, ${application.createdAt.toISOString()}
@@ -278,6 +301,7 @@ export class NeonStore implements ExchangeStore {
       ON CONFLICT (id) DO UPDATE SET
         client_id = EXCLUDED.client_id,
         jwks_url = EXCLUDED.jwks_url,
+        credential_hash = EXCLUDED.credential_hash,
         required_guarantees = EXCLUDED.required_guarantees,
         allowed_models = EXCLUDED.allowed_models,
         enabled = EXCLUDED.enabled
@@ -286,6 +310,15 @@ export class NeonStore implements ExchangeStore {
 
   async getApplication(id: string): Promise<Application | null> {
     const rows = (await this.sql`SELECT * FROM exchange_application WHERE id = ${id}`) as Row[];
+    return rows[0] ? toApplication(rows[0]) : null;
+  }
+
+  async getApplicationByCredentialHash(hash: string): Promise<Application | null> {
+    // An empty hash must never match a row with a NULL credential.
+    if (!hash) return null;
+    const rows = (await this.sql`
+      SELECT * FROM exchange_application WHERE credential_hash = ${hash}
+    `) as Row[];
     return rows[0] ? toApplication(rows[0]) : null;
   }
 
@@ -468,6 +501,7 @@ function toApplication(row: Row): Application {
     id: String(row.id),
     clientId: String(row.client_id),
     jwksUrl: String(row.jwks_url),
+    credentialHash: row.credential_hash === null ? undefined : String(row.credential_hash),
     requiredGuarantees: (row.required_guarantees as string[]) ?? [],
     allowedModels: (row.allowed_models as string[] | null) ?? undefined,
     enabled: Boolean(row.enabled),

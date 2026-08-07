@@ -193,8 +193,25 @@ export interface Client {
 export interface Application {
   id: string;
   clientId: string;
-  /** Where the Exchange fetches this Application's public keys. */
+  /**
+   * Where the Exchange fetches this Application's public keys. Empty when the
+   * Application authenticates with a static credential instead.
+   */
   jwksUrl: string;
+  /**
+   * sha256 of a static bearer credential, for an Application that cannot run a
+   * JWKS endpoint — a habitat, a script, a small client.
+   *
+   * Not the weakening it looks like. **The JWT never authenticated the End
+   * User**: ADR 0014 has the Exchange trust the Application's assertion of the
+   * subject either way, so a signature only ever proved *which Application* was
+   * calling, which a hashed bearer proves too. What the JWT genuinely buys is
+   * short expiry and no spendable secret at rest here — which is why JWKS stays
+   * the recommended path for anyone able to serve one.
+   *
+   * The credential itself is never stored, only its hash, matching Suppliers.
+   */
+  credentialHash?: string;
   /**
    * Applied to every request from this Application, whether or not the request
    * asks. An Application that must stay on-premise cannot opt out per-request.

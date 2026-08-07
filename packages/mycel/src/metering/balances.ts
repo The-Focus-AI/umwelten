@@ -36,11 +36,64 @@ export function applicationOwner(applicationId: string): BalanceOwner {
   return { kind: "application", key: applicationId };
 }
 
+/**
+ * The Client that owns one or more Applications, and the party you invoice.
+ *
+ * Where a signup grant is funded from (ADR 0014): drawing it here rather than
+ * from the Exchange makes abuse of an Application's signup flow that Client's
+ * cost and that Client's problem to solve.
+ */
+export function clientOwner(clientId: string): BalanceOwner {
+  return { kind: "client", key: clientId };
+}
+
+/**
+ * Who pays for this request.
+ *
+ * Falls through **End User → Application → Client**, stopping at the first
+ * owner that has ever had a ledger entry. The effect is the one a per-user
+ * allowance is actually for:
+ *
+ *   - An unfunded End User draws from the pool behind it, so a new signup
+ *     works without anyone granting it anything first.
+ *   - Granting an End User *anything* opts it into being capped at that
+ *     amount — and it stays capped once spent, because the test is existence
+ *     rather than solvency. A user at zero is refused, not quietly promoted
+ *     back to the pool.
+ *
+ * The resolved owner is also the one debited, which keeps the two consistent:
+ * an unfunded user debits the Client, never gains an entry of its own, and so
+ * keeps resolving to the Client.
+ */
+export async function resolveChargeOwner(
+  caller: Caller,
+  balances: Balances,
+): Promise<BalanceOwner> {
+  const user = endUserOwner(caller);
+  if (await balances.exists(user)) return user;
+
+  const application = applicationOwner(caller.application.id);
+  if (await balances.exists(application)) return application;
+
+  return clientOwner(caller.application.clientId);
+}
+
 export class Balances {
   constructor(private readonly store: ExchangeStore) {}
 
   get(owner: BalanceOwner): Promise<Balance> {
     return this.store.getBalance(owner.kind, owner.key);
+  }
+
+  /**
+   * Has this owner ever had a ledger entry?
+   *
+   * Existence, not solvency. An End User who has spent to zero is still in
+   * play — that is what being capped means — and must not fall through to the
+   * pool behind them.
+   */
+  exists(owner: BalanceOwner): Promise<boolean> {
+    return this.store.hasLedgerEntries(owner.kind, owner.key);
   }
 
   entries(owner: BalanceOwner): Promise<LedgerEntry[]> {

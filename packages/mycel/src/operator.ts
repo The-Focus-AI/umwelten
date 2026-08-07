@@ -11,9 +11,9 @@
  * agent from promoting itself into eligibility for on-premise traffic.
  */
 
-import { randomBytes } from "node:crypto";
-import { hashCredential } from "./supply/handler.js";
-import type { OfferPricing, Supplier } from "./types.js";
+import { hashCredential, issueCredential } from "./auth/credentials.js";
+import { Balances, applicationOwner, clientOwner } from "./metering/balances.js";
+import type { Application, Client, MicroDollars, OfferPricing, Supplier } from "./types.js";
 import type { ExchangeStore } from "./store/types.js";
 
 export interface RegisterSupplierInput {
@@ -43,11 +43,105 @@ export class GuaranteeNotGrantedError extends Error {
   }
 }
 
+export interface RegisteredApplication {
+  application: Application;
+  /**
+   * Present only for an Application authenticating with a static credential.
+   * Shown once and never recoverable — only its hash is stored.
+   */
+  credential?: string;
+}
+
 export class Operator {
-  constructor(private readonly store: ExchangeStore) {}
+  private readonly balances: Balances;
+
+  constructor(private readonly store: ExchangeStore) {
+    this.balances = new Balances(store);
+  }
+
+  // ── Demand ────────────────────────────────────────────────────────
+
+  /**
+   * An organization you invoice. There is no signup: a Client is the record of
+   * a commercial relationship that already exists, which is what a closed
+   * membership means (ADR 0012).
+   */
+  async createClient(id: string, name: string): Promise<Client> {
+    const client: Client = { id, name };
+    await this.store.createClient(client);
+    return client;
+  }
+
+  /**
+   * A product built on the Exchange.
+   *
+   * Authenticates one of two ways. Given a `jwksUrl` it mints short-lived
+   * tokens the Exchange verifies against its published keys — the preferred
+   * path, and the one the habitats SaaS already satisfies. Otherwise it gets a
+   * static credential, for callers that cannot serve a JWKS: a habitat, a
+   * script, a small client.
+   */
+  async createApplication(input: {
+    id: string;
+    clientId: string;
+    jwksUrl?: string;
+    requiredGuarantees?: string[];
+    allowedModels?: string[];
+  }): Promise<RegisteredApplication> {
+    const client = await this.store.getClient(input.clientId);
+    // Refused rather than created orphaned: an Application with no Client has
+    // nobody to invoice and nowhere to draw a grant from.
+    if (!client) throw new Error(`Unknown client "${input.clientId}".`);
+
+    const credential = input.jwksUrl ? undefined : issueCredential();
+    const application: Application = {
+      id: input.id,
+      clientId: input.clientId,
+      jwksUrl: input.jwksUrl ?? "",
+      credentialHash: credential ? hashCredential(credential) : undefined,
+      requiredGuarantees: input.requiredGuarantees ?? [],
+      allowedModels: input.allowedModels,
+      enabled: true,
+      createdAt: new Date(),
+    };
+    await this.store.createApplication(application);
+    return { application, credential };
+  }
+
+  /** Issue a new static credential, invalidating the old one. */
+  async rotateApplicationCredential(applicationId: string): Promise<string> {
+    const application = await this.store.getApplication(applicationId);
+    if (!application) throw new Error(`Unknown application "${applicationId}".`);
+    const credential = issueCredential();
+    await this.store.createApplication({
+      ...application,
+      credentialHash: hashCredential(credential),
+    });
+    return credential;
+  }
+
+  async setApplicationEnabled(id: string, enabled: boolean): Promise<void> {
+    await this.store.setApplicationEnabled(id, enabled);
+  }
+
+  // ── Money ─────────────────────────────────────────────────────────
+
+  /**
+   * Add credit, as a ledger entry like any other. There is no privileged path
+   * that writes a total, so an operator's grant is as auditable as a charge.
+   */
+  async grantToClient(clientId: string, microDollars: MicroDollars, reason = "grant") {
+    return this.balances.grant(clientOwner(clientId), microDollars, reason);
+  }
+
+  async grantToApplication(applicationId: string, microDollars: MicroDollars, reason = "grant") {
+    return this.balances.grant(applicationOwner(applicationId), microDollars, reason);
+  }
+
+  // ── Supply ────────────────────────────────────────────────────────
 
   async registerSupplier(input: RegisterSupplierInput): Promise<RegisteredSupplier> {
-    const credential = randomBytes(32).toString("base64url");
+    const credential = issueCredential();
     const supplier: Supplier = {
       id: input.id,
       displayName: input.displayName,
@@ -84,7 +178,7 @@ export class Operator {
   async rotateCredential(supplierId: string): Promise<string> {
     const supplier = await this.store.getSupplier(supplierId);
     if (!supplier) throw new Error(`Unknown supplier "${supplierId}".`);
-    const credential = randomBytes(32).toString("base64url");
+    const credential = issueCredential();
     await this.store.createSupplier({ ...supplier, credentialHash: hashCredential(credential) });
     return credential;
   }

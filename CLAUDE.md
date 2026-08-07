@@ -63,9 +63,10 @@ Dependency DAG (no cycles):
 @umwelten/habitat           ← core, protocols, sessions
 @umwelten/ui                ← core, sessions, evaluation, habitat
 @umwelten/mycel             ← nothing (its own bounded context; see CONTEXT-MAP.md)
-@umwelten/supplier          ← core only (deliberately NOT mycel — keeps a database
-                              driver out of every umwelten install)
-@umwelten/cli               ← core, sessions, evaluation, habitat, ui, supplier
+@umwelten/supplier          ← core only (deliberately NOT mycel — the agent runs on
+                              machines other people own and never opens a database,
+                              so it stays installable without one)
+@umwelten/cli               ← core, sessions, evaluation, habitat, ui, supplier, mycel
 umwelten (meta)             ← every package above
 ```
 

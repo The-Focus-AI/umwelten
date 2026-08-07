@@ -65,6 +65,12 @@ export interface ExchangeStore {
 
   createApplication(application: Application): Promise<void>;
   getApplication(id: string): Promise<Application | null>;
+  /**
+   * Resolve an Application by the hash of a presented static credential.
+   * Distinct from `getApplication` because a credential must never be
+   * resolvable by anything the caller supplies other than the credential.
+   */
+  getApplicationByCredentialHash(hash: string): Promise<Application | null>;
   listApplications(): Promise<Application[]>;
   setApplicationEnabled(id: string, enabled: boolean): Promise<void>;
 
@@ -85,5 +91,14 @@ export interface ExchangeStore {
   appendLedgerEntry(entry: LedgerEntry): Promise<Balance>;
 
   getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance>;
+
+  /**
+   * Whether this owner has ever had a ledger entry.
+   *
+   * Deliberately not "has money": an End User who has spent down to zero must
+   * stay capped at zero rather than falling through to the pool behind them.
+   * Existence, not solvency, is what says "this owner is in play".
+   */
+  hasLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<boolean>;
   listLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<LedgerEntry[]>;
 }

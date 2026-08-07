@@ -26,14 +26,19 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CapabilityName } from "../types.js";
 import { dispatch, type DispatchRequirements } from "../dispatch.js";
-import { AuthError, createIdentityVerifier, type Caller } from "../auth/identity.js";
+import {
+  AuthError,
+  END_USER_HEADER,
+  createIdentityVerifier,
+  type Caller,
+} from "../auth/identity.js";
 import {
   StreamCounter,
   countCompletionTokens,
   estimatePromptTokens,
   priceRequest,
 } from "../metering/counter.js";
-import { Balances, endUserOwner, type BalanceOwner } from "../metering/balances.js";
+import { Balances, resolveChargeOwner, type BalanceOwner } from "../metering/balances.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -57,7 +62,7 @@ export interface BuyerHandlerOptions {
   /** Offers not republished within this window stop being dispatched to. */
   staleAfterMs?: number;
   /** Injectable so tests need not stand up a real JWKS endpoint. */
-  verifyCaller?: (authorization: string | undefined) => Promise<Caller>;
+  verifyCaller?: (authorization: string | undefined, endUser?: string) => Promise<Caller>;
 }
 
 /**
@@ -155,7 +160,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     // Identity first: nothing else should run for a caller we cannot name.
     let caller: Caller;
     try {
-      caller = await verifyCaller(req.headers.authorization);
+      caller = await verifyCaller(
+        req.headers.authorization,
+        req.headers[END_USER_HEADER] as string | undefined,
+      );
     } catch (error) {
       // One opaque body for every failure. The specific reason is precise in
       // logs and vague on the wire — a caller that can tell "unknown
@@ -240,7 +248,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     let aborted = false;
     let recorded = false;
     let upstreamUsage: { prompt?: number; completion?: number } = {};
-    const owner: BalanceOwner = endUserOwner(caller);
+    // End User → Application → Client, stopping at the first that has ever
+    // had a ledger entry. Resolved once and then both checked and debited, so
+    // an unfunded user never accidentally acquires an entry of its own.
+    const owner: BalanceOwner = await resolveChargeOwner(caller, balances);
 
     // Refuse before forwarding when the prompt alone cannot be covered. There
     // is no point buying tokens the buyer cannot pay for, and this is the only

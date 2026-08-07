@@ -23,7 +23,7 @@ import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { createMycelProvider } from "@umwelten/core/providers/mycel.js";
 import { MemoryStore } from "@umwelten/mycel/store/memory-store.js";
 import { Operator } from "@umwelten/mycel/operator.js";
-import { Balances, endUserOwner } from "@umwelten/mycel/metering/balances.js";
+import { Balances, applicationOwner, endUserOwner } from "@umwelten/mycel/metering/balances.js";
 import { createIdentityVerifier } from "@umwelten/mycel/auth/identity.js";
 import { createExchangeServer } from "@umwelten/mycel/server.js";
 import { startMockUpstream } from "@umwelten/mycel/testing/mock-upstream.js";
@@ -138,6 +138,54 @@ async function main() {
   log(`  cost         ${record.cost} micro-dollars (owned hardware)`);
   log(`  charge       ${record.charge} micro-dollars`);
   log(`  balance left ${(await balances.get(owner)).microDollars}`);
+
+  // ── The other way in: a caller that cannot serve a JWKS ─────────────
+  //
+  // A habitat, a script, a small client. It presents a static credential and
+  // states its End User in a header. What must hold is exactly what held for
+  // the JWT — the Application is authenticated and the subject is scoped to it
+  // — because the JWT never authenticated the End User either (ADR 0014).
+  const habitat = await operator.createApplication({
+    id: "help-habitat",
+    clientId: "acme",
+  });
+  // Funding the Application is enough. A charge falls through End User →
+  // Application → Client, stopping at the first that has ever had a ledger
+  // entry, so a subject nobody has granted anything draws from the pool behind
+  // it. Granting a subject directly is how you cap it instead.
+  await balances.grant(applicationOwner("help-habitat"), 5_000_000, "stage-1 float");
+
+  const direct = await fetch(`${exchange.url}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${habitat.credential}`,
+      "x-mycel-end-user": "operator",
+    },
+    body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: "hi" }] }),
+  });
+  log(`
+Static credential: HTTP ${direct.status}`);
+
+  const forHabitat = (await store.listRequests()).filter(
+    (r) => r.applicationId === "help-habitat",
+  );
+  log(`  attributed to  ${forHabitat[0]?.applicationId} / ${forHabitat[0]?.subject}`);
+  log(`  charged        ${forHabitat[0]?.charge} micro-dollars`);
+
+  // Without the header there is no subject, and no implicit fallback to the
+  // Application's own id — otherwise a caller that forgot it would have its
+  // whole estate attributed to one user and per-user caps would quietly stop
+  // being per-user.
+  const noSubject = await fetch(`${exchange.url}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${habitat.credential}`,
+    },
+    body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: "hi" }] }),
+  });
+  log(`  no end-user →  HTTP ${noSubject.status} (refused)`);
 
   await exchange.close();
   await supplierBox.close();
