@@ -4,7 +4,7 @@ Status: Accepted
 Date: 2026-07-26
 
 We are building an exchange that buys model tokens wholesale and resells them
-retail (`packages/exchange/CONTEXT.md`). It is modelled as a two-sided
+retail (`packages/mycel/CONTEXT.md`). It is modelled as a two-sided
 marketplace — **Supplier**, **Offer**, **Dispatch**, **Settlement** are all
 first-class — but becoming a Supplier requires our explicit consent. We are
 Supplier #1, renting to ourselves, and no code knows that.

@@ -47,6 +47,8 @@ pnpm workspace monorepo. Each package is under `packages/` and publishable indep
 @umwelten/evaluation packages/evaluation/    — EvalSuite, llm-eval/runFullEval, ranking, combine, reporting
 @umwelten/habitat    packages/habitat/       — agent container, tools, Gaia, container-server (MCP+A2A+web+chat)
 @umwelten/ui         packages/ui/            — Telegram, Discord, TUI (Ink) adapters
+@umwelten/mycel      packages/mycel/         — Mycel: the Exchange — supply, dispatch, metering, balances (Postgres)
+@umwelten/supplier   packages/supplier/      — the supplier agent: `umwelten supplier` probe/publish/serve
 @umwelten/cli        packages/cli/           — Commander CLI entry point
 umwelten             packages/umwelten/      — meta-package re-exporting everything for npm
 ```
@@ -60,7 +62,10 @@ Dependency DAG (no cycles):
 @umwelten/evaluation        ← core, sessions
 @umwelten/habitat           ← core, protocols, sessions
 @umwelten/ui                ← core, sessions, evaluation, habitat
-@umwelten/cli               ← core, sessions, evaluation, habitat, ui
+@umwelten/mycel             ← nothing (its own bounded context; see CONTEXT-MAP.md)
+@umwelten/supplier          ← core only (deliberately NOT mycel — keeps a database
+                              driver out of every umwelten install)
+@umwelten/cli               ← core, sessions, evaluation, habitat, ui, supplier
 umwelten (meta)             ← every package above
 ```
 

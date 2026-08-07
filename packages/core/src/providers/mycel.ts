@@ -7,7 +7,7 @@
  * base URL and a credential, which is the whole reason the Exchange speaks
  * OpenAI-compatible.
  *
- * **This file imports nothing from `@umwelten/exchange` and must not.** `core`
+ * **This file imports nothing from `@umwelten/mycel` and must not.** `core`
  * sits at the root of the dependency DAG; importing a package that depends on
  * `core` would introduce the repo's first cycle. The relationship is one-way
  * and over HTTP — see `CONTEXT-MAP.md`.
@@ -26,7 +26,7 @@ import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 const DEFAULT_BASE_URL = "http://localhost:7450";
 
 /** Shape of `GET /v1/models` on the Exchange. Duplicated rather than imported. */
-interface ExchangeModelEntry {
+interface MycelModelEntry {
   id: string;
   pricing?: { prompt?: number; completion?: number };
   capabilities?: string[];
@@ -34,7 +34,7 @@ interface ExchangeModelEntry {
   context_length?: number;
 }
 
-export class ExchangeProvider extends BaseProvider {
+export class MycelProvider extends BaseProvider {
   constructor(apiKey?: string, baseUrl: string = DEFAULT_BASE_URL) {
     super(apiKey, baseUrl);
   }
@@ -63,8 +63,8 @@ export class ExchangeProvider extends BaseProvider {
       );
     }
 
-    return (data.data as ExchangeModelEntry[]).map((model) => ({
-      provider: "exchange",
+    return (data.data as MycelModelEntry[]).map((model) => ({
+      provider: "mycel",
       name: model.id,
       contextLength: model.context_length,
       costs: {
@@ -82,7 +82,7 @@ export class ExchangeProvider extends BaseProvider {
 
   getLanguageModel(route: ModelRoute): LanguageModel {
     const exchange = createOpenAICompatible({
-      name: "exchange",
+      name: "mycel",
       baseURL: `${this.base}/v1`,
       apiKey: this.apiKey,
       includeUsage: true,
@@ -94,10 +94,10 @@ export class ExchangeProvider extends BaseProvider {
   }
 }
 
-export function createExchangeProvider(apiKey?: string, baseUrl?: string): ExchangeProvider {
-  return new ExchangeProvider(apiKey, baseUrl ?? process.env.EXCHANGE_URL);
+export function createMycelProvider(apiKey?: string, baseUrl?: string): MycelProvider {
+  return new MycelProvider(apiKey, baseUrl ?? process.env.MYCEL_URL);
 }
 
-export function getExchangeModelUrl(_modelId: string): string {
-  return process.env.EXCHANGE_URL ?? DEFAULT_BASE_URL;
+export function getMycelModelUrl(_modelId: string): string {
+  return process.env.MYCEL_URL ?? DEFAULT_BASE_URL;
 }

@@ -3,7 +3,7 @@
 > Can the exchange bill what it sold?
 
 ```bash
-pnpm tsx examples/exchange-metering/run.ts
+pnpm tsx examples/mycel-metering/run.ts
 ```
 
 No API keys, no GPU. `mock-upstream.ts` serves an OpenAI-compatible SSE stream in

@@ -181,14 +181,14 @@ async function cmdPublish() {
   const drafts = toOfferDrafts(probed, profile);
   const result = await publishOffers(drafts, profile, {
     outDir: OUT_DIR,
-    exchangeUrl: flag("to") ?? process.env.EXCHANGE_URL,
-    token: process.env.EXCHANGE_TOKEN,
+    exchangeUrl: flag("to") ?? process.env.MYCEL_URL,
+    token: process.env.MYCEL_TOKEN,
   });
 
   console.log(`${drafts.length} offer draft(s) → ${result.written}`);
   if (result.posted) console.log(`Posted to exchange (${result.status}).`);
   else if (result.error) console.log(`Not posted — ${result.error}`);
-  else console.log("Not posted — no --to / EXCHANGE_URL set.");
+  else console.log("Not posted — no --to / MYCEL_URL set.");
 }
 
 const commands: Record<string, () => Promise<unknown>> = {

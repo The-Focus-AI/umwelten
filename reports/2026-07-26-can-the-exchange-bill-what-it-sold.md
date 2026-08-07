@@ -1,6 +1,6 @@
 # E3 — Can the exchange bill what it sold?
 
-Experiment report, 2026-07-26. Run via `pnpm tsx examples/exchange-metering/run.ts`
+Experiment report, 2026-07-26. Run via `pnpm tsx examples/mycel-metering/run.ts`
 against a mock OpenAI-compatible upstream (no API keys, no GPU).
 
 > **Headline:** no, not from `ModelResponse.metadata` as it stands. Two of three

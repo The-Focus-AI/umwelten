@@ -12,7 +12,7 @@
  *   3. the client hangs up mid-stream — the one that decides whether the
  *      ledger can be gamed
  *
- * Run:  pnpm tsx examples/exchange-metering/run.ts
+ * Run:  pnpm tsx examples/mycel-metering/run.ts
  */
 
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";

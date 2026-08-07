@@ -9,24 +9,24 @@
  *         → a mock Supplier
  *
  * This lives in `examples/` because it is the only place allowed to import both
- * `@umwelten/core` and `@umwelten/exchange`. Core sits at the root of the
+ * `@umwelten/core` and `@umwelten/mycel`. Core sits at the root of the
  * dependency DAG — a test inside either package could not span the seam without
  * creating the repo's first cycle, which is exactly the constraint the seam
  * exists to enforce.
  *
- * Run:  pnpm tsx examples/exchange-e2e/run.ts
+ * Run:  pnpm tsx examples/mycel-e2e/run.ts
  */
 
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
-import { createExchangeProvider } from "@umwelten/core/providers/exchange.js";
-import { MemoryStore } from "@umwelten/exchange/store/memory-store.js";
-import { Operator } from "@umwelten/exchange/operator.js";
-import { Balances, endUserOwner } from "@umwelten/exchange/metering/balances.js";
-import { createIdentityVerifier } from "@umwelten/exchange/auth/identity.js";
-import { createExchangeServer } from "@umwelten/exchange/server.js";
-import { startMockUpstream } from "@umwelten/exchange/testing/mock-upstream.js";
+import { createMycelProvider } from "@umwelten/core/providers/mycel.js";
+import { MemoryStore } from "@umwelten/mycel/store/memory-store.js";
+import { Operator } from "@umwelten/mycel/operator.js";
+import { Balances, endUserOwner } from "@umwelten/mycel/metering/balances.js";
+import { createIdentityVerifier } from "@umwelten/mycel/auth/identity.js";
+import { createExchangeServer } from "@umwelten/mycel/server.js";
+import { startMockUpstream } from "@umwelten/mycel/testing/mock-upstream.js";
 
 const log = (...parts: unknown[]) => console.log(parts.join(" "));
 const MODEL = "gemma-4-26b";
@@ -108,7 +108,7 @@ async function main() {
     .setExpirationTime("5m")
     .sign(privateKey);
 
-  const provider = createExchangeProvider(token, exchange.url);
+  const provider = createMycelProvider(token, exchange.url);
 
   const catalogue = await provider.listModels();
   log(`\nCatalogue: ${catalogue.map((m) => m.name).join(", ")}`);
@@ -118,12 +118,12 @@ async function main() {
   );
 
   const interaction = new Interaction(
-    { name: MODEL, provider: "exchange" },
+    { name: MODEL, provider: "mycel" },
     new Stimulus({ role: "a helpful assistant" }),
   );
   // The provider registry resolves credentials from the environment.
-  process.env.EXCHANGE_API_KEY = token;
-  process.env.EXCHANGE_URL = exchange.url;
+  process.env.MYCEL_API_KEY = token;
+  process.env.MYCEL_URL = exchange.url;
   interaction.addMessage({ role: "user", content: "Say something brief." });
 
   const response = await interaction.streamText();

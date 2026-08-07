@@ -1,7 +1,7 @@
 /**
  * Supplier-agent domain types.
  *
- * Vocabulary follows `packages/exchange/CONTEXT.md` — Supplier, Offer,
+ * Vocabulary follows `packages/mycel/CONTEXT.md` — Supplier, Offer,
  * Capability, Headroom. Two rules from that glossary are load-bearing here:
  *
  *   1. Capabilities belong to the **Offer**, not the Model. The same model

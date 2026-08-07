@@ -5,7 +5,7 @@
  * has umwelten runs a command they already have, which is the difference
  * between onboarding hardware being a task and it being a decision.
  *
- * This package deliberately does **not** depend on `@umwelten/exchange`. It
+ * This package deliberately does **not** depend on `@umwelten/mycel`. It
  * talks to a running Exchange over HTTP, which keeps a database driver out of
  * every umwelten install for a command that never opens a database.
  */
@@ -49,7 +49,7 @@ import type {
 } from "./types.js";
 
 interface CliOptions {
-  exchange?: string;
+  mycel?: string;
   credential?: string;
   guarantees?: string;
   mode?: string;
@@ -114,9 +114,9 @@ function resolveManaged(opts: CliOptions): ManagedOptions | undefined {
 }
 
 function resolveConfig(opts: CliOptions): SupplierConfig {
-  const exchangeUrl = opts.exchange ?? process.env.EXCHANGE_URL;
+  const exchangeUrl = opts.mycel ?? process.env.MYCEL_URL;
   const credential = opts.credential ?? process.env.SUPPLIER_CREDENTIAL;
-  if (!exchangeUrl) throw new Error("No Exchange URL. Pass --exchange or set EXCHANGE_URL.");
+  if (!exchangeUrl) throw new Error("No Mycel URL. Pass --mycel or set MYCEL_URL.");
   if (!credential) {
     throw new Error("No credential. Pass --credential or set SUPPLIER_CREDENTIAL.");
   }
@@ -178,7 +178,7 @@ function resumeConfig(opts: CliOptions): SupplierConfig {
   if (!saved) {
     throw new Error(
       `Nothing to resume: no saved configuration in ${supplierDir()}. ` +
-        "Run serve once with --exchange and --credential.",
+        "Run serve once with --mycel and --credential.",
     );
   }
   const credential = opts.credential ?? loadCredential();
@@ -186,7 +186,7 @@ function resumeConfig(opts: CliOptions): SupplierConfig {
     throw new Error(`Nothing to resume with: no credential in ${supplierDir()}.`);
   }
   return {
-    exchangeUrl: opts.exchange ?? saved.exchangeUrl,
+    exchangeUrl: opts.mycel ?? saved.exchangeUrl,
     credential,
     guarantees: saved.guarantees,
     servingMode: saved.servingMode,
@@ -459,7 +459,7 @@ requests within a ${HEADROOM_POLICY.maxSampleSeconds}s budget per Model (ADR 002
 Examples:
   umwelten supplier candidates
   umwelten supplier probe --no-headroom
-  umwelten supplier publish --exchange https://exchange.example --credential $KEY
+  umwelten supplier publish --mycel https://mycel.example --credential $KEY
   umwelten supplier publish --mode managed --serve gemma-4-26b,qwen-4-32b --ctx-size 32768
 `,
   );
@@ -580,7 +580,7 @@ addProbeOptions(
   supplierCommand
     .command("publish")
     .description("Probe this machine and publish its Offers to the Exchange")
-    .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
+    .option("--mycel <url>", "Mycel base URL (or MYCEL_URL)")
     .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
     .option("--guarantees <names>", "Guarantees to claim, comma-separated"),
 ).action(async (opts: CliOptions) => {
@@ -651,7 +651,7 @@ addProbeOptions(
   supplierCommand
     .command("serve")
     .description("Stay running: publish, watch, withdraw what breaks, re-probe when stale")
-    .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
+    .option("--mycel <url>", "Mycel base URL (or MYCEL_URL)")
     .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
     .option("--guarantees <names>", "Guarantees to claim, comma-separated")
     .option("--reprobe-interval <hours>", "Backstop re-probe interval", "24")
@@ -791,7 +791,7 @@ supplierCommand
     const state = loadState();
     if (!config) {
       console.log(`No saved configuration in ${supplierDir()}.`);
-      console.log("Run `umwelten supplier serve --exchange … --credential …` once.");
+      console.log("Run `umwelten supplier serve --mycel … --credential …` once.");
       return;
     }
 
@@ -814,7 +814,7 @@ supplierCommand
 supplierCommand
   .command("withdraw")
   .description("Remove this machine's Offers from the Exchange")
-  .option("--exchange <url>", "Exchange base URL (or EXCHANGE_URL)")
+  .option("--mycel <url>", "Mycel base URL (or MYCEL_URL)")
   .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
   .action(async (opts: CliOptions) => {
     let config: SupplierConfig;
