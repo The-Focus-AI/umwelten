@@ -341,19 +341,25 @@ the reason `offers sync` should be a scheduled job rather than a one-shot.
 
 ---
 
+## How a request is paid for
+
+A charge falls through **End User → Application → Client**, stopping at the
+first owner that has ever had a ledger entry.
+
+The test is *existence*, not solvency, and that is the load-bearing part. An
+unfunded End User draws from the pool behind it, so a new signup works without
+anyone granting it anything first. Granting an End User *anything* opts it into
+being capped at that amount — and it stays capped once spent, rather than being
+silently promoted back to the pool it was capped away from.
+
+The resolved owner is also the one debited, which keeps the two consistent: an
+unfunded user debits the Client, never acquires an entry of its own, and so
+keeps resolving to the Client.
+
+To cap a user at $5, grant them $5. To leave them uncapped, grant them nothing.
+
 ## Open decisions
 
-- **How an End User gets its first credit.** A charge is drawn from the
-  `(Application, subject)` pair, and there is **no fallback** to the Application
-  or Client balance — so every End User must be granted before its first
-  request, and today nothing does that. This is the unsolved half of "every
-  signup gets $10 of credit" (ADR 0014 says the grant must come from the owning
-  Client's Balance; it does not say what performs it). Three shapes:
-  fall back through end-user → application → client; auto-grant on first sight,
-  drawn from the Client; or require an explicit grant and give Applications an
-  API to request one. The first makes an unfunded user draw from the pool and a
-  *funded* user capped at their funding, which reads closest to what a per-user
-  allowance is for — but it is a billing-semantics decision, not a code detail.
 - **The Neon project** — create it, hand over the connection string.
 - **Reachability for a local box** (stage 2). Mycel dials `Supplier.baseUrl`; a
   machine behind NAT has no URL. Tailscale is the recommendation — outbound-only

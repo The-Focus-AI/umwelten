@@ -91,5 +91,14 @@ export interface ExchangeStore {
   appendLedgerEntry(entry: LedgerEntry): Promise<Balance>;
 
   getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance>;
+
+  /**
+   * Whether this owner has ever had a ledger entry.
+   *
+   * Deliberately not "has money": an End User who has spent down to zero must
+   * stay capped at zero rather than falling through to the pool behind them.
+   * Existence, not solvency, is what says "this owner is in play".
+   */
+  hasLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<boolean>;
   listLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<LedgerEntry[]>;
 }

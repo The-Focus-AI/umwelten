@@ -38,7 +38,7 @@ import {
   estimatePromptTokens,
   priceRequest,
 } from "../metering/counter.js";
-import { Balances, endUserOwner, type BalanceOwner } from "../metering/balances.js";
+import { Balances, resolveChargeOwner, type BalanceOwner } from "../metering/balances.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -248,7 +248,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     let aborted = false;
     let recorded = false;
     let upstreamUsage: { prompt?: number; completion?: number } = {};
-    const owner: BalanceOwner = endUserOwner(caller);
+    // End User → Application → Client, stopping at the first that has ever
+    // had a ledger entry. Resolved once and then both checked and debited, so
+    // an unfunded user never accidentally acquires an entry of its own.
+    const owner: BalanceOwner = await resolveChargeOwner(caller, balances);
 
     // Refuse before forwarding when the prompt alone cannot be covered. There
     // is no point buying tokens the buyer cannot pay for, and this is the only

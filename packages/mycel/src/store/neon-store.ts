@@ -201,6 +201,17 @@ export class NeonStore implements ExchangeStore {
     };
   }
 
+  async hasLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<boolean> {
+    // LIMIT 1 rather than a count: this runs on the hot path of every request,
+    // and the question is existence, not how many.
+    const rows = (await this.sql`
+      SELECT 1 FROM exchange_ledger_entry
+      WHERE owner_kind = ${ownerKind} AND owner_key = ${ownerKey}
+      LIMIT 1
+    `) as Row[];
+    return rows.length > 0;
+  }
+
   async getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance> {
     const rows = (await this.sql`
       SELECT COALESCE(SUM(micro_dollars), 0) AS balance

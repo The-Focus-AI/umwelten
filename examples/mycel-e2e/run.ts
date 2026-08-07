@@ -149,17 +149,11 @@ async function main() {
     id: "help-habitat",
     clientId: "acme",
   });
-  // Funding the *Application* is not enough: a charge is drawn from the
-  // (Application, subject) pair, and there is no fallback to the Application or
-  // Client balance. So every End User must be granted before its first request
-  // — which is the unsolved half of "every signup gets $10 of credit". Left
-  // visible here rather than papered over.
+  // Funding the Application is enough. A charge falls through End User →
+  // Application → Client, stopping at the first that has ever had a ledger
+  // entry, so a subject nobody has granted anything draws from the pool behind
+  // it. Granting a subject directly is how you cap it instead.
   await balances.grant(applicationOwner("help-habitat"), 5_000_000, "stage-1 float");
-  await balances.grant(
-    { kind: "end-user", key: "help-habitat:operator" },
-    5_000_000,
-    "stage-1 float",
-  );
 
   const direct = await fetch(`${exchange.url}/v1/chat/completions`, {
     method: "POST",
