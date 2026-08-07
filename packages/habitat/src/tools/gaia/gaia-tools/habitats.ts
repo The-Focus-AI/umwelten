@@ -18,6 +18,11 @@ import { recordHabitatActivity } from "../reaper.js";
 import { HabitatWaker, createWakeTools } from "../waker.js";
 import { habitatSecretStatus } from "../secret-status.js";
 import {
+	announceHabitat,
+	announceOnStart,
+	resolveSaasRegistryConfig,
+} from "../saas-registry.js";
+import {
 	nodeVaultDeps,
 	resolveHabitatVault,
 	VaultResolutionError,
@@ -140,6 +145,13 @@ export async function startHabitatContainer(
 	// A start counts as activity, so a habitat is not reaped in the
 	// window between being started and first being asked anything.
 	await recordHabitatActivity(registry, id);
+
+	// Tell the SaaS this habitat exists, at this address, under this name.
+	// Deliberately not awaited into the start's success: a habitat that is
+	// running matters more than the SaaS knowing about it this second, and the
+	// next start announces again. Inert unless the registry env is configured.
+	void announceOnStart({ ...entry, containerPort: port });
+
 	return port;
 }
 
@@ -165,6 +177,51 @@ export function createHabitatLifecycleTools(
 
 	return {
 		...createWakeTools(waker, { listIds: () => registry.list().map((h) => h.id) }),
+
+		register_in_saas: tool({
+			description:
+				"Announce habitats to the Habitats SaaS so they appear as agents there. Starting a habitat already announces it; call this to backfill habitats that have not restarted since the registry was configured, or after changing which workspace they belong to. Omit `id` to announce every habitat. Safe to repeat — the SaaS updates the existing agent rather than creating a second one.",
+			inputSchema: z.object({
+				id: z
+					.string()
+					.optional()
+					.describe("Habitat to announce; omit for all of them"),
+			}),
+			execute: async ({ id }) => {
+				const config = resolveSaasRegistryConfig();
+				if (!config) {
+					return (
+						"The SaaS registry is not configured, so nothing was announced. " +
+						"Set HABITATS_SAAS_REGISTRY_URL and HABITATS_SAAS_REGISTRY_SECRET " +
+						"(and optionally HABITATS_SAAS_REGISTRY_WORKSPACE) on Gaia."
+					);
+				}
+				const entries = id
+					? registry.list().filter((e) => e.id === id)
+					: registry.list();
+				if (entries.length === 0) {
+					return id ? `No habitat "${id}".` : "No habitats registered.";
+				}
+
+				const lines: string[] = [];
+				for (const entry of entries) {
+					const outcome = await announceHabitat(entry, config, {
+						fetch: globalThis.fetch,
+					});
+					if (outcome.ok === true) {
+						lines.push(
+							`${entry.id}: ${outcome.created ? "registered" : "updated"}` +
+								`${outcome.agentKey ? ` (${outcome.agentKey})` : ""}`,
+						);
+					} else if (outcome.ok === "skipped") {
+						lines.push(`${entry.id}: skipped — ${outcome.reason}`);
+					} else {
+						lines.push(`${entry.id}: FAILED — ${outcome.reason}`);
+					}
+				}
+				return lines.join("\n");
+			},
+		}),
 		list_habitats: tool({
 			description:
 				"List all registered habitats with their container status. Includes the web UI URL with auth token for running habitats.",
