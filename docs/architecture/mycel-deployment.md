@@ -318,13 +318,22 @@ looks like success:
 
 ## Part 7 — Running it
 
-**Deploy a change.** Build, `docker compose up -d mycel`, `curl /health`. It is a
-deliberate act — Mycel is *not* cycled by `redeploy.sh`, which is the entire
-argument for it being a peer of Gaia rather than a child.
+**Deploy a change.** `./deploy/mycel/deploy.sh` — tag, build, recreate, wait for
+health, roll back automatically if it never gets there. A deliberate act: Mycel
+is *not* cycled by `redeploy.sh`, which is the entire argument for it being a
+peer of Gaia rather than a child.
 
-**Roll back.** `docker compose up -d` on the previous image tag. State is in
-Neon, so a rollback loses nothing. Keep the previous tag until the new one has
-served for a day.
+**Roll back.** The script does it on a failed deploy. By hand later:
+`docker tag mycel:previous mycel` and `up -d`. State is in Neon, so a rollback
+loses nothing.
+
+**Where the image is built.** On the host, today, matching how Gaia's images are
+built. That is a known liability rather than a good idea — the GCP report traces
+disk pressure on this host to exactly this (6.8 GB of images plus 5.3 GB of build
+cache), and Stage 2 of that plan moves to Cloud Build plus Artifact Registry so
+prod pulls instead of building. Mycel is the natural first service to move,
+having no legacy to carry, but building on the host is what works today and is
+not worth blocking the first deploy on.
 
 **Stop.** `docker compose stop mycel` — buyers get connection failures, which is
 correct: a habitat pointed at Mycel is down when Mycel is down. Point it back at

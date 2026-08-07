@@ -59,27 +59,49 @@ Money is integer micro-dollars everywhere. `50000000` is $50.00.
 ## Deploying a change
 
 ```bash
-docker build -t mycel -f packages/mycel/Dockerfile .
-docker compose --project-directory deploy/mycel up -d
-curl https://mycel.thefocus.ai/health
+./deploy/mycel/deploy.sh
 ```
 
-Deliberate, and **not** part of `deploy/gaia/redeploy.sh`. Mycel is not cycled
-by a push to umwelten main — that separation is the whole reason it is a peer of
-Gaia rather than a habitat Gaia manages.
+That is the whole thing. It tags the running image so there is something to roll
+back to, builds, recreates the container, and waits for `/health` to report the
+**store** reachable. If it never gets there it prints the logs and **rolls back
+by itself** — the alternative is a broken Exchange sitting there while somebody
+reads a scrollback.
 
-## Rolling back
+Deliberate, and **not** part of `deploy/gaia/redeploy.sh`. Mycel is not cycled by
+a push to umwelten main — that separation is the whole reason it is a peer of
+Gaia rather than a habitat Gaia manages. Deploying it is something a person
+decides to do.
 
-Tag before you replace, and keep the previous tag for a day:
+## Rolling back by hand
+
+The script does this automatically on a failed deploy. To go back later:
 
 ```bash
-docker tag mycel mycel:$(date +%Y%m%d)
-# …build, deploy, regret…
-docker tag mycel:20260807 mycel && docker compose --project-directory deploy/mycel up -d
+docker tag mycel:previous mycel
+docker compose --project-directory deploy/mycel up -d
 ```
 
 State is in Neon, so a rollback loses nothing. That is the payoff for the
 service holding no volume.
+
+## Running an operator command
+
+The container already has `MYCEL_DATABASE_URL` resolved, so the least
+error-prone place to run these is inside it — no connection string on your
+shell, no chance of pointing at the wrong database:
+
+```bash
+docker compose --project-directory deploy/mycel exec mycel \
+  pnpm exec tsx packages/cli/src/entry.ts mycel balance the-focus-ai
+```
+
+Worth an alias on the host:
+
+```bash
+alias mycel='docker compose --project-directory /opt/umwelten/deploy/mycel exec mycel pnpm exec tsx packages/cli/src/entry.ts mycel'
+mycel grant the-focus-ai 50000000
+```
 
 ## Stopping
 
