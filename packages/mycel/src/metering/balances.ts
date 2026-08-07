@@ -36,6 +36,17 @@ export function applicationOwner(applicationId: string): BalanceOwner {
   return { kind: "application", key: applicationId };
 }
 
+/**
+ * The Client that owns one or more Applications, and the party you invoice.
+ *
+ * Where a signup grant is funded from (ADR 0014): drawing it here rather than
+ * from the Exchange makes abuse of an Application's signup flow that Client's
+ * cost and that Client's problem to solve.
+ */
+export function clientOwner(clientId: string): BalanceOwner {
+  return { kind: "client", key: clientId };
+}
+
 export class Balances {
   constructor(private readonly store: ExchangeStore) {}
 

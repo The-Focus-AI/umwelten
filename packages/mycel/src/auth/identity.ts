@@ -15,6 +15,7 @@
  */
 
 import { createRemoteJWKSet, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
+import { CREDENTIAL_PREFIX, hashCredential } from "./credentials.js";
 import type { Application } from "../types.js";
 import type { ExchangeStore } from "../store/types.js";
 
@@ -37,6 +38,16 @@ export type AuthFailure =
   | "expired_token"
   | "missing_subject";
 
+/**
+ * Where a static-credential caller states its End User.
+ *
+ * A header rather than a body field so the request stays a plain OpenAI payload
+ * any client can send unmodified — the same reasoning as the per-request
+ * requirement headers.
+ */
+export const END_USER_HEADER = "x-mycel-end-user";
+
+
 export class AuthError extends Error {
   constructor(readonly reason: AuthFailure) {
     super(reason);
@@ -55,6 +66,12 @@ export interface IdentityVerifierOptions {
   store: ExchangeStore;
   /** Injectable so tests do not have to stand up a real JWKS endpoint. */
   makeKeySet?: (application: Application) => KeySetResolver;
+  /**
+   * Resolve an Application by the hash of a presented static credential.
+   * Separate from `getApplication` because a credential must never be looked up
+   * by anything the caller supplies other than the credential itself.
+   */
+  findByCredentialHash?: (hash: string) => Promise<Application | null>;
 }
 
 export function createIdentityVerifier(opts: IdentityVerifierOptions) {
@@ -76,16 +93,42 @@ export function createIdentityVerifier(opts: IdentityVerifierOptions) {
     return resolver;
   }
 
+  const findByCredentialHash =
+    opts.findByCredentialHash ?? ((hash: string) => store.getApplicationByCredentialHash(hash));
+
   /**
    * @param authorization  The raw Authorization header.
+   * @param endUser        The `X-Mycel-End-User` header. Read only on the
+   *                       static-credential path; a JWT carries its own subject
+   *                       and must not be overridable by a header.
    * @throws AuthError with a reason that is specific in logs and vague to the
    *         caller — a precise 401 body is an oracle for which Applications
    *         exist and which keys are current.
    */
-  return async function verifyCaller(authorization: string | undefined): Promise<Caller> {
+  return async function verifyCaller(
+    authorization: string | undefined,
+    endUser?: string,
+  ): Promise<Caller> {
     if (!authorization?.startsWith("Bearer ")) throw new AuthError("missing_token");
     const token = authorization.slice("Bearer ".length).trim();
     if (!token) throw new AuthError("missing_token");
+
+    // Static credential. Dispatching on the prefix rather than on "does it look
+    // like a JWT" means a malformed JWT fails as a malformed JWT, instead of
+    // silently falling through to a credential lookup that cannot match.
+    if (token.startsWith(CREDENTIAL_PREFIX)) {
+      const application = await findByCredentialHash(hashCredential(token));
+      if (!application || !application.enabled) throw new AuthError("unknown_application");
+
+      const subject = endUser?.trim();
+      // No implicit fallback to the Application's own id. An Application that
+      // forgets the header would otherwise have every request in the estate
+      // attributed to one subject, and per-user caps would silently stop
+      // being per-user.
+      if (!subject) throw new AuthError("missing_subject");
+
+      return { application, subject };
+    }
 
     // Read the issuer before verifying so we know whose keys to check against.
     // Nothing is trusted from this — it only selects the key set, and a token

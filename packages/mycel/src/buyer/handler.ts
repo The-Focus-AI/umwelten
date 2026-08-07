@@ -26,7 +26,12 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CapabilityName } from "../types.js";
 import { dispatch, type DispatchRequirements } from "../dispatch.js";
-import { AuthError, createIdentityVerifier, type Caller } from "../auth/identity.js";
+import {
+  AuthError,
+  END_USER_HEADER,
+  createIdentityVerifier,
+  type Caller,
+} from "../auth/identity.js";
 import {
   StreamCounter,
   countCompletionTokens,
@@ -57,7 +62,7 @@ export interface BuyerHandlerOptions {
   /** Offers not republished within this window stop being dispatched to. */
   staleAfterMs?: number;
   /** Injectable so tests need not stand up a real JWKS endpoint. */
-  verifyCaller?: (authorization: string | undefined) => Promise<Caller>;
+  verifyCaller?: (authorization: string | undefined, endUser?: string) => Promise<Caller>;
 }
 
 /**
@@ -155,7 +160,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     // Identity first: nothing else should run for a caller we cannot name.
     let caller: Caller;
     try {
-      caller = await verifyCaller(req.headers.authorization);
+      caller = await verifyCaller(
+        req.headers.authorization,
+        req.headers[END_USER_HEADER] as string | undefined,
+      );
     } catch (error) {
       // One opaque body for every failure. The specific reason is precise in
       // logs and vague on the wire — a caller that can tell "unknown

@@ -33,9 +33,9 @@ Stage 1 cannot run today. These are the gaps, smallest first.
 
 | # | Gap | Why it blocks |
 |---|---|---|
-| 1 | **No entrypoint.** `createExchangeServer()` is a library function; the only caller is `examples/mycel-e2e`. | Nothing for a container to run. |
-| 2 | **No static-credential auth.** `createIdentityVerifier` requires a JWT signed against the Application's JWKS. A habitat has no signing key and no JWKS. | The first buyer cannot authenticate. |
-| 3 | **No operator CLI.** `Operator` can register Suppliers; nothing creates a Client or Application, and `Balances.grant()` has no caller. | Cannot onboard anyone or fund a balance. |
+| 1 | ~~No entrypoint.~~ **Built.** `umwelten mycel serve`. | — |
+| 2 | ~~No static-credential auth.~~ **Built.** `sk-mycel-…` + `X-Mycel-End-User`, alongside JWKS. | — |
+| 3 | ~~No operator CLI.~~ **Built.** `umwelten mycel client/application/grant/balance/supplier`. | — |
 | 4 | **No way to publish a commercial vendor's catalogue.** The supply endpoint takes a Supplier credential and expects an agent. Nothing lists OpenRouter's models as Offers. | No Offers to dispatch to. |
 | 5 | **No Dockerfile / compose service.** | Nothing to deploy. |
 | 6 | **Port 7450 collides** with Gaia's managed-container range (7440–7499) and with the supplier agent's own runtime default. | Port fight on the host. |
@@ -343,6 +343,17 @@ the reason `offers sync` should be a scheduled job rather than a one-shot.
 
 ## Open decisions
 
+- **How an End User gets its first credit.** A charge is drawn from the
+  `(Application, subject)` pair, and there is **no fallback** to the Application
+  or Client balance — so every End User must be granted before its first
+  request, and today nothing does that. This is the unsolved half of "every
+  signup gets $10 of credit" (ADR 0014 says the grant must come from the owning
+  Client's Balance; it does not say what performs it). Three shapes:
+  fall back through end-user → application → client; auto-grant on first sight,
+  drawn from the Client; or require an explicit grant and give Applications an
+  API to request one. The first makes an unfunded user draw from the pool and a
+  *funded* user capped at their funding, which reads closest to what a per-user
+  allowance is for — but it is a billing-semantics decision, not a code detail.
 - **The Neon project** — create it, hand over the connection string.
 - **Reachability for a local box** (stage 2). Mycel dials `Supplier.baseUrl`; a
   machine behind NAT has no URL. Tailscale is the recommendation — outbound-only

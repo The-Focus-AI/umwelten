@@ -65,6 +65,12 @@ export interface ExchangeStore {
 
   createApplication(application: Application): Promise<void>;
   getApplication(id: string): Promise<Application | null>;
+  /**
+   * Resolve an Application by the hash of a presented static credential.
+   * Distinct from `getApplication` because a credential must never be
+   * resolvable by anything the caller supplies other than the credential.
+   */
+  getApplicationByCredentialHash(hash: string): Promise<Application | null>;
   listApplications(): Promise<Application[]>;
   setApplicationEnabled(id: string, enabled: boolean): Promise<void>;
 

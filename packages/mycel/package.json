@@ -1,7 +1,7 @@
 {
   "name": "@umwelten/mycel",
   "version": "0.1.0",
-  "description": "Mycel — the Exchange: buys model tokens wholesale from Suppliers and resells them retail to Applications",
+  "description": "Mycel \u2014 the Exchange: buys model tokens wholesale from Suppliers and resells them retail to Applications",
   "type": "module",
   "exports": {
     ".": {
@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "jose": "^6.2.4"
+    "jose": "^6.2.4",
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

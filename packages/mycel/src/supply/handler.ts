@@ -11,8 +11,8 @@
  * `mcp-serve/mount.test.ts` drives the OAuth surface.
  */
 
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { credentialsMatch, hashCredential } from "../auth/credentials.js";
 import { CAPABILITY_NAMES } from "../types.js";
 import { GuaranteeNotGrantedError, Operator } from "../operator.js";
 import type { CapabilityName, PublishedOffer, ServingMode } from "../types.js";
@@ -23,20 +23,9 @@ export const SUPPLY_PATH = "/suppliers/offers";
 /** Bodies larger than this are refused before parsing. */
 const MAX_BODY_BYTES = 1_000_000;
 
-export function hashCredential(credential: string): string {
-  return createHash("sha256").update(credential).digest("hex");
-}
-
-/**
- * Constant-time compare of two hex digests. Both are already hashes, so the
- * secret is not in play — but a length-independent compare keeps the lookup
- * from being a timing oracle for which Suppliers exist.
- */
-function hashesEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a, "hex");
-  const right = Buffer.from(b, "hex");
-  return left.length === right.length && timingSafeEqual(left, right);
-}
+// Re-exported because callers already import it from here, and because there
+// must be exactly one implementation — see auth/credentials.ts.
+export { hashCredential };
 
 export interface SupplyHandlerOptions {
   store: ExchangeStore;
@@ -186,7 +175,7 @@ export function createSupplyHandler(opts: SupplyHandlerOptions) {
     const supplier = await store.getSupplierByCredentialHash(presented);
     // The lookup is by hash, so this compare is belt-and-braces — but it keeps
     // the check honest if the lookup is ever loosened.
-    if (!supplier || !hashesEqual(supplier.credentialHash, presented)) {
+    if (!supplier || !credentialsMatch(supplier.credentialHash, presented)) {
       send(res, 401, { error: "unauthorized" });
       return true;
     }
