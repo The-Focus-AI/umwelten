@@ -36,9 +36,11 @@ Stage 1 cannot run today. These are the gaps, smallest first.
 | 1 | ~~No entrypoint.~~ **Built.** `umwelten mycel serve`. | — |
 | 2 | ~~No static-credential auth.~~ **Built.** `sk-mycel-…` + `X-Mycel-End-User`, alongside JWKS. | — |
 | 3 | ~~No operator CLI.~~ **Built.** `umwelten mycel client/application/grant/balance/supplier`. | — |
-| 4 | **No way to publish a commercial vendor's catalogue.** The supply endpoint takes a Supplier credential and expects an agent. Nothing lists OpenRouter's models as Offers. | No Offers to dispatch to. |
-| 5 | **No Dockerfile / compose service.** | Nothing to deploy. |
-| 6 | **Port 7450 collides** with Gaia's managed-container range (7440–7499) and with the supplier agent's own runtime default. | Port fight on the host. |
+| 4 | ~~No way to publish a vendor's catalogue.~~ **Built.** `umwelten mycel offers sync --watch`. | — |
+| 5 | ~~No Dockerfile / compose service.~~ **Built.** `packages/mycel/Dockerfile`, `deploy/mycel/`. | — |
+| 6 | ~~Port 7450 collides.~~ **Fixed.** Mycel 7438, supplier runtime 7439 — both below Gaia's 7440. | — |
+
+Everything above is built. **Stage 1 is blocked only on the Neon project.**
 
 Proposed shape for #2 and #3, since they are design and not just plumbing:
 
@@ -179,8 +181,8 @@ deploy/mycel/
 would be free, but Mycel is not a habitat and putting it under that wildcard says
 it is. One A record at the same static IP; caddy issues the cert from the label.
 
-**Port: 7460.** Outside Gaia's 7440–7499 managed range. The supplier agent's
-managed-runtime default moves to 7461 in the same change.
+**Port: 7438.** Below 7440, where Gaia starts assigning ports to managed containers. The supplier agent's
+managed-runtime default moves to 7439 in the same change.
 
 Logging needs nothing: `gcplogs` is the daemon default on that host, so Mycel's
 stdout lands in Cloud Logging beside everything else.

@@ -43,7 +43,7 @@ const managed = (overrides: Partial<ManagedOptions> = {}): ManagedOptions => ({
   models: ["gemma-4-26b-a4b"],
   contextTokens: 32_768,
   parallel: 4,
-  port: 7450,
+  port: 7439,
   configPath: "/tmp/llama-swap.yaml",
   ...overrides,
 });

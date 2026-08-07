@@ -84,7 +84,14 @@ interface CliOptions {
  */
 const AGENT_VERSION = "1";
 
-const DEFAULT_MANAGED_PORT = 7450;
+/**
+ * The port the agent's own runtime listens on.
+ *
+ * Below 7440, where Gaia starts handing out ports to managed containers, and
+ * clear of Mycel's 7438,
+ * so an operator can run the Exchange and a supplier agent on one box.
+ */
+const DEFAULT_MANAGED_PORT = 7439;
 const DEFAULT_MANAGED_CONFIG = path.join(os.homedir(), ".umwelten", "supplier", "llama-swap.yaml");
 
 function resolveMode(opts: CliOptions): ServingMode {

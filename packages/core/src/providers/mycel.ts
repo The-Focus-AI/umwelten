@@ -23,7 +23,7 @@ import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 
-const DEFAULT_BASE_URL = "http://localhost:7450";
+const DEFAULT_BASE_URL = "http://localhost:7438";
 
 /** Shape of `GET /v1/models` on the Exchange. Duplicated rather than imported. */
 interface MycelModelEntry {

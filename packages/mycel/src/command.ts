@@ -16,13 +16,10 @@ import { Command } from "commander";
 import { NeonStore } from "./store/neon-store.js";
 import { MemoryStore } from "./store/memory-store.js";
 import { Operator } from "./operator.js";
-import { createExchangeServer } from "./server.js";
+import { DEFAULT_PORT, createExchangeServer } from "./server.js";
 import { Balances, applicationOwner, clientOwner } from "./metering/balances.js";
 import type { ExchangeStore } from "./store/types.js";
-import type { MicroDollars } from "./types.js";
-
-/** Mycel's port. Outside Gaia's managed-container range (7440–7499). */
-export const DEFAULT_PORT = 7460;
+import type { MicroDollars, PublishedOffer } from "./types.js";
 
 interface CliOptions {
   port?: string;
@@ -298,5 +295,90 @@ supplier
       );
       console.log(`\n  ${credential}\n`);
       console.log("Shown once. The agent presents it when publishing Offers.");
+    })(opts);
+  });
+
+const offers = mycelCommand.command("offers").description("What a Supplier is selling");
+
+/**
+ * Default Capability set for a vendor Offer.
+ *
+ * Every mainstream hosted model does these. Anything narrower has to be stated,
+ * and anything broader — tool calling, structured output, reasoning — is per
+ * model and per vendor, so it is opt-in rather than assumed. Over-claiming here
+ * has Dispatch route a tool-calling request somewhere that cannot serve it,
+ * which is the failure ADR 0015 exists to prevent.
+ */
+const DEFAULT_VENDOR_CAPABILITIES = ["chat", "streaming"];
+
+offers
+  .command("sync <supplierId>")
+  .description("Publish a vendor's Models as Offers, on its behalf")
+  .option("--models <names>", "Models to resell, comma-separated")
+  .option("--capabilities <names>", "Applied to every Model", DEFAULT_VENDOR_CAPABILITIES.join(","))
+  .option(
+    "--watch <minutes>",
+    "Keep republishing. A vendor runs no agent, so this IS its heartbeat",
+  )
+  .option("--database <url>")
+  .action(async (supplierId: string, opts: CliOptions & { capabilities?: string; watch?: string }) => {
+    await action(async () => {
+      const models = list(opts.models);
+      if (models.length === 0) {
+        throw new MycelCliError(
+          "Which Models? Pass --models.\n" +
+            "  A curated list, not a whole catalogue: every Offer is a claim, and these\n" +
+            "  are declared rather than probed.",
+        );
+      }
+
+      const operator = new Operator(openStore(opts));
+      const capabilities = list(opts.capabilities) as PublishedOffer["capabilities"];
+
+      const publish = async () => {
+        await operator.publishOffersFor(
+          supplierId,
+          models.map((model) => ({ model, capabilities, servingMode: "adapted" as const })),
+        );
+      };
+
+      await publish();
+      console.log(`Published ${models.length} offer(s) for ${supplierId}: ${models.join(", ")}`);
+      console.log(`Capabilities (declared, not probed): ${capabilities.join(", ")}`);
+
+      if (!opts.watch) {
+        // Said plainly, because it is the first thing that will look like a bug:
+        // Dispatch drops an Offer that has not been republished recently, and a
+        // vendor has no agent heartbeating for it.
+        console.log(
+          "\n⚠ One-shot. Offers not republished within the staleness window stop being\n" +
+            "  dispatched to. Run with --watch <minutes> as a service, or schedule this.",
+        );
+        return;
+      }
+
+      const minutes = Number(opts.watch);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        throw new MycelCliError(`"${opts.watch}" is not a number of minutes.`);
+      }
+      console.log(`\nRepublishing every ${minutes}m. This is the heartbeat — if it stops,`);
+      console.log("the Offers expire, which is correct: we no longer know the vendor's state.");
+
+      const timer = setInterval(() => {
+        void publish().catch((error) => {
+          // Keep beating. One failed republish is survivable; giving up is not,
+          // because the Offers then expire for a vendor that is probably fine.
+          console.error(`republish failed: ${error instanceof Error ? error.message : error}`);
+        });
+      }, minutes * 60_000);
+
+      await new Promise<void>((resolve) => {
+        const stop = () => {
+          clearInterval(timer);
+          resolve();
+        };
+        process.once("SIGINT", stop);
+        process.once("SIGTERM", stop);
+      });
     })(opts);
   });

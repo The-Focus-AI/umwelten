@@ -15,6 +15,15 @@ import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js
 import { createModelsHandler } from "./buyer/models.js";
 import type { ExchangeStore } from "./store/types.js";
 
+/**
+ * Mycel's port.
+ *
+ * In umwelten's 74xx block but **below 7440**, where Gaia begins assigning
+ * ports sequentially to the habitat containers it manages. A fixed service
+ * inside that range gets its port taken by whichever child Gaia starts next.
+ */
+export const DEFAULT_PORT = 7438;
+
 export interface ExchangeServerOptions {
   store: ExchangeStore;
   port?: number;
@@ -93,10 +102,10 @@ export async function createExchangeServer(
   });
 
   const host = opts.host ?? "0.0.0.0";
-  await new Promise<void>((resolve) => server.listen(opts.port ?? 7450, host, resolve));
+  await new Promise<void>((resolve) => server.listen(opts.port ?? DEFAULT_PORT, host, resolve));
 
   const address = server.address();
-  const port = typeof address === "object" && address ? address.port : (opts.port ?? 0);
+  const port = typeof address === "object" && address ? address.port : (opts.port ?? DEFAULT_PORT);
 
   return {
     server,
