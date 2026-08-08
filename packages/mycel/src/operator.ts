@@ -13,7 +13,14 @@
 
 import { hashCredential, issueCredential } from "./auth/credentials.js";
 import { Balances, applicationOwner, clientOwner } from "./metering/balances.js";
-import type { Application, Client, MicroDollars, OfferPricing, Supplier } from "./types.js";
+import type {
+  Application,
+  Client,
+  MicroDollars,
+  OfferPricing,
+  PublishedOffer,
+  Supplier,
+} from "./types.js";
 import type { ExchangeStore } from "./store/types.js";
 
 export interface RegisterSupplierInput {
@@ -195,5 +202,30 @@ export class Operator {
 
   async setPricing(supplierId: string, model: string, pricing: OfferPricing): Promise<void> {
     await this.store.setOfferPricing(supplierId, model, pricing);
+  }
+
+  /**
+   * Publish a Supplier's Offers on its behalf.
+   *
+   * For a machine, the agent publishes what it probed. A commercial vendor runs
+   * no agent, so the operator lists what it is willing to resell.
+   *
+   * **These Capabilities are declared, not probed**, which is the one place
+   * ADR 0015 bends. A vendor's catalogue is somebody else's claim about
+   * somebody else's serving path, so the honest treatment is to keep the list
+   * short enough to stand behind and to mark every Offer `adapted` — which is
+   * exactly what reselling a runtime you do not control means (ADR 0016).
+   *
+   * Publishing is total, as it is for an agent: this replaces the Supplier's
+   * whole Offer set, so a Model dropped from the list stops being advertised
+   * without anyone deleting anything.
+   */
+  async publishOffersFor(supplierId: string, offers: PublishedOffer[]): Promise<void> {
+    const supplier = await this.store.getSupplier(supplierId);
+    if (!supplier) throw new Error(`Unknown supplier "${supplierId}".`);
+    await this.store.replaceOffers(
+      supplierId,
+      offers.map((offer) => ({ ...offer, servingMode: "adapted" as const })),
+    );
   }
 }

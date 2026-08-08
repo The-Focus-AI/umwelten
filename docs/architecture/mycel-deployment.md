@@ -1,6 +1,6 @@
 # Deploying Mycel
 
-> Status: plan — 2026-08-07. The runbook for putting the Exchange
+> Status: built, undeployed — 2026-08-07. The runbook for putting the Exchange
 > (`packages/mycel`) into the runtime plane, from nothing to metered traffic.
 > Companion to `production-topology.md` (the three planes) and
 > `packages/mycel/CONTEXT.md` (the vocabulary).
@@ -27,48 +27,44 @@ Stage 3 is identity only.
 
 ---
 
-## Part 0 — What has to be built first
+## Part 0 — What this needed, and what shipped
 
-Stage 1 cannot run today. These are the gaps, smallest first.
+Stage 1 could not run when this was written. Everything below is now built, and
+**stage 1 is blocked only on the Neon project.**
 
-| # | Gap | Why it blocks |
-|---|---|---|
-| 1 | ~~No entrypoint.~~ **Built.** `umwelten mycel serve`. | — |
-| 2 | ~~No static-credential auth.~~ **Built.** `sk-mycel-…` + `X-Mycel-End-User`, alongside JWKS. | — |
-| 3 | ~~No operator CLI.~~ **Built.** `umwelten mycel client/application/grant/balance/supplier`. | — |
-| 4 | **No way to publish a commercial vendor's catalogue.** The supply endpoint takes a Supplier credential and expects an agent. Nothing lists OpenRouter's models as Offers. | No Offers to dispatch to. |
-| 5 | **No Dockerfile / compose service.** | Nothing to deploy. |
-| 6 | **Port 7450 collides** with Gaia's managed-container range (7440–7499) and with the supplier agent's own runtime default. | Port fight on the host. |
+| Was missing | Now |
+|---|---|
+| An entrypoint — `createExchangeServer` was a library function | `umwelten mycel serve` |
+| Any auth a habitat could use — JWKS only, and a habitat has no signing key | `sk-mycel-…` + `X-Mycel-End-User`, alongside JWKS |
+| A way to onboard anyone or fund a balance | `mycel client` / `application` / `grant` / `balance` |
+| A way to publish a vendor's catalogue — the supply endpoint expects an agent | `mycel offers sync --watch` |
+| A container and a compose service | `packages/mycel/Dockerfile`, `deploy/mycel/` |
+| A port outside Gaia's managed range | Mycel 7438, supplier runtime 7439 |
 
-Proposed shape for #2 and #3, since they are design and not just plumbing:
+Two of those were design rather than plumbing, and the reasoning is worth
+keeping.
 
-```
-umwelten mycel serve                                  # the service
-umwelten mycel client create <id> --name "Acme"
-umwelten mycel application create <id> --client acme  # prints a credential, once
-umwelten mycel application create <id> --client acme --jwks-url https://…
-umwelten mycel grant <client|application> <micro-dollars>
-umwelten mycel supplier register <id> --base-url … --credential-env OPENROUTER_API_KEY
-umwelten mycel offers sync --supplier openrouter --models a,b,c
-umwelten mycel status
-```
-
-**Static credentials, alongside JWKS, not instead of it.** An Application either
-publishes a JWKS (the SaaS already does, per ADR 0003) or holds a credential
-stored hashed — the same `credentialHash` pattern Suppliers already use. With a
-static credential the End User arrives in a header:
+**Static credentials, alongside JWKS rather than instead of it.** An Application
+either publishes a JWKS (the SaaS already does, per ADR 0003) or holds a
+credential stored hashed — the same pattern Suppliers already use. With a static
+credential the End User arrives in a header:
 
 ```
 Authorization: Bearer sk-mycel-…
 X-Mycel-End-User: user-1234
 ```
 
-This is not the security downgrade it appears to be. **The JWT never
-authenticated the End User** — ADR 0014 has Mycel trust the Application's
-assertion of `sub` either way. The signature only proves *which Application* is
-calling, which a hashed bearer also proves. What the JWT genuinely buys is short
-expiry and no spendable secret at rest in Mycel's database, which is why it stays
-the recommended path for anyone who can run a JWKS endpoint.
+This is not the downgrade it looks like. **The JWT never authenticated the End
+User** — ADR 0014 has Mycel trust the Application's assertion of `sub` either
+way, so a signature only ever proved *which Application* was calling, which a
+hashed bearer proves too. What the JWT genuinely buys is short expiry and no
+spendable secret at rest, which is why it stays recommended for anyone able to
+serve a JWKS.
+
+**No HTTP admin API.** The operator surface is a CLI on the box. These
+operations run rarely, by one person, and each can move money or grant
+eligibility for traffic the operator is liable for (ADR 0012) — a route is a
+larger surface than a command, and the convenience is not worth securing.
 
 ---
 
@@ -179,8 +175,8 @@ deploy/mycel/
 would be free, but Mycel is not a habitat and putting it under that wildcard says
 it is. One A record at the same static IP; caddy issues the cert from the label.
 
-**Port: 7460.** Outside Gaia's 7440–7499 managed range. The supplier agent's
-managed-runtime default moves to 7461 in the same change.
+**Port: 7438.** Below 7440, where Gaia starts assigning ports to managed containers. The supplier agent's
+managed-runtime default moves to 7439 in the same change.
 
 Logging needs nothing: `gcplogs` is the daemon default on that host, so Mycel's
 stdout lands in Cloud Logging beside everything else.
@@ -205,13 +201,13 @@ A commercial vendor and a box on a desk are the same kind of thing here
 the agent, and a vendor has its catalogue published on its behalf.
 
 ```bash
-umwelten mycel supplier register openrouter \
+mycel supplier register openrouter \
   --display-name "OpenRouter" \
   --base-url https://openrouter.ai/api/v1 \
   --credential-env OPENROUTER_API_KEY \
   --guarantees ""          # a commercial vendor gets none by default
 
-umwelten mycel offers sync --supplier openrouter --models \
+mycel offers sync openrouter --watch 5 --models \
   anthropic/claude-sonnet-5,google/gemini-3-flash-preview
 ```
 
@@ -226,7 +222,7 @@ control means.
 lever:
 
 ```bash
-umwelten mycel price openrouter anthropic/claude-sonnet-5 \
+mycel price openrouter anthropic/claude-sonnet-5 \
   --wholesale-prompt 3000000 --wholesale-completion 15000000 \
   --retail-prompt   3600000 --retail-completion  18000000
 ```
@@ -249,11 +245,11 @@ Application, so there is no billing — this is internal accounting that proves
 the meter.
 
 ```bash
-umwelten mycel client create the-focus-ai --name "The Focus AI"
-umwelten mycel application create help-habitat --client the-focus-ai
+mycel client create the-focus-ai --name "The Focus AI"
+mycel application create help-habitat --client the-focus-ai
 # → sk-mycel-…   shown once, never recoverable
 
-umwelten mycel grant the-focus-ai 50000000        # $50 of credit
+mycel grant the-focus-ai 50000000        # $50 of credit
 ```
 
 Then point the habitat at it — a `secretBindings` change in the Gaia registry:
@@ -284,7 +280,7 @@ The point of the whole exercise. After a handful of turns through the switched
 habitat:
 
 ```bash
-umwelten mycel usage --application help-habitat
+mycel balance the-focus-ai
 ```
 
 Each request should show application, subject, supplier, model, prompt and
@@ -316,13 +312,22 @@ looks like success:
 
 ## Part 7 — Running it
 
-**Deploy a change.** Build, `docker compose up -d mycel`, `curl /health`. It is a
-deliberate act — Mycel is *not* cycled by `redeploy.sh`, which is the entire
-argument for it being a peer of Gaia rather than a child.
+**Deploy a change.** `./deploy/mycel/deploy.sh` — tag, build, recreate, wait for
+health, roll back automatically if it never gets there. A deliberate act: Mycel
+is *not* cycled by `redeploy.sh`, which is the entire argument for it being a
+peer of Gaia rather than a child.
 
-**Roll back.** `docker compose up -d` on the previous image tag. State is in
-Neon, so a rollback loses nothing. Keep the previous tag until the new one has
-served for a day.
+**Roll back.** The script does it on a failed deploy. By hand later:
+`docker tag mycel:previous mycel` and `up -d`. State is in Neon, so a rollback
+loses nothing.
+
+**Where the image is built.** On the host, today, matching how Gaia's images are
+built. That is a known liability rather than a good idea — the GCP report traces
+disk pressure on this host to exactly this (6.8 GB of images plus 5.3 GB of build
+cache), and Stage 2 of that plan moves to Cloud Build plus Artifact Registry so
+prod pulls instead of building. Mycel is the natural first service to move,
+having no legacy to carry, but building on the host is what works today and is
+not worth blocking the first deploy on.
 
 **Stop.** `docker compose stop mycel` — buyers get connection failures, which is
 correct: a habitat pointed at Mycel is down when Mycel is down. Point it back at

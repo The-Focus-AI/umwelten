@@ -628,6 +628,8 @@ All umwelten services use the 74xx port range to avoid conflicts with common dev
 | House demo (Hearthstone)| **7435**      | `examples/agent-browser/demo-house.ts`     |
 | Weather demo (Meteora)  | **7436**      | `examples/agent-browser/demo-weather.ts`   |
 | Atlas demo (routes)     | **7437**      | `examples/agent-browser/demo-atlas.ts`     |
+| Mycel (the Exchange)    | **7438**      | `mycel serve` — fixed, below Gaia's range  |
+| Supplier managed runtime| **7439**      | llama-swap the supplier agent owns         |
 | Managed containers      | **7440–7499** | Gaia assigns sequentially from this range  |
 | Internal container port | **8080**      | Inside Docker only, never exposed directly |
 

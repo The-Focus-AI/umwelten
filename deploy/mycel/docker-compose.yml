@@ -1,0 +1,59 @@
+# Mycel — the Exchange.
+#
+# A PEER of Gaia on the same host, not a child of it. Deliberately its own
+# compose file rather than a service inside deploy/gaia/docker-compose.yml,
+# because the whole argument for Mycel not being a Gaia-managed habitat is
+# separate deploy cadence — sharing a file means `docker compose up -d` for a
+# Gaia change cycles the service that holds the money ledger.
+#
+# What it therefore does NOT get, on purpose:
+#   - cycled by deploy/gaia/redeploy.sh on every push to umwelten main
+#   - a named volume (its state is in Neon; it writes nothing to disk)
+#   - Gaia's master vault (it resolves its own secrets — see below)
+#
+# What it shares with everything else on the host:
+#   - gaia-net, so caddy reaches it by container DNS
+#   - the gcplogs docker daemon default, so stdout lands in Cloud Logging
+#
+# Prereqs:
+#   docker build -t mycel -f packages/mycel/Dockerfile .
+#   an A record for MYCEL_HOSTNAME → this host's static IP
+#
+# Runbook: deploy/mycel/README.md · design: docs/architecture/mycel-deployment.md
+
+services:
+  mycel:
+    image: mycel
+    container_name: mycel
+    restart: unless-stopped
+    networks:
+      - gaia-net
+    environment:
+      MYCEL_PORT: ${MYCEL_PORT:-7438}
+      # Resolved by fnox at start (see command below) rather than set here, so
+      # no plaintext lives in this file or in a .env on the host.
+      MYCEL_DATABASE_URL: ${MYCEL_DATABASE_URL:-}
+      # Upstream keys. A Supplier record stores the NAME of one of these, never
+      # the value — so a database compromise hands over nothing that can spend.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+    labels:
+      caddy: ${MYCEL_HOSTNAME:-mycel.localhost}
+      caddy.reverse_proxy: "{{upstreams 7438}}"
+    # fnox resolves the secrets above from 1Password at start. Its own scope,
+    # not Gaia's: Gaia is the sole broker for *habitats*, and Mycel is not one.
+    # Keeping the master vault off the money service's dependency path is the
+    # same blast-radius argument as giving it its own Neon project.
+    command:
+      - sh
+      - -c
+      - >
+        fnox exec --
+        pnpm exec tsx packages/cli/src/entry.ts mycel serve --port "$$MYCEL_PORT"
+
+networks:
+  # Created once on the host by `docker network create gaia-net`; external
+  # because DockerManager makes it without compose labels.
+  gaia-net:
+    name: gaia-net
+    external: true

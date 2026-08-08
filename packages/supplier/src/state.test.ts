@@ -33,7 +33,7 @@ const CONFIG: PersistedConfig = {
     models: ["gemma-4-26b"],
     contextTokens: 32_768,
     parallel: 4,
-    port: 7450,
+    port: 7439,
     configPath: "/tmp/llama-swap.yaml",
   },
 };

@@ -16,13 +16,10 @@ import { Command } from "commander";
 import { NeonStore } from "./store/neon-store.js";
 import { MemoryStore } from "./store/memory-store.js";
 import { Operator } from "./operator.js";
-import { createExchangeServer } from "./server.js";
+import { DEFAULT_PORT, createExchangeServer } from "./server.js";
 import { Balances, applicationOwner, clientOwner } from "./metering/balances.js";
 import type { ExchangeStore } from "./store/types.js";
-import type { MicroDollars } from "./types.js";
-
-/** Mycel's port. Outside Gaia's managed-container range (7440–7499). */
-export const DEFAULT_PORT = 7460;
+import type { MicroDollars, PublishedOffer } from "./types.js";
 
 interface CliOptions {
   port?: string;
@@ -38,6 +35,10 @@ interface CliOptions {
   application?: string;
   reason?: string;
   ephemeral?: boolean;
+  wholesalePrompt?: string;
+  wholesaleCompletion?: string;
+  retailPrompt?: string;
+  retailCompletion?: string;
 }
 
 class MycelCliError extends Error {}
@@ -83,20 +84,31 @@ function list(raw: string | undefined): string[] {
   return (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-/** Run an action, reporting an operator error as a message rather than a stack. */
-function action(run: (opts: CliOptions) => Promise<void>) {
-  return async (opts: CliOptions) => {
-    try {
-      await run(opts);
-    } catch (error) {
-      if (error instanceof MycelCliError) {
-        console.error(error.message);
-        process.exitCode = 1;
-        return;
-      }
-      throw error;
+/**
+ * Report an operator error as a message rather than a stack.
+ *
+ * Everything here is run by a person at a terminal, usually while something is
+ * already wrong. A stack trace tells them nothing they can act on.
+ */
+async function guard(run: () => Promise<void>): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    if (error instanceof MycelCliError) {
+      console.error(error.message);
+      process.exitCode = 1;
+      return;
     }
-  };
+    throw error;
+  }
+}
+
+/** Every operator command needs the store, and they all reach it the same way. */
+function withDatabase(command: Command): Command {
+  return command.option(
+    "--database <url>",
+    "Postgres connection string (or MYCEL_DATABASE_URL)",
+  );
 }
 
 export const mycelCommand = new Command("mycel")
@@ -124,8 +136,8 @@ mycelCommand
   .option("--port <port>", "Port to listen on", String(DEFAULT_PORT))
   .option("--database <url>", "Postgres connection string (or MYCEL_DATABASE_URL)")
   .option("--ephemeral", "Run against memory — loses every balance on exit")
-  .action(
-    action(async (opts) => {
+  .action(async (opts: CliOptions) => {
+    await guard(async () => {
       const store = openStore(opts);
       const port = Number(opts.port ?? DEFAULT_PORT);
 
@@ -141,41 +153,37 @@ mycelCommand
       };
       process.once("SIGINT", () => void stop());
       process.once("SIGTERM", () => void stop());
-    }),
-  );
+    });
+  });
 
 // ── Demand ───────────────────────────────────────────────────────────────────
 
 const client = mycelCommand.command("client").description("Clients you invoice");
 
-client
-  .command("create <id>")
+withDatabase(client.command("create <id>"))
   .description("Record a commercial relationship that already exists")
   .option("--name <name>", "Display name")
-  .option("--database <url>")
   .action(async (id: string, opts: CliOptions) => {
-    await action(async () => {
+    await guard(async () => {
       const operator = new Operator(openStore(opts));
       const created = await operator.createClient(id, opts.name ?? id);
       console.log(`Created client ${created.id} (${created.name}).`);
       console.log("There is no signup — a Client is onboarded by contract (ADR 0012).");
-    })(opts);
+    });
   });
 
 const application = mycelCommand
   .command("application")
   .description("Products built on the Exchange");
 
-application
-  .command("create <id>")
+withDatabase(application.command("create <id>"))
   .description("Create an Application and issue its credential")
   .option("--client <id>", "Owning Client")
   .option("--jwks-url <url>", "Publish keys instead of holding a static credential")
   .option("--guarantees <names>", "Required on every request from this Application")
   .option("--models <names>", "Restrict to these Models")
-  .option("--database <url>")
   .action(async (id: string, opts: CliOptions) => {
-    await action(async () => {
+    await guard(async () => {
       if (!opts.client) throw new MycelCliError("Which Client owns it? Pass --client.");
       const operator = new Operator(openStore(opts));
       const { application: app, credential } = await operator.createApplication({
@@ -201,32 +209,28 @@ application
       console.log("Callers send it as a bearer token, with the End User in a header:");
       console.log("  Authorization: Bearer <credential>");
       console.log("  X-Mycel-End-User: <your user id>");
-    })(opts);
+    });
   });
 
-application
-  .command("rotate <id>")
+withDatabase(application.command("rotate <id>"))
   .description("Issue a new credential, invalidating the old one")
-  .option("--database <url>")
   .action(async (id: string, opts: CliOptions) => {
-    await action(async () => {
+    await guard(async () => {
       const operator = new Operator(openStore(opts));
       const credential = await operator.rotateApplicationCredential(id);
       console.log(`\n  ${credential}\n`);
       console.log("The previous credential stopped working the moment this was issued.");
-    })(opts);
+    });
   });
 
 // ── Money ────────────────────────────────────────────────────────────────────
 
-mycelCommand
-  .command("grant <owner> <microDollars>")
+withDatabase(mycelCommand.command("grant <owner> <microDollars>"))
   .description("Add credit to a Client or Application balance")
   .option("--application", "Treat <owner> as an Application rather than a Client")
   .option("--reason <text>", "Recorded on the ledger entry", "grant")
-  .option("--database <url>")
   .action(async (owner: string, amount: string, opts: CliOptions & { application?: boolean }) => {
-    await action(async () => {
+    await guard(async () => {
       const operator = new Operator(openStore(opts));
       const micro = parseMicroDollars(amount);
       const balance = opts.application
@@ -235,16 +239,14 @@ mycelCommand
 
       console.log(`Granted ${dollars(micro)} to ${balance.ownerKind} ${balance.ownerKey}.`);
       console.log(`Balance is now ${dollars(balance.microDollars)}.`);
-    })(opts as CliOptions);
+    });
   });
 
-mycelCommand
-  .command("balance <owner>")
+withDatabase(mycelCommand.command("balance <owner>"))
   .description("Show a balance and the entries that make it up")
   .option("--application", "Treat <owner> as an Application rather than a Client")
-  .option("--database <url>")
   .action(async (owner: string, opts: CliOptions & { application?: boolean }) => {
-    await action(async () => {
+    await guard(async () => {
       const balances = new Balances(openStore(opts));
       const which = opts.application ? applicationOwner(owner) : clientOwner(owner);
       const [balance, entries] = await Promise.all([
@@ -261,15 +263,14 @@ mycelCommand
             `${entry.reason}${entry.requestId ? ` (${entry.requestId})` : ""}`,
         );
       }
-    })(opts as CliOptions);
+    });
   });
 
 // ── Supply ───────────────────────────────────────────────────────────────────
 
 const supplier = mycelCommand.command("supplier").description("Parties that produce tokens");
 
-supplier
-  .command("register <id>")
+withDatabase(supplier.command("register <id>"))
   .description("Register a Supplier and issue its publishing credential")
   .option("--display-name <name>")
   .option("--base-url <url>", "Where the Exchange sends work (OpenAI-compatible)")
@@ -278,9 +279,8 @@ supplier
     "Name of the env var holding the key we present upstream — the NAME, never the key",
   )
   .option("--guarantees <names>", "Guarantees this Supplier may publish under")
-  .option("--database <url>")
   .action(async (id: string, opts: CliOptions) => {
-    await action(async () => {
+    await guard(async () => {
       if (!opts.baseUrl) throw new MycelCliError("Where does work go? Pass --base-url.");
       const operator = new Operator(openStore(opts));
       const { supplier: created, credential } = await operator.registerSupplier({
@@ -298,5 +298,141 @@ supplier
       );
       console.log(`\n  ${credential}\n`);
       console.log("Shown once. The agent presents it when publishing Offers.");
-    })(opts);
+    });
+  });
+
+const offers = mycelCommand.command("offers").description("What a Supplier is selling");
+
+/**
+ * Default Capability set for a vendor Offer.
+ *
+ * Every mainstream hosted model does these. Anything narrower has to be stated,
+ * and anything broader — tool calling, structured output, reasoning — is per
+ * model and per vendor, so it is opt-in rather than assumed. Over-claiming here
+ * has Dispatch route a tool-calling request somewhere that cannot serve it,
+ * which is the failure ADR 0015 exists to prevent.
+ */
+const DEFAULT_VENDOR_CAPABILITIES = ["chat", "streaming"];
+
+withDatabase(offers.command("sync <supplierId>"))
+  .description("Publish a vendor's Models as Offers, on its behalf")
+  .option("--models <names>", "Models to resell, comma-separated")
+  .option("--capabilities <names>", "Applied to every Model", DEFAULT_VENDOR_CAPABILITIES.join(","))
+  .option(
+    "--watch <minutes>",
+    "Keep republishing. A vendor runs no agent, so this IS its heartbeat",
+  )
+  .action(async (supplierId: string, opts: CliOptions & { capabilities?: string; watch?: string }) => {
+    await guard(async () => {
+      const models = list(opts.models);
+      if (models.length === 0) {
+        throw new MycelCliError(
+          "Which Models? Pass --models.\n" +
+            "  A curated list, not a whole catalogue: every Offer is a claim, and these\n" +
+            "  are declared rather than probed.",
+        );
+      }
+
+      const operator = new Operator(openStore(opts));
+      const capabilities = list(opts.capabilities) as PublishedOffer["capabilities"];
+
+      const publish = async () => {
+        await operator.publishOffersFor(
+          supplierId,
+          models.map((model) => ({ model, capabilities, servingMode: "adapted" as const })),
+        );
+      };
+
+      await publish();
+      console.log(`Published ${models.length} offer(s) for ${supplierId}: ${models.join(", ")}`);
+      console.log(`Capabilities (declared, not probed): ${capabilities.join(", ")}`);
+
+      if (!opts.watch) {
+        // Said plainly, because it is the first thing that will look like a bug:
+        // Dispatch drops an Offer that has not been republished recently, and a
+        // vendor has no agent heartbeating for it.
+        console.log(
+          "\n⚠ One-shot. Offers not republished within the staleness window stop being\n" +
+            "  dispatched to. Run with --watch <minutes> as a service, or schedule this.",
+        );
+        return;
+      }
+
+      const minutes = Number(opts.watch);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        throw new MycelCliError(`"${opts.watch}" is not a number of minutes.`);
+      }
+      console.log(`\nRepublishing every ${minutes}m. This is the heartbeat — if it stops,`);
+      console.log("the Offers expire, which is correct: we no longer know the vendor's state.");
+
+      const timer = setInterval(() => {
+        void publish().catch((error) => {
+          // Keep beating. One failed republish is survivable; giving up is not,
+          // because the Offers then expire for a vendor that is probably fine.
+          console.error(`republish failed: ${error instanceof Error ? error.message : error}`);
+        });
+      }, minutes * 60_000);
+
+      await new Promise<void>((resolve) => {
+        const stop = () => {
+          clearInterval(timer);
+          resolve();
+        };
+        process.once("SIGINT", stop);
+        process.once("SIGTERM", stop);
+      });
+    });
+  });
+
+withDatabase(mycelCommand.command("price <supplierId> <model>"))
+  .description("Set what an Offer costs us and what it charges")
+  .option("--wholesale-prompt <microDollars>", "Per million prompt tokens, what we owe")
+  .option("--wholesale-completion <microDollars>", "Per million completion tokens, what we owe")
+  .option("--retail-prompt <microDollars>", "Per million prompt tokens, what we charge")
+  .option("--retail-completion <microDollars>", "Per million completion tokens, what we charge")
+  .action(async (supplierId: string, model: string, opts: CliOptions) => {
+    await guard(async () => {
+      const required = {
+        "--wholesale-prompt": opts.wholesalePrompt,
+        "--wholesale-completion": opts.wholesaleCompletion,
+        "--retail-prompt": opts.retailPrompt,
+        "--retail-completion": opts.retailCompletion,
+      };
+      const missing = Object.entries(required)
+        .filter(([, value]) => value === undefined)
+        .map(([flag]) => flag);
+      if (missing.length) {
+        // All four or none. Setting two would leave the others at whatever they
+        // were, which for a price is the kind of half-change nobody notices
+        // until an invoice.
+        throw new MycelCliError(`Missing ${missing.join(", ")}. Set all four together.`);
+      }
+
+      const operator = new Operator(openStore(opts));
+      const pricing = {
+        wholesalePromptPerMillion: parseMicroDollars(opts.wholesalePrompt!),
+        wholesaleCompletionPerMillion: parseMicroDollars(opts.wholesaleCompletion!),
+        retailPromptPerMillion: parseMicroDollars(opts.retailPrompt!),
+        retailCompletionPerMillion: parseMicroDollars(opts.retailCompletion!),
+      };
+      await operator.setPricing(supplierId, model, pricing);
+
+      console.log(`${supplierId} / ${model}`);
+      console.log(
+        `  wholesale  ${dollars(pricing.wholesalePromptPerMillion)} prompt / ` +
+          `${dollars(pricing.wholesaleCompletionPerMillion)} completion, per million`,
+      );
+      console.log(
+        `  retail     ${dollars(pricing.retailPromptPerMillion)} prompt / ` +
+          `${dollars(pricing.retailCompletionPerMillion)} completion, per million`,
+      );
+
+      // Not a warning — retail is deliberately independent of wholesale
+      // (ADR 0013), and selling below cost can be a deliberate choice. But it
+      // should never be an accident.
+      if (pricing.retailPromptPerMillion < pricing.wholesalePromptPerMillion ||
+          pricing.retailCompletionPerMillion < pricing.wholesaleCompletionPerMillion) {
+        console.log("\n  note: retail is below wholesale — this Offer loses money per token.");
+      }
+    });
   });

@@ -21,7 +21,7 @@ const PLAN = planManagedRuntime({
     models: ["gemma-4-26b"],
     contextTokens: 32_768,
     parallel: 4,
-    port: 7450,
+    port: 7439,
     configPath: "/tmp/umwelten-test/llama-swap.yaml",
   },
   available: DISK,
@@ -94,7 +94,7 @@ describe("ManagedRuntime.start", () => {
     // serving path that is not serving, and the first Dispatch would find out.
     const fake = fakeEffects({ readyAfter: 5 });
     const runtime = await ManagedRuntime.start(PLAN, fake.effects);
-    expect(runtime.baseUrl).toBe("http://127.0.0.1:7450/v1");
+    expect(runtime.baseUrl).toBe("http://127.0.0.1:7439/v1");
     await runtime.stop();
   });
 
