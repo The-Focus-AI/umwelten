@@ -19,7 +19,13 @@ export type UpstreamMode =
   /** Streams slowly and forever, so the caller must abort. */
   | "never-finishes"
   /** Refuses with a 500 and an error body. */
-  | "error";
+  | "error"
+  /**
+   * Streams a few tokens and then drops the socket without a terminator. What
+   * a runtime crash or a dial-in machine going to sleep looks like from here —
+   * indistinguishable from a buyer hanging up unless the relay says which.
+   */
+  | "dies-mid-stream";
 
 export interface MockUpstream {
   baseUrl: string;
@@ -116,9 +122,17 @@ export async function startMockUpstream(mode: UpstreamMode = "ok"): Promise<Mock
     res.on("close", disconnected);
     res.on("error", disconnected);
 
+    let written = 0;
     for (const word of WORDS) {
       if (closed) return;
       res.write(`data: ${JSON.stringify(chunk(model, word))}\n\n`);
+      written += 1;
+      // Mid-stream, deliberately: enough tokens relayed that the buyer has a
+      // partial answer, and no [DONE] so the relay cannot mistake it for an end.
+      if (mode === "dies-mid-stream" && written >= 3) {
+        res.destroy();
+        return;
+      }
       await new Promise((r) => setTimeout(r, 15));
     }
 

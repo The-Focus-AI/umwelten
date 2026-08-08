@@ -123,9 +123,18 @@ export class Balances {
   }
 
   /** Whether there is enough to cover an amount before committing to it. */
-  async canCover(owner: BalanceOwner, microDollars: MicroDollars): Promise<boolean> {
+  /**
+   * @param floor  How far below zero this owner may go. Zero is prepaid.
+   *               Derived from the *resolved* owner rather than the caller,
+   *               which is what keeps a capped End User capped (ADR 0028).
+   */
+  async canCover(
+    owner: BalanceOwner,
+    microDollars: MicroDollars,
+    floor: MicroDollars = 0,
+  ): Promise<boolean> {
     const balance = await this.get(owner);
-    return balance.microDollars >= microDollars;
+    return balance.microDollars - microDollars >= -floor;
   }
 }
 
@@ -138,4 +147,21 @@ function entry(owner: BalanceOwner, microDollars: MicroDollars, reason: string):
     reason,
     createdAt: new Date(),
   };
+}
+
+/**
+ * How far the resolved owner may go negative.
+ *
+ * Only a Client gets a limit. A charge resolving to an End User or Application
+ * balance stops at zero — granting one of those is how you cap it, and a cap
+ * that can be exceeded is not a cap (ADR 0028).
+ */
+export async function creditFloorFor(
+  owner: BalanceOwner,
+  clientId: string,
+  store: ExchangeStore,
+): Promise<MicroDollars> {
+  if (owner.kind !== "client") return 0;
+  const client = await store.getClient(clientId);
+  return client?.creditLimitMicroDollars ?? 0;
 }

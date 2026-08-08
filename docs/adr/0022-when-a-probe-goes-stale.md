@@ -95,6 +95,14 @@ into a process that is not running.
 
 ## The heartbeat, and why silence has to mean something
 
+> **Superseded in part by ADR 0023 — machine Suppliers dial in.** Everything
+> below infers liveness from silence, which is only necessary because the
+> Exchange could not observe it. Once a machine Supplier holds an open
+> connection, connected *is* available and disconnected *is* withdrawn, and the
+> heartbeat, the window, and the sync service all delete. What remains below
+> applies to vendor Suppliers, where it is also probably unnecessary.
+
+
 Withdrawal has two halves, and they are meant to overlap so that neither is a
 single point of failure:
 
