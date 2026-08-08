@@ -167,6 +167,14 @@ The UX that ties it all together. `habitat deploy --target <gcp|aws|vercel|fly|v
 
 The Vercel target is called out separately because it's the most serverless-native and has two documented caveats.
 
+> Not to be confused with [ADR 0023 — previews are static in the habitat, and
+> richer previews are a pull request](../adr/0023-previews-are-static-here-and-a-pull-request-otherwise.md),
+> which also involves Vercel but for the opposite subject: this section is about
+> running **a habitat** on Vercel, while ADR 0023 is about hosting **the
+> application a habitat writes**. A project habitat stays on the runtime plane
+> (its volume, vault and sessions live there) and its app's previews go to
+> Vercel.
+
 **Generated file layout from `habitat deploy --target vercel`:**
 
 ```
