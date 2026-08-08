@@ -167,13 +167,12 @@ The UX that ties it all together. `habitat deploy --target <gcp|aws|vercel|fly|v
 
 The Vercel target is called out separately because it's the most serverless-native and has two documented caveats.
 
-> Not to be confused with [ADR 0023 — previews are static in the habitat, and
-> richer previews are a pull request](../adr/0023-previews-are-static-here-and-a-pull-request-otherwise.md),
-> which also involves Vercel but for the opposite subject: this section is about
-> running **a habitat** on Vercel, while ADR 0023 is about hosting **the
-> application a habitat writes**. A project habitat stays on the runtime plane
-> (its volume, vault and sessions live there) and its app's previews go to
-> Vercel.
+> This section is about running **a habitat** on Vercel. For hosting **the
+> application a project habitat writes**, see [ADR 0023 — project previews run
+> in the habitat](../adr/0023-project-previews-run-in-the-habitat.md): the fast
+> iteration loop is a supervised dev server inside the habitat, addressed by
+> hostname, with pull-request previews reserved for review rather than
+> iteration.
 
 **Generated file layout from `habitat deploy --target vercel`:**
 
