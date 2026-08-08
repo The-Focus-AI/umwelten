@@ -53,11 +53,13 @@ already carries the agent's A2A, MCP, chat and health surface.
    already has at `/opt/standards` — no fixed template, resolved fresh each time.
 4. The container runs `mise dev`, watches what ports open, and publishes an
    address per port.
-5. You work with the agent in **the habitat's own chat**. Gaia is only where
-   projects get created and listed.
-6. You ask for a branch preview and get a second set of addresses beside the
+5. **The agent tells you the address, in chat, once it works** — it gets the
+   project building first rather than handing you a link to an error page.
+6. You work with the agent in **the habitat's own chat**. Gaia is only where
+   projects get created and listed; it does not list preview addresses.
+7. You ask for a branch preview and get a second set of addresses beside the
    first.
-7. When you want it live, you ask, and the agent runs `mise deploy`.
+8. When you want it live, you ask, and the agent runs `mise deploy`.
 
 ## Decisions
 
@@ -90,6 +92,15 @@ already carries the agent's A2A, MCP, chat and health surface.
    point at a different service after a restart. Branch names are sanitised and
    truncated to fit a 63-character DNS label.
 
+   The branch in the name is the **worktree's current branch**, and the primary
+   worktree is no exception — there is no distinguished `main` address. The
+   primary preview follows whatever the agent is working on, which is what makes
+   a kept-open tab show the work in progress. The cost is that a shared link's
+   life is tied to its branch: switching the primary worktree changes the
+   address, so the router has to tell a moved-on branch (known habitat suffix,
+   branch no longer checked out) from an unknown host, or a normal branch switch
+   looks like a broken platform.
+
 5. **Preview hostnames are flat and live on a registrable domain separate from
    the control plane.** Flat because a TLS wildcard covers exactly one label.
    Separate because customer code must not share a cookie scope with the control
@@ -102,6 +113,11 @@ already carries the agent's A2A, MCP, chat and health surface.
    link unguessable rather than merely unlisted, and a `robots.txt` plus a wake
    page that only fires from browser JavaScript keeps a crawler that finds a
    link from waking habitats and spending money.
+
+   **Holding the link is the whole authorisation, waking included.** There is no
+   owner check on wake: a link that only its owner could wake would be dead on
+   arrival for exactly the person it was sent to, which is the use case. Cost is
+   bounded by the per-habitat rate limit and the idle timer, not by identity.
 
 7. **Gaia stays off the preview path.** ADR 0008 keeps the most privileged
    component off the request path, and in any case `proxy.ts` buffers whole
@@ -123,6 +139,12 @@ already carries the agent's A2A, MCP, chat and health surface.
     Useful beats safe here, on a public page, so redaction is not optional: the
     supervisor strips the habitat's known secret values before exposing output,
     since build failures and stack traces leak environment variables readily.
+
+    This is the **fallback**, for a build that breaks after a link is in
+    circulation. It is not the ordinary first experience, because the agent does
+    not hand over an address until the dev task is serving — which in turn means
+    the supervisor's state and redacted log have to be readable by the agent, not
+    just by the router.
 
 11. **Any branch can get a preview, on request.** Git worktrees from the one
     clone — cheap on disk, since they share the object store — each running its
