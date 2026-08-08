@@ -73,6 +73,16 @@ services:
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
       GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
+
+      # Dynamic registry (#358): Gaia announces each habitat it starts to the
+      # Habitats SaaS, so the product's view of the fleet stops being a snapshot
+      # of whoever last pasted a URL into the attach form. Announcing is inert
+      # unless BOTH the URL and the secret are set — either alone is a
+      # half-configured integration that could only produce failing calls.
+      # The secret must match UMWELTEN_REGISTRY_SECRET on the SaaS.
+      HABITATS_SAAS_REGISTRY_URL: ${HABITATS_SAAS_REGISTRY_URL:-}
+      HABITATS_SAAS_REGISTRY_SECRET: ${HABITATS_SAAS_REGISTRY_SECRET:-}
+      HABITATS_SAAS_REGISTRY_WORKSPACE: ${HABITATS_SAAS_REGISTRY_WORKSPACE:-}
     labels:
       # Gaia is itself a caddy-fronted habitat: control plane over TLS + auth at
       # GAIA_HOSTNAME, reached by caddy over the network ({{upstreams 7420}}).
