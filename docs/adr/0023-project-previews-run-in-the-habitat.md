@@ -1,4 +1,4 @@
-# 0023 — Project previews run in the habitat, addressed by hostname on a separate domain
+# 0023 — Project previews run in the habitat, discovered rather than declared
 
 Status: Accepted
 Date: 2026-08-08
@@ -6,190 +6,236 @@ Related: [0004 — Gaia as a GitHub App](./0004-gaia-github-app.md),
 [0006 — Owned and mounted repos](./0006-owned-and-mounted-repos.md),
 [0007 — A2A tasks as the wake contract](./0007-a2a-tasks-as-the-wake-contract.md),
 [0008 — Fleet topology](./0008-fleet-topology.md),
-[0009 — One vault per habitat](./0009-per-habitat-vaults.md)
+[0009 — One vault per habitat](./0009-per-habitat-vaults.md);
+`The-Focus-AI/standards` STD-004 (tooling and tasks), STD-008 (deployment)
 
-> An earlier draft of this ADR, committed the same day, decided the opposite:
-> static output served from the habitat, with anything needing a server pushed
-> out to a Vercel preview on a pull request. It was written against an assumed
-> fleet of about ten habitats and no stated requirement on iteration speed.
-> Both assumptions were wrong — see *Why not static plus a pull request*. It was
-> never merged or cited, so it is replaced here rather than superseded.
+> Pinned down in a grilling session. Two earlier drafts written the same day are
+> replaced rather than superseded — neither was merged or cited. The first
+> decided static output plus a Vercel pull-request preview, which failed a
+> seconds-not-minutes iteration requirement that had not yet been stated. The
+> second got the shape right but made a service declaration in `habitat.json`
+> the centrepiece; grilling removed the declaration entirely. See *Why nothing
+> is declared*.
 
 ## Context
 
 A **project habitat** is a habitat whose Owned repo is an application rather
 than agent configuration. You talk to a coding agent, it writes code into the
-repo it owns, and you need to see the result. Everything except the last clause
-already works: `Dockerfile.coding-agent` ships Claude Code, pi, codex, `gh` and
-mise; `managedContainerToolSets` gives the container `bash`; ADR 0006 makes the
-Owned repo writable and ADR 0004 mints the token.
+repo it owns, and you need to see the result running.
 
-Two requirements decide the design, and neither was known when this ADR was
-first drafted.
+Everything except the last clause works today. `Dockerfile.coding-agent` ships
+Claude Code, pi, codex, `gh` and mise; `managedContainerToolSets` gives the
+container `bash`; ADR 0006 makes the Owned repo writable and ADR 0004 mints the
+token.
 
-**The loop has to be seconds, not minutes.** The agent changes a file and the
-page updates — the same loop as a dev server on a laptop. This rules out
-anything that goes through a commit, a push and a build.
+Four requirements shape the design:
 
-**The fleet is 200 habitats now and 20,000 later, of which under 1% are awake
-at once, and only a few dozen ever need a preview.** So previews are a small,
-expensive tier on top of a very large, mostly-dormant base — not a property of
-every habitat. The 20,000 case is also eventually **multi-tenant**: customers'
-code, not ours.
+- **The loop is seconds.** The agent changes a file, the page updates. This
+  rules out anything routed through a commit, a push and a remote build.
+- **The fleet is 200 now and 20,000 later**, under 1% awake at once, with only a
+  few dozen ever previewing. Previews are a small expensive tier on a large
+  dormant base, not a property of every habitat.
+- **The 20,000 case is multi-tenant** — customers' code, not ours. Phase 1 is
+  single-tenant and says so.
+- **Projects are not uniform.** They are scaffolded per
+  `standards.thefocus.ai` by its `setup-project` skill, dynamically, each time.
+  Nothing may assume a stack.
 
-What blocks it today is that a habitat has exactly one address.
-`docker.ts:330` publishes one port (`-p 127.0.0.1:<host>:8080`), `docker.ts:343`
-emits one Caddy upstream (`{{upstreams 8080}}`), and `CHILD_INTERNAL_PORT` 8080
-is already the agent's own A2A, MCP, chat and health surface.
+What blocks it is that a habitat has one address: `docker.ts:330` publishes one
+port, `docker.ts:343` emits one Caddy upstream, and `CHILD_INTERNAL_PORT` 8080
+already carries the agent's A2A, MCP, chat and health surface.
 
-## Decision
+## The workflow this produces
 
-1. **Dev servers run inside the habitat, declared rather than ad hoc.** A
-   habitat declares its services in `habitat.json` — a name, a port, a command.
-   The container starts and supervises them, so a service comes back by itself
-   after a sleep/wake cycle instead of depending on the agent remembering to
-   restart it.
+1. You tell Gaia in chat: *"make me a project called shed-designer."*
+2. Gaia creates the GitHub repo and registers the habitat.
+3. The habitat's agent scaffolds the project against the standards corpus it
+   already has at `/opt/standards` — no fixed template, resolved fresh each time.
+4. The container runs `mise dev`, watches what ports open, and publishes an
+   address per port.
+5. You work with the agent in **the habitat's own chat**. Gaia is only where
+   projects get created and listed.
+6. You ask for a branch preview and get a second set of addresses beside the
+   first.
+7. When you want it live, you ask, and the agent runs `mise deploy`.
 
-2. **Services are addressed by hostname, not by host port.** Gaia stamps an
-   additional Caddy site label per declared service; `caddy-docker-proxy`
-   reaches the container over the shared network by DNS, so a second internal
-   port needs **no host port at all**. The 7440–7499 range stays what it is
-   today: loopback access for Gaia's own proxy, one per habitat.
+## Decisions
 
-3. **Preview hostnames are flat, and live on a separate registrable domain from
-   the control plane.** Flat because a TLS wildcard covers exactly one label —
-   `*.example.dev` covers `shed-web.example.dev` but not
-   `web.shed.example.dev`, which would need a certificate per project against a
-   limit of 50 per registered domain per week. Separate domain because customer
-   code must not run on an origin that shares a cookie scope with the control
+1. **Dev servers run inside the habitat**, supervised by the container so they
+   return by themselves after a sleep/wake cycle rather than depending on the
+   agent to restart them.
+
+2. **Nothing is declared. The command is a convention and the ports are
+   discovered.** The standards require every project to expose a `dev` mise task
+   (STD-004), so the command is always `mise dev`. The supervisor starts it,
+   watches which ports come up listening, and publishes one address per port.
+
+3. **A preview router owns the preview domain.** One wildcard certificate, one
+   Caddy site, and a lookup from hostname to habitat, worktree and discovered
+   port. Per-container Caddy labels cannot work: labels are fixed when a
+   container starts, and the ports are not known until after it does.
+
+4. **Addresses are numbered by port order, and carry the branch.**
+   `shed-main-1`, `shed-roofpitch-2`. Ports get numbers rather than names
+   because naming them would mean declaring them; branches keep their own names
+   because they already have stable ones. Numbering follows ascending port
+   number, not the order things happen to start, so a link does not silently
+   point at a different service after a restart. Branch names are sanitised and
+   truncated to fit a 63-character DNS label.
+
+5. **Preview hostnames are flat and live on a registrable domain separate from
+   the control plane.** Flat because a TLS wildcard covers exactly one label.
+   Separate because customer code must not share a cookie scope with the control
    plane, and because hosting arbitrary customer output on the control-plane
    domain makes its reputation ours. This is why Vercel serves previews on
-   `vercel.app` and not `vercel.com`.
+   `vercel.app` rather than `vercel.com`.
 
-4. **Gaia stays off the preview path.** Not only because ADR 0008 keeps the
-   most privileged component off the request path, but because it cannot serve
-   this traffic: `proxy.ts` buffers the entire request body and never handles
-   an `upgrade`, so live-reload websockets cannot traverse it. Caddy proxies
-   them natively.
+6. **Preview links are public, unguessable, and not crawlable.** No sign-in — the
+   point is sending someone a link. A random component in the hostname makes a
+   link unguessable rather than merely unlisted, and a `robots.txt` plus a wake
+   page that only fires from browser JavaScript keeps a crawler that finds a
+   link from waking habitats and spending money.
 
-5. **Waking a preview is an interstitial page, not a held request.** A request
-   to a dormant habitat returns a small page that triggers the wake and
-   refreshes itself. This is ADR 0007's principle — don't hold the request,
-   hand back something and let the client retry — expressed in HTML rather than
-   in A2A task polling, which a URL bar cannot do.
+7. **Gaia stays off the preview path.** ADR 0008 keeps the most privileged
+   component off the request path, and in any case `proxy.ts` buffers whole
+   request bodies and never handles an `upgrade`, so live-reload websockets
+   cannot traverse it. The router is deliberately dumb — no App key, no Docker
+   socket — so putting it on the path reintroduces nothing.
 
-6. **Phase 1 is single-tenant and says so.** The first implementation serves our
-   own projects on today's infrastructure. The multi-tenant work is named in the
-   consequences and deliberately not built. What *is* decided now is only what
-   becomes expensive once other people's repos and links exist: the preview
-   domain, the declaration schema, and whether preview URLs carry auth.
+8. **Waking is an interstitial, not a held request.** A request to a dormant
+   habitat returns a page that triggers the wake and refreshes itself. This is
+   ADR 0007's principle — hand something back and let the client retry — in HTML
+   rather than in A2A task polling, which a URL bar cannot do.
+
+9. **Idle handling is the existing 30 minutes.** No second timer: preview
+   traffic counts as activity, and the reaper's current default applies. The
+   habitat must report preview traffic, because it reaches the router and never
+   Gaia.
+
+10. **A broken build shows the error and recent log, with secrets redacted.**
+    Useful beats safe here, on a public page, so redaction is not optional: the
+    supervisor strips the habitat's known secret values before exposing output,
+    since build failures and stack traces leak environment variables readily.
+
+11. **Any branch can get a preview, on request.** Git worktrees from the one
+    clone — cheap on disk, since they share the object store — each running its
+    own `mise dev` with its own addresses. Abandoned worktrees are cleaned up by
+    the same idleness logic: stop the dev server when unused, remove the worktree
+    after longer.
+
+12. **Deploying is `mise deploy`, run by the agent when asked.** The standards
+    already require the task (STD-004, STD-008). Deploy credentials live in the
+    habitat's own vault, which is what ADR 0009 already assumes, and which makes
+    them naturally per-tenant later.
+
+13. **Phase 1 is single-tenant.** Built for our own ~200 projects on today's
+    infrastructure. The tenant-isolation work is named below and deliberately not
+    built. What *is* settled now is only what becomes expensive once other
+    people's repos and links exist: the preview domain, the addressing scheme,
+    and that previews are public.
+
+## Why nothing is declared
+
+The previous draft made a service declaration in `habitat.json` the highest-stakes
+decision in this ADR, on the reasoning that it would eventually live in 20,000
+customer repos and a schema change would mean migrating them.
+
+Grilling dissolved the problem rather than solving it. The standards already
+mandate a `dev` task, so the command never needed declaring. And the ports are
+better discovered than declared: a declared port is a second place for the truth
+to live, it goes stale when the project changes, and it obliges every project to
+cooperate with our platform. Watching what opens asks nothing of the project.
+
+A schema you do not have cannot be migrated. This is strictly better than getting
+the schema right.
+
+The residue is that discovery yields ports and not names, which is why addresses
+are numbered — see decision 4.
 
 ## Why not additional host ports
 
-The obvious reading of "previews on different ports," and wrong in three ways.
+The literal reading of "previews on different ports," and wrong three ways. Host
+ports are fleet-wide and scarce — 60, in 7440–7499 — where hostnames under one
+wildcard are free. Ports must be communicated and kept stable across rebuilds,
+which is why `pickHostPort` already carries special handling to stop a habitat
+hopping ports on restart; each additional port multiplies that. And a bare port
+gets no TLS.
 
-Host ports are a fleet-wide scarce resource — 60 of them — while hostnames
-under one wildcard are free. Ports also have to be communicated, remembered and
-kept stable across rebuilds, which is why `pickHostPort` already carries
-special handling to stop a habitat hopping ports on restart; every additional
-port multiplies that problem. And a bare port gets no TLS, so a preview would
-be plain HTTP or need its own certificate plumbing.
+## Why not static output plus a pull-request preview
 
-Hostnames give the same outcome with none of it, and the ingress that resolves
-them is already deployed.
+The first draft's decision. It fails the seconds requirement outright, and its
+memory argument does not survive the real numbers: it read ADR 0007's 16 GB
+no-swap host as ruling out dev servers, but that constraint describes the
+mostly-idle agent fleet. With 1% awake and a few dozen previews the active set is
+around 100 GB — a handful of nodes. The box was a fact about today's host, not a
+property of the architecture.
 
-## Why not static plus a pull request
+Pull-request previews remain better for *review* — per-PR by construction, and
+sited where human approval already is. They are not the fast loop, and with
+branch previews available in-habitat they are no longer needed for comparison
+either.
 
-This was the previous draft's decision, and it fails the seconds-not-minutes
-requirement outright: a commit, a push, a PR and a remote build is minutes.
-
-It was also built on a memory argument that does not survive the real numbers.
-The claim was that dev servers cannot fit because the runtime plane is 16 GB
-with no swap (ADR 0007). But that constraint describes the **agent fleet** —
-mostly-idle containers that sleep. With under 1% of the fleet awake and only a
-few dozen previews, the active set is on the order of 100 GB, which is a handful
-of nodes rather than an impossibility. The 16 GB box was a fact about today's
-host, not a property of the architecture, and treating it as a wall produced the
-wrong decision.
-
-Two of the previous draft's other objections were real and are answered rather
-than dismissed: the reaper cannot currently see preview traffic, and waking does
-not work on the HTTP path. Both appear in the consequences below as work.
-
-A pull-request preview remains genuinely better for *review* — it is per-PR by
-construction, and it puts the preview where the human approval already is. It
-belongs in the workflow. It is not the fast loop.
-
-## Why not serve the preview through the habitat's own port 8080
+## Why not serve previews through the habitat's own 8080
 
 Tempting, because the habitat's server would then see preview traffic and could
-report it as activity to the reaper for free. Rejected: 8080 carries `/a2a`,
-`/mcp`, `/health` and the chat surface, all of which Gaia, Caddy, the SaaS and
-the health check address. Multiplexing an arbitrary application beneath those
-routes means a preview that can shadow `/health` is a preview that can take a
-habitat off the fleet. It would also put a Node process in the data path of
-every asset request and require reimplementing websocket proxying that Caddy
-already does correctly.
+report activity for free. Rejected: 8080 carries `/a2a`, `/mcp`, `/health` and
+chat, all of which Gaia, Caddy, the SaaS and the health check address. A preview
+that can shadow `/health` can take a habitat off the fleet. It would also put a
+Node process in the data path of every asset and require reimplementing
+websocket proxying Caddy already does correctly.
 
 ## Consequences
 
 ### To build in phase 1
 
-- **A service declaration in `habitat.json`.** The schema is the highest-value
-  thing to get right in this ADR, because it eventually lives in customers'
-  repos and a change means migrating them. Note that the declaration currently
-  has no `agents` field (`declaration.ts:36`) and `apply-declaration.ts:120-134`
-  rebuilds `config.agents` from mounts, so services need a first-class field
-  rather than a reuse of the agent list.
-- **Per-service Caddy labels** at container start, alongside the existing
-  single label (`docker.ts:339-351`).
-- **A supervisor** in the container that starts declared services and restarts
-  them, so wake restores the preview without agent involvement.
-- **Reaper awareness.** `DEFAULT_REAPER_CONFIG` stops a habitat after 30 idle
-  minutes judged from agent-surface traffic and A2A task state. Preview traffic
-  goes through Caddy directly, so Gaia never sees it and the habitat must report
-  it — otherwise a habitat gets reaped while someone is using its preview.
-- **A wake path for browser traffic.** `HabitatWaker` is wired only into Gaia's
-  `ask_habitat` / `wake_habitat` tools (`gaia-tools/habitats.ts:160`); the proxy
-  route does not wake, and Caddy bypasses Gaia entirely. The interstitial needs
-  something that can trigger a start without holding Gaia's master key.
-- **A preview domain**, registered and wildcard-certificated, separate from the
-  control-plane domain.
+- **Repo creation in Gaia.** Nothing creates repos today; `create_habitat` takes
+  a `gitUrl` that must already exist, and the runbook's onboarding step 1 is a
+  manual human act. Needs the App to be able to create repos.
+- **A supervisor** in the container: runs `mise dev` per worktree, discovers
+  listening ports, restarts on exit, captures and redacts logs, reports activity.
+- **The preview router**: hostname to habitat/worktree/port, websocket-capable,
+  wake interstitial, `robots.txt`, activity reporting, error page.
+- **Worktree management**: create on request, run, idle-stop, remove.
+- **A preview domain**, registered with a wildcard certificate.
+- **Reaper awareness** of preview traffic, so a habitat is not stopped while
+  someone is using its preview.
+- **A wake trigger the router can call** without holding Gaia's master key.
 
-### Deliberately deferred, and safe to defer
+### Deferred, safely
 
 The Postgres registry (200 entries in a JSON file rewritten per mutation is ugly
 but works — `registry.ts:58-71`), the `ContainerBackend` seam, GKE, and
-scale-to-zero for the dormant majority. All are scaling work with clean
-boundaries, none of which changes the declaration format or the URLs.
+scale-to-zero for the dormant majority. Scaling work with clean boundaries, none
+of which changes the addressing or asks anything of a project.
 
 ### Deferred but load-bearing before any customer arrives
 
-These are security properties, not scaling ones, and phase 1 is only safe
-because it is single-tenant:
+Security properties, not scaling. Phase 1 is only safe because it is
+single-tenant:
 
 - **A container is not a boundary against hostile code.** A coding agent has
-  `bash` by design. Customer agents therefore need sandboxed nodes (gVisor) or
-  microVMs, which is a node-architecture decision rather than a hardening pass.
+  `bash` by design, so customer agents need sandboxed nodes (gVisor) or
+  microVMs — a node-architecture decision, not a hardening pass.
 - **The Docker socket must stop being reachable from an LLM.** Gaia manages
-  containers via a mounted socket and is itself a habitat with tools and a
-  model. On a host running customer workloads that is a path from one prompt
+  containers through a mounted socket and is itself a habitat with tools and a
+  model; on a host running customer workloads that is a path from one prompt
   injection to the whole fleet. This promotes the `ContainerBackend` seam from a
   scaling nicety to a prerequisite.
 - **Two credentials become concentration risks**: one GitHub App private key on
   the runtime host able to mint against 20,000 customer organisations, and
   ADR 0009's host-side vault resolution holding every customer's secrets. Both
   want per-tenant envelope encryption via a KMS.
-- **A public preview is a public dev server** — source maps, every API route,
-  and whatever CVEs the dev server has this month. Whether preview URLs carry
-  auth has to be settled before links are shared, because retrofitting it
-  invalidates them.
+- **A public preview is a public dev server** — source maps, every route, and
+  whatever CVEs the dev server shipped with. Acceptable for our own projects;
+  needs revisiting per-tenant.
 
 ### Standing consequences
 
 - **Previews are only up while the habitat is.** Sleep is what makes 20,000
   habitats affordable, so the interstitial is not a rough edge to remove — it is
-  the visible cost of the thing that makes the fleet possible.
+  the visible price of the thing that makes the fleet possible.
+- **Discovery is a guess, and will sometimes guess wrong.** A project opening
+  several ports gets several addresses whether or not they are all meant to be
+  public. Numbering by port keeps it predictable; it does not make it correct.
 - **`build_image` still only builds the default image** (`docker.ts:300`), so
-  standing up the first project habitat needs a manual host-side build of
-  `habitat-coding`.
+  the first project habitat needs a manual host-side build of `habitat-coding`.
