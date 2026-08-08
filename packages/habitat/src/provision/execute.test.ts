@@ -356,16 +356,34 @@ describe("executeProvisionPlan", () => {
     expect(rec.logs).toContain("[entrypoint] Updating agent web (git pull --ff-only)...");
   });
 
-  it("reports a non-fast-forward pull as a warning, not a failure", async () => {
+  it("reports a failed pull as a warning, not a failure", async () => {
     const rec = recorder({ fails: (c) => c.includes("git pull") });
     const result: ProvisionResult = await executeProvisionPlan(
       planFor(fullConfig, { ownedRepoCloned: true }),
       rec.deps,
     );
     expect(result.aborted).toBeUndefined();
-    expect(rec.logs).toContain(
-      "[entrypoint] Pull skipped (non-fast-forward or offline; keeping current checkout).",
-    );
+    expect(rec.logs.some((l) => l.includes("Pull FAILED for /data/project"))).toBe(true);
+  });
+
+  /**
+   * The message must not name a cause. It named two — "non-fast-forward or
+   * offline" — while the live failure was an expired credential, so a habitat
+   * whose checkout had silently stopped moving looked like a habitat with
+   * nothing new to report.
+   */
+  it("does not guess why a pull failed", async () => {
+    const rec = recorder({ fails: (c) => c.includes("git pull") });
+    await executeProvisionPlan(planFor(fullConfig, { ownedRepoCloned: true }), rec.deps);
+
+    const warnings = rec.logs.filter((l) => l.includes("Pull FAILED"));
+    expect(warnings.length).toBeGreaterThan(0);
+    for (const w of warnings) {
+      expect(w).not.toMatch(/non-fast-forward|offline/);
+      // Says the checkout is now stale, and points at git's own error.
+      expect(w).toMatch(/STALE/);
+      expect(w).toMatch(/git error above/);
+    }
   });
 
   it("does nothing at all without a config.json", async () => {

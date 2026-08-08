@@ -156,7 +156,11 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
       branch: config.gitBranch,
       announce: `${LOG} Updating ${ownedRepoDir} (git pull --ff-only)...`,
       onFailure: "warn",
-      warning: `${LOG} Pull skipped (non-fast-forward or offline; keeping current checkout).`,
+      // Names no cause. The step cannot tell a diverged branch from an expired
+      // credential, and guessing produced a message that read as "nothing
+      // changed" while auth had been failing for hours — git's own error is
+      // already on stdout, so point at it instead of paraphrasing it wrong.
+      warning: `${LOG} Pull FAILED for ${ownedRepoDir} — keeping current checkout, which is now STALE. See the git error above.`,
     });
   }
 
@@ -264,7 +268,7 @@ export function planProvision(input: PlanProvisionInput): ProvisionPlan {
         envNames: agent.envNames,
         announce: `${LOG} Updating agent ${agent.id} (git pull --ff-only)...`,
         onFailure: "warn",
-        warning: `${LOG} Pull skipped for agent ${agent.id} (non-fast-forward or offline).`,
+        warning: `${LOG} Pull FAILED for agent ${agent.id} — keeping current checkout, which is now STALE. See the git error above.`,
       });
     }
 

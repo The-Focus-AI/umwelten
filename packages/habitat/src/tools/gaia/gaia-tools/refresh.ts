@@ -43,8 +43,44 @@ export interface RefreshOutcome {
 export interface RefreshContext {
   registry: Pick<GaiaToolsContext["registry"], "get">;
   docker: Pick<GaiaToolsContext["docker"], "getStatus" | "execInContainer" | "writeVolumeFile">;
+  /**
+   * Mints the habitat's GitHub boot token. Optional so a deploy without the
+   * GitHub App still refreshes — public repos need no credential.
+   */
+  githubTokens?: GaiaToolsContext["githubTokens"];
   /** Injected for deterministic mark timestamps. */
   now?: () => Date;
+}
+
+/**
+ * A fresh github.com credential for this refresh, in the form the provisioner
+ * already reads: the `GIT_CONFIG_*` triple `entrypoint.sh` exports at boot.
+ *
+ * Refresh runs via `docker exec`, which inherits the environment the container
+ * was *started* with — including a boot token that expires in about an hour.
+ * Past that, every pull fails authentication, and because `git` has no TTY to
+ * prompt on it fails as "could not read Username", which the plan then reports
+ * as "non-fast-forward or offline". The habitat goes on answering questions
+ * from a checkout that silently stopped moving.
+ *
+ * Minting per refresh keeps the credential as fresh as the operation needing
+ * it. Returns undefined when there is nothing to mint, leaving the container's
+ * own environment in place rather than blanking it.
+ */
+async function freshGitCredential(
+  ctx: RefreshContext,
+  id: string,
+): Promise<Record<string, string> | undefined> {
+  const entry = ctx.registry.get(id);
+  if (!entry || !ctx.githubTokens) return undefined;
+  const tokens = await ctx.githubTokens.bootTokensFor(entry);
+  const read = tokens?.read;
+  if (!read) return undefined;
+  return {
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: `url.https://x-access-token:${read}@github.com/.insteadOf`,
+    GIT_CONFIG_VALUE_0: "https://github.com/",
+  };
 }
 
 async function markStale(
@@ -74,7 +110,16 @@ export async function refreshHabitat(
     return markStale(ctx, id, `Habitat "${id}" is dormant (${status}).`);
   }
 
-  const result = await ctx.docker.execInContainer(id, REFRESH_COMMAND);
+  // Minted per refresh, never inherited: the container's own token is as old
+  // as the container. Best-effort — a mint failure refreshes with whatever the
+  // container has, which is what happened before this existed.
+  const gitEnv = await freshGitCredential(ctx, id).catch(() => undefined);
+  const result = await ctx.docker.execInContainer(
+    id,
+    REFRESH_COMMAND,
+    undefined,
+    gitEnv,
+  );
   if (!result.ok) {
     // A refresh that could not run is not a refresh. Leaving the mark means
     // the next wake retries it rather than the request being lost.
