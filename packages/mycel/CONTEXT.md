@@ -16,7 +16,9 @@ _Avoid_: Provider (means an Umwelten vendor integration), factory, host, node, w
 **Guarantee**:
 A promise about the conditions under which a Supplier produces tokens, such as
 staying on-premise or not being trained on. Asserted by the operator, who is
-liable for it, rather than self-declared by the Supplier.
+liable for it, rather than self-declared by the Supplier. On hardware the
+operator does not own it rests on a contract with that Supplier, enforced after
+the fact rather than prevented (ADR 0029 — Mycel sells as principal).
 _Avoid_: Capability, policy, SLA, tag
 
 **Headroom**:
@@ -72,8 +74,17 @@ _Avoid_: user, customer, account, subject
 ### Money
 
 **Balance**:
-Money available to be spent, held by a Client, an Application, or an End User.
+What a Client, an Application, or an End User has left to spend — negative when
+it has spent more than it holds, which only a Credit Limit permits. Always the
+sum of its ledger entries, never a stored total.
 _Avoid_: credits, wallet, quota
+
+**Credit Limit**:
+How far a Client's Balance may go negative before the exchange refuses it. Set
+by the operator, per Client; zero means prepaid. Applies only to a Client's own
+Balance, never to an Application's or an End User's, because granting one of
+those an amount is how you cap it (ADR 0028 — a Client may be postpaid).
+_Avoid_: credit line, overdraft, allowance, quota
 
 **Cost**:
 What a Supplier is owed for a request. Zero when the operator owns the hardware.

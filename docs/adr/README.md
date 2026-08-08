@@ -29,6 +29,7 @@
 | [0026](0026-mycel-hosts-its-own-client-surface.md) | Mycel hosts its own Client surface |
 | [0027](0027-dispatch-filters-on-resource-properties-and-scores-on-more-than-price.md) | Dispatch filters on resource properties, and scores on more than price |
 | [0028](0028-a-client-may-be-postpaid-to-a-limit.md) | A Client may be postpaid, to a limit it was given |
+| [0029](0029-mycel-sells-as-principal.md) | Mycel sells as principal, and warrants Guarantees on contract |
 
 0011 is unused — see below.
 
