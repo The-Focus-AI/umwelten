@@ -84,6 +84,11 @@ already carries the agent's A2A, MCP, chat and health surface.
    port. Per-container Caddy labels cannot work: labels are fixed when a
    container starts, and the ports are not known until after it does.
 
+   This does not rule out labelling the *router* — one static
+   `caddy=*.preview.crepusculardiphthong.com` on the router container is fine,
+   because unlike a habitat's discovered ports the router's address is known
+   before it starts. What cannot be expressed as a label is a habitat's port set.
+
 4. **Addresses are numbered by port order, and carry the branch.**
    `shed-main-1`, `shed-roofpitch-2`. Ports get numbers rather than names
    because naming them would mean declaring them; branches keep their own names
@@ -107,6 +112,27 @@ already carries the agent's A2A, MCP, chat and health surface.
    plane, and because hosting arbitrary customer output on the control-plane
    domain makes its reputation ours. This is why Vercel serves previews on
    `vercel.app` rather than `vercel.com`.
+
+   Note the two clauses are independent: `*.preview.thefocus.ai` would satisfy
+   *flat* perfectly well. Flatness rules out nesting `project/branch`; it says
+   nothing about which domain. Cookie scope and reputation are the entire case
+   for separateness.
+
+   **Chosen: `*.preview.crepusculardiphthong.com`.** A subdomain of a domain we
+   already own that is not `thefocus.ai`, which is all the isolation asks for —
+   cookie scope is bounded by the registrable domain, so anything under
+   `crepusculardiphthong.com` is already outside the control plane's. Habitats
+   keep their existing `<id>.$GAIA_BASE_DOMAIN` hostnames; this is a second
+   domain for a second purpose, not a migration.
+
+   Residual, and worth knowing rather than fixing: previews share a cookie scope
+   with *each other* and with anything else ever hosted under
+   `crepusculardiphthong.com`. Vercel escapes this by having `vercel.app` on the
+   Public Suffix List, which makes each preview its own registrable domain for
+   cookie purposes. PSL submission is a slow process and requires the domain be
+   dedicated to the purpose, so phase 1 accepts preview-to-preview cookie
+   reach — acceptable between our own projects, and on the list to revisit
+   alongside per-tenant previews.
 
 6. **Preview links are public, unguessable, and not crawlable.** No sign-in — the
    point is sending someone a link. A random component in the hostname makes a
@@ -225,7 +251,18 @@ websocket proxying Caddy already does correctly.
 - **The preview router**: hostname to habitat/worktree/port, websocket-capable,
   wake interstitial, `robots.txt`, activity reporting, error page.
 - **Worktree management**: create on request, run, idle-stop, remove.
-- **A preview domain**, registered with a wildcard certificate.
+- **The preview domain wired up**: `*.preview.crepusculardiphthong.com` in DNS
+  pointing at the host, and a wildcard certificate — which is **not** how the
+  fleet gets certs today and is the one place this decision costs something.
+  Habitats get a per-hostname cert over HTTP-01, issued on demand as each
+  `caddy=<host>` label appears, on the stock
+  `lucaslorentz/caddy-docker-proxy:2.9-alpine` image. A wildcard cannot be
+  validated over HTTP-01; it needs DNS-01, which needs a Caddy build carrying the
+  DNS plugin for wherever `crepusculardiphthong.com`'s DNS lives, plus an API
+  token for that zone. Going the other way — per-hostname certs for previews, as
+  habitats do — runs into Let's Encrypt's 50-certificates-per-registrable-domain
+  per week, which 200 projects and their branches would exhaust. So: wildcard,
+  DNS-01, custom Caddy image, one scoped DNS token.
 - **Reaper awareness** of preview traffic, so a habitat is not stopped while
   someone is using its preview.
 - **A wake trigger the router can call** without holding Gaia's master key.
