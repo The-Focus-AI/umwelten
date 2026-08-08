@@ -27,6 +27,8 @@
 | [0024](0024-suppliers-are-paid-from-a-balance.md) | A Supplier is paid from a Balance, like everyone else |
 | [0025](0025-the-exchange-bears-its-own-supply-failures.md) | The Exchange bears the cost of its own supply failures |
 | [0026](0026-mycel-hosts-its-own-client-surface.md) | Mycel hosts its own Client surface |
+| [0027](0027-dispatch-filters-on-resource-properties-and-scores-on-more-than-price.md) | Dispatch filters on resource properties, and scores on more than price |
+| [0028](0028-a-client-may-be-postpaid-to-a-limit.md) | A Client may be postpaid, to a limit it was given |
 
 0011 is unused — see below.
 

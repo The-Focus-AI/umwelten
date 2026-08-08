@@ -180,6 +180,15 @@ export interface PublishedOffer {
 export interface Client {
   id: string;
   name: string;
+  /**
+   * How far this Client's own Balance may go negative before requests are
+   * refused (ADR 0028). Zero is prepaid — a hard stop at nothing left.
+   *
+   * Applies **only** to the Client's own Balance. A charge that resolves to an
+   * End User or Application balance still stops at zero, because granting one
+   * of those is how you cap it and a cap that can be exceeded is not one.
+   */
+  creditLimitMicroDollars?: MicroDollars;
 }
 
 /**

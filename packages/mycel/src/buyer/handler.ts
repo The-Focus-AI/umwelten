@@ -38,7 +38,12 @@ import {
   estimatePromptTokens,
   priceRequest,
 } from "../metering/counter.js";
-import { Balances, resolveChargeOwner, type BalanceOwner } from "../metering/balances.js";
+import {
+  Balances,
+  creditFloorFor,
+  resolveChargeOwner,
+  type BalanceOwner,
+} from "../metering/balances.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -252,12 +257,15 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     // had a ledger entry. Resolved once and then both checked and debited, so
     // an unfunded user never accidentally acquires an entry of its own.
     const owner: BalanceOwner = await resolveChargeOwner(caller, balances);
+    // Only a Client's own Balance may go negative, and only to the limit the
+    // operator gave it (ADR 0028). A capped End User still stops at zero.
+    const floor = await creditFloorFor(owner, caller.application.clientId, store);
 
     // Refuse before forwarding when the prompt alone cannot be covered. There
     // is no point buying tokens the buyer cannot pay for, and this is the only
     // moment nothing has been consumed yet.
     const promptCharge = priceRequest(offer, promptTokens, 0).charge;
-    if (!(await balances.canCover(owner, promptCharge))) {
+    if (!(await balances.canCover(owner, promptCharge, floor))) {
       sendJson(res, 402, {
         error: BuyerError.INSUFFICIENT_BALANCE,
         message: "Balance does not cover this request.",
@@ -396,7 +404,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         if (chunksSinceCheck >= BALANCE_CHECK_INTERVAL) {
           chunksSinceCheck = 0;
           const running = priceRequest(offer, promptTokens, counter.completionTokens).charge;
-          if (!(await balances.canCover(owner, running))) {
+          // Same floor as the pre-flight check. Cutting a postpaid Client off
+          // at zero mid-response would make its limit apply only to requests
+          // that never started.
+          if (!(await balances.canCover(owner, running, floor))) {
             creditExhausted = true;
             upstream.abort();
             cancelBody?.();
