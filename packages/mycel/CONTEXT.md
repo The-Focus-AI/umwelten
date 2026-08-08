@@ -97,3 +97,55 @@ _Avoid_: Cost, price, rate
 **Settlement**:
 Periodic reconciliation of what each Supplier is owed for the requests it served.
 _Avoid_: payout, invoice, billing
+
+## Relationships
+
+- A **Client** owns one or more **Applications**; only a Client is invoiced
+- An **Application** knows an **End User** only through a claim it signs
+- A **Supplier** publishes zero or more **Offers**; an **Offer** serves exactly
+  one **Model**, and one Model is served by many Offers
+- A **Guarantee** belongs to a **Supplier**; a **Capability** belongs to an
+  **Offer** — which is why two Offers for one Model are not interchangeable
+- **Dispatch** chooses exactly one **Offer** per request
+- One request produces exactly one **Cost** and one **Charge**, and neither is
+  computed from the other
+- A **Balance** is held by a Client, an Application, or an End User; a Charge
+  falls to the first of those three that has ever had an entry
+- A **Credit Limit** belongs to a **Client** and applies only to that Client's
+  own Balance
+- **Settlement** aggregates **Costs** by Supplier, never **Charges**
+
+## Example dialogue
+
+> **Dev:** "An **End User** with an empty **Balance** makes a request. Do we
+> refuse it?"
+>
+> **Domain expert:** "Depends why it's empty. If you granted them $5 and they
+> spent it, yes — granting is how you cap someone. If they were never granted
+> anything, they have no Balance at all and the **Charge** falls through to the
+> **Application**, then to the **Client**."
+>
+> **Dev:** "And the Client is out of money too?"
+>
+> **Domain expert:** "Then it depends on its **Credit Limit**. A Client can go
+> negative, because we have a contract with it. The End User can't, because a
+> cap you can exceed isn't a cap."
+>
+> **Dev:** "The Supplier's **Offer** costs us nothing — it's our own hardware.
+> So the Charge is zero?"
+>
+> **Domain expert:** "No. **Cost** is what the Supplier is owed; **Charge** is
+> what we debit. Ours being free is our margin, not the buyer's discount."
+
+## Flagged ambiguities
+
+- "user" was used for both the operator and the person using an **Application**
+  — resolved: the latter is an **End User**, and "user" is never used bare.
+- "**Guarantee**" was ambiguous between a promise the Supplier makes and one we
+  make — resolved: the operator asserts it and is liable for it, backed by
+  contract on hardware we do not own (ADR 0029).
+- "aborted" was used for any truncated stream, which conflated a buyer hanging
+  up with a Supplier dropping — resolved: four distinct outcomes, because only
+  one of them is the buyer's own doing and only one of them is our fault.
+- "**Headroom**" is capacity measured at probe time, never current utilization.
+  Nothing in the system reads what a machine is doing right now.
