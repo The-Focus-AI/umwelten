@@ -1,6 +1,6 @@
 # Deploying Mycel
 
-> Status: plan — 2026-08-07. The runbook for putting the Exchange
+> Status: built, undeployed — 2026-08-07. The runbook for putting the Exchange
 > (`packages/mycel`) into the runtime plane, from nothing to metered traffic.
 > Companion to `production-topology.md` (the three planes) and
 > `packages/mycel/CONTEXT.md` (the vocabulary).
@@ -27,50 +27,44 @@ Stage 3 is identity only.
 
 ---
 
-## Part 0 — What has to be built first
+## Part 0 — What this needed, and what shipped
 
-Stage 1 cannot run today. These are the gaps, smallest first.
+Stage 1 could not run when this was written. Everything below is now built, and
+**stage 1 is blocked only on the Neon project.**
 
-| # | Gap | Why it blocks |
-|---|---|---|
-| 1 | ~~No entrypoint.~~ **Built.** `umwelten mycel serve`. | — |
-| 2 | ~~No static-credential auth.~~ **Built.** `sk-mycel-…` + `X-Mycel-End-User`, alongside JWKS. | — |
-| 3 | ~~No operator CLI.~~ **Built.** `umwelten mycel client/application/grant/balance/supplier`. | — |
-| 4 | ~~No way to publish a vendor's catalogue.~~ **Built.** `umwelten mycel offers sync --watch`. | — |
-| 5 | ~~No Dockerfile / compose service.~~ **Built.** `packages/mycel/Dockerfile`, `deploy/mycel/`. | — |
-| 6 | ~~Port 7450 collides.~~ **Fixed.** Mycel 7438, supplier runtime 7439 — both below Gaia's 7440. | — |
+| Was missing | Now |
+|---|---|
+| An entrypoint — `createExchangeServer` was a library function | `umwelten mycel serve` |
+| Any auth a habitat could use — JWKS only, and a habitat has no signing key | `sk-mycel-…` + `X-Mycel-End-User`, alongside JWKS |
+| A way to onboard anyone or fund a balance | `mycel client` / `application` / `grant` / `balance` |
+| A way to publish a vendor's catalogue — the supply endpoint expects an agent | `mycel offers sync --watch` |
+| A container and a compose service | `packages/mycel/Dockerfile`, `deploy/mycel/` |
+| A port outside Gaia's managed range | Mycel 7438, supplier runtime 7439 |
 
-Everything above is built. **Stage 1 is blocked only on the Neon project.**
+Two of those were design rather than plumbing, and the reasoning is worth
+keeping.
 
-Proposed shape for #2 and #3, since they are design and not just plumbing:
-
-```
-umwelten mycel serve                                  # the service
-umwelten mycel client create <id> --name "Acme"
-umwelten mycel application create <id> --client acme  # prints a credential, once
-umwelten mycel application create <id> --client acme --jwks-url https://…
-umwelten mycel grant <client|application> <micro-dollars>
-umwelten mycel supplier register <id> --base-url … --credential-env OPENROUTER_API_KEY
-umwelten mycel offers sync --supplier openrouter --models a,b,c
-umwelten mycel status
-```
-
-**Static credentials, alongside JWKS, not instead of it.** An Application either
-publishes a JWKS (the SaaS already does, per ADR 0003) or holds a credential
-stored hashed — the same `credentialHash` pattern Suppliers already use. With a
-static credential the End User arrives in a header:
+**Static credentials, alongside JWKS rather than instead of it.** An Application
+either publishes a JWKS (the SaaS already does, per ADR 0003) or holds a
+credential stored hashed — the same pattern Suppliers already use. With a static
+credential the End User arrives in a header:
 
 ```
 Authorization: Bearer sk-mycel-…
 X-Mycel-End-User: user-1234
 ```
 
-This is not the security downgrade it appears to be. **The JWT never
-authenticated the End User** — ADR 0014 has Mycel trust the Application's
-assertion of `sub` either way. The signature only proves *which Application* is
-calling, which a hashed bearer also proves. What the JWT genuinely buys is short
-expiry and no spendable secret at rest in Mycel's database, which is why it stays
-the recommended path for anyone who can run a JWKS endpoint.
+This is not the downgrade it looks like. **The JWT never authenticated the End
+User** — ADR 0014 has Mycel trust the Application's assertion of `sub` either
+way, so a signature only ever proved *which Application* was calling, which a
+hashed bearer proves too. What the JWT genuinely buys is short expiry and no
+spendable secret at rest, which is why it stays recommended for anyone able to
+serve a JWKS.
+
+**No HTTP admin API.** The operator surface is a CLI on the box. These
+operations run rarely, by one person, and each can move money or grant
+eligibility for traffic the operator is liable for (ADR 0012) — a route is a
+larger surface than a command, and the convenience is not worth securing.
 
 ---
 
@@ -207,13 +201,13 @@ A commercial vendor and a box on a desk are the same kind of thing here
 the agent, and a vendor has its catalogue published on its behalf.
 
 ```bash
-umwelten mycel supplier register openrouter \
+mycel supplier register openrouter \
   --display-name "OpenRouter" \
   --base-url https://openrouter.ai/api/v1 \
   --credential-env OPENROUTER_API_KEY \
   --guarantees ""          # a commercial vendor gets none by default
 
-umwelten mycel offers sync --supplier openrouter --models \
+mycel offers sync openrouter --watch 5 --models \
   anthropic/claude-sonnet-5,google/gemini-3-flash-preview
 ```
 
@@ -228,7 +222,7 @@ control means.
 lever:
 
 ```bash
-umwelten mycel price openrouter anthropic/claude-sonnet-5 \
+mycel price openrouter anthropic/claude-sonnet-5 \
   --wholesale-prompt 3000000 --wholesale-completion 15000000 \
   --retail-prompt   3600000 --retail-completion  18000000
 ```
@@ -251,11 +245,11 @@ Application, so there is no billing — this is internal accounting that proves
 the meter.
 
 ```bash
-umwelten mycel client create the-focus-ai --name "The Focus AI"
-umwelten mycel application create help-habitat --client the-focus-ai
+mycel client create the-focus-ai --name "The Focus AI"
+mycel application create help-habitat --client the-focus-ai
 # → sk-mycel-…   shown once, never recoverable
 
-umwelten mycel grant the-focus-ai 50000000        # $50 of credit
+mycel grant the-focus-ai 50000000        # $50 of credit
 ```
 
 Then point the habitat at it — a `secretBindings` change in the Gaia registry:
@@ -286,7 +280,7 @@ The point of the whole exercise. After a handful of turns through the switched
 habitat:
 
 ```bash
-umwelten mycel usage --application help-habitat
+mycel balance the-focus-ai
 ```
 
 Each request should show application, subject, supplier, model, prompt and
