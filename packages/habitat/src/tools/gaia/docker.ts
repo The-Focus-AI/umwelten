@@ -434,16 +434,28 @@ export class DockerManager {
    * with `--refresh`, so the decision about what needs updating stays in the
    * habitat rather than being second-guessed from outside.
    */
+  /**
+   * Run a command inside a running habitat.
+   *
+   * `env` overrides the container's own environment for this exec only. A
+   * long-running container still holds whatever was injected at start, and
+   * some of that expires — GitHub boot tokens live about an hour — so a caller
+   * that needs a credential to still be valid has to supply a fresh one rather
+   * than inherit a stale one. Passed via `docker exec -e`, so the values never
+   * appear in the command string.
+   */
   async execInContainer(
     id: string,
     command: string,
     timeout = 600000,
+    env?: Record<string, string>,
   ): Promise<{ ok: boolean; output: string }> {
     const name = containerName(id);
+    const envArgs = Object.entries(env ?? {}).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
     try {
       const { stdout, stderr } = await execFile(
         "docker",
-        ["exec", name, "sh", "-c", command],
+        ["exec", ...envArgs, name, "sh", "-c", command],
         { timeout, maxBuffer: 10 * 1024 * 1024 },
       );
       return { ok: true, output: `${stdout}${stderr}`.trim() };
