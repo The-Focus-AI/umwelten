@@ -237,7 +237,20 @@ export class DockerManager {
     const { stdout, stderr } = await execFile(
       "docker",
       ["build", "-f", HABITAT_DOCKERFILE, "-t", DEFAULT_IMAGE_NAME, "."],
-      { cwd: this.projectRoot, maxBuffer: 10 * 1024 * 1024 },
+      {
+        cwd: this.projectRoot,
+        maxBuffer: 10 * 1024 * 1024,
+        // The Dockerfile mounts a pnpm store cache (`RUN --mount=type=cache`),
+        // which the legacy builder cannot parse:
+        //
+        //   the --mount option requires BuildKit
+        //
+        // Daemons still defaulting to the legacy builder therefore fail every
+        // build. Asking for BuildKit here rather than relying on the host's
+        // default keeps the build a property of this repo — the Dockerfile and
+        // the command that runs it agree, on any daemon.
+        env: { ...process.env, DOCKER_BUILDKIT: "1" },
+      },
     );
     return stdout + stderr;
   }
