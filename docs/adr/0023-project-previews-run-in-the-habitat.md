@@ -70,6 +70,13 @@ already carries the agent's A2A, MCP, chat and health surface.
    (STD-004), so the command is always `mise dev`. The supervisor starts it,
    watches which ports come up listening, and publishes one address per port.
 
+   STD-004 defines `dev` only as "the loop a person or agent runs while
+   working" — so it is a dev server for a web app and `lint` + `test` for a
+   library. The convention therefore names *what to run*, not *what it does*, and
+   discovery is what resolves the difference: ports appearing means there is
+   something to preview, and `dev` exiting cleanly without opening one means
+   there is not. A project with nothing to serve needs no special case.
+
 3. **A preview router owns the preview domain.** One wildcard certificate, one
    Caddy site, and a lookup from hostname to habitat, worktree and discovered
    port. Per-container Caddy labels cannot work: labels are fixed when a
