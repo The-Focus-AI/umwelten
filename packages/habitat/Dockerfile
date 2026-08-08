@@ -30,6 +30,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-27.3.1.tgz" | \
     tar xz -C /usr/local/bin --strip-components=1 docker/docker
 
+# Install the buildx CLI plugin.
+#
+# The static tarball above ships only the `docker` binary — no CLI plugins —
+# and buildx is distributed separately. Gaia's own `build_image` builds THIS
+# Dockerfile, which mounts a pnpm store cache (`RUN --mount=type=cache`); that
+# needs BuildKit, and BuildKit needs buildx. Without the plugin the build fails
+# either way round: the legacy builder cannot parse `--mount`, and asking for
+# BuildKit gets "the buildx component is missing or broken".
+#
+# Release asset names use amd64/arm64, while `uname -m` says x86_64/aarch64,
+# so the two have to be mapped rather than substituted.
+RUN BUILDX_VERSION=v0.36.1 && \
+    BUILDX_ARCH="$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')" && \
+    mkdir -p /usr/local/lib/docker/cli-plugins && \
+    curl -fsSL \
+      "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-${BUILDX_ARCH}" \
+      -o /usr/local/lib/docker/cli-plugins/docker-buildx && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx && \
+    docker buildx version
+
 # Install mise (universal runtime/package manager)
 RUN curl https://mise.run | sh && \
     ln -s /root/.local/bin/mise /usr/local/bin/mise
