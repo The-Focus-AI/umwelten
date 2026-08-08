@@ -76,12 +76,44 @@ Offer expiry that ADR 0022 specifies remains meaningful only for vendor
 Suppliers, where it is also unnecessary — a vendor with an SLA and a status page
 does not vanish the way a NAT'd box does.
 
+## The connection is a request channel, not a work queue
+
+Mycel **pushes**. A request frame goes down the socket, token frames come back
+up, correlated by request id. The machine does not ask for work.
+
+The alternative was a pull model — the machine reports "I can take two more" and
+Mycel hands work down as slots free. It was rejected despite being the better
+answer to backpressure, because a queue is a component and not a detail: depth,
+timeouts, an ordering policy, and a buyer's request that can now sit waiting on
+a machine that never asks. Push keeps the relay doing what it already does —
+dispatch picks an Offer and forwards — and leaves one hop between buyer and
+tokens.
+
+**The cost is precise, and it is not small.** Mycel must decide for itself what
+a machine can take, and the only thing it knows is Headroom, which is a
+measurement from probe time rather than a reading of now (ADR 0027 says this
+about scoring; it applies with more force here, because a wrong score picks a
+slower Offer while a wrong capacity estimate pushes a fifth request at a box
+that serves four). Nothing in this ADR closes that gap. What the held connection
+does give us is the *ability* to close it later — in-flight requests per machine
+are countable by Mycel because Mycel issued every one of them, which is strictly
+more than the probe-time inference available today.
+
 ## What it costs
 
 **Protocol work.** WebSocket: request framing, response streaming back
 token-by-token, multiplexing concurrent requests over one connection, reconnect
 with backoff, half-open detection. Days, not hours, and all of it is code we own
 rather than configuration we describe.
+
+**A dropped connection mid-stream is a truncated response, and nothing more.**
+No buffering, no replay, no re-dispatch: the buyer's stream ends where the
+tokens stopped and the request is recorded `supply-failed` (ADR 0025). This is
+the routine case rather than the exceptional one — the machine is a laptop and
+laptops close — and it is accepted rather than engineered around, because both
+alternatives cost more than the failure does. Re-serving from the top pays for
+one sale twice; resuming from a prefix seams at the join and is not supported
+across runtimes at all.
 
 **Mycel becomes connection-stateful.** It must know which Suppliers are
 connected right now, and Dispatch must consult that rather than a database
@@ -116,6 +148,10 @@ that cannot run the agent, and nothing here forbids it.
   dropped there too — a separate decision.
 - The supplier agent's heartbeat, `offers sync --watch`, and the `mycel-offers`
   compose service are removed once dial-out lands.
+- Mycel tracks in-flight requests per connected machine, because under push it
+  is the only party that can. Whether it *refuses* to exceed a number, and what
+  that number is, is left open — probe-time Headroom is a poor basis for it and
+  a live count is the better one, once there is a live count.
 - `packages/supplier` still must not depend on `packages/mycel`: the wire
   protocol is a shared shape, and a shared *type* at most, never a shared
   database driver.
