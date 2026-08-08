@@ -254,7 +254,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     // would otherwise be recorded as a supply failure, which inverts the whole
     // point of separating them.
     let outcome: RequestOutcome | undefined;
-    const settle = (cause: RequestOutcome) => {
+    const endedBecause = (cause: RequestOutcome) => {
       outcome ??= cause;
     };
     let recorded = false;
@@ -315,7 +315,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     const upstream = new AbortController();
     let cancelBody: (() => void) | undefined;
     const clientGone = () => {
-      settle("buyer-aborted");
+      endedBecause("buyer-aborted");
       upstream.abort();
       cancelBody?.();
     };
@@ -415,7 +415,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
           // that never started.
           if (!(await balances.canCover(owner, running, floor))) {
             creditExhausted = true;
-            settle("credit-exhausted");
+            endedBecause("credit-exhausted");
             upstream.abort();
             cancelBody?.();
             break;
@@ -429,7 +429,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       // So the only place it can be said is the record. Under ADR 0023 this
       // stops being an exception: a dial-in Supplier is a laptop whose lid
       // closes, and this is the path that fires when it does.
-      settle("supply-failed");
+      endedBecause("supply-failed");
     } finally {
       // Runs on every path out of the relay — normal completion, an upstream
       // that died mid-stream, and a caller that hung up. That is the point:
