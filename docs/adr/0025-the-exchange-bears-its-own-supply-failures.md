@@ -37,18 +37,28 @@ the ones you want.
 **A buyer who cancels is charged for what was delivered. A Supplier that drops
 is not billed to the buyer at all.**
 
-Both produce a truncated stream and, today, look identical in the code: the
-`aborted` flag on a `RequestRecord` is set only by `req.on("aborted")` and
-`res.on("close")` — buyer disconnect. There is no signal for "upstream died
-mid-stream", so that path currently records a normal completion and charges for
-it.
+Both produce a truncated stream, and when this was written they looked identical
+in the code: the `aborted` flag on a `RequestRecord` was set only by
+`req.on("aborted")` and `res.on("close")` — buyer disconnect. There was no
+signal for "upstream died mid-stream", so that path recorded a normal completion
+and charged for it.
 
 So this ADR creates work rather than describing behaviour:
 
-1. The relay must distinguish a buyer-initiated abort from a supply-side
-   failure, and record which.
-2. The charge path must skip the debit on the second.
+1. ~~The relay must distinguish a buyer-initiated abort from a supply-side
+   failure, and record which.~~ **Done.** `RequestRecord.aborted` is replaced by
+   `outcome`: `completed`, `buyer-aborted`, `supply-failed`, `credit-exhausted`,
+   settled first-cause-wins so a caller who hangs up and then trips the read
+   loop is not recorded as a supply failure.
+2. The charge path must skip the debit on the second. **Not done, deliberately.**
+   Every outcome is still debited. The distinction is recorded before it is
+   acted on, so the numbers exist to say what this rule will cost before it
+   starts costing it.
 3. The credit to the Supplier (ADR 0024) must happen regardless.
+
+Splitting 1 from 2 is the point rather than a shortcut: a rule that moves money
+should be turned on against a population of real records, not on the same day
+the records start being kept.
 
 The asymmetry is deliberate and worth stating plainly: **the party who made the
 choice bears its consequences.** A buyer who hangs up chose to; we who picked

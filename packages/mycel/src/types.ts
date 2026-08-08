@@ -272,6 +272,23 @@ export interface LedgerEntry {
  * Cost, End User balances read Charge, and every report must say which. Getting
  * that backwards bills a customer for GPU time we never paid for.
  */
+/**
+ * Why a request stopped producing tokens.
+ *
+ * The distinction that matters is *who chose*: a buyer who hangs up chose to,
+ * and we who picked the Supplier chose that. Both leave a truncated stream and
+ * before this they were indistinguishable after the fact.
+ */
+export type RequestOutcome =
+  /** The upstream finished the response. */
+  | "completed"
+  /** The caller hung up. The prompt was still submitted, so it is still owed. */
+  | "buyer-aborted"
+  /** The Supplier dropped, died, or errored partway. Our choice, our problem. */
+  | "supply-failed"
+  /** We cut the stream off because the Balance ran out mid-flight. */
+  | "credit-exhausted";
+
 export interface RequestRecord {
   id: string;
   applicationId: string;
@@ -285,8 +302,17 @@ export interface RequestRecord {
   completionTokens: number;
   cost: MicroDollars;
   charge: MicroDollars;
-  /** True when the caller hung up. The prompt is charged regardless. */
-  aborted: boolean;
+  /**
+   * How the request ended. A truncated stream has more than one cause and they
+   * are not each other's fault (ADR 0025 — the Exchange bears its own supply
+   * failures), so the cause is recorded rather than inferred from the fact of
+   * truncation.
+   *
+   * Recorded, not yet acted on: every outcome is still debited. Skipping the
+   * debit on `supply-failed` is the second half of ADR 0025 and is deliberately
+   * not done here.
+   */
+  outcome: RequestOutcome;
   /**
    * What the upstream said it used, when it said anything. Recorded for
    * reconciliation against our own count, never used to compute a Charge.

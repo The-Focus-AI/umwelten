@@ -24,7 +24,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { CapabilityName } from "../types.js";
+import type { CapabilityName, RequestOutcome } from "../types.js";
 import { dispatch, type DispatchRequirements } from "../dispatch.js";
 import {
   AuthError,
@@ -250,7 +250,13 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     const startedAt = new Date();
     const promptTokens = estimatePromptTokens(body);
     const counter = new StreamCounter();
-    let aborted = false;
+    // First cause wins. A caller who hangs up and *then* trips the read loop
+    // would otherwise be recorded as a supply failure, which inverts the whole
+    // point of separating them.
+    let outcome: RequestOutcome | undefined;
+    const settle = (cause: RequestOutcome) => {
+      outcome ??= cause;
+    };
     let recorded = false;
     let upstreamUsage: { prompt?: number; completion?: number } = {};
     // End User → Application → Client, stopping at the first that has ever
@@ -288,7 +294,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         completionTokens,
         cost,
         charge,
-        aborted,
+        outcome: outcome ?? "completed",
         upstreamPromptTokens: upstreamUsage.prompt,
         upstreamCompletionTokens: upstreamUsage.completion,
         startedAt,
@@ -309,7 +315,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     const upstream = new AbortController();
     let cancelBody: (() => void) | undefined;
     const clientGone = () => {
-      aborted = true;
+      settle("buyer-aborted");
       upstream.abort();
       cancelBody?.();
     };
@@ -409,6 +415,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
           // that never started.
           if (!(await balances.canCover(owner, running, floor))) {
             creditExhausted = true;
+            settle("credit-exhausted");
             upstream.abort();
             cancelBody?.();
             break;
@@ -418,6 +425,11 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     } catch {
       // An upstream that dies mid-stream leaves the caller with a truncated
       // response and no way to signal an error — headers are already sent.
+      //
+      // So the only place it can be said is the record. Under ADR 0023 this
+      // stops being an exception: a dial-in Supplier is a laptop whose lid
+      // closes, and this is the path that fires when it does.
+      settle("supply-failed");
     } finally {
       // Runs on every path out of the relay — normal completion, an upstream
       // that died mid-stream, and a caller that hung up. That is the point:
