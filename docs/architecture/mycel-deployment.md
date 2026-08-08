@@ -66,6 +66,11 @@ operations run rarely, by one person, and each can move money or grant
 eligibility for traffic the operator is liable for (ADR 0012) — a route is a
 larger surface than a command, and the convenience is not worth securing.
 
+This does **not** forbid a read-only surface. ADR 0026 gives Clients their own
+view of their own usage, served by Mycel rather than by the habitats SaaS. The
+argument above is about consequence, not about HTTP: a route that moves no money
+and grants no eligibility is not the thing that was refused.
+
 ---
 
 ## Part 1 — The database

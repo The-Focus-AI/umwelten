@@ -24,6 +24,9 @@
 | [0021](0021-headroom-sampling-policy.md) | Headroom is sampled to a fixed policy, published with the numbers |
 | [0022](0022-when-a-probe-goes-stale.md) | A probe goes stale when the serving path moves, and our own code counts |
 | [0023](0023-suppliers-dial-in.md) | Machine Suppliers dial in; the Exchange never dials a machine |
+| [0024](0024-suppliers-are-paid-from-a-balance.md) | A Supplier is paid from a Balance, like everyone else |
+| [0025](0025-the-exchange-bears-its-own-supply-failures.md) | The Exchange bears the cost of its own supply failures |
+| [0026](0026-mycel-hosts-its-own-client-surface.md) | Mycel hosts its own Client surface |
 
 0011 is unused — see below.
 
