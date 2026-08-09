@@ -39,6 +39,15 @@ jobs:
         # left to manual runs.
         run: pnpm test:run
 
+      - name: Build every package
+        # Not optional, and not merely an optimisation. Node refuses to strip
+        # types under node_modules (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING),
+        # so a package that ships src/*.ts installs cleanly and then crashes on
+        # first import. Each package's publishConfig points main/types/exports/bin
+        # at dist/, and pnpm applies it at publish time — if this step is skipped,
+        # those paths resolve to files that were never emitted.
+        run: pnpm -r build
+
       - name: Publish workspace packages to npm
         # `pnpm -r publish` walks every workspace package, skips the ones
         # marked `private: true`, and rewrites `workspace:*` deps into the

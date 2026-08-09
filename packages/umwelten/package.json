@@ -27,7 +27,9 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
   "dependencies": {
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
@@ -38,5 +40,25 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./mcp-serve": {
+        "types": "./dist/mcp-serve.d.ts",
+        "import": "./dist/mcp-serve.js"
+      }
+    },
+    "bin": {
+      "umwelten": "dist/entry.js"
+    }
   }
 }

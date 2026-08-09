@@ -24,6 +24,7 @@ import type {
   Offer,
   OfferPricing,
   PublishedOffer,
+  RequestOutcome,
   RequestRecord,
   ServingMode,
   Supplier,
@@ -139,7 +140,7 @@ export class NeonStore implements ExchangeStore {
         completion_tokens INTEGER NOT NULL,
         cost BIGINT NOT NULL,
         charge BIGINT NOT NULL,
-        aborted BOOLEAN NOT NULL DEFAULT false,
+        outcome TEXT NOT NULL DEFAULT 'completed',
         upstream_prompt_tokens INTEGER,
         upstream_completion_tokens INTEGER,
         started_at TIMESTAMPTZ NOT NULL,
@@ -247,12 +248,12 @@ export class NeonStore implements ExchangeStore {
     await this.sql`
       INSERT INTO exchange_request
         (id, application_id, subject, supplier_id, model, prompt_tokens,
-         completion_tokens, cost, charge, aborted, upstream_prompt_tokens,
+         completion_tokens, cost, charge, outcome, upstream_prompt_tokens,
          upstream_completion_tokens, started_at, finished_at)
       VALUES (
         ${record.id}, ${record.applicationId}, ${record.subject}, ${record.supplierId},
         ${record.model}, ${record.promptTokens}, ${record.completionTokens},
-        ${record.cost}, ${record.charge}, ${record.aborted},
+        ${record.cost}, ${record.charge}, ${record.outcome},
         ${record.upstreamPromptTokens ?? null}, ${record.upstreamCompletionTokens ?? null},
         ${record.startedAt.toISOString()}, ${record.finishedAt.toISOString()}
       )
@@ -486,7 +487,7 @@ function toRequestRecord(row: Row): RequestRecord {
     completionTokens: Number(row.completion_tokens),
     cost: Number(row.cost),
     charge: Number(row.charge),
-    aborted: Boolean(row.aborted),
+    outcome: String(row.outcome) as RequestOutcome,
     upstreamPromptTokens:
       row.upstream_prompt_tokens === null ? undefined : Number(row.upstream_prompt_tokens),
     upstreamCompletionTokens:

@@ -17,7 +17,7 @@ Each later stage adds exactly one unproven thing:
 | Stage | Adds | Blocked on |
 |---|---|---|
 | **1** | Mycel + OpenRouter Supplier + one habitat buying | Neon project |
-| **2** | a local box as a second Supplier | Tailscale + the box |
+| **2** | a local box as a second Supplier, dialling in | the dial-in protocol (ADR 0023) |
 | **3** | the habitats SaaS as an Application (per-user balances) | stage 1 |
 | **4** | a third-party client app in its own repo | stage 3 |
 
@@ -65,6 +65,11 @@ serve a JWKS.
 operations run rarely, by one person, and each can move money or grant
 eligibility for traffic the operator is liable for (ADR 0012) — a route is a
 larger surface than a command, and the convenience is not worth securing.
+
+This does **not** forbid a read-only surface. ADR 0026 gives Clients their own
+view of their own usage, served by Mycel rather than by the habitats SaaS. The
+argument above is about consequence, not about HTTP: a route that moves no money
+and grants no eligibility is not the thing that was refused.
 
 ---
 
@@ -338,7 +343,8 @@ filtered on the container name. Then the `considered` list on a failed dispatch,
 which records every Offer weighed and why each was rejected — "why did this
 request go there" is otherwise unanswerable after the fact.
 
-**Watch for:** Offers expiring. Dispatch drops an Offer not republished within 15
+**Watch for:** Offers expiring. (Doomed — see ADR 0023. Until dial-in lands,
+this is still how it behaves.) Dispatch drops an Offer not republished within 15
 minutes (`DEFAULT_STALE_AFTER_MS`). A vendor's synced catalogue has no agent
 heartbeating for it, so **a synced Offer set needs re-syncing on that cadence or
 its Offers will expire** — the first thing that will surprise you in stage 1, and
@@ -366,8 +372,12 @@ To cap a user at $5, grant them $5. To leave them uncapped, grant them nothing.
 ## Open decisions
 
 - **The Neon project** — create it, hand over the connection string.
-- **Reachability for a local box** (stage 2). Mycel dials `Supplier.baseUrl`; a
-  machine behind NAT has no URL. Tailscale is the recommendation — outbound-only
-  from both ends, and ACLs mean the box is never on the public internet, which is
-  what makes an on-premise Guarantee defensible rather than decorative.
+- ~~**Reachability for a local box.**~~ **Decided: ADR 0023 — machine Suppliers
+  dial in.** Mycel never connects to a machine; the machine holds an outbound
+  connection and receives work over it. No tunnel, no ACL, no address to
+  register, and the box accepts no inbound connections at all.
+
+  This also deletes the vendor-catalogue heartbeat below once it lands, because
+  the whole staleness apparatus exists only to infer a liveness that a held
+  connection makes observable.
 - **Which local box, and which model on it** — pending.

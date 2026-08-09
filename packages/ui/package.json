@@ -33,10 +33,13 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
+    "@ai-sdk/provider": "^4.0.4",
+    "@ai-sdk/provider-utils": "^5.0.14",
     "@grammyjs/files": "^1.2.0",
     "@types/react": "^19.2.17",
     "@umwelten/core": "workspace:*",
@@ -57,5 +60,38 @@
     "react-dom": "^19.2.8",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./cli/CLIInterface.js": {
+        "types": "./dist/cli/CLIInterface.d.ts",
+        "import": "./dist/cli/CLIInterface.js"
+      },
+      "./cli/DefaultCommands.js": {
+        "types": "./dist/cli/DefaultCommands.d.ts",
+        "import": "./dist/cli/DefaultCommands.js"
+      },
+      "./cli/repl.js": {
+        "types": "./dist/cli/repl.d.ts",
+        "import": "./dist/cli/repl.js"
+      },
+      "./discord/discord-backfill-sessions.js": {
+        "types": "./dist/discord/discord-backfill-sessions.d.ts",
+        "import": "./dist/discord/discord-backfill-sessions.js"
+      },
+      "./*.js": {
+        "types": "./dist/*.d.ts",
+        "import": "./dist/*.js"
+      }
+    }
   }
 }

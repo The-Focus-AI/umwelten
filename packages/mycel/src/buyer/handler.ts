@@ -24,7 +24,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { CapabilityName } from "../types.js";
+import type { CapabilityName, RequestOutcome } from "../types.js";
 import { dispatch, type DispatchRequirements } from "../dispatch.js";
 import {
   AuthError,
@@ -38,7 +38,12 @@ import {
   estimatePromptTokens,
   priceRequest,
 } from "../metering/counter.js";
-import { Balances, resolveChargeOwner, type BalanceOwner } from "../metering/balances.js";
+import {
+  Balances,
+  creditFloorFor,
+  resolveChargeOwner,
+  type BalanceOwner,
+} from "../metering/balances.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -245,19 +250,28 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     const startedAt = new Date();
     const promptTokens = estimatePromptTokens(body);
     const counter = new StreamCounter();
-    let aborted = false;
+    // First cause wins. A caller who hangs up and *then* trips the read loop
+    // would otherwise be recorded as a supply failure, which inverts the whole
+    // point of separating them.
+    let outcome: RequestOutcome | undefined;
+    const endedBecause = (cause: RequestOutcome) => {
+      outcome ??= cause;
+    };
     let recorded = false;
     let upstreamUsage: { prompt?: number; completion?: number } = {};
     // End User → Application → Client, stopping at the first that has ever
     // had a ledger entry. Resolved once and then both checked and debited, so
     // an unfunded user never accidentally acquires an entry of its own.
     const owner: BalanceOwner = await resolveChargeOwner(caller, balances);
+    // Only a Client's own Balance may go negative, and only to the limit the
+    // operator gave it (ADR 0028). A capped End User still stops at zero.
+    const floor = await creditFloorFor(owner, caller.application.clientId, store);
 
     // Refuse before forwarding when the prompt alone cannot be covered. There
     // is no point buying tokens the buyer cannot pay for, and this is the only
     // moment nothing has been consumed yet.
     const promptCharge = priceRequest(offer, promptTokens, 0).charge;
-    if (!(await balances.canCover(owner, promptCharge))) {
+    if (!(await balances.canCover(owner, promptCharge, floor))) {
       sendJson(res, 402, {
         error: BuyerError.INSUFFICIENT_BALANCE,
         message: "Balance does not cover this request.",
@@ -280,7 +294,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         completionTokens,
         cost,
         charge,
-        aborted,
+        outcome: outcome ?? "completed",
         upstreamPromptTokens: upstreamUsage.prompt,
         upstreamCompletionTokens: upstreamUsage.completion,
         startedAt,
@@ -301,7 +315,7 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     const upstream = new AbortController();
     let cancelBody: (() => void) | undefined;
     const clientGone = () => {
-      aborted = true;
+      endedBecause("buyer-aborted");
       upstream.abort();
       cancelBody?.();
     };
@@ -396,8 +410,12 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
         if (chunksSinceCheck >= BALANCE_CHECK_INTERVAL) {
           chunksSinceCheck = 0;
           const running = priceRequest(offer, promptTokens, counter.completionTokens).charge;
-          if (!(await balances.canCover(owner, running))) {
+          // Same floor as the pre-flight check. Cutting a postpaid Client off
+          // at zero mid-response would make its limit apply only to requests
+          // that never started.
+          if (!(await balances.canCover(owner, running, floor))) {
             creditExhausted = true;
+            endedBecause("credit-exhausted");
             upstream.abort();
             cancelBody?.();
             break;
@@ -407,6 +425,11 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     } catch {
       // An upstream that dies mid-stream leaves the caller with a truncated
       // response and no way to signal an error — headers are already sent.
+      //
+      // So the only place it can be said is the record. Under ADR 0023 this
+      // stops being an exception: a dial-in Supplier is a laptop whose lid
+      // closes, and this is the path that fires when it does.
+      endedBecause("supply-failed");
     } finally {
       // Runs on every path out of the relay — normal completion, an upstream
       // that died mid-stream, and a caller that hung up. That is the point:

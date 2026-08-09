@@ -25,15 +25,18 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose",
     "conformance": "tsx src/a2a/conformance/run.ts"
   },
   "dependencies": {
-    "@umwelten/core": "workspace:*",
     "@a2a-js/sdk": "^1.0.1",
+    "@ai-sdk/provider": "^4.0.4",
+    "@ai-sdk/provider-utils": "^5.0.14",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@neondatabase/serverless": "^1.1.0",
+    "@umwelten/core": "workspace:*",
     "ai": "^7.0.41",
     "chalk": "^5.6.2",
     "zod": "^4.4.3"
@@ -42,5 +45,22 @@
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./*.js": {
+        "types": "./dist/*.d.ts",
+        "import": "./dist/*.js"
+      }
+    }
   }
 }

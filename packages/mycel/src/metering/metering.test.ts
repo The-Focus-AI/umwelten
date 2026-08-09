@@ -84,7 +84,32 @@ describe("metering", () => {
       const record = await onlyRecord();
       expect(record.promptTokens).toBeGreaterThan(0);
       expect(record.completionTokens).toBeGreaterThan(0);
-      expect(record.aborted).toBe(false);
+      expect(record.outcome).toBe("completed");
+    });
+
+    it("tells a Supplier dropping apart from a buyer hanging up", async () => {
+      // The distinction ADR 0025 turns on, and the one the old `aborted` flag
+      // could not express: both truncate a stream, and only one is the buyer's
+      // doing. Under ADR 0023 the supply side of it stops being rare — a
+      // dial-in Supplier is a laptop, and laptops close.
+      await boot("dies-mid-stream");
+
+      const res = await chat({
+        model: MODEL,
+        messages: [{ role: "user", content: "hello there" }],
+        stream: true,
+      });
+      // Drain rather than abort: an abort here would be the buyer's doing and
+      // would mask exactly what this test is about.
+      await res.text().catch(() => {});
+      await new Promise((r) => setTimeout(r, 100));
+
+      const record = await onlyRecord();
+      expect(record.outcome).toBe("supply-failed");
+      expect(record.completionTokens).toBeGreaterThan(0);
+      // Recorded, not yet acted on. When the second half of ADR 0025 lands this
+      // becomes 0, and this line is where that change announces itself.
+      expect(record.charge).toBeGreaterThan(0);
     });
 
     it("attributes to the asserted End User of the Application", async () => {
@@ -163,7 +188,9 @@ describe("metering", () => {
 
       const record = await onlyRecord();
       expect(record).toBeDefined();
-      expect(record.aborted).toBe(true);
+      // Not merely "truncated" — the buyer's own doing, which is what makes it
+      // chargeable while a supply failure is not (ADR 0025).
+      expect(record.outcome).toBe("buyer-aborted");
       expect(record.promptTokens).toBeGreaterThan(1000);
       expect(record.charge).toBeGreaterThan(0);
     });
