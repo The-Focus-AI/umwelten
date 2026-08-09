@@ -1,7 +1,7 @@
 {
   "name": "@umwelten/mycel",
-  "version": "0.1.0",
-  "description": "Mycel \u2014 the Exchange: buys model tokens wholesale from Suppliers and resells them retail to Applications",
+  "version": "0.4.13",
+  "description": "Mycel — the Exchange: buys model tokens wholesale from Suppliers and resells them retail to Applications",
   "type": "module",
   "exports": {
     ".": {
@@ -14,6 +14,7 @@
     }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -26,5 +27,20 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./*.js": {
+        "types": "./dist/*.d.ts",
+        "import": "./dist/*.js"
+      }
+    }
+  }
 }
