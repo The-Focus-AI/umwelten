@@ -14,7 +14,6 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -27,19 +26,5 @@
     "vitest": "^4.1.10"
   },
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
-  "publishConfig": {
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      },
-      "./*.js": {
-        "types": "./dist/*.d.ts",
-        "import": "./dist/*.js"
-      }
-    }
-  }
+  "private": true
 }

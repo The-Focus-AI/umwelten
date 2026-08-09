@@ -28,18 +28,55 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsup"
   },
   "dependencies": {
-    "@umwelten/core": "workspace:*",
-    "@umwelten/protocols": "workspace:*",
-    "@umwelten/habitat": "workspace:*",
-    "@umwelten/evaluation": "workspace:*",
-    "@umwelten/ui": "workspace:*",
-    "@umwelten/cli": "workspace:*"
+    "@a2a-js/sdk": "^1.0.1",
+    "@ai-sdk/google": "^4.0.27",
+    "@ai-sdk/openai-compatible": "^3.0.16",
+    "@ai-sdk/provider": "^4.0.4",
+    "@ai-sdk/provider-utils": "^5.0.14",
+    "@grammyjs/files": "^1.2.0",
+    "@json-render/core": "^0.19.0",
+    "@mcp-ui/server": "^6.1.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
+    "@types/react": "^19.2.17",
+    "ai": "^7.0.41",
+    "better-sqlite3": "^12.11.1",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^15.0.0",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "fast-xml-parser": "^5.10.1",
+    "file-type": "^22.0.1",
+    "fullscreen-ink": "^0.1.0",
+    "grammy": "^1.45.1",
+    "gray-matter": "^4.0.3",
+    "ink": "^7.1.1",
+    "jose": "^6.2.4",
+    "ollama-ai-provider-v2": "^4.0.1",
+    "react": "^19.2.8",
+    "streammark": "^1.0.4",
+    "turndown": "^7.2.4",
+    "undici": "^8.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2"
+    "@types/node": "^26.1.2",
+    "@umwelten/cli": "workspace:*",
+    "@umwelten/core": "workspace:*",
+    "@umwelten/evaluation": "workspace:*",
+    "@umwelten/habitat": "workspace:*",
+    "@umwelten/mycel": "workspace:*",
+    "@umwelten/protocols": "workspace:*",
+    "@umwelten/sessions": "workspace:*",
+    "@umwelten/supplier": "workspace:*",
+    "@umwelten/ui": "workspace:*",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
   },
   "files": [
     "dist"
@@ -58,7 +95,7 @@
       }
     },
     "bin": {
-      "umwelten": "dist/entry.js"
+      "umwelten": "dist/cli/entry.js"
     }
   }
 }

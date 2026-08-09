@@ -39,13 +39,15 @@ jobs:
         # left to manual runs.
         run: pnpm test:run
 
-      - name: Build every package
-        # Not optional, and not merely an optimisation. Node refuses to strip
-        # types under node_modules (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING),
-        # so a package that ships src/*.ts installs cleanly and then crashes on
-        # first import. Each package's publishConfig points main/types/exports/bin
-        # at dist/, and pnpm applies it at publish time — if this step is skipped,
-        # those paths resolve to files that were never emitted.
+      - name: Build the published package
+        # Only `umwelten` is publishable; the other nine are private and exist
+        # to organise the source. tsup inlines them into one dist/, which is the
+        # shape every released version has had.
+        #
+        # Not optional. Node refuses to strip types under node_modules
+        # (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING), so shipping src/*.ts
+        # would install cleanly and crash on first import — and publishConfig
+        # points main/types/bin at dist/, which nothing else creates.
         run: pnpm -r build
 
       - name: Publish workspace packages to npm
