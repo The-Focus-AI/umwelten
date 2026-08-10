@@ -110,6 +110,23 @@ export interface StopConditions {
   until?: (state: DialogueState) => boolean;
 }
 
+/** An out-of-band entry injected between turns — see `Dialogue.post`. */
+export interface PostedEntry {
+  participantId: string;
+  displayName: string;
+  content: string;
+  kind?: "message" | "event";
+}
+
+export interface TurnCompleteInfo {
+  /** The entry just appended for the completed turn. */
+  event: DialogueEvent;
+  /** Log state after the turn, before the next speaker is chosen. */
+  state: DialogueState;
+  /** Inject an entry the next speaker will perceive — e.g. the next round's prompt. */
+  post: (entry: PostedEntry) => void;
+}
+
 export interface DialogueObserver {
   onTurnStart?(info: {
     participantId: string;
