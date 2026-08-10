@@ -1,6 +1,7 @@
 # Deploying Mycel
 
-> Status: built, undeployed — 2026-08-10. Now targets its own instance with its
+> Status: **deployed 2026-08-10** at https://mycel.thefocus.ai — stage 1 serving,
+> no Suppliers registered yet. Runs on its own instance with its
 > own GCP identity (ADR 0030). The runbook for putting the Exchange
 > (`packages/mycel`) into the runtime plane, from nothing to metered traffic.
 > Companion to `production-topology.md` (the three planes) and

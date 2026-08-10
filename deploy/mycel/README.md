@@ -11,7 +11,7 @@ resolved. Running them inside it means no connection string on your shell and no
 chance of pointing a grant at the wrong database:
 
 ```bash
-alias mycel='docker compose --project-directory /opt/umwelten/deploy/mycel exec mycel pnpm exec tsx packages/cli/src/entry.ts mycel'
+alias mycel='docker compose --project-directory /opt/umwelten/deploy/mycel exec mycel node /app/mycel.js'
 ```
 
 Everything below assumes that alias. Without it, `umwelten mycel …` on the host
