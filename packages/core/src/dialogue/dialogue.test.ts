@@ -294,6 +294,48 @@ describe('Dialogue', () => {
     expect(await dialogue.step()).toBeNull();
   });
 
+  it('awaits onTurnComplete before the next speaker perceives anything', async () => {
+    const a = makeParticipant('a', 'A', echo('alpha'));
+    const b = makeParticipant('b', 'B', echo('beta'));
+    const dialogue = new Dialogue({
+      participants: [a, b],
+      seed: { content: 'topic' },
+      stop: { maxTurns: 2 },
+      async onTurnComplete({ event, state, post }) {
+        if (event.participantId !== 'a') return;
+        // Async work whose result the next turn must see.
+        await new Promise((r) => setTimeout(r, 5));
+        post({
+          participantId: 'narrator',
+          displayName: 'Narrator',
+          content: `after turn ${state.turn}`,
+          kind: 'event',
+        });
+      },
+    });
+    await dialogue.run();
+
+    expect(b.received[0].map((e) => e.participantId)).toEqual([
+      'user',
+      'a',
+      'narrator',
+    ]);
+  });
+
+  it('stops with error and rethrows when onTurnComplete throws', async () => {
+    const a = makeParticipant('a', 'A', echo('alpha'));
+    const b = makeParticipant('b', 'B', echo('beta'));
+    const dialogue = new Dialogue({
+      participants: [a, b],
+      seed: { content: 'topic' },
+      onTurnComplete() {
+        throw new Error('extraction failed');
+      },
+    });
+    await expect(dialogue.run()).rejects.toThrow('extraction failed');
+    expect(await dialogue.step()).toBeNull();
+  });
+
   it('persists transcript.jsonl and meta.json when persistDir is set', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'dialogue-test-'));
     const a = makeParticipant('a', 'Alice', echo('alpha'));
