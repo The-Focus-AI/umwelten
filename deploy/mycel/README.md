@@ -11,11 +11,19 @@ resolved. Running them inside it means no connection string on your shell and no
 chance of pointing a grant at the wrong database:
 
 ```bash
-alias mycel='docker compose --project-directory /opt/umwelten/deploy/mycel exec mycel node /app/mycel.js'
+alias mycel='docker compose --project-directory /opt/umwelten/deploy/mycel exec mycel /usr/local/bin/mycel-entrypoint node /app/mycel.js'
 ```
 
 Everything below assumes that alias. Without it, `umwelten mycel …` on the host
 will fail with "No database" — correctly, because it has none.
+
+**The `/usr/local/bin/mycel-entrypoint` in there is load-bearing.** `docker exec`
+starts a new process and does not run the image's ENTRYPOINT, so the secrets it
+resolved live only in the `serve` process — an operator command invoked directly
+gets a container with no `MYCEL_DATABASE_URL` and fails exactly as if none were
+configured. Going through the entrypoint re-resolves them from Secret Manager
+for that one command. `MYCEL_SECRETS` comes from the compose `environment:`
+block, so `exec` inherits it.
 
 ## Bringing it up
 
