@@ -38,6 +38,14 @@ if [ -n "${MYCEL_SECRETS:-}" ]; then
   IFS=','
   for pair in $MYCEL_SECRETS; do
     IFS=$OLDIFS
+    # Strip whitespace. MYCEL_SECRETS is written as a YAML folded scalar in the
+    # compose file, and folding turns each line break into a space — so every
+    # pair after the first arrives as " NAME=id" and `export " NAME=..."` fails
+    # with "bad variable name". Neither an environment variable name nor a
+    # Secret Manager id can contain whitespace, so removing all of it is safe
+    # and keeps the mapping readable however someone chooses to wrap it.
+    pair=$(printf '%s' "$pair" | tr -d '[:space:]')
+    [ -n "$pair" ] || continue
     name=${pair%%=*}
     id=${pair#*=}
 
