@@ -35,10 +35,15 @@ services:
       #
       # A Supplier record stores the NAME of one of these upstream keys, never
       # the value — so a database compromise yields nothing that can spend.
+      # Stage 1 buys from OpenRouter only. Every id listed here must exist in
+      # Secret Manager and be readable by this instance's service account — a
+      # missing one stops the boot rather than starting a service that cannot
+      # meter, so this list grows only when the secret does. Add
+      # GOOGLE_GENERATIVE_AI_API_KEY=mycel-google-generative-ai-api-key when a
+      # Google Supplier is registered.
       MYCEL_SECRETS: >-
         MYCEL_DATABASE_URL=mycel-database-url,
-        OPENROUTER_API_KEY=mycel-openrouter-api-key,
-        GOOGLE_GENERATIVE_AI_API_KEY=mycel-google-generative-ai-api-key
+        OPENROUTER_API_KEY=mycel-openrouter-api-key
     labels:
       caddy: ${MYCEL_HOSTNAME:-mycel.localhost}
       caddy.reverse_proxy: "{{upstreams 7438}}"
