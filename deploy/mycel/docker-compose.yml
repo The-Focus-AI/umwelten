@@ -1,23 +1,21 @@
 # Mycel — the Exchange.
 #
-# A PEER of Gaia on the same host, not a child of it. Deliberately its own
-# compose file rather than a service inside deploy/gaia/docker-compose.yml,
-# because the whole argument for Mycel not being a Gaia-managed habitat is
-# separate deploy cadence — sharing a file means `docker compose up -d` for a
-# Gaia change cycles the service that holds the money ledger.
+# Runs on its own GCE instance (`mycel-host`) with its own service account,
+# NOT as a container on gaia-host. The reasoning is ADR 0030: every container
+# on a Docker host can reach the metadata server and assume that instance's
+# identity, and gaia-host runs habitat containers executing arbitrary agent
+# code. Sharing a box would hand the money ledger's credentials to every one of
+# them by construction.
 #
-# What it therefore does NOT get, on purpose:
-#   - cycled by deploy/gaia/redeploy.sh on every push to umwelten main
-#   - a named volume (its state is in Neon; it writes nothing to disk)
-#   - Gaia's master vault (it resolves its own secrets — see below)
+# Secrets come from Google Secret Manager, resolved by the entrypoint through
+# the instance's attached service account. There is no key file, no fnox, no
+# bootstrap token, and no secret in this file or in any .env beside it — see
+# MYCEL_SECRETS below.
 #
-# What it shares with everything else on the host:
-#   - gaia-net, so caddy reaches it by container DNS
-#   - the gcplogs docker daemon default, so stdout lands in Cloud Logging
-#
-# Prereqs:
+# Prereqs (once, on mycel-host):
+#   deploy/gcp/mycel-host-startup.sh   provisions docker + the network
 #   docker build -t mycel -f packages/mycel/Dockerfile .
-#   an A record for MYCEL_HOSTNAME → this host's static IP
+#   an A record for MYCEL_HOSTNAME → this instance's static IP
 #
 # Runbook: deploy/mycel/README.md · design: docs/architecture/mycel-deployment.md
 
@@ -27,33 +25,56 @@ services:
     container_name: mycel
     restart: unless-stopped
     networks:
-      - gaia-net
+      - mycel-net
     environment:
       MYCEL_PORT: ${MYCEL_PORT:-7438}
-      # Resolved by fnox at start (see command below) rather than set here, so
-      # no plaintext lives in this file or in a .env on the host.
-      MYCEL_DATABASE_URL: ${MYCEL_DATABASE_URL:-}
-      # Upstream keys. A Supplier record stores the NAME of one of these, never
-      # the value — so a database compromise hands over nothing that can spend.
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      # Environment-variable name → Secret Manager secret id. Names only, so
+      # this is not itself a secret; the values never touch disk. Each id must
+      # be granted to this instance's service account on the secret resource
+      # rather than project-wide (STD-007 §3.12).
+      #
+      # A Supplier record stores the NAME of one of these upstream keys, never
+      # the value — so a database compromise yields nothing that can spend.
+      # Stage 1 buys from OpenRouter only. Every id listed here must exist in
+      # Secret Manager and be readable by this instance's service account — a
+      # missing one stops the boot rather than starting a service that cannot
+      # meter, so this list grows only when the secret does. Add
+      # GOOGLE_GENERATIVE_AI_API_KEY=mycel-google-generative-ai-api-key when a
+      # Google Supplier is registered.
+      MYCEL_SECRETS: >-
+        MYCEL_DATABASE_URL=mycel-database-url,
+        OPENROUTER_API_KEY=mycel-openrouter-api-key
     labels:
       caddy: ${MYCEL_HOSTNAME:-mycel.localhost}
       caddy.reverse_proxy: "{{upstreams 7438}}"
-    # fnox resolves the secrets above from 1Password at start. Its own scope,
-    # not Gaia's: Gaia is the sole broker for *habitats*, and Mycel is not one.
-    # Keeping the master vault off the money service's dependency path is the
-    # same blast-radius argument as giving it its own Neon project.
-    command:
-      - sh
-      - -c
-      - >
-        fnox exec --
-        pnpm exec tsx packages/cli/src/entry.ts mycel serve --port "$$MYCEL_PORT"
+
+  # This host's own ingress. On gaia-host the equivalent service fronts Gaia and
+  # every habitat it spawns; here it fronts exactly one container, which is the
+  # point — mycel-host has no other tenants.
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    container_name: mycel-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_INGRESS_NETWORKS: mycel-net
+      CADDY_DOCKER_CADDYFILE_EMAIL: ${CADDY_EMAIL:-}
+    networks:
+      - mycel-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - caddy-data:/data # certificates — persist across restarts
+      - caddy-config:/config
 
 networks:
-  # Created once on the host by `docker network create gaia-net`; external
-  # because DockerManager makes it without compose labels.
-  gaia-net:
-    name: gaia-net
+  # Created by the startup script. External for the same reason gaia-net is:
+  # so the literal name is pinned and no compose project prefix appears.
+  mycel-net:
+    name: mycel-net
     external: true
+
+volumes:
+  caddy-data:
+  caddy-config:

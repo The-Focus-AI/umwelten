@@ -25,7 +25,6 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
     "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose",
     "conformance": "tsx src/a2a/conformance/run.ts"
@@ -46,21 +45,5 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
-  "files": [
-    "dist"
-  ],
-  "publishConfig": {
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      },
-      "./*.js": {
-        "types": "./dist/*.d.ts",
-        "import": "./dist/*.js"
-      }
-    }
-  }
+  "private": true
 }

@@ -40,6 +40,7 @@
   },
   "packageManager": "pnpm@11.0.8",
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.220",
     "@dagger.io/dagger": "^0.21.7",
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -49,8 +50,8 @@
     "@umwelten/cli": "workspace:*",
     "@umwelten/core": "workspace:*",
     "@umwelten/evaluation": "workspace:*",
-    "@umwelten/mycel": "workspace:*",
     "@umwelten/habitat": "workspace:*",
+    "@umwelten/mycel": "workspace:*",
     "@umwelten/protocols": "workspace:*",
     "@umwelten/sessions": "workspace:*",
     "@umwelten/ui": "workspace:*",
@@ -61,13 +62,13 @@
     "jose": "^6.2.4",
     "knip": "^6.29.0",
     "prettier": "^3.9.6",
+    "tsup": "^8.5.1",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3",
     "vite": "^8.1.5",
     "vitepress": "2.0.0-alpha.18",
     "vitest": "^4.1.10",
-    "zod": "^4.4.3",
-    "@anthropic-ai/claude-agent-sdk": "^0.3.220"
+    "zod": "^4.4.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

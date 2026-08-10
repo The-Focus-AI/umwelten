@@ -19,11 +19,22 @@ will fail with "No database" — correctly, because it has none.
 
 ## Bringing it up
 
+**Every command in this file runs on `mycel-host`, not on the Gaia host.** They
+are separate instances with separate service accounts, and that separation is
+the point (ADR 0030) — the money service does not share an identity with
+containers running agent code.
+
 ```bash
-docker network create gaia-net                    # exists already if Gaia runs
-cp deploy/mycel/.env.example deploy/mycel/.env    # then fill it in
+# mycel-net is created by deploy/gcp/mycel-host-startup.sh on first boot.
+cp deploy/mycel/.env.example deploy/mycel/.env    # hostname + port; nothing secret
 ./deploy/mycel/deploy.sh
 ```
+
+Secrets are **not** in that `.env`. They live in Google Secret Manager and are
+read at container start through this instance's attached service account, so
+there is no credential on this disk to protect or to rotate in place. To change
+one: `gcloud secrets versions add <id> --data-file=-`, then restart the
+container — values are read at boot.
 
 `deploy.sh` builds, recreates the container, and waits for `/health`. Nothing
 else to run.

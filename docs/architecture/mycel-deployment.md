@@ -1,6 +1,7 @@
 # Deploying Mycel
 
-> Status: built, undeployed — 2026-08-07. The runbook for putting the Exchange
+> Status: built, undeployed — 2026-08-10. Now targets its own instance with its
+> own GCP identity (ADR 0030). The runbook for putting the Exchange
 > (`packages/mycel`) into the runtime plane, from nothing to metered traffic.
 > Companion to `production-topology.md` (the three planes) and
 > `packages/mycel/CONTEXT.md` (the vocabulary).
@@ -77,9 +78,10 @@ and grants no eligibility is not the thing that was refused.
 
 **Neon, its own project, a region in the same metro as the VM.**
 
-The GCE host is `gaia-host`, project `habitats-502314`, `us-east4` — Ashburn.
-AWS `us-east-1` is Northern Virginia, the same metro, so a Neon project there
-is single-digit milliseconds away.
+Mycel's host is `mycel-host`, project `habitats-502314`, `us-east4` — Ashburn,
+alongside `gaia-host` but a separate instance with a separate identity (ADR
+0030). AWS `us-east-1` is Northern Virginia, the same metro, so a Neon project
+there is single-digit milliseconds away.
 
 **Why not Postgres on the VM.** Runbook R5 in `production-topology.md` is "lose
 the VM". Today that loses whatever changed since the last snapshot, which for
@@ -115,7 +117,7 @@ start, so the deploy is otherwise the first run of that DDL and of the
 
 - [ ] Neon project created, separate from the habitats one
 - [ ] Region chosen in the Ashburn / N. Virginia metro
-- [ ] Connection string in 1Password as `MYCEL_DATABASE_URL`
+- [ ] Connection string in GSM as `mycel-database-url` (and in 1Password for humans)
 - [ ] A branch created and the conformance suite run green against it
 - [ ] Branch discarded
 
@@ -151,34 +153,84 @@ vault, never recoverable; an Application that loses one rotates.
 ### Checklist
 
 - [ ] A second OpenRouter key minted, labelled for Mycel
-- [ ] Stored in 1Password, resolved by fnox as `OPENROUTER_API_KEY`
-- [ ] `MYCEL_DATABASE_URL` in the same fnox scope
+- [ ] Stored in GSM as `mycel-openrouter-api-key`, bound to `mycel-sa`
+- [ ] Reaches the process as `OPENROUTER_API_KEY` — the name a Supplier record
+      stores in `upstreamCredentialEnv`, so the mapping in `MYCEL_SECRETS` and
+      the value in that column have to agree
 
 ---
 
 ## Part 3 — Secrets and the container
 
-**fnox, with its own scope, not through Gaia.** Gaia is the sole broker for
-*habitats*; Mycel is not a habitat, so it resolves its own. The compose command
-wraps as `fnox exec -- umwelten mycel serve`, which keeps plaintext out of both
-the image and any `.env` on disk, and keeps Gaia's master vault off the money
-service's dependency path — the same blast-radius argument as the Neon project.
+**Google Secret Manager, read through the instance's own identity** (ADR 0030).
+An earlier draft of this section specified fnox with its own 1Password scope.
+That was replaced, and the reason is worth keeping: fnox in production requires
+a long-lived 1Password service-account token to sit in a file on the host, while
+a GCE instance's attached service account is workload identity — the metadata
+server issues short-lived tokens and **nothing long-lived is written to disk at
+all**. The GCP-native path has no bootstrap secret to protect.
 
-**Placement: its own compose file, beside Gaia, not inside it.** The whole
-argument for Mycel being a peer rather than a Gaia child is *separate deploy
-cadence*. Sharing `deploy/gaia/docker-compose.yml` means `docker compose up -d`
-for a Gaia change cycles the money service.
+1Password stays the source of truth for humans and laptops, which have no
+metadata server. GSM is the production store. The sync runs one way. This is
+GDE-003's Pattern B; STD-007 §3.10 is satisfied on purpose rather than by
+accident.
+
+**Placement: its own instance, `mycel-host`, not a container on gaia-host.**
+Every container on a Docker host can reach the metadata server and assume that
+instance's service account — so on one VM there is one identity, and no compose
+arrangement divides it. gaia-host runs habitat containers executing arbitrary
+agent code; sharing a box would hand them the ledger's connection string by
+construction. Separate deploy cadence was always the argument for a separate
+compose file, and a separate identity is the same argument carried to the
+boundary that actually matters.
 
 ```
 deploy/mycel/
-  docker-compose.yml    # joins gaia-net, caddy label, restart: unless-stopped
-  .env.example
+  docker-compose.yml    # mycel + its own caddy, on mycel-net
+  entrypoint.sh         # resolves GSM → process env, then execs
+  .env.example          # hostname, port, caddy email — nothing secret
   README.md             # start / stop / roll back
+deploy/gcp/
+  mycel-host-startup.sh # docker + gcplogs + ops agent + mycel-net
 ```
+
+**Provisioning, once.** The service account is the boundary this whole section
+exists to draw, so each secret is granted on the secret resource rather than
+project-wide (STD-007 §3.12):
+
+```bash
+PROJECT=habitats-502314
+SA=mycel-sa@$PROJECT.iam.gserviceaccount.com
+
+gcloud iam service-accounts create mycel-sa --project "$PROJECT" \
+  --display-name "Mycel — the Exchange"
+
+# One secret per value. No --set-env-vars, ever: STD-007 §3.6 forbids passing a
+# secret value as a deployment flag, and shell history is a good reason why.
+for s in mycel-database-url mycel-openrouter-api-key mycel-google-generative-ai-api-key; do
+  gcloud secrets create "$s" --project "$PROJECT" --replication-policy automatic
+  gcloud secrets add-iam-policy-binding "$s" --project "$PROJECT" \
+    --member "serviceAccount:$SA" --role roles/secretmanager.secretAccessor
+done
+
+# Values arrive on stdin, never in argv.
+printf '%s' "$MYCEL_DATABASE_URL" | \
+  gcloud secrets versions add mycel-database-url --project "$PROJECT" --data-file=-
+
+gcloud compute instances create mycel-host --project "$PROJECT" \
+  --zone us-east4-a --machine-type e2-small \
+  --service-account "$SA" --scopes cloud-platform \
+  --metadata-from-file startup-script=deploy/gcp/mycel-host-startup.sh
+```
+
+`--scopes cloud-platform` looks broad and is not: on modern GCE, scopes are a
+ceiling and IAM is the actual grant. This service account can read three secrets
+and do nothing else, which is what the per-secret bindings above establish.
 
 **Hostname: `mycel.thefocus.ai`, not `mycel.habitats.thefocus.ai`.** The wildcard
 would be free, but Mycel is not a habitat and putting it under that wildcard says
-it is. One A record at the same static IP; caddy issues the cert from the label.
+it is. One A record — at **mycel-host's** static IP, not the Gaia host's, which
+is the DNS consequence of the split. Caddy issues the cert from the label.
 
 **Port: 7438.** Below 7440, where Gaia starts assigning ports to managed containers. The supplier agent's
 managed-runtime default moves to 7439 in the same change.
@@ -188,10 +240,13 @@ stdout lands in Cloud Logging beside everything else.
 
 ### Checklist
 
+- [ ] `mycel-sa` service account created
+- [ ] Three GSM secrets created, each bound to `mycel-sa` on the secret resource
+- [ ] `mycel-host` instance created with that service account attached
 - [ ] `deploy/mycel/` written, `docker build` reproducible
-- [ ] DNS A record for `mycel.thefocus.ai` → the host's static IP
-- [ ] `fnox.toml` scope for Mycel with both secrets
+- [ ] DNS A record for `mycel.thefocus.ai` → **mycel-host's** static IP
 - [ ] `docker compose up -d`, then `curl https://mycel.thefocus.ai/health` → `{"status":"ok"}`
+- [ ] Confirm no secret is on the host: `sudo grep -r OPENROUTER /opt /etc 2>/dev/null` finds nothing
 
 `/health` already reports whether the **store** is reachable, not merely whether
 the process is up — a service that answers while its database is gone is worse
@@ -372,6 +427,11 @@ To cap a user at $5, grant them $5. To leave them uncapped, grant them nothing.
 ## Open decisions
 
 - **The Neon project** — create it, hand over the connection string.
+- ~~**Where Mycel runs, and how it gets its secrets.**~~ **Decided: ADR 0030 —
+  its own instance, its own service account, secrets from Google Secret Manager
+  read through the attached identity.** One VM is one identity, and gaia-host
+  runs agent code; sharing a box would have made the separation a convention
+  enforced by nothing. No key file, no bootstrap token, nothing secret at rest.
 - ~~**Reachability for a local box.**~~ **Decided: ADR 0023 — machine Suppliers
   dial in.** Mycel never connects to a machine; the machine holds an outbound
   connection and receives work over it. No tunnel, no ACL, no address to

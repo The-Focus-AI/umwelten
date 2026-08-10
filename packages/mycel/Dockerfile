@@ -42,12 +42,17 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV NODE_ENV=production
 RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 
-# curl for the container healthcheck below; nothing else is needed at runtime.
+# curl for the healthcheck below and for reading Secret Manager through the
+# instance metadata server (ADR 0030). Nothing else is needed at runtime — in
+# particular no gcloud SDK and no fnox: the attached service account is the
+# credential, so there is nothing to install to authenticate with.
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=build /app /app
+COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
+RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 
 # Not root. Mycel writes nothing to disk, so there is no reason for it to be
 # able to.
@@ -63,4 +68,8 @@ EXPOSE 7438
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:7438/health || exit 1
 
+# Secrets are resolved into this process's environment and nowhere else. With
+# MYCEL_SECRETS unset the entrypoint is a passthrough, so `docker run -e ...`
+# still works off a GCE instance.
+ENTRYPOINT ["/usr/local/bin/mycel-entrypoint"]
 CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "mycel", "serve"]
