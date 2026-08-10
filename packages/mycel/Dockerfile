@@ -17,7 +17,16 @@ ENV NODE_ENV=production
 # it arrives through curl's Recommends, which --no-install-recommends drops, and
 # without it the metadata call still works (plain HTTP) while every HTTPS call
 # fails with curl exit 77, CURLE_SSL_CACERT_BADFILE.
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# `apt-get install ca-certificates` alone was not enough: it completed, and
+# /etc/ssl/certs/ca-certificates.crt still did not exist, so every HTTPS call
+# failed at runtime with curl exit 77 while the image looked fine. Run the
+# bundle generation explicitly, then assert the result — a missing CA store must
+# fail the build, not the deploy an hour later.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates openssl \
+    && update-ca-certificates \
+    && test -s /etc/ssl/certs/ca-certificates.crt \
+    && curl -sS -o /dev/null https://secretmanager.googleapis.com/ \
     && rm -rf /var/lib/apt/lists/*
 
 # Not root. Mycel writes nothing to disk, so there is no reason for it to be
