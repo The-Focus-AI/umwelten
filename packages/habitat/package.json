@@ -37,7 +37,7 @@
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
     "ai": "^7.0.41",
-    "chalk": "^5.6.2",
+    "chalk": "^6.0.0",
     "commander": "^15.0.0",
     "gray-matter": "^4.0.3",
     "jose": "^6.2.4",

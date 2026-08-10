@@ -123,8 +123,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       chalk:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: ^6.0.0
+        version: 6.0.0
       cli-table3:
         specifier: ^0.6.5
         version: 0.6.5
@@ -282,8 +282,8 @@ importers:
         specifier: ^7.0.41
         version: 7.0.41(zod@4.4.3)
       chalk:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: ^6.0.0
+        version: 6.0.0
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -353,8 +353,8 @@ importers:
         specifier: ^7.0.41
         version: 7.0.41(zod@4.4.3)
       chalk:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: ^6.0.0
+        version: 6.0.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -378,8 +378,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       chalk:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: ^6.0.0
+        version: 6.0.0
       cli-table3:
         specifier: ^0.6.5
         version: 0.6.5
@@ -443,8 +443,8 @@ importers:
         specifier: ^7.0.41
         version: 7.0.41(zod@4.4.3)
       chalk:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: ^6.0.0
+        version: 6.0.0
       discord.js:
         specifier: ^14.27.0
         version: 14.27.0
@@ -525,8 +525,8 @@ importers:
         specifier: ^12.11.1
         version: 12.11.1
       chalk:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: ^6.0.0
+        version: 6.0.0
       cli-table3:
         specifier: ^0.6.5
         version: 0.6.5
@@ -2594,6 +2594,10 @@ packages:
   chalk@5.6.2:
     resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
     engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
+
+  chalk@6.0.0:
+    resolution: {integrity: sha512-2uNTXIuTTxk7ciZgAU1BQcgnchcG0xXnrs6jzkQfj9SsRa9M2s5zE8WT96hS6KmG4MzWHSrvH43DF1m4XRkrFg==}
+    engines: {node: '>=22'}
 
   character-entities-html4@2.1.0:
     resolution: {integrity: sha512-1v7fgQRj6hnSwFpq1Eu0ynr/CDEw0rXo2B61qXrLNdHZmPKgb7fqS1a2JwF0rISo9q77jDI8VMEHoApn8qDoZA==}
@@ -6165,6 +6169,8 @@ snapshots:
   chai@6.2.2: {}
 
   chalk@5.6.2: {}
+
+  chalk@6.0.0: {}
 
   character-entities-html4@2.1.0: {}
 
