@@ -54,14 +54,19 @@ RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Not root. Mycel writes nothing to disk, so there is no reason for it to be
+# able to. Created BEFORE the copy so ownership can be set during it: a
+# `chown -R` afterwards walks every file in a multi-gigabyte node_modules a
+# second time, which measured at 55s on an e2-small — as long as the copy it
+# duplicates. --uid 10001 warns about SYS_UID_MAX; harmless, and deliberate so
+# the id does not collide with anything the base image allocates.
+RUN useradd --system --uid 10001 mycel
+
 WORKDIR /app
-COPY --from=build /app /app
+COPY --chown=mycel:mycel --from=build /app /app
 COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
 RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 
-# Not root. Mycel writes nothing to disk, so there is no reason for it to be
-# able to.
-RUN useradd --system --uid 10001 mycel && chown -R mycel:mycel /app
 USER mycel
 
 ENV MYCEL_PORT=7438
