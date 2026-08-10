@@ -1,58 +1,13 @@
-# syntax=docker/dockerfile:1.4
-#
 # Mycel — the Exchange.
+#
+# One stage. The image is a bundled JavaScript file plus curl — no node_modules,
+# no pnpm, no source tree.
+#
+# The bundle is built before this runs, by deploy.sh:
+#   pnpm --filter @umwelten/mycel build   →  packages/mycel/dist/mycel.js
 #
 # Build (from monorepo root):
 #   docker build -t mycel -f packages/mycel/Dockerfile .
-#
-# Run:
-#   docker run -p 7438:7438 -e MYCEL_DATABASE_URL=postgres://… mycel
-#
-# The final image is one bundled JavaScript file plus curl. It carries no
-# node_modules, no pnpm, no corepack and no source tree.
-#
-# The previous shape copied the whole monorepo — every workspace package's
-# dependencies, including Ink, React, discord.js and a natively-compiled sqlite
-# — into the runtime image, to run a service whose own dependencies are three
-# pure-JS packages. On an e2-small that measured: 87s to copy /app, 182s to
-# chown it, 200s to export the layers. Ten minutes of a deploy spent moving code
-# the Exchange never loads.
-#
-# The build stage below still installs the full workspace, and that is fine:
-# it is one cached layer that only re-runs when the lockfile changes. What was
-# expensive was carrying the result into the final image, and now nothing does.
-#
-# Deliberately NOT built on packages/habitat/Dockerfile. That image carries the
-# Docker CLI, mise, git and ripgrep because a habitat clones repos and runs
-# toolchains. Every one of those would be attack surface on the one service that
-# holds the money ledger.
-
-FROM node:22-slim AS build
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
-
-WORKDIR /app
-
-# Manifests first, so a source-only change does not reinstall the world.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/core/package.json                packages/core/
-COPY packages/protocols/package.json           packages/protocols/
-COPY packages/sessions/package.json            packages/sessions/
-COPY packages/evaluation/package.json          packages/evaluation/
-COPY packages/habitat/package.json             packages/habitat/
-COPY packages/ui/package.json                  packages/ui/
-COPY packages/mycel/package.json               packages/mycel/
-COPY packages/supplier/package.json            packages/supplier/
-COPY packages/cli/package.json                 packages/cli/
-COPY packages/umwelten/package.json            packages/umwelten/
-
-RUN pnpm install --frozen-lockfile
-
-COPY . .
-
-# tsup inlines every import, including the three runtime dependencies — all pure
-# JavaScript — so what comes out needs no install and no node_modules.
-RUN pnpm --filter @umwelten/mycel build
 
 FROM node:22-slim
 ENV NODE_ENV=production
@@ -66,11 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     && rm -rf /var/lib/apt/lists/*
 
 # Not root. Mycel writes nothing to disk, so there is no reason for it to be
-# able to. Created before the copy so ownership is set during it.
+# able to.
 RUN useradd --system --uid 10001 mycel
 
 WORKDIR /app
-COPY --from=build --chown=mycel:mycel /app/packages/mycel/dist/mycel.js ./mycel.js
+COPY --chown=mycel:mycel packages/mycel/dist/mycel.js ./mycel.js
 COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
 RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 

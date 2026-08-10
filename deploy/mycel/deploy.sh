@@ -67,7 +67,13 @@ else
   HAVE_PREVIOUS=0
 fi
 
-log "building from $ROOT"
+# Bundle first, in a throwaway node container. Nothing needs to be installed on
+# this host, and the image stays a single COPY of the result.
+log "bundling the exchange"
+docker run --rm -v "$ROOT:/w" -w /w node:22-slim sh -c \
+  'corepack enable && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build'
+
+log "building image from $ROOT"
 docker build -t mycel -f "$ROOT/packages/mycel/Dockerfile" "$ROOT"
 
 log "recreating the container"
