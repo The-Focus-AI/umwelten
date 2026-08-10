@@ -22,9 +22,21 @@ ENV NODE_ENV=production
 # failed at runtime with curl exit 77 while the image looked fine. Run the
 # bundle generation explicitly, then assert the result — a missing CA store must
 # fail the build, not the deploy an hour later.
+# --reinstall is the load-bearing flag, and the reason took three attempts to
+# find. node:22-slim already has ca-certificates marked installed in dpkg while
+# the generated bundle is absent — slim images strip files, dpkg's state does
+# not notice. So plain `apt-get install ca-certificates` is a no-op: it runs for
+# 18s, reports success, re-runs no postinst, and produces no
+# /etc/ssl/certs/ca-certificates.crt. Every HTTPS call then fails with curl exit
+# 77 in an image that looks correct.
+#
+# --reinstall forces the postinst; --fresh rebuilds the bundle from scratch.
+# The two assertions then refuse to let the layer succeed without a real CA
+# store and a completed TLS handshake — this must fail the build, not the deploy.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates openssl \
-    && update-ca-certificates \
+    && apt-get install -y --no-install-recommends --reinstall ca-certificates openssl \
+    && apt-get install -y --no-install-recommends curl \
+    && update-ca-certificates --fresh \
     && test -s /etc/ssl/certs/ca-certificates.crt \
     && curl -sS -o /dev/null https://secretmanager.googleapis.com/ \
     && rm -rf /var/lib/apt/lists/*
