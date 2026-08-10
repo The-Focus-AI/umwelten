@@ -46,7 +46,12 @@ RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 # instance metadata server (ADR 0030). Nothing else is needed at runtime — in
 # particular no gcloud SDK and no fnox: the attached service account is the
 # credential, so there is nothing to install to authenticate with.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# ca-certificates is NOT optional and NOT implied: on Debian it arrives through
+# curl's Recommends, which --no-install-recommends drops. Without it the
+# metadata call still works (plain HTTP) and every HTTPS call fails with curl
+# exit 77, CURLE_SSL_CACERT_BADFILE — so the container starts, reads its token,
+# and dies reaching Secret Manager.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

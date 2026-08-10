@@ -24,8 +24,15 @@ if [ -n "${MYCEL_SECRETS:-}" ]; then
 
   # node rather than jq: node is already in this image because the service runs
   # on it, and jq would be one more package on the box holding the ledger.
-  TOKEN=$(curl -sf -H "$FLAVOR" "$METADATA/instance/service-accounts/default/token" |
-    node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).access_token))')
+  TOKEN=$(curl -sSf -H "$FLAVOR" "$METADATA/instance/service-accounts/default/token" 2>/dev/null |
+    node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(JSON.parse(s).access_token)}catch{}})' || true)
+
+  if [ -z "$TOKEN" ]; then
+    echo "mycel-entrypoint: no access token from the metadata server." >&2
+    echo "  Running on GCE with a service account attached? Check:" >&2
+    echo "  curl -H 'Metadata-Flavor: Google' $METADATA/instance/service-accounts/default/email" >&2
+    exit 1
+  fi
 
   OLDIFS=$IFS
   IFS=','
@@ -36,16 +43,27 @@ if [ -n "${MYCEL_SECRETS:-}" ]; then
 
     # -K - reads the request from stdin so the access token never appears in
     # argv, where any other process in this namespace could read it off `ps`.
-    payload=$(printf 'header = "Authorization: Bearer %s"\nurl = "%s"\n' \
+    #
+    # A missing or unreadable secret must stop the boot. Starting without one
+    # gets you a service that answers, takes traffic, and cannot meter it — so
+    # every failure below exits rather than warning.
+    if ! payload=$(printf 'header = "Authorization: Bearer %s"\nurl = "%s"\n' \
       "$TOKEN" \
       "https://secretmanager.googleapis.com/v1/projects/$PROJECT/secrets/$id/versions/latest:access" |
-      curl -sf -K -)
+      curl -sSf -K - 2>&1); then
+      echo "mycel-entrypoint: cannot read secret '$id' in project '$PROJECT'." >&2
+      echo "  curl: $payload" >&2
+      echo "  Check the secret exists and this instance's service account holds" >&2
+      echo "  roles/secretmanager.secretAccessor ON THAT SECRET (not project-wide)." >&2
+      exit 1
+    fi
 
-    # A missing or unreadable secret must stop the boot. Starting without one
-    # gets you a service that answers, takes traffic, and cannot meter it.
-    value=$(printf '%s' "$payload" |
+    if ! value=$(printf '%s' "$payload" |
       node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s).payload;if(!p||!p.data)process.exit(1);process.stdout.write(p.data)})' |
-      base64 -d)
+      base64 -d); then
+      echo "mycel-entrypoint: secret '$id' came back without a usable payload." >&2
+      exit 1
+    fi
 
     export "$name=$value"
     IFS=','
