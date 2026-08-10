@@ -14,7 +14,8 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsup"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "tsup": "^8.5.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },

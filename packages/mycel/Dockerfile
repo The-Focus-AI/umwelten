@@ -8,11 +8,24 @@
 # Run:
 #   docker run -p 7438:7438 -e MYCEL_DATABASE_URL=postgres://… mycel
 #
+# The final image is one bundled JavaScript file plus curl. It carries no
+# node_modules, no pnpm, no corepack and no source tree.
+#
+# The previous shape copied the whole monorepo — every workspace package's
+# dependencies, including Ink, React, discord.js and a natively-compiled sqlite
+# — into the runtime image, to run a service whose own dependencies are three
+# pure-JS packages. On an e2-small that measured: 87s to copy /app, 182s to
+# chown it, 200s to export the layers. Ten minutes of a deploy spent moving code
+# the Exchange never loads.
+#
+# The build stage below still installs the full workspace, and that is fine:
+# it is one cached layer that only re-runs when the lockfile changes. What was
+# expensive was carrying the result into the final image, and now nothing does.
+#
 # Deliberately NOT built on packages/habitat/Dockerfile. That image carries the
 # Docker CLI, mise, git and ripgrep because a habitat clones repos and runs
-# toolchains. Mycel is an HTTP service over Postgres: it clones nothing, spawns
-# nothing, and needs no volume — its state is in Neon. Every one of those tools
-# would be attack surface on the one service that holds the money ledger.
+# toolchains. Every one of those would be attack surface on the one service that
+# holds the money ledger.
 
 FROM node:22-slim AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
@@ -37,33 +50,27 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+# tsup inlines every import, including the three runtime dependencies — all pure
+# JavaScript — so what comes out needs no install and no node_modules.
+RUN pnpm --filter @umwelten/mycel build
+
 FROM node:22-slim
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV NODE_ENV=production
-RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 
 # curl for the healthcheck below and for reading Secret Manager through the
-# instance metadata server (ADR 0030). Nothing else is needed at runtime — in
-# particular no gcloud SDK and no fnox: the attached service account is the
-# credential, so there is nothing to install to authenticate with.
-# ca-certificates is NOT optional and NOT implied: on Debian it arrives through
-# curl's Recommends, which --no-install-recommends drops. Without it the
-# metadata call still works (plain HTTP) and every HTTPS call fails with curl
-# exit 77, CURLE_SSL_CACERT_BADFILE — so the container starts, reads its token,
-# and dies reaching Secret Manager.
+# instance metadata server (ADR 0030). ca-certificates is NOT implied: on Debian
+# it arrives through curl's Recommends, which --no-install-recommends drops, and
+# without it the metadata call still works (plain HTTP) while every HTTPS call
+# fails with curl exit 77, CURLE_SSL_CACERT_BADFILE.
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Not root. Mycel writes nothing to disk, so there is no reason for it to be
-# able to. Created BEFORE the copy so ownership can be set during it: a
-# `chown -R` afterwards walks every file in a multi-gigabyte node_modules a
-# second time, which measured at 55s on an e2-small — as long as the copy it
-# duplicates. --uid 10001 warns about SYS_UID_MAX; harmless, and deliberate so
-# the id does not collide with anything the base image allocates.
+# able to. Created before the copy so ownership is set during it.
 RUN useradd --system --uid 10001 mycel
 
 WORKDIR /app
-COPY --chown=mycel:mycel --from=build /app /app
+COPY --from=build --chown=mycel:mycel /app/packages/mycel/dist/mycel.js ./mycel.js
 COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
 RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 
@@ -82,4 +89,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # MYCEL_SECRETS unset the entrypoint is a passthrough, so `docker run -e ...`
 # still works off a GCE instance.
 ENTRYPOINT ["/usr/local/bin/mycel-entrypoint"]
-CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "mycel", "serve"]
+CMD ["node", "/app/mycel.js", "serve"]
