@@ -205,6 +205,20 @@ SA=mycel-sa@$PROJECT.iam.gserviceaccount.com
 gcloud iam service-accounts create mycel-sa --project "$PROJECT" \
   --display-name "Mycel — the Exchange"
 
+# Two project-level roles, and they are not optional. The gcplogs Docker driver
+# needs logWriter to START a container at all: without it the container sits in
+# `Created` and the daemon reports IAM_PERMISSION_DENIED, which reads as an
+# application failure rather than a logging one. The Ops Agent wants
+# metricWriter, and fails quietly without it.
+#
+# Project-level is right here — there is no sub-resource on which "may write its
+# own logs" can be scoped, and neither role can read anything. The scoping that
+# matters is per-secret, below.
+for role in roles/logging.logWriter roles/monitoring.metricWriter; do
+  gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member "serviceAccount:$SA" --role "$role"
+done
+
 # One secret per value. No --set-env-vars, ever: STD-007 §3.6 forbids passing a
 # secret value as a deployment flag, and shell history is a good reason why.
 for s in mycel-database-url mycel-openrouter-api-key mycel-google-generative-ai-api-key; do
@@ -241,7 +255,10 @@ stdout lands in Cloud Logging beside everything else.
 ### Checklist
 
 - [ ] `mycel-sa` service account created
-- [ ] Three GSM secrets created, each bound to `mycel-sa` on the secret resource
+- [ ] `roles/logging.logWriter` + `roles/monitoring.metricWriter` granted to it
+      (without logWriter the container never starts — see above)
+- [ ] GSM secrets created, each bound to `mycel-sa` on the secret resource, and
+      every id in `MYCEL_SECRETS` actually exists — a missing one stops the boot
 - [ ] `mycel-host` instance created with that service account attached
 - [ ] `deploy/mycel/` written, `docker build` reproducible
 - [ ] DNS A record for `mycel.thefocus.ai` → **mycel-host's** static IP
