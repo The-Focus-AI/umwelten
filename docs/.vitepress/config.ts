@@ -48,6 +48,12 @@ export default defineConfig({
           ]
         },
         {
+          text: 'The Exchange',
+          items: [
+            { text: 'Selling a local vLLM box', link: '/guide/local-supplier-vllm' },
+          ]
+        },
+        {
           text: 'Models & Interaction',
           items: [
             { text: 'Model Discovery', link: '/guide/model-discovery' },
