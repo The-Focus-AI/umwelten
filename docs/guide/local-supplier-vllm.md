@@ -4,52 +4,119 @@ How to make a machine you own — `thor`, serving vLLM on port 4000 — a Suppli
 that Mycel dispatches to. Written against the deployed stage 1 Exchange at
 `mycel.thefocus.ai`.
 
-> **Read this first: it deviates from two ADRs, deliberately and temporarily.**
+> **Read this first.**
 >
-> **ADR 0023 — machine Suppliers dial in.** The design is that Mycel never
-> connects to a machine: the machine holds an outbound connection and receives
-> work over it, so a box behind NAT accepts no inbound connections at all. That
-> protocol is **not built**. Until it is, the only way for Mycel to serve from
-> thor is to reach thor — which is exactly what ADR 0023 exists to stop doing.
-> Everything below is interim, and every step that follows becomes unnecessary
-> once dial-in lands.
+> **ADR 0023 — machine Suppliers dial in — is satisfied here, at the transport
+> layer.** The property the ADR is after is that Mycel never connects *to* a
+> machine: the machine holds an outbound connection and receives work over it,
+> so a box behind NAT accepts no inbound connections and has no address to
+> register. A reverse tunnel gives you exactly that today, with ssh instead of a
+> protocol. Section 1 does it that way.
 >
-> **ADR 0015 — Capabilities are probed through the serving path.** `umwelten
-> supplier` cannot probe vLLM: `discoverRuntimes` knows ollama, lmstudio,
-> llamabarn and llamaswap, and nothing in the codebase mentions vLLM. So thor's
-> Offers are **declared by the operator**, like a vendor's, not measured. Claim
-> narrowly — an over-claimed Capability routes a request somewhere that cannot
-> serve it, which is the failure ADR 0015 exists to prevent.
+> What the ADR's own dial-in protocol adds beyond reachability is **liveness**
+> — "connected is available; disconnected is unavailable", with Dispatch
+> consulting live connections — plus multiplexing work over one channel. Those
+> are not free with a tunnel: Mycel still infers thor's liveness from whether
+> its Offers were republished recently, and a dead vLLM behind a healthy tunnel
+> looks dispatchable until a request fails.
 >
-> The practical consequence of both: **thor publishes no Headroom.** Dispatch
-> will score it on price alone, and cannot know whether it batches or queues.
+> **ADR 0015 — Capabilities are probed through the serving path — is not
+> satisfied.** `umwelten supplier` cannot probe vLLM: `discoverRuntimes` knows
+> ollama, lmstudio, llamabarn and llamaswap, and nothing in the codebase
+> mentions vLLM. So thor's Offers are **declared by the operator**, like a
+> vendor's. Claim narrowly — an over-claimed Capability routes a request
+> somewhere that cannot serve it, which is the failure that ADR exists to
+> prevent.
+>
+> The other consequence: **thor publishes no Headroom.** Dispatch scores it on
+> price alone and cannot know whether it batches or queues.
 
-## 1. Reachability
+## 1. Thor dials in — a reverse tunnel
 
-Mycel runs on `mycel-host` in GCE. It has to open a TCP connection to thor's
-vLLM. Pick one:
+vLLM is OpenAI-shaped on `:4000`, and Mycel already speaks that. The only real
+question is who opens the TCP connection, and the answer is **thor**.
 
-**Tailscale (recommended).** Both machines join the tailnet; Mycel uses thor's
-tailnet address. No port forwarding, no public exposure of an unauthenticated
-inference server, and it survives thor's IP changing.
+`ssh -R` makes thor's local port appear on `mycel-host`. Thor holds the
+connection outbound; nothing reaches thor from the internet, no firewall rule,
+no port forward, no address to register — the ADR 0023 property, with ssh doing
+the work.
+
+**On `mycel-host`**, let a forwarded port bind beyond loopback so the Mycel
+container can reach it:
 
 ```bash
-# on thor, and again on mycel-host
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-tailscale ip -4        # note thor's address, e.g. 100.x.y.z
+# /etc/ssh/sshd_config
+GatewayPorts clientspecified
+```
+```bash
+sudo systemctl reload ssh
 ```
 
-**Cloudflare Tunnel** if you would rather not put mycel-host on a tailnet.
-Gives thor a hostname with no inbound firewall rule.
+**On thor**, hold the tunnel open. `autossh` rather than plain `ssh` so a
+dropped link reconnects rather than silently ending your supply:
 
-**Port forward + DNS** works and is the one to avoid. It puts an inference
-server on the public internet, and vLLM's `--api-key` is the only thing between
-a scanner and your GPU.
+```bash
+autossh -M 0 -N \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes \
+  -R 0.0.0.0:4000:localhost:4000 \
+  wschenk@mycel.thefocus.ai
+```
 
-> Whatever you choose, **do not skip vLLM's `--api-key`**. Reachable-and-open
-> means anyone who finds the port spends your electricity, and Mycel's metering
-> will show none of it — the requests never went through the Exchange.
+As a unit so it survives a reboot:
+
+```ini
+# /etc/systemd/system/mycel-tunnel.service, on thor
+[Unit]
+Description=Reverse tunnel exposing vLLM to Mycel
+After=network-online.target
+
+[Service]
+User=wschenk
+Environment=AUTOSSH_GATETIME=0
+ExecStart=/usr/bin/autossh -M 0 -N \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes \
+  -R 0.0.0.0:4000:localhost:4000 wschenk@mycel.thefocus.ai
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Then let the container reach the host end of it.** Mycel runs in Docker, so
+`localhost` inside it is not `mycel-host`. Add to the `mycel` service in
+`deploy/mycel/docker-compose.yml`:
+
+```yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+```
+
+and the Supplier's base URL becomes `http://host.docker.internal:4000/v1`.
+
+Verify from inside the container — that is the path Dispatch will take, and the
+only one worth testing:
+
+```bash
+docker compose --project-directory deploy/mycel exec mycel \
+  curl -sS http://host.docker.internal:4000/v1/models \
+  -H "Authorization: Bearer $VLLM_API_KEY"
+```
+
+> **Keep vLLM's `--api-key` anyway.** The tunnel means nothing on the public
+> internet reaches thor, but `0.0.0.0:4000` on mycel-host is reachable by
+> anything else on that box. The key is what stops a second container spending
+> your GPU without going through the Exchange — where it would be unmetered and
+> invisible.
+
+**Alternatives**, if a long-lived ssh session is not to taste: Tailscale puts
+both machines on a tailnet and Mycel dials thor's tailnet address (still no
+public inbound, but Mycel initiates); Cloudflare Tunnel is the same
+thor-dials-out shape as above with a managed edge. Port-forwarding thor's :4000
+to the internet is the one to avoid — it puts an inference server in front of
+scanners with only `--api-key` between them and your GPU.
 
 ## 2. Start vLLM on thor
 
@@ -64,13 +131,15 @@ vllm serve <model-id> \
 carries. Set it explicitly: the default is the full HuggingFace path, which is
 awkward in a catalogue and pins the Offer to a repo layout.
 
-Check it from **mycel-host**, not from thor — reachability is the thing being
-tested:
+Confirm it serves locally first — this checks vLLM, not the path to it:
 
 ```bash
-curl -sS http://<thor-address>:4000/v1/models \
-  -H "Authorization: Bearer $VLLM_API_KEY"
+# on thor
+curl -sS http://localhost:4000/v1/models -H "Authorization: Bearer $VLLM_API_KEY"
 ```
+
+The check that matters is the one in section 1, run from inside the Mycel
+container, because that is the path Dispatch actually takes.
 
 ## 3. Put thor's key in Secret Manager
 
@@ -114,7 +183,7 @@ On `mycel-host`, with the operator alias from `deploy/mycel/README.md`:
 ```bash
 mycel supplier register thor \
   --display-name "thor (vLLM)" \
-  --base-url http://<thor-address>:4000/v1 \
+  --base-url http://host.docker.internal:4000/v1 \
   --credential-env THOR_API_KEY \
   --guarantees on-premise
 ```

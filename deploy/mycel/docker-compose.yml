@@ -44,6 +44,11 @@ services:
       MYCEL_SECRETS: >-
         MYCEL_DATABASE_URL=mycel-database-url,
         OPENROUTER_API_KEY=mycel-openrouter-api-key
+    # Reaches ports this host holds open on behalf of a Supplier that dialled
+    # in — a reverse tunnel from a GPU box lands on the host, not in here.
+    # See docs/guide/local-supplier-vllm.md.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     labels:
       caddy: ${MYCEL_HOSTNAME:-mycel.localhost}
       caddy.reverse_proxy: "{{upstreams 7438}}"
