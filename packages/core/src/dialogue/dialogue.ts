@@ -10,7 +10,9 @@ import type {
   DialogueStopReason,
   Participant,
   ParticipantInfo,
+  PostedEntry,
   StopConditions,
+  TurnCompleteInfo,
   TurnPolicy,
   TurnResult,
 } from "./types.js";
@@ -28,6 +30,15 @@ export interface DialogueOptions {
   observer?: DialogueObserver;
   /** When set, transcript.jsonl + meta.json are written here after every turn. */
   persistDir?: string;
+  /**
+   * Awaited after every turn, before the next speaker is chosen. Unlike
+   * `observer.onTurnEnd` (a notification), this can do async work whose
+   * result the next turn must see — extracting what the round revealed, then
+   * `post`ing the next round's prompt. Pair with a policy that exposes round
+   * structure (ScriptedRoundPolicy.justCompletedRound) to act only on
+   * boundaries. Throwing stops the dialogue with reason "error".
+   */
+  onTurnComplete?(info: TurnCompleteInfo): Promise<void> | void;
 }
 
 export const DEFAULT_MAX_TURNS = 8;
@@ -46,6 +57,9 @@ export class Dialogue {
   private readonly stopConditions: StopConditions;
   private readonly observer?: DialogueObserver;
   private readonly persistDir?: string;
+  private readonly onTurnComplete?: (
+    info: TurnCompleteInfo,
+  ) => Promise<void> | void;
   private readonly seedContent: string;
   private readonly created = new Date().toISOString();
   private readonly startedAtMs = Date.now();
@@ -78,6 +92,7 @@ export class Dialogue {
     };
     this.observer = options.observer;
     this.persistDir = options.persistDir;
+    this.onTurnComplete = options.onTurnComplete;
     this.seedContent = options.seed.content;
     this.appendEvent({
       participantId: options.seed.from?.id ?? "user",
@@ -112,7 +127,11 @@ export class Dialogue {
     return event;
   }
 
-  private get state(): DialogueState {
+  /**
+   * Snapshot for policies and for drivers that pace the dialogue with
+   * `step()` — e.g. asking ScriptedRoundPolicy whose slot comes next.
+   */
+  get state(): DialogueState {
     return {
       events: this.eventLog,
       participants: this.roster,
@@ -243,6 +262,23 @@ export class Dialogue {
     if (result.done) this.doneSignals.add(participant.id);
     this.lastResult = { ...result, participantId: participant.id };
     this.observer?.onTurnEnd?.(event);
+
+    if (this.onTurnComplete) {
+      try {
+        await this.onTurnComplete({
+          event,
+          state: this.state,
+          post: (entry) => this.post(entry),
+        });
+      } catch (err) {
+        await this.stop(
+          "error",
+          `error in onTurnComplete: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        throw err;
+      }
+    }
+
     await this.persist();
     return event;
   }
@@ -266,12 +302,7 @@ export class Dialogue {
    * world event (kind "event" — e.g. an operator injection or environment
    * change that participants should perceive but nobody "said").
    */
-  post(e: {
-    participantId: string;
-    displayName: string;
-    content: string;
-    kind?: "message" | "event";
-  }): void {
+  post(e: PostedEntry): void {
     const event = this.appendEvent({ ...e, kind: e.kind ?? "message" });
     this.observer?.onTurnEnd?.(event);
     void this.persist().catch(() => {

@@ -10,6 +10,8 @@ export {
 export { renderEventLine, speakerPrefix } from "./render.js";
 export { HumanParticipant } from "./participants/human-participant.js";
 export { RoundRobinPolicy } from "./policies/round-robin.js";
+export { ScriptedRoundPolicy } from "./policies/scripted-round.js";
+export type { ScriptedRoundOptions } from "./policies/scripted-round.js";
 export {
   ModeratorPolicy,
   MODERATOR_INSTRUCTIONS,
