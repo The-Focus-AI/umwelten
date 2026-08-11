@@ -9,6 +9,7 @@
 
 import type {
   Application,
+  ConnectionEvent,
   Balance,
   BalanceOwnerKind,
   Client,
@@ -78,6 +79,20 @@ export interface ExchangeStore {
 
   recordRequest(record: RequestRecord): Promise<void>;
   listRequests(filter?: { applicationId?: string; subject?: string }): Promise<RequestRecord[]>;
+
+  // ── Connections ───────────────────────────────────────────────────
+
+  /**
+   * Append a connect or disconnect. Never updated — a Connection's history is
+   * a sequence of facts about the past, and the present lives in memory
+   * (ADR 0023).
+   *
+   * Deliberately no `isConnected` query here: whether a machine is reachable
+   * right now is not a question the database can answer honestly, because the
+   * socket is held by one process and the answer changes without a write.
+   */
+  appendConnectionEvent(event: ConnectionEvent): Promise<void>;
+  listConnectionEvents(filter?: { supplierId?: string }): Promise<ConnectionEvent[]>;
 
   // ── Money ─────────────────────────────────────────────────────────
 

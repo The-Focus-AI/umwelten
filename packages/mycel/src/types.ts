@@ -276,6 +276,40 @@ export interface Balance {
 }
 
 /** One append-only movement. Positive is a grant, negative is a debit. */
+/**
+ * Why a Connection ended. Recorded rather than inferred, because an operator
+ * debugging a quiet machine needs to tell a laptop that closed from an agent
+ * that crashed from one this Exchange hung up on itself.
+ */
+export type DisconnectReason =
+  /** The agent said goodbye — Ctrl-C, or a clean shutdown. */
+  | "closed"
+  /** The socket died. What a lid closing looks like from here. */
+  | "transport-error"
+  /** The same Supplier dialled in again, so this one is the older of two. */
+  | "displaced"
+  /** The Exchange is going down and is hanging up on purpose. */
+  | "shutdown";
+
+/**
+ * A connect or disconnect, appended and never rewritten.
+ *
+ * Current state is the in-memory map — this is the record of what happened,
+ * which a boolean column structurally cannot be. A boolean can only say *now*,
+ * and the questions worth asking of an Exchange are about *then*: was that
+ * machine up at 03:00, how often does it flap, what was its real uptime.
+ * Joins to `RequestRecord` on `supplierId`, so "every request that failed while
+ * thor was disconnected" is one query (ADR 0023).
+ */
+export interface ConnectionEvent {
+  id: string;
+  supplierId: string;
+  event: "connected" | "disconnected";
+  /** Only on a disconnect. */
+  reason?: DisconnectReason;
+  at: Date;
+}
+
 export interface LedgerEntry {
   id: string;
   ownerKind: BalanceOwnerKind;
