@@ -31,6 +31,11 @@ export interface ExchangeServerOptions {
   /** Injectable identity verification, so tests need no JWKS endpoint. */
   verifyCaller?: BuyerHandlerOptions["verifyCaller"];
   staleAfterMs?: number;
+  /**
+   * How the relay reaches a Supplier. Defaults to an OpenAI-compatible POST at
+   * its `baseUrl`; a machine Supplier's Connection supplies its own (ADR 0023).
+   */
+  resolveTransport?: BuyerHandlerOptions["resolveTransport"];
 }
 
 export interface RunningExchange {
@@ -42,12 +47,17 @@ export interface RunningExchange {
 
 export function createExchangeApp(
   store: ExchangeStore,
-  opts: Pick<ExchangeServerOptions, "verifyCaller" | "staleAfterMs"> = {},
+  opts: Pick<ExchangeServerOptions, "verifyCaller" | "staleAfterMs" | "resolveTransport"> = {},
 ) {
   const handlers = [
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
-    createBuyerHandler({ store, verifyCaller: opts.verifyCaller, staleAfterMs: opts.staleAfterMs }),
+    createBuyerHandler({
+      store,
+      verifyCaller: opts.verifyCaller,
+      staleAfterMs: opts.staleAfterMs,
+      resolveTransport: opts.resolveTransport,
+    }),
   ];
 
   return async function handle(
@@ -89,6 +99,7 @@ export async function createExchangeServer(
   const app = createExchangeApp(opts.store, {
     verifyCaller: opts.verifyCaller,
     staleAfterMs: opts.staleAfterMs,
+    resolveTransport: opts.resolveTransport,
   });
   await opts.store.setup();
 
