@@ -1,0 +1,198 @@
+/**
+ * Dialling in to the Exchange.
+ *
+ * The machine opens the Connection and holds it; the Exchange never connects
+ * here, and this box accepts no inbound connections at all (ADR 0023). That is
+ * the whole onboarding story — no tunnel, no ACL, no DNS, no firewall rule, and
+ * it works from a coffee shop and from behind a corporate proxy, because it is
+ * an outbound WebSocket over 443.
+ *
+ * The wire types are declared here and again in `@umwelten/mycel`, deliberately.
+ * This package must not depend on the Exchange — a machine someone else owns
+ * should never install a Postgres driver to sell tokens — so the wire is the
+ * contract and `WIRE_VERSION` is what catches the two definitions drifting.
+ */
+
+import WebSocket from "ws";
+
+/** Must match the Exchange's. Bumped when a frame's meaning changes. */
+export const WIRE_VERSION = 1;
+export const CONNECT_PATH = "/suppliers/connect";
+
+export interface DialOptions {
+  exchangeUrl: string;
+  credential: string;
+  agentVersion?: string;
+  /** Backoff floor and ceiling. A dropped link should retry, not hammer. */
+  minBackoffMs?: number;
+  maxBackoffMs?: number;
+  signal?: AbortSignal;
+  onEvent?: (event: DialEvent) => void;
+  /** Injectable for tests; defaults to a real socket. */
+  connect?: (url: string, credential: string) => DialSocket;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export type DialEvent =
+  | { type: "connecting"; attempt: number }
+  | { type: "connected" }
+  | { type: "disconnected"; code?: number; reason?: string }
+  | { type: "refused"; status?: number; reason: string }
+  | { type: "retrying"; inMs: number };
+
+/** The little of a socket this needs, so tests need no server. */
+export interface DialSocket {
+  send(data: string): void;
+  close(): void;
+  onOpen(listener: () => void): void;
+  onMessage(listener: (data: string) => void): void;
+  onClose(listener: (code?: number, reason?: string) => void): void;
+  onError(listener: (error: Error) => void): void;
+}
+
+const DEFAULT_MIN_BACKOFF_MS = 1_000;
+const DEFAULT_MAX_BACKOFF_MS = 30_000;
+
+function websocketUrl(exchangeUrl: string): string {
+  const url = new URL(CONNECT_PATH, exchangeUrl);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
+
+function realSocket(url: string, credential: string): DialSocket {
+  const ws = new WebSocket(url, { headers: { authorization: `Bearer ${credential}` } });
+  return {
+    send: (data) => ws.send(data),
+    close: () => ws.close(),
+    onOpen: (l) => ws.on("open", l),
+    onMessage: (l) => ws.on("message", (raw) => l(String(raw))),
+    onClose: (l) => ws.on("close", (code, reason) => l(code, String(reason ?? ""))),
+    onError: (l) => ws.on("error", l),
+  };
+}
+
+/**
+ * Hold a Connection open, reconnecting until told to stop.
+ *
+ * Resolves only when the abort signal fires. A dropped link is the routine case
+ * — this is a laptop and laptops close — so it is retried rather than reported
+ * as a failure, with backoff so a Exchange that is down is not hammered by
+ * every machine at once.
+ */
+export async function dialIn(opts: DialOptions): Promise<void> {
+  const {
+    exchangeUrl,
+    credential,
+    agentVersion,
+    signal,
+    onEvent = () => {},
+    connect = realSocket,
+    sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+  } = opts;
+
+  const minBackoff = opts.minBackoffMs ?? DEFAULT_MIN_BACKOFF_MS;
+  const maxBackoff = opts.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
+  const url = websocketUrl(exchangeUrl);
+
+  let attempt = 0;
+  let backoff = minBackoff;
+
+  while (!signal?.aborted) {
+    attempt += 1;
+    onEvent({ type: "connecting", attempt });
+
+    const outcome = await holdOne(url, credential, {
+      agentVersion,
+      signal,
+      onEvent,
+      connect,
+    });
+
+    if (signal?.aborted) return;
+
+    // A Connection that lived resets the backoff: a machine that has been up
+    // for hours and drops once should come straight back, not wait thirty
+    // seconds because of an outage last week.
+    backoff = outcome === "connected" ? minBackoff : Math.min(backoff * 2, maxBackoff);
+
+    onEvent({ type: "retrying", inMs: backoff });
+    await sleep(backoff);
+  }
+}
+
+/** One connection attempt, from dial to close. */
+function holdOne(
+  url: string,
+  credential: string,
+  ctx: {
+    agentVersion?: string;
+    signal?: AbortSignal;
+    onEvent: (event: DialEvent) => void;
+    connect: (url: string, credential: string) => DialSocket;
+  },
+): Promise<"connected" | "failed"> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let everConnected = false;
+
+    const finish = (outcome: "connected" | "failed") => {
+      if (settled) return;
+      settled = true;
+      resolve(outcome);
+    };
+
+    let socket: DialSocket;
+    try {
+      socket = ctx.connect(url, credential);
+    } catch (error) {
+      ctx.onEvent({
+        type: "refused",
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      finish("failed");
+      return;
+    }
+
+    const hangUp = () => socket.close();
+    ctx.signal?.addEventListener("abort", hangUp, { once: true });
+
+    socket.onOpen(() => {
+      socket.send(
+        JSON.stringify({ type: "hello", wireVersion: WIRE_VERSION, agentVersion: ctx.agentVersion }),
+      );
+    });
+
+    socket.onMessage((data) => {
+      const frame = safeParse(data);
+      if (frame?.type === "welcome") {
+        everConnected = true;
+        ctx.onEvent({ type: "connected" });
+        return;
+      }
+      if (frame?.type === "goodbye") {
+        // The Exchange refusing us for a stated reason — a wire mismatch, say.
+        // Worth surfacing rather than showing up as a bare close code.
+        ctx.onEvent({ type: "refused", reason: String(frame.reason ?? "refused") });
+      }
+    });
+
+    socket.onError((error) => {
+      ctx.onEvent({ type: "refused", reason: error.message });
+    });
+
+    socket.onClose((code, reason) => {
+      ctx.signal?.removeEventListener("abort", hangUp);
+      ctx.onEvent({ type: "disconnected", code, reason });
+      finish(everConnected ? "connected" : "failed");
+    });
+  });
+}
+
+function safeParse(data: string): { type?: string; reason?: unknown } | undefined {
+  try {
+    const parsed = JSON.parse(data) as { type?: string; reason?: unknown };
+    return parsed && typeof parsed === "object" ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
