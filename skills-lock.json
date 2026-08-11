@@ -19,6 +19,12 @@
       "skillPath": "skills/research-methodology/SKILL.md",
       "computedHash": "eb75bae051946c694ef0ef9a6a52f5adb3047fd12175849f532ab8d90b68c3e1"
     },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "computedHash": "f9c2b933dda18eea572e96f6ebbcd5b30e0d1bfdc074af53cc99728dc5f0bdac"
+    },
     "setup-project": {
       "source": "The-Focus-AI/standards",
       "sourceType": "github",
@@ -42,6 +48,18 @@
       "sourceType": "github",
       "skillPath": "skills/tech-research/SKILL.md",
       "computedHash": "40461be70095f49a4f8b78ffde8304d0e096a8b5cf4e6f7fff7d8b20d50feb45"
+    },
+    "to-spec": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-spec/SKILL.md",
+      "computedHash": "7e07d4cfabd1a4f61627ebe2705601784fae7b9aca7e13af3e201ace75738200"
+    },
+    "to-tickets": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-tickets/SKILL.md",
+      "computedHash": "0349eee265e7005e667b4543de849672106c46d545e998f37d3319300bb07751"
     },
     "work-next-issue": {
       "source": "The-Focus-AI/standards",
