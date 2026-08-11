@@ -42,9 +42,19 @@ request:
 
 ```
 eligible = offer exists
-        && supplier.enabled && offer.enabled
-        && (supplier.kind === "vendor" ? not stale : connections.has(supplier.id))
+        && offer.enabled
+        && (offer.supplierKind === "vendor" ? not stale : connections.has(offer.supplierId))
 ```
+
+**`kind` is denormalized onto the Offer**, because `dispatch()` receives
+`Offer[]` and no Supplier records. That is not a new pattern — `Offer.guarantees`
+already works exactly this way, and says why: "Inherited from the Supplier, never
+published by it… an Offer carries a copy so Dispatch can filter without a second
+lookup." Dispatch stays a pure function of Offers plus the connection set.
+
+The connection set arrives as a second argument rather than a module import, so
+`dispatch()` remains pure and testable without a live socket — the same reason
+`staleAfterMs` and `now` are injected today.
 
 Disconnection mutates nothing. It changes what Dispatch will select, which is
 the sense of "withdrawn" that matters — nothing routes there, instantly, with no

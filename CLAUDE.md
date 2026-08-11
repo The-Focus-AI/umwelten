@@ -469,6 +469,65 @@ General-purpose report rendering. Lives in evaluation (it consumes evaluation-sh
 - `renderers/` — `ConsoleRenderer`, `MarkdownRenderer`
 - `types.ts` — `Report`, `ReportSection`, `ReportType` (`'tool-test' | 'code-generation' | 'evaluation' | 'batch' | 'suite'`)
 
+### `@umwelten/mycel` — the Exchange
+
+Buys model tokens wholesale from Suppliers and resells them retail to
+Applications. **Deployed** at `mycel.thefocus.ai`. Its own bounded context — read
+`packages/mycel/CONTEXT.md` before using any of its words, because Supplier,
+Offer, Guarantee, Headroom, Cost and Charge all mean something specific and
+several of them collide with ordinary usage.
+
+- `server.ts` — `createExchangeServer`, port **7438**. Three surfaces:
+  `POST /v1/chat/completions`, `GET /v1/models`, `GET /health` (reports **store**
+  reachability, not process liveness).
+- `dispatch.ts` — filter then rank. Guarantees and Capabilities are hard filters;
+  price only orders what survives them (ADR 0027). Read the header comment before
+  touching it — silently serving from a Supplier lacking a required Guarantee is
+  the worst outcome this system can produce, and the "fix" for it looks like a
+  resilience improvement.
+- `buyer/handler.ts` — the metered relay. Prompt counted at admission, completion
+  counted per chunk as it is relayed, Balance enforced *during* generation
+  (ADR 0017). Every exit path records — normal completion, upstream death,
+  buyer hangup, credit exhaustion.
+- `supply/handler.ts` — `POST /suppliers/offers`. Replaces a Supplier's whole
+  Offer set atomically; operator-set prices survive a republish.
+- `metering/`, `auth/`, `store/` — counter and balances; static credential
+  (`sk-mycel-…` + `X-Mycel-End-User`) or JWKS; `NeonStore` + `MemoryStore` behind
+  one conformance suite.
+- `command.ts` — the operator CLI. **No HTTP admin API, deliberately** — every
+  one of these can move money or grant eligibility for traffic the operator is
+  liable for.
+
+Money is integer micro-dollars everywhere. `$1.00` is `1000000`, never a float.
+
+Deploy: `deploy/mycel/` on its own GCE instance with its own service account,
+secrets from Google Secret Manager (ADR 0030). Runbook `deploy/mycel/README.md`,
+design `docs/architecture/mycel-deployment.md`.
+
+### `@umwelten/supplier` — the supplier agent
+
+Turns a machine into a Supplier: `umwelten supplier candidates | probe | publish
+| serve | status | withdraw | install-service`.
+
+- `candidates.ts` — arithmetic over GGUF file sizes and installed memory. Never
+  runs a model, so nothing it says is a Capability.
+- `probe.ts` / `headroom.ts` — Capabilities probed through the serving path
+  (ADR 0015); Headroom measured at more than one concurrency level, never
+  declared (ADR 0021). **`HEADROOM_POLICY.levels` is `[1, 4]`, calibrated for
+  llama.cpp-class runtimes — it samples far below the knee on a vLLM box doing
+  32–64.** See the flagged ambiguities in `packages/mycel/CONTEXT.md`.
+- `serve.ts` / `supervisor.ts` — stay running, health-check what was published,
+  withdraw what breaks, re-probe when the fingerprint changes (ADR 0022).
+- `managed.ts` / `runtime.ts` — managed mode owns a llama-swap runtime and pins
+  context size and quantization; publish **aborts** if measured saturation is not
+  `batches`, rather than advertising capacity the box does not have.
+
+**Deliberately does not depend on `@umwelten/mycel`** — it talks HTTP to a
+running Exchange, which keeps a Postgres driver off every GPU box.
+
+Next: machine Suppliers dial in over a held Connection instead of being dialled
+out to (ADR 0023). Specified in `docs/architecture/dial-in-protocol.md`, unbuilt.
+
 ### `@umwelten/cli` — Command-Line Interface
 
 Commander-based CLI. Entry point: `cli/entry.ts` → `cli/cli.ts`.

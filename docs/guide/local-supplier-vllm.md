@@ -287,5 +287,7 @@ each was rejected — `missing-guarantee` is a different problem from
   whole staleness apparatus with it.
 - **No probed Capabilities.** Everything in the Offer is your claim.
 
-All three close when the dial-in protocol lands. Until then, this is a real
-Supplier with a manual seam where the agent should be.
+All three close when the dial-in protocol lands — specified in
+`docs/architecture/dial-in-protocol.md`, where thor runs one command, holds a
+Connection open, and needs none of section 1. Until then, this is a real Supplier
+with a manual seam where the agent should be.

@@ -19,7 +19,7 @@ Each later stage adds exactly one unproven thing:
 | Stage | Adds | Blocked on |
 |---|---|---|
 | **1** | Mycel + OpenRouter Supplier + one habitat buying | Neon project |
-| **2** | a local box as a second Supplier, dialling in | the dial-in protocol (ADR 0023) |
+| **2** | a local box as a second Supplier, dialling in | the dial-in protocol — ADR 0023, specified in `dial-in-protocol.md`, unbuilt |
 | **3** | the habitats SaaS as an Application (per-user balances) | stage 1 |
 | **4** | a third-party client app in its own repo | stage 3 |
 
