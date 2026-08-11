@@ -30,6 +30,7 @@ interface CliOptions {
   guarantees?: string;
   models?: string;
   baseUrl?: string;
+  kind?: string;
   credentialEnv?: string;
   displayName?: string;
   application?: string;
@@ -273,7 +274,12 @@ const supplier = mycelCommand.command("supplier").description("Parties that prod
 withDatabase(supplier.command("register <id>"))
   .description("Register a Supplier and issue its publishing credential")
   .option("--display-name <name>")
-  .option("--base-url <url>", "Where the Exchange sends work (OpenAI-compatible)")
+  .option(
+    "--kind <kind>",
+    "agent (dials in and holds a Connection) or vendor (dialled out to)",
+    "vendor",
+  )
+  .option("--base-url <url>", "Where the Exchange sends work (OpenAI-compatible; vendors only)")
   .option(
     "--credential-env <name>",
     "Name of the env var holding the key we present upstream — the NAME, never the key",
@@ -281,17 +287,38 @@ withDatabase(supplier.command("register <id>"))
   .option("--guarantees <names>", "Guarantees this Supplier may publish under")
   .action(async (id: string, opts: CliOptions) => {
     await guard(async () => {
-      if (!opts.baseUrl) throw new MycelCliError("Where does work go? Pass --base-url.");
+      const kind = opts.kind ?? "vendor";
+      if (kind !== "agent" && kind !== "vendor") {
+        throw new MycelCliError(`Unknown kind "${kind}". Expected agent or vendor.`);
+      }
+      // A vendor is dialled out to, so it has to say where. An agent dials in
+      // and has no address to register — requiring one would be asking for the
+      // very thing ADR 0023 exists to stop needing.
+      if (kind === "vendor" && !opts.baseUrl) {
+        throw new MycelCliError("Where does work go? Pass --base-url.");
+      }
+      if (kind === "agent" && opts.baseUrl) {
+        throw new MycelCliError(
+          "An agent Supplier dials in; --base-url would never be used.\n" +
+            "  Drop it, or register this as --kind vendor.",
+        );
+      }
+
       const operator = new Operator(openStore(opts));
       const { supplier: created, credential } = await operator.registerSupplier({
         id,
         displayName: opts.displayName ?? id,
+        kind,
         baseUrl: opts.baseUrl,
         upstreamCredentialEnv: opts.credentialEnv,
         grantedGuarantees: list(opts.guarantees),
       });
 
-      console.log(`Registered supplier ${created.id} → ${created.baseUrl}`);
+      console.log(
+        created.kind === "agent"
+          ? `Registered supplier ${created.id} (agent — dials in, no address needed)`
+          : `Registered supplier ${created.id} → ${created.baseUrl}`,
+      );
       console.log(
         `Granted guarantees: ${created.grantedGuarantees.join(", ") || "none"}` +
           " — the operator is liable for these, so a Supplier claiming more is refused.",

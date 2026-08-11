@@ -27,6 +27,20 @@ fi
 
 # ── Docker daemon defaults: gcplogs → Cloud Logging, same as the Gaia host,
 # so both services' runtime logs land in one place and R1 reads the same way.
+#
+# This driver needs `roles/logging.logWriter` on the attached service account,
+# and without it Docker refuses to START the container — it sits in `Created`
+# and the daemon reports IAM_PERMISSION_DENIED, which looks nothing like a
+# logging problem. gaia-host never hit this because it runs as the default
+# compute service account, which carries the role already; mycel-sa is minimal
+# by design (ADR 0030) and gets nothing it is not granted.
+#
+#   gcloud projects add-iam-policy-binding $PROJECT \
+#     --member="serviceAccount:mycel-sa@$PROJECT.iam.gserviceaccount.com" \
+#     --role="roles/logging.logWriter"
+#
+# The Ops Agent below wants `roles/monitoring.metricWriter` for the same reason,
+# though it fails quietly rather than blocking a start.
 if [ ! -f /etc/docker/daemon.json ]; then
   mkdir -p /etc/docker
   cat > /etc/docker/daemon.json <<'JSON'

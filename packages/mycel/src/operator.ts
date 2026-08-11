@@ -20,13 +20,20 @@ import type {
   OfferPricing,
   PublishedOffer,
   Supplier,
+  SupplierKind,
 } from "./types.js";
 import type { ExchangeStore } from "./store/types.js";
 
 export interface RegisterSupplierInput {
   id: string;
   displayName: string;
-  baseUrl: string;
+  /**
+   * Where the Exchange sends work. Meaningful for a vendor; an agent dials in
+   * and has no address to register (ADR 0023), so it may be omitted.
+   */
+  baseUrl?: string;
+  /** Defaults to `vendor` — the behaviour every Supplier had before dial-in. */
+  kind?: SupplierKind;
   grantedGuarantees?: string[];
   upstreamCredentialEnv?: string;
 }
@@ -154,7 +161,8 @@ export class Operator {
       displayName: input.displayName,
       grantedGuarantees: input.grantedGuarantees ?? [],
       credentialHash: hashCredential(credential),
-      baseUrl: input.baseUrl,
+      baseUrl: input.baseUrl ?? "",
+      kind: input.kind ?? "vendor",
       upstreamCredentialEnv: input.upstreamCredentialEnv,
       enabled: true,
       createdAt: new Date(),

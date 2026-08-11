@@ -13,6 +13,15 @@ A party that produces model tokens for the exchange — hardware the operator
 owns, a partner's on-premise machine, or a commercial vendor.
 _Avoid_: Provider (means an Umwelten vendor integration), factory, host, node, worker
 
+**Connection**:
+The persistent channel a machine Supplier holds open to the exchange, dialled
+outbound and never accepted inbound. Its existence *is* that Supplier's
+availability — connected is available, disconnected is withdrawn — replacing an
+availability inferred from silence. Work is pushed down it and tokens stream
+back up (ADR 0023 — machine Suppliers dial in).
+_Avoid_: session (means a Source Session elsewhere in umwelten), channel (means a
+chat channel in habitat), tunnel (the thing this exists to not need), link, socket
+
 **Guarantee**:
 A promise about the conditions under which a Supplier produces tokens, such as
 staying on-premise or not being trained on. Asserted by the operator, who is
@@ -148,4 +157,15 @@ _Avoid_: payout, invoice, billing
   up with a Supplier dropping — resolved: four distinct outcomes, because only
   one of them is the buyer's own doing and only one of them is our fault.
 - "**Headroom**" is capacity measured at probe time, never current utilization.
-  Nothing in the system reads what a machine is doing right now.
+  Nothing in the system reads what a machine is doing right now. **Under a
+  Connection this stops being true**: Mycel issues every request it pushes, so
+  in-flight work per machine becomes countable (ADR 0023). Headroom stays a
+  probe-time measurement; the live count is a second, different thing, and
+  conflating them is how a capacity estimate gets treated as a reading.
+- The Headroom **sampling range** is calibrated for one class of runtime.
+  `HEADROOM_POLICY.levels` is `[1, 4]` and `MAX_SAMPLE_CONCURRENCY` is 8, set
+  against llama.cpp/Ollama, where the question is whether the runtime batches at
+  all. A vLLM box serving 32–64 concurrently is sampled entirely below its knee,
+  so the resulting verdict describes a range nobody cares about. Open: the
+  policy needs a range that adapts to the runtime, or the verdict needs to say
+  what range it covers.

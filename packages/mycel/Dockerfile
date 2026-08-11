@@ -1,62 +1,55 @@
-# syntax=docker/dockerfile:1.4
-#
 # Mycel — the Exchange.
+#
+# One stage. The image is a bundled JavaScript file plus curl — no node_modules,
+# no pnpm, no source tree.
+#
+# The bundle is built before this runs, by deploy.sh:
+#   pnpm --filter @umwelten/mycel build   →  packages/mycel/dist/mycel.js
 #
 # Build (from monorepo root):
 #   docker build -t mycel -f packages/mycel/Dockerfile .
-#
-# Run:
-#   docker run -p 7438:7438 -e MYCEL_DATABASE_URL=postgres://… mycel
-#
-# Deliberately NOT built on packages/habitat/Dockerfile. That image carries the
-# Docker CLI, mise, git and ripgrep because a habitat clones repos and runs
-# toolchains. Mycel is an HTTP service over Postgres: it clones nothing, spawns
-# nothing, and needs no volume — its state is in Neon. Every one of those tools
-# would be attack surface on the one service that holds the money ledger.
-
-FROM node:22-slim AS build
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
-
-WORKDIR /app
-
-# Manifests first, so a source-only change does not reinstall the world.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/core/package.json                packages/core/
-COPY packages/protocols/package.json           packages/protocols/
-COPY packages/sessions/package.json            packages/sessions/
-COPY packages/evaluation/package.json          packages/evaluation/
-COPY packages/habitat/package.json             packages/habitat/
-COPY packages/ui/package.json                  packages/ui/
-COPY packages/mycel/package.json               packages/mycel/
-COPY packages/supplier/package.json            packages/supplier/
-COPY packages/cli/package.json                 packages/cli/
-COPY packages/umwelten/package.json            packages/umwelten/
-
-RUN pnpm install --frozen-lockfile
-
-COPY . .
 
 FROM node:22-slim
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 ENV NODE_ENV=production
-RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 
 # curl for the healthcheck below and for reading Secret Manager through the
-# instance metadata server (ADR 0030). Nothing else is needed at runtime — in
-# particular no gcloud SDK and no fnox: the attached service account is the
-# credential, so there is nothing to install to authenticate with.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# instance metadata server (ADR 0030). ca-certificates is NOT implied: on Debian
+# it arrives through curl's Recommends, which --no-install-recommends drops, and
+# without it the metadata call still works (plain HTTP) while every HTTPS call
+# fails with curl exit 77, CURLE_SSL_CACERT_BADFILE.
+# `apt-get install ca-certificates` alone was not enough: it completed, and
+# /etc/ssl/certs/ca-certificates.crt still did not exist, so every HTTPS call
+# failed at runtime with curl exit 77 while the image looked fine. Run the
+# bundle generation explicitly, then assert the result — a missing CA store must
+# fail the build, not the deploy an hour later.
+# --reinstall is the load-bearing flag, and the reason took three attempts to
+# find. node:22-slim already has ca-certificates marked installed in dpkg while
+# the generated bundle is absent — slim images strip files, dpkg's state does
+# not notice. So plain `apt-get install ca-certificates` is a no-op: it runs for
+# 18s, reports success, re-runs no postinst, and produces no
+# /etc/ssl/certs/ca-certificates.crt. Every HTTPS call then fails with curl exit
+# 77 in an image that looks correct.
+#
+# --reinstall forces the postinst; --fresh rebuilds the bundle from scratch.
+# The two assertions then refuse to let the layer succeed without a real CA
+# store and a completed TLS handshake — this must fail the build, not the deploy.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --reinstall ca-certificates openssl \
+    && apt-get install -y --no-install-recommends curl \
+    && update-ca-certificates --fresh \
+    && test -s /etc/ssl/certs/ca-certificates.crt \
+    && curl -sS -o /dev/null https://secretmanager.googleapis.com/ \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-COPY --from=build /app /app
-COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
-RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 
 # Not root. Mycel writes nothing to disk, so there is no reason for it to be
 # able to.
-RUN useradd --system --uid 10001 mycel && chown -R mycel:mycel /app
+RUN useradd --system --uid 10001 mycel
+
+WORKDIR /app
+COPY --chown=mycel:mycel packages/mycel/dist/mycel.js ./mycel.js
+COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
+RUN chmod 0755 /usr/local/bin/mycel-entrypoint
+
 USER mycel
 
 ENV MYCEL_PORT=7438
@@ -72,4 +65,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # MYCEL_SECRETS unset the entrypoint is a passthrough, so `docker run -e ...`
 # still works off a GCE instance.
 ENTRYPOINT ["/usr/local/bin/mycel-entrypoint"]
-CMD ["pnpm", "exec", "tsx", "packages/cli/src/entry.ts", "mycel", "serve"]
+CMD ["node", "/app/mycel.js", "serve"]

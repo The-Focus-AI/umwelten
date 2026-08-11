@@ -13,6 +13,7 @@ const MODEL = "gemma-4-26b";
 function offer(overrides: Partial<Offer> = {}): Offer {
   return {
     supplierId: "a",
+    supplierKind: "vendor",
     model: MODEL,
     capabilities: ["chat", "streaming"],
     guarantees: [],

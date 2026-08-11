@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "skills": {
+    "activity-report": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/activity-report/SKILL.md",
+      "computedHash": "0bb47d8da16d96e42012bf42c64f2b067d4ec93954c734b6eab1aa4712d9e99a"
+    },
+    "develop-design-md": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/develop-design-md/SKILL.md",
+      "computedHash": "dc1ff1e19a3063f0531e75cef448c74688d336bb20fabe2ad22805dbdd3c8cd2"
+    },
+    "research-methodology": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/research-methodology/SKILL.md",
+      "computedHash": "eb75bae051946c694ef0ef9a6a52f5adb3047fd12175849f532ab8d90b68c3e1"
+    },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "computedHash": "f9c2b933dda18eea572e96f6ebbcd5b30e0d1bfdc074af53cc99728dc5f0bdac"
+    },
+    "setup-project": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/setup-project/SKILL.md",
+      "computedHash": "97d54662c710969144da0ad6454bd1ed45c3c4b41c3842fc796757486a533a3a"
+    },
+    "standardize-project": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/standardize-project/SKILL.md",
+      "computedHash": "56a9c59bdd44c4d0c4280899ad3814f8bf7b39227760c0463757888c68c41009"
+    },
+    "standards-map": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/standards-map/SKILL.md",
+      "computedHash": "903f2f3bd74207401f02d3f4b4e87d660998960379744c3e6e666dab67342586"
+    },
+    "tech-research": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/tech-research/SKILL.md",
+      "computedHash": "40461be70095f49a4f8b78ffde8304d0e096a8b5cf4e6f7fff7d8b20d50feb45"
+    },
+    "to-spec": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-spec/SKILL.md",
+      "computedHash": "7e07d4cfabd1a4f61627ebe2705601784fae7b9aca7e13af3e201ace75738200"
+    },
+    "to-tickets": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-tickets/SKILL.md",
+      "computedHash": "0349eee265e7005e667b4543de849672106c46d545e998f37d3319300bb07751"
+    },
+    "work-next-issue": {
+      "source": "The-Focus-AI/standards",
+      "sourceType": "github",
+      "skillPath": "skills/work-next-issue/SKILL.md",
+      "computedHash": "753adaca58d1f8f9fdec101d3f4788027b89aba5e69bb18fcc21bdb7f6da5ba9"
+    }
+  }
+}

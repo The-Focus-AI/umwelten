@@ -19,6 +19,7 @@ export function supplierFixture(overrides: Partial<Supplier> = {}): Supplier {
   return {
     id: "office-spark",
     displayName: "Office DGX Spark",
+    kind: "vendor",
     grantedGuarantees: ["on-premise", "no-training"],
     credentialHash: "hash-office",
     baseUrl: "http://127.0.0.1:9/v1",
@@ -103,11 +104,48 @@ export function runExchangeStoreConformance(
         expect(found).not.toBeNull();
         expect(found?.enabled).toBe(false);
       });
+
+      it("round-trips a machine Supplier that dials in", async () => {
+        // An agent has no address to register — that is the point of ADR 0023,
+        // so a blank baseUrl has to survive the round trip rather than being
+        // treated as a missing field.
+        await store.createSupplier(
+          supplierFixture({ id: "thor", kind: "agent", baseUrl: "" }),
+        );
+
+        const found = await store.getSupplier("thor");
+        expect(found?.kind).toBe("agent");
+        expect(found?.baseUrl).toBe("");
+      });
+
+      it("reads a Supplier stored before dial-in existed as a vendor", async () => {
+        // The column defaults rather than backfills, so a Supplier written by
+        // an older version keeps behaving exactly as it did — dialled out to.
+        await store.createSupplier(supplierFixture());
+
+        const found = await store.getSupplier("office-spark");
+        expect(found?.kind).toBe("vendor");
+      });
     });
 
     describe("publishing offers", () => {
       beforeEach(async () => {
         await store.createSupplier(supplierFixture());
+      });
+
+      it("carries the Supplier's kind onto every Offer", async () => {
+        // Dispatch receives Offers and no Supplier records, so it has to be
+        // able to tell a machine from a vendor without a second lookup — the
+        // same arrangement `guarantees` already uses.
+        await store.createSupplier(
+          supplierFixture({ id: "thor", kind: "agent", baseUrl: "", credentialHash: "hash-thor" }),
+        );
+        await store.replaceOffers("thor", [offerFixture()]);
+
+        await store.replaceOffers("office-spark", [offerFixture()]);
+
+        expect((await store.getOffer("thor", "gemma-4-26b"))?.supplierKind).toBe("agent");
+        expect((await store.getOffer("office-spark", "gemma-4-26b"))?.supplierKind).toBe("vendor");
       });
 
       it("stores what was published, verbatim", async () => {

@@ -44,7 +44,12 @@ log() { echo "[mycel] $*"; }
 # reachable, because a Mycel that answers while Neon is gone will happily take
 # requests it cannot meter.
 wait_for_health() {
-  local timeout="$1" deadline=$((SECONDS + timeout))
+  # Two statements, deliberately. Bash expands every argument to `local` before
+  # the builtin runs, so `local timeout="$1" deadline=$((SECONDS + timeout))`
+  # evaluates the arithmetic while `timeout` is still unset — which under
+  # `set -u` aborts the deploy at the moment it starts waiting.
+  local timeout="$1"
+  local deadline=$((SECONDS + timeout))
   until curl -sf --max-time 5 "$URL/health" | grep -q '"status":"ok"'; do
     if ((SECONDS >= deadline)); then return 1; fi
     sleep 2
@@ -62,7 +67,13 @@ else
   HAVE_PREVIOUS=0
 fi
 
-log "building from $ROOT"
+# Bundle first, in a throwaway node container. Nothing needs to be installed on
+# this host, and the image stays a single COPY of the result.
+log "bundling the exchange"
+docker run --rm -v "$ROOT:/w" -w /w node:22-slim sh -c \
+  'corepack enable && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build'
+
+log "building image from $ROOT"
 docker build -t mycel -f "$ROOT/packages/mycel/Dockerfile" "$ROOT"
 
 log "recreating the container"

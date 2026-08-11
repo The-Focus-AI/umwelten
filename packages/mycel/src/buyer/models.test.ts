@@ -5,6 +5,7 @@ import type { Offer } from "../types.js";
 function offer(overrides: Partial<Offer> = {}): Offer {
   return {
     supplierId: "a",
+    supplierKind: "vendor",
     model: "gemma-4-26b",
     capabilities: ["chat"],
     guarantees: [],

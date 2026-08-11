@@ -28,6 +28,7 @@ import type {
   RequestRecord,
   ServingMode,
   Supplier,
+  SupplierKind,
 } from "../types.js";
 import type { ExchangeStore } from "./types.js";
 
@@ -49,9 +50,18 @@ export class NeonStore implements ExchangeStore {
         credential_hash TEXT NOT NULL,
         base_url TEXT NOT NULL DEFAULT '',
         upstream_credential_env TEXT,
+        kind TEXT NOT NULL DEFAULT 'vendor',
         enabled BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
+    `;
+
+    // Same reason as the offer columns below: CREATE TABLE IF NOT EXISTS does
+    // nothing to a database that already has the older shape. The default is
+    // what makes this safe — every Supplier that predates dial-in is a vendor,
+    // which is exactly what it was behaving as.
+    await this.sql`
+      ALTER TABLE exchange_supplier ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'vendor'
     `;
 
     // Looking a Supplier up by presented credential is on the hot path of
@@ -338,12 +348,13 @@ export class NeonStore implements ExchangeStore {
     await this.sql`
       INSERT INTO exchange_supplier
         (id, display_name, granted_guarantees, credential_hash, base_url,
-         upstream_credential_env, enabled, created_at)
+         upstream_credential_env, kind, enabled, created_at)
       VALUES (
         ${supplier.id}, ${supplier.displayName},
         ${JSON.stringify(supplier.grantedGuarantees)}::jsonb,
         ${supplier.credentialHash}, ${supplier.baseUrl},
         ${supplier.upstreamCredentialEnv ?? null},
+        ${supplier.kind},
         ${supplier.enabled}, ${supplier.createdAt.toISOString()}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -352,6 +363,7 @@ export class NeonStore implements ExchangeStore {
         credential_hash = EXCLUDED.credential_hash,
         base_url = EXCLUDED.base_url,
         upstream_credential_env = EXCLUDED.upstream_credential_env,
+        kind = EXCLUDED.kind,
         enabled = EXCLUDED.enabled
     `;
   }
@@ -409,7 +421,7 @@ export class NeonStore implements ExchangeStore {
 
   async listOffersBySupplier(supplierId: string): Promise<Offer[]> {
     const rows = (await this.sql`
-      SELECT o.*, s.granted_guarantees, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
+      SELECT o.*, s.granted_guarantees, s.kind, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
              p.retail_prompt_per_million, p.retail_completion_per_million
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
@@ -423,7 +435,7 @@ export class NeonStore implements ExchangeStore {
 
   async listOffers(): Promise<Offer[]> {
     const rows = (await this.sql`
-      SELECT o.*, s.granted_guarantees, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
+      SELECT o.*, s.granted_guarantees, s.kind, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
              p.retail_prompt_per_million, p.retail_completion_per_million
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
@@ -437,7 +449,7 @@ export class NeonStore implements ExchangeStore {
 
   async getOffer(supplierId: string, model: string): Promise<Offer | null> {
     const rows = (await this.sql`
-      SELECT o.*, s.granted_guarantees, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
+      SELECT o.*, s.granted_guarantees, s.kind, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
              p.retail_prompt_per_million, p.retail_completion_per_million
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
@@ -517,6 +529,7 @@ function toSupplier(row: Row): Supplier {
     grantedGuarantees: (row.granted_guarantees as string[]) ?? [],
     credentialHash: String(row.credential_hash),
     baseUrl: String(row.base_url ?? ""),
+    kind: (row.kind as SupplierKind) ?? "vendor",
     upstreamCredentialEnv:
       row.upstream_credential_env === null || row.upstream_credential_env === undefined
         ? undefined
@@ -538,6 +551,8 @@ function money(value: unknown, fallback: number): number {
 function toOffer(row: Row): Offer {
   return {
     supplierId: String(row.supplier_id),
+    // Comes from the supplier join, exactly as `guarantees` does.
+    supplierKind: (row.kind as SupplierKind) ?? "vendor",
     model: String(row.model),
     capabilities: (row.capabilities as CapabilityName[]) ?? [],
     guarantees: (row.granted_guarantees as string[]) ?? [],
