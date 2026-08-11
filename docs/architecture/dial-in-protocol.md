@@ -32,10 +32,19 @@ consults live Connections; the staleness window, agent heartbeat, `offers sync
 "Connected is available; disconnected is withdrawn" reads like Offers should
 live and die with the Connection. They must not.
 
-**Pricing is operator state stored on the Offer.** `replaceOffers` is written so
-operator-set prices for a (Supplier, Model) pair survive a republish. If Offers
-evaporated when a laptop closed, thor would come back at `DEFAULT_PRICING` after
-every lid-close — a money bug arriving through a liveness mechanism.
+**Correction, found by reading the store rather than assuming it.** An earlier
+draft argued Offers must persist or operator pricing would reset to
+`DEFAULT_PRICING` on every lid-close. That is wrong: pricing already lives in its
+own table keyed on (Supplier, Model), explicitly so it "must outlive the Offer it
+applies to, so that a re-probe — or a Model that briefly disappears — does not
+silently reset an operator's prices." Prices survive either way.
+
+The decision stands on weaker but sufficient ground: disconnection is routine —
+the machine is a laptop and laptops close — and making it a write means database
+churn proportional to how flaky someone's wifi is, for information the connection
+map already holds. Persisting also keeps `enabled`, granted Guarantees and the
+Offer's own record inspectable while a machine is asleep, so an operator can
+price a Supplier that is not currently connected.
 
 So `replaceOffers` keeps writing to Postgres, and dispatchability is computed per
 request:

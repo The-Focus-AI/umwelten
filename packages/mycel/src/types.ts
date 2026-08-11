@@ -94,9 +94,25 @@ export interface HeadroomMeta {
  * on-premise machine, or a commercial vendor. Google and a DGX are the same
  * kind of thing here (ADR 0012).
  */
+/**
+ * How the Exchange reaches a Supplier, and the difference is real rather than
+ * incidental (ADR 0023).
+ *
+ * A **vendor** is dialled out to, because a public API is reachable by
+ * definition. A **machine** — a DGX on a desk, a laptop, anything someone owns
+ * — dials in and holds a Connection; the Exchange never connects to it, and it
+ * accepts no inbound connections at all.
+ *
+ * Defaults to `vendor` everywhere, so a Supplier registered before this existed
+ * keeps behaving exactly as it did.
+ */
+export type SupplierKind = "agent" | "vendor";
+
 export interface Supplier {
   id: string;
   displayName: string;
+  /** Whether this Supplier dials in or is dialled out to (ADR 0023). */
+  kind: SupplierKind;
   /**
    * Guarantees this Supplier may publish under. Granted by the operator, who
    * is the party liable for them — never self-declared (ADR 0012). Enforcing
@@ -125,6 +141,13 @@ export interface Supplier {
 /** A commitment by one Supplier to serve one Model. */
 export interface Offer {
   supplierId: string;
+  /**
+   * Inherited from the Supplier, never published by it — the same arrangement
+   * as `guarantees` below, and for the same reason: Dispatch receives Offers
+   * and no Supplier records, so it must be able to tell a machine from a vendor
+   * without a second lookup (ADR 0023).
+   */
+  supplierKind: SupplierKind;
   model: string;
   capabilities: CapabilityName[];
   /**

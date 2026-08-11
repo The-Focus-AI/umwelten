@@ -24,6 +24,7 @@ const sample = (o: Partial<HeadroomSample> = {}): HeadroomSample => ({
 function offer(overrides: Partial<Offer> = {}): Offer {
   return {
     supplierId: "a",
+    supplierKind: "vendor",
     model: MODEL,
     capabilities: ["chat", "streaming"],
     guarantees: [],

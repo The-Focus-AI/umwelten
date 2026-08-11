@@ -122,6 +122,7 @@ describe("countCompletionTokens", () => {
 describe("priceRequest", () => {
   const offer = (overrides: Partial<Offer> = {}): Offer => ({
     supplierId: "s",
+    supplierKind: "vendor",
     model: "m",
     capabilities: [],
     guarantees: [],
