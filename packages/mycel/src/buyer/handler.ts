@@ -44,6 +44,7 @@ import {
   resolveChargeOwner,
   type BalanceOwner,
 } from "../metering/balances.js";
+import { createHttpTransport, type ResolveTransport } from "./transport.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
@@ -64,6 +65,11 @@ export interface BuyerHandlerOptions {
    */
   readCredential?: (envName: string | undefined) => string | undefined;
   fetchImpl?: typeof fetch;
+  /**
+   * How to reach a Supplier. Defaults to an OpenAI-compatible POST at its
+   * `baseUrl`; a machine Supplier's Connection will supply its own (ADR 0023).
+   */
+  resolveTransport?: ResolveTransport;
   /** Offers not republished within this window stop being dispatched to. */
   staleAfterMs?: number;
   /** Injectable so tests need not stand up a real JWKS endpoint. */
@@ -144,9 +150,10 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
 
 export function createBuyerHandler(opts: BuyerHandlerOptions) {
   const { store } = opts;
-  const doFetch = opts.fetchImpl ?? fetch;
   const readCredential =
     opts.readCredential ?? ((envName?: string) => (envName ? process.env[envName] : undefined));
+  const resolveTransport =
+    opts.resolveTransport ?? createHttpTransport({ fetchImpl: opts.fetchImpl, readCredential });
   const verifyCaller = opts.verifyCaller ?? createIdentityVerifier({ store });
   const balances = new Balances(store);
 
@@ -328,20 +335,14 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       if (!res.writableEnded) clientGone();
     });
 
-    const credential = readCredential(supplier.upstreamCredentialEnv);
     const streaming = body.stream === true;
 
     let upstreamRes: Response;
     try {
-      upstreamRes = await doFetch(`${supplier.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(credential ? { authorization: `Bearer ${credential}` } : {}),
-        },
-        body: JSON.stringify(body),
-        signal: upstream.signal,
-      });
+      // One call reaches the Supplier, and everything below operates on what it
+      // returns. That is what lets a Connection later satisfy this without the
+      // relay — or its metering — changing (ADR 0023).
+      upstreamRes = await resolveTransport(supplier)(body, upstream.signal);
     } catch (error) {
       if (upstream.signal.aborted) {
         // The caller left before the upstream answered. The prompt was still
