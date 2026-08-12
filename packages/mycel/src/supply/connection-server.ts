@@ -169,6 +169,18 @@ function send(ws: WebSocket, frame: unknown): void {
 function channelFor(ws: WebSocket): Channel {
   return {
     close: () => ws.close(CLOSE.DISPLACED, "displaced"),
-    onClose: (listener) => ws.once("close", listener),
+    onClose: (listener) => ws.once("close", (code: number) => listener(isCleanClose(code))),
   };
+}
+
+/**
+ * Did the machine hang up, or did the link break?
+ *
+ * 1000 is a stated normal closure and 1005 is "closed with no code given",
+ * which is what a deliberate `close()` with no arguments produces. Everything
+ * else — 1006 above all, the code the runtime invents when a connection dies
+ * without a close frame — is the link failing.
+ */
+function isCleanClose(code: number): boolean {
+  return code === 1000 || code === 1005;
 }

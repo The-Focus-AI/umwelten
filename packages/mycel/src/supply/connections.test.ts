@@ -10,7 +10,7 @@ import { ConnectionRegistry, type Channel } from "./connections.js";
 
 /** A socket stand-in. Nothing here opens a port. */
 function fakeChannel() {
-  const listeners: (() => void)[] = [];
+  const listeners: ((clean: boolean) => void)[] = [];
   let closed = false;
   const channel: Channel = {
     close: () => {
@@ -24,7 +24,9 @@ function fakeChannel() {
       return closed;
     },
     /** The far end going away on its own — a lid closing, a process dying. */
-    dropFromFarEnd: () => listeners.forEach((l) => l()),
+    dropFromFarEnd: () => listeners.forEach((l) => l(false)),
+    /** The far end hanging up deliberately — an operator stopping the agent. */
+    hangUpFromFarEnd: () => listeners.forEach((l) => l(true)),
   };
 }
 
@@ -115,6 +117,19 @@ describe("the Connection registry", () => {
       const events = await store.listConnectionEvents({ supplierId: "thor" });
       expect(events.map((e) => e.event)).toEqual(["connected", "disconnected"]);
       expect(events[1].reason).toBe("transport-error");
+    });
+
+    it("tells a machine hanging up apart from a machine falling off the network", async () => {
+      // Both end the Connection and both withdraw the machine, so availability
+      // does not care. The operator staring at a log at 3am does: one of these
+      // is someone stopping the agent, the other is a network to go and fix.
+      const socket = fakeChannel();
+      await registry.connect("thor", socket.channel);
+      socket.hangUpFromFarEnd();
+      await Promise.resolve();
+
+      const [, disconnect] = await store.listConnectionEvents({ supplierId: "thor" });
+      expect(disconnect.reason).toBe("closed");
     });
 
     it("keeps one machine's history separate from another's", async () => {

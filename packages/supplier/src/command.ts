@@ -26,6 +26,7 @@ import { HEADROOM_POLICY } from "./headroom.js";
 import { defaultServiceKind, renderService, type ServiceKind } from "./service.js";
 import { OfferSupervisor } from "./supervisor.js";
 import { runServeLoop, type ServeEffects } from "./serve.js";
+import { dialIn } from "./dial.js";
 import { fingerprint, reprobeReason, type ProbeInputs } from "./fingerprint.js";
 import {
   STATE_VERSION,
@@ -788,6 +789,60 @@ supplierCommand
         user: opts.user,
       }),
     );
+  });
+
+supplierCommand
+  .command("dial")
+  .description("Hold a Connection open to the Exchange (ADR 0023)")
+  .option("--mycel <url>", "Mycel base URL (or MYCEL_URL)")
+  .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
+  .action(async (opts: CliOptions) => {
+    const exchangeUrl = opts.mycel ?? process.env.MYCEL_URL;
+    const credential = opts.credential ?? process.env.SUPPLIER_CREDENTIAL;
+    if (!exchangeUrl || !credential) {
+      console.error("Need both --mycel and --credential (or MYCEL_URL / SUPPLIER_CREDENTIAL).");
+      process.exitCode = 1;
+      return;
+    }
+
+    // Nothing listens on this machine. The Connection is outbound and held —
+    // no tunnel, no ACL, no DNS, no firewall rule (ADR 0023).
+    const abort = new AbortController();
+    const stop = () => {
+      console.log("\nhanging up; the Exchange will see this machine leave immediately");
+      abort.abort();
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+
+    console.log(`dialling ${exchangeUrl} …`);
+    await dialIn({
+      exchangeUrl,
+      credential,
+      agentVersion: AGENT_VERSION,
+      signal: abort.signal,
+      onEvent: (event) => {
+        switch (event.type) {
+          case "connecting":
+            if (event.attempt > 1) console.log(`  reconnecting (attempt ${event.attempt})`);
+            break;
+          case "connected":
+            // Connected is available. There is no heartbeat to schedule and no
+            // staleness window to wait out.
+            console.log("connected — this machine is now dispatchable");
+            break;
+          case "disconnected":
+            console.log(`disconnected${event.code ? ` (${event.code})` : ""}`);
+            break;
+          case "refused":
+            console.error(`refused: ${event.reason}`);
+            break;
+          case "retrying":
+            console.log(`  retrying in ${Math.round(event.inMs / 1000)}s`);
+            break;
+        }
+      },
+    });
   });
 
 supplierCommand

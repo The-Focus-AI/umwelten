@@ -158,6 +158,9 @@ describe("dialling in", () => {
     expect(exchange.connections.isConnected("thor")).toBe(false);
     const events = await store.listConnectionEvents({ supplierId: "thor" });
     expect(events.at(-1)?.event).toBe("disconnected");
+    // The machine hung up on purpose, and the log says so rather than blaming
+    // the network for an operator pressing Ctrl-C.
+    expect(events.at(-1)?.reason).toBe("closed");
   });
 
   it("lets a reconnecting machine displace its own stale Connection", async () => {

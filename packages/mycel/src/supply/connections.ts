@@ -28,8 +28,16 @@ import type { ExchangeStore } from "../store/types.js";
  */
 export interface Channel {
   close(): void;
-  /** Fires when the far end goes away without being asked to. */
-  onClose(listener: () => void): void;
+  /**
+   * Fires when the far end goes away without being asked to.
+   *
+   * `clean` says whether the far end hung up deliberately or the link broke.
+   * The adapter decides which is which, because that judgement is transport
+   * specific; the registry only writes down which one it was. An operator
+   * reading the log needs to tell "thor's operator stopped it" from "thor fell
+   * off the network", and one reason for both cannot answer that.
+   */
+  onClose(listener: (clean: boolean) => void): void;
 }
 
 export interface Connection {
@@ -98,9 +106,9 @@ export class ConnectionRegistry {
 
     // Only this Connection's own departure counts. A stale listener from a
     // socket that was already displaced must not evict its replacement.
-    channel.onClose(() => {
+    channel.onClose((clean) => {
       if (this.live.get(supplierId) === connection) {
-        void this.disconnect(supplierId, "transport-error");
+        void this.disconnect(supplierId, clean ? "closed" : "transport-error");
       }
     });
 
