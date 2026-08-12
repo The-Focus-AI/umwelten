@@ -14,6 +14,8 @@ import { neon } from "@neondatabase/serverless";
 import { DEFAULT_PRICING } from "../types.js";
 import type {
   Application,
+  ConnectionEvent,
+  DisconnectReason,
   Balance,
   BalanceOwnerKind,
   CapabilityName,
@@ -178,10 +180,64 @@ export class NeonStore implements ExchangeStore {
       )
     `;
 
+    // Append-only. Connection history, never connection state: there is no
+    // `connected` column, because a boolean written before a crash still reads
+    // `connected` after the restart, and something would have to remember to
+    // correct it. Rows about the past stay true (ADR 0023).
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_connection_event (
+        id TEXT PRIMARY KEY,
+        supplier_id TEXT NOT NULL,
+        event TEXT NOT NULL,
+        reason TEXT,
+        at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+
+    // "Was thor up at 03:00" and "how often does it flap" are both per-supplier
+    // scans over time.
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_connection_event_supplier_idx
+        ON exchange_connection_event (supplier_id, at)
+    `;
+
     await this.sql`
       CREATE INDEX IF NOT EXISTS exchange_ledger_owner_idx
         ON exchange_ledger_entry (owner_kind, owner_key)
     `;
+  }
+
+  // ── Connections ───────────────────────────────────────────────────
+
+  async appendConnectionEvent(event: ConnectionEvent): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_connection_event (id, supplier_id, event, reason, at)
+      VALUES (${event.id}, ${event.supplierId}, ${event.event},
+              ${event.reason ?? null}, ${event.at.toISOString()})
+    `;
+  }
+
+  async listConnectionEvents(
+    filter: { supplierId?: string } = {},
+  ): Promise<ConnectionEvent[]> {
+    const rows = (
+      filter.supplierId
+        ? await this.sql`
+            SELECT * FROM exchange_connection_event
+            WHERE supplier_id = ${filter.supplierId} ORDER BY at ASC
+          `
+        : await this.sql`SELECT * FROM exchange_connection_event ORDER BY at ASC`
+    ) as Row[];
+
+    return rows.map((row) => ({
+      id: String(row.id),
+      supplierId: String(row.supplier_id),
+      event: String(row.event) as ConnectionEvent["event"],
+      reason: row.reason === null || row.reason === undefined
+        ? undefined
+        : (String(row.reason) as DisconnectReason),
+      at: new Date(row.at as string),
+    }));
   }
 
   // ── Money ─────────────────────────────────────────────────────────

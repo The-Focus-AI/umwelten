@@ -13,6 +13,8 @@ import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
 import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js";
 import { createModelsHandler } from "./buyer/models.js";
+import { ConnectionRegistry } from "./supply/connections.js";
+import { attachConnectionServer } from "./supply/connection-server.js";
 import type { ExchangeStore } from "./store/types.js";
 
 /**
@@ -36,12 +38,16 @@ export interface ExchangeServerOptions {
    * its `baseUrl`; a machine Supplier's Connection supplies its own (ADR 0023).
    */
   resolveTransport?: BuyerHandlerOptions["resolveTransport"];
+  /** How long a dialled-in socket may stay open without saying hello. */
+  handshakeTimeoutMs?: number;
 }
 
 export interface RunningExchange {
   server: Server;
   port: number;
   url: string;
+  /** Which machine Suppliers are connected right now (ADR 0023). */
+  connections: ConnectionRegistry;
   close: () => Promise<void>;
 }
 
@@ -112,6 +118,16 @@ export async function createExchangeServer(
     });
   });
 
+  // Machine Suppliers dial in on the same port. Empty on boot, which is the
+  // correct state: nothing is connected, because nothing is.
+  const connections = new ConnectionRegistry({ store: opts.store });
+  const connectionServer = attachConnectionServer({
+    server,
+    store: opts.store,
+    registry: connections,
+    handshakeTimeoutMs: opts.handshakeTimeoutMs,
+  });
+
   const host = opts.host ?? "0.0.0.0";
   await new Promise<void>((resolve) => server.listen(opts.port ?? DEFAULT_PORT, host, resolve));
 
@@ -122,10 +138,16 @@ export async function createExchangeServer(
     server,
     port,
     url: `http://${host}:${port}`,
-    close: () =>
-      new Promise<void>((resolve) => {
+    connections,
+    close: async () => {
+      // Hang up on machines deliberately, so their last log entry says
+      // `shutdown` rather than looking like every socket died at once.
+      await connections.closeAll();
+      connectionServer.close();
+      await new Promise<void>((resolve) => {
         server.closeAllConnections?.();
         server.close(() => resolve());
-      }),
+      });
+    },
   };
 }

@@ -18,10 +18,12 @@
   },
   "dependencies": {
     "@umwelten/core": "workspace:*",
-    "commander": "^15.0.0"
+    "commander": "^15.0.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@types/ws": "^8.18.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },

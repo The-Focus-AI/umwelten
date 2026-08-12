@@ -133,6 +133,48 @@ export function runExchangeStoreConformance(
         await store.createSupplier(supplierFixture());
       });
 
+      it("appends connection events and never rewrites them", async () => {
+        // History, not state. Both implementations have to agree, because an
+        // operator asking "was thor up at 03:00" is asking the database a
+        // question the in-memory registry cannot answer after a restart.
+        await store.appendConnectionEvent({
+          id: "e1",
+          supplierId: "office-spark",
+          event: "connected",
+          at: new Date("2026-08-11T03:00:00Z"),
+        });
+        await store.appendConnectionEvent({
+          id: "e2",
+          supplierId: "office-spark",
+          event: "disconnected",
+          reason: "transport-error",
+          at: new Date("2026-08-11T04:00:00Z"),
+        });
+
+        const events = await store.listConnectionEvents({ supplierId: "office-spark" });
+        expect(events.map((e) => e.event)).toEqual(["connected", "disconnected"]);
+        expect(events[0].reason).toBeUndefined();
+        expect(events[1].reason).toBe("transport-error");
+      });
+
+      it("keeps one Supplier's connection history out of another's", async () => {
+        await store.appendConnectionEvent({
+          id: "e1",
+          supplierId: "office-spark",
+          event: "connected",
+          at: new Date(),
+        });
+        await store.appendConnectionEvent({
+          id: "e2",
+          supplierId: "thor",
+          event: "connected",
+          at: new Date(),
+        });
+
+        expect(await store.listConnectionEvents({ supplierId: "thor" })).toHaveLength(1);
+        expect(await store.listConnectionEvents()).toHaveLength(2);
+      });
+
       it("carries the Supplier's kind onto every Offer", async () => {
         // Dispatch receives Offers and no Supplier records, so it has to be
         // able to tell a machine from a vendor without a second lookup — the
