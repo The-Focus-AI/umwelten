@@ -590,6 +590,9 @@ importers:
       undici:
         specifier: ^8.9.0
         version: 8.9.0
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
       zod:
         specifier: ^4.4.3
         version: 4.4.3

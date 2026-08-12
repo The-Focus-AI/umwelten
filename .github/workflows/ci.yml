@@ -33,3 +33,17 @@ jobs:
         run: pnpm typecheck
       - name: Run lint
         run: pnpm lint
+
+      # The unit suite runs against `src/`, so it cannot see the published
+      # artifact at all. The one thing every user does first — run the binary —
+      # went untested until a workspace dependency that no manifest declared got
+      # inlined into the ESM bundle and `umwelten --help` began throwing
+      # "Dynamic require of \"events\" is not supported". Green tests, broken
+      # release.
+      #
+      # So: build what ships, then run it. `--help` exercises the whole import
+      # graph, which is where a bundling fault lands.
+      - name: Build the published package
+        run: pnpm -r build
+      - name: Smoke-test the published binary
+        run: node packages/umwelten/dist/cli/entry.js --help
