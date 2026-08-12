@@ -57,7 +57,7 @@
     "@types/react-dom": "^19.2.3",
     "ink-testing-library": "^4.0.0",
     "react-dom": "^19.2.8",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   },
   "private": true

@@ -76,7 +76,7 @@
     "@umwelten/supplier": "workspace:*",
     "@umwelten/ui": "workspace:*",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "files": [
     "dist"
