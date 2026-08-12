@@ -6,19 +6,21 @@ that Mycel dispatches to. Written against the deployed stage 1 Exchange at
 
 > **Read this first.**
 >
-> **ADR 0023 — machine Suppliers dial in — is satisfied here, at the transport
-> layer.** The property the ADR is after is that Mycel never connects *to* a
-> machine: the machine holds an outbound connection and receives work over it,
-> so a box behind NAT accepts no inbound connections and has no address to
-> register. A reverse tunnel gives you exactly that today, with ssh instead of a
-> protocol. Section 1 does it that way.
+> **ADR 0023's dial-in protocol is half built.** `umwelten supplier dial` exists
+> and works: thor opens an outbound WebSocket, the Exchange records it, and the
+> Connection ending withdraws the machine with no staleness window involved.
+> **Nothing is dispatched over it yet** — offers over the Connection (#379), the
+> relay pushing work down it (#380) and Dispatch consulting the live map (#381)
+> are still open. Section 0 is how to exercise what is built; it is a real test
+> of the liveness half and carries no traffic.
 >
-> What the ADR's own dial-in protocol adds beyond reachability is **liveness**
-> — "connected is available; disconnected is unavailable", with Dispatch
-> consulting live connections — plus multiplexing work over one channel. Those
-> are not free with a tunnel: Mycel still infers thor's liveness from whether
-> its Offers were republished recently, and a dead vLLM behind a healthy tunnel
-> looks dispatchable until a request fails.
+> Until #380 and #381 land, **traffic still needs section 1's tunnel.** That
+> satisfies the ADR's transport property — Mycel never connects *to* thor, so a
+> box behind NAT accepts no inbound connections and has no address to register —
+> with ssh instead of a protocol. What it does not give you is liveness: Mycel
+> infers thor is up from whether its Offers were republished recently, and a
+> dead vLLM behind a healthy tunnel looks dispatchable until a request fails.
+> Run both for now, and delete section 1 when #381 lands.
 >
 > **ADR 0015 — Capabilities are probed through the serving path — is not
 > satisfied.** `umwelten supplier` cannot probe vLLM: `discoverRuntimes` knows
@@ -31,7 +33,74 @@ that Mycel dispatches to. Written against the deployed stage 1 Exchange at
 > The other consequence: **thor publishes no Headroom.** Dispatch scores it on
 > price alone and cannot know whether it batches or queues.
 
-## 1. Thor dials in — a reverse tunnel
+## 0. Thor dials in — the real protocol
+
+This is the ADR 0023 path. Thor opens one outbound WebSocket and holds it;
+nothing listens on thor, and there is no tunnel, no `GatewayPorts`, no firewall
+rule and no address to register.
+
+**Register thor as an agent.** An agent has no `--base-url` — that is the whole
+point, and passing one is refused rather than ignored. On `mycel-host`, with the
+operator alias from `deploy/mycel/README.md`:
+
+```bash
+mycel supplier register thor-dial \
+  --display-name "thor (vLLM, dial-in)" \
+  --kind agent \
+  --guarantees on-premise
+```
+
+It prints a credential once. That credential is what thor presents.
+
+**On thor**, hold the Connection:
+
+```bash
+umwelten supplier dial \
+  --mycel https://mycel.thefocus.ai \
+  --credential "$SUPPLIER_CREDENTIAL"
+```
+
+You should see:
+
+```
+dialling https://mycel.thefocus.ai …
+connected — this machine is now dispatchable
+```
+
+Close the lid, kill the process, pull the ethernet — it reconnects, and the
+backoff doubles only while it is failing to connect at all, resetting after any
+Connection that actually lived. Ctrl-C hangs up deliberately, and the Exchange
+sees thor leave immediately rather than waiting out a window.
+
+**From `mycel-host`**, the durable log is the check that matters — it is what
+distinguishes "thor's operator stopped it" from "thor fell off the network":
+
+```bash
+mycel supplier connections thor-dial
+```
+
+Each row is `connected` or `disconnected` with a reason: `closed` (thor hung up),
+`transport-error` (the link broke), `displaced` (thor dialled again and its stale
+Connection was replaced), `shutdown` (the Exchange stopped).
+
+> **Two caveats before you try this.**
+>
+> **The deployed Exchange must be new enough.** The production container predates
+> this endpoint; redeploy (`./deploy/mycel/deploy.sh`) before dialling, or every
+> attempt gets a 404 on the upgrade.
+>
+> **`umwelten supplier dial` must be in the version thor has.** Check with
+> `umwelten supplier dial --help`; if it is not there, the published package
+> predates it.
+
+Caddy proxies the upgrade without configuration — `reverse_proxy` handles
+WebSockets natively, so nothing in `docker-compose.yml` changes for this.
+
+**What this does not yet do:** carry a request. Thor being connected is recorded
+and observable, and Dispatch does not consult it yet (#381). For traffic today,
+also do section 1.
+
+## 1. Thor carries traffic — a reverse tunnel
 
 vLLM is OpenAI-shaped on `:4000`, and Mycel already speaks that. The only real
 question is who opens the TCP connection, and the answer is **thor**.
@@ -281,13 +350,14 @@ each was rejected — `missing-guarantee` is a different problem from
   behaviour under concurrency, so Dispatch cannot tell whether it batches or
   queues and scores it on price alone. A `queues` box that is cheap wins every
   request and makes the second customer wait.
-- **No liveness.** "Offers republished recently" is a proxy for "thor is up".
-  A dead vLLM with a live sync loop still looks dispatchable until a request
-  fails. ADR 0023's held connection is what replaces this, and it deletes the
-  whole staleness apparatus with it.
+- **No liveness *in Dispatch*.** Section 0's Connection is real and recorded,
+  but #381 has not landed, so routing still runs off "Offers republished
+  recently" as a proxy for "thor is up". A dead vLLM with a live sync loop looks
+  dispatchable until a request fails. When #381 lands, the held Connection
+  replaces this and deletes the whole staleness apparatus with it (#382).
 - **No probed Capabilities.** Everything in the Offer is your claim.
 
-All three close when the dial-in protocol lands — specified in
-`docs/architecture/dial-in-protocol.md`, where thor runs one command, holds a
-Connection open, and needs none of section 1. Until then, this is a real Supplier
-with a manual seam where the agent should be.
+Headroom and Capabilities close when a vLLM runtime is added to the supplier
+agent (#377), which lets `umwelten supplier probe` reach thor through its
+serving path as ADR 0015 requires. Liveness closes with #379–#382. Until then,
+this is a real Supplier with a manual seam where the agent should be.

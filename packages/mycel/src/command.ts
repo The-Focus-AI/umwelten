@@ -328,6 +328,44 @@ withDatabase(supplier.command("register <id>"))
     });
   });
 
+withDatabase(supplier.command("connections [supplierId]"))
+  .description("Show the history of machine Suppliers dialling in and out")
+  .option("--limit <n>", "Show only the most recent N events")
+  .action(async (supplierId: string | undefined, opts: CliOptions & { limit?: string }) => {
+    await guard(async () => {
+      const store = openStore(opts);
+      const events = await store.listConnectionEvents(supplierId ? { supplierId } : undefined);
+
+      if (events.length === 0) {
+        // Says nothing about whether a machine is connected *now* — this is a
+        // history, and the answer to "now" lives in one process's memory by
+        // design (ADR 0023). An empty history means nothing ever dialled in.
+        console.log(
+          supplierId
+            ? `No connection history for ${supplierId}. Has it ever dialled in?`
+            : "No machine Supplier has ever dialled in.",
+        );
+        return;
+      }
+
+      const limit = opts.limit ? Number(opts.limit) : undefined;
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new MycelCliError(`--limit wants a positive whole number, got "${opts.limit}".`);
+      }
+      const shown = limit ? events.slice(-limit) : events;
+
+      for (const event of shown) {
+        // The reason is the point of writing these down. "Someone stopped the
+        // agent" and "go and fix the network" are different problems, and an
+        // undifferentiated disconnect cannot tell them apart.
+        console.log(
+          `${event.at.toISOString()}  ${event.supplierId.padEnd(16)}  ` +
+            `${event.event}${event.reason ? ` (${event.reason})` : ""}`,
+        );
+      }
+    });
+  });
+
 const offers = mycelCommand.command("offers").description("What a Supplier is selling");
 
 /**
