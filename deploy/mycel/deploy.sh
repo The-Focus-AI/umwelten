@@ -40,6 +40,31 @@ PREVIOUS="mycel:previous"
 
 log() { echo "[mycel] $*"; }
 
+# Say what is about to be deployed.
+#
+# This builds whatever is in the working tree, and once did so after a
+# `git pull` had failed on divergent branches — the pull printed its error, the
+# deploy ran on the next line, and it took a health-check failure to notice
+# that production had just been handed the same revision it already had. The
+# script cannot know which revision you meant; it can refuse to be quiet about
+# which one it found.
+describe_revision() {
+  git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || { log "not a git checkout"; return; }
+
+  local revision dirty="" behind=0
+  revision="$(git -C "$ROOT" rev-parse --short HEAD)"
+  git -C "$ROOT" diff --quiet HEAD -- 2>/dev/null || dirty=", dirty"
+
+  if git -C "$ROOT" rev-parse --verify -q "@{upstream}" >/dev/null 2>&1; then
+    behind="$(git -C "$ROOT" rev-list --count "HEAD..@{upstream}" 2>/dev/null || echo 0)"
+  fi
+
+  log "deploying $revision ($(git -C "$ROOT" rev-parse --abbrev-ref HEAD)$dirty)"
+  if [[ "$behind" != "0" ]]; then
+    log "WARNING: $behind commit(s) behind upstream — did a git pull fail?"
+  fi
+}
+
 # Health is not "did the container start". It asks whether the store is
 # reachable, because a Mycel that answers while Neon is gone will happily take
 # requests it cannot meter.
@@ -56,6 +81,8 @@ wait_for_health() {
   done
 }
 
+describe_revision
+
 # Keep the outgoing image addressable before it is replaced. Rolling back is
 # then a retag and a restart, and costs nothing to have prepared.
 if docker image inspect mycel >/dev/null 2>&1; then
@@ -69,9 +96,17 @@ fi
 
 # Bundle first, in a throwaway node container. Nothing needs to be installed on
 # this host, and the image stays a single COPY of the result.
+#
+# Then run the bundle before building an image around it. It came back once
+# dead on arrival — `ws` inlined into the ESM output with its `require()`
+# rewritten to a stub that throws — and because nothing here executed it, the
+# first thing to notice was the health check, after the container had already
+# replaced the running one. `--help` is enough: an import-time fault kills
+# every command, and a failure here costs a build instead of a rollback.
 log "bundling the exchange"
 docker run --rm -v "$ROOT:/w" -w /w node:22-slim sh -c \
-  'corepack enable && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build'
+  'corepack enable && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build \
+   && node packages/mycel/dist/mycel.js --help >/dev/null'
 
 log "building image from $ROOT"
 docker build -t mycel -f "$ROOT/packages/mycel/Dockerfile" "$ROOT"

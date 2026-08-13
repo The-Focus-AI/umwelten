@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * The Exchange as its own executable.
  *
