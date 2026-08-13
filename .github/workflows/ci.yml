@@ -47,3 +47,13 @@ jobs:
         run: pnpm -r build
       - name: Smoke-test the published binary
         run: node packages/umwelten/dist/cli/entry.js --help
+
+      # The Exchange ships as its own bundle with its own tsup config — a
+      # different artifact from the npm package, and it broke the same way and
+      # separately: `ws` inlined into ESM, `require()` rewritten to a stub that
+      # throws at import. The container then died on boot, and the first thing
+      # that noticed was deploy.sh's health check on the production host.
+      #
+      # `--help` is enough, because an import-time fault kills every command.
+      - name: Smoke-test the Exchange bundle
+        run: node packages/mycel/dist/mycel.js --help
