@@ -205,17 +205,16 @@ export function scoreOffers(
 }
 
 /**
- * How long an Offer stays dispatchable without being republished.
+ * How long a **vendor's** Offer stays dispatchable without being republished.
  *
- * A supplier agent heartbeats every five minutes, so fifteen is three chances
- * to be heard — one missed publish over a flaky link does not take a working
- * machine out of the pool, and a machine that has genuinely been unplugged is
- * out of it within a quarter of an hour.
+ * A vendor runs no agent and holds no Connection, so silence is the only signal
+ * there is: the operator republishes on its behalf, and an Offer that stops
+ * being republished is one nobody is standing behind any more.
  *
- * This is the half of withdrawal that survives an agent it cannot run: a live
- * agent withdraws the moment it knows, and this catches everything that killed
- * the agent before it could say anything. Neither is the single point of
- * failure, which is only true because both are on by default.
+ * This used to apply to machines too, as the half of withdrawal that survived
+ * an agent dying before it could say anything. It does not any more (#382) — a
+ * machine's Connection answers the question directly, and inferring the same
+ * answer from silence could only ever disagree with the evidence.
  */
 export const DEFAULT_STALE_AFTER_MS = 15 * 60_000;
 
@@ -234,9 +233,8 @@ export function dispatch(
      *
      * Passed in, never reached for: Dispatch stays a pure function of Offers,
      * requirements and injected state, so selection is testable without a
-     * socket. Undefined means "this deployment has no Connection registry", and
-     * every Offer is then judged on staleness alone — the pre-ADR-0023
-     * behaviour, which is what the existing suites assert.
+     * socket. Undefined means this Exchange cannot observe liveness at all, and
+     * no machine is then dispatchable — vendors are unaffected.
      */
     connectedSupplierIds?: Set<string>;
   } = {},
@@ -273,20 +271,31 @@ export function dispatch(
     //
     // Vendors are untouched — a public API is reachable by definition, has no
     // Connection to hold, and is still judged on staleness.
-    if (offer.supplierKind === "agent" && opts.connectedSupplierIds !== undefined) {
-      if (!opts.connectedSupplierIds.has(offer.supplierId)) {
+    if (offer.supplierKind === "agent") {
+      // Staleness does not apply to a machine at all (#382). Not "applies as a
+      // backstop" — a machine holding a Connection is available and one that is
+      // not is withdrawn, and adding a second opinion would only ever be able
+      // to disagree with the evidence.
+      //
+      // No connection set means this Exchange cannot observe liveness, and a
+      // machine whose liveness cannot be observed is not one to route to. That
+      // is the same answer as disconnected, for the same reason.
+      if (!opts.connectedSupplierIds?.has(offer.supplierId)) {
         note("supplier-disconnected");
         continue;
       }
     } else {
-      // Defaulted rather than opt-in. An expiry window nobody remembered to
-      // configure is an expiry window that never fires, and then the two
-      // mechanisms that were supposed to overlap are one.
+      // Vendors keep it. They have no agent and no Connection, so silence is
+      // still the only signal there is. Whether it should be dropped for them
+      // too is a separate decision ADR 0023 deliberately leaves open.
+      //
+      // Defaulted rather than opt-in: an expiry window nobody remembered to
+      // configure is an expiry window that never fires.
       const staleAfterMs = opts.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
       if (staleAfterMs > 0 && now.getTime() - offer.publishedAt.getTime() > staleAfterMs) {
-        // A Supplier that stopped reporting has probably gone. Its last known
-        // capabilities are a guess, and dispatching on a guess is how a buyer
-        // discovers an unplugged machine.
+        // A vendor that stopped being republished has probably gone. Its last
+        // known capabilities are a guess, and dispatching on a guess is how a
+        // buyer discovers an unplugged machine.
         note("offer-stale");
         continue;
       }

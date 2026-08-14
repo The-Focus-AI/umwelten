@@ -210,19 +210,37 @@ WantedBy=multi-user.target
 
 ### 2.4 Your catalogue
 
-If you have probed this machine, your catalogue travels **with the connection** —
-`supplier dial` sends it in the handshake, so it publishes itself:
+Probe the machine. This runs each model and watches what happens — it does not
+read a list of names:
 
 ```bash
-pnpm run cli -- supplier probe        # measures capabilities through the serving path
+export VLLM_BASE_URL=http://localhost:8000/v1     # if not the default
+export VLLM_API_KEY=YOUR_RUNTIME_KEY              # if the server wants one
+
+pnpm run cli -- supplier probe
 ```
 
-It only re-probes when the machine's fingerprint changes, so reconnecting costs
-no measurement. The agent prints which probe it is publishing when it dials.
+Recognised runtimes: **ollama, LM Studio, LlamaBarn, llama-swap, vLLM**. Each
+model is tested for chat, streaming, tool calling, structured output and
+reasoning by actually being asked to do them, then measured for throughput at
+two concurrency levels.
 
-**If your runtime cannot be probed** — vLLM today (#377) — the operator publishes
-on your behalf instead. Find the exact model id your runtime answers to, because
-the buyer's request is forwarded to you unmodified:
+A capability that fails to demonstrate produces **no Offer**, not an Offer
+missing that capability — "we did not establish this" is not "this machine
+cannot do it".
+
+Then your catalogue travels **with the connection**: `supplier dial` sends it in
+the handshake, so it publishes itself. It re-probes only when the machine's
+fingerprint changes, so reconnecting costs no measurement, and the agent prints
+which probe it is publishing.
+
+> **Headroom caveat.** Sampling runs at concurrency 1 and 4, calibrated for
+> llama.cpp-class runtimes. A vLLM box comfortably serving 32–64 is sampled
+> entirely below its knee, so its measured throughput understates it.
+
+**If your runtime is none of the five**, the operator publishes on your behalf.
+Find the exact model id it answers to, because the buyer's request reaches you
+unmodified:
 
 ```bash
 curl -s http://localhost:8000/v1/models | jq -r '.data[].id'
@@ -250,13 +268,14 @@ mycel price YOUR_ID THAT_MODEL_ID \
   not granted refuses the connection outright — no silent downgrade.
 - **`--managed`** says the operator controls this runtime, which is what allows
   committing to a context size or a quantization at all.
-- **Capabilities are claims** when declared this way. Only list what has been
-  verified on this build — an over-claimed capability routes a request somewhere
-  that cannot serve it.
+- **Capabilities are claims** when declared this way, and evidence when probed.
+  Only list what has been verified on this build — an over-claimed capability
+  routes a request somewhere that cannot serve it.
 - **Wholesale zero** is correct for hardware you own. Nothing is owed per token,
   and it still charges the buyer; that gap is the point.
-- **No `--watch`.** A machine's connection *is* its availability, so its Offers
-  never expire. Prices the operator set survive every disconnect.
+- **No `--watch`, ever, for a machine.** A machine's connection *is* its
+  availability, so its Offers never expire at any age and it drops out the
+  instant it disconnects. Prices the operator set survive every disconnect.
 
 ### 2.5 Check it
 
@@ -386,11 +405,13 @@ A Balance is the sum of its entries and never a stored total, so this prints bot
 
 ## What this does not do yet
 
-- **vLLM cannot be probed** (#377), so a vLLM machine's capabilities are declared
-  by the operator rather than measured through the serving path. Whoever declares
-  them is liable for them, and nothing checks.
-- **No throughput measurement on those machines**, so dispatch scores them on
-  price alone and cannot tell whether one batches or queues.
+- **Headroom sampling is mis-ranged for big serving runtimes.** It samples at
+  concurrency 1 and 4, which is right for llama.cpp and well below the knee of a
+  vLLM box doing 32–64. Such a box's measured throughput understates it, and
+  dispatch scores it accordingly.
+- **A runtime outside the recognised five is invisible to `probe`**, so its
+  capabilities have to be declared by the operator, who is then liable for them
+  with nothing checking.
 
 ## Where things are
 

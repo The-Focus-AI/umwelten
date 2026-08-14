@@ -416,12 +416,15 @@ filtered on the container name. Then the `considered` list on a failed dispatch,
 which records every Offer weighed and why each was rejected — "why did this
 request go there" is otherwise unanswerable after the fact.
 
-**Watch for:** Offers expiring. (Doomed — see ADR 0023. Until dial-in lands,
-this is still how it behaves.) Dispatch drops an Offer not republished within 15
-minutes (`DEFAULT_STALE_AFTER_MS`). A vendor's synced catalogue has no agent
-heartbeating for it, so **a synced Offer set needs re-syncing on that cadence or
-its Offers will expire** — the first thing that will surprise you in stage 1, and
-the reason `offers sync` should be a scheduled job rather than a one-shot.
+**Watch for:** a vendor's Offers expiring. Dispatch drops a vendor Offer not
+republished within 15 minutes (`DEFAULT_STALE_AFTER_MS`), and a vendor has no
+agent republishing for it, so **a synced Offer set needs re-syncing on that
+cadence** — which is why `offers sync` should be a scheduled job rather than a
+one-shot.
+
+Machines are not subject to this. ADR 0023 landed, and a machine Supplier's
+availability is the Connection it holds: its Offers never expire, and it drops
+out the instant it disconnects.
 
 ---
 
@@ -455,7 +458,7 @@ To cap a user at $5, grant them $5. To leave them uncapped, grant them nothing.
   connection and receives work over it. No tunnel, no ACL, no address to
   register, and the box accepts no inbound connections at all.
 
-  This also deletes the vendor-catalogue heartbeat below once it lands, because
-  the whole staleness apparatus exists only to infer a liveness that a held
-  connection makes observable.
+  Built, and it deleted the staleness apparatus for machines with it (#382) —
+  that whole mechanism existed only to infer a liveness a held connection makes
+  observable. Vendors keep it, having neither an agent nor a connection.
 - **Which local box, and which model on it** — pending.
