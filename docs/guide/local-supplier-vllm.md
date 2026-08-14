@@ -1,145 +1,36 @@
 # Selling a local vLLM box through the Exchange
 
-How to make a machine you own — `thor`, serving vLLM on port 4000 — a Supplier
-that Mycel dispatches to. Written against the deployed stage 1 Exchange at
-`mycel.thefocus.ai`.
-
-> **Read this first.**
+> **Start with [Setting up Mycel](./mycel-setup.md) instead.** Section 2 of that
+> guide is the current, complete way to sell a machine's tokens: register as an
+> agent, dial in, publish. It is shorter than this page and it is what is
+> maintained.
 >
-> **The dial-in protocol serves traffic. Section 0 is the whole setup, and you
-> can stop there.** Thor holds an outbound WebSocket, the Exchange pushes work
-> down it, and the Connection ending withdraws the machine instantly — no
-> tunnel, no `GatewayPorts`, no firewall rule, no staleness window.
->
-> Section 1's reverse tunnel is **the old way**, kept only for a machine that
-> cannot run the agent. If that is not you, skip to section 0 and ignore the
-> rest of the ssh setup entirely.
->
-> **ADR 0015 — Capabilities are probed through the serving path — is still not
-> satisfied.** `umwelten supplier` cannot probe vLLM (#377), so thor's Offers
-> are **declared by the operator**, like a vendor's. Claim narrowly: an
-> over-claimed Capability routes a request somewhere that cannot serve it, which
-> is the failure that ADR exists to prevent. Thor also publishes no Headroom, so
-> Dispatch scores it on price alone and cannot know whether it batches or queues.
->
-> **ADR 0015 — Capabilities are probed through the serving path — is not
-> satisfied.** `umwelten supplier` cannot probe vLLM: `discoverRuntimes` knows
-> ollama, lmstudio, llamabarn and llamaswap, and nothing in the codebase
-> mentions vLLM. So thor's Offers are **declared by the operator**, like a
-> vendor's. Claim narrowly — an over-claimed Capability routes a request
-> somewhere that cannot serve it, which is the failure that ADR exists to
-> prevent.
->
-> The other consequence: **thor publishes no Headroom.** Dispatch scores it on
-> price alone and cannot know whether it batches or queues.
+> This page is kept for two things that guide does not cover: the vLLM-specific
+> details below, and the **reverse tunnel** in section 1, which is the old
+> transport and is only for a machine that cannot run the supplier agent.
 
-## 0. Thor dials in — the real protocol
+Notes specific to vLLM:
 
-This is the ADR 0023 path. Thor opens one outbound WebSocket and holds it;
-nothing listens on thor, and there is no tunnel, no `GatewayPorts`, no firewall
-rule and no address to register.
-
-**Register thor as an agent.** An agent has no `--base-url` — that is the whole
-point, and passing one is refused rather than ignored. On `mycel-host`, with the
-operator alias from `deploy/mycel/README.md`:
-
-```bash
-mycel supplier register thor-dial \
-  --display-name "thor (vLLM, dial-in)" \
-  --kind agent \
-  --guarantees on-premise
-```
-
-It prints a credential once. That credential is what thor presents.
-
-**On thor**, hold the Connection and serve from the local runtime:
-
-```bash
-umwelten supplier dial \
-  --mycel https://mycel.thefocus.ai \
-  --credential "$SUPPLIER_CREDENTIAL" \
-  --runtime http://localhost:4000/v1 \
-  --runtime-key "$VLLM_API_KEY"
-```
-
-You should see:
-
-```
-dialling https://mycel.thefocus.ai …
-connected — this machine is now dispatchable
-```
-
-**`--runtime` is what makes it a Supplier.** Without it the Connection is held
-and every pushed request is dropped on the floor — useful for checking
-reachability, useless for selling. The agent says so on start rather than
-letting it look like success.
-
-Thor's vLLM key never leaves thor. The Exchange pushes a request down the
-Connection and the agent adds the key locally, so the Exchange stores no
-credential for this machine and a database compromise yields nothing that can
-spend your GPU.
-
-Then publish thor's catalogue from `mycel-host` — operator-declared, because
-`probe` cannot see vLLM (#377):
-
-```bash
-mycel offers sync thor --models thor-<short-name> --capabilities chat,streaming
-```
-
-**No `--watch` needed.** For a machine, the Connection *is* liveness: a
-connected machine's Offers never go stale, and a disconnected machine's are
-refused whatever their age. The republishing heartbeat is a vendor concern.
-
-Close the lid, kill the process, pull the ethernet — it reconnects, and the
-backoff doubles only while it is failing to connect at all, resetting after any
-Connection that actually lived. Ctrl-C hangs up deliberately, and the Exchange
-sees thor leave immediately rather than waiting out a window.
-
-**From `mycel-host`**, the durable log is the check that matters — it is what
-distinguishes "thor's operator stopped it" from "thor fell off the network":
-
-```bash
-mycel supplier connections thor-dial
-```
-
-Each row is `connected` or `disconnected` with a reason: `closed` (thor hung up),
-`transport-error` (the link broke), `displaced` (thor dialled again and its stale
-Connection was replaced), `shutdown` (the Exchange stopped).
-
-> **Two caveats before you try this.**
->
-> **The deployed Exchange must be new enough.** The production container predates
-> this endpoint; redeploy (`./deploy/mycel/deploy.sh`) before dialling, or every
-> attempt gets a 404 on the upgrade.
->
-> **`umwelten supplier dial` must be in the version thor has.** Check with
-> `umwelten supplier dial --help`; if it is not there, the published package
-> predates it.
-
-Caddy proxies the upgrade without configuration — `reverse_proxy` handles
-WebSockets natively, so nothing in `docker-compose.yml` changes for this.
-
-Now buy from it, and check where it went:
-
-```bash
-curl -s https://mycel.thefocus.ai/v1/chat/completions \
-  -H "Authorization: Bearer $APP_CREDENTIAL" \
-  -H "X-Mycel-End-User: you" \
-  -H "content-type: application/json" \
-  -d '{"model":"thor-<short-name>","stream":true,"messages":[{"role":"user","content":"hi"}]}'
-```
-
-Kill the dial and the same request 503s with `supplier-disconnected` in the
-`considered` list — a different diagnosis from `offer-stale`, and the body says
-which. Restart it and the request succeeds again with no operator action.
-
-**That is the end of the setup.** Sections 1–5 below are the older tunnel-based
-path; you need none of them.
+- **`--served-model-name` is the id buyers ask for**, and it must match what the
+  Offer carries, because the buyer's request is forwarded to your runtime
+  unmodified. The default is the full HuggingFace path, which is awkward in a
+  catalogue and pins the Offer to a repo layout. Set it explicitly.
+- **`umwelten supplier probe` cannot see vLLM** (#377). `discoverRuntimes` knows
+  ollama, lmstudio, llamabarn and llamaswap. So a vLLM box's Capabilities are
+  declared by the operator rather than measured through the serving path, which
+  ADR 0015 otherwise requires. Claim narrowly — an over-claimed Capability
+  routes a request somewhere that cannot serve it.
+- **No Headroom** for the same reason, so Dispatch scores the box on price alone
+  and cannot tell whether it batches or queues.
+- **Keep `--api-key` set** even though nothing inbound reaches the machine. It is
+  what stops anything else on that host spending your GPU outside the Exchange,
+  where it would be unmetered and invisible.
 
 ## 1. The old way — a reverse tunnel
 
-> Only for a machine that cannot run the supplier agent. Section 0 replaces all
-> of this, and gives you real liveness on top.
+> Only for a machine that cannot run the supplier agent. Section 2 of
+> [Setting up Mycel](./mycel-setup.md) replaces all of this, and gives you real
+> liveness on top.
 
 vLLM is OpenAI-shaped on `:4000`, and Mycel already speaks that. The only real
 question is who opens the TCP connection, and the answer is **thor**.
