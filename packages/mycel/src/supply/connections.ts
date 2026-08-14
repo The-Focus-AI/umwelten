@@ -28,6 +28,10 @@ import type { ExchangeStore } from "../store/types.js";
  */
 export interface Channel {
   close(): void;
+  /** Push a frame to the machine. Silently ignored once the socket is gone. */
+  send(frame: string): void;
+  /** Every frame the machine sends after the handshake. */
+  onMessage(listener: (frame: string) => void): void;
   /**
    * Fires when the far end goes away without being asked to.
    *

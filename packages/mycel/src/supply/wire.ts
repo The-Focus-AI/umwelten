@@ -26,8 +26,8 @@ export const WIRE_VERSION = 1;
 export const CONNECT_PATH = "/suppliers/connect";
 
 /**
- * The first frame, and for now the only one an agent sends. Publishing Offers
- * over the Connection arrives in #379; work frames in #380.
+ * The first frame an agent sends. Publishing Offers over the Connection
+ * arrives in #379.
  */
 export interface HelloFrame {
   type: "hello";
@@ -44,6 +44,69 @@ export interface WelcomeFrame {
 }
 
 /**
+ * Work, pushed down the Connection.
+ *
+ * **The Exchange pushes; the machine never asks.** A machine that polled for
+ * work would need a queue to poll, and a queue is a component with a depth, an
+ * eviction policy and a failure mode of its own (ADR 0023). Pushing keeps the
+ * Exchange's knowledge of what is outstanding exact, which is also the only
+ * reason it can count what is in flight.
+ *
+ * Every frame after the handshake carries an `id`, because one Connection
+ * carries many concurrent requests and their tokens must not interleave.
+ */
+export interface RequestFrame {
+  type: "request";
+  id: string;
+  /** The buyer's OpenAI-shaped payload, forwarded unmodified. */
+  body: Record<string, unknown>;
+}
+
+/**
+ * Stop generating. Sent when the buyer hung up, or credit ran out mid-stream.
+ *
+ * Without this the machine keeps burning GPU seconds on tokens nobody will
+ * receive and nobody will pay for.
+ */
+export interface CancelFrame {
+  type: "cancel";
+  id: string;
+}
+
+/** The machine's runtime answered. Status first, so a 4xx is relayed as one. */
+export interface ResponseHeadFrame {
+  type: "response-head";
+  id: string;
+  status: number;
+  headers?: Record<string, string>;
+}
+
+/** A piece of the body, as produced. Not buffered, not batched. */
+export interface ChunkFrame {
+  type: "chunk";
+  id: string;
+  data: string;
+}
+
+/** The body finished normally. */
+export interface EndFrame {
+  type: "end";
+  id: string;
+}
+
+/**
+ * The machine could not serve it, or stopped part way.
+ *
+ * Distinct from a non-2xx `response-head`: that is the runtime answering, this
+ * is the agent unable to get an answer at all.
+ */
+export interface RequestErrorFrame {
+  type: "request-error";
+  id: string;
+  message: string;
+}
+
+/**
  * The Exchange hanging up with a reason, before closing. A machine that is
  * refused should learn why rather than guess from a close code — an operator
  * debugging a silent agent needs "you are registered as a vendor", not 1008.
@@ -53,8 +116,13 @@ export interface GoodbyeFrame {
   reason: string;
 }
 
-export type AgentFrame = HelloFrame;
-export type ExchangeFrame = WelcomeFrame | GoodbyeFrame;
+export type AgentFrame =
+  | HelloFrame
+  | ResponseHeadFrame
+  | ChunkFrame
+  | EndFrame
+  | RequestErrorFrame;
+export type ExchangeFrame = WelcomeFrame | GoodbyeFrame | RequestFrame | CancelFrame;
 
 /** Close codes. 4000+ is the application-defined range. */
 export const CLOSE = {
