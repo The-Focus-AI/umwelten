@@ -8,7 +8,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { dialIn, WIRE_VERSION, type DialEvent, type DialSocket } from "./dial.js";
+import {
+  dialIn,
+  WIRE_VERSION,
+  type DialEvent,
+  type DialOptions,
+  type DialSocket,
+} from "./dial.js";
 
 /** A socket whose lifecycle the test drives. */
 function scriptedSocket() {
@@ -46,7 +52,7 @@ function scriptedSocket() {
 /** Run the dial loop for a scripted sequence of sockets, then stop it. */
 async function runDial(
   script: ((socket: ReturnType<typeof scriptedSocket>) => void)[],
-  opts: { minBackoffMs?: number } = {},
+  opts: { minBackoffMs?: number; offers?: DialOptions["offers"]; guarantees?: string[] } = {},
 ) {
   const events: DialEvent[] = [];
   const controller = new AbortController();
@@ -58,6 +64,8 @@ async function runDial(
     credential: "sk-mycel-thor",
     minBackoffMs: opts.minBackoffMs ?? 1,
     maxBackoffMs: 64,
+    offers: opts.offers,
+    guarantees: opts.guarantees,
     signal: controller.signal,
     onEvent: (e) => events.push(e),
     sleep: async () => {},
@@ -79,6 +87,16 @@ async function runDial(
   return { events, sockets };
 }
 
+/** The shape the agent hands in, straight from `toOfferDrafts`. */
+function draft(): NonNullable<DialOptions["offers"]>[number] {
+  return {
+    model: "thor-gemma",
+    capabilities: ["chat"],
+    servingMode: "managed",
+    headroom: [],
+  };
+}
+
 describe("dialling in", () => {
   it("says hello with the wire version as soon as the socket opens", async () => {
     const { sockets } = await runDial([
@@ -92,6 +110,66 @@ describe("dialling in", () => {
     const hello = JSON.parse(sockets[0].sent[0]) as Record<string, unknown>;
     expect(hello.type).toBe("hello");
     expect(hello.wireVersion).toBe(WIRE_VERSION);
+  });
+
+  it("carries the catalogue in the hello, not a frame after it", async () => {
+    // Availability and catalogue land together, so the Exchange never believes
+    // a machine is there without knowing what it serves.
+    const offers = [draft()];
+    const { sockets } = await runDial(
+      [
+        (s) => {
+          s.open();
+          s.welcome();
+          s.drop();
+        },
+      ],
+      { offers, guarantees: ["on-premise"] },
+    );
+
+    const hello = JSON.parse(sockets[0].sent[0]) as Record<string, unknown>;
+    expect(hello.offers).toEqual(offers);
+    expect(hello.guarantees).toEqual(["on-premise"]);
+  });
+
+  it("republishes on reconnect without anything re-measuring", async () => {
+    // The drafts are handed in once and sent again on every attempt, so a
+    // flapping link costs no probe.
+    const offers = [draft()];
+    const { sockets } = await runDial(
+      [
+        (s) => {
+          s.open();
+          s.welcome();
+          s.drop();
+        },
+        (s) => {
+          s.open();
+          s.welcome();
+          s.drop();
+        },
+      ],
+      { offers },
+    );
+
+    expect(sockets).toHaveLength(2);
+    for (const socket of sockets) {
+      expect((JSON.parse(socket.sent[0]) as { offers: unknown }).offers).toEqual(offers);
+    }
+  });
+
+  it("omits the catalogue entirely when it has none to publish", async () => {
+    // Absent, not empty. An empty array would wipe Offers the operator
+    // published on this machine's behalf.
+    const { sockets } = await runDial([
+      (s) => {
+        s.open();
+        s.welcome();
+        s.drop();
+      },
+    ]);
+
+    expect(JSON.parse(sockets[0].sent[0])).not.toHaveProperty("offers");
   });
 
   it("does not report connected for a socket that opens but is never welcomed", async () => {

@@ -534,9 +534,11 @@ running Exchange, which keeps a Postgres driver off every GPU box.
 Machine Suppliers now dial in rather than being dialled out to (ADR 0023);
 `docs/architecture/dial-in-protocol.md` is the design. Connected is available,
 disconnected is withdrawn, and the staleness window no longer applies to a
-machine at all. Still open: the agent publishing its own Offers over the
-Connection (#379), deleting the inferred-liveness machinery for good (#382), and
-a vLLM runtime so `probe` can reach it (#377).
+machine at all. The machine's catalogue rides the handshake — it publishes
+itself from the cached probe, so the Exchange never believes a machine is
+available without knowing what it serves, and operator-set prices survive every
+reconnect. Still open: deleting the inferred-liveness machinery for good (#382),
+and a vLLM runtime so `probe` can reach it (#377).
 
 ### `@umwelten/cli` — Command-Line Interface
 

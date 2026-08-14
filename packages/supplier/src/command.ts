@@ -831,6 +831,38 @@ supplierCommand
       console.log("no --runtime: holding the Connection, serving nothing");
     }
 
+    // The catalogue comes from the last probe, not a fresh one. Re-probing on
+    // every reconnect would make a flapping link expensive, and the fingerprint
+    // is what decides when a measurement is actually stale.
+    const cached = loadState();
+    const config = (() => {
+      try {
+        return resolveConfig(opts);
+      } catch {
+        // Dialling only needs a URL and a credential, both of which can come
+        // from flags. A machine with no saved config can still connect; it
+        // just has nothing of its own to publish.
+        return undefined;
+      }
+    })();
+
+    const offers =
+      cached && config
+        ? toOfferDrafts(cached.probed, { servingMode: config.servingMode })
+        : undefined;
+
+    if (offers) {
+      console.log(
+        `publishing ${offers.length} offer(s) from the probe of ${cached!.probedAt}` +
+          " — re-probe with `umwelten supplier probe` if the machine changed",
+      );
+    } else {
+      // Said out loud, because the alternative reading is that dialling in
+      // wiped a catalogue the operator published by hand. It does not: an
+      // absent offer set means "do not touch mine".
+      console.log("no cached probe: leaving whatever Offers the Exchange already has");
+    }
+
     console.log(`dialling ${exchangeUrl} …`);
     await dialIn({
       exchangeUrl,
@@ -839,6 +871,8 @@ supplierCommand
       signal: abort.signal,
       runtimeUrl,
       runtimeCredential: opts.runtimeKey ?? process.env.RUNTIME_API_KEY,
+      offers,
+      guarantees: config?.guarantees,
       onServeEvent: (event) => {
         switch (event.type) {
           case "request-started":

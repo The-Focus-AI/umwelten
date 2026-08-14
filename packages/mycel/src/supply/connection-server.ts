@@ -16,7 +16,10 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
 import { credentialsMatch, hashCredential } from "../auth/credentials.js";
+import { GuaranteeNotGrantedError, Operator } from "../operator.js";
+import { parsePublishedOffers } from "./handler.js";
 import type { ExchangeStore } from "../store/types.js";
+import type { Supplier } from "../types.js";
 import type { ConnectionRegistry, Channel } from "./connections.js";
 import {
   CLOSE,
@@ -56,6 +59,39 @@ function refuse(socket: Duplex, status: number, message: string): void {
 
 export function attachConnectionServer(opts: ConnectionServerOptions): { close: () => void } {
   const { server, store, registry } = opts;
+
+  /**
+   * Store a machine's catalogue, exactly as `POST /suppliers/offers` would.
+   *
+   * `replaceOffers` is what makes this safe to repeat: publishing is total, so
+   * a Model the machine stopped serving stops being advertised, and the
+   * operator's prices for a (Supplier, Model) pair survive because they live in
+   * their own table rather than on the Offer. Without that, every closed lid
+   * would silently reset a machine to default pricing.
+   */
+  async function publishFromHello(
+    supplier: Supplier,
+    hello: HelloFrame,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    try {
+      // Refused, never downgraded. A compromised agent must not be able to
+      // promote itself into eligibility for on-premise traffic, and a
+      // misconfigured one should hear about it rather than quietly serve
+      // without the guarantee it believes it has (ADR 0012).
+      Operator.assertGuaranteesGranted(supplier, hello.guarantees ?? []);
+      const offers = parsePublishedOffers({ offers: hello.offers });
+      await store.replaceOffers(supplier.id, offers);
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof GuaranteeNotGrantedError) {
+        return {
+          ok: false,
+          reason: `${error.message} Granted: ${supplier.grantedGuarantees.join(", ") || "none"}.`,
+        };
+      }
+      return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  }
   const handshakeTimeoutMs = opts.handshakeTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
   const pingIntervalMs = opts.pingIntervalMs ?? PING_INTERVAL_MS;
   const wss = new WebSocketServer({ noServer: true });
@@ -86,11 +122,12 @@ export function attachConnectionServer(opts: ConnectionServerOptions): { close: 
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
-      void onConnected(ws, supplier.id);
+      void onConnected(ws, supplier);
     });
   };
 
-  async function onConnected(ws: WebSocket, supplierId: string): Promise<void> {
+  async function onConnected(ws: WebSocket, supplier: Supplier): Promise<void> {
+    const supplierId = supplier.id;
     // Nothing is registered until the machine says hello. A socket that opens
     // and goes quiet is not a Supplier the Exchange should route to.
     let registered = false;
@@ -113,6 +150,20 @@ export function attachConnectionServer(opts: ConnectionServerOptions): { close: 
         send(ws, { type: "goodbye", reason: `wire version ${WIRE_VERSION} required` });
         ws.close(CLOSE.WIRE_VERSION, "wire version");
         return;
+      }
+
+      // The catalogue lands before the Connection is registered, so a rejected
+      // one never produces a machine Dispatch believes in. Same validation and
+      // same store call as `POST /suppliers/offers` — one implementation,
+      // because a second would drift and the drift would be in what the
+      // Exchange is willing to sell.
+      if (hello.offers !== undefined) {
+        const published = await publishFromHello(supplier, hello);
+        if (!published.ok) {
+          send(ws, { type: "goodbye", reason: published.reason });
+          ws.close(CLOSE.PUBLISH_REJECTED, "publish rejected");
+          return;
+        }
       }
 
       registered = true;

@@ -208,37 +208,55 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-### 2.4 The operator publishes your catalogue
+### 2.4 Your catalogue
 
-Find the exact model id your runtime answers to — it must match, because the
-buyer's request is forwarded to you unmodified:
+If you have probed this machine, your catalogue travels **with the connection** —
+`supplier dial` sends it in the handshake, so it publishes itself:
+
+```bash
+pnpm run cli -- supplier probe        # measures capabilities through the serving path
+```
+
+It only re-probes when the machine's fingerprint changes, so reconnecting costs
+no measurement. The agent prints which probe it is publishing when it dials.
+
+**If your runtime cannot be probed** — vLLM today (#377) — the operator publishes
+on your behalf instead. Find the exact model id your runtime answers to, because
+the buyer's request is forwarded to you unmodified:
 
 ```bash
 curl -s http://localhost:8000/v1/models | jq -r '.data[].id'
 ```
-
-Give that to the operator, who publishes and prices it:
 
 ```bash
 mycel offers sync YOUR_ID \
   --models THAT_MODEL_ID \
   --capabilities chat,streaming,tool-calling \
   --managed --context 128000 --quantization NVFP4
+```
 
+Either way the operator sets the price, always:
+
+```bash
 mycel price YOUR_ID THAT_MODEL_ID \
   --wholesale-prompt 0 --wholesale-completion 0 \
   --retail-prompt 200000 --retail-completion 600000
 ```
 
+- **Suppliers never set prices.** A catalogue carrying one is refused rather
+  than trimmed, so a machine cannot quietly take away the Exchange's routing
+  lever.
+- **Guarantees are the operator's grant, not your claim.** Claiming one you were
+  not granted refuses the connection outright — no silent downgrade.
 - **`--managed`** says the operator controls this runtime, which is what allows
-  committing to a context size or a quantization at all. Drop it, along with
-  `--context` and `--quantization`, if the runtime is somebody else's.
-- **Capabilities are claims.** Only list what has been verified on this build —
-  an over-claimed capability routes a request somewhere that cannot serve it.
+  committing to a context size or a quantization at all.
+- **Capabilities are claims** when declared this way. Only list what has been
+  verified on this build — an over-claimed capability routes a request somewhere
+  that cannot serve it.
 - **Wholesale zero** is correct for hardware you own. Nothing is owed per token,
   and it still charges the buyer; that gap is the point.
 - **No `--watch`.** A machine's connection *is* its availability, so its Offers
-  never expire.
+  never expire. Prices the operator set survive every disconnect.
 
 ### 2.5 Check it
 
@@ -368,11 +386,9 @@ A Balance is the sum of its entries and never a stored total, so this prints bot
 
 ## What this does not do yet
 
-- **A machine cannot publish its own catalogue** (#379). The operator declares it
-  on the machine's behalf, so it can drift from what the runtime actually loaded.
-- **Capabilities on a vLLM machine are declared, not measured** (#377), because
-  the agent cannot probe vLLM through its serving path. Whoever declares them is
-  liable for them.
+- **vLLM cannot be probed** (#377), so a vLLM machine's capabilities are declared
+  by the operator rather than measured through the serving path. Whoever declares
+  them is liable for them, and nothing checks.
 - **No throughput measurement on those machines**, so dispatch scores them on
   price alone and cannot tell whether one batches or queues.
 

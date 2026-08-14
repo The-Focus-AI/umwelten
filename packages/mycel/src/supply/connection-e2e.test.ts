@@ -34,7 +34,11 @@ const CREDENTIAL = "sk-mycel-thor-e2e";
  * Deliberately the smallest thing that satisfies the wire, so a bug in the
  * Exchange cannot be masked by a clever agent.
  */
-function machine(exchangeUrl: string, runtimeUrl: string) {
+function machine(
+  exchangeUrl: string,
+  runtimeUrl: string,
+  catalogue?: { offers: unknown[]; guarantees?: string[] },
+) {
   const ws = new WebSocket(exchangeUrl.replace("http:", "ws:") + CONNECT_PATH, {
     headers: { authorization: `Bearer ${CREDENTIAL}` },
   });
@@ -45,7 +49,14 @@ function machine(exchangeUrl: string, runtimeUrl: string) {
   };
 
   const welcomed = new Promise<void>((resolve) => {
-    ws.on("open", () => send({ type: "hello", wireVersion: WIRE_VERSION }));
+    ws.on("open", () =>
+      send({
+        type: "hello",
+        wireVersion: WIRE_VERSION,
+        offers: catalogue?.offers,
+        guarantees: catalogue?.guarantees,
+      }),
+    );
     ws.on("message", (raw) => {
       const frame = JSON.parse(String(raw)) as {
         type: string;
@@ -264,6 +275,59 @@ describe("a machine serves a buyer over its Connection", () => {
     expect(runtime.sawAbort()).toBe(true);
     const [record] = await store.listRequests();
     expect(record.outcome).toBe("buyer-aborted");
+  });
+
+  it("brings its own catalogue, and a buyer can spend against it", async () => {
+    // No operator publish anywhere in this test. The machine arrives, says what
+    // it serves, and is immediately buyable — which is the point of the
+    // catalogue riding the handshake rather than following it.
+    runtime = await startMockUpstream("ok");
+    store = new MemoryStore();
+    await store.createSupplier(
+      supplierFixture({
+        id: "thor",
+        kind: "agent",
+        baseUrl: "",
+        credentialHash: hashCredential(CREDENTIAL),
+        grantedGuarantees: ["on-premise"],
+      }),
+    );
+    app = await makeTestApplication();
+    await store.createClient({ id: "acme", name: "Acme" });
+    await store.createApplication(app.application);
+    exchange = await createExchangeServer({
+      store,
+      port: 0,
+      host: "127.0.0.1",
+      handshakeTimeoutMs: 200,
+      verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
+    });
+    await new Balances(store).grant(
+      endUserOwner({ application: app.application, subject: "user-1" }),
+      1_000_000_000,
+      "test-grant",
+    );
+
+    expect(await store.listOffers()).toEqual([]);
+
+    thor = machine(exchange.url, runtime.baseUrl, {
+      offers: [{ model: MODEL, capabilities: ["chat", "streaming"], servingMode: "managed" }],
+      guarantees: ["on-premise"],
+    });
+    await thor.welcomed;
+
+    const catalogue = (await (await fetch(`${exchange.url}/v1/models`)).json()) as {
+      data: { id: string }[];
+    };
+    expect(catalogue.data.map((m) => m.id)).toEqual([MODEL]);
+
+    const response = await chat();
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("quick");
+
+    const [record] = await store.listRequests();
+    expect(record.supplierId).toBe("thor");
+    expect(record.outcome).toBe("completed");
   });
 
   it("counts what the machine is working on while it works", async () => {

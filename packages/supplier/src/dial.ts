@@ -15,6 +15,7 @@
 
 import WebSocket from "ws";
 import { createConnectionServer, type ServeEvent } from "./serve-connection.js";
+import type { OfferDraft } from "./types.js";
 
 export type { ServeEvent } from "./serve-connection.js";
 
@@ -43,6 +44,18 @@ export interface DialOptions {
   runtimeCredential?: string;
   fetchImpl?: typeof fetch;
   onServeEvent?: (event: ServeEvent) => void;
+  /**
+   * This machine's catalogue, sent with the handshake so availability and
+   * catalogue arrive together.
+   *
+   * Read from the cached probe, so reconnecting costs no measurement — the
+   * agent re-probes only when its own fingerprint changes. Omitting this
+   * entirely leaves the stored Offers alone, which is what a machine whose
+   * catalogue the operator publishes on its behalf needs.
+   */
+  offers?: OfferDraft[];
+  /** Echoed for confirmation. The operator's grant decides (ADR 0012). */
+  guarantees?: string[];
 }
 
 export type DialEvent =
@@ -122,6 +135,8 @@ export async function dialIn(opts: DialOptions): Promise<void> {
       runtimeCredential: opts.runtimeCredential,
       fetchImpl: opts.fetchImpl,
       onServeEvent: opts.onServeEvent,
+      offers: opts.offers,
+      guarantees: opts.guarantees,
     });
 
     if (signal?.aborted) return;
@@ -149,6 +164,8 @@ function holdOne(
     runtimeCredential?: string;
     fetchImpl?: typeof fetch;
     onServeEvent?: (event: ServeEvent) => void;
+    offers?: OfferDraft[];
+    guarantees?: string[];
   },
 ): Promise<"connected" | "failed"> {
   return new Promise((resolve) => {
@@ -189,8 +206,17 @@ function holdOne(
       : undefined;
 
     socket.onOpen(() => {
+      // The catalogue rides the handshake. The Exchange registers this machine
+      // only once it has accepted both, so it never believes a machine is
+      // available without knowing what it serves.
       socket.send(
-        JSON.stringify({ type: "hello", wireVersion: WIRE_VERSION, agentVersion: ctx.agentVersion }),
+        JSON.stringify({
+          type: "hello",
+          wireVersion: WIRE_VERSION,
+          agentVersion: ctx.agentVersion,
+          offers: ctx.offers,
+          guarantees: ctx.guarantees,
+        }),
       );
     });
 

@@ -26,14 +26,35 @@ export const WIRE_VERSION = 1;
 export const CONNECT_PATH = "/suppliers/connect";
 
 /**
- * The first frame an agent sends. Publishing Offers over the Connection
- * arrives in #379.
+ * The first frame an agent sends, carrying its catalogue.
+ *
+ * Offers ride the handshake rather than arriving in a frame after it, so there
+ * is never a moment where the Exchange believes a machine is available but does
+ * not know what it serves. Availability and catalogue land together or the
+ * Connection is refused.
  */
 export interface HelloFrame {
   type: "hello";
   wireVersion: number;
   /** The agent's own version, for operator diagnosis. Never trusted for logic. */
   agentVersion?: string;
+  /**
+   * This machine's Offer set, in the same shape `POST /suppliers/offers`
+   * accepts, and validated by the same code. Publishing is total: what arrives
+   * replaces the whole set, so a Model the machine stopped serving stops being
+   * advertised without anyone deleting anything.
+   *
+   * Omitted entirely means "do not touch my catalogue" — not "I have none".
+   * A machine whose Offers the operator publishes on its behalf must be able to
+   * dial in without wiping them.
+   */
+  offers?: unknown[];
+  /**
+   * Guarantees the machine believes it is offered under. Echoed for
+   * confirmation, never authoritative — the operator's grant decides, and a
+   * claim beyond it is refused rather than downgraded (ADR 0012).
+   */
+  guarantees?: string[];
 }
 
 /** Accepted, and holding. Sent once, immediately after the handshake. */
@@ -134,6 +155,15 @@ export const CLOSE = {
   BAD_HANDSHAKE: 4002,
   /** Wire versions do not match. */
   WIRE_VERSION: 4003,
+  /**
+   * The catalogue in the hello was rejected — malformed, or claiming a
+   * Guarantee the operator never granted.
+   *
+   * The Connection is refused rather than held without it. A machine the
+   * Exchange believes is available but whose catalogue it could not accept is
+   * exactly the state this frame exists to prevent.
+   */
+  PUBLISH_REJECTED: 4004,
 } as const;
 
 export function parseFrame<T>(raw: string): T | undefined {

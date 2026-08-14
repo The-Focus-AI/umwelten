@@ -38,20 +38,36 @@ describe("dialling in", () => {
   /** Dial, say hello, resolve when the Exchange welcomes us. */
   function dial(
     credential = CREDENTIAL,
-    opts: { wireVersion?: number; sayHello?: boolean } = {},
-  ): Promise<{ ws: WebSocket; welcomed: Promise<boolean>; closeCode: Promise<number> }> {
+    opts: {
+      wireVersion?: number;
+      sayHello?: boolean;
+      offers?: unknown[];
+      guarantees?: string[];
+    } = {},
+  ): Promise<{
+    ws: WebSocket;
+    welcomed: Promise<boolean>;
+    closeCode: Promise<number>;
+    goodbye: Promise<string | undefined>;
+  }> {
     const url = exchange.url.replace("http:", "ws:") + CONNECT_PATH;
     const ws = new WebSocket(url, { headers: { authorization: `Bearer ${credential}` } });
 
+    let sawGoodbye: string | undefined;
     const welcomed = new Promise<boolean>((resolve) => {
       ws.on("message", (raw) => {
-        const frame = JSON.parse(String(raw)) as { type: string };
+        const frame = JSON.parse(String(raw)) as { type: string; reason?: string };
         if (frame.type === "welcome") resolve(true);
-        if (frame.type === "goodbye") resolve(false);
+        if (frame.type === "goodbye") {
+          sawGoodbye = frame.reason;
+          resolve(false);
+        }
       });
       ws.on("close", () => resolve(false));
       ws.on("error", () => resolve(false));
     });
+
+    const goodbye = welcomed.then(() => sawGoodbye);
 
     const closeCode = new Promise<number>((resolve) => {
       ws.on("close", (code) => resolve(code));
@@ -64,12 +80,22 @@ describe("dialling in", () => {
         JSON.stringify({
           type: "hello",
           wireVersion: opts.wireVersion ?? WIRE_VERSION,
+          offers: opts.offers,
+          guarantees: opts.guarantees,
         }),
       );
     });
 
-    return Promise.resolve({ ws, welcomed, closeCode });
+    return Promise.resolve({ ws, welcomed, closeCode, goodbye });
   }
+
+  /** A well-formed Offer, the shape the publish endpoint already accepts. */
+  const offer = (overrides: Record<string, unknown> = {}) => ({
+    model: "thor-gemma",
+    capabilities: ["chat", "streaming"],
+    servingMode: "managed",
+    ...overrides,
+  });
 
   afterEach(async () => {
     await exchange?.close();
@@ -161,6 +187,138 @@ describe("dialling in", () => {
     // The machine hung up on purpose, and the log says so rather than blaming
     // the network for an operator pressing Ctrl-C.
     expect(events.at(-1)?.reason).toBe("closed");
+  });
+
+  describe("the catalogue arrives with the Connection", () => {
+    it("publishes what the hello carried", async () => {
+      await boot();
+      const { welcomed } = await dial(CREDENTIAL, { offers: [offer()] });
+      expect(await welcomed).toBe(true);
+
+      const offers = await store.listOffers();
+      expect(offers.map((o) => o.model)).toEqual(["thor-gemma"]);
+    });
+
+    it("keeps the prices the operator set across a disconnect and reconnect", async () => {
+      // The load-bearing one. If Offers lived and died with the Connection,
+      // every closed lid would silently reset a machine to default pricing.
+      await boot();
+      const first = await dial(CREDENTIAL, { offers: [offer()] });
+      expect(await first.welcomed).toBe(true);
+
+      await store.setOfferPricing("thor", "thor-gemma", {
+        wholesalePromptPerMillion: 0,
+        wholesaleCompletionPerMillion: 0,
+        retailPromptPerMillion: 42,
+        retailCompletionPerMillion: 84,
+      });
+
+      await new Promise<void>((resolve) => {
+        first.ws.once("close", () => resolve());
+        first.ws.close();
+      });
+      await new Promise((r) => setTimeout(r, 20));
+
+      const second = await dial(CREDENTIAL, { offers: [offer()] });
+      expect(await second.welcomed).toBe(true);
+
+      expect((await store.getOffer("thor", "thor-gemma"))?.retailPromptPerMillion).toBe(42);
+    });
+
+    it("drops a Model the machine no longer serves", async () => {
+      // Publishing is total, exactly as on the HTTP path — which is what makes
+      // re-publishing safe to repeat on every reconnect.
+      await boot();
+      const first = await dial(CREDENTIAL, {
+        offers: [offer(), offer({ model: "thor-old" })],
+      });
+      expect(await first.welcomed).toBe(true);
+      expect(await store.listOffers()).toHaveLength(2);
+
+      await new Promise<void>((resolve) => {
+        first.ws.once("close", () => resolve());
+        first.ws.close();
+      });
+      await new Promise((r) => setTimeout(r, 20));
+
+      const second = await dial(CREDENTIAL, { offers: [offer()] });
+      expect(await second.welcomed).toBe(true);
+
+      expect((await store.listOffers()).map((o) => o.model)).toEqual(["thor-gemma"]);
+    });
+
+    it("leaves stored Offers alone when the hello carries none", async () => {
+      // Absent is not empty. A machine whose catalogue the operator publishes
+      // by hand must be able to dial in without wiping it.
+      await boot();
+      await store.replaceOffers("thor", [
+        { model: "operator-published", capabilities: ["chat"], servingMode: "adapted" },
+      ]);
+
+      const { welcomed } = await dial();
+      expect(await welcomed).toBe(true);
+
+      expect((await store.listOffers()).map((o) => o.model)).toEqual(["operator-published"]);
+    });
+
+    it("does not touch stored Offers when the machine disconnects", async () => {
+      await boot();
+      const connection = await dial(CREDENTIAL, { offers: [offer()] });
+      expect(await connection.welcomed).toBe(true);
+
+      await new Promise<void>((resolve) => {
+        connection.ws.once("close", () => resolve());
+        connection.ws.close();
+      });
+      await new Promise((r) => setTimeout(r, 20));
+
+      // Disconnected withdraws the machine from Dispatch. It does not delete
+      // what the machine sells — those are different facts with different
+      // lifetimes.
+      expect(await store.listOffers()).toHaveLength(1);
+    });
+
+    it("refuses a Guarantee the operator never granted", async () => {
+      await boot();
+      const { welcomed, closeCode, goodbye } = await dial(CREDENTIAL, {
+        offers: [offer()],
+        guarantees: ["gdpr-resident"],
+      });
+
+      // Refused, not downgraded. A compromised agent must not be able to
+      // promote itself into eligibility for traffic the operator is liable for.
+      expect(await welcomed).toBe(false);
+      expect(await closeCode).toBe(4004);
+      expect(await goodbye).toMatch(/gdpr-resident/);
+      expect(exchange.connections.isConnected("thor")).toBe(false);
+    });
+
+    it("refuses a malformed catalogue rather than holding a Connection without one", async () => {
+      await boot();
+      const { welcomed, closeCode } = await dial(CREDENTIAL, {
+        offers: [{ model: "thor-gemma" }],
+      });
+
+      expect(await welcomed).toBe(false);
+      expect(await closeCode).toBe(4004);
+      // Nothing was stored, and nothing is dispatchable — the two states stay
+      // consistent even when the machine got it wrong.
+      expect(await store.listOffers()).toEqual([]);
+      expect(exchange.connections.isConnected("thor")).toBe(false);
+    });
+
+    it("refuses a catalogue that sets its own prices", async () => {
+      // A Supplier setting its own price takes away the Exchange's routing
+      // lever (ADR 0013). Same rejection as the HTTP path, because it is
+      // literally the same code.
+      await boot();
+      const { welcomed, goodbye } = await dial(CREDENTIAL, {
+        offers: [offer({ retailPromptPerMillion: 1 })],
+      });
+
+      expect(await welcomed).toBe(false);
+      expect(await goodbye).toMatch(/price|retail/i);
+    });
   });
 
   it("lets a reconnecting machine displace its own stale Connection", async () => {
