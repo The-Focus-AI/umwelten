@@ -70,6 +70,15 @@ export interface BuyerHandlerOptions {
    * `baseUrl`; a machine Supplier's Connection will supply its own (ADR 0023).
    */
   resolveTransport?: ResolveTransport;
+  /**
+   * Which machine Suppliers are connected, asked fresh per request.
+   *
+   * A function rather than a value because the answer changes between
+   * requests without anything writing to the database — that is the whole
+   * point of ADR 0023, and a snapshot taken at construction would be wrong
+   * within seconds.
+   */
+  connectedSupplierIds?: () => Set<string>;
   /** Offers not republished within this window stop being dispatched to. */
   staleAfterMs?: number;
   /** Injectable so tests need not stand up a real JWKS endpoint. */
@@ -223,8 +232,11 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
       allowedModels: caller.application.allowedModels,
     };
 
+    // Read per request, never cached: a machine that dropped between two
+    // requests must not be selected for the second one.
     const decision = dispatch(await store.listOffers(), requirements, {
       staleAfterMs: opts.staleAfterMs,
+      connectedSupplierIds: opts.connectedSupplierIds?.(),
     });
 
     if (!decision.offer) {

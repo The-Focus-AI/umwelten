@@ -15,7 +15,10 @@ import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js
 import { createModelsHandler } from "./buyer/models.js";
 import { ConnectionRegistry } from "./supply/connections.js";
 import { attachConnectionServer } from "./supply/connection-server.js";
+import { createConnectionTransport } from "./supply/connection-transport.js";
+import { createHttpTransport } from "./buyer/transport.js";
 import type { ExchangeStore } from "./store/types.js";
+import type { Supplier } from "./types.js";
 
 /**
  * Mycel's port.
@@ -53,8 +56,26 @@ export interface RunningExchange {
 
 export function createExchangeApp(
   store: ExchangeStore,
-  opts: Pick<ExchangeServerOptions, "verifyCaller" | "staleAfterMs" | "resolveTransport"> = {},
+  opts: Pick<ExchangeServerOptions, "verifyCaller" | "staleAfterMs" | "resolveTransport"> & {
+    connections?: ConnectionRegistry;
+  } = {},
 ) {
+  // Which transport a Supplier gets is decided by its kind, and nothing further
+  // down asks. A vendor is dialled out to because a public API is reachable by
+  // definition; a machine is served over the Connection it dialled in on
+  // (ADR 0023).
+  const connections = opts.connections;
+  const resolveTransport =
+    opts.resolveTransport ??
+    (connections
+      ? (() => {
+          const http = createHttpTransport({ readCredential: (name) => name && process.env[name] });
+          const overConnection = createConnectionTransport({ registry: connections });
+          return (supplier: Supplier) =>
+            supplier.kind === "agent" ? overConnection(supplier) : http(supplier);
+        })()
+      : undefined);
+
   const handlers = [
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
@@ -62,7 +83,12 @@ export function createExchangeApp(
       store,
       verifyCaller: opts.verifyCaller,
       staleAfterMs: opts.staleAfterMs,
-      resolveTransport: opts.resolveTransport,
+      resolveTransport,
+      // Connected is available; disconnected is withdrawn. Passed in rather
+      // than reached for, so Dispatch stays a pure function (ADR 0023).
+      connectedSupplierIds: connections
+        ? () => connections.connectedSupplierIds()
+        : undefined,
     }),
   ];
 
@@ -102,10 +128,15 @@ export function createExchangeApp(
 export async function createExchangeServer(
   opts: ExchangeServerOptions,
 ): Promise<RunningExchange> {
+  // Machine Suppliers dial in on the same port. Empty on boot, which is the
+  // correct state: nothing is connected, because nothing is.
+  const connections = new ConnectionRegistry({ store: opts.store });
+
   const app = createExchangeApp(opts.store, {
     verifyCaller: opts.verifyCaller,
     staleAfterMs: opts.staleAfterMs,
     resolveTransport: opts.resolveTransport,
+    connections,
   });
   await opts.store.setup();
 
@@ -118,9 +149,6 @@ export async function createExchangeServer(
     });
   });
 
-  // Machine Suppliers dial in on the same port. Empty on boot, which is the
-  // correct state: nothing is connected, because nothing is.
-  const connections = new ConnectionRegistry({ store: opts.store });
   const connectionServer = attachConnectionServer({
     server,
     store: opts.store,
