@@ -828,10 +828,6 @@ supplierCommand
       console.log("no --runtime: holding the Connection, serving nothing");
     }
 
-    // The catalogue comes from the last probe, not a fresh one. Re-probing on
-    // every reconnect would make a flapping link expensive, and the fingerprint
-    // is what decides when a measurement is actually stale.
-    const cached = loadState();
     const config = (() => {
       try {
         return resolveConfig(opts);
@@ -843,21 +839,53 @@ supplierCommand
       }
     })();
 
-    const offers =
-      cached && config
-        ? toOfferDrafts(cached.probed, { servingMode: config.servingMode })
-        : undefined;
+    // Probe when there is nothing usable to publish, and cache the result.
+    //
+    // Not on every reconnect — that would make a flapping link expensive, and
+    // the fingerprint is what decides when a measurement is actually stale.
+    // But a machine that has never probed has nothing to say about itself, and
+    // silently dialling in with an empty catalogue is how a box ends up
+    // connected and unbuyable.
+    let offers: ReturnType<typeof toOfferDrafts> | undefined;
+    if (config && runtimeUrl) {
+      const cached = loadState();
+      const inputs = probeInputsFor(config);
+      const reason = reprobeReason({
+        previous: cached && {
+          fingerprint: cached.fingerprint,
+          probedAt: cached.probedAt,
+          inputs: cached.inputs as Partial<ProbeInputs> | undefined,
+        },
+        current: inputs,
+        now: Date.now(),
+        intervalMs: Number(opts.reprobeInterval ?? 24) * 3_600_000,
+      });
+
+      if (!cached || reason) {
+        console.log(`probing: ${reason ?? "nothing cached for this machine"}`);
+        const { probed } = await probeMachine(config, opts, (l) => console.log(l));
+        reportGaps(probed, (l) => console.log(l));
+        saveState({
+          version: STATE_VERSION,
+          fingerprint: fingerprint(inputs),
+          probedAt: new Date().toISOString(),
+          probed,
+          inputs: inputs as unknown as Record<string, unknown>,
+        });
+        offers = toOfferDrafts(probed, { servingMode: config.servingMode });
+      } else {
+        console.log(`publishing the probe of ${cached.probedAt} — unchanged since`);
+        offers = toOfferDrafts(cached.probed, { servingMode: config.servingMode });
+      }
+    }
 
     if (offers) {
-      console.log(
-        `publishing ${offers.length} offer(s) from the probe of ${cached!.probedAt}` +
-          " — re-probe with `umwelten supplier probe` if the machine changed",
-      );
+      console.log(`publishing ${offers.length} offer(s) with the connection`);
     } else {
       // Said out loud, because the alternative reading is that dialling in
       // wiped a catalogue the operator published by hand. It does not: an
       // absent offer set means "do not touch mine".
-      console.log("no cached probe: leaving whatever Offers the Exchange already has");
+      console.log("publishing nothing: leaving whatever Offers the Exchange already has");
     }
 
     console.log(`dialling ${exchangeUrl} …`);

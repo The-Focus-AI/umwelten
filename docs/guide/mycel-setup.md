@@ -168,26 +168,36 @@ pnpm install
 
 ```bash
 export SUPPLIER_CREDENTIAL='sk-mycel-…'
+export VLLM_BASE_URL=http://localhost:8000/v1     # only if not vLLM's default
+export VLLM_API_KEY=YOUR_RUNTIME_KEY              # only if your server wants one
 
 pnpm run cli -- supplier dial \
   --mycel https://mycel.example.com \
   --runtime http://localhost:8000/v1 \
-  --runtime-key "$YOUR_RUNTIME_KEY"
+  --runtime-key "$VLLM_API_KEY"
 ```
 
+The first run probes the machine, which takes a few minutes:
+
 ```
+probing: nothing cached for this machine
+  …
+publishing 1 offer(s) with the connection
 dialling https://mycel.example.com …
 connected — this machine is now dispatchable
 ```
 
-> **`--runtime` is what makes you a Supplier.** Without it the connection is held
-> and every request is dropped. Point it at the OpenAI-compatible base — the
-> `/v1`, not the bare port.
+You are now selling. Later runs reuse the cached probe and connect immediately.
+
+> **`--runtime` is what makes you a Supplier.** Without it the connection is
+> held, every request is dropped, and nothing is published. Point it at the
+> OpenAI-compatible base — the `/v1`, not the bare port.
 
 Your runtime key never leaves your machine. The Exchange pushes a request down
-the connection and this agent adds the key locally.
+the connection and this agent adds the key locally, so the Exchange stores no
+credential for your box.
 
-Keep it running. To survive reboots, as a systemd unit:
+Keep it running. To survive reboots:
 
 ```ini
 # /etc/systemd/system/mycel-supplier.service
@@ -199,6 +209,7 @@ After=network-online.target
 User=YOUR_USER
 WorkingDirectory=/home/YOUR_USER/mycel
 Environment=SUPPLIER_CREDENTIAL=sk-mycel-…
+Environment=VLLM_API_KEY=YOUR_RUNTIME_KEY
 ExecStart=/usr/bin/env pnpm run cli -- supplier dial \
   --mycel https://mycel.example.com --runtime http://localhost:8000/v1
 Restart=always
@@ -208,39 +219,36 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-### 2.4 Your catalogue
+### 2.4 What just got published
 
-Probe the machine. This runs each model and watches what happens — it does not
-read a list of names:
-
-```bash
-export VLLM_BASE_URL=http://localhost:8000/v1     # if not the default
-export VLLM_API_KEY=YOUR_RUNTIME_KEY              # if the server wants one
-
-pnpm run cli -- supplier probe
-```
-
-Recognised runtimes: **ollama, LM Studio, LlamaBarn, llama-swap, vLLM**. Each
-model is tested for chat, streaming, tool calling, structured output and
-reasoning by actually being asked to do them, then measured for throughput at
-two concurrency levels.
+The probe **runs each model and watches what happens** — it does not read a
+list of names. Recognised runtimes: **ollama, LM Studio, LlamaBarn, llama-swap,
+vLLM**. Each model is tested for chat, streaming, tool calling, structured
+output and reasoning by actually being asked to do them, then measured for
+throughput at two concurrency levels.
 
 A capability that fails to demonstrate produces **no Offer**, not an Offer
 missing that capability — "we did not establish this" is not "this machine
 cannot do it".
 
-Then your catalogue travels **with the connection**: `supplier dial` sends it in
-the handshake, so it publishes itself. It re-probes only when the machine's
-fingerprint changes, so reconnecting costs no measurement, and the agent prints
-which probe it is publishing.
+That catalogue travels **with the connection**, in the same frame that says
+hello, so the Exchange never has you connected without knowing what you serve.
+It re-probes only when the machine's fingerprint changes, so reconnecting costs
+no measurement.
+
+To see what it found without dialling:
+
+```bash
+pnpm run cli -- supplier probe
+```
 
 > **Headroom caveat.** Sampling runs at concurrency 1 and 4, calibrated for
 > llama.cpp-class runtimes. A vLLM box comfortably serving 32–64 is sampled
 > entirely below its knee, so its measured throughput understates it.
 
-**If your runtime is none of the five**, the operator publishes on your behalf.
-Find the exact model id it answers to, because the buyer's request reaches you
-unmodified:
+**If your runtime is none of the five**, nothing can probe it and the operator
+publishes on your behalf instead. Find the exact model id it answers to, because
+the buyer's request reaches you unmodified:
 
 ```bash
 curl -s http://localhost:8000/v1/models | jq -r '.data[].id'
@@ -253,13 +261,17 @@ mycel offers sync YOUR_ID \
   --managed --context 128000 --quantization NVFP4
 ```
 
-Either way the operator sets the price, always:
+### 2.5 The operator prices it
+
+Always the operator, whether the catalogue was probed or declared:
 
 ```bash
 mycel price YOUR_ID THAT_MODEL_ID \
   --wholesale-prompt 0 --wholesale-completion 0 \
   --retail-prompt 200000 --retail-completion 600000
 ```
+
+Micro-dollars per million tokens, so that is $0.20 in and $0.60 out.
 
 - **Suppliers never set prices.** A catalogue carrying one is refused rather
   than trimmed, so a machine cannot quietly take away the Exchange's routing
@@ -268,16 +280,13 @@ mycel price YOUR_ID THAT_MODEL_ID \
   not granted refuses the connection outright — no silent downgrade.
 - **`--managed`** says the operator controls this runtime, which is what allows
   committing to a context size or a quantization at all.
-- **Capabilities are claims** when declared this way, and evidence when probed.
-  Only list what has been verified on this build — an over-claimed capability
-  routes a request somewhere that cannot serve it.
 - **Wholesale zero** is correct for hardware you own. Nothing is owed per token,
   and it still charges the buyer; that gap is the point.
-- **No `--watch`, ever, for a machine.** A machine's connection *is* its
-  availability, so its Offers never expire at any age and it drops out the
-  instant it disconnects. Prices the operator set survive every disconnect.
+- **No `--watch`, ever, for a machine.** Its connection *is* its availability, so
+  its Offers never expire at any age and it drops out the instant it
+  disconnects. Prices the operator set survive every disconnect.
 
-### 2.5 Check it
+### 2.6 Check it
 
 From the Exchange host:
 
