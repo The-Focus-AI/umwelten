@@ -152,4 +152,75 @@ describe("Operator", () => {
       expect(offer.retailPromptPerMillion).toBe(42);
     });
   });
+
+  describe("publishing on a Supplier's behalf", () => {
+    beforeEach(async () => {
+      await operator.registerSupplier({ id: "thor", displayName: "thor", kind: "agent" });
+    });
+
+    it("defaults to adapted, the honest answer when nobody claimed otherwise", async () => {
+      await operator.publishOffersFor("thor", [
+        { model: "m", capabilities: ["chat"] } as never,
+      ]);
+
+      expect((await store.getOffer("thor", "m"))?.servingMode).toBe("adapted");
+    });
+
+    it("lets hardware the operator controls say so, and commit to what it serves", async () => {
+      // This was forced to `adapted` for every operator-published Offer, which
+      // was right for a vendor API nobody on this side controls and wrong for a
+      // box in the next room — and it silently cost that box the ability to
+      // promise a context size or a quantization at all (ADR 0016).
+      await operator.publishOffersFor("thor", [
+        {
+          model: "m",
+          capabilities: ["chat"],
+          servingMode: "managed",
+          contextTokens: 128_000,
+          quantization: "NVFP4",
+        },
+      ]);
+
+      const offer = (await store.getOffer("thor", "m"))!;
+      expect(offer.servingMode).toBe("managed");
+      expect(offer.contextTokens).toBe(128_000);
+      expect(offer.quantization).toBe("NVFP4");
+    });
+  });
+
+  describe("rotating a Supplier's credential", () => {
+    it("issues a new one and stops accepting the old", async () => {
+      const { credential: original } = await operator.registerSupplier({
+        id: "thor",
+        displayName: "thor",
+        kind: "agent",
+      });
+
+      const rotated = await operator.rotateCredential("thor");
+
+      expect(rotated).not.toBe(original);
+      // Looked up by hash, so the old one no longer resolves to anything —
+      // which is what makes this a rotation rather than a second key.
+      expect(await store.getSupplierByCredentialHash(hashCredential(original))).toBeNull();
+      expect(await store.getSupplierByCredentialHash(hashCredential(rotated))).not.toBeNull();
+    });
+
+    it("keeps everything else about the Supplier", async () => {
+      await operator.registerSupplier({
+        id: "thor",
+        displayName: "thor (Jetson)",
+        kind: "agent",
+        grantedGuarantees: ["on-premise"],
+      });
+
+      await operator.rotateCredential("thor");
+
+      const supplier = (await store.getSupplier("thor"))!;
+      // A rotation that quietly dropped a granted Guarantee would take the
+      // machine out of eligibility for the traffic it exists to serve.
+      expect(supplier.grantedGuarantees).toEqual(["on-premise"]);
+      expect(supplier.kind).toBe("agent");
+      expect(supplier.displayName).toBe("thor (Jetson)");
+    });
+  });
 });

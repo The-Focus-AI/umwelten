@@ -58,9 +58,25 @@ function openStore(opts: CliOptions): ExchangeStore {
   }
   const url = opts.database ?? process.env.MYCEL_DATABASE_URL;
   if (!url) {
+    // Inside the container this has one overwhelmingly likely cause, and the
+    // generic message sends you looking at the host's configuration instead —
+    // which is fine, and not the problem. `MYCEL_SECRETS` set with nothing
+    // resolved means the entrypoint never ran: `docker exec` starts a new
+    // process and does not run the image's ENTRYPOINT, so the secrets resolved
+    // at boot live only in the `serve` process.
+    if (process.env.MYCEL_SECRETS) {
+      throw new MycelCliError(
+        "No database, but MYCEL_SECRETS is set — the entrypoint did not run.\n" +
+          "  `docker exec` skips the image ENTRYPOINT, so nothing resolved the secrets.\n" +
+          "  Run it through the entrypoint instead:\n" +
+          "    docker compose --project-directory /opt/umwelten/deploy/mycel \\\n" +
+          "      exec mycel /usr/local/bin/mycel-entrypoint node /app/mycel.js <command>\n" +
+          "  (/etc/profile.d/mycel.sh defines a `mycel` function that does this.)",
+      );
+    }
     throw new MycelCliError(
       "No database. Pass --database or set MYCEL_DATABASE_URL.\n" +
-        "  (--ephemeral runs against memory, which loses every balance on exit.)",
+        "  (`serve --ephemeral` runs against memory, which loses every balance on exit.)",
     );
   }
   return new NeonStore(url);
@@ -328,6 +344,26 @@ withDatabase(supplier.command("register <id>"))
     });
   });
 
+withDatabase(supplier.command("rotate <id>"))
+  .description("Issue a new credential, invalidating the old one")
+  .action(async (id: string, opts: CliOptions) => {
+    await guard(async () => {
+      const operator = new Operator(openStore(opts));
+      const credential = await operator.rotateCredential(id);
+
+      console.log(`Rotated the credential for ${id}.\n`);
+      console.log(`  ${credential}\n`);
+      console.log("Shown once. Only its hash is stored.");
+      // A machine holding a Connection authenticated with the old credential
+      // keeps it: the check happens at the upgrade, not per frame. Saying so
+      // avoids the opposite conclusion, which is that rotation did not work.
+      console.log(
+        "\nAn agent already connected stays connected — the credential is checked when\n" +
+          "it dials, not per request. It will need the new one the next time it does.",
+      );
+    });
+  });
+
 withDatabase(supplier.command("connections [supplierId]"))
   .description("Show the history of machine Suppliers dialling in and out")
   .option("--limit <n>", "Show only the most recent N events")
@@ -384,10 +420,32 @@ withDatabase(offers.command("sync <supplierId>"))
   .option("--models <names>", "Models to resell, comma-separated")
   .option("--capabilities <names>", "Applied to every Model", DEFAULT_VENDOR_CAPABILITIES.join(","))
   .option(
+    "--context <tokens>",
+    "Context this Offer actually accepts. Managed Offers only (ADR 0016)",
+  )
+  .option(
+    "--quantization <name>",
+    "How these weights are served, e.g. NVFP4. Managed Offers only (ADR 0016)",
+  )
+  .option(
+    "--managed",
+    "The operator controls this runtime — required to commit to context or quantization",
+  )
+  .option(
     "--watch <minutes>",
     "Keep republishing. A vendor runs no agent, so this IS its heartbeat",
   )
-  .action(async (supplierId: string, opts: CliOptions & { capabilities?: string; watch?: string }) => {
+  .action(
+    async (
+      supplierId: string,
+      opts: CliOptions & {
+        capabilities?: string;
+        watch?: string;
+        context?: string;
+        quantization?: string;
+        managed?: boolean;
+      },
+    ) => {
     await guard(async () => {
       const models = list(opts.models);
       if (models.length === 0) {
@@ -398,19 +456,59 @@ withDatabase(offers.command("sync <supplierId>"))
         );
       }
 
-      const operator = new Operator(openStore(opts));
+      const store = openStore(opts);
+      const supplier = await store.getSupplier(supplierId);
+      if (!supplier) throw new MycelCliError(`Unknown supplier "${supplierId}".`);
+
+      const operator = new Operator(store);
       const capabilities = list(opts.capabilities) as PublishedOffer["capabilities"];
+
+      // Only a runtime the operator controls can promise these. An adapted
+      // Offer resells a configuration it does not own and cannot honestly
+      // claim one — so this is refused rather than quietly dropped, which is
+      // how a box ends up published as less than it is.
+      const servingMode = opts.managed ? "managed" : "adapted";
+      if (servingMode === "adapted" && (opts.context || opts.quantization)) {
+        throw new MycelCliError(
+          "--context and --quantization are commitments only a managed Offer can make.\n" +
+            "  Add --managed if you control this runtime, or drop them (ADR 0016).",
+        );
+      }
+
+      const contextTokens = opts.context ? Number(opts.context) : undefined;
+      if (contextTokens !== undefined && (!Number.isInteger(contextTokens) || contextTokens <= 0)) {
+        throw new MycelCliError(`"${opts.context}" is not a number of tokens.`);
+      }
 
       const publish = async () => {
         await operator.publishOffersFor(
           supplierId,
-          models.map((model) => ({ model, capabilities, servingMode: "adapted" as const })),
+          models.map((model) => ({
+            model,
+            capabilities,
+            servingMode,
+            contextTokens,
+            quantization: opts.quantization,
+          })),
         );
       };
 
       await publish();
       console.log(`Published ${models.length} offer(s) for ${supplierId}: ${models.join(", ")}`);
       console.log(`Capabilities (declared, not probed): ${capabilities.join(", ")}`);
+      if (contextTokens) console.log(`Context: ${contextTokens} tokens`);
+      if (opts.quantization) console.log(`Quantization: ${opts.quantization}`);
+
+      // A machine's Offers do not expire, so telling its operator to schedule a
+      // republish is not merely noise — it is instructions to build a service
+      // that does nothing, for a mechanism ADR 0023 replaced.
+      if (supplier.kind === "agent") {
+        console.log(
+          "\nThis Supplier dials in, so these do not expire: its Connection is its\n" +
+            "availability. No --watch, no heartbeat, nothing to schedule (ADR 0023).",
+        );
+        return;
+      }
 
       if (!opts.watch) {
         // Said plainly, because it is the first thing that will look like a bug:
@@ -447,7 +545,8 @@ withDatabase(offers.command("sync <supplierId>"))
         process.once("SIGTERM", stop);
       });
     });
-  });
+  },
+  );
 
 withDatabase(mycelCommand.command("price <supplierId> <model>"))
   .description("Set what an Offer costs us and what it charges")
