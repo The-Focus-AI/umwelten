@@ -20,6 +20,7 @@ import { createOllamaProvider } from "@umwelten/core/providers/ollama.js";
 import { createLMStudioProvider } from "@umwelten/core/providers/lmstudio.js";
 import { createLlamaBarnProvider } from "@umwelten/core/providers/llamabarn.js";
 import { createLlamaSwapProvider } from "@umwelten/core/providers/llamaswap.js";
+import { createVllmProvider, VllmAuthError } from "@umwelten/core/providers/vllm.js";
 import type { BaseProvider } from "@umwelten/core/providers/base.js";
 import type { MachineState } from "./types.js";
 
@@ -28,6 +29,15 @@ const RUNTIMES: { provider: string; create: () => BaseProvider }[] = [
   { provider: "lmstudio", create: () => createLMStudioProvider() },
   { provider: "llamabarn", create: () => createLlamaBarnProvider() },
   { provider: "llamaswap", create: () => createLlamaSwapProvider() },
+  // vLLM is where the machines most worth pooling live, and it was invisible
+  // to this agent until #377. Its base URL is configurable because, unlike the
+  // others, vLLM has no conventional port anyone assumes — you pick it when you
+  // start the server.
+  {
+    provider: "vllm",
+    create: () =>
+      createVllmProvider(process.env.VLLM_BASE_URL, { apiKey: process.env.VLLM_API_KEY }),
+  },
 ];
 
 /**
@@ -52,6 +62,11 @@ export async function discoverRuntimes(
           models: models.map((m) => m.name).sort(),
         };
       } catch (error) {
+        // A refused key is not an absent runtime. Reporting it as unreachable
+        // would let a box with a typo'd key drop silently out of the catalogue
+        // while running perfectly — so it is re-thrown and the whole discovery
+        // fails loudly, which is the only way anyone finds out.
+        if (error instanceof VllmAuthError) throw error;
         return {
           provider,
           reachable: false,

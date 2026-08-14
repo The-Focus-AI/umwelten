@@ -17,6 +17,7 @@ import { BaseProvider } from "./base.js";
 import { createLMStudioProvider } from "./lmstudio.js";
 import { createLlamaBarnProvider } from "./llamabarn.js";
 import { createLlamaSwapProvider } from "./llamaswap.js";
+import { createVllmProvider } from "./vllm.js";
 import { createLunaRouteProvider, getLunaRouteModelUrl } from "./lunaroute.js";
 import { createMycelProvider, getMycelModelUrl } from "./mycel.js";
 import { installLocalFetchDispatcher } from "./local-fetch.js";
@@ -104,6 +105,14 @@ registerProvider("mycel", {
 
 registerProvider("llamaswap", {
   create: () => { installLocalFetchDispatcher(); return createLlamaSwapProvider(process.env.LLAMASWAP_HOST); },
+});
+
+// Local like the others, but the only one that can want a key: `vllm serve
+// --api-key` is how a box stops anything else on the host spending its GPU.
+// `envVar` is deliberately unset — that field makes a key *required*, and a
+// vLLM on a private network legitimately runs without one.
+registerProvider("vllm", {
+  create: (key) => { installLocalFetchDispatcher(); return createVllmProvider(process.env.VLLM_BASE_URL, { apiKey: key }); },
 });
 
 // Variants with llama.cpp server's `chat_template_kwargs.enable_thinking=false`
