@@ -43,6 +43,13 @@ export type RejectionReason =
   | "model-not-allowed"
   | "offer-disabled"
   | "offer-stale"
+  /**
+   * A machine Supplier that is not holding a Connection. Deliberately distinct
+   * from `offer-stale`: "that machine is switched off" and "nobody has
+   * republished that catalogue" are different diagnoses with different fixes,
+   * and an operator who cannot tell them apart debugs the wrong one.
+   */
+  | "supplier-disconnected"
   | "missing-guarantee"
   | "missing-capability"
   | "wrong-quantization"
@@ -218,7 +225,21 @@ export const DEFAULT_STALE_AFTER_MS = 15 * 60_000;
 export function dispatch(
   offers: Offer[],
   requirements: DispatchRequirements,
-  opts: { staleAfterMs?: number; now?: Date; weights?: ScoreWeights } = {},
+  opts: {
+    staleAfterMs?: number;
+    now?: Date;
+    weights?: ScoreWeights;
+    /**
+     * Which machine Suppliers are holding a Connection right now.
+     *
+     * Passed in, never reached for: Dispatch stays a pure function of Offers,
+     * requirements and injected state, so selection is testable without a
+     * socket. Undefined means "this deployment has no Connection registry", and
+     * every Offer is then judged on staleness alone — the pre-ADR-0023
+     * behaviour, which is what the existing suites assert.
+     */
+    connectedSupplierIds?: Set<string>;
+  } = {},
 ): DispatchResult {
   const now = opts.now ?? new Date();
   const considered: Considered[] = [];
@@ -241,16 +262,34 @@ export function dispatch(
       note("offer-disabled");
       continue;
     }
-    // Defaulted rather than opt-in. An expiry window nobody remembered to
-    // configure is an expiry window that never fires, and then the two
-    // mechanisms that were supposed to overlap are one.
-    const staleAfterMs = opts.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
-    if (staleAfterMs > 0 && now.getTime() - offer.publishedAt.getTime() > staleAfterMs) {
-      // A Supplier that stopped reporting has probably gone. Its last known
-      // capabilities are a guess, and dispatching on a guess is how a buyer
-      // discovers an unplugged machine.
-      note("offer-stale");
-      continue;
+    // A machine's availability is its Connection, and nothing else.
+    //
+    // Checked before staleness, and replacing it, because for a machine the two
+    // answer the same question and only one of them is evidence. Staleness
+    // *infers* liveness from a recent publish; the Connection *is* liveness.
+    // Asking a connected machine to also have republished lately would keep the
+    // apparatus ADR 0023 exists to remove, and would take a working box out of
+    // the pool because an operator's publish loop died.
+    //
+    // Vendors are untouched — a public API is reachable by definition, has no
+    // Connection to hold, and is still judged on staleness.
+    if (offer.supplierKind === "agent" && opts.connectedSupplierIds !== undefined) {
+      if (!opts.connectedSupplierIds.has(offer.supplierId)) {
+        note("supplier-disconnected");
+        continue;
+      }
+    } else {
+      // Defaulted rather than opt-in. An expiry window nobody remembered to
+      // configure is an expiry window that never fires, and then the two
+      // mechanisms that were supposed to overlap are one.
+      const staleAfterMs = opts.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+      if (staleAfterMs > 0 && now.getTime() - offer.publishedAt.getTime() > staleAfterMs) {
+        // A Supplier that stopped reporting has probably gone. Its last known
+        // capabilities are a guess, and dispatching on a guess is how a buyer
+        // discovers an unplugged machine.
+        note("offer-stale");
+        continue;
+      }
     }
 
     const required = requirements.guarantees ?? [];

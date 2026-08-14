@@ -11,15 +11,22 @@ import { ConnectionRegistry, type Channel } from "./connections.js";
 /** A socket stand-in. Nothing here opens a port. */
 function fakeChannel() {
   const listeners: ((clean: boolean) => void)[] = [];
+  const messageListeners: ((frame: string) => void)[] = [];
+  const sent: string[] = [];
   let closed = false;
   const channel: Channel = {
     close: () => {
       closed = true;
     },
+    send: (frame) => sent.push(frame),
+    onMessage: (listener) => messageListeners.push(listener),
     onClose: (listener) => listeners.push(listener),
   };
   return {
     channel,
+    sent,
+    /** A frame arriving from the machine. */
+    deliver: (frame: string) => messageListeners.forEach((l) => l(frame)),
     get closed() {
       return closed;
     },

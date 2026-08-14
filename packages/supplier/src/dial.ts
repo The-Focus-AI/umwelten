@@ -14,6 +14,9 @@
  */
 
 import WebSocket from "ws";
+import { createConnectionServer, type ServeEvent } from "./serve-connection.js";
+
+export type { ServeEvent } from "./serve-connection.js";
 
 /** Must match the Exchange's. Bumped when a frame's meaning changes. */
 export const WIRE_VERSION = 1;
@@ -31,6 +34,15 @@ export interface DialOptions {
   /** Injectable for tests; defaults to a real socket. */
   connect?: (url: string, credential: string) => DialSocket;
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Where the local runtime listens. Without it this holds the Connection and
+   * serves nothing — which is a legitimate way to run it while the rest of the
+   * relay is being built, but not a Supplier anyone can buy from.
+   */
+  runtimeUrl?: string;
+  runtimeCredential?: string;
+  fetchImpl?: typeof fetch;
+  onServeEvent?: (event: ServeEvent) => void;
 }
 
 export type DialEvent =
@@ -106,6 +118,10 @@ export async function dialIn(opts: DialOptions): Promise<void> {
       signal,
       onEvent,
       connect,
+      runtimeUrl: opts.runtimeUrl,
+      runtimeCredential: opts.runtimeCredential,
+      fetchImpl: opts.fetchImpl,
+      onServeEvent: opts.onServeEvent,
     });
 
     if (signal?.aborted) return;
@@ -129,6 +145,10 @@ function holdOne(
     signal?: AbortSignal;
     onEvent: (event: DialEvent) => void;
     connect: (url: string, credential: string) => DialSocket;
+    runtimeUrl?: string;
+    runtimeCredential?: string;
+    fetchImpl?: typeof fetch;
+    onServeEvent?: (event: ServeEvent) => void;
   },
 ): Promise<"connected" | "failed"> {
   return new Promise((resolve) => {
@@ -156,6 +176,18 @@ function holdOne(
     const hangUp = () => socket.close();
     ctx.signal?.addEventListener("abort", hangUp, { once: true });
 
+    // Scoped to this Connection. A machine that reconnects gets a fresh one,
+    // because nothing in flight on the old socket can be delivered.
+    const server = ctx.runtimeUrl
+      ? createConnectionServer({
+          runtimeUrl: ctx.runtimeUrl,
+          runtimeCredential: ctx.runtimeCredential,
+          fetchImpl: ctx.fetchImpl,
+          send: (frame) => socket.send(frame),
+          onEvent: ctx.onServeEvent,
+        })
+      : undefined;
+
     socket.onOpen(() => {
       socket.send(
         JSON.stringify({ type: "hello", wireVersion: WIRE_VERSION, agentVersion: ctx.agentVersion }),
@@ -173,7 +205,12 @@ function holdOne(
         // The Exchange refusing us for a stated reason — a wire mismatch, say.
         // Worth surfacing rather than showing up as a bare close code.
         ctx.onEvent({ type: "refused", reason: String(frame.reason ?? "refused") });
+        return;
       }
+      // Everything else is work. Without a runtime configured this machine
+      // holds the Connection and serves nothing, which is deliberate rather
+      // than an error to report on every frame.
+      server?.handleFrame(data);
     });
 
     socket.onError((error) => {
@@ -182,6 +219,9 @@ function holdOne(
 
     socket.onClose((code, reason) => {
       ctx.signal?.removeEventListener("abort", hangUp);
+      // Stop generating for an Exchange that is no longer listening. Left
+      // running, these would hold the GPU for responses nobody can receive.
+      server?.stopAll();
       ctx.onEvent({ type: "disconnected", code, reason });
       finish(everConnected ? "connected" : "failed");
     });

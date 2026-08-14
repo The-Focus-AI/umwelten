@@ -73,6 +73,9 @@ interface CliOptions {
   heartbeatInterval?: string;
   kind?: string;
   user?: string;
+  // dial
+  runtime?: string;
+  runtimeKey?: string;
 }
 
 /**
@@ -793,9 +796,14 @@ supplierCommand
 
 supplierCommand
   .command("dial")
-  .description("Hold a Connection open to the Exchange (ADR 0023)")
+  .description("Hold a Connection open to the Exchange and serve over it (ADR 0023)")
   .option("--mycel <url>", "Mycel base URL (or MYCEL_URL)")
   .option("--credential <token>", "Supplier credential (or SUPPLIER_CREDENTIAL)")
+  .option(
+    "--runtime <url>",
+    "Local OpenAI-compatible runtime to serve from, e.g. http://localhost:4000/v1",
+  )
+  .option("--runtime-key <token>", "Key the local runtime expects (or RUNTIME_API_KEY)")
   .action(async (opts: CliOptions) => {
     const exchangeUrl = opts.mycel ?? process.env.MYCEL_URL;
     const credential = opts.credential ?? process.env.SUPPLIER_CREDENTIAL;
@@ -815,12 +823,38 @@ supplierCommand
     process.once("SIGINT", stop);
     process.once("SIGTERM", stop);
 
+    const runtimeUrl = opts.runtime;
+    if (!runtimeUrl) {
+      // Holding the Connection without serving is legitimate — it is how you
+      // check reachability — but it is not a Supplier anyone can buy from, and
+      // silence about that reads like success.
+      console.log("no --runtime: holding the Connection, serving nothing");
+    }
+
     console.log(`dialling ${exchangeUrl} …`);
     await dialIn({
       exchangeUrl,
       credential,
       agentVersion: AGENT_VERSION,
       signal: abort.signal,
+      runtimeUrl,
+      runtimeCredential: opts.runtimeKey ?? process.env.RUNTIME_API_KEY,
+      onServeEvent: (event) => {
+        switch (event.type) {
+          case "request-started":
+            console.log(`  → ${event.id.slice(0, 8)} ${event.model ?? ""}`);
+            break;
+          case "request-finished":
+            console.log(`  ← ${event.id.slice(0, 8)} ${event.bytes}b`);
+            break;
+          case "request-cancelled":
+            console.log(`  ✕ ${event.id.slice(0, 8)} cancelled`);
+            break;
+          case "request-failed":
+            console.error(`  ! ${event.id.slice(0, 8)} ${event.message}`);
+            break;
+        }
+      },
       onEvent: (event) => {
         switch (event.type) {
           case "connecting":

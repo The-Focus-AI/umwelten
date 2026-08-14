@@ -525,8 +525,18 @@ Turns a machine into a Supplier: `umwelten supplier candidates | probe | publish
 **Deliberately does not depend on `@umwelten/mycel`** — it talks HTTP to a
 running Exchange, which keeps a Postgres driver off every GPU box.
 
-Next: machine Suppliers dial in over a held Connection instead of being dialled
-out to (ADR 0023). Specified in `docs/architecture/dial-in-protocol.md`, unbuilt.
+- `dial.ts` / `serve-connection.ts` — `umwelten supplier dial` holds an outbound
+  Connection to the Exchange and serves work pushed down it (ADR 0023). The
+  machine accepts no inbound connections: no tunnel, no ACL, no DNS, no firewall
+  rule. `--runtime` is what makes it a Supplier — without it the Connection is
+  held and pushed work is dropped. Its runtime key never leaves the machine.
+
+Machine Suppliers now dial in rather than being dialled out to (ADR 0023);
+`docs/architecture/dial-in-protocol.md` is the design. Connected is available,
+disconnected is withdrawn, and the staleness window no longer applies to a
+machine at all. Still open: the agent publishing its own Offers over the
+Connection (#379), deleting the inferred-liveness machinery for good (#382), and
+a vLLM runtime so `probe` can reach it (#377).
 
 ### `@umwelten/cli` — Command-Line Interface
 

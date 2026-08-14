@@ -165,10 +165,16 @@ function send(ws: WebSocket, frame: unknown): void {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(frame));
 }
 
-/** Adapt a live socket to the two things the registry needs from one. */
+/** Adapt a live socket to what the registry and the relay need from one. */
 function channelFor(ws: WebSocket): Channel {
   return {
     close: () => ws.close(CLOSE.DISPLACED, "displaced"),
+    send: (frame) => {
+      if (ws.readyState === ws.OPEN) ws.send(frame);
+    },
+    // `on`, not `once`: the handshake consumed the first message, and every
+    // frame after it is work.
+    onMessage: (listener) => ws.on("message", (raw) => listener(String(raw))),
     onClose: (listener) => ws.once("close", (code: number) => listener(isCleanClose(code))),
   };
 }

@@ -224,4 +224,111 @@ describe("dispatch", () => {
       expect(byId["eligible"].rankingPrice).toBeGreaterThan(0);
     });
   });
+
+  describe("a machine's availability is its Connection", () => {
+    const machine = (overrides: Partial<Offer> = {}) =>
+      offer({ supplierId: "thor", supplierKind: "agent", ...overrides });
+
+    it("selects a machine that is holding a Connection", () => {
+      const result = dispatch([machine()], { model: MODEL }, {
+        connectedSupplierIds: new Set(["thor"]),
+      });
+
+      expect(result.offer?.supplierId).toBe("thor");
+    });
+
+    it("will not select one that is disconnected", () => {
+      const result = dispatch([machine()], { model: MODEL }, {
+        connectedSupplierIds: new Set(),
+      });
+
+      expect(result.offer).toBeUndefined();
+    });
+
+    it("says disconnected rather than stale, because they are different problems", () => {
+      // "That machine is switched off" and "nobody republished that catalogue"
+      // have different fixes. An operator who cannot tell them apart debugs the
+      // wrong one.
+      const result = dispatch([machine()], { model: MODEL }, {
+        connectedSupplierIds: new Set(),
+      });
+
+      expect(result.considered[0].reason).toBe("supplier-disconnected");
+    });
+
+    it("serves a connected machine whose Offer has gone stale", () => {
+      // The Connection *is* liveness; staleness only ever inferred it. Taking a
+      // working machine out of the pool because an operator's publish loop died
+      // would keep exactly the apparatus ADR 0023 exists to remove.
+      const result = dispatch(
+        [machine({ publishedAt: new Date(Date.now() - DEFAULT_STALE_AFTER_MS - 60_000) })],
+        { model: MODEL },
+        { connectedSupplierIds: new Set(["thor"]) },
+      );
+
+      expect(result.offer?.supplierId).toBe("thor");
+    });
+
+    it("reconnecting makes the same request succeed again, with no operator action", () => {
+      const offers = [machine()];
+      const gone = dispatch(offers, { model: MODEL }, { connectedSupplierIds: new Set() });
+      const back = dispatch(offers, { model: MODEL }, {
+        connectedSupplierIds: new Set(["thor"]),
+      });
+
+      expect(gone.offer).toBeUndefined();
+      expect(back.offer?.supplierId).toBe("thor");
+    });
+
+    it("leaves vendors alone — a public API has no Connection to hold", () => {
+      const result = dispatch([offer({ supplierId: "openrouter" })], { model: MODEL }, {
+        connectedSupplierIds: new Set(),
+      });
+
+      expect(result.offer?.supplierId).toBe("openrouter");
+    });
+
+    it("judges everything on staleness when the deployment has no registry", () => {
+      // Undefined is not an empty set. A deployment with no Connection registry
+      // must behave exactly as it did before ADR 0023, or every existing
+      // machine Offer silently stops being dispatchable on upgrade.
+      const result = dispatch([machine()], { model: MODEL }, {});
+
+      expect(result.offer?.supplierId).toBe("thor");
+    });
+
+    it("never falls through to an Offer lacking a required Guarantee", () => {
+      // The load-bearing case again, now with a second way to become
+      // unavailable. A disconnected machine must fail the request, not hand it
+      // to a cheaper Supplier the operator cannot warrant.
+      const result = dispatch(
+        [
+          machine({ guarantees: ["on-premise"] }),
+          offer({
+            supplierId: "openrouter",
+            guarantees: [],
+            retailPromptPerMillion: 1,
+            retailCompletionPerMillion: 1,
+          }),
+        ],
+        { model: MODEL, guarantees: ["on-premise"] },
+        { connectedSupplierIds: new Set() },
+      );
+
+      expect(result.offer).toBeUndefined();
+      const byId = Object.fromEntries(result.considered.map((c) => [c.supplierId, c]));
+      expect(byId["thor"].reason).toBe("supplier-disconnected");
+      expect(byId["openrouter"].reason).toBe("missing-guarantee");
+    });
+
+    it("falls through to another eligible Offer when one machine is disconnected", () => {
+      const result = dispatch(
+        [machine(), offer({ supplierId: "openrouter" })],
+        { model: MODEL },
+        { connectedSupplierIds: new Set() },
+      );
+
+      expect(result.offer?.supplierId).toBe("openrouter");
+    });
+  });
 });

@@ -6,21 +6,21 @@ that Mycel dispatches to. Written against the deployed stage 1 Exchange at
 
 > **Read this first.**
 >
-> **ADR 0023's dial-in protocol is half built.** `umwelten supplier dial` exists
-> and works: thor opens an outbound WebSocket, the Exchange records it, and the
-> Connection ending withdraws the machine with no staleness window involved.
-> **Nothing is dispatched over it yet** — offers over the Connection (#379), the
-> relay pushing work down it (#380) and Dispatch consulting the live map (#381)
-> are still open. Section 0 is how to exercise what is built; it is a real test
-> of the liveness half and carries no traffic.
+> **The dial-in protocol serves traffic. Section 0 is the whole setup, and you
+> can stop there.** Thor holds an outbound WebSocket, the Exchange pushes work
+> down it, and the Connection ending withdraws the machine instantly — no
+> tunnel, no `GatewayPorts`, no firewall rule, no staleness window.
 >
-> Until #380 and #381 land, **traffic still needs section 1's tunnel.** That
-> satisfies the ADR's transport property — Mycel never connects *to* thor, so a
-> box behind NAT accepts no inbound connections and has no address to register —
-> with ssh instead of a protocol. What it does not give you is liveness: Mycel
-> infers thor is up from whether its Offers were republished recently, and a
-> dead vLLM behind a healthy tunnel looks dispatchable until a request fails.
-> Run both for now, and delete section 1 when #381 lands.
+> Section 1's reverse tunnel is **the old way**, kept only for a machine that
+> cannot run the agent. If that is not you, skip to section 0 and ignore the
+> rest of the ssh setup entirely.
+>
+> **ADR 0015 — Capabilities are probed through the serving path — is still not
+> satisfied.** `umwelten supplier` cannot probe vLLM (#377), so thor's Offers
+> are **declared by the operator**, like a vendor's. Claim narrowly: an
+> over-claimed Capability routes a request somewhere that cannot serve it, which
+> is the failure that ADR exists to prevent. Thor also publishes no Headroom, so
+> Dispatch scores it on price alone and cannot know whether it batches or queues.
 >
 > **ADR 0015 — Capabilities are probed through the serving path — is not
 > satisfied.** `umwelten supplier` cannot probe vLLM: `discoverRuntimes` knows
@@ -52,12 +52,14 @@ mycel supplier register thor-dial \
 
 It prints a credential once. That credential is what thor presents.
 
-**On thor**, hold the Connection:
+**On thor**, hold the Connection and serve from the local runtime:
 
 ```bash
 umwelten supplier dial \
   --mycel https://mycel.thefocus.ai \
-  --credential "$SUPPLIER_CREDENTIAL"
+  --credential "$SUPPLIER_CREDENTIAL" \
+  --runtime http://localhost:4000/v1 \
+  --runtime-key "$VLLM_API_KEY"
 ```
 
 You should see:
@@ -66,6 +68,27 @@ You should see:
 dialling https://mycel.thefocus.ai …
 connected — this machine is now dispatchable
 ```
+
+**`--runtime` is what makes it a Supplier.** Without it the Connection is held
+and every pushed request is dropped on the floor — useful for checking
+reachability, useless for selling. The agent says so on start rather than
+letting it look like success.
+
+Thor's vLLM key never leaves thor. The Exchange pushes a request down the
+Connection and the agent adds the key locally, so the Exchange stores no
+credential for this machine and a database compromise yields nothing that can
+spend your GPU.
+
+Then publish thor's catalogue from `mycel-host` — operator-declared, because
+`probe` cannot see vLLM (#377):
+
+```bash
+mycel offers sync thor --models thor-<short-name> --capabilities chat,streaming
+```
+
+**No `--watch` needed.** For a machine, the Connection *is* liveness: a
+connected machine's Offers never go stale, and a disconnected machine's are
+refused whatever their age. The republishing heartbeat is a vendor concern.
 
 Close the lid, kill the process, pull the ethernet — it reconnects, and the
 backoff doubles only while it is failing to connect at all, resetting after any
@@ -96,11 +119,27 @@ Connection was replaced), `shutdown` (the Exchange stopped).
 Caddy proxies the upgrade without configuration — `reverse_proxy` handles
 WebSockets natively, so nothing in `docker-compose.yml` changes for this.
 
-**What this does not yet do:** carry a request. Thor being connected is recorded
-and observable, and Dispatch does not consult it yet (#381). For traffic today,
-also do section 1.
+Now buy from it, and check where it went:
 
-## 1. Thor carries traffic — a reverse tunnel
+```bash
+curl -s https://mycel.thefocus.ai/v1/chat/completions \
+  -H "Authorization: Bearer $APP_CREDENTIAL" \
+  -H "X-Mycel-End-User: you" \
+  -H "content-type: application/json" \
+  -d '{"model":"thor-<short-name>","stream":true,"messages":[{"role":"user","content":"hi"}]}'
+```
+
+Kill the dial and the same request 503s with `supplier-disconnected` in the
+`considered` list — a different diagnosis from `offer-stale`, and the body says
+which. Restart it and the request succeeds again with no operator action.
+
+**That is the end of the setup.** Sections 1–5 below are the older tunnel-based
+path; you need none of them.
+
+## 1. The old way — a reverse tunnel
+
+> Only for a machine that cannot run the supplier agent. Section 0 replaces all
+> of this, and gives you real liveness on top.
 
 vLLM is OpenAI-shaped on `:4000`, and Mycel already speaks that. The only real
 question is who opens the TCP connection, and the answer is **thor**.
@@ -350,14 +389,17 @@ each was rejected — `missing-guarantee` is a different problem from
   behaviour under concurrency, so Dispatch cannot tell whether it batches or
   queues and scores it on price alone. A `queues` box that is cheap wins every
   request and makes the second customer wait.
-- **No liveness *in Dispatch*.** Section 0's Connection is real and recorded,
-  but #381 has not landed, so routing still runs off "Offers republished
-  recently" as a proxy for "thor is up". A dead vLLM with a live sync loop looks
-  dispatchable until a request fails. When #381 lands, the held Connection
-  replaces this and deletes the whole staleness apparatus with it (#382).
-- **No probed Capabilities.** Everything in the Offer is your claim.
+- **No probed Capabilities.** Everything in thor's Offer is your claim, because
+  `probe` cannot reach vLLM (#377). Over-claim and Dispatch routes a request
+  somewhere that cannot serve it.
+- **No Headroom.** Nothing measured thor's throughput or its behaviour under
+  concurrency, so Dispatch scores it on price alone and cannot tell whether it
+  batches or queues. A cheap box that queues wins every request and makes the
+  second customer wait.
+- **The agent does not publish its own catalogue** (#379). The operator declares
+  thor's Offers, which is why they can drift from what vLLM actually has loaded.
 
-Headroom and Capabilities close when a vLLM runtime is added to the supplier
-agent (#377), which lets `umwelten supplier probe` reach thor through its
-serving path as ADR 0015 requires. Liveness closes with #379–#382. Until then,
-this is a real Supplier with a manual seam where the agent should be.
+Both close when a vLLM runtime is added to the supplier agent (#377), which lets
+`probe` reach thor through its serving path as ADR 0015 requires. Liveness is
+done: the Connection is what Dispatch consults, and the staleness window no
+longer applies to a machine at all.
