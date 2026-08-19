@@ -147,6 +147,7 @@ Unified access to 12 providers via `BaseProvider` (abstract class with `listMode
 - `ollama.ts` — Local models (no key needed)
 - `lmstudio.ts` — Local REST API (no key needed)
 - `llamabarn.ts` — [LlamaBarn](https://github.com/ggml-org/LlamaBarn) local llama.cpp models via OpenAI-compatible API at `http://localhost:2276/v1` (no key needed)
+- `vllm.ts` — [vLLM](https://github.com/vllm-project/vllm) over its OpenAI-compatible API, default `http://localhost:8000/v1` (`VLLM_BASE_URL`). The only local provider that can want a key (`VLLM_API_KEY`), and it distinguishes a refused key from an absent server — collapsing those would let a box with a typo'd key drop silently out of the catalogue.
 - `llamaswap.ts` — [llama-swap](https://github.com/mostlygeek/llama-swap) proxy; OpenAI-compatible, default `http://localhost:8080/v1` (override with `LLAMASWAP_HOST`). Use `umwelten models llamaswap-config` to generate its YAML config from local GGUF caches.
 - `llamaswap-config.ts` — pure helpers to scan GGUF caches (LM Studio, LlamaBarn, HF hub) and emit a `llama-swap` YAML. Exposed via the `umwelten models llamaswap-config` CLI command.
 - `local-fetch.ts` — shared HTTP helpers for local providers (Ollama, LM Studio, LlamaBarn, llama-swap).
@@ -533,10 +534,14 @@ running Exchange, which keeps a Postgres driver off every GPU box.
 
 Machine Suppliers now dial in rather than being dialled out to (ADR 0023);
 `docs/architecture/dial-in-protocol.md` is the design. Connected is available,
-disconnected is withdrawn, and the staleness window no longer applies to a
-machine at all. Still open: the agent publishing its own Offers over the
-Connection (#379), deleting the inferred-liveness machinery for good (#382), and
-a vLLM runtime so `probe` can reach it (#377).
+disconnected is withdrawn, and **the staleness window does not apply to a
+machine at all** — the agent heartbeat, the `--watch` sidecar for machines and
+the expiry backstop were all deleted with #382, because four mechanisms were
+answering a question a held Connection answers by existing. Vendors keep
+staleness, having neither an agent nor a Connection. The machine's catalogue
+rides the handshake — it publishes itself from the cached probe, so the Exchange
+never believes a machine is available without knowing what it serves, and
+operator-set prices survive every reconnect.
 
 ### `@umwelten/cli` — Command-Line Interface
 
@@ -679,6 +684,7 @@ mise run habitat-browse       # against a habitat's sessions
 - `TAVILY_API_KEY` — Web search tool
 - `MARKIFY_URL` — Optional external HTML-to-markdown service
 - `LLAMASWAP_HOST` — Override the default `http://localhost:8080/v1` for llama-swap
+- `VLLM_BASE_URL` / `VLLM_API_KEY` — vLLM (defaults to `http://localhost:8000/v1`; the key is optional, and a rejected one fails loudly rather than reporting the server absent)
 
 Loaded automatically by `@umwelten/core/env/load.js` (side-effect import at module-load time). Every package that consumes core gets `.env` for free.
 

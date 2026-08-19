@@ -228,12 +228,25 @@ export class Operator {
    * whole Offer set, so a Model dropped from the list stops being advertised
    * without anyone deleting anything.
    */
+  /**
+   * Publish on a Supplier's behalf.
+   *
+   * `servingMode` used to be forced to `adapted` here, which was right for the
+   * only case that existed — reselling a vendor's API, a configuration nobody
+   * on this side controls. It is wrong for hardware the operator owns and
+   * configured, and it silently cost that hardware the ability to commit to a
+   * context size or a quantization at all (ADR 0016), so a 128k NVFP4 box
+   * published as though it could promise neither.
+   *
+   * So the caller says, and the default stays `adapted` — the honest answer
+   * when nobody has claimed otherwise.
+   */
   async publishOffersFor(supplierId: string, offers: PublishedOffer[]): Promise<void> {
     const supplier = await this.store.getSupplier(supplierId);
     if (!supplier) throw new Error(`Unknown supplier "${supplierId}".`);
     await this.store.replaceOffers(
       supplierId,
-      offers.map((offer) => ({ ...offer, servingMode: "adapted" as const })),
+      offers.map((offer) => ({ ...offer, servingMode: offer.servingMode ?? "adapted" })),
     );
   }
 }

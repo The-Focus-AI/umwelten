@@ -70,7 +70,6 @@ interface CliOptions {
   resume?: boolean;
   reprobeInterval?: string;
   healthInterval?: string;
-  heartbeatInterval?: string;
   kind?: string;
   user?: string;
   // dial
@@ -667,7 +666,6 @@ addProbeOptions(
     .option("--guarantees <names>", "Guarantees to claim, comma-separated")
     .option("--reprobe-interval <hours>", "Backstop re-probe interval", "24")
     .option("--health-interval <seconds>", "How often to check what we published", "30")
-    .option("--heartbeat-interval <minutes>", "How often to republish an unchanged set", "5")
     .option("--resume", "Reuse the saved configuration and credential"),
 ).action(async (opts: CliOptions) => {
   // Resume first: a machine coming back from a reboot has nobody at the
@@ -754,7 +752,6 @@ addProbeOptions(
       reprobeIntervalMs: Number(opts.reprobeInterval ?? 24) * 3_600_000,
       // The Exchange expires a quiet Supplier. Staying audible is what makes
       // that expiry mean "gone" rather than "has not changed lately".
-      heartbeatIntervalMs: Number(opts.heartbeatInterval ?? 5) * 60_000,
       signal: abort.signal,
       probeInputs: inputs,
       previous: {
@@ -831,6 +828,66 @@ supplierCommand
       console.log("no --runtime: holding the Connection, serving nothing");
     }
 
+    const config = (() => {
+      try {
+        return resolveConfig(opts);
+      } catch {
+        // Dialling only needs a URL and a credential, both of which can come
+        // from flags. A machine with no saved config can still connect; it
+        // just has nothing of its own to publish.
+        return undefined;
+      }
+    })();
+
+    // Probe when there is nothing usable to publish, and cache the result.
+    //
+    // Not on every reconnect — that would make a flapping link expensive, and
+    // the fingerprint is what decides when a measurement is actually stale.
+    // But a machine that has never probed has nothing to say about itself, and
+    // silently dialling in with an empty catalogue is how a box ends up
+    // connected and unbuyable.
+    let offers: ReturnType<typeof toOfferDrafts> | undefined;
+    if (config && runtimeUrl) {
+      const cached = loadState();
+      const inputs = probeInputsFor(config);
+      const reason = reprobeReason({
+        previous: cached && {
+          fingerprint: cached.fingerprint,
+          probedAt: cached.probedAt,
+          inputs: cached.inputs as Partial<ProbeInputs> | undefined,
+        },
+        current: inputs,
+        now: Date.now(),
+        intervalMs: Number(opts.reprobeInterval ?? 24) * 3_600_000,
+      });
+
+      if (!cached || reason) {
+        console.log(`probing: ${reason ?? "nothing cached for this machine"}`);
+        const { probed } = await probeMachine(config, opts, (l) => console.log(l));
+        reportGaps(probed, (l) => console.log(l));
+        saveState({
+          version: STATE_VERSION,
+          fingerprint: fingerprint(inputs),
+          probedAt: new Date().toISOString(),
+          probed,
+          inputs: inputs as unknown as Record<string, unknown>,
+        });
+        offers = toOfferDrafts(probed, { servingMode: config.servingMode });
+      } else {
+        console.log(`publishing the probe of ${cached.probedAt} — unchanged since`);
+        offers = toOfferDrafts(cached.probed, { servingMode: config.servingMode });
+      }
+    }
+
+    if (offers) {
+      console.log(`publishing ${offers.length} offer(s) with the connection`);
+    } else {
+      // Said out loud, because the alternative reading is that dialling in
+      // wiped a catalogue the operator published by hand. It does not: an
+      // absent offer set means "do not touch mine".
+      console.log("publishing nothing: leaving whatever Offers the Exchange already has");
+    }
+
     console.log(`dialling ${exchangeUrl} …`);
     await dialIn({
       exchangeUrl,
@@ -839,6 +896,8 @@ supplierCommand
       signal: abort.signal,
       runtimeUrl,
       runtimeCredential: opts.runtimeKey ?? process.env.RUNTIME_API_KEY,
+      offers,
+      guarantees: config?.guarantees,
       onServeEvent: (event) => {
         switch (event.type) {
           case "request-started":

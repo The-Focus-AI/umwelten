@@ -66,7 +66,8 @@ mycel supplier register openrouter \
   --credential-env OPENROUTER_API_KEY
 
 # Its catalogue. A vendor runs no agent, so the operator publishes for it — and
-# this has to keep running, because it IS the heartbeat. See the failure below.
+# a vendor runs no agent, so this has to keep running — it IS the heartbeat.
+# Machines need none of it; see the failure below.
 mycel offers sync openrouter \
   --models anthropic/claude-sonnet-5,google/gemini-3-flash-preview \
   --watch 5
@@ -142,11 +143,16 @@ provider is a registry config value, so that is an edit and a restart, no deploy
 **Offers vanishing after fifteen minutes.** Symptom: `no_offer` on every request
 for a vendor model, with a `considered` list showing `offer-stale`.
 
-Dispatch drops an Offer not republished within the staleness window. A machine's
-agent heartbeats every five minutes; a vendor has no agent, so
-`offers sync --watch` is what heartbeats for it. If that process died, the
-Offers expire — which is correct, because a dead sync means we no longer know
-the vendor's state either.
+Dispatch drops a **vendor's** Offer not republished within the staleness
+window, and `offers sync --watch` is what republishes for it. If that process
+died, the Offers expire — which is correct, because a dead sync means we no
+longer know the vendor's state either.
+
+**This never applies to a machine.** A machine Supplier holds a Connection, and
+that Connection is its availability (ADR 0023): its Offers do not expire at any
+age, and it becomes undispatchable the instant it disconnects, reported as
+`supplier-disconnected` rather than `offer-stale`. If you see `offer-stale` for
+a machine, something is wrong with the diagnosis and not with the machine.
 
 ### The others worth knowing
 

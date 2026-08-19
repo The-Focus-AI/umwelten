@@ -29,20 +29,19 @@ import type { OfferDraft, ProbedOffer } from "./types.js";
  */
 export const HEALTH_INTERVAL_MS = 30_000;
 
-/**
- * How often a healthy agent republishes an unchanged Offer set.
+/*
+ * There was a HEARTBEAT_INTERVAL_MS here, and it is gone (ADR 0023, #382).
  *
- * Not churn — a heartbeat. The Exchange expires Offers from a Supplier that has
- * gone quiet, which is the half of withdrawal that survives this process being
- * killed, losing power, or losing its network. That mechanism only works if
- * silence actually means something, and it cannot mean anything unless a
- * healthy agent is reliably noisy.
+ * A healthy agent republished an unchanged Offer set every five minutes so
+ * that *silence* would mean something to an Exchange that expired Offers after
+ * fifteen. That is inferred liveness, and it only ever existed because the
+ * Exchange could not see whether a machine was alive. It can: the machine
+ * holds a Connection, and the Connection ending is the withdrawal.
  *
- * Five minutes against the Exchange's fifteen gives three chances to be heard
- * before an Offer goes stale, so one missed publish over a flaky link does not
- * take a working machine out of the pool.
+ * What remains below is health checking, which answers a different question —
+ * "is this Model still serving?" — and still publishes the moment the answer
+ * changes. That is a report of a real event, not a periodic proof of life.
  */
-export const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 
 export interface ServeEffects {
   /** Is the runtime we started still answering? */
@@ -65,7 +64,6 @@ export interface ServeEffects {
 export interface ServeOptions {
   healthIntervalMs?: number;
   reprobeIntervalMs?: number;
-  heartbeatIntervalMs?: number;
   /** Stops the loop. */
   signal?: AbortSignal;
   probeInputs: ProbeInputs;
@@ -87,9 +85,7 @@ export async function runServeLoop(
 ): Promise<void> {
   const healthMs = opts.healthIntervalMs ?? HEALTH_INTERVAL_MS;
   const reprobeMs = opts.reprobeIntervalMs ?? DEFAULT_REPROBE_INTERVAL_MS;
-  const heartbeatMs = opts.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS;
   let lastProbe = opts.previous;
-  let lastPublished = effects.now();
 
   const report = (change: SupervisorChange) => {
     for (const note of change.notes) effects.log(note);
@@ -126,15 +122,12 @@ export async function runServeLoop(
       ) || dirty;
     }
 
-    // Immediately, not at the next scheduled publish. An agent that waits is
-    // an agent that lets Dispatch route into a known failure.
-    if (dirty || effects.now() - lastPublished >= heartbeatMs) {
-      // Only a publish the Exchange accepted resets the heartbeat clock. A
-      // failed one leaves it due, so the next health cycle retries in seconds
-      // rather than minutes — three failed heartbeats is an expired Offer, and
-      // a machine sitting healthy and unlisted is the worst way to lose money.
-      if (await republish(supervisor, effects)) lastPublished = effects.now();
-    }
+    // Only when something actually changed. Publishing on a timer was the
+    // heartbeat, and nothing needs proof of life from a machine whose
+    // Connection the Exchange is holding — but a Model that just started
+    // failing is news, and news travels immediately rather than at the next
+    // scheduled publish.
+    if (dirty) await republish(supervisor, effects);
 
     const reason = reprobeReason({
       previous: lastProbe,
@@ -167,7 +160,7 @@ export async function runServeLoop(
 
     for (const line of diff.summary) effects.log(line);
     supervisor.replace(drafts);
-    if (await republish(supervisor, effects)) lastPublished = effects.now();
+    await republish(supervisor, effects);
   }
 }
 

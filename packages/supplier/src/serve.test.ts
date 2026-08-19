@@ -141,9 +141,6 @@ async function runFor(
   await runServeLoop(supervisor, wrapped, {
     healthIntervalMs: 30_000,
     reprobeIntervalMs: 24 * 3_600_000,
-    // Off unless a test is about it, so an unrelated assertion on `published`
-    // is not counting heartbeats.
-    heartbeatIntervalMs: 365 * 24 * 3_600_000,
     signal: abort.signal,
     probeInputs: INPUTS,
     previous: {
@@ -156,37 +153,21 @@ async function runFor(
 }
 
 describe("runServeLoop", () => {
-  it("publishes nothing extra between heartbeats while everything is healthy", async () => {
+  it("publishes nothing at all while everything is healthy", async () => {
+    // Silence is now the correct output of a healthy loop. There is no
+    // heartbeat to emit, because nothing needs proof of life from a machine
+    // whose Connection the Exchange is already holding (#382).
     const h = harness();
-    await runFor(4, new OfferSupervisor([draft("a"), draft("b")]), h, {
-      heartbeatIntervalMs: 60 * 60_000,
-    });
+    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h);
+
     expect(h.published).toEqual([]);
   });
 
-  it("heartbeats an unchanged Offer set", async () => {
-    // Not churn. The Exchange expires Offers from a Supplier that has gone
-    // quiet, and that only means anything if a healthy agent is reliably
-    // noisy — it is the half of withdrawal that survives this process being
-    // killed, losing power, or losing its network.
-    const h = harness();
-    // 30s cycles, 5-minute heartbeat: 12 cycles is two heartbeats.
-    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h, {
-      heartbeatIntervalMs: 5 * 60_000,
-    });
-
-    expect(h.published.length).toBeGreaterThanOrEqual(2);
-    // And every heartbeat carries the whole live set, because publishing is
-    // total — a heartbeat that sent nothing would withdraw the machine.
-    for (const publish of h.published) expect(publish.map((o) => o.model)).toEqual(["a", "b"]);
-  });
-
-  it("heartbeats only the Offers that are still live", async () => {
+  it("publishes only the Offers that are still live when something breaks", async () => {
     const h = harness();
     h.broken.add("b");
-    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h, {
-      heartbeatIntervalMs: 5 * 60_000,
-    });
+    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h);
+
     expect(h.published[h.published.length - 1].map((o) => o.model)).toEqual(["a"]);
   });
 
@@ -203,20 +184,17 @@ describe("runServeLoop", () => {
     expect(h.published[0].map((o) => o.model)).toEqual(["a"]);
   });
 
-  it("keeps going when a publish fails, and the next one carries the whole set", async () => {
-    // Retry without duplication, and it costs nothing to get right because
-    // publishing is total: the next publish *is* the retry, and an Offer
-    // published twice is an Offer published once. An agent that gave up on a
-    // failed publish would sit healthy and unlisted until someone noticed.
-    // 30s health cycles, 5-minute heartbeat: due every 10th cycle. Recording
-    // the cycle each attempt lands on is what distinguishes a prompt retry
-    // from one that waited out another full interval.
-    const attempts: { cycle: number; offers: OfferDraft[] }[] = [];
-    let cycle = 0;
+  it("keeps going when a publish fails, and every publish carries the whole set", async () => {
+    // A failed publish used to stay due until the next heartbeat retried it.
+    // There is no heartbeat now (#382), so what matters is that a failure does
+    // not kill the loop and that publishing stays total — an Offer published
+    // twice is an Offer published once, and a partial publish would leave the
+    // Exchange holding half a machine.
+    const attempts: OfferDraft[][] = [];
     let failNext = true;
     const h = harness({
       publish: async (offers) => {
-        attempts.push({ cycle, offers });
+        attempts.push(offers);
         if (failNext) {
           failNext = false;
           return { ok: false, detail: "unreachable" };
@@ -224,28 +202,15 @@ describe("runServeLoop", () => {
         return { ok: true };
       },
     });
-    const counting: ServeEffects = {
-      ...h.effects,
-      sleep: async (ms) => {
-        await h.effects.sleep(ms);
-        cycle += 1;
-      },
-    };
+    h.broken.add("b");
 
-    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), { ...h, effects: counting }, {
-      heartbeatIntervalMs: 5 * 60_000,
-    });
+    await runFor(24, new OfferSupervisor([draft("a"), draft("b")]), h);
 
     expect(h.logs).toContain("publish failed: unreachable");
-    // Three attempts, not two: the failure at cycle 10, its retry one cycle
-    // later, and the next heartbeat. Resetting the clock on a failure would
-    // have given two attempts ten cycles apart, and left the machine unlisted
-    // for five minutes of a fifteen-minute expiry window.
-    expect(attempts).toHaveLength(3);
-    expect(attempts[1].cycle - attempts[0].cycle).toBe(1);
-    // Every attempt is the complete live set, not a delta, so a retry cannot
-    // leave the Exchange holding half a machine.
-    for (const attempt of attempts) expect(attempt.offers.map((o) => o.model)).toEqual(["a", "b"]);
+    expect(attempts.length).toBeGreaterThanOrEqual(1);
+    for (const attempt of attempts) {
+      expect(attempt.map((o) => o.model)).not.toContain("b");
+    }
   });
 
   it("keeps the machine's other Offers up when one Model breaks", async () => {

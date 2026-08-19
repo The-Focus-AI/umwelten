@@ -50,6 +50,7 @@ export default defineConfig({
         {
           text: 'The Exchange',
           items: [
+            { text: 'Setting up Mycel', link: '/guide/mycel-setup' },
             { text: 'Selling a local vLLM box', link: '/guide/local-supplier-vllm' },
           ]
         },

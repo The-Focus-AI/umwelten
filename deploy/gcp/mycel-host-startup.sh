@@ -62,6 +62,26 @@ fi
 # pinned and no compose project prefix appears.
 docker network inspect mycel-net >/dev/null 2>&1 || docker network create mycel-net
 
+# ── The operator command, on every shell ──────────────────────────────
+#
+# `mycel` was an alias pasted from the runbook, which meant every new shell
+# either had it or silently did not, and a *nearly* right one is worse than
+# none: dropping `mycel-entrypoint` produces "No database. Pass --database",
+# which reads as a configuration problem on a host whose configuration is fine.
+#
+# The entrypoint is the load-bearing part. `docker exec` starts a new process
+# and does not run the image's ENTRYPOINT, so the secrets resolved at boot live
+# only inside the `serve` process; going through it re-resolves them from Secret
+# Manager for this one command. `MYCEL_SECRETS` comes from the compose
+# environment, so `exec` inherits the names — it just never resolves them alone.
+cat > /etc/profile.d/mycel.sh <<'SH'
+mycel() {
+  docker compose --project-directory /opt/umwelten/deploy/mycel \
+    exec mycel /usr/local/bin/mycel-entrypoint node /app/mycel.js "$@"
+}
+SH
+chmod 0644 /etc/profile.d/mycel.sh
+
 # Note what is NOT here: no secret is fetched, written, or templated on this
 # host. The container resolves Secret Manager itself at start through this
 # instance's attached service account, so a compromise of the disk yields no

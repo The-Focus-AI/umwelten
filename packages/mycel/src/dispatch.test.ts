@@ -288,13 +288,39 @@ describe("dispatch", () => {
       expect(result.offer?.supplierId).toBe("openrouter");
     });
 
-    it("judges everything on staleness when the deployment has no registry", () => {
-      // Undefined is not an empty set. A deployment with no Connection registry
-      // must behave exactly as it did before ADR 0023, or every existing
-      // machine Offer silently stops being dispatchable on upgrade.
+    it("will not route to a machine when it cannot observe liveness at all", () => {
+      // No connection set means this Exchange has no way to know. A machine
+      // whose liveness cannot be observed is not one to route to — the same
+      // answer as disconnected, for the same reason.
       const result = dispatch([machine()], { model: MODEL }, {});
 
+      expect(result.offer).toBeUndefined();
+      expect(result.considered[0].reason).toBe("supplier-disconnected");
+    });
+
+    it("never drops a machine's Offer for being stale, at any age", () => {
+      // Staleness does not apply to a machine at all (#382). Not "applies as a
+      // backstop" — a second opinion here could only ever disagree with the
+      // evidence the Connection already provides.
+      const ancient = machine({ publishedAt: new Date(Date.now() - 30 * 24 * 3600_000) });
+      const result = dispatch(
+        [ancient],
+        { model: MODEL },
+        { connectedSupplierIds: new Set(["thor"]) },
+      );
+
       expect(result.offer?.supplierId).toBe("thor");
+    });
+
+    it("still expires a vendor's Offer, which has no Connection to speak for it", () => {
+      const stale = offer({
+        supplierId: "openrouter",
+        publishedAt: new Date(Date.now() - DEFAULT_STALE_AFTER_MS - 60_000),
+      });
+      const result = dispatch([stale], { model: MODEL }, { connectedSupplierIds: new Set() });
+
+      expect(result.offer).toBeUndefined();
+      expect(result.considered[0].reason).toBe("offer-stale");
     });
 
     it("never falls through to an Offer lacking a required Guarantee", () => {
