@@ -20,6 +20,19 @@ Each section is copy-paste top to bottom. Placeholders are `UPPERCASE`.
 
 The operator's job, done once. If someone else runs Mycel for you, skip this.
 
+> **The Focus AI deployment.** This guide's placeholders resolve to real values
+> for the deployed Exchange, and section 1 is already done — these matter only
+> when touching Secret Manager again (rotating a value, adding a new key):
+>
+> ```bash
+> export PROJECT=habitats-502314
+> export SA=mycel-sa@habitats-502314.iam.gserviceaccount.com
+> ```
+>
+> The hostname used throughout this guide, `mycel.thefocus.ai`, is the deployed
+> Exchange; the instance is `mycel-host` in `us-east4-a`. Ops details:
+> `docs/guide/operating-production.md`.
+
 ### 1.1 Secrets, in Google Secret Manager
 
 No secret is ever written to the host. The container reads them at start through
@@ -68,7 +81,7 @@ gcloud compute instances create mycel-host --project "$PROJECT" \
   --metadata-from-file startup-script=deploy/gcp/mycel-host-startup.sh
 ```
 
-Point an A record at that instance's IP — `mycel.example.com`, not a wildcard
+Point an A record at that instance's IP — `mycel.thefocus.ai`, not a wildcard
 subdomain shared with anything else. Caddy issues the certificate from it.
 
 ### 1.3 Deploy
@@ -87,7 +100,7 @@ an image around it, waits for `/health` to report the **store** reachable, and
 rolls itself back if it never gets there.
 
 ```bash
-curl https://mycel.example.com/health     # {"status":"ok"}
+curl https://mycel.thefocus.ai/health     # {"status":"ok"}
 ```
 
 ### 1.4 The operator command
@@ -172,7 +185,7 @@ export VLLM_BASE_URL=http://localhost:8000/v1     # only if not vLLM's default
 export VLLM_API_KEY=YOUR_RUNTIME_KEY              # only if your server wants one
 
 pnpm run cli -- supplier dial \
-  --mycel https://mycel.example.com \
+  --mycel https://mycel.thefocus.ai \
   --runtime http://localhost:8000/v1 \
   --runtime-key "$VLLM_API_KEY"
 ```
@@ -183,7 +196,7 @@ The first run probes the machine, which takes a few minutes:
 probing: nothing cached for this machine
   …
 publishing 1 offer(s) with the connection
-dialling https://mycel.example.com …
+dialling https://mycel.thefocus.ai …
 connected — this machine is now dispatchable
 ```
 
@@ -211,7 +224,7 @@ WorkingDirectory=/home/YOUR_USER/mycel
 Environment=SUPPLIER_CREDENTIAL=sk-mycel-…
 Environment=VLLM_API_KEY=YOUR_RUNTIME_KEY
 ExecStart=/usr/bin/env pnpm run cli -- supplier dial \
-  --mycel https://mycel.example.com --runtime http://localhost:8000/v1
+  --mycel https://mycel.thefocus.ai --runtime http://localhost:8000/v1
 Restart=always
 RestartSec=10
 
@@ -329,18 +342,18 @@ Three layers, and they are distinct on purpose:
 ### 3.2 See what is for sale
 
 ```bash
-curl -s https://mycel.example.com/v1/models | jq .
+curl -s https://mycel.thefocus.ai/v1/models | jq .
 ```
 
 ### 3.3 Make a request
 
 OpenAI-shaped, so any OpenAI client works by pointing `base_url` at
-`https://mycel.example.com/v1`.
+`https://mycel.thefocus.ai/v1`.
 
 ```bash
 export APP_CREDENTIAL='sk-mycel-…'
 
-curl -s https://mycel.example.com/v1/chat/completions \
+curl -s https://mycel.thefocus.ai/v1/chat/completions \
   -H "Authorization: Bearer $APP_CREDENTIAL" \
   -H "X-Mycel-End-User: alice" \
   -H "content-type: application/json" \
@@ -355,7 +368,7 @@ curl -s https://mycel.example.com/v1/chat/completions \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://mycel.example.com/v1",
+    base_url="https://mycel.thefocus.ai/v1",
     api_key=APP_CREDENTIAL,
     default_headers={"X-Mycel-End-User": "alice"},
 )
@@ -367,7 +380,7 @@ Requirements are filters, and a request that cannot be satisfied **fails** rathe
 than quietly downgrading:
 
 ```bash
-curl -s https://mycel.example.com/v1/chat/completions \
+curl -s https://mycel.thefocus.ai/v1/chat/completions \
   -H "Authorization: Bearer $APP_CREDENTIAL" \
   -H "X-Mycel-End-User: alice" \
   -H "x-exchange-require-guarantee: on-premise" \
