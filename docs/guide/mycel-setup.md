@@ -20,6 +20,18 @@ Each section is copy-paste top to bottom. Placeholders are `UPPERCASE`.
 
 The operator's job, done once. If someone else runs Mycel for you, skip this.
 
+> **The Focus AI deployment.** This guide's placeholders resolve to real values
+> for the deployed Exchange, and section 1 is already done — these matter only
+> when touching Secret Manager again (rotating a value, adding a new key):
+>
+> ```bash
+> export PROJECT=habitats-502314
+> export SA=mycel-sa@habitats-502314.iam.gserviceaccount.com
+> ```
+>
+> `mycel.example.com` is `mycel.thefocus.ai`; the instance is `mycel-host` in
+> `us-east4-a`. Ops details: `docs/guide/operating-production.md`.
+
 ### 1.1 Secrets, in Google Secret Manager
 
 No secret is ever written to the host. The container reads them at start through
