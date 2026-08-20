@@ -75,6 +75,8 @@ interface CliOptions {
   // dial
   runtime?: string;
   runtimeKey?: string;
+  /** Commander sets this false for --no-probe. */
+  probe?: boolean;
 }
 
 /**
@@ -801,6 +803,11 @@ supplierCommand
     "Local OpenAI-compatible runtime to serve from, e.g. http://localhost:4000/v1",
   )
   .option("--runtime-key <token>", "Key the local runtime expects (or RUNTIME_API_KEY)")
+  .option(
+    "--no-probe",
+    "Connect and serve without probing. The Exchange keeps whatever Offers it has",
+  )
+  .option("--model <substring>", "Probe and publish only Models matching this")
   .action(async (opts: CliOptions) => {
     const exchangeUrl = opts.mycel ?? process.env.MYCEL_URL;
     const credential = opts.credential ?? process.env.SUPPLIER_CREDENTIAL;
@@ -847,7 +854,13 @@ supplierCommand
     // silently dialling in with an empty catalogue is how a box ends up
     // connected and unbuyable.
     let offers: ReturnType<typeof toOfferDrafts> | undefined;
-    if (config && runtimeUrl) {
+    if (opts.probe === false) {
+      // The escape hatch the wire always had: a hello with no offer set means
+      // "do not touch my catalogue". It exists for exactly this — getting a
+      // machine connected and serving while its catalogue is operator-declared,
+      // or while the probe battery is being debugged rather than trusted.
+      console.log("--no-probe: skipping the probe battery");
+    } else if (config && runtimeUrl) {
       const cached = loadState();
       const inputs = probeInputsFor(config);
       const reason = reprobeReason({
