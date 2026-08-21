@@ -8,7 +8,10 @@ Three people, three jobs. Find yours and do only that section.
 | **A supplier** | Sell your GPU's tokens | [2. Sell a GPU](#2-sell-a-gpu) |
 | **A buyer** | Use models through it | [3. Buy tokens](#3-buy-tokens) |
 
-Each section is copy-paste top to bottom. Placeholders are `UPPERCASE`.
+Each section is copy-paste top to bottom. Anything you must supply yourself is
+an `UPPERCASE_PASTE_MARKER` — and the scripts in `scripts/mycel/` refuse to run
+with a placeholder still in place, so a missed paste fails in one line instead
+of as a mystery.
 
 > **Money is integer micro-dollars.** `$1.00` is `1000000`. Never a float — a
 > Balance is a sum of these, and an amount that cannot be represented exactly is
@@ -62,10 +65,10 @@ Create a Postgres database at [neon.tech](https://neon.tech), then put its
 connection string in. Values arrive on stdin, never in argv:
 
 ```bash
-printf '%s' 'postgres://…' | \
+printf '%s' 'PASTE_THE_NEON_CONNECTION_STRING' | \
   gcloud secrets versions add mycel-database-url --project "$PROJECT" --data-file=-
 
-printf '%s' 'sk-or-…' | \
+printf '%s' 'PASTE_THE_OPENROUTER_KEY' | \
   gcloud secrets versions add mycel-openrouter-api-key --project "$PROJECT" --data-file=-
 ```
 
@@ -179,36 +182,36 @@ pnpm install
 
 ### 2.3 Dial in
 
+One script. It prompts for the credential (so a stale or placeholder export can
+never be presented), checks the runtime and the Exchange are actually
+answering before anything long-lived starts, and refuses values that look like
+placeholders:
+
 ```bash
-export SUPPLIER_CREDENTIAL='sk-mycel-…'
-export VLLM_BASE_URL=http://localhost:8000/v1     # only if not vLLM's default
-export VLLM_API_KEY=YOUR_RUNTIME_KEY              # only if your server wants one
-
-pnpm run cli -- supplier dial \
-  --mycel https://mycel.thefocus.ai \
-  --runtime http://localhost:8000/v1 \
-  --runtime-key "$VLLM_API_KEY"
+./scripts/mycel/sell.sh --runtime http://localhost:4000/v1
 ```
 
-The first run probes the machine, which takes a few minutes:
-
 ```
-probing: nothing cached for this machine
-  …
-publishing 1 offer(s) with the connection
-dialling https://mycel.thefocus.ai …
+Supplier credential (from `mycel supplier register/rotate`, starts sk-mycel-): 
+checking runtime at http://localhost:4000/v1 …
+  serving: unsloth/Qwen3.8-27B-NVFP4, RedHatAI/gemma-4-26B-A4B-it-NVFP4
+checking Exchange at https://mycel.thefocus.ai …
+starting the dial — Ctrl-C hangs up and the Exchange sees it immediately
 connected — this machine is now dispatchable
 ```
 
-You are now selling. Later runs reuse the cached probe and connect immediately.
+You are now serving. By default the script skips the probe battery
+(`--no-probe`) and leaves whatever Offers the Exchange already has — pair it
+with the operator-declared catalogue in §2.4, or pass `--probe` to measure the
+machine first. Add `--runtime-key KEY` if your runtime wants one, and
+`--model SUBSTRING` to limit a probe to matching models.
 
-> **`--runtime` is what makes you a Supplier.** Without it the connection is
-> held, every request is dropped, and nothing is published. Point it at the
-> OpenAI-compatible base — the `/v1`, not the bare port.
+> **`--runtime` is what makes you a Supplier.** It must be the
+> OpenAI-compatible base — the `/v1`, not the bare port — and the script
+> refuses to start until that endpoint actually lists models.
 
 Your runtime key never leaves your machine. The Exchange pushes a request down
-the connection and this agent adds the key locally, so the Exchange stores no
-credential for your box.
+the connection and this agent adds the key locally.
 
 Keep it running. To survive reboots:
 
@@ -221,10 +224,8 @@ After=network-online.target
 [Service]
 User=YOUR_USER
 WorkingDirectory=/home/YOUR_USER/mycel
-Environment=SUPPLIER_CREDENTIAL=sk-mycel-…
-Environment=VLLM_API_KEY=YOUR_RUNTIME_KEY
-ExecStart=/usr/bin/env pnpm run cli -- supplier dial \
-  --mycel https://mycel.thefocus.ai --runtime http://localhost:8000/v1
+Environment=SUPPLIER_CREDENTIAL=PASTE_THE_REAL_CREDENTIAL
+ExecStart=/home/YOUR_USER/mycel/scripts/mycel/sell.sh --runtime http://localhost:4000/v1
 Restart=always
 RestartSec=10
 
@@ -232,9 +233,10 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-### 2.4 What just got published
+### 2.4 The catalogue: probed or declared
 
-The probe **runs each model and watches what happens** — it does not read a
+With `--probe`, the script measures the machine before connecting. The probe
+**runs each model and watches what happens** — it does not read a
 list of names. Recognised runtimes: **ollama, LM Studio, LlamaBarn, llama-swap,
 vLLM**. Each model is tested for chat, streaming, tool calling, structured
 output and reasoning by actually being asked to do them, then measured for
@@ -249,7 +251,7 @@ hello, so the Exchange never has you connected without knowing what you serve.
 It re-probes only when the machine's fingerprint changes, so reconnecting costs
 no measurement.
 
-To see what it found without dialling:
+To see what it would find without dialling or publishing:
 
 ```bash
 pnpm run cli -- supplier probe
@@ -259,8 +261,9 @@ pnpm run cli -- supplier probe
 > llama.cpp-class runtimes. A vLLM box comfortably serving 32–64 is sampled
 > entirely below its knee, so its measured throughput understates it.
 
-**If your runtime is none of the five**, nothing can probe it and the operator
-publishes on your behalf instead. Find the exact model id it answers to, because
+**Without `--probe`** — the default, and the right call while a router or
+runtime is misbehaving under the battery — the operator declares the catalogue
+instead. Find the exact model id it answers to, because
 the buyer's request reaches you unmodified:
 
 ```bash
@@ -347,11 +350,21 @@ curl -s https://mycel.thefocus.ai/v1/models | jq .
 
 ### 3.3 Make a request
 
-OpenAI-shaped, so any OpenAI client works by pointing `base_url` at
-`https://mycel.thefocus.ai/v1`.
+With a umwelten checkout, one script shows the catalogue with prices, buys from
+it, and explains any failure:
 
 ```bash
-export APP_CREDENTIAL='sk-mycel-…'
+./scripts/mycel/buy.sh                  # first model for sale
+./scripts/mycel/buy.sh MODEL_ID         # a specific one
+```
+
+It prompts for the Application credential and refuses placeholder values.
+
+Without the checkout, it is an OpenAI-shaped endpoint — any OpenAI client works
+by pointing `base_url` at `https://mycel.thefocus.ai/v1`:
+
+```bash
+export APP_CREDENTIAL='PASTE_THE_REAL_CREDENTIAL'
 
 curl -s https://mycel.thefocus.ai/v1/chat/completions \
   -H "Authorization: Bearer $APP_CREDENTIAL" \
