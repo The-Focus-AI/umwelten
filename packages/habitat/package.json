@@ -30,21 +30,21 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.0.1",
-    "@ai-sdk/provider": "^4.0.4",
-    "@ai-sdk/provider-utils": "^5.0.14",
+    "@ai-sdk/provider": "^4.0.7",
+    "@ai-sdk/provider-utils": "^5.0.27",
     "@mcp-ui/server": "^6.1.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
-    "ai": "^7.0.41",
+    "ai": "^7.0.65",
     "chalk": "^5.6.2",
     "commander": "^15.0.0",
     "gray-matter": "^4.0.3",
-    "jose": "^6.2.4",
+    "jose": "^6.2.8",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },

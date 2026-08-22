@@ -29,16 +29,16 @@
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@ai-sdk/provider": "^4.0.4",
-    "@ai-sdk/provider-utils": "^5.0.14",
+    "@ai-sdk/provider": "^4.0.7",
+    "@ai-sdk/provider-utils": "^5.0.27",
     "@umwelten/core": "workspace:*",
     "@umwelten/sessions": "workspace:*",
-    "ai": "^7.0.41",
+    "ai": "^7.0.65",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.21.7",
-    "@types/node": "^26.1.2",
+    "@dagger.io/dagger": "^0.21.8",
+    "@types/node": "^26.2.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
