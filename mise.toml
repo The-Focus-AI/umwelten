@@ -14,9 +14,14 @@ node = "latest"
 "npm:@earendil-works/pi-coding-agent" = "latest"
 "npm:@earendil-works/pi-coding-agent\n" = "latest"
 "npm:node-addon-api" = "latest"
+"npm:skills" = "latest"
 
 # Keep root tasks focused on workflows people run often. Example-specific
 # variants should live in the example READMEs as direct pnpm/dotenvx commands.
+
+[tasks.install]
+description = "Install dependencies and restore skills from skills-lock.json (STD-011 §3.3)"
+run = ["pnpm install", "skills experimental_install"]
 
 # ── Habitat Container ─────────────────────────────────────────────────
 

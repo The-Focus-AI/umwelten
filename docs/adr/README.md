@@ -31,6 +31,9 @@
 | [0028](0028-a-client-may-be-postpaid-to-a-limit.md) | A Client may be postpaid, to a limit it was given |
 | [0029](0029-mycel-sells-as-principal.md) | Mycel sells as principal, and warrants Guarantees on contract |
 | [0030](0030-mycel-runs-on-its-own-vm-with-its-own-identity.md) | Mycel runs on its own VM, with its own GCP identity |
+| [0031](0031-interfaces-and-internals-compose-on-the-substrate.md) | Interfaces and habitat internals compose on `@umwelten/substrate` |
+| [0032](0032-components-project-onto-the-wire-as-ui-resources.md) | Components project onto the wire as UI resources |
+| [0033](0033-the-trust-line-is-the-habitat-boundary.md) | The trust line is the habitat boundary |
 
 0011 is unused — see below.
 
