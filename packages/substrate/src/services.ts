@@ -125,7 +125,11 @@ class DeclarationImpl implements Declaration {
       values.set(key.id, this.registry.read(key.id));
     }
     const view = new CommittedView(values);
-    const ctx = this.owner.child();
+    // Detached: this context is recovered only through doDeactivate, so an
+    // owner-cascade cannot destroy it mid-activation — the owner's cascade
+    // reaches it via the declare() cleanup effect, which routes through the
+    // transition chain and therefore waits for the load to complete.
+    const ctx = this.owner.child({ detached: true });
     try {
       const inverse = await this.options.activate(view, ctx);
       if (inverse) ctx.effect(() => inverse);

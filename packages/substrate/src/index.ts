@@ -13,3 +13,4 @@ export {
   type DeclarationOptions,
   type ServiceKey,
 } from "./services.js";
+export { mount, type ComponentSpec, type Fiber } from "./component.js";

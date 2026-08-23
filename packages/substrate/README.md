@@ -16,7 +16,7 @@ the repo-root `CONTEXT.md` under *Substrate & composition*.
 | --- | --- | --- |
 | Revertible effects on a context tree | ✅ | #395 |
 | Services: provide/inject, reactive activation | ✅ | #396 |
-| Component lifecycle, inertial transitions | — | #397 |
+| Component lifecycle, inertial transitions | ✅ | #397 |
 | Isolation realms | — | #398 |
 | Loader: declarative entries, reconciliation, HMR | — | #399 |
 
@@ -72,6 +72,31 @@ this module exists): when a provider's context is disposed, its dependents
 drain **before any of its inverses run** — the drain is hoisted ahead of the
 whole recovery (paper §5.1.3), not buried inside one inverse where LIFO
 would leave the rest unordered. Provider chains drain transitively.
+
+## Components
+
+```ts
+import { mount } from "@umwelten/substrate";
+
+const feedService: ComponentSpec = {
+  inject: [store],                      // waits for what it needs
+  apply(ctx, view) {                    // runs as tracked effects
+    ctx.provide(feed, makeFeed(view.get(store)));
+    return () => closeCleanly();
+  },
+};
+
+const fiber = mount(root, feedService); // the live instantiation
+fiber.active; fiber.missing; fiber.error;
+await fiber.unmount();                  // permanent; reverts everything
+```
+
+Transitions are **inertial** (paper §4.3.3): a load in flight completes —
+against its committed view — and then chains into whatever the target has
+become; a fiber is never half-mounted. Unmounting a component unmounts what
+it mounted, and the drain ordering reaches through: dependents of anything
+it provided finish first. See `examples/components.ts` for the
+three-component chain demo.
 
 What the runtime does **not** verify: that a supplied inverse actually
 reverts its effect. That is the component author's obligation (paper §5.1.1).

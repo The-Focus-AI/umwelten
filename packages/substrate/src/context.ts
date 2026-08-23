@@ -132,19 +132,28 @@ export class Context {
   }
 
   /**
-   * Derive a child context. The child's disposal is a tracked effect of
-   * this context, so disposing the parent recovers the child first (LIFO
-   * puts later children before earlier ones, and children before the
-   * parent's own earlier effects).
+   * Derive a child context. By default the child's disposal is a tracked
+   * effect of this context, so disposing the parent recovers the child
+   * first (LIFO puts later children before earlier ones, and children
+   * before the parent's own earlier effects).
+   *
+   * `detached: true` keeps the parent link (for root/registry resolution)
+   * but registers nothing here — the caller owns the child's recovery.
+   * Used by the services layer for activation contexts, whose disposal
+   * must route through the declaration's serialized transition chain: a
+   * direct cascade would tear the context out from under an in-flight
+   * activation, discarding the inverse it was about to return.
    */
-  child(): Context {
+  child(options?: { detached?: boolean }): Context {
     if (this.isDisposed) throw new ContextDisposedError();
     const child = new Context(this);
-    const detach = this.effect(() => () => child.dispose());
-    // Disposing the child directly must also disarm the parent's entry, so
-    // the parent's own recovery does not attempt a second (no-op) disposal
-    // and so the parent's stack does not accumulate dead entries' work.
-    child.detachFromParent = () => void detach();
+    if (!options?.detached) {
+      const detach = this.effect(() => () => child.dispose());
+      // Disposing the child directly must also disarm the parent's entry,
+      // so the parent's own recovery does not attempt a second (no-op)
+      // disposal and the stack does not accumulate dead entries' work.
+      child.detachFromParent = () => void detach();
+    }
     return child;
   }
 
