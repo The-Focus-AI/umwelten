@@ -97,3 +97,54 @@ describe("the serving contract", () => {
     expect(r?.status).toBe(404);
   });
 });
+
+describe("custom components (self-assembly, #405)", () => {
+  it("scans the custom dir into versioned manifest entries and serves the modules", async () => {
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = await mkdtemp(join(tmpdir(), "shell-custom-"));
+    try {
+      await writeFile(join(dir, "clock.js"), "export default { apply() {} };");
+
+      const manifest = JSON.parse(
+        asText(
+          (await resolveShellRequest("/shell/manifest.json", {
+            customComponentsDir: dir,
+          }))!.body,
+        ),
+      );
+      const custom = manifest.entries.find(
+        (e: { id: string }) => e.id === "custom:clock",
+      );
+      expect(custom.url).toBe("./custom/clock.js");
+      expect(typeof custom.version).toBe("number");
+
+      const served = await resolveShellRequest("/shell/custom/clock.js", {
+        customComponentsDir: dir,
+      });
+      expect(served?.status).toBe(200);
+      expect(asText(served!.body)).toContain("export default");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("no custom dir configured: /custom is 404 and the manifest is just the built-ins", async () => {
+    const manifest = JSON.parse(
+      asText((await resolveShellRequest("/shell/manifest.json"))!.body),
+    );
+    expect(
+      manifest.entries.some((e: { id: string }) => e.id.startsWith("custom:")),
+    ).toBe(false);
+    const r = await resolveShellRequest("/shell/custom/anything.js");
+    expect(r?.status).toBe(404);
+  });
+
+  it("a missing custom dir is empty, not an error", async () => {
+    const r = await resolveShellRequest("/shell/manifest.json", {
+      customComponentsDir: "/nonexistent/components",
+    });
+    expect(r?.status).toBe(200);
+  });
+});

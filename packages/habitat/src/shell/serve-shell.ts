@@ -18,7 +18,7 @@
  * the contract, not to habitat internals).
  */
 
-import { readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -29,15 +29,29 @@ export interface ShellManifestEntry {
   url: string;
   config?: unknown;
   disabled?: boolean;
+  /**
+   * Change stamp: when a host changes an entry's version, the shell
+   * hot-reloads that entry (the self-assembly loop's signal). Custom
+   * components use the file's mtime.
+   */
+  version?: number;
 }
 
 export interface ShellServeOptions {
-  /** Manifest entries. Default: the built-in status component. */
+  /** Manifest entries. Default: the built-in components. */
   entries?: ShellManifestEntry[];
   /** Root of the @umwelten/substrate package. Default: resolved from here. */
   substrateRoot?: string;
-  /** Directory of this host's component modules (plain ESM). */
+  /** Directory of this host's built-in component modules (plain ESM). */
   componentsDir?: string;
+  /**
+   * Directory of host-authored components (the habitat's
+   * workDir/components — what create_component writes). Scanned per
+   * manifest request: each *.js file becomes an entry `custom:<name>`
+   * at `./custom/<name>.js`, versioned by mtime, so the shell picks up
+   * creations, edits, and removals live.
+   */
+  customComponentsDir?: string;
   /** URL prefix the shell is mounted at. Default "/shell". */
   prefix?: string;
 }
@@ -69,6 +83,32 @@ function defaultSubstrateRoot(): string {
 
 function defaultComponentsDir(): string {
   return join(dirname(fileURLToPath(import.meta.url)), "components");
+}
+
+/** Scan the host-authored components dir into manifest entries. */
+async function scanCustomComponents(
+  dir: string,
+): Promise<ShellManifestEntry[]> {
+  let names: string[];
+  try {
+    names = (await readdir(dir)).filter((n) => SAFE_MODULE.test(n));
+  } catch {
+    return []; // no components dir yet — nothing custom
+  }
+  const entries: ShellManifestEntry[] = [];
+  for (const name of names.sort()) {
+    try {
+      const s = await stat(join(dir, name));
+      entries.push({
+        id: `custom:${name.replace(/\.js$/, "")}`,
+        url: `./custom/${name}`,
+        version: Math.floor(s.mtimeMs),
+      });
+    } catch {
+      // raced with a delete — skip
+    }
+  }
+  return entries;
 }
 
 /** Transpile cache: absolute path → { mtimeMs, code }. */
@@ -141,14 +181,14 @@ export async function resolveShellRequest(
       };
     }
     if (rel === "manifest.json") {
+      const entries = [...(options?.entries ?? DEFAULT_ENTRIES)];
+      if (options?.customComponentsDir) {
+        entries.push(...(await scanCustomComponents(options.customComponentsDir)));
+      }
       return {
         status: 200,
         contentType: JSON_TYPE,
-        body: JSON.stringify(
-          { entries: options?.entries ?? DEFAULT_ENTRIES },
-          null,
-          2,
-        ),
+        body: JSON.stringify({ entries }, null, 2),
       };
     }
     if (rel.startsWith("substrate/")) {
@@ -169,6 +209,16 @@ export async function resolveShellRequest(
         status: 200,
         contentType: JS,
         body: await readFile(join(dir, name)),
+      };
+    }
+    if (rel.startsWith("custom/")) {
+      const name = rel.slice("custom/".length);
+      if (!SAFE_MODULE.test(name) || !options?.customComponentsDir)
+        return notFound;
+      return {
+        status: 200,
+        contentType: JS,
+        body: await readFile(join(options.customComponentsDir, name)),
       };
     }
   } catch {

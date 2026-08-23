@@ -23,6 +23,7 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
   const workDir = habitat.getWorkDir();
   const toolsDir = join(workDir, "tools");
   const skillsDir = join(workDir, "skills");
+  const componentsDir = join(workDir, "components");
 
   const create_tool = tool({
     description:
@@ -132,6 +133,60 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
     },
   });
 
+  const create_component = tool({
+    description:
+      "Create a UI component for this habitat's shell page (ADR 0031 — " +
+      "interfaces compose on the substrate). The component appears in the " +
+      "live page within seconds — no reload, no restart — and edits via " +
+      "this tool (same name) hot-replace it; a broken edit leaves the " +
+      "previous version running.\n\n" +
+      "Write a plain ES module (no build step, no framework) that " +
+      "default-exports a component spec:\n\n" +
+      '  import { serviceKey } from "../substrate/index.js";\n' +
+      '  const regionKey = serviceKey("shell:region");   // the HTMLElement to render into\n' +
+      '  const baseKey = serviceKey("shell:base");       // URL for host endpoints\n' +
+      '  const conversationKey = serviceKey("shell:conversation"); // { send(text), subscribe(fn), messages }\n' +
+      "  export default {\n" +
+      '    name: "my-widget",\n' +
+      "    inject: [regionKey],                 // services you need; you activate when all exist\n" +
+      "    apply(ctx, view, config) {\n" +
+      '      const el = document.createElement("div");\n' +
+      '      el.className = "shell-card";       // the shell\'s card styling\n' +
+      "      view.get(regionKey).appendChild(el);\n" +
+      "      const timer = setInterval(() => {}, 1000);\n" +
+      "      ctx.effect(() => () => clearInterval(timer)); // every side effect supplies its undo\n" +
+      "      return () => el.remove();          // your inverse: called on unmount\n" +
+      "    },\n" +
+      "  };\n\n" +
+      "Custom elements: guard registration with " +
+      "`if (!customElements.get(...))` since hot-reload re-evaluates the module.",
+    inputSchema: z.object({
+      name: z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9-]*$/)
+        .describe('Component name in kebab-case (e.g. "session-clock")'),
+      moduleCode: z
+        .string()
+        .describe(
+          "The complete ES module source. Must default-export a component " +
+            "spec (apply function, optional inject array).",
+        ),
+    }),
+    execute: async ({ name, moduleCode }) => {
+      await mkdir(componentsDir, { recursive: true });
+      const file = join(componentsDir, `${name}.js`);
+      await writeFile(file, moduleCode);
+      return {
+        created: name,
+        path: file,
+        message:
+          `Component '${name}' written. The shell page picks it up within ` +
+          `a few seconds as 'custom:${name}' — check the page (or its ` +
+          `status line, which reports load errors) to confirm it mounted.`,
+      };
+    },
+  });
+
   const reload_tools = tool({
     description:
       "Reload all tools from the habitat tools directory. " +
@@ -191,11 +246,12 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
 
   const list_custom_tools = tool({
     description:
-      "List all custom tools and skills in the habitat work directory.",
+      "List all custom tools, skills, and shell components in the habitat work directory.",
     inputSchema: z.object({}),
     execute: async () => {
       const tools: string[] = [];
       const skills: string[] = [];
+      const components: string[] = [];
 
       try {
         const toolEntries = await readdir(toolsDir, { withFileTypes: true });
@@ -215,27 +271,47 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
         // skills/ may not exist
       }
 
-      return { tools, skills };
+      try {
+        const componentEntries = await readdir(componentsDir, {
+          withFileTypes: true,
+        });
+        for (const entry of componentEntries) {
+          if (entry.isFile() && entry.name.endsWith(".js"))
+            components.push(entry.name.replace(/\.js$/, ""));
+        }
+      } catch {
+        // components/ may not exist
+      }
+
+      return { tools, skills, components };
     },
   });
 
   const remove_custom_tool = tool({
     description:
-      "Remove a custom tool or skill from the habitat work directory.",
+      "Remove a custom tool, skill, or shell component from the habitat work directory.",
     inputSchema: z.object({
-      name: z.string().describe("Name of the tool or skill to remove"),
+      name: z.string().describe("Name of the tool, skill, or component to remove"),
       type: z
-        .enum(["tool", "skill"])
-        .describe("Whether to remove a tool or skill"),
+        .enum(["tool", "skill", "component"])
+        .describe("What kind of thing to remove"),
     }),
     execute: async ({ name, type }) => {
-      const dir = type === "tool" ? join(toolsDir, name) : join(skillsDir, name);
+      const target =
+        type === "tool"
+          ? join(toolsDir, name)
+          : type === "skill"
+            ? join(skillsDir, name)
+            : join(componentsDir, `${name}.js`);
       try {
-        await rm(dir, { recursive: true });
+        await rm(target, { recursive: true });
         return {
           removed: name,
           type,
-          message: `Removed ${type} '${name}'. It will no longer be available after reload.`,
+          message:
+            type === "component"
+              ? `Removed component '${name}'. The shell page unmounts it within a few seconds.`
+              : `Removed ${type} '${name}'. It will no longer be available after reload.`,
         };
       } catch (err) {
         return {
@@ -249,6 +325,7 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
   return {
     create_tool,
     create_skill,
+    create_component,
     reload_tools,
     reload_skills,
     list_custom_tools,

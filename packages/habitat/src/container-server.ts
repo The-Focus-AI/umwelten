@@ -455,7 +455,11 @@ export async function startContainerServer(
 
 	// The Shell (#400, ADR 0031) — served under /shell with the same open
 	// posture as the static UI; see @umwelten/substrate shell/SERVING-CONTRACT.md.
-	const shellHandler = createShellHandler();
+	// workDir/components is the self-assembly loop (#405): what
+	// create_component writes appears in the manifest, versioned by mtime.
+	const shellHandler = createShellHandler({
+		customComponentsDir: join(habitat.getWorkDir(), "components"),
+	});
 
 	const httpServer = createServer(
 		async (req: IncomingMessage, res: ServerResponse) => {

@@ -10,15 +10,20 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { chromium, type Browser } from "playwright-core";
 import { createShellHandler } from "./serve-shell.js";
 
 let server: Server;
 let browser: Browser;
 let baseUrl: string;
+let customDir: string;
 
 beforeAll(async () => {
-  const shell = createShellHandler();
+  customDir = await mkdtemp(join(tmpdir(), "shell-smoke-custom-"));
+  const shell = createShellHandler({ customComponentsDir: customDir });
   server = createServer(async (req, res) => {
     if (req.url?.startsWith("/health")) {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -76,6 +81,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await new Promise((r) => server?.close(r));
+  await rm(customDir, { recursive: true, force: true });
 });
 
 describe("the shell assembles itself in a browser", () => {
@@ -138,6 +144,48 @@ describe("the shell assembles itself in a browser", () => {
     expect(log).toContain("thinking about it"); // the reasoning line
     await page.close();
   }, 30_000);
+
+  it("self-assembly: a component file written to the custom dir appears live, edits hot-replace, removal unmounts", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/shell/`);
+    await page.locator("habitat-status").waitFor({ state: "visible" });
+
+    const componentSource = (label: string) => `
+      import { serviceKey } from "../substrate/index.js";
+      const regionKey = serviceKey("shell:region");
+      export default {
+        name: "greeting",
+        inject: [regionKey],
+        apply(ctx, view) {
+          const el = document.createElement("div");
+          el.className = "shell-card";
+          el.dataset.component = "greeting";
+          el.innerHTML = "<h2>greeting</h2><p>${label}</p>";
+          view.get(regionKey).appendChild(el);
+          return () => el.remove();
+        },
+      };
+    `;
+
+    // 1. The agent (here: the test, same file write) creates a component.
+    await writeFile(join(customDir, "greeting.js"), componentSource("hello from v1"));
+    const card = page.locator('[data-component="greeting"]');
+    await card.waitFor({ state: "visible", timeout: 15_000 }); // no reload
+    expect(await card.textContent()).toContain("hello from v1");
+
+    // 2. An edit hot-replaces it (mtime moves → version moves → reload).
+    await new Promise((r) => setTimeout(r, 10)); // ensure mtime advances
+    await writeFile(join(customDir, "greeting.js"), componentSource("hello from v2"));
+    await expect
+      .poll(() => card.textContent(), { timeout: 15_000 })
+      .toContain("hello from v2");
+
+    // 3. Removal unmounts it from the live page.
+    await rm(join(customDir, "greeting.js"));
+    await expect.poll(() => card.count(), { timeout: 15_000 }).toBe(0);
+
+    await page.close();
+  }, 60_000);
 
   it("a quick-prompt click lands in the chat transcript — the service is shared, not chat-private", async () => {
     const page = await browser.newPage();
