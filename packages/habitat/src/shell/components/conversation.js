@@ -21,11 +21,24 @@ export default {
   apply(ctx, view, config) {
     const base = view.get(baseKey);
     const threadId = crypto.randomUUID();
+    // Token resolution follows the old dashboard's convention so the two
+    // UIs share auth on the same origin: ?token= in the URL (persisted),
+    // then the stored "habitat-token". config.token wins when a host
+    // pins one in the manifest.
     const token =
       config?.token ??
       (() => {
         try {
-          return localStorage.getItem("shell:token") ?? undefined;
+          const fromUrl = new URLSearchParams(location.search).get("token");
+          if (fromUrl) {
+            localStorage.setItem("habitat-token", fromUrl);
+            return fromUrl;
+          }
+          return (
+            localStorage.getItem("habitat-token") ??
+            localStorage.getItem("shell:token") ??
+            undefined
+          );
         } catch {
           return undefined;
         }
@@ -114,7 +127,17 @@ export default {
             }
           }
         } catch (err) {
-          reply.parts.push({ kind: "error", text: String(err.message ?? err) });
+          const text = String(err.message ?? err);
+          reply.parts.push({ kind: "error", text });
+          if (text.includes("401")) {
+            reply.parts.push({
+              kind: "error",
+              text:
+                "This host requires a token. Reload the page with " +
+                "?token=<your api key> appended to the URL — it is " +
+                "remembered for next time.",
+            });
+          }
         } finally {
           reply.streaming = false;
           notify();
