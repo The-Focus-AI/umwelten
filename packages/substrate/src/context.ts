@@ -32,6 +32,13 @@ export type EffectCallback = () => void | Inverse | Promise<void | Inverse>;
  */
 export type Dispose = () => Promise<void>;
 
+import {
+  ServiceRegistry,
+  type Declaration,
+  type DeclarationOptions,
+  type ServiceKey,
+} from "./services.js";
+
 /** Thrown when an operation is attempted on a disposed context. */
 export class ContextDisposedError extends Error {
   constructor() {
@@ -51,6 +58,17 @@ export class Context {
   private isDisposed = false;
   /** Disarms this context's registration in its parent (child contexts). */
   private detachFromParent: (() => void) | undefined;
+  /** Setup tasks still in flight; settle() awaits them. */
+  private pending = new Set<Promise<unknown>>();
+  /**
+   * Steps that run before recovery begins — the paper's rule (§5.1.3) that
+   * a departing provider's dependents drain ahead of the WHOLE recovery,
+   * never from inside one inverse where LIFO would leave the rest
+   * unordered. Registered by the services layer for each provision.
+   */
+  private preDispose: Array<() => Promise<void>> = [];
+  /** Service registry — lazily created, lives on the root (until realms). */
+  private serviceRegistry: ServiceRegistry | undefined;
 
   constructor(parent?: Context) {
     this.parent = parent;
@@ -58,6 +76,20 @@ export class Context {
 
   get disposed(): boolean {
     return this.isDisposed;
+  }
+
+  /** The root of this context tree. */
+  get root(): Context {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let ctx: Context = this;
+    while (ctx.parent) ctx = ctx.parent;
+    return ctx;
+  }
+
+  private registry(): ServiceRegistry {
+    const root = this.root;
+    root.serviceRegistry ??= new ServiceRegistry();
+    return root.serviceRegistry;
   }
 
   /**
@@ -78,6 +110,8 @@ export class Context {
     // An async callback's failure surfaces in dispose(); prevent unhandled
     // rejection warnings for effects that are never explicitly disposed.
     task.catch(() => {});
+    this.pending.add(task);
+    task.finally(() => this.pending.delete(task)).catch(() => {});
 
     let armed = true;
     const dispose: Dispose = async () => {
@@ -115,18 +149,72 @@ export class Context {
   }
 
   /**
+   * Await every in-flight effect setup on this context. New effects
+   * registered while settling are awaited too. Failed setups are surfaced
+   * by their own dispose(), not here.
+   */
+  async settle(): Promise<void> {
+    while (this.pending.size > 0) {
+      await Promise.allSettled([...this.pending]);
+    }
+  }
+
+  /**
+   * Provide a Service on this context tree. A revertible effect: disposing
+   * this context (or the returned disposer) withdraws it — after the
+   * dependents that declared it have drained. One provider per key at a
+   * time (realms lift this later, per ADR 0031 D4).
+   */
+  provide<T>(key: ServiceKey<T>, value: T): Dispose {
+    return this.registry().provide(this, key, value);
+  }
+
+  /** Read a Service binding directly. Undefined when absent or leaving. */
+  get<T>(key: ServiceKey<T>): T | undefined {
+    return this.registry().get(key);
+  }
+
+  /**
+   * Declare needed Services. The activate callback runs when all are
+   * present — with a CommittedView of the bindings it saw — and everything
+   * it did reverts when any of them leaves. Reactivates on return.
+   */
+  declare(options: DeclarationOptions): Declaration {
+    return this.registry().declare(this, options);
+  }
+
+  /**
    * Recover this context: replay every tracked inverse in LIFO order, then
    * mark the context disposed. Errors thrown by inverses do not halt
    * recovery — the remaining inverses still run — and are rethrown at the
    * end (as an AggregateError when there is more than one).
    */
+  /** Register a step that runs ahead of this context's recovery. */
+  beforeDispose(step: () => Promise<void>): void {
+    if (this.isDisposed) throw new ContextDisposedError();
+    this.preDispose.push(step);
+  }
+
   async dispose(): Promise<void> {
     if (this.isDisposed) return;
     this.isDisposed = true;
 
+    const errors: unknown[] = [];
+
+    // Drain first: dependents of anything provided here tear down against
+    // still-readable bindings before a single inverse runs.
+    const steps = this.preDispose;
+    this.preDispose = [];
+    for (let i = steps.length - 1; i >= 0; i--) {
+      try {
+        await steps[i]();
+      } catch (err) {
+        errors.push(err);
+      }
+    }
+
     const stack = this.effects;
     this.effects = [];
-    const errors: unknown[] = [];
     for (let i = stack.length - 1; i >= 0; i--) {
       try {
         await stack[i].dispose();
