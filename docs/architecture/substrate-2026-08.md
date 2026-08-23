@@ -35,6 +35,13 @@ decided by the user (W. Schenk), 2026-08-23.
 
 ## Staging
 
+Ticketed as #395–#410 (`ready-for-agent`, blocking edges in each issue body).
+Stage 6 is deliberately un-ticketed until stages 1–3 land. The Mycel track was
+upgraded after the grill at the user's direction: the goal is Mycel's front
+end **evolving using itself** (#410), which is why the Shell (#400) and the
+self-assembly loop (#405) are required to be host-agnostic — bound to a
+serving contract, never to habitat internals.
+
 1. **Core** — `@umwelten/substrate`: `ctx.effect` with tracked inverses,
    provide/inject with activate/deactivate, component lifecycle, loader with
    reconciliation + HMR, isolation. Tested against the paper's laws.
