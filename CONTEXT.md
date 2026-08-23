@@ -114,6 +114,35 @@ _Avoid_: Master vault, project vault, secret store, keychain
 A habitat's declaration of what credentials it needs and how each one is obtained — supplied by an operator, authorized by a user, or created while building the environment.
 _Avoid_: Required secrets, env manifest, secret list
 
+### Substrate & composition
+
+Terms from ADR 0031–0033: the composition runtime interfaces (and eventually
+habitat internals) grow on.
+
+**Substrate**:
+The shared composition runtime: everything that extends a running system — UI and habitat internals alike — is a **Component** living on it.
+_Avoid_: Framework, plugin system, Cordis
+
+**Component**:
+A unit of composition on the **Substrate**: it performs revertible effects when it loads, declares the **Services** it needs, and is removed by reverting its effects. On screen it is a web component.
+_Avoid_: Plugin, widget, panel, extension
+
+**Service**:
+A named thing one **Component** provides and others declare a need for; a component activates only while everything it declares is present, and deactivates when something leaves.
+_Avoid_: Dependency, capability (that is the credential-contract word)
+
+**Shell**:
+The minimal page that hosts **Components** — chat, discovery, mounting. Everything else it shows is a component. Every habitat, Gaia included, runs the same shell.
+_Avoid_: Dashboard, console, app
+
+**UI Resource**:
+A **Component** (or one-shot view) projected onto the wire as a `ui://` payload over A2A or MCP; mounting is the inverse projection, into an isolated subtree.
+_Avoid_: Widget payload, embed
+
+**Foreign component**:
+A **Component** from another habitat, mounted behind the habitat trust boundary with the wire action vocabulary as its only channel.
+_Avoid_: Remote component, third-party widget
+
 ## Relationships
 
 - Every **Source Session** belongs to at least one **Exploration**.
