@@ -11,6 +11,7 @@ export {
   serviceKey,
   type Declaration,
   type DeclarationOptions,
+  type Realm,
   type ServiceKey,
 } from "./services.js";
 export { mount, type ComponentSpec, type Fiber } from "./component.js";

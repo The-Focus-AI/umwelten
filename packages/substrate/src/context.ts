@@ -36,6 +36,7 @@ import {
   ServiceRegistry,
   type Declaration,
   type DeclarationOptions,
+  type Realm,
   type ServiceKey,
 } from "./services.js";
 
@@ -67,8 +68,10 @@ export class Context {
    * unordered. Registered by the services layer for each provision.
    */
   private preDispose: Array<() => Promise<void>> = [];
-  /** Service registry — lazily created, lives on the root (until realms). */
+  /** Service registry — lazily created, lives on the root. */
   private serviceRegistry: ServiceRegistry | undefined;
+  /** ρ overrides — this context's isolated realms, inherited by descendants. */
+  private realmOverrides: Map<string, Realm> | undefined;
 
   constructor(parent?: Context) {
     this.parent = parent;
@@ -180,7 +183,7 @@ export class Context {
 
   /** Read a Service binding directly. Undefined when absent or leaving. */
   get<T>(key: ServiceKey<T>): T | undefined {
-    return this.registry().get(key);
+    return this.registry().get(this, key);
   }
 
   /**
@@ -190,6 +193,48 @@ export class Context {
    */
   declare(options: DeclarationOptions): Declaration {
     return this.registry().declare(this, options);
+  }
+
+  /**
+   * Where `key` resolves from this context: the nearest realm override on
+   * the path to the root wins; otherwise the key's tree-wide default realm
+   * (the paper's ρ, walked structurally).
+   */
+  resolveRealm(id: string): Realm {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let ctx: Context | undefined = this;
+    while (ctx) {
+      const override = ctx.realmOverrides?.get(id);
+      if (override) return override;
+      ctx = ctx.parent;
+    }
+    return this.registry().defaultRealm(id);
+  }
+
+  /**
+   * Isolate `key` for this context and its descendants: the key resolves
+   * to a realm of its own here (or to a realm shared by every context
+   * naming the same string). Revertible — disposing this context, or the
+   * returned disposer, removes the override. Provisions and declarations
+   * capture their realm when they are made, so isolate a subtree before
+   * mounting things on it.
+   */
+  isolate(key: ServiceKey<unknown>, realm?: string): Dispose {
+    if (this.realmOverrides?.has(key.id))
+      throw new Error(
+        `"${key.id}" is already isolated on this context; derive a child to isolate it differently.`,
+      );
+    const token =
+      realm !== undefined
+        ? this.registry().namedRealm(key.id, realm)
+        : Symbol(`${key.id}@isolated`);
+    return this.effect(() => {
+      this.realmOverrides ??= new Map();
+      this.realmOverrides.set(key.id, token);
+      return () => {
+        this.realmOverrides?.delete(key.id);
+      };
+    });
   }
 
   /**

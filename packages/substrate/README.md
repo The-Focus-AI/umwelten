@@ -17,7 +17,7 @@ the repo-root `CONTEXT.md` under *Substrate & composition*.
 | Revertible effects on a context tree | ✅ | #395 |
 | Services: provide/inject, reactive activation | ✅ | #396 |
 | Component lifecycle, inertial transitions | ✅ | #397 |
-| Isolation realms | — | #398 |
+| Isolation realms | ✅ | #398 |
 | Loader: declarative entries, reconciliation, HMR | — | #399 |
 
 ## Revertible effects
@@ -97,6 +97,25 @@ become; a fiber is never half-mounted. Unmounting a component unmounts what
 it mounted, and the drain ordering reaches through: dependents of anything
 it provided finish first. See `examples/components.ts` for the
 three-component chain demo.
+
+## Isolation
+
+```ts
+const area = root.child();
+area.isolate(db);                 // db now resolves to area's own realm
+area.provide(db, privateConn);    // coexists with the tree-wide binding
+
+left.isolate(db, "shared-pool");  // a string names a realm shared by
+right.isolate(db, "shared-pool"); //   every context naming it
+```
+
+Resolution is two-layer (`key → realm → binding`, the paper's §5.1.2): the
+nearest override on the path to the root wins, descendants inherit it, and
+reactivity is confined by realm — a provider leaving one realm never
+deactivates a declarer in another. Provisions and declarations capture
+their realm when made, so isolate a subtree *before* mounting things on it.
+This is what lets one page host many habitats' components without their
+services colliding.
 
 What the runtime does **not** verify: that a supplied inverse actually
 reverts its effect. That is the component author's obligation (paper §5.1.1).

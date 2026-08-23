@@ -70,6 +70,14 @@ interface Binding {
   leaving: boolean;
 }
 
+/**
+ * A realm is where a key's binding actually lives — the paper's two-layer
+ * resolution k → ρ(k) → σ(ρ(k)) (§5.1.2). By default every key has one
+ * tree-wide realm; an isolated subtree resolves the key to a realm of its
+ * own, so two providers of the same key coexist without collision.
+ */
+export type Realm = symbol;
+
 class DeclarationImpl implements Declaration {
   active = false;
   error: unknown = undefined;
@@ -78,19 +86,33 @@ class DeclarationImpl implements Declaration {
   /** Serializes transitions: a refresh never interleaves with another. */
   private chain: Promise<void> = Promise.resolve();
   private unregistered = false;
+  /**
+   * Where each declared key resolves for THIS declaration — fixed at
+   * declaration time from the owning context's position in the tree.
+   * Isolation is structural: moving a declaration between realms means
+   * re-declaring it (the loader's job, later).
+   */
+  private realms: Map<string, Realm>;
 
   constructor(
     private registry: ServiceRegistry,
     private owner: Context,
     private options: DeclarationOptions,
-  ) {}
-
-  get missing(): ServiceKey<unknown>[] {
-    return this.options.inject.filter((k) => !this.registry.has(k.id));
+  ) {
+    this.realms = new Map(
+      options.inject.map((k) => [k.id, owner.resolveRealm(k.id)]),
+    );
   }
 
-  declares(id: string): boolean {
-    return this.options.inject.some((k) => k.id === id);
+  get missing(): ServiceKey<unknown>[] {
+    return this.options.inject.filter(
+      (k) => !this.registry.hasRealm(this.realms.get(k.id) as Realm),
+    );
+  }
+
+  declares(realm: Realm): boolean {
+    for (const r of this.realms.values()) if (r === realm) return true;
+    return false;
   }
 
   settled(): Promise<void> {
@@ -98,7 +120,9 @@ class DeclarationImpl implements Declaration {
   }
 
   private satisfied(): boolean {
-    return this.options.inject.every((k) => this.registry.has(k.id));
+    return this.options.inject.every((k) =>
+      this.registry.hasRealm(this.realms.get(k.id) as Realm),
+    );
   }
 
   /**
@@ -122,7 +146,10 @@ class DeclarationImpl implements Declaration {
   private async doActivate(): Promise<void> {
     const values = new Map<string, unknown>();
     for (const key of this.options.inject) {
-      values.set(key.id, this.registry.read(key.id));
+      values.set(
+        key.id,
+        this.registry.readRealm(this.realms.get(key.id) as Realm, key.id),
+      );
     }
     const view = new CommittedView(values);
     // Detached: this context is recovered only through doDeactivate, so an
@@ -171,35 +198,61 @@ class DeclarationImpl implements Declaration {
 
 /** One registry per context tree, owned by the root. */
 export class ServiceRegistry {
-  private bindings = new Map<string, Binding>();
+  /** σ — bindings live at realms, not at keys (paper §5.1.2). */
+  private bindings = new Map<Realm, Binding>();
   private declarations = new Set<DeclarationImpl>();
+  /** The tree-wide default realm per key id. */
+  private defaultRealms = new Map<string, Realm>();
+  /** Realms shared by name across subtrees (`isolate(key, "name")`). */
+  private namedRealms = new Map<string, Realm>();
 
-  has(id: string): boolean {
-    const b = this.bindings.get(id);
+  defaultRealm(id: string): Realm {
+    let realm = this.defaultRealms.get(id);
+    if (!realm) {
+      realm = Symbol(id);
+      this.defaultRealms.set(id, realm);
+    }
+    return realm;
+  }
+
+  namedRealm(id: string, name: string): Realm {
+    const qualified = `${id}@${name}`;
+    let realm = this.namedRealms.get(qualified);
+    if (!realm) {
+      realm = Symbol(qualified);
+      this.namedRealms.set(qualified, realm);
+    }
+    return realm;
+  }
+
+  hasRealm(realm: Realm): boolean {
+    const b = this.bindings.get(realm);
     return b !== undefined && !b.leaving;
   }
 
-  read(id: string): unknown {
-    const b = this.bindings.get(id);
-    if (!b) throw new Error(`Service "${id}" is not provided.`);
+  readRealm(realm: Realm, id: string): unknown {
+    const b = this.bindings.get(realm);
+    if (!b) throw new Error(`Service "${id}" is not provided in this realm.`);
     return b.value;
   }
 
   /**
-   * Notify the declarations that declare this key; return their transitions
-   * so a caller can drain them. Scoped to declarers of the key — a change
-   * at k cannot flip a declaration that never mentions k, and awaiting
-   * unrelated declarations' chains from inside a teardown would deadlock a
-   * provider chain (a dependent mid-deactivation withdrawing its own
-   * provisions must never wait on its own transition).
+   * Notify the declarations that resolve some key to this realm; return
+   * their transitions so a caller can drain them. Scoped to the realm — a
+   * change in one realm cannot flip a declaration bound to another (the
+   * isolation guarantee), and awaiting unrelated declarations' chains from
+   * inside a teardown would deadlock a provider chain (a dependent
+   * mid-deactivation withdrawing its own provisions must never wait on its
+   * own transition).
    */
-  private notify(id: string): Promise<void>[] {
+  private notify(realm: Realm): Promise<void>[] {
     return [...this.declarations]
-      .filter((d) => d.declares(id))
+      .filter((d) => d.declares(realm))
       .map((d) => d.refresh());
   }
 
   provide<T>(ctx: Context, key: ServiceKey<T>, value: T): () => Promise<void> {
+    const realm = ctx.resolveRealm(key.id);
     // Stop providing, then drain: dependents recompute against the loss and
     // tear down while the binding is still readable. Hoisted to the
     // context's pre-dispose phase so it precedes the WHOLE recovery
@@ -209,32 +262,32 @@ export class ServiceRegistry {
     // provider's teardown must not touch the new provider's binding.
     let binding: Binding | undefined;
     const drain = async () => {
-      if (!binding || this.bindings.get(key.id) !== binding) return;
+      if (!binding || this.bindings.get(realm) !== binding) return;
       if (!binding.leaving) {
         binding.leaving = true;
-        await Promise.all(this.notify(key.id));
+        await Promise.all(this.notify(realm));
       }
     };
 
     ctx.beforeDispose(drain);
     return ctx.effect(() => {
-      if (this.bindings.has(key.id))
+      if (this.bindings.has(realm))
         throw new Error(
-          `Service "${key.id}" is already provided; a service has one provider at a time (withdraw it first, or use realms once isolation lands).`,
+          `Service "${key.id}" is already provided in this realm; a realm has one provider at a time (withdraw it first, or isolate a subtree).`,
         );
       binding = { value, leaving: false };
-      this.bindings.set(key.id, binding);
-      void Promise.all(this.notify(key.id));
+      this.bindings.set(realm, binding);
+      void Promise.all(this.notify(realm));
 
       return async () => {
         await drain();
-        if (this.bindings.get(key.id) === binding) this.bindings.delete(key.id);
+        if (this.bindings.get(realm) === binding) this.bindings.delete(realm);
       };
     });
   }
 
-  get<T>(key: ServiceKey<T>): T | undefined {
-    const b = this.bindings.get(key.id);
+  get<T>(ctx: Context, key: ServiceKey<T>): T | undefined {
+    const b = this.bindings.get(ctx.resolveRealm(key.id));
     return b && !b.leaving ? (b.value as T) : undefined;
   }
 
