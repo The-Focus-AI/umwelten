@@ -18,7 +18,7 @@ the repo-root `CONTEXT.md` under *Substrate & composition*.
 | Services: provide/inject, reactive activation | ✅ | #396 |
 | Component lifecycle, inertial transitions | ✅ | #397 |
 | Isolation realms | ✅ | #398 |
-| Loader: declarative entries, reconciliation, HMR | — | #399 |
+| Loader: declarative entries, reconciliation, HMR | ✅ | #399 |
 
 ## Revertible effects
 
@@ -116,6 +116,27 @@ deactivates a declarer in another. Provisions and declarations capture
 their realm when made, so isolate a subtree *before* mounting things on it.
 This is what lets one page host many habitats' components without their
 services colliding.
+
+## Loader
+
+```ts
+const loader = new Loader(ctx);
+await loader.apply([
+  { id: "chat", url: "/components/chat.js", config: { greeting: "hi" } },
+  { id: "status", component: statusSpec },
+  { id: "debug", url: "/components/debug.js", disabled: true },
+]);
+await loader.reload("chat");    // hot-replace: re-import, swap the fiber
+loader.entries();               // id, fiber, error, generation
+```
+
+Reconciliation is a keyed diff: entries that left retire, entries that
+arrived realize, url/config/disabled changes rebuild that entry alone, and
+unchanged entries keep their exact fiber. The transactional rule: a
+replacement module is imported **before** the old fiber is disposed, so a
+broken edit leaves the previous version running with the error recorded —
+never a half-reloaded state (`examples/hmr.ts` shows the whole loop against
+real files, broken edit included).
 
 What the runtime does **not** verify: that a supplied inverse actually
 reverts its effect. That is the component author's obligation (paper §5.1.1).
