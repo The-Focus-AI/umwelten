@@ -31,6 +31,9 @@
 | [0028](0028-a-client-may-be-postpaid-to-a-limit.md) | A Client may be postpaid, to a limit it was given |
 | [0029](0029-mycel-sells-as-principal.md) | Mycel sells as principal, and warrants Guarantees on contract |
 | [0030](0030-mycel-runs-on-its-own-vm-with-its-own-identity.md) | Mycel runs on its own VM, with its own GCP identity |
+| [0031](0031-tool-registration-is-revertible-and-tool-sets-declare-needs.md) | Tool registration is revertible, and tool sets declare needs |
+| [0032](0032-external-harnesses-mount-as-runtimes.md) | External harnesses mount as runtimes, not foundations |
+| [0033](0033-the-client-discovers-the-habitat-surface.md) | The client discovers the habitat surface |
 
 0011 is unused — see below.
 
