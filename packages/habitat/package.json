@@ -36,15 +36,18 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@umwelten/core": "workspace:*",
     "@umwelten/protocols": "workspace:*",
+    "@umwelten/substrate": "workspace:*",
     "ai": "^7.0.41",
     "chalk": "^5.6.2",
     "commander": "^15.0.0",
+    "esbuild": "^0.28.1",
     "gray-matter": "^4.0.3",
     "jose": "^6.2.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "playwright-core": "^1.62.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },

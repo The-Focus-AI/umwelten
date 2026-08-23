@@ -50,6 +50,7 @@
     "commander": "^15.0.0",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
+    "esbuild": "^0.28.1",
     "fast-xml-parser": "^5.10.1",
     "file-type": "^22.0.1",
     "fullscreen-ink": "^0.1.0",

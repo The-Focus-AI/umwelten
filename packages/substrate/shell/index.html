@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shell</title>
+<style>
+  :root {
+    --bg: #101410; --panel: #181e18; --line: #2a332a;
+    --ink: #d8e0d8; --muted: #8a968a; --accent: #7fb069; --error: #c8664a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 1rem;
+    padding: 0.9rem 1.4rem; border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 1rem; margin: 0; font-weight: 600; letter-spacing: 0.04em; }
+  header .sub { color: var(--muted); font-size: 0.8rem; }
+  main#region {
+    display: grid; gap: 1rem; padding: 1.4rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    align-items: start;
+  }
+  #shell-status { padding: 0.5rem 1.4rem; color: var(--muted); font-size: 0.8rem; }
+  #shell-status .err { color: var(--error); }
+  /* Base card look components may adopt (scoped styles are theirs). */
+  .shell-card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 1rem 1.2rem;
+  }
+  .shell-card h2 {
+    margin: 0 0 0.6rem; font-size: 0.8rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent);
+  }
+  .shell-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; }
+  .shell-card dt { color: var(--muted); }
+  .shell-card dd { margin: 0; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>shell</h1>
+    <span class="sub" id="host-name">assembling…</span>
+  </header>
+  <main id="region"></main>
+  <div id="shell-status"></div>
+  <script type="module" src="./shell.js"></script>
+</body>
+</html>

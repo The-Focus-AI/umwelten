@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { registerAiTool } from "./mcp-tool-bridge.js";
+import { createShellHandler } from "./shell/serve-shell.js";
 import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
@@ -451,6 +452,10 @@ export async function startContainerServer(
 	} else {
 		uiDir = resolve(pkgRoot, "public");
 	}
+
+	// The Shell (#400, ADR 0031) — served under /shell with the same open
+	// posture as the static UI; see @umwelten/substrate shell/SERVING-CONTRACT.md.
+	const shellHandler = createShellHandler();
 
 	const httpServer = createServer(
 		async (req: IncomingMessage, res: ServerResponse) => {
@@ -1492,6 +1497,11 @@ export async function startContainerServer(
 					}
 
 					sendJson(res, { error: "Not found", path }, 404);
+					return;
+				}
+
+				// ── The Shell (always open, like the static UI) ───────
+				if (req.method === "GET" && (await shellHandler(req, res))) {
 					return;
 				}
 
