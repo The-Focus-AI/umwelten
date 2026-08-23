@@ -33,6 +33,32 @@ beforeAll(async () => {
       );
       return;
     }
+    if (req.url?.startsWith("/api/chat") && req.method === "POST") {
+      // A minimal UI-message stream: echo the last user text back with a
+      // tool event in the middle, in the same wire vocabulary the real
+      // container emits (web/ui-stream.ts).
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw) as {
+        messages: { role: string; content: string }[];
+      };
+      const text = body.messages.at(-1)?.content ?? "";
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      const emit = (e: object) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+      emit({ type: "reasoning-delta", delta: "thinking about it" });
+      emit({
+        type: "tool-input-available",
+        toolCallId: "t1",
+        toolName: "current_time",
+        input: {},
+      });
+      emit({ type: "tool-output-available", toolCallId: "t1", output: "now" });
+      emit({ type: "text-delta", id: "m1", delta: "echo: " });
+      emit({ type: "text-delta", id: "m1", delta: text });
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
     if (await shell(req, res)) return;
     res.writeHead(404).end();
   });
@@ -72,7 +98,7 @@ describe("the shell assembles itself in a browser", () => {
 
     // The shell reports the assembly honestly.
     const statusLine = await page.locator("#shell-status").textContent();
-    expect(statusLine).toContain("1 component mounted");
+    expect(statusLine).toContain("4 components mounted");
 
     // The loader is live page state, not a build artifact.
     const entries = await page.evaluate(() =>
@@ -82,9 +108,52 @@ describe("the shell assembles itself in a browser", () => {
         active: e.fiber?.active,
       })),
     );
-    expect(entries).toEqual([{ id: "status", active: true }]);
+    expect(entries).toEqual([
+      { id: "status", active: true },
+      { id: "conversation", active: true },
+      { id: "chat", active: true },
+      { id: "quick-prompts", active: true },
+    ]);
 
     expect(pageErrors).toEqual([]);
+    await page.close();
+  }, 30_000);
+
+  it("chat streams a reply through the conversation service", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/shell/`);
+    const chat = page.locator("habitat-chat");
+    await chat.waitFor({ state: "visible", timeout: 10_000 });
+
+    await chat.locator("input").fill("hello substrate");
+    await chat.locator("button").click();
+
+    // User bubble, streamed reply, tool event, reasoning — all rendered.
+    await expect
+      .poll(() => chat.locator(".log").textContent(), { timeout: 10_000 })
+      .toContain("echo: hello substrate");
+    const log = await chat.locator(".log").textContent();
+    expect(log).toContain("hello substrate"); // the user's message
+    expect(log).toContain("current_time"); // the tool event
+    expect(log).toContain("thinking about it"); // the reasoning line
+    await page.close();
+  }, 30_000);
+
+  it("a quick-prompt click lands in the chat transcript — the service is shared, not chat-private", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/shell/`);
+    await page.locator("habitat-chat").waitFor({ state: "visible" });
+
+    await page
+      .locator('[data-component="quick-prompts"] button')
+      .first()
+      .click();
+
+    await expect
+      .poll(() => page.locator("habitat-chat .log").textContent(), {
+        timeout: 10_000,
+      })
+      .toContain("echo: What tools do you have?");
     await page.close();
   }, 30_000);
 

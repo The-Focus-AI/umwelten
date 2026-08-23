@@ -29,11 +29,14 @@ describe("the serving contract", () => {
     expect(asText(r!.body)).toContain("./substrate/index.js");
   });
 
-  it("serves a manifest whose default lists the status component", async () => {
+  it("serves a manifest whose default lists the built-in components", async () => {
     const r = await resolveShellRequest("/shell/manifest.json");
     const manifest = JSON.parse(asText(r!.body));
-    expect(manifest.entries).toEqual([
-      { id: "status", url: "./components/status.js" },
+    expect(manifest.entries.map((e: { id: string }) => e.id)).toEqual([
+      "status",
+      "conversation",
+      "chat",
+      "quick-prompts",
     ]);
   });
 
