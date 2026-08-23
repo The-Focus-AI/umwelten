@@ -42,6 +42,7 @@ pnpm workspace monorepo. Each package is under `packages/` and publishable indep
 
 ```
 @umwelten/core       packages/core/          — model runners, stimulus, interaction, providers, context, memory, session-record, env
+@umwelten/substrate  packages/substrate/     — the composition runtime (ADR 0031): revertible effects today; services, lifecycle, loader to come (#396–#399)
 @umwelten/protocols  packages/protocols/     — MCP (legacy + modern + mcp-serve OAuth framework), A2A client/server
 @umwelten/sessions   packages/sessions/      — sessions/browse/introspect CLI commands + session browser data layer
 @umwelten/evaluation packages/evaluation/    — EvalSuite, llm-eval/runFullEval, ranking, combine, reporting
@@ -57,6 +58,9 @@ Dependency DAG (no cycles):
 
 ```
 @umwelten/core              ← foundation, no internal deps
+@umwelten/substrate         ← foundation, no internal deps, no external deps;
+                              isomorphic (Node + browser) — the UI shell will
+                              load it in-page, so it must stay dependency-free
 @umwelten/protocols         ← core
 @umwelten/sessions          ← core
 @umwelten/evaluation        ← core, sessions
