@@ -8,11 +8,12 @@
  *   /api/sessions  → Session CRUD
  *   /files/*       → Serve files from work dir (sandboxed)
  *   /health        → Health check
- *   /              → Built-in chat UI (static)
+ *   /shell/*       → The Shell — the habitat UI, assembled from components
+ *                    (ADR 0031; / redirects here)
  *
  * Auth: per-user JWT grants (HABITAT_AUTH_* — verified, sub = user id) when
  *       configured; legacy shared HABITAT_API_KEY otherwise; open in dev.
- *       /health and static UI are always open. See ADR 0003.
+ *       /health and the shell's assets are always open. See ADR 0003.
  */
 
 import {
@@ -88,8 +89,6 @@ export interface ContainerServerOptions {
 		req: IncomingMessage,
 		res: ServerResponse,
 	) => Promise<boolean>;
-	/** Override the static UI directory (default: public/) */
-	uiDir?: string;
 }
 
 export interface StartedContainerServer {
@@ -150,54 +149,10 @@ function resolveAuthProvider(): { auth: AuthProvider; authMode: AuthMode } {
 	return { auth: devAuth(), authMode: "open" };
 }
 
-// ── Static file serving ───────────────────────────────────────────
-
-const MIME_TYPES: Record<string, string> = {
-	".html": "text/html; charset=utf-8",
-	".css": "text/css; charset=utf-8",
-	".js": "application/javascript; charset=utf-8",
-	".mjs": "application/javascript; charset=utf-8",
-	".json": "application/json; charset=utf-8",
-	".png": "image/png",
-	".jpg": "image/jpeg",
-	".svg": "image/svg+xml",
-	".ico": "image/x-icon",
-};
-
-async function serveStatic(
-	staticRoot: string,
-	urlPath: string,
-	res: ServerResponse,
-): Promise<boolean> {
-	const rel = urlPath === "/" ? "index.html" : urlPath.replace(/^\//, "");
-	if (rel.includes("..")) return false;
-	const abs = resolve(staticRoot, rel);
-	try {
-		const s = await stat(abs);
-		if (s.isDirectory()) {
-			const indexAbs = resolve(abs, "index.html");
-			const idx = await stat(indexAbs).catch(() => null);
-			if (!idx) return false;
-			const body = await readFile(indexAbs);
-			res.writeHead(200, {
-				"Content-Type": "text/html; charset=utf-8",
-				"Cache-Control": "no-cache",
-			});
-			res.end(body);
-			return true;
-		}
-		const body = await readFile(abs);
-		const ext = extname(abs).toLowerCase();
-		res.writeHead(200, {
-			"Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
-			"Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=300",
-		});
-		res.end(body);
-		return true;
-	} catch {
-		return false;
-	}
-}
+// The hand-written dashboard SPA and its static serving were retired in
+// #404 — the Shell (src/shell/, ADR 0031) is the habitat UI, served under
+// /shell and redirected to from /. mcp-agents' own static UIs are separate
+// and unaffected (agent-surface.ts serves their publicUiDir).
 
 /**
  * The OAuth authorization server for this habitat's per-user grants — the
@@ -444,17 +399,8 @@ export async function startContainerServer(
 	// API routes
 	const routes: RouteHandler[] = defaultRoutes();
 
-	// Static UI directory — served from the package's public/ directory.
-	const pkgRoot = fileURLToPath(new URL("..", import.meta.url));
-	let uiDir: string;
-	if (options.uiDir) {
-		uiDir = options.uiDir;
-	} else {
-		uiDir = resolve(pkgRoot, "public");
-	}
-
-	// The Shell (#400, ADR 0031) — served under /shell with the same open
-	// posture as the static UI; see @umwelten/substrate shell/SERVING-CONTRACT.md.
+	// The Shell (#400, ADR 0031) — the habitat UI, served under /shell (open,
+	// like /health); see @umwelten/substrate shell/SERVING-CONTRACT.md.
 	// workDir/components is the self-assembly loop (#405): what
 	// create_component writes appears in the manifest, versioned by mtime.
 	const shellHandler = createShellHandler({
@@ -1504,21 +1450,14 @@ export async function startContainerServer(
 					return;
 				}
 
-				// ── The Shell (always open, like the static UI) ───────
+				// ── The Shell (always open) — the habitat UI (#404) ───
 				if (req.method === "GET" && (await shellHandler(req, res))) {
 					return;
 				}
-
-				// ── Static UI (always open) ───────────────────────────
-				if (req.method === "GET") {
-					const served = await serveStatic(uiDir, path, res);
-					if (served) return;
-
-					// SPA fallback
-					if (!extname(path)) {
-						const fell = await serveStatic(uiDir, "/", res);
-						if (fell) return;
-					}
+				if (req.method === "GET" && path === "/") {
+					res.writeHead(302, { Location: "/shell/" });
+					res.end();
+					return;
 				}
 
 				sendJson(res, { error: "Not found", path }, 404);

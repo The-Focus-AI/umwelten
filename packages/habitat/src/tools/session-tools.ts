@@ -72,6 +72,49 @@ function messageCountFromMeta(meta: { metadata?: Record<string, unknown> }): num
   return typeof n === 'number' && n >= 0 ? n : 0;
 }
 
+/**
+ * Count user/assistant turns and pull the first user prompt straight from a
+ * transcript file. Session metadata rarely carries these (nothing maintains
+ * meta.messageCount as turns land), so listing derives them from the
+ * transcript the way the retired dashboard's /api/sessions route did — the
+ * shell's sessions panel showed "0 msgs" for every live session until it
+ * stopped trusting the metadata (found in the first live platform test).
+ */
+export async function quickTranscriptStats(
+  transcriptPath: string,
+): Promise<{ messageCount: number; firstPrompt: string }> {
+  try {
+    const content = await readFile(transcriptPath, 'utf-8');
+    const lines = content.split('\n').filter((l) => l.trim());
+    let messageCount = 0;
+    let firstPrompt = '';
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type === 'user' || entry.type === 'assistant') {
+          messageCount++;
+        }
+        if (entry.type === 'user' && !firstPrompt) {
+          const c = entry.message?.content;
+          if (typeof c === 'string') {
+            firstPrompt = c;
+          } else if (Array.isArray(c)) {
+            const textBlock = c.find(
+              (b: Record<string, unknown>) => b.type === 'text',
+            );
+            if (textBlock?.text) firstPrompt = textBlock.text as string;
+          }
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+    return { messageCount, firstPrompt: firstPrompt.slice(0, 200) };
+  } catch {
+    return { messageCount: 0, firstPrompt: '' };
+  }
+}
+
 const sessionIdSchema = z
   .string()
   .describe('Session ID (full ID or short prefix)');
@@ -128,9 +171,19 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
         );
         const slice = sorted.slice(0, limit);
         return {
-          sessions: slice.map((s) => {
-            const firstPrompt = firstPromptFromMeta(s);
-            const mc = messageCountFromMeta(s);
+          sessions: await Promise.all(slice.map(async (s) => {
+            // Transcript is the truth; metadata is the fallback (it is
+            // rarely maintained — see quickTranscriptStats).
+            let firstPrompt = '';
+            let mc = 0;
+            const dir = await ctx.getSessionDir(s.sessionId);
+            if (dir) {
+              const stats = await quickTranscriptStats(join(dir, 'transcript.jsonl'));
+              firstPrompt = stats.firstPrompt;
+              mc = stats.messageCount;
+            }
+            if (!firstPrompt) firstPrompt = firstPromptFromMeta(s);
+            if (mc === 0) mc = messageCountFromMeta(s);
             return {
               sessionId: s.sessionId,
               shortId: s.sessionId.split('-').slice(0, 2).join('-'),
@@ -140,7 +193,7 @@ export function createSessionTools(ctx: SessionToolsContext): Record<string, Too
               modified: s.lastUsed,
               type: s.type,
             };
-          }),
+          })),
           totalCount: all.length,
         };
       } catch (err) {

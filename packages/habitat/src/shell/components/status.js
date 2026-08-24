@@ -15,6 +15,7 @@ class HabitatStatus extends HTMLElement {
     this.innerHTML = `<h2>status</h2><dl></dl>`;
   }
   render(health) {
+    this.hasData = true;
     const rows = {
       name: health.name ?? "—",
       status: health.status ?? "—",
@@ -29,6 +30,18 @@ class HabitatStatus extends HTMLElement {
     if (title && health.name) title.textContent = health.name;
   }
   renderError(message) {
+    // A transient blip must not wipe good data: keep the last snapshot and
+    // flag staleness; the next successful refresh clears it.
+    if (this.hasData) {
+      const dl = this.querySelector("dl");
+      if (!dl.querySelector("[data-stale]")) {
+        dl.insertAdjacentHTML(
+          "beforeend",
+          `<dt data-stale style="color:var(--error)">stale</dt><dd data-stale>${message}</dd>`,
+        );
+      }
+      return;
+    }
     this.querySelector("dl").innerHTML =
       `<dt>error</dt><dd>${message}</dd>`;
   }

@@ -118,7 +118,7 @@ export function createSecretsTools(ctx: GaiaToolsContext): Record<string, Tool> 
 		}),
 
 		list_secrets: tool({
-			description: "List all secret names in the master vault (not values).",
+			description: "List all secret names in the fleet MASTER VAULT (not values) — the store that seeds managed habitats' secrets. This is NOT Gaia's own habitat secret store: a secret set through the web shell's secrets panel lands in the habitat store (secrets_list/secrets_get), not here. Check both before telling a user a secret does not exist.",
 			inputSchema: z.object({}),
 			execute: async () => {
 				const names = vault.listNames();

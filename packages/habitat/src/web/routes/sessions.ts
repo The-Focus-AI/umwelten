@@ -9,6 +9,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RouteHandler } from '../types.js';
+import { quickTranscriptStats } from '../../tools/session-tools.js';
 import type { AgentHost, HabitatSessionMetadata } from '../../types.js';
 import {
   parseSessionFile,
@@ -78,40 +79,6 @@ function extractToolResults(
     }));
 }
 
-async function quickTranscriptStats(
-  transcriptPath: string,
-): Promise<{ messageCount: number; firstPrompt: string }> {
-  try {
-    const content = await readFile(transcriptPath, 'utf-8');
-    const lines = content.split('\n').filter((l) => l.trim());
-    let messageCount = 0;
-    let firstPrompt = '';
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line);
-        if (entry.type === 'user' || entry.type === 'assistant') {
-          messageCount++;
-        }
-        if (entry.type === 'user' && !firstPrompt) {
-          const c = entry.message?.content;
-          if (typeof c === 'string') {
-            firstPrompt = c;
-          } else if (Array.isArray(c)) {
-            const textBlock = c.find(
-              (b: Record<string, unknown>) => b.type === 'text',
-            );
-            if (textBlock?.text) firstPrompt = textBlock.text as string;
-          }
-        }
-      } catch {
-        // skip malformed lines
-      }
-    }
-    return { messageCount, firstPrompt: firstPrompt.slice(0, 200) };
-  } catch {
-    return { messageCount: 0, firstPrompt: '' };
-  }
-}
 
 function json(res: any, data: unknown, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
