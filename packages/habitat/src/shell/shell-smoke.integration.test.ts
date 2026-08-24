@@ -20,9 +20,48 @@ let server: Server;
 let browser: Browser;
 let baseUrl: string;
 let customDir: string;
+/** tools/call invocations the /mcp stub received: [name, args]. */
+let toolCalls: Array<[string, Record<string, unknown>]>;
+/** The stub's secret store, so panel round-trips are observable. */
+let secretNames: string[];
+
+/** Answer a tools/call like the habitat's stateless /mcp would. */
+function stubToolResult(name: string, args: Record<string, unknown>): unknown {
+  switch (name) {
+    case "secrets_list":
+      return { secrets: secretNames };
+    case "secrets_set":
+      secretNames.push(String(args.name));
+      return { ok: true };
+    case "secrets_remove":
+      secretNames = secretNames.filter((n) => n !== args.name);
+      return { ok: true };
+    case "sessions_list":
+      return {
+        sessions: [
+          {
+            sessionId: "sess-1",
+            firstPrompt: "build me a clock",
+            messageCount: 4,
+          },
+        ],
+      };
+    case "sessions_messages":
+      return {
+        messages: [
+          { role: "user", content: "build me a clock" },
+          { role: "assistant", content: "done — mounted session-clock" },
+        ],
+      };
+    default:
+      throw new Error(`stub has no tool ${name}`);
+  }
+}
 
 beforeAll(async () => {
   customDir = await mkdtemp(join(tmpdir(), "shell-smoke-custom-"));
+  toolCalls = [];
+  secretNames = ["TAVILY_API_KEY"];
   const shell = createShellHandler({ customComponentsDir: customDir });
   server = createServer(async (req, res) => {
     if (req.url?.startsWith("/health")) {
@@ -36,6 +75,39 @@ beforeAll(async () => {
           model: "test/model-1",
         }),
       );
+      return;
+    }
+    if (req.url?.startsWith("/mcp") && req.method === "POST") {
+      // Stateless tools/call, one JSON-RPC message per POST — the same
+      // contract the habitat's /mcp answers (verified by probe in #402).
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      const rpc = JSON.parse(raw) as {
+        id: number;
+        params: { name: string; arguments?: Record<string, unknown> };
+      };
+      const args = rpc.params.arguments ?? {};
+      toolCalls.push([rpc.params.name, args]);
+      let body: unknown;
+      try {
+        const result = stubToolResult(rpc.params.name, args);
+        body = {
+          jsonrpc: "2.0",
+          id: rpc.id,
+          result: { content: [{ type: "text", text: JSON.stringify(result) }] },
+        };
+      } catch (err) {
+        body = {
+          jsonrpc: "2.0",
+          id: rpc.id,
+          result: {
+            isError: true,
+            content: [{ type: "text", text: String(err) }],
+          },
+        };
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(body));
       return;
     }
     if (req.url?.startsWith("/api/chat") && req.method === "POST") {
@@ -102,9 +174,12 @@ describe("the shell assembles itself in a browser", () => {
       .toContain("smoke-habitat");
     expect(await card.textContent()).toContain("test/model-1");
 
-    // The shell reports the assembly honestly.
-    const statusLine = await page.locator("#shell-status").textContent();
-    expect(statusLine).toContain("4 components mounted");
+    // The shell reports the assembly honestly (written when sync settles).
+    await expect
+      .poll(() => page.locator("#shell-status").textContent(), {
+        timeout: 10_000,
+      })
+      .toContain("7 components mounted");
 
     // The loader is live page state, not a build artifact.
     const entries = await page.evaluate(() =>
@@ -117,8 +192,11 @@ describe("the shell assembles itself in a browser", () => {
     expect(entries).toEqual([
       { id: "status", active: true },
       { id: "conversation", active: true },
+      { id: "tools", active: true },
       { id: "chat", active: true },
       { id: "quick-prompts", active: true },
+      { id: "secrets", active: true },
+      { id: "sessions", active: true },
     ]);
 
     expect(pageErrors).toEqual([]);
@@ -202,6 +280,64 @@ describe("the shell assembles itself in a browser", () => {
         timeout: 10_000,
       })
       .toContain("echo: What tools do you have?");
+    await page.close();
+  }, 30_000);
+
+  it("secrets panel: list, set (write-only), remove — all through tools/call, no private routes", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/shell/`);
+    const panel = page.locator('[data-component="secrets"]');
+    await panel.waitFor({ state: "visible", timeout: 10_000 });
+
+    // Lists what the tool reports.
+    await expect
+      .poll(() => panel.textContent(), { timeout: 10_000 })
+      .toContain("TAVILY_API_KEY");
+
+    // Set: value field clears immediately; the new name appears via refresh.
+    await panel.locator('input[name="name"]').fill("NEW_KEY");
+    await panel.locator('input[name="value"]').fill("super-secret-value");
+    await panel.locator("form button").click();
+    expect(await panel.locator('input[name="value"]').inputValue()).toBe("");
+    await expect
+      .poll(() => panel.textContent(), { timeout: 10_000 })
+      .toContain("NEW_KEY");
+    // The value never appears anywhere in the page.
+    expect(await page.content()).not.toContain("super-secret-value");
+
+    // Remove.
+    await panel.locator('[data-remove="NEW_KEY"]').click();
+    await expect
+      .poll(() => panel.textContent(), { timeout: 10_000 })
+      .not.toContain("NEW_KEY");
+
+    // Everything went through the tool surface.
+    const names = toolCalls.map(([n]) => n);
+    expect(names).toContain("secrets_list");
+    expect(names).toContain("secrets_set");
+    expect(names).toContain("secrets_remove");
+    await page.close();
+  }, 30_000);
+
+  it("sessions panel: lists sessions and opens one to its messages", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/shell/`);
+    const panel = page.locator('[data-component="sessions"]');
+    await panel.waitFor({ state: "visible", timeout: 10_000 });
+
+    await expect
+      .poll(() => panel.textContent(), { timeout: 10_000 })
+      .toContain("build me a clock");
+
+    await panel.locator('[data-session="sess-1"]').click();
+    await expect
+      .poll(() => panel.textContent(), { timeout: 10_000 })
+      .toContain("done — mounted session-clock");
+
+    await panel.locator(".back").click();
+    await expect(
+      await panel.locator("ul").isVisible(),
+    ).toBe(true);
     await page.close();
   }, 30_000);
 

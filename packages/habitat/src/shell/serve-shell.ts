@@ -67,8 +67,11 @@ export interface ShellResponse {
 const DEFAULT_ENTRIES: ShellManifestEntry[] = [
   { id: "status", url: "./components/status.js" },
   { id: "conversation", url: "./components/conversation.js" },
+  { id: "tools", url: "./components/tools.js" },
   { id: "chat", url: "./components/chat.js" },
   { id: "quick-prompts", url: "./components/quick-prompts.js" },
+  { id: "secrets", url: "./components/secrets.js" },
+  { id: "sessions", url: "./components/sessions.js" },
 ];
 
 /** A served file name: single flat segment, .js only. */

@@ -35,8 +35,11 @@ describe("the serving contract", () => {
     expect(manifest.entries.map((e: { id: string }) => e.id)).toEqual([
       "status",
       "conversation",
+      "tools",
       "chat",
       "quick-prompts",
+      "secrets",
+      "sessions",
     ]);
   });
 
