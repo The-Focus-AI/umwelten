@@ -153,7 +153,7 @@ describe("a peer's component in this shell", () => {
       const frame = document.querySelector(
         '[data-component="foreign"] iframe',
       ) as HTMLIFrameElement;
-      let domAccess = "unknown";
+      let domAccess: string;
       try {
         domAccess = frame.contentDocument ? "REACHABLE" : "blocked";
       } catch {
