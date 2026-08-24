@@ -28,7 +28,11 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { registerAiTool } from "./mcp-tool-bridge.js";
-import { createShellHandler } from "./shell/serve-shell.js";
+import {
+	createShellHandler,
+	listShellComponents,
+	registerShellResources,
+} from "./shell/serve-shell.js";
 import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
@@ -945,6 +949,22 @@ export async function startContainerServer(
 						for (const [name, tool] of Object.entries(tools)) {
 							registerAiTool(mcpServer, name, tool);
 						}
+
+						// Components project onto the wire as UI resources (#406,
+						// ADR 0032): every panel this habitat's shell serves — the
+						// agent-authored ones included — is listed in the ui://shell
+						// namespace, and read returns the mcp-ui external-URL
+						// projection: the component's solo page, which a peer's
+						// foreign-mount host iframes (#407). Providers (service-only
+						// components) render nothing and are not published.
+						registerShellResources(
+							mcpServer,
+							await listShellComponents({
+								customComponentsDir: join(habitat.getWorkDir(), "components"),
+							}),
+							lastPublicOrigin ?? getPublicBaseUrl(req),
+							serverName,
+						);
 
 						transport = new StreamableHTTPServerTransport({
 							sessionIdGenerator: undefined,

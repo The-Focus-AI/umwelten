@@ -35,6 +35,12 @@ export interface ShellManifestEntry {
    * components use the file's mtime.
    */
   version?: number;
+  /**
+   * A provider component supplies services and renders nothing (the
+   * conversation and tools providers). Solo pages mount every provider
+   * plus the one requested panel, so the panel's declarations resolve.
+   */
+  provides?: boolean;
 }
 
 export interface ShellServeOptions {
@@ -66,8 +72,8 @@ export interface ShellResponse {
 
 const DEFAULT_ENTRIES: ShellManifestEntry[] = [
   { id: "status", url: "./components/status.js" },
-  { id: "conversation", url: "./components/conversation.js" },
-  { id: "tools", url: "./components/tools.js" },
+  { id: "conversation", url: "./components/conversation.js", provides: true },
+  { id: "tools", url: "./components/tools.js", provides: true },
   { id: "chat", url: "./components/chat.js" },
   { id: "quick-prompts", url: "./components/quick-prompts.js" },
   { id: "secrets", url: "./components/secrets.js" },
@@ -112,6 +118,151 @@ async function scanCustomComponents(
     }
   }
   return entries;
+}
+
+/**
+ * The full component roster a host currently serves: the built-in (or
+ * host-supplied) entries plus the scanned custom components. One source of
+ * truth for the manifest and for MCP resource publication (#406,
+ * ADR 0032 — components project onto the wire as UI resources).
+ */
+export async function listShellComponents(
+  options?: ShellServeOptions,
+): Promise<ShellManifestEntry[]> {
+  const entries = [...(options?.entries ?? DEFAULT_ENTRIES)];
+  if (options?.customComponentsDir) {
+    entries.push(...(await scanCustomComponents(options.customComponentsDir)));
+  }
+  return entries;
+}
+
+/** Solo-page ids: builtin ids plus custom:<name>. Anything else is a 404. */
+const SAFE_SOLO_ID = /^[a-zA-Z0-9:_-]+$/;
+
+/**
+ * Register every panel as a ui://shell/<id> MCP resource whose read returns
+ * the mcp-ui external-URL projection: the component's solo page under
+ * `publicBase`. Providers and disabled entries are skipped — they render
+ * nothing. The registrar is typed structurally so tests can hand it a stock
+ * McpServer without importing container internals.
+ */
+export function registerShellResources(
+  mcpServer: {
+    registerResource(
+      name: string,
+      uri: string,
+      config: { title?: string; description?: string; mimeType?: string },
+      read: () => Promise<{
+        contents: { uri: string; mimeType: string; text: string }[];
+      }>,
+    ): unknown;
+  },
+  components: ShellManifestEntry[],
+  publicBase: string,
+  serverName: string,
+): void {
+  for (const component of components) {
+    if (component.provides || component.disabled) continue;
+    const soloUrl = `${publicBase}/shell/solo/${encodeURIComponent(component.id)}/`;
+    const uri = `ui://shell/${component.id}`;
+    mcpServer.registerResource(
+      `shell-${component.id}`,
+      uri,
+      {
+        title: component.id,
+        description: `Shell component "${component.id}" of ${serverName} — read returns its mountable page URL`,
+        mimeType: "text/uri-list",
+      },
+      async () => ({
+        contents: [{ uri, mimeType: "text/uri-list", text: soloUrl }],
+      }),
+    );
+  }
+}
+
+/**
+ * A solo page hosts exactly one component — the mountable projection behind
+ * a `ui://shell/<id>` resource (ADR 0032): a peer's foreign-mount host
+ * iframes this URL (#407). Providers (entries marked `provides`) mount too,
+ * so the target's declarations resolve; everything else stays out.
+ */
+function soloPage(id: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${id}</title>
+<style>
+  :root {
+    --bg: #101410; --panel: #181e18; --line: #2a332a;
+    --ink: #d8e0d8; --muted: #8a968a; --accent: #7fb069; --error: #c8664a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  main#region { display: grid; gap: 1rem; padding: 1rem; align-items: start; }
+  #solo-status { padding: 0.4rem 1rem; color: var(--muted); font-size: 0.8rem; }
+  .shell-card { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 1rem 1.2rem; }
+  .shell-card h2 { margin: 0 0 0.6rem; font-size: 0.8rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+  .shell-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; }
+  .shell-card dt { color: var(--muted); }
+  .shell-card dd { margin: 0; }
+</style>
+</head>
+<body>
+  <main id="region"></main>
+  <div id="solo-status">assembling…</div>
+  <script type="module">
+    import { createContext, serviceKey, Loader } from "../../substrate/index.js";
+    const base = new URL("../../", import.meta.url);
+    const target = ${JSON.stringify(id)};
+    const root = createContext();
+    root.provide(serviceKey("shell:region"), document.getElementById("region"));
+    root.provide(serviceKey("shell:base"), base);
+    const loader = new Loader(root, {
+      importModule: (url, g) =>
+        import(new URL(url + (url.includes("?") ? "&" : "?") + "v=" + g, base).href),
+    });
+    const versions = new Map();
+    const status = document.getElementById("solo-status");
+    async function sync() {
+      try {
+        const res = await fetch(new URL("manifest.json", base));
+        if (!res.ok) throw new Error("manifest: HTTP " + res.status);
+        const manifest = await res.json();
+        const entries = (manifest.entries ?? []).filter(
+          (e) => e.provides || e.id === target,
+        );
+        await loader.apply(entries);
+        for (const e of entries) {
+          const prev = versions.get(e.id);
+          versions.set(e.id, e.version);
+          if (prev !== undefined && e.version !== undefined && e.version !== prev) {
+            await loader.reload(e.id);
+          }
+        }
+        const t = loader.entries().find((e) => e.id === target);
+        status.textContent = !t
+          ? "no component " + target + " on this host"
+          : t.error
+            ? String(t.error)
+            : t.fiber?.active
+              ? ""
+              : "waiting for services…";
+      } catch (err) {
+        status.textContent = err.message;
+      }
+    }
+    async function loop() { await sync(); setTimeout(loop, 2000); }
+    loop();
+    window.__shell = { root, loader };
+  </script>
+</body>
+</html>
+`;
 }
 
 /** Transpile cache: absolute path → { mtimeMs, code }. */
@@ -184,15 +335,33 @@ export async function resolveShellRequest(
       };
     }
     if (rel === "manifest.json") {
-      const entries = [...(options?.entries ?? DEFAULT_ENTRIES)];
-      if (options?.customComponentsDir) {
-        entries.push(...(await scanCustomComponents(options.customComponentsDir)));
-      }
       return {
         status: 200,
         contentType: JSON_TYPE,
-        body: JSON.stringify({ entries }, null, 2),
+        body: JSON.stringify(
+          { entries: await listShellComponents(options) },
+          null,
+          2,
+        ),
       };
+    }
+    if (rel.startsWith("solo/")) {
+      const parts = rel.split("/");
+      const id = decodeURIComponent(parts[1] ?? "");
+      if (!SAFE_SOLO_ID.test(id)) return notFound;
+      // Canonicalize to a trailing slash so the page's ../../ resolves.
+      if (parts.length === 2) {
+        return {
+          status: 302,
+          contentType: "text/plain; charset=utf-8",
+          body: "",
+          location: `${prefix}/solo/${parts[1]}/`,
+        };
+      }
+      if (parts.length === 3 && (parts[2] === "" || parts[2] === "index.html")) {
+        return { status: 200, contentType: HTML, body: soloPage(id) };
+      }
+      return notFound;
     }
     if (rel.startsWith("substrate/")) {
       const name = rel.slice("substrate/".length);
