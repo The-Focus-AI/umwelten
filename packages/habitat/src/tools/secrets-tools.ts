@@ -17,7 +17,7 @@ export interface SecretsToolsContext {
 
 export function createSecretsTools(ctx: SecretsToolsContext): Record<string, Tool> {
   const secretsSetTool = tool({
-    description: 'Set a secret (API key, token, etc.) in the habitat secret store. The secret persists across sessions and is available to containers.',
+    description: 'Set a secret (API key, token, etc.) in THIS habitat\'s own secret store (secrets.json in its work directory). Persists across sessions. On Gaia this is NOT the fleet master vault that seeds managed habitats — that is list_secrets/set_secret/bind_secret.',
     inputSchema: z.object({
       name: z.string().describe('Environment variable name (e.g. ANTHROPIC_API_KEY)'),
       value: z.string().describe('The secret value'),
@@ -40,7 +40,7 @@ export function createSecretsTools(ctx: SecretsToolsContext): Record<string, Too
   });
 
   const secretsListTool = tool({
-    description: 'List all secrets in the habitat secret store. Shows names and whether they are set, but not values (for security).',
+    description: 'List all secrets in THIS habitat\'s own secret store (names only, never values). On Gaia this is NOT the fleet master vault — for vault contents use list_secrets. When a user says they "set a secret" in the web shell, it landed here.',
     inputSchema: z.object({}).optional(),
     execute: async () => {
       const names = ctx.listSecretNames();

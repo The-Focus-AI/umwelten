@@ -25,7 +25,9 @@ export default {
     el.className = "shell-card";
     el.dataset.component = "secrets";
     el.innerHTML = `
-      <h2>secrets</h2>
+      <h2>habitat secrets</h2>
+      <p style="margin:0 0 0.6rem;color:var(--muted);font-size:0.75rem;">
+        this habitat's own store — on Gaia, the fleet vault is separate</p>
       <ul style="list-style:none;margin:0 0 0.8rem;padding:0;display:flex;
         flex-direction:column;gap:0.3rem;"></ul>
       <p class="note" style="margin:0 0 0.8rem;color:var(--muted);"></p>
