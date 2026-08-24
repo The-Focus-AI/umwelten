@@ -11,6 +11,7 @@
  */
 
 import { serviceKey } from "../substrate/index.js";
+import { resolveToken } from "./auth.js";
 
 const baseKey = serviceKey("shell:base");
 const conversationKey = serviceKey("shell:conversation");
@@ -21,28 +22,7 @@ export default {
   apply(ctx, view, config) {
     const base = view.get(baseKey);
     const threadId = crypto.randomUUID();
-    // Token resolution follows the old dashboard's convention so the two
-    // UIs share auth on the same origin: ?token= in the URL (persisted),
-    // then the stored "habitat-token". config.token wins when a host
-    // pins one in the manifest.
-    const token =
-      config?.token ??
-      (() => {
-        try {
-          const fromUrl = new URLSearchParams(location.search).get("token");
-          if (fromUrl) {
-            localStorage.setItem("habitat-token", fromUrl);
-            return fromUrl;
-          }
-          return (
-            localStorage.getItem("habitat-token") ??
-            localStorage.getItem("shell:token") ??
-            undefined
-          );
-        } catch {
-          return undefined;
-        }
-      })();
+    const token = resolveToken(config?.token);
 
     /** @type {Array<{role:string, parts:Array<object>, streaming?:boolean}>} */
     const messages = [];
