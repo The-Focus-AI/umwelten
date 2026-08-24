@@ -12,6 +12,7 @@ unchanged. All paths are relative to the base (e.g. `/shell/` on a habitat).
 | `./substrate/*.js` | the `@umwelten/substrate` runtime as browser ESM (e.g. `./substrate/index.js`; internal relative imports resolve within this prefix) |
 | `./manifest.json` | `{ "entries": [ { "id", "url", "config"?, "disabled"? } ] }` — the loader entries to realize; `url` is resolved against the base |
 | `./components/*.js` | component modules: plain ESM whose default export is a `ComponentSpec` |
+| `./solo/<id>/` | a page mounting exactly component `<id>` plus the manifest's `provides` entries — the mountable projection behind a `ui://shell/<id>` MCP resource, and what a peer's foreign-mount host iframes |
 
 The host decides what the manifest lists (built-ins, work-dir components,
 anything). The shell boots, imports the substrate, fetches the manifest, and

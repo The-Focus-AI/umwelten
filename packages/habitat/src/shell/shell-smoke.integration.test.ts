@@ -341,6 +341,23 @@ describe("the shell assembles itself in a browser", () => {
     await page.close();
   }, 30_000);
 
+  it("a solo page mounts exactly its target component (#406's mountable projection)", async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/shell/solo/status/`);
+
+    // The target renders with live data...
+    const card = page.locator("habitat-status");
+    await card.waitFor({ state: "visible", timeout: 10_000 });
+    await expect
+      .poll(() => card.textContent(), { timeout: 10_000 })
+      .toContain("smoke-habitat");
+
+    // ...and nothing else does: panels stay out, only providers rode along.
+    expect(await page.locator("habitat-chat").count()).toBe(0);
+    expect(await page.locator('[data-component="secrets"]').count()).toBe(0);
+    await page.close();
+  }, 30_000);
+
   it("unmounting through the loader reverts the component from the live page", async () => {
     const page = await browser.newPage();
     await page.goto(`${baseUrl}/shell`);

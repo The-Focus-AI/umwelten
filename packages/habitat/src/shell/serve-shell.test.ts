@@ -101,6 +101,35 @@ describe("the serving contract", () => {
   });
 });
 
+describe("solo pages (wire projection, #406)", () => {
+  it("canonicalizes /solo/<id> to a trailing slash", async () => {
+    const r = await resolveShellRequest("/shell/solo/status");
+    expect(r?.status).toBe(302);
+    expect(r?.location).toBe("/shell/solo/status/");
+  });
+
+  it("serves a page that targets exactly the requested component", async () => {
+    const r = await resolveShellRequest("/shell/solo/status/");
+    expect(r?.status).toBe(200);
+    expect(r?.contentType).toContain("text/html");
+    const html = asText(r!.body);
+    expect(html).toContain('const target = "status"');
+    expect(html).toContain("e.provides || e.id === target");
+    expect(html).toContain("../../substrate/index.js");
+  });
+
+  it("accepts custom-component ids and refuses everything unsafe", async () => {
+    expect((await resolveShellRequest("/shell/solo/custom:clock/"))?.status).toBe(200);
+    for (const bad of [
+      "/shell/solo/%3Cscript%3E/",
+      "/shell/solo/a%22b/",
+      "/shell/solo/../secrets/",
+    ]) {
+      expect((await resolveShellRequest(bad))?.status, bad).toBe(404);
+    }
+  });
+});
+
 describe("custom components (self-assembly, #405)", () => {
   it("scans the custom dir into versioned manifest entries and serves the modules", async () => {
     const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
