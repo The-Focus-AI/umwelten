@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Habitat Agents', link: '/guide/habitat-agents' },
             { text: 'Agent Dialogues', link: '/guide/agent-dialogues' },
             { text: 'Habitat Testing', link: '/guide/habitat-testing' },
+            { text: 'Shell Testing Playbook', link: '/guide/shell-testing-playbook' },
             { text: 'Habitat Bridge', link: '/guide/habitat-bridge' },
             { text: 'Channel Routing', link: '/guide/habitat-routing' },
           ]
