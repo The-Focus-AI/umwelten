@@ -252,9 +252,28 @@ function soloPage(id: string): string {
             : t.fiber?.active
               ? ""
               : "waiting for services…";
+        beacon(t);
       } catch (err) {
         status.textContent = err.message;
+        beacon(undefined, err.message);
       }
+    }
+    // Status beacon for a foreign-mount host (#407): when this page runs in
+    // an iframe, tell the parent how the mount is going and how tall the
+    // content is. Carries no data beyond mount state; targetOrigin "*" is
+    // fine for that, and the parent filters by iframe source.
+    function beacon(entry, failure) {
+      if (window.parent === window) return;
+      window.parent.postMessage(
+        {
+          type: "shell:solo",
+          target,
+          active: entry?.fiber?.active === true,
+          error: failure ?? (entry?.error ? String(entry.error) : undefined),
+          height: document.documentElement.scrollHeight,
+        },
+        "*",
+      );
     }
     async function loop() { await sync(); setTimeout(loop, 2000); }
     loop();
