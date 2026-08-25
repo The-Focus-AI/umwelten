@@ -20,18 +20,18 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@umwelten/substrate": "workspace:*",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "commander": "^15.0.0",
-    "jose": "^6.2.4",
+    "jose": "^6.2.10",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
     "playwright-core": "^1.62.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "license": "MIT",
   "private": true
