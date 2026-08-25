@@ -21,6 +21,7 @@ Five layers, cheapest first. Every layer runs from the repo root.
 | 3. Browser smokes | Real Chromium boots the shell against a stubbed `/mcp`: boot, chat round-trip, self-assembly (custom component arrives/updates/departs), quick prompts, solo pages, unmount cascade | `npx vitest run --config vitest.integration.config.ts packages/habitat/src/shell/shell-smoke.integration.test.ts` | Chromium (see below) |
 | 4. Wire projection + foreign mounting | A stock MCP SDK client reads `ui://shell/*` resources; a second origin mounts them in a sandboxed iframe with the beacon protocol | `npx vitest run --config vitest.integration.config.ts packages/habitat/src/shell/mcp-resources.integration.test.ts packages/habitat/src/shell/foreign-mount.integration.test.ts` | Chromium |
 | 5. Fleet composition | Orchestrator shell lists a two-child fleet, mounts both children's status cards as foreign sub-components, reconciles a stop | `npx vitest run --config vitest.integration.config.ts packages/habitat/src/shell/fleet.integration.test.ts` | Chromium |
+| 6. Mycel client surface | The Exchange serves the same contract (#409): manifest of read-only components, traversal refusal, and — in the browser test — health/models cards rendering a live seeded Exchange | unit: `npx vitest run packages/mycel/src/client-surface/serve.test.ts` · browser: `npx vitest run --config vitest.integration.config.ts packages/mycel/src/client-surface/` | Chromium (browser test only) |
 
 Run the whole shell integration surface at once:
 

@@ -9,6 +9,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./serve": {
+      "types": "./serve/serve-shell.ts",
+      "import": "./serve/serve-shell.ts"
+    },
     "./*.js": {
       "types": "./src/*.ts",
       "import": "./src/*.ts"
