@@ -58,6 +58,15 @@ export interface ShellServeOptions {
    * creations, edits, and removals live.
    */
   customComponentsDir?: string;
+  /**
+   * Host-contributed entries appended to the roster — how a host with more
+   * than the standard surface (Gaia's orchestrator panels) declares it.
+   * A function is re-evaluated per manifest request, for rosters that
+   * follow live state.
+   */
+  extraEntries?:
+    | ShellManifestEntry[]
+    | (() => Promise<ShellManifestEntry[]>);
   /** URL prefix the shell is mounted at. Default "/shell". */
   prefix?: string;
 }
@@ -130,6 +139,9 @@ export async function listShellComponents(
   options?: ShellServeOptions,
 ): Promise<ShellManifestEntry[]> {
   const entries = [...(options?.entries ?? DEFAULT_ENTRIES)];
+  const extra = options?.extraEntries;
+  if (typeof extra === "function") entries.push(...(await extra()));
+  else if (extra) entries.push(...extra);
   if (options?.customComponentsDir) {
     entries.push(...(await scanCustomComponents(options.customComponentsDir)));
   }

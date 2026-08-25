@@ -101,6 +101,42 @@ describe("the serving contract", () => {
   });
 });
 
+describe("host-contributed entries (#408)", () => {
+  it("appends static extraEntries to the manifest", async () => {
+    const r = await resolveShellRequest("/shell/manifest.json", {
+      extraEntries: [{ id: "habitats", url: "./components/habitats.js" }],
+    });
+    const ids = JSON.parse(asText(r!.body)).entries.map(
+      (e: { id: string }) => e.id,
+    );
+    expect(ids).toContain("habitats");
+    expect(ids).toContain("status"); // defaults still present
+  });
+
+  it("re-evaluates function extraEntries per manifest request", async () => {
+    let n = 0;
+    const options = {
+      extraEntries: async () => [
+        { id: `dyn-${++n}`, url: "./components/status.js" },
+      ],
+    };
+    const first = JSON.parse(
+      asText((await resolveShellRequest("/shell/manifest.json", options))!.body),
+    );
+    const second = JSON.parse(
+      asText((await resolveShellRequest("/shell/manifest.json", options))!.body),
+    );
+    expect(first.entries.some((e: { id: string }) => e.id === "dyn-1")).toBe(true);
+    expect(second.entries.some((e: { id: string }) => e.id === "dyn-2")).toBe(true);
+  });
+
+  it("serves the habitats panel module", async () => {
+    const r = await resolveShellRequest("/shell/components/habitats.js");
+    expect(r?.status).toBe(200);
+    expect(asText(r!.body)).toContain("list_habitats");
+  });
+});
+
 describe("solo pages (wire projection, #406)", () => {
   it("canonicalizes /solo/<id> to a trailing slash", async () => {
     const r = await resolveShellRequest("/shell/solo/status");

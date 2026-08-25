@@ -32,6 +32,7 @@ import {
 	createShellHandler,
 	listShellComponents,
 	registerShellResources,
+	type ShellManifestEntry,
 } from "./shell/serve-shell.js";
 import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
@@ -88,6 +89,14 @@ export interface ContainerServerOptions {
 	port?: number;
 	host?: string;
 	name?: string;
+	/**
+	 * Extra shell manifest entries this host contributes (Gaia's
+	 * orchestrator panels, #408). A function is re-evaluated per manifest
+	 * request.
+	 */
+	shellEntries?:
+		| ShellManifestEntry[]
+		| (() => Promise<ShellManifestEntry[]>);
 	/** Optional raw request handler that runs before standard routing. Return true if handled. */
 	extraRawHandler?: (
 		req: IncomingMessage,
@@ -407,8 +416,11 @@ export async function startContainerServer(
 	// like /health); see @umwelten/substrate shell/SERVING-CONTRACT.md.
 	// workDir/components is the self-assembly loop (#405): what
 	// create_component writes appears in the manifest, versioned by mtime.
+	// shellEntries lets a host contribute panels beyond the standard surface
+	// (Gaia's orchestrator panels, #408).
 	const shellHandler = createShellHandler({
 		customComponentsDir: join(habitat.getWorkDir(), "components"),
+		extraEntries: options.shellEntries,
 	});
 
 	const httpServer = createServer(
@@ -961,6 +973,7 @@ export async function startContainerServer(
 							mcpServer,
 							await listShellComponents({
 								customComponentsDir: join(habitat.getWorkDir(), "components"),
+								extraEntries: options.shellEntries,
 							}),
 							lastPublicOrigin ?? getPublicBaseUrl(req),
 							serverName,

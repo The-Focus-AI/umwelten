@@ -222,6 +222,10 @@ export class Gaia {
 			port,
 			host,
 			name: "Gaia Orchestrator",
+			// Gaia's dashboard is an assembly (#408): the fleet panel rides the
+			// standard shell as a host-contributed entry, and from there mounts
+			// each running habitat's status as a foreign component.
+			shellEntries: [{ id: "habitats", url: "./components/habitats.js" }],
 			extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
 		});
 
