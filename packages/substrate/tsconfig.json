@@ -11,6 +11,9 @@
     "rootDir": "src",
     "types": ["vitest/globals"]
   },
+  // serve/ is deliberately OUT of this program: src/ must stay isomorphic
+  // (no node types in scope proves it). serve/serve-shell.ts is typechecked
+  // through its consumers — the habitat and mycel programs both compile it.
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts"]
 }

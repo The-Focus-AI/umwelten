@@ -11,6 +11,7 @@
 import http from "node:http";
 import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
+import { createClientSurfaceHandler } from "./client-surface/serve.js";
 import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js";
 import { createModelsHandler } from "./buyer/models.js";
 import { ConnectionRegistry } from "./supply/connections.js";
@@ -77,6 +78,10 @@ export function createExchangeApp(
       : undefined);
 
   const handlers = [
+    // The Client surface (ADR 0026, #409): the standard Shell plus read-only
+    // components over /health and /v1/models. Serves static assets only —
+    // no new endpoints, and nothing that moves money.
+    createClientSurfaceHandler(),
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
     createBuyerHandler({
@@ -96,6 +101,12 @@ export function createExchangeApp(
     req: http.IncomingMessage,
     res: http.ServerResponse,
   ): Promise<void> {
+    if (req.method === "GET" && (req.url ?? "/").split("?")[0] === "/") {
+      // A person landing on the Exchange's hostname gets the Client surface.
+      res.writeHead(302, { location: "/shell/" });
+      res.end();
+      return;
+    }
     if (req.url === "/health") {
       // Reports whether the store is reachable, not merely whether the process
       // is up — a service that answers while its database is gone is worse

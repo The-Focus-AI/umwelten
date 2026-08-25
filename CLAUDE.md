@@ -66,7 +66,10 @@ Dependency DAG (no cycles):
 @umwelten/evaluation        ← core, sessions
 @umwelten/habitat           ← core, protocols, sessions
 @umwelten/ui                ← core, sessions, evaluation, habitat
-@umwelten/mycel             ← nothing (its own bounded context; see CONTEXT-MAP.md)
+@umwelten/mycel             ← substrate only (its own bounded context; see CONTEXT-MAP.md.
+                              The edge exists for the Client surface (#409): the Exchange
+                              serves the Shell via @umwelten/substrate/serve, which is
+                              dependency-free. Dispatch and metering code never import it.)
 @umwelten/supplier          ← core only (deliberately NOT mycel — the agent runs on
                               machines other people own and never opens a database,
                               so it stays installable without one)
@@ -502,6 +505,11 @@ several of them collide with ordinary usage.
 - `command.ts` — the operator CLI. **No HTTP admin API, deliberately** — every
   one of these can move money or grant eligibility for traffic the operator is
   liable for.
+- `client-surface/` — the Client surface (ADR 0026, #409): the same
+  host-agnostic Shell habitats serve (`@umwelten/substrate/serve`, the
+  serving contract), with strictly read-only components over existing
+  endpoints — `health`, `models`. `GET /` redirects to `/shell/`. Nothing
+  mutating; the CLI-only admin decision stands.
 
 Money is integer micro-dollars everywhere. `$1.00` is `1000000`, never a float.
 
