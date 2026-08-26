@@ -44,6 +44,12 @@ export interface ExchangeServerOptions {
   resolveTransport?: BuyerHandlerOptions["resolveTransport"];
   /** How long a dialled-in socket may stay open without saying hello. */
   handshakeTimeoutMs?: number;
+  /**
+   * Directory of agent-authored client-surface components (#410) — served
+   * live with mtime-versioned HMR. A dev-instance affordance; the deployed
+   * surface promotes components into the repo instead.
+   */
+  componentsDir?: string;
 }
 
 export interface RunningExchange {
@@ -57,7 +63,10 @@ export interface RunningExchange {
 
 export function createExchangeApp(
   store: ExchangeStore,
-  opts: Pick<ExchangeServerOptions, "verifyCaller" | "staleAfterMs" | "resolveTransport"> & {
+  opts: Pick<
+    ExchangeServerOptions,
+    "verifyCaller" | "staleAfterMs" | "resolveTransport" | "componentsDir"
+  > & {
     connections?: ConnectionRegistry;
   } = {},
 ) {
@@ -81,7 +90,7 @@ export function createExchangeApp(
     // The Client surface (ADR 0026, #409): the standard Shell plus read-only
     // components over /health and /v1/models. Serves static assets only —
     // no new endpoints, and nothing that moves money.
-    createClientSurfaceHandler(),
+    createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
     createBuyerHandler({
@@ -147,6 +156,7 @@ export async function createExchangeServer(
     verifyCaller: opts.verifyCaller,
     staleAfterMs: opts.staleAfterMs,
     resolveTransport: opts.resolveTransport,
+    componentsDir: opts.componentsDir,
     connections,
   });
   await opts.store.setup();

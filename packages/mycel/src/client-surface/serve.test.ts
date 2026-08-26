@@ -42,7 +42,39 @@ describe("the Exchange's client surface", () => {
     expect(manifest.entries.map((e: { id: string }) => e.id)).toEqual([
       "health",
       "models",
+      "catalogue-stats",
     ]);
+  });
+
+  it("declares no providers — evolved components are read-only by construction (#410)", async () => {
+    // No provider entries means no shell:tools (or any mutating service)
+    // exists on this host for an agent-authored component to inject; all it
+    // can reach is the Exchange's public read endpoints.
+    const r = await get(createClientSurfaceHandler(), "/shell/manifest.json");
+    const manifest = JSON.parse(r.body) as {
+      entries: { id: string; provides?: boolean }[];
+    };
+    expect(manifest.entries.filter((e) => e.provides)).toEqual([]);
+  });
+
+  it("serves agent-authored components live from a configured dir (#410)", async () => {
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = await mkdtemp(join(tmpdir(), "mycel-components-"));
+    try {
+      await writeFile(join(dir, "spark.js"), "export default { apply() {} };");
+      const handler = createClientSurfaceHandler({ componentsDir: dir });
+      const manifest = JSON.parse((await get(handler, "/shell/manifest.json")).body);
+      const custom = manifest.entries.find(
+        (e: { id: string }) => e.id === "custom:spark",
+      );
+      expect(custom.url).toBe("./custom/spark.js");
+      expect(typeof custom.version).toBe("number");
+      expect((await get(handler, "/shell/custom/spark.js")).status).toBe(200);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("transpiles the substrate to browser ESM", async () => {

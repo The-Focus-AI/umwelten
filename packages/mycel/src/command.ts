@@ -36,6 +36,7 @@ interface CliOptions {
   application?: string;
   reason?: string;
   ephemeral?: boolean;
+  componentsDir?: string;
   wholesalePrompt?: string;
   wholesaleCompletion?: string;
   retailPrompt?: string;
@@ -153,14 +154,22 @@ mycelCommand
   .option("--port <port>", "Port to listen on", String(DEFAULT_PORT))
   .option("--database <url>", "Postgres connection string (or MYCEL_DATABASE_URL)")
   .option("--ephemeral", "Run against memory — loses every balance on exit")
+  .option(
+    "--components-dir <dir>",
+    "Serve agent-authored client-surface components from this directory, live (self-assembly, #410; or MYCEL_COMPONENTS_DIR)",
+  )
   .action(async (opts: CliOptions) => {
     await guard(async () => {
       const store = openStore(opts);
       const port = Number(opts.port ?? DEFAULT_PORT);
+      const componentsDir =
+        opts.componentsDir ?? process.env.MYCEL_COMPONENTS_DIR;
 
       // setup() runs the schema DDL, so a bad database URL fails here rather
       // than on the first request that tries to charge someone.
-      const exchange = await createExchangeServer({ store, port });
+      const exchange = await createExchangeServer({ store, port, componentsDir });
+      if (componentsDir)
+        console.log(`Client-surface components dir: ${componentsDir}`);
       console.log(`Mycel listening on ${exchange.url}`);
       if (opts.ephemeral) console.log("⚠ ephemeral store — balances are lost on exit");
 
