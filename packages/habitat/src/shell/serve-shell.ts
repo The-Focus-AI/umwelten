@@ -29,6 +29,10 @@ export {
 } from "@umwelten/substrate/serve";
 
 const DEFAULT_ENTRIES: ShellManifestEntry[] = [
+  // The stock layout (ADR 0034). `provides` here means "mounts everywhere,
+  // projects nowhere": solo pages stay single-component (the layout no-ops
+  // without shell chrome) and no ui://shell/layout resource is published.
+  { id: "layout", url: "./components/layout.js", provides: true },
   { id: "status", url: "./components/status.js" },
   { id: "conversation", url: "./components/conversation.js", provides: true },
   { id: "tools", url: "./components/tools.js", provides: true },
@@ -51,12 +55,27 @@ async function transpileTs(source: string): Promise<string> {
   return out.code;
 }
 
+/**
+ * A custom layout replaces the stock one (ADR 0034): whenever the agent has
+ * authored `layout.js`, the built-in entry goes disabled — and comes back
+ * the moment the custom one is removed.
+ */
+function customLayoutWins(
+  entries: ShellManifestEntry[],
+): ShellManifestEntry[] {
+  if (!entries.some((e) => e.id === "custom:layout")) return entries;
+  return entries.map((e) =>
+    e.id === "layout" ? { ...e, disabled: true } : e,
+  );
+}
+
 /** The habitat defaults, layered under whatever the caller passed. */
 function withHabitatDefaults(options?: ShellServeOptions): ShellServeOptions {
   return {
     entries: DEFAULT_ENTRIES,
     componentsDir: defaultComponentsDir(),
     transpile: transpileTs,
+    transformEntries: customLayoutWins,
     ...options,
   };
 }

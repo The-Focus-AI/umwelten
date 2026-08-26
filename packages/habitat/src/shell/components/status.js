@@ -58,6 +58,7 @@ export default {
     const region = view.get(regionKey);
     const base = view.get(baseKey);
     const el = document.createElement("habitat-status");
+    el.dataset.component = "status"; // placement identity (ADR 0034)
     region.appendChild(el);
 
     const refresh = async () => {

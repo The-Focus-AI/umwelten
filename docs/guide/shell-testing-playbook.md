@@ -65,10 +65,12 @@ habitats. Allow a few minutes. Then walk this list against
 curl -s https://gaia.habitats.thefocus.ai/shell/manifest.json | jq '.entries[].id'
 ```
 
-Expect the seven built-ins (`status`, `conversation`, `tools`, `chat`,
+Expect the built-ins (`layout`, `status`, `conversation`, `tools`, `chat`,
 `quick-prompts`, `secrets`, `sessions`) **plus `habitats`** (Gaia's
 host-contributed fleet entry), plus any `custom:*` components previously
-created on this habitat. If you're verifying a specific change, poll for a
+created on this habitat. The page should boot into the rail arrangement
+(ADR 0034): status and quick-prompts in the collapsible left rail, secrets
+and sessions in the admin cluster at its bottom, everything else in main. If you're verifying a specific change, poll for a
 distinctive string from the diff rather than eyeballing.
 
 **1. Entry + auth.** Open `https://gaia.habitats.thefocus.ai/?token=<GAIA_API_KEY>`.

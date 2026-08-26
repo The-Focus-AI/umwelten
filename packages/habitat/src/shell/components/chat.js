@@ -71,6 +71,7 @@ export default {
     const region = view.get(regionKey);
     const conversation = view.get(conversationKey);
     const el = document.createElement("habitat-chat");
+    el.dataset.component = "chat"; // placement identity (ADR 0034)
     region.appendChild(el);
 
     const unsubscribe = conversation.subscribe((messages) =>

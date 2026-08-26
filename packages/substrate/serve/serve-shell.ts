@@ -74,6 +74,14 @@ export interface ShellServeOptions {
    * passes one.
    */
   transpile?: TranspileFn;
+  /**
+   * Host policy over the assembled roster, applied last — e.g. a habitat
+   * disables its stock layout entry whenever an agent-authored
+   * `custom:layout` is present (ADR 0034). Runs on every manifest request.
+   */
+  transformEntries?: (
+    entries: ShellManifestEntry[],
+  ) => ShellManifestEntry[];
 }
 
 export interface ShellResponse {
@@ -134,7 +142,7 @@ export async function listShellComponents(
   if (options?.customComponentsDir) {
     entries.push(...(await scanCustomComponents(options.customComponentsDir)));
   }
-  return entries;
+  return options?.transformEntries ? options.transformEntries(entries) : entries;
 }
 
 /** Solo-page ids: builtin ids plus custom:<name>. Anything else is a 404. */
