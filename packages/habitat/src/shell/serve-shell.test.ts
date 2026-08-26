@@ -33,6 +33,7 @@ describe("the serving contract", () => {
     const r = await resolveShellRequest("/shell/manifest.json");
     const manifest = JSON.parse(asText(r!.body));
     expect(manifest.entries.map((e: { id: string }) => e.id)).toEqual([
+      "layout",
       "status",
       "conversation",
       "tools",
@@ -214,5 +215,43 @@ describe("custom components (self-assembly, #405)", () => {
       customComponentsDir: "/nonexistent/components",
     });
     expect(r?.status).toBe(200);
+  });
+});
+
+describe("layout (ADR 0034)", () => {
+  it("ships the stock layout as a provider entry — mounted everywhere, projected nowhere", async () => {
+    const manifest = JSON.parse(
+      asText((await resolveShellRequest("/shell/manifest.json"))!.body),
+    );
+    const layout = manifest.entries.find((e: { id: string }) => e.id === "layout");
+    expect(layout.provides).toBe(true);
+  });
+
+  it("a custom layout disables the stock one; removing it restores the stock", async () => {
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = await mkdtemp(join(tmpdir(), "shell-layout-"));
+    try {
+      const read = async () =>
+        JSON.parse(
+          asText(
+            (await resolveShellRequest("/shell/manifest.json", {
+              customComponentsDir: dir,
+            }))!.body,
+          ),
+        ).entries as { id: string; disabled?: boolean }[];
+
+      await writeFile(join(dir, "layout.js"), "export default { apply() {} };");
+      let entries = await read();
+      expect(entries.find((e) => e.id === "layout")?.disabled).toBe(true);
+      expect(entries.some((e) => e.id === "custom:layout")).toBe(true);
+
+      await rm(join(dir, "layout.js"));
+      entries = await read();
+      expect(entries.find((e) => e.id === "layout")?.disabled).toBeUndefined();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -179,7 +179,7 @@ describe("the shell assembles itself in a browser", () => {
       .poll(() => page.locator("#shell-status").textContent(), {
         timeout: 10_000,
       })
-      .toContain("7 components mounted");
+      .toContain("8 components mounted");
 
     // The loader is live page state, not a build artifact.
     const entries = await page.evaluate(() =>
@@ -190,6 +190,7 @@ describe("the shell assembles itself in a browser", () => {
       })),
     );
     expect(entries).toEqual([
+      { id: "layout", active: true },
       { id: "status", active: true },
       { id: "conversation", active: true },
       { id: "tools", active: true },

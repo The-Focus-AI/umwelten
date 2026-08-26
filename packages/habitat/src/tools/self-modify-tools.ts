@@ -159,7 +159,14 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       "    },\n" +
       "  };\n\n" +
       "Custom elements: guard registration with " +
-      "`if (!customElements.get(...))` since hot-reload re-evaluates the module.",
+      "`if (!customElements.get(...))` since hot-reload re-evaluates the module.\n\n" +
+      "Layout (ADR 0034): to rearrange the page, create a component named " +
+      '"layout" — it replaces the stock layout (collapsible rail + main) ' +
+      "while it exists, and removing it restores the stock one. Read " +
+      "./components/layout.js on this host for the shape: a placement map " +
+      "keyed by data-component, a style element, containers you create, and " +
+      "a disposer that puts every adopted panel back. Never re-parent " +
+      '[data-component="foreign"] elements — moving an iframe reloads it.',
     inputSchema: z.object({
       name: z
         .string()
