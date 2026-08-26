@@ -52,6 +52,7 @@ export default defineConfig({
           text: 'The Exchange',
           items: [
             { text: 'Setting up Mycel', link: '/guide/mycel-setup' },
+            { text: 'Client Surface & Self-Assembly', link: '/guide/mycel-client-surface' },
             { text: 'Selling a local vLLM box', link: '/guide/local-supplier-vllm' },
           ]
         },

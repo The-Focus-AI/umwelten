@@ -25,15 +25,30 @@ import {
 const ENTRIES: ShellManifestEntry[] = [
   { id: "health", url: "./components/health.js" },
   { id: "models", url: "./components/models.js" },
+  { id: "catalogue-stats", url: "./components/catalogue-stats.js" },
 ];
 
-export function createClientSurfaceHandler(): (
-  req: IncomingMessage,
-  res: ServerResponse,
-) => Promise<boolean> {
+export interface ClientSurfaceOptions {
+  /**
+   * Directory of agent-authored components — the self-assembly loop (#410).
+   * The mycel-owning agent's `create_component` writes plain-ESM modules
+   * here; the contract scans them per manifest request with mtime versions,
+   * so creations, edits, and removals land live on a running dev Exchange.
+   * The evolved components are read-only by construction: this manifest
+   * declares no provider entries, so no `shell:tools` (or any mutating
+   * service) exists for them to inject — all they can do is fetch the
+   * Exchange's public read endpoints.
+   */
+  componentsDir?: string;
+}
+
+export function createClientSurfaceHandler(
+  options: ClientSurfaceOptions = {},
+): (req: IncomingMessage, res: ServerResponse) => Promise<boolean> {
   return createShellHandler({
     entries: ENTRIES,
     componentsDir: join(dirname(fileURLToPath(import.meta.url)), "components"),
+    customComponentsDir: options.componentsDir,
     transpile: async (source) =>
       (await transform(source, { loader: "ts", format: "esm", target: "es2022" }))
         .code,
