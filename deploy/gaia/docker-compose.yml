@@ -83,6 +83,7 @@ services:
       HABITATS_SAAS_REGISTRY_URL: ${HABITATS_SAAS_REGISTRY_URL:-}
       HABITATS_SAAS_REGISTRY_SECRET: ${HABITATS_SAAS_REGISTRY_SECRET:-}
       HABITATS_SAAS_REGISTRY_WORKSPACE: ${HABITATS_SAAS_REGISTRY_WORKSPACE:-}
+      HABITATS_SAAS_URL: ${HABITATS_SAAS_URL:-}
     labels:
       # Gaia is itself a caddy-fronted habitat: control plane over TLS + auth at
       # GAIA_HOSTNAME, reached by caddy over the network ({{upstreams 7420}}).

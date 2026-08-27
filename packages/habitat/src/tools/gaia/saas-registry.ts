@@ -20,11 +20,11 @@
  *  - **It is off unless configured.** With no URL or secret this is inert, so
  *    a local Gaia or a fresh deploy gains no surprise outbound call.
  *
- * The token sent is the habitat's own per-container API key — the same one
- * `entryOpenUrl` puts in a browser link. Habitats that advertise per-user JWT
- * auth do not need it, but sending it keeps bearer-only habitats attachable;
- * the receiver stores it encrypted and prefers minted per-user grants when the
- * card says it can.
+ * The token sent is the habitat's own per-container API key. It travels only
+ * in this authenticated server-to-server registration body; browser links use
+ * a one-time login handoff and never expose it. The receiver stores the key
+ * encrypted for legacy dispatch and child-authenticated handoff redemption,
+ * while normal user calls use audience-bound signed grants.
  */
 
 import type { GaiaHabitatEntry } from "./types.js";
@@ -37,6 +37,21 @@ export interface SaasRegistryConfig {
 	secret: string;
 	/** Workspace slug new habitats attach to; the receiver may also default it. */
 	workspace?: string;
+}
+
+/** Public SaaS origin used for signed-in browser handoffs to child Shells. */
+export function resolveSaasAppOrigin(
+	env: NodeJS.ProcessEnv = process.env,
+): string | null {
+	const configured =
+		env.HABITATS_SAAS_URL?.trim() ??
+		env.HABITATS_SAAS_REGISTRY_URL?.trim();
+	if (!configured) return null;
+	try {
+		return new URL(configured).origin;
+	} catch {
+		return null;
+	}
 }
 
 /**

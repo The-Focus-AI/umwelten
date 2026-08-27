@@ -63,8 +63,12 @@ import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth, parseApiKeys } from "./web/auth/bearer-auth.js";
-import { jwtAuth } from "./web/auth/jwt-auth.js";
+import { jwtAuth, verifiedJwtRequestToken } from "./web/auth/jwt-auth.js";
 import { compositeAuth } from "./web/auth/composite-auth.js";
+import {
+	redeemBrowserHandoff,
+	sessionCookie,
+} from "./web/auth/browser-handoff.js";
 import {
 	parseSecretWritePrefixes,
 	isSecretWriteAllowed,
@@ -488,6 +492,41 @@ export async function startContainerServer(
 					return;
 				}
 
+				// ── Browser login handoff (always open) ───────────────
+				// The query carries a one-time opaque code, never a JWT or static
+				// child key. Redemption is server-to-server and audience-bound.
+				if (path === "/auth/handoff" && req.method === "GET") {
+					res.setHeader("Cache-Control", "no-store");
+					res.setHeader("Referrer-Policy", "no-referrer");
+					const issuer = authIssuerOrigin();
+					const audience = process.env.HABITAT_AUTH_AUDIENCE?.trim();
+					const habitatId = process.env.HABITAT_ID?.trim();
+					const credential = parseApiKeys(process.env.HABITAT_API_KEY)[0];
+					const code = query.code?.trim();
+					if (!issuer || !audience || !habitatId || !credential || !code) {
+						sendJson(res, { error: "Browser login handoff is not configured" }, 404);
+						return;
+					}
+					const result = await redeemBrowserHandoff(code, {
+						issuer,
+						audience,
+						habitatId,
+						credential,
+					});
+					if (!result.ok) {
+						sendJson(res, { error: result.error }, result.status);
+						return;
+					}
+					res.setHeader("Set-Cookie", sessionCookie(result.accessToken, result.expiresIn));
+					res.writeHead(303, {
+						Location: result.returnPath,
+						"Cache-Control": "no-store",
+						"Referrer-Policy": "no-referrer",
+					});
+					res.end();
+					return;
+				}
+
 				// ── Extra raw handler (e.g. Gaia orchestrator routes) ──
 				// This runs BEFORE the per-route auth checks below, so any control
 				// plane it serves under /api/* would otherwise bypass auth entirely
@@ -710,10 +749,7 @@ export async function startContainerServer(
 					// The raw grant + its issuer ride along for callback tools
 					// (room_history, #102 v2): the tool presents the grant back to
 					// its issuer, so history access is authorized as the speaker.
-					const rawAuth = req.headers.authorization ?? "";
-					const rawGrant = rawAuth.startsWith("Bearer ")
-						? rawAuth.slice(7)
-						: undefined;
+					const rawGrant = verifiedJwtRequestToken(req);
 					const speaker =
 						user && user.userId !== "bearer-user"
 							? {
@@ -909,10 +945,7 @@ export async function startContainerServer(
 					// there). The shared key resolves to the bearer-user sentinel and
 					// stays unbound. The raw grant + issuer ride along so callback
 					// tools (room_history) work over MCP too.
-					const mcpAuth = req.headers.authorization ?? "";
-					const mcpGrant = mcpAuth.startsWith("Bearer ")
-						? mcpAuth.slice(7)
-						: undefined;
+					const mcpGrant = verifiedJwtRequestToken(req);
 					const mcpSpeaker =
 						user && user.userId !== "bearer-user"
 							? {

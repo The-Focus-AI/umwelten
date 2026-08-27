@@ -224,7 +224,7 @@ export function createHabitatLifecycleTools(
 		}),
 		list_habitats: tool({
 			description:
-				"List all registered habitats with their container status. Includes the web UI URL with auth token for running habitats.",
+				"List all registered habitats with their container status. Running public habitats include a signed-in web UI handoff URL; reusable credentials are never embedded in it.",
 			inputSchema: z.object({}),
 			execute: async () => {
 				const entries = registry.list();

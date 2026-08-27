@@ -131,6 +131,8 @@ describe('Gaia Caddy label emission (#170)', () => {
     const e = envs(runArgs());
     expect(e).toContain('HABITAT_AUTH_AUDIENCE=https://twitter.habitats.example.com');
     expect(e).toContain('HABITAT_AUTH_JWKS_URL=https://habitats.example.com/.well-known/jwks.json');
+    expect(e).toContain('HABITAT_AUTH_ISSUER=https://habitats.example.com');
+    expect(e).toContain('HABITAT_ID=twitter');
     // shared bearer stays → dual-auth
     expect(e).toContain('HABITAT_API_KEY=gaia_testkey');
   });

@@ -136,9 +136,13 @@ automated tests when they stabilize:
   the tool result; step 4 above is the only end-to-end exercise of a real
   model authoring a component. Model/prompt regressions surface only there.
 - **Cross-origin auth for foreign mounts.** The fleet test runs children with
-  open auth. On the platform, child tokens ride the registry's public URL
-  (`?token=`) — verify a child card actually renders data, not a 401, when
-  touching auth or the registry.
+  open auth. On the platform, the Habitats SaaS issues a 45-second one-time
+  handoff code; the child redeems it server-to-server and sets a five-minute
+  HttpOnly, audience-bound session cookie. Verify a child card actually renders
+  data after login, that its URL contains no reusable bearer, and that replaying
+  the handoff fails when touching auth or the registry. This requires the SaaS
+  handoff migration plus rebuilt children carrying `HABITAT_ID`,
+  `HABITAT_AUTH_AUDIENCE`, and `HABITAT_AUTH_ISSUER`.
 - **Per-user connect flows** (`/api/secrets` token delivery, #189) and the
   other legacy routes queued for the #415 audit. Don't delete or "clean up"
   routes as part of shell work — #415 requires a consumer audit first.

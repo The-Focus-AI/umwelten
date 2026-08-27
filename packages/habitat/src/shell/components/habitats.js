@@ -6,11 +6,10 @@
  * and the panel reports that instead of pretending.
  *
  * The composition move: for each RUNNING habitat with a public URL, this
- * panel mounts the foreign-mount host (#407) as a substrate sub-component
- * on its own activation context — so peer status cards appear beside the
- * fleet list, hot-follow starts and stops on the next refresh, and cascade
- * away with this panel under the ordering laws. The panel writes no
- * iframe itself; it composes the component that knows how.
+ * panel mounts each peer's status projection through its one-time browser
+ * login link. The child redeems that handoff before serving the sandboxed
+ * iframe, so no static child key enters this page. Mounts hot-follow starts
+ * and stops and cascade away with this panel under the ordering laws.
  */
 
 import { serviceKey } from "../substrate/index.js";
@@ -24,6 +23,15 @@ const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
   );
+
+function statusProjectionUrl(openUrl) {
+  const url = new URL(openUrl);
+  if (url.pathname === "/auth/handoff" || url.searchParams.has("return_to")) {
+    url.searchParams.set("return_to", "/shell/solo/status/");
+    return url.toString();
+  }
+  return new URL("/shell/solo/status/", url.origin).toString();
+}
 
 export default {
   name: "habitats",
@@ -53,12 +61,10 @@ export default {
       for (const h of habitats) {
         if (h.status === "running" && h.url) {
           try {
-            const u = new URL(h.url);
             wantMounted.set(h.id, {
               title: `${h.name ?? h.id} — status`,
-              mcp: `${u.origin}/mcp`,
+              url: statusProjectionUrl(h.url),
               resource: "ui://shell/status",
-              token: u.searchParams.get("token") ?? undefined,
             });
           } catch {
             // no parseable public URL — nothing to mount

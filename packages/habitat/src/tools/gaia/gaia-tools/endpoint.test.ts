@@ -21,9 +21,15 @@ function entry(over: Partial<GaiaHabitatEntry> = {}): GaiaHabitatEntry {
 }
 
 const prevBaseDomain = process.env.GAIA_BASE_DOMAIN;
+const prevSaasUrl = process.env.HABITATS_SAAS_URL;
+const prevRegistryUrl = process.env.HABITATS_SAAS_REGISTRY_URL;
 afterEach(() => {
   if (prevBaseDomain === undefined) delete process.env.GAIA_BASE_DOMAIN;
   else process.env.GAIA_BASE_DOMAIN = prevBaseDomain;
+  if (prevSaasUrl === undefined) delete process.env.HABITATS_SAAS_URL;
+  else process.env.HABITATS_SAAS_URL = prevSaasUrl;
+  if (prevRegistryUrl === undefined) delete process.env.HABITATS_SAAS_REGISTRY_URL;
+  else process.env.HABITATS_SAAS_REGISTRY_URL = prevRegistryUrl;
 });
 
 describe("entryToEndpoint (children by DNS)", () => {
@@ -44,26 +50,35 @@ describe("entryToEndpoint (children by DNS)", () => {
 describe("entryOpenUrl", () => {
   it("prefers the public Caddy hostname when GAIA_BASE_DOMAIN is set", () => {
     process.env.GAIA_BASE_DOMAIN = "habitats.example.com";
+    process.env.HABITATS_SAAS_URL = "https://habitats.thefocus.ai";
     expect(entryOpenUrl(entry())).toBe(
-      "https://twitter.habitats.example.com/?token=gaia_k",
+      "https://habitats.thefocus.ai/auth/handoff?habitat_id=twitter&return_to=%2Fshell%2F",
     );
   });
 
-  it("prefers an explicit per-habitat hostname", () => {
+  it("uses a clean child URL when the SaaS handoff is not configured", () => {
     expect(entryOpenUrl(entry({ hostname: "bird.dev" }))).toBe(
-      "https://bird.dev/?token=gaia_k",
+      "https://bird.dev/shell/",
+    );
+  });
+
+  it("derives the handoff origin from the registry endpoint", () => {
+    process.env.HABITATS_SAAS_REGISTRY_URL =
+      "https://habitats.example/api/admin/umwelten/register";
+    expect(entryOpenUrl(entry({ hostname: "bird.dev" }))).toBe(
+      "https://habitats.example/auth/handoff?habitat_id=twitter&return_to=%2Fshell%2F",
     );
   });
 
   it("falls back to the loopback port when no hostname", () => {
     delete process.env.GAIA_BASE_DOMAIN;
-    expect(entryOpenUrl(entry())).toBe("http://localhost:7440/?token=gaia_k");
+    expect(entryOpenUrl(entry())).toBe("http://localhost:7440/shell/");
   });
 
   it("uses an explicit port override (fresh start, registry not yet updated)", () => {
     delete process.env.GAIA_BASE_DOMAIN;
     expect(entryOpenUrl(entry({ containerPort: undefined }), 7441)).toBe(
-      "http://localhost:7441/?token=gaia_k",
+      "http://localhost:7441/shell/",
     );
   });
 
