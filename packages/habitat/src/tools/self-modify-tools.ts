@@ -7,15 +7,13 @@ import { tool } from "ai";
 import { z } from "zod";
 import { writeFile, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { loadToolsFromDirectory } from "@umwelten/core/stimulus/tools/loader.js";
 import {
   discoverSkillsInDirectory,
 } from "@umwelten/core/stimulus/skills/index.js";
-import type { Habitat } from "../habitat.js";
 
 export interface SelfModifyToolsContext {
   getWorkDir(): string;
-  addTools(tools: Record<string, import("ai").Tool>): void;
+  reloadWorkDirTools(): Promise<string[]>;
   getStimulus(): Promise<import("@umwelten/core/stimulus/stimulus.js").Stimulus>;
 }
 
@@ -146,6 +144,7 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       '  const regionKey = serviceKey("shell:region");   // the HTMLElement to render into\n' +
       '  const baseKey = serviceKey("shell:base");       // URL for host endpoints\n' +
       '  const conversationKey = serviceKey("shell:conversation"); // { send(text), subscribe(fn), messages }\n' +
+      '  const toolsKey = serviceKey("shell:tools");     // { call(name, args) } over authenticated MCP\n' +
       "  export default {\n" +
       '    name: "my-widget",\n' +
       "    inject: [regionKey],                 // services you need; you activate when all exist\n" +
@@ -160,6 +159,10 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       "  };\n\n" +
       "Custom elements: guard registration with " +
       "`if (!customElements.get(...))` since hot-reload re-evaluates the module.\n\n" +
+      "Backend capabilities: create a narrow server tool with create_tool, " +
+      "reload it, then inject shell:tools and call it by name. The server tool " +
+      "may use process.env, a private database, or an agent; never put credentials, " +
+      "database handles, or unrestricted SQL/RPC in browser component code.\n\n" +
       "Layout (ADR 0034): to rearrange the page, create a component named " +
       '"layout" — it replaces the stock layout (collapsible rail + main) ' +
       "while it exists, and removing it restores the stock one. Read " +
@@ -201,14 +204,11 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
     inputSchema: z.object({}),
     execute: async () => {
       try {
-        const tools = await loadToolsFromDirectory(workDir, "tools");
-        if (Object.keys(tools).length > 0) {
-          habitat.addTools(tools);
-        }
+        const reloaded = await habitat.reloadWorkDirTools();
         return {
-          reloaded: Object.keys(tools),
-          count: Object.keys(tools).length,
-          message: `Reloaded ${Object.keys(tools).length} tool(s): ${Object.keys(tools).join(", ") || "(none)"}`,
+          reloaded,
+          count: reloaded.length,
+          message: `Reloaded ${reloaded.length} tool(s): ${reloaded.join(", ") || "(none)"}`,
         };
       } catch (err) {
         return {
@@ -312,13 +312,16 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
             : join(componentsDir, `${name}.js`);
       try {
         await rm(target, { recursive: true });
+        if (type === "tool") await habitat.reloadWorkDirTools();
         return {
           removed: name,
           type,
           message:
             type === "component"
               ? `Removed component '${name}'. The shell page unmounts it within a few seconds.`
-              : `Removed ${type} '${name}'. It will no longer be available after reload.`,
+              : type === "tool"
+                ? `Removed tool '${name}'. Its server capability has been withdrawn.`
+                : `Removed skill '${name}'. It will no longer be available after reload.`,
         };
       } catch (err) {
         return {

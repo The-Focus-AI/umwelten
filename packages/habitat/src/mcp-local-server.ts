@@ -41,9 +41,8 @@ export async function startHabitatMcpServer(
   const { habitat, port = 7430, host = "0.0.0.0" } = options;
   const serverName = options.name ?? "habitat-mcp";
 
-  // Collect all tools from the habitat
-  const tools = habitat.getTools();
-  const toolNames = Object.keys(tools);
+  // Startup diagnostics only. Each stateless request reads the live registry.
+  const initialToolNames = Object.keys(habitat.getTools());
 
   const httpServer = createServer();
 
@@ -64,7 +63,13 @@ export async function startHabitatMcpServer(
       // Health check
       if (req.url === "/health") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ status: "ok", name: serverName, tools: toolNames.length }));
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            name: serverName,
+            tools: Object.keys(habitat.getTools()).length,
+          }),
+        );
         return;
       }
 
@@ -115,7 +120,7 @@ export async function startHabitatMcpServer(
         });
 
         // Register all habitat tools
-        for (const [name, tool] of Object.entries(tools)) {
+        for (const [name, tool] of Object.entries(habitat.getTools())) {
           registerAiTool(mcpServer, name, tool);
         }
 
@@ -153,10 +158,10 @@ export async function startHabitatMcpServer(
         typeof addr === "object" && addr ? addr.port : port;
 
       console.log(
-        `[habitat-mcp] Serving ${toolNames.length} tools at http://${host}:${assignedPort}/mcp`,
+        `[habitat-mcp] Serving ${initialToolNames.length} tools at http://${host}:${assignedPort}/mcp`,
       );
       console.log(
-        `[habitat-mcp] Tools: ${toolNames.slice(0, 10).join(", ")}${toolNames.length > 10 ? ` ... (+${toolNames.length - 10} more)` : ""}`,
+        `[habitat-mcp] Tools: ${initialToolNames.slice(0, 10).join(", ")}${initialToolNames.length > 10 ? ` ... (+${initialToolNames.length - 10} more)` : ""}`,
       );
 
       resolve({

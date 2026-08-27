@@ -269,9 +269,9 @@ export async function startContainerServer(
 	const { habitat, port = 7430, host = "0.0.0.0", extraRawHandler } = options;
 	const serverName = options.name ?? habitat.getConfig().name ?? "habitat";
 
-	// Tools for MCP
-	const tools = habitat.getTools();
-	const toolNames = Object.keys(tools);
+	// Startup diagnostics only. Request handlers read the live registry so a
+	// substrate-backed work-directory capability reload needs no server restart.
+	const initialToolNames = Object.keys(habitat.getTools());
 
 	// Auth provider precedence (see docs/adr/0003-per-user-a2a-identity.md):
 	//   1. jwtAuth — per-user signed grants (HABITAT_AUTH_JWKS_URL / _PUBLIC_KEY + _AUDIENCE).
@@ -479,7 +479,7 @@ export async function startContainerServer(
 					sendJson(res, {
 						status: "ok",
 						name: serverName,
-						tools: toolNames.length,
+						tools: Object.keys(habitat.getTools()).length,
 						auth: authMode,
 						model: modelDetails
 							? `${modelDetails.provider}/${modelDetails.name}`
@@ -958,7 +958,7 @@ export async function startContainerServer(
 							name: serverName,
 							version: "1.0.0",
 						});
-						for (const [name, tool] of Object.entries(tools)) {
+						for (const [name, tool] of Object.entries(habitat.getTools())) {
 							registerAiTool(mcpServer, name, tool);
 						}
 
@@ -1110,7 +1110,7 @@ export async function startContainerServer(
 								projectCloned,
 								projectDir: config.projectDir ?? "project",
 							},
-							tools: toolNames.length,
+							tools: Object.keys(habitat.getTools()).length,
 							schedules: scheduler.status(),
 							requiredSecrets: (config.requiredSecrets ?? []).map((s) => ({
 								name: s.name,
@@ -1515,7 +1515,7 @@ export async function startContainerServer(
 				`[container] ${serverName} at http://${host}:${assignedPort}`,
 			);
 			console.log(
-				`[container]   /mcp         — MCP tools (${toolNames.length})`,
+				`[container]   /mcp         — MCP tools (${initialToolNames.length})`,
 			);
 			console.log(`[container]   /a2a         — A2A agent endpoint`);
 			console.log(`[container]   /api/chat    — LLM chat`);
