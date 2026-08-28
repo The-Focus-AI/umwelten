@@ -190,23 +190,7 @@ export class Habitat
 
 		// 7. Load work-dir tools (unless skipped)
 		if (!opts.skipWorkDirTools && config.loadWorkDirTools !== false) {
-			const toolsDirRelative = config.toolsDir ?? "tools";
-			// Repo-backed habitats load tools from the cloned project dir first,
-			// then the work dir (operator override wins) — see resolveToolBases.
-			for (const base of resolveToolBases(workDir, config)) {
-				try {
-					const tools = await loadToolsFromDirectory(
-						base,
-						toolsDirRelative,
-						habitat,
-					);
-					for (const [name, tool] of Object.entries(tools)) {
-						habitat.addTool(name, tool);
-					}
-				} catch {
-					// tools/ directory may not exist in this base yet
-				}
-			}
+			await habitat.reloadWorkDirTools();
 		}
 
 		// 8. Call custom tool registration callback
@@ -399,6 +383,27 @@ export class Habitat
 
 	addTools(tools: Record<string, Tool>): void {
 		this.toolRegistry.addTools(tools);
+	}
+
+	/**
+	 * Load the complete project/work-directory tool projection, then swap its
+	 * substrate-owned layer. Project tools load first; operator work-directory
+	 * tools win collisions. A successful empty load withdraws every old custom
+	 * tool while leaving built-ins untouched.
+	 */
+	async reloadWorkDirTools(): Promise<string[]> {
+		const tools: Record<string, Tool> = {};
+		const toolsDirRelative = this.config.toolsDir ?? "tools";
+		for (const base of resolveToolBases(this.workDir, this.config)) {
+			Object.assign(
+				tools,
+				await loadToolsFromDirectory(base, toolsDirRelative, this, {
+					strict: true,
+				}),
+			);
+		}
+		await this.toolRegistry.replaceWorkDirTools(tools);
+		return Object.keys(tools);
 	}
 
 	getTools(): Record<string, Tool> {

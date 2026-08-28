@@ -327,6 +327,7 @@ export class DockerManager {
       "-v", `${volume}:/data`,
       "-v", `${sessionsHostDir}:/data/sessions`,
       "--env", `HABITAT_API_KEY=${entry.apiKey}`,
+      "--env", `HABITAT_ID=${entry.id}`,
       "-p", `127.0.0.1:${hostPort}:8080`,
     ];
 
@@ -357,9 +358,11 @@ export class DockerManager {
     // public hostname to form the audience; unset GAIA_JWKS_URL ⇒ bearer-only.
     const jwksUrl = process.env.GAIA_JWKS_URL?.trim();
     if (hostname && jwksUrl) {
+      const issuer = new URL(jwksUrl).origin;
       args.push(
         "--env", `HABITAT_AUTH_AUDIENCE=https://${hostname}`,
         "--env", `HABITAT_AUTH_JWKS_URL=${jwksUrl}`,
+        "--env", `HABITAT_AUTH_ISSUER=${issuer}`,
       );
     }
 

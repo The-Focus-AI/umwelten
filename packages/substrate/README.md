@@ -141,6 +141,55 @@ real files, broken edit included).
 What the runtime does **not** verify: that a supplied inverse actually
 reverts its effect. That is the component author's obligation (paper §5.1.1).
 
+## Browser components and backend capabilities
+
+Substrate service values are local to one trusted runtime. Do not provide a
+database connection, credential, or unrestricted server RPC to a browser
+context. A Habitat Shell component reaches private backend state through the
+host's `shell:tools` service, which brokers an authenticated MCP `tools/call`:
+
+```text
+browser component → shell:tools → authenticated /mcp → server tool → database
+```
+
+The current authoring workflow keeps the two halves explicit:
+
+1. Create a narrow server tool in `workDir/tools/` (or use `create_tool`). Its
+   handler runs in Node, may read `process.env`, and returns only safe data.
+2. Run `reload_tools`. The Habitat swaps the complete work-directory tool
+   layer as a reversible substrate component; additions, replacements, and
+   removals are visible to later MCP requests without a server restart.
+3. Inject `shell:tools` in the browser component and call that named tool.
+
+```js
+import { serviceKey } from "../substrate/index.js";
+
+const regionKey = serviceKey("shell:region");
+const toolsKey = serviceKey("shell:tools");
+
+export default {
+  name: "pending-orders",
+  inject: [regionKey, toolsKey],
+  async apply(_ctx, view) {
+    const orders = await view.get(toolsKey).call("orders_list", {
+      status: "pending",
+    });
+    const el = document.createElement("pre");
+    el.textContent = JSON.stringify(orders, null, 2);
+    view.get(regionKey).appendChild(el);
+    return () => el.remove();
+  },
+};
+```
+
+The corresponding `orders_list` tool owns validation, authorization, and the
+server-only database connection. Prefer operation-shaped tools such as
+`orders_list` or `orders_approve` over arbitrary SQL or generic RPC. To ask the
+Habitat agent for a normal conversational turn, use `shell:conversation`;
+reserve a server tool that calls a model for a narrow non-conversational
+operation. Full-stack component manifests and server `backend.ts` modules are
+a later layer over this capability boundary, not current substrate APIs.
+
 ```bash
 pnpm --filter @umwelten/substrate test:run
 pnpm --filter @umwelten/substrate example

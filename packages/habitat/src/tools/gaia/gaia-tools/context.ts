@@ -28,6 +28,7 @@ import {
 import type { CredentialCatalog } from "../credential-catalog.js";
 import type { CredentialAuditLogger } from "../credential-audit.js";
 import type { GithubTokenService } from "../github/token-service.js";
+import { resolveSaasAppOrigin } from "../saas-registry.js";
 
 export interface GaiaToolsContext {
 	registry: GaiaRegistryManager;
@@ -71,17 +72,26 @@ export function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
 }
 
 /**
- * "Open in browser" URL for a habitat: prefer its public Caddy hostname
- * (reachable from anywhere, valid TLS), falling back to the host loopback port
- * (only useful on the Gaia host itself). Null when neither is available.
+ * "Open in browser" URL for a habitat. A public child goes through the SaaS
+ * one-time login handoff; no reusable child key or JWT is placed in the URL.
+ * Local-only children use a clean loopback Shell URL and retain local/dev auth.
  */
 export function entryOpenUrl(
 	entry: GaiaHabitatEntry,
 	port: number | undefined = entry.containerPort,
 ): string | null {
 	const host = resolveHabitatHostname(entry);
-	if (host) return `https://${host}/?token=${entry.apiKey}`;
-	if (port) return `http://localhost:${port}/?token=${entry.apiKey}`;
+	if (host) {
+		const saasOrigin = resolveSaasAppOrigin();
+		if (saasOrigin) {
+			const url = new URL("/auth/handoff", saasOrigin);
+			url.searchParams.set("habitat_id", entry.id);
+			url.searchParams.set("return_to", "/shell/");
+			return url.toString();
+		}
+		return `https://${host}/shell/`;
+	}
+	if (port) return `http://localhost:${port}/shell/`;
 	return null;
 }
 

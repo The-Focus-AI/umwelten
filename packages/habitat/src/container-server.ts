@@ -63,8 +63,12 @@ import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth, parseApiKeys } from "./web/auth/bearer-auth.js";
-import { jwtAuth } from "./web/auth/jwt-auth.js";
+import { jwtAuth, verifiedJwtRequestToken } from "./web/auth/jwt-auth.js";
 import { compositeAuth } from "./web/auth/composite-auth.js";
+import {
+	redeemBrowserHandoff,
+	sessionCookie,
+} from "./web/auth/browser-handoff.js";
 import {
 	parseSecretWritePrefixes,
 	isSecretWriteAllowed,
@@ -269,9 +273,9 @@ export async function startContainerServer(
 	const { habitat, port = 7430, host = "0.0.0.0", extraRawHandler } = options;
 	const serverName = options.name ?? habitat.getConfig().name ?? "habitat";
 
-	// Tools for MCP
-	const tools = habitat.getTools();
-	const toolNames = Object.keys(tools);
+	// Startup diagnostics only. Request handlers read the live registry so a
+	// substrate-backed work-directory capability reload needs no server restart.
+	const initialToolNames = Object.keys(habitat.getTools());
 
 	// Auth provider precedence (see docs/adr/0003-per-user-a2a-identity.md):
 	//   1. jwtAuth — per-user signed grants (HABITAT_AUTH_JWKS_URL / _PUBLIC_KEY + _AUDIENCE).
@@ -479,12 +483,47 @@ export async function startContainerServer(
 					sendJson(res, {
 						status: "ok",
 						name: serverName,
-						tools: toolNames.length,
+						tools: Object.keys(habitat.getTools()).length,
 						auth: authMode,
 						model: modelDetails
 							? `${modelDetails.provider}/${modelDetails.name}`
 							: null,
 					});
+					return;
+				}
+
+				// ── Browser login handoff (always open) ───────────────
+				// The query carries a one-time opaque code, never a JWT or static
+				// child key. Redemption is server-to-server and audience-bound.
+				if (path === "/auth/handoff" && req.method === "GET") {
+					res.setHeader("Cache-Control", "no-store");
+					res.setHeader("Referrer-Policy", "no-referrer");
+					const issuer = authIssuerOrigin();
+					const audience = process.env.HABITAT_AUTH_AUDIENCE?.trim();
+					const habitatId = process.env.HABITAT_ID?.trim();
+					const credential = parseApiKeys(process.env.HABITAT_API_KEY)[0];
+					const code = query.code?.trim();
+					if (!issuer || !audience || !habitatId || !credential || !code) {
+						sendJson(res, { error: "Browser login handoff is not configured" }, 404);
+						return;
+					}
+					const result = await redeemBrowserHandoff(code, {
+						issuer,
+						audience,
+						habitatId,
+						credential,
+					});
+					if (!result.ok) {
+						sendJson(res, { error: result.error }, result.status);
+						return;
+					}
+					res.setHeader("Set-Cookie", sessionCookie(result.accessToken, result.expiresIn));
+					res.writeHead(303, {
+						Location: result.returnPath,
+						"Cache-Control": "no-store",
+						"Referrer-Policy": "no-referrer",
+					});
+					res.end();
 					return;
 				}
 
@@ -710,10 +749,7 @@ export async function startContainerServer(
 					// The raw grant + its issuer ride along for callback tools
 					// (room_history, #102 v2): the tool presents the grant back to
 					// its issuer, so history access is authorized as the speaker.
-					const rawAuth = req.headers.authorization ?? "";
-					const rawGrant = rawAuth.startsWith("Bearer ")
-						? rawAuth.slice(7)
-						: undefined;
+					const rawGrant = verifiedJwtRequestToken(req);
 					const speaker =
 						user && user.userId !== "bearer-user"
 							? {
@@ -909,10 +945,7 @@ export async function startContainerServer(
 					// there). The shared key resolves to the bearer-user sentinel and
 					// stays unbound. The raw grant + issuer ride along so callback
 					// tools (room_history) work over MCP too.
-					const mcpAuth = req.headers.authorization ?? "";
-					const mcpGrant = mcpAuth.startsWith("Bearer ")
-						? mcpAuth.slice(7)
-						: undefined;
+					const mcpGrant = verifiedJwtRequestToken(req);
 					const mcpSpeaker =
 						user && user.userId !== "bearer-user"
 							? {
@@ -958,7 +991,7 @@ export async function startContainerServer(
 							name: serverName,
 							version: "1.0.0",
 						});
-						for (const [name, tool] of Object.entries(tools)) {
+						for (const [name, tool] of Object.entries(habitat.getTools())) {
 							registerAiTool(mcpServer, name, tool);
 						}
 
@@ -1110,7 +1143,7 @@ export async function startContainerServer(
 								projectCloned,
 								projectDir: config.projectDir ?? "project",
 							},
-							tools: toolNames.length,
+							tools: Object.keys(habitat.getTools()).length,
 							schedules: scheduler.status(),
 							requiredSecrets: (config.requiredSecrets ?? []).map((s) => ({
 								name: s.name,
@@ -1515,7 +1548,7 @@ export async function startContainerServer(
 				`[container] ${serverName} at http://${host}:${assignedPort}`,
 			);
 			console.log(
-				`[container]   /mcp         — MCP tools (${toolNames.length})`,
+				`[container]   /mcp         — MCP tools (${initialToolNames.length})`,
 			);
 			console.log(`[container]   /a2a         — A2A agent endpoint`);
 			console.log(`[container]   /api/chat    — LLM chat`);

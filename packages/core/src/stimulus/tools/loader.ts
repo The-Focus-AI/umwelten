@@ -6,6 +6,7 @@
 
 import { readdir, readFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -38,7 +39,11 @@ export interface ToolDefinitionMeta {
  * @param toolDir - Path to the tool directory
  * @param context - Optional context object passed to factory-pattern handlers
  */
-export async function loadToolFromPath(toolDir: string, context?: unknown): Promise<{ name: string; tool: Tool } | null> {
+export async function loadToolFromPath(
+  toolDir: string,
+  context?: unknown,
+  options?: { strict?: boolean },
+): Promise<{ name: string; tool: Tool } | null> {
   const toolMdPath = join(toolDir, TOOL_MD);
   let content: string;
   try {
@@ -51,7 +56,9 @@ export async function loadToolFromPath(toolDir: string, context?: unknown): Prom
   const name = (data.name as string)?.trim() || undefined;
   const description = (data.description as string)?.trim();
   if (!description) {
-    console.warn(`Tool at ${toolDir}: missing or invalid 'description' in TOOL.md`);
+    const message = `Tool at ${toolDir}: missing or invalid 'description' in TOOL.md`;
+    if (options?.strict) throw new Error(message);
+    console.warn(message);
     return null;
   }
 
@@ -68,7 +75,11 @@ export async function loadToolFromPath(toolDir: string, context?: unknown): Prom
   if (handlerPath) {
     try {
       const url = pathToFileURL(resolve(handlerPath)).href;
-      const module = await import(url);
+      const version = createHash('sha256')
+        .update(await readFile(handlerPath))
+        .digest('hex')
+        .slice(0, 16);
+      const module = await import(`${url}?v=${version}`);
       const exported = module?.default;
 
       if (exported && typeof (exported as Tool).execute === 'function') {
@@ -80,16 +91,26 @@ export async function loadToolFromPath(toolDir: string, context?: unknown): Prom
         // Factory pattern: handler exports (context) => Tool
         const toolInstance = exported(context);
         if (!toolInstance || typeof (toolInstance as Tool).execute !== 'function') {
-          console.warn(`Tool at ${toolDir}: factory function did not return a Tool (missing execute)`);
+          const message = `Tool at ${toolDir}: factory function did not return a Tool (missing execute)`;
+          if (options?.strict) throw new Error(message);
+          console.warn(message);
           return null;
         }
         return { name: toolName, tool: toolInstance as Tool };
       }
 
-      console.warn(`Tool at ${toolDir}: handler default export is not a Tool or factory function`);
+      const message = `Tool at ${toolDir}: handler default export is not a Tool or factory function`;
+      if (options?.strict) throw new Error(message);
+      console.warn(message);
       return null;
     } catch (err) {
-      console.warn(`Tool at ${toolDir}: failed to load handler:`, err instanceof Error ? err.message : err);
+      const detail = err instanceof Error ? err.message : String(err);
+      if (options?.strict) {
+        throw new Error(`Tool at ${toolDir}: failed to load handler: ${detail}`, {
+          cause: err,
+        });
+      }
+      console.warn(`Tool at ${toolDir}: failed to load handler:`, detail);
       return null;
     }
   }
@@ -127,6 +148,9 @@ export async function loadToolFromPath(toolDir: string, context?: unknown): Prom
     return { name: toolName, tool: scriptTool };
   }
 
+  if (options?.strict) {
+    throw new Error(`Tool at ${toolDir}: TOOL.md has no handler or script`);
+  }
   return null;
 }
 
@@ -149,20 +173,23 @@ async function fileExists(path: string): Promise<boolean> {
 export async function loadToolsFromDirectory(
   workDir: string,
   toolsDirRelative: string = 'tools',
-  context?: unknown
+  context?: unknown,
+  options?: { strict?: boolean },
 ): Promise<Record<string, Tool>> {
   const toolsDir = resolve(workDir, toolsDirRelative);
   const result: Record<string, Tool> = {};
+  let entries;
   try {
-    const entries = await readdir(toolsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const toolDir = join(toolsDir, entry.name);
-      const loaded = await loadToolFromPath(toolDir, context);
-      if (loaded) result[loaded.name] = loaded.tool;
-    }
+    entries = await readdir(toolsDir, { withFileTypes: true });
   } catch {
     // Directory does not exist or not readable
+    return result;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const toolDir = join(toolsDir, entry.name);
+    const loaded = await loadToolFromPath(toolDir, context, options);
+    if (loaded) result[loaded.name] = loaded.tool;
   }
   return result;
 }

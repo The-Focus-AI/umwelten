@@ -26,6 +26,7 @@ import {
   type JWTVerifyGetKey,
 } from 'jose';
 import type { AuthProvider, UserContext } from '../types.js';
+import { HABITAT_SESSION_COOKIE } from './browser-handoff.js';
 
 /** The JWS `alg` to import a pinned SPKI key under, derived from the key's own type. */
 function algForPublicKey(pem: string): string {
@@ -80,6 +81,59 @@ interface HabitatJwtPayload extends JWTPayload {
   operator?: boolean;
 }
 
+export type JwtRequestToken = {
+  token: string;
+  source: 'authorization' | 'cookie';
+};
+
+/** Read only JWT candidates. Static HABITAT_API_KEY values remain header-only. */
+function jwtRequestTokens(req: IncomingMessage): JwtRequestToken[] {
+  const credentials: JwtRequestToken[] = [];
+  const header = req.headers.authorization;
+  if (header) {
+    const [scheme, token] = header.split(' ', 2);
+    if (scheme?.toLowerCase() === 'bearer' && token) {
+      credentials.push({ token, source: 'authorization' });
+    }
+  }
+  const cookies = (req.headers.cookie ?? '').split(';');
+  for (const cookie of cookies) {
+    const separator = cookie.indexOf('=');
+    if (separator < 0) continue;
+    if (cookie.slice(0, separator).trim() !== HABITAT_SESSION_COOKIE) continue;
+    const token = cookie.slice(separator + 1).trim();
+    if (token) credentials.push({ token, source: 'cookie' });
+  }
+  return credentials;
+}
+
+const verifiedRequestTokens = new WeakMap<IncomingMessage, string>();
+
+/** The JWT this provider verified for a request, available after authenticate(). */
+export function verifiedJwtRequestToken(req: IncomingMessage): string | undefined {
+  return verifiedRequestTokens.get(req);
+}
+
+function requestOrigin(req: IncomingMessage): string | null {
+  const origin = req.headers.origin;
+  if (!origin || Array.isArray(origin)) return null;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const encrypted =
+    req.socket && 'encrypted' in req.socket && req.socket.encrypted === true;
+  const protocol =
+    typeof forwardedProto === 'string'
+      ? forwardedProto.split(',')[0].trim()
+      : encrypted
+        ? 'https'
+        : 'http';
+  const host =
+    typeof forwardedHost === 'string'
+      ? forwardedHost.split(',')[0].trim()
+      : req.headers.host;
+  return host && origin === `${protocol}://${host}` ? origin : null;
+}
+
 /**
  * Build a JWT-verifying {@link AuthProvider}.
  *
@@ -109,11 +163,6 @@ export function jwtAuth(opts: JwtAuthOptions): AuthProvider {
   return {
     name: 'jwt',
     async authenticate(req: IncomingMessage): Promise<UserContext | null> {
-      const header = req.headers.authorization;
-      if (!header) return null;
-      const [scheme, token] = header.split(' ', 2);
-      if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
-
       const verifyOpts = {
         audience: opts.audience,
         issuer: opts.issuer,
@@ -121,32 +170,40 @@ export function jwtAuth(opts: JwtAuthOptions): AuthProvider {
         clockTolerance,
       };
 
-      try {
-        let payload: JWTPayload;
-        if (opts.jwksUrl) {
-          jwks ??= createRemoteJWKSet(new URL(opts.jwksUrl));
-          ({ payload } = await jwtVerify(token, jwks, verifyOpts));
-        } else {
-          spki ??= importSPKI(opts.publicKeyPem!, algForPublicKey(opts.publicKeyPem!));
-          ({ payload } = await jwtVerify(token, await spki, verifyOpts));
+      for (const credential of jwtRequestTokens(req)) {
+        if (
+          credential.source === 'cookie' &&
+          !['GET', 'HEAD', 'OPTIONS'].includes(req.method ?? 'GET') &&
+          !requestOrigin(req)
+        ) {
+          continue;
         }
+        try {
+          let payload: JWTPayload;
+          if (opts.jwksUrl) {
+            jwks ??= createRemoteJWKSet(new URL(opts.jwksUrl));
+            ({ payload } = await jwtVerify(credential.token, jwks, verifyOpts));
+          } else {
+            spki ??= importSPKI(opts.publicKeyPem!, algForPublicKey(opts.publicKeyPem!));
+            ({ payload } = await jwtVerify(credential.token, await spki, verifyOpts));
+          }
 
-        const claims = payload as HabitatJwtPayload;
-        if (!claims.sub) return null; // a grant with no subject is not a user
-
-        return {
-          userId: claims.sub,
-          displayName: claims.name,
-          email: claims.email,
-          provider: 'oauth',
-          operator: claims.operator === true,
-        };
-      } catch {
-        // Invalid signature / aud / exp / alg → unauthenticated. The caller (the
-        // server) decides whether to 401. Never throw — a malformed token is a
-        // failed auth, not a server error.
-        return null;
+          const claims = payload as HabitatJwtPayload;
+          if (!claims.sub) continue;
+          verifiedRequestTokens.set(req, credential.token);
+          return {
+            userId: claims.sub,
+            displayName: claims.name,
+            email: claims.email,
+            provider: 'oauth',
+            operator: claims.operator === true,
+          };
+        } catch {
+          // Try the other JWT source. During migration a browser may still
+          // send an old static Authorization key alongside its user cookie.
+        }
       }
+      return null;
     },
   };
 }

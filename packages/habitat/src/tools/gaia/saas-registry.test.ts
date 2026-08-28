@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	announceHabitat,
 	buildAnnouncement,
+	resolveSaasAppOrigin,
 	resolveSaasRegistryConfig,
 } from "./saas-registry.js";
 import type { GaiaHabitatEntry } from "./types.js";
@@ -23,6 +24,31 @@ const CONFIG = {
 	secret: "shh",
 	workspace: "the-focus-ai",
 };
+
+describe("resolveSaasAppOrigin", () => {
+	it("prefers the explicit browser origin", () => {
+		expect(
+			resolveSaasAppOrigin({
+				HABITATS_SAAS_URL: " https://habitats.example/path ",
+				HABITATS_SAAS_REGISTRY_URL: "https://other.example/register",
+			}),
+		).toBe("https://habitats.example");
+	});
+
+	it("falls back to the registry endpoint origin", () => {
+		expect(
+			resolveSaasAppOrigin({
+				HABITATS_SAAS_REGISTRY_URL:
+					"https://habitats.example/api/admin/umwelten/register",
+			}),
+		).toBe("https://habitats.example");
+	});
+
+	it("rejects missing and malformed configuration", () => {
+		expect(resolveSaasAppOrigin({})).toBeNull();
+		expect(resolveSaasAppOrigin({ HABITATS_SAAS_URL: "not a url" })).toBeNull();
+	});
+});
 
 describe("resolveSaasRegistryConfig", () => {
 	it("is null when nothing is configured, so announcing is opt-in", () => {

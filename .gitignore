@@ -71,6 +71,9 @@ umwelten-*.tgz
 
 .dagger-cache/
 
+# Amp orb portal metadata is local to each orb.
+.amp/portals/*
+
 # Jeeves bot directories
 **/jeeves-bot-data-dir/
 **/.jeeves/
@@ -129,3 +132,10 @@ examples/dialogue-web/transcripts/
 # Claude Code local state + per-dir agent skill caches
 .claude/
 **/.agents/
+
+# Keep the root orb lifecycle scripts while continuing to ignore generated
+# per-directory agent state and the root skill cache.
+!/.agents/
+/.agents/*
+!/.agents/setup
+!/.agents/resume

@@ -7,16 +7,17 @@ import { createSelfModifyTools } from "./self-modify-tools.js";
 describe("Self-Modify Tools", () => {
   let workDir: string;
   let tools: ReturnType<typeof createSelfModifyTools>;
-  let addedTools: Record<string, unknown>;
+  let reloadCalls: number;
 
   beforeEach(async () => {
     workDir = await mkdtemp(join(tmpdir(), "self-modify-test-"));
-    addedTools = {};
+    reloadCalls = 0;
 
     const mockHabitat = {
       getWorkDir: () => workDir,
-      addTools: (t: Record<string, unknown>) => {
-        Object.assign(addedTools, t);
+      reloadWorkDirTools: async () => {
+        reloadCalls++;
+        return [];
       },
       getStimulus: async () => ({
         getSkillsRegistry: () => ({
@@ -152,6 +153,7 @@ export default tool({
         { toolCallId: "test", messages: [], abortSignal: undefined as any },
       );
       expect(listing.tools).not.toContain("to-remove");
+      expect(reloadCalls).toBe(1);
     });
   });
 

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# This repository has no always-on backing services or wake-time authentication.
+# Dependencies are restored in .agents/setup and retained in the orb snapshot.
+echo "Umwelten orb is ready."

@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+step() {
+  local label="$1"
+  shift
+  local started=$SECONDS
+
+  printf '\n==> %s\n' "$label"
+  "$@"
+  printf '<== %s (%ss)\n' "$label" "$((SECONDS - started))"
+}
+
+install_system_dependencies() {
+  local -a packages=()
+
+  command -v python3 >/dev/null 2>&1 || packages+=(python3)
+  command -v make >/dev/null 2>&1 || packages+=(build-essential)
+  command -v g++ >/dev/null 2>&1 || packages+=(build-essential)
+  command -v rg >/dev/null 2>&1 || packages+=(ripgrep)
+
+  if ((${#packages[@]} == 0)); then
+    echo "System dependencies are already installed."
+    return
+  fi
+
+  sudo apt-get update
+  sudo apt-get install -y "${packages[@]}"
+}
+
+check_node() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "Node.js 20 or newer is required; the Amp orb base image should provide it." >&2
+    return 1
+  fi
+
+  local major
+  major="$(node -p 'Number(process.versions.node.split(".")[0])')"
+  if ((major < 20)); then
+    echo "Node.js 20 or newer is required; found $(node --version)." >&2
+    return 1
+  fi
+
+  echo "Using Node.js $(node --version)."
+}
+
+install_pnpm() {
+  local expected="11.0.8"
+
+  if command -v pnpm >/dev/null 2>&1 && [[ "$(pnpm --version)" == "$expected" ]]; then
+    echo "pnpm $expected is already installed."
+    return
+  fi
+
+  corepack enable pnpm
+  corepack install --global "pnpm@$expected"
+  pnpm --version
+}
+
+install_workspace_dependencies() {
+  pnpm install --frozen-lockfile
+}
+
+echo "Preparing Umwelten for Amp orbs..."
+step "Install missing system dependencies" install_system_dependencies
+step "Check the Node.js toolchain" check_node
+step "Activate the package.json pnpm version" install_pnpm
+step "Install workspace dependencies" install_workspace_dependencies
+printf '\nOrb setup complete.\n'

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { generateKeyPair, SignJWT, exportSPKI } from 'jose';
 import type { IncomingMessage } from 'node:http';
-import { jwtAuth } from './jwt-auth.js';
+import { jwtAuth, verifiedJwtRequestToken } from './jwt-auth.js';
+import { HABITAT_SESSION_COOKIE } from './browser-handoff.js';
 
 const AUD = 'habitat-twitter';
 const ISS = 'https://habitats.example';
@@ -44,8 +45,20 @@ function mint(opts: {
   return jwt.sign(opts.signer ?? priv);
 }
 
-function reqWith(authorization?: string): IncomingMessage {
-  return { headers: authorization ? { authorization } : {} } as unknown as IncomingMessage;
+function reqWith(
+  authorization?: string,
+  options: { cookie?: string; method?: string; origin?: string; host?: string } = {},
+): IncomingMessage {
+  return {
+    method: options.method,
+    headers: {
+      ...(authorization ? { authorization } : {}),
+      ...(options.cookie ? { cookie: options.cookie } : {}),
+      ...(options.origin ? { origin: options.origin } : {}),
+      ...(options.host ? { host: options.host } : {}),
+    },
+    socket: {},
+  } as unknown as IncomingMessage;
 }
 
 function bearer(token: string): IncomingMessage {
@@ -88,6 +101,52 @@ describe('jwtAuth — valid tokens (pinned public key)', () => {
     expect(op?.operator).toBe(true);
     const reg = await provider.authenticate(bearer(await mint({ sub: 'user' })));
     expect(reg?.operator).toBe(false);
+  });
+
+  it('accepts the audience-bound browser session cookie', async () => {
+    const provider = jwtAuth({ audience: AUD, issuer: ISS, publicKeyPem: spkiPem });
+    const token = await mint({ sub: 'browser-user' });
+    const req = reqWith(undefined, { cookie: `${HABITAT_SESSION_COOKIE}=${token}` });
+    expect((await provider.authenticate(req))?.userId).toBe('browser-user');
+    expect(verifiedJwtRequestToken(req)).toBe(token);
+  });
+
+  it('uses a valid user cookie when an old static key remains in Authorization', async () => {
+    const provider = jwtAuth({ audience: AUD, issuer: ISS, publicKeyPem: spkiPem });
+    const token = await mint({ sub: 'browser-user' });
+    const req = reqWith('Bearer gaia_old_static_key', {
+      cookie: `${HABITAT_SESSION_COOKIE}=${token}`,
+    });
+    expect((await provider.authenticate(req))?.userId).toBe('browser-user');
+    expect(verifiedJwtRequestToken(req)).toBe(token);
+  });
+
+  it('requires a same-origin Origin header for cookie-authenticated writes', async () => {
+    const provider = jwtAuth({ audience: AUD, issuer: ISS, publicKeyPem: spkiPem });
+    const token = await mint({ sub: 'browser-user' });
+    const cookie = `${HABITAT_SESSION_COOKIE}=${token}`;
+    expect(
+      await provider.authenticate(reqWith(undefined, { cookie, method: 'POST' })),
+    ).toBeNull();
+    expect(
+      await provider.authenticate(
+        reqWith(undefined, {
+          cookie,
+          method: 'POST',
+          origin: 'https://evil.example',
+          host: 'child.example',
+        }),
+      ),
+    ).toBeNull();
+    const sameOrigin = reqWith(undefined, {
+      cookie,
+      method: 'POST',
+      origin: 'https://child.example',
+      host: 'internal:8080',
+    });
+    sameOrigin.headers['x-forwarded-proto'] = 'https';
+    sameOrigin.headers['x-forwarded-host'] = 'child.example';
+    expect((await provider.authenticate(sameOrigin))?.userId).toBe('browser-user');
   });
 });
 

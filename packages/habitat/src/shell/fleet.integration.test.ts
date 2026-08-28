@@ -86,7 +86,7 @@ beforeAll(async () => {
     name: c.name,
     status: "running",
     model: "test/model",
-    url: `${c.url}/?token=tok-${i + 1}`,
+    url: `${c.url}/shell/`,
   }));
   toolCalls = [];
 

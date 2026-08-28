@@ -60,4 +60,22 @@ describe("loadToolsFromDirectory", () => {
     const tools = await loadToolsFromDirectory(root, "tools", {});
     expect(Object.keys(tools).sort()).toEqual(["good"]);
   });
+
+  it("imports an edited handler as a new module", async () => {
+    await makeTool("changing", { md: true });
+    const before = await loadToolsFromDirectory(root, "tools", {});
+    expect(await (before.changing as any).execute({}, {})).toEqual({ ok: true });
+
+    await writeFile(
+      join(root, "tools", "changing", "handler.ts"),
+      `export default {
+  description: "changed",
+  inputSchema: { type: "object", properties: {} },
+  execute: async () => ({ ok: false }),
+};
+`,
+    );
+    const after = await loadToolsFromDirectory(root, "tools", {});
+    expect(await (after.changing as any).execute({}, {})).toEqual({ ok: false });
+  });
 });

@@ -3,7 +3,9 @@
  * boundary): mounts another habitat's component in this shell, behind an
  * iframe.
  *
- * Config: { title, mcp, resource, token? }
+ * Config: { title, url? } or { title, mcp, resource, token? }
+ *   url      — an already-authorized projection URL, including a one-time
+ *              login handoff that redirects to the projection
  *   mcp      — the peer's MCP endpoint (e.g. "https://peer.example/mcp")
  *   resource — the ui:// resource to mount (e.g. "ui://shell/status")
  *   token    — bearer for the peer's /mcp, when it requires one
@@ -64,7 +66,7 @@ export default {
   inject: [regionKey],
   apply(ctx, view, config) {
     const region = view.get(regionKey);
-    const { title, mcp, resource, token } = config ?? {};
+    const { title, url: projectionUrl, mcp, resource, token } = config ?? {};
 
     const el = document.createElement("div");
     el.className = "shell-card";
@@ -97,8 +99,9 @@ export default {
 
     (async () => {
       try {
-        if (!mcp || !resource) throw new Error("config needs mcp and resource");
-        const url = await readResource(mcp, resource, token);
+        const url = projectionUrl ??
+          (mcp && resource ? await readResource(mcp, resource, token) : null);
+        if (!url) throw new Error("config needs url or mcp and resource");
         iframe = document.createElement("iframe");
         // The boundary: scripts run, the peer origin is itself, but this
         // page's origin, storage, and DOM are unreachable (cross-origin).

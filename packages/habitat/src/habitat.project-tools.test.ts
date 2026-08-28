@@ -104,4 +104,24 @@ describe("Habitat.create project-dir tools", () => {
 
 		expect(Object.keys(habitat.getTools())).not.toContain("ghost");
 	});
+
+	it("keeps the previous work-directory layer when an edited handler is broken", async () => {
+		await writeTool(join(workDir, "tools"), "stable", "working");
+		const habitat = await Habitat.create({
+			workDir,
+			config: { agents: [] },
+			skipBuiltinTools: true,
+			skipSkills: true,
+		});
+
+		await writeFile(
+			join(workDir, "tools", "stable", "handler.js"),
+			"export default { this is not valid JavaScript",
+		);
+
+		await expect(habitat.reloadWorkDirTools()).rejects.toThrow(
+			"failed to load handler",
+		);
+		expect(await execute(habitat.getTools().stable)).toBe("working");
+	});
 });
