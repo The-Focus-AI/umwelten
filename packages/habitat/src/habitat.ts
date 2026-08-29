@@ -9,7 +9,10 @@ import type { Tool } from "ai";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { InteractionStore } from "@umwelten/core/interaction/persistence/interaction-store.js";
-import { loadToolsFromDirectory } from "@umwelten/core/stimulus/tools/loader.js";
+import {
+	loadToolsFromDirectory,
+	type ToolLoadIssue,
+} from "@umwelten/core/stimulus/tools/loader.js";
 import { getSpeaker } from "./identity/agent-speaker-context.js";
 import type { SkillDefinition } from "@umwelten/core/stimulus/skills/types.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
@@ -107,6 +110,7 @@ export class Habitat
 	private runtimeModelDetails: ModelDetails | undefined;
 	private options: HabitatOptions;
 	private capabilityGaps: CapabilityGap[] = [];
+	private workDirToolIssues: ToolLoadIssue[] = [];
 
 	private constructor(
 		workDir: string,
@@ -190,7 +194,10 @@ export class Habitat
 
 		// 7. Load work-dir tools (unless skipped)
 		if (!opts.skipWorkDirTools && config.loadWorkDirTools !== false) {
-			await habitat.reloadWorkDirTools();
+			// A stale or partially edited persisted tool must not prevent the
+			// habitat from booting. Explicit hot reloads remain strict so they can
+			// preserve the previous working layer when an edit is broken.
+			await habitat.loadWorkDirTools(false);
 		}
 
 		// 8. Call custom tool registration callback
@@ -391,19 +398,30 @@ export class Habitat
 	 * tools win collisions. A successful empty load withdraws every old custom
 	 * tool while leaving built-ins untouched.
 	 */
-	async reloadWorkDirTools(): Promise<string[]> {
+	private async loadWorkDirTools(strict: boolean): Promise<string[]> {
 		const tools: Record<string, Tool> = {};
+		const issues: ToolLoadIssue[] = [];
 		const toolsDirRelative = this.config.toolsDir ?? "tools";
 		for (const base of resolveToolBases(this.workDir, this.config)) {
 			Object.assign(
 				tools,
 				await loadToolsFromDirectory(base, toolsDirRelative, this, {
-					strict: true,
+					strict,
+					onIssue: (issue) => issues.push(issue),
 				}),
 			);
 		}
 		await this.toolRegistry.replaceWorkDirTools(tools);
+		this.workDirToolIssues = issues;
 		return Object.keys(tools);
+	}
+
+	async reloadWorkDirTools(): Promise<string[]> {
+		return this.loadWorkDirTools(true);
+	}
+
+	getWorkDirToolIssues(): ToolLoadIssue[] {
+		return this.workDirToolIssues.map((issue) => ({ ...issue }));
 	}
 
 	getTools(): Record<string, Tool> {

@@ -7,27 +7,81 @@ name: Deploy Gaia host
 # Push-to-main only — never wire this runner to pull_request triggers: the
 # repo is public and the runner drives the production docker daemon.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/**"
-      - "examples/**"
-      - "deploy/gaia/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/deploy-gaia.yml"
+  # Deploy only after the main-branch CI run has completed successfully. The
+  # old push trigger raced CI and could replace healthy production with code
+  # that had not passed its checks yet.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
   group: gaia-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
+  changes:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.filter.outputs.deploy }}
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Select tested revision
+        id: revision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            echo "sha=$TESTED_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.revision.outputs.sha }}
+          fetch-depth: 2
+      - name: Check whether Gaia-owned files changed
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TARGET_SHA: ${{ steps.revision.outputs.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git rev-parse "$TARGET_SHA^1" >/dev/null 2>&1; then
+            changed="$(git diff --name-only "$TARGET_SHA^1" "$TARGET_SHA")"
+          else
+            changed="$(git show --pretty='' --name-only "$TARGET_SHA")"
+          fi
+          if grep -Eq '^(packages/|examples/|deploy/gaia/|package\.json$|pnpm-lock\.yaml$|\.github/workflows/deploy-gaia\.yml$)' <<<"$changed"; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
     runs-on: [self-hosted, gaia]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Never deploy the workflow's default-branch head by accident: use
+          # the exact commit whose CI run triggered this workflow.
+          ref: ${{ needs.changes.outputs.sha }}
       - name: Redeploy gaia + habitats
         env:
           # The compose .env (hostname, API key, ingress network) lives on the

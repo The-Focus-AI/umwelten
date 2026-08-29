@@ -105,6 +105,40 @@ describe("Habitat.create project-dir tools", () => {
 		expect(Object.keys(habitat.getTools())).not.toContain("ghost");
 	});
 
+	it("boots without a malformed persisted tool", async () => {
+		await writeTool(join(workDir, "tools"), "broken", "working");
+		await writeFile(
+			join(workDir, "tools", "broken", "handler.js"),
+			"export default { this is not valid JavaScript",
+		);
+		await mkdir(join(workDir, "tools", "bad-manifest"), { recursive: true });
+		await writeFile(
+			join(workDir, "tools", "bad-manifest", "TOOL.md"),
+			"---\nname: [unterminated\n---\n",
+		);
+
+		const habitat = await Habitat.create({
+			workDir,
+			config: { agents: [] },
+			skipBuiltinTools: true,
+			skipSkills: true,
+		});
+
+		expect(Object.keys(habitat.getTools())).not.toContain("broken");
+		expect(habitat.getWorkDirToolIssues()).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: "broken",
+					path: join(workDir, "tools", "broken"),
+				}),
+				expect.objectContaining({
+					name: "bad-manifest",
+					path: join(workDir, "tools", "bad-manifest"),
+				}),
+			]),
+		);
+	});
+
 	it("keeps the previous work-directory layer when an edited handler is broken", async () => {
 		await writeTool(join(workDir, "tools"), "stable", "working");
 		const habitat = await Habitat.create({
@@ -123,5 +157,6 @@ describe("Habitat.create project-dir tools", () => {
 			"failed to load handler",
 		);
 		expect(await execute(habitat.getTools().stable)).toBe("working");
+		expect(habitat.getWorkDirToolIssues()).toEqual([]);
 	});
 });

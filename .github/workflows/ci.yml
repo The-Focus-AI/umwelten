@@ -57,3 +57,11 @@ jobs:
       # `--help` is enough, because an import-time fault kills every command.
       - name: Smoke-test the Exchange bundle
         run: node packages/mycel/dist/mycel.js --help
+
+      # Gaia loads operator-authored tools from a bind-mounted data directory,
+      # not from the monorepo. Unit tests run through Vitest's resolver and
+      # cannot reproduce Node resolving a handler outside /habitat — the exact
+      # gap that let a missing `ai` import crash production. Boot the real image
+      # with one runtime-dependent tool and one malformed optional tool.
+      - name: Smoke-test the Gaia image with persisted tools
+        run: bash scripts/smoke-gaia-image.sh

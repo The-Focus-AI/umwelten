@@ -30,6 +30,28 @@ export interface ToolDefinitionMeta {
   parameters?: unknown;
 }
 
+export interface ToolLoadIssue {
+  name: string;
+  path: string;
+  message: string;
+}
+
+export interface ToolLoadOptions {
+  strict?: boolean;
+  onIssue?: (issue: ToolLoadIssue) => void;
+}
+
+function skipTool(
+  name: string,
+  path: string,
+  message: string,
+  options?: ToolLoadOptions,
+): null {
+  options?.onIssue?.({ name, path, message });
+  console.warn(message);
+  return null;
+}
+
 /**
  * Load a single tool from a directory that contains TOOL.md.
  * If handler.ts or handler.js exists, dynamic-import its default export.
@@ -42,9 +64,10 @@ export interface ToolDefinitionMeta {
 export async function loadToolFromPath(
   toolDir: string,
   context?: unknown,
-  options?: { strict?: boolean },
+  options?: ToolLoadOptions,
 ): Promise<{ name: string; tool: Tool } | null> {
   const toolMdPath = join(toolDir, TOOL_MD);
+  const fallbackName = toolDir.split(/[/\\]/).filter(Boolean).pop() || 'unknown';
   let content: string;
   try {
     content = await readFile(toolMdPath, 'utf-8');
@@ -52,17 +75,25 @@ export async function loadToolFromPath(
     return null;
   }
 
-  const { data, content: body } = matter(content);
+  let parsed: ReturnType<typeof matter>;
+  try {
+    parsed = matter(content);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    const message = `Tool at ${toolDir}: failed to parse TOOL.md: ${detail}`;
+    if (options?.strict) throw new Error(message, { cause: err });
+    return skipTool(fallbackName, toolDir, message, options);
+  }
+  const { data, content: body } = parsed;
   const name = (data.name as string)?.trim() || undefined;
+  const toolName = name || fallbackName;
   const description = (data.description as string)?.trim();
   if (!description) {
     const message = `Tool at ${toolDir}: missing or invalid 'description' in TOOL.md`;
     if (options?.strict) throw new Error(message);
-    console.warn(message);
-    return null;
+    return skipTool(toolName, toolDir, message, options);
   }
 
-  const toolName = name || toolDir.split(/[/\\]/).filter(Boolean).pop() || 'unknown';
   const toolType = data.type as string | undefined;
   const scriptPath = data.script as string | undefined;
 
@@ -93,16 +124,14 @@ export async function loadToolFromPath(
         if (!toolInstance || typeof (toolInstance as Tool).execute !== 'function') {
           const message = `Tool at ${toolDir}: factory function did not return a Tool (missing execute)`;
           if (options?.strict) throw new Error(message);
-          console.warn(message);
-          return null;
+          return skipTool(toolName, toolDir, message, options);
         }
         return { name: toolName, tool: toolInstance as Tool };
       }
 
       const message = `Tool at ${toolDir}: handler default export is not a Tool or factory function`;
       if (options?.strict) throw new Error(message);
-      console.warn(message);
-      return null;
+      return skipTool(toolName, toolDir, message, options);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       if (options?.strict) {
@@ -110,8 +139,12 @@ export async function loadToolFromPath(
           cause: err,
         });
       }
-      console.warn(`Tool at ${toolDir}: failed to load handler:`, detail);
-      return null;
+      return skipTool(
+        toolName,
+        toolDir,
+        `Tool at ${toolDir}: failed to load handler: ${detail}`,
+        options,
+      );
     }
   }
 
@@ -151,7 +184,12 @@ export async function loadToolFromPath(
   if (options?.strict) {
     throw new Error(`Tool at ${toolDir}: TOOL.md has no handler or script`);
   }
-  return null;
+  return skipTool(
+    toolName,
+    toolDir,
+    `Tool at ${toolDir}: TOOL.md has no handler or script`,
+    options,
+  );
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -174,7 +212,7 @@ export async function loadToolsFromDirectory(
   workDir: string,
   toolsDirRelative: string = 'tools',
   context?: unknown,
-  options?: { strict?: boolean },
+  options?: ToolLoadOptions,
 ): Promise<Record<string, Tool>> {
   const toolsDir = resolve(workDir, toolsDirRelative);
   const result: Record<string, Tool> = {};

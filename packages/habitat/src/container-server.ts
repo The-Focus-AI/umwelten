@@ -480,10 +480,12 @@ export async function startContainerServer(
 				// ── Health (always open) ──────────────────────────────
 				if (path === "/health") {
 					const modelDetails = habitat.getDefaultModelDetails();
+					const toolIssues = habitat.getWorkDirToolIssues();
 					sendJson(res, {
-						status: "ok",
+						status: toolIssues.length > 0 ? "degraded" : "ok",
 						name: serverName,
 						tools: Object.keys(habitat.getTools()).length,
+						toolIssues: toolIssues.map(({ name }) => name),
 						auth: authMode,
 						model: modelDetails
 							? `${modelDetails.provider}/${modelDetails.name}`
@@ -1131,6 +1133,7 @@ export async function startContainerServer(
 					if (path === "/api/status" && req.method === "GET") {
 						const config = habitat.getConfig();
 						const modelDetails = habitat.getDefaultModelDetails();
+						const toolIssues = habitat.getWorkDirToolIssues();
 						const projectDir = resolveProjectDir(habitat.getWorkDir(), config);
 						const projectCloned = await fileExists(join(projectDir, ".git"));
 						sendJson(res, {
@@ -1144,6 +1147,7 @@ export async function startContainerServer(
 								projectDir: config.projectDir ?? "project",
 							},
 							tools: Object.keys(habitat.getTools()).length,
+							toolIssues: toolIssues.map(({ name }) => name),
 							schedules: scheduler.status(),
 							requiredSecrets: (config.requiredSecrets ?? []).map((s) => ({
 								name: s.name,

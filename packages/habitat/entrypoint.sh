@@ -26,6 +26,17 @@ WORK_DIR="${HABITAT_WORK_DIR:-/data}"
 CONFIG_FILE="$WORK_DIR/config.json"
 SECRETS_FILE="$WORK_DIR/secrets.json"
 
+# Volume-backed tools live outside /habitat, so Node's normal package lookup
+# cannot see the runtime's ai/zod dependencies. Give a work directory without
+# its own dependency tree a read-only-by-convention fallback to the image's
+# installed modules. A repo or tool with explicit dependencies wins because an
+# existing node_modules path is never replaced.
+if [ -d "$WORK_DIR" ] && [ -d /habitat/node_modules ] \
+	&& [ ! -e "$WORK_DIR/node_modules" ] && [ ! -L "$WORK_DIR/node_modules" ]; then
+	ln -s /habitat/node_modules "$WORK_DIR/node_modules"
+	echo "[entrypoint] Linked runtime dependencies into $WORK_DIR/node_modules."
+fi
+
 # Helper: lookup a secret value by name, /data/secrets.json first, then env.
 secret_value() {
 	name="$1"

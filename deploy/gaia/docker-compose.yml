@@ -25,6 +25,32 @@
 # specialized images) on this host. Full runbook: deploy/gaia/README.md.
 
 services:
+  # Process-level supervision signal. Public uptime monitoring sees the end
+  # symptom, but not that Gaia is repeatedly starting and dying. This watcher
+  # only reads Docker state and emits one stable marker per three restarts;
+  # deploy/gcp/create-gaia-restart-alert.sh turns that log marker into a Cloud
+  # Monitoring incident using the existing notification channel.
+  gaia-watchdog:
+    image: docker:27-cli
+    container_name: gaia-watchdog
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - sh
+      - -c
+      - |
+        alerted_at=0
+        while sleep 30; do
+          restarts="$$(docker inspect --format '{{.RestartCount}}' gaia 2>/dev/null || echo 0)"
+          case "$$restarts" in (*[!0-9]*|'') restarts=0;; esac
+          if [ "$$restarts" -lt "$$alerted_at" ]; then alerted_at=0; fi
+          if [ "$$restarts" -ge "$$((alerted_at + 3))" ]; then
+            echo "GAIA_RESTART_LOOP container=gaia restart_count=$$restarts"
+            alerted_at="$$restarts"
+          fi
+        done
+
   gaia:
     image: habitat
     container_name: gaia
@@ -130,7 +156,7 @@ services:
       - gaia-net
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - caddy-data:/data     # certificates — persist across restarts
+      - caddy-data:/data # certificates — persist across restarts
       - caddy-config:/config
 
 networks:

@@ -27,6 +27,19 @@ No public SSH port exists; IAP is the only way in. Container logs are in
 (log name `gcplogs-docker-driver`, one entry stream per container) and via
 `docker logs gaia-<id>` on the host.
 
+Gaia's compose stack includes `gaia-watchdog`, which reads only Docker state
+and emits `GAIA_RESTART_LOOP` after each three Gaia restarts. Provision its
+Cloud Monitoring log-match alert once from an authenticated operator machine:
+
+```bash
+deploy/gcp/create-gaia-restart-alert.sh
+```
+
+The script reuses the first enabled notification channel unless
+`NOTIFICATION_CHANNEL=projects/.../notificationChannels/...` is supplied, and
+is safe to rerun. Public uptime alerting remains separate: it catches routing
+and host failures even when no restart loop occurs.
+
 ## The three deploy loops (don't mix them up)
 
 1. **Platform** (runner, Gaia, base images, tool sets): merge to
