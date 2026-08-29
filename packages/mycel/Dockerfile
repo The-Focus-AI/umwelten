@@ -47,6 +47,16 @@ RUN useradd --system --uid 10001 mycel
 
 WORKDIR /app
 COPY --chown=mycel:mycel packages/mycel/dist/mycel.js ./mycel.js
+
+# The Shell reads its assets off disk at runtime — `readFile(join(shellDir,
+# "index.html"))` and the per-component reads in substrate's serving contract.
+# A bundler inlines imports; it cannot inline a runtime read, so these files
+# have to be in the image or every /shell/* route answers 404 while the API
+# stays perfectly healthy. Bundled into /app/mycel.js, substrate resolves its
+# own package root to / — hence /shell — and the Client surface resolves its
+# components beside the bundle.
+COPY --chown=mycel:mycel packages/substrate/shell /shell
+COPY --chown=mycel:mycel packages/mycel/src/client-surface/components /app/components
 COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
 RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 
