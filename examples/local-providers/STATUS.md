@@ -63,8 +63,7 @@ dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --matrix all
 dotenvx run -- pnpm tsx examples/local-providers/run-quality.ts --matrix thinking
 
 # Generate reports after the run
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/local-providers/suite-config.ts \
+pnpm tsx examples/local-providers/generate-report.ts \
   --format md --output output/local-providers-report.md
 ```
 

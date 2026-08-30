@@ -1,215 +1,113 @@
 # Architecture Overview
 
-## High-Level Architecture
+Umwelten models an agent's **perceptual and operational world**. A `Stimulus`
+defines what a model is asked to perceive and which actions it can take; an
+`Interaction` carries the continuing model context; a `Habitat` adds durable
+state, tools, skills, identities, channels, and other agents.
 
-![Umwelten Systems Architecture](./umwelten-architecture-labs.png)
+The architecture has roughly nine substantial systems:
 
-The umwelten project implements a **stimulus-centric evaluation and interaction system** for testing and interacting with AI models. The architecture is built around the concept of "Umwelt" - the perceptual world that models operate within.
+1. core cognition and Interaction;
+2. the Habitat agent runtime;
+3. Gaia fleet orchestration;
+4. the external Habitats SaaS and its local integration boundary;
+5. Substrate, Shell, and Component composition;
+6. A2A and MCP protocols;
+7. Source Sessions, Explorations, Reflection, and knowledge;
+8. evaluation and reporting;
+9. the Mycel/Supplier Exchange ecosystem.
 
-## Core Philosophy
+CLI/UI adapters, examples, and documentation cut across these systems.
 
-### Infrastructure-First Approach
+Those nine systems occupy **two bounded domain contexts**—Umwelten and the
+Exchange. “Two” describes vocabulary and dependency boundaries, not the number
+of products or architectural subsystems.
 
-- **Reusable Infrastructure**: Generic evaluation strategies, stimulus templates, and tool integrations
-- **Composable Components**: Simple building blocks that can be combined for complex evaluations
-- **Clear Separation**: Infrastructure vs. specific test implementations
+Read [CONTEXT.md](../../CONTEXT.md) for canonical terminology and
+[CONTEXT-MAP.md](../../CONTEXT-MAP.md) for the bounded-context rules.
 
-### Stimulus-Centric Design
+## Runtime shape
 
-- **Stimulus as Primary Unit**: All cognitive testing revolves around `Stimulus` objects that define role, objective, instructions, tools, and temperature
-- **Template System**: Generic, reusable stimulus definitions for common tasks (creative writing, coding, analysis)
-- **Tool Integration**: Seamless integration of tools via Vercel AI SDK `tool()` definitions
+```text
+Interfaces (CLI · web · Discord · Telegram · A2A)
+                         │
+                         ▼
+                    ChannelBridge
+                         │
+                route · session · agent
+                         │
+                         ▼
+            Interaction + Stimulus + tools
+                         │
+               model runner / native runtime
+                         │
+                         ▼
+                      Provider
 
-## Key Components
+Gaia (a Habitat) ──provisions/wakes/reaps──▶ managed Habitats
 
-### 1. Interfaces (`packages/cli/src/`, `src/ui/`)
-
-User-facing surfaces attach to one [`Habitat`](@umwelten/habitat/habitat.ts): REPL and composers in [`packages/cli/src/habitat.ts`](@umwelten/cli/habitat.ts); Telegram ([`packages/ui/src/telegram/`](@umwelten/ui/telegram/)), Discord ([`packages/ui/src/discord/`](@umwelten/ui/discord/)), TUI ([`packages/ui/src/tui/`](@umwelten/ui/tui/)), and web ([`packages/habitat/src/web/`](@umwelten/habitat/web/)) all drive the same [`ChannelBridge`](@umwelten/habitat/bridge/channel-bridge.ts). See the [Habitat interfaces guide](../guide/habitat-interfaces.md) and the [Web interface guide](../guide/web.md).
-
-### 2. Habitat (`packages/habitat/src/`)
-
-The top-level container for agents — the "world" an agent lives in.
-
-- **Habitat class**: Factory-created via `Habitat.create()`, manages config, sessions, agents, tools, secrets
-- **Tool Sets**: Modular tool collections — agent management, session management, secrets, search
-- **HabitatAgent**: Sub-agent system with its own Stimulus built from cloned project files
-- **Session Management**: Persistent sessions with JSONL transcript storage
-- **Secrets**: Work-dir `secrets.json` (plain JSON key/value map, file mode 0600)
-- **Gaia Server**: HTTP API for web UI access to habitat data
-
-See **[Habitat runtime](./habitat-runtime.md)** (multi-agent model, identities, token-routed MCP) and **[Habitat deployment](./habitat-deployment.md)** (where habitats run).
-
-### 3. Cognition (`packages/core/src/cognition/`)
-
-Model runners that execute AI requests.
-
-- **BaseModelRunner**: Core runner with `generateText`, `streamText`, `generateObject`, `streamObject` — all return `Promise<ModelResponse>`
-- **ModelResponse**: Standardized response with `content`, `metadata` (tokenUsage, cost, provider, model), optional `reasoning`
-- **Model Validation**: `validateModel()` queries provider APIs to verify model availability
-
-### 4. Interaction (`packages/core/src/interaction/`)
-
-Conversation state management between user and model.
-
-- **Interaction class**: Holds message history, model config, and Stimulus reference. High-level methods: `chat()`, `generateText()`, `streamText()`, `generateObject()`, `streamObject()`
-- **Session Persistence**: Save/load conversations with `toNormalizedSession()`
-- **File Attachments**: Attach files to messages for multi-modal interactions
-
-### 5. Stimulus (`packages/core/src/stimulus/`)
-
-Configuration that shapes AI behavior.
-
-- **Stimulus class**: Defines `role`, `objective`, `instructions`, `output`, `tools`, `temperature`, `maxTokens`, `maxToolSteps`
-- **Templates**: Pre-built stimulus configs in `templates/`, `creative/`, `coding/`, `analysis/`
-- **Skills**: Loaded from git repos or local directories — each skill is a `SKILL.md` with instructions
-- **Tool Loading**: Load tools from `tools/` directory (TOOL.md + handler.ts pattern)
-
-### 6. Evaluation Framework (`packages/evaluation/src/evaluation/`)
-
-Systematic model assessment and comparison.
-
-- **EvalSuite**: High-level declarative API — define tasks with prompts and scoring, get cached execution, judging, and leaderboard output. Two scoring modes: VerifyTask (deterministic) and JudgeTask (LLM judge with Zod schema). See [Creating Evaluations](../guide/creating-evaluations.md)
-- **EvaluationRunner**: Abstract base class — extend and implement `getModelResponse()` for custom cached runners
-- **Strategies**: `SimpleEvaluation` (1 prompt × N models, used by EvalSuite internally), `MatrixEvaluation` (placeholder variables × cartesian product), `BatchEvaluation` (N items × N models)
-- **Caching**: Model response caching, file caching, and score caching to avoid redundant API calls
-- **Code Execution**: DaggerRunner for running generated code in isolated containers
-- **Suite Combine** (`combine/`): Aggregate multiple evaluations into a unified leaderboard with narrative reports. See [Model Showdown](../walkthroughs/model-showdown.md)
-- **Pairwise Ranking** (`ranking/`): Post-processing module for head-to-head LLM-judge comparisons with Elo ratings. Supports swiss tournament and round-robin pairing. See [Pairwise Ranking Guide](../guide/pairwise-ranking.md)
-
-### 7. Provider Integration (`packages/core/src/providers/`)
-
-AI provider implementations using Vercel AI SDK.
-
-- **Supported**: Google, OpenRouter, Ollama, LM Studio, GitHub Models, Fireworks, MiniMax
-- **Factory Pattern**: `createGoogleProvider()`, `createOpenRouterProvider()`, etc.
-- **Cost Tracking**: Per-provider cost calculation via `packages/core/src/costs/`
-
-### 8. Memory Helpers (`packages/core/src/memory/`)
-
-Explicit helpers for extracting and reconciling facts from interactions.
-
-- Fact extraction from conversations
-- ADD/UPDATE/NONE operation classification for caller-managed stores
-
-### 9. Context Management (`packages/core/src/context/`)
-
-Context window tracking and management.
-
-- Token counting and context size estimation
-- Compaction strategies for long conversations
-
-## Directory Structure
-
-```
-src/
-├── cli/                  # umwelten CLI (habitat, eval, sessions, …)
-├── ui/                   # Telegram, Discord, web, TUI adapters
-├── habitat/              # Top-level agent container
-│   ├── tools/            # Tool set implementations
-│   │   ├── run-project/  # Dagger-based code execution
-│   │   ├── search-tools.ts
-│   │   ├── secrets-tools.ts
-│   │   ├── agent-runner-tools.ts
-│   │   └── ...
-│   ├── habitat.ts        # Main Habitat class
-│   ├── habitat-agent.ts  # Sub-agent system
-│   ├── gaia-server.ts    # HTTP API for web UI
-│   ├── session-manager.ts
-│   ├── tool-sets.ts      # Standard tool set definitions
-│   ├── onboard.ts        # First-run onboarding
-│   └── secrets.ts        # Secret management
-├── cognition/            # Model runners
-│   ├── runner.ts         # BaseModelRunner
-│   └── types.ts          # ModelResponse, ModelRunner, ModelDetails
-├── interaction/          # Conversation state
-│   └── core/
-│       └── interaction.ts  # Interaction class
-├── stimulus/             # Stimulus system
-│   ├── stimulus.ts       # Stimulus class
-│   ├── templates/        # Generic stimulus templates
-│   ├── tools/            # Tool loading from directories
-│   ├── skills/           # Skill loading from git/local
-│   ├── creative/         # Creative writing stimuli
-│   ├── coding/           # Code generation stimuli
-│   └── analysis/         # Analysis task stimuli
-├── evaluation/           # Evaluation framework
-│   ├── suite.ts          # EvalSuite — recommended high-level API
-│   ├── runner.ts         # EvaluationRunner base class
-│   ├── strategies/       # SimpleEvaluation, MatrixEvaluation, BatchEvaluation
-│   ├── ranking/          # PairwiseRanker — head-to-head Elo ranking
-│   ├── combine/          # Multi-evaluation suite aggregation and reports
-│   ├── caching/          # Response and file caching
-│   ├── dagger/           # DaggerRunner for code execution
-│   └── api.ts            # CLI-facing evaluation API
-├── providers/            # AI provider integrations
-├── memory/               # Memory and knowledge storage
-├── context/              # Context size tracking and compaction
-├── costs/                # Cost calculation per provider/model
-├── cli/                  # Command-line interface
-├── mcp/                  # Model Context Protocol
-├── schema/               # Schema utilities
-├── rate-limit/           # Rate limiting
-├── reporting/            # Report generation
-├── markdown/             # Markdown processing
-├── ui/                   # TUI components (session browser)
-└── test-utils/           # Test helpers
+Application ──OpenAI-compatible HTTP──▶ Mycel ──dispatch──▶ Supplier
 ```
 
-## Design Principles
+`packages/habitat/src/container-server.ts` projects one Habitat through
+`/a2a`, `/mcp`, `/api/chat`, and `/shell`. Gaia composes the same Habitat with
+fleet capabilities; it is not a second agent framework. The production
+Habitats SaaS is external to this repository—this repo contains integration
+contracts and clients, not its main frontend/backend.
 
-### 1. Simplicity Over Complexity
+## Package layers
 
-- Start with minimal implementations
-- Add complexity only when necessary
-- Prefer composition over inheritance
+| Layer | Packages |
+| --- | --- |
+| Foundation | `@umwelten/substrate`, `@umwelten/core` |
+| Protocol/runtime | `@umwelten/protocols`, `@umwelten/habitat` |
+| Application surfaces | `@umwelten/sessions`, `@umwelten/ui`, `@umwelten/evaluation` |
+| Exchange context | `@umwelten/mycel`, `@umwelten/supplier` |
+| Composition/publication | `@umwelten/cli`, bundled `umwelten` meta-package |
 
-### 2. Reusability
+The intended direction is foundations → feature packages → CLI/public bundle.
+The current `sessions ↔ ui` import cycle is a known boundary violation.
 
-- Generic templates for common tasks
-- Composable evaluation strategies
-- Shared tool integrations and skill system
+## Composition architecture
 
-### 3. Extensibility
+The newer extension model uses domain terms from ADRs 0031–0033:
 
-- Clear patterns for adding new capabilities
-- Plugin architecture for tools and providers
-- Skill system for sharing capabilities between agents
+- **Substrate** — the shared reversible lifecycle runtime.
+- **Component** — performs reversible effects and declares required Services.
+- **Service** — a named binding a Component provides or consumes.
+- **Shell** — minimal page hosting Components.
+- **UI Resource** — a Component or one-shot view projected over MCP/A2A.
+- **Foreign component** — another Habitat's projection behind an iframe trust
+  boundary.
 
-### 4. Maintainability
+The browser Shell, Gaia fleet composition, Mycel client surface, persistent
+`ui://shell/...` resources, and agent-authored Components are implemented.
+Habitat internals such as ToolSets, runtime runners, connectors, and skills
+still use specialized registries; server-side Substrate adoption is partial.
 
-- Clear separation of concerns
-- Well-documented interfaces
-- Comprehensive test coverage
+## Durable records
 
-## Next Steps
+- **Interaction** — model-facing context.
+- **Source Session** — persisted tool/runtime conversation artifact.
+- **Exploration** — related line of inquiry across Source Sessions.
+- **Task** — Habitat-owned invocation lifecycle, projected over A2A today.
+- **Run** — SaaS-owned cost/attribution record.
 
-1. **Try the CLI**: Use the command-line interface
+These records should be correlated, not collapsed into one type.
 
-   ```bash
-   # List models
-   pnpm run cli -- models --provider google
+## Current review
 
-   # Run a prompt
-   pnpm run cli -- run --provider google --model gemini-3-flash-preview "Hello, world!"
+See the [August 2026 system map](./system-map-2026-08.md) for:
 
-   # Interactive chat
-   pnpm run cli -- chat --provider google --model gemini-3-flash-preview
-   ```
+- exact package and runtime ownership;
+- Gaia, SaaS, Mycel, and Supplier boundaries;
+- old/new and deliberate parallel paths;
+- plugin/Component implementation status;
+- examples and reporting gaps;
+- risk-ranked cleanup recommendations.
 
-2. **Start a Habitat**: Set up a full agent environment
+Use [System boundaries and working conventions](./system-boundaries.md) as the
+short core/auxiliary map and default-pattern checklist for each of the nine
+systems.
 
-   ```bash
-   pnpm run cli -- habitat
-   ```
-
-3. **Create Your First Evaluation**: Follow the [getting started guide](../guide/getting-started.md)
-4. **Customize Templates**: Modify existing stimulus templates for your needs
-5. **Add New Tools**: Create tools in a `tools/` directory using the TOOL.md + handler.ts pattern
-
-## Related Documentation
-
-- [Getting Started](../guide/getting-started.md)
-- [Habitat Guide](../guide/habitat.md)
-- [API Overview](../api/overview.md)
-- [Evaluation Framework](../api/evaluation-framework.md)
-- [CLI Reference](../api/cli.md)
+The [May 2026 map](./system-map-2026-05.md) is retained as cleanup history.

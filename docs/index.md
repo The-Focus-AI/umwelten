@@ -49,18 +49,7 @@ Tools, sessions, memory, sub-agents. One directory, any interface.
 
 ---
 
-**Same prompt, 8 providers, one command:**
-
-```bash
-npx umwelten eval run \
-  --prompt "Explain why the sky is blue in exactly three sentences" \
-  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-5.4-nano,openrouter:anthropic/claude-sonnet-4.6,openrouter:deepseek/deepseek-v3.2" \
-  --id "sky-test" --concurrent
-```
-
----
-
-**Your laptop model vs GPT-5:**
+**Compare local and cloud models with one prompt:**
 
 ```bash
 npx umwelten eval run \
@@ -69,7 +58,8 @@ npx umwelten eval run \
   --id "local-vs-cloud" --concurrent
 ```
 
-You might be surprised who wins.
+The CLI is the quick comparison path. Use a versioned `EvalSuite` when prompts,
+scoring, and methodology need to be reproducible.
 
 ## What is a Habitat?
 
@@ -97,7 +87,7 @@ Any interface plugs into the same Habitat — CLI, Telegram, Discord, web. Same 
 Your agent needs to know if it's working. An eval tests any model against any question and scores the result. Twenty lines of TypeScript:
 
 ```typescript
-import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation';
 
 const suite = new EvalSuite({
   name: 'my-eval',
@@ -117,7 +107,7 @@ const suite = new EvalSuite({
   }],
 });
 
-suite.run();
+await suite.run();
 ```
 
 Run it. Get a leaderboard with scores, cost, and timing. Cache responses, resume interrupted runs, compare across providers.

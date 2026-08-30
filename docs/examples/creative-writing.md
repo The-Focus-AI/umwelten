@@ -1,5 +1,7 @@
 # Creative Writing Examples
 
+> **Legacy example:** Some CLI options on this page predate v0.5. Use `eval run` for ad-hoc comparison or an `EvalSuite` for scored creative work.
+
 This page shows how to use Umwelten for creative writing tasks, including poetry generation and temperature experimentation. These examples correspond to the migrated `cat-poem.ts` and `temperature.ts` scripts.
 
 ## Basic Poetry Generation

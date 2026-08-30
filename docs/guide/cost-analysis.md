@@ -1,5 +1,7 @@
 # Cost Analysis
 
+> **Legacy CLI reference:** The former `eval report` command is not part of v0.5. Generate reports from cached suites; see [Reports and Analysis](/guide/reports).
+
 Understand and optimize costs when using Umwelten with different AI model providers. Learn how to make informed decisions about model selection, usage patterns, and budget management.
 
 ## Overview

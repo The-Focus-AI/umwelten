@@ -1,5 +1,7 @@
 # Analysis & Reasoning Examples
 
+> **Legacy example:** CLI options on this page predate v0.5. Use `examples/evals/reasoning.ts` as the supported reasoning benchmark.
+
 This example demonstrates how to use Umwelten for complex analytical and reasoning tasks. These examples correspond to scripts like `frankenstein.ts` and show how to evaluate model capabilities in literary analysis, critical thinking, and complex reasoning.
 
 ## Literary Analysis

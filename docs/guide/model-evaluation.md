@@ -1,256 +1,150 @@
 # Model Evaluation
 
-Learn how to systematically evaluate and compare AI models using Umwelten's comprehensive evaluation system.
+Evaluation is a first-class Umwelten system. Use the CLI for quick, unscored
+comparisons and executable suites for repeatable, scored methodology.
 
-## Overview
+## Which entry point to use
 
-Model evaluation is at the heart of Umwelten's functionality. The `eval` command family provides systematic testing across multiple models with comprehensive reporting, cost analysis, and resume capability.
+| Need | Supported entry point |
+| --- | --- |
+| Compare one prompt ad hoc | `umwelten eval run` |
+| A focused benchmark | `EvalSuite` |
+| Standard language + coding + tool benchmark | `runFullEval()` |
+| Relative preference between responses | `PairwiseRanker` |
+| Aggregate independently-run dimensions | `loadSuite()` + report builders |
+| Local runtime matrix with watchdog/eviction | `examples/local-providers` harness |
 
-## Quick Start with EvalSuite
+The CLI and first four APIs are supported core surfaces. The local-provider and Dagger/container
+workflows are useful research infrastructure, not the default abstraction.
 
-The fastest way to create an evaluation is `EvalSuite`. Define tasks with prompts and scoring — the suite handles caching, execution, judging, and output.
+## Ad-hoc comparison
+
+```bash
+npx umwelten eval run \
+  --prompt "Write a haiku about recursion" \
+  --models "ollama:qwen3:30b-a3b,openrouter:openai/gpt-5.4" \
+  --id "local-vs-cloud" --concurrent
+```
+
+Responses are cached under `output/evaluations/{id}/`. Use `--new` to bypass
+the cache, `--json` for machine-readable output, and `--max-concurrency N` to
+bound parallel model calls. This path does not score responses; move the prompt
+into an `EvalSuite` when it becomes a benchmark.
+
+## Focused suite
 
 ```typescript
-import '@umwelten/core/env/load.js';
-import { z } from 'zod';
-import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation';
 
 const suite = new EvalSuite({
-  name: 'my-eval',
-  stimulus: { role: 'helpful assistant', temperature: 0.3, maxTokens: 500 },
-  models: [
-    { name: 'gemini-3-flash-preview', provider: 'google' },
-    { name: 'openai/gpt-5.4-nano', provider: 'openrouter' },
-  ],
+  name: 'arithmetic',
+  stimulus: {
+    role: 'precise assistant',
+    instructions: ['Return only the answer'],
+    temperature: 0,
+  },
+  models: [{ provider: 'ollama', name: 'gemma3:4b' }],
   tasks: [{
-    id: 'q1',
-    prompt: 'What is 2+2?',
+    id: 'two-plus-two',
+    prompt: 'What is 2 + 2?',
     maxScore: 1,
-    verify: (r) => ({ score: r.trim() === '4' ? 1 : 0, details: r.trim() }),
+    verify: response => ({
+      score: response.trim() === '4' ? 1 : 0,
+      details: response.trim(),
+    }),
   }],
 });
 
-suite.run();
+await suite.run();
 ```
+
+Run the suite itself:
 
 ```bash
-dotenvx run -- pnpm tsx my-eval.ts          # run it
-dotenvx run -- pnpm tsx my-eval.ts --all    # use allModels list
-dotenvx run -- pnpm tsx my-eval.ts --new    # fresh run
+dotenvx run -- pnpm tsx path/to/arithmetic.ts
+dotenvx run -- pnpm tsx path/to/arithmetic.ts --new
 ```
 
-Two scoring modes: **VerifyTask** (deterministic `verify()` function) and **JudgeTask** (LLM judge with Zod schema). See [Creating Evaluations](/guide/creating-evaluations) for full details and examples.
+Use deterministic `verify()` scoring whenever the criterion can be encoded.
+Use a `JudgeTask` only when quality requires interpretation. Both paths save
+scored task records under `output/evaluations/{suite}/runs/{NNN}/` and resume
+cached work.
 
-## CLI Evaluation
+## Standard full benchmark
 
-### Simple Model Comparison
-
-```bash
-pnpm run cli -- eval run \
-  --prompt "Explain machine learning in simple terms" \
-  --models "ollama:gemma3:12b,google:gemini-3-flash-preview,openrouter:openai/gpt-4o-mini" \
-  --id "ml-explanation" \
-  --concurrent
-```
-
-### With System Context
-
-```bash
-pnpm run cli -- eval run \
-  --prompt "Explain quantum computing applications" \
-  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
-  --id "quantum-apps" \
-  --system "You are a physics professor explaining to undergraduate students" \
-  --temperature 0.3
-```
-
-## Advanced Features
-
-### Interactive UI Mode
-
-Watch evaluations in real-time:
-
-```bash
-pnpm run cli -- eval run \
-  --prompt "Write a creative story about AI" \
-  --models "ollama:gemma3:12b,google:gemini-3-flash-preview" \
-  --id "ai-story" \
-  --ui \
-  --concurrent
-```
-
-### File Attachments
-
-Test multimodal capabilities:
-
-```bash
-pnpm run cli -- eval run \
-  --prompt "Analyze this document and extract key insights" \
-  --models "google:gemini-3-flash-preview,google:gemini-2.5-pro-exp-03-25" \
-  --id "document-analysis" \
-  --attach "./documents/report.pdf" \
-  --concurrent
-```
-
-## Evaluation Options
-
-### Core Parameters
-- `--prompt`: The prompt to evaluate (required)
-- `--models`: Comma-separated models in `provider:model` format (required)
-- `--id`: Unique evaluation identifier (required)
-- `--system`: Optional system prompt
-- `--temperature`: Temperature for generation (0.0-2.0)
-- `--timeout`: Timeout in milliseconds (minimum 1000ms)
-
-### Advanced Options
-- `--resume`: Re-run existing responses (default: false)
-- `--attach`: Comma-separated file paths to attach
-- `--ui`: Use interactive UI with streaming responses
-- `--concurrent`: Enable concurrent evaluation for faster processing
-- `--max-concurrency <number>`: Maximum concurrent evaluations (1-20, default: 3)
-
-## Report Generation
-
-### Generate Reports
-
-```bash
-# Markdown report (default)
-pnpm run cli -- eval report --id ml-explanation
-
-# HTML report with rich formatting
-pnpm run cli -- eval report --id quantum-apps --format html --output report.html
-
-# CSV export for analysis
-pnpm run cli -- eval report --id ai-story --format csv --output results.csv
-
-# JSON for programmatic use
-pnpm run cli -- eval report --id document-analysis --format json
-```
-
-### List Evaluations
-
-```bash
-# List all evaluations
-pnpm run cli -- eval list
-
-# Show detailed information
-pnpm run cli -- eval list --details
-
-# JSON format for scripting
-pnpm run cli -- eval list --json
-```
-
-## Best Practices
-
-### Model Selection
-- Start with free Ollama models for development
-- Use Google Gemini 2.0 Flash for production (cost-effective)
-- Reserve premium models (GPT-4o) for critical quality needs
-- Use multiple models for comparison and validation
-
-### Prompt Design
-- Be specific about desired output format and length
-- Include context about target audience when relevant
-- Use system prompts to set role and expertise level
-- Test with different temperature values for creativity vs consistency
-
-### Performance Optimization
-- Use `--concurrent` for faster multi-model evaluation (3-5x speedup)
-- Set appropriate `--timeout` for complex prompts
-- Use `--ui` for long-running evaluations to monitor progress
-- Enable `--resume` for reliability with large evaluation sets
-
-## Pairwise Ranking
-
-After running an evaluation, you can rank the results head-to-head using an LLM judge with Elo ratings. The `PairwiseRanker` class (`packages/evaluation/src/evaluation/ranking/pairwise-ranker.ts`) handles pairing, judging, position-bias mitigation, and caching.
+`runFullEval()` is the canonical composition used by the local-provider matrix.
+It runs selected suites sequentially while each `EvalSuite` controls its own
+task concurrency.
 
 ```typescript
-import { PairwiseRanker, evaluationResultsToRankingEntries } from './evaluation/evaluation/ranking/index.js';
+import { runFullEval } from '@umwelten/evaluation';
 
-const entries = evaluationResultsToRankingEntries(evalResult);
-const ranker = new PairwiseRanker(entries, {
-  judgeModel: { name: 'anthropic/claude-haiku-4.5', provider: 'openrouter' },
-  judgeInstructions: ['Compare these responses. Which is more helpful and accurate?'],
-  pairingMode: 'swiss',
-  swissRounds: 5,
-  cacheDir: './output/rankings/my-ranking',
+const result = await runFullEval(
+  { provider: 'ollama', name: 'qwen3:8b' },
+  {
+    only: ['language', 'coding', 'tool-calling'],
+    perTaskTimeoutMs: 300_000,
+    signal: abortController.signal,
+  },
+);
+```
+
+The abort signal reaches the underlying model call, so a harness timeout does
+not leave generation running after a model is evicted.
+
+## Ranking and aggregation
+
+`PairwiseRanker` consumes existing responses and ranks them through cached,
+position-randomized judge comparisons. See [Pairwise Ranking](./pairwise-ranking.md).
+
+Multi-dimension reporting is also post-processing: each benchmark runs and
+caches independently, then an executable report script loads `EvalDimension[]`:
+
+```typescript
+import {
+  loadSuite,
+  buildSuiteReport,
+  Reporter,
+  type EvalDimension,
+} from '@umwelten/evaluation';
+
+const dimensions: EvalDimension[] = [{
+  evalName: 'arithmetic',
+  label: 'Arithmetic',
+  maxScore: 10,
+  extractScore: result => result.score ?? 0,
+}];
+
+const report = buildSuiteReport(loadSuite(dimensions), {
+  title: 'Capability report',
 });
 
-const output = await ranker.rank();
-for (const r of output.rankings) {
-  console.log(`${r.model} — Elo ${r.elo} (${r.wins}W/${r.losses}L/${r.ties}T)`);
-}
+console.log(new Reporter().toMarkdown(report));
 ```
 
-See the full [Pairwise Ranking Guide](/guide/pairwise-ranking) for configuration details and the [Pairwise Ranking Example](/examples/pairwise-ranking) for a complete walkthrough.
+The reference implementation is
+`examples/model-showdown/generate-report.ts`; it renders console, Markdown,
+JSON, or a narrative writeup from cached suite results.
 
-## Combining Multiple Evaluations
+## Evaluation best practices
 
-When you have multiple evaluations that test different capabilities, use `eval combine` to aggregate them into a unified leaderboard.
-
-### Define a Suite Configuration
-
-Create a TypeScript file that defines how to read each evaluation's results:
-
-```typescript
-import type { EvalDimension } from './evaluation/evaluation/combine/types.js';
-
-export const MY_SUITE: EvalDimension[] = [
-  {
-    evalName: 'my-eval-reasoning',
-    label: 'Reasoning',
-    maxScore: 20,
-    extractScore: (r) => r.judge?.reasoning_quality ?? 0,
-    hasResultsSubdir: true,
-  },
-  {
-    evalName: 'my-eval-knowledge',
-    label: 'Knowledge',
-    maxScore: 30,
-    extractScore: (r) => r.correct ? 1 : 0,
-  },
-];
-```
-
-### Generate Combined Reports
-
-```bash
-# Console leaderboard
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts
-
-# Structured markdown
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format md
-
-# Full narrative writeup with methodology, analysis, and judge explanations
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
-
-# Focus on specific models
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format md --focus nemotron qwen
-```
-
-The combine system:
-- Reads result JSON files from each eval's `output/evaluations/{name}/runs/` directory
-- Extracts scores using the dimension's `extractScore` function
-- Normalizes each dimension to 0–100%, then averages across dimensions
-- Only includes models present in ALL dimensions
-- Preserves raw data for detailed per-task breakdowns and judge explanations
-
-For a complete walkthrough, see [Building a Multi-Dimension Model Showdown](/walkthroughs/model-showdown).
+1. Keep prompts, scoring, model selection, and report dimensions in versioned
+   TypeScript—not shell history.
+2. Prefer deterministic verification; document judge rubrics and pin the judge
+   model when an LLM judge is necessary.
+3. Preserve raw model responses and usage metadata before deriving scores.
+4. Resume cached runs by default and use `--new` only when methodology or model
+   configuration changes.
+5. Run dimensions independently; aggregate only models with comparable data.
+6. Label hardware-specific watchdogs and container builders as harness policy,
+   not evaluation semantics.
 
 ## Examples
 
-For comprehensive examples, see:
-- [Text Generation](/examples/text-generation) - Basic model comparison
-- [Creative Writing](/examples/creative-writing) - Temperature and creativity testing
-- [Analysis & Reasoning](/examples/analysis-reasoning) - Complex reasoning tasks
-- [Cost Optimization](/examples/cost-optimization) - Budget-conscious evaluation
-- [Pairwise Ranking](/examples/pairwise-ranking) - Head-to-head Elo ranking via LLM judge
-- [Model Showdown](/walkthroughs/model-showdown) - Multi-dimension evaluation suite with combined reporting
+- `examples/evals/` — smallest supported suites.
+- `examples/model-showdown/` — independent dimensions and report generation.
+- `examples/local-providers/` — experimental local runtime matrix.
 
-## Next Steps
-
-- Try [batch processing](/guide/batch-processing) for multiple files
-- Explore [structured output](/guide/structured-output) for data extraction
-- Learn [cost analysis](/guide/cost-analysis) for budget optimization
-- Use [pairwise ranking](/guide/pairwise-ranking) for head-to-head model comparison
-- Build [multi-dimension suites](/walkthroughs/model-showdown) with combined reporting
+See [Creating Evaluations](./creating-evaluations.md) for task definitions and
+[Evaluation architecture](../architecture/evaluation-framework.md) for the
+core/auxiliary boundary.

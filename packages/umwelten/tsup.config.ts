@@ -11,11 +11,12 @@ import { defineConfig } from "tsup";
  * the split stays an implementation detail we can rearrange without a release.
  *
  * So every `@umwelten/*` import is inlined here, and every third-party import
- * stays external and is declared in `dependencies` — the same shape 0.4.12 has.
+ * stays external and is declared in `dependencies` — preserving the published
+ * package shape.
  */
 export default defineConfig({
   entry: {
-    // Matches 0.4.12's layout exactly, including `bin` → dist/cli/entry.js, so
+    // Preserve the published layout, including `bin` → dist/cli/entry.js, so
     // an existing global install upgrades in place rather than moving its
     // executable.
     index: "src/index.ts",

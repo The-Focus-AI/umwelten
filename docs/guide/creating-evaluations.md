@@ -13,7 +13,7 @@ This guide covers how to create evaluations using the umwelten framework. The re
 ```typescript
 import '@umwelten/core/env/load.js';
 import { z } from 'zod';
-import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation';
 
 const suite = new EvalSuite({
   name: 'car-wash-test',
@@ -76,7 +76,7 @@ The suite automatically:
 For tasks where you can write a `verify(response) → { score, details }` function. No LLM judge needed — fast, free, and reproducible.
 
 ```typescript
-import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation';
 
 const suite = new EvalSuite({
   name: 'instruction-eval',
@@ -136,7 +136,7 @@ For tasks where scoring requires understanding (reasoning quality, creative writ
 
 ```typescript
 import { z } from 'zod';
-import { EvalSuite } from '@umwelten/evaluation/evaluation/suite.js';
+import { EvalSuite } from '@umwelten/evaluation';
 
 const judgeSchema = z.object({
   reasoning_quality: z.coerce.number().min(1).max(5).describe('1=missed, 3=partial, 5=perfect'),
@@ -222,9 +222,11 @@ CLI flags handled automatically:
 - `--new` — force a fresh run (new run directory)
 - `--run N` — resume a specific run number
 
-## Lower-Level Building Blocks
+## Internal Building Block
 
-For cases where `EvalSuite` doesn't fit, three lower-level strategies are available in `packages/evaluation/src/evaluation/strategies/`:
+`SimpleEvaluation` sends one prompt to multiple models with caching. It is what
+`EvalSuite` uses internally. It remains a deep internal API; prefer composing
+tasks or suites unless you are changing evaluation infrastructure itself.
 
 ### SimpleEvaluation
 
@@ -243,15 +245,9 @@ const evaluation = new SimpleEvaluation(stimulus, models, prompt, cache, {
 const results = await evaluation.run();
 ```
 
-### MatrixEvaluation
-
-Compare multiple models on the same test cases.
-
-### BatchEvaluation
-
-Process multiple inputs with the same model.
-
-These are useful when you need fine-grained control over execution, custom caching strategies, or integration with other systems.
+The former `MatrixEvaluation` and `BatchEvaluation` classes no longer exist.
+Represent a batch as an array of tasks and generate a matrix by iterating data
+when constructing those tasks or model configurations.
 
 ## Post-Processing
 
@@ -260,7 +256,7 @@ These are useful when you need fine-grained control over execution, custom cachi
 After generating responses with any strategy, rank them head-to-head using the `PairwiseRanker`:
 
 ```typescript
-import { PairwiseRanker, evaluationResultsToRankingEntries } from './evaluation/evaluation/ranking/index.js';
+import { PairwiseRanker, evaluationResultsToRankingEntries } from '@umwelten/evaluation';
 
 const entries = evaluationResultsToRankingEntries(evalResult);
 
@@ -288,13 +284,18 @@ const output = await ranker.rank();
 
 See the [Pairwise Ranking Guide](/guide/pairwise-ranking) for detailed configuration and the [API Reference](/api/pairwise-ranking) for type definitions.
 
-### Multi-Dimension Suites (eval combine)
+### Multi-Dimension Suites
 
-Run several evaluations independently, then combine them into a unified leaderboard using the `eval combine` system. Each evaluation becomes a "dimension" in the combined report.
+Run several evaluations independently, then combine their cached results into a
+unified leaderboard. Each evaluation becomes a dimension in the report.
 
 ```typescript
-import type { EvalDimension } from './evaluation/evaluation/combine/types.js';
-import { loadSuite, buildSuiteReport, buildNarrativeReport } from './evaluation/evaluation/combine/index.js';
+import {
+  loadSuite,
+  buildSuiteReport,
+  buildNarrativeReport,
+  type EvalDimension,
+} from '@umwelten/evaluation';
 
 const MY_SUITE: EvalDimension[] = [
   { evalName: 'my-accuracy-eval', label: 'Accuracy', maxScore: 100,
@@ -307,10 +308,10 @@ const result = loadSuite(MY_SUITE);
 const narrative = buildNarrativeReport(result, { title: 'My Combined Report' });
 ```
 
-Or via the CLI:
+Use an executable report script, as in `examples/model-showdown/generate-report.ts`:
 
 ```bash
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
+pnpm tsx examples/model-showdown/generate-report.ts --format narrative --output report.md
 ```
 
 **When to use:**
@@ -335,7 +336,7 @@ For multi-dimension suites, see `examples/model-showdown/` and the [Model Showdo
 
 ## Related Documentation
 
-- [Model Evaluation](model-evaluation.md) — CLI commands and eval combine
+- [Model Evaluation](model-evaluation.md) — execution, aggregation, and reporting
 - [Pairwise Ranking](pairwise-ranking.md) — Head-to-head Elo ranking
 - [Writing Scripts](writing-scripts.md)
 - [Stimulus Templates](stimulus-templates.md)

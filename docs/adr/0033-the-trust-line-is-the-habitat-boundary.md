@@ -1,7 +1,13 @@
 # 0033 — The trust line is the habitat boundary
 
-Status: **Accepted — not yet implemented**
+Status: **Accepted — partially implemented**
 Date: 2026-08-23
+
+Implementation note (2026-08-29): Foreign components mount in sandboxed
+iframes and communicate mount status/height through a source-filtered beacon.
+The host still assumes rather than enforces that a projection is cross-origin;
+same-origin and redirect validation remains required before this ADR is fully
+implemented.
 
 > Pinned in the same grilling session as ADR 0031 — interfaces and internals
 > compose on the substrate.

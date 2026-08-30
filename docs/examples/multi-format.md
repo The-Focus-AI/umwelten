@@ -1,5 +1,7 @@
 # Multi-Format Processing
 
+> **Legacy example:** The former report CLI is not part of v0.5. Use executable processing scripts and the current report APIs.
+
 Process different file formats with appropriate models and extraction techniques. This example demonstrates handling various file types including images, PDFs, and text files with optimal model selection.
 
 ## Overview

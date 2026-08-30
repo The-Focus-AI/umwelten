@@ -1,5 +1,7 @@
 # Troubleshooting
 
+> **Legacy CLI reference:** Several evaluation commands below predate v0.5. Confirm current options with `umwelten eval run --help` and [Model Evaluation](/guide/model-evaluation).
+
 Common issues and solutions when using Umwelten for AI model evaluation and interaction.
 
 ## Installation and Setup Issues

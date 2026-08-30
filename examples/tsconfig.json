@@ -22,5 +22,15 @@
     "typeRoots": ["../node_modules/@types", "../packages/core/node_modules/@types"],
     "types": ["node"]
   },
-  "include": ["supplier-agent/**/*.ts", "mycel-metering/**/*.ts", "mycel-e2e/**/*.ts"]
+  "include": [
+    "evals/**/*.ts",
+    "model-showdown/generate-report.ts",
+    "model-showdown/suite-config.ts",
+    "local-providers/generate-report.ts",
+    "local-providers/suite-config.ts",
+    "local-providers/suite-config-llm-eval.ts",
+    "supplier-agent/**/*.ts",
+    "mycel-metering/**/*.ts",
+    "mycel-e2e/**/*.ts"
+  ]
 }

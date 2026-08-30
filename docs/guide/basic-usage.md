@@ -1,5 +1,7 @@
 # Basic Usage
 
+> **Legacy CLI reference:** This page predates v0.5. Use [Model Evaluation](/guide/model-evaluation) for the supported `eval run` options and `EvalSuite` workflow.
+
 Learn the fundamental commands and workflows for using Umwelten effectively. This guide covers the essential operations you'll use most frequently.
 
 ## Quick Start

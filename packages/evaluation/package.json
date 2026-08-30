@@ -14,7 +14,7 @@
       "import": "./src/*.ts"
     }
   },
-  "description": "Model evaluation, ranking, reporting, and session introspection",
+  "description": "Model evaluation, ranking, aggregation, and reporting",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -32,7 +32,6 @@
     "@ai-sdk/provider": "^4.0.4",
     "@ai-sdk/provider-utils": "^5.0.14",
     "@umwelten/core": "workspace:*",
-    "@umwelten/sessions": "workspace:*",
     "ai": "^7.0.41",
     "zod": "^4.4.3"
   },

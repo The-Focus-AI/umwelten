@@ -1,5 +1,7 @@
 # Configuration
 
+> **Legacy CLI reference:** Some evaluation flags below predate v0.5. See [Model Evaluation](/guide/model-evaluation) for the supported CLI and suite configuration.
+
 Configure Umwelten for optimal performance with API keys, environment variables, and custom settings. Learn how to set up authentication, customize behavior, and manage different environments.
 
 ## Quick Setup

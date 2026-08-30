@@ -1,18 +1,13 @@
 # Releasing umwelten
 
-A point release ships every workspace package to npm via a single git tag.
-CI does the actual publish; humans do the version bump and tag push.
+A release ships the bundled `umwelten` package to npm from a single git tag.
+CI does the actual build and publish; humans do the version bump and tag push.
 
 ## What's published
 
-All `@umwelten/*` packages plus the `umwelten` meta package are public on
-npm. Eight packages publish in lockstep — they share the same version
-number, set in each package's `package.json`. The meta package
-`umwelten` re-exports the rest and is the one most users install
-(`npm i -g umwelten`).
-
-`workspace:*` deps between packages are rewritten to the concrete
-version at publish time by `pnpm publish` — you don't need to edit them.
+Only `packages/umwelten` is published. The ten `@umwelten/*` workspace
+packages are private source-organization boundaries; tsup inlines them into
+the self-contained `umwelten` distribution that users install.
 
 ## The cut process
 
@@ -31,23 +26,24 @@ We follow semver loosely:
 - **Major** (`0.x.y` → `1.0.0`): only when we deliberately decide the
   API surface is stable.
 
-### 2. Bump every package
+### 2. Bump the published package
 
 From the repo root:
 
 ```bash
-NEW=0.4.13   # set to the version you picked
-pnpm -r --filter='./packages/*' exec npm version "$NEW" --no-git-tag-version
+NEW=0.5.0   # set to the version you picked
+pnpm --filter umwelten exec npm version "$NEW" --no-git-tag-version
 ```
 
-This bumps every package's `package.json` in place; `--no-git-tag-version`
-prevents npm from making nested git tags. Verify:
+This bumps the published package in place; `--no-git-tag-version` prevents npm
+from making a git tag. Verify:
 
 ```bash
 git diff --stat packages/*/package.json
 ```
 
-All eight files should show the same one-line version bump.
+Only `packages/umwelten/package.json` should receive a version bump. Internal
+private package versions are not release versions.
 
 ### 3. Run the gates locally
 
@@ -75,17 +71,15 @@ Watch the Actions tab on GitHub. The workflow:
 2. Installs deps with the frozen lockfile
 3. Runs the unit suite
 4. Runs `pnpm -r publish --access public --no-git-checks --provenance`,
-   which iterates every non-private package and publishes it to npm
+   which skips private workspaces and publishes the bundled package
 
-If you only see `umwelten` (the meta package) appear on npm and not the
-sub-packages, look at the workflow logs — `pnpm -r publish` is the line
-to check.
+Seeing only `umwelten` on npm is expected; all `@umwelten/*` workspaces are
+private and bundled.
 
 ### 5. Verify
 
 ```bash
 npm view umwelten version          # should equal $NEW
-npm view @umwelten/core version    # should equal $NEW
 ```
 
 ## When things go wrong
@@ -111,8 +105,8 @@ The publish step doesn't run. To re-release:
 
 ### One package needs a hotfix between releases
 
-We don't support out-of-lockstep package versions. Bump everyone to the
-next patch (`0.4.13` → `0.4.14`) even if only one package changed.
+Bump `umwelten` to the next patch. Internal private package versions do not
+need to move for a release.
 
 ### Need to publish manually (e.g. CI is down)
 
@@ -128,7 +122,7 @@ scope.
 
 ## Version-bump checklist
 
-- [ ] All eight `package.json` files match the new version
+- [ ] `packages/umwelten/package.json` has the new version
 - [ ] `pnpm install` re-ran so the lockfile reflects the bumps
 - [ ] `pnpm test:run` passed locally
 - [ ] One `chore(release): v$NEW` commit (no other changes mixed in)

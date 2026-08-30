@@ -1,5 +1,7 @@
 # Simple Text Generation
 
+> **Legacy example:** Some CLI/report options below predate v0.5. See [Model Evaluation](/guide/model-evaluation) for the supported command surface.
+
 This example demonstrates basic text generation and model comparison using Umwelten. These patterns are fundamental to most evaluation workflows and show how to systematically test model capabilities.
 
 ## Basic Text Generation

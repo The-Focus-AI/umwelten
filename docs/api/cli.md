@@ -101,23 +101,20 @@ pnpm run cli -- chat --provider google --model gemini-3-flash-preview
 - `--model <model>`: Model to use (required)
 - `--temperature <number>`: Model temperature
 
-### `eval`
+### `eval run`
 
-Run model evaluations.
+Run one prompt across multiple models with response caching:
 
 ```bash
-# Run a one-shot evaluation across multiple models
-pnpm run cli -- eval run \
-  --prompt "Your prompt" \
-  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-4o" \
-  --id "my-eval" --concurrent
-
-# Or run an EvalSuite-based example directly with tsx
-dotenvx run -- pnpm tsx examples/evals/car-wash.ts
+npx umwelten eval run \
+  --prompt "Write a haiku about recursion" \
+  --models "ollama:qwen3:30b-a3b,openrouter:openai/gpt-5.4" \
+  --id "local-vs-cloud" --concurrent
 ```
 
-See `examples/evals/` for runnable evaluation examples and `eval run --help`
-for the full option list.
+Supported options are `--max-concurrency`, `--system`, `--temperature`,
+`--new`, and `--json`. Use `EvalSuite` scripts for scored, repeatable
+benchmarks and report scripts for aggregation.
 
 ### `sessions`
 

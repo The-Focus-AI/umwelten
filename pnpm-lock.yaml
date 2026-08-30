@@ -226,9 +226,6 @@ importers:
       '@umwelten/core':
         specifier: workspace:*
         version: link:../core
-      '@umwelten/sessions':
-        specifier: workspace:*
-        version: link:../sessions
       ai:
         specifier: ^7.0.41
         version: 7.0.41(zod@4.4.3)
