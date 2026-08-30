@@ -17,11 +17,9 @@ cd umwelten && pnpm install && cp env.template .env
 # Start an agent environment
 npx umwelten habitat
 
-# Same prompt, multiple providers, one command
-npx umwelten eval run \
-  --prompt "Explain why the sky is blue" \
-  --models "google:gemini-3-flash-preview,openrouter:openai/gpt-5.4-nano" \
-  --id "sky-test" --concurrent
+# Run one prompt through a provider/model
+npx umwelten run "Explain why the sky is blue" \
+  --provider google --model gemini-3-flash-preview
 
 # 76% of models fail this common-sense question
 dotenvx run -- pnpm tsx examples/evals/car-wash.ts
@@ -44,12 +42,14 @@ const interaction = new Interaction(
   { name: "gemini-3-flash-preview", provider: "google" },
   stimulus,
 );
-const reply = await interaction.chat("Hello");
+interaction.addMessage({ role: "user", content: "Hello" });
+const reply = await interaction.generateText();
 
 // Build an agent environment
 const habitat = await Habitat.create({ workDir: "./my-agent" });
 const { interaction: ix } = await habitat.createInteraction();
-await ix.chat("List my agents");
+ix.addMessage({ role: "user", content: "List my agents" });
+await ix.generateText();
 
 // Evaluate models
 const suite = new EvalSuite({
@@ -106,12 +106,12 @@ Build your own multi-user MCP server with Habitat: see [`examples/oura-mcp/`](ex
 
 ## Session digestion
 
-Your Habitat reads Claude Code and Cursor history — every session, every tool call, every solution. Index with AI, search semantically, extract learnings.
+Your Habitat reads Claude Code and Cursor history — every session, every tool call, every solution. Digest with AI, search full text, extract learnings.
 
 ```bash
 npx umwelten sessions list                           # see your sessions
 npx umwelten sessions index                          # AI-index everything
-npx umwelten sessions search "authentication"        # semantic search
+npx umwelten sessions search "authentication"        # full-content search
 npx umwelten sessions browse                         # interactive browser
 ```
 
@@ -135,12 +135,16 @@ Monorepo managed with [pnpm workspaces](https://pnpm.io/workspaces). Each packag
 ```
 packages/
   core/          @umwelten/core       — model runners, stimulus, interaction, providers, context, memory
-  server/        @umwelten/server     — MCP server/client, OAuth, remote tool bridge
-  habitat/       @umwelten/habitat    — agent container, tools, sessions, Gaia orchestrator, web/A2A server
-  evaluation/    @umwelten/evaluation — EvalSuite, PairwiseRanker, reporting, session introspection
+  protocols/     @umwelten/protocols  — MCP, A2A, OAuth, protocol task storage
+  substrate/     @umwelten/substrate  — reversible Components, Services, Shell composition
+  habitat/       @umwelten/habitat    — agent container, tools, Gaia, web/A2A/MCP server
+  sessions/      @umwelten/sessions   — session search, browse, digest commands
+  evaluation/    @umwelten/evaluation — EvalSuite, ranking, aggregation, reporting
   ui/            @umwelten/ui         — Telegram, Discord, TUI adapters
+  mycel/         @umwelten/mycel      — the Exchange: dispatch, metering, balances
+  supplier/      @umwelten/supplier   — supplier discovery, probing, publishing, serving
   cli/           @umwelten/cli        — umwelten CLI commands
-  umwelten/      umwelten             — meta-package re-exporting everything
+  umwelten/      umwelten             — published compatibility/meta-package
 examples/
   evals/           — EvalSuite examples (car-wash, reasoning, instruction)
   model-showdown/  — multi-dimension eval suite
@@ -148,6 +152,9 @@ examples/
   umwelten-web-demo/ — React + useChat reference app
   habitat-minimal/ — minimal Habitat work-dir
 ```
+
+See the [current architecture map](docs/architecture/system-map-2026-08.md)
+for runtime flows, the Gaia/SaaS boundary, old/new paths, and cleanup priorities.
 
 ## License
 

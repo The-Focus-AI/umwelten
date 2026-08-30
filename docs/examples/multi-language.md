@@ -1,5 +1,7 @@
 # Multi-Language Processing
 
+> **Legacy example:** Some CLI/report options below predate v0.5. Use `eval run` only for ad-hoc prompts and `EvalSuite` for scored comparisons.
+
 Process content in multiple languages with language detection, translation, and cross-lingual analysis. This example demonstrates working with international content using AI models with strong multilingual capabilities.
 
 ## Overview

@@ -353,98 +353,11 @@ stimulus.getPrompt();     // Returns the assembled system prompt string
 stimulus.getTools();      // Returns the tools record
 ```
 
-## EvaluationRunner
+## Evaluation
 
-Abstract base class for building evaluation workflows with caching, multiple model support, and result management.
-
-### Import
-```typescript
-import { EvaluationRunner } from './evaluation/evaluation/runner.js';
-```
-
-### Basic Usage
-
-Extend `EvaluationRunner` to create custom evaluation logic:
-
-```typescript
-import { EvaluationRunner } from './evaluation/evaluation/runner.js';
-import { ModelDetails, ModelResponse } from './core/cognition/types.js';
-import { BaseModelRunner } from './core/cognition/runner.js';
-import { Stimulus } from './core/stimulus/stimulus.js';
-import { Interaction } from './core/interaction/core/interaction.js';
-
-class CustomEvaluationRunner extends EvaluationRunner {
-  constructor() {
-    super('custom-evaluation-id');
-  }
-
-  async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const stimulus = new Stimulus({
-      role: "expert analyst",
-      objective: "perform analysis"
-    });
-
-    const interaction = new Interaction(model, stimulus);
-    interaction.addMessage({
-      role: 'user',
-      content: 'Perform your analysis task here'
-    });
-
-    const runner = new BaseModelRunner();
-    return runner.generateText(interaction);
-  }
-}
-
-const evaluation = new CustomEvaluationRunner();
-await evaluation.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
-```
-
-### Data Caching
-
-Cache expensive operations to avoid repeated work:
-
-```typescript
-class WebScrapingEvaluation extends EvaluationRunner {
-  constructor() {
-    super('web-scraping-eval');
-  }
-
-  async getWebData(): Promise<string> {
-    return this.getCachedFile('scraped-data', async () => {
-      const response = await fetch('https://example.com/data');
-      return response.text();
-    });
-  }
-
-  async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const webData = await this.getWebData();
-
-    const stimulus = new Stimulus({
-      role: "web content analyst",
-      objective: "analyze web content"
-    });
-
-    const interaction = new Interaction(model, stimulus);
-    interaction.addMessage({ role: 'user', content: `Analyze: ${webData}` });
-
-    const runner = new BaseModelRunner();
-    return runner.generateText(interaction);
-  }
-}
-```
-
-### Multi-Model Evaluation
-
-```typescript
-const runner = new CustomEvaluationRunner();
-
-await runner.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
-await runner.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
-await runner.evaluate({ name: 'openai/gpt-4o-mini', provider: 'openrouter' });
-
-// Results are automatically organized in:
-// output/evaluations/<evaluation-id>/responses/<provider>_<model>.json
-```
+Evaluation is owned by `@umwelten/evaluation`, not a core runner subclass.
+Use `EvalSuite` for declarative cached/scored tasks and `runFullEval` for the
+standard benchmark composition. See the [Evaluation API](/api/evaluation-framework).
 
 ## Types and Interfaces
 

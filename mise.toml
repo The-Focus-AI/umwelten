@@ -159,7 +159,7 @@ run = "dotenvx run -- pnpm exec tsx examples/local-providers/run-quality.ts --ma
 [tasks."local-report"]
 description = "Local providers: combine cached results into markdown report"
 dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm run cli -- eval combine --config examples/local-providers/suite-config.ts --format md --output output/local-providers-report.md"
+run = "pnpm exec tsx examples/local-providers/generate-report.ts --format md --output output/local-providers-report.md"
 
 # ── Model showdown ──────────────────────────────────────────────────────
 

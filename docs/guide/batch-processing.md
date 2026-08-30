@@ -1,5 +1,7 @@
 # Batch Processing
 
+> **Legacy CLI reference:** The former `eval batch` command is not part of v0.5. Model batches are `EvalSuite` task arrays; see [Creating Evaluations](/guide/creating-evaluations).
+
 Learn how to process multiple files efficiently using Umwelten's batch processing capabilities with concurrent execution and intelligent error handling.
 
 ## Overview

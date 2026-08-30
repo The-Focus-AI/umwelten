@@ -215,21 +215,19 @@ dotenvx run -- pnpm tsx examples/model-showdown/generate-report.ts --format narr
 dotenvx run -- pnpm tsx examples/model-showdown/generate-report.ts --format narrative --output report.md
 ```
 
-### Via the CLI
+### Via the report script
 
 ```bash
 # Console tables
-dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
+pnpm tsx examples/model-showdown/generate-report.ts
 
 # Narrative report to file
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/model-showdown/suite-config.ts \
+pnpm tsx examples/model-showdown/generate-report.ts \
   --format narrative \
   --output report.md
 
 # Focus on specific models
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/model-showdown/suite-config.ts \
+pnpm tsx examples/model-showdown/generate-report.ts \
   --format md \
   --focus nemotron qwen
 ```
@@ -341,11 +339,11 @@ export const MY_SUITE: EvalDimension[] = [
 ];
 ```
 
-3. **Generate reports.** Use the CLI:
+3. **Generate reports.** Add an executable report script based on the reference:
 
 ```bash
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts
-dotenvx run -- pnpm run cli eval combine --config path/to/suite-config.ts --format narrative --output report.md
+pnpm tsx path/to/generate-report.ts
+pnpm tsx path/to/generate-report.ts --format narrative --output report.md
 ```
 
 Or programmatically:
@@ -474,20 +472,18 @@ dotenvx run -- pnpm tsx examples/model-showdown/generate-report.ts \
 #    This opens a styled HTML page in the browser. Print to PDF with Cmd+P.
 ```
 
-#### CLI (via eval combine command)
+#### Report script
 
 ```bash
 # Console output
-dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
+pnpm tsx examples/model-showdown/generate-report.ts
 
 # Narrative to file
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/model-showdown/suite-config.ts \
+pnpm tsx examples/model-showdown/generate-report.ts \
   --format narrative --output report.md
 
 # Focus on specific models
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/model-showdown/suite-config.ts \
+pnpm tsx examples/model-showdown/generate-report.ts \
   --format md --focus nemotron qwen
 ```
 

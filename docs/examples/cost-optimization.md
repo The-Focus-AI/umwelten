@@ -1,5 +1,7 @@
 # Cost Optimization Examples
 
+> **Legacy example:** `eval report` examples on this page predate v0.5. Use cached suite records and report scripts for current cost analysis.
+
 This example demonstrates how to use Umwelten for cost-effective AI model evaluation and optimization. These examples correspond to the migrated `google-pricing.ts` script and show how to compare costs, optimize spending, and make informed decisions about model selection.
 
 ## Basic Cost Comparison

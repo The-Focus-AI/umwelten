@@ -18,6 +18,23 @@ export type {
 	TaskResultRecord,
 } from "./evaluation/suite.js";
 
+// ── Standard LLM benchmark composition ────────────────────────────────
+export {
+	runFullEval,
+	makeLanguageSuite,
+	makeCodingSuite,
+	makeToolCallingSuite,
+} from "./evaluation/llm-eval/index.js";
+export type {
+	FullEvalOptions,
+	FullEvalResult,
+	SuiteRunResult,
+	LlmEvalSuiteName,
+	LanguageSuiteOptions,
+	CodingSuiteOptions,
+	ToolCallingSuiteOptions,
+} from "./evaluation/llm-eval/index.js";
+
 // ── Ranking ─────────────────────────────────────────────────────────────
 export {
 	PairwiseRanker,
@@ -58,4 +75,3 @@ export type {
 // ── Reporting ───────────────────────────────────────────────────────────
 export { Reporter } from "./reporting/reporter.js";
 export type { Report, ReportSection, ReportType } from "./reporting/types.js";
-

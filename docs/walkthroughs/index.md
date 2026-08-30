@@ -117,7 +117,7 @@ Build a comprehensive evaluation suite that tests models across 5 dimensions and
 
 - Define 5 evaluation dimensions (reasoning, knowledge, instruction, coding, MCP tool use)
 - Combine LLM-judged and deterministic scoring in one suite
-- Use the `eval combine` system for cross-evaluation aggregation
+- Generate cross-evaluation reports from cached suites
 - Generate narrative reports with per-dimension analysis and judge explanations
 - Compare cost efficiency and speed across providers
 

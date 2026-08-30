@@ -1,0 +1,79 @@
+# Umwelten — machine-oriented project map
+
+Umwelten is a TypeScript/pnpm monorepo for model interaction, agent Habitats,
+session reflection, model evaluation, and ecological resource exchange.
+
+Read first:
+- CONTEXT.md: canonical domain language and invariants.
+- CONTEXT-MAP.md: Umwelten vs Exchange bounded contexts.
+- docs/architecture/overview.md: concise current architecture.
+- docs/architecture/system-map-2026-08.md: current review, gaps, and roadmap.
+- CLAUDE.md and AGENTS.md: repository engineering instructions.
+
+Core concepts:
+- Stimulus: model role, instructions, tools, and generation options.
+- Interaction: one continuing model-facing conversation context.
+- Source Session: persisted conversation from Habitat, Claude Code, Cursor, pi,
+  Dialogue, or another adapter.
+- Exploration: one line of inquiry across one or more Source Sessions.
+- Reflection: an Interaction that reasons about other Interactions/Explorations.
+- Habitat: an agent environment with workdir, tools, skills, sessions, agents,
+  secrets, runtime runners, and multiple interfaces.
+- Gaia: a Habitat with fleet orchestration capabilities.
+- Substrate: composition runtime for reversible Components and reactive Services.
+- Mycel: deployment name for the separate Exchange bounded context.
+- Supplier: a party/runtime offering model capacity to the Exchange.
+
+Packages:
+- packages/substrate: context/effect lifecycle, Services, Components, isolation,
+  loader, and Shell serving.
+- packages/core: cognition, providers, Stimulus, Interaction, context/compaction,
+  Source Session adapters/records, reflection, promotion, and knowledge writers.
+- packages/protocols: MCP, A2A, OAuth, and protocol Task storage.
+- packages/habitat: Habitat runtime, ChannelBridge, tools, unified server, Shell,
+  provisioning, Gaia, A2A/MCP/web projections.
+- packages/sessions: session search/browse/digest application commands.
+- packages/ui: CLI interface, Ink TUI, Discord, and Telegram.
+- packages/evaluation: EvalSuite, ranking, aggregation, and report rendering.
+- packages/mycel: Exchange service, dispatch, metering, balances, client surface.
+- packages/supplier: discover/probe/publish/serve supplier workflow.
+- packages/cli: Commander composition root.
+- packages/umwelten: published bundled compatibility package.
+
+Primary runtime paths:
+1. Direct: caller -> Stimulus + Interaction -> BaseModelRunner -> provider.
+2. Habitat: channel -> ChannelBridge -> session/agent/runtime -> transcript.
+3. Network: startContainerServer -> /a2a, /mcp, /api/chat, /shell.
+4. Fleet: Gaia registry/vault/Docker -> managed Habitat containers.
+5. Exchange: Application -> Mycel dispatch -> Supplier -> model endpoint.
+
+Important boundaries:
+- The production Habitats SaaS is external. This repo contains clients and
+  contracts, not its primary frontend/backend.
+- Mycel code does not import Umwelten domain code. Core may call Mycel over HTTP.
+- Task, SaaS Run, and Source Session are distinct correlated records.
+- Foreign Components must remain behind the Habitat trust boundary.
+
+Extension mechanisms:
+- Preferred composition language: Substrate Component + Service.
+- Existing specialized mechanisms remain: ToolSet, TOOL.md handler, SKILL.md,
+  RuntimeRunner, connector, and MCP-agent manifest.
+- Do not rename every extension object Component; migrate registration and
+  teardown ownership through Component adapters where useful.
+
+Commands:
+- pnpm run cli -- run ...
+- pnpm run cli -- habitat ...
+- pnpm run cli -- browse
+- pnpm run cli -- sessions ...
+- pnpm run cli -- mcp ...
+- pnpm run cli -- supplier ...
+- pnpm run cli -- mycel ...
+- pnpm test:run
+- pnpm typecheck
+- pnpm lint
+- pnpm docs:build
+
+`umwelten eval run` handles cached, ad-hoc prompt comparisons. Scored
+evaluations and combined reports are script-driven; see examples/evals and
+examples/model-showdown/generate-report.ts.

@@ -1,5 +1,7 @@
 # PDF Analysis Examples
 
+> **Legacy example:** Attachment options shown below are not supported by v0.5 `eval run`; use the `Interaction` attachment API.
+
 This example demonstrates how to analyze PDF documents using Umwelten's vision-capable models. These examples correspond to the migrated `pdf-identify.ts` and `pdf-parsing.ts` scripts, showing how to test native PDF parsing capabilities across different models.
 
 ## Basic PDF Analysis

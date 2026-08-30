@@ -11,8 +11,7 @@ import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/type
  *   llm-eval-tool-calling → Tool Math (toolmath-*)
  *
  * Use:
- *   dotenvx run -- pnpm run cli eval combine \
- *     --config examples/local-providers/suite-config-llm-eval.ts \
+ *   pnpm tsx examples/local-providers/generate-report.ts --llm-eval \
  *     --format md --output output/local-providers-report.md
  */
 

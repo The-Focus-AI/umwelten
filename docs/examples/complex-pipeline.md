@@ -2,7 +2,8 @@
 
 This guide covers building **multi-dimension evaluation pipelines** — the actual way to compose multiple evaluations into a unified model comparison in umwelten.
 
-Instead of a single monolithic evaluation, you run independent evaluations (each using `EvalSuite`), then combine their results with `eval combine` to produce leaderboards and narrative reports.
+Instead of a single monolithic evaluation, run independent `EvalSuite`s, then
+load their cached results from an executable report script.
 
 ## Overview
 
@@ -10,7 +11,7 @@ The workflow has three steps:
 
 1. **Run independent evaluations** — each one tests a specific capability (reasoning, coding, instruction-following, etc.)
 2. **Define an `EvalDimension[]` suite config** — maps evaluation names to labels, max scores, and score extractors
-3. **Combine with `eval combine`** — loads results from disk, builds per-model scorecards, and generates reports
+3. **Generate a report** — load results from disk, build per-model scorecards, and render the selected format
 
 ## Step 1: Run Individual Evaluations
 
@@ -29,7 +30,7 @@ Results are written to `output/evaluations/{eval-name}/runs/{NNN}/` as JSON file
 Create a TypeScript file that exports an `EvalDimension[]`. Each dimension maps to one evaluation's output directory and tells the combiner how to extract scores.
 
 ```typescript
-import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/types.js';
+import type { EvalDimension } from '@umwelten/evaluation';
 
 export const SHOWDOWN_SUITE: EvalDimension[] = [
   {
@@ -81,22 +82,17 @@ export const SHOWDOWN_SUITE: EvalDimension[] = [
 
 ```bash
 # Console table (default)
-dotenvx run -- pnpm run cli -- eval combine \
-  --config examples/model-showdown/suite-config.ts
+pnpm tsx examples/model-showdown/generate-report.ts
 
 # Markdown report
-dotenvx run -- pnpm run cli -- eval combine \
-  --config examples/model-showdown/suite-config.ts \
-  --format md
+pnpm tsx examples/model-showdown/generate-report.ts --format md
 
 # Full narrative report with methodology and analysis
-dotenvx run -- pnpm run cli -- eval combine \
-  --config examples/model-showdown/suite-config.ts \
+pnpm tsx examples/model-showdown/generate-report.ts \
   --format narrative --output report.md
 
 # Focus on a specific model
-dotenvx run -- pnpm run cli -- eval combine \
-  --config examples/model-showdown/suite-config.ts \
+pnpm tsx examples/model-showdown/generate-report.ts \
   --format md --focus gemini
 ```
 

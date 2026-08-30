@@ -7,6 +7,11 @@ export default defineConfig({
   description: "Build agent environments that observe, measure, and understand themselves",
   base: '/',
   ignoreDeadLinks: true,
+  vite: {
+    server: {
+      allowedHosts: ['.onamp.dev'],
+    },
+  },
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico' }]
   ],
@@ -18,6 +23,7 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Examples', link: '/examples/' },
       { text: 'Walkthroughs', link: '/walkthroughs/' },
+      { text: 'Architecture', link: '/architecture/overview' },
       { text: 'Migration', link: '/migration/' },
       { text: 'API', link: '/api/overview' }
     ],
@@ -137,10 +143,7 @@ export default defineConfig({
         {
           text: 'Evaluation',
           items: [
-            { text: 'EvalSuite Examples', link: '/examples/comprehensive-analysis' },
-            { text: 'Simple Evaluation', link: '/examples/simple-evaluation' },
-            { text: 'Matrix Evaluation', link: '/examples/matrix-evaluation' },
-            { text: 'Batch Evaluation', link: '/examples/batch-evaluation' },
+            { text: 'EvalSuite Examples', link: '/guide/creating-evaluations' },
             { text: 'Multi-Dimension Suite', link: '/examples/complex-pipeline' },
             { text: 'Pairwise Ranking', link: '/examples/pairwise-ranking' }
           ]

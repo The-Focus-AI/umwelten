@@ -7,16 +7,16 @@ Comprehensive reference for Umwelten's TypeScript API, showing how to build cust
 ### Core APIs
 - **[Stimulus + Interaction Pattern](/api/interaction-interface-pattern)**: The core pattern — Stimulus defines behavior, Interaction manages conversations
 - **[Cognition Module](/api/cognition)**: Model execution runners (generateText, streamText, generateObject, streamObject)
-- **[Core Classes](/api/core-classes)**: Essential classes — BaseModelRunner, Interaction, EvaluationRunner
+- **[Core Classes](/api/core-classes)**: Essential classes — BaseModelRunner, Interaction, and Stimulus
 - **[Providers](/api/providers)**: Working with Google, OpenRouter, Ollama, LM Studio, LlamaBarn, llama-swap, GitHub Models, Fireworks, and MiniMax
 - **[Tools](/api/tools)**: Stimulus tools and Habitat tool sets
 - **[Memory Helpers](/api/memory)**: Explicit conversation fact extraction and reconciliation
-- **[Evaluation Framework](/api/evaluation-framework)**: Building custom evaluation logic and runners
+- **[Evaluation Framework](/api/evaluation-framework)**: EvalSuite, standard benchmarks, ranking, and reports
 - **[Schema Validation](/api/schemas)**: Zod schemas and structured output validation
 
 ### Infrastructure
 - **[Habitat](/guide/habitat)**: Managed agent environments with tools, sessions, and persistence
-- **[CLI](/api/cli)**: Command-line interface (models, chat, eval, habitat, telegram)
+- **[CLI](/api/cli)**: Command-line interface (models, chat, habitat, telegram)
 
 ## Core Concepts
 
@@ -132,55 +132,11 @@ const result = await analyzeText(model, "Sample text to analyze");
 console.log(result.content);
 ```
 
-### Advanced Evaluation Runner
+### Declarative Evaluation Suite
 
-Build sophisticated evaluation workflows:
-
-```typescript
-import { EvaluationRunner } from './evaluation/evaluation/runner.js';
-import { ModelDetails, ModelResponse } from './core/cognition/types.js';
-import { Stimulus } from './core/stimulus/stimulus.js';
-import { Interaction } from './core/interaction/core/interaction.js';
-import { z } from 'zod';
-
-const AnalysisSchema = z.object({
-  sentiment: z.enum(['positive', 'negative', 'neutral']),
-  confidence: z.number().min(0).max(1),
-  key_topics: z.array(z.string()),
-  summary: z.string()
-});
-
-class TextAnalysisRunner extends EvaluationRunner {
-  constructor() {
-    super('text-analysis-evaluation');
-  }
-
-  async getTextData(): Promise<string> {
-    return this.getCachedFile('input-text', async () => {
-      return "Text content to analyze";
-    });
-  }
-
-  async getModelResponse(model: ModelDetails): Promise<ModelResponse> {
-    const text = await this.getTextData();
-
-    const stimulus = new Stimulus({
-      role: "text analyst",
-      objective: "analyze text sentiment and extract key information"
-    });
-
-    const interaction = new Interaction(model, stimulus);
-    interaction.addMessage({ role: 'user', content: `Analyze this text: ${text}` });
-
-    const runner = new BaseModelRunner();
-    return runner.streamObject(interaction, AnalysisSchema);
-  }
-}
-
-const runner = new TextAnalysisRunner();
-await runner.evaluate({ name: 'gemini-3-flash-preview', provider: 'google' });
-await runner.evaluate({ name: 'gemma3:12b', provider: 'ollama' });
-```
+Use `EvalSuite` for cached, scored model comparisons and `runFullEval` for the
+standard language, coding, and tool-calling composition. See the
+[Evaluation API](/api/evaluation-framework) for current exports.
 
 ## Working with Different Providers
 

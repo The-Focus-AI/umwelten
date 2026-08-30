@@ -12,13 +12,11 @@ import type { EvalDimension } from '@umwelten/evaluation/evaluation/combine/type
  *   quality/soul-md.ts
  *
  * …run:
- *   dotenvx run -- pnpm run cli eval combine \
- *     --config examples/local-providers/suite-config.ts \
+ *   pnpm tsx examples/local-providers/generate-report.ts \
  *     --format narrative --output report.md
  */
 
-// Additional export names the `umwelten eval combine` CLI looks for.
-// Kept as-is for any external importers; aliased below.
+// Additional export names are kept for report-script consumers.
 
 export const LOCAL_PROVIDERS_SUITE: EvalDimension[] = [
   {
@@ -70,8 +68,7 @@ export const LOCAL_PROVIDERS_SUITE: EvalDimension[] = [
 export const LOCAL_PROVIDERS_CORE: EvalDimension[] =
   LOCAL_PROVIDERS_SUITE.filter(d => !['local-providers-tool-math', 'local-providers-soul-md'].includes(d.evalName));
 
-// Aliases for `umwelten eval combine --config ...` (accepts
-// `default`, `SHOWDOWN_SUITE`, `suite`, or `dimensions`).
+// Conventional aliases for report-script consumers.
 export const suite = LOCAL_PROVIDERS_CORE;
 export const dimensions = LOCAL_PROVIDERS_CORE;
 export default LOCAL_PROVIDERS_CORE;

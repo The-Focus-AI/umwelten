@@ -247,14 +247,16 @@ dotenvx run -- pnpm tsx examples/local-providers/quality/soul-md.ts
 ## Generate the combined report
 
 ```bash
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/local-providers/suite-config.ts \
+pnpm tsx examples/local-providers/generate-report.ts \
   --format md --output output/local-providers-report.md
 
 # Full narrative writeup
-dotenvx run -- pnpm run cli eval combine \
-  --config examples/local-providers/suite-config.ts \
+pnpm tsx examples/local-providers/generate-report.ts \
   --format narrative --output output/local-providers-narrative.md
+
+# Report the runFullEval-backed matrix instead
+pnpm tsx examples/local-providers/generate-report.ts --llm-eval \
+  --format md --output output/local-providers-llm-eval-report.md
 ```
 
 The report shows a leaderboard per dimension, provider breakdowns,
@@ -404,7 +406,9 @@ To bolt on another axis (e.g. sampling temperature, or a new runtime):
 | `shared/evict.ts` | Per-runtime eviction + memory sampling |
 | `run-quality.ts` | The main driver. Model-major loop with eviction, watchdog, resume. |
 | `quality/*.ts` | Each quality suite exports `makeSuite(models)` — the driver imports and runs them one-model-at-a-time |
-| `suite-config.ts` | `EvalDimension[]` for `umwelten eval combine` |
+| `suite-config.ts` | `EvalDimension[]` for legacy quality-suite reports |
+| `suite-config-llm-eval.ts` | Dimensions for the `runFullEval` matrix |
+| `generate-report.ts` | Console, Markdown, JSON, and narrative renderer for cached results |
 | `catalog.ts` | Cross-runtime model discovery + llama-swap YAML generation |
 | `speed.ts` | Streaming latency benchmark (TTFT, tok/s, cold vs warm) |
 | `smoke.ts` | Pre-flight sanity test across shared-family models |

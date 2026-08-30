@@ -1,7 +1,13 @@
 # 0031 — Interfaces and habitat internals compose on `@umwelten/substrate`
 
-Status: **Accepted — not yet implemented**
+Status: **Accepted — partially implemented**
 Date: 2026-08-23
+
+Implementation note (2026-08-29): sequencing stages 1–5 are substantially
+implemented in `packages/substrate`, the Habitat Shell, Gaia fleet Components,
+and Mycel's client surface. Stage 6—migrating Habitat internals such as tool
+sets, connectors, and runtimes onto one server-side context tree—has not been
+completed. See [the current system map](../architecture/system-map-2026-08.md).
 
 > Pinned down in a grilling session, 2026-08-23 (one question per round, every
 > decision the user's). An earlier draft of this number was written without

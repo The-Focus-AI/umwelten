@@ -1,5 +1,7 @@
 # Structured Output
 
+> **Legacy CLI reference:** CLI schema options shown below predate v0.5. Use `Interaction.generateObject()` or a versioned `EvalSuite` for current structured-output evaluation.
+
 Learn how to define and validate structured output formats for consistent model responses using DSL, JSON Schema, Zod files, or built-in templates.
 
 ## Overview

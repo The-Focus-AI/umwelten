@@ -1,5 +1,7 @@
 # Concurrent Processing
 
+> **Legacy CLI reference:** This page predates v0.5. For ad-hoc comparisons use `eval run --concurrent`; for scored work configure `EvalSuite.concurrency`.
+
 Learn how to use Umwelten's concurrent processing capabilities to dramatically speed up your evaluations and batch operations. Concurrent processing allows you to run multiple model evaluations simultaneously, making it ideal for large-scale testing and analysis.
 
 ## Overview

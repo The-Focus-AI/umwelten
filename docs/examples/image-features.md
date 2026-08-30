@@ -1,5 +1,7 @@
 # Structured Image Features
 
+> **Legacy example:** Attachment and schema CLI options shown below predate v0.5. Use the current `Interaction` APIs.
+
 This example demonstrates how to extract structured data from images using Zod schemas for validation. This corresponds to the migrated `image-feature-extract.ts` script functionality.
 
 ## Basic Structured Extraction

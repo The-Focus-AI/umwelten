@@ -19,12 +19,11 @@ umwelten exposes a small public API from `umwelten` (see `packages/umwelten/src/
 | Export | Description |
 |--------|-------------|
 | `EvalSuite` | **Recommended.** Declarative eval runner — tasks + stimulus + models → scored results |
+| `runFullEval` | Standard language, coding, and tool-calling suite composition |
 | `PairwiseRanker` | Head-to-head LLM judge comparisons → Elo ratings |
-| `runEvaluation` | Lower-level: run a single evaluation from config |
-| `runEvaluationWithProgress` | Same, with progress callback |
-| `generateReport` | Generate a report from evaluation results |
-| `listEvaluations` | List existing evaluation runs |
-| `parseModel` | Parse `"provider:model"` string into `ModelDetails` |
+| `loadSuite` | Load cached dimensions for aggregation |
+| `buildSuiteReport` / `buildNarrativeReport` | Build reports from cached dimensions |
+| `Reporter` | Render structured reports |
 
 ### Types
 
@@ -35,8 +34,8 @@ EvalSuiteConfig, EvalTask, VerifyTask, JudgeTask, VerifyResult, TaskResultRecord
 // PairwiseRanker types
 RankingEntry, PairwiseResult, RankedModel, RankingOutput, PairwiseRankerConfig
 
-// Evaluation API types
-EvaluationConfig, EvaluationResult, EnhancedEvaluationConfig
+// Standard full evaluation types
+FullEvalOptions, FullEvalResult, SuiteRunResult, LlmEvalSuiteName
 
 // Habitat types
 HabitatConfig, HabitatOptions, HabitatSessionMetadata, HabitatSessionType, AgentEntry, OnboardingResult
@@ -120,17 +119,12 @@ const modelWithOptions: ModelDetails = {
 
 `ModelDetails` extends `ModelRoute` (`name`, `provider`, `variant?`, `temperature?`, `topP?`, `topK?`, `numCtx?`, `reasoningEffort?`) and adds optional fields: `description`, `contextLength`, `costs`, `addedDate`, `lastUpdated`, `details`, `originalProvider`.
 
-## Lower-Level Strategies
+## Evaluation Composition
 
-For custom evaluation pipelines, use the strategy classes directly (in `packages/evaluation/src/evaluation/strategies/`):
-
-| Strategy | Use case |
-|----------|----------|
-| `SimpleEvaluation` | Run one prompt against one or more models |
-| `MatrixEvaluation` | Cross-product of models × prompts |
-| `BatchEvaluation` | Batch multiple prompts efficiently |
-
-These are building blocks — prefer `EvalSuite` for most use cases.
+Prefer `EvalSuite` for focused benchmarks and `runFullEval` for the standard
+language, coding, and tool-calling composition. `SimpleEvaluation` is the
+internal execution layer; the former matrix and batch strategy classes no
+longer exist.
 
 ## Pairwise Ranking
 
@@ -154,7 +148,7 @@ console.log(output.standings); // sorted by Elo
 Combine results from multiple evaluations into a unified leaderboard:
 
 ```bash
-dotenvx run -- pnpm run cli eval combine --config examples/model-showdown/suite-config.ts
+pnpm tsx examples/model-showdown/generate-report.ts --format md
 ```
 
 See [Model showdown walkthrough](/walkthroughs/model-showdown) and `packages/evaluation/src/evaluation/combine/` for details.

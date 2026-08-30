@@ -220,22 +220,22 @@ interface Matchup {
 }
 ```
 
-## Bridge Function
+## Ranking entries
 
-### `evaluationResultsToRankingEntries(evalResult: EvaluationResult): RankingEntry[]`
-
-Convert `EvaluationResult` (from `packages/evaluation/src/evaluation/api.ts`) to `RankingEntry[]`.
-
-- Filters out failed results and results without response content
-- Generates keys from `provider__model` with special characters replaced by underscores
+`PairwiseRanker` consumes `RankingEntry[]`. Build entries from persisted suite
+records or from responses in your evaluation script:
 
 ```typescript
-import { runEvaluation } from './evaluation/evaluation/api.js';
-import { evaluationResultsToRankingEntries, PairwiseRanker } from './evaluation/evaluation/ranking/index.js';
+import { PairwiseRanker, type RankingEntry } from '@umwelten/evaluation';
 
-const evalResult = await runEvaluation(config);
-const entries = evaluationResultsToRankingEntries(evalResult);
-// entries is now ready for PairwiseRanker
+const entries: RankingEntry[] = responses.map(response => ({
+  key: `${response.provider}__${response.model}`,
+  model: response.model,
+  provider: response.provider,
+  content: response.content,
+}));
+
+const ranker = new PairwiseRanker(entries, options);
 ```
 
 ## Cache Format

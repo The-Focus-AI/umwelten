@@ -1,5 +1,7 @@
 # Batch Image Processing
 
+> **Legacy example:** The former batch/report CLI is not part of v0.5. Express image batches as executable tasks and report from cached results.
+
 This example demonstrates how to process multiple images concurrently using Umwelten's batch processing capabilities. This corresponds to the migrated `image-feature-batch.ts` script functionality.
 
 ## Basic Batch Processing

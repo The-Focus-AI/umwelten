@@ -129,8 +129,7 @@ async function main() {
   }
 
   console.log('\nNext: generate the combined report');
-  console.log('  dotenvx run -- pnpm run cli eval combine \\');
-  console.log('    --config examples/local-providers/suite-config.ts \\');
+  console.log('  pnpm tsx examples/local-providers/generate-report.ts --llm-eval \\');
   console.log('    --format md --output output/local-providers-report.md');
 }
 

@@ -1,7 +1,13 @@
 # 0032 — Components project onto the wire as UI resources
 
-Status: **Accepted — not yet implemented**
+Status: **Accepted — partially implemented**
 Date: 2026-08-23
+
+Implementation note (2026-08-29): persistent Shell Components are published
+as `ui://shell/...` MCP resources and mounted through solo-page URL projections.
+One-shot mcp-ui resources continue to project over A2A and MCP. They do not yet
+share one canonical internal representation, and the attenuated action binding
+(`prompt`, `intent`, `tool`, `link`, `notify`) is not implemented.
 
 > Pinned in the same grilling session as ADR 0031 — interfaces and internals
 > compose on the substrate.

@@ -1,5 +1,7 @@
 # Basic Image Analysis
 
+> **Legacy example:** Attachment options shown below are not supported by v0.5 `eval run`; use the `Interaction` attachment API.
+
 This example shows how to analyze images using Umwelten's vision-capable models. This corresponds to the migrated `image-parsing.ts` script functionality.
 
 ## Simple Image Analysis

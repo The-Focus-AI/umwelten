@@ -1,5 +1,7 @@
 # Complex Structured Output
 
+> **Legacy example:** CLI schema options on this page predate v0.5. Prefer the current `Interaction` structured-output API or an `EvalSuite`.
+
 Extract sophisticated data structures with nested objects, arrays, and complex validation rules. This example demonstrates advanced schema design and validation for complex data extraction tasks.
 
 ## Overview
