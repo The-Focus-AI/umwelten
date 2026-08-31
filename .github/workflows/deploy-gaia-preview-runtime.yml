@@ -1,0 +1,38 @@
+name: Deploy Gaia preview runtime
+
+# Initializes only Gaia's narrow wake/activity capabilities and deploys the
+# internal preview router. Public DNS and Caddy replacement remain a separate,
+# credential-gated operation.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gaia-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, gaia]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure and deploy preview runtime
+        env:
+          GAIA_ENV_FILE: /home/worker_user/umwelten/deploy/gaia/.env
+        run: |
+          chmod +x deploy/gaia/configure-preview-runtime.sh deploy/gaia/redeploy.sh
+          deploy/gaia/configure-preview-runtime.sh
+          deploy/gaia/redeploy.sh
+      - name: Verify the router from both private networks
+        run: |
+          set -euo pipefail
+          docker inspect gaia-preview-router --format '{{.State.Status}}' | grep -qx running
+          for network in gaia-net caddy; do
+            address="$(docker inspect --format "{{(index .NetworkSettings.Networks \"$network\").IPAddress}}" gaia-preview-router)"
+            curl -fsS --max-time 5 "http://$address:7431/health" | grep -q '"status":"ok"'
+          done
+          docker exec caddy wget -qO- http://preview-router:7431/health | grep -q '"status":"ok"'
+          echo "preview-router=healthy"
