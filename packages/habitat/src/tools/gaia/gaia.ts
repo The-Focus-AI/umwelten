@@ -33,6 +33,7 @@ import { startIdleReaper, resolveReaperConfig } from "./reaper.js";
 import { FnoxResolver } from "./fnox.js";
 import { resolveGithubAppConfig } from "./github/app-config.js";
 import { createGithubTokenService } from "./github/token-service.js";
+import { createGithubAdministration } from "./github/admin.js";
 import {
 	createStorageTokenService,
 	resolveStorageRelayConfig,
@@ -171,6 +172,7 @@ export class Gaia {
 		// return null, the token route answers 501, boot injection is skipped.
 		const githubAppConfig = resolveGithubAppConfig(process.env);
 		const githubTokens = createGithubTokenService(githubAppConfig);
+		const githubAdministration = createGithubAdministration(process.env);
 		if (githubAppConfig) {
 			console.log(
 				`[gaia] GitHub App configured (app ${githubAppConfig.appId}, installation ${githubAppConfig.installationId}) — scoped token minting enabled`,
@@ -194,6 +196,7 @@ export class Gaia {
 			catalog,
 			audit,
 			githubTokens,
+			githubAdministration,
 			gaiaDataDir: dataDir,
 			gaiaProvider: provider,
 			gaiaModel: model,

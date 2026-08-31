@@ -714,6 +714,31 @@ Or via Gaia chat:
 
 When the container starts, the entrypoint script clones the repo into `/data/project/`, runs `mise install` if there's a `mise.toml`, and the habitat server picks up the `STIMULUS.md` and custom tools from the project directory.
 
+### Creating a private project and coding Habitat
+
+Gaia's `create_private_project_habitat` tool performs the complete project
+bootstrap as one audited operation: it creates a private repository, adds that
+single repository to the configured GitHub App installation, registers a
+`habitat-coding` Habitat with explicit write scope to exactly that Owned repo,
+and starts it.
+
+This operation is disabled unless all of the following are configured on Gaia:
+
+```bash
+GITHUB_ADMIN_ORGANIZATION=your-bound-organisation
+GITHUB_ADMIN_TOKEN=...              # organisation repo + installation administration write
+GITHUB_APP_ID=...
+GITHUB_APP_INSTALLATION_ID=...
+GITHUB_APP_PRIVATE_KEY_FILE=...
+```
+
+`GITHUB_ADMIN_TOKEN` is a privileged control-plane credential. Scope it to the
+configured organisation and grant only repository creation/deletion plus GitHub
+App installation repository administration. It is never passed to child
+Habitats. Missing administration-write fails before creating anything. Partial
+failures return an explicit reconciliation record, and every privilege change
+is written to Gaia's credential audit log.
+
 ---
 
 ## Part 13: API Reference

@@ -24,6 +24,12 @@ export type AuditOperation =
 	| "unbind_capability"
 	| "github_token_mint"
 	| "github_token_denied"
+	| "github_repository_create"
+	| "github_installation_repository_add"
+	| "github_installation_repository_remove"
+	| "github_repository_delete"
+	| "github_project_register"
+	| "github_project_start"
 	| "storage_token_mint"
 	| "storage_token_denied";
 
@@ -40,6 +46,8 @@ export interface AuditEntry {
 	repositories?: string[];
 	/** Denials: why the request was refused. */
 	reason?: string;
+	/** Project provisioning reconciliation metadata; never contains credentials. */
+	details?: Record<string, unknown>;
 }
 
 export class CredentialAuditLogger {
