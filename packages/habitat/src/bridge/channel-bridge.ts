@@ -445,8 +445,8 @@ export class ChannelBridge {
       identifier,
     );
 
-    // Stamp userId + provider/model onto the session metadata so listSessions
-    // and /api/usage can attribute activity. Safe to call on every message;
+    // Stamp userId + provider/model onto the session metadata so session
+    // consumers can attribute activity. Safe to call on every message;
     // updateMetadata merges.
     const model = interaction.modelDetails;
     const metaPatch: Record<string, unknown> = {};

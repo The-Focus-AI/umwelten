@@ -21,6 +21,10 @@ function generateApiKey(): string {
 	return `gaia_${randomBytes(24).toString("hex")}`;
 }
 
+function generatePreviewSuffix(): string {
+	return randomBytes(12).toString("hex");
+}
+
 function slugify(name: string): string {
 	return name
 		.toLowerCase()
@@ -54,13 +58,21 @@ export class GaiaRegistryManager {
 
 	/** Load registry from disk. Creates empty registry if file doesn't exist. */
 	async load(): Promise<void> {
+		let migrated = false;
 		try {
 			const raw = await readFile(this.registryPath, "utf-8");
 			this.registry = JSON.parse(raw) as GaiaRegistry;
+			for (const entry of this.registry.habitats) {
+				if (!entry.previewSuffix) {
+					entry.previewSuffix = generatePreviewSuffix();
+					migrated = true;
+				}
+			}
 		} catch {
 			this.registry = { habitats: [] };
 		}
 		this.loaded = true;
+		if (migrated) await this.save();
 	}
 
 	/** Save registry to disk. */
@@ -127,6 +139,7 @@ export class GaiaRegistryManager {
 			},
 			secretBindings: options.secretBindings ?? [],
 			apiKey: generateApiKey(),
+			previewSuffix: generatePreviewSuffix(),
 			...(options.image ? { image: options.image } : {}),
 			...(options.hostname ? { hostname: options.hostname } : {}),
 			// Read scope is derived from the Owned repo plus these mounts, so a
@@ -212,6 +225,7 @@ export class GaiaRegistryManager {
 				| "cachedCard"
 				| "lastActivityAt"
 				| "vaultToml"
+				| "publishedPreviews"
 			>
 		>,
 	): Promise<GaiaHabitatEntry> {
@@ -232,6 +246,8 @@ export class GaiaRegistryManager {
 		if (updates.cachedCard !== undefined) entry.cachedCard = updates.cachedCard;
 		if (updates.lastActivityAt !== undefined)
 			entry.lastActivityAt = updates.lastActivityAt;
+		if (updates.publishedPreviews !== undefined)
+			entry.publishedPreviews = updates.publishedPreviews;
 		// Assigned unconditionally: undefined means the repo no longer
 		// declares a vault, which must clear it rather than keep a stale copy.
 		if ("vaultToml" in updates) entry.vaultToml = updates.vaultToml;

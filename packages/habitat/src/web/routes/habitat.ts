@@ -2,7 +2,8 @@ import type { RouteHandler } from '../types.js';
 
 /**
  * GET /api/habitat — summary of the habitat: name, model, agents, tools, skills.
- * Shape preserved from gaia-server.ts for compatibility with existing Gaia UI.
+ * Consumer: the maintained gaia-ui example and the public web-server toolkit
+ * contract documented in docs/guide/web.md.
  */
 export const habitatRoute: RouteHandler = {
   method: 'GET',

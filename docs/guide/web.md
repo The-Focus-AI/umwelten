@@ -81,7 +81,6 @@ export function Chat() {
 | `GET  /api/sessions/:id` | Session summary (message counts, tokens, cost) |
 | `GET  /api/sessions/:id/messages` | Full transcript with tool calls inline |
 | `GET  /api/sessions/:id/beats` | Conversation beats |
-| `GET  /api/usage` | Per-user token/cost rollup, grouped by provider |
 | `POST /api/chat` | AI SDK UI Message Stream (overridable via `routes`) |
 
 Add your own via `routes: RouteHandler[]`:
@@ -117,7 +116,7 @@ interface AuthProvider {
 }
 ```
 
-The resolved `userId` flows through `ChannelBridge` onto `Interaction.userId`, which [`buildUserProviderOptions`](@umwelten/core/cognition/provider-options.ts) injects into OpenRouter's `user` field and Anthropic's `metadata.userId` for provider-side attribution. It's also stamped onto session `meta.json`, so `/api/sessions` and `/api/usage` filter correctly per user.
+The resolved `userId` flows through `ChannelBridge` onto `Interaction.userId`, which [`buildUserProviderOptions`](@umwelten/core/cognition/provider-options.ts) injects into OpenRouter's `user` field and Anthropic's `metadata.userId` for provider-side attribution. It's also stamped onto session `meta.json` so session consumers can attribute activity correctly.
 
 ## Generative UI
 
