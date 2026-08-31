@@ -36,7 +36,7 @@ import {
 } from "./shell/serve-shell.js";
 import type { Habitat } from "./habitat.js";
 import type { AgentHost } from "./types.js";
-import { resolveProjectDir, saveConfig, fileExists } from "./config.js";
+import { resolveProjectDir, fileExists } from "./config.js";
 import { listArtifacts, toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
 import {
 	createA2AHandler,
@@ -854,7 +854,8 @@ export async function startContainerServer(
 				}
 
 				// ── Secret write (per-user token delivery, #56) ───────
-				// Narrow, opt-in receiver: the habitats SaaS pushes a user's
+				// Consumer: the habitats SaaS attachment flow. Narrow, opt-in
+				// receiver: the SaaS pushes a user's
 				// upstream token (e.g. their X refresh token) here as
 				// TWITTER_REFRESH_TOKEN:<sub>. Disabled unless
 				// HABITAT_SECRET_WRITE_PREFIXES is set; restricted to those
@@ -1127,7 +1128,8 @@ export async function startContainerServer(
 				if (path.startsWith("/api/")) {
 					let user: UserContext | null = null;
 
-					// GET /api/status — full container status (model, provisioning, secrets)
+					// GET /api/status — operator status via Gaia's documented
+					// /api/habitats/:id/status proxy; also exposes scheduler state.
 					if (path === "/api/status" && req.method === "GET") {
 						const config = habitat.getConfig();
 						const modelDetails = habitat.getDefaultModelDetails();
@@ -1156,7 +1158,8 @@ export async function startContainerServer(
 					}
 
 					// GET /api/activity — idle state + what Tasks this habitat holds.
-					// The reaper's safety property (#278) needs to know whether
+					// Consumer: Gaia's idle reaper. Its safety property (#278) needs
+					// to know whether
 					// stopping would abandon work in flight. The pinned A2A SDK has
 					// no tasks/list, so the durable store is summarised here instead.
 					if (path === "/api/activity" && req.method === "GET") {
@@ -1178,54 +1181,8 @@ export async function startContainerServer(
 						return;
 					}
 
-					// GET /api/settings — full config, dependencies, env vars
-					if (path === "/api/settings" && req.method === "GET") {
-						const config = habitat.getConfig();
-						const workDir = habitat.getWorkDir();
-						const projectDir = resolveProjectDir(workDir, config);
-
-						// Read mise.toml from project dir
-						let deps = "";
-						try {
-							deps = await readFile(join(projectDir, "mise.toml"), "utf-8");
-						} catch {
-							try {
-								deps = await readFile(join(workDir, "mise.toml"), "utf-8");
-							} catch {
-								// no mise.toml
-							}
-						}
-
-						// Known env var names for providers + common services
-						const knownEnvVars = [
-							"GOOGLE_GENERATIVE_AI_API_KEY",
-							"OPENROUTER_API_KEY",
-							"ANTHROPIC_API_KEY",
-							"DEEPINFRA_API_KEY",
-							"TOGETHER_API_KEY",
-							"GITHUB_TOKEN",
-							"TAVILY_API_KEY",
-							"MARKIFY_URL",
-							"OLLAMA_HOST",
-							"HABITAT_API_KEY",
-							"HABITAT_PROVIDER",
-							"HABITAT_MODEL",
-						];
-						// Also include any required secrets from config
-						for (const s of config.requiredSecrets ?? []) {
-							if (!knownEnvVars.includes(s.name)) knownEnvVars.push(s.name);
-						}
-
-						const envVars = knownEnvVars.map((name) => ({
-							name,
-							set: !!(process.env[name] || habitat.getSecret(name)),
-						}));
-
-						sendJson(res, { config, deps, envVars });
-						return;
-					}
-
-					// GET /api/artifacts — list published artifacts
+					// GET /api/artifacts — operator artifact inventory via Gaia's
+					// documented /api/habitats/:id/artifacts proxy.
 					if (path === "/api/artifacts" && req.method === "GET") {
 						const origin = getPublicBaseUrl(req);
 						const metas = (await listArtifacts(habitat.getWorkDir())).map(
@@ -1235,7 +1192,8 @@ export async function startContainerServer(
 						return;
 					}
 
-					// GET /api/manifest — provisioning manifest (skills + agents + aggregate requirements)
+					// GET /api/manifest — provisioning contract exercised by the
+					// habitat-runtime fixture and operator runtime diagnostics.
 					if (path === "/api/manifest" && req.method === "GET") {
 						const config = habitat.getConfig();
 						const requirements = await habitat.computeRequirements();
@@ -1277,7 +1235,8 @@ export async function startContainerServer(
 						return;
 					}
 
-					// POST /api/capability-gaps — record a runtime gap report
+					// POST /api/capability-gaps — producer side of the runtime-gap
+					// contract consumed by Gaia's aggregate capability-gap route.
 					if (path === "/api/capability-gaps" && req.method === "POST") {
 						if (authRequired) {
 							user = await auth.authenticate(req);
@@ -1304,7 +1263,8 @@ export async function startContainerServer(
 						return;
 					}
 
-					// GET /api/capability-gaps — list all recorded gaps
+					// GET /api/capability-gaps — consumed by Gaia while aggregating
+					// runtime and declared capability gaps across the fleet.
 					if (path === "/api/capability-gaps" && req.method === "GET") {
 						if (authRequired) {
 							user = await auth.authenticate(req);
@@ -1317,7 +1277,8 @@ export async function startContainerServer(
 						return;
 					}
 
-					// GET /api/agents — list of agents with status (no secret values).
+					// GET /api/agents — runtime inventory exercised by the
+					// habitat-runtime fixture and operator diagnostics (no secrets).
 					if (path === "/api/agents" && req.method === "GET") {
 						const config = habitat.getConfig();
 						sendJson(res, {
@@ -1342,7 +1303,8 @@ export async function startContainerServer(
 						return;
 					}
 
-					// GET /api/agents/:id/requirements — discovered requirements for a single agent.
+					// GET /api/agents/:id/requirements — per-agent provisioning
+					// contract exercised by the habitat-runtime fixture.
 					{
 						const m = path.match(/^\/api\/agents\/([^/]+)\/requirements$/);
 						if (m && req.method === "GET") {
@@ -1362,7 +1324,8 @@ export async function startContainerServer(
 						}
 					}
 
-					// GET /api/agents/:id/manifest — mcp-agent manifest (loaded from repo).
+					// GET /api/agents/:id/manifest — mcp-agent contract exercised
+					// by the habitat-runtime fixture (manifest loaded from its repo).
 					{
 						const m = path.match(/^\/api\/agents\/([^/]+)\/manifest$/);
 						if (m && req.method === "GET") {
@@ -1407,58 +1370,8 @@ export async function startContainerServer(
 						}
 					}
 
-					// POST /api/inference — attach an inference engine
-					if (path === "/api/inference" && req.method === "POST") {
-						if (authRequired) {
-							user = await auth.authenticate(req);
-							if (!user) {
-								sendJson(res, { error: "Unauthorized" }, 401);
-								return;
-							}
-						}
-						const body = JSON.parse(await readBodyRaw(req));
-						const provider =
-							typeof body.provider === "string" ? body.provider.trim() : "";
-						const model =
-							typeof body.model === "string" ? body.model.trim() : "";
-						if (!provider || !model) {
-							sendJson(res, { error: "provider and model are required" }, 400);
-							return;
-						}
-						// Save to config
-						const config = habitat.getConfig();
-						config.defaultProvider = provider;
-						config.defaultModel = model;
-						await saveConfig(habitat.configPath, config);
-						await habitat.reloadConfig();
-						habitat.setRuntimeModelDetails({ provider, name: model });
-						// If an API key was provided, save it as a secret
-						const apiKeyValue =
-							typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-						if (apiKeyValue) {
-							// Determine the env var name for this provider
-							const keyNames: Record<string, string> = {
-								google: "GOOGLE_GENERATIVE_AI_API_KEY",
-								openrouter: "OPENROUTER_API_KEY",
-								anthropic: "ANTHROPIC_API_KEY",
-								deepinfra: "DEEPINFRA_API_KEY",
-								togetherai: "TOGETHER_API_KEY",
-								github: "GITHUB_TOKEN",
-							};
-							const envName =
-								keyNames[provider] ?? `${provider.toUpperCase()}_API_KEY`;
-							await habitat.setSecret(envName, apiKeyValue);
-						}
-						sendJson(res, {
-							success: true,
-							provider,
-							model,
-							message: `Inference attached: ${provider}/${model}`,
-						});
-						return;
-					}
-
-					// POST /api/chat
+					// POST /api/chat — consumed by the Shell conversation component
+					// and Gaia's documented child-chat proxy.
 					if (path === "/api/chat" && req.method === "POST") {
 						if (authRequired) {
 							user = await auth.authenticate(req);

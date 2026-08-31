@@ -4,6 +4,8 @@
  * A2A defines no history-retrieval method, so these are extensions alongside
  * the protocol, same posture as the artifacts routes. Resolution is the pure
  * resolver in context-resolver.ts; these handlers only add HTTP concerns.
+ * Consumer: the habitats SaaS owner/admin transcript action, directly or
+ * through Gaia's /api/habitats/:id/contexts/* proxy.
  * Bearer gating comes from the shared registered-routes dispatch (neither
  * route sets skipAuth).
  */

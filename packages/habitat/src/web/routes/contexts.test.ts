@@ -203,5 +203,13 @@ describe('context routes', () => {
       expect(showIdx).toBeGreaterThanOrEqual(0);
       expect(transcriptIdx).toBeLessThan(showIdx);
     });
+
+    it('does not register dashboard-only routes', () => {
+      const paths = defaultRoutes().map((route) => route.path);
+      expect(paths).not.toContain('/api/usage');
+      expect(paths).not.toContain('/api/knowledge');
+      expect(paths).not.toContain('/api/sessions/:id/digest');
+      expect(paths).not.toContain('/api/sessions/:id/ask');
+    });
   });
 });

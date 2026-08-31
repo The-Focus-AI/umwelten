@@ -1,12 +1,11 @@
 /**
  * Session browsing routes.
  *
- * Lifted from src/habitat/gaia-server.ts so any web app can mount them.
- * Response shapes preserved byte-for-byte to keep the existing Gaia UI
- * working when we switch it over.
+ * Consumers: the core Gaia session adapter uses list + messages;
+ * umwelten-web-demo uses list; the maintained gaia-ui example uses the
+ * summary + beats views.
  */
 
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { RouteHandler } from '../types.js';
 import { quickTranscriptStats } from '../../tools/session-tools.js';
@@ -90,6 +89,7 @@ function notFound(res: any, message = 'Not found') {
 
 // ── Routes ───────────────────────────────────────────────────────────
 
+/** Consumed by umwelten-web-demo and the core Gaia session adapter. */
 export const sessionsListRoute: RouteHandler = {
   method: 'GET',
   path: '/api/sessions',
@@ -128,6 +128,7 @@ export const sessionsListRoute: RouteHandler = {
   },
 };
 
+/** Consumed by the maintained gaia-ui session-detail example. */
 export const sessionShowRoute: RouteHandler = {
   method: 'GET',
   path: '/api/sessions/:id',
@@ -181,6 +182,7 @@ export const sessionShowRoute: RouteHandler = {
   },
 };
 
+/** Consumed by the core Gaia session adapter when loading an Exploration. */
 export const sessionMessagesRoute: RouteHandler = {
   method: 'GET',
   path: '/api/sessions/:id/messages',
@@ -261,6 +263,7 @@ export const sessionMessagesRoute: RouteHandler = {
   },
 };
 
+/** Consumed by the maintained gaia-ui beat browser example. */
 export const sessionBeatsRoute: RouteHandler = {
   method: 'GET',
   path: '/api/sessions/:id/beats',

@@ -1,6 +1,8 @@
 import type { RouteHandler } from '../types.js';
 
-/** GET /api/me — returns the authenticated user's context. */
+/**
+ * GET /api/me — authenticated user context consumed by umwelten-web-demo.
+ */
 export const meRoute: RouteHandler = {
   method: 'GET',
   path: '/api/me',
