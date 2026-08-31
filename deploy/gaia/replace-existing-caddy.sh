@@ -6,8 +6,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="${GAIA_ENV_FILE:-$SCRIPT_DIR/.env}"
-INGRESS_NETWORK="${GAIA_INGRESS_NETWORK:-caddy}"
-BACKUP_CONTAINER="caddy-before-preview"
+STOCK_BACKUP="caddy-before-preview"
+PREVIOUS_PREVIEW="caddy-preview-previous"
 INSTALL_DIR="${GAIA_CADDY_CONFIG_DIR:-$HOME/.config/gaia-ingress}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -19,6 +19,7 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
+INGRESS_NETWORK="${GAIA_INGRESS_NETWORK:-caddy}"
 
 : "${GAIA_HOSTNAME:?GAIA_HOSTNAME must be set in $ENV_FILE}"
 : "${GAIA_PREVIEW_DOMAIN:?GAIA_PREVIEW_DOMAIN must be set in $ENV_FILE}"
@@ -41,10 +42,20 @@ wait_for() {
 docker inspect caddy >/dev/null
 docker inspect gaia-preview-router >/dev/null
 docker network inspect "$INGRESS_NETWORK" >/dev/null
-if docker inspect "$BACKUP_CONTAINER" >/dev/null 2>&1; then
-  echo "error: rollback container $BACKUP_CONTAINER already exists" >&2
-  echo "refusing to overwrite the known-good ingress backup" >&2
-  exit 1
+if docker inspect "$STOCK_BACKUP" >/dev/null 2>&1; then
+  docker exec caddy caddy list-modules | grep -qx dns.providers.cloudflare || {
+    echo "error: stock backup exists but current Caddy is not preview-capable" >&2
+    exit 1
+  }
+  if docker inspect "$PREVIOUS_PREVIEW" >/dev/null 2>&1; then
+    echo "error: temporary rollback container $PREVIOUS_PREVIEW already exists" >&2
+    exit 1
+  fi
+  ROLLBACK_CONTAINER="$PREVIOUS_PREVIEW"
+  RETAIN_ROLLBACK=0
+else
+  ROLLBACK_CONTAINER="$STOCK_BACKUP"
+  RETAIN_ROLLBACK=1
 fi
 
 data_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' caddy)"
@@ -66,10 +77,10 @@ docker run --rm \
 rollback() {
   local status=$?
   if ((status == 0)); then return; fi
-  echo "[preview-ingress] replacement failed; restoring stock Caddy" >&2
+  echo "[preview-ingress] replacement failed; restoring previous Caddy" >&2
   docker rm -f caddy >/dev/null 2>&1 || true
-  if docker inspect "$BACKUP_CONTAINER" >/dev/null 2>&1; then
-    docker rename "$BACKUP_CONTAINER" caddy
+  if docker inspect "$ROLLBACK_CONTAINER" >/dev/null 2>&1; then
+    docker rename "$ROLLBACK_CONTAINER" caddy
     docker start caddy >/dev/null
     wait_for "restored Gaia ingress" 60 curl -fsS --max-time 5 "https://$GAIA_HOSTNAME/health" || true
   elif docker inspect caddy >/dev/null 2>&1; then
@@ -79,9 +90,9 @@ rollback() {
 }
 trap rollback EXIT
 
-log "preserving current Caddy as $BACKUP_CONTAINER"
+log "preserving current Caddy as $ROLLBACK_CONTAINER"
 docker stop caddy >/dev/null
-docker rename caddy "$BACKUP_CONTAINER"
+docker rename caddy "$ROLLBACK_CONTAINER"
 
 docker run -d \
   --name caddy \
@@ -107,4 +118,9 @@ wait_for "preview router through ingress" 60 \
 wait_for "existing Gaia ingress" 90 curl -fsS --max-time 5 "https://$GAIA_HOSTNAME/health"
 
 trap - EXIT
-log "replacement healthy; rollback container retained as $BACKUP_CONTAINER"
+if ((RETAIN_ROLLBACK == 1)); then
+  log "replacement healthy; stock rollback retained as $STOCK_BACKUP"
+else
+  docker rm "$ROLLBACK_CONTAINER" >/dev/null
+  log "replacement refreshed; stock rollback remains $STOCK_BACKUP"
+fi

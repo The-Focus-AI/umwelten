@@ -19,7 +19,18 @@ jobs:
       - name: Require the scoped Cloudflare token
         env:
           TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: test -n "$TOKEN"
+        run: |
+          set -euo pipefail
+          test -n "$TOKEN"
+          response="$(curl -fsS --get \
+            -H "Authorization: Bearer $TOKEN" \
+            --data-urlencode 'name=crepusculardiphthong.com' \
+            https://api.cloudflare.com/client/v4/zones)"
+          if ! python3 -c 'import json,sys; data=json.load(sys.stdin); sys.exit(0 if data["success"] and len(data["result"]) == 1 else 1)' <<<"$response"; then
+            echo "error: token cannot read the crepusculardiphthong.com zone" >&2
+            echo "grant Zone/Zone/Read and Zone/DNS/Edit on that exact zone" >&2
+            exit 1
+          fi
       - name: Store the renewal credential without printing it
         env:
           GAIA_ENV_FILE: /home/worker_user/umwelten/deploy/gaia/.env
