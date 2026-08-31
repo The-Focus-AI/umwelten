@@ -47,6 +47,9 @@ COPY packages/sessions/package.json ./packages/sessions/
 COPY packages/cli/package.json ./packages/cli/
 COPY packages/evaluation/package.json ./packages/evaluation/
 COPY packages/habitat/package.json ./packages/habitat/
+COPY packages/mycel/package.json ./packages/mycel/
+COPY packages/substrate/package.json ./packages/substrate/
+COPY packages/supplier/package.json ./packages/supplier/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/umwelten/package.json ./packages/umwelten/
 COPY package.json pnpm-lock.yaml tsconfig.json ./
