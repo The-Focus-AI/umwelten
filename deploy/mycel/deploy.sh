@@ -81,6 +81,19 @@ wait_for_health() {
   done
 }
 
+# A healthy API once masked a completely broken browser surface: the bundled
+# image omitted runtime-read assets, so every browser stayed on "assembling…".
+# Gate the candidate on the actual serving contract before calling it deployed.
+verify_client_surface() {
+  local manifest substrate
+  manifest="$(curl -sf --max-time 5 "$URL/shell/manifest.json")" || return 1
+  for component in health models catalogue-stats; do
+    grep -q '"id": "'"$component"'"' <<<"$manifest" || return 1
+  done
+  substrate="$(curl -sf --max-time 5 "$URL/shell/substrate/index.js")" || return 1
+  grep -q 'export' <<<"$substrate"
+}
+
 describe_revision
 
 # Keep the outgoing image addressable before it is replaced. Rolling back is
@@ -117,11 +130,15 @@ docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d
 log "waiting for $URL/health"
 if wait_for_health 90; then
   log "healthy — store reachable"
-  log "done"
-  exit 0
+  if verify_client_surface; then
+    log "client surface healthy — manifest and substrate runtime available"
+    log "done"
+    exit 0
+  fi
+  echo "error: client surface did not satisfy the serving contract" >&2
 fi
 
-echo "error: never became healthy within 90s" >&2
+echo "error: candidate deployment failed verification" >&2
 docker compose --project-directory "$SCRIPT_DIR" logs --tail 40 mycel >&2 || true
 
 if ((HAVE_PREVIOUS == 0)); then

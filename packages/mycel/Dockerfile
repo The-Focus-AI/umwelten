@@ -47,6 +47,16 @@ RUN useradd --system --uid 10001 mycel
 
 WORKDIR /app
 COPY --chown=mycel:mycel packages/mycel/dist/mycel.js ./mycel.js
+
+# The bundled server still reads browser assets from disk at request time.
+# Because every bundled import.meta.url resolves from /app/mycel.js, the
+# substrate package root resolves to / (so its shell is /shell and its TS
+# runtime is /src), while Mycel's own components resolve beside the bundle.
+# Keep all three copies together: omitting /src leaves the HTML healthy but the
+# browser stuck on "assembling…" when /shell/substrate/index.js returns 404.
+COPY --chown=mycel:mycel packages/substrate/shell /shell
+COPY --chown=mycel:mycel packages/substrate/src /src
+COPY --chown=mycel:mycel packages/mycel/src/client-surface/components /app/components
 COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
 RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 

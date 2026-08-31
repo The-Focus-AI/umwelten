@@ -1,0 +1,65 @@
+name: Production topology preflight
+
+# Read-only inspection for operator-approved production work. Keeping this as
+# a workflow avoids distributing SSH keys: the existing Gaia runner inspects
+# its own host and, when IAM permits, the separate Mycel host over IAP.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, gaia]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Inspect Gaia topology without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV_FILE=/home/worker_user/umwelten/deploy/gaia/.env
+          echo "revision=$(git rev-parse --short HEAD)"
+          echo "containers:"
+          docker ps --format '  {{.Names}} | {{.Image}} | {{.Status}}'
+          echo "https ingress:"
+          mapfile -t INGRESS < <(docker ps --filter publish=443 --format '{{.Names}}')
+          printf '  %s\n' "${INGRESS[@]:-none}"
+          for name in "${INGRESS[@]}"; do
+            docker inspect --format '  {{.Name}} image={{.Config.Image}} networks={{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "$name"
+          done
+          echo "gaia networks:"
+          docker inspect --format '  {{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' gaia
+          echo "preview configuration presence:"
+          for key in GAIA_PREVIEW_DOMAIN GAIA_PREVIEW_WAKE_KEY GAIA_PREVIEW_ACTIVITY_KEY CLOUDFLARE_API_TOKEN; do
+            if [[ -f "$ENV_FILE" ]] && grep -Eq "^${key}=.+" "$ENV_FILE"; then
+              echo "  $key=set"
+            else
+              echo "  $key=missing"
+            fi
+          done
+          echo "preview services:"
+          for name in gaia-preview-router gaia-caddy; do
+            if docker inspect "$name" >/dev/null 2>&1; then
+              docker inspect --format '  {{.Name}} image={{.Config.Image}} status={{.State.Status}}' "$name"
+            else
+              echo "  $name=absent"
+            fi
+          done
+      - name: Check read-only access to Mycel host
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v gcloud >/dev/null; then
+            echo "gcloud=absent"
+            exit 0
+          fi
+          echo "gcloud=present"
+          gcloud compute instances describe mycel-host \
+            --project habitats-502314 --zone us-east4-a \
+            --format='value(name,status)' || { echo "mycel-describe=denied"; exit 0; }
+          gcloud compute ssh mycel-host \
+            --project habitats-502314 --zone us-east4-a --tunnel-through-iap \
+            --quiet --command="docker ps --format '{{.Names}} | {{.Image}} | {{.Status}}'" \
+            || echo "mycel-ssh=denied"
