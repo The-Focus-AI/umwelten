@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import http from "node:http";
+import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { createClientSurfaceHandler } from "./serve.js";
 import { createExchangeApp } from "../server.js";
@@ -30,6 +31,18 @@ async function get(handler: ReturnType<typeof createClientSurfaceHandler>, path:
 }
 
 describe("the Exchange's client surface", () => {
+  it("packages every runtime-read browser asset into the bundled image", async () => {
+    const dockerfile = await readFile(
+      new URL("../../Dockerfile", import.meta.url),
+      "utf8",
+    );
+    expect(dockerfile).toContain("packages/substrate/shell /shell");
+    expect(dockerfile).toContain("packages/substrate/src /src");
+    expect(dockerfile).toContain(
+      "packages/mycel/src/client-surface/components /app/components",
+    );
+  });
+
   it("serves the standard shell page under the contract", async () => {
     const r = await get(createClientSurfaceHandler(), "/shell/");
     expect(r.status).toBe(200);
