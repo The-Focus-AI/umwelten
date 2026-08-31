@@ -1,7 +1,8 @@
 # Mycel — the Exchange.
 #
-# One stage. The image is a bundled JavaScript file plus curl — no node_modules,
-# no pnpm, no source tree.
+# The runtime image is a bundled JavaScript file plus curl and the standalone
+# esbuild executable — no node_modules, no pnpm, no source tree. The binary is
+# required because the Shell contract transpiles substrate TypeScript on demand.
 #
 # The bundle is built before this runs, by deploy.sh:
 #   pnpm --filter @umwelten/mycel build   →  packages/mycel/dist/mycel.js
@@ -9,8 +10,14 @@
 # Build (from monorepo root):
 #   docker build -t mycel -f packages/mycel/Dockerfile .
 
+FROM node:22-slim AS esbuild-binary
+RUN npm install --prefix /opt/esbuild esbuild@0.28.1 \
+    && cp /opt/esbuild/node_modules/esbuild/bin/esbuild /esbuild \
+    && chmod 0755 /esbuild
+
 FROM node:22-slim
 ENV NODE_ENV=production
+ENV ESBUILD_BINARY_PATH=/usr/local/bin/esbuild
 
 # curl for the healthcheck below and for reading Secret Manager through the
 # instance metadata server (ADR 0030). ca-certificates is NOT implied: on Debian
@@ -47,6 +54,7 @@ RUN useradd --system --uid 10001 mycel
 
 WORKDIR /app
 COPY --chown=mycel:mycel packages/mycel/dist/mycel.js ./mycel.js
+COPY --from=esbuild-binary /esbuild /usr/local/bin/esbuild
 
 # The bundled server still reads browser assets from disk at request time.
 # Because every bundled import.meta.url resolves from /app/mycel.js, the

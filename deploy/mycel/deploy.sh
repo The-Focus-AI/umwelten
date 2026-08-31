@@ -85,13 +85,31 @@ wait_for_health() {
 # image omitted runtime-read assets, so every browser stayed on "assembling…".
 # Gate the candidate on the actual serving contract before calling it deployed.
 verify_client_surface() {
-  local manifest substrate
-  manifest="$(curl -sf --max-time 5 "$URL/shell/manifest.json")" || return 1
+  local component manifest substrate status
+  manifest="$(curl -sfS --max-time 5 "$URL/shell/manifest.json")" || {
+    echo "error: manifest endpoint unavailable" >&2
+    return 1
+  }
   for component in health models catalogue-stats; do
-    grep -q '"id": "'"$component"'"' <<<"$manifest" || return 1
+    if ! grep -Eq '"id"[[:space:]]*:[[:space:]]*"'"$component"'"' <<<"$manifest"; then
+      echo "error: manifest missing component: $component" >&2
+      return 1
+    fi
   done
-  substrate="$(curl -sf --max-time 5 "$URL/shell/substrate/index.js")" || return 1
-  grep -q 'export' <<<"$substrate"
+  status="$(curl -sS --max-time 5 -o /tmp/mycel-substrate.js -w '%{http_code}' \
+    "$URL/shell/substrate/index.js")" || {
+    echo "error: substrate endpoint unavailable" >&2
+    return 1
+  }
+  if [[ "$status" != 200 ]]; then
+    echo "error: substrate endpoint returned HTTP $status" >&2
+    return 1
+  fi
+  substrate="$(cat /tmp/mycel-substrate.js)"
+  if ! grep -q 'export' <<<"$substrate"; then
+    echo "error: substrate response is not browser ESM" >&2
+    return 1
+  fi
 }
 
 describe_revision
