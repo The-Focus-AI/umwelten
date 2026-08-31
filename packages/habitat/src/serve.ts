@@ -14,9 +14,10 @@
  */
 
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
+import { join } from "node:path";
 import { resolveProjectDir } from "./config.js";
 import { Habitat } from "./habitat.js";
-import { PreviewSupervisor } from "./preview/supervisor.js";
+import { PreviewWorktreeManager } from "./preview/worktree-manager.js";
 import { createPreviewTools } from "./tools/preview-tools.js";
 import {
 	standardToolSets,
@@ -63,6 +64,11 @@ function previewSecrets(habitat: Habitat): string[] {
 	return [...new Set(values)];
 }
 
+function positiveMinutes(value: string | undefined, fallbackMs: number): number {
+	const minutes = Number(value);
+	return Number.isFinite(minutes) && minutes > 0 ? minutes * 60_000 : fallbackMs;
+}
+
 function pickToolSets(
 	mode: ServeMode,
 	allTools: boolean | undefined,
@@ -105,18 +111,37 @@ export async function serveHabitat(
 	const name = habitat.getConfig().name ?? (mode === "mcp-only" ? "habitat-mcp" : "habitat");
 	const config = habitat.getConfig();
 	const previewSuffix = process.env.HABITAT_PREVIEW_SUFFIX;
-	let previewSupervisor: PreviewSupervisor | undefined;
+	let previewManager: PreviewWorktreeManager | undefined;
+	let previewCleanupTimer: NodeJS.Timeout | undefined;
 	if (mode !== "mcp-only" && config.gitUrl && previewSuffix) {
-		previewSupervisor = new PreviewSupervisor({
-			projectDir: resolveProjectDir(habitat.getWorkDir(), config),
-			projectId: process.env.HABITAT_ID ?? name,
-			branch: config.gitBranch ?? "main",
-			previewSuffix,
-			domain: process.env.HABITAT_PREVIEW_DOMAIN,
-			secrets: previewSecrets(habitat),
+		previewManager = await PreviewWorktreeManager.create({
+			primaryDir: resolveProjectDir(habitat.getWorkDir(), config),
+			worktreesDir: join(habitat.getWorkDir(), "preview-worktrees"),
+			supervisor: {
+				projectId: process.env.HABITAT_ID ?? name,
+				previewSuffix,
+				domain: process.env.HABITAT_PREVIEW_DOMAIN,
+				secrets: previewSecrets(habitat),
+			},
+			serverIdleMs: positiveMinutes(
+				process.env.HABITAT_PREVIEW_SERVER_IDLE_MINUTES,
+				30 * 60_000,
+			),
+			worktreeAbandonMs: positiveMinutes(
+				process.env.HABITAT_PREVIEW_WORKTREE_ABANDON_MINUTES,
+				7 * 24 * 60 * 60_000,
+			),
+			report: (event) =>
+				console.log(
+					`[preview] ${event.worktreeId}: ${event.action} — ${event.detail}`,
+				),
 		});
-		habitat.addTools(createPreviewTools(previewSupervisor));
-		previewSupervisor.start();
+		habitat.addTools(createPreviewTools(previewManager));
+		previewCleanupTimer = setInterval(
+			() => void previewManager?.cleanup(),
+			5 * 60_000,
+		);
+		previewCleanupTimer.unref?.();
 	}
 
 	let closeServer: () => void;
@@ -130,12 +155,14 @@ export async function serveHabitat(
 			const server = await startContainerServer({ habitat, port, host, name });
 			closeServer = () => server.close();
 		} catch (error) {
-			await previewSupervisor?.stop();
+			if (previewCleanupTimer) clearInterval(previewCleanupTimer);
+			await previewManager?.stop();
 			throw error;
 		}
 	}
 	const close = async () => {
-		await previewSupervisor?.stop();
+		if (previewCleanupTimer) clearInterval(previewCleanupTimer);
+		await previewManager?.stop();
 		closeServer();
 	};
 

@@ -25,6 +25,7 @@ export interface PreviewSupervisorOptions {
   projectDir: string;
   projectId: string;
   branch: string;
+  worktreeId?: string;
   previewSuffix: string;
   domain?: string;
   secrets?: readonly string[];
@@ -37,7 +38,7 @@ export interface PreviewSupervisorOptions {
 }
 
 export interface PreviewStatus {
-  worktreeId: "primary";
+  worktreeId: string;
   branch: string;
   snapshot: PreviewSupervisorSnapshot;
   logs: string;
@@ -150,7 +151,7 @@ export class PreviewSupervisor {
 
   status(): PreviewStatus {
     return {
-      worktreeId: "primary",
+      worktreeId: this.options.worktreeId ?? "primary",
       branch: this.options.branch,
       snapshot: this.snapshot,
       logs: this.logs.tail(),
@@ -159,6 +160,7 @@ export class PreviewSupervisor {
 
   async stop(): Promise<void> {
     this.stopped = true;
+    this.snapshot = { status: "stopped" };
     this.generation += 1;
     if (this.timer) this.clearTimer(this.timer);
     this.timer = undefined;

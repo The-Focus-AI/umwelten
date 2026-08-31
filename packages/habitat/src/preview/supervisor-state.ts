@@ -135,6 +135,7 @@ export type PreviewSupervisorSnapshot =
 	| { status: "starting" }
 	| { status: "serving"; addresses: string[] }
 	| { status: "failing"; error: string }
+	| { status: "stopped" }
 	| { status: "no-service" };
 
 export type PreviewHandoverDecision =
