@@ -34,6 +34,8 @@
 | [0031](0031-interfaces-and-internals-compose-on-the-substrate.md) | Interfaces and habitat internals compose on `@umwelten/substrate` |
 | [0032](0032-components-project-onto-the-wire-as-ui-resources.md) | Components project onto the wire as UI resources |
 | [0033](0033-the-trust-line-is-the-habitat-boundary.md) | The trust line is the habitat boundary |
+| [0034](0034-layout-is-a-component.md) | Layout is a component |
+| [0035](0035-project-previews-run-in-the-habitat.md) | Project previews run in the Habitat and are discovered rather than declared |
 
 0011 is unused — see below.
 

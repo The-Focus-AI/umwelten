@@ -109,13 +109,26 @@ describe("re-applying a changed declaration", () => {
 	 * would take a running container down for no reason.
 	 */
 	it("leaves runtime facts alone", async () => {
-		await registry.update("upperhand", { containerPort: 7440 });
+		const publishedPreviews = [
+			{
+				worktreeId: "primary",
+				branch: "feature/preview",
+				port: 5173,
+				ordinal: 1,
+			},
+		];
+		await registry.update("upperhand", {
+			containerPort: 7440,
+			publishedPreviews,
+		});
 		const before = registry.get("upperhand")!;
 
 		const result = await apply(reads({ mounts: [{ gitRemote: WEB }] }));
 
 		expect(result.entry.containerPort).toBe(7440);
 		expect(result.entry.apiKey).toBe(before.apiKey);
+		expect(result.entry.previewSuffix).toBe(before.previewSuffix);
+		expect(result.entry.publishedPreviews).toEqual(publishedPreviews);
 		expect(result.entry.createdAt).toBe(before.createdAt);
 	});
 

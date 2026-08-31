@@ -264,5 +264,7 @@ export const RUNTIME_ONLY_FIELDS = [
 	"apiKey",
 	"containerPort",
 	"cachedCard",
+	"previewSuffix",
+	"publishedPreviews",
 	"createdAt",
 ] as const;

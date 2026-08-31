@@ -103,8 +103,33 @@ export interface GaiaHabitatEntry {
 	 * the master vault, as everything did before.
 	 */
 	vaultToml?: string;
+	/**
+	 * Stable, unguessable component of this Habitat's public preview names
+	 * (ADR 0035). Gaia backfills older registry files on load. It is runtime
+	 * identity, not declaration state, so applying habitat.json cannot rotate it.
+	 */
+	previewSuffix?: string;
+	/**
+	 * Last preview set reported by the Habitat supervisor. The supervisor is
+	 * authoritative; this cache lets the router resolve links while the Habitat
+	 * is Dormant. Branch and ordinal are retained so moved-on links can be named
+	 * as stale instead of looking like unknown hosts.
+	 */
+	publishedPreviews?: GaiaPublishedPreview[];
 	/** ISO timestamp */
 	createdAt: string;
+}
+
+/** One project service cached for preview routing. */
+export interface GaiaPublishedPreview {
+	/** Stable worktree identity; `primary` names the Owned repo checkout. */
+	worktreeId: string;
+	/** Current Git branch for this worktree. */
+	branch: string;
+	/** Container-local listening port. */
+	port: number;
+	/** One-based position after sorting all of this worktree's ports. */
+	ordinal: number;
 }
 
 /** Persisted registry of all managed habitats. */
