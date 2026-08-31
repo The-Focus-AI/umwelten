@@ -28,7 +28,15 @@ jobs:
           printf '  %s\n' "${INGRESS[@]:-none}"
           for name in "${INGRESS[@]}"; do
             docker inspect --format '  {{.Name}} image={{.Config.Image}} networks={{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "$name"
+            docker inspect --format '  mounts={{range .Mounts}}{{.Type}}:{{.Name}}:{{.Destination}} {{end}}' "$name"
           done
+          if docker exec caddy caddy list-modules 2>/dev/null | grep -q '^dns.providers.cloudflare$'; then
+            echo "dns-plugin=present"
+          else
+            echo "dns-plugin=absent"
+          fi
+          echo "caddy network members:"
+          docker network inspect caddy --format '  {{range $id, $c := .Containers}}{{$c.Name}} {{end}}'
           echo "gaia networks:"
           docker inspect --format '  {{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' gaia
           echo "preview configuration presence:"
@@ -39,6 +47,32 @@ jobs:
               echo "  $key=missing"
             fi
           done
+          if [[ -f "$ENV_FILE" ]]; then
+            set -a
+            # shellcheck disable=SC1090
+            source "$ENV_FILE"
+            set +a
+          fi
+          if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+            result="$(curl -fsS --max-time 10 \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              https://api.cloudflare.com/client/v4/user/tokens/verify)" || result=''
+            if grep -q '"success":true' <<<"$result"; then
+              echo "dns-token-verification=success"
+            else
+              echo "dns-token-verification=failed"
+            fi
+            result="$(curl -fsS --max-time 10 \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              'https://api.cloudflare.com/client/v4/zones?name=crepusculardiphthong.com')" || result=''
+            if grep -q '"success":true' <<<"$result" && ! grep -q '"result":\[\]' <<<"$result"; then
+              echo "preview-zone-read=success"
+            else
+              echo "preview-zone-read=failed"
+            fi
+          else
+            echo "dns-token-verification=missing"
+          fi
           echo "preview services:"
           for name in gaia-preview-router gaia-caddy; do
             if docker inspect "$name" >/dev/null 2>&1; then
@@ -58,8 +92,18 @@ jobs:
           echo "gcloud=present"
           gcloud compute instances describe mycel-host \
             --project habitats-502314 --zone us-east4-a \
-            --format='value(name,status)' || { echo "mycel-describe=denied"; exit 0; }
+            --format='value(name,status)' || echo "mycel-describe=denied"
           gcloud compute ssh mycel-host \
             --project habitats-502314 --zone us-east4-a --tunnel-through-iap \
             --quiet --command="docker ps --format '{{.Names}} | {{.Image}} | {{.Status}}'" \
             || echo "mycel-ssh=denied"
+          echo "direct SSH probes:"
+          for target in mycel-host mycel.thefocus.ai; do
+            if timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=5 \
+              -o StrictHostKeyChecking=accept-new "$target" \
+              "docker ps --format '{{.Names}} | {{.Image}} | {{.Status}}'"; then
+              echo "  $target=success"
+            else
+              echo "  $target=denied"
+            fi
+          done
