@@ -57,3 +57,24 @@ jobs:
       # `--help` is enough, because an import-time fault kills every command.
       - name: Smoke-test the Exchange bundle
         run: node packages/mycel/dist/mycel.js --help
+      - name: Smoke-test the Exchange image and client surface
+        run: |
+          set -euo pipefail
+          docker build -t mycel-ci -f packages/mycel/Dockerfile .
+          docker run -d --name mycel-ci -p 127.0.0.1:17438:7438 \
+            mycel-ci node /app/mycel.js serve --ephemeral
+          trap 'docker rm -f mycel-ci >/dev/null 2>&1 || true' EXIT
+          deadline=$((SECONDS + 30))
+          until curl -fsS http://127.0.0.1:17438/health | grep -q '"status":"ok"'; do
+            if ((SECONDS >= deadline)); then
+              docker logs mycel-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          curl -fsS -o /tmp/mycel-manifest.json \
+            http://127.0.0.1:17438/shell/manifest.json
+          grep -q 'catalogue-stats' /tmp/mycel-manifest.json
+          curl -fsS -o /tmp/mycel-substrate.js \
+            http://127.0.0.1:17438/shell/substrate/index.js
+          grep -q 'export' /tmp/mycel-substrate.js

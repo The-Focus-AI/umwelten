@@ -41,6 +41,8 @@ describe("the Exchange's client surface", () => {
     expect(dockerfile).toContain(
       "packages/mycel/src/client-surface/components /app/components",
     );
+    expect(dockerfile).toContain("ESBUILD_BINARY_PATH=/usr/local/bin/esbuild");
+    expect(dockerfile).toContain("COPY --from=esbuild-binary /esbuild /usr/local/bin/esbuild");
   });
 
   it("serves the standard shell page under the contract", async () => {
