@@ -14,7 +14,10 @@
  */
 
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
+import { resolveProjectDir } from "./config.js";
 import { Habitat } from "./habitat.js";
+import { PreviewSupervisor } from "./preview/supervisor.js";
+import { createPreviewTools } from "./tools/preview-tools.js";
 import {
 	standardToolSets,
 	containerToolSets,
@@ -45,6 +48,19 @@ export interface ServedHabitat {
 	mode: ServeMode;
 	port: number;
 	host: string;
+}
+
+const SENSITIVE_ENV_NAME = /(API_KEY|CREDENTIAL|PASSWORD|PRIVATE_KEY|SECRET|TOKEN)/i;
+
+function previewSecrets(habitat: Habitat): string[] {
+	const values = habitat
+		.listSecretNames()
+		.map((name) => habitat.getSecret(name))
+		.filter((value): value is string => value !== undefined);
+	for (const [name, value] of Object.entries(process.env)) {
+		if (value && SENSITIVE_ENV_NAME.test(name)) values.push(value);
+	}
+	return [...new Set(values)];
 }
 
 function pickToolSets(
@@ -87,27 +103,51 @@ export async function serveHabitat(
 	}
 
 	const name = habitat.getConfig().name ?? (mode === "mcp-only" ? "habitat-mcp" : "habitat");
+	const config = habitat.getConfig();
+	const previewSuffix = process.env.HABITAT_PREVIEW_SUFFIX;
+	let previewSupervisor: PreviewSupervisor | undefined;
+	if (mode !== "mcp-only" && config.gitUrl && previewSuffix) {
+		previewSupervisor = new PreviewSupervisor({
+			projectDir: resolveProjectDir(habitat.getWorkDir(), config),
+			projectId: process.env.HABITAT_ID ?? name,
+			branch: config.gitBranch ?? "main",
+			previewSuffix,
+			domain: process.env.HABITAT_PREVIEW_DOMAIN,
+			secrets: previewSecrets(habitat),
+		});
+		habitat.addTools(createPreviewTools(previewSupervisor));
+		previewSupervisor.start();
+	}
 
-	let close: () => void;
+	let closeServer: () => void;
 	if (mode === "mcp-only") {
 		const { startHabitatMcpServer } = await import("./mcp-local-server.js");
 		const server = await startHabitatMcpServer({ habitat, port, host, name });
-		close = () => server.close();
+		closeServer = () => server.close();
 	} else {
 		const { startContainerServer } = await import("./container-server.js");
-		const server = await startContainerServer({ habitat, port, host, name });
-		close = () => server.close();
+		try {
+			const server = await startContainerServer({ habitat, port, host, name });
+			closeServer = () => server.close();
+		} catch (error) {
+			await previewSupervisor?.stop();
+			throw error;
+		}
 	}
+	const close = async () => {
+		await previewSupervisor?.stop();
+		closeServer();
+	};
 
 	if (!options.noSignalHandlers) {
 		const tag = mode === "mcp-only" ? "habitat-mcp" : "container";
-		const shutdown = () => {
+		const shutdown = async () => {
 			console.log(`\n[${tag}] Shutting down...`);
-			close();
+			await close();
 			process.exit(0);
 		};
-		process.on("SIGINT", shutdown);
-		process.on("SIGTERM", shutdown);
+		process.on("SIGINT", () => void shutdown());
+		process.on("SIGTERM", () => void shutdown());
 	}
 
 	return { habitat, close, mode, port, host };

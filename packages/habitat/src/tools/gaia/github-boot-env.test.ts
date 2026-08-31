@@ -80,11 +80,13 @@ describe('GitHub boot env injection (ADR 0004)', () => {
   let docker: DockerManager;
   const prevInternalUrl = process.env.GAIA_INTERNAL_URL;
   const prevGaiaPort = process.env.GAIA_PORT;
+  const prevPreviewDomain = process.env.GAIA_PREVIEW_DOMAIN;
 
   beforeEach(async () => {
     recordedCalls = [];
     delete process.env.GAIA_INTERNAL_URL;
     delete process.env.GAIA_PORT;
+    delete process.env.GAIA_PREVIEW_DOMAIN;
     dataDir = await mkdtemp(join(tmpdir(), 'umwl-gaia-github-env-'));
     docker = new DockerManager(dataDir, '/tmp/project');
   });
@@ -94,6 +96,8 @@ describe('GitHub boot env injection (ADR 0004)', () => {
     else process.env.GAIA_INTERNAL_URL = prevInternalUrl;
     if (prevGaiaPort === undefined) delete process.env.GAIA_PORT;
     else process.env.GAIA_PORT = prevGaiaPort;
+    if (prevPreviewDomain === undefined) delete process.env.GAIA_PREVIEW_DOMAIN;
+    else process.env.GAIA_PREVIEW_DOMAIN = prevPreviewDomain;
     await rm(dataDir, { recursive: true, force: true });
   });
 
@@ -125,6 +129,22 @@ describe('GitHub boot env injection (ADR 0004)', () => {
   it('always injects GAIA_URL (default: compose container name + GAIA_PORT default)', async () => {
     await docker.startContainer(makeEntry(), '', []);
     expect(envs(runArgs())).toContain('GAIA_URL=http://gaia:7420');
+  });
+
+  it('injects stable preview addressing into the child', async () => {
+    process.env.GAIA_PREVIEW_DOMAIN = 'preview.example.com';
+    await docker.startContainer(
+      makeEntry({ previewSuffix: 'a1b2c3d4e5f60718293a4b5c' }),
+      '',
+      [],
+    );
+    expect(envs(runArgs())).toEqual(
+      expect.arrayContaining([
+        'HABITAT_ID=twitter',
+        'HABITAT_PREVIEW_SUFFIX=a1b2c3d4e5f60718293a4b5c',
+        'HABITAT_PREVIEW_DOMAIN=preview.example.com',
+      ]),
+    );
   });
 
   it('GAIA_URL honors GAIA_PORT and the GAIA_INTERNAL_URL override', async () => {
