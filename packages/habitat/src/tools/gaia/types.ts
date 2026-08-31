@@ -94,6 +94,8 @@ export interface GaiaHabitatEntry {
 	 * own traffic — Gaia only sees the requests that came through Gaia.
 	 */
 	lastActivityAt?: string;
+	/** Last public project-preview request observed by the preview router. */
+	lastPreviewActivityAt?: string;
 	/**
 	 * This habitat's own vault declaration (#283), verbatim from `fnox.toml`
 	 * in its Owned repo. Gaia resolves it on the host; the container never
@@ -126,10 +128,14 @@ export interface GaiaPublishedPreview {
 	worktreeId: string;
 	/** Current Git branch for this worktree. */
 	branch: string;
-	/** Container-local listening port. */
+	/** Container-local listening port. Retained while a known service is failing. */
 	port: number;
 	/** One-based position after sorting all of this worktree's ports. */
 	ordinal: number;
+	/** Last state reported by the Habitat's preview supervisor. */
+	status?: "serving" | "failing" | "stopped";
+	/** Redacted actionable failure text, when status is failing. */
+	error?: string;
 }
 
 /** Persisted registry of all managed habitats. */

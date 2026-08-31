@@ -118,6 +118,33 @@ describe("decideReap", () => {
 		expect(d.idleMs).toBe(5 * 60_000);
 	});
 
+	it("names recent preview use even when agent traffic is stale", () => {
+		const d = decideReap({
+			entry: entry(),
+			containerStatus: "running",
+			activity: report({
+				lastRequestAt: minutesAgo(90),
+				lastPreviewRequestAt: minutesAgo(3),
+			}),
+			config,
+			now: NOW,
+		});
+		expect(d.action).toBe("keep");
+		expect(d.code).toBe("active-preview");
+	});
+
+	it("uses recent agent traffic when preview traffic is stale", () => {
+		const d = decideReap({
+			entry: entry({ lastPreviewActivityAt: minutesAgo(90) }),
+			containerStatus: "running",
+			activity: report({ lastRequestAt: minutesAgo(3) }),
+			config,
+			now: NOW,
+		});
+		expect(d.action).toBe("keep");
+		expect(d.code).toBe("within-threshold");
+	});
+
 	it("refuses to stop a habitat it could not reach", () => {
 		// Unreachable means its task load is unknown, and a wrong stop costs
 		// abandoned work while a wrong keep costs one container's memory.

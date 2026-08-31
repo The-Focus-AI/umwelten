@@ -330,6 +330,13 @@ export class DockerManager {
       "--env", `HABITAT_ID=${entry.id}`,
       "-p", `127.0.0.1:${hostPort}:8080`,
     ];
+    if (entry.previewSuffix) {
+      args.push("--env", `HABITAT_PREVIEW_SUFFIX=${entry.previewSuffix}`);
+    }
+    const previewDomain = process.env.GAIA_PREVIEW_DOMAIN?.trim();
+    if (previewDomain) {
+      args.push("--env", `HABITAT_PREVIEW_DOMAIN=${previewDomain}`);
+    }
 
     // Caddy label-driven routing (#170): when a public hostname is configured,
     // stamp labels so caddy-docker-proxy publishes https://<hostname> → this

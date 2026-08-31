@@ -714,6 +714,31 @@ Or via Gaia chat:
 
 When the container starts, the entrypoint script clones the repo into `/data/project/`, runs `mise install` if there's a `mise.toml`, and the habitat server picks up the `STIMULUS.md` and custom tools from the project directory.
 
+### Creating a private project and coding Habitat
+
+Gaia's `create_private_project_habitat` tool performs the complete project
+bootstrap as one audited operation: it creates a private repository, adds that
+single repository to the configured GitHub App installation, registers a
+`habitat-coding` Habitat with explicit write scope to exactly that Owned repo,
+and starts it.
+
+This operation is disabled unless all of the following are configured on Gaia:
+
+```bash
+GITHUB_ADMIN_ORGANIZATION=your-bound-organisation
+GITHUB_ADMIN_TOKEN=...              # organisation repo + installation administration write
+GITHUB_APP_ID=...
+GITHUB_APP_INSTALLATION_ID=...
+GITHUB_APP_PRIVATE_KEY_FILE=...
+```
+
+`GITHUB_ADMIN_TOKEN` is a privileged control-plane credential. Scope it to the
+configured organisation and grant only repository creation/deletion plus GitHub
+App installation repository administration. It is never passed to child
+Habitats. Missing administration-write fails before creating anything. Partial
+failures return an explicit reconciliation record, and every privilege change
+is written to Gaia's credential audit log.
+
 ---
 
 ## Part 13: API Reference
@@ -870,3 +895,42 @@ docker stop gaia-<id> && docker rm gaia-<id>
 ```
 
 Then restart Gaia — it will read `registry.json` and reconcile state.
+
+## Project previews
+
+Project Habitats can publish the application they are editing without a
+preview block in `habitat.json`. The Owned repository supplies the normal
+`mise dev` task; Habitat runs it, discovers listeners owned by that process
+tree, and reports stable branch/service addresses to Gaia. Libraries whose
+`mise dev` exits cleanly without opening a port are treated as non-serving,
+not broken.
+
+The coding agent has two preview tools:
+
+- `preview_status` reports the primary checkout and every active branch
+  worktree. It hands over a URL only after the service is listening.
+- `preview_branch` creates or reuses a Git worktree for a named local branch,
+  installs its declared prerequisites, and starts an independent supervisor.
+
+See [`examples/project-preview`](../../examples/project-preview/README.md) for
+the minimal `mise.toml` contract and a streaming test endpoint.
+
+Public traffic does not pass through Gaia:
+
+```diagram
+Browser ──▶ wildcard Caddy ──▶ preview-router ──▶ Habitat dev server
+                                     │
+                                     ├── read-only registry cache
+                                     └── narrow wake/activity calls ──▶ Gaia
+```
+
+The router supports streaming HTTP and websocket upgrades, marks every
+response no-index, and distinguishes unknown, stale, dormant, stopped, and
+failed services. A dormant page wakes only after its JavaScript posts to the
+router; an HTML-only crawler does not spend compute. Preview requests update
+the same Habitat idle decision used by agent traffic and also touch the branch
+worktree so its server is not cleaned up while people are reviewing it.
+
+For production configuration, DNS-01 wildcard TLS, narrow credentials,
+verification, and rollback, follow
+[`deploy/gaia/README.md`](../../deploy/gaia/README.md#7-project-preview-wildcard-ingress-438).

@@ -1,0 +1,12 @@
+FROM caddy:2.10.2-builder-alpine AS builder
+
+# Keep the existing label-driven proxy for Gaia/legacy habitat ingress, but add
+# Cloudflare DNS-01 for the single preview wildcard in Caddyfile.preview.
+RUN xcaddy build \
+    --with github.com/lucaslorentz/caddy-docker-proxy/v2@v2.10.0 \
+    --with github.com/caddy-dns/cloudflare@v0.2.4
+
+FROM caddy:2.10.2-alpine
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+ENTRYPOINT ["caddy"]
+CMD ["docker-proxy"]

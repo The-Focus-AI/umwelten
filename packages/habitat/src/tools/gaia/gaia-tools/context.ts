@@ -28,6 +28,7 @@ import {
 import type { CredentialCatalog } from "../credential-catalog.js";
 import type { CredentialAuditLogger } from "../credential-audit.js";
 import type { GithubTokenService } from "../github/token-service.js";
+import type { GithubAdministration } from "../github/admin.js";
 import { resolveSaasAppOrigin } from "../saas-registry.js";
 
 export interface GaiaToolsContext {
@@ -42,6 +43,8 @@ export interface GaiaToolsContext {
 	 * so tests and embedders without GitHub needs can omit it.
 	 */
 	githubTokens?: GithubTokenService;
+	/** Explicit Level-2 GitHub capability. Absent means provisioning fails closed. */
+	githubAdministration?: GithubAdministration;
 	/** Gaia's own data directory (where config.json lives). */
 	gaiaDataDir: string;
 	/** Gaia's provider (for defaulting child habitats). */

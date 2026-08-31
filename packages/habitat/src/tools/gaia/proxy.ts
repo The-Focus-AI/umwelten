@@ -107,3 +107,32 @@ export async function fetchFromContainer<T = unknown>(
     req.end();
   });
 }
+
+/** POST to a Habitat-internal endpoint with its service credential. */
+export async function postToContainer(
+  entry: GaiaHabitatEntry,
+  path: string,
+): Promise<void> {
+  if (!entry.containerPort) throw new Error(`Container ${entry.id} not running`);
+  await new Promise<void>((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: containerName(entry.id),
+        port: CHILD_INTERNAL_PORT,
+        path,
+        method: "POST",
+        headers: { authorization: `Bearer ${entry.apiKey}` },
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () =>
+          res.statusCode && res.statusCode < 300
+            ? resolve()
+            : reject(new Error(`Container ${entry.id}${path} returned ${res.statusCode}`)),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}

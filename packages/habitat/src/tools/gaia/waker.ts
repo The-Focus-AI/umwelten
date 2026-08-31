@@ -75,6 +75,10 @@ export class HabitatWaker {
 		return this.inFlight.size;
 	}
 
+	isPending(id: string): boolean {
+		return this.inFlight.has(id);
+	}
+
 	/**
 	 * Ensure a habitat is serving, starting it if it is not.
 	 *

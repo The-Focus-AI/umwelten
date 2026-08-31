@@ -1,0 +1,3 @@
+[tasks.dev]
+description = "Run the example project service for Habitat preview discovery"
+run = "node server.mjs"

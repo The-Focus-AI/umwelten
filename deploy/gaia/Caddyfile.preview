@@ -1,0 +1,8 @@
+# This is deliberately the only preview site. Individual preview containers
+# must never receive Caddy labels: one DNS-01 wildcard certificate covers all.
+*.{$GAIA_PREVIEW_DOMAIN:preview.crepusculardiphthong.com} {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy preview-router:7431
+}

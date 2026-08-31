@@ -262,7 +262,109 @@ docker run -d --name gaia --restart unless-stopped \
 
 ---
 
-## 7. Continuous deploy (push to main)
+## 7. Project preview wildcard ingress (#438)
+
+`preview-router` is one long-lived service on `gaia-net` (port 7431 inside the
+network; it is not host-published). It receives the Gaia data directory
+read-only and only the separate wake/activity capabilities. Never give it
+`GAIA_API_KEY`, provider keys, the Docker socket, or a writable registry mount.
+All preview hostnames go through this service; preview containers must not get
+Caddy labels or certificates.
+
+The bundled proxy is built locally by `Dockerfile.caddy`. This is the smallest
+change from the existing caddy-docker-proxy deployment: the image keeps that
+plugin for existing Gaia/habitat labels and adds `caddy-dns/cloudflare`, while
+`Caddyfile.preview` contributes exactly one preview site,
+`*.${GAIA_PREVIEW_DOMAIN:-preview.crepusculardiphthong.com}`. Thus Caddy obtains
+one wildcard certificate by DNS-01 instead of issuing per-preview certificates.
+Cloudflare is the DNS provider for the configured production zone. A different
+provider requires replacing the xcaddy module and the `dns` directive together.
+
+### Credentials and preflight (no production access)
+
+Create a Cloudflare API **token**, restricted to the account containing the
+preview zone, with only `Zone / DNS / Edit` and `Zone / Zone / Read`, and narrow
+its zone resource to the zone containing `GAIA_PREVIEW_DOMAIN`. Do not use the
+Global API Key. Store it only as `CLOUDFLARE_API_TOKEN` in the host's untracked
+`.env`; Caddy is the only service receiving it. Generate independent wake and
+activity values and configure Gaia's matching narrow endpoints:
+
+```bash
+openssl rand -hex 32 # GAIA_PREVIEW_WAKE_KEY
+openssl rand -hex 32 # GAIA_PREVIEW_ACTIVITY_KEY
+```
+
+These capabilities must authorize only preview wake and activity recording,
+respectively. Confirm each is rejected by create, stop, rebuild, secrets, and
+logs endpoints before production use.
+
+Local syntax validation does not need a real token or contact production:
+
+```bash
+cd deploy/gaia
+docker network inspect gaia-net >/dev/null 2>&1 || docker network create gaia-net
+docker compose --env-file .env.example config --quiet
+docker compose build caddy
+docker run --rm \
+  -e CLOUDFLARE_API_TOKEN=0123456789abcdef0123456789abcdef01234567 \
+  -e GAIA_PREVIEW_DOMAIN=preview.invalid \
+  -v "$PWD/Caddyfile.preview:/etc/caddy/Caddyfile:ro" \
+  gaia-caddy:local validate --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+This validates parsing/module availability only; it neither requests a
+certificate nor proves DNS authorization.
+
+### Operator-gated production rollout and verification
+
+The following steps change public infrastructure and are intentionally
+**operator-gated**. This repository change does not perform live DNS,
+certificate, or deployment verification.
+
+1. Reserve the host IP; set `GAIA_PREVIEW_DOMAIN`, the scoped token, both narrow
+   capabilities, and `CADDY_EMAIL` in `.env`. Ensure TCP 80/443 are open.
+2. At Cloudflare, create one unproxied wildcard `A`/`AAAA` record
+   `*.preview.crepusculardiphthong.com` (or `*.${GAIA_PREVIEW_DOMAIN}`) pointing
+   to the host. Do not add records per preview. Verify from two public resolvers:
+   `dig +short test.$GAIA_PREVIEW_DOMAIN A @1.1.1.1` and `@8.8.8.8`.
+3. Deploy with `docker compose up -d --build gaia preview-router caddy`. Check
+   `docker compose ps` and `docker compose logs preview-router caddy`. Caddy's
+   logs must show one wildcard order and successful DNS challenge cleanup;
+   inspect the public certificate with
+   `openssl s_client -connect test.$GAIA_PREVIEW_DOMAIN:443 -servername test.$GAIA_PREVIEW_DOMAIN </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -ext subjectAltName`.
+4. Check the router directly from the ingress network:
+   `docker compose exec caddy wget -qO- http://preview-router:7431/health`.
+   Then request a known, currently-live preview hostname over HTTPS and confirm
+   status/body and `Host` routing. An unknown hostname must not reach or wake a
+   habitat.
+5. Exercise a real streaming response and watch bytes arrive incrementally
+   (`curl -Nsv https://<known-preview-host>/<stream-path>`). Exercise the app's
+   websocket endpoint with `websocat wss://<known-preview-host>/<ws-path>` (or
+   its browser UI), exchange a message, and confirm the connection remains open.
+   Caddy `reverse_proxy` supports streaming and websocket upgrades without
+   special header configuration.
+6. Stop a known preview habitat through normal Gaia operations. Fetching only
+   the dormant HTML with JavaScript disabled must not wake it. Open the same URL
+   in a browser: the interstitial JavaScript should invoke the narrow wake,
+   concurrent opens should coalesce, and reload should eventually reach the
+   preview. Confirm Gaia's audit/rate-limit log and activity timestamp, then
+   verify the broad control-plane routes reject both preview credentials.
+
+Record timestamps and redacted outputs for DNS, certificate SAN/issuer, health,
+stream/websocket, dormant wake, and authorization checks in the deployment
+change record. Never paste tokens into that record.
+
+**Rollback:** keep `caddy-data` so returning to the new configuration does not
+force reissuance. Re-deploy the previously known-good commit/image with
+`docker compose up -d --build`; if only previews are faulty, stop
+`preview-router` and remove/disable the wildcard DNS record while leaving Gaia
+and its existing ingress running. Confirm existing Gaia/habitat sites still
+serve, preview DNS no longer directs traffic, and no preview containers or
+registry data were deleted. Do not delete `caddy-data` during rollback.
+
+---
+
+## 8. Continuous deploy (push to main)
 
 Once the host is standing, later code changes ship automatically:
 `.github/workflows/deploy-gaia.yml` runs on every push to `main` that touches

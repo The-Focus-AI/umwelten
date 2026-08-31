@@ -84,6 +84,10 @@ services:
       HABITATS_SAAS_REGISTRY_SECRET: ${HABITATS_SAAS_REGISTRY_SECRET:-}
       HABITATS_SAAS_REGISTRY_WORKSPACE: ${HABITATS_SAAS_REGISTRY_WORKSPACE:-}
       HABITATS_SAAS_URL: ${HABITATS_SAAS_URL:-}
+      # Purpose-specific credentials shared only with preview-router. Gaia's
+      # corresponding endpoints must reject these on every broader API route.
+      GAIA_PREVIEW_WAKE_KEY: ${GAIA_PREVIEW_WAKE_KEY:-}
+      GAIA_PREVIEW_ACTIVITY_KEY: ${GAIA_PREVIEW_ACTIVITY_KEY:-}
     labels:
       # Gaia is itself a caddy-fronted habitat: control plane over TLS + auth at
       # GAIA_HOSTNAME, reached by caddy over the network ({{upstreams 7420}}).
@@ -105,6 +109,36 @@ services:
         --provider "$$GAIA_PROVIDER"
         --model "$$GAIA_MODEL"
 
+  # Stable ingress for every project preview. It reads Gaia's registry cache,
+  # but cannot mutate it, and receives only the purpose-specific wake/activity
+  # capabilities (never GAIA_API_KEY or the master vault/provider secrets).
+  preview-router:
+    image: habitat
+    container_name: gaia-preview-router
+    restart: unless-stopped
+    read_only: true
+    init: true
+    networks:
+      - gaia-net
+    environment:
+      GAIA_PREVIEW_DOMAIN: ${GAIA_PREVIEW_DOMAIN:-preview.crepusculardiphthong.com}
+      GAIA_PREVIEW_WAKE_KEY: ${GAIA_PREVIEW_WAKE_KEY:-}
+      GAIA_PREVIEW_ACTIVITY_KEY: ${GAIA_PREVIEW_ACTIVITY_KEY:-}
+    volumes:
+      - /opt/gaia-data:/opt/gaia-data:ro
+    tmpfs:
+      - /tmp
+    command:
+      - sh
+      - -c
+      - >
+        pnpm exec tsx packages/cli/src/entry.ts habitat preview-router
+        --data-dir /opt/gaia-data
+        --gaia-url http://gaia:7420
+        --port 7431
+    depends_on:
+      - gaia
+
   # Bundled label-driven reverse proxy (#170) for the fresh-host shape. Gives
   # Gaia and every spawned habitat its own public HTTPS URL. Caddy watches the
   # docker socket and builds routes from the `caddy=<host>` /
@@ -117,7 +151,10 @@ services:
   # Caddy auto-provisions Let's Encrypt certs. Auth is pass-through for children
   # (each verifies its own token); Gaia enforces HABITAT_API_KEY itself.
   caddy:
-    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    build:
+      context: ../..
+      dockerfile: deploy/gaia/Dockerfile.caddy
+    image: gaia-caddy:local
     container_name: gaia-caddy
     restart: unless-stopped
     ports:
@@ -126,10 +163,14 @@ services:
     environment:
       CADDY_INGRESS_NETWORKS: gaia-net
       CADDY_DOCKER_CADDYFILE_EMAIL: ${CADDY_EMAIL:-}
+      CADDY_DOCKER_CADDYFILE_PATH: /etc/caddy/Caddyfile
+      GAIA_PREVIEW_DOMAIN: ${GAIA_PREVIEW_DOMAIN:-preview.crepusculardiphthong.com}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
     networks:
       - gaia-net
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./Caddyfile.preview:/etc/caddy/Caddyfile:ro
       - caddy-data:/data     # certificates — persist across restarts
       - caddy-config:/config
 

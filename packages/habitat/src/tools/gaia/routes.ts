@@ -19,6 +19,8 @@ import {
 	type GithubTokenService,
 } from "./github/token-service.js";
 import type { StorageTokenService } from "./storage/token-service.js";
+import type { PreviewControl } from "./preview-control.js";
+import type { GaiaPublishedPreview } from "./types.js";
 
 /** In-memory store for the most recent audit results (ephemeral). */
 let latestAudit: AuditSummary | null = null;
@@ -63,6 +65,29 @@ export interface GaiaRouteContext {
 	 * omittable by tests and embedders.
 	 */
 	storageTokens?: StorageTokenService;
+	previewControl?: PreviewControl;
+}
+
+function bearer(req: IncomingMessage): string | undefined {
+	const match = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "");
+	return match?.[1];
+}
+
+function isPublishedPreview(value: unknown): value is GaiaPublishedPreview {
+	if (!value || typeof value !== "object") return false;
+	const preview = value as Partial<GaiaPublishedPreview>;
+	return (
+		typeof preview.worktreeId === "string" &&
+		typeof preview.branch === "string" &&
+		Number.isInteger(preview.port) &&
+		(preview.port ?? 0) > 0 &&
+		(preview.port ?? 0) <= 65_535 &&
+		Number.isInteger(preview.ordinal) &&
+		(preview.ordinal ?? 0) > 0 &&
+		(preview.status === undefined ||
+			["serving", "failing", "stopped"].includes(preview.status)) &&
+		(preview.error === undefined || typeof preview.error === "string")
+	);
 }
 
 function parseUrl(url: string): {
@@ -191,6 +216,55 @@ export async function handleGaiaRoute(
 ): Promise<boolean> {
 	const { path, query } = parseUrl(req.url ?? "/");
 	const method = req.method ?? "GET";
+	let params: Record<string, string> | null;
+
+	// Child supervisor publication uses the child's own credential, not Gaia's
+	// broad control-plane key. This internal path is outside /api and gates itself.
+	params = matchRoute("/internal/previews/:id", path);
+	if (params && method === "PUT") {
+		const entry = ctx.registry.get(params.id);
+		if (!entry || bearer(req) !== entry.apiKey) {
+			sendJson(res, { error: "Unauthorized" }, 401);
+			return true;
+		}
+		const body = JSON.parse(await readBody(req)) as { previews?: GaiaPublishedPreview[] };
+		if (!Array.isArray(body.previews) || !body.previews.every(isPublishedPreview)) {
+			sendJson(res, { error: "previews array required" }, 400);
+			return true;
+		}
+		await ctx.registry.update(entry.id, { publishedPreviews: body.previews });
+		sendJson(res, { published: body.previews.length });
+		return true;
+	}
+
+	if (path === "/internal/preview/wake" && method === "POST") {
+		if (!ctx.previewControl?.authorizesWake(bearer(req))) {
+			sendJson(res, { error: "Unauthorized" }, 401);
+			return true;
+		}
+		const { id } = JSON.parse(await readBody(req)) as { id?: string };
+		const outcome = id ? await ctx.previewControl.wake(id) : null;
+		sendJson(res, outcome ?? { error: "id required" }, !id ? 400 : outcome?.rateLimited ? 429 : outcome?.action === "failed" ? 503 : 200);
+		return true;
+	}
+
+	if (path === "/internal/preview/activity" && method === "POST") {
+		if (!ctx.previewControl?.authorizesActivity(bearer(req))) {
+			sendJson(res, { error: "Unauthorized" }, 401);
+			return true;
+		}
+		const { id, worktreeId } = JSON.parse(await readBody(req)) as {
+			id?: string;
+			worktreeId?: string;
+		};
+		if (!id || !worktreeId) {
+			sendJson(res, { error: "id and worktreeId required" }, 400);
+			return true;
+		}
+		const recorded = await ctx.previewControl.activity(id, worktreeId);
+		sendJson(res, { recorded }, recorded ? 200 : 404);
+		return true;
+	}
 
 	// ── Registry routes ──────────────────────────────────────────
 
@@ -241,7 +315,7 @@ export async function handleGaiaRoute(
 	}
 
 	// GET /api/habitats/:id
-	let params = matchRoute("/api/habitats/:id", path);
+	params = matchRoute("/api/habitats/:id", path);
 	if (params && method === "GET") {
 		const entry = ctx.registry.get(params.id);
 		if (!entry) {

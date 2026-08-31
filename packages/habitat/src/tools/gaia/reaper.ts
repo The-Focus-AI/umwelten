@@ -37,6 +37,8 @@ export interface HabitatActivityReport {
 	startedAt?: string;
 	/** Last request that was not a health check or an idle probe. */
 	lastRequestAt?: string | null;
+	/** Last request routed to a supervised project preview. */
+	lastPreviewRequestAt?: string | null;
 	tasks: TaskStateSummary;
 }
 
@@ -47,6 +49,7 @@ export type ReapCode =
 	| "holds-active-tasks"
 	| "activity-unknown"
 	| "within-threshold"
+	| "active-preview"
 	| "stop-failed";
 
 export interface ReapDecision {
@@ -142,8 +145,10 @@ export function lastActivityFor(
 ): string | null {
 	const candidates = [
 		activity?.lastRequestAt ?? null,
+		activity?.lastPreviewRequestAt ?? null,
 		activity?.startedAt ?? null,
 		entry.lastActivityAt ?? null,
+		entry.lastPreviewActivityAt ?? null,
 	].filter((v): v is string => typeof v === "string" && v.length > 0);
 	if (candidates.length === 0) return null;
 	return candidates.reduce((a, b) => (Date.parse(a) >= Date.parse(b) ? a : b));
@@ -204,11 +209,20 @@ export function decideReap(input: ReapInput): ReapDecision {
 
 	const idleMs = now.getTime() - Date.parse(last);
 	if (idleMs < config.idleThresholdMs) {
+		const previewTimes = [
+			activity.lastPreviewRequestAt,
+			entry.lastPreviewActivityAt,
+		].filter((value): value is string => typeof value === "string");
+		const recentPreview = previewTimes.some(
+			(value) => now.getTime() - Date.parse(value) < config.idleThresholdMs,
+		);
 		return {
 			habitatId,
 			action: "keep",
-			code: "within-threshold",
-			reason: `Idle ${formatIdle(idleMs)}, under the ${formatIdle(config.idleThresholdMs)} threshold.`,
+			code: recentPreview ? "active-preview" : "within-threshold",
+			reason: recentPreview
+				? `Project preview used ${formatIdle(idleMs)} ago; keeping its Habitat active.`
+				: `Idle ${formatIdle(idleMs)}, under the ${formatIdle(config.idleThresholdMs)} threshold.`,
 			idleMs,
 		};
 	}
@@ -304,6 +318,16 @@ export async function runReapPass(deps: ReaperDeps): Promise<ReapPassResult> {
 		const observed = lastActivityFor(entry, activity);
 		if (observed && observed !== entry.lastActivityAt) {
 			await registry.update(entry.id, { lastActivityAt: observed });
+		}
+		const observedPreview = activity?.lastPreviewRequestAt;
+		if (
+			observedPreview &&
+			(!entry.lastPreviewActivityAt ||
+				Date.parse(observedPreview) > Date.parse(entry.lastPreviewActivityAt))
+		) {
+			await registry.update(entry.id, {
+				lastPreviewActivityAt: observedPreview,
+			});
 		}
 
 		if (decision.action === "stop") {
