@@ -34,6 +34,10 @@ import { FnoxResolver } from "./fnox.js";
 import { resolveGithubAppConfig } from "./github/app-config.js";
 import { createGithubTokenService } from "./github/token-service.js";
 import { createGithubAdministration } from "./github/admin.js";
+import { HabitatWaker } from "./waker.js";
+import { PreviewControl } from "./preview-control.js";
+import { startHabitatContainer } from "./gaia-tools/habitats.js";
+import { postToContainer } from "./proxy.js";
 import {
 	createStorageTokenService,
 	resolveStorageRelayConfig,
@@ -189,7 +193,7 @@ export class Gaia {
 			);
 		}
 
-		const gaiaToolSet = createGaiaToolSet({
+		const toolsContext = {
 			registry,
 			vault,
 			docker,
@@ -201,6 +205,27 @@ export class Gaia {
 			gaiaProvider: provider,
 			gaiaModel: model,
 			gaiaConfig,
+		};
+		const gaiaToolSet = createGaiaToolSet(toolsContext);
+		const waker = new HabitatWaker({
+			getEntry: (id) => registry.get(id),
+			getStatus: (id) => docker.getStatus(id),
+			start: (id) => startHabitatContainer(toolsContext, id),
+		});
+		const previewControl = new PreviewControl({
+			registry,
+			waker,
+			audit,
+			wakeKey: process.env.GAIA_PREVIEW_WAKE_KEY,
+			activityKey: process.env.GAIA_PREVIEW_ACTIVITY_KEY,
+			touchHabitat: async (id, worktreeId) => {
+				const entry = registry.get(id);
+				if (!entry?.containerPort) return;
+				await postToContainer(
+					entry,
+					`/internal/preview-activity/${encodeURIComponent(worktreeId)}`,
+				);
+			},
 		});
 
 		const habitat = await Habitat.create({
@@ -219,6 +244,7 @@ export class Gaia {
 			audit,
 			githubTokens,
 			storageTokens,
+			previewControl,
 		};
 		const server = await startContainerServer({
 			habitat,

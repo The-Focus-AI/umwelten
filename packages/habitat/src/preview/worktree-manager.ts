@@ -8,6 +8,7 @@ import {
   type PreviewStatus,
   type PreviewSupervisorOptions,
 } from "./supervisor.js";
+import type { GaiaPublishedPreview } from "../tools/gaia/types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -141,6 +142,7 @@ export interface PreviewWorktreeManagerOptions {
   worktreeAbandonMs?: number;
   report?: (event: WorktreeCleanupEvent) => void;
   ensureDirectory?: (path: string) => Promise<void>;
+  publish?: (previews: GaiaPublishedPreview[]) => void | Promise<void>;
 }
 
 function worktreeId(branch: string): string {
@@ -237,7 +239,16 @@ export class PreviewWorktreeManager {
 
   touch(id: string): void {
     const worktree = this.worktrees.get(id);
-    if (worktree) worktree.lastRequestedAt = this.now();
+    if (worktree) {
+      worktree.lastRequestedAt = this.now();
+      if (worktree.serverStoppedAt !== undefined) this.restart(worktree);
+    }
+  }
+
+  publishedPreviews(): GaiaPublishedPreview[] {
+    return [...this.worktrees.values()].flatMap(
+      (worktree) => worktree.supervisor.status().previews,
+    );
   }
 
   async cleanup(): Promise<WorktreeCleanupEvent[]> {
@@ -263,6 +274,7 @@ export class PreviewWorktreeManager {
           await worktree.supervisor.stop();
         await this.git.remove(this.options.primaryDir, worktree.path);
         this.worktrees.delete(worktree.id);
+        void this.options.publish?.(this.publishedPreviews());
         events.push({
           worktreeId: worktree.id,
           branch: worktree.branch,
@@ -315,6 +327,9 @@ export class PreviewWorktreeManager {
         projectDir: path,
         branch,
         worktreeId: id,
+        onStatusChange: () => {
+          void this.options.publish?.(this.publishedPreviews());
+        },
       }),
     };
   }
@@ -325,6 +340,9 @@ export class PreviewWorktreeManager {
       projectDir: worktree.path,
       branch: worktree.branch,
       worktreeId: worktree.id,
+      onStatusChange: () => {
+        void this.options.publish?.(this.publishedPreviews());
+      },
     });
     worktree.serverStoppedAt = undefined;
     worktree.supervisor.start();

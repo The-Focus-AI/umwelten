@@ -224,6 +224,7 @@ export class GaiaRegistryManager {
 				| "github"
 				| "cachedCard"
 				| "lastActivityAt"
+				| "lastPreviewActivityAt"
 				| "vaultToml"
 				| "publishedPreviews"
 			>
@@ -246,6 +247,8 @@ export class GaiaRegistryManager {
 		if (updates.cachedCard !== undefined) entry.cachedCard = updates.cachedCard;
 		if (updates.lastActivityAt !== undefined)
 			entry.lastActivityAt = updates.lastActivityAt;
+		if (updates.lastPreviewActivityAt !== undefined)
+			entry.lastPreviewActivityAt = updates.lastPreviewActivityAt;
 		if (updates.publishedPreviews !== undefined)
 			entry.publishedPreviews = updates.publishedPreviews;
 		// Assigned unconditionally: undefined means the repo no longer

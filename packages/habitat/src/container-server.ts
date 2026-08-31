@@ -106,6 +106,11 @@ export interface ContainerServerOptions {
 		req: IncomingMessage,
 		res: ServerResponse,
 	) => Promise<boolean>;
+	/** Narrow bridge from the preview router into preview activity tracking. */
+	previewActivity?: {
+		touch(worktreeId: string): void;
+		lastRequestAt(): string | null;
+	};
 }
 
 export interface StartedContainerServer {
@@ -452,7 +457,11 @@ export async function startContainerServer(
 			// Health checks and the idle probe itself are deliberately not
 			// activity: an orchestrator polling to decide whether we are idle
 			// must not be the reason we never look idle (#278).
-			if (path !== "/health" && path !== "/api/activity") {
+			if (
+				path !== "/health" &&
+				path !== "/api/activity" &&
+				!path.startsWith("/internal/preview-activity/")
+			) {
 				lastRequestAt = new Date().toISOString();
 			}
 
@@ -489,6 +498,26 @@ export async function startContainerServer(
 							? `${modelDetails.provider}/${modelDetails.name}`
 							: null,
 					});
+					return;
+				}
+
+				// Gaia authenticates with this Habitat's existing service key, but
+				// this path exposes only the narrow activity-touch operation.
+				if (
+					path.startsWith("/internal/preview-activity/") &&
+					req.method === "POST" &&
+					options.previewActivity
+				) {
+					const user = await auth.authenticate(req);
+					if (!user) {
+						sendJson(res, { error: "Unauthorized" }, 401);
+						return;
+					}
+					const worktreeId = decodeURIComponent(
+						path.slice("/internal/preview-activity/".length),
+					);
+					options.previewActivity.touch(worktreeId);
+					sendJson(res, { touched: true });
 					return;
 				}
 
@@ -1176,6 +1205,8 @@ export async function startContainerServer(
 						sendJson(res, {
 							startedAt: serverStartedAt,
 							lastRequestAt,
+							lastPreviewRequestAt:
+								options.previewActivity?.lastRequestAt() ?? null,
 							tasks: summarizeTasks(await store.listAll()),
 						});
 						return;

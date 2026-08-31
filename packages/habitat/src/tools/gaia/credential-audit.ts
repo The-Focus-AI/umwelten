@@ -31,7 +31,9 @@ export type AuditOperation =
 	| "github_project_register"
 	| "github_project_start"
 	| "storage_token_mint"
-	| "storage_token_denied";
+	| "storage_token_denied"
+	| "preview_wake_attempt"
+	| "preview_wake_rate_limited";
 
 /** A single audit log entry. */
 export interface AuditEntry {

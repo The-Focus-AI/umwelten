@@ -895,3 +895,42 @@ docker stop gaia-<id> && docker rm gaia-<id>
 ```
 
 Then restart Gaia — it will read `registry.json` and reconcile state.
+
+## Project previews
+
+Project Habitats can publish the application they are editing without a
+preview block in `habitat.json`. The Owned repository supplies the normal
+`mise dev` task; Habitat runs it, discovers listeners owned by that process
+tree, and reports stable branch/service addresses to Gaia. Libraries whose
+`mise dev` exits cleanly without opening a port are treated as non-serving,
+not broken.
+
+The coding agent has two preview tools:
+
+- `preview_status` reports the primary checkout and every active branch
+  worktree. It hands over a URL only after the service is listening.
+- `preview_branch` creates or reuses a Git worktree for a named local branch,
+  installs its declared prerequisites, and starts an independent supervisor.
+
+See [`examples/project-preview`](../../examples/project-preview/README.md) for
+the minimal `mise.toml` contract and a streaming test endpoint.
+
+Public traffic does not pass through Gaia:
+
+```diagram
+Browser ──▶ wildcard Caddy ──▶ preview-router ──▶ Habitat dev server
+                                     │
+                                     ├── read-only registry cache
+                                     └── narrow wake/activity calls ──▶ Gaia
+```
+
+The router supports streaming HTTP and websocket upgrades, marks every
+response no-index, and distinguishes unknown, stale, dormant, stopped, and
+failed services. A dormant page wakes only after its JavaScript posts to the
+router; an HTML-only crawler does not spend compute. Preview requests update
+the same Habitat idle decision used by agent traffic and also touch the branch
+worktree so its server is not cleaned up while people are reviewing it.
+
+For production configuration, DNS-01 wildcard TLS, narrow credentials,
+verification, and rollback, follow
+[`deploy/gaia/README.md`](../../deploy/gaia/README.md#7-project-preview-wildcard-ingress-438).

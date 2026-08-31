@@ -11,6 +11,7 @@ import {
   type DiscoveredPreviewPort,
   type PreviewSupervisorSnapshot,
 } from "./supervisor-state.js";
+import type { GaiaPublishedPreview } from "../tools/gaia/types.js";
 
 export interface PreviewProcess {
   pid?: number;
@@ -35,6 +36,7 @@ export interface PreviewSupervisorOptions {
   discoverPorts?: (pid: number) => Promise<DiscoveredPreviewPort[]>;
   setTimer?: (callback: () => void, delay: number) => NodeJS.Timeout;
   clearTimer?: (timer: NodeJS.Timeout) => void;
+  onStatusChange?: (status: PreviewStatus) => void;
 }
 
 export interface PreviewStatus {
@@ -42,6 +44,7 @@ export interface PreviewStatus {
   branch: string;
   snapshot: PreviewSupervisorSnapshot;
   logs: string;
+  previews: GaiaPublishedPreview[];
 }
 
 async function descendants(
@@ -131,6 +134,8 @@ export class PreviewSupervisor {
   private everListened = false;
   private failures = 0;
   private generation = 0;
+  private previews: GaiaPublishedPreview[] = [];
+  private lastNotification = "";
 
   constructor(private readonly options: PreviewSupervisorOptions) {
     this.logs = new RedactedLogBuffer(options.secrets ?? []);
@@ -155,12 +160,19 @@ export class PreviewSupervisor {
       branch: this.options.branch,
       snapshot: this.snapshot,
       logs: this.logs.tail(),
+      previews: this.previews,
     };
   }
 
   async stop(): Promise<void> {
     this.stopped = true;
     this.snapshot = { status: "stopped" };
+    this.previews = this.previews.map((preview) => ({
+      ...preview,
+      status: "stopped",
+      error: "Preview server is stopped and will restart when requested.",
+    }));
+    this.notify();
     this.generation += 1;
     if (this.timer) this.clearTimer(this.timer);
     this.timer = undefined;
@@ -216,11 +228,20 @@ export class PreviewSupervisor {
           error:
             "Preview listens only on loopback. Bind the dev server to 0.0.0.0 or :: so Gaia can route it.",
         };
+        this.markPreviewsFailing(this.snapshot.error);
       } else if (reachable.length > 0) {
         this.failures = 0;
-        const addresses = assignPreviewOrdinals(
+        const assigned = assignPreviewOrdinals(
           reachable.map(({ port }) => port),
-        ).map(
+        );
+        this.previews = assigned.map(({ port, ordinal }) => ({
+          worktreeId: this.options.worktreeId ?? "primary",
+          branch: this.options.branch,
+          port,
+          ordinal,
+          status: "serving",
+        }));
+        const addresses = assigned.map(
           ({ ordinal }) =>
             `https://${previewLabel(this.options.projectId, this.options.branch, ordinal, this.options.previewSuffix)}.${this.options.domain ?? "preview.crepusculardiphthong.com"}`,
         );
@@ -233,7 +254,9 @@ export class PreviewSupervisor {
         status: "failing",
         error: `Could not inspect preview listeners: ${error instanceof Error ? error.message : String(error)}`,
       };
+      this.markPreviewsFailing(this.snapshot.error);
     }
+    this.notify();
     this.schedulePoll(generation, this.pollIntervalMs);
   }
 
@@ -249,6 +272,8 @@ export class PreviewSupervisor {
       status: "failing",
       error: error instanceof Error ? error.message : String(error),
     };
+    this.markPreviewsFailing(this.snapshot.error);
+    this.notify();
     this.scheduleRestart(true);
   }
 
@@ -259,6 +284,8 @@ export class PreviewSupervisor {
     const decision = decidePreviewExit(code, this.everListened);
     if (decision.kind === "no-service") {
       this.snapshot = { status: "no-service" };
+      this.previews = [];
+      this.notify();
       return;
     }
     if (decision.kind === "backoff") {
@@ -269,7 +296,9 @@ export class PreviewSupervisor {
             ? "Preview process was terminated"
             : `Preview process exited with code ${code}`,
       };
+      this.markPreviewsFailing(this.snapshot.error);
     }
+    this.notify();
     this.scheduleRestart(decision.kind === "backoff");
   }
 
@@ -279,5 +308,20 @@ export class PreviewSupervisor {
       ? Math.min(1_000 * 2 ** this.failures++, this.maxBackoffMs)
       : 0;
     this.timer = this.setTimer(() => this.launch(), delay);
+  }
+
+  private markPreviewsFailing(error: string): void {
+    this.previews = this.previews.map((preview) => ({
+      ...preview,
+      status: "failing",
+      error,
+    }));
+  }
+
+  private notify(): void {
+    const key = JSON.stringify({ snapshot: this.snapshot, previews: this.previews });
+    if (key === this.lastNotification) return;
+    this.lastNotification = key;
+    this.options.onStatusChange?.(this.status());
   }
 }

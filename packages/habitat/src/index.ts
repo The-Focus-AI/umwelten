@@ -252,6 +252,7 @@ export type {
 // not exported.
 export { Gaia } from "./tools/gaia/gaia.js";
 export type { GaiaStartOptions, StartedGaia } from "./tools/gaia/gaia.js";
+export { startPreviewRouter } from "./tools/gaia/preview-router.js";
 export type {
 	GaiaHabitatEntry,
 	GaiaRegistry,

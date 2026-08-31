@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { resolveProjectDir } from "./config.js";
 import { Habitat } from "./habitat.js";
 import { PreviewWorktreeManager } from "./preview/worktree-manager.js";
+import { createPreviewPublisher } from "./preview/publisher.js";
 import { createPreviewTools } from "./tools/preview-tools.js";
 import {
 	standardToolSets,
@@ -112,8 +113,16 @@ export async function serveHabitat(
 	const config = habitat.getConfig();
 	const previewSuffix = process.env.HABITAT_PREVIEW_SUFFIX;
 	let previewManager: PreviewWorktreeManager | undefined;
+	let lastPreviewRequestAt: string | null = null;
 	let previewCleanupTimer: NodeJS.Timeout | undefined;
 	if (mode !== "mcp-only" && config.gitUrl && previewSuffix) {
+		const gaiaUrl = process.env.GAIA_URL?.trim();
+		const habitatId = process.env.HABITAT_ID?.trim();
+		const apiKey = process.env.HABITAT_API_KEY?.split(",")[0]?.trim();
+		const publish =
+			gaiaUrl && habitatId && apiKey
+				? createPreviewPublisher({ gaiaUrl, habitatId, apiKey })
+				: undefined;
 		previewManager = await PreviewWorktreeManager.create({
 			primaryDir: resolveProjectDir(habitat.getWorkDir(), config),
 			worktreesDir: join(habitat.getWorkDir(), "preview-worktrees"),
@@ -135,6 +144,12 @@ export async function serveHabitat(
 				console.log(
 					`[preview] ${event.worktreeId}: ${event.action} — ${event.detail}`,
 				),
+			publish: publish
+				? (previews) =>
+						publish(previews).catch((error) =>
+							console.warn(`[preview] Could not publish routes: ${error.message}`),
+						)
+				: undefined,
 		});
 		habitat.addTools(createPreviewTools(previewManager));
 		previewCleanupTimer = setInterval(
@@ -152,7 +167,21 @@ export async function serveHabitat(
 	} else {
 		const { startContainerServer } = await import("./container-server.js");
 		try {
-			const server = await startContainerServer({ habitat, port, host, name });
+			const server = await startContainerServer({
+				habitat,
+				port,
+				host,
+				name,
+				previewActivity: previewManager
+					? {
+							touch: (worktreeId) => {
+								lastPreviewRequestAt = new Date().toISOString();
+								previewManager?.touch(worktreeId);
+							},
+							lastRequestAt: () => lastPreviewRequestAt,
+						}
+					: undefined,
+			});
 			closeServer = () => server.close();
 		} catch (error) {
 			if (previewCleanupTimer) clearInterval(previewCleanupTimer);

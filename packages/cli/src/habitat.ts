@@ -917,6 +917,40 @@ addSharedOptions(gaiaSubcommand)
 
 habitatCommand.addCommand(gaiaSubcommand);
 
+const previewRouterSubcommand = new Command("preview-router")
+	.description("Start the standalone project-preview HTTP and websocket router.")
+	.option("--port <port>", "HTTP port", "7431")
+	.option("--host <host>", "Bind host", "0.0.0.0")
+	.option("--data-dir <path>", "Read-only Gaia registry directory", "./gaia-data")
+	.option("--gaia-url <url>", "Internal Gaia URL", "http://gaia:7420")
+	.action(async (options: {
+		port: string;
+		host: string;
+		dataDir: string;
+		gaiaUrl: string;
+	}) => {
+		const wakeKey = process.env.GAIA_PREVIEW_WAKE_KEY?.trim();
+		const activityKey = process.env.GAIA_PREVIEW_ACTIVITY_KEY?.trim();
+		if (!wakeKey || !activityKey) {
+			throw new Error(
+				"GAIA_PREVIEW_WAKE_KEY and GAIA_PREVIEW_ACTIVITY_KEY are required",
+			);
+		}
+		const { startPreviewRouter } = await import("@umwelten/habitat");
+		const started = await startPreviewRouter({
+			dataDir: options.dataDir,
+			gaiaUrl: options.gaiaUrl,
+			wakeKey,
+			activityKey,
+			domain: process.env.GAIA_PREVIEW_DOMAIN,
+			port: Number(options.port),
+			host: options.host,
+		});
+		console.log(`[preview-router] Listening on ${options.host}:${started.port}`);
+	});
+
+habitatCommand.addCommand(previewRouterSubcommand);
+
 // ── habitat chat — connect to a running A2A agent and chat with it ──────
 const chatSubcommand = new Command("chat")
 	.description(

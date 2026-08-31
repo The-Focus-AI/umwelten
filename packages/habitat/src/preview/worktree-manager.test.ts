@@ -186,6 +186,21 @@ describe("PreviewWorktreeManager", () => {
     expect(h.calls.remove).toEqual([h.calls.add[0].path]);
   });
 
+  it("restarts an idle-stopped branch when routed preview traffic touches it", async () => {
+    const h = harness();
+    const previews = await manager(h);
+    const secondary = await previews.ensure("feature/review");
+    h.setNow(200);
+    await previews.cleanup();
+    expect(h.supervisors[1].stop).toHaveBeenCalledOnce();
+
+    previews.touch(secondary.worktreeId);
+
+    expect(h.supervisors).toHaveLength(3);
+    expect(h.supervisors[2].options.branch).toBe("feature/review");
+    expect(h.supervisors[2].start).toHaveBeenCalledOnce();
+  });
+
   it("rolls back a new worktree when prerequisite installation fails", async () => {
     const h = harness();
     vi.mocked(h.git.prepare).mockRejectedValueOnce(new Error("install failed"));
