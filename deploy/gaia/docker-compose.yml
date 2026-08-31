@@ -132,7 +132,7 @@ services:
       - sh
       - -c
       - >
-        pnpm exec tsx packages/cli/src/entry.ts habitat preview-router
+        ./node_modules/.bin/tsx packages/cli/src/entry.ts habitat preview-router
         --data-dir /opt/gaia-data
         --gaia-url http://gaia:7420
         --port 7431
