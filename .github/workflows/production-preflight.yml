@@ -81,6 +81,12 @@ jobs:
               echo "  $name=absent"
             fi
           done
+          if docker inspect gaia-preview-router >/dev/null 2>&1; then
+            echo "preview router networks:"
+            docker inspect --format '  {{range $name, $network := .NetworkSettings.Networks}}{{$name}}={{$network.IPAddress}} {{end}}' gaia-preview-router
+            echo "preview router logs:"
+            docker logs --tail 30 gaia-preview-router 2>&1
+          fi
       - name: Check read-only access to Mycel host
         shell: bash
         run: |
