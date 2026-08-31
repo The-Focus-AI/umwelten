@@ -75,10 +75,27 @@ fi
 log "waiting for $GAIA_URL/health"
 wait_for "gaia health" 90 "$GAIA_URL/health"
 
+# The preview router is intentionally deployed only when both of its narrow
+# capabilities are configured. It joins the reused ingress network explicitly,
+# just like Gaia, because compose owns only gaia-net in this deployment shape.
+if [[ -n "${GAIA_PREVIEW_WAKE_KEY:-}" && -n "${GAIA_PREVIEW_ACTIVITY_KEY:-}" ]]; then
+  log "recreating preview router"
+  docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d preview-router
+  if [[ -n "${GAIA_INGRESS_NETWORK:-}" ]]; then
+    docker network connect --alias preview-router "$GAIA_INGRESS_NETWORK" gaia-preview-router 2>/dev/null \
+      && log "attached preview router to $GAIA_INGRESS_NETWORK" \
+      || log "preview router already on $GAIA_INGRESS_NETWORK"
+  fi
+  wait_for "preview router health" 60 http://localhost:7431/health \
+    --resolve localhost:7431:$(docker inspect --format '{{(index .NetworkSettings.Networks "gaia-net").IPAddress}}' gaia-preview-router)
+else
+  log "preview router disabled — both preview capabilities are required"
+fi
+
 # Cycle only children whose container is currently running. Registry entries
 # that are deliberately stopped (e.g. parked habitats) stay stopped.
 mapfile -t RUNNING < <(docker ps --format '{{.Names}}' \
-  | grep '^gaia-' | grep -v '^gaia-caddy$' | sed 's/^gaia-//')
+  | grep '^gaia-' | grep -Ev '^gaia-(caddy|preview-router)$' | sed 's/^gaia-//')
 
 if ((${#RUNNING[@]} == 0)); then
   log "no running child habitats to cycle"
