@@ -1,0 +1,79 @@
+name: Deploy Gaia preview ingress
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gaia-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, gaia]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require the scoped Cloudflare token
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: test -n "$TOKEN"
+      - name: Store the renewal credential without printing it
+        env:
+          GAIA_ENV_FILE: /home/worker_user/umwelten/deploy/gaia/.env
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          backup="${GAIA_ENV_FILE}.before-ingress-$(date -u +%Y%m%dT%H%M%SZ)"
+          cp --preserve=mode "$GAIA_ENV_FILE" "$backup"
+          echo "environment backup written to $backup"
+          tmp="$(mktemp "${GAIA_ENV_FILE}.tmp.XXXXXX")"
+          export PREVIEW_CONFIG_VALUE="$TOKEN"
+          awk '
+            BEGIN { replaced = 0 }
+            /^CLOUDFLARE_API_TOKEN=/ {
+              if (!replaced) print "CLOUDFLARE_API_TOKEN=" ENVIRON["PREVIEW_CONFIG_VALUE"]
+              replaced = 1
+              next
+            }
+            { print }
+            END { if (!replaced) print "CLOUDFLARE_API_TOKEN=" ENVIRON["PREVIEW_CONFIG_VALUE"] }
+          ' "$GAIA_ENV_FILE" > "$tmp"
+          chmod --reference="$GAIA_ENV_FILE" "$tmp"
+          mv "$tmp" "$GAIA_ENV_FILE"
+      - name: Replace Caddy with rollback protection
+        env:
+          GAIA_ENV_FILE: /home/worker_user/umwelten/deploy/gaia/.env
+        run: |
+          chmod +x deploy/gaia/replace-existing-caddy.sh
+          deploy/gaia/replace-existing-caddy.sh
+      - name: Publish wildcard DNS
+        env:
+          GAIA_ENV_FILE: /home/worker_user/umwelten/deploy/gaia/.env
+        run: |
+          chmod +x deploy/gaia/upsert-preview-dns.sh
+          deploy/gaia/upsert-preview-dns.sh
+      - name: Verify public DNS, TLS, and unknown-host isolation
+        env:
+          DOMAIN: preview.crepusculardiphthong.com
+        run: |
+          set -euo pipefail
+          host="verification.$DOMAIN"
+          deadline=$((SECONDS + 300))
+          while true; do
+            status="$(curl -sS --max-time 10 -o /tmp/preview-verification.html \
+              -w '%{http_code}' "https://$host/" 2>/dev/null || true)"
+            if [[ "$status" == 404 ]] && grep -q 'Unknown preview' /tmp/preview-verification.html; then
+              break
+            fi
+            if ((SECONDS >= deadline)); then
+              echo "error: timed out waiting for wildcard DNS/TLS" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          certificate="$(openssl s_client -connect "$host:443" -servername "$host" </dev/null 2>/dev/null | openssl x509 -noout -ext subjectAltName)"
+          grep -Fq "DNS:*.$DOMAIN" <<<"$certificate"
+          echo "preview-ingress=healthy"
