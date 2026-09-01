@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Mycel is a living exchange for machine intelligence: one connection to models wherever they grow."
+    />
+    <meta name="theme-color" content="#07100c" />
+    <title>Mycel — intelligence grows in networks</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <header class="nav shell-width">
+      <a class="brand" href="/" aria-label="Mycel home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>mycel</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#network">Network</a>
+        <a href="#how">How it works</a>
+        <a href="#developers">Developers</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="network-status" href="/shell/">
+          <span class="pulse" aria-hidden="true"></span>
+          <span id="network-status-label">Exchange live</span>
+        </a>
+        <button class="auth-link" type="button" data-sign-in>Sign in</button>
+        <button class="auth-button" type="button" data-sign-up>
+          Create account
+        </button>
+        <div id="user-button" aria-label="Account menu"></div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <canvas id="mycelium" aria-hidden="true"></canvas>
+        <div class="hero-haze" aria-hidden="true"></div>
+        <div class="hero-content shell-width">
+          <p class="eyebrow">
+            <span>01</span> A living exchange for machine intelligence
+          </p>
+          <h1>Intelligence grows<br />in <em>networks.</em></h1>
+          <p class="hero-copy">
+            One OpenAI-compatible connection to models wherever they grow—cloud,
+            local, or on hardware you own. Mycel finds the right path, meters
+            the exchange, and keeps your applications moving.
+          </p>
+          <div class="hero-actions">
+            <button class="button primary" type="button" data-sign-up>
+              Create your account <span>↗</span>
+            </button>
+            <a class="button ghost" href="/shell/">Open live Exchange</a>
+          </div>
+        </div>
+        <div class="scroll-cue" aria-hidden="true">
+          <span></span> Scroll to descend
+        </div>
+        <p class="simulation-note">Move to feed · click to inoculate</p>
+      </section>
+
+      <section class="network-section shell-width" id="network">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow"><span>02</span> The network, now</p>
+            <h2>Capability is alive,<br />not hard-coded.</h2>
+          </div>
+          <p>
+            Offers appear when suppliers can serve them. Mycel considers price,
+            capability, guarantees, and availability for every request.
+          </p>
+        </div>
+
+        <div class="network-vitals" aria-label="Live network summary">
+          <article>
+            <span class="vital-label">Models on offer</span>
+            <strong id="model-count">—</strong>
+            <small>live catalogue</small>
+          </article>
+          <article>
+            <span class="vital-label">Completion from</span>
+            <strong id="lowest-price">—</strong>
+            <small>per million tokens</small>
+          </article>
+          <article>
+            <span class="vital-label">Network state</span>
+            <strong class="connected"><i></i> Connected</strong>
+            <small>priced in real time</small>
+          </article>
+        </div>
+
+        <div class="model-grid" id="model-grid" aria-live="polite">
+          <p class="catalogue-loading">Listening for offers<span>...</span></p>
+        </div>
+      </section>
+
+      <section class="how-section" id="how">
+        <div class="shell-width">
+          <div class="section-heading inverse">
+            <div>
+              <p class="eyebrow"><span>03</span> One request path</p>
+              <h2>Your app calls Mycel.<br />Mycel handles the route.</h2>
+            </div>
+            <p>
+              Use the OpenAI API shape you already know. The Exchange selects an
+              available supplier, streams its response, and records the usage.
+            </p>
+          </div>
+          <ol class="exchange-flow" aria-label="Mycel request path">
+            <li class="request-step">
+              <span>01 · Request</span>
+              <h3>Your application</h3>
+              <code>POST /v1/chat/completions</code>
+              <p>
+                Sends a standard request using its Mycel API key and optional
+                end-user identifier.
+              </p>
+            </li>
+            <li class="exchange-step">
+              <span>02 · Route</span>
+              <h3>Mycel Exchange</h3>
+              <code>capability + price + availability</code>
+              <p>
+                Matches the request against live offers and selects an eligible
+                supplier.
+              </p>
+            </li>
+            <li class="response-step">
+              <span>03 · Response</span>
+              <h3>Selected model</h3>
+              <code>stream + usage record</code>
+              <p>
+                Streams tokens back through the same connection while Mycel
+                records cost and usage.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="developer-section shell-width" id="developers">
+        <div class="developer-copy">
+          <p class="eyebrow"><span>04</span> Familiar at the edge</p>
+          <h2>Change the base URL.<br />Keep building.</h2>
+          <p>
+            Mycel speaks the interface your application already knows. A
+            credential identifies the Application; an end-user header keeps
+            usage attributable without making Mycel your users' identity
+            provider.
+          </p>
+          <ul>
+            <li>OpenAI-compatible chat completions</li>
+            <li>Streaming and tool-calling offers</li>
+            <li>Per-application and per-user metering</li>
+          </ul>
+        </div>
+        <div class="code-card">
+          <div class="code-bar">
+            <span>request.ts</span>
+            <button id="copy-code" type="button">Copy</button>
+          </div>
+          <pre><code><span class="kw">const</span> response = <span class="kw">await</span> fetch(
+  <span class="str">"https://mycel.thefocus.ai/v1/chat/completions"</span>,
+  {
+    method: <span class="str">"POST"</span>,
+    headers: {
+      Authorization: <span class="str">`Bearer ${MYCEL_API_KEY}`</span>,
+      <span class="str">"X-Mycel-End-User"</span>: user.id,
+      <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>
+    },
+    body: JSON.stringify({
+      model: <span class="str">"deepseek/deepseek-v4-pro"</span>,
+      messages
+    })
+  }
+);</code></pre>
+          <div class="code-foot"><i></i> OpenAI-compatible endpoint</div>
+        </div>
+      </section>
+
+      <section class="access-section shell-width" id="access">
+        <div class="access-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p class="eyebrow"><span>05</span> The next growth ring</p>
+        <h2>Your key to the network.</h2>
+        <p>
+          Create your account to manage Applications, generate credentials, and
+          see every request that moves through the Exchange.
+        </p>
+        <div class="access-actions">
+          <button class="button primary light" type="button" data-sign-up>
+            Create an account <span>↗</span>
+          </button>
+          <a class="button primary light" href="/shell/"
+            >View the live catalogue <span>↗</span></a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell-width">
+      <a class="brand" href="/"
+        ><span class="brand-mark"><i></i><i></i><i></i></span
+        ><span>mycel</span></a
+      >
+      <p>A living exchange by The Focus AI.</p>
+      <div>
+        <a href="/health">Status</a><a href="/v1/models">Models API</a
+        ><a href="/shell/">Exchange</a>
+      </div>
+    </footer>
+  </body>
+</html>

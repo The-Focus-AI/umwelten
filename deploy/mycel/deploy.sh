@@ -34,6 +34,21 @@ source "$ENV_FILE"
 set +a
 
 : "${MYCEL_HOSTNAME:?MYCEL_HOSTNAME must be set in $ENV_FILE}"
+: "${VITE_CLERK_PUBLISHABLE_KEY:?VITE_CLERK_PUBLISHABLE_KEY must be set in $ENV_FILE}"
+case "$VITE_CLERK_PUBLISHABLE_KEY" in
+  pk_live_*) ;;
+  pk_test_*)
+    if [[ "${MYCEL_ALLOW_DEVELOPMENT_CLERK:-false}" != true ]]; then
+      echo "error: development Clerk on a public host requires MYCEL_ALLOW_DEVELOPMENT_CLERK=true" >&2
+      exit 1
+    fi
+    echo "[mycel] WARNING: deploying a development Clerk instance to $MYCEL_HOSTNAME" >&2
+    ;;
+  *)
+    echo "error: VITE_CLERK_PUBLISHABLE_KEY is not a Clerk publishable key" >&2
+    exit 1
+    ;;
+esac
 
 URL="https://$MYCEL_HOSTNAME"
 PREVIOUS="mycel:previous"
@@ -85,7 +100,28 @@ wait_for_health() {
 # image omitted runtime-read assets, so every browser stayed on "assembling…".
 # Gate the candidate on the actual serving contract before calling it deployed.
 verify_client_surface() {
-  local component manifest substrate status
+  local animation animation_path component landing manifest substrate status
+  landing="$(curl -sfS --max-time 5 "$URL/")" || {
+    echo "error: landing page unavailable" >&2
+    return 1
+  }
+  if ! grep -q 'Mycel — intelligence grows in networks' <<<"$landing"; then
+    echo "error: hostname root is not the Mycel landing page" >&2
+    return 1
+  fi
+  animation_path="$(sed -n 's/.*src="\([^"]*\/assets\/[^"]*\.js\)".*/\1/p' <<<"$landing" | head -1)"
+  if [[ -z "$animation_path" ]]; then
+    echo "error: landing page does not reference its compiled client" >&2
+    return 1
+  fi
+  animation="$(curl -sfS --max-time 5 "$URL$animation_path")" || {
+    echo "error: landing simulation unavailable" >&2
+    return 1
+  }
+  if ! grep -q 'requestAnimationFrame' <<<"$animation"; then
+    echo "error: landing simulation response is not the expected runtime" >&2
+    return 1
+  fi
   manifest="$(curl -sfS --max-time 5 "$URL/shell/manifest.json")" || {
     echo "error: manifest endpoint unavailable" >&2
     return 1
@@ -140,7 +176,9 @@ docker run --rm -v "$ROOT:/w" -w /w node:22-slim sh -c \
    && node packages/mycel/dist/mycel.js --help >/dev/null'
 
 log "building image from $ROOT"
-docker build -t mycel -f "$ROOT/packages/mycel/Dockerfile" "$ROOT"
+docker build \
+  --build-arg "VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY" \
+  -t mycel -f "$ROOT/packages/mycel/Dockerfile" "$ROOT"
 
 log "recreating the container"
 docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d
@@ -149,7 +187,7 @@ log "waiting for $URL/health"
 if wait_for_health 90; then
   log "healthy — store reachable"
   if verify_client_surface; then
-    log "client surface healthy — manifest and substrate runtime available"
+    log "client surface healthy — landing, manifest and substrate runtime available"
     log "done"
     exit 0
   fi

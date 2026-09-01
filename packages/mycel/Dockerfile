@@ -15,6 +15,19 @@ RUN npm install --prefix /opt/esbuild esbuild@0.28.1 \
     && cp /opt/esbuild/node_modules/esbuild/bin/esbuild /esbuild \
     && chmod 0755 /esbuild
 
+# The customer-facing site owns a separate pnpm workspace and dependency tree.
+# Build it in isolation, then copy only browser assets into the runtime image;
+# Clerk and Vite never enter the Exchange runtime's node_modules or bundle.
+FROM node:22-slim AS mycel-client
+WORKDIR /client
+RUN corepack enable
+COPY apps/mycel-client/package.json apps/mycel-client/pnpm-lock.yaml apps/mycel-client/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY apps/mycel-client/index.html ./index.html
+COPY apps/mycel-client/src ./src
+ARG VITE_CLERK_PUBLISHABLE_KEY=""
+RUN VITE_CLERK_PUBLISHABLE_KEY="$VITE_CLERK_PUBLISHABLE_KEY" pnpm build
+
 FROM node:22-slim
 ENV NODE_ENV=production
 ENV ESBUILD_BINARY_PATH=/usr/local/bin/esbuild
@@ -60,11 +73,12 @@ COPY --from=esbuild-binary /esbuild /usr/local/bin/esbuild
 # Because every bundled import.meta.url resolves from /app/mycel.js, the
 # substrate package root resolves to / (so its shell is /shell and its TS
 # runtime is /src), while Mycel's own components resolve beside the bundle.
-# Keep all three copies together: omitting /src leaves the HTML healthy but the
+# Keep all four copies together: omitting /src leaves the HTML healthy but the
 # browser stuck on "assembling…" when /shell/substrate/index.js returns 404.
 COPY --chown=mycel:mycel packages/substrate/shell /shell
 COPY --chown=mycel:mycel packages/substrate/src /src
 COPY --chown=mycel:mycel packages/mycel/src/client-surface/components /app/components
+COPY --from=mycel-client --chown=mycel:mycel /client/dist /app/landing
 COPY deploy/mycel/entrypoint.sh /usr/local/bin/mycel-entrypoint
 RUN chmod 0755 /usr/local/bin/mycel-entrypoint
 

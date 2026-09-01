@@ -61,9 +61,15 @@ install_workspace_dependencies() {
   pnpm install --frozen-lockfile
 }
 
+install_mycel_client() {
+  pnpm --dir apps/mycel-client install --frozen-lockfile
+  pnpm --dir apps/mycel-client build
+}
+
 echo "Preparing Umwelten for Amp orbs..."
 step "Install missing system dependencies" install_system_dependencies
 step "Check the Node.js toolchain" check_node
 step "Activate the package.json pnpm version" install_pnpm
 step "Install workspace dependencies" install_workspace_dependencies
+step "Build the isolated Mycel client" install_mycel_client
 printf '\nOrb setup complete.\n'

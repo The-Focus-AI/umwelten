@@ -34,9 +34,19 @@ containers running agent code.
 
 ```bash
 # mycel-net is created by deploy/gcp/mycel-host-startup.sh on first boot.
-cp deploy/mycel/.env.example deploy/mycel/.env    # hostname + port; nothing secret
+cp deploy/mycel/.env.example deploy/mycel/.env    # hostname, port, public Clerk key
 ./deploy/mycel/deploy.sh
 ```
+
+The Clerk value must be the `pk_live_*` publishable key from Mycel's own
+production Clerk application (STD-009). It is intentionally public browser
+configuration, not a secret. Clerk's secret key is not used by this client and
+must not be added here.
+
+During the temporary development-instance rollout, set the Mycel `pk_test_*`
+key and `MYCEL_ALLOW_DEVELOPMENT_CLERK=true`. The deploy prints a warning and
+requires that explicit exception; remove the flag when the production Clerk
+domain and social OAuth credentials are ready.
 
 Secrets are **not** in that `.env`. They live in Google Secret Manager and are
 read at container start through this instance's attached service account, so
@@ -134,7 +144,7 @@ provider is a registry config value, so that is an edit and a restart, no deploy
 3. **The `considered` list** on a failed dispatch: every Offer weighed and why
    each was rejected. "Why did this request go there" is otherwise unanswerable
    after the fact.
-4. **`mycel balance <client>`** prints the balance *and* the entries summing to
+4. **`mycel balance <client>`** prints the balance _and_ the entries summing to
    it. A Balance is never a stored total, so showing both is the check as well as
    the report.
 
@@ -158,7 +168,7 @@ a machine, something is wrong with the diagnosis and not with the machine.
 
 **402 on a request you expected to work.** A charge falls through End User →
 Application → Client, stopping at the first with any ledger entry. A user who
-was ever granted anything is *capped* at it and stays capped once spent — they
+was ever granted anything is _capped_ at it and stays capped once spent — they
 do not fall back to the pool. Check `mycel balance <app>:<user> --application`
 before assuming the Client's balance covers it.
 

@@ -13,7 +13,10 @@ import { createClientSurfaceHandler } from "./serve.js";
 import { createExchangeApp } from "../server.js";
 import { MemoryStore } from "../store/memory-store.js";
 
-async function get(handler: ReturnType<typeof createClientSurfaceHandler>, path: string) {
+async function get(
+  handler: ReturnType<typeof createClientSurfaceHandler>,
+  path: string,
+) {
   const server = http.createServer(async (req, res) => {
     if (await handler(req, res)) return;
     res.writeHead(404).end();
@@ -24,7 +27,11 @@ async function get(handler: ReturnType<typeof createClientSurfaceHandler>, path:
     const res = await fetch(`http://127.0.0.1:${port}${path}`, {
       redirect: "manual",
     });
-    return { status: res.status, location: res.headers.get("location"), body: await res.text() };
+    return {
+      status: res.status,
+      location: res.headers.get("location"),
+      body: await res.text(),
+    };
   } finally {
     await new Promise((r) => server.close(r));
   }
@@ -41,8 +48,14 @@ describe("the Exchange's client surface", () => {
     expect(dockerfile).toContain(
       "packages/mycel/src/client-surface/components /app/components",
     );
+    expect(dockerfile).toContain(
+      "COPY --from=mycel-client --chown=mycel:mycel /client/dist /app/landing",
+    );
+    expect(dockerfile).toContain("apps/mycel-client/pnpm-lock.yaml");
     expect(dockerfile).toContain("ESBUILD_BINARY_PATH=/usr/local/bin/esbuild");
-    expect(dockerfile).toContain("COPY --from=esbuild-binary /esbuild /usr/local/bin/esbuild");
+    expect(dockerfile).toContain(
+      "COPY --from=esbuild-binary /esbuild /usr/local/bin/esbuild",
+    );
   });
 
   it("serves the standard shell page under the contract", async () => {
@@ -80,7 +93,9 @@ describe("the Exchange's client surface", () => {
     try {
       await writeFile(join(dir, "spark.js"), "export default { apply() {} };");
       const handler = createClientSurfaceHandler({ componentsDir: dir });
-      const manifest = JSON.parse((await get(handler, "/shell/manifest.json")).body);
+      const manifest = JSON.parse(
+        (await get(handler, "/shell/manifest.json")).body,
+      );
       const custom = manifest.entries.find(
         (e: { id: string }) => e.id === "custom:spark",
       );
@@ -93,7 +108,10 @@ describe("the Exchange's client surface", () => {
   });
 
   it("transpiles the substrate to browser ESM", async () => {
-    const r = await get(createClientSurfaceHandler(), "/shell/substrate/index.js");
+    const r = await get(
+      createClientSurfaceHandler(),
+      "/shell/substrate/index.js",
+    );
     expect(r.status).toBe(200);
     expect(r.body).not.toMatch(/\binterface\s+\w/);
     expect(r.body).toMatch(/export\s*\{/);
@@ -104,7 +122,10 @@ describe("the Exchange's client surface", () => {
       ["health.js", "/health"],
       ["models.js", "/v1/models"],
     ]) {
-      const r = await get(createClientSurfaceHandler(), `/shell/components/${name}`);
+      const r = await get(
+        createClientSurfaceHandler(),
+        `/shell/components/${name}`,
+      );
       expect(r.status, name).toBe(200);
       expect(r.body, name).toContain(marker);
     }
@@ -132,16 +153,21 @@ describe("wired into the exchange app", () => {
       const res = await fetch(`http://127.0.0.1:${port}${path}`, {
         redirect: "manual",
       });
-      return { status: res.status, location: res.headers.get("location"), body: await res.text() };
+      return {
+        status: res.status,
+        location: res.headers.get("location"),
+        body: await res.text(),
+      };
     } finally {
       await new Promise((r) => server.close(r));
     }
   }
 
-  it("the hostname root redirects a person to the shell", async () => {
+  it("the hostname root serves the public product page", async () => {
     const r = await appGet("/");
-    expect(r.status).toBe(302);
-    expect(r.location).toBe("/shell/");
+    expect(r.status).toBe(200);
+    expect(r.body).toContain("Mycel — intelligence grows in networks");
+    expect(r.body).toContain('href="/shell/"');
   });
 
   it("the exchange endpoints are untouched beside it", async () => {

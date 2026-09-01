@@ -11,8 +11,12 @@
 import http from "node:http";
 import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
+import { createLandingHandler } from "./client-surface/landing.js";
 import { createClientSurfaceHandler } from "./client-surface/serve.js";
-import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js";
+import {
+  createBuyerHandler,
+  type BuyerHandlerOptions,
+} from "./buyer/handler.js";
 import { createModelsHandler } from "./buyer/models.js";
 import { ConnectionRegistry } from "./supply/connections.js";
 import { attachConnectionServer } from "./supply/connection-server.js";
@@ -79,14 +83,24 @@ export function createExchangeApp(
     opts.resolveTransport ??
     (connections
       ? (() => {
-          const http = createHttpTransport({ readCredential: (name) => name && process.env[name] });
-          const overConnection = createConnectionTransport({ registry: connections });
+          const http = createHttpTransport({
+            readCredential: (name) => name && process.env[name],
+          });
+          const overConnection = createConnectionTransport({
+            registry: connections,
+          });
           return (supplier: Supplier) =>
-            supplier.kind === "agent" ? overConnection(supplier) : http(supplier);
+            supplier.kind === "agent"
+              ? overConnection(supplier)
+              : http(supplier);
         })()
       : undefined);
 
   const handlers = [
+    // The hostname root serves the separately built customer application.
+    // Browser dependencies and Clerk stay in apps/mycel-client; this runtime
+    // sees only its static dist output. The operational view remains /shell/.
+    createLandingHandler(),
     // The Client surface (ADR 0026, #409): the standard Shell plus read-only
     // components over /health and /v1/models. Serves static assets only —
     // no new endpoints, and nothing that moves money.
@@ -110,12 +124,6 @@ export function createExchangeApp(
     req: http.IncomingMessage,
     res: http.ServerResponse,
   ): Promise<void> {
-    if (req.method === "GET" && (req.url ?? "/").split("?")[0] === "/") {
-      // A person landing on the Exchange's hostname gets the Client surface.
-      res.writeHead(302, { location: "/shell/" });
-      res.end();
-      return;
-    }
     if (req.url === "/health") {
       // Reports whether the store is reachable, not merely whether the process
       // is up — a service that answers while its database is gone is worse
@@ -178,10 +186,15 @@ export async function createExchangeServer(
   });
 
   const host = opts.host ?? "0.0.0.0";
-  await new Promise<void>((resolve) => server.listen(opts.port ?? DEFAULT_PORT, host, resolve));
+  await new Promise<void>((resolve) =>
+    server.listen(opts.port ?? DEFAULT_PORT, host, resolve),
+  );
 
   const address = server.address();
-  const port = typeof address === "object" && address ? address.port : (opts.port ?? DEFAULT_PORT);
+  const port =
+    typeof address === "object" && address
+      ? address.port
+      : (opts.port ?? DEFAULT_PORT);
 
   return {
     server,
