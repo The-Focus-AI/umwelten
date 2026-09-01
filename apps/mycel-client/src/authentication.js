@@ -26,9 +26,10 @@ function loadClerkUi(domain) {
   });
 }
 
-export async function initializeAuthentication() {
+export async function initializeAuthentication({ onStateChange } = {}) {
   if (!publishableKey || !userButton) {
     markUnavailable();
+    onStateChange?.({ clerk: null, signedIn: false, available: false });
     return;
   }
 
@@ -41,6 +42,7 @@ export async function initializeAuthentication() {
     await clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
   } catch {
     markUnavailable();
+    onStateChange?.({ clerk: null, signedIn: false, available: false });
     return;
   }
 
@@ -57,6 +59,7 @@ export async function initializeAuthentication() {
       clerk.unmountUserButton(userButton);
       userButtonMounted = false;
     }
+    onStateChange?.({ clerk, signedIn, available: true });
   };
 
   for (const button of signUpButtons) {

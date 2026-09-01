@@ -22,3 +22,10 @@ or proxied Clerk DNS records.
 
 The Mycel container builds this app in an isolated Docker stage and copies only
 `dist/` into the runtime image.
+
+After Clerk signs a person in, the client sends the short-lived session token to
+Mycel's same-origin `/api/customer` control plane. The server, not this browser
+app, binds the verified Clerk subject to a Client and scopes all Applications
+and usage. It can create and rotate one-time Application credentials, but never
+receives a Clerk secret key. Runtime token verification is configured separately
+with `MYCEL_CLERK_ISSUER` and `MYCEL_CLERK_AUTHORIZED_PARTIES` on the Exchange.

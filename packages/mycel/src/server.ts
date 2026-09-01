@@ -14,6 +14,10 @@ import { createSupplyHandler } from "./supply/handler.js";
 import { createLandingHandler } from "./client-surface/landing.js";
 import { createClientSurfaceHandler } from "./client-surface/serve.js";
 import {
+  createCustomerHandler,
+  type CustomerHandlerOptions,
+} from "./customer/handler.js";
+import {
   createBuyerHandler,
   type BuyerHandlerOptions,
 } from "./buyer/handler.js";
@@ -40,6 +44,11 @@ export interface ExchangeServerOptions {
   host?: string;
   /** Injectable identity verification, so tests need no JWKS endpoint. */
   verifyCaller?: BuyerHandlerOptions["verifyCaller"];
+  /** Injectable Clerk identity verification for customer-control tests. */
+  verifyCustomerOperator?: CustomerHandlerOptions["verifyOperator"];
+  clerkIssuer?: string;
+  clerkAuthorizedParties?: string[];
+  selfServiceCreditLimitMicroDollars?: number;
   staleAfterMs?: number;
   /**
    * How the relay reaches a Supplier. Defaults to an OpenAI-compatible POST at
@@ -69,7 +78,14 @@ export function createExchangeApp(
   store: ExchangeStore,
   opts: Pick<
     ExchangeServerOptions,
-    "verifyCaller" | "staleAfterMs" | "resolveTransport" | "componentsDir"
+    | "verifyCaller"
+    | "verifyCustomerOperator"
+    | "clerkIssuer"
+    | "clerkAuthorizedParties"
+    | "selfServiceCreditLimitMicroDollars"
+    | "staleAfterMs"
+    | "resolveTransport"
+    | "componentsDir"
   > & {
     connections?: ConnectionRegistry;
   } = {},
@@ -101,9 +117,22 @@ export function createExchangeApp(
     // Browser dependencies and Clerk stay in apps/mycel-client; this runtime
     // sees only its static dist output. The operational view remains /shell/.
     createLandingHandler(),
-    // The Client surface (ADR 0026, #409): the standard Shell plus read-only
-    // components over /health and /v1/models. Serves static assets only —
-    // no new endpoints, and nothing that moves money.
+    createCustomerHandler({
+      store,
+      verifyOperator: opts.verifyCustomerOperator,
+      clerkIssuer: opts.clerkIssuer ?? process.env.MYCEL_CLERK_ISSUER,
+      authorizedParties:
+        opts.clerkAuthorizedParties ??
+        process.env.MYCEL_CLERK_AUTHORIZED_PARTIES?.split(",").map((party) =>
+          party.trim(),
+        ),
+      defaultCreditLimitMicroDollars:
+        opts.selfServiceCreditLimitMicroDollars ??
+        Number(process.env.MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS ?? 0),
+    }),
+    // The operational surface: the standard Shell plus components over
+    // /health and /v1/models. Customer account actions live in the separately
+    // built application and its authenticated handler above.
     createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
@@ -162,6 +191,10 @@ export async function createExchangeServer(
 
   const app = createExchangeApp(opts.store, {
     verifyCaller: opts.verifyCaller,
+    verifyCustomerOperator: opts.verifyCustomerOperator,
+    clerkIssuer: opts.clerkIssuer,
+    clerkAuthorizedParties: opts.clerkAuthorizedParties,
+    selfServiceCreditLimitMicroDollars: opts.selfServiceCreditLimitMicroDollars,
     staleAfterMs: opts.staleAfterMs,
     resolveTransport: opts.resolveTransport,
     componentsDir: opts.componentsDir,

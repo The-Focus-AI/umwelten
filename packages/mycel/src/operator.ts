@@ -76,9 +76,9 @@ export class Operator {
   // ── Demand ────────────────────────────────────────────────────────
 
   /**
-   * An organization you invoice. There is no signup: a Client is the record of
-   * a commercial relationship that already exists, which is what a closed
-   * membership means (ADR 0012).
+   * An organization you invoice. A Client is the record of a commercial
+   * relationship, created either by an operator or through the authenticated
+   * self-service control plane. Supplier membership remains closed.
    */
   async createClient(id: string, name: string): Promise<Client> {
     const client: Client = { id, name };

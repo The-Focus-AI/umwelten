@@ -21,11 +21,7 @@ export type MicroDollars = number;
  * declared — see ADR 0015 and the supplier agent's probe battery.
  */
 export type CapabilityName =
-  | "chat"
-  | "streaming"
-  | "tool-calling"
-  | "structured-output"
-  | "reasoning";
+  "chat" | "streaming" | "tool-calling" | "structured-output" | "reasoning";
 
 export const CAPABILITY_NAMES: readonly CapabilityName[] = [
   "chat",
@@ -62,7 +58,8 @@ export interface HeadroomSample {
  * aggregate is contention. Dispatch cares about the difference: a Supplier
  * that queues cannot take a second customer without the first one noticing.
  */
-export type SaturationVerdict = "batches" | "queues" | "contends" | "inconclusive";
+export type SaturationVerdict =
+  "batches" | "queues" | "contends" | "inconclusive";
 
 /**
  * How a Headroom was measured, published alongside it.
@@ -212,6 +209,14 @@ export interface Client {
    * of those is how you cap it and a cap that can be exceeded is not one.
    */
   creditLimitMicroDollars?: MicroDollars;
+}
+
+/** A Clerk user allowed to operate exactly one Client account. */
+export interface ClientOperator {
+  /** Verified Clerk `sub`; never accepted from a request body. */
+  subject: string;
+  clientId: string;
+  createdAt: Date;
 }
 
 /**

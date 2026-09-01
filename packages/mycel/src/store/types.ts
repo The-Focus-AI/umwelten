@@ -13,6 +13,7 @@ import type {
   Balance,
   BalanceOwnerKind,
   Client,
+  ClientOperator,
   LedgerEntry,
   Offer,
   OfferPricing,
@@ -56,13 +57,23 @@ export interface ExchangeStore {
   /** Every Offer from every enabled Supplier. What Dispatch selects from. */
   listOffers(): Promise<Offer[]>;
   getOffer(supplierId: string, model: string): Promise<Offer | null>;
-  setOfferEnabled(supplierId: string, model: string, enabled: boolean): Promise<void>;
-  setOfferPricing(supplierId: string, model: string, pricing: OfferPricing): Promise<void>;
+  setOfferEnabled(
+    supplierId: string,
+    model: string,
+    enabled: boolean,
+  ): Promise<void>;
+  setOfferPricing(
+    supplierId: string,
+    model: string,
+    pricing: OfferPricing,
+  ): Promise<void>;
 
   // ── Demand ────────────────────────────────────────────────────────
 
   createClient(client: Client): Promise<void>;
   getClient(id: string): Promise<Client | null>;
+  linkClientOperator(operator: ClientOperator): Promise<void>;
+  getClientOperator(subject: string): Promise<ClientOperator | null>;
 
   createApplication(application: Application): Promise<void>;
   getApplication(id: string): Promise<Application | null>;
@@ -78,7 +89,10 @@ export interface ExchangeStore {
   // ── Usage ─────────────────────────────────────────────────────────
 
   recordRequest(record: RequestRecord): Promise<void>;
-  listRequests(filter?: { applicationId?: string; subject?: string }): Promise<RequestRecord[]>;
+  listRequests(filter?: {
+    applicationId?: string;
+    subject?: string;
+  }): Promise<RequestRecord[]>;
 
   // ── Connections ───────────────────────────────────────────────────
 
@@ -92,7 +106,9 @@ export interface ExchangeStore {
    * socket is held by one process and the answer changes without a write.
    */
   appendConnectionEvent(event: ConnectionEvent): Promise<void>;
-  listConnectionEvents(filter?: { supplierId?: string }): Promise<ConnectionEvent[]>;
+  listConnectionEvents(filter?: {
+    supplierId?: string;
+  }): Promise<ConnectionEvent[]>;
 
   // ── Money ─────────────────────────────────────────────────────────
 
@@ -114,6 +130,12 @@ export interface ExchangeStore {
    * stay capped at zero rather than falling through to the pool behind them.
    * Existence, not solvency, is what says "this owner is in play".
    */
-  hasLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<boolean>;
-  listLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<LedgerEntry[]>;
+  hasLedgerEntries(
+    ownerKind: BalanceOwnerKind,
+    ownerKey: string,
+  ): Promise<boolean>;
+  listLedgerEntries(
+    ownerKind: BalanceOwnerKind,
+    ownerKey: string,
+  ): Promise<LedgerEntry[]>;
 }

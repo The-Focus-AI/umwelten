@@ -36,6 +36,7 @@
 | [0033](0033-the-trust-line-is-the-habitat-boundary.md) | The trust line is the habitat boundary |
 | [0034](0034-layout-is-a-component.md) | Layout is a component |
 | [0035](0035-project-previews-run-in-the-habitat.md) | Project previews run in the Habitat and are discovered rather than declared |
+| [0036](0036-mycel-clients-onboard-themselves.md) | Mycel Clients onboard themselves |
 
 0011 is unused — see below.
 

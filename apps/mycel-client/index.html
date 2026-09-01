@@ -21,6 +21,7 @@
         <a href="#network">Network</a>
         <a href="#how">How it works</a>
         <a href="#developers">Developers</a>
+        <a href="#customer-account" data-account-link hidden>Account</a>
       </nav>
       <div class="nav-actions">
         <a class="network-status" href="/shell/">
@@ -181,9 +182,109 @@
         </div>
       </section>
 
+      <section class="customer-section" id="customer-account" hidden>
+        <div class="shell-width">
+          <p class="eyebrow"><span>05</span> Your connection</p>
+          <p id="customer-loading" class="customer-loading">
+            Reading the network…
+          </p>
+          <p id="customer-error" class="customer-error" role="alert" hidden></p>
+
+          <div id="customer-onboarding" class="onboarding-panel" hidden>
+            <div>
+              <h2>Grow your first connection.</h2>
+              <p>
+                Name your Client and first Application. We will issue an API key
+                once; Mycel stores only its cryptographic hash.
+              </p>
+            </div>
+            <form id="onboarding-form" class="account-form">
+              <label>
+                Client name
+                <input
+                  name="clientName"
+                  maxlength="120"
+                  placeholder="Acme Labs"
+                  required
+                />
+              </label>
+              <label>
+                First Application
+                <input
+                  name="applicationName"
+                  maxlength="80"
+                  placeholder="Research assistant"
+                  required
+                />
+              </label>
+              <button class="button primary" type="submit">
+                Create Client and key <span>↗</span>
+              </button>
+            </form>
+          </div>
+
+          <div id="customer-dashboard" hidden>
+            <div class="dashboard-heading">
+              <div>
+                <span class="vital-label">Client account</span>
+                <h2 id="dashboard-name">—</h2>
+              </div>
+              <div class="account-vitals">
+                <article>
+                  <span>Ledger balance</span
+                  ><strong id="client-balance">—</strong>
+                </article>
+                <article>
+                  <span>Postpaid limit</span
+                  ><strong id="credit-limit">—</strong>
+                </article>
+              </div>
+            </div>
+
+            <div class="dashboard-grid">
+              <section class="dashboard-card">
+                <div class="card-heading">
+                  <div>
+                    <span>01</span>
+                    <h3>Applications</h3>
+                  </div>
+                  <form id="application-form" class="inline-form">
+                    <input
+                      name="applicationName"
+                      maxlength="80"
+                      placeholder="New Application"
+                      aria-label="Application name"
+                      required
+                    />
+                    <button class="small-button accent" type="submit">
+                      Create + key
+                    </button>
+                  </form>
+                </div>
+                <ul id="application-list" class="account-list"></ul>
+              </section>
+
+              <section class="dashboard-card usage-card">
+                <div class="card-heading">
+                  <div>
+                    <span>02</span>
+                    <h3>Recent usage</h3>
+                  </div>
+                </div>
+                <div class="request-labels" aria-hidden="true">
+                  <span>Model</span><span>Application</span><span>Tokens</span
+                  ><span>Charge</span><span>Outcome</span>
+                </div>
+                <ul id="request-list" class="account-list request-list"></ul>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="access-section shell-width" id="access">
         <div class="access-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
-        <p class="eyebrow"><span>05</span> The next growth ring</p>
+        <p class="eyebrow"><span>06</span> The next growth ring</p>
         <h2>Your key to the network.</h2>
         <p>
           Create your account to manage Applications, generate credentials, and
@@ -199,6 +300,23 @@
         </div>
       </section>
     </main>
+
+    <dialog id="credential-dialog" class="credential-dialog">
+      <form method="dialog">
+        <span class="vital-label">One-time API credential</span>
+        <h2>Save this key now.</h2>
+        <p>It will not be shown again. Mycel stores only its SHA-256 hash.</p>
+        <code id="credential-value"></code>
+        <div>
+          <button id="copy-credential" class="button primary" type="button">
+            Copy key
+          </button>
+          <button id="close-credential" class="button ghost" type="button">
+            I saved it
+          </button>
+        </div>
+      </form>
+    </dialog>
 
     <footer class="footer shell-width">
       <a class="brand" href="/"

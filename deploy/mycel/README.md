@@ -48,6 +48,13 @@ key and `MYCEL_ALLOW_DEVELOPMENT_CLERK=true`. The deploy prints a warning and
 requires that explicit exception; remove the flag when the production Clerk
 domain and social OAuth credentials are ready.
 
+Set `MYCEL_CLERK_ISSUER` to that Clerk instance's issuer and
+`MYCEL_CLERK_AUTHORIZED_PARTIES=https://mycel.thefocus.ai`. These runtime values
+verify the session token used by the customer control plane. They are public
+configuration, not a Clerk secret. Self-service creates Clients and
+Applications, but starts with no spendable postpaid credit unless
+`MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS` is deliberately raised.
+
 Secrets are **not** in that `.env`. They live in Google Secret Manager and are
 read at container start through this instance's attached service account, so
 there is no credential on this disk to protect or to rotate in place. To change
@@ -82,7 +89,8 @@ mycel offers sync openrouter \
   --models anthropic/claude-sonnet-5,google/gemini-3-flash-preview \
   --watch 5
 
-# A buyer.
+# A buyer created by an operator. Customers can alternatively create their own
+# Client, first Application, and one-time credential from the signed-in site.
 mycel client create the-focus-ai --name "The Focus AI"
 mycel application create help-habitat --client the-focus-ai   # credential, once
 mycel grant the-focus-ai 50000000                             # $50

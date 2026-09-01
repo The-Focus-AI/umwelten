@@ -20,6 +20,7 @@ import type {
   BalanceOwnerKind,
   CapabilityName,
   Client,
+  ClientOperator,
   LedgerEntry,
   HeadroomSample,
   HeadroomMeta,
@@ -92,8 +93,10 @@ export class NeonStore implements ExchangeStore {
     // Added after the table shipped. `CREATE TABLE IF NOT EXISTS` is a no-op on
     // a database that already has the older shape, so the columns need saying
     // twice — harmless on a fresh database, necessary on an existing one.
-    await this.sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS headroom_meta JSONB`;
-    await this.sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS quantization TEXT`;
+    await this
+      .sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS headroom_meta JSONB`;
+    await this
+      .sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS quantization TEXT`;
 
     // Pricing is a separate table on purpose: it is operator-owned and must
     // outlive the Offer it applies to, so that a re-probe — or a Model that
@@ -113,8 +116,25 @@ export class NeonStore implements ExchangeStore {
     await this.sql`
       CREATE TABLE IF NOT EXISTS exchange_client (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        credit_limit_micro_dollars BIGINT
       )
+    `;
+    await this.sql`
+      ALTER TABLE exchange_client
+        ADD COLUMN IF NOT EXISTS credit_limit_micro_dollars BIGINT
+    `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_client_operator (
+        subject TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL REFERENCES exchange_client(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_client_operator_client_idx
+        ON exchange_client_operator (client_id)
     `;
 
     await this.sql`
@@ -130,7 +150,8 @@ export class NeonStore implements ExchangeStore {
       )
     `;
 
-    await this.sql`ALTER TABLE exchange_application ADD COLUMN IF NOT EXISTS credential_hash TEXT`;
+    await this
+      .sql`ALTER TABLE exchange_application ADD COLUMN IF NOT EXISTS credential_hash TEXT`;
 
     // Resolving an Application by presented credential is on the hot path of
     // every request from a static-credential caller.
@@ -226,16 +247,18 @@ export class NeonStore implements ExchangeStore {
             SELECT * FROM exchange_connection_event
             WHERE supplier_id = ${filter.supplierId} ORDER BY at ASC
           `
-        : await this.sql`SELECT * FROM exchange_connection_event ORDER BY at ASC`
+        : await this
+            .sql`SELECT * FROM exchange_connection_event ORDER BY at ASC`
     ) as Row[];
 
     return rows.map((row) => ({
       id: String(row.id),
       supplierId: String(row.supplier_id),
       event: String(row.event) as ConnectionEvent["event"],
-      reason: row.reason === null || row.reason === undefined
-        ? undefined
-        : (String(row.reason) as DisconnectReason),
+      reason:
+        row.reason === null || row.reason === undefined
+          ? undefined
+          : (String(row.reason) as DisconnectReason),
       at: new Date(row.at as string),
     }));
   }
@@ -268,7 +291,10 @@ export class NeonStore implements ExchangeStore {
     };
   }
 
-  async hasLedgerEntries(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<boolean> {
+  async hasLedgerEntries(
+    ownerKind: BalanceOwnerKind,
+    ownerKey: string,
+  ): Promise<boolean> {
     // LIMIT 1 rather than a count: this runs on the hot path of every request,
     // and the question is existence, not how many.
     const rows = (await this.sql`
@@ -279,7 +305,10 @@ export class NeonStore implements ExchangeStore {
     return rows.length > 0;
   }
 
-  async getBalance(ownerKind: BalanceOwnerKind, ownerKey: string): Promise<Balance> {
+  async getBalance(
+    ownerKind: BalanceOwnerKind,
+    ownerKey: string,
+  ): Promise<Balance> {
     const rows = (await this.sql`
       SELECT COALESCE(SUM(micro_dollars), 0) AS balance
       FROM exchange_ledger_entry
@@ -343,14 +372,48 @@ export class NeonStore implements ExchangeStore {
 
   async createClient(client: Client): Promise<void> {
     await this.sql`
-      INSERT INTO exchange_client (id, name) VALUES (${client.id}, ${client.name})
-      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+      INSERT INTO exchange_client (id, name, credit_limit_micro_dollars)
+      VALUES (${client.id}, ${client.name}, ${client.creditLimitMicroDollars ?? null})
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        credit_limit_micro_dollars = EXCLUDED.credit_limit_micro_dollars
     `;
   }
 
   async getClient(id: string): Promise<Client | null> {
-    const rows = (await this.sql`SELECT * FROM exchange_client WHERE id = ${id}`) as Row[];
-    return rows[0] ? { id: String(rows[0].id), name: String(rows[0].name) } : null;
+    const rows = (await this
+      .sql`SELECT * FROM exchange_client WHERE id = ${id}`) as Row[];
+    return rows[0]
+      ? {
+          id: String(rows[0].id),
+          name: String(rows[0].name),
+          creditLimitMicroDollars:
+            rows[0].credit_limit_micro_dollars === null
+              ? undefined
+              : Number(rows[0].credit_limit_micro_dollars),
+        }
+      : null;
+  }
+
+  async linkClientOperator(operator: ClientOperator): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_client_operator (subject, client_id, created_at)
+      VALUES (${operator.subject}, ${operator.clientId}, ${operator.createdAt.toISOString()})
+      ON CONFLICT (subject) DO NOTHING
+    `;
+  }
+
+  async getClientOperator(subject: string): Promise<ClientOperator | null> {
+    const rows = (await this.sql`
+      SELECT * FROM exchange_client_operator WHERE subject = ${subject}
+    `) as Row[];
+    return rows[0]
+      ? {
+          subject: String(rows[0].subject),
+          clientId: String(rows[0].client_id),
+          createdAt: new Date(String(rows[0].created_at)),
+        }
+      : null;
   }
 
   async createApplication(application: Application): Promise<void> {
@@ -376,11 +439,14 @@ export class NeonStore implements ExchangeStore {
   }
 
   async getApplication(id: string): Promise<Application | null> {
-    const rows = (await this.sql`SELECT * FROM exchange_application WHERE id = ${id}`) as Row[];
+    const rows = (await this
+      .sql`SELECT * FROM exchange_application WHERE id = ${id}`) as Row[];
     return rows[0] ? toApplication(rows[0]) : null;
   }
 
-  async getApplicationByCredentialHash(hash: string): Promise<Application | null> {
+  async getApplicationByCredentialHash(
+    hash: string,
+  ): Promise<Application | null> {
     // An empty hash must never match a row with a NULL credential.
     if (!hash) return null;
     const rows = (await this.sql`
@@ -390,12 +456,14 @@ export class NeonStore implements ExchangeStore {
   }
 
   async listApplications(): Promise<Application[]> {
-    const rows = (await this.sql`SELECT * FROM exchange_application ORDER BY id`) as Row[];
+    const rows = (await this
+      .sql`SELECT * FROM exchange_application ORDER BY id`) as Row[];
     return rows.map(toApplication);
   }
 
   async setApplicationEnabled(id: string, enabled: boolean): Promise<void> {
-    await this.sql`UPDATE exchange_application SET enabled = ${enabled} WHERE id = ${id}`;
+    await this
+      .sql`UPDATE exchange_application SET enabled = ${enabled} WHERE id = ${id}`;
   }
 
   // ── Suppliers ─────────────────────────────────────────────────────
@@ -446,16 +514,21 @@ export class NeonStore implements ExchangeStore {
   }
 
   async setSupplierEnabled(id: string, enabled: boolean): Promise<void> {
-    await this.sql`UPDATE exchange_supplier SET enabled = ${enabled} WHERE id = ${id}`;
+    await this
+      .sql`UPDATE exchange_supplier SET enabled = ${enabled} WHERE id = ${id}`;
   }
 
   // ── Offers ────────────────────────────────────────────────────────
 
-  async replaceOffers(supplierId: string, published: PublishedOffer[]): Promise<void> {
+  async replaceOffers(
+    supplierId: string,
+    published: PublishedOffer[],
+  ): Promise<void> {
     // Delete-then-insert rather than upsert-and-prune: "replace" is total, and
     // expressing it as one delete plus inserts means a partially-applied
     // publish can never leave a Model advertised that the Supplier dropped.
-    await this.sql`DELETE FROM exchange_offer WHERE supplier_id = ${supplierId}`;
+    await this
+      .sql`DELETE FROM exchange_offer WHERE supplier_id = ${supplierId}`;
 
     for (const offer of published) {
       await this.sql`
@@ -516,14 +589,22 @@ export class NeonStore implements ExchangeStore {
     return rows[0] ? toOffer(rows[0]) : null;
   }
 
-  async setOfferEnabled(supplierId: string, model: string, enabled: boolean): Promise<void> {
+  async setOfferEnabled(
+    supplierId: string,
+    model: string,
+    enabled: boolean,
+  ): Promise<void> {
     await this.sql`
       UPDATE exchange_offer SET enabled = ${enabled}
       WHERE supplier_id = ${supplierId} AND model = ${model}
     `;
   }
 
-  async setOfferPricing(supplierId: string, model: string, pricing: OfferPricing): Promise<void> {
+  async setOfferPricing(
+    supplierId: string,
+    model: string,
+    pricing: OfferPricing,
+  ): Promise<void> {
     await this.sql`
       INSERT INTO exchange_offer_pricing
         (supplier_id, model, wholesale_prompt_per_million, wholesale_completion_per_million,
@@ -557,9 +638,13 @@ function toRequestRecord(row: Row): RequestRecord {
     charge: Number(row.charge),
     outcome: String(row.outcome) as RequestOutcome,
     upstreamPromptTokens:
-      row.upstream_prompt_tokens === null ? undefined : Number(row.upstream_prompt_tokens),
+      row.upstream_prompt_tokens === null
+        ? undefined
+        : Number(row.upstream_prompt_tokens),
     upstreamCompletionTokens:
-      row.upstream_completion_tokens === null ? undefined : Number(row.upstream_completion_tokens),
+      row.upstream_completion_tokens === null
+        ? undefined
+        : Number(row.upstream_completion_tokens),
     startedAt: new Date(row.started_at as string),
     finishedAt: new Date(row.finished_at as string),
   };
@@ -570,7 +655,8 @@ function toApplication(row: Row): Application {
     id: String(row.id),
     clientId: String(row.client_id),
     jwksUrl: String(row.jwks_url),
-    credentialHash: row.credential_hash === null ? undefined : String(row.credential_hash),
+    credentialHash:
+      row.credential_hash === null ? undefined : String(row.credential_hash),
     requiredGuarantees: (row.required_guarantees as string[]) ?? [],
     allowedModels: (row.allowed_models as string[] | null) ?? undefined,
     enabled: Boolean(row.enabled),
@@ -587,7 +673,8 @@ function toSupplier(row: Row): Supplier {
     baseUrl: String(row.base_url ?? ""),
     kind: (row.kind as SupplierKind) ?? "vendor",
     upstreamCredentialEnv:
-      row.upstream_credential_env === null || row.upstream_credential_env === undefined
+      row.upstream_credential_env === null ||
+      row.upstream_credential_env === undefined
         ? undefined
         : String(row.upstream_credential_env),
     enabled: Boolean(row.enabled),
@@ -615,8 +702,10 @@ function toOffer(row: Row): Offer {
     servingMode: String(row.serving_mode) as ServingMode,
     headroom: (row.headroom as HeadroomSample[]) ?? [],
     headroomMeta: (row.headroom_meta as HeadroomMeta | null) ?? undefined,
-    contextTokens: row.context_tokens === null ? undefined : Number(row.context_tokens),
-    quantization: row.quantization === null ? undefined : String(row.quantization),
+    contextTokens:
+      row.context_tokens === null ? undefined : Number(row.context_tokens),
+    quantization:
+      row.quantization === null ? undefined : String(row.quantization),
     wholesalePromptPerMillion: money(
       row.wholesale_prompt_per_million,
       DEFAULT_PRICING.wholesalePromptPerMillion,
