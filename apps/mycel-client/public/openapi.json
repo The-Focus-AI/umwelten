@@ -1,0 +1,156 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mycel Exchange API",
+    "version": "0.1.0",
+    "description": "Public OpenAI-compatible buyer surface. Discover the live catalogue before selecting a model; catalogue ordering is not a recommendation."
+  },
+  "servers": [{ "url": "https://mycel.thefocus.ai/v1" }],
+  "paths": {
+    "/models": {
+      "get": {
+        "operationId": "listModels",
+        "summary": "List models currently offered by the Exchange",
+        "description": "Unauthenticated, dynamic source of truth. Entries are sorted by id, not ranked by quality or preference.",
+        "responses": {
+          "200": {
+            "description": "Current model catalogue",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ModelList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/completions": {
+      "post": {
+        "operationId": "createChatCompletion",
+        "summary": "Route an OpenAI-compatible chat completion",
+        "parameters": [
+          {
+            "name": "X-Mycel-End-User",
+            "in": "header",
+            "required": false,
+            "description": "Stable subject asserted by the Application. Required for static Application credentials.",
+            "schema": { "type": "string", "minLength": 1 }
+          },
+          {
+            "name": "X-Exchange-Require-Capability",
+            "in": "header",
+            "description": "Comma-separated capabilities that every eligible route must satisfy.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "X-Exchange-Require-Guarantee",
+            "in": "header",
+            "description": "Comma-separated guarantees that every eligible route must satisfy.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "security": [{ "applicationCredential": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatCompletionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OpenAI-compatible completion or event stream, according to the request's stream field",
+            "content": {
+              "application/json": { "schema": { "type": "object", "additionalProperties": true } },
+              "text/event-stream": { "schema": { "type": "string" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "402": { "$ref": "#/components/responses/InsufficientBalance" },
+          "413": { "$ref": "#/components/responses/BodyTooLarge" },
+          "502": { "$ref": "#/components/responses/UpstreamError" },
+          "503": { "$ref": "#/components/responses/NoEligibleOffer" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "applicationCredential": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "One-time Application credential issued or rotated in the customer account. This is not a Clerk session token."
+      }
+    },
+    "schemas": {
+      "Model": {
+        "type": "object",
+        "required": ["id", "object", "owned_by", "pricing", "capabilities", "guarantees"],
+        "properties": {
+          "id": { "type": "string" },
+          "object": { "const": "model" },
+          "owned_by": { "const": "exchange" },
+          "pricing": {
+            "type": "object",
+            "description": "US dollars per million tokens at the cheapest eligible Offer.",
+            "required": ["prompt", "completion"],
+            "properties": {
+              "prompt": { "type": "number", "minimum": 0 },
+              "completion": { "type": "number", "minimum": 0 }
+            }
+          },
+          "capabilities": { "type": "array", "items": { "type": "string" } },
+          "guarantees": { "type": "array", "items": { "type": "string" } },
+          "context_length": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "ModelList": {
+        "type": "object",
+        "required": ["object", "data"],
+        "properties": {
+          "object": { "const": "list" },
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Model" } }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": { "type": "string" },
+          "content": {}
+        },
+        "additionalProperties": true
+      },
+      "ChatCompletionRequest": {
+        "type": "object",
+        "required": ["model", "messages"],
+        "properties": {
+          "model": { "type": "string", "description": "Choose from the current /models response." },
+          "messages": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/ChatMessage" } },
+          "stream": { "type": "boolean", "default": false }
+        },
+        "additionalProperties": true
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string" },
+          "message": { "type": "string" },
+          "considered": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "responses": {
+      "BadRequest": { "description": "Invalid JSON or request body", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Unauthorized": { "description": "Application identity failed or its end-user subject is missing", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "InsufficientBalance": { "description": "No funded owner or Client credit remains", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "BodyTooLarge": { "description": "Request exceeds 10 MB", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "UpstreamError": { "description": "Selected Supplier failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NoEligibleOffer": { "description": "No live Offer satisfies the model and requirements", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    }
+  }
+}

@@ -1,4 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { Operator } from "../operator.js";
@@ -7,6 +12,9 @@ import type { ExchangeStore } from "../store/types.js";
 const ROOT = "/api/customer";
 const MAX_BODY_BYTES = 32_000;
 const MAX_APPLICATIONS_PER_CLIENT = 20;
+const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MIN_FUNDING_CENTS = 500;
+const MAX_FUNDING_CENTS = 500_000;
 const ALGORITHMS = ["RS256", "RS384", "RS512", "ES256", "ES384", "PS256"];
 
 export interface CustomerIdentity {
@@ -21,6 +29,10 @@ export interface CustomerHandlerOptions {
   clerkIssuer?: string;
   authorizedParties?: string[];
   defaultCreditLimitMicroDollars?: number;
+  stripeSecretKey?: string;
+  stripeWebhookSecret?: string;
+  publicOrigin?: string;
+  fetch?: typeof fetch;
 }
 
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
@@ -32,9 +44,7 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload));
 }
 
-async function readJson(
-  req: IncomingMessage,
-): Promise<Record<string, unknown>> {
+async function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     let raw = "";
@@ -47,14 +57,20 @@ async function readJson(
       raw += chunk;
     });
     req.on("end", () => {
-      try {
-        resolve(JSON.parse(raw || "{}") as Record<string, unknown>);
-      } catch {
-        reject(new Error("invalid_json"));
-      }
+      resolve(raw);
     });
     req.on("error", reject);
   });
+}
+
+async function readJson(
+  req: IncomingMessage,
+): Promise<Record<string, unknown>> {
+  try {
+    return JSON.parse((await readBody(req)) || "{}") as Record<string, unknown>;
+  } catch {
+    throw new Error("invalid_json");
+  }
 }
 
 function requiredName(
@@ -84,6 +100,44 @@ function clientIdFor(subject: string): string {
 
 function applicationIdFor(name: string): string {
   return `${slug(name)}-${randomBytes(4).toString("hex")}`;
+}
+
+function hash(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function verifyStripeSignature(
+  rawBody: string,
+  header: string | undefined,
+  secret: string,
+  now = Date.now(),
+): boolean {
+  if (!header) return false;
+  const parts = header.split(",").map((part) => part.split("=", 2));
+  const timestamp = parts.find(([key]) => key === "t")?.[1];
+  const signatures = parts
+    .filter(([key]) => key === "v1")
+    .map(([, value]) => value);
+  const timestampSeconds = Number(timestamp);
+  if (
+    !timestamp ||
+    !Number.isSafeInteger(timestampSeconds) ||
+    Math.abs(now / 1000 - timestampSeconds) > 300
+  )
+    return false;
+  const expected = createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest();
+  return signatures.some((signature) => {
+    try {
+      const actual = Buffer.from(signature, "hex");
+      return (
+        actual.length === expected.length && timingSafeEqual(actual, expected)
+      );
+    } catch {
+      return false;
+    }
+  });
 }
 
 function bearer(authorization: string | undefined): string | null {
@@ -125,6 +179,7 @@ function publicApplication(
   return {
     id: application.id,
     enabled: application.enabled,
+    hasCredential: Boolean(application.credentialHash),
     createdAt: application.createdAt,
     requiredGuarantees: application.requiredGuarantees,
     allowedModels: application.allowedModels,
@@ -148,6 +203,10 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     Number.isSafeInteger(configuredCreditLimit) && configuredCreditLimit >= 0
       ? configuredCreditLimit
       : 0;
+  const stripeConfigured = Boolean(
+    opts.stripeSecretKey && opts.stripeWebhookSecret && opts.publicOrigin,
+  );
+  const fetchImpl = opts.fetch ?? fetch;
 
   async function identity(req: IncomingMessage, res: ServerResponse) {
     if (!verifyOperator) {
@@ -167,27 +226,41 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     return link ? store.getClient(link.clientId) : null;
   }
 
+  async function callerLink(subject: string) {
+    return store.getClientOperator(subject);
+  }
+
   async function dashboard(subject: string) {
-    const client = await ownedClient(subject);
-    if (!client) return { onboarded: false };
+    const link = await callerLink(subject);
+    const client = link ? await store.getClient(link.clientId) : null;
+    if (!client || !link)
+      return { onboarded: false, fundingConfigured: stripeConfigured };
     const applications = (await store.listApplications()).filter(
       (application) => application.clientId === client.id,
     );
-    const [balance, ledger, requestGroups, applicationBalances] =
-      await Promise.all([
-        store.getBalance("client", client.id),
-        store.listLedgerEntries("client", client.id),
-        Promise.all(
-          applications.map((application) =>
-            store.listRequests({ applicationId: application.id }),
-          ),
+    const [
+      balance,
+      ledger,
+      requestGroups,
+      applicationBalances,
+      operators,
+      invitations,
+    ] = await Promise.all([
+      store.getBalance("client", client.id),
+      store.listLedgerEntries("client", client.id),
+      Promise.all(
+        applications.map((application) =>
+          store.listRequests({ applicationId: application.id }),
         ),
-        Promise.all(
-          applications.map((application) =>
-            store.getBalance("application", application.id),
-          ),
+      ),
+      Promise.all(
+        applications.map((application) =>
+          store.getBalance("application", application.id),
         ),
-      ]);
+      ),
+      store.listClientOperators(client.id),
+      store.listClientInvitations(client.id),
+    ]);
     const requests = requestGroups
       .flat()
       .sort(
@@ -209,6 +282,12 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     return {
       onboarded: true,
       client,
+      operator: link,
+      operators,
+      invitations: invitations
+        .filter((invitation) => invitation.expiresAt > new Date())
+        .map(({ id, createdAt, expiresAt }) => ({ id, createdAt, expiresAt })),
+      fundingConfigured: stripeConfigured,
       balance,
       ledger,
       applications: applications.map((application, index) => ({
@@ -225,6 +304,74 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
   ): Promise<boolean> {
     const path = (req.url ?? "").split("?", 1)[0];
     if (path !== ROOT && !path.startsWith(`${ROOT}/`)) return false;
+
+    if (path === `${ROOT}/stripe/webhook` && req.method === "POST") {
+      if (!opts.stripeWebhookSecret) {
+        sendJson(res, 503, { error: "funding_not_configured" });
+        return true;
+      }
+      try {
+        const rawBody = await readBody(req);
+        const signature = Array.isArray(req.headers["stripe-signature"])
+          ? req.headers["stripe-signature"][0]
+          : req.headers["stripe-signature"];
+        if (
+          !verifyStripeSignature(rawBody, signature, opts.stripeWebhookSecret)
+        ) {
+          sendJson(res, 400, { error: "invalid_signature" });
+          return true;
+        }
+        const event = JSON.parse(rawBody) as {
+          id?: unknown;
+          type?: unknown;
+          created?: unknown;
+          data?: { object?: Record<string, unknown> };
+        };
+        if (
+          event.type !== "checkout.session.completed" &&
+          event.type !== "checkout.session.async_payment_succeeded"
+        ) {
+          sendJson(res, 200, { received: true });
+          return true;
+        }
+        const session = event.data?.object;
+        const metadata = session?.metadata as
+          Record<string, unknown> | undefined;
+        const clientId = metadata?.client_id;
+        const cents = session?.amount_total;
+        if (session?.payment_status !== "paid") {
+          sendJson(res, 200, { received: true, credited: false });
+          return true;
+        }
+        if (
+          typeof event.id !== "string" ||
+          typeof clientId !== "string" ||
+          typeof cents !== "number" ||
+          !Number.isSafeInteger(cents) ||
+          cents < MIN_FUNDING_CENTS ||
+          cents > MAX_FUNDING_CENTS ||
+          !(await store.getClient(clientId))
+        ) {
+          sendJson(res, 400, { error: "invalid_payment_event" });
+          return true;
+        }
+        const result = await store.creditClientPayment({
+          provider: "stripe",
+          eventId: event.id,
+          clientId,
+          microDollars: cents * 10_000,
+          createdAt:
+            typeof event.created === "number"
+              ? new Date(event.created * 1000)
+              : new Date(),
+        });
+        sendJson(res, 200, { received: true, credited: result.credited });
+      } catch {
+        sendJson(res, 400, { error: "invalid_payment_event" });
+      }
+      return true;
+    }
+
     const caller = await identity(req, res);
     if (!caller) return true;
 
@@ -251,6 +398,7 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         await store.linkClientOperator({
           subject: caller.subject,
           clientId,
+          role: "owner",
           createdAt: new Date(),
         });
         const created = await operator.createApplication({
@@ -267,6 +415,133 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         sendJson(res, invalidInput ? 400 : 500, {
           error: invalidInput ? message : "onboarding_failed",
         });
+      }
+      return true;
+    }
+
+    if (path === `${ROOT}/invitations/accept` && req.method === "POST") {
+      if (await callerLink(caller.subject)) {
+        sendJson(res, 409, { error: "already_onboarded" });
+        return true;
+      }
+      try {
+        const token = requiredName(await readJson(req), "token", 256);
+        const linked = await store.acceptClientInvitation(
+          hash(token),
+          caller.subject,
+          new Date(),
+        );
+        if (!linked) {
+          sendJson(res, 404, { error: "invitation_invalid_or_expired" });
+          return true;
+        }
+        sendJson(res, 200, { dashboard: await dashboard(caller.subject) });
+      } catch (error) {
+        const invalid =
+          error instanceof Error && error.message.startsWith("invalid_");
+        sendJson(res, invalid ? 400 : 500, {
+          error: invalid ? "invalid_token" : "invitation_acceptance_failed",
+        });
+      }
+      return true;
+    }
+
+    if (path === `${ROOT}/invitations` && req.method === "POST") {
+      const link = await callerLink(caller.subject);
+      if (!link || link.role !== "owner") {
+        sendJson(res, 403, { error: "owner_required" });
+        return true;
+      }
+      const token = `invite-mycel-${randomBytes(24).toString("base64url")}`;
+      const createdAt = new Date();
+      const invitation = {
+        id: `invite-${randomBytes(8).toString("hex")}`,
+        clientId: link.clientId,
+        tokenHash: hash(token),
+        createdBySubject: caller.subject,
+        createdAt,
+        expiresAt: new Date(createdAt.getTime() + INVITATION_TTL_MS),
+      };
+      await store.createClientInvitation(invitation);
+      sendJson(res, 201, {
+        invitation: {
+          id: invitation.id,
+          token,
+          expiresAt: invitation.expiresAt,
+        },
+      });
+      return true;
+    }
+
+    const memberRemoval = path.match(/^\/api\/customer\/operators\/([^/]+)$/);
+    if (memberRemoval && req.method === "DELETE") {
+      const link = await callerLink(caller.subject);
+      const subject = decodeURIComponent(memberRemoval[1]);
+      const target = await callerLink(subject);
+      if (!link || link.role !== "owner") {
+        sendJson(res, 403, { error: "owner_required" });
+      } else if (!target || target.clientId !== link.clientId) {
+        sendJson(res, 404, { error: "not_found" });
+      } else if (target.role === "owner") {
+        sendJson(res, 409, { error: "owner_cannot_be_removed" });
+      } else {
+        await store.unlinkClientOperator(subject);
+        sendJson(res, 200, { dashboard: await dashboard(caller.subject) });
+      }
+      return true;
+    }
+
+    if (path === `${ROOT}/funding/checkout` && req.method === "POST") {
+      const link = await callerLink(caller.subject);
+      if (!link) {
+        sendJson(res, 409, { error: "onboarding_required" });
+        return true;
+      }
+      if (!stripeConfigured) {
+        sendJson(res, 503, { error: "funding_not_configured" });
+        return true;
+      }
+      try {
+        const cents = (await readJson(req)).amountCents;
+        if (
+          typeof cents !== "number" ||
+          !Number.isSafeInteger(cents) ||
+          cents < MIN_FUNDING_CENTS ||
+          cents > MAX_FUNDING_CENTS
+        ) {
+          sendJson(res, 400, { error: "invalid_amount" });
+          return true;
+        }
+        const fields = new URLSearchParams({
+          mode: "payment",
+          success_url: `${opts.publicOrigin}/account/?funding=success`,
+          cancel_url: `${opts.publicOrigin}/account/?funding=cancelled`,
+          client_reference_id: link.clientId,
+          "metadata[client_id]": link.clientId,
+          "line_items[0][quantity]": "1",
+          "line_items[0][price_data][currency]": "usd",
+          "line_items[0][price_data][unit_amount]": String(cents),
+          "line_items[0][price_data][product_data][name]": "Mycel credits",
+          "invoice_creation[enabled]": "true",
+          customer_creation: "always",
+        });
+        const response = await fetchImpl(
+          "https://api.stripe.com/v1/checkout/sessions",
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${opts.stripeSecretKey}`,
+              "content-type": "application/x-www-form-urlencoded",
+            },
+            body: fields,
+          },
+        );
+        const result = (await response.json()) as { url?: unknown };
+        if (!response.ok || typeof result.url !== "string")
+          throw new Error("checkout_failed");
+        sendJson(res, 201, { url: result.url });
+      } catch {
+        sendJson(res, 502, { error: "checkout_failed" });
       }
       return true;
     }
@@ -324,6 +599,53 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         application: publicApplication(application),
         credential,
       });
+      return true;
+    }
+
+    const credentialRevocation = path.match(
+      /^\/api\/customer\/applications\/([^/]+)\/revoke$/,
+    );
+    if (credentialRevocation && req.method === "POST") {
+      const client = await ownedClient(caller.subject);
+      const application = await store.getApplication(
+        decodeURIComponent(credentialRevocation[1]),
+      );
+      if (!client || !application || application.clientId !== client.id) {
+        sendJson(res, 404, { error: "not_found" });
+        return true;
+      }
+      await store.setApplicationCredentialHash(application.id);
+      sendJson(res, 200, {
+        application: publicApplication({
+          ...application,
+          credentialHash: undefined,
+        }),
+      });
+      return true;
+    }
+
+    const enabledUpdate = path.match(
+      /^\/api\/customer\/applications\/([^/]+)\/enabled$/,
+    );
+    if (enabledUpdate && req.method === "POST") {
+      const client = await ownedClient(caller.subject);
+      const application = await store.getApplication(
+        decodeURIComponent(enabledUpdate[1]),
+      );
+      if (!client || !application || application.clientId !== client.id) {
+        sendJson(res, 404, { error: "not_found" });
+        return true;
+      }
+      try {
+        const enabled = (await readJson(req)).enabled;
+        if (typeof enabled !== "boolean") throw new Error("invalid_enabled");
+        await operator.setApplicationEnabled(application.id, enabled);
+        sendJson(res, 200, {
+          application: publicApplication({ ...application, enabled }),
+        });
+      } catch {
+        sendJson(res, 400, { error: "invalid_enabled" });
+      }
       return true;
     }
 

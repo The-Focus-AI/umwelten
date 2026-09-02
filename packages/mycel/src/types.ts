@@ -216,6 +216,27 @@ export interface ClientOperator {
   /** Verified Clerk `sub`; never accepted from a request body. */
   subject: string;
   clientId: string;
+  role: "owner" | "member";
+  createdAt: Date;
+}
+
+/** A short-lived, one-use invitation to operate an existing Client. */
+export interface ClientInvitation {
+  id: string;
+  clientId: string;
+  /** Only the sha256 digest is persisted; the bearer token is shown once. */
+  tokenHash: string;
+  createdBySubject: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+/** A payment event accepted exactly once into the Client ledger. */
+export interface ClientPayment {
+  provider: "stripe";
+  eventId: string;
+  clientId: string;
+  microDollars: MicroDollars;
   createdAt: Date;
 }
 

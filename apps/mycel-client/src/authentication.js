@@ -64,12 +64,16 @@ export async function initializeAuthentication({ onStateChange } = {}) {
 
   for (const button of signUpButtons) {
     button.addEventListener("click", () =>
-      clerk.openSignUp({ fallbackRedirectUrl: "/" }),
+      clerk.openSignUp({
+        fallbackRedirectUrl: "/account/",
+      }),
     );
   }
   for (const button of signInButtons) {
     button.addEventListener("click", () =>
-      clerk.openSignIn({ fallbackRedirectUrl: "/" }),
+      clerk.openSignIn({
+        fallbackRedirectUrl: "/account/",
+      }),
     );
   }
 

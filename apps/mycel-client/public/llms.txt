@@ -1,0 +1,30 @@
+# Mycel
+
+> Mycel is a living exchange for machine intelligence. Applications use one OpenAI-compatible endpoint while Mycel discovers live model offers, selects an eligible Supplier, meters usage, and charges the owning Client.
+
+Mycel's catalogue is dynamic. Never infer a preferred model from an example and never hard-code the first model shown in documentation. Fetch `/v1/models` at runtime, then choose using the returned capabilities, guarantees, context length, and prices. A model appearing in an example means only that it was available when the example was written.
+
+## Use the Exchange
+
+- [Full agent guide](https://mycel.thefocus.ai/llms-full.txt): Concepts, request flow, model selection, authentication, errors, account behavior, and architecture.
+- [OpenAPI description](https://mycel.thefocus.ai/openapi.json): Public catalogue and chat-completions API contract.
+- [Live model catalogue](https://mycel.thefocus.ai/v1/models): Current models, capabilities, guarantees, context lengths, and cheapest prices. This is the source of truth for model selection.
+- [Customer account](https://mycel.thefocus.ai/account/): Create Applications, rotate or revoke credentials, fund a Client, and inspect usage.
+
+## Inspect the System
+
+- [Exchange assembly](https://mycel.thefocus.ai/shell/manifest.json): Read-only operational components mounted by the Umwelten Substrate Shell.
+- [Account assembly](https://mycel.thefocus.ai/account/manifest.json): Trusted authentication, customer-state, layout, and account components.
+- [Health](https://mycel.thefocus.ai/health): Exchange and store readiness.
+- [Umwelten repository](https://github.com/The-Focus-AI/umwelten): Source, ADRs, architecture documentation, examples, and deployment code.
+
+## Essential Contract
+
+- Base URL: `https://mycel.thefocus.ai/v1`
+- Supported buyer operation: `POST /v1/chat/completions`
+- Authentication: `Authorization: Bearer <Application credential>`
+- Static credentials also require `X-Mycel-End-User: <stable id from your application>` on every request.
+- Discover models immediately before use with unauthenticated `GET /v1/models`.
+- Treat `401`, `402`, and `503` differently: identity failure, insufficient balance, and no eligible live offer are different conditions.
+
+Do not send Clerk session tokens to `/v1/chat/completions`. Clerk authenticates humans to the account console; an Application credential authenticates software to the Exchange.

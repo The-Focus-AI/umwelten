@@ -379,6 +379,7 @@ export function runExchangeStoreConformance(
         await store.linkClientOperator({
           subject: "user_acme",
           clientId: "acme",
+          role: "owner",
           createdAt: new Date("2026-09-01T00:00:00Z"),
         });
 
@@ -388,9 +389,50 @@ export function runExchangeStoreConformance(
         expect(await store.getClientOperator("user_acme")).toEqual({
           subject: "user_acme",
           clientId: "acme",
+          role: "owner",
           createdAt: new Date("2026-09-01T00:00:00Z"),
         });
         expect(await store.getClientOperator("user_other")).toBeNull();
+      });
+
+      it("consumes a Client invitation once and protects its owner", async () => {
+        const createdAt = new Date("2026-09-01T00:00:00Z");
+        await store.createClient({ id: "acme", name: "Acme" });
+        await store.linkClientOperator({
+          subject: "user_owner",
+          clientId: "acme",
+          role: "owner",
+          createdAt,
+        });
+        await store.createClientInvitation({
+          id: "invite-1",
+          clientId: "acme",
+          tokenHash: "invite-hash",
+          createdBySubject: "user_owner",
+          createdAt,
+          expiresAt: new Date("2026-09-08T00:00:00Z"),
+        });
+
+        expect(
+          await store.acceptClientInvitation(
+            "invite-hash",
+            "user_member",
+            new Date("2026-09-02T00:00:00Z"),
+          ),
+        ).toMatchObject({ clientId: "acme", role: "member" });
+        expect(
+          await store.acceptClientInvitation(
+            "invite-hash",
+            "user_other",
+            new Date("2026-09-02T00:00:00Z"),
+          ),
+        ).toBeNull();
+        expect(await store.listClientOperators("acme")).toHaveLength(2);
+
+        await store.unlinkClientOperator("user_owner");
+        expect(await store.getClientOperator("user_owner")).not.toBeNull();
+        await store.unlinkClientOperator("user_member");
+        expect(await store.getClientOperator("user_member")).toBeNull();
       });
 
       it("round-trips an application", async () => {
@@ -459,6 +501,43 @@ export function runExchangeStoreConformance(
         await store.setApplicationEnabled("app", false);
 
         expect((await store.getApplication("app"))?.enabled).toBe(false);
+      });
+
+      it("revokes an Application credential without deleting its history", async () => {
+        await store.createClient({ id: "acme", name: "Acme" });
+        await store.createApplication({
+          id: "app",
+          clientId: "acme",
+          jwksUrl: "",
+          credentialHash: "secret-hash",
+          requiredGuarantees: [],
+          enabled: true,
+          createdAt: new Date(),
+        });
+        await store.setApplicationCredentialHash("app");
+
+        expect(
+          (await store.getApplication("app"))?.credentialHash,
+        ).toBeUndefined();
+        expect(await store.getApplication("app")).not.toBeNull();
+      });
+
+      it("credits one external payment event at most once", async () => {
+        await store.createClient({ id: "acme", name: "Acme" });
+        const payment = {
+          provider: "stripe" as const,
+          eventId: "evt_once",
+          clientId: "acme",
+          microDollars: 25_000_000,
+          createdAt: new Date("2026-09-01T00:00:00Z"),
+        };
+
+        expect((await store.creditClientPayment(payment)).credited).toBe(true);
+        expect((await store.creditClientPayment(payment)).credited).toBe(false);
+        expect((await store.getBalance("client", "acme")).microDollars).toBe(
+          25_000_000,
+        );
+        expect(await store.listLedgerEntries("client", "acme")).toHaveLength(1);
       });
     });
 
