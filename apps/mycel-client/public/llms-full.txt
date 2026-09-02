@@ -1,0 +1,136 @@
+# Mycel: complete guide for coding agents
+
+## What Mycel is
+
+Mycel is the Exchange bounded context in the Umwelten repository. A Client is the party billed for usage. A Client owns Applications. An Application is software that calls the Exchange. An End User is the person or workload behind one Application request. A Supplier offers model capacity. An Offer says which model a Supplier can serve, at what price, with which capabilities and guarantees.
+
+The buyer does not select a Supplier. It names a model and optional requirements. Mycel filters live Offers, chooses an eligible route, forwards the OpenAI-shaped request, streams the response, meters usage at its own boundary, and records the charge.
+
+## Start here
+
+1. A human signs in at `https://mycel.thefocus.ai/account/` and creates an Application.
+2. Mycel displays the Application credential once and stores only its SHA-256 hash. If it was not saved, rotate it; it cannot be recovered.
+3. The caller fetches `https://mycel.thefocus.ai/v1/models`.
+4. The caller chooses a model from that response based on its actual needs.
+5. The caller sends `POST https://mycel.thefocus.ai/v1/chat/completions` with the Application credential and a stable end-user identifier.
+
+The credential belongs in a server-side secret manager or environment variable. Never embed it in browser code, commit it, log it, or send it to the customer-account API.
+
+## Model discovery and selection
+
+`GET /v1/models` is public and is the source of truth. Its response is an OpenAI-shaped list. Each entry adds:
+
+- `pricing.prompt` and `pricing.completion`: US dollars per million tokens at the cheapest eligible Offer.
+- `capabilities`: union of capabilities available from at least one Offer, such as `chat`, `streaming`, or tool support.
+- `guarantees`: guarantees carried by every Offer represented by the catalogue entry.
+- `context_length`: the minimum context length across represented Offers, when known.
+
+Availability changes as Suppliers connect, disconnect, publish, or age out. Do not assume a model listed yesterday is available now. Do not interpret ordering as ranking: entries are sorted lexicographically by model id. In particular, examples using `deepseek/deepseek-v4-pro` do not claim it is best; it was simply a live model used to make the request concrete.
+
+A reasonable generic policy is:
+
+1. Filter to models containing every required capability.
+2. Filter to models containing every required guarantee.
+3. Reject models whose known `context_length` is too small.
+4. Apply the product's own quality, latency, privacy, and cost policy.
+5. Choose among the survivors; do not invent a universal default.
+
+Mycel routes among Suppliers for the chosen model. It does not currently evaluate model quality or choose a semantically equivalent model on the caller's behalf.
+
+## Request example
+
+```bash
+export MYCEL_API_KEY='the one-time Application credential'
+
+MODEL_ID="$(curl -fsS https://mycel.thefocus.ai/v1/models | jq -r '.data[0].id // empty')"
+test -n "$MODEL_ID" || { echo 'No models are currently available' >&2; exit 1; }
+
+curl -sS https://mycel.thefocus.ai/v1/chat/completions \
+  -H "Authorization: Bearer $MYCEL_API_KEY" \
+  -H "X-Mycel-End-User: your-stable-user-id" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg model "$MODEL_ID" '{
+    model: $model,
+    messages: [{role: "user", content: "Hello from Mycel"}]
+  }')"
+```
+
+The shell snippet chooses the first model only as a smoke test. Production code should use an explicit selection policy like the one above.
+
+OpenAI JavaScript client:
+
+```js
+import OpenAI from "openai";
+
+const mycel = new OpenAI({
+  baseURL: "https://mycel.thefocus.ai/v1",
+  apiKey: process.env.MYCEL_API_KEY,
+  defaultHeaders: { "X-Mycel-End-User": currentUser.id },
+});
+
+const models = await mycel.models.list();
+const model = chooseModel(models.data); // your policy, not array position
+const response = await mycel.chat.completions.create({
+  model: model.id,
+  messages: [{ role: "user", content: "Hello from Mycel" }],
+});
+```
+
+## Identity and money
+
+An Application static credential identifies the Application. `X-Mycel-End-User` attributes usage to a stable subject inside that Application. The same subject string used by two Applications represents two different End Users. Mycel trusts the Application's assertion; this header is attribution, not end-user authentication.
+
+Charge ownership resolves from End User to Application to Client, stopping at the first funded owner. Only a Client can have a postpaid credit limit. Prompt credit is checked before forwarding. Streaming credit is checked during generation, so a stream can end with an insufficient-balance event.
+
+The account page reports Client balance, Application state, ledger entries, recent requests, and team membership. Clerk authenticates humans there. Clerk tokens are not Application credentials and must not be used on the buyer API.
+
+## Stable failure classes
+
+- `400 invalid_body` or `invalid_json`: fix the request.
+- `401 unauthorized`: missing, invalid, disabled, rotated, or revoked Application credential; or missing `X-Mycel-End-User` for a static credential. The wire response is intentionally opaque.
+- `402 insufficient_balance`: fund the relevant owner or arrange Client credit. Do not retry unchanged.
+- `413 body_too_large`: reduce the request below 10 MB.
+- `503 no_eligible_offer`: no live Offer satisfies the requested model and requirements. Inspect `considered` when present, refresh `/v1/models`, and retry only when supply or requirements change.
+- `502 upstream_error`: the selected Supplier failed. A bounded retry may be appropriate.
+
+Requirements may be added without changing the OpenAI body:
+
+- `X-Exchange-Require-Capability: streaming,tools`
+- `X-Exchange-Require-Guarantee: on-premise`
+
+These only narrow eligibility. Application-level restrictions can narrow it further.
+
+## Architecture and trust boundaries
+
+The public landing page is a separately built Vite application. `/account/` and `/shell/` both run the same dependency-free `@umwelten/substrate` Shell and Component lifecycle.
+
+`/account/` has a fixed trusted manifest. Its providers expose Clerk authentication, customer state, and layout to independently mounted overview, Applications, funding, ledger, usage, and team Components. It can call the authenticated same-origin customer control plane. Agent-authored custom Components are not mounted into this realm.
+
+`/shell/` is the operational assembly. Its built-in and custom Components are provider-free and read-only. It projects health and the live catalogue but receives no customer mutation service. This is a deliberate capability boundary, not merely a visual separation.
+
+The Exchange runtime owns authentication, dispatch, metering, balances, ledger, and persistence. Mycel does not import Umwelten cognition-domain code. Umwelten and other clients reach it over HTTP.
+
+Useful machine-readable inspection points:
+
+- `GET /openapi.json`
+- `GET /shell/manifest.json`
+- `GET /account/manifest.json`
+- `GET /health`
+- `GET /v1/models`
+
+Repository orientation:
+
+- `packages/mycel/src/buyer/`: buyer endpoint and Supplier transport.
+- `packages/mycel/src/auth/`: Application identity.
+- `packages/mycel/src/dispatch.ts`: Offer eligibility and ranking.
+- `packages/mycel/src/metering/`: token accounting, balances, and charges.
+- `packages/mycel/src/customer/`: authenticated self-service control plane.
+- `packages/mycel/src/client-surface/`: landing serving and Substrate assemblies.
+- `packages/mycel/src/store/`: memory and Neon persistence contracts.
+- `packages/supplier/`: Supplier discovery, probing, publishing, and serving.
+- `docs/adr/`: decisions and their status.
+- `docs/guide/mycel-setup.md`: operator and integration guide.
+
+## Current scope
+
+The public buyer contract currently exposes model listing and chat completions. Do not assume support for OpenAI Responses, embeddings, images, audio, fine-tuning, files, batches, or administration APIs unless they appear in `/openapi.json` and are verified against the running service.

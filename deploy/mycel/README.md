@@ -55,14 +55,38 @@ configuration, not a Clerk secret. Self-service creates Clients and
 Applications, but starts with no spendable postpaid credit unless
 `MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS` is deliberately raised.
 
+The customer console is `https://mycel.thefocus.ai/account`. It shows the
+Client balance, the append-only entries that sum to it, usage, Application key
+lifecycle, and team membership. The public landing remains at `/`.
+
+### Activating prepaid funding
+
+Funding is deliberately absent until all three values exist:
+
+- `MYCEL_PUBLIC_ORIGIN=https://mycel.thefocus.ai` in `.env`
+- `MYCEL_STRIPE_SECRET_KEY` resolved from a Stripe **test** secret key
+- `MYCEL_STRIPE_WEBHOOK_SECRET` resolved from the test webhook endpoint for
+  `https://mycel.thefocus.ai/api/customer/stripe/webhook`
+
+Create the two secret resources, grant only `mycel-host`'s service account
+access, and add their env-name → secret-id mappings to `MYCEL_SECRETS`. Do not
+put values in `.env`. Test a payment and a webhook retry before repeating the
+setup in live mode; test and live webhook signing secrets are different.
+
+The webhook, not the Checkout redirect, adds credit. Its provider event ID is
+accepted once, so Stripe retries cannot double the Client balance.
+
 Secrets are **not** in that `.env`. They live in Google Secret Manager and are
 read at container start through this instance's attached service account, so
 there is no credential on this disk to protect or to rotate in place. To change
 one: `gcloud secrets versions add <id> --data-file=-`, then restart the
 container — values are read at boot.
 
-`deploy.sh` builds, recreates the container, and waits for `/health`. Nothing
-else to run.
+`deploy.sh` builds, recreates the container, and waits for `/health`. Its root
+pnpm download store and the isolated client build store persist across builds;
+the first cold build still downloads dependencies, while repeat deploys reuse
+them. Moving the complete image build off-host remains separate infrastructure
+work because no Artifact Registry identity or repository is configured yet.
 
 **Before the very first boot**, run the store conformance suite against a
 throwaway Neon branch. `serve` executes the schema DDL on start, so otherwise

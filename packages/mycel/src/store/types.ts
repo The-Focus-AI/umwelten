@@ -13,7 +13,9 @@ import type {
   Balance,
   BalanceOwnerKind,
   Client,
+  ClientInvitation,
   ClientOperator,
+  ClientPayment,
   LedgerEntry,
   Offer,
   OfferPricing,
@@ -74,6 +76,16 @@ export interface ExchangeStore {
   getClient(id: string): Promise<Client | null>;
   linkClientOperator(operator: ClientOperator): Promise<void>;
   getClientOperator(subject: string): Promise<ClientOperator | null>;
+  listClientOperators(clientId: string): Promise<ClientOperator[]>;
+  unlinkClientOperator(subject: string): Promise<void>;
+  createClientInvitation(invitation: ClientInvitation): Promise<void>;
+  listClientInvitations(clientId: string): Promise<ClientInvitation[]>;
+  /** Atomically consumes a live invitation and links a previously unlinked subject. */
+  acceptClientInvitation(
+    tokenHash: string,
+    subject: string,
+    now: Date,
+  ): Promise<ClientOperator | null>;
 
   createApplication(application: Application): Promise<void>;
   getApplication(id: string): Promise<Application | null>;
@@ -85,6 +97,7 @@ export interface ExchangeStore {
   getApplicationByCredentialHash(hash: string): Promise<Application | null>;
   listApplications(): Promise<Application[]>;
   setApplicationEnabled(id: string, enabled: boolean): Promise<void>;
+  setApplicationCredentialHash(id: string, hash?: string): Promise<void>;
 
   // ── Usage ─────────────────────────────────────────────────────────
 
@@ -138,4 +151,10 @@ export interface ExchangeStore {
     ownerKind: BalanceOwnerKind,
     ownerKey: string,
   ): Promise<LedgerEntry[]>;
+
+  /** Append one external payment to the ledger at most once. */
+  creditClientPayment(payment: ClientPayment): Promise<{
+    balance: Balance;
+    credited: boolean;
+  }>;
 }

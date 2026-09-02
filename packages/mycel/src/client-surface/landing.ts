@@ -9,7 +9,11 @@ const TYPES = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".map", "application/json; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
 ]);
+
+const PUBLIC_FILES = new Set(["llms.txt", "llms-full.txt", "openapi.json"]);
 
 function defaultDirectory() {
   const besideBundle = join(dirname(fileURLToPath(import.meta.url)), "landing");
@@ -26,7 +30,12 @@ export function createLandingHandler(
     if (req.method !== "GET" && req.method !== "HEAD") return false;
     const path = decodeURIComponent((req.url ?? "/").split("?", 1)[0]);
     const file = path === "/" ? "index.html" : path.slice(1);
-    if (file !== "index.html" && !/^assets\/[\w.-]+$/.test(file)) return false;
+    if (
+      file !== "index.html" &&
+      !PUBLIC_FILES.has(file) &&
+      !/^assets\/[\w.-]+$/.test(file)
+    )
+      return false;
     const type = TYPES.get(extname(file));
     if (!type) return false;
     try {
@@ -34,7 +43,9 @@ export function createLandingHandler(
       res.writeHead(200, {
         "Content-Type": type,
         "Cache-Control":
-          file === "index.html"
+          file === "index.html" ||
+          PUBLIC_FILES.has(file) ||
+          file === "assets/account-authentication.js"
             ? "no-cache"
             : "public, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",

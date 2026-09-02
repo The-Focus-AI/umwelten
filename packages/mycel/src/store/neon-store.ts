@@ -20,7 +20,9 @@ import type {
   BalanceOwnerKind,
   CapabilityName,
   Client,
+  ClientInvitation,
   ClientOperator,
+  ClientPayment,
   LedgerEntry,
   HeadroomSample,
   HeadroomMeta,
@@ -129,12 +131,28 @@ export class NeonStore implements ExchangeStore {
       CREATE TABLE IF NOT EXISTS exchange_client_operator (
         subject TEXT PRIMARY KEY,
         client_id TEXT NOT NULL REFERENCES exchange_client(id) ON DELETE CASCADE,
+        role TEXT NOT NULL DEFAULT 'owner',
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `;
     await this.sql`
+      ALTER TABLE exchange_client_operator
+        ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'owner'
+    `;
+    await this.sql`
       CREATE INDEX IF NOT EXISTS exchange_client_operator_client_idx
         ON exchange_client_operator (client_id)
+    `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_client_invitation (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL REFERENCES exchange_client(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by_subject TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL
+      )
     `;
 
     await this.sql`
@@ -225,6 +243,17 @@ export class NeonStore implements ExchangeStore {
     await this.sql`
       CREATE INDEX IF NOT EXISTS exchange_ledger_owner_idx
         ON exchange_ledger_entry (owner_kind, owner_key)
+    `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_client_payment (
+        provider TEXT NOT NULL,
+        event_id TEXT NOT NULL,
+        client_id TEXT NOT NULL REFERENCES exchange_client(id),
+        micro_dollars BIGINT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        PRIMARY KEY (provider, event_id)
+      )
     `;
   }
 
@@ -337,6 +366,40 @@ export class NeonStore implements ExchangeStore {
     }));
   }
 
+  async creditClientPayment(payment: ClientPayment) {
+    const rows = (await this.sql`
+      WITH accepted AS (
+        INSERT INTO exchange_client_payment
+          (provider, event_id, client_id, micro_dollars, created_at)
+        VALUES (${payment.provider}, ${payment.eventId}, ${payment.clientId},
+                ${payment.microDollars}, ${payment.createdAt.toISOString()})
+        ON CONFLICT (provider, event_id) DO NOTHING
+        RETURNING client_id
+      ), credited AS (
+        INSERT INTO exchange_ledger_entry
+          (id, owner_kind, owner_key, micro_dollars, reason, created_at)
+        SELECT ${`payment:${payment.provider}:${payment.eventId}`}, 'client', client_id,
+               ${payment.microDollars}, ${`${payment.provider} payment`},
+               ${payment.createdAt.toISOString()}
+        FROM accepted
+        RETURNING micro_dollars
+      )
+      SELECT
+        COALESCE((SELECT SUM(micro_dollars) FROM exchange_ledger_entry
+                  WHERE owner_kind = 'client' AND owner_key = ${payment.clientId}), 0)
+          AS balance,
+        EXISTS(SELECT 1 FROM credited) AS credited
+    `) as Row[];
+    return {
+      balance: {
+        ownerKind: "client" as const,
+        ownerKey: payment.clientId,
+        microDollars: Number(rows[0]?.balance ?? 0),
+      },
+      credited: Boolean(rows[0]?.credited),
+    };
+  }
+
   // ── Usage ─────────────────────────────────────────────────────────
 
   async recordRequest(record: RequestRecord): Promise<void> {
@@ -397,8 +460,8 @@ export class NeonStore implements ExchangeStore {
 
   async linkClientOperator(operator: ClientOperator): Promise<void> {
     await this.sql`
-      INSERT INTO exchange_client_operator (subject, client_id, created_at)
-      VALUES (${operator.subject}, ${operator.clientId}, ${operator.createdAt.toISOString()})
+      INSERT INTO exchange_client_operator (subject, client_id, role, created_at)
+      VALUES (${operator.subject}, ${operator.clientId}, ${operator.role}, ${operator.createdAt.toISOString()})
       ON CONFLICT (subject) DO NOTHING
     `;
   }
@@ -411,6 +474,83 @@ export class NeonStore implements ExchangeStore {
       ? {
           subject: String(rows[0].subject),
           clientId: String(rows[0].client_id),
+          role: String(rows[0].role) as ClientOperator["role"],
+          createdAt: new Date(String(rows[0].created_at)),
+        }
+      : null;
+  }
+
+  async listClientOperators(clientId: string): Promise<ClientOperator[]> {
+    const rows = (await this.sql`
+      SELECT * FROM exchange_client_operator
+      WHERE client_id = ${clientId} ORDER BY created_at, subject
+    `) as Row[];
+    return rows.map((row) => ({
+      subject: String(row.subject),
+      clientId: String(row.client_id),
+      role: String(row.role) as ClientOperator["role"],
+      createdAt: new Date(String(row.created_at)),
+    }));
+  }
+
+  async unlinkClientOperator(subject: string): Promise<void> {
+    await this.sql`
+      DELETE FROM exchange_client_operator
+      WHERE subject = ${subject} AND role <> 'owner'
+    `;
+  }
+
+  async createClientInvitation(invitation: ClientInvitation): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_client_invitation
+        (id, client_id, token_hash, created_by_subject, created_at, expires_at)
+      VALUES (${invitation.id}, ${invitation.clientId}, ${invitation.tokenHash},
+              ${invitation.createdBySubject}, ${invitation.createdAt.toISOString()},
+              ${invitation.expiresAt.toISOString()})
+    `;
+  }
+
+  async listClientInvitations(clientId: string): Promise<ClientInvitation[]> {
+    const rows = (await this.sql`
+      SELECT * FROM exchange_client_invitation
+      WHERE client_id = ${clientId} ORDER BY created_at
+    `) as Row[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      clientId: String(row.client_id),
+      tokenHash: String(row.token_hash),
+      createdBySubject: String(row.created_by_subject),
+      createdAt: new Date(String(row.created_at)),
+      expiresAt: new Date(String(row.expires_at)),
+    }));
+  }
+
+  async acceptClientInvitation(
+    tokenHash: string,
+    subject: string,
+    now: Date,
+  ): Promise<ClientOperator | null> {
+    const rows = (await this.sql`
+      WITH claimed AS (
+        DELETE FROM exchange_client_invitation
+        WHERE token_hash = ${tokenHash} AND expires_at > ${now.toISOString()}
+          AND NOT EXISTS (
+            SELECT 1 FROM exchange_client_operator WHERE subject = ${subject}
+          )
+        RETURNING client_id
+      ), linked AS (
+        INSERT INTO exchange_client_operator (subject, client_id, role, created_at)
+        SELECT ${subject}, client_id, 'member', ${now.toISOString()} FROM claimed
+        ON CONFLICT (subject) DO NOTHING
+        RETURNING *
+      )
+      SELECT * FROM linked
+    `) as Row[];
+    return rows[0]
+      ? {
+          subject: String(rows[0].subject),
+          clientId: String(rows[0].client_id),
+          role: "member",
           createdAt: new Date(String(rows[0].created_at)),
         }
       : null;
@@ -464,6 +604,13 @@ export class NeonStore implements ExchangeStore {
   async setApplicationEnabled(id: string, enabled: boolean): Promise<void> {
     await this
       .sql`UPDATE exchange_application SET enabled = ${enabled} WHERE id = ${id}`;
+  }
+
+  async setApplicationCredentialHash(id: string, hash?: string): Promise<void> {
+    await this.sql`
+      UPDATE exchange_application SET credential_hash = ${hash ?? null}
+      WHERE id = ${id}
+    `;
   }
 
   // ── Suppliers ─────────────────────────────────────────────────────

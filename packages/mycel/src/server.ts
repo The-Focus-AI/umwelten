@@ -12,7 +12,10 @@ import http from "node:http";
 import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
 import { createLandingHandler } from "./client-surface/landing.js";
-import { createClientSurfaceHandler } from "./client-surface/serve.js";
+import {
+  createAccountSurfaceHandler,
+  createClientSurfaceHandler,
+} from "./client-surface/serve.js";
 import {
   createCustomerHandler,
   type CustomerHandlerOptions,
@@ -49,6 +52,9 @@ export interface ExchangeServerOptions {
   clerkIssuer?: string;
   clerkAuthorizedParties?: string[];
   selfServiceCreditLimitMicroDollars?: number;
+  stripeSecretKey?: string;
+  stripeWebhookSecret?: string;
+  publicOrigin?: string;
   staleAfterMs?: number;
   /**
    * How the relay reaches a Supplier. Defaults to an OpenAI-compatible POST at
@@ -83,6 +89,9 @@ export function createExchangeApp(
     | "clerkIssuer"
     | "clerkAuthorizedParties"
     | "selfServiceCreditLimitMicroDollars"
+    | "stripeSecretKey"
+    | "stripeWebhookSecret"
+    | "publicOrigin"
     | "staleAfterMs"
     | "resolveTransport"
     | "componentsDir"
@@ -113,10 +122,13 @@ export function createExchangeApp(
       : undefined);
 
   const handlers = [
-    // The hostname root serves the separately built customer application.
-    // Browser dependencies and Clerk stay in apps/mycel-client; this runtime
-    // sees only its static dist output. The operational view remains /shell/.
+    // The hostname root is the separately built marketing application. Its
+    // static bundle also carries the trusted Clerk provider used by /account/.
     createLandingHandler(),
+    // The customer console is an assembly on the same substrate as /shell/.
+    // Its fixed providers may authenticate and mutate; no agent-authored
+    // component directory enters this trust realm.
+    createAccountSurfaceHandler(),
     createCustomerHandler({
       store,
       verifyOperator: opts.verifyCustomerOperator,
@@ -129,10 +141,13 @@ export function createExchangeApp(
       defaultCreditLimitMicroDollars:
         opts.selfServiceCreditLimitMicroDollars ??
         Number(process.env.MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS ?? 0),
+      stripeSecretKey:
+        opts.stripeSecretKey ?? process.env.MYCEL_STRIPE_SECRET_KEY,
+      stripeWebhookSecret:
+        opts.stripeWebhookSecret ?? process.env.MYCEL_STRIPE_WEBHOOK_SECRET,
+      publicOrigin: opts.publicOrigin ?? process.env.MYCEL_PUBLIC_ORIGIN,
     }),
-    // The operational surface: the standard Shell plus components over
-    // /health and /v1/models. Customer account actions live in the separately
-    // built application and its authenticated handler above.
+    // The operational surface remains a provider-free, read-only assembly.
     createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
     createModelsHandler({ store }),

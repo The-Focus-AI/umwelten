@@ -28,6 +28,33 @@ const ENTRIES: ShellManifestEntry[] = [
   { id: "catalogue-stats", url: "./components/catalogue-stats.js" },
 ];
 
+const ACCOUNT_ENTRIES: ShellManifestEntry[] = [
+  {
+    id: "account-authentication",
+    url: "/assets/account-authentication.js",
+    provides: true,
+  },
+  {
+    id: "account-layout",
+    url: "./components/account-layout.js",
+    provides: true,
+  },
+  {
+    id: "account-customer",
+    url: "./components/account-customer.js",
+    provides: true,
+  },
+  { id: "account-overview", url: "./components/account-overview.js" },
+  {
+    id: "account-applications",
+    url: "./components/account-applications.js",
+  },
+  { id: "account-funding", url: "./components/account-funding.js" },
+  { id: "account-ledger", url: "./components/account-ledger.js" },
+  { id: "account-usage", url: "./components/account-usage.js" },
+  { id: "account-team", url: "./components/account-team.js" },
+];
+
 export interface ClientSurfaceOptions {
   /**
    * Directory of agent-authored components — the self-assembly loop (#410).
@@ -50,7 +77,40 @@ export function createClientSurfaceHandler(
     componentsDir: join(dirname(fileURLToPath(import.meta.url)), "components"),
     customComponentsDir: options.componentsDir,
     transpile: async (source) =>
-      (await transform(source, { loader: "ts", format: "esm", target: "es2022" }))
-        .code,
+      (
+        await transform(source, {
+          loader: "ts",
+          format: "esm",
+          target: "es2022",
+        })
+      ).code,
+  });
+}
+
+/**
+ * The trusted customer assembly. Unlike the agent-authored `/shell/` roster,
+ * this fixed manifest deliberately includes authentication and mutation
+ * providers; no custom component directory is mounted into this trust realm.
+ */
+export function createAccountSurfaceHandler(options?: {
+  authenticationUrl?: string;
+}): (req: IncomingMessage, res: ServerResponse) => Promise<boolean> {
+  const entries = ACCOUNT_ENTRIES.map((entry) =>
+    entry.id === "account-authentication" && options?.authenticationUrl
+      ? { ...entry, url: options.authenticationUrl }
+      : entry,
+  );
+  return createShellHandler({
+    prefix: "/account",
+    entries,
+    componentsDir: join(dirname(fileURLToPath(import.meta.url)), "components"),
+    transpile: async (source) =>
+      (
+        await transform(source, {
+          loader: "ts",
+          format: "esm",
+          target: "es2022",
+        })
+      ).code,
   });
 }

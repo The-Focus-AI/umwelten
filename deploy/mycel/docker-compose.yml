@@ -35,6 +35,7 @@ services:
       # Self-service never implies free upstream spend. Zero is the safe
       # default; raising this is an explicit financial decision.
       MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS: ${MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS:-0}
+      MYCEL_PUBLIC_ORIGIN: ${MYCEL_PUBLIC_ORIGIN:-}
       # Environment-variable name → Secret Manager secret id. Names only, so
       # this is not itself a secret; the values never touch disk. Each id must
       # be granted to this instance's service account on the secret resource

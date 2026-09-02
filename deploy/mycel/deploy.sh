@@ -102,7 +102,7 @@ wait_for_health() {
 # image omitted runtime-read assets, so every browser stayed on "assembling…".
 # Gate the candidate on the actual serving contract before calling it deployed.
 verify_client_surface() {
-  local animation animation_path component landing manifest substrate status
+  local account_auth account_manifest agent_guide animation animation_path component landing manifest openapi substrate status
   landing="$(curl -sfS --max-time 5 "$URL/")" || {
     echo "error: landing page unavailable" >&2
     return 1
@@ -134,6 +134,40 @@ verify_client_surface() {
       return 1
     fi
   done
+  account_manifest="$(curl -sfS --max-time 5 "$URL/account/manifest.json")" || {
+    echo "error: account assembly manifest unavailable" >&2
+    return 1
+  }
+  for component in account-authentication account-customer account-overview account-applications account-funding account-ledger account-usage account-team; do
+    if ! grep -Eq '"id"[[:space:]]*:[[:space:]]*"'"$component"'"' <<<"$account_manifest"; then
+      echo "error: account manifest missing component: $component" >&2
+      return 1
+    fi
+  done
+  account_auth="$(curl -sfS --max-time 5 "$URL/assets/account-authentication.js")" || {
+    echo "error: account authentication provider unavailable" >&2
+    return 1
+  }
+  if ! grep -q 'export' <<<"$account_auth"; then
+    echo "error: account authentication response is not browser ESM" >&2
+    return 1
+  fi
+  agent_guide="$(curl -sfS --max-time 5 "$URL/llms.txt")" || {
+    echo "error: agent discovery document unavailable" >&2
+    return 1
+  }
+  if ! grep -q '/v1/models' <<<"$agent_guide"; then
+    echo "error: agent discovery document does not identify dynamic model discovery" >&2
+    return 1
+  fi
+  openapi="$(curl -sfS --max-time 5 "$URL/openapi.json")" || {
+    echo "error: OpenAPI description unavailable" >&2
+    return 1
+  }
+  if ! grep -q '"/chat/completions"' <<<"$openapi"; then
+    echo "error: OpenAPI description is missing the buyer operation" >&2
+    return 1
+  fi
   status="$(curl -sS --max-time 5 -o /tmp/mycel-substrate.js -w '%{http_code}' \
     "$URL/shell/substrate/index.js")" || {
     echo "error: substrate endpoint unavailable" >&2
@@ -173,13 +207,15 @@ fi
 # replaced the running one. `--help` is enough: an import-time fault kills
 # every command, and a failure here costs a build instead of a rollback.
 log "bundling the exchange"
-docker run --rm -v "$ROOT:/w" -w /w node:22-slim sh -c \
-  'corepack enable && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build \
+docker volume create mycel-pnpm-store >/dev/null
+docker run --rm -v "$ROOT:/w" -v mycel-pnpm-store:/pnpm/store -w /w node:22-slim sh -c \
+  'corepack enable && pnpm config set store-dir /pnpm/store \
+   && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build \
    && node packages/mycel/dist/mycel.js --help >/dev/null'
 
 log "building image from $ROOT"
 docker build \
-  --build-arg "VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY" \
+  --build-arg "CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY" \
   -t mycel -f "$ROOT/packages/mycel/Dockerfile" "$ROOT"
 
 log "recreating the container"
@@ -189,7 +225,7 @@ log "waiting for $URL/health"
 if wait_for_health 90; then
   log "healthy — store reachable"
   if verify_client_surface; then
-    log "client surface healthy — landing, manifest and substrate runtime available"
+    log "client surface healthy — landing, agent docs, manifests and substrate runtime available"
     log "done"
     exit 0
   fi

@@ -9,7 +9,10 @@ import { describe, it, expect } from "vitest";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
-import { createClientSurfaceHandler } from "./serve.js";
+import {
+  createAccountSurfaceHandler,
+  createClientSurfaceHandler,
+} from "./serve.js";
 import { createExchangeApp } from "../server.js";
 import { MemoryStore } from "../store/memory-store.js";
 
@@ -52,6 +55,10 @@ describe("the Exchange's client surface", () => {
       "COPY --from=mycel-client --chown=mycel:mycel /client/dist /app/landing",
     );
     expect(dockerfile).toContain("apps/mycel-client/pnpm-lock.yaml");
+    expect(dockerfile).toContain(
+      "apps/mycel-client/vite.config.js ./vite.config.js",
+    );
+    expect(dockerfile).toContain("apps/mycel-client/public ./public");
     expect(dockerfile).toContain("ESBUILD_BINARY_PATH=/usr/local/bin/esbuild");
     expect(dockerfile).toContain(
       "COPY --from=esbuild-binary /esbuild /usr/local/bin/esbuild",
@@ -83,6 +90,38 @@ describe("the Exchange's client surface", () => {
       entries: { id: string; provides?: boolean }[];
     };
     expect(manifest.entries.filter((e) => e.provides)).toEqual([]);
+  });
+
+  it("serves the trusted account as a separate component assembly", async () => {
+    const handler = createAccountSurfaceHandler();
+    const bare = await get(handler, "/account");
+    expect(bare.status).toBe(302);
+    expect(bare.location).toBe("/account/");
+
+    const page = await get(handler, "/account/");
+    expect(page.status).toBe(200);
+    expect(page.body).toContain('src="./shell.js"');
+
+    const manifest = JSON.parse(
+      (await get(handler, "/account/manifest.json")).body,
+    ) as { entries: { id: string; provides?: boolean; url: string }[] };
+    expect(manifest.entries.map((entry) => entry.id)).toEqual([
+      "account-authentication",
+      "account-layout",
+      "account-customer",
+      "account-overview",
+      "account-applications",
+      "account-funding",
+      "account-ledger",
+      "account-usage",
+      "account-team",
+    ]);
+    expect(
+      manifest.entries
+        .filter((entry) => entry.provides)
+        .map((entry) => entry.id),
+    ).toEqual(["account-authentication", "account-layout", "account-customer"]);
+    expect(manifest.entries[0].url).toBe("/assets/account-authentication.js");
   });
 
   it("serves agent-authored components live from a configured dir (#410)", async () => {
@@ -168,6 +207,15 @@ describe("wired into the exchange app", () => {
     expect(r.status).toBe(200);
     expect(r.body).toContain("Mycel — intelligence grows in networks");
     expect(r.body).toContain('href="/shell/"');
+  });
+
+  it("the account route is the trusted substrate assembly", async () => {
+    const redirect = await appGet("/account");
+    expect(redirect.status).toBe(302);
+    expect(redirect.location).toBe("/account/");
+    const manifest = await appGet("/account/manifest.json");
+    expect(manifest.status).toBe(200);
+    expect(manifest.body).toContain('"account-applications"');
   });
 
   it("the exchange endpoints are untouched beside it", async () => {
