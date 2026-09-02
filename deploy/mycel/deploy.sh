@@ -2,9 +2,10 @@
 # Deploy Mycel onto the current checkout.
 #
 # Deliberately NOT called by deploy/gaia/redeploy.sh. Mycel is a peer of Gaia,
-# not a habitat Gaia manages, and the whole point of that separation is that a
-# push to umwelten main does not cycle the service holding the money ledger.
-# Deploying Mycel is something a person decides to do.
+# not a habitat Gaia manages — the money service stays on its own VM with its
+# own identity (ADR 0030). Continuous deploy is
+# `.github/workflows/deploy-mycel.yml` on the mycel-host runner (labels:
+# self-hosted, mycel), not Gaia's runner or Gaia's redeploy path.
 #
 # What it does:
 #   1. Tag the image currently running, so there is something to roll back to

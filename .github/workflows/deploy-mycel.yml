@@ -1,0 +1,42 @@
+name: Deploy Mycel
+
+# Continuous deploy of Mycel on mycel-host (see deploy/mycel/README.md).
+# Runs on the self-hosted runner installed ON mycel-host itself, so
+# "deploy" is just: build the image locally and cycle the container.
+#
+# Peer of Deploy Gaia — never runs on the Gaia runner, never calls
+# deploy/gaia/redeploy.sh. ADR 0030: own VM, own identity.
+#
+# Push-to-main only — never wire this runner to pull_request triggers: the
+# repo is public and the runner drives the production docker daemon.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/mycel/**"
+      - "apps/mycel-client/**"
+      - "packages/substrate/**"
+      - "deploy/mycel/**"
+      - ".github/workflows/deploy-mycel.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mycel-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, mycel]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Deploy mycel
+        env:
+          # Host copy of .env (hostname, Clerk publishable key, etc.) — not in
+          # git. Runbook path is /opt/umwelten/deploy/mycel; if the Actions
+          # checkout lives elsewhere, keep a copy (or symlink) of .env here so
+          # operators and this workflow agree on one file.
+          MYCEL_ENV_FILE: /opt/umwelten/deploy/mycel/.env
+        run: |
+          chmod +x deploy/mycel/deploy.sh
+          deploy/mycel/deploy.sh

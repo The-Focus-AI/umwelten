@@ -133,13 +133,14 @@ it and you rotate — there is no path that recovers it.
 
 It tags the running image so there is something to roll back to, builds,
 recreates, and waits for `/health` to report the **store** reachable rather than
-merely the process up. If it never gets there it prints the logs and rolls back
-by itself — the alternative is a broken Exchange sitting there while somebody
-reads a scrollback.
+merely the process up. It also verifies the client surface (landing, account
+manifests, `/llms.txt`, `/openapi.json`, `/shell/substrate`). If health never
+arrives it prints the logs and rolls back by itself — the alternative is a
+broken Exchange sitting there while somebody reads a scrollback.
 
-Deliberately **not** part of `deploy/gaia/redeploy.sh`. Mycel is not cycled by a
-push to umwelten main; that separation is the whole reason it is a peer of Gaia
-rather than a habitat Gaia manages.
+Deliberately **not** part of `deploy/gaia/redeploy.sh`. Mycel is a peer of Gaia,
+not a habitat Gaia manages (ADR 0030). Automatic deploy happens on
+**mycel-host's** runner only — never on Gaia's.
 
 To go back later:
 
@@ -150,6 +151,91 @@ docker compose --project-directory deploy/mycel up -d
 
 State is in Neon, so a rollback loses nothing. That is the payoff for holding no
 volume.
+
+## Continuous deploy (push to main)
+
+Once the host is standing, Mycel-related code changes ship automatically:
+`.github/workflows/deploy-mycel.yml` runs on every push to `main` that touches
+`packages/mycel/`, `apps/mycel-client/`, `packages/substrate/`, or
+`deploy/mycel/` (plus the workflow file itself), on a **self-hosted runner
+installed on mycel-host** (labels: `self-hosted`, `mycel`). It checks out the
+pushed commit and runs `deploy/mycel/deploy.sh`. Path filters are intentionally
+tight — unlike Gaia, Mycel does **not** watch all of `packages/**` or
+`examples/**`, so unrelated umwelten changes do not cycle the money service.
+
+Setup once from a laptop with `gcloud` + `gh` (IAP SSH; no public SSH).
+Modeled on the Gaia runner block in `deploy/gaia/README.md` §8. Do this on
+**mycel-host**, never on gaia-host — labels must be `mycel`, not `gaia`.
+
+```bash
+# Laptop. Token is one-hour and single-use.
+export PROJECT=habitats-502314
+export ZONE=us-east4-a
+export RUNNER_USER=worker_user
+export RUNNER_TOKEN
+RUNNER_TOKEN="$(gh api --method POST \
+  repos/The-Focus-AI/umwelten/actions/runners/registration-token \
+  --jq .token)"
+
+gcloud compute ssh mycel-host \
+  --project "$PROJECT" --zone "$ZONE" --tunnel-through-iap \
+  --command "sudo env RUNNER_TOKEN='$RUNNER_TOKEN' RUNNER_USER='$RUNNER_USER' bash -s" <<'REMOTE'
+set -euo pipefail
+id "$RUNNER_USER" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$RUNNER_USER"
+usermod -aG docker "$RUNNER_USER"
+test -f /opt/umwelten/deploy/mycel/.env || {
+  echo "missing /opt/umwelten/deploy/mycel/.env — copy the host .env before deploying" >&2
+  exit 1
+}
+
+RUNNER_DIR="/home/$RUNNER_USER/actions-runner"
+if [[ -x "$RUNNER_DIR/run.sh" && -f "$RUNNER_DIR/.runner" ]]; then
+  echo "runner already configured at $RUNNER_DIR"
+  systemctl enable --now "actions.runner.The-Focus-AI-umwelten.mycel-host.service" \
+    || true
+  exit 0
+fi
+
+install -d -o "$RUNNER_USER" -g "$RUNNER_USER" "$RUNNER_DIR"
+cd "$RUNNER_DIR"
+# Pin comes from github.com/actions/runner/releases — bump when installing
+# on a new host. Progressive rollout: if this tarball 404s, use the version
+# shown under Settings → Actions → Runners → New self-hosted runner.
+VER=2.337.0
+curl -fsSL -o "actions-runner-linux-x64-${VER}.tar.gz" \
+  "https://github.com/actions/runner/releases/download/v${VER}/actions-runner-linux-x64-${VER}.tar.gz"
+tar xzf "actions-runner-linux-x64-${VER}.tar.gz"
+chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_DIR"
+sudo -u "$RUNNER_USER" ./config.sh \
+  --url https://github.com/The-Focus-AI/umwelten \
+  --token "$RUNNER_TOKEN" \
+  --name mycel-host \
+  --labels mycel \
+  --unattended \
+  --replace
+./svc.sh install "$RUNNER_USER"
+./svc.sh start
+REMOTE
+
+unset RUNNER_TOKEN
+```
+
+Then confirm Idle at github.com/The-Focus-AI/umwelten → Settings → Actions →
+Runners (`self-hosted`, `mycel`). Kick with Actions → Deploy Mycel → Run
+workflow, or wait for the next matching push to `main`.
+
+The workflow reads host config from `MYCEL_ENV_FILE` (canonical
+`/opt/umwelten/deploy/mycel/.env` on this host) — nothing secret lives in the
+repo. The Actions checkout is under the runner home, not `/opt/umwelten`; keep
+the `.env` at the path above so operators and CI agree on one file.
+
+> **Public-repo warning:** this runner drives the production docker daemon.
+> Keep it off `pull_request` triggers, and set *Settings → Actions → General →
+> Fork pull request workflows → Require approval for all outside
+> collaborators*, so fork PRs can never reach it via a modified workflow.
+
+Manual deploy is the same one command: `deploy/mycel/deploy.sh` (or
+`workflow_dispatch` the workflow from the Actions tab).
 
 ## Stopping
 
