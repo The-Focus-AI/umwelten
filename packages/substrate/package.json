@@ -34,10 +34,10 @@
     "example": "tsx examples/basic.ts"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
-    "tsx": "^4.19.2",
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "private": true
 }
