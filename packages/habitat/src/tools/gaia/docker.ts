@@ -17,7 +17,11 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { ContainerStatus, GaiaHabitatEntry } from "./types.js";
+import type {
+  ContainerHealthStatus,
+  ContainerStatus,
+  GaiaHabitatEntry,
+} from "./types.js";
 
 const execFile = promisify(execFileCb);
 
@@ -631,6 +635,22 @@ export class DockerManager {
         name,
       ]);
       return stdout.trim() as ContainerStatus;
+    } catch {
+      return "not-found";
+    }
+  }
+
+  /** Get Docker HEALTHCHECK state without conflating it with process state. */
+  async getHealthStatus(id: string): Promise<ContainerHealthStatus> {
+    const name = containerName(id);
+    try {
+      const { stdout } = await execFile("docker", [
+        "inspect",
+        "--format",
+        "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
+        name,
+      ]);
+      return stdout.trim() as ContainerHealthStatus;
     } catch {
       return "not-found";
     }

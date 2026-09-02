@@ -124,6 +124,10 @@ describe('Gaia session egress (#119)', () => {
     await docker.startContainer(makeEntry(), '', []);
     const args = runArgs();
     expect(args[args.length - 1]).toBe('habitat');
+    expect(args.slice(args.indexOf('--restart'), args.indexOf('--restart') + 2)).toEqual([
+      '--restart',
+      'unless-stopped',
+    ]);
     expect(args).toContain('HABITAT_API_KEY=gaia_testkey');
     expect(args.join(' ')).toMatch(/-p 127\.0\.0\.1:\d+:8080/);
     expect(args).toContain('gaia-net');

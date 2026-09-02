@@ -111,6 +111,8 @@ export interface ContainerServerOptions {
 		touch(worktreeId: string): void;
 		lastRequestAt(): string | null;
 	};
+	/** Host-specific fields merged into GET /api/status. */
+	statusDetails?: () => Promise<Record<string, unknown>>;
 }
 
 export interface StartedContainerServer {
@@ -1165,6 +1167,7 @@ export async function startContainerServer(
 						const modelDetails = habitat.getDefaultModelDetails();
 						const projectDir = resolveProjectDir(habitat.getWorkDir(), config);
 						const projectCloned = await fileExists(join(projectDir, ".git"));
+						const details = (await options.statusDetails?.()) ?? {};
 						sendJson(res, {
 							name: config.name ?? "Unnamed Habitat",
 							model: modelDetails
@@ -1183,6 +1186,7 @@ export async function startContainerServer(
 								required: s.required,
 								set: !!habitat.getSecret(s.name),
 							})),
+							...details,
 						});
 						return;
 					}
