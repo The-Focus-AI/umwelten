@@ -44,6 +44,9 @@ services:
       # existing caddy network to reuse that proxy (and attach Gaia to it too).
       GAIA_BASE_DOMAIN: ${GAIA_BASE_DOMAIN:-}
       GAIA_INGRESS_NETWORK: ${GAIA_INGRESS_NETWORK:-}
+      # This Gaia runs on the child network, so use Docker DNS rather than each
+      # child's host-published loopback port.
+      GAIA_CHILD_ADDRESS_MODE: network
       # Auth for Gaia's own control-plane API. The SaaS sends this as
       # `Authorization: Bearer` to create/start/stop habitats. Empty ⇒ open auth
       # (local dev only — NEVER leave open on a reachable deploy).

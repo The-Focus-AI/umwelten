@@ -21,8 +21,8 @@ import type { GaiaRegistryManager } from "../registry.js";
 import type { GaiaSecretVault } from "../secrets.js";
 import {
 	type DockerManager,
-	containerName,
-	CHILD_INTERNAL_PORT,
+	resolveChildAddress,
+	type ChildAddressMode,
 	resolveHabitatHostname,
 } from "../docker.js";
 import type { CredentialCatalog } from "../credential-catalog.js";
@@ -59,16 +59,14 @@ export interface GaiaToolsContext {
 }
 
 /** Adapt a Gaia registry entry to a generic A2A endpoint. */
-export function entryToEndpoint(entry: GaiaHabitatEntry): A2AEndpoint {
-	// containerPort is the "running" marker (set when the container is up);
-	// the address itself is the container's embedded-DNS name on the shared
-	// network, so Gaia no longer needs host networking (#170 follow-up).
-	if (!entry.containerPort) {
-		throw new Error(`Container ${entry.id} not running`);
-	}
+export function entryToEndpoint(
+	entry: GaiaHabitatEntry,
+	mode?: ChildAddressMode,
+): A2AEndpoint {
+	const address = resolveChildAddress(entry, mode);
 	return {
-		host: containerName(entry.id),
-		port: CHILD_INTERNAL_PORT,
+		host: address.hostname,
+		port: address.port,
 		apiKey: entry.apiKey,
 		label: entry.id,
 	};

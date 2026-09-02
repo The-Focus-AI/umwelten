@@ -13,6 +13,7 @@
  */
 
 import { execFile as execFileCb, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -99,6 +100,40 @@ export function containerName(id: string): string {
   return `${CONTAINER_PREFIX}${id}`;
 }
 
+export type ChildAddressMode = "network" | "loopback";
+
+/**
+ * How this Gaia process reaches children spawned through the host Docker
+ * daemon. Containerized Gaia shares their Docker network; host-run Gaia uses
+ * each child's published loopback port. The explicit setting supports
+ * runtimes where `/.dockerenv` is unavailable or misleading.
+ */
+export function resolveChildAddressMode(
+  dockerMarkerExists = existsSync("/.dockerenv"),
+): ChildAddressMode {
+  const configured = process.env.GAIA_CHILD_ADDRESS_MODE?.trim();
+  if (configured === "network" || configured === "loopback") return configured;
+  if (configured) {
+    throw new Error(
+      `GAIA_CHILD_ADDRESS_MODE must be "network" or "loopback", got "${configured}"`,
+    );
+  }
+  return dockerMarkerExists ? "network" : "loopback";
+}
+
+/** One source of truth for Gaia-to-child transport addressing. */
+export function resolveChildAddress(
+  entry: Pick<GaiaHabitatEntry, "id" | "containerPort">,
+  mode: ChildAddressMode = resolveChildAddressMode(),
+): { hostname: string; port: number } {
+  if (!entry.containerPort) {
+    throw new Error(`Container ${entry.id} not running`);
+  }
+  return mode === "network"
+    ? { hostname: containerName(entry.id), port: CHILD_INTERNAL_PORT }
+    : { hostname: "127.0.0.1", port: entry.containerPort };
+}
+
 /**
  * In-network base URL children use to reach Gaia itself (injected as
  * GAIA_URL at container start — ADR 0004 decision 3, the token pull path).
@@ -141,13 +176,14 @@ export interface StartContainerOptions {
 }
 
 /**
- * In-network base URL for reaching a habitat from Gaia (or any container on the
- * shared ingress network): `http://gaia-<id>:8080`. Gaia addresses children by
- * Docker embedded DNS over the shared network rather than via host loopback
- * ports, so Gaia no longer needs host networking (#170 follow-up).
+ * Base URL for reaching a habitat from this Gaia process. Uses Docker DNS from
+ * containerized Gaia and the published loopback port from host-run Gaia.
  */
-export function childBaseUrl(id: string): string {
-  return `http://${containerName(id)}:${CHILD_INTERNAL_PORT}`;
+export function childBaseUrl(
+  entry: Pick<GaiaHabitatEntry, "id" | "containerPort">,
+): string {
+  const { hostname, port } = resolveChildAddress(entry);
+  return `http://${hostname}:${port}`;
 }
 
 function volumeName(id: string): string {
