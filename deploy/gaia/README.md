@@ -400,6 +400,22 @@ The workflow reads host config from `GAIA_ENV_FILE` (the canonical
 Manual deploy is the same one command: `deploy/gaia/redeploy.sh` (or
 `workflow_dispatch` the workflow from the Actions tab).
 
+### Child and host health
+
+Every child starts with Docker's `unless-stopped` restart policy, so an OOM kill
+or daemon restart does not leave it down. Gaia also checks every expected-running
+child every 30 seconds. After three consecutive `exited`, `dead`, missing, or
+Docker-unhealthy observations, Gaia recreates it through the normal start path.
+An intentionally stopped or idle-reaped habitat has no recorded port and is
+never restarted by the monitor.
+
+Gaia samples host memory, swap, and the filesystem containing
+`/opt/gaia-data`. Both authenticated `GET /api/status` and
+`GET /api/docker/status` expose the snapshot. Available memory below 1 GiB and
+disk use above 90% produce transition-based warnings in Gaia's logs. The
+Compose deployment mounts host `/proc` read-only at `/host/proc`; host-run Gaia
+reads `/proc` directly.
+
 ---
 
 ## Troubleshooting
@@ -408,6 +424,8 @@ Manual deploy is the same one command: `deploy/gaia/redeploy.sh` (or
 |---|---|
 | `health` shows `"docker": false` | Socket not mounted / no daemon access. Check `/var/run/docker.sock` mount + the host user is in the `docker` group. |
 | Gaia can't reach a started child (proxy 502) | Gaia and the child must share a user-defined network for embedded DNS. Ensure Gaia is attached to the same network as `GAIA_INGRESS_NETWORK` (children join it; Gaia must too). |
+| `hostResources.error` appears in status | Containerized Gaia needs the read-only `/proc:/host/proc:ro` mount and `GAIA_HOST_PROC=/host/proc`. Check that the data directory also exists so disk capacity can be sampled. |
+| A child repeatedly logs `unhealthy (n/3)` | Inspect `docker logs gaia-<id>` and its `/health` response. Gaia recreates it after the third consecutive failure; a recurring cycle indicates an application or resource-pressure fault. |
 | `Image "twitter-habitat" not found` | Build it on this host (§1). Gaia only auto-builds the default `habitat` image. |
 | Child session dirs empty on host | Data dir not identity-mounted. Keep `/opt/gaia-data:/opt/gaia-data` (same path in/out). |
 | Bookmarks tool: `needs_reauth` | `TWITTER_REFRESH_TOKEN` missing/expired — re-run the OAuth bootstrap and re-set the secret, then `rebuild` the habitat. |

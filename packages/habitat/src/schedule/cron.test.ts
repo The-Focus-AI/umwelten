@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCron, cronMatches } from "./cron.js";
+import { parseCron, cronMatches, nextCronDate } from "./cron.js";
 
 const at = (iso: string) => new Date(iso);
 
@@ -31,5 +31,26 @@ describe("cronMatches", () => {
     // 2026-07-12 is a Sunday
     expect(cronMatches(parseCron("0 0 * * 7"), at("2026-07-12T00:00:00Z"))).toBe(true);
     expect(cronMatches(parseCron("0 0 * * 0"), at("2026-07-12T00:00:00Z"))).toBe(true);
+  });
+});
+
+describe("nextCronDate", () => {
+  it("finds the next matching UTC minute", () => {
+    expect(
+      nextCronDate(
+        parseCron("*/30 9-17 * * 1-5"),
+        at("2026-07-13T10:03:12Z"),
+      )?.toISOString(),
+    ).toBe("2026-07-13T10:30:00.000Z");
+  });
+
+  it("crosses years and leap days without scanning every minute", () => {
+    expect(
+      nextCronDate(parseCron("0 0 29 2 *"), at("2027-03-01T00:00:00Z"))?.toISOString(),
+    ).toBe("2028-02-29T00:00:00.000Z");
+  });
+
+  it("returns null for an impossible calendar expression", () => {
+    expect(nextCronDate(parseCron("0 0 30 2 *"), at("2026-01-01T00:00:00Z"))).toBeNull();
   });
 });

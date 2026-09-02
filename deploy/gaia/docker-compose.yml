@@ -44,6 +44,11 @@ services:
       # existing caddy network to reuse that proxy (and attach Gaia to it too).
       GAIA_BASE_DOMAIN: ${GAIA_BASE_DOMAIN:-}
       GAIA_INGRESS_NETWORK: ${GAIA_INGRESS_NETWORK:-}
+      # This Gaia runs on the child network, so use Docker DNS rather than each
+      # child's host-published loopback port.
+      GAIA_CHILD_ADDRESS_MODE: network
+      # Read host pressure rather than only this container's cgroup view.
+      GAIA_HOST_PROC: /host/proc
       # Auth for Gaia's own control-plane API. The SaaS sends this as
       # `Authorization: Bearer` to create/start/stop habitats. Empty ⇒ open auth
       # (local dev only — NEVER leave open on a reachable deploy).
@@ -96,6 +101,8 @@ services:
     volumes:
       # Drive the host docker daemon (spawn/seed/stop child habitats).
       - /var/run/docker.sock:/var/run/docker.sock
+      # Read-only host memory telemetry for /api/docker/status and warnings.
+      - /proc:/host/proc:ro
       # Identity mount — see header note #2. Registry + master secrets persist
       # here; child session dirs are bind-mounted from subpaths of it.
       - /opt/gaia-data:/opt/gaia-data

@@ -21,6 +21,7 @@ import {
 import type { StorageTokenService } from "./storage/token-service.js";
 import type { PreviewControl } from "./preview-control.js";
 import type { GaiaPublishedPreview } from "./types.js";
+import type { HostResourceStatus } from "./host-resources.js";
 
 /** In-memory store for the most recent audit results (ephemeral). */
 let latestAudit: AuditSummary | null = null;
@@ -66,6 +67,7 @@ export interface GaiaRouteContext {
 	 */
 	storageTokens?: StorageTokenService;
 	previewControl?: PreviewControl;
+	hostResources?: () => Promise<HostResourceStatus>;
 }
 
 function bearer(req: IncomingMessage): string | undefined {
@@ -513,7 +515,15 @@ export async function handleGaiaRoute(
 	if (path === "/api/docker/status" && method === "GET") {
 		const available = await ctx.docker.isDockerAvailable();
 		const imageExists = available ? await ctx.docker.imageExists() : false;
-		sendJson(res, { dockerAvailable: available, imageExists });
+		let hostResources: HostResourceStatus | undefined;
+		try {
+			hostResources = await ctx.hostResources?.();
+		} catch (error) {
+			hostResources = {
+				error: error instanceof Error ? error.message : String(error),
+			};
+		}
+		sendJson(res, { dockerAvailable: available, imageExists, hostResources });
 		return true;
 	}
 

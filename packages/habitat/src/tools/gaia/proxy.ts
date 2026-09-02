@@ -6,7 +6,7 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GaiaHabitatEntry } from "./types.js";
-import { containerName, CHILD_INTERNAL_PORT } from "./docker.js";
+import { resolveChildAddress } from "./docker.js";
 
 /**
  * Proxy a request to a running habitat container.
@@ -23,6 +23,7 @@ export async function proxyRequest(
     res.end(JSON.stringify({ error: "Container not running or port unknown" }));
     return;
   }
+  const child = resolveChildAddress(entry);
 
   return new Promise<void>((resolve) => {
     // Read the incoming body
@@ -31,16 +32,15 @@ export async function proxyRequest(
     req.on("end", () => {
       const body = Buffer.concat(chunks);
 
-      const childHost = containerName(entry.id);
       const proxyReq = http.request(
         {
-          hostname: childHost,
-          port: CHILD_INTERNAL_PORT,
+          hostname: child.hostname,
+          port: child.port,
           path: targetPath,
           method: req.method,
           headers: {
             ...req.headers,
-            host: `${childHost}:${CHILD_INTERNAL_PORT}`,
+            host: `${child.hostname}:${child.port}`,
             authorization: `Bearer ${entry.apiKey}`,
           },
         },
@@ -80,10 +80,11 @@ export async function fetchFromContainer<T = unknown>(
   }
 
   return new Promise<T>((resolve, reject) => {
+    const child = resolveChildAddress(entry);
     const req = http.request(
       {
-        hostname: containerName(entry.id),
-        port: CHILD_INTERNAL_PORT,
+        hostname: child.hostname,
+        port: child.port,
         path,
         method: "GET",
         headers: {
@@ -115,10 +116,11 @@ export async function postToContainer(
 ): Promise<void> {
   if (!entry.containerPort) throw new Error(`Container ${entry.id} not running`);
   await new Promise<void>((resolve, reject) => {
+    const child = resolveChildAddress(entry);
     const req = http.request(
       {
-        hostname: containerName(entry.id),
-        port: CHILD_INTERNAL_PORT,
+        hostname: child.hostname,
+        port: child.port,
         path,
         method: "POST",
         headers: { authorization: `Bearer ${entry.apiKey}` },

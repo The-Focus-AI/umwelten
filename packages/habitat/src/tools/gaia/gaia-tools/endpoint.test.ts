@@ -1,7 +1,6 @@
 /**
- * Gaia addresses children by Docker embedded DNS, not host loopback ports
- * (#170 follow-up). entryToEndpoint → gaia-<id>:8080; entryOpenUrl prefers the
- * public Caddy hostname.
+ * Containerized Gaia addresses children by Docker DNS; host-run Gaia uses each
+ * child's published loopback port. Browser URLs remain a separate concern.
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { entryToEndpoint, entryOpenUrl } from "./context.js";
@@ -32,11 +31,18 @@ afterEach(() => {
   else process.env.HABITATS_SAAS_REGISTRY_URL = prevRegistryUrl;
 });
 
-describe("entryToEndpoint (children by DNS)", () => {
-  it("addresses the container by name on the internal port, not 127.0.0.1", () => {
-    const ep = entryToEndpoint(entry());
+describe("entryToEndpoint", () => {
+  it("uses Docker DNS and the internal port in network mode", () => {
+    const ep = entryToEndpoint(entry(), "network");
     expect(ep.host).toBe("gaia-twitter");
     expect(ep.port).toBe(8080);
+    expect(ep.apiKey).toBe("gaia_k");
+  });
+
+  it("uses the published loopback port in host mode", () => {
+    const ep = entryToEndpoint(entry(), "loopback");
+    expect(ep.host).toBe("127.0.0.1");
+    expect(ep.port).toBe(7440);
     expect(ep.apiKey).toBe("gaia_k");
   });
 

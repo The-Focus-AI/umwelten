@@ -111,6 +111,8 @@ export interface ContainerServerOptions {
 		touch(worktreeId: string): void;
 		lastRequestAt(): string | null;
 	};
+	/** Host-specific fields merged into GET /api/status. */
+	statusDetails?: () => Promise<Record<string, unknown>>;
 }
 
 export interface StartedContainerServer {
@@ -332,10 +334,11 @@ export async function startContainerServer(
 	// directly; `prompt` entries run an agent turn via the bridge.
 	const scheduler = new HabitatScheduler({
 		getTools: () => habitat.getTools(),
-		runPrompt: async (name, prompt) => {
+		runPrompt: async (name, prompt, signal) => {
 			await bridge.handleMessage(
 				{ channelKey: `schedule:${name}`, text: prompt },
 				{ onText: () => {}, onDone: async () => {} },
+				signal,
 			);
 		},
 	});
@@ -1164,6 +1167,7 @@ export async function startContainerServer(
 						const modelDetails = habitat.getDefaultModelDetails();
 						const projectDir = resolveProjectDir(habitat.getWorkDir(), config);
 						const projectCloned = await fileExists(join(projectDir, ".git"));
+						const details = (await options.statusDetails?.()) ?? {};
 						sendJson(res, {
 							name: config.name ?? "Unnamed Habitat",
 							model: modelDetails
@@ -1182,6 +1186,7 @@ export async function startContainerServer(
 								required: s.required,
 								set: !!habitat.getSecret(s.name),
 							})),
+							...details,
 						});
 						return;
 					}
@@ -1491,6 +1496,7 @@ export async function startContainerServer(
 			console.log(
 				`[container] ${serverName} at http://${host}:${assignedPort}`,
 			);
+			scheduler.start();
 			console.log(
 				`[container]   /mcp         — MCP tools (${initialToolNames.length})`,
 			);
@@ -1518,7 +1524,10 @@ export async function startContainerServer(
 
 			resolvePromise({
 				port: assignedPort,
-				close: () => httpServer.close(),
+				close: () => {
+					scheduler.stop();
+					return httpServer.close();
+				},
 			});
 		});
 	});

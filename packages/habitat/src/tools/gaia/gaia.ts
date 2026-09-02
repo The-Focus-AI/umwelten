@@ -42,6 +42,8 @@ import {
 	createStorageTokenService,
 	resolveStorageRelayConfig,
 } from "./storage/token-service.js";
+import { sampleHostResources } from "./host-resources.js";
+import { ChildHealthMonitor } from "./health-monitor.js";
 
 export interface GaiaStartOptions {
 	dataDir: string;
@@ -245,6 +247,15 @@ export class Gaia {
 			githubTokens,
 			storageTokens,
 			previewControl,
+			hostResources: async () => {
+				try {
+					return await sampleHostResources({ diskPath: dataDir });
+				} catch (error) {
+					return {
+						error: error instanceof Error ? error.message : String(error),
+					};
+				}
+			},
 		};
 		const server = await startContainerServer({
 			habitat,
@@ -256,6 +267,9 @@ export class Gaia {
 			// each running habitat's status as a foreign component.
 			shellEntries: [{ id: "habitats", url: "./components/habitats.js" }],
 			extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
+			statusDetails: async () => ({
+				hostResources: await routeCtx.hostResources(),
+			}),
 		});
 
 		// ── Idle reaper (#278) ────────────────────────────────────────────
@@ -267,11 +281,20 @@ export class Gaia {
 			docker,
 			config: resolveReaperConfig(process.env),
 		});
+		const healthMonitor = new ChildHealthMonitor({
+			listEntries: () => registry.list(),
+			getStatus: (id) => docker.getStatus(id),
+			getHealthStatus: (id) => docker.getHealthStatus(id),
+			restart: (id) => startHabitatContainer(toolsContext, id),
+			sampleHostResources: () => sampleHostResources({ diskPath: dataDir }),
+		});
+		healthMonitor.start();
 
 		if (!options.noSignalHandlers) {
 			const shutdown = () => {
 				console.log("\n[container] Shutting down...");
 				reaper.stop();
+				healthMonitor.stop();
 				server.close();
 				process.exit(0);
 			};

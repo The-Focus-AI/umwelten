@@ -153,6 +153,14 @@ export type ContainerStatus =
 	| "created"
 	| "not-found";
 
+/** Docker HEALTHCHECK status; `none` means the image declares no check. */
+export type ContainerHealthStatus =
+	| "healthy"
+	| "unhealthy"
+	| "starting"
+	| "none"
+	| "not-found";
+
 /** Habitat entry enriched with live container status. */
 export interface GaiaHabitatWithStatus extends GaiaHabitatEntry {
 	containerStatus: ContainerStatus;
