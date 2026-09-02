@@ -3,6 +3,9 @@
 Status: Accepted
 Date: 2026-08-08
 
+Updated by ADR 0036: the surface is no longer read-only or limited to
+operator-onboarded Clients.
+
 A Client can see its own usage, spend, per-End-User breakdown and Balance, on a
 surface **Mycel serves itself** — not in the habitats SaaS.
 

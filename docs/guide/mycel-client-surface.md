@@ -1,25 +1,52 @@
 # Mycel's Client Surface — and how it evolves using itself
 
-The Exchange serves the same host-agnostic Shell every habitat serves
-(`@umwelten/substrate/serve`), with components that are strictly read-only
-over endpoints that already exist. `https://mycel.thefocus.ai/` lands on
-`/shell/`; the built-in roster is `health` (store reachability), `models`
-(the catalogue, priced at the cheapest eligible Offer), and
-`catalogue-stats` (the at-a-glance summary — itself grown through the loop
-below, then promoted).
+The Exchange hostname has two deliberately separate surfaces:
+
+- `https://mycel.thefocus.ai/` is the separately built customer application in
+  `apps/mycel-client`. It reads the public `/v1/models` catalogue and uses
+  Clerk for customer sign-up and sign-in. Its Clerk application is Mycel's own
+  user-pool boundary, following STD-009; Clerk identity does not enter the
+  Exchange runtime package.
+- `/shell/` is the operational Exchange view. It serves the same host-agnostic
+  Shell every habitat serves (`@umwelten/substrate/serve`), with components
+  that are strictly read-only over endpoints that already exist. The built-in
+  roster is `health` (store reachability), `models` (the catalogue, priced at
+  the cheapest eligible Offer), and `catalogue-stats` (the at-a-glance summary
+  — itself grown through the loop below, then promoted).
 
 Two decisions bound everything here (ADR 0026, #409):
 
 - **Read-only.** Nothing on this surface moves money or changes
   configuration. Admin stays on the operator CLI (`mycel …`), deliberately —
   see `packages/mycel/src/command.ts` for why there is no HTTP admin API.
-  The constraint holds *by construction*: the mycel manifest declares no
+  The constraint holds _by construction_: the mycel manifest declares no
   provider entries, so no `shell:tools` (or any mutating service) exists for
   a component to inject. All a component can do is `fetch` the Exchange's
   public reads (`/health`, `/v1/models`).
 - **Zero deps on the exchange paths.** `@umwelten/substrate` (itself
   dependency-free) is imported only by `client-surface/serve.ts`; dispatch
   and metering code never touch it.
+
+## Customer application boundary
+
+`apps/mycel-client` is intentionally outside the root `packages/*` workspace.
+It owns a nested `pnpm-workspace.yaml`, lockfile, and `node_modules`. The Mycel
+container builds that project in a separate Docker stage and copies only its
+compiled `dist/` files into `/app/landing`; neither Clerk nor Vite is installed
+in the Exchange runtime.
+
+The browser receives only `VITE_CLERK_PUBLISHABLE_KEY`. A Clerk secret key must
+never enter the client build. Production uses Mycel's own production Clerk
+instance and custom subdomain; see
+[STD-009](https://standards.thefocus.ai/STD-009-authentication.html) and
+[GDE-002](https://standards.thefocus.ai/gde-002.html).
+
+Build the customer application independently:
+
+```bash
+pnpm --dir apps/mycel-client install --frozen-lockfile
+pnpm --dir apps/mycel-client build
+```
 
 ## The self-assembly loop (#410)
 
@@ -46,8 +73,8 @@ mycel surface. The moving parts:
    dotenvx run -- pnpm run cli habitat local --work-dir ~/mycel-agent
    ```
 
-3. **The conversation.** Ask for a view in chat — *"add a card showing how
-   many models are on offer and the cheapest completion price"*. The agent
+3. **The conversation.** Ask for a view in chat — _"add a card showing how
+   many models are on offer and the cheapest completion price"_. The agent
    writes `components/catalogue-stats.js`; within a poll the card is on the
    open shell page, no rebuild, no reload. Ask for a change; the edit
    hot-replaces the card. A broken edit **rolls back visibly**: the previous
@@ -82,6 +109,7 @@ header recording the provenance.
 ## What to check after touching this surface
 
 ```bash
+pnpm --dir apps/mycel-client build
 npx vitest run packages/mycel/src/client-surface/serve.test.ts
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
   npx vitest run --config vitest.integration.config.ts packages/mycel/src/client-surface/

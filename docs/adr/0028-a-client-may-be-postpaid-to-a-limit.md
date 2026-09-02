@@ -3,6 +3,10 @@
 Status: Accepted
 Date: 2026-08-08
 
+Updated by ADR 0036: self-service Clients may receive a deployment-configured
+default limit. That default is zero unless the operator explicitly accepts
+postpaid exposure.
+
 A Client has a **credit limit**. Its Balance may go negative down to that limit,
 and what it owes is what you invoice. A limit of zero is prepaid — the behaviour
 that exists today.

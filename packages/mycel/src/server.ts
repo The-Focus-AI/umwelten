@@ -11,8 +11,16 @@
 import http from "node:http";
 import type { Server } from "node:http";
 import { createSupplyHandler } from "./supply/handler.js";
+import { createLandingHandler } from "./client-surface/landing.js";
 import { createClientSurfaceHandler } from "./client-surface/serve.js";
-import { createBuyerHandler, type BuyerHandlerOptions } from "./buyer/handler.js";
+import {
+  createCustomerHandler,
+  type CustomerHandlerOptions,
+} from "./customer/handler.js";
+import {
+  createBuyerHandler,
+  type BuyerHandlerOptions,
+} from "./buyer/handler.js";
 import { createModelsHandler } from "./buyer/models.js";
 import { ConnectionRegistry } from "./supply/connections.js";
 import { attachConnectionServer } from "./supply/connection-server.js";
@@ -36,6 +44,11 @@ export interface ExchangeServerOptions {
   host?: string;
   /** Injectable identity verification, so tests need no JWKS endpoint. */
   verifyCaller?: BuyerHandlerOptions["verifyCaller"];
+  /** Injectable Clerk identity verification for customer-control tests. */
+  verifyCustomerOperator?: CustomerHandlerOptions["verifyOperator"];
+  clerkIssuer?: string;
+  clerkAuthorizedParties?: string[];
+  selfServiceCreditLimitMicroDollars?: number;
   staleAfterMs?: number;
   /**
    * How the relay reaches a Supplier. Defaults to an OpenAI-compatible POST at
@@ -65,7 +78,14 @@ export function createExchangeApp(
   store: ExchangeStore,
   opts: Pick<
     ExchangeServerOptions,
-    "verifyCaller" | "staleAfterMs" | "resolveTransport" | "componentsDir"
+    | "verifyCaller"
+    | "verifyCustomerOperator"
+    | "clerkIssuer"
+    | "clerkAuthorizedParties"
+    | "selfServiceCreditLimitMicroDollars"
+    | "staleAfterMs"
+    | "resolveTransport"
+    | "componentsDir"
   > & {
     connections?: ConnectionRegistry;
   } = {},
@@ -79,17 +99,40 @@ export function createExchangeApp(
     opts.resolveTransport ??
     (connections
       ? (() => {
-          const http = createHttpTransport({ readCredential: (name) => name && process.env[name] });
-          const overConnection = createConnectionTransport({ registry: connections });
+          const http = createHttpTransport({
+            readCredential: (name) => name && process.env[name],
+          });
+          const overConnection = createConnectionTransport({
+            registry: connections,
+          });
           return (supplier: Supplier) =>
-            supplier.kind === "agent" ? overConnection(supplier) : http(supplier);
+            supplier.kind === "agent"
+              ? overConnection(supplier)
+              : http(supplier);
         })()
       : undefined);
 
   const handlers = [
-    // The Client surface (ADR 0026, #409): the standard Shell plus read-only
-    // components over /health and /v1/models. Serves static assets only —
-    // no new endpoints, and nothing that moves money.
+    // The hostname root serves the separately built customer application.
+    // Browser dependencies and Clerk stay in apps/mycel-client; this runtime
+    // sees only its static dist output. The operational view remains /shell/.
+    createLandingHandler(),
+    createCustomerHandler({
+      store,
+      verifyOperator: opts.verifyCustomerOperator,
+      clerkIssuer: opts.clerkIssuer ?? process.env.MYCEL_CLERK_ISSUER,
+      authorizedParties:
+        opts.clerkAuthorizedParties ??
+        process.env.MYCEL_CLERK_AUTHORIZED_PARTIES?.split(",").map((party) =>
+          party.trim(),
+        ),
+      defaultCreditLimitMicroDollars:
+        opts.selfServiceCreditLimitMicroDollars ??
+        Number(process.env.MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS ?? 0),
+    }),
+    // The operational surface: the standard Shell plus components over
+    // /health and /v1/models. Customer account actions live in the separately
+    // built application and its authenticated handler above.
     createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
@@ -110,12 +153,6 @@ export function createExchangeApp(
     req: http.IncomingMessage,
     res: http.ServerResponse,
   ): Promise<void> {
-    if (req.method === "GET" && (req.url ?? "/").split("?")[0] === "/") {
-      // A person landing on the Exchange's hostname gets the Client surface.
-      res.writeHead(302, { location: "/shell/" });
-      res.end();
-      return;
-    }
     if (req.url === "/health") {
       // Reports whether the store is reachable, not merely whether the process
       // is up — a service that answers while its database is gone is worse
@@ -154,6 +191,10 @@ export async function createExchangeServer(
 
   const app = createExchangeApp(opts.store, {
     verifyCaller: opts.verifyCaller,
+    verifyCustomerOperator: opts.verifyCustomerOperator,
+    clerkIssuer: opts.clerkIssuer,
+    clerkAuthorizedParties: opts.clerkAuthorizedParties,
+    selfServiceCreditLimitMicroDollars: opts.selfServiceCreditLimitMicroDollars,
     staleAfterMs: opts.staleAfterMs,
     resolveTransport: opts.resolveTransport,
     componentsDir: opts.componentsDir,
@@ -178,10 +219,15 @@ export async function createExchangeServer(
   });
 
   const host = opts.host ?? "0.0.0.0";
-  await new Promise<void>((resolve) => server.listen(opts.port ?? DEFAULT_PORT, host, resolve));
+  await new Promise<void>((resolve) =>
+    server.listen(opts.port ?? DEFAULT_PORT, host, resolve),
+  );
 
   const address = server.address();
-  const port = typeof address === "object" && address ? address.port : (opts.port ?? DEFAULT_PORT);
+  const port =
+    typeof address === "object" && address
+      ? address.port
+      : (opts.port ?? DEFAULT_PORT);
 
   return {
     server,

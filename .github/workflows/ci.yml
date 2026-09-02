@@ -27,6 +27,10 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install and build the isolated Mycel client
+        run: |
+          pnpm --dir apps/mycel-client install --frozen-lockfile
+          pnpm --dir apps/mycel-client build
       - name: Run unit tests
         run: pnpm test:run
       - name: Run typecheck
@@ -72,6 +76,13 @@ jobs:
             fi
             sleep 1
           done
+          curl -fsS -o /tmp/mycel-landing.html http://127.0.0.1:17438/
+          grep -q 'Mycel — intelligence grows in networks' /tmp/mycel-landing.html
+          asset="$(sed -n 's/.*src="\([^"]*\/assets\/[^"]*\.js\)".*/\1/p' \
+            /tmp/mycel-landing.html | head -1)"
+          test -n "$asset"
+          curl -fsS -o /tmp/mycel-mycelium.js "http://127.0.0.1:17438$asset"
+          grep -q 'requestAnimationFrame' /tmp/mycel-mycelium.js
           curl -fsS -o /tmp/mycel-manifest.json \
             http://127.0.0.1:17438/shell/manifest.json
           grep -q 'catalogue-stats' /tmp/mycel-manifest.json

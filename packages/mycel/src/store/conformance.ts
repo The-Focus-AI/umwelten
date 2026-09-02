@@ -30,14 +30,26 @@ export function supplierFixture(overrides: Partial<Supplier> = {}): Supplier {
   };
 }
 
-export function offerFixture(overrides: Partial<PublishedOffer> = {}): PublishedOffer {
+export function offerFixture(
+  overrides: Partial<PublishedOffer> = {},
+): PublishedOffer {
   return {
     model: "gemma-4-26b",
     capabilities: ["chat", "streaming", "tool-calling"],
     servingMode: "managed",
     headroom: [
-      { concurrency: 1, ttftMs: 300, tokensPerSecond: 94, decodeTokensPerSecond: 114 },
-      { concurrency: 4, ttftMs: 900, tokensPerSecond: 310, decodeTokensPerSecond: 88 },
+      {
+        concurrency: 1,
+        ttftMs: 300,
+        tokensPerSecond: 94,
+        decodeTokensPerSecond: 114,
+      },
+      {
+        concurrency: 4,
+        ttftMs: 900,
+        tokensPerSecond: 310,
+        decodeTokensPerSecond: 88,
+      },
     ],
     headroomMeta: {
       sampledAt: "2026-07-28T00:00:00.000Z",
@@ -86,13 +98,17 @@ export function runExchangeStoreConformance(
       });
 
       it("resolves a supplier by credential hash", async () => {
-        await store.createSupplier(supplierFixture({ credentialHash: "hash-a" }));
+        await store.createSupplier(
+          supplierFixture({ credentialHash: "hash-a" }),
+        );
         const found = await store.getSupplierByCredentialHash("hash-a");
         expect(found?.id).toBe("office-spark");
       });
 
       it("returns null for an unknown credential hash", async () => {
-        await store.createSupplier(supplierFixture({ credentialHash: "hash-a" }));
+        await store.createSupplier(
+          supplierFixture({ credentialHash: "hash-a" }),
+        );
         expect(await store.getSupplierByCredentialHash("hash-b")).toBeNull();
       });
 
@@ -151,8 +167,13 @@ export function runExchangeStoreConformance(
           at: new Date("2026-08-11T04:00:00Z"),
         });
 
-        const events = await store.listConnectionEvents({ supplierId: "office-spark" });
-        expect(events.map((e) => e.event)).toEqual(["connected", "disconnected"]);
+        const events = await store.listConnectionEvents({
+          supplierId: "office-spark",
+        });
+        expect(events.map((e) => e.event)).toEqual([
+          "connected",
+          "disconnected",
+        ]);
         expect(events[0].reason).toBeUndefined();
         expect(events[1].reason).toBe("transport-error");
       });
@@ -171,7 +192,9 @@ export function runExchangeStoreConformance(
           at: new Date(),
         });
 
-        expect(await store.listConnectionEvents({ supplierId: "thor" })).toHaveLength(1);
+        expect(
+          await store.listConnectionEvents({ supplierId: "thor" }),
+        ).toHaveLength(1);
         expect(await store.listConnectionEvents()).toHaveLength(2);
       });
 
@@ -180,21 +203,34 @@ export function runExchangeStoreConformance(
         // able to tell a machine from a vendor without a second lookup — the
         // same arrangement `guarantees` already uses.
         await store.createSupplier(
-          supplierFixture({ id: "thor", kind: "agent", baseUrl: "", credentialHash: "hash-thor" }),
+          supplierFixture({
+            id: "thor",
+            kind: "agent",
+            baseUrl: "",
+            credentialHash: "hash-thor",
+          }),
         );
         await store.replaceOffers("thor", [offerFixture()]);
 
         await store.replaceOffers("office-spark", [offerFixture()]);
 
-        expect((await store.getOffer("thor", "gemma-4-26b"))?.supplierKind).toBe("agent");
-        expect((await store.getOffer("office-spark", "gemma-4-26b"))?.supplierKind).toBe("vendor");
+        expect(
+          (await store.getOffer("thor", "gemma-4-26b"))?.supplierKind,
+        ).toBe("agent");
+        expect(
+          (await store.getOffer("office-spark", "gemma-4-26b"))?.supplierKind,
+        ).toBe("vendor");
       });
 
       it("stores what was published, verbatim", async () => {
         await store.replaceOffers("office-spark", [offerFixture()]);
 
         const offer = await store.getOffer("office-spark", "gemma-4-26b");
-        expect(offer?.capabilities).toEqual(["chat", "streaming", "tool-calling"]);
+        expect(offer?.capabilities).toEqual([
+          "chat",
+          "streaming",
+          "tool-calling",
+        ]);
         expect(offer?.servingMode).toBe("managed");
         expect(offer?.contextTokens).toBe(131072);
         expect(offer?.headroom).toHaveLength(2);
@@ -239,8 +275,12 @@ export function runExchangeStoreConformance(
         await store.replaceOffers("office-spark", [offerFixture()]);
 
         const offer = await store.getOffer("office-spark", "gemma-4-26b");
-        expect(offer?.wholesalePromptPerMillion).toBe(DEFAULT_PRICING.wholesalePromptPerMillion);
-        expect(offer?.retailPromptPerMillion).toBe(DEFAULT_PRICING.retailPromptPerMillion);
+        expect(offer?.wholesalePromptPerMillion).toBe(
+          DEFAULT_PRICING.wholesalePromptPerMillion,
+        );
+        expect(offer?.retailPromptPerMillion).toBe(
+          DEFAULT_PRICING.retailPromptPerMillion,
+        );
       });
 
       it("replaces rather than accumulates on republish", async () => {
@@ -248,14 +288,18 @@ export function runExchangeStoreConformance(
           offerFixture({ model: "gemma-4-26b" }),
           offerFixture({ model: "gemma-4-31b" }),
         ]);
-        await store.replaceOffers("office-spark", [offerFixture({ model: "gemma-4-26b" })]);
+        await store.replaceOffers("office-spark", [
+          offerFixture({ model: "gemma-4-26b" }),
+        ]);
 
         const offers = await store.listOffersBySupplier("office-spark");
         expect(offers.map((o) => o.model)).toEqual(["gemma-4-26b"]);
       });
 
       it("removes an offer the supplier stopped listing", async () => {
-        await store.replaceOffers("office-spark", [offerFixture({ model: "gone" })]);
+        await store.replaceOffers("office-spark", [
+          offerFixture({ model: "gone" }),
+        ]);
         await store.replaceOffers("office-spark", []);
 
         expect(await store.getOffer("office-spark", "gone")).toBeNull();
@@ -277,7 +321,9 @@ export function runExchangeStoreConformance(
         await store.createSupplier(
           supplierFixture({ id: "vendor", credentialHash: "hash-vendor" }),
         );
-        await store.replaceOffers("vendor", [offerFixture({ model: "gpt-5-nano" })]);
+        await store.replaceOffers("vendor", [
+          offerFixture({ model: "gpt-5-nano" }),
+        ]);
         await store.replaceOffers("office-spark", [offerFixture()]);
 
         const vendorOffers = await store.listOffersBySupplier("vendor");
@@ -324,6 +370,29 @@ export function runExchangeStoreConformance(
     });
 
     describe("clients and applications", () => {
+      it("round-trips a Client's operator without changing its credit limit", async () => {
+        await store.createClient({
+          id: "acme",
+          name: "Acme",
+          creditLimitMicroDollars: 5_000_000,
+        });
+        await store.linkClientOperator({
+          subject: "user_acme",
+          clientId: "acme",
+          createdAt: new Date("2026-09-01T00:00:00Z"),
+        });
+
+        expect(await store.getClient("acme")).toMatchObject({
+          creditLimitMicroDollars: 5_000_000,
+        });
+        expect(await store.getClientOperator("user_acme")).toEqual({
+          subject: "user_acme",
+          clientId: "acme",
+          createdAt: new Date("2026-09-01T00:00:00Z"),
+        });
+        expect(await store.getClientOperator("user_other")).toBeNull();
+      });
+
       it("round-trips an application", async () => {
         await store.createClient({ id: "acme", name: "Acme" });
         await store.createApplication({
@@ -365,8 +434,12 @@ export function runExchangeStoreConformance(
           createdAt: new Date(),
         });
 
-        expect((await store.getApplication("open"))?.allowedModels).toBeUndefined();
-        expect((await store.getApplication("closed"))?.allowedModels).toEqual([]);
+        expect(
+          (await store.getApplication("open"))?.allowedModels,
+        ).toBeUndefined();
+        expect((await store.getApplication("closed"))?.allowedModels).toEqual(
+          [],
+        );
       });
 
       it("returns null for an unknown application", async () => {
@@ -397,7 +470,9 @@ export function runExchangeStoreConformance(
 
         expect(await store.listOffers()).toEqual([]);
         // Still retrievable directly — disabling hides, it does not delete.
-        expect(await store.listOffersBySupplier("office-spark")).toHaveLength(1);
+        expect(await store.listOffersBySupplier("office-spark")).toHaveLength(
+          1,
+        );
       });
 
       it("reports an offer disabled by the operator", async () => {
@@ -416,7 +491,9 @@ export function runExchangeStoreConformance(
           supplierFixture({ id: "vendor", credentialHash: "hash-vendor" }),
         );
         await store.replaceOffers("office-spark", [offerFixture()]);
-        await store.replaceOffers("vendor", [offerFixture({ model: "gpt-5-nano" })]);
+        await store.replaceOffers("vendor", [
+          offerFixture({ model: "gpt-5-nano" }),
+        ]);
 
         const offers = await store.listOffers();
         expect(offers.map((o) => `${o.supplierId}:${o.model}`)).toEqual([
