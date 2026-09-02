@@ -133,13 +133,14 @@ it and you rotate — there is no path that recovers it.
 
 It tags the running image so there is something to roll back to, builds,
 recreates, and waits for `/health` to report the **store** reachable rather than
-merely the process up. If it never gets there it prints the logs and rolls back
-by itself — the alternative is a broken Exchange sitting there while somebody
-reads a scrollback.
+merely the process up. It also verifies the client surface (landing, account
+manifests, `/llms.txt`, `/openapi.json`, `/shell/substrate`). If health never
+arrives it prints the logs and rolls back by itself — the alternative is a
+broken Exchange sitting there while somebody reads a scrollback.
 
-Deliberately **not** part of `deploy/gaia/redeploy.sh`. Mycel is not cycled by a
-push to umwelten main; that separation is the whole reason it is a peer of Gaia
-rather than a habitat Gaia manages.
+Deliberately **not** part of `deploy/gaia/redeploy.sh`. Mycel is a peer of Gaia,
+not a habitat Gaia manages (ADR 0030). Automatic deploy happens on
+**mycel-host's** runner only — never on Gaia's.
 
 To go back later:
 
@@ -150,6 +151,45 @@ docker compose --project-directory deploy/mycel up -d
 
 State is in Neon, so a rollback loses nothing. That is the payoff for holding no
 volume.
+
+## Continuous deploy (push to main)
+
+Once the host is standing, Mycel-related code changes ship automatically:
+`.github/workflows/deploy-mycel.yml` runs on every push to `main` that touches
+`packages/mycel/`, `apps/mycel-client/`, `packages/substrate/`, or
+`deploy/mycel/` (plus the workflow file itself), on a **self-hosted runner
+installed on mycel-host** (labels: `self-hosted`, `mycel`). It checks out the
+pushed commit and runs `deploy/mycel/deploy.sh`. Path filters are intentionally
+tight — unlike Gaia, Mycel does **not** watch all of `packages/**` or
+`examples/**`, so unrelated umwelten changes do not cycle the money service.
+
+Setup on mycel-host (once), modeled on the Gaia runner block in
+`deploy/gaia/README.md` §8:
+
+```bash
+# Runner user must drive docker without sudo
+sudo usermod -aG docker <runner-user>
+
+# Install the GitHub Actions runner (github.com/<org>/<repo> → Settings →
+# Actions → Runners → New self-hosted runner), then:
+./config.sh --url https://github.com/The-Focus-AI/umwelten \
+  --token <registration-token> --name mycel-host --labels mycel --unattended
+sudo ./svc.sh install <runner-user> && sudo ./svc.sh start
+```
+
+The workflow reads host config from `MYCEL_ENV_FILE` (canonical
+`/opt/umwelten/deploy/mycel/.env` on this host) — nothing secret lives in the
+repo. If the Actions checkout directory differs from `/opt/umwelten`, keep a
+copy or symlink of that `.env` at the path the workflow expects so operators
+and CI agree on one file.
+
+> **Public-repo warning:** this runner drives the production docker daemon.
+> Keep it off `pull_request` triggers, and set *Settings → Actions → General →
+> Fork pull request workflows → Require approval for all outside
+> collaborators*, so fork PRs can never reach it via a modified workflow.
+
+Manual deploy is the same one command: `deploy/mycel/deploy.sh` (or
+`workflow_dispatch` the workflow from the Actions tab).
 
 ## Stopping
 
