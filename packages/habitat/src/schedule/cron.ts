@@ -83,3 +83,39 @@ export function cronMatches(cron: CronExpr, date: Date): boolean {
     dow.has(date.getUTCDay())
   );
 }
+
+/**
+ * First matching minute strictly after `date`.
+ *
+ * Iterate calendar days rather than every minute. Eight years covers the
+ * longest useful gap in this grammar (including a leap-day expression) while
+ * keeping an impossible expression such as February 30 bounded.
+ */
+export function nextCronDate(cron: CronExpr, date: Date): Date | null {
+  const [minutes, hours, days, months, weekdays] = cron.sets;
+  const sortedMinutes = [...minutes].sort((a, b) => a - b);
+  const sortedHours = [...hours].sort((a, b) => a - b);
+  const after = date.getTime();
+  const day = new Date(date);
+  day.setUTCHours(0, 0, 0, 0);
+
+  for (let offset = 0; offset < 366 * 8; offset++) {
+    const candidateDay = new Date(day);
+    candidateDay.setUTCDate(day.getUTCDate() + offset);
+    if (
+      !months.has(candidateDay.getUTCMonth() + 1) ||
+      !days.has(candidateDay.getUTCDate()) ||
+      !weekdays.has(candidateDay.getUTCDay())
+    )
+      continue;
+
+    for (const hour of sortedHours) {
+      for (const minute of sortedMinutes) {
+        const candidate = new Date(candidateDay);
+        candidate.setUTCHours(hour, minute, 0, 0);
+        if (candidate.getTime() > after) return candidate;
+      }
+    }
+  }
+  return null;
+}
