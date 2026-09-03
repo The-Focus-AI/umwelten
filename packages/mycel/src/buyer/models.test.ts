@@ -26,7 +26,10 @@ describe("summarizeOffers", () => {
     // Two Suppliers serving the same Model is one thing a buyer can ask for.
     // Exposing them separately leaks the supply side into a surface whose
     // whole point is to hide it.
-    const entries = summarizeOffers([offer({ supplierId: "a" }), offer({ supplierId: "b" })]);
+    const entries = summarizeOffers([
+      offer({ supplierId: "a" }),
+      offer({ supplierId: "b" }),
+    ]);
     expect(entries).toHaveLength(1);
     expect(entries[0].id).toBe("gemma-4-26b");
   });
@@ -34,7 +37,11 @@ describe("summarizeOffers", () => {
   it("quotes the cheapest Offer's retail price, in dollars per million", () => {
     const entries = summarizeOffers([
       offer({ supplierId: "dear", retailCompletionPerMillion: 900_000 }),
-      offer({ supplierId: "cheap", retailPromptPerMillion: 50_000, retailCompletionPerMillion: 150_000 }),
+      offer({
+        supplierId: "cheap",
+        retailPromptPerMillion: 50_000,
+        retailCompletionPerMillion: 150_000,
+      }),
     ]);
     expect(entries[0].pricing.completion).toBe(0.15);
     expect(entries[0].pricing.prompt).toBe(0.05);
@@ -71,6 +78,21 @@ describe("summarizeOffers", () => {
   it("omits disabled Offers", () => {
     const entries = summarizeOffers([offer({ enabled: false })]);
     expect(entries).toEqual([]);
+  });
+
+  it("omits a machine whose supplier Connection is down", () => {
+    const entries = summarizeOffers([
+      offer({ supplierId: "thor", supplierKind: "agent" }),
+    ]);
+    expect(entries).toEqual([]);
+  });
+
+  it("includes a machine while its supplier Connection is live", () => {
+    const entries = summarizeOffers(
+      [offer({ supplierId: "thor", supplierKind: "agent" })],
+      { connectedSupplierIds: new Set(["thor"]) },
+    );
+    expect(entries.map((entry) => entry.id)).toEqual(["gemma-4-26b"]);
   });
 
   it("does not name a Supplier anywhere", () => {

@@ -7,7 +7,7 @@
  * and laptops close.
  */
 
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   dialIn,
   WIRE_VERSION,
@@ -21,16 +21,23 @@ function scriptedSocket() {
   const listeners: {
     open: (() => void)[];
     message: ((data: string) => void)[];
+    ping: (() => void)[];
     close: ((code?: number, reason?: string) => void)[];
     error: ((error: Error) => void)[];
-  } = { open: [], message: [], close: [], error: [] };
+  } = { open: [], message: [], ping: [], close: [], error: [] };
 
   const sent: string[] = [];
+  let terminations = 0;
   const socket: DialSocket = {
     send: (data) => sent.push(data),
     close: () => listeners.close.forEach((l) => l(1000, "closed")),
+    terminate: () => {
+      terminations += 1;
+      listeners.close.forEach((l) => l(1006, "heartbeat timeout"));
+    },
     onOpen: (l) => listeners.open.push(l),
     onMessage: (l) => listeners.message.push(l),
+    onPing: (l) => listeners.ping.push(l),
     onClose: (l) => listeners.close.push(l),
     onError: (l) => listeners.error.push(l),
   };
@@ -38,13 +45,25 @@ function scriptedSocket() {
   return {
     socket,
     sent,
+    get terminations() {
+      return terminations;
+    },
     open: () => listeners.open.forEach((l) => l()),
+    ping: () => listeners.ping.forEach((l) => l()),
     welcome: () =>
       listeners.message.forEach((l) =>
-        l(JSON.stringify({ type: "welcome", wireVersion: WIRE_VERSION, supplierId: "thor" })),
+        l(
+          JSON.stringify({
+            type: "welcome",
+            wireVersion: WIRE_VERSION,
+            supplierId: "thor",
+          }),
+        ),
       ),
     goodbye: (reason: string) =>
-      listeners.message.forEach((l) => l(JSON.stringify({ type: "goodbye", reason }))),
+      listeners.message.forEach((l) =>
+        l(JSON.stringify({ type: "goodbye", reason })),
+      ),
     drop: (code = 1006) => listeners.close.forEach((l) => l(code, "gone")),
   };
 }
@@ -52,7 +71,11 @@ function scriptedSocket() {
 /** Run the dial loop for a scripted sequence of sockets, then stop it. */
 async function runDial(
   script: ((socket: ReturnType<typeof scriptedSocket>) => void)[],
-  opts: { minBackoffMs?: number; offers?: DialOptions["offers"]; guarantees?: string[] } = {},
+  opts: {
+    minBackoffMs?: number;
+    offers?: DialOptions["offers"];
+    guarantees?: string[];
+  } = {},
 ) {
   const events: DialEvent[] = [];
   const controller = new AbortController();
@@ -98,6 +121,8 @@ function draft(): NonNullable<DialOptions["offers"]>[number] {
 }
 
 describe("dialling in", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("says hello with the wire version as soon as the socket opens", async () => {
     const { sockets } = await runDial([
       (s) => {
@@ -154,7 +179,9 @@ describe("dialling in", () => {
 
     expect(sockets).toHaveLength(2);
     for (const socket of sockets) {
-      expect((JSON.parse(socket.sent[0]) as { offers: unknown }).offers).toEqual(offers);
+      expect(
+        (JSON.parse(socket.sent[0]) as { offers: unknown }).offers,
+      ).toEqual(offers);
     }
   });
 
@@ -204,13 +231,69 @@ describe("dialling in", () => {
     expect(events.filter((e) => e.type === "connected")).toHaveLength(2);
   });
 
+  it("terminates a silent half-open socket so the dial loop can reconnect", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const first = scriptedSocket();
+    const events: DialEvent[] = [];
+
+    const done = dialIn({
+      exchangeUrl: "https://mycel.example",
+      credential: "sk-mycel-thor",
+      heartbeatTimeoutMs: 75,
+      signal: controller.signal,
+      onEvent: (event) => events.push(event),
+      connect: () => first.socket,
+      sleep: async () => controller.abort(),
+    });
+
+    first.open();
+    first.welcome();
+    await vi.advanceTimersByTimeAsync(76);
+    await done;
+
+    expect(first.terminations).toBe(1);
+    expect(events).toContainEqual({
+      type: "disconnected",
+      code: 1006,
+      reason: "heartbeat timeout",
+    });
+    expect(events.some((event) => event.type === "retrying")).toBe(true);
+  });
+
+  it("keeps a connection alive while Exchange pings arrive", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const first = scriptedSocket();
+
+    const done = dialIn({
+      exchangeUrl: "https://mycel.example",
+      credential: "sk-mycel-thor",
+      heartbeatTimeoutMs: 75,
+      signal: controller.signal,
+      connect: () => first.socket,
+    });
+
+    first.open();
+    first.welcome();
+    await vi.advanceTimersByTimeAsync(50);
+    first.ping();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(first.terminations).toBe(0);
+
+    controller.abort();
+    await done;
+  });
+
   it("backs off further each time it fails to connect at all", async () => {
     const { events } = await runDial(
       [(s) => s.drop(), (s) => s.drop(), (s) => s.drop(), (s) => s.drop()],
       { minBackoffMs: 2 },
     );
 
-    const waits = events.filter((e) => e.type === "retrying").map((e) => e.inMs);
+    const waits = events
+      .filter((e) => e.type === "retrying")
+      .map((e) => e.inMs);
     // Doubling, so an Exchange that is down is not hammered by every machine
     // on every tick.
     expect(waits.slice(0, 3)).toEqual([4, 8, 16]);
@@ -231,7 +314,9 @@ describe("dialling in", () => {
       { minBackoffMs: 2 },
     );
 
-    const waits = events.filter((e) => e.type === "retrying").map((e) => e.inMs);
+    const waits = events
+      .filter((e) => e.type === "retrying")
+      .map((e) => e.inMs);
     // A machine up for hours that drops once should come straight back, not
     // wait out an outage from last week.
     expect(waits[2]).toBe(2);
@@ -246,7 +331,10 @@ describe("dialling in", () => {
       },
     ]);
 
-    expect(events).toContainEqual({ type: "refused", reason: "wire version 1 required" });
+    expect(events).toContainEqual({
+      type: "refused",
+      reason: "wire version 1 required",
+    });
   });
 
   it("stops when told to, and does not dial again", async () => {

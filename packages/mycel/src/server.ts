@@ -163,7 +163,12 @@ export function createExchangeApp(
     // The operational surface remains a provider-free, read-only assembly.
     createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
-    createModelsHandler({ store }),
+    createModelsHandler({
+      store,
+      connectedSupplierIds: connections
+        ? () => connections.connectedSupplierIds()
+        : undefined,
+    }),
     buyerHandler,
   ];
 

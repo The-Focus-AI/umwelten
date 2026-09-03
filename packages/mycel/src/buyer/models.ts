@@ -34,10 +34,21 @@ function toDollarsPerMillion(microDollars: number): number {
   return microDollars / 1_000_000;
 }
 
-export function summarizeOffers(offers: Offer[]): ModelEntry[] {
+export function summarizeOffers(
+  offers: Offer[],
+  opts: { connectedSupplierIds?: Set<string> } = {},
+): ModelEntry[] {
   const byModel = new Map<string, Offer[]>();
   for (const offer of offers) {
     if (!offer.enabled) continue;
+    // A machine's Connection is its availability (ADR 0023). Its stored Offer
+    // survives a disconnect so pricing and capabilities do not need to be
+    // recreated, but it must not make an unavailable Model look live to buyers.
+    if (
+      offer.supplierKind === "agent" &&
+      !opts.connectedSupplierIds?.has(offer.supplierId)
+    )
+      continue;
     byModel.set(offer.model, [...(byModel.get(offer.model) ?? []), offer]);
   }
 
@@ -49,7 +60,9 @@ export function summarizeOffers(offers: Offer[]): ModelEntry[] {
 
       // Capabilities are a union: a buyer asking for tool calling can be served
       // if *some* Offer has it, and Dispatch will pick that one.
-      const capabilities = [...new Set(group.flatMap((o) => o.capabilities))].sort();
+      const capabilities = [
+        ...new Set(group.flatMap((o) => o.capabilities)),
+      ].sort();
 
       // Guarantees are an intersection: advertising one that only some Offers
       // carry would promise something a request might not get.
@@ -57,7 +70,9 @@ export function summarizeOffers(offers: Offer[]): ModelEntry[] {
         .map((o) => o.guarantees)
         .reduce((acc, next) => acc.filter((g) => next.includes(g)));
 
-      const contexts = group.map((o) => o.contextTokens).filter((c): c is number => c !== undefined);
+      const contexts = group
+        .map((o) => o.contextTokens)
+        .filter((c): c is number => c !== undefined);
 
       return {
         id: model,
@@ -76,7 +91,10 @@ export function summarizeOffers(offers: Offer[]): ModelEntry[] {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export function createModelsHandler(opts: { store: ExchangeStore }) {
+export function createModelsHandler(opts: {
+  store: ExchangeStore;
+  connectedSupplierIds?: () => Set<string>;
+}) {
   return async function handleModels(
     req: IncomingMessage,
     res: ServerResponse,
@@ -91,7 +109,9 @@ export function createModelsHandler(opts: { store: ExchangeStore }) {
     // Deliberately unauthenticated: the catalogue is not secret, and requiring
     // a token to list models would mean a client cannot discover what it may
     // ask for before it asks. Nothing here reveals a Supplier.
-    const data = summarizeOffers(await opts.store.listOffers());
+    const data = summarizeOffers(await opts.store.listOffers(), {
+      connectedSupplierIds: opts.connectedSupplierIds?.(),
+    });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ object: "list", data }));
     return true;
