@@ -172,6 +172,47 @@ describe("Mycel's signed-in account console", () => {
         .textContent(),
     ).toContain("Thor● Connected");
 
+    let releaseRefresh!: () => void;
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    let markRefreshContinued!: () => void;
+    const refreshContinued = new Promise<void>((resolve) => {
+      markRefreshContinued = resolve;
+    });
+    await page.route(`${origin}/api/customer`, async (route) => {
+      await refreshGate;
+      await route.continue();
+      markRefreshContinued();
+    });
+    await page.evaluate(() => {
+      const shell = window as unknown as {
+        __shell: {
+          root: {
+            get(key: { id: string }): { refresh(): Promise<void> } | undefined;
+          };
+        };
+      };
+      void shell.__shell.root
+        .get({ id: "mycel:account-customer" })
+        ?.refresh();
+    });
+    await expect
+      .poll(() =>
+        page.locator('[data-component="account-overview"] h1').textContent(),
+      )
+      .toContain("Browser Client");
+    await expect
+      .poll(() =>
+        page
+          .locator('[data-component="account-applications"]')
+          .isVisible(),
+      )
+      .toBe(true);
+    releaseRefresh();
+    await refreshContinued;
+    await page.unroute(`${origin}/api/customer`);
+
     const assembly = await page.evaluate<{ id: string; active: boolean }[]>(
       () => {
         const shell = (
