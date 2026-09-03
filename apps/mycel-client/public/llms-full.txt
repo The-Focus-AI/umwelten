@@ -82,7 +82,7 @@ An Application static credential identifies the Application. `X-Mycel-End-User` 
 
 Charge ownership resolves from End User to Application to Client, stopping at the first funded owner. Only a Client can have a postpaid credit limit. Prompt credit is checked before forwarding. Streaming credit is checked during generation, so a stream can end with an insufficient-balance event.
 
-The account page reports Client balance, Application state, ledger entries, recent requests, and team membership. Clerk authenticates humans there. Clerk tokens are not Application credentials and must not be used on the buyer API.
+The account page reports Client balance, Application state, ledger entries, recent requests, and team membership. Its playground selects an owned Application and a live model, then streams through the same dispatch, metering, Balance, and request-recording path without exposing the Application credential to browser state. A verified Clerk session with `metadata.role: "admin"` may also append bounded, attributed manual grants; Client ownership and Clerk Organization roles do not confer that financial authority. Clerk authenticates humans there. Clerk tokens are not Application credentials and must not be used on the buyer API.
 
 ## Stable failure classes
 
@@ -104,7 +104,7 @@ These only narrow eligibility. Application-level restrictions can narrow it furt
 
 The public landing page is a separately built Vite application. `/account/` and `/shell/` both run the same dependency-free `@umwelten/substrate` Shell and Component lifecycle.
 
-`/account/` has a fixed trusted manifest. Its providers expose Clerk authentication, customer state, and layout to independently mounted overview, Applications, funding, ledger, usage, and team Components. It can call the authenticated same-origin customer control plane. Agent-authored custom Components are not mounted into this realm.
+`/account/` has a fixed trusted manifest. Its providers expose Clerk authentication, customer state, and layout to independently mounted overview, Applications, playground, funding, administrator grant, ledger, usage, and team Components. It can call the authenticated same-origin customer control plane. Agent-authored custom Components are not mounted into this realm. The playground and Habitat chat share Substrate's host-neutral conversation renderer; their transports remain separate because one invokes the Exchange and the other invokes an agent.
 
 `/shell/` is the operational assembly. Its built-in and custom Components are provider-free and read-only. It projects health and the live catalogue but receives no customer mutation service. This is a deliberate capability boundary, not merely a visual separation.
 

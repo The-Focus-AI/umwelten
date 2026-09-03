@@ -10,6 +10,7 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import http from "node:http";
+import { generateText } from "ai";
 import { createMycelProvider } from "./mycel.js";
 
 let server: http.Server | undefined;
@@ -105,6 +106,39 @@ describe("MycelProvider", () => {
       provider: "mycel",
     });
     expect(model).toBeDefined();
+  });
+
+  it("attributes Habitat completion calls to a stable Mycel End User", async () => {
+    let endUser: string | undefined;
+    const url = await startFakeExchange((req, res) => {
+      endUser = req.headers["x-mycel-end-user"] as string | undefined;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          id: "completion-1",
+          object: "chat.completion",
+          created: 1,
+          model: "gemma-4-26b",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "hello" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1 },
+        }),
+      );
+    });
+    const model = createMycelProvider(
+      "app-token",
+      url,
+      "habitat-twitter",
+    ).getLanguageModel({ name: "gemma-4-26b", provider: "mycel" });
+
+    await generateText({ model, prompt: "hi" });
+
+    expect(endUser).toBe("habitat-twitter");
   });
 
   it("tolerates a trailing slash on the base URL", async () => {

@@ -35,7 +35,12 @@ interface MycelModelEntry {
 }
 
 export class MycelProvider extends BaseProvider {
-  constructor(apiKey?: string, baseUrl: string = DEFAULT_BASE_URL) {
+  constructor(
+    apiKey?: string,
+    baseUrl: string = DEFAULT_BASE_URL,
+    private readonly endUser =
+      process.env.MYCEL_END_USER?.trim() || process.env.HABITAT_ID?.trim(),
+  ) {
     super(apiKey, baseUrl);
   }
 
@@ -85,6 +90,9 @@ export class MycelProvider extends BaseProvider {
       name: "mycel",
       baseURL: `${this.base}/v1`,
       apiKey: this.apiKey,
+      headers: this.endUser
+        ? { "X-Mycel-End-User": this.endUser }
+        : undefined,
       includeUsage: true,
       // The Exchange relays whatever the chosen Supplier supports, and its
       // llama.cpp-family Suppliers implement json_schema response formats.
@@ -94,8 +102,16 @@ export class MycelProvider extends BaseProvider {
   }
 }
 
-export function createMycelProvider(apiKey?: string, baseUrl?: string): MycelProvider {
-  return new MycelProvider(apiKey, baseUrl ?? process.env.MYCEL_URL);
+export function createMycelProvider(
+  apiKey?: string,
+  baseUrl?: string,
+  endUser?: string,
+): MycelProvider {
+  return new MycelProvider(
+    apiKey,
+    baseUrl ?? process.env.MYCEL_URL,
+    endUser,
+  );
 }
 
 export function getMycelModelUrl(_modelId: string): string {

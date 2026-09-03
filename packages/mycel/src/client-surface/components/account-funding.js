@@ -13,7 +13,7 @@ export default {
   apply(ctx, view) {
     const region = view.get(regionKey);
     const customer = view.get(customerKey);
-    const element = card("account-funding", "02", "Funding");
+    const element = card("account-funding", "03", "Funding");
     const body = element.querySelector(".account-card-body");
     region.append(element);
     const render = (state) => {

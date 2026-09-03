@@ -26,6 +26,7 @@ const CSS = `
   .account-card { border: 1px solid var(--line); background: rgba(255,255,255,.016); min-width: 0; }
   .account-card[data-component='account-overview'],
   .account-card[data-component='account-applications'],
+  .account-card[data-component='account-playground'],
   .account-card[data-component='account-usage'] { grid-column: 1 / -1; }
   .account-card > header { min-height: 78px; display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
   .account-card > header span { color: #63746a; font: 9px/1 var(--mono); }
@@ -51,8 +52,13 @@ const CSS = `
   .account-form { display: grid; gap: 16px; max-width: 620px; }
   .account-form.two { grid-template-columns: 1fr 1fr auto; align-items: end; }
   .account-form label { display: grid; gap: 8px; color: var(--muted); font: 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; }
-  .account-form input { min-width: 0; width: 100%; padding: 13px 14px; border: 1px solid rgba(209,233,200,.22); outline: none; color: var(--ink); background: rgba(3,9,6,.55); font: 14px/1.2 Arial,sans-serif; }
-  .account-form input:focus { border-color: var(--accent); }
+  .account-form input, .account-form select, .account-form textarea { min-width: 0; width: 100%; padding: 13px 14px; border: 1px solid rgba(209,233,200,.22); outline: none; color: var(--ink); background: rgba(3,9,6,.55); font: 14px/1.2 Arial,sans-serif; }
+  .account-form input:focus, .account-form select:focus, .account-form textarea:focus { border-color: var(--accent); }
+  .account-form textarea { resize: vertical; line-height: 1.5; }
+  .account-playground-form { max-width: none; }
+  .account-playground-form .account-inline { align-items: end; }
+  .account-playground-form .account-inline label { flex: 1 1 300px; }
+  .account-conversation { display: flex; flex-direction: column; gap: .6rem; min-height: 100px; max-height: 52vh; margin-bottom: 20px; overflow-y: auto; }
   .account-list { margin: 0; padding: 0; list-style: none; }
   .account-list li { min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); }
   .account-list li:last-child { border-bottom: 0; }

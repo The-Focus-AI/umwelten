@@ -86,6 +86,22 @@ export interface BuyerHandlerOptions {
 }
 
 /**
+ * The public buyer route plus a process-local trusted entry for another
+ * authenticated surface. `handleAs` deliberately cannot be reached over HTTP:
+ * the customer playground uses it only after Clerk identity and Application
+ * ownership have been verified, while all dispatch, metering, and Balance
+ * enforcement remain exactly the public buyer path.
+ */
+export interface BuyerHandler {
+  (req: IncomingMessage, res: ServerResponse): Promise<boolean>;
+  handleAs(
+    caller: Caller,
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<boolean>;
+}
+
+/**
  * Per-request requirements, added on top of the Application's own. Headers
  * rather than body fields so the request stays a plain OpenAI payload that any
  * client can send unmodified. These can only narrow eligibility, never widen it.
@@ -157,7 +173,7 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload));
 }
 
-export function createBuyerHandler(opts: BuyerHandlerOptions) {
+export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
   const { store } = opts;
   const readCredential =
     opts.readCredential ?? ((envName?: string) => (envName ? process.env[envName] : undefined));
@@ -166,12 +182,13 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
   const verifyCaller = opts.verifyCaller ?? createIdentityVerifier({ store });
   const balances = new Balances(store);
 
-  return async function handleChatCompletions(
+  const handleChatCompletions = async (
     req: IncomingMessage,
     res: ServerResponse,
-  ): Promise<boolean> {
+    trustedCaller?: Caller,
+  ): Promise<boolean> => {
     const path = (req.url ?? "").split("?")[0];
-    if (path !== CHAT_COMPLETIONS_PATH) return false;
+    if (!trustedCaller && path !== CHAT_COMPLETIONS_PATH) return false;
 
     if (req.method !== "POST") {
       sendJson(res, 405, { error: BuyerError.METHOD_NOT_ALLOWED });
@@ -179,21 +196,23 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     }
 
     // Identity first: nothing else should run for a caller we cannot name.
-    let caller: Caller;
-    try {
-      caller = await verifyCaller(
-        req.headers.authorization,
-        req.headers[END_USER_HEADER] as string | undefined,
-      );
-    } catch (error) {
-      // One opaque body for every failure. The specific reason is precise in
-      // logs and vague on the wire — a caller that can tell "unknown
-      // application" from "bad signature" has an oracle for which Applications
-      // exist and which keys are current.
-      const reason = error instanceof AuthError ? error.reason : "invalid_signature";
-      sendJson(res, 401, { error: BuyerError.UNAUTHORIZED });
-      void reason;
-      return true;
+    let caller = trustedCaller;
+    if (!caller) {
+      try {
+        caller = await verifyCaller(
+          req.headers.authorization,
+          req.headers[END_USER_HEADER] as string | undefined,
+        );
+      } catch (error) {
+        // One opaque body for every failure. The specific reason is precise in
+        // logs and vague on the wire — a caller that can tell "unknown
+        // application" from "bad signature" has an oracle for which Applications
+        // exist and which keys are current.
+        const reason = error instanceof AuthError ? error.reason : "invalid_signature";
+        sendJson(res, 401, { error: BuyerError.UNAUTHORIZED });
+        void reason;
+        return true;
+      }
     }
 
     let body: Record<string, unknown>;
@@ -461,4 +480,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions) {
     }
     return true;
   };
+
+  const handler = ((req: IncomingMessage, res: ServerResponse) =>
+    handleChatCompletions(req, res)) as BuyerHandler;
+  handler.handleAs = (caller, req, res) =>
+    handleChatCompletions(req, res, caller);
+  return handler;
 }

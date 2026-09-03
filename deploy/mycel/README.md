@@ -55,9 +55,27 @@ configuration, not a Clerk secret. Self-service creates Clients and
 Applications, but starts with no spendable postpaid credit unless
 `MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS` is deliberately raised.
 
+Mycel uses Clerk's non-Organizations RBAC pattern for financial administration.
+In Clerk **Sessions → Customize session token**, include
+`{"metadata":"{{user.public_metadata}}"}`, then set
+`{"role":"admin"}` in an administrator's public metadata. Public metadata is
+read-only in the browser, and Mycel trusts the role only after verifying the
+signed session token. Sign out and back in after changing the role so Clerk
+issues a token carrying the new claim. A customer or Client owner is not an
+administrator by implication. An administrator sees **Grant credit**; every
+positive grant is bounded to $5,000 per operation and appended to the ledger
+with the administrator's Clerk id and required reason. Do not use Clerk
+Organization `org:admin` for this capability: an Organization creator may
+receive that role by default, while Mycel Clients and team membership
+deliberately remain Mycel domain objects.
+
 The customer console is `https://mycel.thefocus.ai/account`. It shows the
 Client balance, the append-only entries that sum to it, usage, Application key
-lifecycle, and team membership. The public landing remains at `/`.
+lifecycle, team membership, and a live model playground. Playground requests
+enter the same dispatch, metering, Balance, and request-recording path as the
+public OpenAI-compatible endpoint, but authorize through the signed-in Clerk
+operator and owned Application—an Application credential is never recovered
+or stored in the browser. The public landing remains at `/`.
 
 ### Activating prepaid funding
 

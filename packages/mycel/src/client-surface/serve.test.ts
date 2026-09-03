@@ -111,7 +111,9 @@ describe("the Exchange's client surface", () => {
       "account-customer",
       "account-overview",
       "account-applications",
+      "account-playground",
       "account-funding",
+      "account-admin-grant",
       "account-ledger",
       "account-usage",
       "account-team",
@@ -154,6 +156,15 @@ describe("the Exchange's client surface", () => {
     expect(r.status).toBe(200);
     expect(r.body).not.toMatch(/\binterface\s+\w/);
     expect(r.body).toMatch(/export\s*\{/);
+  });
+
+  it("serves the shared conversation view used by Habitat and Mycel chat", async () => {
+    const r = await get(
+      createAccountSurfaceHandler(),
+      "/account/substrate/conversation-view.js",
+    );
+    expect(r.status).toBe(200);
+    expect(r.body).toContain("renderConversation");
   });
 
   it("serves its component modules raw", async () => {

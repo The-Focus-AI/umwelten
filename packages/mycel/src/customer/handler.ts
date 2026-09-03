@@ -8,6 +8,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { Operator } from "../operator.js";
 import type { ExchangeStore } from "../store/types.js";
+import type { BuyerHandler } from "../buyer/handler.js";
 
 const ROOT = "/api/customer";
 const MAX_BODY_BYTES = 32_000;
@@ -16,9 +17,12 @@ const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MIN_FUNDING_CENTS = 500;
 const MAX_FUNDING_CENTS = 500_000;
 const ALGORITHMS = ["RS256", "RS384", "RS512", "ES256", "ES384", "PS256"];
+const ADMIN_ROLE = "admin";
 
 export interface CustomerIdentity {
   subject: string;
+  /** Role copied from Clerk publicMetadata into the signed session token. */
+  role?: string;
 }
 
 export interface CustomerHandlerOptions {
@@ -28,6 +32,8 @@ export interface CustomerHandlerOptions {
   ) => Promise<CustomerIdentity>;
   clerkIssuer?: string;
   authorizedParties?: string[];
+  /** Process-local entry into the normal buyer pipeline for the playground. */
+  completeChat?: BuyerHandler["handleAs"];
   defaultCreditLimitMicroDollars?: number;
   stripeSecretKey?: string;
   stripeWebhookSecret?: string;
@@ -168,7 +174,15 @@ export function createClerkOperatorVerifier(opts: {
     ) {
       throw new Error("unauthorized");
     }
-    return { subject: payload.sub };
+    const metadata = payload.metadata;
+    const role =
+      metadata &&
+      typeof metadata === "object" &&
+      "role" in metadata &&
+      typeof metadata.role === "string"
+        ? metadata.role
+        : undefined;
+    return { subject: payload.sub, role };
   };
 }
 
@@ -230,11 +244,15 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     return store.getClientOperator(subject);
   }
 
-  async function dashboard(subject: string) {
+  async function dashboard(subject: string, canAdminGrant = false) {
     const link = await callerLink(subject);
     const client = link ? await store.getClient(link.clientId) : null;
     if (!client || !link)
-      return { onboarded: false, fundingConfigured: stripeConfigured };
+      return {
+        onboarded: false,
+        fundingConfigured: stripeConfigured,
+        canAdminGrant,
+      };
     const applications = (await store.listApplications()).filter(
       (application) => application.clientId === client.id,
     );
@@ -288,6 +306,7 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         .filter((invitation) => invitation.expiresAt > new Date())
         .map(({ id, createdAt, expiresAt }) => ({ id, createdAt, expiresAt })),
       fundingConfigured: stripeConfigured,
+      canAdminGrant,
       balance,
       ledger,
       applications: applications.map((application, index) => ({
@@ -376,7 +395,82 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     if (!caller) return true;
 
     if (path === ROOT && req.method === "GET") {
-      sendJson(res, 200, await dashboard(caller.subject));
+      sendJson(
+        res,
+        200,
+        await dashboard(caller.subject, caller.role === ADMIN_ROLE),
+      );
+      return true;
+    }
+
+    const playground = path.match(
+      /^\/api\/customer\/applications\/([^/]+)\/playground$/,
+    );
+    if (playground && req.method === "POST") {
+      const client = await ownedClient(caller.subject);
+      const application = await store.getApplication(
+        decodeURIComponent(playground[1]),
+      );
+      if (!client || !application || application.clientId !== client.id) {
+        sendJson(res, 404, { error: "not_found" });
+        return true;
+      }
+      if (!application.enabled) {
+        sendJson(res, 409, { error: "application_disabled" });
+        return true;
+      }
+      if (!opts.completeChat) {
+        sendJson(res, 503, { error: "playground_not_configured" });
+        return true;
+      }
+      // The Clerk subject is stable within this Application and keeps
+      // playground spend visible as its own End User. No Application
+      // credential reaches or is recoverable by the browser.
+      return opts.completeChat(
+        { application, subject: `playground:${caller.subject}` },
+        req,
+        res,
+      );
+    }
+
+    if (path === `${ROOT}/admin/grants` && req.method === "POST") {
+      const link = await callerLink(caller.subject);
+      if (caller.role !== ADMIN_ROLE) {
+        sendJson(res, 403, { error: "admin_required" });
+        return true;
+      }
+      if (!link) {
+        sendJson(res, 409, { error: "onboarding_required" });
+        return true;
+      }
+      try {
+        const body = await readJson(req);
+        const amountCents = body.amountCents;
+        const reason = requiredName(body, "reason", 200);
+        if (
+          typeof amountCents !== "number" ||
+          !Number.isSafeInteger(amountCents) ||
+          amountCents < 1 ||
+          amountCents > MAX_FUNDING_CENTS
+        ) {
+          sendJson(res, 400, { error: "invalid_amount" });
+          return true;
+        }
+        await operator.grantToClient(
+          link.clientId,
+          amountCents * 10_000,
+          `admin grant by ${caller.subject}: ${reason}`,
+        );
+        sendJson(res, 201, {
+          dashboard: await dashboard(caller.subject, true),
+        });
+      } catch (error) {
+        const invalid =
+          error instanceof Error && error.message.startsWith("invalid_");
+        sendJson(res, invalid ? 400 : 500, {
+          error: invalid ? error.message : "grant_failed",
+        });
+      }
       return true;
     }
 
@@ -407,7 +501,10 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         });
         sendJson(res, 201, {
           credential: created.credential,
-          dashboard: await dashboard(caller.subject),
+          dashboard: await dashboard(
+            caller.subject,
+            caller.role === ADMIN_ROLE,
+          ),
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
@@ -435,7 +532,12 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
           sendJson(res, 404, { error: "invitation_invalid_or_expired" });
           return true;
         }
-        sendJson(res, 200, { dashboard: await dashboard(caller.subject) });
+        sendJson(res, 200, {
+          dashboard: await dashboard(
+            caller.subject,
+            caller.role === ADMIN_ROLE,
+          ),
+        });
       } catch (error) {
         const invalid =
           error instanceof Error && error.message.startsWith("invalid_");
@@ -486,7 +588,12 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         sendJson(res, 409, { error: "owner_cannot_be_removed" });
       } else {
         await store.unlinkClientOperator(subject);
-        sendJson(res, 200, { dashboard: await dashboard(caller.subject) });
+        sendJson(res, 200, {
+          dashboard: await dashboard(
+            caller.subject,
+            caller.role === ADMIN_ROLE,
+          ),
+        });
       }
       return true;
     }
