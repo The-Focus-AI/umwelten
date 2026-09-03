@@ -42,7 +42,7 @@ export default {
         return publish({ phase: "unavailable", dashboard: null, error: null });
       if (!identity.signedIn)
         return publish({ phase: "signed-out", dashboard: null, error: null });
-      publish({ phase: "loading", error: null });
+      if (!state.dashboard) publish({ phase: "loading", error: null });
       try {
         const dashboard = await request();
         if (current === generation)
