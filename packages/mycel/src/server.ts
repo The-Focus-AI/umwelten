@@ -121,6 +121,18 @@ export function createExchangeApp(
         })()
       : undefined);
 
+  const buyerHandler = createBuyerHandler({
+    store,
+    verifyCaller: opts.verifyCaller,
+    staleAfterMs: opts.staleAfterMs,
+    resolveTransport,
+    // Connected is available; disconnected is withdrawn. Passed in rather
+    // than reached for, so Dispatch stays a pure function (ADR 0023).
+    connectedSupplierIds: connections
+      ? () => connections.connectedSupplierIds()
+      : undefined,
+  });
+
   const handlers = [
     // The hostname root is the separately built marketing application. Its
     // static bundle also carries the trusted Clerk provider used by /account/.
@@ -138,6 +150,7 @@ export function createExchangeApp(
         process.env.MYCEL_CLERK_AUTHORIZED_PARTIES?.split(",").map((party) =>
           party.trim(),
         ),
+      completeChat: buyerHandler.handleAs,
       defaultCreditLimitMicroDollars:
         opts.selfServiceCreditLimitMicroDollars ??
         Number(process.env.MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS ?? 0),
@@ -151,17 +164,7 @@ export function createExchangeApp(
     createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
     createModelsHandler({ store }),
-    createBuyerHandler({
-      store,
-      verifyCaller: opts.verifyCaller,
-      staleAfterMs: opts.staleAfterMs,
-      resolveTransport,
-      // Connected is available; disconnected is withdrawn. Passed in rather
-      // than reached for, so Dispatch stays a pure function (ADR 0023).
-      connectedSupplierIds: connections
-        ? () => connections.connectedSupplierIds()
-        : undefined,
-    }),
+    buyerHandler,
   ];
 
   return async function handle(
@@ -210,6 +213,9 @@ export async function createExchangeServer(
     clerkIssuer: opts.clerkIssuer,
     clerkAuthorizedParties: opts.clerkAuthorizedParties,
     selfServiceCreditLimitMicroDollars: opts.selfServiceCreditLimitMicroDollars,
+    stripeSecretKey: opts.stripeSecretKey,
+    stripeWebhookSecret: opts.stripeWebhookSecret,
+    publicOrigin: opts.publicOrigin,
     staleAfterMs: opts.staleAfterMs,
     resolveTransport: opts.resolveTransport,
     componentsDir: opts.componentsDir,

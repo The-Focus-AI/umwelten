@@ -6,14 +6,10 @@
  */
 
 import { serviceKey } from "../substrate/index.js";
+import { renderConversation } from "../substrate/conversation-view.js";
 
 const regionKey = serviceKey("shell:region");
 const conversationKey = serviceKey("shell:conversation");
-
-const esc = (s) =>
-  String(s).replace(/[&<>"]/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
-  );
 
 class HabitatChat extends HTMLElement {
   connectedCallback() {
@@ -35,28 +31,7 @@ class HabitatChat extends HTMLElement {
 
   renderTranscript(messages) {
     const log = this.querySelector(".log");
-    log.innerHTML = messages
-      .map((m) => {
-        const parts = m.parts
-          .map((p) => {
-            if (p.kind === "text") return `<p style="margin:0;white-space:pre-wrap;">${esc(p.text)}</p>`;
-            if (p.kind === "reasoning")
-              return `<p style="margin:0;color:var(--muted);font-style:italic;white-space:pre-wrap;">${esc(p.text)}</p>`;
-            if (p.kind === "tool")
-              return `<p style="margin:0;color:var(--muted);">⚡ ${esc(p.name)}${p.output !== undefined ? " ✓" : "…"}</p>`;
-            if (p.kind === "error")
-              return `<p style="margin:0;color:var(--error);">${esc(p.text)}</p>`;
-            return "";
-          })
-          .join("");
-        const align = m.role === "user" ? "flex-end" : "flex-start";
-        const border = m.role === "user" ? "var(--accent)" : "var(--line)";
-        return `<div data-role="${m.role}" style="align-self:${align};max-width:85%;
-          border:1px solid ${border};border-radius:6px;padding:0.5rem 0.8rem;">
-          ${parts}${m.streaming ? '<p style="margin:0;color:var(--muted);">…</p>' : ""}</div>`;
-      })
-      .join("");
-    log.scrollTop = log.scrollHeight;
+    renderConversation(log, messages);
   }
 }
 

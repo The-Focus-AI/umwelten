@@ -31,11 +31,20 @@ workspace. Everything is same-origin, so session tokens never cross frontend
 services.
 
 The account manifest contains three trusted providers—authentication, layout,
-and customer state—plus independently mounted overview, Applications, funding,
-ledger, usage, and team components. It does not mount the agent-authored custom
-components directory. That trust split lets the account assembly mutate its
-same-origin `/api/customer` control plane while `/shell/` custom components
-remain provider-free and read-only.
+and customer state—plus independently mounted overview, Applications,
+playground, funding, administrator grant, ledger, usage, and team components.
+It does not mount the agent-authored custom components directory. That trust
+split lets the account assembly mutate its same-origin `/api/customer` control
+plane while `/shell/` custom components remain provider-free and read-only.
+
+The playground uses the same Substrate conversation renderer as Habitat chat,
+but retains Exchange semantics: the customer selects an owned Application and
+a live catalogue model, then the server invokes the normal buyer pipeline as a
+stable playground End User. No Application credential is returned or stored in
+the browser. Manual grants appear only when the verified Clerk session carries
+`metadata.role: "admin"` and remain append-only ledger entries. The role comes
+from Clerk public metadata via the configured session token claim; Client
+ownership and Clerk Organization roles do not confer it.
 
 The server, not a browser component, binds the verified Clerk subject to a
 Client and scopes every mutation. The browser never receives a Clerk secret key

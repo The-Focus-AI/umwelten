@@ -26,8 +26,15 @@ describe("Clerk customer identity", () => {
       jwksServer.listen(0, "127.0.0.1", resolve),
     );
     const issuer = `http://127.0.0.1:${(jwksServer.address() as AddressInfo).port}`;
-    const token = (authorizedParty: string, tokenIssuer = issuer) =>
-      new SignJWT({ azp: authorizedParty })
+    const token = (
+      authorizedParty: string,
+      tokenIssuer = issuer,
+      role?: string,
+    ) =>
+      new SignJWT({
+        azp: authorizedParty,
+        ...(role ? { metadata: { role } } : {}),
+      })
         .setProtectedHeader({ alg: "RS256", kid: "test-key" })
         .setIssuer(tokenIssuer)
         .setSubject("user_alice")
@@ -40,8 +47,10 @@ describe("Clerk customer identity", () => {
     });
     try {
       await expect(
-        verify(`Bearer ${await token("https://mycel.example")}`),
-      ).resolves.toEqual({ subject: "user_alice" });
+        verify(
+          `Bearer ${await token("https://mycel.example", issuer, "admin")}`,
+        ),
+      ).resolves.toEqual({ subject: "user_alice", role: "admin" });
       await expect(
         verify(`Bearer ${await token("https://another.example")}`),
       ).rejects.toThrow();
@@ -69,7 +78,23 @@ describe("Mycel's self-service customer control plane", () => {
       verifyOperator: async (authorization) => {
         const subject = authorization?.match(/^Bearer (.+)$/)?.[1];
         if (!subject) throw new Error("unauthorized");
-        return { subject };
+        return {
+          subject,
+          role: subject === "user_admin" ? "admin" : "member",
+        };
+      },
+      completeChat: async (caller, req, res) => {
+        let raw = "";
+        for await (const chunk of req) raw += chunk;
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            applicationId: caller.application.id,
+            subject: caller.subject,
+            request: JSON.parse(raw),
+          }),
+        );
+        return true;
       },
     });
     server = http.createServer(async (req, res) => {
@@ -113,6 +138,7 @@ describe("Mycel's self-service customer control plane", () => {
     ).toEqual({
       onboarded: false,
       fundingConfigured: false,
+      canAdminGrant: false,
     });
 
     const response = await request("/api/customer/onboard", {
@@ -184,6 +210,114 @@ describe("Mycel's self-service customer control plane", () => {
     expect((rotated.body as { credential: string }).credential).toMatch(
       /^sk-mycel-/,
     );
+  });
+
+  it("runs the playground as an owned Application without returning its credential", async () => {
+    const onboarded = await request("/api/customer/onboard", {
+      subject: "user_alice",
+      method: "POST",
+      body: { clientName: "Alice Labs", applicationName: "Playground" },
+    });
+    const applicationId = (
+      onboarded.body as { dashboard: { applications: { id: string }[] } }
+    ).dashboard.applications[0].id;
+
+    const response = await request(
+      `/api/customer/applications/${applicationId}/playground`,
+      {
+        subject: "user_alice",
+        method: "POST",
+        body: {
+          model: "test/model",
+          stream: true,
+          messages: [{ role: "user", content: "hello" }],
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      applicationId,
+      subject: "playground:user_alice",
+      request: { model: "test/model", stream: true },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("sk-mycel-");
+
+    expect(
+      (
+        await request(
+          `/api/customer/applications/${applicationId}/playground`,
+          {
+            subject: "user_bob",
+            method: "POST",
+            body: { model: "test/model", messages: [] },
+          },
+        )
+      ).status,
+    ).toBe(404);
+  });
+
+  it("lets only Clerk administrators append bounded attributed grants", async () => {
+    await request("/api/customer/onboard", {
+      subject: "user_owner",
+      method: "POST",
+      body: { clientName: "Owner Labs", applicationName: "Console" },
+    });
+    await request("/api/customer/onboard", {
+      subject: "user_admin",
+      method: "POST",
+      body: { clientName: "Admin Labs", applicationName: "Console" },
+    });
+
+    expect(
+      (
+        await request("/api/customer/admin/grants", {
+          subject: "user_owner",
+          method: "POST",
+          body: { amountCents: 2500, reason: "review credit" },
+        })
+      ).status,
+    ).toBe(403);
+
+    const granted = await request("/api/customer/admin/grants", {
+      subject: "user_admin",
+      method: "POST",
+      body: { amountCents: 2500, reason: "client review" },
+    });
+    expect(granted.status).toBe(201);
+    expect(
+      (granted.body as { dashboard: { balance: { microDollars: number } } })
+        .dashboard.balance.microDollars,
+    ).toBe(25_000_000);
+    expect(
+      await store.listLedgerEntries(
+        "client",
+        (await store.getClientOperator("user_admin"))!.clientId,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        microDollars: 25_000_000,
+        reason: "admin grant by user_admin: client review",
+      }),
+    ]);
+
+    expect(
+      (
+        await request("/api/customer/admin/grants", {
+          subject: "user_admin",
+          method: "POST",
+          body: { amountCents: 0, reason: "invalid" },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request("/api/customer/admin/grants", {
+          subject: "user_admin",
+          method: "POST",
+          body: { amountCents: 500_001, reason: "too large" },
+        })
+      ).status,
+    ).toBe(400);
   });
 
   it("lets customers disable, re-enable, and revoke an owned Application", async () => {

@@ -7,7 +7,7 @@ export default {
   apply(ctx, view) {
     const region = view.get(regionKey);
     const customer = view.get(customerKey);
-    const element = card("account-usage", "04", "Recent usage");
+    const element = card("account-usage", "05", "Recent usage");
     const body = element.querySelector(".account-card-body");
     region.append(element);
     const render = (state) => {

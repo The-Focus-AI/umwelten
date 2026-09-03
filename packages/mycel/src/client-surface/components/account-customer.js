@@ -12,9 +12,9 @@ export default {
       state = { ...state, ...next };
       for (const subscriber of subscribers) subscriber(state);
     };
-    const request = async (path = "", options = {}) => {
+    const authorizedFetch = async (path = "", options = {}) => {
       const token = await auth.getToken();
-      const response = await fetch(`/api/customer${path}`, {
+      return fetch(`/api/customer${path}`, {
         ...options,
         headers: {
           "content-type": "application/json",
@@ -22,6 +22,9 @@ export default {
           ...options.headers,
         },
       });
+    };
+    const request = async (path = "", options = {}) => {
+      const response = await authorizedFetch(path, options);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(
@@ -56,6 +59,7 @@ export default {
         subscriber(state);
         return () => subscribers.delete(subscriber);
       },
+      fetch: authorizedFetch,
       request,
       refresh,
     };
