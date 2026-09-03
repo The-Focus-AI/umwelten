@@ -207,12 +207,38 @@ fi
 # first thing to notice was the health check, after the container had already
 # replaced the running one. `--help` is enough: an import-time fault kills
 # every command, and a failure here costs a build instead of a rollback.
+#
+# The container is root (node:22-slim's default). A bind-mount of $ROOT means
+# `pnpm install` writes root-owned node_modules into the checkout. The first
+# Actions deploy succeeds (empty workdir); the second dies in
+# actions/checkout@v7 — EACCES on node_modules/.bin — and never reaches this
+# script (Deploy Mycel #2, run 33751267263). Drop the install tree and chown
+# whatever is left (dist) back to the invoking user *inside the same
+# container*, including on a failed bundle, so a later checkout can delete it.
+# The workflow also wipes GITHUB_WORKSPACE as root before checkout, which
+# covers a killed container that never reached this cleanup.
 log "bundling the exchange"
 docker volume create mycel-pnpm-store >/dev/null
-docker run --rm -v "$ROOT:/w" -v mycel-pnpm-store:/pnpm/store -w /w node:22-slim sh -c \
-  'corepack enable && pnpm config set store-dir /pnpm/store \
-   && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build \
-   && node packages/mycel/dist/mycel.js --help >/dev/null'
+docker run --rm \
+  -v "$ROOT:/w" \
+  -v mycel-pnpm-store:/pnpm/store \
+  -w /w \
+  -e HOST_UID="$(id -u)" \
+  -e HOST_GID="$(id -g)" \
+  node:22-slim sh -c \
+  'bundle() {
+     corepack enable && pnpm config set store-dir /pnpm/store \
+      && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build \
+      && node packages/mycel/dist/mycel.js --help >/dev/null
+   }
+   drop_root_owned_install() {
+     rm -rf node_modules packages/*/node_modules apps/*/node_modules
+     chown -R "$HOST_UID:$HOST_GID" /w
+   }
+   bundle
+   status=$?
+   drop_root_owned_install
+   exit $status'
 
 log "building image from $ROOT"
 docker build \

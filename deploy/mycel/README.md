@@ -176,10 +176,14 @@ Once the host is standing, Mycel-related code changes ship automatically:
 `.github/workflows/deploy-mycel.yml` runs on every push to `main` that touches
 `packages/mycel/`, `apps/mycel-client/`, `packages/substrate/`, or
 `deploy/mycel/` (plus the workflow file itself), on a **self-hosted runner
-installed on mycel-host** (labels: `self-hosted`, `mycel`). It checks out the
-pushed commit and runs `deploy/mycel/deploy.sh`. Path filters are intentionally
-tight — unlike Gaia, Mycel does **not** watch all of `packages/**` or
-`examples/**`, so unrelated umwelten changes do not cycle the money service.
+installed on mycel-host** (labels: `self-hosted`, `mycel`). It wipes leftover
+root-owned files from the previous Actions checkout (the bundle step
+bind-mounts the workspace into `node:22-slim` as root; without this wipe, the
+second deploy dies in `actions/checkout@v7` on `node_modules/.bin`), checks
+out the pushed commit, and runs `deploy/mycel/deploy.sh`. Path filters are
+intentionally tight — unlike Gaia, Mycel does **not** watch all of
+`packages/**` or `examples/**`, so unrelated umwelten changes do not cycle the
+money service.
 
 Setup once from a laptop with `gcloud` + `gh` (IAP SSH; no public SSH).
 Modeled on the Gaia runner block in `deploy/gaia/README.md` §8. Do this on

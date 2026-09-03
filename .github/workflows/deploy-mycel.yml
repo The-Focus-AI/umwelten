@@ -29,6 +29,19 @@ jobs:
     runs-on: [self-hosted, mycel]
     timeout-minutes: 30
     steps:
+      # Self-contained on purpose: the previous checkout is the thing we cannot
+      # read. This must not call a script from the repo.
+      - name: Remove leftover root-owned checkout files
+        run: |
+          # deploy.sh bind-mounts this workspace into node:22-slim and runs
+          # `pnpm install` as root. Those node_modules (and dist) are
+          # root-owned. actions/checkout@v7 then fails to rmdir them — Deploy
+          # Mycel #2 (run 33751267263) died on node_modules/.bin and never
+          # reached deploy.sh. A root container can delete what the runner
+          # user cannot. First-ever run: empty dir, find is a no-op.
+          mkdir -p "$GITHUB_WORKSPACE"
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" node:22-slim \
+            sh -c 'find /w -mindepth 1 -delete'
       - uses: actions/checkout@v7
       - name: Deploy mycel
         env:
