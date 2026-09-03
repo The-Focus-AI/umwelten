@@ -1,5 +1,5 @@
 import { ModelDetails } from "./types.js";
-import { calculateCost } from "../costs/costs.js";
+import { calculateCost, type CostBreakdown, type TokenUsage } from "../costs/costs.js";
 
 /**
  * Extract per-provider usage from a streamText / generateText result.
@@ -171,9 +171,7 @@ export async function extractStreamUsage(
   return usage;
 }
 
-export function normalizeTokenUsage(
-  usage: any,
-): { promptTokens: number; completionTokens: number; total?: number } | null {
+export function normalizeTokenUsage(usage: any): TokenUsage | null {
   if (!usage || typeof usage !== "object") {
     return null;
   }
@@ -184,11 +182,42 @@ export function normalizeTokenUsage(
     return n !== undefined && !Number.isNaN(n) && n >= 0 ? n : undefined;
   };
 
+  // Cache + reasoning detail fields across provider shapes:
+  //  - AI SDK v5/v6: cachedInputTokens (flat)
+  //  - AI SDK v7:   inputTokenDetails.cacheReadTokens / cacheWriteTokens,
+  //                 outputTokenDetails.reasoningTokens
+  //  - Anthropic:   cache_read_input_tokens / cache_creation_input_tokens
+  //  - OpenAI:      prompt_tokens_details.cached_tokens,
+  //                 completion_tokens_details.reasoning_tokens
+  const cacheReadTokens =
+    toNum(usage.cacheReadTokens) ??
+    toNum(usage.cachedInputTokens) ??
+    toNum(usage.inputTokenDetails?.cacheReadTokens) ??
+    toNum(usage.cache_read_input_tokens) ??
+    toNum(usage.prompt_tokens_details?.cached_tokens);
+  const cacheWriteTokens =
+    toNum(usage.cacheWriteTokens) ??
+    toNum(usage.inputTokenDetails?.cacheWriteTokens) ??
+    toNum(usage.cache_creation_input_tokens);
+
   let promptTokens =
     toNum(usage.promptTokens) ??
     toNum(usage.inputTokens) ??
     toNum(usage.prompt_tokens) ??
     toNum(usage.input_tokens);
+
+  // Raw Anthropic wire shape: `input_tokens` EXCLUDES cache tokens, unlike
+  // every AI-SDK-normalized shape where inputTokens is the inclusive total.
+  // Fold them in so cache tokens are always a subset of promptTokens.
+  const isRawAnthropic =
+    promptTokens !== undefined &&
+    usage.promptTokens === undefined &&
+    usage.inputTokens === undefined &&
+    usage.prompt_tokens === undefined &&
+    usage.input_tokens !== undefined;
+  if (isRawAnthropic && promptTokens !== undefined) {
+    promptTokens += (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0);
+  }
   let completionTokens =
     toNum(usage.completionTokens) ??
     toNum(usage.outputTokens) ??
@@ -203,7 +232,11 @@ export function normalizeTokenUsage(
       ? promptTokens + completionTokens
       : undefined);
 
-  const reasoning = toNum(usage.reasoningTokens) ?? toNum(usage.reasoning_tokens);
+  const reasoning =
+    toNum(usage.reasoningTokens) ??
+    toNum(usage.outputTokenDetails?.reasoningTokens) ??
+    toNum(usage.reasoning_tokens) ??
+    toNum(usage.completion_tokens_details?.reasoning_tokens);
 
   // Detect "shaped but empty" — the keys exist on the object but every
   // value is undefined. This is the streamText-on-MiniMax / streamText-
@@ -244,13 +277,16 @@ export function normalizeTokenUsage(
     promptTokens: p,
     completionTokens: c,
     total: total ?? p + c,
+    ...(cacheReadTokens !== undefined && { cacheReadTokens }),
+    ...(cacheWriteTokens !== undefined && { cacheWriteTokens }),
+    ...(reasoning !== undefined && { reasoningTokens: reasoning }),
   };
 }
 
 export function calculateCostBreakdown(
   usage: any,
   params: { modelDetails: ModelDetails },
-): any {
+): CostBreakdown | null {
   const normalizedUsage = normalizeTokenUsage(usage);
 
   return normalizedUsage

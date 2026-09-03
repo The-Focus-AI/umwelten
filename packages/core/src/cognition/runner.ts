@@ -30,13 +30,27 @@ import {
   extractStreamUsage,
 } from "./usage-extractor.js";
 import { assembleSteps } from "./step-assembler.js";
+import {
+  buildCompletionRecord,
+  getDefaultCompletionSink,
+  type CompletionRecord,
+  type CompletionSink,
+} from "../observability/index.js";
 
 import { Interaction } from "../interaction/core/interaction.js";
 import { z } from "zod";
 
+type Operation = CompletionRecord["operation"];
+
 export interface ModelRunnerConfig {
   rateLimitConfig?: RateLimitConfig;
   maxRetries?: number;
+  /**
+   * Where one CompletionRecord per model call is sent. Defaults to the
+   * process-wide sink (JSONL under `.umwelten/completions/`, or disabled
+   * with `UMWELTEN_TRACE=0`).
+   */
+  sink?: CompletionSink;
   // Intentionally no `maxTokens`/`maxOutputTokens` field. This runner
   // powers benchmarks that measure model quality — truncating generation
   // silently invalidates scores (especially for thinking-on models that
@@ -73,10 +87,26 @@ export class BaseModelRunner implements ModelRunner {
     console.log("Costs:", JSON.stringify(params.modelDetails.costs, null, 2));
   }
 
+  private sink(): CompletionSink {
+    return this.config.sink ?? getDefaultCompletionSink();
+  }
+
+  /** Send a CompletionRecord to the sink. Never throws into the call path. */
+  private record(input: Parameters<typeof buildCompletionRecord>[0]): void {
+    try {
+      this.sink().record(buildCompletionRecord(input));
+    } catch (err) {
+      console.warn(
+        `[umwelten] completion record failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   private handleError(
     error: any,
     modelIdString: string,
-    action: string,
+    action: Operation,
+    call?: { interaction: Interaction; startTime: Date },
   ): never {
     updateRateLimitState(
       modelIdString,
@@ -85,6 +115,18 @@ export class BaseModelRunner implements ModelRunner {
       error.response?.headers,
       this.config.rateLimitConfig,
     );
+
+    if (call) {
+      this.record({
+        interaction: call.interaction,
+        operation: action,
+        startTime: call.startTime,
+        usage: null,
+        cost: null,
+        outcome: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     if (error instanceof Error) {
       console.error(
@@ -174,9 +216,25 @@ export class BaseModelRunner implements ModelRunner {
       abortSignal: signal,
     });
 
-    const response = await generateText(
-      generateOptions as Parameters<typeof generateText>[0],
-    );
+    let response: Awaited<ReturnType<typeof generateText>>;
+    try {
+      response = await generateText(
+        generateOptions as Parameters<typeof generateText>[0],
+      );
+    } catch (err) {
+      // generateText deliberately surfaces the raw provider error (callers
+      // match on it); only record the failure before rethrowing.
+      this.record({
+        interaction,
+        operation: "generateText",
+        startTime,
+        usage: null,
+        cost: null,
+        outcome: "error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
 
     const usage = await Promise.resolve(response.usage);
 
@@ -197,6 +255,7 @@ export class BaseModelRunner implements ModelRunner {
       interaction,
       startTime,
       modelIdString,
+      operation: "generateText",
     });
   }
 
@@ -464,6 +523,7 @@ export class BaseModelRunner implements ModelRunner {
         interaction,
         startTime,
         modelIdString,
+        operation: "streamText",
       });
     } catch (err: any) {
       // If the caller aborted (watchdog timeout), salvage whatever was
@@ -513,9 +573,22 @@ export class BaseModelRunner implements ModelRunner {
           // construct a follow-up turn even from an aborted run.
           messages: interaction.getMessages().slice(),
         };
+        this.record({
+          interaction,
+          operation: "streamText",
+          startTime,
+          usage: {
+            promptTokens: 0,
+            completionTokens: approxCompletionTokens,
+            total: approxCompletionTokens,
+          },
+          cost: null,
+          outcome: "aborted",
+          error: err?.message ?? "aborted",
+        });
         return partialResponse;
       }
-      this.handleError(err, modelIdString, "streamText");
+      this.handleError(err, modelIdString, "streamText", { interaction, startTime });
     }
   }
 
@@ -549,9 +622,10 @@ export class BaseModelRunner implements ModelRunner {
         interaction,
         startTime,
         modelIdString,
+        operation: "generateObject",
       });
     } catch (err) {
-      this.handleError(err, modelIdString, "generateObject");
+      this.handleError(err, modelIdString, "generateObject", { interaction, startTime });
     }
   }
 
@@ -609,11 +683,12 @@ export class BaseModelRunner implements ModelRunner {
         interaction,
         startTime,
         modelIdString,
+        operation: "streamObject",
       });
 
       return modelResponse;
     } catch (err) {
-      this.handleError(err, modelIdString, "streamObject");
+      this.handleError(err, modelIdString, "streamObject", { interaction, startTime });
     }
   }
 
@@ -639,6 +714,7 @@ export class BaseModelRunner implements ModelRunner {
     interaction,
     startTime,
     modelIdString,
+    operation = "generateText",
   }: {
     response: any;
     content: string | unknown;
@@ -647,6 +723,7 @@ export class BaseModelRunner implements ModelRunner {
     interaction: Interaction;
     startTime: Date;
     modelIdString: string;
+    operation?: Operation;
   }) {
     // Snapshot usage if it's a Proxy/getter object (has keys but JSON.stringify returns {})
     if (usage && typeof usage === "object") {
@@ -731,17 +808,20 @@ export class BaseModelRunner implements ModelRunner {
       interaction,
     });
 
+    const endTime = new Date();
+    const tokenUsage = normalizedUsage ?? {
+      promptTokens: 0,
+      completionTokens: 0,
+      total: 0,
+    };
+
     const modelResponse: ModelResponse = {
       content: contentString,
       metadata: {
         startTime,
-        endTime: new Date(),
-        tokenUsage: {
-          promptTokens: normalizedUsage?.promptTokens ?? 0,
-          completionTokens: normalizedUsage?.completionTokens ?? 0,
-          total: normalizedUsage?.total ?? 0,
-        },
-        cost: costBreakdown || undefined,
+        endTime,
+        tokenUsage,
+        ...(costBreakdown && { cost: costBreakdown }),
         provider: interaction.modelDetails.provider,
         model: interaction.modelDetails.name,
         ...(toolCalls.length > 0 && { toolCalls }),
@@ -756,6 +836,42 @@ export class BaseModelRunner implements ModelRunner {
       messages: interaction.getMessages().slice(),
     };
 
+    // Tag the assistant message this call produced with its usage so the
+    // transcript writer can persist it (Claude-style `usage` on the entry).
+    const lastMessage = interaction.messages[interaction.messages.length - 1];
+    if (lastMessage?.role === "assistant" && normalizedUsage) {
+      interaction.messageUsage.set(lastMessage, {
+        model: interaction.modelDetails.name,
+        usage: normalizedUsage,
+      });
+    }
+
+    const steps = await resolveMaybe<unknown[]>(response?.steps);
+    this.record({
+      interaction,
+      operation,
+      startTime,
+      endTime,
+      usage: normalizedUsage,
+      cost: costBreakdown,
+      outcome: "completed",
+      finishReason: await resolveMaybe<string>(response?.finishReason),
+      toolCallCount: toolCalls.length,
+      steps: Array.isArray(steps) && steps.length > 0 ? steps.length : 1,
+      providerRequestId: (await resolveMaybe<{ id?: string }>(response?.response))?.id,
+      usageRaw: usage,
+    });
+
     return modelResponse;
+  }
+}
+
+/** Await a value that may or may not be a Promise; swallow rejections (best-effort metadata). */
+async function resolveMaybe<T>(value: unknown): Promise<T | undefined> {
+  if (value === undefined || value === null) return undefined;
+  try {
+    return (await Promise.resolve(value)) as T;
+  } catch {
+    return undefined;
   }
 }

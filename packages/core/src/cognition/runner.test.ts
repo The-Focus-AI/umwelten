@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { ModelMessage } from 'ai';
 import { modelMessageSchema } from 'ai';
 import { BaseModelRunner } from './runner.js';
+import { MemoryCompletionSink } from '../observability/index.js';
 import { normalizeToModelMessages } from './message-normalizer.js';
 import { Interaction } from '../interaction/core/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
@@ -442,16 +443,78 @@ describe('Runner token usage normalization', () => {
     });
 
     expect(warnSpy).not.toHaveBeenCalled();
-    expect(result.metadata.tokenUsage).toEqual({
+    const expectedUsage = {
       promptTokens: 120,
       completionTokens: 45,
       total: 165,
+      cacheReadTokens: 5,
+      reasoningTokens: 12,
+    };
+    expect(result.metadata.tokenUsage).toEqual(expectedUsage);
+    expect(result.metadata.cost?.usage).toEqual(expectedUsage);
+  });
+
+  it('emits a CompletionRecord to the configured sink and tags the assistant message', async () => {
+    const sink = new MemoryCompletionSink();
+    const runner = new BaseModelRunner({ sink });
+    const interaction = makeInteraction();
+    interaction.addMessage({ role: 'user', content: 'hi' });
+    interaction.addMessage({ role: 'assistant', content: 'Hello from MiniMax' });
+    const startTime = new Date('2026-01-01T00:00:00.000Z');
+
+    await runner.makeResult({
+      response: { finishReason: 'stop', response: { id: 'req_123' }, steps: [{}, {}] },
+      content: 'Hello from MiniMax',
+      usage: { inputTokens: 120, outputTokens: 45, totalTokens: 165, cachedInputTokens: 5 },
+      interaction,
+      startTime,
+      modelIdString: 'minimax/MiniMax-M2.5',
+      operation: 'streamText',
     });
-    expect(result.metadata.cost?.usage).toEqual({
-      promptTokens: 120,
-      completionTokens: 45,
-      total: 165,
+
+    expect(sink.records).toHaveLength(1);
+    const rec = sink.records[0];
+    expect(rec.traceId).toBe(interaction.id);
+    expect(rec.userId).toBeUndefined(); // "default" is omitted
+    expect(rec.operation).toBe('streamText');
+    expect(rec.provider).toBe('minimax');
+    expect(rec.model).toBe('MiniMax-M2.5');
+    expect(rec.outcome).toBe('completed');
+    expect(rec.finishReason).toBe('stop');
+    expect(rec.steps).toBe(2);
+    expect(rec.providerRequestId).toBe('req_123');
+    expect(rec.startedAt).toBe(startTime.toISOString());
+    expect(rec.tokens).toEqual({ prompt: 120, completion: 45, total: 165, cacheRead: 5 });
+    expect(rec.cost?.source).toBe('pricing-table');
+    // 0.3/M input: 115 uncached + 5 cache-read (no cache rate → input rate) = 120 × 0.3e-6
+    expect(rec.cost?.prompt).toBeCloseTo(120 * 0.3 / 1e6, 12);
+    expect(rec.cost?.cacheRead).toBeCloseTo(5 * 0.3 / 1e6, 12);
+
+    const last = interaction.messages[interaction.messages.length - 1];
+    expect(interaction.messageUsage.get(last)).toEqual({
+      model: 'MiniMax-M2.5',
+      usage: { promptTokens: 120, completionTokens: 45, total: 165, cacheReadTokens: 5 },
     });
+  });
+
+  it('records outcome "error" and rethrows when generateText fails', async () => {
+    const sink = new MemoryCompletionSink();
+    const runner = new BaseModelRunner({ sink });
+    const interaction = makeInteraction();
+    interaction.addMessage({ role: 'user', content: 'hi' });
+    // Skip provider resolution; hand the SDK a bogus model so the call itself fails.
+    vi.spyOn(runner as any, 'startUp').mockResolvedValue({
+      startTime: new Date(),
+      model: {} as unknown,
+      modelIdString: 'minimax/MiniMax-M2.5',
+    });
+
+    await expect(runner.generateText(interaction)).rejects.toThrow();
+    expect(sink.records).toHaveLength(1);
+    expect(sink.records[0].outcome).toBe('error');
+    expect(sink.records[0].operation).toBe('generateText');
+    expect(sink.records[0].error).toBeTruthy();
+    expect(sink.records[0].tokens).toEqual({ prompt: 0, completion: 0, total: 0 });
   });
 
   it('preserves zero token values instead of treating them as missing', async () => {

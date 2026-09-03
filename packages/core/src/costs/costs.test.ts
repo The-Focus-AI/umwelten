@@ -77,6 +77,65 @@ describe('Cost Utilities', () => {
       const breakdown = calculateCost(mockFreeModel, usage);
       expect(breakdown).toBeNull();
     });
+
+    describe('prompt cache', () => {
+      const cachedModel: ModelDetails = {
+        name: 'Cached Model',
+        provider: 'test-provider',
+        costs: {
+          promptTokens: 10,
+          completionTokens: 30,
+          cacheReadTokens: 1,   // 10× cheaper than plain input
+          cacheWriteTokens: 12.5,
+        },
+      };
+
+      it('prices cache-read tokens at the cache rate and the rest at the input rate', () => {
+        const breakdown = calculateCost(cachedModel, {
+          promptTokens: 1000,
+          completionTokens: 0,
+          cacheReadTokens: 800,
+        });
+        expect(breakdown).not.toBeNull();
+        // 200 uncached × $10/M = 0.002; 800 cached × $1/M = 0.0008
+        expect(breakdown!.cacheReadCost).toBeCloseTo(0.0008, 10);
+        expect(breakdown!.promptCost).toBeCloseTo(0.0028, 10);
+        expect(breakdown!.cacheWriteCost).toBeUndefined();
+        // Cheaper than pricing the whole prompt as plain input.
+        expect(breakdown!.promptCost).toBeLessThan(0.01);
+      });
+
+      it('prices cache-write tokens at the write rate', () => {
+        const breakdown = calculateCost(cachedModel, {
+          promptTokens: 1000,
+          completionTokens: 0,
+          cacheWriteTokens: 1000,
+        });
+        // 0 uncached; 1000 × $12.5/M = 0.0125
+        expect(breakdown!.cacheWriteCost).toBeCloseTo(0.0125, 10);
+        expect(breakdown!.promptCost).toBeCloseTo(0.0125, 10);
+      });
+
+      it('falls back to the input rate when the model has no cache rates', () => {
+        const breakdown = calculateCost(mockModel, {
+          promptTokens: 1000,
+          completionTokens: 0,
+          cacheReadTokens: 800,
+        });
+        // Same as 1000 × $10/M — never undercounts vs. the old formula.
+        expect(breakdown!.promptCost).toBeCloseTo(0.01, 10);
+        expect(breakdown!.cacheReadCost).toBeCloseTo(0.008, 10);
+      });
+
+      it('clamps cache tokens that exceed promptTokens', () => {
+        const breakdown = calculateCost(cachedModel, {
+          promptTokens: 100,
+          completionTokens: 0,
+          cacheReadTokens: 500,
+        });
+        expect(breakdown!.promptCost).toBeCloseTo(0.0001, 10); // 100 × $1/M
+      });
+    });
   })
 
   describe('formatCostBreakdown', () => {

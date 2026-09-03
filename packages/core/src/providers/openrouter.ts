@@ -6,6 +6,18 @@ export function createOpenRouterModel(modelName: string): LanguageModel {
   return openrouter(modelName)
 } 
 
+/**
+ * OpenRouter prices are USD-per-token strings ("0.0000025"); we store
+ * USD-per-million. "-1" marks auto-routing models and is treated as free.
+ * Returns undefined when the field is absent or unparseable.
+ */
+function perMillion(price: string | undefined | null): number | undefined {
+  if (price === undefined || price === null || price === '') return undefined;
+  const n = parseFloat(price);
+  if (Number.isNaN(n)) return undefined;
+  return n === -1 ? 0 : n * 1000000;
+}
+
 // Function to get available models from OpenRouter
 function parseUnixTimestamp(timestamp: number): Date | undefined {
   try {
@@ -45,14 +57,16 @@ export class OpenRouterProvider extends BaseProvider {
         // OpenRouter returns prices like "0.0000025" which is $0.0000025 per token
         // We convert to per-million-tokens: 0.0000025 * 1000000 = 2.5 (which is $2.50 per million tokens)
         // Special case: -1 indicates auto-routing models, set to 0 (free)
-        promptTokens: (() => {
-          const price = parseFloat(model.pricing?.prompt || '0');
-          return price === -1 ? 0 : price * 1000000;
-        })(),
-        completionTokens: (() => {
-          const price = parseFloat(model.pricing?.completion || '0');
-          return price === -1 ? 0 : price * 1000000;
-        })(),
+        promptTokens: perMillion(model.pricing?.prompt) ?? 0,
+        completionTokens: perMillion(model.pricing?.completion) ?? 0,
+        // Cache rates are absent for models without prompt caching; leave
+        // undefined so calculateCost falls back to the prompt rate.
+        ...(perMillion(model.pricing?.input_cache_read) !== undefined && {
+          cacheReadTokens: perMillion(model.pricing?.input_cache_read),
+        }),
+        ...(perMillion(model.pricing?.input_cache_write) !== undefined && {
+          cacheWriteTokens: perMillion(model.pricing?.input_cache_write),
+        }),
       },
       details: {
         provider: model.id.split('/')[0], // Include original provider in details
