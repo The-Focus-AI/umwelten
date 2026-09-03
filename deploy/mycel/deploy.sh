@@ -139,7 +139,7 @@ verify_client_surface() {
     echo "error: account assembly manifest unavailable" >&2
     return 1
   }
-  for component in account-authentication account-customer account-overview account-applications account-playground account-funding account-admin-grant account-ledger account-usage account-team; do
+  for component in account-authentication account-customer account-overview account-applications account-playground account-funding account-admin-grant account-supplier-connections account-ledger account-usage account-team; do
     if ! grep -Eq '"id"[[:space:]]*:[[:space:]]*"'"$component"'"' <<<"$account_manifest"; then
       echo "error: account manifest missing component: $component" >&2
       return 1

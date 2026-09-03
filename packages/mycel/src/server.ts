@@ -151,6 +151,9 @@ export function createExchangeApp(
           party.trim(),
         ),
       completeChat: buyerHandler.handleAs,
+      supplierConnection: connections
+        ? (supplierId) => connections.get(supplierId)
+        : undefined,
       defaultCreditLimitMicroDollars:
         opts.selfServiceCreditLimitMicroDollars ??
         Number(process.env.MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS ?? 0),

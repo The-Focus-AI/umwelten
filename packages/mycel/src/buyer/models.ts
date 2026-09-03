@@ -20,6 +20,8 @@ export interface ModelEntry {
   id: string;
   object: "model";
   owned_by: string;
+  /** Every returned Model has at least one Offer dispatchable right now. */
+  status: "available";
   /** Dollars per million tokens, at the cheapest eligible Offer. */
   pricing: { prompt: number; completion: number };
   /** The union of what any Offer for this Model can do. */
@@ -78,6 +80,7 @@ export function summarizeOffers(
         id: model,
         object: "model",
         owned_by: "exchange",
+        status: "available",
         pricing: {
           prompt: toDollarsPerMillion(cheapest.retailPromptPerMillion),
           completion: toDollarsPerMillion(cheapest.retailCompletionPerMillion),

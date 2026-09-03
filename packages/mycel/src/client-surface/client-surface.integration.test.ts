@@ -49,8 +49,8 @@ afterAll(async () => {
 });
 
 describe("the Exchange's client surface, assembled", () => {
-  it("the hostname root lands a browser on the shell", async () => {
-    await page.goto(`http://127.0.0.1:${exchange.port}/`);
+  it("the shell route loads the assembled operational surface", async () => {
+    await page.goto(`http://127.0.0.1:${exchange.port}/shell/`);
     expect(new URL(page.url()).pathname).toBe("/shell/");
   });
 
@@ -70,6 +70,7 @@ describe("the Exchange's client surface, assembled", () => {
     const text = await models.textContent();
     expect(text).toContain("/M"); // a price per million tokens is quoted
     expect(text).toContain("32768");
+    expect(text).toContain("Available now");
   });
 
   it("solo projection works here too — the contract came over whole", async () => {

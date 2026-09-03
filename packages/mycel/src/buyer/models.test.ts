@@ -32,6 +32,7 @@ describe("summarizeOffers", () => {
     ]);
     expect(entries).toHaveLength(1);
     expect(entries[0].id).toBe("gemma-4-26b");
+    expect(entries[0].status).toBe("available");
   });
 
   it("quotes the cheapest Offer's retail price, in dollars per million", () => {
