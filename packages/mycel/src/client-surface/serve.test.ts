@@ -114,6 +114,7 @@ describe("the Exchange's client surface", () => {
       "account-playground",
       "account-funding",
       "account-admin-grant",
+      "account-supplier-connections",
       "account-ledger",
       "account-usage",
       "account-team",

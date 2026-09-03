@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hashCredential } from "../auth/credentials.js";
+import { supplierFixture } from "../store/conformance.js";
 import { MemoryStore } from "../store/memory-store.js";
 import {
   createClerkOperatorVerifier,
@@ -69,11 +70,17 @@ describe("Mycel's self-service customer control plane", () => {
   let store: MemoryStore;
   let server: http.Server;
   let origin: string;
+  let liveSuppliers: Map<
+    string,
+    { connectedAt: Date; inFlight: number }
+  >;
 
   beforeEach(async () => {
     store = new MemoryStore();
+    liveSuppliers = new Map();
     const handler = createCustomerHandler({
       store,
+      supplierConnection: (supplierId) => liveSuppliers.get(supplierId),
       defaultCreditLimitMicroDollars: 5_000_000,
       verifyOperator: async (authorization) => {
         const subject = authorization?.match(/^Bearer (.+)$/)?.[1];
@@ -130,6 +137,47 @@ describe("Mycel's self-service customer control plane", () => {
 
   it("requires a verified Clerk operator", async () => {
     expect((await request("/api/customer")).status).toBe(401);
+  });
+
+  it("shows live machine connection state only to Clerk administrators", async () => {
+    await store.createSupplier(
+      supplierFixture({ id: "thor", kind: "agent", displayName: "Thor" }),
+    );
+    await store.createSupplier(
+      supplierFixture({ id: "vendor", kind: "vendor" }),
+    );
+    await store.appendConnectionEvent({
+      id: "disconnect-1",
+      supplierId: "thor",
+      event: "disconnected",
+      reason: "transport-error",
+      at: new Date("2026-09-03T12:00:00Z"),
+    });
+    liveSuppliers.set("thor", {
+      connectedAt: new Date("2026-09-03T15:28:00Z"),
+      inFlight: 2,
+    });
+
+    const member = await request("/api/customer", { subject: "user_member" });
+    expect(JSON.stringify(member.body)).not.toContain("thor");
+
+    const admin = await request("/api/customer", { subject: "user_admin" });
+    expect(admin.body).toMatchObject({
+      canAdminGrant: true,
+      supplierConnections: [
+        {
+          id: "thor",
+          displayName: "Thor",
+          enabled: true,
+          connected: true,
+          connectedAt: "2026-09-03T15:28:00.000Z",
+          inFlight: 2,
+          lastDisconnectAt: "2026-09-03T12:00:00.000Z",
+          lastDisconnectReason: "transport-error",
+        },
+      ],
+    });
+    expect(JSON.stringify(admin.body)).not.toContain("vendor");
   });
 
   it("provisions a Client and first Application without storing the credential", async () => {

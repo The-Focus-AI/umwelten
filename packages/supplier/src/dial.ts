@@ -30,6 +30,12 @@ export interface DialOptions {
   /** Backoff floor and ceiling. A dropped link should retry, not hammer. */
   minBackoffMs?: number;
   maxBackoffMs?: number;
+  /**
+   * Close and redial when the Exchange's ping stream goes silent. The server
+   * pings every 30 seconds; waiting for two missed pings avoids reconnecting
+   * merely because one timer ran late.
+   */
+  heartbeatTimeoutMs?: number;
   signal?: AbortSignal;
   onEvent?: (event: DialEvent) => void;
   /** Injectable for tests; defaults to a real socket. */
@@ -69,14 +75,17 @@ export type DialEvent =
 export interface DialSocket {
   send(data: string): void;
   close(): void;
+  terminate(): void;
   onOpen(listener: () => void): void;
   onMessage(listener: (data: string) => void): void;
+  onPing(listener: () => void): void;
   onClose(listener: (code?: number, reason?: string) => void): void;
   onError(listener: (error: Error) => void): void;
 }
 
 const DEFAULT_MIN_BACKOFF_MS = 1_000;
 const DEFAULT_MAX_BACKOFF_MS = 30_000;
+const DEFAULT_HEARTBEAT_TIMEOUT_MS = 75_000;
 
 function websocketUrl(exchangeUrl: string): string {
   const url = new URL(CONNECT_PATH, exchangeUrl);
@@ -85,13 +94,18 @@ function websocketUrl(exchangeUrl: string): string {
 }
 
 function realSocket(url: string, credential: string): DialSocket {
-  const ws = new WebSocket(url, { headers: { authorization: `Bearer ${credential}` } });
+  const ws = new WebSocket(url, {
+    headers: { authorization: `Bearer ${credential}` },
+  });
   return {
     send: (data) => ws.send(data),
     close: () => ws.close(),
+    terminate: () => ws.terminate(),
     onOpen: (l) => ws.on("open", l),
     onMessage: (l) => ws.on("message", (raw) => l(String(raw))),
-    onClose: (l) => ws.on("close", (code, reason) => l(code, String(reason ?? ""))),
+    onPing: (l) => ws.on("ping", l),
+    onClose: (l) =>
+      ws.on("close", (code, reason) => l(code, String(reason ?? ""))),
     onError: (l) => ws.on("error", l),
   };
 }
@@ -137,6 +151,8 @@ export async function dialIn(opts: DialOptions): Promise<void> {
       onServeEvent: opts.onServeEvent,
       offers: opts.offers,
       guarantees: opts.guarantees,
+      heartbeatTimeoutMs:
+        opts.heartbeatTimeoutMs ?? DEFAULT_HEARTBEAT_TIMEOUT_MS,
     });
 
     if (signal?.aborted) return;
@@ -144,7 +160,8 @@ export async function dialIn(opts: DialOptions): Promise<void> {
     // A Connection that lived resets the backoff: a machine that has been up
     // for hours and drops once should come straight back, not wait thirty
     // seconds because of an outage last week.
-    backoff = outcome === "connected" ? minBackoff : Math.min(backoff * 2, maxBackoff);
+    backoff =
+      outcome === "connected" ? minBackoff : Math.min(backoff * 2, maxBackoff);
 
     onEvent({ type: "retrying", inMs: backoff });
     await sleep(backoff);
@@ -166,15 +183,18 @@ function holdOne(
     onServeEvent?: (event: ServeEvent) => void;
     offers?: OfferDraft[];
     guarantees?: string[];
+    heartbeatTimeoutMs: number;
   },
 ): Promise<"connected" | "failed"> {
   return new Promise((resolve) => {
     let settled = false;
     let everConnected = false;
+    let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
 
     const finish = (outcome: "connected" | "failed") => {
       if (settled) return;
       settled = true;
+      if (heartbeatTimer) clearTimeout(heartbeatTimer);
       resolve(outcome);
     };
 
@@ -193,6 +213,15 @@ function holdOne(
     const hangUp = () => socket.close();
     ctx.signal?.addEventListener("abort", hangUp, { once: true });
 
+    const expectHeartbeat = () => {
+      if (heartbeatTimer) clearTimeout(heartbeatTimer);
+      heartbeatTimer = setTimeout(
+        () => socket.terminate(),
+        ctx.heartbeatTimeoutMs,
+      );
+      heartbeatTimer.unref?.();
+    };
+
     // Scoped to this Connection. A machine that reconnects gets a fresh one,
     // because nothing in flight on the old socket can be delivered.
     const server = ctx.runtimeUrl
@@ -206,6 +235,7 @@ function holdOne(
       : undefined;
 
     socket.onOpen(() => {
+      expectHeartbeat();
       // The catalogue rides the handshake. The Exchange registers this machine
       // only once it has accepted both, so it never believes a machine is
       // available without knowing what it serves.
@@ -221,6 +251,7 @@ function holdOne(
     });
 
     socket.onMessage((data) => {
+      expectHeartbeat();
       const frame = safeParse(data);
       if (frame?.type === "welcome") {
         everConnected = true;
@@ -230,7 +261,10 @@ function holdOne(
       if (frame?.type === "goodbye") {
         // The Exchange refusing us for a stated reason — a wire mismatch, say.
         // Worth surfacing rather than showing up as a bare close code.
-        ctx.onEvent({ type: "refused", reason: String(frame.reason ?? "refused") });
+        ctx.onEvent({
+          type: "refused",
+          reason: String(frame.reason ?? "refused"),
+        });
         return;
       }
       // Everything else is work. Without a runtime configured this machine
@@ -238,6 +272,10 @@ function holdOne(
       // than an error to report on every frame.
       server?.handleFrame(data);
     });
+
+    // `ws` answers protocol pings automatically. Observing them separately is
+    // what tells us the path is alive when no inference work is flowing.
+    socket.onPing(expectHeartbeat);
 
     socket.onError((error) => {
       ctx.onEvent({ type: "refused", reason: error.message });
@@ -254,7 +292,9 @@ function holdOne(
   });
 }
 
-function safeParse(data: string): { type?: string; reason?: unknown } | undefined {
+function safeParse(
+  data: string,
+): { type?: string; reason?: unknown } | undefined {
   try {
     const parsed = JSON.parse(data) as { type?: string; reason?: unknown };
     return parsed && typeof parsed === "object" ? parsed : undefined;

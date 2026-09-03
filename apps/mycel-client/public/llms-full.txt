@@ -21,11 +21,12 @@ The credential belongs in a server-side secret manager or environment variable. 
 `GET /v1/models` is public and is the source of truth. Its response is an OpenAI-shaped list. Each entry adds:
 
 - `pricing.prompt` and `pricing.completion`: US dollars per million tokens at the cheapest eligible Offer.
+- `status`: `available` means at least one Offer is dispatchable now.
 - `capabilities`: union of capabilities available from at least one Offer, such as `chat`, `streaming`, or tool support.
 - `guarantees`: guarantees carried by every Offer represented by the catalogue entry.
 - `context_length`: the minimum context length across represented Offers, when known.
 
-Availability changes as Suppliers connect, disconnect, publish, or age out. Do not assume a model listed yesterday is available now. Do not interpret ordering as ranking: entries are sorted lexicographically by model id. In particular, examples using `deepseek/deepseek-v4-pro` do not claim it is best; it was simply a live model used to make the request concrete.
+Availability changes as Suppliers connect, disconnect, publish, or age out. A disconnected machine Supplier's stored Offers are retained internally but omitted from this endpoint. Do not assume a model listed yesterday is available now. Do not interpret ordering as ranking: entries are sorted lexicographically by model id. In particular, examples using `deepseek/deepseek-v4-pro` do not claim it is best; it was simply a live model used to make the request concrete.
 
 A reasonable generic policy is:
 

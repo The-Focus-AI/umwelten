@@ -20,8 +20,15 @@ import { supplierFixture } from "../store/conformance.js";
 import { hashCredential } from "../auth/credentials.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
 import { createIdentityVerifier } from "../auth/identity.js";
-import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
-import { startMockUpstream, type MockUpstream, type UpstreamMode } from "../testing/mock-upstream.js";
+import {
+  makeTestApplication,
+  type TestApplicationKeys,
+} from "../testing/application-keys.js";
+import {
+  startMockUpstream,
+  type MockUpstream,
+  type UpstreamMode,
+} from "../testing/mock-upstream.js";
 import { Balances, endUserOwner } from "../metering/balances.js";
 import { WIRE_VERSION, CONNECT_PATH } from "./wire.js";
 
@@ -64,13 +71,17 @@ function machine(
         body?: Record<string, unknown>;
       };
       if (frame.type === "welcome") return resolve();
-      if (frame.type === "cancel" && frame.id) return inFlight.get(frame.id)?.abort();
+      if (frame.type === "cancel" && frame.id)
+        return inFlight.get(frame.id)?.abort();
       if (frame.type !== "request" || !frame.id || !frame.body) return;
       void serve(frame.id, frame.body);
     });
   });
 
-  async function serve(id: string, body: Record<string, unknown>): Promise<void> {
+  async function serve(
+    id: string,
+    body: Record<string, unknown>,
+  ): Promise<void> {
     const abort = new AbortController();
     inFlight.set(id, abort);
     try {
@@ -86,7 +97,11 @@ function machine(
       for (;;) {
         const { done, value } = await reader.read();
         if (done || abort.signal.aborted) break;
-        send({ type: "chunk", id, data: decoder.decode(value, { stream: true }) });
+        send({
+          type: "chunk",
+          id,
+          data: decoder.decode(value, { stream: true }),
+        });
       }
       if (!abort.signal.aborted) send({ type: "end", id });
     } catch (error) {
@@ -128,7 +143,11 @@ describe("a machine serves a buyer over its Connection", () => {
       }),
     );
     await store.replaceOffers("thor", [
-      { model: MODEL, capabilities: ["chat", "streaming"], servingMode: "managed" },
+      {
+        model: MODEL,
+        capabilities: ["chat", "streaming"],
+        servingMode: "managed",
+      },
     ]);
 
     app = await makeTestApplication();
@@ -139,7 +158,10 @@ describe("a machine serves a buyer over its Connection", () => {
       port: 0,
       host: "127.0.0.1",
       handshakeTimeoutMs: 200,
-      verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
+      verifyCaller: createIdentityVerifier({
+        store,
+        makeKeySet: () => app.keySet,
+      }),
     });
     await new Balances(store).grant(
       endUserOwner({ application: app.application, subject: "user-1" }),
@@ -157,7 +179,10 @@ describe("a machine serves a buyer over its Connection", () => {
     const token = await app.sign("user-1");
     return fetch(`${exchange.url}/v1/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
       // Streaming, because that is the case worth testing over a Connection —
       // tokens crossing a socket as they are produced — and because the
       // truncation and cancellation modes only exist on the streaming path.
@@ -195,7 +220,10 @@ describe("a machine serves a buyer over its Connection", () => {
     await boot();
     await dial();
     const balances = new Balances(store);
-    const owner = endUserOwner({ application: app.application, subject: "user-1" });
+    const owner = endUserOwner({
+      application: app.application,
+      subject: "user-1",
+    });
     const before = (await balances.get(owner)).microDollars;
 
     await (await chat()).text();
@@ -300,7 +328,10 @@ describe("a machine serves a buyer over its Connection", () => {
       port: 0,
       host: "127.0.0.1",
       handshakeTimeoutMs: 200,
-      verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
+      verifyCaller: createIdentityVerifier({
+        store,
+        makeKeySet: () => app.keySet,
+      }),
     });
     await new Balances(store).grant(
       endUserOwner({ application: app.application, subject: "user-1" }),
@@ -311,12 +342,20 @@ describe("a machine serves a buyer over its Connection", () => {
     expect(await store.listOffers()).toEqual([]);
 
     thor = machine(exchange.url, runtime.baseUrl, {
-      offers: [{ model: MODEL, capabilities: ["chat", "streaming"], servingMode: "managed" }],
+      offers: [
+        {
+          model: MODEL,
+          capabilities: ["chat", "streaming"],
+          servingMode: "managed",
+        },
+      ],
       guarantees: ["on-premise"],
     });
     await thor.welcomed;
 
-    const catalogue = (await (await fetch(`${exchange.url}/v1/models`)).json()) as {
+    const catalogue = (await (
+      await fetch(`${exchange.url}/v1/models`)
+    ).json()) as {
       data: { id: string }[];
     };
     expect(catalogue.data.map((m) => m.id)).toEqual([MODEL]);
@@ -328,6 +367,15 @@ describe("a machine serves a buyer over its Connection", () => {
     const [record] = await store.listRequests();
     expect(record.supplierId).toBe("thor");
     expect(record.outcome).toBe("completed");
+
+    await thor.hangUp();
+    thor = undefined;
+    const withdrawn = (await (
+      await fetch(`${exchange.url}/v1/models`)
+    ).json()) as {
+      data: { id: string }[];
+    };
+    expect(withdrawn.data).toEqual([]);
   });
 
   it("counts what the machine is working on while it works", async () => {

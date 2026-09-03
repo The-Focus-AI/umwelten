@@ -48,7 +48,8 @@ export default {
         note.textContent = models.length ? "" : "no models on offer";
         table.innerHTML = models.length
           ? `<tr style="color:var(--muted);">
-              <th style="${td}">model</th><th style="${td}">prompt</th>
+              <th style="${td}">model</th><th style="${td}">status</th>
+              <th style="${td}">prompt</th>
               <th style="${td}">completion</th><th style="${td}">context</th>
               <th style="${td}">capabilities</th><th style="${td}">guarantees</th>
             </tr>` +
@@ -56,6 +57,7 @@ export default {
               .map(
                 (m) => `<tr style="border-top:1px solid var(--line);">
               <td style="${td}">${esc(m.id)}</td>
+              <td style="${td}color:#77c593;">● ${m.status === "available" ? "Available now" : "Unknown"}</td>
               <td style="${td}">${dollars(m.pricing?.prompt)}</td>
               <td style="${td}">${dollars(m.pricing?.completion)}</td>
               <td style="${td}">${m.context_length ? esc(m.context_length) : "—"}</td>

@@ -34,6 +34,10 @@ export interface CustomerHandlerOptions {
   authorizedParties?: string[];
   /** Process-local entry into the normal buyer pipeline for the playground. */
   completeChat?: BuyerHandler["handleAs"];
+  /** Process-local machine liveness; persisted events cannot answer "now". */
+  supplierConnection?: (
+    supplierId: string,
+  ) => { connectedAt: Date; inFlight: number } | undefined;
   defaultCreditLimitMicroDollars?: number;
   stripeSecretKey?: string;
   stripeWebhookSecret?: string;
@@ -244,14 +248,47 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     return store.getClientOperator(subject);
   }
 
+  async function supplierConnections() {
+    const [suppliers, events] = await Promise.all([
+      store.listSuppliers(),
+      store.listConnectionEvents(),
+    ]);
+    return suppliers
+      .filter((supplier) => supplier.kind === "agent")
+      .map((supplier) => {
+        const live = opts.supplierConnection?.(supplier.id);
+        const lastDisconnect = events
+          .filter(
+            (event) =>
+              event.supplierId === supplier.id && event.event === "disconnected",
+          )
+          .sort((left, right) => right.at.getTime() - left.at.getTime())[0];
+        return {
+          id: supplier.id,
+          displayName: supplier.displayName,
+          enabled: supplier.enabled,
+          connected: Boolean(live),
+          connectedAt: live?.connectedAt,
+          inFlight: live?.inFlight ?? 0,
+          lastDisconnectAt: lastDisconnect?.at,
+          lastDisconnectReason: lastDisconnect?.reason,
+        };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+  }
+
   async function dashboard(subject: string, canAdminGrant = false) {
     const link = await callerLink(subject);
     const client = link ? await store.getClient(link.clientId) : null;
+    const adminSupplierConnections = canAdminGrant
+      ? await supplierConnections()
+      : undefined;
     if (!client || !link)
       return {
         onboarded: false,
         fundingConfigured: stripeConfigured,
         canAdminGrant,
+        supplierConnections: adminSupplierConnections,
       };
     const applications = (await store.listApplications()).filter(
       (application) => application.clientId === client.id,
@@ -307,6 +344,7 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         .map(({ id, createdAt, expiresAt }) => ({ id, createdAt, expiresAt })),
       fundingConfigured: stripeConfigured,
       canAdminGrant,
+      supplierConnections: adminSupplierConnections,
       balance,
       ledger,
       applications: applications.map((application, index) => ({

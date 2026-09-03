@@ -151,6 +151,9 @@ export function createExchangeApp(
           party.trim(),
         ),
       completeChat: buyerHandler.handleAs,
+      supplierConnection: connections
+        ? (supplierId) => connections.get(supplierId)
+        : undefined,
       defaultCreditLimitMicroDollars:
         opts.selfServiceCreditLimitMicroDollars ??
         Number(process.env.MYCEL_SELF_SERVICE_CREDIT_LIMIT_MICRO_DOLLARS ?? 0),
@@ -163,7 +166,12 @@ export function createExchangeApp(
     // The operational surface remains a provider-free, read-only assembly.
     createClientSurfaceHandler({ componentsDir: opts.componentsDir }),
     createSupplyHandler({ store }),
-    createModelsHandler({ store }),
+    createModelsHandler({
+      store,
+      connectedSupplierIds: connections
+        ? () => connections.connectedSupplierIds()
+        : undefined,
+    }),
     buyerHandler,
   ];
 

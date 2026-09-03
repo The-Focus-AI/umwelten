@@ -39,6 +39,9 @@ beforeAll(async () => {
   await store.createSupplier(
     supplierFixture({ id: "browser-supplier", displayName: "Browser Supplier" }),
   );
+  await store.createSupplier(
+    supplierFixture({ id: "thor", kind: "agent", displayName: "Thor" }),
+  );
   await store.replaceOffers("browser-supplier", [
     {
       model: "browser-model",
@@ -82,6 +85,10 @@ beforeAll(async () => {
   const handler = createCustomerHandler({
     store,
     completeChat: buyer.handleAs,
+    supplierConnection: (supplierId) =>
+      supplierId === "thor"
+        ? { connectedAt: new Date("2026-09-03T15:28:00Z"), inFlight: 0 }
+        : undefined,
     verifyOperator: async (authorization) => {
       if (authorization !== "Bearer user_browser")
         throw new Error("unauthorized");
@@ -159,6 +166,11 @@ describe("Mycel's signed-in account console", () => {
     expect(
       await page.locator('[data-component="account-funding"]').textContent(),
     ).toContain("Payment funding is not active");
+    expect(
+      await page
+        .locator('[data-component="account-supplier-connections"]')
+        .textContent(),
+    ).toContain("Thor● Connected");
 
     const assembly = await page.evaluate<{ id: string; active: boolean }[]>(
       () => {
@@ -177,7 +189,7 @@ describe("Mycel's signed-in account console", () => {
         }));
       },
     );
-    expect(assembly).toHaveLength(11);
+    expect(assembly).toHaveLength(12);
     expect(assembly.every((entry) => entry.active)).toBe(true);
 
     await expect

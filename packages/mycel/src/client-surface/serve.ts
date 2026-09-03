@@ -55,6 +55,10 @@ const ACCOUNT_ENTRIES: ShellManifestEntry[] = [
     id: "account-admin-grant",
     url: "./components/account-admin-grant.js",
   },
+  {
+    id: "account-supplier-connections",
+    url: "./components/account-supplier-connections.js",
+  },
   { id: "account-ledger", url: "./components/account-ledger.js" },
   { id: "account-usage", url: "./components/account-usage.js" },
   { id: "account-team", url: "./components/account-team.js" },
