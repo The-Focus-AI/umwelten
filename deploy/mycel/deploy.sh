@@ -209,8 +209,17 @@ fi
 # every command, and a failure here costs a build instead of a rollback.
 log "bundling the exchange"
 docker volume create mycel-pnpm-store >/dev/null
-docker run --rm -v "$ROOT:/w" -v mycel-pnpm-store:/pnpm/store -w /w node:22-slim sh -c \
-  'corepack enable && pnpm config set store-dir /pnpm/store \
+RUNNER_UID="$(id -u)"
+RUNNER_GID="$(id -g)"
+# The named store may have been created by an older root-run build. Repair it
+# once per deploy, then run the bind-mounted build as the invoking user so the
+# Actions runner can clean its checkout on the next run.
+docker run --rm -v mycel-pnpm-store:/pnpm/store alpine:3.22 \
+  chown -R "$RUNNER_UID:$RUNNER_GID" /pnpm/store
+docker run --rm --user "$RUNNER_UID:$RUNNER_GID" --env HOME=/tmp \
+  -v "$ROOT:/w" -v mycel-pnpm-store:/pnpm/store -w /w node:22-slim sh -c \
+  'mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin \
+   && export PATH="/tmp/bin:$PATH" && pnpm config set store-dir /pnpm/store \
    && pnpm install --frozen-lockfile && pnpm --filter @umwelten/mycel build \
    && node packages/mycel/dist/mycel.js --help >/dev/null'
 

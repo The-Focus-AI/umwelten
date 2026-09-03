@@ -29,8 +29,15 @@ jobs:
     runs-on: [self-hosted, mycel]
     timeout-minutes: 30
     steps:
+      # Keep the repository below GITHUB_WORKSPACE. An older deploy ran its
+      # build container as root and left the workspace checkout impossible for
+      # the runner to clean; this path also lets the fixed deploy recover from
+      # that checkout without host intervention.
       - uses: actions/checkout@v7
+        with:
+          path: deploy-source
       - name: Deploy mycel
+        working-directory: deploy-source
         env:
           # Host copy of .env (hostname, Clerk publishable key, etc.) — not in
           # git. Runbook path is /opt/umwelten/deploy/mycel; if the Actions
