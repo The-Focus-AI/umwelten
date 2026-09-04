@@ -432,11 +432,15 @@ parent
 							summary.tokenUsage.output_tokens?.toLocaleString() ?? "N/A",
 						],
 					);
-					if (summary.tokenUsage.cache_creation_input_tokens) {
+					if (
+						summary.tokenUsage.cache_creation_input_tokens ||
+						summary.tokenUsage.cache_read_input_tokens
+					) {
 						tableData.push(
 							[
 								"Cache writes",
-								summary.tokenUsage.cache_creation_input_tokens.toLocaleString(),
+								summary.tokenUsage.cache_creation_input_tokens?.toLocaleString() ??
+									"0",
 							],
 							[
 								"Cache reads",

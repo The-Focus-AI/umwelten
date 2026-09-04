@@ -167,7 +167,9 @@ export class ChannelBridge {
       // StreamObserver below receives events directly from the runner).
       const originalCallback = interaction.onTranscriptUpdate;
       interaction.setOnTranscriptUpdate((messages) => {
-        void writeSessionTranscript(sessionDir, messages);
+        void writeSessionTranscript(sessionDir, messages, undefined, (m) =>
+          interaction.messageUsage.get(m),
+        );
       });
 
       // Bridge the runner's stream events to adapter event handlers.
@@ -234,7 +236,9 @@ export class ChannelBridge {
       }
 
       // Final transcript write
-      await writeSessionTranscript(sessionDir, interaction.getMessages());
+      await writeSessionTranscript(sessionDir, interaction.getMessages(), undefined, (m) =>
+        interaction.messageUsage.get(m),
+      );
 
       // Emit done
       const result: BridgeResult = {

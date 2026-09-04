@@ -169,7 +169,9 @@ async function cliAction(
 
 	// Wire transcript persistence
 	interaction.setOnTranscriptUpdate((messages) => {
-		void writeSessionTranscript(sessionDir, messages);
+		void writeSessionTranscript(sessionDir, messages, undefined, (m) =>
+			interaction.messageUsage.get(m),
+		);
 	});
 
 	if (oneShot) {

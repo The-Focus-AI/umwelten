@@ -30,9 +30,12 @@ export const ModelRouteSchema = z.object({
 export interface ModelDetails extends ModelRoute {
   description?: string;
   contextLength?: number;
+  /** USD per million tokens. Cache rates are optional; `calculateCost` falls back to `promptTokens`. */
   costs?: {
     promptTokens: number;
     completionTokens: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
   };
   addedDate?: Date;
   lastUpdated?: Date;
@@ -47,6 +50,8 @@ export const ModelDetailsSchema = ModelRouteSchema.extend({
     .object({
       promptTokens: z.number(),
       completionTokens: z.number(),
+      cacheReadTokens: z.number().optional(),
+      cacheWriteTokens: z.number().optional(),
     })
     .optional(),
   addedDate: z.date().optional(),
@@ -109,7 +114,8 @@ export const ResponseMetadataSchema = z.object({
   tokenUsage: TokenUsageSchema,
   provider: z.string(),
   model: z.string(),
-  cost: CostBreakdownSchema,
+  /** Absent for free models or when the provider reported no usage. */
+  cost: CostBreakdownSchema.optional(),
 });
 
 export const ModelResponseSchema = z.object({
