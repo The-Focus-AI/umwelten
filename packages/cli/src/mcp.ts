@@ -372,7 +372,9 @@ mcpCommand
     // Save transcript after each turn
     const saveTranscript = async () => {
       try {
-        await writeSessionTranscript(sessionDir, interaction.getMessages());
+        await writeSessionTranscript(sessionDir, interaction.getMessages(), undefined, (m) =>
+          interaction.messageUsage.get(m),
+        );
       } catch {
         // Non-fatal — don't interrupt the chat
       }

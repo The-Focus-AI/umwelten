@@ -193,6 +193,24 @@ export {
 } from "./costs/costs.js";
 export type { TokenUsage, CostBreakdown } from "./costs/costs.js";
 
+// ── Observability (per-completion records) ──────────────────────────────
+export {
+	JsonlCompletionSink,
+	MemoryCompletionSink,
+	NullCompletionSink,
+	getDefaultCompletionSink,
+	setDefaultCompletionSink,
+	resolveCompletionsDir,
+	buildCompletionRecord,
+} from "./observability/index.js";
+export type {
+	CompletionRecord,
+	CompletionSink,
+	CompletionTokens,
+	CompletionCost,
+	CompletionOutcome,
+} from "./observability/index.js";
+
 // ── Schema ──────────────────────────────────────────────────────────────
 export {
 	parseDSLSchema,

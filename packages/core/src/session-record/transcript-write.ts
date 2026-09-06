@@ -17,7 +17,9 @@ import type {
   TextContent,
   ToolUseContent,
   ToolResultContent,
+  TokenUsage as ClaudeTokenUsage,
 } from '../interaction/types/types.js';
+import type { TokenUsage } from '../costs/costs.js';
 
 type VercelContentPart = {
   type?: string;
@@ -135,14 +137,36 @@ function extractToolResultsFromInvocations(
     }));
 }
 
+/** Usage the runner recorded for one assistant message (see Interaction.messageUsage). */
+export type MessageUsageLookup = (
+  message: ModelMessage
+) => { model: string; usage: TokenUsage } | undefined;
+
+/**
+ * Convert umwelten's normalized TokenUsage (promptTokens inclusive of cache)
+ * to the Claude wire shape, where input_tokens excludes cached tokens.
+ */
+export function toClaudeUsage(usage: TokenUsage): ClaudeTokenUsage {
+  const cacheRead = usage.cacheReadTokens ?? 0;
+  const cacheWrite = usage.cacheWriteTokens ?? 0;
+  return {
+    input_tokens: Math.max(0, usage.promptTokens - cacheRead - cacheWrite),
+    output_tokens: usage.completionTokens,
+    ...(usage.cacheReadTokens != null && { cache_read_input_tokens: usage.cacheReadTokens }),
+    ...(usage.cacheWriteTokens != null && { cache_creation_input_tokens: usage.cacheWriteTokens }),
+  };
+}
+
 /**
  * Convert ModelMessage[] to Claude-style JSONL (one JSON object per line).
  * @param reasoningForLastAssistant - When set, attach reasoning to the last assistant entry.
+ * @param usageFor - When set, assistant entries carry `message.model` and `message.usage`.
  */
 export function coreMessagesToJSONL(
   messages: ModelMessage[],
   _sessionId?: string,
-  reasoningForLastAssistant?: string
+  reasoningForLastAssistant?: string,
+  usageFor?: MessageUsageLookup
 ): string {
   const lines: string[] = [];
   const base = Date.now();
@@ -196,11 +220,16 @@ export function coreMessagesToJSONL(
             ? ''
             : deduped;
       const isLastAssistant = i === lastAssistantIndex;
+      const recorded = usageFor?.(m);
       const ent: AssistantMessageEntry = {
         type: 'assistant',
         uuid,
         timestamp,
-        message: { role: 'assistant', content },
+        message: {
+          role: 'assistant',
+          content,
+          ...(recorded && { model: recorded.model, usage: toClaudeUsage(recorded.usage) }),
+        },
         ...(isLastAssistant &&
           reasoningForLastAssistant != null &&
           reasoningForLastAssistant !== '' && { reasoning: reasoningForLastAssistant }),
@@ -254,8 +283,9 @@ export function coreMessagesToJSONL(
 export async function writeSessionTranscript(
   sessionDir: string,
   messages: ModelMessage[],
-  reasoningForLastAssistant?: string
+  reasoningForLastAssistant?: string,
+  usageFor?: MessageUsageLookup
 ): Promise<void> {
-  const jsonl = coreMessagesToJSONL(messages, undefined, reasoningForLastAssistant);
+  const jsonl = coreMessagesToJSONL(messages, undefined, reasoningForLastAssistant, usageFor);
   await writeFile(join(sessionDir, 'transcript.jsonl'), jsonl, 'utf-8');
 }

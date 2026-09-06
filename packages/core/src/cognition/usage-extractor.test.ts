@@ -281,4 +281,79 @@ describe("extractStreamUsage", () => {
 			});
 		});
 	});
+
+	describe("normalizeTokenUsage cache + reasoning fields", () => {
+		it("AI SDK v7 shape: inputTokenDetails/outputTokenDetails (inputTokens inclusive of cache)", () => {
+			const normalized = normalizeTokenUsage({
+				inputTokens: 1000,
+				outputTokens: 300,
+				totalTokens: 1300,
+				inputTokenDetails: { cacheReadTokens: 700, cacheWriteTokens: 100 },
+				outputTokenDetails: { reasoningTokens: 50 },
+			});
+			expect(normalized).toEqual({
+				promptTokens: 1000,
+				completionTokens: 300,
+				total: 1300,
+				cacheReadTokens: 700,
+				cacheWriteTokens: 100,
+				reasoningTokens: 50,
+			});
+		});
+
+		it("AI SDK v5 shape: cachedInputTokens + reasoningTokens", () => {
+			const normalized = normalizeTokenUsage({
+				inputTokens: 120,
+				outputTokens: 45,
+				totalTokens: 165,
+				reasoningTokens: 12,
+				cachedInputTokens: 5,
+			});
+			expect(normalized).toEqual({
+				promptTokens: 120,
+				completionTokens: 45,
+				total: 165,
+				cacheReadTokens: 5,
+				reasoningTokens: 12,
+			});
+		});
+
+		it("OpenAI wire shape: prompt_tokens_details.cached_tokens", () => {
+			const normalized = normalizeTokenUsage({
+				prompt_tokens: 2000,
+				completion_tokens: 100,
+				total_tokens: 2100,
+				prompt_tokens_details: { cached_tokens: 1536 },
+				completion_tokens_details: { reasoning_tokens: 40 },
+			});
+			expect(normalized).toEqual({
+				promptTokens: 2000,
+				completionTokens: 100,
+				total: 2100,
+				cacheReadTokens: 1536,
+				reasoningTokens: 40,
+			});
+		});
+
+		it("raw Anthropic wire shape: input_tokens EXCLUDES cache, so cache is folded in", () => {
+			const normalized = normalizeTokenUsage({
+				input_tokens: 20,
+				output_tokens: 80,
+				cache_read_input_tokens: 900,
+				cache_creation_input_tokens: 100,
+			});
+			expect(normalized).toEqual({
+				promptTokens: 1020,
+				completionTokens: 80,
+				total: 1100,
+				cacheReadTokens: 900,
+				cacheWriteTokens: 100,
+			});
+		});
+
+		it("omits cache/reasoning keys entirely when the provider reports none", () => {
+			const normalized = normalizeTokenUsage({ inputTokens: 10, outputTokens: 5 });
+			expect(normalized).toEqual({ promptTokens: 10, completionTokens: 5, total: 15 });
+		});
+	});
 });

@@ -6,6 +6,7 @@ import {
   ModelResponse,
 } from "../../cognition/types.js";
 import { BaseModelRunner } from "../../cognition/runner.js";
+import type { TokenUsage } from "../../costs/costs.js";
 // import { getAllTools } from "../../stimulus/tools/index.js";
 import { z } from "zod";
 import { buildAttachmentMessage } from "./attachments.js";
@@ -35,6 +36,15 @@ export class Interaction {
   };
 
   public messages: ModelMessage[] = [];
+  /**
+   * Per-assistant-message usage recorded by the runner after each completion.
+   * Keyed by message identity so transcript writers can persist `usage` on the
+   * matching assistant entry. WeakMap: entries vanish with the message.
+   */
+  public messageUsage = new WeakMap<
+    ModelMessage,
+    { model: string; usage: TokenUsage }
+  >();
   protected runner: ModelRunner;
   public userId: string = "default";
   public modelDetails: ModelDetails;
