@@ -15,6 +15,8 @@ export type {
 
 export { discoverRuntimes } from "./discover.js";
 export { probeOffer } from "./probe.js";
+export { probeOperationCapabilities } from "./operation-probe.js";
+export type { OperationProbeOptions } from "./operation-probe.js";
 export { findDuplicateModels, probeTargets, toOfferDrafts } from "./offers.js";
 export { ExchangeClient } from "./exchange-client.js";
 export type { ExchangeClientOptions, PublishResult } from "./exchange-client.js";

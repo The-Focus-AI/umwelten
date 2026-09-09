@@ -4,9 +4,14 @@ export type {
   MicroDollars,
   Offer,
   OfferPricing,
+  OperationName,
+  OperationPricing,
   PublishedOffer,
   ServingMode,
   Supplier,
+  UsageUnitName,
+  StoredFile,
+  VideoJob,
 } from "./types.js";
 export { CAPABILITY_NAMES, DEFAULT_PRICING } from "./types.js";
 
@@ -26,6 +31,15 @@ export {
   REQUIRE_GUARANTEE_HEADER,
 } from "./buyer/handler.js";
 export type { BuyerHandlerOptions } from "./buyer/handler.js";
+export {
+  EMBEDDINGS_PATH,
+  FILES_PATH,
+  IMAGE_GENERATIONS_PATH,
+  TRANSCRIPTIONS_PATH,
+  VIDEOS_PATH,
+  createOperationHandler,
+  priceOperation,
+} from "./buyer/operations.js";
 
 export {
   StreamCounter,

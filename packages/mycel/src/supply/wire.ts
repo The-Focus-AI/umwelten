@@ -79,8 +79,15 @@ export interface WelcomeFrame {
 export interface RequestFrame {
   type: "request";
   id: string;
-  /** The buyer's OpenAI-shaped payload, forwarded unmodified. */
-  body: Record<string, unknown>;
+  /** The buyer's OpenAI-shaped payload. Kept for version-1 chat peers. */
+  body?: Record<string, unknown>;
+  /** Omitted means `/chat/completions`, preserving version-1 semantics. */
+  path?: string;
+  contentType?: string;
+  /** Exchange-owned headers such as request correlation/idempotency keys. */
+  headers?: Record<string, string>;
+  /** Raw multipart or other binary request bytes. */
+  bodyBase64?: string;
 }
 
 /**
@@ -106,7 +113,9 @@ export interface ResponseHeadFrame {
 export interface ChunkFrame {
   type: "chunk";
   id: string;
-  data: string;
+  data?: string;
+  /** Binary response bytes; mutually exclusive with data. */
+  dataBase64?: string;
 }
 
 /** The body finished normally. */

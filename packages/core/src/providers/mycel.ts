@@ -18,12 +18,60 @@
  * user assertion, which is why the key is read per call rather than captured.
  */
 
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createOpenAI, type OpenAIProvider } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { BaseProvider } from "./base.js";
 import type { ModelDetails, ModelRoute } from "../cognition/types.js";
 
 const DEFAULT_BASE_URL = "http://localhost:7438";
+
+export interface MycelAIOptions {
+  apiKey: string;
+  /** Stable application-scoped user identity. Create one provider per request. */
+  endUser: string;
+  baseUrl?: string;
+  requiredCapabilities?: string[];
+  requiredGuarantees?: string[];
+  fetch?: typeof fetch;
+}
+
+/** Small AI SDK 7-native factory for server-side applications. */
+export function createMycelAI(options: MycelAIOptions): OpenAIProvider {
+  const base = (options.baseUrl ?? process.env.MYCEL_URL ?? DEFAULT_BASE_URL).replace(
+    /\/$/,
+    "",
+  );
+  if (!options.apiKey) throw new Error("Mycel requires an Application credential.");
+  if (!options.endUser.trim()) throw new Error("Mycel requires a stable End User.");
+  const provider = createOpenAI({
+    name: "mycel",
+    baseURL: `${base}/v1`,
+    apiKey: options.apiKey,
+    headers: {
+      "X-Mycel-End-User": options.endUser,
+      ...(options.requiredCapabilities?.length
+        ? {
+            "X-Exchange-Require-Capability":
+              options.requiredCapabilities.join(","),
+          }
+        : {}),
+      ...(options.requiredGuarantees?.length
+        ? {
+            "X-Exchange-Require-Guarantee": options.requiredGuarantees.join(","),
+          }
+        : {}),
+    },
+    fetch: options.fetch,
+  });
+  // OpenAI's callable defaults to its Responses API. Mycel's portable text
+  // contract is Chat Completions, while named embedding/image/transcription
+  // methods retain their native OpenAI paths.
+  return Object.assign(
+    (modelId: string) => provider.chat(modelId),
+    provider,
+    { languageModel: (modelId: string) => provider.chat(modelId) },
+  ) as OpenAIProvider;
+}
 
 /** Shape of `GET /v1/models` on the Exchange. Duplicated rather than imported. */
 interface MycelModelEntry {
@@ -86,17 +134,12 @@ export class MycelProvider extends BaseProvider {
   }
 
   getLanguageModel(route: ModelRoute): LanguageModel {
-    const exchange = createOpenAICompatible({
-      name: "mycel",
-      baseURL: `${this.base}/v1`,
-      apiKey: this.apiKey,
-      headers: this.endUser
-        ? { "X-Mycel-End-User": this.endUser }
-        : undefined,
-      includeUsage: true,
-      // The Exchange relays whatever the chosen Supplier supports, and its
-      // llama.cpp-family Suppliers implement json_schema response formats.
-      supportsStructuredOutputs: true,
+    if (!this.endUser)
+      throw new Error("MYCEL_END_USER or HABITAT_ID is required for Mycel calls.");
+    const exchange = createMycelAI({
+      apiKey: this.apiKey ?? "",
+      baseUrl: this.base,
+      endUser: this.endUser,
     });
     return exchange(route.name);
   }

@@ -97,6 +97,40 @@ describe("dispatch", () => {
 
       expect(result.offer).toBeDefined();
     });
+
+    it("refuses non-chat work until its measured units are explicitly priced", () => {
+      const result = dispatch(
+        [offer({ capabilities: ["chat", "embeddings"] })],
+        { model: MODEL, capabilities: ["embeddings"], operation: "embeddings" },
+      );
+
+      expect(result.offer).toBeUndefined();
+      expect(result.considered[0].reason).toBe("unpriced-operation");
+    });
+
+    it("refuses prices whose units Mycel cannot measure for that operation", () => {
+      const result = dispatch(
+        [
+          offer({
+            capabilities: ["chat", "embeddings"],
+            operationPricing: {
+              embeddings: {
+                inputUnit: "byte",
+                outputUnit: "image",
+                wholesaleInputPerMillion: 1,
+                wholesaleOutputPerMillion: 1,
+                retailInputPerMillion: 1,
+                retailOutputPerMillion: 1,
+              },
+            },
+          }),
+        ],
+        { model: MODEL, capabilities: ["embeddings"], operation: "embeddings" },
+      );
+
+      expect(result.offer).toBeUndefined();
+      expect(result.considered[0].reason).toBe("unpriced-operation");
+    });
   });
 
   describe("ranking", () => {

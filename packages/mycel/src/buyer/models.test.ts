@@ -58,6 +58,42 @@ describe("summarizeOffers", () => {
     expect(entries[0].capabilities).toEqual(["chat", "tool-calling"]);
   });
 
+  it("quotes each operation from its cheapest capable priced Offer without exposing wholesale prices", () => {
+    const operationPrice = (retailInputPerMillion: number) => ({
+      inputUnit: "token" as const,
+      outputUnit: "token" as const,
+      wholesaleInputPerMillion: 900_000,
+      wholesaleOutputPerMillion: 800_000,
+      retailInputPerMillion,
+      retailOutputPerMillion: 200_000,
+      additionalInputPricing: {
+        byte: { wholesalePerMillion: 700_000, retailPerMillion: 300_000 },
+      },
+    });
+    const entries = summarizeOffers([
+      offer({ supplierId: "cheap-chat", retailCompletionPerMillion: 1 }),
+      offer({
+        supplierId: "dear-embedding",
+        capabilities: ["chat", "embeddings"],
+        operationPricing: { embeddings: operationPrice(600_000) },
+      }),
+      offer({
+        supplierId: "cheap-embedding",
+        capabilities: ["chat", "embeddings"],
+        operationPricing: { embeddings: operationPrice(100_000) },
+      }),
+    ]);
+
+    expect(entries[0].operation_pricing.embeddings).toEqual({
+      input_unit: "token",
+      output_unit: "token",
+      input: 0.1,
+      output: 0.2,
+      additional_input: { byte: 0.3 },
+    });
+    expect(JSON.stringify(entries[0])).not.toContain("wholesale");
+  });
+
   it("intersects guarantees across Offers", () => {
     // Advertising one that only some Offers carry would promise something a
     // request might not get.

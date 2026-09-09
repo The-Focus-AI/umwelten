@@ -21,7 +21,9 @@ import type {
   OfferPricing,
   PublishedOffer,
   RequestRecord,
+  StoredFile,
   Supplier,
+  VideoJob,
 } from "../types.js";
 
 export interface ExchangeStore {
@@ -106,6 +108,20 @@ export interface ExchangeStore {
     applicationId?: string;
     subject?: string;
   }): Promise<RequestRecord[]>;
+
+  // ── Files and asynchronous media ─────────────────────────────────
+
+  createFile(file: StoredFile): Promise<void>;
+  getFile(id: string): Promise<StoredFile | null>;
+  deleteFile(id: string): Promise<void>;
+  createVideoJob(job: VideoJob): Promise<void>;
+  getVideoJob(id: string): Promise<VideoJob | null>;
+  listVideoJobs(statuses?: VideoJob["status"][]): Promise<VideoJob[]>;
+  updateVideoJob(
+    id: string,
+    update: Pick<VideoJob, "status" | "updatedAt"> &
+      Partial<Pick<VideoJob, "outputFileId" | "error">>,
+  ): Promise<void>;
 
   // ── Connections ───────────────────────────────────────────────────
 

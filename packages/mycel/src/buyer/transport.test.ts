@@ -15,7 +15,7 @@ import { makeTestApplication, type TestApplicationKeys } from "../testing/applic
 import { createIdentityVerifier } from "../auth/identity.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
 import { Balances, endUserOwner } from "../metering/balances.js";
-import type { SupplierTransport } from "./transport.js";
+import type { SupplierRequest, SupplierTransport } from "./transport.js";
 
 const MODEL = "gemma-4-26b";
 const FUNDED = 1_000_000_000;
@@ -66,7 +66,7 @@ describe("the Supplier transport seam", () => {
   let exchange: RunningExchange;
   let app: TestApplicationKeys;
   let balances: Balances;
-  let seen: { body: Record<string, unknown> } | undefined;
+  let seen: { request: SupplierRequest } | undefined;
 
   /**
    * Accepts a sync producer too — a Connection hands back a Response as soon as
@@ -95,7 +95,7 @@ describe("the Supplier transport seam", () => {
       host: "127.0.0.1",
       verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
       resolveTransport: () => async (body, signal) => {
-        seen = { body };
+        seen = { request: body as SupplierRequest };
         return transport(body, signal);
       },
     });
@@ -140,8 +140,8 @@ describe("the Supplier transport seam", () => {
 
     await (await chat({ stream: true, temperature: 0.2 })).text();
 
-    expect(seen?.body.model).toBe(MODEL);
-    expect(seen?.body.temperature).toBe(0.2);
+    expect((seen?.request.body as Record<string, unknown>).model).toBe(MODEL);
+    expect((seen?.request.body as Record<string, unknown>).temperature).toBe(0.2);
   });
 
   it("meters and charges a transport that never touched the network", async () => {

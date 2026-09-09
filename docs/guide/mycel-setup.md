@@ -405,7 +405,53 @@ To make it permanent for every request an Application sends, the operator sets i
 once at creation: `mycel application create YOUR_APP --client YOUR_ORG
 --guarantees on-premise`.
 
-### 3.5 Read a failure
+Request bodies impose requirements too. Mycel infers `streaming` from
+`stream: true`, `tool-calling` from a non-empty `tools` array,
+`structured-output` from a JSON response format, and image/video input from
+message parts. Headers only add requirements; they cannot route a tool call to
+an Offer that was never verified for tools.
+
+### 3.5 Use embeddings, recorded audio, images, and video
+
+The OpenAI-compatible operations are `/v1/embeddings`,
+`/v1/audio/transcriptions` (multipart), and `/v1/images/generations`. Video is
+deliberately asynchronous: upload raw `video/*` bytes to `/v1/files`, submit the
+returned `input_file_id` to `/v1/videos`, poll `/v1/videos/{id}`, and download
+the resulting `/v1/files/{output_file_id}/content`. Media is capped at 100 MB
+and scoped to the calling Application and End User.
+
+Endpoint code alone never makes a capability available. A machine operator must
+verify it before publishing:
+
+```bash
+umwelten supplier dial --mycel https://mycel.thefocus.ai \
+  --runtime http://localhost:4000/v1 --probe-operations
+```
+
+`--probe-operations` verifies image input, embeddings, and transcription.
+Image/video generation and video input may perform billable generation and are
+therefore omitted unless the operator explicitly adds
+`--probe-generative-media`. Mycel still refuses a verified non-chat operation
+until its operator has assigned physical-unit prices with
+`mycel price-operation`.
+
+Server-side AI SDK 7 clients can construct one attributed provider per request:
+
+```ts
+import { createMycelAI } from "umwelten";
+
+const mycel = createMycelAI({
+  apiKey: process.env.MYCEL_API_KEY!,
+  endUser: currentUser.id,
+  baseUrl: "https://mycel.thefocus.ai",
+});
+```
+
+Use `mycel(model)` for chat, `mycel.embedding(model)`, `mycel.image(model)`, or
+`mycel.transcription(model)` with AI SDK 7. Capture `X-Mycel-Request-Id` from
+responses as the provenance join key.
+
+### 3.6 Read a failure
 
 Every failure names itself. Do not lump them together:
 
@@ -427,7 +473,7 @@ lost. The reason is the diagnosis:
 | `insufficient-context` | Your `minContextTokens` exceeds what any Offer commits to. |
 | `wrong-quantization` | Nothing eligible serves those weights that way. |
 
-### 3.6 Check spending
+### 3.7 Check spending
 
 ```bash
 mycel balance YOUR_ORG

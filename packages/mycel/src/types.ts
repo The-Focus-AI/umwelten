@@ -21,7 +21,17 @@ export type MicroDollars = number;
  * declared — see ADR 0015 and the supplier agent's probe battery.
  */
 export type CapabilityName =
-  "chat" | "streaming" | "tool-calling" | "structured-output" | "reasoning";
+  | "chat"
+  | "streaming"
+  | "tool-calling"
+  | "structured-output"
+  | "reasoning"
+  | "image-input"
+  | "video-input"
+  | "embeddings"
+  | "transcription"
+  | "image-generation"
+  | "video-generation";
 
 export const CAPABILITY_NAMES: readonly CapabilityName[] = [
   "chat",
@@ -29,7 +39,61 @@ export const CAPABILITY_NAMES: readonly CapabilityName[] = [
   "tool-calling",
   "structured-output",
   "reasoning",
+  "image-input",
+  "video-input",
+  "embeddings",
+  "transcription",
+  "image-generation",
+  "video-generation",
 ];
+
+/** The billable operation carried by a request. */
+export type OperationName =
+  | "chat"
+  | "embeddings"
+  | "transcription"
+  | "image-generation"
+  | "video-generation";
+
+/** The physical quantity recorded for an operation. */
+export type UsageUnitName = "token" | "byte" | "second" | "image" | "video-second";
+
+/** Physical units Mycel can measure without trusting a Supplier's bill. */
+export const OPERATION_UNITS: Record<
+  Exclude<OperationName, "chat">,
+  { input: UsageUnitName; output: UsageUnitName }
+> = {
+  embeddings: { input: "token", output: "token" },
+  transcription: { input: "byte", output: "token" },
+  "image-generation": { input: "token", output: "image" },
+  "video-generation": { input: "token", output: "video-second" },
+};
+
+/**
+ * Operator-owned prices for a non-chat operation.
+ *
+ * Prices are micro-dollars per million physical units. That keeps token and
+ * byte prices precise and also makes an image price exact by recording one
+ * image as one unit and setting its per-million price accordingly.
+ */
+export interface OperationPricing {
+  inputUnit: UsageUnitName;
+  outputUnit: UsageUnitName;
+  wholesaleInputPerMillion: MicroDollars;
+  wholesaleOutputPerMillion: MicroDollars;
+  retailInputPerMillion: MicroDollars;
+  retailOutputPerMillion: MicroDollars;
+  /** Additional simultaneous inputs, such as bytes plus prompt tokens for video. */
+  additionalInputPricing?: Partial<
+    Record<
+      UsageUnitName,
+      {
+        wholesalePerMillion: MicroDollars;
+        retailPerMillion: MicroDollars;
+      }
+    >
+  >;
+}
 
 /**
  * Whether the Supplier controls the runtime behind an Offer, or is reselling
@@ -177,6 +241,8 @@ export interface Offer {
    */
   retailPromptPerMillion: MicroDollars;
   retailCompletionPerMillion: MicroDollars;
+  /** No non-chat operation is dispatchable until the operator prices it. */
+  operationPricing?: Partial<Record<Exclude<OperationName, "chat">, OperationPricing>>;
   enabled: boolean;
   publishedAt: Date;
 }
@@ -379,6 +445,13 @@ export interface RequestRecord {
   subject: string;
   supplierId: string;
   model: string;
+  /** Defaults to chat when reading records created before operation support. */
+  operation?: OperationName;
+  inputUnits?: number;
+  outputUnits?: number;
+  inputUnit?: UsageUnitName;
+  outputUnit?: UsageUnitName;
+  additionalInputUnits?: Partial<Record<UsageUnitName, number>>;
   /** Counted at admission, on our side of the wire. */
   promptTokens: number;
   /** Counted as chunks were relayed. Survives an abort by construction. */
@@ -412,6 +485,40 @@ export interface OfferPricing {
   wholesaleCompletionPerMillion: MicroDollars;
   retailPromptPerMillion: MicroDollars;
   retailCompletionPerMillion: MicroDollars;
+  operationPricing?: Partial<Record<Exclude<OperationName, "chat">, OperationPricing>>;
+}
+
+/** A caller-owned durable upload or generated output. */
+export interface StoredFile {
+  id: string;
+  applicationId: string;
+  subject: string;
+  purpose: "video-input" | "video-output";
+  mediaType: string;
+  bytes: number;
+  /** Base64 is deliberately an implementation-neutral store boundary. */
+  dataBase64: string;
+  createdAt: Date;
+  expiresAt?: Date;
+}
+
+export type VideoJobStatus = "queued" | "running" | "succeeded" | "failed";
+
+/** A durable asynchronous video-generation job. */
+export interface VideoJob {
+  id: string;
+  requestId: string;
+  applicationId: string;
+  subject: string;
+  model: string;
+  supplierId: string;
+  status: VideoJobStatus;
+  request: Record<string, unknown>;
+  inputFileId?: string;
+  outputFileId?: string;
+  error?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**

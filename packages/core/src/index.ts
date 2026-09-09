@@ -167,6 +167,8 @@ export {
 	listRegisteredProviders,
 } from "./providers/index.js";
 export { BaseProvider } from "./providers/base.js";
+export { createMycelAI, createMycelProvider, MycelProvider } from "./providers/mycel.js";
+export type { MycelAIOptions } from "./providers/mycel.js";
 
 // ── Context (compaction) ────────────────────────────────────────────────
 export {

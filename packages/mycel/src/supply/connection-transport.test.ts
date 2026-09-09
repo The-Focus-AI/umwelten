@@ -37,6 +37,8 @@ function fakeMachine() {
     cancels: () => sent.filter((f) => f.type === "cancel"),
     head: (id: string, status = 200) => reply({ type: "response-head", id, status }),
     chunk: (id: string, data: string) => reply({ type: "chunk", id, data }),
+    binaryChunk: (id: string, data: Uint8Array) =>
+      reply({ type: "chunk", id, dataBase64: Buffer.from(data).toString("base64") }),
     end: (id: string) => reply({ type: "end", id }),
     fail: (id: string, message: string) => reply({ type: "request-error", id, message }),
     drop: () => closeListeners.forEach((l) => l(false)),
@@ -76,6 +78,30 @@ describe("relaying over a Connection", () => {
     // The Exchange adds nothing. A Supplier that received a rewritten payload
     // would serve something the buyer did not ask for.
     expect(machine.requests()[0]).toMatchObject({ type: "request", id: "req-1", body });
+  });
+
+  it("carries an operation path and multipart bytes without treating them as chat", async () => {
+    const transport = transportFor();
+    const body = new Uint8Array([0, 1, 254, 255]);
+    void transport(
+      {
+        path: "/audio/transcriptions",
+        contentType: "multipart/form-data; boundary=mycel-test",
+        body,
+        headers: { "idempotency-key": "mycel-request-1" },
+      },
+      new AbortController().signal,
+    ).catch(() => {});
+    await Promise.resolve();
+
+    expect(machine.requests()[0]).toEqual({
+      type: "request",
+      id: "req-1",
+      path: "/audio/transcriptions",
+      contentType: "multipart/form-data; boundary=mycel-test",
+      bodyBase64: Buffer.from(body).toString("base64"),
+      headers: { "idempotency-key": "mycel-request-1" },
+    });
   });
 
   it("returns a Response as soon as the machine reports a status", async () => {
@@ -122,6 +148,24 @@ describe("relaying over a Connection", () => {
 
     machine.end("req-1");
     expect((await reader.read()).done).toBe(true);
+  });
+
+  it("reassembles binary response chunks byte-for-byte", async () => {
+    const transport = transportFor();
+    const pending = transport(
+      { path: "/videos/generations", contentType: "application/json", body: { model: "m" } },
+      new AbortController().signal,
+    );
+    await Promise.resolve();
+    machine.head("req-1");
+    const response = await pending;
+
+    machine.binaryChunk("req-1", new Uint8Array([0, 127, 128, 255]));
+    machine.end("req-1");
+
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(
+      new Uint8Array([0, 127, 128, 255]),
+    );
   });
 
   it("keeps concurrent requests on one Connection from interleaving", async () => {

@@ -43,12 +43,37 @@ export function estimatePromptTokens(body: Record<string, unknown>): number {
     if (typeof content === "string") {
       characters += content.length;
     } else if (Array.isArray(content)) {
-      // Multi-part content: count the text parts, ignore images and audio.
-      // Undercounting a modality we cannot price is better than inventing a
-      // number for it.
+      // Provider tokenizers disagree about vision accounting. Charge at least
+      // 1,024 provider-independent token-equivalent units, then scale with the
+      // actual decoded bytes for larger inline images. Remote URLs retain the
+      // floor: fetching them here would turn metering into an SSRF surface.
       for (const part of content) {
-        const text = (part as { text?: unknown })?.text;
+        const media = part as {
+          text?: unknown;
+          type?: unknown;
+          image?: unknown;
+          image_url?: unknown;
+        };
+        const text = media?.text;
         if (typeof text === "string") characters += text.length;
+        if (media.type === "image" || media.type === "image_url") {
+          const imageUrl =
+            typeof media.image === "string"
+              ? media.image
+              : typeof media.image_url === "string"
+                ? media.image_url
+                : media.image_url && typeof media.image_url === "object"
+                  ? (media.image_url as { url?: unknown }).url
+                  : undefined;
+          const encoded =
+            typeof imageUrl === "string"
+              ? imageUrl.match(/^data:image\/[^;]+;base64,(.*)$/s)?.[1]
+              : undefined;
+          const decodedBytes = encoded
+            ? Math.floor((encoded.length * 3) / 4)
+            : 0;
+          characters += Math.max(4_096, decodedBytes);
+        }
       }
     }
     // Every message carries role and framing overhead beyond its content.

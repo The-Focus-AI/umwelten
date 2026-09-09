@@ -12,7 +12,7 @@ The buyer does not select a Supplier. It names a model and optional requirements
 2. Mycel displays the Application credential once and stores only its SHA-256 hash. If it was not saved, rotate it; it cannot be recovered.
 3. The caller fetches `https://mycel.thefocus.ai/v1/models`.
 4. The caller chooses a model from that response based on its actual needs.
-5. The caller sends `POST https://mycel.thefocus.ai/v1/chat/completions` with the Application credential and a stable end-user identifier.
+5. The caller uses a supported operation with the Application credential and a stable end-user identifier.
 
 The credential belongs in a server-side secret manager or environment variable. Never embed it in browser code, commit it, log it, or send it to the customer-account API.
 
@@ -22,7 +22,8 @@ The credential belongs in a server-side secret manager or environment variable. 
 
 - `pricing.prompt` and `pricing.completion`: US dollars per million tokens at the cheapest eligible Offer.
 - `status`: `available` means at least one Offer is dispatchable now.
-- `capabilities`: union of capabilities available from at least one Offer, such as `chat`, `streaming`, or tool support.
+- `capabilities`: union of capabilities verified on at least one Offer: `chat`, `streaming`, `tool-calling`, `structured-output`, `reasoning`, `image-input`, `video-input`, `embeddings`, `transcription`, `image-generation`, or `video-generation`.
+- `operation_pricing`: cheapest routable non-chat retail prices. Each operation names `input_unit`, `output_unit`, and dollars per million `input`/`output` units, plus any simultaneous `additional_input` units. Supplier wholesale prices are never exposed. A verified capability is not routable until the operator has priced it.
 - `guarantees`: guarantees carried by every Offer represented by the catalogue entry.
 - `context_length`: the minimum context length across represented Offers, when known.
 
@@ -37,6 +38,8 @@ A reasonable generic policy is:
 5. Choose among the survivors; do not invent a universal default.
 
 Mycel routes among Suppliers for the chosen model. It does not currently evaluate model quality or choose a semantically equivalent model on the caller's behalf.
+
+The request body also imposes hard requirements even when headers omit them. Chat always requires `chat`; `stream: true` adds `streaming`; a non-empty `tools` array adds `tool-calling`; JSON response formats add `structured-output`; and image or video content parts add the matching input capability. Explicit capability headers are unioned with these requirements and can never weaken them.
 
 ## Request example
 
@@ -77,6 +80,35 @@ const response = await mycel.chat.completions.create({
 });
 ```
 
+AI SDK 7 server-side applications can use the public factory from `umwelten`:
+
+```ts
+import { createMycelAI } from "umwelten";
+import { embed, experimental_transcribe, generateImage, generateText } from "ai";
+
+const mycel = createMycelAI({
+  apiKey: process.env.MYCEL_API_KEY!,
+  endUser: currentUser.id, // construct per request; never accept an untrusted override
+  baseUrl: "https://mycel.thefocus.ai",
+});
+
+await generateText({ model: mycel("a-chat-model"), prompt: "Hello" });
+await embed({ model: mycel.embedding("an-embedding-model"), value: "Remember this" });
+await generateImage({ model: mycel.image("an-image-model"), prompt: "Mycelium" });
+await experimental_transcribe({ model: mycel.transcription("a-transcription-model"), audio });
+```
+
+The same factory carries `X-Mycel-End-User` and optional hard capability and guarantee headers on every request. Its callable uses Chat Completions rather than OpenAI's separate Responses API.
+
+## Media and asynchronous video
+
+- Image input is sent as ordinary OpenAI chat content. Inline data is limited by the 10 MB JSON-body ceiling and metered by a provider-independent floor that scales with decoded bytes. Mycel does not fetch remote images merely to meter them.
+- Transcription accepts one OpenAI-style multipart recorded file up to 100 MB and relays its bytes unchanged. Batch transcription means bounded concurrent calls; there is no redundant server batching protocol.
+- Image generation uses the OpenAI `/v1/images/generations` response contract.
+- Video input is never accepted as an arbitrary large client base64 field. Upload raw `video/*` bytes to `POST /v1/files`, then pass `input_file_id` to `POST /v1/videos`.
+- Video generation returns `202` with a durable job id. Poll `GET /v1/videos/{id}` until `succeeded`, then download `GET /v1/files/{output_file_id}/content`. Jobs and normalized output bytes survive an Exchange restart. Files are scoped to the calling Application and End User and can be deleted with `DELETE /v1/files/{id}`.
+- Record `X-Mycel-Request-Id` (also `request_id` on video jobs). It joins application provenance to the Exchange's immutable usage record.
+
 ## Identity and money
 
 An Application static credential identifies the Application. `X-Mycel-End-User` attributes usage to a stable subject inside that Application. The same subject string used by two Applications represents two different End Users. Mycel trusts the Application's assertion; this header is attribution, not end-user authentication.
@@ -96,7 +128,7 @@ The account page reports Client balance, Application state, ledger entries, rece
 
 Requirements may be added without changing the OpenAI body:
 
-- `X-Exchange-Require-Capability: streaming,tools`
+- `X-Exchange-Require-Capability: streaming,tool-calling`
 - `X-Exchange-Require-Guarantee: on-premise`
 
 These only narrow eligibility. Application-level restrictions can narrow it further.
@@ -134,4 +166,4 @@ Repository orientation:
 
 ## Current scope
 
-The public buyer contract currently exposes model listing and chat completions. Do not assume support for OpenAI Responses, embeddings, images, audio, fine-tuning, files, batches, or administration APIs unless they appear in `/openapi.json` and are verified against the running service.
+The public buyer contract exposes model listing, Chat Completions (including tools and image input when the selected Offer was verified for them), embeddings, recorded-file transcription, image generation, caller-scoped files, and asynchronous video generation. It does not implement OpenAI Responses, fine-tuning, arbitrary OpenAI batch, speech generation, or administration APIs. An endpoint appearing in `/openapi.json` means the Exchange can route it; actual availability still requires a live, verified, explicitly priced Offer in `/v1/models`.

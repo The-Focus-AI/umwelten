@@ -39,6 +39,14 @@ interface InFlight {
   abort: AbortController;
 }
 
+const ALLOWED_RUNTIME_PATHS = new Set([
+  "/chat/completions",
+  "/embeddings",
+  "/audio/transcriptions",
+  "/images/generations",
+  "/videos/generations",
+]);
+
 /**
  * Handle the work frames on one Connection.
  *
@@ -54,23 +62,36 @@ export function createConnectionServer(opts: ServeConnectionOptions) {
 
   const send = (frame: unknown) => opts.send(JSON.stringify(frame));
 
-  async function serve(id: string, body: Record<string, unknown>): Promise<void> {
+  async function serve(
+    id: string,
+    body: Record<string, unknown> | undefined,
+    path = "/chat/completions",
+    contentType = "application/json",
+    bodyBase64?: string,
+    headers: Record<string, string> = {},
+  ): Promise<void> {
     const abort = new AbortController();
     inFlight.set(id, { abort });
-    onEvent({ type: "request-started", id, model: typeof body.model === "string" ? body.model : undefined });
+    onEvent({
+      type: "request-started",
+      id,
+      model: typeof body?.model === "string" ? body.model : undefined,
+    });
 
     let bytes = 0;
     try {
-      const url = `${opts.runtimeUrl.replace(/\/$/, "")}/chat/completions`;
+      if (!ALLOWED_RUNTIME_PATHS.has(path)) throw new Error("unsupported runtime path");
+      const url = `${opts.runtimeUrl.replace(/\/$/, "")}${path}`;
       const response = await doFetch(url, {
         method: "POST",
         headers: {
-          "content-type": "application/json",
+          "content-type": contentType,
+          ...headers,
           ...(opts.runtimeCredential
             ? { authorization: `Bearer ${opts.runtimeCredential}` }
             : {}),
         },
-        body: JSON.stringify(body),
+        body: bodyBase64 ? Buffer.from(bodyBase64, "base64") : JSON.stringify(body ?? {}),
         signal: abort.signal,
       });
 
@@ -86,15 +107,20 @@ export function createConnectionServer(opts: ServeConnectionOptions) {
 
       if (response.body) {
         const reader = response.body.getReader();
+        const textual = /^(application\/(json|problem\+json)|text\/|application\/x-ndjson)/i.test(
+          response.headers.get("content-type") ?? "",
+        );
         const decoder = new TextDecoder();
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           if (abort.signal.aborted) break;
-          const data = decoder.decode(value, { stream: true });
-          if (data) {
-            bytes += data.length;
-            send({ type: "chunk", id, data });
+          bytes += value.byteLength;
+          if (textual) {
+            const data = decoder.decode(value, { stream: true });
+            if (data) send({ type: "chunk", id, data });
+          } else {
+            send({ type: "chunk", id, dataBase64: Buffer.from(value).toString("base64") });
           }
         }
       }
@@ -121,7 +147,15 @@ export function createConnectionServer(opts: ServeConnectionOptions) {
   return {
     /** Returns true if it consumed the frame, so the dial loop can ignore it. */
     handleFrame(raw: string): boolean {
-      let frame: { type?: string; id?: string; body?: Record<string, unknown> };
+      let frame: {
+        type?: string;
+        id?: string;
+        body?: Record<string, unknown>;
+        path?: string;
+        contentType?: string;
+        bodyBase64?: string;
+        headers?: Record<string, string>;
+      };
       try {
         frame = JSON.parse(raw) as typeof frame;
       } catch {
@@ -129,10 +163,21 @@ export function createConnectionServer(opts: ServeConnectionOptions) {
       }
       if (!frame || typeof frame !== "object") return false;
 
-      if (frame.type === "request" && frame.id && frame.body) {
+      if (
+        frame.type === "request" &&
+        frame.id &&
+        (frame.body || frame.bodyBase64)
+      ) {
         // Deliberately not awaited: one slow request must not block the frames
         // for the others sharing this Connection.
-        void serve(frame.id, frame.body);
+        void serve(
+          frame.id,
+          frame.body,
+          frame.path,
+          frame.contentType,
+          frame.bodyBase64,
+          frame.headers,
+        );
         return true;
       }
       if (frame.type === "cancel" && frame.id) {

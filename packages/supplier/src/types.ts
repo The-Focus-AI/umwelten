@@ -20,7 +20,13 @@ export type CapabilityName =
   | "streaming"
   | "tool-calling"
   | "structured-output"
-  | "reasoning";
+  | "reasoning"
+  | "image-input"
+  | "video-input"
+  | "embeddings"
+  | "transcription"
+  | "image-generation"
+  | "video-generation";
 
 /**
  * Whether the agent controls the runtime behind an Offer or is reselling one it
