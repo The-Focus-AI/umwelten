@@ -11,7 +11,12 @@ import type { Tool } from "ai";
 import { sendA2AMessage } from "@umwelten/protocols";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
-import { type GaiaToolsContext, entryToEndpoint, discoverHabitats, entryOpenUrl } from "./context.js";
+import {
+	type GaiaToolsContext,
+	entryToEndpoint,
+	discoverHabitats,
+	entryOpenUrl,
+} from "./context.js";
 import { applyHabitatDeclaration } from "../apply-declaration.js";
 import { readDeclarationFromRepo, readRepoFile } from "../read-declaration.js";
 import { recordHabitatActivity } from "../reaper.js";
@@ -45,7 +50,10 @@ import { buildSeedFiles } from "./seed-files.js";
  * ways of starting a habitat produce two different containers.
  */
 export async function startHabitatContainer(
-	ctx: GaiaToolsContext,
+	ctx: Pick<
+		GaiaToolsContext,
+		"registry" | "vault" | "docker" | "catalog" | "githubTokens" | "gaiaConfig"
+	>,
 	id: string,
 ): Promise<number> {
 	const { registry, vault, docker, catalog, githubTokens, gaiaConfig } = ctx;
@@ -64,7 +72,8 @@ export async function startHabitatContainer(
 	// required-vs-optional and contract-vs-bindings rules, and a second copy
 	// here would be a second place for them to drift. Against an empty
 	// resolution it answers exactly "is any vault secret required at all".
-	const requiresSecrets = unmetNeeds(declaredNeeds, {}).missingRequired.length > 0;
+	const requiresSecrets =
+		unmetNeeds(declaredNeeds, {}).missingRequired.length > 0;
 
 	let resolved: Record<string, string> | undefined;
 	if (entry.vaultToml) {
@@ -84,7 +93,8 @@ export async function startHabitatContainer(
 			// Missing tooling only blocks a habitat that actually declared a need.
 			// Anything else — bad toml, refused credential, non-JSON — is this
 			// habitat's own misconfiguration and still fails the start.
-			if (!(err instanceof VaultToolingMissingError) || requiresSecrets) throw err;
+			if (!(err instanceof VaultToolingMissingError) || requiresSecrets)
+				throw err;
 			console.log(
 				`[vault] ${id} skipped — ${HABITAT_VAULT_FILE} present but fnox is not installed, ` +
 					`and this habitat declares no required secrets. Starting without vault secrets. ` +
@@ -113,10 +123,7 @@ export async function startHabitatContainer(
 	}
 
 	// Seed volume with fresh config + secrets
-	await docker.seedVolume(
-		id,
-		buildSeedFiles(entry, vault, catalog, resolved),
-	);
+	await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog, resolved));
 
 	// Fresh GitHub boot tokens per start (ADR 0004; never throws —
 	// a GitHub outage degrades to a token-less boot, not a failure).
@@ -176,7 +183,9 @@ export function createHabitatLifecycleTools(
 	});
 
 	return {
-		...createWakeTools(waker, { listIds: () => registry.list().map((h) => h.id) }),
+		...createWakeTools(waker, {
+			listIds: () => registry.list().map((h) => h.id),
+		}),
 
 		register_in_saas: tool({
 			description:
@@ -249,7 +258,7 @@ export function createHabitatLifecycleTools(
 		}),
 
 		create_habitat: tool({
-			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "openrouter"} / ${gaiaModel ?? "anthropic/claude-sonnet-5"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. IMPORTANT: bind API key secrets — a habitat without API keys cannot respond to messages.`,
+			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "mycel"} / ${gaiaModel ?? "deepseek/deepseek-v4-pro"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. Gaia supplies model access through its modelCredentials configuration and vault.`,
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
@@ -280,13 +289,13 @@ export function createHabitatLifecycleTools(
 					.string()
 					.optional()
 					.describe(
-						`LLM provider (default: ${gaiaProvider ?? "openrouter"} — Gaia's own provider).`,
+						`LLM provider (default: ${gaiaProvider ?? "mycel"} — Gaia's own provider).`,
 					),
 				model: z
 					.string()
 					.optional()
 					.describe(
-						`Model name (default: ${gaiaModel ?? "anthropic/claude-sonnet-5"} — Gaia's own model).`,
+						`Model name (default: ${gaiaModel ?? "deepseek/deepseek-v4-pro"} — Gaia's own model).`,
 					),
 				secretBindings: z
 					.array(z.string())
@@ -337,8 +346,8 @@ export function createHabitatLifecycleTools(
 				// call with a missing-parameter error.)
 				const entry = await registry.create({
 					...params,
-					provider: params.provider ?? gaiaProvider ?? "openrouter",
-					model: params.model ?? gaiaModel ?? "anthropic/claude-sonnet-5",
+					provider: params.provider ?? gaiaProvider ?? "mycel",
+					model: params.model ?? gaiaModel ?? "deepseek/deepseek-v4-pro",
 				});
 
 				// Auto-bind the org-readonly identity if Gaia's master vault has the
@@ -395,7 +404,8 @@ export function createHabitatLifecycleTools(
 						: {}),
 					secret: (name) => vault.get(name),
 				});
-				if (!model.ok) warnings.push(`WARNING: ${describeModelCredential(model)}`);
+				if (!model.ok)
+					warnings.push(`WARNING: ${describeModelCredential(model)}`);
 
 				const notes: string[] = [];
 				if (seed.scopeAdded || seed.agentAdded) {
@@ -643,7 +653,9 @@ export function createHabitatLifecycleTools(
 				gitBranch: z
 					.string()
 					.optional()
-					.describe("Branch to read the declaration from (default: the repo's default branch)"),
+					.describe(
+						"Branch to read the declaration from (default: the repo's default branch)",
+					),
 			}),
 			execute: async ({ id, gitUrl, gitBranch }) => {
 				try {
@@ -906,8 +918,11 @@ export function createHabitatLifecycleTools(
 				const entry = await registry.create({
 					id,
 					name: parsed.name ?? id,
-					provider: parsed.config.defaultProvider ?? "openrouter",
-					model: parsed.config.defaultModel ?? "anthropic/claude-sonnet-5",
+					provider: parsed.config.defaultProvider ?? gaiaProvider ?? "mycel",
+					model:
+						parsed.config.defaultModel ??
+						gaiaModel ??
+						"deepseek/deepseek-v4-pro",
 					gitUrl: parsed.config.gitUrl,
 					gitBranch: parsed.config.gitBranch,
 					secretBindings: parsed.secretBindings ?? [],

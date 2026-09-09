@@ -140,19 +140,20 @@ export interface Amounts {
 }
 
 /**
- * The least a served request can be charged.
+ * The least a served request on a paid Offer can be charged.
  *
  * Without a floor, a short prompt at a low rate rounds to zero and the request
  * is free — which means an End User with an empty Balance can be served
  * indefinitely, and owned hardware priced to be rationed is not rationed at
- * all. Cost has no floor: zero is the honest answer for a machine we own.
+ * all. Explicitly zero retail rates waive the floor, not the token count or
+ * the Supplier's Cost. Cost has no floor: zero is honest for a machine we own.
  */
 export const MINIMUM_CHARGE: MicroDollars = 1;
 
 /**
  * What the Supplier is owed and what the buyer is charged, as two independent
- * numbers (ADR 0013). Cost is zero for hardware the operator owns; Charge is
- * not, and that gap is what rations the box.
+ * numbers (ADR 0013). Zero wholesale never implies zero retail: only an Offer
+ * with both retail rates explicitly zero is free to the buyer.
  */
 export function priceRequest(
   offer: Offer,
@@ -170,6 +171,8 @@ export function priceRequest(
     cost:
       per(offer.wholesalePromptPerMillion, promptTokens) +
       per(offer.wholesaleCompletionPerMillion, completionTokens),
-    charge: Math.max(charge, MINIMUM_CHARGE),
+    charge: offer.retailPromptPerMillion === 0 && offer.retailCompletionPerMillion === 0
+      ? 0
+      : Math.max(charge, MINIMUM_CHARGE),
   };
 }

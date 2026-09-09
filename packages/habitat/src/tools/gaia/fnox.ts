@@ -85,6 +85,7 @@ if_missing = "warn"
 # references with your own.
 
 [secrets]
+# MYCEL_API_KEY = { provider = "onepass", description = "Mycel Exchange application credential" }
 # GOOGLE_GENERATIVE_AI_API_KEY = { provider = "onepass", description = "Google Gemini API key" }
 # OPENROUTER_API_KEY = { provider = "onepass", description = "OpenRouter API key" }
 # LUNAROUTE_API_KEY = { provider = "onepass", description = "LunaRoute API key" }
@@ -364,6 +365,7 @@ export class FnoxResolver {
  * is not present and we're in dev mode.
  */
 const FALLBACK_SECRET_NAMES = [
+	"MYCEL_API_KEY",
 	"GOOGLE_GENERATIVE_AI_API_KEY",
 	"OPENROUTER_API_KEY",
 	"LUNAROUTE_API_KEY",

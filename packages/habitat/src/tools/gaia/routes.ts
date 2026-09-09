@@ -11,6 +11,8 @@ import type { CredentialAuditLogger } from "./credential-audit.js";
 import { proxyRequest, fetchFromContainer } from "./proxy.js";
 import { recordHabitatActivity } from "./reaper.js";
 import { buildSeedFiles, runStandardsAudit } from "./gaia-tools.js";
+import { startHabitatContainer } from "./gaia-tools/habitats.js";
+import type { GaiaToolsContext } from "./gaia-tools/context.js";
 import { CapabilityResolver } from "./capability-resolver.js";
 import type { AuditSummary } from "./gaia-tools.js";
 import {
@@ -54,6 +56,9 @@ export interface GaiaRouteContext {
 	docker: DockerManager;
 	catalog: CredentialCatalog;
 	audit: CredentialAuditLogger;
+	gaiaConfig?: GaiaToolsContext["gaiaConfig"];
+	gaiaProvider?: string;
+	gaiaModel?: string;
 	/**
 	 * GitHub App token minting (ADR 0004). Always present when built via
 	 * Gaia.start (a disabled service when the App is unconfigured); optional
@@ -306,7 +311,11 @@ export async function handleGaiaRoute(
 	if (path === "/api/habitats" && method === "POST") {
 		const body = JSON.parse(await readBody(req));
 		try {
-			const entry = await ctx.registry.create(body);
+			const entry = await ctx.registry.create({
+				...body,
+				provider: body.provider ?? ctx.gaiaProvider ?? "mycel",
+				model: body.model ?? ctx.gaiaModel ?? "deepseek/deepseek-v4-pro",
+			});
 			// Seed the Docker volume with config + secrets
 			await ctx.docker.seedVolume(entry.id, buildSeedFiles(entry, ctx.vault));
 			sendJson(res, entry, 201);
@@ -371,17 +380,7 @@ export async function handleGaiaRoute(
 			return true;
 		}
 		try {
-			await ctx.docker.seedVolume(entry.id, buildSeedFiles(entry, ctx.vault));
-			// Fresh boot tokens per start (ADR 0004): never throws — a GitHub
-			// outage degrades to token-less boot, not a failed start.
-			const githubTokens = await ctx.githubTokens?.bootTokensFor(entry);
-			const port = await ctx.docker.startContainer(
-				entry,
-				"",
-				ctx.registry.list(),
-				{ githubTokens },
-			);
-			await ctx.registry.update(params.id, { containerPort: port });
+			const port = await startHabitatContainer(ctx, entry.id);
 			sendJson(res, { started: true, port });
 		} catch (err: any) {
 			sendJson(res, { error: err.message }, 500);
@@ -412,15 +411,7 @@ export async function handleGaiaRoute(
 			return true;
 		}
 		await ctx.docker.stopContainer(params.id).catch(() => {});
-		await ctx.docker.seedVolume(entry.id, buildSeedFiles(entry, ctx.vault));
-		const githubTokens = await ctx.githubTokens?.bootTokensFor(entry);
-		const port = await ctx.docker.startContainer(
-			entry,
-			"",
-			ctx.registry.list(),
-			{ githubTokens },
-		);
-		await ctx.registry.update(params.id, { containerPort: port });
+		const port = await startHabitatContainer(ctx, entry.id);
 		sendJson(res, { rebuilt: true, port });
 		return true;
 	}
