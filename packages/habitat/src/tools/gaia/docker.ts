@@ -443,6 +443,11 @@ export class DockerManager {
         `${options.modelCredential.envName}=${options.modelCredential.value}`,
       );
     }
+    // A child's localhost is not Gaia's Exchange. Carry the operator's
+    // endpoint alongside the vault-supplied credential for Mycel habitats.
+    if (entry.config.defaultProvider === "mycel" && process.env.MYCEL_URL) {
+      args.push("--env", `MYCEL_URL=${process.env.MYCEL_URL}`);
+    }
 
     // GAIA_URL is injected unconditionally: it's Gaia's in-network address
     // (children share gaia-net with Gaia), used by the token pull route

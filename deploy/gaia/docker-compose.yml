@@ -32,12 +32,12 @@ services:
     networks:
       - gaia-net
     environment:
-      # Gaia's own chat model. openrouter avoids the fresh-install
-      # @ai-sdk/google v3 vs ai@5 break (PRD #149 "Further Notes").
-      GAIA_PROVIDER: ${GAIA_PROVIDER:-openrouter}
-      GAIA_MODEL: ${GAIA_MODEL:-anthropic/claude-sonnet-5}
+      # Gaia and new children use the Exchange's advertised model catalog.
+      GAIA_PROVIDER: ${GAIA_PROVIDER:-mycel}
+      GAIA_MODEL: ${GAIA_MODEL:-deepseek/deepseek-v4-pro}
       GAIA_PORT: ${GAIA_PORT:-7420}
       HABITAT_WORK_DIR: /opt/gaia-data
+      HABITAT_ID: gaia
       # Per-habitat public URLs via Caddy (#170). Spawned children join
       # GAIA_INGRESS_NETWORK and get caddy=<id>.$GAIA_BASE_DOMAIN labels. Empty ⇒
       # no labels / default gaia-net (local dev). Set GAIA_INGRESS_NETWORK to an
@@ -66,6 +66,8 @@ services:
       HABITAT_AUTH_JWKS_URL: ${GAIA_JWKS_URL:-}
       # The provider key Gaia uses for its own chat. Child habitats get their
       # own keys via the master vault + secret bindings, not from here.
+      MYCEL_URL: ${MYCEL_URL:-https://mycel.thefocus.ai}
+      MYCEL_API_KEY: ${MYCEL_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       # GitHub App (ADR 0004). Gaia is the sole token-minting authority: it

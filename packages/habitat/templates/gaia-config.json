@@ -3,6 +3,6 @@
   "defaultProvider": "{{provider}}",
   "defaultModel": "{{model}}",
   "modelCredentials": {
-    "{{provider}}": "CHANGEME_API_KEY"
+    "mycel": "MYCEL_API_KEY"
   }
 }

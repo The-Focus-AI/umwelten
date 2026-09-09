@@ -2,18 +2,18 @@
  * Metering through the real relay.
  *
  * Unit tests, not integration: no keys, no GPU, nothing beyond localhost. What
- * they assert is the thing E3 measured and ADR 0017 decided — that a request
- * which consumed real tokens is never recorded as free.
+ * they assert is the thing E3 measured and ADR 0017 decided — on a paid Offer,
+ * consumed tokens are never accidentally recorded as free.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { MemoryStore } from "../store/memory-store.js";
 import { supplierFixture } from "../store/conformance.js";
 import { startMockUpstream, type MockUpstream, type UpstreamMode } from "../testing/mock-upstream.js";
 import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
 import { createIdentityVerifier } from "../auth/identity.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
-import { Balances, endUserOwner } from "./balances.js";
+import { Balances, clientOwner, endUserOwner } from "./balances.js";
 
 const MODEL = "gemma-4-26b";
 const LONG_PROMPT = "x".repeat(40_000);
@@ -72,6 +72,96 @@ describe("metering", () => {
   afterEach(async () => {
     await exchange?.close();
     await upstream?.close();
+    vi.restoreAllMocks();
+  });
+
+  describe("explicitly free offers", () => {
+    async function makeFree() {
+      await store.setOfferPricing("office-spark", MODEL, {
+        wholesalePromptPerMillion: 200_000,
+        wholesaleCompletionPerMillion: 700_000,
+        retailPromptPerMillion: 0,
+        retailCompletionPerMillion: 0,
+      });
+    }
+
+    it.each([false, true])("admits zero balance and persists zero charge (capped end user: %s)", async (capped) => {
+      await boot("ok", 0);
+      await makeFree();
+      const owner = capped
+        ? endUserOwner({ application: app.application, subject: "user-1" })
+        : clientOwner("acme");
+      if (capped) await balances.grant(owner, 0, "test-cap");
+
+      const res = await chat({ model: MODEL, messages: [{ role: "user", content: "hello" }] });
+      expect(res.status).toBe(200);
+      expect((await res.json()).choices[0].message.content).toContain("quick brown fox");
+      const record = await onlyRecord();
+      // Prompt: ceil((5 + 8) / 4) = 4; answer: ceil(43 / 4) = 11.
+      expect(record).toMatchObject({ promptTokens: 4, completionTokens: 11, cost: 9, charge: 0, outcome: "completed" });
+      const entries = await balances.entries(owner);
+      const debits = entries.filter((entry) => entry.requestId === record.id);
+      expect(debits).toHaveLength(1);
+      // MemoryStore retains JS -0 for debits; Postgres BIGINT stores 0.
+      expect(debits[0].microDollars === 0).toBe(true);
+      expect((await balances.get(owner)).microDollars).toBe(0);
+      expect(upstream.requests).toHaveLength(1);
+    });
+
+    it("keeps checking a zero-balance free stream and records zero even after a buyer abort", async () => {
+      await boot("never-finishes", 0);
+      await makeFree();
+      const coverage = vi.spyOn(Balances.prototype, "canCover");
+      const controller = new AbortController();
+      const res = await chat({ model: MODEL, messages: [], stream: true }, { signal: controller.signal });
+      expect(res.status).toBe(200);
+      const reader = res.body!.getReader();
+      // Cross two real streaming balance checks, not just admission.
+      while (coverage.mock.calls.length < 3) {
+        const part = await reader.read();
+        expect(part.done).toBe(false);
+      }
+      expect(coverage.mock.calls.every(([, charge]) => charge === 0)).toBe(true);
+      controller.abort();
+      await expect.poll(async () => (await onlyRecord())?.outcome).toBe("buyer-aborted");
+      const record = await onlyRecord();
+      expect(record.charge).toBe(0);
+      expect(record.cost).toBeGreaterThan(0);
+      expect(record.completionTokens).toBeGreaterThan(0);
+      const entries = await balances.entries(clientOwner("acme"));
+      expect(entries).toMatchObject([{ requestId: record.id }]);
+      expect(entries[0].microDollars === 0).toBe(true);
+      expect((await balances.get(clientOwner("acme"))).microDollars).toBe(0);
+    });
+
+    it("does not bypass debt or eligibility checks for a free offer", async () => {
+      await boot("ok", 0);
+      await makeFree();
+      await balances.debit(clientOwner("acme"), 1, "prior-test-debt");
+      expect((await chat({ model: MODEL, messages: [] })).status).toBe(402);
+      await store.setOfferEnabled("office-spark", MODEL, false);
+      expect((await chat({ model: MODEL, messages: [] })).status).toBe(503);
+      expect(upstream.requests).toHaveLength(0);
+      expect(await store.listRequests()).toEqual([]);
+    });
+
+    it.each([[1, 0], [0, 7]])("still requires the minimum for one-sided paid rates %i / %i", async (prompt, completion) => {
+      await boot("ok", 0);
+      await store.setOfferPricing("office-spark", MODEL, {
+        wholesalePromptPerMillion: 0,
+        wholesaleCompletionPerMillion: 0,
+        retailPromptPerMillion: prompt,
+        retailCompletionPerMillion: completion,
+      });
+      expect((await chat({ model: MODEL, messages: [] })).status).toBe(402);
+      expect(upstream.requests).toHaveLength(0);
+      await balances.grant(clientOwner("acme"), 1, "test-grant");
+      const res = await chat({ model: MODEL, messages: [] });
+      expect(res.status).toBe(200);
+      await res.text();
+      expect((await onlyRecord()).charge).toBe(1);
+      expect((await balances.get(clientOwner("acme"))).microDollars).toBe(0);
+    });
   });
 
   describe("a completed request", () => {

@@ -3,10 +3,10 @@
  *
  * Gaia writes `defaultModel` strings into child habitat configs, and an LLM
  * left to its own memory invents stale ids (e.g. `claude-3.5-sonnet`). This
- * tool queries OpenRouter's live catalog (newest first) so Gaia can pick a
+ * tool queries the Exchange's live catalog so Gaia can pick a
  * model id that actually exists, with pricing + context size to choose by.
  *
- * The OpenRouter key resolves from Gaia's master vault first, then process
+ * Provider keys resolve from Gaia's master vault first, then process
  * env — the same key that gets bound into child habitats.
  */
 
@@ -14,6 +14,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
 import { createOpenRouterProvider } from "@umwelten/core/providers/openrouter.js";
+import { createMycelProvider } from "@umwelten/core/providers/mycel.js";
 import type { ModelDetails } from "@umwelten/core/cognition/types.js";
 import type { GaiaToolsContext } from "./context.js";
 
@@ -30,17 +31,32 @@ function fmtCost(v: number | undefined): string {
 
 export function createModelDiscoveryTools(
 	ctx: GaiaToolsContext,
-	deps: { listOpenRouterModels?: OpenRouterLister } = {},
+	deps: {
+		listOpenRouterModels?: OpenRouterLister;
+		listMycelModels?: (
+			apiKey?: string,
+			baseUrl?: string,
+		) => Promise<ModelDetails[]>;
+	} = {},
 ): Record<string, Tool> {
 	const listOpenRouterModels = deps.listOpenRouterModels ?? defaultLister;
+	const listMycelModels =
+		deps.listMycelModels ??
+		((apiKey, baseUrl) => createMycelProvider(apiKey, baseUrl).listModels());
 
 	const list_models = tool({
 		description:
-			"List CURRENT model ids available on OpenRouter, newest first, with context size and pricing. " +
+			"List CURRENT model ids available on Mycel Exchange (or explicitly OpenRouter), with context size and pricing. " +
 			"ALWAYS use this before setting a habitat's model — never write a model id from memory; " +
 			"model ids from memory are stale or wrong. Filter with `search` (e.g. 'sonnet', 'anthropic/', " +
 			"'gemini'). The returned `id` values are exactly what create_habitat / update_habitat_config expect.",
 		inputSchema: z.object({
+			provider: z
+				.enum(["mycel", "openrouter"])
+				.optional()
+				.describe(
+					"Catalog to query. Defaults to Mycel for a Mycel Gaia; OpenRouter for other configured providers.",
+				),
 			search: z
 				.string()
 				.optional()
@@ -55,11 +71,17 @@ export function createModelDiscoveryTools(
 				.optional()
 				.describe("Max models to return (default 25, newest first)"),
 		}),
-		execute: async ({ search, limit }) => {
-			const apiKey =
-				ctx.vault.get("OPENROUTER_API_KEY") ??
-				process.env.OPENROUTER_API_KEY;
-			if (!apiKey) {
+		execute: async ({ search, limit, provider: requestedProvider }) => {
+			const provider =
+				requestedProvider ??
+				(!ctx.gaiaProvider || ctx.gaiaProvider === "mycel"
+					? "mycel"
+					: "openrouter");
+			const keyName =
+				provider === "mycel" ? "MYCEL_API_KEY" : "OPENROUTER_API_KEY";
+			const apiKey = ctx.vault.get(keyName) ?? process.env[keyName];
+			// Mycel's catalog is public; inference still requires a credential.
+			if (!apiKey && provider === "openrouter") {
 				return {
 					error: "NO_OPENROUTER_KEY",
 					message:
@@ -69,7 +91,10 @@ export function createModelDiscoveryTools(
 
 			let models: ModelDetails[];
 			try {
-				models = await listOpenRouterModels(apiKey);
+				models =
+					provider === "mycel"
+						? await listMycelModels(apiKey, process.env.MYCEL_URL)
+						: await listOpenRouterModels(apiKey!);
 			} catch (err) {
 				return {
 					error: "MODEL_LIST_FAILED",
@@ -80,10 +105,7 @@ export function createModelDiscoveryTools(
 			// Tokenize the search so LLM-ish queries like "claude sonnet" match
 			// dash-separated ids ("anthropic/claude-sonnet-4.6") — every token
 			// must appear somewhere in the id, order-independent.
-			const tokens = (search ?? "")
-				.toLowerCase()
-				.split(/\s+/)
-				.filter(Boolean);
+			const tokens = (search ?? "").toLowerCase().split(/\s+/).filter(Boolean);
 			const filtered = tokens.length
 				? models.filter((m) => {
 						const id = m.name.toLowerCase();
@@ -98,7 +120,7 @@ export function createModelDiscoveryTools(
 
 			const max = limit ?? 25;
 			return {
-				provider: "openrouter",
+				provider,
 				total: filtered.length,
 				showing: Math.min(max, sorted.length),
 				models: sorted.slice(0, max).map((m) => ({
@@ -106,7 +128,9 @@ export function createModelDiscoveryTools(
 					context: m.contextLength,
 					prompt: fmtCost(m.costs?.promptTokens),
 					completion: fmtCost(m.costs?.completionTokens),
-					added: m.addedDate ? m.addedDate.toISOString().slice(0, 10) : undefined,
+					added: m.addedDate
+						? m.addedDate.toISOString().slice(0, 10)
+						: undefined,
 				})),
 			};
 		},

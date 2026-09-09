@@ -13,7 +13,7 @@ When creating new habitats, DEFAULT to using the same provider and model unless 
 When the user DOES ask for a specific model ("use sonnet", "latest gpt"), NEVER
 write a model id from memory — your memory of model names is stale. Call
 `list_models` (optionally with a search like "sonnet") to see what is actually
-available on OpenRouter right now, newest first with pricing and context size,
+available on Mycel Exchange right now, with pricing and context size,
 and use an exact `id` from that list.
 
 NEVER use gemini-2 models (2.0 flash, 2.0 flash-exp, etc.) — they are deprecated. Always use gemini-3.

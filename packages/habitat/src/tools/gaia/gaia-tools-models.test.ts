@@ -61,16 +61,73 @@ describe("list_models", () => {
 	});
 
 	function tools(lister = vi.fn().mockResolvedValue(CATALOG)) {
-		const ctx = { vault } as unknown as GaiaToolsContext;
+		const ctx = {
+			vault,
+			gaiaProvider: "openrouter",
+		} as unknown as GaiaToolsContext;
 		return {
 			t: createModelDiscoveryTools(ctx, { listOpenRouterModels: lister }),
 			lister,
 		};
 	}
 
-	async function run(t: Record<string, any>, input: Record<string, unknown> = {}) {
+	async function run(
+		t: Record<string, any>,
+		input: Record<string, unknown> = {},
+	) {
 		return t.list_models.execute(input, {} as any);
 	}
+
+	it("defaults to the public Exchange catalog without requiring a key", async () => {
+		vi.stubEnv("MYCEL_API_KEY", undefined);
+		vi.stubEnv("MYCEL_URL", "https://exchange.example.com");
+		const listMycelModels = vi.fn().mockResolvedValue([
+			{ name: "moonshotai/kimi-k3", provider: "mycel" },
+			{ name: "deepseek/deepseek-v4-pro", provider: "mycel" },
+		]);
+		const listOpenRouterModels = vi.fn();
+		const t = createModelDiscoveryTools({ vault } as GaiaToolsContext, {
+			listMycelModels,
+			listOpenRouterModels,
+		});
+		const out = await run(t, { search: "deepseek pro", limit: 1 });
+		expect(out).toMatchObject({
+			provider: "mycel",
+			total: 1,
+			showing: 1,
+			models: [{ id: "deepseek/deepseek-v4-pro" }],
+		});
+		expect(listMycelModels).toHaveBeenCalledWith(
+			undefined,
+			"https://exchange.example.com",
+		);
+		expect(listOpenRouterModels).not.toHaveBeenCalled();
+	});
+
+	it("uses the Mycel vault key and allows an explicit catalog override", async () => {
+		await vault.set("MYCEL_API_KEY", "exchange-vault-key");
+		vi.stubEnv("MYCEL_API_KEY", "exchange-env-key");
+		vi.stubEnv("MYCEL_URL", "https://exchange.example.com");
+		const listMycelModels = vi.fn().mockResolvedValue([]);
+		const listOpenRouterModels = vi.fn().mockResolvedValue(CATALOG);
+		const t = createModelDiscoveryTools(
+			{ vault, gaiaProvider: "mycel" } as GaiaToolsContext,
+			{
+				listMycelModels,
+				listOpenRouterModels,
+			},
+		);
+		await run(t);
+		expect(listMycelModels).toHaveBeenCalledWith(
+			"exchange-vault-key",
+			"https://exchange.example.com",
+		);
+		await vault.set("OPENROUTER_API_KEY", "router-vault-key");
+		expect(await run(t, { provider: "openrouter" })).toMatchObject({
+			provider: "openrouter",
+		});
+		expect(listOpenRouterModels).toHaveBeenCalledWith("router-vault-key");
+	});
 
 	it("returns models newest first with exact ids", async () => {
 		await vault.set("OPENROUTER_API_KEY", "sk-or-test");

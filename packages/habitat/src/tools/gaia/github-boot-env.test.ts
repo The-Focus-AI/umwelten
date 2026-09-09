@@ -92,6 +92,7 @@ describe('GitHub boot env injection (ADR 0004)', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     if (prevInternalUrl === undefined) delete process.env.GAIA_INTERNAL_URL;
     else process.env.GAIA_INTERNAL_URL = prevInternalUrl;
     if (prevGaiaPort === undefined) delete process.env.GAIA_PORT;
@@ -164,5 +165,26 @@ describe('GitHub boot env injection (ADR 0004)', () => {
     const args = runArgs();
     expect(args[args.length - 1]).toBe('habitat');
     expect(envs(args)).toContain('HABITAT_API_KEY=gaia_testkey');
+  });
+
+  it('injects the Mycel endpoint, platform credential, and habitat billing identity', async () => {
+    vi.stubEnv('MYCEL_URL', 'https://exchange.example.com');
+    vi.stubEnv('MYCEL_API_KEY', 'do-not-leak-parent-key');
+    await docker.startContainer(makeEntry({ config: { defaultProvider: 'mycel' } }), '', [], {
+      modelCredential: { envName: 'MYCEL_API_KEY', value: 'vault-application-key' },
+    });
+    expect(envs(runArgs())).toEqual(expect.arrayContaining([
+      'MYCEL_URL=https://exchange.example.com',
+      'MYCEL_API_KEY=vault-application-key',
+      'HABITAT_ID=twitter',
+    ]));
+    expect(runArgs().join(' ')).not.toContain('do-not-leak-parent-key');
+  });
+
+  it('does not pass Mycel settings to a non-Mycel habitat', async () => {
+    vi.stubEnv('MYCEL_URL', 'https://exchange.example.com');
+    vi.stubEnv('MYCEL_API_KEY', 'do-not-leak-parent-key');
+    await docker.startContainer(makeEntry({ config: { defaultProvider: 'google' } }), '', []);
+    expect(envs(runArgs()).some((v) => v.startsWith('MYCEL_'))).toBe(false);
   });
 });

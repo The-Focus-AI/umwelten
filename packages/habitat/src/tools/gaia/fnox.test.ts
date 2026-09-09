@@ -300,13 +300,16 @@ describe("FnoxResolver", () => {
 	// ── resolveViaEnv ──────────────────────────────────────────────────
 
 	it("resolveViaEnv reads secrets from process.env", async () => {
+		process.env.MYCEL_API_KEY = "env-mycel-key";
 		process.env.GOOGLE_GENERATIVE_AI_API_KEY = "env-google-key";
 		process.env.OPENROUTER_API_KEY = "env-openrouter-key";
 
 		const secrets = await resolver.resolveViaEnv();
+		expect(secrets.MYCEL_API_KEY).toBe("env-mycel-key");
 		expect(secrets.GOOGLE_GENERATIVE_AI_API_KEY).toBe("env-google-key");
 		expect(secrets.OPENROUTER_API_KEY).toBe("env-openrouter-key");
 
+		delete process.env.MYCEL_API_KEY;
 		delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 		delete process.env.OPENROUTER_API_KEY;
 	});
@@ -353,14 +356,17 @@ ANOTHER_KEY = { provider = "onepass" }
 		// Write the full template which has commented-out secrets
 		await writeFile(resolver.configPath, FNOX_TEMPLATE);
 
+		process.env.MYCEL_API_KEY = "env-mycel-key";
 		process.env.OPENROUTER_API_KEY = "env-or-key";
 		process.env.GITHUB_TOKEN = "env-gh-token";
 
 		const secrets = await resolver.resolveViaEnv();
 		// The template has these commented out: OPENROUTER_API_KEY, GITHUB_TOKEN, etc.
+		expect(secrets.MYCEL_API_KEY).toBe("env-mycel-key");
 		expect(secrets.OPENROUTER_API_KEY).toBe("env-or-key");
 		expect(secrets.GITHUB_TOKEN).toBe("env-gh-token");
 
+		delete process.env.MYCEL_API_KEY;
 		delete process.env.OPENROUTER_API_KEY;
 		delete process.env.GITHUB_TOKEN;
 	});

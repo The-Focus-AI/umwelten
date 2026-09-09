@@ -65,7 +65,7 @@ imports resolve), and merges `toolsDir`/`stimulusFile` into the Gaia-seeded
 
 ```bash
 cd deploy/gaia
-cp .env.example .env          # set OPENROUTER_API_KEY (or GOOGLE_…), GAIA_HOSTNAME,
+cp .env.example .env          # set MYCEL_API_KEY, GAIA_HOSTNAME,
                               # GAIA_API_KEY (openssl rand -hex 32), GAIA_BASE_DOMAIN
 sudo mkdir -p /opt/gaia-data  # identity bind-mount target (see compose header)
 
@@ -102,13 +102,72 @@ gaia '{"name":"TWITTER_CLIENT_ID","value":"<x-app-client-id>"}'
 gaia '{"name":"TWITTER_CLIENT_SECRET","value":"<x-app-client-secret>"}'
 gaia '{"name":"TWITTER_REFRESH_TOKEN","value":"<bootstrap-refresh-token>"}'
 gaia '{"name":"DATABASE_URL","value":"<neon-postgres-url>"}'        # feed reader (#153)
-gaia '{"name":"OPENROUTER_API_KEY","value":"<key>"}'               # child LLM provider
+gaia '{"name":"MYCEL_API_KEY","value":"<application-credential>"}' # platform model access
 ```
 
 `TWITTER_REFRESH_TOKEN` is the **seed** from the one-time OAuth bootstrap
 (`examples/twitter-habitat/bootstrap-oauth.ts` — see that dir's README). After
 the first refresh, X rotates it and the habitat persists the new one itself
 (see §5).
+
+### Mycel model access and migrating an existing fleet
+
+New Gaia installs default to `mycel` / `deepseek/deepseek-v4-pro`. Compose
+sets `MYCEL_URL=https://mycel.thefocus.ai`; for a direct CLI launch, set
+`MYCEL_URL` explicitly too (the core provider otherwise targets localhost).
+Check `GET /v1/models` on that Exchange before selecting a model: its catalog
+is not the full OpenRouter catalog. As of 2026-09-08 it advertises DeepSeek V4
+Pro and Kimi K3, not the previous Sonnet default.
+
+Gaia's config declares `"modelCredentials": { "mycel": "MYCEL_API_KEY" }`.
+Its master vault must contain a funded Mycel application credential under
+that name. The fnox template includes this name for environment fallback;
+existing installations must add it to their own fnox declaration or master
+vault. Gaia itself also needs the key in its runtime environment. Child
+start, rebuild, and wake inject the vault credential and the operator's
+Exchange URL; the platform key is not seeded into child volumes. Existing
+`HABITAT_ID` injection attributes each child's calls in Mycel. Direct-provider
+overrides remain supported, but require their own `modelCredentials` entries.
+
+Changing these defaults does **not** rewrite existing persisted configs. To
+migrate an existing fleet with authenticated access to the Gaia host:
+
+1. Back up Gaia's config and registry with restricted file permissions, and
+   record which habitats are running. Inspect every provider/model, including
+   agent-specific overrides. Saved-session metadata records historical
+   provider/model attribution, not resume overrides; preserve it. Do not
+   print vault values.
+2. Verify the Mycel application has available credit and perform a small
+   authenticated inference against each intended model before switching.
+3. Deploy the updated Gaia runtime. Set its environment to `GAIA_PROVIDER=mycel`,
+   `GAIA_MODEL=deepseek/deepseek-v4-pro`, and the Exchange URL and credential.
+   Set `HABITAT_ID=gaia` so the orchestrator supplies its Exchange end-user
+   identity, just as children supply their own habitat IDs.
+   Update the existing Gaia `config.json` defaults and merge the Mycel
+   credential mapping into `modelCredentials`, preserving unrelated entries.
+4. Use `GET /api/habitats` to inventory **all** habitats, including dormant
+   ones. For each, preserve the full `config` object and change
+   `defaultProvider` to `mycel`; retain the model only if the Exchange lists
+   that exact ID, otherwise select an advertised replacement. Persist with
+   `PUT /api/habitats/:id` and `{ "config": <updated full config> }`.
+   Update model overrides and repository-backed `habitat.json` declarations
+   as well, so later declaration applies cannot restore direct-provider use.
+   Inspect persisted `routing.json` too: a coding habitat can route `a2a` and
+   `web` to `claude-sdk`, bypassing the configured Mycel model entirely. Back
+   up that file and change those platform defaults to `default` when migrating
+   its chat to Mycel; preserve its workspace agent, image, and tools. The saved
+   routing survives restarts, so changing only provider/model is insufficient.
+5. Recreate Gaia with the new environment. Rebuild previously running children
+   one at a time with `POST /api/habitats/:id/rebuild`; leave dormant ones
+   dormant (they receive the new config and credentials on their next wake).
+6. Check a real model response from Gaia and each migrated running habitat,
+   then confirm the calls in Mycel's usage records. A healthy container alone
+   does not verify model auth, funding, or availability. If a check fails,
+   restore that habitat's saved config and rebuild it before proceeding.
+
+Use Gaia's HTTPS origin and an accepted bearer token for every `/api` request.
+Do not delete old provider secrets until migration is verified and you have
+checked that no non-model tools still use them.
 
 ---
 
@@ -124,11 +183,11 @@ curl -s -X POST http://localhost:7420/api/habitats \
     "id": "twitter",
     "name": "Twitter",
     "image": "twitter-habitat",
-    "provider": "openrouter",
-    "model": "openai/gpt-4o-mini",
+    "provider": "mycel",
+    "model": "deepseek/deepseek-v4-pro",
     "secretBindings": [
       "TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET", "TWITTER_REFRESH_TOKEN",
-      "DATABASE_URL", "OPENROUTER_API_KEY"
+      "DATABASE_URL"
     ]
   }'
 
@@ -137,8 +196,8 @@ curl -s -X POST http://localhost:7420/api/habitats/twitter/start
 ```
 
 Or just tell Gaia in the **Chat** tab: *"Create a habitat called twitter using
-the twitter-habitat image and openrouter openai/gpt-4o-mini. Bind the Twitter
-and DATABASE_URL and OpenRouter secrets, then start it."*
+the twitter-habitat image and mycel deepseek/deepseek-v4-pro. Bind the Twitter
+and DATABASE_URL secrets, then start it."*
 
 ---
 

@@ -84,8 +84,8 @@ export class Gaia {
 		const dataDir = pathResolve(options.dataDir);
 		const port = options.port ?? 7420;
 		const host = options.host ?? "0.0.0.0";
-		const provider = options.provider ?? "google";
-		const model = options.model ?? "gemini-3-flash-preview";
+		const provider = options.provider ?? "mycel";
+		const model = options.model ?? "deepseek/deepseek-v4-pro";
 
 		await mkdir(dataDir, { recursive: true });
 
@@ -239,12 +239,7 @@ export class Gaia {
 		habitat.setRuntimeModelDetails({ provider, name: model });
 
 		const routeCtx = {
-			registry,
-			vault,
-			docker,
-			catalog,
-			audit,
-			githubTokens,
+			...toolsContext,
 			storageTokens,
 			previewControl,
 			hostResources: async () => {

@@ -168,12 +168,46 @@ describe("priceRequest", () => {
     expect(charge).toBe(100_000);
   });
 
-  it("never charges zero for a request that was served", () => {
+  it("never rounds a paid offer down to a free request", () => {
     // A short prompt at a low rate rounds to zero. Without a floor the request
     // is free, an End User with an empty Balance can be served indefinitely,
     // and hardware priced to be rationed is not rationed at all.
     const { charge } = priceRequest(offer(), 1, 0);
-    expect(charge).toBeGreaterThan(0);
+    expect(charge).toBe(1);
+  });
+
+  it.each([[0, 0, 0], [3, 17, 11], [250_000, 750_000, 500_000]])(
+    "charges zero at explicit zero retail rates for %i prompt / %i completion tokens without waiving wholesale",
+    (prompt, completion, expectedCost) => {
+      const result = priceRequest(offer({
+        retailPromptPerMillion: 0,
+        retailCompletionPerMillion: 0,
+        wholesalePromptPerMillion: 200_000,
+        wholesaleCompletionPerMillion: 600_000,
+      }), prompt, completion);
+      expect(result.charge).toBe(0);
+      // Independently rounded wholesale: 0/0, 0.6/10.2, 50000/450000.
+      expect(result.cost).toBe(expectedCost);
+    },
+  );
+
+  it.each([[1, 0], [0, 7], [1, 7]])(
+    "keeps the paid minimum with asymmetric retail rates %i / %i",
+    (promptRate, completionRate) => {
+      const paid = offer({
+        retailPromptPerMillion: promptRate,
+        retailCompletionPerMillion: completionRate,
+      });
+      expect(priceRequest(paid, 0, 0).charge).toBe(1);
+      expect(priceRequest(paid, 1, 2).charge).toBe(1);
+    },
+  );
+
+  it("retains normal independently rounded asymmetric cost and charge", () => {
+    expect(priceRequest(offer({
+      wholesalePromptPerMillion: 200_000,
+      wholesaleCompletionPerMillion: 700_000,
+    }), 137, 41)).toEqual({ cost: 56, charge: 30 });
   });
 
   it("still reports Cost zero for owned hardware", () => {
