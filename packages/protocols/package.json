@@ -37,7 +37,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@umwelten/core": "workspace:*",
     "ai": "^7.0.41",
-    "chalk": "^5.6.2",
+    "chalk": "^6.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
