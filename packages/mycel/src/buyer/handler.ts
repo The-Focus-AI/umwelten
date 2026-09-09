@@ -109,6 +109,43 @@ export interface BuyerHandler {
 export const REQUIRE_GUARANTEE_HEADER = "x-exchange-require-guarantee";
 export const REQUIRE_CAPABILITY_HEADER = "x-exchange-require-capability";
 
+/** Hard requirements implied by the OpenAI request itself. */
+export function inferCapabilities(body: Record<string, unknown>): CapabilityName[] {
+  const inferred = new Set<CapabilityName>(["chat"]);
+  if (body.stream === true) inferred.add("streaming");
+  if (Array.isArray(body.tools) && body.tools.length > 0)
+    inferred.add("tool-calling");
+  const responseFormat = body.response_format;
+  if (
+    responseFormat &&
+    typeof responseFormat === "object" &&
+    ["json_object", "json_schema"].includes(
+      String((responseFormat as { type?: unknown }).type),
+    )
+  ) {
+    inferred.add("structured-output");
+  }
+  for (const message of Array.isArray(body.messages) ? body.messages : []) {
+    if (!message || typeof message !== "object") continue;
+    const content = (message as { content?: unknown }).content;
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const media = part as { type?: unknown; mediaType?: unknown };
+      if (media.type === "image" || media.type === "image_url")
+        inferred.add("image-input");
+      if (
+        media.type === "video" ||
+        media.type === "video_url" ||
+        (media.type === "file" && String(media.mediaType).startsWith("video/"))
+      ) {
+        inferred.add("video-input");
+      }
+    }
+  }
+  return [...inferred];
+}
+
 function headerList(value: string | string[] | undefined): string[] {
   if (!value) return [];
   const raw = Array.isArray(value) ? value.join(",") : value;
@@ -233,6 +270,9 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
       return true;
     }
 
+    const requestId = randomUUID();
+    res.setHeader("x-mycel-request-id", requestId);
+
     // An Application's required Guarantees apply to every one of its requests.
     // A per-request header may *add* to them and can never remove one — an
     // Application pinned to on-premise must not be able to opt out by omitting
@@ -245,9 +285,14 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
           ...headerList(req.headers[REQUIRE_GUARANTEE_HEADER] as string | undefined),
         ]),
       ],
-      capabilities: headerList(
-        req.headers[REQUIRE_CAPABILITY_HEADER] as string | undefined,
-      ) as CapabilityName[],
+      capabilities: [
+        ...new Set([
+          ...inferCapabilities(body),
+          ...headerList(
+            req.headers[REQUIRE_CAPABILITY_HEADER] as string | undefined,
+          ),
+        ]),
+      ] as CapabilityName[],
       allowedModels: caller.application.allowedModels,
     };
 
@@ -320,7 +365,6 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
     const record = async (completionTokens: number) => {
       if (recorded) return;
       recorded = true;
-      const requestId = randomUUID();
       const { cost, charge } = priceRequest(offer, promptTokens, completionTokens);
       await store.recordRequest({
         id: requestId,
@@ -328,6 +372,11 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
         subject: caller.subject,
         supplierId: offer.supplierId,
         model: offer.model,
+        operation: "chat",
+        inputUnits: promptTokens,
+        outputUnits: completionTokens,
+        inputUnit: "token",
+        outputUnit: "token",
         promptTokens,
         completionTokens,
         cost,
@@ -373,7 +422,18 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
       // One call reaches the Supplier, and everything below operates on what it
       // returns. That is what lets a Connection later satisfy this without the
       // relay — or its metering — changing (ADR 0023).
-      upstreamRes = await resolveTransport(supplier)(body, upstream.signal);
+      upstreamRes = await resolveTransport(supplier)(
+        {
+          path: "/chat/completions",
+          contentType: "application/json",
+          body,
+          headers: {
+            "x-mycel-request-id": requestId,
+            "idempotency-key": requestId,
+          },
+        },
+        upstream.signal,
+      );
     } catch (error) {
       if (upstream.signal.aborted) {
         // The caller left before the upstream answered. The prompt was still

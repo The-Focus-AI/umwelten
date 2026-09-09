@@ -18,6 +18,7 @@ import { estimateCandidates } from "./candidates.js";
 import { detectMachineResources } from "./candidates-node.js";
 import { discoverRuntimes } from "./discover.js";
 import { probeOffer } from "./probe.js";
+import { probeOperationCapabilities } from "./operation-probe.js";
 import { findDuplicateModels, probeTargets, toOfferDrafts } from "./offers.js";
 import { ExchangeClient } from "./exchange-client.js";
 import { ManagedModeError, planManagedRuntime, verifyConcurrency } from "./managed.js";
@@ -77,6 +78,8 @@ interface CliOptions {
   runtimeKey?: string;
   /** Commander sets this false for --no-probe. */
   probe?: boolean;
+  probeOperations?: boolean;
+  probeGenerativeMedia?: boolean;
 }
 
 /**
@@ -807,6 +810,14 @@ supplierCommand
     "--no-probe",
     "Connect and serve without probing. The Exchange keeps whatever Offers it has",
   )
+  .option(
+    "--probe-operations",
+    "Probe image input, embeddings, and transcription before advertising them",
+  )
+  .option(
+    "--probe-generative-media",
+    "Also run potentially billable image/video generation and video-input probes",
+  )
   .option("--model <substring>", "Probe and publish only Models matching this")
   .action(async (opts: CliOptions) => {
     const exchangeUrl = opts.mycel ?? process.env.MYCEL_URL;
@@ -893,6 +904,28 @@ supplierCommand
     }
 
     if (offers) {
+      if (
+        runtimeUrl &&
+        (opts.probeOperations || opts.probeGenerativeMedia)
+      ) {
+        for (const offer of offers) {
+          const probes = await probeOperationCapabilities({
+            runtimeUrl,
+            credential: opts.runtimeKey ?? process.env.RUNTIME_API_KEY,
+            model: offer.model,
+            generativeMedia: opts.probeGenerativeMedia,
+          });
+          const verified = probes
+            .filter((probe) => probe.supported)
+            .map((probe) => probe.name);
+          offer.capabilities = [...new Set([...offer.capabilities, ...verified])];
+          for (const probe of probes) {
+            console.log(
+              `  ${probe.supported ? "✓" : "✗"} ${offer.model} ${probe.name} — ${probe.evidence}`,
+            );
+          }
+        }
+      }
       console.log(`publishing ${offers.length} offer(s) with the connection`);
     } else {
       // Said out loud, because the alternative reading is that dialling in

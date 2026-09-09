@@ -94,7 +94,9 @@ export function attachConnectionServer(opts: ConnectionServerOptions): { close: 
   }
   const handshakeTimeoutMs = opts.handshakeTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
   const pingIntervalMs = opts.pingIntervalMs ?? PING_INTERVAL_MS;
-  const wss = new WebSocketServer({ noServer: true });
+  // Media bytes are base64 inside the version-1 JSON wire. This accommodates
+  // the authenticated 100 MB media ceiling plus encoding and frame overhead.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 150_000_000 });
 
   const onUpgrade = async (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     if ((req.url ?? "").split("?")[0] !== CONNECT_PATH) return;

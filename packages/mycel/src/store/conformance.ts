@@ -367,6 +367,79 @@ export function runExchangeStoreConformance(
         expect(offer?.retailPromptPerMillion).toBe(3);
         expect(offer?.retailCompletionPerMillion).toBe(4);
       });
+
+      it("round-trips operation pricing without losing it to a chat reprice", async () => {
+        await store.setOfferPricing("office-spark", "gemma-4-26b", {
+          ...DEFAULT_PRICING,
+          operationPricing: {
+            embeddings: {
+              inputUnit: "token",
+              outputUnit: "token",
+              wholesaleInputPerMillion: 1,
+              wholesaleOutputPerMillion: 0,
+              retailInputPerMillion: 2,
+              retailOutputPerMillion: 0,
+            },
+          },
+        });
+        await store.setOfferPricing("office-spark", "gemma-4-26b", {
+          wholesalePromptPerMillion: 3,
+          wholesaleCompletionPerMillion: 4,
+          retailPromptPerMillion: 5,
+          retailCompletionPerMillion: 6,
+        });
+        expect(
+          (await store.getOffer("office-spark", "gemma-4-26b"))
+            ?.operationPricing?.embeddings?.retailInputPerMillion,
+        ).toBe(2);
+      });
+    });
+
+    describe("durable media", () => {
+      it("round-trips caller-owned files and video job transitions", async () => {
+        const now = new Date("2026-09-09T00:00:00Z");
+        await store.createFile({
+          id: "file-1",
+          applicationId: "app-1",
+          subject: "user-1",
+          purpose: "video-input",
+          mediaType: "video/mp4",
+          bytes: 3,
+          dataBase64: "YWJj",
+          createdAt: now,
+        });
+        expect(await store.getFile("file-1")).toMatchObject({
+          bytes: 3,
+          dataBase64: "YWJj",
+        });
+        await store.createVideoJob({
+          id: "video-1",
+          requestId: "request-1",
+          applicationId: "app-1",
+          subject: "user-1",
+          model: "video-model",
+          supplierId: "supplier-1",
+          status: "queued",
+          request: { prompt: "grow" },
+          inputFileId: "file-1",
+          createdAt: now,
+          updatedAt: now,
+        });
+        await store.updateVideoJob("video-1", {
+          status: "succeeded",
+          outputFileId: "file-2",
+          updatedAt: new Date("2026-09-09T00:01:00Z"),
+        });
+        expect(await store.getVideoJob("video-1")).toMatchObject({
+          status: "succeeded",
+          outputFileId: "file-2",
+          request: { prompt: "grow" },
+        });
+        expect(await store.listVideoJobs(["queued"])).toEqual([]);
+        expect(await store.listVideoJobs(["succeeded"])).toHaveLength(1);
+        await store.deleteFile("file-1");
+        expect(await store.getFile("file-1")).toBeNull();
+      });
     });
 
     describe("clients and applications", () => {

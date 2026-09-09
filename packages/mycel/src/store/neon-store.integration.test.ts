@@ -21,6 +21,8 @@ if (!DATABASE_URL) {
     const sql = neon(url);
     // Truncate rather than drop: the conformance suite creates the schema via
     // setup() on every test, and a fresh store must start empty.
+    await sql`DROP TABLE IF EXISTS exchange_video_job`;
+    await sql`DROP TABLE IF EXISTS exchange_file`;
     await sql`DROP TABLE IF EXISTS exchange_offer_pricing`;
     await sql`DROP TABLE IF EXISTS exchange_offer`;
     await sql`DROP TABLE IF EXISTS exchange_supplier`;

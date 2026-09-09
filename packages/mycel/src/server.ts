@@ -25,6 +25,7 @@ import {
   type BuyerHandlerOptions,
 } from "./buyer/handler.js";
 import { createModelsHandler } from "./buyer/models.js";
+import { createOperationHandler } from "./buyer/operations.js";
 import { ConnectionRegistry } from "./supply/connections.js";
 import { attachConnectionServer } from "./supply/connection-server.js";
 import { createConnectionTransport } from "./supply/connection-transport.js";
@@ -132,6 +133,15 @@ export function createExchangeApp(
       ? () => connections.connectedSupplierIds()
       : undefined,
   });
+  const operationHandler = createOperationHandler({
+    store,
+    verifyCaller: opts.verifyCaller,
+    staleAfterMs: opts.staleAfterMs,
+    resolveTransport,
+    connectedSupplierIds: connections
+      ? () => connections.connectedSupplierIds()
+      : undefined,
+  });
 
   const handlers = [
     // The hostname root is the separately built marketing application. Its
@@ -172,6 +182,7 @@ export function createExchangeApp(
         ? () => connections.connectedSupplierIds()
         : undefined,
     }),
+    operationHandler,
     buyerHandler,
   ];
 

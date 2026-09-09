@@ -28,12 +28,16 @@ import type {
   HeadroomMeta,
   Offer,
   OfferPricing,
+  OperationName,
   PublishedOffer,
   RequestOutcome,
   RequestRecord,
   ServingMode,
+  StoredFile,
   Supplier,
   SupplierKind,
+  UsageUnitName,
+  VideoJob,
 } from "../types.js";
 import type { ExchangeStore } from "./types.js";
 
@@ -111,8 +115,13 @@ export class NeonStore implements ExchangeStore {
         wholesale_completion_per_million BIGINT NOT NULL,
         retail_prompt_per_million BIGINT NOT NULL,
         retail_completion_per_million BIGINT NOT NULL,
+        operation_pricing JSONB NOT NULL DEFAULT '{}'::jsonb,
         PRIMARY KEY (supplier_id, model)
       )
+    `;
+    await this.sql`
+      ALTER TABLE exchange_offer_pricing
+        ADD COLUMN IF NOT EXISTS operation_pricing JSONB NOT NULL DEFAULT '{}'::jsonb
     `;
 
     await this.sql`
@@ -187,6 +196,12 @@ export class NeonStore implements ExchangeStore {
         subject TEXT NOT NULL,
         supplier_id TEXT NOT NULL,
         model TEXT NOT NULL,
+        operation TEXT NOT NULL DEFAULT 'chat',
+        input_units BIGINT,
+        output_units BIGINT,
+        input_unit TEXT,
+        output_unit TEXT,
+        additional_input_units JSONB,
         prompt_tokens INTEGER NOT NULL,
         completion_tokens INTEGER NOT NULL,
         cost BIGINT NOT NULL,
@@ -197,6 +212,58 @@ export class NeonStore implements ExchangeStore {
         started_at TIMESTAMPTZ NOT NULL,
         finished_at TIMESTAMPTZ NOT NULL
       )
+    `;
+    await this.sql`
+      ALTER TABLE exchange_request
+        ADD COLUMN IF NOT EXISTS operation TEXT NOT NULL DEFAULT 'chat',
+        ADD COLUMN IF NOT EXISTS input_units BIGINT,
+        ADD COLUMN IF NOT EXISTS output_units BIGINT,
+        ADD COLUMN IF NOT EXISTS input_unit TEXT,
+        ADD COLUMN IF NOT EXISTS output_unit TEXT
+    `;
+    await this.sql`
+      ALTER TABLE exchange_request
+        ADD COLUMN IF NOT EXISTS additional_input_units JSONB
+    `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_file (
+        id TEXT PRIMARY KEY,
+        application_id TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        bytes BIGINT NOT NULL,
+        data_base64 TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        expires_at TIMESTAMPTZ
+      )
+    `;
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_file_owner_idx
+        ON exchange_file (application_id, subject, created_at)
+    `;
+
+    await this.sql`
+      CREATE TABLE IF NOT EXISTS exchange_video_job (
+        id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        application_id TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        model TEXT NOT NULL,
+        supplier_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        request JSONB NOT NULL,
+        input_file_id TEXT,
+        output_file_id TEXT,
+        error TEXT,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL
+      )
+    `;
+    await this.sql`
+      CREATE INDEX IF NOT EXISTS exchange_video_job_status_idx
+        ON exchange_video_job (status, updated_at)
     `;
 
     await this.sql`
@@ -405,16 +472,84 @@ export class NeonStore implements ExchangeStore {
   async recordRequest(record: RequestRecord): Promise<void> {
     await this.sql`
       INSERT INTO exchange_request
-        (id, application_id, subject, supplier_id, model, prompt_tokens,
+        (id, application_id, subject, supplier_id, model, operation,
+         input_units, output_units, input_unit, output_unit,
+         additional_input_units, prompt_tokens,
          completion_tokens, cost, charge, outcome, upstream_prompt_tokens,
          upstream_completion_tokens, started_at, finished_at)
       VALUES (
         ${record.id}, ${record.applicationId}, ${record.subject}, ${record.supplierId},
-        ${record.model}, ${record.promptTokens}, ${record.completionTokens},
+        ${record.model}, ${record.operation ?? "chat"},
+        ${record.inputUnits ?? null}, ${record.outputUnits ?? null},
+        ${record.inputUnit ?? null}, ${record.outputUnit ?? null},
+        ${record.additionalInputUnits ? JSON.stringify(record.additionalInputUnits) : null}::jsonb,
+        ${record.promptTokens}, ${record.completionTokens},
         ${record.cost}, ${record.charge}, ${record.outcome},
         ${record.upstreamPromptTokens ?? null}, ${record.upstreamCompletionTokens ?? null},
         ${record.startedAt.toISOString()}, ${record.finishedAt.toISOString()}
       )
+    `;
+  }
+
+  async createFile(file: StoredFile): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_file
+        (id, application_id, subject, purpose, media_type, bytes, data_base64,
+         created_at, expires_at)
+      VALUES (${file.id}, ${file.applicationId}, ${file.subject}, ${file.purpose},
+              ${file.mediaType}, ${file.bytes}, ${file.dataBase64},
+              ${file.createdAt.toISOString()}, ${file.expiresAt?.toISOString() ?? null})
+    `;
+  }
+
+  async getFile(id: string): Promise<StoredFile | null> {
+    const rows = (await this.sql`SELECT * FROM exchange_file WHERE id = ${id}`) as Row[];
+    return rows[0] ? toStoredFile(rows[0]) : null;
+  }
+
+  async deleteFile(id: string): Promise<void> {
+    await this.sql`DELETE FROM exchange_file WHERE id = ${id}`;
+  }
+
+  async createVideoJob(job: VideoJob): Promise<void> {
+    await this.sql`
+      INSERT INTO exchange_video_job
+        (id, request_id, application_id, subject, model, supplier_id, status,
+         request, input_file_id, output_file_id, error, created_at, updated_at)
+      VALUES (${job.id}, ${job.requestId}, ${job.applicationId}, ${job.subject},
+              ${job.model}, ${job.supplierId}, ${job.status},
+              ${JSON.stringify(job.request)}::jsonb, ${job.inputFileId ?? null},
+              ${job.outputFileId ?? null}, ${job.error ?? null},
+              ${job.createdAt.toISOString()}, ${job.updatedAt.toISOString()})
+    `;
+  }
+
+  async getVideoJob(id: string): Promise<VideoJob | null> {
+    const rows = (await this.sql`SELECT * FROM exchange_video_job WHERE id = ${id}`) as Row[];
+    return rows[0] ? toVideoJob(rows[0]) : null;
+  }
+
+  async listVideoJobs(statuses?: VideoJob["status"][]): Promise<VideoJob[]> {
+    const rows = (await this.sql`
+      SELECT * FROM exchange_video_job
+      WHERE (${statuses ? JSON.stringify(statuses) : null}::jsonb IS NULL
+        OR status IN (SELECT jsonb_array_elements_text(${statuses ? JSON.stringify(statuses) : "[]"}::jsonb)))
+      ORDER BY created_at
+    `) as Row[];
+    return rows.map(toVideoJob);
+  }
+
+  async updateVideoJob(
+    id: string,
+    update: Pick<VideoJob, "status" | "updatedAt"> &
+      Partial<Pick<VideoJob, "outputFileId" | "error">>,
+  ): Promise<void> {
+    await this.sql`
+      UPDATE exchange_video_job
+      SET status = ${update.status}, updated_at = ${update.updatedAt.toISOString()},
+          output_file_id = COALESCE(${update.outputFileId ?? null}, output_file_id),
+          error = ${update.error ?? null}
+      WHERE id = ${id}
     `;
   }
 
@@ -698,7 +833,8 @@ export class NeonStore implements ExchangeStore {
   async listOffersBySupplier(supplierId: string): Promise<Offer[]> {
     const rows = (await this.sql`
       SELECT o.*, s.granted_guarantees, s.kind, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
-             p.retail_prompt_per_million, p.retail_completion_per_million
+             p.retail_prompt_per_million, p.retail_completion_per_million,
+             p.operation_pricing
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
       LEFT JOIN exchange_offer_pricing p
@@ -712,7 +848,8 @@ export class NeonStore implements ExchangeStore {
   async listOffers(): Promise<Offer[]> {
     const rows = (await this.sql`
       SELECT o.*, s.granted_guarantees, s.kind, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
-             p.retail_prompt_per_million, p.retail_completion_per_million
+             p.retail_prompt_per_million, p.retail_completion_per_million,
+             p.operation_pricing
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
       LEFT JOIN exchange_offer_pricing p
@@ -726,7 +863,8 @@ export class NeonStore implements ExchangeStore {
   async getOffer(supplierId: string, model: string): Promise<Offer | null> {
     const rows = (await this.sql`
       SELECT o.*, s.granted_guarantees, s.kind, p.wholesale_prompt_per_million, p.wholesale_completion_per_million,
-             p.retail_prompt_per_million, p.retail_completion_per_million
+             p.retail_prompt_per_million, p.retail_completion_per_million,
+             p.operation_pricing
       FROM exchange_offer o
       JOIN exchange_supplier s ON s.id = o.supplier_id
       LEFT JOIN exchange_offer_pricing p
@@ -755,17 +893,23 @@ export class NeonStore implements ExchangeStore {
     await this.sql`
       INSERT INTO exchange_offer_pricing
         (supplier_id, model, wholesale_prompt_per_million, wholesale_completion_per_million,
-         retail_prompt_per_million, retail_completion_per_million)
+         retail_prompt_per_million, retail_completion_per_million, operation_pricing)
       VALUES (
         ${supplierId}, ${model},
         ${pricing.wholesalePromptPerMillion}, ${pricing.wholesaleCompletionPerMillion},
-        ${pricing.retailPromptPerMillion}, ${pricing.retailCompletionPerMillion}
+        ${pricing.retailPromptPerMillion}, ${pricing.retailCompletionPerMillion},
+        ${JSON.stringify(pricing.operationPricing ?? {})}::jsonb
       )
       ON CONFLICT (supplier_id, model) DO UPDATE SET
         wholesale_prompt_per_million = EXCLUDED.wholesale_prompt_per_million,
         wholesale_completion_per_million = EXCLUDED.wholesale_completion_per_million,
         retail_prompt_per_million = EXCLUDED.retail_prompt_per_million,
-        retail_completion_per_million = EXCLUDED.retail_completion_per_million
+        retail_completion_per_million = EXCLUDED.retail_completion_per_million,
+        operation_pricing = CASE
+          WHEN ${pricing.operationPricing === undefined}
+            THEN exchange_offer_pricing.operation_pricing
+          ELSE EXCLUDED.operation_pricing
+        END
     `;
   }
 }
@@ -779,6 +923,14 @@ function toRequestRecord(row: Row): RequestRecord {
     subject: String(row.subject),
     supplierId: String(row.supplier_id),
     model: String(row.model),
+    operation: (row.operation as OperationName | null) ?? "chat",
+    inputUnits: row.input_units === null ? undefined : Number(row.input_units),
+    outputUnits: row.output_units === null ? undefined : Number(row.output_units),
+    inputUnit: (row.input_unit as UsageUnitName | null) ?? undefined,
+    outputUnit: (row.output_unit as UsageUnitName | null) ?? undefined,
+    additionalInputUnits:
+      (row.additional_input_units as RequestRecord["additionalInputUnits"] | null) ??
+      undefined,
     promptTokens: Number(row.prompt_tokens),
     completionTokens: Number(row.completion_tokens),
     cost: Number(row.cost),
@@ -794,6 +946,38 @@ function toRequestRecord(row: Row): RequestRecord {
         : Number(row.upstream_completion_tokens),
     startedAt: new Date(row.started_at as string),
     finishedAt: new Date(row.finished_at as string),
+  };
+}
+
+function toStoredFile(row: Row): StoredFile {
+  return {
+    id: String(row.id),
+    applicationId: String(row.application_id),
+    subject: String(row.subject),
+    purpose: String(row.purpose) as StoredFile["purpose"],
+    mediaType: String(row.media_type),
+    bytes: Number(row.bytes),
+    dataBase64: String(row.data_base64),
+    createdAt: new Date(row.created_at as string),
+    expiresAt: row.expires_at ? new Date(row.expires_at as string) : undefined,
+  };
+}
+
+function toVideoJob(row: Row): VideoJob {
+  return {
+    id: String(row.id),
+    requestId: String(row.request_id),
+    applicationId: String(row.application_id),
+    subject: String(row.subject),
+    model: String(row.model),
+    supplierId: String(row.supplier_id),
+    status: String(row.status) as VideoJob["status"],
+    request: row.request as Record<string, unknown>,
+    inputFileId: row.input_file_id ? String(row.input_file_id) : undefined,
+    outputFileId: row.output_file_id ? String(row.output_file_id) : undefined,
+    error: row.error ? String(row.error) : undefined,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
   };
 }
 
@@ -869,6 +1053,8 @@ function toOffer(row: Row): Offer {
       row.retail_completion_per_million,
       DEFAULT_PRICING.retailCompletionPerMillion,
     ),
+    operationPricing:
+      (row.operation_pricing as Offer["operationPricing"] | null) ?? undefined,
     enabled: Boolean(row.enabled),
     publishedAt: new Date(row.published_at as string),
   };

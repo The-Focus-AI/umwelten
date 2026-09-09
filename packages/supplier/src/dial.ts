@@ -86,6 +86,9 @@ export interface DialSocket {
 const DEFAULT_MIN_BACKOFF_MS = 1_000;
 const DEFAULT_MAX_BACKOFF_MS = 30_000;
 const DEFAULT_HEARTBEAT_TIMEOUT_MS = 75_000;
+// A 100 MB media body expands to about 134 MB as base64 inside the JSON wire.
+// Keep the wire limit aligned with Mycel's authenticated media policy.
+const MAX_WIRE_FRAME_BYTES = 150_000_000;
 
 function websocketUrl(exchangeUrl: string): string {
   const url = new URL(CONNECT_PATH, exchangeUrl);
@@ -96,6 +99,7 @@ function websocketUrl(exchangeUrl: string): string {
 function realSocket(url: string, credential: string): DialSocket {
   const ws = new WebSocket(url, {
     headers: { authorization: `Bearer ${credential}` },
+    maxPayload: MAX_WIRE_FRAME_BYTES,
   });
   return {
     send: (data) => ws.send(data),

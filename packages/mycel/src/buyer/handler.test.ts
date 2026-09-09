@@ -12,13 +12,45 @@ import { MemoryStore } from "../store/memory-store.js";
 import { supplierFixture } from "../store/conformance.js";
 import { startMockUpstream, type MockUpstream, type UpstreamMode } from "../testing/mock-upstream.js";
 import { createExchangeServer, type RunningExchange } from "../server.js";
-import { REQUIRE_CAPABILITY_HEADER, REQUIRE_GUARANTEE_HEADER } from "./handler.js";
+import {
+  REQUIRE_CAPABILITY_HEADER,
+  REQUIRE_GUARANTEE_HEADER,
+  inferCapabilities,
+} from "./handler.js";
 import { createIdentityVerifier } from "../auth/identity.js";
 import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
 import type { Application } from "../types.js";
 import { Balances, endUserOwner } from "../metering/balances.js";
 
 const MODEL = "gemma-4-26b";
+
+describe("hard capability inference", () => {
+  it("derives requirements from the request rather than trusting callers", () => {
+    expect(
+      inferCapabilities({
+        stream: true,
+        tools: [{ type: "function" }],
+        response_format: { type: "json_schema" },
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: "data:image/png;base64,x" } },
+              { type: "file", mediaType: "video/mp4", data: "file-id" },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      "chat",
+      "streaming",
+      "tool-calling",
+      "structured-output",
+      "image-input",
+      "video-input",
+    ]);
+  });
+});
 
 describe("buyer surface", () => {
   let store: MemoryStore;
@@ -79,6 +111,7 @@ describe("buyer surface", () => {
       const res = await chat({ model: MODEL, messages: [{ role: "user", content: "hi" }] });
 
       expect(res.status).toBe(200);
+      expect(res.headers.get("x-mycel-request-id")).toMatch(/^[0-9a-f-]{36}$/);
       const json = await res.json();
       expect(json.object).toBe("chat.completion");
       expect(json.choices[0].message.content).toContain("quick brown fox");

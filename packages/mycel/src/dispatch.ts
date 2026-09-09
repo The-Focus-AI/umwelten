@@ -17,7 +17,13 @@
  * (ADR 0015).
  */
 
-import type { CapabilityName, MicroDollars, Offer } from "./types.js";
+import { OPERATION_UNITS } from "./types.js";
+import type {
+  CapabilityName,
+  MicroDollars,
+  Offer,
+  OperationName,
+} from "./types.js";
 
 export interface DispatchRequirements {
   model: string;
@@ -36,6 +42,8 @@ export interface DispatchRequirements {
   quantization?: string;
   /** Smallest context this request needs the Offer to actually accept. */
   minContextTokens?: number;
+  /** Non-chat operations require an explicit operator-owned price. */
+  operation?: OperationName;
 }
 
 export type RejectionReason =
@@ -53,7 +61,8 @@ export type RejectionReason =
   | "missing-guarantee"
   | "missing-capability"
   | "wrong-quantization"
-  | "insufficient-context";
+  | "insufficient-context"
+  | "unpriced-operation";
 
 /** Why an eligible Offer scored the way it did. */
 export interface ScoreTerms {
@@ -98,7 +107,16 @@ export interface DispatchResult {
  * completion-heavy mix. Still crude, still in one place — but it is now one
  * term in a score rather than the whole decision (ADR 0027).
  */
-export function rankingPrice(offer: Offer): MicroDollars {
+export function rankingPrice(
+  offer: Offer,
+  operation: OperationName = "chat",
+): MicroDollars {
+  if (operation !== "chat") {
+    const price = offer.operationPricing?.[operation];
+    return price
+      ? price.retailInputPerMillion + price.retailOutputPerMillion
+      : Number.MAX_SAFE_INTEGER;
+  }
   return offer.retailPromptPerMillion + offer.retailCompletionPerMillion * 3;
 }
 
@@ -162,8 +180,9 @@ function normalize(value: number, min: number, max: number, higherIsBetter: bool
 export function scoreOffers(
   offers: Offer[],
   weights: ScoreWeights = DEFAULT_WEIGHTS,
+  operation: OperationName = "chat",
 ): { offer: Offer; score: number; terms: ScoreTerms }[] {
-  const prices = offers.map(rankingPrice);
+  const prices = offers.map((offer) => rankingPrice(offer, operation));
   const samples = offers.map(bestSample);
   const throughputs = samples.map((s) => s?.tokensPerSecond ?? 0).filter((n) => n > 0);
   const ttfts = samples.map((s) => s?.ttftMs ?? 0).filter((n) => n > 0);
@@ -313,6 +332,24 @@ export function dispatch(
       continue;
     }
 
+    if (
+      requirements.operation &&
+      requirements.operation !== "chat" &&
+      !offer.operationPricing?.[requirements.operation]
+    ) {
+      note("unpriced-operation");
+      continue;
+    }
+
+    if (requirements.operation && requirements.operation !== "chat") {
+      const price = offer.operationPricing?.[requirements.operation];
+      const units = OPERATION_UNITS[requirements.operation];
+      if (price && (price.inputUnit !== units.input || price.outputUnit !== units.output)) {
+        note("unpriced-operation");
+        continue;
+      }
+    }
+
     // An Offer with no recorded quantization does not satisfy a quantization
     // requirement. An adapted Offer resells a configuration its Supplier does
     // not control (ADR 0016) and cannot honestly claim one.
@@ -334,13 +371,17 @@ export function dispatch(
 
   // Scored against each other, not in isolation — a term only means anything
   // relative to the alternatives for this request (ADR 0027).
-  const scored = scoreOffers(eligible, opts.weights);
+  const scored = scoreOffers(
+    eligible,
+    opts.weights,
+    requirements.operation ?? "chat",
+  );
   for (const { offer, score, terms } of scored) {
     considered.push({
       supplierId: offer.supplierId,
       model: offer.model,
       eligible: true,
-      rankingPrice: rankingPrice(offer),
+      rankingPrice: rankingPrice(offer, requirements.operation ?? "chat"),
       score,
       terms,
     });

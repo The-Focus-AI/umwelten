@@ -11,10 +11,21 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Offer } from "../types.js";
+import type { Offer, OperationName, UsageUnitName } from "../types.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const MODELS_PATH = "/v1/models";
+
+export interface ModelOperationPricing {
+  input_unit: UsageUnitName;
+  output_unit: UsageUnitName;
+  /** Retail dollars per million input units. */
+  input: number;
+  /** Retail dollars per million output units. */
+  output: number;
+  /** Retail dollars per million simultaneous input units. */
+  additional_input?: Partial<Record<UsageUnitName, number>>;
+}
 
 export interface ModelEntry {
   id: string;
@@ -24,6 +35,10 @@ export interface ModelEntry {
   status: "available";
   /** Dollars per million tokens, at the cheapest eligible Offer. */
   pricing: { prompt: number; completion: number };
+  /** Operation-specific prices, in dollars per million physical units. */
+  operation_pricing: Partial<
+    Record<Exclude<OperationName, "chat">, ModelOperationPricing>
+  >;
   /** The union of what any Offer for this Model can do. */
   capabilities: string[];
   /** Guarantees carried by *every* Offer for this Model, so a buyer can rely on them. */
@@ -76,6 +91,53 @@ export function summarizeOffers(
         .map((o) => o.contextTokens)
         .filter((c): c is number => c !== undefined);
 
+      const operations = [
+        "embeddings",
+        "transcription",
+        "image-generation",
+        "video-generation",
+      ] as const;
+      const operationPricing = Object.fromEntries(
+        operations.flatMap((operation) => {
+          const priced = group.filter(
+            (offer) =>
+              offer.capabilities.includes(operation) &&
+              offer.operationPricing?.[operation],
+          );
+          if (!priced.length) return [];
+          const selected = priced.reduce((a, b) => {
+            const aPrice = a.operationPricing![operation]!;
+            const bPrice = b.operationPricing![operation]!;
+            return aPrice.retailInputPerMillion + aPrice.retailOutputPerMillion <=
+              bPrice.retailInputPerMillion + bPrice.retailOutputPerMillion
+              ? a
+              : b;
+          });
+          const price = selected.operationPricing![operation]!;
+          return [[
+            operation,
+            {
+              input_unit: price.inputUnit,
+              output_unit: price.outputUnit,
+              input: toDollarsPerMillion(price.retailInputPerMillion),
+              output: toDollarsPerMillion(price.retailOutputPerMillion),
+              ...(price.additionalInputPricing
+                ? {
+                    additional_input: Object.fromEntries(
+                      Object.entries(price.additionalInputPricing).map(
+                        ([unit, additional]) => [
+                          unit,
+                          toDollarsPerMillion(additional.retailPerMillion),
+                        ],
+                      ),
+                    ),
+                  }
+                : {}),
+            },
+          ]] as const;
+        }),
+      );
+
       return {
         id: model,
         object: "model",
@@ -85,6 +147,7 @@ export function summarizeOffers(
           prompt: toDollarsPerMillion(cheapest.retailPromptPerMillion),
           completion: toDollarsPerMillion(cheapest.retailCompletionPerMillion),
         },
+        operation_pricing: operationPricing,
         capabilities,
         guarantees: [...guarantees].sort(),
         // The smallest, so a buyer who fits within it fits on every Offer.

@@ -43,6 +43,24 @@ describe("estimatePromptTokens", () => {
     expect(tokens).toBeGreaterThan(45);
   });
 
+  it("charges a stable token-equivalent unit for image input", () => {
+    const textOnly = estimatePromptTokens({
+      messages: [{ role: "user", content: [{ type: "text", text: "describe" }] }],
+    });
+    const withImage = estimatePromptTokens({
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "describe" },
+            { type: "image_url", image_url: { url: "data:image/png;base64,x" } },
+          ],
+        },
+      ],
+    });
+    expect(withImage - textOnly).toBe(1_024);
+  });
+
   it("never returns zero for a request that was actually sent", () => {
     // A request with no countable content still occupied a Supplier. Charging
     // nothing for it is the hole this whole ticket exists to close.

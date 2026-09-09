@@ -19,7 +19,13 @@ import { Operator } from "./operator.js";
 import { DEFAULT_PORT, createExchangeServer } from "./server.js";
 import { Balances, applicationOwner, clientOwner } from "./metering/balances.js";
 import type { ExchangeStore } from "./store/types.js";
-import type { MicroDollars, PublishedOffer } from "./types.js";
+import { OPERATION_UNITS } from "./types.js";
+import type {
+  MicroDollars,
+  OperationName,
+  PublishedOffer,
+  UsageUnitName,
+} from "./types.js";
 
 interface CliOptions {
   port?: string;
@@ -41,6 +47,14 @@ interface CliOptions {
   wholesaleCompletion?: string;
   retailPrompt?: string;
   retailCompletion?: string;
+  inputUnit?: string;
+  outputUnit?: string;
+  wholesaleInput?: string;
+  wholesaleOutput?: string;
+  retailInput?: string;
+  retailOutput?: string;
+  wholesaleBytes?: string;
+  retailBytes?: string;
 }
 
 class MycelCliError extends Error {}
@@ -609,3 +623,87 @@ withDatabase(mycelCommand.command("price <supplierId> <model>"))
       }
     });
   });
+
+withDatabase(
+  mycelCommand.command("price-operation <supplierId> <model> <operation>"),
+)
+  .description("Price one verified non-chat operation in physical units")
+  .requiredOption("--input-unit <unit>", "token, byte, second, image, or video-second")
+  .requiredOption("--output-unit <unit>", "token, byte, second, image, or video-second")
+  .requiredOption("--wholesale-input <microDollars>", "Per million input units")
+  .requiredOption("--wholesale-output <microDollars>", "Per million output units")
+  .requiredOption("--retail-input <microDollars>", "Per million input units")
+  .requiredOption("--retail-output <microDollars>", "Per million output units")
+  .option("--wholesale-bytes <microDollars>", "Additional per-million input-byte price")
+  .option("--retail-bytes <microDollars>", "Additional per-million input-byte price")
+  .action(
+    async (
+      supplierId: string,
+      model: string,
+      operation: string,
+      opts: CliOptions,
+    ) => {
+      await guard(async () => {
+        const operations: Exclude<OperationName, "chat">[] = [
+          "embeddings",
+          "transcription",
+          "image-generation",
+          "video-generation",
+        ];
+        const units: UsageUnitName[] = [
+          "token",
+          "byte",
+          "second",
+          "image",
+          "video-second",
+        ];
+        if (!operations.includes(operation as Exclude<OperationName, "chat">)) {
+          throw new MycelCliError(`Unknown operation ${operation}.`);
+        }
+        if (!units.includes(opts.inputUnit as UsageUnitName) || !units.includes(opts.outputUnit as UsageUnitName)) {
+          throw new MycelCliError("Unknown input or output unit.");
+        }
+        const requiredUnits = OPERATION_UNITS[operation as Exclude<OperationName, "chat">];
+        if (opts.inputUnit !== requiredUnits.input || opts.outputUnit !== requiredUnits.output) {
+          throw new MycelCliError(
+            `${operation} is measured as ${requiredUnits.input} input and ${requiredUnits.output} output.`,
+          );
+        }
+        if ((opts.wholesaleBytes === undefined) !== (opts.retailBytes === undefined)) {
+          throw new MycelCliError("Set --wholesale-bytes and --retail-bytes together.");
+        }
+        const store = openStore(opts);
+        await store.setup();
+        const offer = await store.getOffer(supplierId, model);
+        if (!offer) throw new MycelCliError(`No Offer ${supplierId} / ${model}.`);
+        await store.setOfferPricing(supplierId, model, {
+          wholesalePromptPerMillion: offer.wholesalePromptPerMillion,
+          wholesaleCompletionPerMillion: offer.wholesaleCompletionPerMillion,
+          retailPromptPerMillion: offer.retailPromptPerMillion,
+          retailCompletionPerMillion: offer.retailCompletionPerMillion,
+          operationPricing: {
+            ...offer.operationPricing,
+            [operation]: {
+              inputUnit: opts.inputUnit as UsageUnitName,
+              outputUnit: opts.outputUnit as UsageUnitName,
+              wholesaleInputPerMillion: parseMicroDollars(opts.wholesaleInput!),
+              wholesaleOutputPerMillion: parseMicroDollars(opts.wholesaleOutput!),
+              retailInputPerMillion: parseMicroDollars(opts.retailInput!),
+              retailOutputPerMillion: parseMicroDollars(opts.retailOutput!),
+              ...(opts.wholesaleBytes !== undefined
+                ? {
+                    additionalInputPricing: {
+                      byte: {
+                        wholesalePerMillion: parseMicroDollars(opts.wholesaleBytes),
+                        retailPerMillion: parseMicroDollars(opts.retailBytes!),
+                      },
+                    },
+                  }
+                : {}),
+            },
+          },
+        });
+        console.log(`${supplierId} / ${model} / ${operation} priced.`);
+      });
+    },
+  );

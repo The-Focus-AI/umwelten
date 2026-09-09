@@ -22,7 +22,11 @@
 
 import { randomUUID } from "node:crypto";
 import type { Supplier } from "../types.js";
-import type { SupplierTransport, ResolveTransport } from "../buyer/transport.js";
+import {
+  normalizeSupplierRequest,
+  type SupplierTransport,
+  type ResolveTransport,
+} from "../buyer/transport.js";
 import type { Connection, ConnectionRegistry } from "./connections.js";
 import {
   parseFrame,
@@ -99,7 +103,11 @@ class ConnectionMultiplexer {
         // Enqueued the moment it arrives. Buffering here would defeat the point
         // of streaming and would also break mid-stream credit enforcement,
         // which only works because the relay sees tokens as they are produced.
-        entry.controller?.enqueue(new TextEncoder().encode(frame.data));
+        entry.controller?.enqueue(
+          frame.dataBase64
+            ? Buffer.from(frame.dataBase64, "base64")
+            : new TextEncoder().encode(frame.data ?? ""),
+        );
         return;
       }
       case "end": {
@@ -180,7 +188,8 @@ export function createConnectionTransport(opts: {
   const newId = opts.newId ?? (() => randomUUID());
 
   return (supplier: Supplier): SupplierTransport => {
-    return async (body, signal) => {
+    return async (input, signal) => {
+      const request = normalizeSupplierRequest(input);
       const connection = opts.registry.get(supplier.id);
       // Dispatch should not have selected a disconnected machine (#381), so
       // this is a race — it disconnected between selection and relay — rather
@@ -212,7 +221,22 @@ export function createConnectionTransport(opts: {
       const timeout = setTimeout(() => multiplexer.cancel(id), headTimeoutMs);
       timeout.unref?.();
 
-      send(connection, { type: "request", id, body } satisfies RequestFrame);
+      send(connection, {
+        type: "request",
+        id,
+        ...(request.path === "/chat/completions" &&
+        !(request.body instanceof Uint8Array) &&
+        !request.headers
+          ? { body: request.body }
+          : {
+              path: request.path,
+              contentType: request.contentType,
+              ...(request.headers ? { headers: request.headers } : {}),
+              ...(request.body instanceof Uint8Array
+                ? { bodyBase64: Buffer.from(request.body).toString("base64") }
+                : { body: request.body }),
+            }),
+      } satisfies RequestFrame);
 
       try {
         const settled = await response;

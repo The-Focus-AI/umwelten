@@ -31,6 +31,9 @@ export {
 	getRegisteredProvider,
 	listRegisteredProviders,
 	BaseProvider,
+	createMycelAI,
+	createMycelProvider,
+	MycelProvider,
 	// Context
 	estimateContextSize,
 	getCompactionSegment,
@@ -127,6 +130,7 @@ export type {
 	CompactionSegment,
 	TokenUsage,
 	CostBreakdown,
+	MycelAIOptions,
 	SessionRecordSource,
 	LearningKind,
 	LearningProvenance,

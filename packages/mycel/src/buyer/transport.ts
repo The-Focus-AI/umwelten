@@ -16,13 +16,51 @@
 
 import type { Supplier } from "../types.js";
 
+export const SUPPLIER_PATHS = [
+  "/chat/completions",
+  "/embeddings",
+  "/audio/transcriptions",
+  "/images/generations",
+  "/videos/generations",
+] as const;
+export type SupplierPath = (typeof SUPPLIER_PATHS)[number];
+
+export interface SupplierRequest {
+  path: SupplierPath;
+  contentType: string;
+  body: Record<string, unknown> | Uint8Array;
+  /** Exchange-owned correlation headers; never copied from arbitrary callers. */
+  headers?: Record<string, string>;
+}
+
+export type SupplierTransportInput = SupplierRequest | Record<string, unknown>;
+
+export function normalizeSupplierRequest(
+  input: SupplierTransportInput,
+): SupplierRequest {
+  if (
+    "path" in input &&
+    "contentType" in input &&
+    "body" in input &&
+    typeof input.path === "string" &&
+    typeof input.contentType === "string"
+  ) {
+    return input as SupplierRequest;
+  }
+  return {
+    path: "/chat/completions",
+    contentType: "application/json",
+    body: input as Record<string, unknown>,
+  };
+}
+
 /**
  * A request, already validated and metered at admission, on its way to a
  * Supplier. The body is the buyer's own OpenAI-shaped payload, forwarded
  * unmodified — the Exchange adds nothing to it.
  */
 export type SupplierTransport = (
-  body: Record<string, unknown>,
+  request: SupplierTransportInput,
   signal: AbortSignal,
 ) => Promise<Response>;
 
@@ -47,17 +85,25 @@ export function createHttpTransport(opts: {
 
   return (supplier: Supplier): SupplierTransport => {
     const credential = opts.readCredential(supplier.upstreamCredentialEnv);
-    const url = `${supplier.baseUrl.replace(/\/$/, "")}/chat/completions`;
 
-    return (body, signal) =>
-      doFetch(url, {
+    return (input, signal) => {
+      const request = normalizeSupplierRequest(input);
+      return doFetch(`${supplier.baseUrl.replace(/\/$/, "")}${request.path}`, {
         method: "POST",
         headers: {
-          "content-type": "application/json",
+          "content-type": request.contentType,
+          ...request.headers,
           ...(credential ? { authorization: `Bearer ${credential}` } : {}),
         },
-        body: JSON.stringify(body),
+        body:
+          request.body instanceof Uint8Array
+            ? (request.body.buffer.slice(
+                request.body.byteOffset,
+                request.body.byteOffset + request.body.byteLength,
+              ) as ArrayBuffer)
+            : JSON.stringify(request.body),
         signal,
       });
+    };
   };
 }

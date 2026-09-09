@@ -71,6 +71,31 @@ describe("serving pushed work", () => {
     expect(JSON.parse(String(runtime.request?.init.body))).toEqual(body);
   });
 
+  it("forwards multipart bytes to the requested operation path", async () => {
+    const runtime = fakeRuntime();
+    const { server } = harness(runtime.fetchImpl);
+    const bytes = new Uint8Array([0, 1, 254, 255]);
+
+    server.handleFrame(
+      JSON.stringify({
+        type: "request",
+        id: "r1",
+        path: "/audio/transcriptions",
+        contentType: "multipart/form-data; boundary=mycel-test",
+        bodyBase64: Buffer.from(bytes).toString("base64"),
+        headers: { "idempotency-key": "mycel-request-1" },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 5));
+
+    expect(runtime.request?.url).toBe("http://localhost:4000/v1/audio/transcriptions");
+    expect(runtime.request?.init.headers).toMatchObject({
+      "content-type": "multipart/form-data; boundary=mycel-test",
+      "idempotency-key": "mycel-request-1",
+    });
+    expect(new Uint8Array(runtime.request?.init.body as Buffer)).toEqual(bytes);
+  });
+
   it("presents the runtime's key, which the Exchange never sees", async () => {
     const runtime = fakeRuntime();
     const { server } = harness(runtime.fetchImpl);
@@ -112,6 +137,36 @@ describe("serving pushed work", () => {
     await new Promise((r) => setTimeout(r, 5));
 
     expect(of("chunk").map((f) => f.data)).toEqual(["one", "two"]);
+    expect(of("end")).toEqual([{ type: "end", id: "r1" }]);
+  });
+
+  it("base64-encodes binary runtime responses on the JSON wire", async () => {
+    const bytes = new Uint8Array([0, 127, 128, 255]);
+    const fetchImpl = (async () =>
+      new Response(bytes, {
+        status: 200,
+        headers: { "content-type": "video/mp4" },
+      })) as unknown as typeof fetch;
+    const { server, of } = harness(fetchImpl);
+
+    server.handleFrame(
+      JSON.stringify({
+        type: "request",
+        id: "r1",
+        path: "/videos/generations",
+        contentType: "application/json",
+        body: { model: "video-model" },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 5));
+
+    expect(of("chunk")).toEqual([
+      {
+        type: "chunk",
+        id: "r1",
+        dataBase64: Buffer.from(bytes).toString("base64"),
+      },
+    ]);
     expect(of("end")).toEqual([{ type: "end", id: "r1" }]);
   });
 
