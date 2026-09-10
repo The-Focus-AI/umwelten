@@ -52,7 +52,7 @@
       "post": {
         "operationId": "createTranscription",
         "summary": "Transcribe one recorded audio file",
-        "description": "Multipart bytes are relayed unchanged. Batch by issuing bounded concurrent requests; there is no second batching protocol.",
+        "description": "Multipart bytes are relayed unchanged. Audio duration is priced in seconds from the successful upstream response; uploaded bytes are recorded separately. Responses without measurable duration are rejected rather than undercharged. Batch by issuing bounded concurrent requests; there is no second batching protocol.",
         "parameters": [{ "$ref": "#/components/parameters/EndUser" }, { "$ref": "#/components/parameters/Guarantees" }],
         "requestBody": {
           "required": true,
@@ -66,7 +66,7 @@
             }
           }
         },
-        "responses": { "200": { "$ref": "#/components/responses/OperationSuccess" }, "413": { "$ref": "#/components/responses/MediaTooLarge" }, "503": { "$ref": "#/components/responses/NoEligibleOffer" } }
+        "responses": { "200": { "$ref": "#/components/responses/OperationSuccess" }, "413": { "$ref": "#/components/responses/MediaTooLarge" }, "502": { "$ref": "#/components/responses/UpstreamError" }, "503": { "$ref": "#/components/responses/NoEligibleOffer" } }
       }
     },
     "/images/generations": {

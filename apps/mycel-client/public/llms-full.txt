@@ -103,7 +103,7 @@ The same factory carries `X-Mycel-End-User` and optional hard capability and gua
 ## Media and asynchronous video
 
 - Image input is sent as ordinary OpenAI chat content. Inline data is limited by the 10 MB JSON-body ceiling and metered by a provider-independent floor that scales with decoded bytes. Mycel does not fetch remote images merely to meter them.
-- Transcription accepts one OpenAI-style multipart recorded file up to 100 MB and relays its bytes unchanged. Batch transcription means bounded concurrent calls; there is no redundant server batching protocol.
+- Transcription accepts one OpenAI-style multipart recorded file up to 100 MB and relays its bytes unchanged. It prices the audio duration reported by the upstream transcription contract in seconds and records uploaded bytes separately; a response without measurable duration is rejected rather than undercharged. Batch transcription means bounded concurrent calls; there is no redundant server batching protocol.
 - Image generation uses the OpenAI `/v1/images/generations` response contract.
 - Video input is never accepted as an arbitrary large client base64 field. Upload raw `video/*` bytes to `POST /v1/files`, then pass `input_file_id` to `POST /v1/videos`.
 - Video generation returns `202` with a durable job id. Poll `GET /v1/videos/{id}` until `succeeded`, then download `GET /v1/files/{output_file_id}/content`. Jobs and normalized output bytes survive an Exchange restart. Files are scoped to the calling Application and End User and can be deleted with `DELETE /v1/files/{id}`.

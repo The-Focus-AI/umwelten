@@ -64,7 +64,7 @@ export const OPERATION_UNITS: Record<
   { input: UsageUnitName; output: UsageUnitName }
 > = {
   embeddings: { input: "token", output: "token" },
-  transcription: { input: "byte", output: "token" },
+  transcription: { input: "second", output: "token" },
   "image-generation": { input: "token", output: "image" },
   "video-generation": { input: "token", output: "video-second" },
 };

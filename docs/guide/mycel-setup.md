@@ -420,6 +420,11 @@ returned `input_file_id` to `/v1/videos`, poll `/v1/videos/{id}`, and download
 the resulting `/v1/files/{output_file_id}/content`. Media is capped at 100 MB
 and scoped to the calling Application and End User.
 
+Transcription is priced by audio-second from the upstream response's measured
+duration; uploaded bytes remain a separate recorded unit. Mycel rejects a
+successful-looking transcription response that omits duration instead of
+silently charging it as zero seconds.
+
 Endpoint code alone never makes a capability available. A machine operator must
 verify it before publishing:
 
