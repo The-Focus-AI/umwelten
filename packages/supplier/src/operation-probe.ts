@@ -23,6 +23,9 @@ interface OperationProbeResponse {
   choices?: Array<{ message?: { content?: unknown } }>;
   data?: Array<{ embedding?: unknown; b64_json?: unknown; url?: unknown }>;
   video?: unknown;
+  text?: unknown;
+  duration?: unknown;
+  usage?: { seconds?: unknown };
 }
 
 function silentWav(): Buffer {
@@ -151,8 +154,13 @@ export async function probeOperationCapabilities(
         body: form,
       });
       if (!response.ok) throw new Error(`/audio/transcriptions returned ${response.status}`);
-      const body = (await response.json()) as Record<string, unknown>;
-      return typeof body.text === "string";
+      const body = (await response.json()) as OperationProbeResponse;
+      const seconds = Number(body.usage?.seconds ?? body.duration);
+      return (
+        typeof body.text === "string" &&
+        Number.isFinite(seconds) &&
+        seconds > 0
+      );
     }),
   );
 

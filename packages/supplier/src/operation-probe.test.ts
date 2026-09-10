@@ -39,7 +39,9 @@ describe("operation capability probes", () => {
         const path = new URL(String(input)).pathname;
         paths.push(path);
         if (path.endsWith("/embeddings")) return Response.json({ data: [{ embedding: [] }] });
-        if (path.endsWith("/audio/transcriptions")) return Response.json({ text: "" });
+        if (path.endsWith("/audio/transcriptions")) {
+          return Response.json({ text: "", usage: { seconds: 0.25 } });
+        }
         if (path.endsWith("/chat/completions")) {
           return Response.json({ choices: [{ message: { content: "red" } }] });
         }

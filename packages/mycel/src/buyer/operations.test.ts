@@ -66,7 +66,7 @@ describe("Mycel operation surfaces", () => {
       ...DEFAULT_PRICING,
       operationPricing: {
         embeddings: operationPricing("token", "token"),
-        transcription: operationPricing("byte", "token"),
+        transcription: operationPricing("second", "token"),
         "image-generation": operationPricing("token", "image"),
         "video-generation": operationPricing("token", "video-second"),
       },
@@ -92,7 +92,10 @@ describe("Mycel operation surfaces", () => {
         });
       }
       if (request.path === "/audio/transcriptions") {
-        return Response.json({ text: "recorded thought" });
+        return Response.json({
+          text: "recorded thought",
+          usage: { seconds: 2.5 },
+        });
       }
       if (request.path === "/images/generations") {
         return Response.json({ created: 1, data: [{ b64_json: "aW1hZ2U=" }] });
@@ -149,7 +152,7 @@ describe("Mycel operation surfaces", () => {
     expect(seen[0].path).toBe("/embeddings");
   });
 
-  it("relays the original multipart transcription body and meters file bytes", async () => {
+  it("relays multipart transcription and prices duration without treating bytes as time", async () => {
     const form = new FormData();
     form.set("model", MODEL);
     form.set("file", new Blob(["audio-data"], { type: "audio/webm" }), "thought.webm");
@@ -166,11 +169,40 @@ describe("Mycel operation surfaces", () => {
     expect(seen[0].body).toBeInstanceOf(Uint8Array);
     expect((await store.listRequests())[0]).toMatchObject({
       operation: "transcription",
-      inputUnit: "byte",
-      inputUnits: 10,
+      inputUnit: "second",
+      inputUnits: 2.5,
       outputUnit: "token",
       outputUnits: 4,
+      additionalInputUnits: { byte: 10 },
     });
+  });
+
+  it("rejects a transcription response that cannot be metered", async () => {
+    resolveTransport = () => async () =>
+      Response.json({ text: "unmetered transcript" });
+    await exchange.close();
+    exchange = await createExchangeServer({
+      store,
+      host: "127.0.0.1",
+      port: 0,
+      verifyCaller: createIdentityVerifier({
+        store,
+        makeKeySet: () => application.keySet,
+      }),
+      resolveTransport,
+    });
+    const form = new FormData();
+    form.set("model", MODEL);
+    form.set("file", new Blob(["audio-data"]), "thought.webm");
+
+    const response = await fetch(`${exchange.url}/v1/audio/transcriptions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${await application.sign("user-1")}` },
+      body: form,
+    });
+
+    expect(response.status).toBe(502);
+    expect(await store.listRequests()).toEqual([]);
   });
 
   it("relays image generation and charges for the images actually returned", async () => {

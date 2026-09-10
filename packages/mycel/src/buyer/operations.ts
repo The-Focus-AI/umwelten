@@ -61,6 +61,7 @@ interface PreparedOperation {
   supplierRequest: SupplierRequest;
   model: string;
   inputByUnit: Partial<Record<UsageUnitName, number>>;
+  additionalInputByUnit?: Partial<Record<UsageUnitName, number>>;
   estimatedOutputByUnit: Partial<Record<UsageUnitName, number>>;
   countOutput: (body: Uint8Array, contentType: string) => Partial<Record<UsageUnitName, number>>;
 }
@@ -119,13 +120,22 @@ function imageCount(body: Uint8Array): number {
   }
 }
 
-function transcriptionTokens(body: Uint8Array): number {
-  try {
-    const parsed = JSON.parse(Buffer.from(body).toString("utf8")) as { text?: unknown };
-    return typeof parsed.text === "string" ? textUnits(parsed.text) : 0;
-  } catch {
-    return 0;
+function transcriptionUsage(
+  body: Uint8Array,
+): Partial<Record<UsageUnitName, number>> {
+  const parsed = JSON.parse(Buffer.from(body).toString("utf8")) as {
+    text?: unknown;
+    duration?: unknown;
+    usage?: { seconds?: unknown };
+  };
+  const seconds = Number(parsed.usage?.seconds ?? parsed.duration);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error("supplier returned no transcription duration");
   }
+  return {
+    second: seconds,
+    token: typeof parsed.text === "string" ? textUnits(parsed.text) : 0,
+  };
 }
 
 function unitsFor(
@@ -260,11 +270,13 @@ async function prepareTranscription(
       body: bytes,
     },
     model,
-    // Byte metering is provider-independent and survives compressed formats;
-    // operators that sell transcription should price this physical unit.
-    inputByUnit: { byte: file.size },
+    // Admission reserves one second. The actual duration comes from the
+    // successful upstream response; compressed byte size is retained as an
+    // additional transport/storage unit rather than pretending it is time.
+    inputByUnit: { second: 1 },
+    additionalInputByUnit: { byte: file.size },
     estimatedOutputByUnit: {},
-    countOutput: (response) => ({ token: transcriptionTokens(response) }),
+    countOutput: (response) => transcriptionUsage(response),
   };
 }
 
@@ -797,7 +809,16 @@ export function createOperationHandler(options: OperationHandlerOptions) {
     }
     const estimate = unitsFor(pricing, prepared.inputByUnit, prepared.estimatedOutputByUnit);
     const { owner, floor } = await ownerAndFloor(caller, balances, opts.store);
-    if (!(await balances.canCover(owner, priceOperation(pricing, estimate.input, estimate.output).charge, floor))) {
+    if (!(await balances.canCover(
+      owner,
+      priceOperation(
+        pricing,
+        estimate.input,
+        estimate.output,
+        prepared.additionalInputByUnit,
+      ).charge,
+      floor,
+    ))) {
       sendJson(res, 402, { error: BuyerError.INSUFFICIENT_BALANCE });
       return true;
     }
@@ -833,13 +854,23 @@ export function createOperationHandler(options: OperationHandlerOptions) {
       });
       return true;
     }
-    const measured = unitsFor(
-      pricing,
-      prepared.inputByUnit,
-      prepared.countOutput(
+    let counted: Partial<Record<UsageUnitName, number>>;
+    try {
+      counted = prepared.countOutput(
         responseBody,
         upstream.headers.get("content-type") ?? "application/json",
-      ),
+      );
+    } catch (error) {
+      sendJson(res, 502, {
+        error: BuyerError.UPSTREAM_ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return true;
+    }
+    const measured = unitsFor(
+      pricing,
+      { ...prepared.inputByUnit, ...counted },
+      counted,
     );
     await recordOperation({
       store: opts.store,
@@ -852,6 +883,7 @@ export function createOperationHandler(options: OperationHandlerOptions) {
       pricing,
       inputUnits: measured.input,
       outputUnits: measured.output,
+      additionalInputUnits: prepared.additionalInputByUnit,
       startedAt,
     });
     res.writeHead(200, {
