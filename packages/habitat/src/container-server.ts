@@ -66,6 +66,7 @@ import { bearerAuth, parseApiKeys } from "./web/auth/bearer-auth.js";
 import { jwtAuth, verifiedJwtRequestToken } from "./web/auth/jwt-auth.js";
 import { compositeAuth } from "./web/auth/composite-auth.js";
 import {
+	browserLoginUrl,
 	redeemBrowserHandoff,
 	sessionCookie,
 } from "./web/auth/browser-handoff.js";
@@ -424,8 +425,8 @@ export async function startContainerServer(
 	// API routes
 	const routes: RouteHandler[] = defaultRoutes();
 
-	// The Shell (#400, ADR 0031) — the habitat UI, served under /shell (open,
-	// like /health); see @umwelten/substrate shell/SERVING-CONTRACT.md.
+	// Shell assets and embedded projections remain open. Managed top-level
+	// browser navigation enters the central login handoff below.
 	// workDir/components is the self-assembly loop (#405): what
 	// create_component writes appears in the manifest, versioned by mtime.
 	// shellEntries lets a host contribute panels beyond the standard surface
@@ -524,16 +525,52 @@ export async function startContainerServer(
 					return;
 				}
 
+				// Only browser documents enter central login. API requests, Shell
+				// modules, and embedded MCP projections keep their existing behavior.
+				const issuer = authIssuerOrigin();
+				const audience = process.env.HABITAT_AUTH_AUDIENCE?.trim();
+				const habitatId = process.env.HABITAT_ID?.trim();
+				const credential = parseApiKeys(process.env.HABITAT_API_KEY)[0];
+				const browserLoginConfigured =
+					(authMode === "jwt" || authMode === "jwt+bearer") &&
+					issuer && audience && habitatId && credential;
+				const shellDocument =
+					path === "/" || path === "/shell" || path === "/shell/" ||
+					path === "/shell/index.html" ||
+					/^\/shell\/solo\/[^/]+(?:\/(?:index\.html)?)?$/.test(path);
+				const browserNavigation =
+					req.headers["sec-fetch-dest"] === "document" ||
+					(!req.headers["sec-fetch-dest"] && req.headers.accept?.includes("text/html"));
+				if (req.method === "GET" && (
+					path === "/auth/login" ||
+					(browserLoginConfigured && shellDocument && browserNavigation &&
+						!(await auth.authenticate(req)))
+				)) {
+					res.setHeader("Cache-Control", "no-store");
+					res.setHeader("Referrer-Policy", "no-referrer");
+					if (!browserLoginConfigured) {
+						sendJson(res, { error: "Browser login is not configured" }, 404);
+						return;
+					}
+					const returnTo = path === "/auth/login"
+						? query.return_to ?? "/shell/"
+						: req.url ?? "/shell/";
+					const location = browserLoginUrl({ issuer, habitatId }, returnTo);
+					if (!location) {
+						sendJson(res, { error: "A safe return_to path is required" }, 400);
+						return;
+					}
+					res.writeHead(303, { Location: location });
+					res.end();
+					return;
+				}
+
 				// ── Browser login handoff (always open) ───────────────
 				// The query carries a one-time opaque code, never a JWT or static
 				// child key. Redemption is server-to-server and audience-bound.
 				if (path === "/auth/handoff" && req.method === "GET") {
 					res.setHeader("Cache-Control", "no-store");
 					res.setHeader("Referrer-Policy", "no-referrer");
-					const issuer = authIssuerOrigin();
-					const audience = process.env.HABITAT_AUTH_AUDIENCE?.trim();
-					const habitatId = process.env.HABITAT_ID?.trim();
-					const credential = parseApiKeys(process.env.HABITAT_API_KEY)[0];
 					const code = query.code?.trim();
 					if (!issuer || !audience || !habitatId || !credential || !code) {
 						sendJson(res, { error: "Browser login handoff is not configured" }, 404);
@@ -1465,7 +1502,7 @@ export async function startContainerServer(
 					return;
 				}
 
-				// ── The Shell (always open) — the habitat UI (#404) ───
+				// ── The Shell — browser login checked above (#482) ───
 				if (req.method === "GET" && (await shellHandler(req, res))) {
 					return;
 				}

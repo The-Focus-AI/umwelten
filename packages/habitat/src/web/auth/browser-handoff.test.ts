@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   HABITAT_SESSION_COOKIE,
+  browserLoginUrl,
   redeemBrowserHandoff,
   safeReturnPath,
   sessionCookie,
@@ -14,6 +15,31 @@ const config = {
 };
 
 describe("browser login handoff", () => {
+  it("preserves a deep link but never forwards legacy URL credentials", () => {
+    const url = new URL(
+      browserLoginUrl(
+        config,
+        "/shell/solo/status/?panel=usage&token=secret#details",
+      )!,
+    );
+    expect(url.origin + url.pathname).toBe(
+      "https://habitats.example/auth/handoff",
+    );
+    expect(url.searchParams.get("habitat_id")).toBe("research");
+    expect(url.searchParams.get("return_to")).toBe(
+      "/shell/solo/status/?panel=usage#details",
+    );
+    expect(url.toString()).not.toContain("secret");
+    for (const unsafe of [
+      "https://evil.example",
+      "//evil.example",
+      "/\\evil",
+      "relative",
+    ]) {
+      expect(browserLoginUrl(config, unsafe)).toBeNull();
+    }
+  });
+
   it("redeems the opaque code server-to-server with exact child binding", async () => {
     const fetch = vi.fn().mockResolvedValue(
       new Response(
@@ -60,7 +86,9 @@ describe("browser login handoff", () => {
         { status: 200, headers: { "content-type": "application/json" } },
       ),
     );
-    await expect(redeemBrowserHandoff("code", config, fetch)).resolves.toMatchObject({
+    await expect(
+      redeemBrowserHandoff("code", config, fetch),
+    ).resolves.toMatchObject({
       ok: false,
       status: 502,
     });
@@ -73,7 +101,11 @@ describe("browser login handoff", () => {
     expect(safeReturnPath("/shell/?panel=status#top")).toBe(
       "/shell/?panel=status#top",
     );
-    for (const unsafe of ["https://evil.example", "//evil.example", "/\\evil"]) {
+    for (const unsafe of [
+      "https://evil.example",
+      "//evil.example",
+      "/\\evil",
+    ]) {
       expect(safeReturnPath(unsafe)).toBeNull();
     }
   });

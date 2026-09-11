@@ -19,8 +19,39 @@ export type BrowserHandoffResult =
   | { ok: true; accessToken: string; expiresIn: number; returnPath: string }
   | { ok: false; status: number; error: string };
 
+/** Start central sign-in without putting any credential in the browser URL. */
+export function browserLoginUrl(
+  config: Pick<BrowserHandoffConfig, "issuer" | "habitatId">,
+  returnTo: string,
+): string | null {
+  const returnPath = safeReturnPath(returnTo);
+  if (!returnPath) return null;
+  const destination = new URL(returnPath, "https://return.invalid");
+  // Canonicalize before login: the Shell's bare-path redirects do not carry
+  // query parameters, which would otherwise discard the selected panel.
+  if (destination.pathname === "/" || destination.pathname === "/shell") {
+    destination.pathname = "/shell/";
+  } else if (/^\/shell\/solo\/[^/]+$/.test(destination.pathname)) {
+    destination.pathname += "/";
+  }
+  // Old Shell links could contain reusable API keys. Never forward those
+  // to the central login service, even nested inside return_to.
+  destination.searchParams.delete("token");
+  const url = new URL("/auth/handoff", config.issuer);
+  url.searchParams.set("habitat_id", config.habitatId);
+  url.searchParams.set(
+    "return_to",
+    `${destination.pathname}${destination.search}${destination.hash}`,
+  );
+  return url.toString();
+}
+
 export function safeReturnPath(value: unknown): string | null {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("/") ||
+    value.startsWith("//")
+  ) {
     return null;
   }
   if (
@@ -69,7 +100,8 @@ export async function redeemBrowserHandoff(
       return {
         ok: false,
         status: response.status,
-        error: typeof body.error === "string" ? body.error : "login handoff failed",
+        error:
+          typeof body.error === "string" ? body.error : "login handoff failed",
       };
     }
     const accessToken = body.access_token;
@@ -83,7 +115,11 @@ export async function redeemBrowserHandoff(
       expiresIn > 300 ||
       !returnPath
     ) {
-      return { ok: false, status: 502, error: "invalid login handoff response" };
+      return {
+        ok: false,
+        status: 502,
+        error: "invalid login handoff response",
+      };
     }
     return { ok: true, accessToken, expiresIn, returnPath };
   } catch (error) {
