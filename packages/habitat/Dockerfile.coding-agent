@@ -81,6 +81,11 @@ RUN npm install -g "${PI_PACKAGE}" "${CLAUDE_PACKAGE}" "${CODEX_PACKAGE}"
 
 COPY --from=standards /opt/standards /opt/standards
 
+# Dependencies are installed at image build time. pnpm 11 otherwise attempts
+# an install before exec when this root-owned workspace is entered as node.
+# Scope this to /habitat, not the editable projects under /data.
+RUN printf '\nverifyDepsBeforeRun: false\n' >> /habitat/pnpm-workspace.yaml
+
 # Non-root: the base installs mise behind /root (not traversable by node).
 # Re-home the binary and hand the mise data dir + standards corpus to node.
 RUN rm -f /usr/local/bin/mise \

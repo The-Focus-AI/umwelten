@@ -87,6 +87,10 @@ pass "/opt/standards corpus present"
 
 echo "── 5. non-root"
 [ "$(cexec stat -c %u /proc/1)" = "1000" ] || fail "server (pid 1) not running as node (uid 1000)"
+docker exec --user node "$NAME" test ! -w /habitat \
+  || fail "application workspace unexpectedly writable by node"
+docker exec --user node "$NAME" pnpm exec node -e 'if (process.getuid() !== 1000) process.exit(1)' \
+  || fail "pnpm exec cannot run in the immutable application workspace"
 pass "server runs as node (uid 1000)"
 
 echo "── 6. volume seeding"
