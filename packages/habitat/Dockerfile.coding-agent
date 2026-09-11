@@ -93,6 +93,10 @@ RUN rm -f /usr/local/bin/mise \
     && mkdir -p /opt/mise \
     && chown -R node:node /opt/mise /opt/standards
 
+# Corepack caches package managers per user. Fetch the package.json-pinned
+# pnpm for node at build time, so startup does not depend on registry access.
+RUN gosu node pnpm --version
+
 # pi co-location (#122): settings AND session traces under the data volume,
 # so they survive rebuilds and nativeSessionRef paths stay reachable.
 ENV PI_CODING_AGENT_DIR=/data/pi-agent

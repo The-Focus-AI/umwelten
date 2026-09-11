@@ -43,6 +43,7 @@ appendFileSync(process.env.TEST_LOG, JSON.stringify([command, ...args]) + '\\n')
 if (command === 'curl') process.exit(0);
 if (args[0] === 'image') process.exit(process.env.TEST_NO_CACHE === '1' ? 1 : 0);
 if (args[0] === 'build' && args.includes('habitat-coding') && process.env.TEST_BUILD_FAIL === '1') process.exit(1);
+if (args[0] === 'run' && process.env.TEST_BOOT_FAIL === '1') process.exit(1);
 if (args[0] === 'ps') console.log('gaia-cornwall-market');
 if (args[0] === 'exec') {
   const probe = \
@@ -69,6 +70,7 @@ if (args[0] === 'exec') {
         TEST_LOG: log,
         TEST_NO_CACHE: "0",
         TEST_BUILD_FAIL: "0",
+        TEST_BOOT_FAIL: "0",
         HABITAT_ID: "cornwall-market",
         HABITAT_API_KEY: "fixture-key",
         HABITAT_AUTH_AUDIENCE: "https://cornwall.example",
@@ -128,8 +130,12 @@ describe("Gaia redeploy", () => {
     expect(JSON.stringify(calls)).not.toContain("fixture-github-secret");
   });
 
-  it.each([{ TEST_NO_CACHE: "1" }, { TEST_BUILD_FAIL: "1" }])(
-    "does not restart anything after a missing corpus or failed coding build: %j",
+  it.each([
+    { TEST_NO_CACHE: "1" },
+    { TEST_BUILD_FAIL: "1" },
+    { TEST_BOOT_FAIL: "1" },
+  ])(
+    "does not restart anything after a missing corpus, failed build, or non-root preflight: %j",
     (override) => {
       const { calls, error } = redeploy(override);
       expect(error).toBeDefined();

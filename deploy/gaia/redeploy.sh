@@ -76,6 +76,11 @@ docker build -t twitter-habitat -f "$ROOT/packages/habitat/Dockerfile.twitter-ha
 docker build "${CODING_STANDARDS[@]}" \
   -t habitat-coding -f "$ROOT/packages/habitat/Dockerfile.coding-agent" "$ROOT"
 
+# Catch package-manager writes to the immutable workspace before taking any
+# running habitat down. No network, credentials, or production data are used.
+docker run --rm --network none --user node --entrypoint pnpm \
+  habitat-coding exec node --version >/dev/null
+
 log "recreating gaia"
 docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d gaia
 

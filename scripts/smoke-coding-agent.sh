@@ -81,8 +81,8 @@ pass "gh, pi, claude, codex, mise, git, rg present"
 
 echo "── 4. standards corpus"
 cexec test -f /opt/standards/AGENTS.md || fail "standards entry doc missing"
-cexec test -f /opt/standards/prompts/setup-project.md || fail "setup prompt missing"
-cexec test -f /opt/standards/prompts/standardize-project.md || fail "standardize prompt missing"
+cexec test -f /opt/standards/skills/setup-project/SKILL.md || fail "setup skill missing"
+cexec test -f /opt/standards/skills/standardize-project/SKILL.md || fail "standardize skill missing"
 pass "/opt/standards corpus present"
 
 echo "── 5. non-root"
