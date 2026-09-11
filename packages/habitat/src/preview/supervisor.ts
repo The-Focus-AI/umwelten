@@ -54,12 +54,16 @@ async function descendants(
   if (result.has(pid)) return result;
   result.add(pid);
   try {
-    const children = await readFile(
-      `/proc/${pid}/task/${pid}/children`,
-      "utf8",
-    );
-    for (const child of children.trim().split(/\s+/).filter(Boolean)) {
-      await descendants(Number(child), result);
+    // Linux records children on the thread that spawned them. Tools such as
+    // mise launch servers from worker threads, not the process's main thread.
+    for (const tid of await readdir(`/proc/${pid}/task`)) {
+      const children = await readFile(
+        `/proc/${pid}/task/${tid}/children`,
+        "utf8",
+      ).catch(() => ""); // A thread may exit during the scan.
+      for (const child of children.trim().split(/\s+/).filter(Boolean)) {
+        await descendants(Number(child), result);
+      }
     }
   } catch {
     // A process may exit while /proc is being inspected.

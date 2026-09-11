@@ -429,11 +429,29 @@ Once the host is standing, later code changes ship automatically:
 `.github/workflows/deploy-gaia.yml` runs on every push to `main` that touches
 `packages/`, `examples/`, or `deploy/gaia/`, on a **self-hosted runner
 installed on this host** (labels: `self-hosted`, `gaia`). It checks out the
-pushed commit and runs `deploy/gaia/redeploy.sh`, which rebuilds both images,
+pushed commit and runs `deploy/gaia/redeploy.sh`, which rebuilds `habitat`,
+`twitter-habitat`, and `habitat-coding` before restarting any containers,
 recreates the gaia service, re-attaches the ingress network, and cycles every
 *running* child through Gaia's API (deliberately-stopped habitats stay
 stopped). Child data persists on named volumes; re-seed merges `secrets.json`
 (#205) so rotated tokens survive.
+
+The coding image's private standards corpus has two build paths:
+
+- With `GITHUB_TOKEN` supplied by the host environment or `GAIA_ENV_FILE`, use
+  the BuildKit `gh_token` secret to clone standards. The token must have read
+  access to `The-Focus-AI/standards`; the Actions repository token may not.
+- Without that token, reuse **only `/opt/standards`** from the existing local
+  `habitat-coding:latest` image via a named BuildKit context. Runtime source
+  and toolchains still rebuild from the fresh `habitat` base. This intentionally
+  retains the existing standards revision; supply an authorized token when
+  refreshing it. A first build without either source fails before any restart.
+
+The build requires BuildKit named-context support (`docker build --build-context`).
+A missing corpus or failed image build stops the rollout before restarts. After
+each child is healthy, configured browser-login hosts must also return the
+central-login redirect for an unauthenticated `/shell/` request. A healthy but
+stale coding image therefore cannot silently pass the deploy gate.
 
 Setup on the host (once):
 
