@@ -31,6 +31,25 @@
 # provider keys as fly secrets.
 
 ARG BASE_IMAGE=habitat
+FROM ${BASE_IMAGE} AS standards
+ARG STANDARDS_REPO_URL=https://github.com/The-Focus-AI/standards.git
+ARG STANDARDS_REPO_BRANCH=main
+USER root
+
+# Bootstrap/refresh the private corpus with a BuildKit secret. Routine Gaia
+# redeploys can override this stage with the existing coding image:
+#   --build-context standards=docker-image://habitat-coding:latest
+# Only /opt/standards is reused; the runtime still comes from the fresh base.
+RUN --mount=type=secret,id=gh_token \
+    set -e; \
+    if [ -s /run/secrets/gh_token ]; then \
+      AUTH_URL="$(echo "${STANDARDS_REPO_URL}" | sed "s#https://#https://x-access-token:$(cat /run/secrets/gh_token)@#")"; \
+    else \
+      AUTH_URL="${STANDARDS_REPO_URL}"; \
+    fi; \
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${STANDARDS_REPO_BRANCH}" "${AUTH_URL}" /opt/standards; \
+    git -C /opt/standards remote set-url origin "${STANDARDS_REPO_URL}"
+
 FROM ${BASE_IMAGE}
 
 # Pinned toolchain versions — bump deliberately.
@@ -38,8 +57,6 @@ ARG GH_VERSION=2.94.0
 ARG PI_PACKAGE=@earendil-works/pi-coding-agent@0.79.1
 ARG CLAUDE_PACKAGE=@anthropic-ai/claude-code@2.1.173
 ARG CODEX_PACKAGE=@openai/codex@0.144.4
-ARG STANDARDS_REPO_URL=https://github.com/The-Focus-AI/standards.git
-ARG STANDARDS_REPO_BRANCH=main
 
 USER root
 
@@ -62,23 +79,12 @@ RUN ARCH="$(dpkg --print-architecture)" \
 # runtime with "mise": true resolves them per-repo.
 RUN npm install -g "${PI_PACKAGE}" "${CLAUDE_PACKAGE}" "${CODEX_PACKAGE}"
 
-# Standards corpus at a fixed path. Shallow clone — the agent reads it as a
-# reference; updating standards means rebuilding the image (out of band, per
-# PRD #113: the in-repo build task only covers the default habitat image).
-#
-# The repo is private: pass a token as a BuildKit secret —
-#   docker build --secret id=gh_token,env=GITHUB_TOKEN ...
-# The token is used only for this step and never lands in a layer. A public
-# STANDARDS_REPO_URL clones anonymously without the secret.
-RUN --mount=type=secret,id=gh_token \
-    set -e; \
-    if [ -s /run/secrets/gh_token ]; then \
-      AUTH_URL="$(echo "${STANDARDS_REPO_URL}" | sed "s#https://#https://x-access-token:$(cat /run/secrets/gh_token)@#")"; \
-    else \
-      AUTH_URL="${STANDARDS_REPO_URL}"; \
-    fi; \
-    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${STANDARDS_REPO_BRANCH}" "${AUTH_URL}" /opt/standards; \
-    git -C /opt/standards remote set-url origin "${STANDARDS_REPO_URL}"
+COPY --from=standards /opt/standards /opt/standards
+
+# Dependencies are installed at image build time. pnpm 11 otherwise attempts
+# an install before exec when this root-owned workspace is entered as node.
+# Scope this to /habitat, not the editable projects under /data.
+RUN printf '\nverifyDepsBeforeRun: false\n' >> /habitat/pnpm-workspace.yaml
 
 # Non-root: the base installs mise behind /root (not traversable by node).
 # Re-home the binary and hand the mise data dir + standards corpus to node.
@@ -86,6 +92,10 @@ RUN rm -f /usr/local/bin/mise \
     && install -m 0755 /root/.local/bin/mise /usr/local/bin/mise \
     && mkdir -p /opt/mise \
     && chown -R node:node /opt/mise /opt/standards
+
+# Corepack caches package managers per user. Fetch the package.json-pinned
+# pnpm for node at build time, so startup does not depend on registry access.
+RUN gosu node pnpm --version
 
 # pi co-location (#122): settings AND session traces under the data volume,
 # so they survive rebuilds and nativeSessionRef paths stay reachable.

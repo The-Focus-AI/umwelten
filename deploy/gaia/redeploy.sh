@@ -2,7 +2,7 @@
 # Redeploy the Gaia host onto the current checkout.
 #
 # What it does (the manual runbook §1–§5, mechanized):
-#   1. Build the habitat + twitter-habitat images from the repo root
+#   1. Build habitat and both derived images (twitter-habitat, habitat-coding)
 #   2. Recreate the gaia service via docker compose (new image ⇒ new container)
 #   3. Re-attach gaia to the ingress network (compose only attaches gaia-net)
 #   4. Wait for Gaia's public /health
@@ -57,9 +57,29 @@ wait_for() { # wait_for <label> <timeout_s> <curl args...>
   done
 }
 
+# The private standards corpus is independent of runtime code. Bootstrap or
+# refresh it with an authorized token; routine builds reuse only the corpus
+# from the last coding image, not that image's stale server/toolchain layers.
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  CODING_STANDARDS=(--secret id=gh_token,env=GITHUB_TOKEN)
+else
+  if ! docker image inspect habitat-coding:latest >/dev/null 2>&1; then
+    echo "error: first coding-image build needs GITHUB_TOKEN with standards read access" >&2
+    exit 1
+  fi
+  CODING_STANDARDS=(--build-context standards=docker-image://habitat-coding:latest)
+fi
+
 log "building images from $ROOT"
 docker build -t habitat -f "$ROOT/packages/habitat/Dockerfile" "$ROOT"
 docker build -t twitter-habitat -f "$ROOT/packages/habitat/Dockerfile.twitter-habitat" "$ROOT"
+docker build "${CODING_STANDARDS[@]}" \
+  -t habitat-coding -f "$ROOT/packages/habitat/Dockerfile.coding-agent" "$ROOT"
+
+# Catch package-manager writes to the immutable workspace before taking any
+# running habitat down. No network, credentials, or production data are used.
+docker run --rm --network none --user node --entrypoint pnpm \
+  habitat-coding exec node --version >/dev/null
 
 log "recreating gaia"
 docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d gaia
@@ -105,6 +125,26 @@ else
     curl -sf "${AUTH[@]}" -X POST "$GAIA_URL/api/habitats/$id/stop" >/dev/null
     curl -sf "${AUTH[@]}" -X POST "$GAIA_URL/api/habitats/$id/start" >/dev/null
     wait_for "$id health" 120 "${AUTH[@]}" "$GAIA_URL/api/habitats/$id/health"
+    # A healthy process may still be serving an old derived image. Exercise
+    # browser auth without a service header; keep legacy-only hosts unchanged.
+    docker exec "gaia-$id" node -e '
+      const e = process.env;
+      const issuer = e.HABITAT_AUTH_ISSUER || e.HABITAT_AUTH_JWKS_URL;
+      if (e.HABITAT_ID && e.HABITAT_AUTH_AUDIENCE && e.HABITAT_API_KEY &&
+          issuer && (e.HABITAT_AUTH_JWKS_URL || e.HABITAT_AUTH_PUBLIC_KEY)) {
+        fetch(`http://127.0.0.1:${e.PORT || 8080}/shell/`, {
+          headers: { Accept: "text/html" }, redirect: "manual",
+          signal: AbortSignal.timeout(10000),
+        }).then(response => {
+          const location = new URL(response.headers.get("location") || "", issuer);
+          if (response.status !== 303 || location.origin !== new URL(issuer).origin ||
+              location.pathname !== "/auth/handoff" ||
+              location.searchParams.get("habitat_id") !== e.HABITAT_ID) {
+            throw new Error(`Browser login check failed (HTTP ${response.status})`);
+          }
+        }).catch(error => { console.error(error.message); process.exitCode = 1; });
+      }
+    '
     log "  $id healthy"
   done
 fi

@@ -81,12 +81,16 @@ pass "gh, pi, claude, codex, mise, git, rg present"
 
 echo "── 4. standards corpus"
 cexec test -f /opt/standards/AGENTS.md || fail "standards entry doc missing"
-cexec test -f /opt/standards/prompts/setup-project.md || fail "setup prompt missing"
-cexec test -f /opt/standards/prompts/standardize-project.md || fail "standardize prompt missing"
+cexec test -f /opt/standards/skills/setup-project/SKILL.md || fail "setup skill missing"
+cexec test -f /opt/standards/skills/standardize-project/SKILL.md || fail "standardize skill missing"
 pass "/opt/standards corpus present"
 
 echo "── 5. non-root"
 [ "$(cexec stat -c %u /proc/1)" = "1000" ] || fail "server (pid 1) not running as node (uid 1000)"
+docker exec --user node "$NAME" test ! -w /habitat \
+  || fail "application workspace unexpectedly writable by node"
+docker exec --user node "$NAME" pnpm exec node -e 'if (process.getuid() !== 1000) process.exit(1)' \
+  || fail "pnpm exec cannot run in the immutable application workspace"
 pass "server runs as node (uid 1000)"
 
 echo "── 6. volume seeding"
