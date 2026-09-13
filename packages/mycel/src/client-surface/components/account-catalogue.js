@@ -59,6 +59,8 @@ export default {
     const supplierToggle = button("Disable supplier");
     const add = button("Add model", "primary");
     controls.append(refresh, supplierToggle, add);
+    const showDisabled = button("Show disabled suppliers");
+    showDisabled.setAttribute("aria-pressed", "false");
     const connect = document.createElement("details");
     connect.className = "catalogue-connect";
     connect.innerHTML =
@@ -71,7 +73,7 @@ export default {
     const editor = document.createElement("form");
     editor.className = "account-form catalogue-editor";
     editor.hidden = true;
-    body.append(note, controls, connect, error, status, list, editor);
+    body.append(note, controls, showDisabled, connect, error, status, list, editor);
     view.get(regionKey).append(element);
     let data = null;
     let active = false;
@@ -81,8 +83,11 @@ export default {
 
     function render() {
       const previous = select.value;
+      const visibleSuppliers = data.suppliers.filter(
+        (s) => s.enabled || showDisabled.getAttribute("aria-pressed") === "true",
+      );
       select.replaceChildren(
-        ...data.suppliers.map(
+        ...visibleSuppliers.map(
           (s) =>
             new Option(
               `${s.displayName} · ${s.kind}${!s.enabled ? " · disabled" : ""}`,
@@ -90,7 +95,7 @@ export default {
             ),
         ),
       );
-      if (data.suppliers.some((s) => s.id === previous))
+      if (visibleSuppliers.some((s) => s.id === previous))
         select.value = previous;
       presets.replaceChildren(
         ...data.presets.map(
@@ -114,7 +119,11 @@ export default {
         : "Enable supplier";
       if (!s) {
         list.append(
-          empty("No suppliers yet. Connect a configured vendor above."),
+          empty(
+            data.suppliers.length
+              ? "No active suppliers. Show disabled suppliers to inspect or re-enable one."
+              : "No suppliers yet. Connect a configured vendor above.",
+          ),
         );
         return;
       }
@@ -147,7 +156,9 @@ export default {
         availability.textContent = offer.availability || "No operations";
         const verified = document.createElement("small");
         verified.textContent = offer.adminManaged
-          ? `Admin managed · verified ${new Date(offer.verifiedAt).toLocaleString()}`
+          ? offer.verifiedAt
+            ? `Admin managed · verified ${new Date(offer.verifiedAt).toLocaleString()}`
+            : "Admin managed · existing capabilities retained; verification not recorded"
           : "Supplier / CLI published · heartbeat required for vendors";
         info.append(title, availability, verified);
         const actions = document.createElement("div");
@@ -356,6 +367,13 @@ export default {
       };
       model.focus();
     }
+    showDisabled.onclick = () => {
+      if (!data || busy) return;
+      const show = showDisabled.getAttribute("aria-pressed") !== "true";
+      showDisabled.setAttribute("aria-pressed", String(show));
+      showDisabled.textContent = show ? "Hide disabled suppliers" : "Show disabled suppliers";
+      render();
+    };
     refresh.onclick = () => run("Refreshing…");
     add.onclick = () => editOffer(null);
     select.onchange = renderSupplier;
