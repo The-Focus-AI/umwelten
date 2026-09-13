@@ -103,6 +103,8 @@ export class NeonStore implements ExchangeStore {
       .sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS headroom_meta JSONB`;
     await this
       .sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS quantization TEXT`;
+    await this.sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS admin_managed BOOLEAN NOT NULL DEFAULT false`;
+    await this.sql`ALTER TABLE exchange_offer ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`;
 
     // Pricing is a separate table on purpose: it is operator-owned and must
     // outlive the Offer it applies to, so that a re-probe — or a Model that
@@ -806,14 +808,12 @@ export class NeonStore implements ExchangeStore {
     supplierId: string,
     published: PublishedOffer[],
   ): Promise<void> {
-    // Delete-then-insert rather than upsert-and-prune: "replace" is total, and
-    // expressing it as one delete plus inserts means a partially-applied
-    // publish can never leave a Model advertised that the Supplier dropped.
-    await this
-      .sql`DELETE FROM exchange_offer WHERE supplier_id = ${supplierId}`;
-
-    for (const offer of published) {
-      await this.sql`
+    // Serialize publishers and admin saves on the supplier row. All statements
+    // commit together, so readers never observe a partially replaced catalogue.
+    await this.sql.transaction([
+      this.sql`SELECT id FROM exchange_supplier WHERE id = ${supplierId} FOR UPDATE`,
+      this.sql`DELETE FROM exchange_offer WHERE supplier_id = ${supplierId} AND NOT admin_managed`,
+      ...published.map((offer) => this.sql`
         INSERT INTO exchange_offer
           (supplier_id, model, capabilities, serving_mode, headroom, headroom_meta,
            context_tokens, quantization, enabled)
@@ -826,8 +826,41 @@ export class NeonStore implements ExchangeStore {
           ${offer.contextTokens ?? null},
           ${offer.quantization ?? null}, true
         )
-      `;
-    }
+        ON CONFLICT (supplier_id, model) DO NOTHING
+      `),
+    ]);
+  }
+
+  async saveAdminOffer(supplierId: string, offer: PublishedOffer, pricing: OfferPricing,
+    enabled: boolean, verifiedAt: Date): Promise<void> {
+    await this.sql.transaction([
+      this.sql`SELECT id FROM exchange_supplier WHERE id = ${supplierId} FOR UPDATE`,
+      this.sql`
+        INSERT INTO exchange_offer
+          (supplier_id, model, capabilities, serving_mode, enabled, admin_managed, verified_at, published_at)
+        VALUES (${supplierId}, ${offer.model}, ${JSON.stringify(offer.capabilities)}::jsonb,
+          ${offer.servingMode}, ${enabled}, true, ${verifiedAt.toISOString()}, ${verifiedAt.toISOString()})
+        ON CONFLICT (supplier_id, model) DO UPDATE SET
+          capabilities = EXCLUDED.capabilities, serving_mode = EXCLUDED.serving_mode,
+          enabled = EXCLUDED.enabled, admin_managed = true,
+          verified_at = EXCLUDED.verified_at, published_at = EXCLUDED.published_at,
+          headroom = '[]'::jsonb, headroom_meta = NULL, context_tokens = NULL, quantization = NULL
+      `,
+      this.sql`
+        INSERT INTO exchange_offer_pricing
+          (supplier_id, model, wholesale_prompt_per_million, wholesale_completion_per_million,
+           retail_prompt_per_million, retail_completion_per_million, operation_pricing)
+        VALUES (${supplierId}, ${offer.model}, ${pricing.wholesalePromptPerMillion},
+          ${pricing.wholesaleCompletionPerMillion}, ${pricing.retailPromptPerMillion},
+          ${pricing.retailCompletionPerMillion}, ${JSON.stringify(pricing.operationPricing ?? {})}::jsonb)
+        ON CONFLICT (supplier_id, model) DO UPDATE SET
+          wholesale_prompt_per_million = EXCLUDED.wholesale_prompt_per_million,
+          wholesale_completion_per_million = EXCLUDED.wholesale_completion_per_million,
+          retail_prompt_per_million = EXCLUDED.retail_prompt_per_million,
+          retail_completion_per_million = EXCLUDED.retail_completion_per_million,
+          operation_pricing = EXCLUDED.operation_pricing
+      `,
+    ]);
   }
 
   async listOffersBySupplier(supplierId: string): Promise<Offer[]> {
@@ -1024,6 +1057,8 @@ function money(value: unknown, fallback: number): number {
 
 function toOffer(row: Row): Offer {
   return {
+    adminManaged: Boolean(row.admin_managed),
+    verifiedAt: row.verified_at ? new Date(row.verified_at as string) : undefined,
     supplierId: String(row.supplier_id),
     // Comes from the supplier join, exactly as `guarantees` does.
     supplierKind: (row.kind as SupplierKind) ?? "vendor",

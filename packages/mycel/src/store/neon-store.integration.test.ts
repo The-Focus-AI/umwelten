@@ -27,5 +27,5 @@ if (!DATABASE_URL) {
     await sql`DROP TABLE IF EXISTS exchange_offer`;
     await sql`DROP TABLE IF EXISTS exchange_supplier`;
     return new NeonStore(url);
-  });
+  }, async () => new NeonStore(url));
 }

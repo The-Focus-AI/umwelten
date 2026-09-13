@@ -110,6 +110,7 @@ describe("the Exchange's client surface", () => {
       "account-layout",
       "account-customer",
       "account-overview",
+      "account-catalogue",
       "account-applications",
       "account-playground",
       "account-funding",

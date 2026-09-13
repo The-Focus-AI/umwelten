@@ -9,6 +9,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { Operator } from "../operator.js";
 import type { ExchangeStore } from "../store/types.js";
 import type { BuyerHandler } from "../buyer/handler.js";
+import { CatalogueError, createCatalogue } from "./catalogue.js";
 
 const ROOT = "/api/customer";
 const MAX_BODY_BYTES = 32_000;
@@ -225,6 +226,10 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
     opts.stripeSecretKey && opts.stripeWebhookSecret && opts.publicOrigin,
   );
   const fetchImpl = opts.fetch ?? fetch;
+  const catalogue = createCatalogue(store, {
+    fetch: opts.fetch,
+    connected: (id) => Boolean(opts.supplierConnection?.(id)),
+  });
 
   async function identity(req: IncomingMessage, res: ServerResponse) {
     if (!verifyOperator) {
@@ -431,6 +436,27 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
 
     const caller = await identity(req, res);
     if (!caller) return true;
+
+    if (path === `${ROOT}/admin/catalogue` || path.startsWith(`${ROOT}/admin/catalogue/`)) {
+      if (caller.role !== ADMIN_ROLE) {
+        sendJson(res, 403, { error: "admin_required" });
+        return true;
+      }
+      try {
+        if (path === `${ROOT}/admin/catalogue` && req.method === "GET") {
+          sendJson(res, 200, await catalogue.list());
+        } else if (req.method === "POST" && ["connect", "save", "enabled"].some((action) => path === `${ROOT}/admin/catalogue/${action}`)) {
+          const action = path.split("/").pop() as "connect" | "save" | "enabled";
+          await catalogue[action](await readJson(req));
+          sendJson(res, 200, await catalogue.list());
+        } else sendJson(res, 405, { error: "method_not_allowed" });
+      } catch (error) {
+        sendJson(res, error instanceof CatalogueError ? error.status : error instanceof Error && error.message === "invalid_json" ? 400 : 500, {
+          error: error instanceof CatalogueError ? error.message : error instanceof Error && error.message === "invalid_json" ? "invalid_json" : "catalogue_failed",
+        });
+      }
+      return true;
+    }
 
     if (path === ROOT && req.method === "GET") {
       sendJson(

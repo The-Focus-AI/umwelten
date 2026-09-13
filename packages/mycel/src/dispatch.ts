@@ -288,8 +288,9 @@ export function dispatch(
     // apparatus ADR 0023 exists to remove, and would take a working box out of
     // the pool because an operator's publish loop died.
     //
-    // Vendors are untouched — a public API is reachable by definition, has no
-    // Connection to hold, and is still judged on staleness.
+    // Publisher-owned vendors use heartbeat staleness. Admin-owned vendor
+    // publications are durable configuration, explicitly withdrawn by admins;
+    // their verification timestamp is not a heartbeat or a live health claim.
     if (offer.supplierKind === "agent") {
       // Staleness does not apply to a machine at all (#382). Not "applies as a
       // backstop" — a machine holding a Connection is available and one that is
@@ -303,10 +304,8 @@ export function dispatch(
         note("supplier-disconnected");
         continue;
       }
-    } else {
-      // Vendors keep it. They have no agent and no Connection, so silence is
-      // still the only signal there is. Whether it should be dropped for them
-      // too is a separate decision ADR 0023 deliberately leaves open.
+    } else if (!offer.adminManaged) {
+      // Publisher-owned vendors retain their existing heartbeat contract.
       //
       // Defaulted rather than opt-in: an expiry window nobody remembered to
       // configure is an expiry window that never fires.

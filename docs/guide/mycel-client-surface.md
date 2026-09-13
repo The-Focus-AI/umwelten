@@ -16,9 +16,9 @@ The Exchange hostname has two deliberately separate surfaces:
 
 Two decisions bound everything here (ADR 0026, #409):
 
-- **Read-only.** Nothing on this surface moves money or changes
-  configuration. Admin stays on the operator CLI (`mycel …`), deliberately —
-  see `packages/mycel/src/command.ts` for why there is no HTTP admin API.
+- **Read-only `/shell/`.** Nothing on the operational surface moves money or
+  changes configuration. The trusted `/account/` assembly has authenticated
+  customer and admin APIs; it does not load evolved components.
   The constraint holds _by construction_: the mycel manifest declares no
   provider entries, so no `shell:tools` (or any mutating service) exists for
   a component to inject. All a component can do is `fetch` the Exchange's
@@ -47,6 +47,67 @@ Build the customer application independently:
 pnpm --dir apps/mycel-client install --frozen-lockfile
 pnpm --dir apps/mycel-client build
 ```
+
+## Admin supplier catalogue
+
+Sign in at `/account/` with a Clerk session whose **signed** `metadata.role`
+is `admin` (copied from Clerk public metadata by the configured session claim).
+Client owners and members are not exchange admins. The catalogue card is
+available even before customer onboarding; every catalogue API checks the
+verified role independently of the browser.
+
+1. Select an existing supplier, or expand **Connect a vendor**. OpenAI, Groq,
+   and Together presets have fixed endpoint/key-variable bindings. Their keys
+   must already be installed on the server as `OPENAI_API_KEY`, `GROQ_API_KEY`,
+   or `TOGETHER_API_KEY`. No credential value or supplier publisher hash is
+   exposed to the browser. Register other endpoints through the operator CLI
+   first; the web API accepts neither arbitrary URLs nor environment names.
+2. **Add model** using its exact upstream ID, or **Edit / verify** an offer.
+   Select chat, embeddings, speech-to-text, image generation, or video generation.
+   Enter wholesale and retail input/output prices in **USD per million units**.
+   STT uses seconds in and tokens out: $100/million seconds is $0.0001/second.
+   The API stores nonnegative integer micro-dollars and requires the operation's
+   exact `OPERATION_UNITS`; missing or mismatched prices cannot be published.
+3. Authorize billable test requests, then **Verify & save offer**. The server
+   calls only the selected endpoints with fixed small fixtures, no redirects,
+   a 30-second timeout per operation and a 10 MB response limit. STT must return
+   text and a positive measured duration. All selected checks must pass before
+   metadata and pricing are committed together. Failed checks leave the old
+   offer unchanged; disable that old offer separately if it must stop serving.
+4. Use **Disable offer** or **Disable supplier** to withdraw supply, and
+   **Refresh availability** to see dispatch eligibility or the blocking reason.
+
+**Publication ownership:** Saving a vendor model in this card takes admin
+ownership of that supplier/model pair. It survives both total CLI/agent
+republishes and NeonStore restarts, including prices, verification time and
+disablement. Other models remain publisher-owned. Admin vendor offers do not
+require a `--watch` process and remain published until disabled. There is no
+automatic transfer back to publisher ownership in this version. Normal vendor
+publications still expire, and dial-in agents still require a live connection.
+
+**Limits:** Eligibility is not continuous vendor health. The displayed timestamp
+records endpoint-contract verification, not model quality or an uptime promise.
+The generic fixtures may reject vendor-specific APIs or models requiring other
+parameters. Chat verifies plain, non-streaming chat only; tool calling,
+streaming, vision, reasoning, and structured output are not inferred. Saving
+an existing offer replaces its capabilities with only the selected verified
+operations. Video verification requires immediate usable media, not just an
+asynchronous vendor job ID. Agent model capabilities and per-offer controls
+remain agent/CLI-owned; this card shows their availability and can disable a
+whole supplier. Use NeonStore for durability; ephemeral MemoryStore deliberately
+loses all data when the process exits.
+
+For a **local simulated preview**, run:
+
+```bash
+pnpm exec tsx packages/mycel/src/testing/catalogue-preview.ts
+```
+
+It uses port 7439 (or `PORT`), a memory store, demo identity and simulated probes;
+it never contacts a vendor. Open `/account/`, append `?role=member` or
+`?role=anonymous` to review unauthorized UI, and use a model ID containing
+`fail` to exercise verification failure. This fixture is not imported by the
+production entrypoint. In an orb, start it as a supervised portal service.
 
 ## The self-assembly loop (#410)
 

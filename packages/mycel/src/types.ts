@@ -201,6 +201,10 @@ export interface Supplier {
 
 /** A commitment by one Supplier to serve one Model. */
 export interface Offer {
+  /** Operator-owned publication, protected from supplier/CLI replacement. */
+  adminManaged?: boolean;
+  /** Last successful endpoint-contract verification, not continuous health. */
+  verifiedAt?: Date;
   supplierId: string;
   /**
    * Inherited from the Supplier, never published by it — the same arrangement

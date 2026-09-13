@@ -25,6 +25,7 @@ const CSS = `
   body.account-surface #shell-status { width: min(1180px, 92vw); margin: 0 auto; padding: 0 0 25px; }
   .account-card { border: 1px solid var(--line); background: rgba(255,255,255,.016); min-width: 0; }
   .account-card[data-component='account-overview'],
+  .account-card[data-component='account-catalogue'],
   .account-card[data-component='account-applications'],
   .account-card[data-component='account-playground'],
   .account-card[data-component='account-usage'] { grid-column: 1 / -1; }
@@ -75,10 +76,24 @@ const CSS = `
   .account-invite code { display: block; margin: 10px 0; }
   .account-dialog { width: min(650px,calc(100% - 30px)); padding: clamp(28px,5vw,52px); border: 1px solid rgba(199,244,170,.36); border-radius: 0; color: var(--ink); background: #0a1510; }
   .account-dialog::backdrop { background: rgba(2,7,4,.78); backdrop-filter: blur(8px); }
+  .catalogue-controls { max-width: none; grid-template-columns: minmax(180px,1fr) auto auto auto; align-items: end; }
+  .catalogue-connect { margin: 24px 0; color: var(--muted); font-size: 13px; }
+  .catalogue-connect summary { cursor: pointer; color: var(--accent); }
+  .catalogue-editor { max-width: none; margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .catalogue-editor h3 { margin: 0 0 8px; font: 400 28px/1.2 var(--serif); }
+  .catalogue-editor fieldset { min-width: 0; margin: 0; padding: 18px; border: 1px solid var(--line); }
+  .catalogue-rates { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+  .account-form .catalogue-check { display: flex; align-items: center; gap: 10px; line-height: 1.5; }
+  .account-form .catalogue-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .catalogue-offers strong { overflow-wrap: anywhere; }
+  [data-component='account-catalogue'][hidden], [data-component='account-catalogue'] [hidden] { display: none !important; }
   .account-dialog h2 { margin: 0; font: 400 clamp(40px,6vw,62px)/1 var(--serif); }
   .account-dialog p { color: var(--muted); line-height: 1.6; }
   .account-dialog code { display: block; margin: 25px 0; padding: 16px; overflow-wrap: anywhere; border: 1px solid var(--line); color: var(--accent); background: #050b08; }
   @media (max-width: 760px) {
+    .catalogue-controls { grid-template-columns: 1fr; }
+    .catalogue-rates { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .catalogue-offers li { align-items: start; flex-direction: column; }
     body.account-surface main#region { grid-template-columns: 1fr; padding-top: 34px; }
     .account-card { grid-column: 1 !important; }
     .account-nav > a:not([aria-current]) { display: none; }

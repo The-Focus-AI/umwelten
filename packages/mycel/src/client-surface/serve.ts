@@ -3,10 +3,10 @@
  *
  * Mycel mounts the same host-agnostic Shell every habitat serves
  * (`@umwelten/substrate/serve`, the serving contract), contributing only its
- * own manifest: components that are strictly READ-ONLY over endpoints that
- * already exist — health and the models catalogue. Nothing here moves money
- * or changes configuration; the no-HTTP-admin decision (`command.ts` — the
- * operator CLI is the only admin surface) stands untouched.
+ * own read-only operational manifest for health and the models catalogue.
+ * The separate, trusted account manifest authenticates customers and admins;
+ * only it can request account and catalogue mutations. Evolved components
+ * never enter that assembly.
  *
  * Dependency posture: `@umwelten/substrate` is dependency-free, and only
  * THIS module imports it — the exchange code paths that dispatch and meter
@@ -45,6 +45,7 @@ const ACCOUNT_ENTRIES: ShellManifestEntry[] = [
     provides: true,
   },
   { id: "account-overview", url: "./components/account-overview.js" },
+  { id: "account-catalogue", url: "./components/account-catalogue.js" },
   {
     id: "account-applications",
     url: "./components/account-applications.js",

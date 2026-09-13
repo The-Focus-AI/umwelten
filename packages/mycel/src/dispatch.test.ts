@@ -32,6 +32,15 @@ function offer(overrides: Partial<Offer> = {}): Offer {
 }
 
 describe("dispatch", () => {
+  it("admin publication is durable without exempting disabled offers or disconnected agents", () => {
+    const managed = offer({ adminManaged: true, publishedAt: new Date(0) });
+    const requirements = { model: MODEL };
+    expect(dispatch([managed], requirements).offer).toBe(managed);
+    expect(dispatch([{ ...managed, adminManaged: false }], requirements).considered[0].reason).toBe("offer-stale");
+    expect(dispatch([{ ...managed, enabled: false }], requirements).considered[0].reason).toBe("offer-disabled");
+    expect(dispatch([{ ...managed, supplierKind: "agent" }], requirements).considered[0].reason).toBe("supplier-disconnected");
+  });
+
   describe("guarantees are a hard filter", () => {
     it("never selects an Offer lacking a required Guarantee, even when cheapest", () => {
       // The load-bearing case. Serving from a Supplier that lacks a required
