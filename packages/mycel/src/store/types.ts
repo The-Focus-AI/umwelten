@@ -45,7 +45,8 @@ export interface ExchangeStore {
   // ── Offers ────────────────────────────────────────────────────────
 
   /**
-   * Replace this Supplier's entire Offer set with what it just published.
+   * Replace this Supplier's publisher-owned Offer set with what it just published.
+   * Admin-managed pairs are never removed or overwritten by a publisher.
    *
    * Atomic and total: Offers the Supplier no longer lists are removed, not
    * left behind. That is what makes re-probing safe to repeat — a Supplier
@@ -56,6 +57,10 @@ export interface ExchangeStore {
    * `DEFAULT_PRICING`.
    */
   replaceOffers(supplierId: string, offers: PublishedOffer[]): Promise<void>;
+
+  /** Atomically upsert one operator-owned offer and its prices; preserve all others. */
+  saveAdminOffer(supplierId: string, offer: PublishedOffer, pricing: OfferPricing,
+    enabled: boolean, verifiedAt: Date): Promise<void>;
 
   listOffersBySupplier(supplierId: string): Promise<Offer[]>;
   /** Every Offer from every enabled Supplier. What Dispatch selects from. */

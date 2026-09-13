@@ -5,11 +5,11 @@
  * else is the operator surface — onboarding a Client, issuing an Application its
  * credential, funding a balance, registering a Supplier.
  *
- * **There is no HTTP admin API, deliberately.** These operations run rarely, by
- * one person, and every one of them can move money or grant eligibility for
- * traffic the operator is liable for (ADR 0012). A CLI on the box is a smaller
- * surface than a route, and the operations are rare enough that the convenience
- * of a route is not worth what it costs to secure.
+ * The trusted account UI also exposes Clerk-admin credit grants and vendor
+ * catalogue management. Server credential installation and arbitrary supplier
+ * endpoints remain operator responsibilities. Website-managed model offers
+ * survive CLI catalogue replacement; publisher-owned offers retain the
+ * heartbeat contract below.
  */
 
 import { Command } from "commander";

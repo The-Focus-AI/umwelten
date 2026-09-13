@@ -69,6 +69,7 @@ export function offerFixture(
 export function runExchangeStoreConformance(
   name: string,
   makeStore: () => Promise<ExchangeStore>,
+  reopenStore?: () => Promise<ExchangeStore>,
 ): void {
   describe(`ExchangeStore conformance — ${name}`, () => {
     let store: ExchangeStore;
@@ -147,6 +148,32 @@ export function runExchangeStoreConformance(
     describe("publishing offers", () => {
       beforeEach(async () => {
         await store.createSupplier(supplierFixture());
+      });
+
+      it("preserves admin models, capabilities, prices and disablement through concurrent CLI publishes", async () => {
+        await store.replaceOffers("office-spark", [offerFixture({ model: "other" })]);
+        const verifiedAt = new Date("2026-08-01T12:00:00Z");
+        const admin = { model: "speech/model", capabilities: ["transcription"] as const, servingMode: "adapted" as const };
+        const pricing = { ...DEFAULT_PRICING, wholesalePromptPerMillion: 17,
+          operationPricing: { transcription: { inputUnit: "second" as const, outputUnit: "token" as const,
+            wholesaleInputPerMillion: 100000000, wholesaleOutputPerMillion: 5,
+            retailInputPerMillion: 130000000, retailOutputPerMillion: 9 } } };
+        await store.saveAdminOffer("office-spark", { ...admin, capabilities: [...admin.capabilities] }, pricing, false, verifiedAt);
+        expect((await store.listOffersBySupplier("office-spark")).map((o) => o.model)).toEqual(["other", "speech/model"]);
+        await Promise.all([
+          store.replaceOffers("office-spark", [offerFixture({ model: "speech/model", capabilities: ["chat"] })]),
+          store.saveAdminOffer("office-spark", { ...admin, capabilities: [...admin.capabilities] }, pricing, false, verifiedAt),
+        ]);
+        await store.replaceOffers("office-spark", []);
+        if (reopenStore) store = await reopenStore();
+        await store.setup();
+        const found = await store.getOffer("office-spark", "speech/model");
+        expect(found).toMatchObject({ adminManaged: true, enabled: false, capabilities: ["transcription"],
+          verifiedAt, wholesalePromptPerMillion: 17, operationPricing: pricing.operationPricing });
+        expect((await store.listOffers()).map((o) => o.model)).toEqual(["speech/model"]);
+        await store.setOfferEnabled("office-spark", "speech/model", true);
+        await store.replaceOffers("office-spark", []);
+        expect((await store.getOffer("office-spark", "speech/model"))?.enabled).toBe(true);
       });
 
       it("appends connection events and never rewrites them", async () => {
