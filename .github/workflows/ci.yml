@@ -77,7 +77,7 @@ jobs:
             sleep 1
           done
           curl -fsS -o /tmp/mycel-landing.html http://127.0.0.1:17438/
-          grep -q 'Mycel — intelligence grows in networks' /tmp/mycel-landing.html
+          grep -q 'Mycel — connect your models, share your GPUs' /tmp/mycel-landing.html
           asset="$(sed -n 's/.*src="\([^"]*\/assets\/[^"]*\.js\)".*/\1/p' \
             /tmp/mycel-landing.html | head -1)"
           test -n "$asset"

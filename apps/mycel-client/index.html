@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Mycel is a living exchange for machine intelligence: one connection to models wherever they grow."
+      content="Connect cloud models, local models, and your own GPU servers to one fleet. Mycel routes API requests to available providers and tracks cost and usage."
     />
     <meta name="theme-color" content="#07100c" />
-    <title>Mycel — intelligence grows in networks</title>
+    <title>Mycel — connect your models, share your GPUs</title>
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
@@ -18,7 +18,8 @@
         <span>mycel</span>
       </a>
       <nav aria-label="Primary navigation">
-        <a href="#network">Network</a>
+        <a href="#hardware">Connect hardware</a>
+        <a href="#network">Models</a>
         <a href="#how">How it works</a>
         <a href="#developers">Developers</a>
         <a href="/account" data-account-link>Account</a>
@@ -42,36 +43,61 @@
         <div class="hero-haze" aria-hidden="true"></div>
         <div class="hero-content shell-width">
           <p class="eyebrow">
-            <span>01</span> A living exchange for machine intelligence
+            <span>01</span> Cloud models, local models, your hardware
           </p>
-          <h1>Intelligence grows<br />in <em>networks.</em></h1>
+          <h1>
+            Connect your models.<br />Share your GPUs.<br /><em
+              >Use one API.</em
+            >
+          </h1>
           <p class="hero-copy">
-            One OpenAI-compatible connection to models wherever they grow—cloud,
-            local, or on hardware you own. Mycel finds the right path, meters
-            the exchange, and keeps your applications moving.
+            Bring cloud models, local models, and your own GPU servers into one
+            fleet. Use them yourself or make them available to others. As
+            machines come online or go offline, Mycel routes new requests to
+            available providers that meet your requirements.
           </p>
           <div class="hero-actions">
             <button class="button primary" type="button" data-sign-up>
-              Create your account <span>↗</span>
+              Create account <span>↗</span>
             </button>
-            <a class="button ghost" href="/shell/">Open live Exchange</a>
+            <a class="button ghost" href="/shell/">Browse models</a>
           </div>
         </div>
         <div class="scroll-cue" aria-hidden="true">
-          <span></span> Scroll to descend
+          <span></span> Scroll to explore
         </div>
-        <p class="simulation-note">Move to feed · click to inoculate</p>
+        <p class="simulation-note">Move or click to interact</p>
+      </section>
+
+      <section class="network-section shell-width" id="hardware">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow"><span>02</span> Connect your hardware</p>
+            <h2>Manage your own<br />private cloud.</h2>
+          </div>
+          <p>
+            Run your own Mycel Exchange to manage a private fleet of model
+            servers for your team. Choose which machines join and give your
+            apps one API to use them.
+            Run a model server on your machine or GPU server, register with the
+            Exchange operator, and connect the Mycel supplier agent. Your models
+            can serve requests while connected and stop receiving new requests
+            when you disconnect. Reconnect to make them available again—apps
+            keep using the same API.
+          </p>
+        </div>
       </section>
 
       <section class="network-section shell-width" id="network">
         <div class="section-heading">
           <div>
-            <p class="eyebrow"><span>02</span> The network, now</p>
-            <h2>Capability is alive,<br />not hard-coded.</h2>
+            <p class="eyebrow"><span>03</span> Available models</p>
+            <h2>See what’s available<br />right now.</h2>
           </div>
           <p>
-            Offers appear when suppliers can serve them. Mycel considers price,
-            capability, guarantees, and availability for every request.
+            Browse models and prices across the fleet. Mycel matches each
+            request to an available provider based on your requirements and
+            price.
           </p>
         </div>
 
@@ -94,7 +120,7 @@
         </div>
 
         <div class="model-grid" id="model-grid" aria-live="polite">
-          <p class="catalogue-loading">Listening for offers<span>...</span></p>
+          <p class="catalogue-loading">Loading models<span>...</span></p>
         </div>
       </section>
 
@@ -102,12 +128,13 @@
         <div class="shell-width">
           <div class="section-heading inverse">
             <div>
-              <p class="eyebrow"><span>03</span> One request path</p>
-              <h2>Your app calls Mycel.<br />Mycel handles the route.</h2>
+              <p class="eyebrow"><span>04</span> How it works</p>
+              <h2>Send a request.<br />Get a response.</h2>
             </div>
             <p>
-              Use the OpenAI API shape you already know. The Exchange selects an
-              available supplier, streams its response, and records the usage.
+              Your app sends an OpenAI-compatible request. Mycel selects an
+              available provider, returns the response, and records cost and
+              usage.
             </p>
           </div>
           <ol class="exchange-flow" aria-label="Mycel request path">
@@ -144,18 +171,17 @@
 
       <section class="developer-section shell-width" id="developers">
         <div class="developer-copy">
-          <p class="eyebrow"><span>04</span> Familiar at the edge</p>
-          <h2>Change the base URL.<br />Keep building.</h2>
+          <p class="eyebrow"><span>05</span> For developers</p>
+          <h2>Use your existing API.</h2>
           <p>
-            Mycel speaks the interface your application already knows. A
-            credential identifies the Application; an end-user header keeps
-            usage attributable without making Mycel your users' identity
-            provider.
+            Point your OpenAI-compatible requests at Mycel with your Mycel API
+            key. Mycel handles routing and tracks cost and usage by app. Add an
+            optional end-user ID to track usage by user.
           </p>
           <ul>
             <li>OpenAI-compatible chat completions</li>
-            <li>Streaming and tool-calling offers</li>
-            <li>Per-application and per-user metering</li>
+            <li>Streaming and tool calling on supported models</li>
+            <li>Cost and usage tracking by app and user</li>
           </ul>
         </div>
         <div class="code-card">
@@ -184,15 +210,15 @@
 
       <section class="customer-section" id="customer-account" hidden>
         <div class="shell-width">
-          <p class="eyebrow"><span>05</span> Your connection</p>
+          <p class="eyebrow"><span>06</span> Your account</p>
           <p id="customer-loading" class="customer-loading">
-            Reading the network…
+            Loading your account…
           </p>
           <p id="customer-error" class="customer-error" role="alert" hidden></p>
 
           <div id="customer-onboarding" class="onboarding-panel" hidden>
             <div>
-              <h2>Grow your first connection.</h2>
+              <h2>Set up your first app.</h2>
               <p>
                 Name your Client and first Application. We will issue an API key
                 once; Mycel stores only its cryptographic hash.
@@ -284,18 +310,18 @@
 
       <section class="access-section shell-width" id="access">
         <div class="access-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
-        <p class="eyebrow"><span>06</span> The next growth ring</p>
-        <h2>Your key to the network.</h2>
+        <p class="eyebrow"><span>07</span> Get started</p>
+        <h2>Run models. Connect hardware.<br />Start making requests.</h2>
         <p>
-          Create your account to manage Applications, generate credentials, and
-          see every request that moves through the Exchange.
+          Create an account to get an API key, manage your apps, and view
+          request history.
         </p>
         <div class="access-actions">
           <button class="button primary light" type="button" data-sign-up>
-            Create an account <span>↗</span>
+            Create account <span>↗</span>
           </button>
           <a class="button primary light" href="/shell/"
-            >View the live catalogue <span>↗</span></a
+            >Browse models <span>↗</span></a
           >
         </div>
       </section>
@@ -323,7 +349,7 @@
         ><span class="brand-mark"><i></i><i></i><i></i></span
         ><span>mycel</span></a
       >
-      <p>A living exchange by The Focus AI.</p>
+      <p>Mycel by The Focus AI.</p>
       <div>
         <a href="/health">Status</a><a href="/v1/models">Models API</a
         ><a href="/shell/">Exchange</a>
