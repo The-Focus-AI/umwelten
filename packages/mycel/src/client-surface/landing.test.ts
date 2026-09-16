@@ -30,7 +30,8 @@ describe("Mycel's public landing page", () => {
     const page = await request("/?source=test");
     expect(page.status).toBe(200);
     expect(page.type).toContain("text/html");
-    expect(page.body).toContain("Intelligence grows");
+    expect(page.body).toContain("Connect your models.");
+    expect(page.body).toContain("private cloud.");
     expect(page.body).toContain("Create account");
 
     // `/account/` belongs to the substrate assembly, not this static handler.

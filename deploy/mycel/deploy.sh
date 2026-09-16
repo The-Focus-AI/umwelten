@@ -108,7 +108,7 @@ verify_client_surface() {
     echo "error: landing page unavailable" >&2
     return 1
   }
-  if ! grep -q 'Mycel — intelligence grows in networks' <<<"$landing"; then
+  if ! grep -q 'Mycel — connect your models, share your GPUs' <<<"$landing"; then
     echo "error: hostname root is not the Mycel landing page" >&2
     return 1
   fi

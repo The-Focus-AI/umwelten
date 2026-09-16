@@ -254,9 +254,9 @@ async function loadCatalogue() {
     grid.replaceChildren(...models.slice(0, 4).map(modelCard));
   } catch {
     document.querySelector("#network-status-label").textContent =
-      "Exchange waking";
+      "Catalogue unavailable";
     grid.textContent =
-      "The live catalogue is waking. The network will appear here shortly.";
+      "Could not load models. Refresh the page to try again.";
   }
 }
 

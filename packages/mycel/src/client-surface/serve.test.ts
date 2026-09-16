@@ -218,7 +218,7 @@ describe("wired into the exchange app", () => {
   it("the hostname root serves the public product page", async () => {
     const r = await appGet("/");
     expect(r.status).toBe(200);
-    expect(r.body).toContain("Mycel — intelligence grows in networks");
+    expect(r.body).toContain("Mycel — connect your models, share your GPUs");
     expect(r.body).toContain('href="/shell/"');
   });
 

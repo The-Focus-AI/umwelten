@@ -170,8 +170,8 @@ button {
 
 .hero {
   position: relative;
-  min-height: 650px;
-  height: 100svh;
+  min-height: max(650px, 100svh);
+  padding-block: 120px 90px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1004,6 +1004,9 @@ button {
   }
   .hero {
     min-height: 720px;
+  }
+  #mycelium {
+    opacity: 0.04;
   }
   .hero h1 {
     font-size: clamp(54px, 15.5vw, 70px);
