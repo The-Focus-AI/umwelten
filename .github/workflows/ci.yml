@@ -16,9 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup pnpm
-        # pnpm/action-setup@v6 refuses to accept both `version:` here and
+        # pnpm/action-setup@v6.0.9 refuses to accept both `version:` here and
         # `packageManager` in package.json. Let package.json drive the version.
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.0.9
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
