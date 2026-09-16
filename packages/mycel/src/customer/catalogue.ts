@@ -248,6 +248,54 @@ export function createCatalogue(
     return found;
   }
   return {
+    async models(id: unknown) {
+      const s = await supplier(id);
+      if (s.kind !== "vendor")
+        throw new CatalogueError(409, "agent_catalogue_not_supported");
+      if (!ready(s)) throw new CatalogueError(409, "credential_not_configured");
+      try {
+        const credential = s.upstreamCredentialEnv
+          ? readCredential(s.upstreamCredentialEnv)
+          : undefined;
+        const response = await (options.fetch ?? fetch)(
+          `${s.baseUrl.replace(/\/$/, "")}/models`,
+          {
+            headers: credential ? { authorization: `Bearer ${credential}` } : {},
+            redirect: "error",
+            signal: AbortSignal.timeout(15_000),
+          },
+        );
+        if (!response.ok || !response.body) throw new Error();
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let size = 0;
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            size += value.length;
+            if (size > 10_000_000) throw new Error();
+            chunks.push(value);
+          }
+        } finally {
+          await reader.cancel();
+        }
+        const payload = JSON.parse(Buffer.concat(chunks).toString());
+        if (!Array.isArray(payload?.data)) throw new Error();
+        const models = new Map<string, { id: string; name: string }>();
+        for (const item of payload.data) {
+          if (!item || typeof item.id !== "string" || !item.id.trim() || item.id.length > 200)
+            continue;
+          models.set(item.id, {
+            id: item.id,
+            name: typeof item.name === "string" ? item.name.slice(0, 200) : item.id,
+          });
+        }
+        return { models: [...models.values()].sort((a, b) => a.id.localeCompare(b.id)) };
+      } catch {
+        throw new CatalogueError(502, "upstream_catalogue_unavailable");
+      }
+    },
     async list() {
       const suppliers = await store.listSuppliers();
       const connectedSupplierIds = new Set(

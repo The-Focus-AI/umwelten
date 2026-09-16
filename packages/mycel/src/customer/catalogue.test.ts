@@ -86,6 +86,7 @@ describe("admin catalogue", () => {
     async (role) => {
       for (const [path, body] of [
         ["", undefined],
+        ["/models?supplierId=vendor", undefined],
         ["/save", input()],
         ["/enabled", { supplierId: "vendor", enabled: false }],
         ["/connect", { preset: "openai" }],
@@ -95,6 +96,44 @@ describe("admin catalogue", () => {
       expect(upstream).not.toHaveBeenCalled();
       expect(await store.listOffers()).toEqual([]);
       expect((await store.getSupplier("vendor"))?.enabled).toBe(true);
+    },
+  );
+
+  it("lists only upstream model IDs/names without publishing or probing", async () => {
+    upstream.mockResolvedValueOnce(Response.json({ data: [
+      { id: "z/model", name: "Z model", pricing: { secret: "omit" } },
+      { id: "a/model" }, { id: "z/model", name: "Z model" },
+      { id: "" }, null, { name: "missing id" },
+    ] }));
+    const response = await request("/models?supplierId=vendor");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ models: [
+      { id: "a/model", name: "a/model" }, { id: "z/model", name: "Z model" },
+    ] });
+    expect(upstream).toHaveBeenCalledExactlyOnceWith("https://trusted.example/v1/models", {
+      headers: {}, redirect: "error", signal: expect.any(AbortSignal),
+    });
+    expect(await store.listOffers()).toEqual([]);
+  });
+
+  it("keeps discovery credentials server-side and rejects missing suppliers", async () => {
+    await store.createSupplier(supplierFixture({ id: "keyed", baseUrl: "https://trusted.example/v1/", upstreamCredentialEnv: "TEST_KEY" }));
+    const catalogue = createCatalogue(store, { fetch: upstream, readCredential: () => "test-secret" });
+    upstream.mockResolvedValueOnce(Response.json({ data: [] }));
+    expect(await catalogue.models("keyed")).toEqual({ models: [] });
+    expect(upstream.mock.calls[0][1]?.headers).toEqual({ authorization: "Bearer test-secret" });
+    upstream.mockClear();
+    expect((await request("/models?supplierId=missing")).status).toBe(404);
+    expect((await request("/models")).status).toBe(400);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it.each([Response.json({ error: "private upstream detail" }, { status: 500 }), Response.json({ invalid: [] })])(
+    "reports discovery failure without upstream details", async (result) => {
+      upstream.mockResolvedValueOnce(result);
+      const response = await request("/models?supplierId=vendor");
+      expect(response.status).toBe(502);
+      expect(await response.json()).toEqual({ error: "upstream_catalogue_unavailable" });
     },
   );
 

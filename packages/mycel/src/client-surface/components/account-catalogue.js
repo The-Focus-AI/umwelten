@@ -235,7 +235,7 @@ export default {
       heading.textContent = offer ? `Edit ${offer.model}` : "Add a model";
       editor.append(heading);
       const modelLabel = document.createElement("label");
-      modelLabel.textContent = "Exact upstream model ID";
+      modelLabel.textContent = "Upstream model";
       const model = document.createElement("input");
       model.name = "model";
       model.required = true;
@@ -244,6 +244,47 @@ export default {
       model.readOnly = Boolean(offer);
       modelLabel.append(model);
       editor.append(modelLabel);
+      if (!offer) {
+        model.placeholder = "Search upstream models or enter an exact model ID";
+        model.autocomplete = "off";
+        const suggestions = document.createElement("select");
+        suggestions.setAttribute("aria-label", "Matching upstream models");
+        suggestions.disabled = true;
+        suggestions.append(new Option("Loading upstream models…", ""));
+        const discovery = empty("Loading models from the supplier…");
+        discovery.id = "catalogue-model-discovery";
+        discovery.setAttribute("role", "status");
+        model.setAttribute("aria-describedby", discovery.id);
+        editor.append(suggestions, discovery);
+        const current = generation;
+        void customer.request(`/admin/catalogue/models?supplierId=${encodeURIComponent(supplier().id)}`)
+          .then(({ models }) => {
+            if (!active || generation !== current || !model.isConnected) return;
+            const filter = () => {
+              const query = model.value.toLowerCase();
+              const matches = models.filter((item) => `${item.id} ${item.name}`.toLowerCase().includes(query));
+              suggestions.replaceChildren(
+                new Option(matches.length ? "Choose an upstream model…" : "No matching models — enter an ID above", ""),
+                ...matches.map((item) => new Option(`${item.name} — ${item.id}`, item.id)),
+              );
+              suggestions.disabled = !matches.length;
+            };
+            model.oninput = filter;
+            suggestions.onchange = () => {
+              if (suggestions.value) model.value = suggestions.value;
+            };
+            filter();
+            discovery.textContent = models.length
+              ? `${models.length} upstream models loaded. Start typing to select one, or enter an ID manually. Listing does not verify capabilities or set prices.`
+              : "The supplier returned no models. You can still enter an exact model ID manually.";
+          })
+          .catch(() => {
+            if (active && generation === current && model.isConnected) {
+              suggestions.replaceChildren(new Option("Upstream list unavailable", ""));
+              discovery.textContent = "Could not load upstream models. You can still enter an exact model ID manually.";
+            }
+          });
+      }
       const groups = [];
       for (const operation of data.operations) {
         const group = document.createElement("fieldset");

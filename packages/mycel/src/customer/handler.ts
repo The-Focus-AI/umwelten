@@ -445,6 +445,9 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
       try {
         if (path === `${ROOT}/admin/catalogue` && req.method === "GET") {
           sendJson(res, 200, await catalogue.list());
+        } else if (path === `${ROOT}/admin/catalogue/models` && req.method === "GET") {
+          const query = new URLSearchParams((req.url ?? "").split("?")[1]);
+          sendJson(res, 200, await catalogue.models(query.get("supplierId")));
         } else if (req.method === "POST" && ["connect", "save", "enabled"].some((action) => path === `${ROOT}/admin/catalogue/${action}`)) {
           const action = path.split("/").pop() as "connect" | "save" | "enabled";
           await catalogue[action](await readJson(req));
