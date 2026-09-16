@@ -75,6 +75,11 @@ const customer = createCustomerHandler({
   },
   // Every probe is simulated. No keys, real provider requests, database, or billing.
   fetch: async (_url, init) => {
+    if (String(_url).endsWith("/models"))
+      return Response.json({ data: [
+        { id: "demo/chat-small", name: "Demo Chat Small" },
+        { id: "demo/whisper-large-v3", name: "Demo Whisper Large V3" },
+      ] });
     const model =
       init?.body instanceof FormData
         ? init.body.get("model")
