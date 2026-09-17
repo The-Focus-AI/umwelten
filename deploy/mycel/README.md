@@ -4,6 +4,35 @@ The operating manual: bring it up, onboard someone, deploy a change, work out
 what broke. The reasoning behind the shape is
 `docs/architecture/mycel-deployment.md`.
 
+## Shared default chat model
+
+Clients can send `"model": "default"` to `/v1/chat/completions`. The Exchange
+resolves it to `deepseek/deepseek-v4.1-flash` before dispatch, authorization
+filters, upstream forwarding, and accounting. To change the fleet's default,
+set `MYCEL_DEFAULT_MODEL` on Mycel and recreate its container; habitats keep
+using `mycel` / `default`. Explicit model IDs remain unchanged.
+
+The target needs an enabled chat Offer; setting the alias does not create
+supply. `/v1/models` advertises `default` with the target's chat metadata only
+when that supply is available. Application model allowlists must permit the
+concrete target, not the alias. This alias applies to chat, not embeddings,
+image generation, or other operations. Existing habitats need a one-time
+config migration; see `deploy/gaia/README.md`.
+
+On `mycel-host`, `/etc/systemd/system/mycel-offers.service` keeps the OpenRouter
+offers fresh with `--watch 5` and `Restart=always`, including across Mycel
+container replacements. Its complete model list is
+`moonshotai/kimi-k3,deepseek/deepseek-v4-pro,z-ai/glm-5.3-flash,deepseek/deepseek-v4.1-flash`,
+with `--capabilities chat,streaming,tool-calling`. Preserve the complete list
+when changing it. Admin-managed offers ignore sync replacements: amend their
+capabilities separately, preserving model-specific metadata such as image input.
+
+Flash's deployed tariff is static: wholesale input/output is `150000/600000`
+and retail is `157500/630000` micro-dollars per million tokens (5% markup).
+Offer sync refreshes availability, not pricing; review the tariff when upstream
+prices change. Check `systemctl status mycel-offers.service` and offer publication
+timestamps after a deployment, not just the Exchange's HTTP health.
+
 ## The one alias to set first
 
 Every operator command needs the database, and the container already has it

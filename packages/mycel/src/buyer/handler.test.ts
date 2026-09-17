@@ -72,6 +72,7 @@ describe("buyer surface", () => {
     await store.createApplication(app.application);
     exchange = await createExchangeServer({
       store,
+      defaultModel: MODEL,
       port: 0,
       host: "127.0.0.1",
       verifyCaller: createIdentityVerifier({ store, makeKeySet: () => app.keySet }),
@@ -103,6 +104,41 @@ describe("buyer surface", () => {
     delete process.env.MOCK_KEY;
     await exchange?.close();
     await upstream?.close();
+  });
+
+  describe("default model alias", () => {
+    it.each([false, true])("resolves before forwarding (stream=%s)", async (stream) => {
+      await boot();
+      const res = await chat({ model: "default", messages: [], stream });
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(upstream.requests[0].body.model).toBe(MODEL);
+    });
+
+    it("advertises the target's metadata and withdraws the alias with its offers", async () => {
+      await boot();
+      const catalog = await (await fetch(`${exchange.url}/v1/models`)).json();
+      const target = catalog.data.find((entry: { id: string }) => entry.id === MODEL);
+      expect(catalog.data.find((entry: { id: string }) => entry.id === "default"))
+        .toEqual({ ...target, id: "default" });
+      await store.replaceOffers("office-spark", []);
+      const unavailable = await (await fetch(`${exchange.url}/v1/models`)).json();
+      expect(unavailable.data).toEqual([]);
+      expect((await chat({ model: "default", messages: [] })).status).toBe(503);
+      expect(upstream.requests).toHaveLength(0);
+    });
+
+    it("checks the concrete model against Application restrictions", async () => {
+      await boot("ok", { allowedModels: ["some-other-model"] });
+      expect((await chat({ model: "default", messages: [] })).status).toBe(503);
+      expect(upstream.requests).toHaveLength(0);
+    });
+
+    it("accepts an alias when its concrete model is allowed", async () => {
+      await boot("ok", { allowedModels: [MODEL] });
+      expect((await chat({ model: "default", messages: [] })).status).toBe(200);
+      expect(upstream.requests[0].body.model).toBe(MODEL);
+    });
   });
 
   describe("non-streaming", () => {

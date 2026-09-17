@@ -112,12 +112,14 @@ the first refresh, X rotates it and the habitat persists the new one itself
 
 ### Mycel model access and migrating an existing fleet
 
-New Gaia installs default to `mycel` / `deepseek/deepseek-v4-pro`. Compose
+New Gaia installs default to `mycel` / `default`. Compose
 sets `MYCEL_URL=https://mycel.thefocus.ai`; for a direct CLI launch, set
 `MYCEL_URL` explicitly too (the core provider otherwise targets localhost).
 Check `GET /v1/models` on that Exchange before selecting a model: its catalog
-is not the full OpenRouter catalog. As of 2026-09-08 it advertises DeepSeek V4
-Pro and Kimi K3, not the previous Sonnet default.
+is not the full OpenRouter catalog. Mycel resolves `default` centrally to
+`deepseek/deepseek-v4.1-flash`, configurable with `MYCEL_DEFAULT_MODEL` on the
+Exchange. Publish an enabled Offer for that model before migrating habitats;
+the alias is only advertised when its target has available chat supply.
 
 Gaia's config declares `"modelCredentials": { "mycel": "MYCEL_API_KEY" }`.
 Its master vault must contain a funded Mycel application credential under
@@ -140,15 +142,14 @@ migrate an existing fleet with authenticated access to the Gaia host:
 2. Verify the Mycel application has available credit and perform a small
    authenticated inference against each intended model before switching.
 3. Deploy the updated Gaia runtime. Set its environment to `GAIA_PROVIDER=mycel`,
-   `GAIA_MODEL=deepseek/deepseek-v4-pro`, and the Exchange URL and credential.
+   `GAIA_MODEL=default`, and the Exchange URL and credential.
    Set `HABITAT_ID=gaia` so the orchestrator supplies its Exchange end-user
    identity, just as children supply their own habitat IDs.
    Update the existing Gaia `config.json` defaults and merge the Mycel
    credential mapping into `modelCredentials`, preserving unrelated entries.
 4. Use `GET /api/habitats` to inventory **all** habitats, including dormant
    ones. For each, preserve the full `config` object and change
-   `defaultProvider` to `mycel`; retain the model only if the Exchange lists
-   that exact ID, otherwise select an advertised replacement. Persist with
+   `defaultProvider` to `mycel` and `defaultModel` to `default`. Persist with
    `PUT /api/habitats/:id` and `{ "config": <updated full config> }`.
    Update model overrides and repository-backed `habitat.json` declarations
    as well, so later declaration applies cannot restore direct-provider use.
@@ -184,7 +185,7 @@ curl -s -X POST http://localhost:7420/api/habitats \
     "name": "Twitter",
     "image": "twitter-habitat",
     "provider": "mycel",
-    "model": "deepseek/deepseek-v4-pro",
+    "model": "default",
     "secretBindings": [
       "TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET", "TWITTER_REFRESH_TOKEN",
       "DATABASE_URL"
@@ -196,7 +197,7 @@ curl -s -X POST http://localhost:7420/api/habitats/twitter/start
 ```
 
 Or just tell Gaia in the **Chat** tab: *"Create a habitat called twitter using
-the twitter-habitat image and mycel deepseek/deepseek-v4-pro. Bind the Twitter
+the twitter-habitat image and mycel default. Bind the Twitter
 and DATABASE_URL secrets, then start it."*
 
 ---

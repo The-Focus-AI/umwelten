@@ -314,7 +314,7 @@ export async function handleGaiaRoute(
 			const entry = await ctx.registry.create({
 				...body,
 				provider: body.provider ?? ctx.gaiaProvider ?? "mycel",
-				model: body.model ?? ctx.gaiaModel ?? "deepseek/deepseek-v4-pro",
+				model: body.model ?? ctx.gaiaModel ?? "default",
 			});
 			// Seed the Docker volume with config + secrets
 			await ctx.docker.seedVolume(entry.id, buildSeedFiles(entry, ctx.vault));

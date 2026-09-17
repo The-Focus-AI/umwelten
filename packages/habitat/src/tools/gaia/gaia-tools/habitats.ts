@@ -258,7 +258,7 @@ export function createHabitatLifecycleTools(
 		}),
 
 		create_habitat: tool({
-			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "mycel"} / ${gaiaModel ?? "deepseek/deepseek-v4-pro"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. Gaia supplies model access through its modelCredentials configuration and vault.`,
+			description: `Create a new habitat entry in the registry. Omitted provider/model inherit Gaia's own (${gaiaProvider ?? "mycel"} / ${gaiaModel ?? "default"}). When the user asks for a specific model, verify the exact id with list_models first — NEVER write a model id from memory. Gaia supplies model access through its modelCredentials configuration and vault.`,
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
@@ -295,7 +295,7 @@ export function createHabitatLifecycleTools(
 					.string()
 					.optional()
 					.describe(
-						`Model name (default: ${gaiaModel ?? "deepseek/deepseek-v4-pro"} — Gaia's own model).`,
+						`Model name (default: ${gaiaModel ?? "default"} — Gaia's own model).`,
 					),
 				secretBindings: z
 					.array(z.string())
@@ -347,7 +347,7 @@ export function createHabitatLifecycleTools(
 				const entry = await registry.create({
 					...params,
 					provider: params.provider ?? gaiaProvider ?? "mycel",
-					model: params.model ?? gaiaModel ?? "deepseek/deepseek-v4-pro",
+					model: params.model ?? gaiaModel ?? "default",
 				});
 
 				// Auto-bind the org-readonly identity if Gaia's master vault has the
@@ -922,7 +922,7 @@ export function createHabitatLifecycleTools(
 					model:
 						parsed.config.defaultModel ??
 						gaiaModel ??
-						"deepseek/deepseek-v4-pro",
+						"default",
 					gitUrl: parsed.config.gitUrl,
 					gitBranch: parsed.config.gitBranch,
 					secretBindings: parsed.secretBindings ?? [],

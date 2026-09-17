@@ -22,6 +22,7 @@ import {
 } from "./customer/handler.js";
 import {
   createBuyerHandler,
+  DEFAULT_MODEL,
   type BuyerHandlerOptions,
 } from "./buyer/handler.js";
 import { createModelsHandler } from "./buyer/models.js";
@@ -44,6 +45,8 @@ export const DEFAULT_PORT = 7438;
 
 export interface ExchangeServerOptions {
   store: ExchangeStore;
+  /** Target for `default`; otherwise MYCEL_DEFAULT_MODEL or DeepSeek V4.1 Flash. */
+  defaultModel?: string;
   port?: number;
   host?: string;
   /** Injectable identity verification, so tests need no JWKS endpoint. */
@@ -85,6 +88,7 @@ export function createExchangeApp(
   store: ExchangeStore,
   opts: Pick<
     ExchangeServerOptions,
+    | "defaultModel"
     | "verifyCaller"
     | "verifyCustomerOperator"
     | "clerkIssuer"
@@ -122,8 +126,10 @@ export function createExchangeApp(
         })()
       : undefined);
 
+  const defaultModel = opts.defaultModel ?? (process.env.MYCEL_DEFAULT_MODEL?.trim() || DEFAULT_MODEL);
   const buyerHandler = createBuyerHandler({
     store,
+    defaultModel,
     verifyCaller: opts.verifyCaller,
     staleAfterMs: opts.staleAfterMs,
     resolveTransport,
@@ -178,6 +184,7 @@ export function createExchangeApp(
     createSupplyHandler({ store }),
     createModelsHandler({
       store,
+      defaultModel,
       connectedSupplierIds: connections
         ? () => connections.connectedSupplierIds()
         : undefined,
@@ -227,6 +234,7 @@ export async function createExchangeServer(
   const connections = new ConnectionRegistry({ store: opts.store });
 
   const app = createExchangeApp(opts.store, {
+    defaultModel: opts.defaultModel,
     verifyCaller: opts.verifyCaller,
     verifyCustomerOperator: opts.verifyCustomerOperator,
     clerkIssuer: opts.clerkIssuer,
