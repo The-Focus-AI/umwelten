@@ -28,6 +28,7 @@ services:
       - mycel-net
     environment:
       MYCEL_PORT: ${MYCEL_PORT:-7438}
+      MYCEL_DEFAULT_MODEL: ${MYCEL_DEFAULT_MODEL:-deepseek/deepseek-v4.1-flash}
       # Clerk verifies customer-control bearer tokens at runtime. This is the
       # frontend's issuer, not a Clerk secret. `azp` must be this public origin.
       MYCEL_CLERK_ISSUER: ${MYCEL_CLERK_ISSUER:-}

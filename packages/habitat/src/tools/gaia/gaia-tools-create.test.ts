@@ -101,12 +101,12 @@ describe("create_habitat provider/model defaults", () => {
 		expect(entry.config.defaultModel).toBe("gemini-3-flash-preview");
 	});
 
-	it("falls back to Mycel/DeepSeek V4 Pro when Gaia has no defaults", async () => {
+	it("falls back to Mycel/default when Gaia has no defaults", async () => {
 		const t = tools();
 		await create(t, { id: "bare", name: "Bare" });
 		const entry = registry.get("bare")!;
 		expect(entry.config.defaultProvider).toBe("mycel");
-		expect(entry.config.defaultModel).toBe("deepseek/deepseek-v4-pro");
+		expect(entry.config.defaultModel).toBe("default");
 	});
 
 	it("declares provider and model as optional in the tool schema", () => {

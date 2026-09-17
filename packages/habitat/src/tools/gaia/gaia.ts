@@ -85,7 +85,7 @@ export class Gaia {
 		const port = options.port ?? 7420;
 		const host = options.host ?? "0.0.0.0";
 		const provider = options.provider ?? "mycel";
-		const model = options.model ?? "deepseek/deepseek-v4-pro";
+		const model = options.model ?? "default";
 
 		await mkdir(dataDir, { recursive: true });
 

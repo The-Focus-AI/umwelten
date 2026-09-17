@@ -34,7 +34,7 @@ services:
     environment:
       # Gaia and new children use the Exchange's advertised model catalog.
       GAIA_PROVIDER: ${GAIA_PROVIDER:-mycel}
-      GAIA_MODEL: ${GAIA_MODEL:-deepseek/deepseek-v4-pro}
+      GAIA_MODEL: ${GAIA_MODEL:-default}
       GAIA_PORT: ${GAIA_PORT:-7420}
       HABITAT_WORK_DIR: /opt/gaia-data
       HABITAT_ID: gaia

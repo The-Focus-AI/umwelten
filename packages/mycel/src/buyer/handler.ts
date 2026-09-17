@@ -48,6 +48,7 @@ import { createHttpTransport, type ResolveTransport } from "./transport.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
+export const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash";
 
 const MAX_BODY_BYTES = 10_000_000;
 
@@ -59,6 +60,8 @@ const BALANCE_CHECK_INTERVAL = 16;
 
 export interface BuyerHandlerOptions {
   store: ExchangeStore;
+  /** Concrete chat model served by the reserved `default` alias. */
+  defaultModel?: string;
   /**
    * Resolves a Supplier's upstream credential from its declared env var name.
    * Injectable so tests do not have to mutate process.env.
@@ -264,11 +267,17 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
       return true;
     }
 
-    const model = typeof body.model === "string" ? body.model : undefined;
+    const requestedModel = typeof body.model === "string" ? body.model : undefined;
+    const model = requestedModel === "default"
+      ? opts.defaultModel ?? DEFAULT_MODEL
+      : requestedModel;
     if (!model) {
       sendJson(res, 400, { error: BuyerError.INVALID_BODY, message: "`model` is required." });
       return true;
     }
+    // Resolve before eligibility checks, metering, and transport. An alias must
+    // not bypass an Application's allowlist of concrete models.
+    body.model = model;
 
     const requestId = randomUUID();
     res.setHeader("x-mycel-request-id", requestId);

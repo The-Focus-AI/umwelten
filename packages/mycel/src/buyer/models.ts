@@ -159,6 +159,7 @@ export function summarizeOffers(
 
 export function createModelsHandler(opts: {
   store: ExchangeStore;
+  defaultModel?: string;
   connectedSupplierIds?: () => Set<string>;
 }) {
   return async function handleModels(
@@ -178,6 +179,14 @@ export function createModelsHandler(opts: {
     const data = summarizeOffers(await opts.store.listOffers(), {
       connectedSupplierIds: opts.connectedSupplierIds?.(),
     });
+    const target = data.find((entry) => entry.id === opts.defaultModel);
+    if (target?.capabilities.includes("chat")) {
+      data.push({ ...target, id: "default", operation_pricing: {},
+        capabilities: target.capabilities.filter((capability) =>
+          !["embeddings", "transcription", "image-generation", "video-generation"].includes(capability)),
+      });
+      data.sort((a, b) => a.id.localeCompare(b.id));
+    }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ object: "list", data }));
     return true;
