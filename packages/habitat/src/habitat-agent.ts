@@ -179,7 +179,7 @@ export async function buildAgentStimulus(
       "Provide concise, actionable analysis when asked about the project.",
       "Remember context from previous conversations about this project.",
     ],
-    maxToolSteps: 30,
+    maxToolSteps: 300,
     systemContext,
   };
 
