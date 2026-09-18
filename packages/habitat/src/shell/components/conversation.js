@@ -11,7 +11,12 @@
  */
 
 import { serviceKey } from "../substrate/index.js";
-import { resolveToken } from "./auth.js";
+import {
+  resolveToken,
+  browserSession,
+  signInAgain,
+  signInMessage,
+} from "./auth.js";
 
 const baseKey = serviceKey("shell:base");
 const conversationKey = serviceKey("shell:conversation");
@@ -21,8 +26,11 @@ export default {
   inject: [baseKey],
   apply(ctx, view, config) {
     const base = view.get(baseKey);
-    const threadId = crypto.randomUUID();
+    let threadId = crypto.randomUUID();
     const token = resolveToken(config?.token);
+    const identity = browserSession(base, token);
+    const checkpointKey = "shell:conversation-login";
+    let rejected = null;
 
     /** @type {Array<{role:string, parts:Array<object>, streaming?:boolean}>} */
     const messages = [];
@@ -32,14 +40,21 @@ export default {
     };
 
     const conversation = {
-      threadId,
+      get threadId() {
+        return threadId;
+      },
       messages,
+      draft: "",
+      busy: false,
       subscribe(fn) {
         listeners.add(fn);
         fn(messages);
         return () => listeners.delete(fn);
       },
-      async send(text) {
+      async send(text, allowSignIn = true) {
+        await ready;
+        if (conversation.busy) return;
+        conversation.busy = true;
         messages.push({ role: "user", parts: [{ kind: "text", text }] });
         const reply = { role: "assistant", parts: [], streaming: true };
         messages.push(reply);
@@ -65,7 +80,16 @@ export default {
               messages: [{ role: "user", content: text }],
             }),
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+          if (res.status === 401) {
+            // Authentication rejects this request before the model runs. Only
+            // this known-unexecuted message may be resumed after signing in.
+            rejected = { text, reply };
+            if (allowSignIn && (await signInAgain(base, token))) return;
+            rejected = null;
+            throw new Error(signInMessage);
+          }
+          if (!res.ok)
+            throw new Error(`HTTP ${res.status}: ${await res.text()}`);
 
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
@@ -109,22 +133,65 @@ export default {
         } catch (err) {
           const text = String(err.message ?? err);
           reply.parts.push({ kind: "error", text });
-          if (text.includes("401")) {
-            reply.parts.push({
-              kind: "error",
-              text:
-                "This host requires a token. Reload the page with " +
-                "?token=<your api key> appended to the URL — it is " +
-                "remembered for next time.",
-            });
-          }
         } finally {
           reply.streaming = false;
+          conversation.busy = false;
           notify();
         }
       },
     };
 
+    const beforeSignIn = (event) => {
+      // A panel's expired request must not abort a chat already executing.
+      if (conversation.busy && !rejected) {
+        event.preventDefault();
+        return;
+      }
+      try {
+        sessionStorage.setItem(
+          checkpointKey,
+          JSON.stringify({
+            userId: event.detail.userId,
+            savedAt: Date.now(),
+            threadId,
+            messages: rejected ? messages.slice(0, -2) : messages,
+            draft: conversation.draft,
+            pending: rejected?.text,
+          }),
+        );
+      } catch {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("shell:before-sign-in", beforeSignIn);
+    ctx.effect(
+      () => () =>
+        window.removeEventListener("shell:before-sign-in", beforeSignIn),
+    );
+
+    const ready = identity.then((user) => {
+      try {
+        const saved = JSON.parse(
+          sessionStorage.getItem(checkpointKey) ?? "null",
+        );
+        sessionStorage.removeItem(checkpointKey);
+        // Signing in as somebody else must not expose or replay this user's
+        // conversation. Checkpoints are tab-local and consumed once.
+        if (
+          !user ||
+          saved?.userId !== user.userId ||
+          Date.now() - saved.savedAt > 10 * 60_000
+        )
+          return;
+        threadId = saved.threadId;
+        messages.push(...saved.messages);
+        conversation.draft = saved.draft ?? "";
+        notify();
+        if (saved.pending) void conversation.send(saved.pending, false);
+      } catch {
+        // No saved state (or storage disabled): start a normal conversation.
+      }
+    });
     ctx.provide(conversationKey, conversation);
   },
 };

@@ -57,6 +57,20 @@ async function start(managed = true, issuer = "https://habitats.example") {
 }
 
 describe("central browser login entry", () => {
+  it("reports only verified session identity without caching credentials", async () => {
+    const { request, token } = await start();
+    const now = Math.floor(Date.now() / 1000);
+    expect((await request("/auth/session")).status).toBe(401);
+    expect((await request("/auth/session", {
+      cookie: `habitat_session=${await token("https://child.example", now - 30)}`,
+    })).status).toBe(401);
+    const response = await request("/auth/session", {
+      cookie: `habitat_session=${await token("https://child.example", now + 300)}`,
+    });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ userId: "user-42", browserLogin: true });
+  });
+
   it("redirects direct documents and explicit login, preserving safe destinations", async () => {
     const { request } = await start();
     for (const [path, returnTo] of [

@@ -49,18 +49,25 @@ export default {
     el.dataset.component = "chat"; // placement identity (ADR 0034)
     region.appendChild(el);
 
-    const unsubscribe = conversation.subscribe((messages) =>
-      el.renderTranscript(messages),
-    );
-    ctx.effect(() => unsubscribe);
-
     const form = el.querySelector("form");
     const input = el.querySelector("input");
+    const unsubscribe = conversation.subscribe((messages) => {
+      el.renderTranscript(messages);
+      input.value = conversation.draft;
+      el.querySelector("button").disabled = conversation.busy;
+    });
+    ctx.effect(() => unsubscribe);
+    const onInput = () => {
+      conversation.draft = input.value;
+    };
+    input.addEventListener("input", onInput);
+    ctx.effect(() => () => input.removeEventListener("input", onInput));
     const onSubmit = (e) => {
       e.preventDefault();
       const text = input.value.trim();
-      if (!text) return;
+      if (!text || conversation.busy) return;
       input.value = "";
+      conversation.draft = "";
       void conversation.send(text);
     };
     form.addEventListener("submit", onSubmit);

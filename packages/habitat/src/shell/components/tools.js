@@ -10,7 +10,13 @@
  */
 
 import { serviceKey } from "../substrate/index.js";
-import { resolveToken, authHeaders } from "./auth.js";
+import {
+  resolveToken,
+  authHeaders,
+  browserSession,
+  signInAgain,
+  signInMessage,
+} from "./auth.js";
 
 const baseKey = serviceKey("shell:base");
 const toolsKey = serviceKey("shell:tools");
@@ -31,6 +37,7 @@ export default {
   apply(ctx, view, config) {
     const base = view.get(baseKey);
     const token = resolveToken(config?.token);
+    const ready = browserSession(base, token);
     let nextId = 1;
 
     ctx.provide(toolsKey, {
@@ -40,6 +47,7 @@ export default {
        * on transport errors, JSON-RPC errors, and tool-reported errors.
        */
       async call(name, args = {}) {
+        await ready;
         const res = await fetch(new URL("/mcp", base), {
           method: "POST",
           headers: authHeaders(token, {
@@ -53,10 +61,10 @@ export default {
             params: { name, arguments: args },
           }),
         });
-        if (res.status === 401)
-          throw new Error(
-            "Unauthorized — reload with ?token=<your api key> in the URL.",
-          );
+        if (res.status === 401) {
+          const signingIn = await signInAgain(base, token);
+          throw new Error(signingIn ? "Signing in again…" : signInMessage);
+        }
         if (!res.ok) throw new Error(`/mcp HTTP ${res.status}`);
         const payload = parsePayload(
           await res.text(),
