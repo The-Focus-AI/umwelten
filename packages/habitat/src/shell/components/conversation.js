@@ -126,6 +126,11 @@ export default {
               } else if (event.type === "tool-output-available") {
                 const p = tools.get(event.toolCallId);
                 if (p) p.output = event.output;
+              } else if (event.type === "error") {
+                reply.parts.push({
+                  kind: "error",
+                  text: String(event.errorText ?? "Chat request failed"),
+                });
               }
               notify();
             }

@@ -161,6 +161,14 @@ beforeAll(async () => {
       const text = body.messages.at(-1)?.content ?? "";
       res.writeHead(200, { "Content-Type": "text/event-stream" });
       const emit = (e: object) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+      if (text === "fail before reply" || text === "fail after partial reply") {
+        if (text === "fail after partial reply") {
+          emit({ type: "text-delta", id: "m1", delta: "Partial answer" });
+        }
+        emit({ type: "error", errorText: "HTTP 503: no_eligible_offer" });
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       emit({ type: "reasoning-delta", delta: "thinking about it" });
       emit({
         type: "tool-input-available",
@@ -263,6 +271,27 @@ describe("the shell assembles itself in a browser", () => {
     await page.close();
   }, 30_000);
 
+  it.each(["fail before reply", "fail after partial reply"])(
+    "chat displays stream errors: %s",
+    async (prompt) => {
+      const page = await browser.newPage();
+      try {
+        await page.goto(`${baseUrl}/shell/`);
+        const chat = page.locator("habitat-chat");
+        await chat.waitFor({ state: "visible", timeout: 10_000 });
+        await chat.locator("input").fill(prompt);
+        await chat.locator("button").click();
+        await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toBe(
+          (prompt === "fail after partial reply" ? "Partial answer" : "") + "HTTP 503: no_eligible_offer",
+        );
+        await expect.poll(() => chat.locator("button").isEnabled()).toBe(true);
+        await chat.locator("input").fill("try again");
+        await chat.locator("button").click();
+        await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toContain("echo: try again");
+      } finally { await page.close(); }
+    },
+  );
+
   it("signs in again and resumes only the rejected chat with the same thread and history", async () => {
     const page = await browser.newPage();
     try {
@@ -283,6 +312,27 @@ describe("the shell assembles itself in a browser", () => {
       expect(await chat.locator(".log").textContent()).toContain("echo: first message");
       expect(new URL(page.url()).search).toBe("?panel=chat");
       expect(await page.evaluate(() => sessionStorage.getItem("shell:conversation-login"))).toBeNull();
+    } finally { await page.close(); }
+  });
+
+  it("renders Markdown and inspectable tool results after sign-in recovery", async () => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page);
+      state.expired = true;
+      const chat = page.locator("habitat-chat");
+      await chat.locator("input").fill("**Preview ready** [Open preview](https://example.com/preview)");
+      await chat.locator("button").click();
+      await expect.poll(() => chat.locator("strong").textContent()).toBe("Preview ready");
+      expect(state.logins).toBe(1);
+      expect(await chat.locator("a").getAttribute("href")).toBe("https://example.com/preview");
+      const tool = chat.locator("details").last();
+      expect(await tool.getAttribute("open")).toBeNull();
+      await tool.locator("summary").click();
+      expect(await tool.locator("pre").allTextContents()).toEqual(["{}", "now"]);
+      await chat.locator("input").fill("fail after partial reply");
+      await chat.locator("button").click();
+      await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toBe("Partial answerHTTP 503: no_eligible_offer");
     } finally { await page.close(); }
   });
 
