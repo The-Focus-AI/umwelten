@@ -33,6 +33,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install and build the isolated Mycel client
+        # The unit suite checks the served client assets, as in regular CI.
+        run: |
+          pnpm --dir apps/mycel-client install --frozen-lockfile
+          pnpm --dir apps/mycel-client build
+
       - name: Run unit tests
         # Unit suite is fast (~8s) and has no network/LLM/Docker deps. We
         # treat a green test:run as a release gate. Integration tests are
