@@ -123,6 +123,18 @@ describe("buyer surface", () => {
       expect(upstream.requests).toHaveLength(0);
     });
 
+    it("keeps Decisions off the chat-only default alias", async () => {
+      await boot();
+      await store.replaceOffers("office-spark", [
+        { model: MODEL, capabilities: ["chat", "decisions"], servingMode: "adapted" },
+      ]);
+      const catalog = await (await fetch(`${exchange.url}/v1/models`)).json();
+      expect(catalog.data.find((entry: { id: string }) => entry.id === MODEL).capabilities)
+        .toEqual(["chat", "decisions"]);
+      expect(catalog.data.find((entry: { id: string }) => entry.id === "default").capabilities)
+        .toEqual(["chat"]);
+    });
+
     it("checks the concrete model against Application restrictions", async () => {
       await boot("ok", { allowedModels: ["some-other-model"] });
       expect((await chat({ model: "default", messages: [] })).status).toBe(503);

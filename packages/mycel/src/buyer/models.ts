@@ -179,7 +179,7 @@ export function createModelsHandler(opts: {
     if (target?.capabilities.includes("chat")) {
       data.push({ ...target, id: "default", operation_pricing: {},
         capabilities: target.capabilities.filter((capability) =>
-          !["embeddings", "transcription", "image-generation", "video-generation"].includes(capability)),
+          !["embeddings", "transcription", "image-generation", "video-generation", "decisions"].includes(capability)),
       });
       data.sort((a, b) => a.id.localeCompare(b.id));
     }
