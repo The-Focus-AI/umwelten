@@ -33,6 +33,12 @@ Offer sync refreshes availability, not pricing; review the tariff when upstream
 prices change. Check `systemctl status mycel-offers.service` and offer publication
 timestamps after a deployment, not just the Exchange's HTTP health.
 
+Chat request parameters are passed to the upstream without inferring capability
+requirements from the payload. In particular, `response_format`, tools, media,
+and streaming do not require matching catalog flags: the upstream decides
+whether it supports them. Explicit `X-Exchange-Require-Capability` headers still
+filter Offers, as do Application access restrictions and required guarantees.
+
 ## The one alias to set first
 
 Every operator command needs the database, and the container already has it

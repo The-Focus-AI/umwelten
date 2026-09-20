@@ -112,43 +112,6 @@ export interface BuyerHandler {
 export const REQUIRE_GUARANTEE_HEADER = "x-exchange-require-guarantee";
 export const REQUIRE_CAPABILITY_HEADER = "x-exchange-require-capability";
 
-/** Hard requirements implied by the OpenAI request itself. */
-export function inferCapabilities(body: Record<string, unknown>): CapabilityName[] {
-  const inferred = new Set<CapabilityName>(["chat"]);
-  if (body.stream === true) inferred.add("streaming");
-  if (Array.isArray(body.tools) && body.tools.length > 0)
-    inferred.add("tool-calling");
-  const responseFormat = body.response_format;
-  if (
-    responseFormat &&
-    typeof responseFormat === "object" &&
-    ["json_object", "json_schema"].includes(
-      String((responseFormat as { type?: unknown }).type),
-    )
-  ) {
-    inferred.add("structured-output");
-  }
-  for (const message of Array.isArray(body.messages) ? body.messages : []) {
-    if (!message || typeof message !== "object") continue;
-    const content = (message as { content?: unknown }).content;
-    if (!Array.isArray(content)) continue;
-    for (const part of content) {
-      if (!part || typeof part !== "object") continue;
-      const media = part as { type?: unknown; mediaType?: unknown };
-      if (media.type === "image" || media.type === "image_url")
-        inferred.add("image-input");
-      if (
-        media.type === "video" ||
-        media.type === "video_url" ||
-        (media.type === "file" && String(media.mediaType).startsWith("video/"))
-      ) {
-        inferred.add("video-input");
-      }
-    }
-  }
-  return [...inferred];
-}
-
 function headerList(value: string | string[] | undefined): string[] {
   if (!value) return [];
   const raw = Array.isArray(value) ? value.join(",") : value;
@@ -296,7 +259,10 @@ export function createBuyerHandler(opts: BuyerHandlerOptions): BuyerHandler {
       ],
       capabilities: [
         ...new Set([
-          ...inferCapabilities(body),
+          // Route this endpoint to chat supply, but let the upstream decide
+          // whether it accepts request parameters. Catalog metadata must not
+          // become an implicit gate on tools, formats, media, or streaming.
+          "chat",
           ...headerList(
             req.headers[REQUIRE_CAPABILITY_HEADER] as string | undefined,
           ),
