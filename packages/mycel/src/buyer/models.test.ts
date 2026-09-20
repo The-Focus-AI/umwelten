@@ -94,6 +94,32 @@ describe("summarizeOffers", () => {
     expect(JSON.stringify(entries[0])).not.toContain("wholesale");
   });
 
+  it("quotes the Decisions retail tariff even when legacy chat prices are zero", () => {
+    const [entry] = summarizeOffers([
+      offer({
+        model: "typesafe/jev-1.13",
+        capabilities: ["decisions"],
+        retailPromptPerMillion: 0,
+        retailCompletionPerMillion: 0,
+        operationPricing: {
+          decisions: {
+            inputUnit: "token",
+            outputUnit: "token",
+            wholesaleInputPerMillion: 42_000,
+            wholesaleOutputPerMillion: 0,
+            retailInputPerMillion: 44_100,
+            retailOutputPerMillion: 0,
+          },
+        },
+      }),
+    ]);
+    expect(entry.capabilities).toEqual(["decisions"]);
+    expect(entry.operation_pricing).toEqual({
+      decisions: { input_unit: "token", output_unit: "token", input: 0.0441, output: 0 },
+    });
+    expect(JSON.stringify(entry)).not.toContain("wholesale");
+  });
+
   it("intersects guarantees across Offers", () => {
     // Advertising one that only some Offers carry would promise something a
     // request might not get.
