@@ -29,6 +29,7 @@ export type CapabilityName =
   | "image-input"
   | "video-input"
   | "embeddings"
+  | "decisions"
   | "transcription"
   | "image-generation"
   | "video-generation";
@@ -42,6 +43,7 @@ export const CAPABILITY_NAMES: readonly CapabilityName[] = [
   "image-input",
   "video-input",
   "embeddings",
+  "decisions",
   "transcription",
   "image-generation",
   "video-generation",
@@ -51,6 +53,7 @@ export const CAPABILITY_NAMES: readonly CapabilityName[] = [
 export type OperationName =
   | "chat"
   | "embeddings"
+  | "decisions"
   | "transcription"
   | "image-generation"
   | "video-generation";
@@ -64,6 +67,7 @@ export const OPERATION_UNITS: Record<
   { input: UsageUnitName; output: UsageUnitName }
 > = {
   embeddings: { input: "token", output: "token" },
+  decisions: { input: "token", output: "token" },
   transcription: { input: "second", output: "token" },
   "image-generation": { input: "token", output: "image" },
   "video-generation": { input: "token", output: "video-second" },

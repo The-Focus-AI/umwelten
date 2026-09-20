@@ -19,6 +19,7 @@ import type { Supplier } from "../types.js";
 export const SUPPLIER_PATHS = [
   "/chat/completions",
   "/embeddings",
+  "/decisions",
   "/audio/transcriptions",
   "/images/generations",
   "/videos/generations",
@@ -70,6 +71,15 @@ export type SupplierTransport = (
  */
 export type ResolveTransport = (supplier: Supplier) => SupplierTransport;
 
+/** OpenRouter Decisions is an alpha API outside its OpenAI /api/v1 base. */
+export function supplierRequestUrl(baseUrl: string, path: SupplierPath): string {
+  const base = baseUrl.replace(/\/$/, "");
+  if (path === "/decisions" && base === "https://openrouter.ai/api/v1") {
+    return "https://openrouter.ai/api/alpha/decisions";
+  }
+  return `${base}${path}`;
+}
+
 /**
  * The vendor transport: an OpenAI-compatible POST to the Supplier's `baseUrl`.
  *
@@ -88,7 +98,7 @@ export function createHttpTransport(opts: {
 
     return (input, signal) => {
       const request = normalizeSupplierRequest(input);
-      return doFetch(`${supplier.baseUrl.replace(/\/$/, "")}${request.path}`, {
+      return doFetch(supplierRequestUrl(supplier.baseUrl, request.path), {
         method: "POST",
         headers: {
           "content-type": request.contentType,
