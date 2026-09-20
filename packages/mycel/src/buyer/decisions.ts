@@ -9,6 +9,22 @@ function context(value: unknown): boolean {
   );
 }
 
+function probability(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 1
+  );
+}
+
+function sameKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  return (
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key))
+  );
+}
+
 export function validateDecisionsRequest(body: Record<string, unknown>): void {
   if (
     !context(body.state) ||
@@ -50,7 +66,9 @@ export function decisionsUsage(
 ): { input_tokens: number; output_tokens: number } {
   const usage = result.usage;
   if (
+    typeof result.model !== "string" ||
     !object(result.answers) ||
+    !sameKeys(result.answers, Object.keys(questions)) ||
     !object(usage) ||
     !Number.isSafeInteger(usage.input_tokens) ||
     (usage.input_tokens as number) < 0 ||
@@ -83,6 +101,33 @@ export function decisionsUsage(
               Array.isArray(question.criteria) &&
               value <= question.criteria.length - 1);
     if (!valid) throw new Error("invalid_decisions_response");
+    if (answer.type === "choice" || answer.type === "score") {
+      if (answer.confidence !== undefined && !probability(answer.confidence)) {
+        throw new Error("invalid_decisions_response");
+      }
+      if (answer.probabilities !== undefined) {
+        const probabilities = answer.probabilities;
+        const values = object(probabilities)
+          ? Object.values(probabilities)
+          : [];
+        const keys =
+          answer.type === "choice"
+            ? Object.keys(question.criteria as Record<string, unknown>)
+            : (question.criteria as unknown[]).map((_, index) => String(index));
+        // OpenRouter makes this map optional. Mycel additionally requires a
+        // complete distribution when supplied, tolerating floating-point
+        // rounding without changing any values. No argmax/expectation identity
+        // is promised by the upstream schema, so none is imposed here.
+        if (
+          !object(probabilities) ||
+          !sameKeys(probabilities, keys) ||
+          !values.every(probability) ||
+          Math.abs(values.reduce((sum, value) => sum + value, 0) - 1) > 1e-6
+        ) {
+          throw new Error("invalid_decisions_response");
+        }
+      }
+    }
   }
   return {
     input_tokens: usage.input_tokens as number,

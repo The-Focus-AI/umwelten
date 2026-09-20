@@ -6,6 +6,7 @@ import { createExchangeServer, type RunningExchange } from "../server.js";
 import { createCatalogue } from "../customer/catalogue.js";
 import { DEFAULT_PRICING } from "../types.js";
 import { createHttpTransport } from "./transport.js";
+import { decisionsUsage, validateDecisionsRequest } from "./decisions.js";
 
 const model = "typesafe/jev-1.13";
 const questions = {
@@ -54,6 +55,129 @@ const pricing = {
     },
   },
 };
+
+describe("Decisions response validation", () => {
+  it.each(["team", "urgency"] as const)(
+    "validates optional %s distributions",
+    (key) => {
+      const keys = key === "team" ? ["ui", "pay"] : ["0", "1"];
+      const pair = (a: unknown, b: unknown) => ({ [keys[0]]: a, [keys[1]]: b });
+      for (const probabilities of [
+        null,
+        [],
+        {},
+        { [keys[0]]: 1 },
+        { ...pair(0.2, 0.8), extra: 0 },
+        { [keys[0]]: 0.2, wrong: 0.8 },
+        pair("0.2", 0.8),
+        pair(NaN, 0.8),
+        pair(Infinity, 0.8),
+        pair(-0.1, 1.1),
+        pair(0.2, 1.1),
+        pair(0.2, 0.7),
+        pair(0.5, 0.500002),
+      ]) {
+        const malformed = {
+          ...result,
+          answers: {
+            ...result.answers,
+            [key]: { ...result.answers[key], probabilities },
+          },
+        };
+        expect(
+          () => decisionsUsage(malformed, questions),
+          JSON.stringify(probabilities),
+        ).toThrow("invalid_decisions_response");
+      }
+      for (const confidence of [null, "0.5", NaN, Infinity, -0.01, 1.01]) {
+        expect(() =>
+          decisionsUsage(
+            {
+              ...result,
+              answers: {
+                ...result.answers,
+                [key]: { ...result.answers[key], confidence },
+              },
+            },
+            questions,
+          ),
+        ).toThrow("invalid_decisions_response");
+      }
+    },
+  );
+
+  it("requires model and exactly the requested answer keys", () => {
+    for (const invalidModel of [undefined, null, 13]) {
+      expect(() =>
+        decisionsUsage({ ...result, model: invalidModel }, questions),
+      ).toThrow("invalid_decisions_response");
+    }
+    expect(() =>
+      decisionsUsage(
+        {
+          ...result,
+          answers: { ...result.answers, extra: result.answers.bug },
+        },
+        questions,
+      ),
+    ).toThrow("invalid_decisions_response");
+    const { bug: _bug, ...missing } = result.answers;
+    expect(() =>
+      decisionsUsage({ ...result, answers: missing }, questions),
+    ).toThrow("invalid_decisions_response");
+  });
+
+  it("accepts absent optional metadata and one score criterion, but not zero criteria", () => {
+    const one = {
+      urgency: { type: "score", instructions: "Evaluate", criteria: ["Only"] },
+    };
+    expect(() =>
+      validateDecisionsRequest({ ...request, questions: one }),
+    ).not.toThrow();
+    expect(() =>
+      validateDecisionsRequest({
+        ...request,
+        questions: { urgency: { ...one.urgency, criteria: [] } },
+      }),
+    ).toThrow("invalid_decisions_question");
+    const minimal = {
+      ...result,
+      answers: {
+        bug: result.answers.bug,
+        team: { type: "choice", choice: "pay" },
+        urgency: { type: "score", score: 0 },
+      },
+    };
+    expect(decisionsUsage(minimal, { ...questions, ...one })).toEqual({
+      input_tokens: 476,
+      output_tokens: 70,
+    });
+  });
+
+  it("preserves values without requiring argmax, expectation, or confidence identities", () => {
+    const independent = {
+      ...result,
+      answers: {
+        ...result.answers,
+        team: {
+          type: "choice",
+          choice: "ui",
+          confidence: 0.75,
+          probabilities: { ui: 0.16, pay: 0.84 },
+        },
+        urgency: {
+          type: "score",
+          score: 0.2,
+          confidence: 0,
+          probabilities: { "0": 0.5, "1": 0.5000005 },
+        },
+      },
+    };
+    const before = structuredClone(independent);
+    expect(() => decisionsUsage(independent, questions)).not.toThrow();
+    expect(independent).toEqual(before);
+  });
+});
 
 describe("Decisions serving path", () => {
   let store: MemoryStore;
@@ -149,7 +273,7 @@ describe("Decisions serving path", () => {
     expect((await store.getBalance("client", "focus")).microDollars).toBe(9119);
   });
 
-  it.each(["transport", "http", "body", "usage", "answers"])(
+  it.each(["transport", "http", "body", "usage", "answers", "probabilities"])(
     "records %s failure once without a charge",
     async (failure) => {
       upstream.mockImplementation(async () => {
@@ -168,7 +292,17 @@ describe("Decisions serving path", () => {
           ...result,
           ...(failure === "usage"
             ? { usage: { input_tokens: -1, output_tokens: 70 } }
-            : { answers: {} }),
+            : failure === "probabilities"
+              ? {
+                  answers: {
+                    ...result.answers,
+                    team: {
+                      ...result.answers.team,
+                      probabilities: { ui: 0.2, pay: 0.7 },
+                    },
+                  },
+                }
+              : { answers: {} }),
         });
       });
       expect((await post()).status).toBe(failure === "http" ? 429 : 502);
@@ -224,6 +358,7 @@ describe("Decisions serving path", () => {
   it("probes Decisions before publication and preserves the offer across chat sync", async () => {
     upstream.mockResolvedValue(
       Response.json({
+        model,
         answers: { ok: { type: "noul", noul: 0.99 } },
         usage: { input_tokens: 12, output_tokens: 5 },
       }),

@@ -234,6 +234,15 @@ is relayed unchanged. Failed Decisions responses are recorded as `supply-failed`
 with zero charge. This endpoint does not implement streaming or Direct TypeSafe's
 different `/v1/systemone` protocol.
 
+The OpenRouter schema requires a string response `model`, allows a single score
+criterion, and makes choice/score `confidence` and `probabilities` optional.
+Mycel accepts omitted metadata. When supplied, confidence and probabilities must
+be finite numbers in [0,1], and a distribution must have exactly the criterion
+keys and sum to one within 0.000001. These are Mycel validation rules beyond the
+schema's numeric types, not additional upstream guarantees. Answer keys must
+match question keys. No argmax, expected-score, or confidence-equality identity
+is imposed, and accepted values are never normalized or otherwise rewritten.
+
 ## Deploying a change
 
 ```bash
