@@ -7,6 +7,8 @@ import {
   type Supplier,
 } from "../types.js";
 import type { ExchangeStore } from "../store/types.js";
+import { supplierRequestUrl, type SupplierPath } from "../buyer/transport.js";
+import { decisionsUsage } from "../buyer/decisions.js";
 
 // These bindings are code-owned. An admin cannot pair an arbitrary URL with
 // a server environment variable, or read a credential through the API.
@@ -33,6 +35,7 @@ const VENDORS = [
 const OPERATIONS: OperationName[] = [
   "chat",
   "embeddings",
+  "decisions",
   "transcription",
   "image-generation",
   "video-generation",
@@ -111,8 +114,9 @@ async function verify(
   doFetch: typeof fetch,
   credential?: string,
 ): Promise<void> {
-  let path: string;
+  let path: SupplierPath;
   let body: BodyInit;
+  const questions = { ok: { type: "noul", instructions: "Does the state say OK?" } };
   const headers: Record<string, string> = credential
     ? { authorization: `Bearer ${credential}` }
     : {};
@@ -139,6 +143,7 @@ async function verify(
         },
       ],
       embeddings: ["/embeddings", { model, input: "capability probe" }],
+      decisions: ["/decisions", { model, state: "OK", questions }],
       "image-generation": [
         "/images/generations",
         {
@@ -159,7 +164,7 @@ async function verify(
   }
   try {
     const response = await doFetch(
-      `${supplier.baseUrl.replace(/\/$/, "")}${path}`,
+      supplierRequestUrl(supplier.baseUrl, path),
       {
         method: "POST",
         headers,
@@ -193,6 +198,10 @@ async function verify(
       video?: unknown;
     };
     let supported = false;
+    if (operation === "decisions") {
+      decisionsUsage(result, questions);
+      supported = true;
+    }
     if (operation === "chat")
       supported = typeof result.choices?.[0]?.message?.content === "string";
     if (operation === "embeddings") {

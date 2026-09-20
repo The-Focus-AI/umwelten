@@ -33,6 +33,12 @@ Offer sync refreshes availability, not pricing; review the tariff when upstream
 prices change. Check `systemctl status mycel-offers.service` and offer publication
 timestamps after a deployment, not just the Exchange's HTTP health.
 
+Chat request parameters are passed to the upstream without inferring capability
+requirements from the payload. In particular, `response_format`, tools, media,
+and streaming do not require matching catalog flags: the upstream decides
+whether it supports them. Explicit `X-Exchange-Require-Capability` headers still
+filter Offers, as do Application access restrictions and required guarantees.
+
 ## The one alias to set first
 
 Every operator command needs the database, and the container already has it
@@ -171,6 +177,77 @@ Money is integer micro-dollars everywhere: `50000000` is $50.00.
 
 The Application's credential is printed once and only its hash is stored. Lose
 it and you rotate — there is no path that recovers it.
+
+### Publishing Jev Decisions (requires the Decisions release)
+
+Jev is **not chat**. The Exchange endpoint is `POST /v1/decisions`, forwarding
+`{model,state,questions}` to OpenRouter's `https://openrouter.ai/api/alpha/decisions`
+using the existing OpenRouter Supplier credential. Never add Jev to the chat
+sync's model list or capabilities: its alpha model may be absent from `/models`.
+
+After approval to deploy the code, reconcile the release with the running
+deployment worktree (including any local production patches), then use the
+normal deploy procedure below. Before publishing, verify the new protected
+endpoint exists. As an authenticated catalogue admin, POST to
+`/api/customer/admin/catalogue/save` with this body:
+
+```json
+{
+  "supplierId": "openrouter",
+  "model": "typesafe/jev-1.13",
+  "operations": ["decisions"],
+  "enabled": true,
+  "confirmPaidProbe": true,
+  "pricing": {
+    "wholesalePromptPerMillion": 0,
+    "wholesaleCompletionPerMillion": 0,
+    "retailPromptPerMillion": 0,
+    "retailCompletionPerMillion": 0,
+    "operationPricing": {
+      "decisions": {
+        "inputUnit": "token",
+        "outputUnit": "token",
+        "wholesaleInputPerMillion": 42000,
+        "wholesaleOutputPerMillion": 0,
+        "retailInputPerMillion": 44100,
+        "retailOutputPerMillion": 0
+      }
+    }
+  }
+}
+```
+
+These are the September 2026 listed input price ($0.042/M) and the active
+OpenRouter Offers' 5% retail markup; recheck
+<https://openrouter.ai/typesafe/jev-1.13> before publication. Chat prices are
+unused because the Offer has no chat capability. The save performs a bounded
+real Decisions probe before writing one admin-managed Offer. That Offer survives
+`offers sync` and restarts without changing any other pair or the sync service.
+Check for an existing pair first; do not overwrite different operator pricing.
+
+Finally send a small synthetic request through `/v1/decisions` with the
+Application bearer credential and `X-Mycel-End-User`. Read the credential from
+its private file in the client process; never put it in shell arguments, logs,
+reports, or the checkout. Verify typed probabilities and `usage` survive, and
+the returned `X-Mycel-Request-Id` has one request record and one debit. Check
+the original models and prices remain present. Do not add credit for a smoke
+test; stop if the existing balance cannot cover it.
+
+Mycel charges its independent character-based token estimate of serialized
+`{state,questions}` and `answers`; upstream input/output counts are reconciliation
+fields, and the original provider `usage` (including fractional-dollar cost)
+is relayed unchanged. Failed Decisions responses are recorded as `supply-failed`
+with zero charge. This endpoint does not implement streaming or Direct TypeSafe's
+different `/v1/systemone` protocol.
+
+The OpenRouter schema requires a string response `model`, allows a single score
+criterion, and makes choice/score `confidence` and `probabilities` optional.
+Mycel accepts omitted metadata. When supplied, confidence and probabilities must
+be finite numbers in [0,1], and a distribution must have exactly the criterion
+keys and sum to one within 0.000001. These are Mycel validation rules beyond the
+schema's numeric types, not additional upstream guarantees. Answer keys must
+match question keys. No argmax, expected-score, or confidence-equality identity
+is imposed, and accepted values are never normalized or otherwise rewritten.
 
 ## Deploying a change
 

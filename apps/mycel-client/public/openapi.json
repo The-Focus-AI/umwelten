@@ -39,6 +39,23 @@
         }
       }
     },
+    "/decisions": {
+      "post": {
+        "operationId": "createDecision",
+        "summary": "Evaluate typed noul, choice, and score questions",
+        "description": "Native non-streaming Decisions, not chat completions. Requires a verified decisions Offer and explicit token pricing. Answers, probabilities, legends and provider usage are relayed unchanged. Mycel meters serialized state/questions and answers independently using its character-based token estimate; provider token counts are recorded for reconciliation, not used as the buyer charge.",
+        "parameters": [{ "$ref": "#/components/parameters/EndUser" }, { "$ref": "#/components/parameters/Capabilities" }, { "$ref": "#/components/parameters/Guarantees" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": {
+          "type": "object", "required": ["model", "state", "questions"],
+          "properties": {
+            "model": { "type": "string" },
+            "state": { "type": ["string", "object", "array"] },
+            "questions": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "object", "required": ["type", "instructions"], "properties": { "type": { "enum": ["noul", "choice", "score"] }, "instructions": { "type": ["string", "object", "array"] }, "criteria": { "type": ["object", "array"] } } } }
+          }
+        } } } },
+        "responses": { "200": { "$ref": "#/components/responses/OperationSuccess" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "402": { "$ref": "#/components/responses/InsufficientBalance" }, "502": { "$ref": "#/components/responses/UpstreamError" }, "503": { "$ref": "#/components/responses/NoEligibleOffer" } }
+      }
+    },
     "/embeddings": {
       "post": {
         "operationId": "createEmbedding",
@@ -140,7 +157,7 @@
           "id": { "type": "string" }, "object": { "const": "model" }, "owned_by": { "const": "exchange" },
           "pricing": { "type": "object", "description": "Chat dollars per million tokens.", "properties": { "prompt": { "type": "number" }, "completion": { "type": "number" } } },
           "operation_pricing": { "type": "object", "description": "Cheapest routable retail operation prices. Each operation names input_unit, output_unit, dollars per million input/output units, and optional additional_input unit prices. Wholesale prices are never exposed.", "additionalProperties": true },
-          "capabilities": { "type": "array", "items": { "enum": ["chat", "streaming", "tool-calling", "structured-output", "reasoning", "image-input", "video-input", "embeddings", "transcription", "image-generation", "video-generation"] } },
+          "capabilities": { "type": "array", "items": { "enum": ["chat", "streaming", "tool-calling", "structured-output", "reasoning", "image-input", "video-input", "embeddings", "decisions", "transcription", "image-generation", "video-generation"] } },
           "guarantees": { "type": "array", "items": { "type": "string" } }, "context_length": { "type": "integer" }
         }
       },

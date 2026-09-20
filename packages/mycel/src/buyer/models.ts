@@ -12,6 +12,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Offer, OperationName, UsageUnitName } from "../types.js";
+import { OPERATION_UNITS } from "../types.js";
 import type { ExchangeStore } from "../store/types.js";
 
 export const MODELS_PATH = "/v1/models";
@@ -91,12 +92,7 @@ export function summarizeOffers(
         .map((o) => o.contextTokens)
         .filter((c): c is number => c !== undefined);
 
-      const operations = [
-        "embeddings",
-        "transcription",
-        "image-generation",
-        "video-generation",
-      ] as const;
+      const operations = Object.keys(OPERATION_UNITS) as (keyof typeof OPERATION_UNITS)[];
       const operationPricing = Object.fromEntries(
         operations.flatMap((operation) => {
           const priced = group.filter(
@@ -183,7 +179,7 @@ export function createModelsHandler(opts: {
     if (target?.capabilities.includes("chat")) {
       data.push({ ...target, id: "default", operation_pricing: {},
         capabilities: target.capabilities.filter((capability) =>
-          !["embeddings", "transcription", "image-generation", "video-generation"].includes(capability)),
+          !["embeddings", "transcription", "image-generation", "video-generation", "decisions"].includes(capability)),
       });
       data.sort((a, b) => a.id.localeCompare(b.id));
     }

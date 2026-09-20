@@ -15,7 +15,6 @@ import { createExchangeServer, type RunningExchange } from "../server.js";
 import {
   REQUIRE_CAPABILITY_HEADER,
   REQUIRE_GUARANTEE_HEADER,
-  inferCapabilities,
 } from "./handler.js";
 import { createIdentityVerifier } from "../auth/identity.js";
 import { makeTestApplication, type TestApplicationKeys } from "../testing/application-keys.js";
@@ -23,34 +22,6 @@ import type { Application } from "../types.js";
 import { Balances, endUserOwner } from "../metering/balances.js";
 
 const MODEL = "gemma-4-26b";
-
-describe("hard capability inference", () => {
-  it("derives requirements from the request rather than trusting callers", () => {
-    expect(
-      inferCapabilities({
-        stream: true,
-        tools: [{ type: "function" }],
-        response_format: { type: "json_schema" },
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: "data:image/png;base64,x" } },
-              { type: "file", mediaType: "video/mp4", data: "file-id" },
-            ],
-          },
-        ],
-      }),
-    ).toEqual([
-      "chat",
-      "streaming",
-      "tool-calling",
-      "structured-output",
-      "image-input",
-      "video-input",
-    ]);
-  });
-});
 
 describe("buyer surface", () => {
   let store: MemoryStore;
@@ -106,6 +77,30 @@ describe("buyer surface", () => {
     await upstream?.close();
   });
 
+  it.each([false, true])("passes request features through a chat-only Offer (stream=%s)", async (stream) => {
+    await boot();
+    await store.replaceOffers("office-spark", [
+      { model: MODEL, capabilities: ["chat"], servingMode: "adapted" },
+    ]);
+    const body = {
+      model: MODEL,
+      stream,
+      response_format: { type: "json_schema", json_schema: { name: "answer", schema: { type: "object" } } },
+      tools: [{ type: "function", function: { name: "lookup", parameters: { type: "object" } } }],
+      messages: [{ role: "user", content: [
+        { type: "image_url", image_url: { url: "data:image/png;base64,x" } },
+        { type: "video_url", video_url: { url: "https://example.com/clip.mp4" } },
+      ] }],
+    };
+    const response = await chat(body);
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain(stream ? "[DONE]" : "chat.completion");
+    expect(upstream.requests).toHaveLength(1);
+    expect(upstream.requests[0].body).toEqual(body);
+    expect(await store.listRequests()).toMatchObject([{ outcome: "completed" }]);
+  });
+
   describe("default model alias", () => {
     it.each([false, true])("resolves before forwarding (stream=%s)", async (stream) => {
       await boot();
@@ -126,6 +121,18 @@ describe("buyer surface", () => {
       expect(unavailable.data).toEqual([]);
       expect((await chat({ model: "default", messages: [] })).status).toBe(503);
       expect(upstream.requests).toHaveLength(0);
+    });
+
+    it("keeps Decisions off the chat-only default alias", async () => {
+      await boot();
+      await store.replaceOffers("office-spark", [
+        { model: MODEL, capabilities: ["chat", "decisions"], servingMode: "adapted" },
+      ]);
+      const catalog = await (await fetch(`${exchange.url}/v1/models`)).json();
+      expect(catalog.data.find((entry: { id: string }) => entry.id === MODEL).capabilities)
+        .toEqual(["chat", "decisions"]);
+      expect(catalog.data.find((entry: { id: string }) => entry.id === "default").capabilities)
+        .toEqual(["chat"]);
     });
 
     it("checks the concrete model against Application restrictions", async () => {
@@ -242,9 +249,12 @@ describe("buyer surface", () => {
 
     it("surfaces an upstream error instead of disguising it as success", async () => {
       await boot("error");
-      const res = await chat({ model: MODEL, messages: [] });
+      const body = { model: MODEL, messages: [], response_format: { type: "json_object" } };
+      const res = await chat(body);
 
       expect(res.status).toBe(500);
+      expect(upstream.requests).toHaveLength(1);
+      expect(upstream.requests[0].body).toEqual(body);
       const json = await res.json();
       expect(json.error).toBe("upstream_error");
       expect(json.upstreamStatus).toBe(500);

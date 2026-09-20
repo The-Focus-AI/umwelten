@@ -30,6 +30,7 @@ import type {
   SupplierRequest,
 } from "./transport.js";
 import { createHttpTransport } from "./transport.js";
+import { decisionsUsage, validateDecisionsRequest } from "./decisions.js";
 import {
   BuyerError,
   REQUIRE_CAPABILITY_HEADER,
@@ -37,6 +38,7 @@ import {
 } from "./handler.js";
 
 export const EMBEDDINGS_PATH = "/v1/embeddings";
+export const DECISIONS_PATH = "/v1/decisions";
 export const TRANSCRIPTIONS_PATH = "/v1/audio/transcriptions";
 export const IMAGE_GENERATIONS_PATH = "/v1/images/generations";
 export const FILES_PATH = "/v1/files";
@@ -213,6 +215,19 @@ async function prepareJsonOperation(
   const model = typeof body.model === "string" ? body.model : "";
   if (!model) throw new Error("model_required");
 
+  if (path === DECISIONS_PATH) {
+    validateDecisionsRequest(body);
+    return {
+      operation: "decisions",
+      capability: "decisions",
+      supplierRequest: { path: "/decisions", contentType: "application/json", body },
+      model,
+      // Like chat, charge our own count, never the provider's reported bill.
+      inputByUnit: { token: textUnits({ state: body.state, questions: body.questions }) },
+      estimatedOutputByUnit: { token: textUnits(body.questions) },
+      countOutput: (response) => ({ token: textUnits(parseJson(response).answers) }),
+    };
+  }
   if (path === EMBEDDINGS_PATH) {
     return {
       operation: "embeddings",
@@ -340,6 +355,7 @@ async function recordOperation(opts: {
   additionalInputUnits?: Partial<Record<UsageUnitName, number>>;
   startedAt: Date;
   outcome?: "completed" | "supply-failed";
+  upstreamUsage?: { input_tokens: number; output_tokens: number };
 }): Promise<void> {
   const priced = priceOperation(
     opts.pricing,
@@ -360,7 +376,9 @@ async function recordOperation(opts: {
     outputUnit: opts.pricing.outputUnit,
     additionalInputUnits: opts.additionalInputUnits,
     promptTokens: opts.pricing.inputUnit === "token" ? opts.inputUnits : 0,
-    completionTokens: 0,
+    completionTokens: opts.operation === "decisions" ? opts.outputUnits : 0,
+    upstreamPromptTokens: opts.upstreamUsage?.input_tokens,
+    upstreamCompletionTokens: opts.upstreamUsage?.output_tokens,
     cost: priced.cost,
     charge: priced.charge,
     outcome: opts.outcome ?? "completed",
@@ -572,6 +590,7 @@ export function createOperationHandler(options: OperationHandlerOptions) {
     const path = (req.url ?? "").split("?")[0];
     const operationPath = [
       EMBEDDINGS_PATH,
+      DECISIONS_PATH,
       TRANSCRIPTIONS_PATH,
       IMAGE_GENERATIONS_PATH,
     ].includes(path);
@@ -825,7 +844,18 @@ export function createOperationHandler(options: OperationHandlerOptions) {
     const requestId = randomUUID();
     res.setHeader("x-mycel-request-id", requestId);
     const startedAt = new Date();
+    // A failed Decisions response delivers no billable answer. Keep a durable
+    // failure record rather than silently dropping the attempted dispatch.
+    const recordDecisionsFailure = async () => {
+      if (prepared.operation !== "decisions") return;
+      await recordOperation({
+        store: opts.store, balances, owner, requestId, caller, offer,
+        operation: prepared.operation, pricing, inputUnits: 0, outputUnits: 0,
+        startedAt, outcome: "supply-failed",
+      });
+    };
     let upstream: Response;
+    let responseBody: Uint8Array;
     try {
       upstream = await resolveTransport(supplier)(
         {
@@ -835,17 +865,23 @@ export function createOperationHandler(options: OperationHandlerOptions) {
             "idempotency-key": requestId,
           },
         },
-        new AbortController().signal,
+        prepared.operation === "decisions"
+          ? AbortSignal.timeout(30_000)
+          : new AbortController().signal,
       );
+      responseBody = prepared.operation === "decisions"
+        ? await readResponseBytes(upstream, MAX_JSON_BYTES)
+        : new Uint8Array(await upstream.arrayBuffer());
     } catch (error) {
+      await recordDecisionsFailure();
       sendJson(res, 502, {
         error: BuyerError.UPSTREAM_ERROR,
         message: error instanceof Error ? error.message : String(error),
       });
       return true;
     }
-    const responseBody = new Uint8Array(await upstream.arrayBuffer());
     if (!upstream.ok) {
+      await recordDecisionsFailure();
       sendJson(res, upstream.status, {
         error: BuyerError.UPSTREAM_ERROR,
         supplierId: supplier.id,
@@ -855,12 +891,20 @@ export function createOperationHandler(options: OperationHandlerOptions) {
       return true;
     }
     let counted: Partial<Record<UsageUnitName, number>>;
+    let upstreamUsage: { input_tokens: number; output_tokens: number } | undefined;
     try {
+      if (prepared.operation === "decisions") {
+        upstreamUsage = decisionsUsage(
+          parseJson(responseBody),
+          (prepared.supplierRequest.body as Record<string, unknown>).questions as Record<string, unknown>,
+        );
+      }
       counted = prepared.countOutput(
         responseBody,
         upstream.headers.get("content-type") ?? "application/json",
       );
     } catch (error) {
+      await recordDecisionsFailure();
       sendJson(res, 502, {
         error: BuyerError.UPSTREAM_ERROR,
         message: error instanceof Error ? error.message : String(error),
@@ -869,7 +913,9 @@ export function createOperationHandler(options: OperationHandlerOptions) {
     }
     const measured = unitsFor(
       pricing,
-      { ...prepared.inputByUnit, ...counted },
+      prepared.operation === "decisions"
+        ? prepared.inputByUnit
+        : { ...prepared.inputByUnit, ...counted },
       counted,
     );
     await recordOperation({
@@ -884,6 +930,7 @@ export function createOperationHandler(options: OperationHandlerOptions) {
       inputUnits: measured.input,
       outputUnits: measured.output,
       additionalInputUnits: prepared.additionalInputByUnit,
+      upstreamUsage,
       startedAt,
     });
     res.writeHead(200, {

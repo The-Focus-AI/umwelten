@@ -646,6 +646,7 @@ withDatabase(
       await guard(async () => {
         const operations: Exclude<OperationName, "chat">[] = [
           "embeddings",
+          "decisions",
           "transcription",
           "image-generation",
           "video-generation",

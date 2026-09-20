@@ -24,6 +24,7 @@
   },
   "include": [
     "evals/**/*.ts",
+    "jev/**/*.ts",
     "model-showdown/generate-report.ts",
     "model-showdown/suite-config.ts",
     "local-providers/generate-report.ts",
