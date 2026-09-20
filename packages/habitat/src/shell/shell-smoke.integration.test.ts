@@ -13,7 +13,7 @@ import type { AddressInfo } from "node:net";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium, type Browser } from "playwright-core";
+import { chromium, type Browser, type Page } from "playwright-core";
 import { createShellHandler } from "./serve-shell.js";
 
 let server: Server;
@@ -24,6 +24,45 @@ let customDir: string;
 let toolCalls: Array<[string, Record<string, unknown>]>;
 /** The stub's secret store, so panel round-trips are observable. */
 let secretNames: string[];
+
+// Exercise real navigation and tab storage without a central account or model.
+async function loginFixture(page: Page, mode = "success") {
+  const state = {
+    expired: false,
+    logins: 0,
+    attempts: [] as Array<{ id: string; text: string; accepted: boolean }>,
+  };
+  await page.route("**/auth/session", (route) => route.fulfill({
+    json: { userId: state.logins && mode === "different-user" ? "bob" : "alice", browserLogin: true },
+  }));
+  await page.route("**/auth/login?*", async (route) => {
+    state.logins++;
+    state.expired = mode === "still-expired";
+    const returnTo = new URL(route.request().url()).searchParams.get("return_to")!;
+    await route.fulfill({ status: 302, headers: { location: returnTo }, body: "" });
+  });
+  await page.route("**/api/chat", async (route) => {
+    const body = route.request().postDataJSON();
+    state.attempts.push({ id: body.id, text: body.messages[0].content, accepted: !state.expired });
+    if (state.expired) {
+      if (mode === "network-error") return route.abort("failed");
+      await route.fulfill({ status: mode === "server-error" ? 500 : 401, json: { error: "Request rejected" } });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.route("**/mcp", (route) => state.expired
+    ? route.fulfill({ status: 401, json: { error: "Unauthorized" } })
+    : route.continue());
+  await page.goto(`${baseUrl}/shell/?panel=chat`);
+  await page.locator("habitat-chat").waitFor({ state: "visible" });
+  const chat = page.locator("habitat-chat");
+  await chat.locator("input").fill("first message");
+  await chat.locator("button").click();
+  await expect.poll(() => chat.locator(".log").textContent()).toContain("echo: first message");
+  await expect.poll(() => chat.locator("button").isEnabled()).toBe(true);
+  return state;
+}
 
 /** Answer a tools/call like the habitat's stateless /mcp would. */
 function stubToolResult(name: string, args: Record<string, unknown>): unknown {
@@ -122,6 +161,14 @@ beforeAll(async () => {
       const text = body.messages.at(-1)?.content ?? "";
       res.writeHead(200, { "Content-Type": "text/event-stream" });
       const emit = (e: object) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+      if (text === "fail before reply" || text === "fail after partial reply") {
+        if (text === "fail after partial reply") {
+          emit({ type: "text-delta", id: "m1", delta: "Partial answer" });
+        }
+        emit({ type: "error", errorText: "HTTP 503: no_eligible_offer" });
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       emit({ type: "reasoning-delta", delta: "thinking about it" });
       emit({
         type: "tool-input-available",
@@ -223,6 +270,132 @@ describe("the shell assembles itself in a browser", () => {
     expect(log).toContain("thinking about it"); // the reasoning line
     await page.close();
   }, 30_000);
+
+  it.each(["fail before reply", "fail after partial reply"])(
+    "chat displays stream errors: %s",
+    async (prompt) => {
+      const page = await browser.newPage();
+      try {
+        await page.goto(`${baseUrl}/shell/`);
+        const chat = page.locator("habitat-chat");
+        await chat.waitFor({ state: "visible", timeout: 10_000 });
+        await chat.locator("input").fill(prompt);
+        await chat.locator("button").click();
+        await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toBe(
+          (prompt === "fail after partial reply" ? "Partial answer" : "") + "HTTP 503: no_eligible_offer",
+        );
+        await expect.poll(() => chat.locator("button").isEnabled()).toBe(true);
+        await chat.locator("input").fill("try again");
+        await chat.locator("button").click();
+        await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toContain("echo: try again");
+      } finally { await page.close(); }
+    },
+  );
+
+  it("signs in again and resumes only the rejected chat with the same thread and history", async () => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page);
+      state.expired = true;
+      const chat = page.locator("habitat-chat");
+      await chat.locator("input").fill("second message");
+      await chat.locator("button").click();
+      await expect.poll(() => chat.locator(".log").textContent()).toContain("echo: second message");
+      expect(state.logins).toBe(1);
+      expect(state.attempts.map(({ text, accepted }) => ({ text, accepted }))).toEqual([
+        { text: "first message", accepted: true },
+        { text: "second message", accepted: false },
+        { text: "second message", accepted: true },
+      ]);
+      expect(new Set(state.attempts.map((attempt) => attempt.id)).size).toBe(1);
+      expect(await chat.locator('[data-role="user"]').count()).toBe(2);
+      expect(await chat.locator(".log").textContent()).toContain("echo: first message");
+      expect(new URL(page.url()).search).toBe("?panel=chat");
+      expect(await page.evaluate(() => sessionStorage.getItem("shell:conversation-login"))).toBeNull();
+    } finally { await page.close(); }
+  });
+
+  it("renders Markdown and inspectable tool results after sign-in recovery", async () => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page);
+      state.expired = true;
+      const chat = page.locator("habitat-chat");
+      await chat.locator("input").fill("**Preview ready** [Open preview](https://example.com/preview)");
+      await chat.locator("button").click();
+      await expect.poll(() => chat.locator("strong").textContent()).toBe("Preview ready");
+      expect(state.logins).toBe(1);
+      expect(await chat.locator("a").getAttribute("href")).toBe("https://example.com/preview");
+      const tool = chat.locator("details").last();
+      expect(await tool.getAttribute("open")).toBeNull();
+      await tool.locator("summary").click();
+      expect(await tool.locator("pre").allTextContents()).toEqual(["{}", "now"]);
+      await chat.locator("input").fill("fail after partial reply");
+      await chat.locator("button").click();
+      await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toBe("Partial answerHTTP 503: no_eligible_offer");
+    } finally { await page.close(); }
+  });
+
+  it("preserves an unsent draft when a panel discovers session expiry", async () => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page);
+      await page.locator("habitat-chat input").fill("draft not sent yet");
+      state.expired = true;
+      await page.locator('[data-session="sess-1"]').click();
+      await expect.poll(() => state.logins).toBe(1);
+      await expect.poll(() => page.locator("habitat-chat input").inputValue()).toBe("draft not sent yet");
+      expect(state.attempts).toHaveLength(1);
+      expect(await page.locator("habitat-chat .log").textContent()).toContain("echo: first message");
+    } finally { await page.close(); }
+  });
+
+  it("does not let a panel's expiry interrupt a chat already in flight", async () => {
+    const page = await browser.newPage();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    try {
+      const state = await loginFixture(page);
+      await page.route("**/api/chat", async (route) => {
+        await gate;
+        await route.fulfill({
+          contentType: "text/event-stream",
+          body: 'data: {"type":"text-delta","delta":"finished once"}\n\ndata: [DONE]\n\n',
+        });
+      });
+      await page.locator("habitat-chat input").fill("long request");
+      await page.locator("habitat-chat button").click();
+      await expect.poll(() => page.locator("habitat-chat button").isDisabled()).toBe(true);
+      state.expired = true;
+      await page.locator('[data-session="sess-1"]').click();
+      await expect.poll(() => page.locator('[data-component="sessions"]').textContent()).toContain("Your session expired");
+      expect(state.logins).toBe(0);
+      release();
+      await expect.poll(() => page.locator("habitat-chat .log").textContent()).toContain("finished once");
+    } finally { release(); await page.close(); }
+  });
+
+  it.each(["different-user", "still-expired", "server-error", "network-error"])("does not leak history or replay indefinitely: %s", async (mode) => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page, mode);
+      state.expired = true;
+      await page.locator("habitat-chat input").fill("private pending message");
+      await page.locator("habitat-chat button").click();
+      if (mode === "different-user") {
+        await expect.poll(() => state.logins).toBe(1);
+        await expect.poll(() => page.locator('habitat-chat [data-role="user"]').count()).toBe(0);
+        expect(await page.locator("habitat-chat .log").textContent()).not.toContain("first message");
+        expect(state.attempts).toHaveLength(2);
+      } else {
+        await expect.poll(() => page.locator("habitat-chat .log").textContent()).toContain(
+          mode === "still-expired" ? "Your session expired" : mode === "network-error" ? "Failed to fetch" : "HTTP 500",
+        );
+        expect(state.logins).toBe(mode === "still-expired" ? 1 : 0);
+        expect(state.attempts).toHaveLength(mode === "still-expired" ? 3 : 2);
+      }
+    } finally { await page.close(); }
+  });
 
   it("self-assembly: a component file written to the custom dir appears live, edits hot-replace, removal unmounts", async () => {
     const page = await browser.newPage();

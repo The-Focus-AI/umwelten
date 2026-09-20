@@ -534,6 +534,20 @@ export async function startContainerServer(
 				const browserLoginConfigured =
 					(authMode === "jwt" || authMode === "jwt+bearer") &&
 					issuer && audience && habitatId && credential;
+				// The Shell binds its temporary re-login checkpoint to the verified
+				// user, never to an unverified/expired cookie or a reusable API key.
+				if (path === "/auth/session" && req.method === "GET") {
+					const user = await auth.authenticate(req);
+					res.writeHead(user ? 200 : 401, {
+						"Content-Type": "application/json",
+						"Cache-Control": "no-store",
+					});
+					res.end(JSON.stringify(user ? {
+						userId: user.userId,
+						browserLogin: Boolean(browserLoginConfigured),
+					} : { error: "Unauthorized" }));
+					return;
+				}
 				const shellDocument =
 					path === "/" || path === "/shell" || path === "/shell/" ||
 					path === "/shell/index.html" ||
