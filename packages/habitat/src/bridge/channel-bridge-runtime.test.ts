@@ -59,6 +59,18 @@ const REF = {
 };
 
 describe("ChannelBridge runtime dispatch (#118)", () => {
+  it('rejects attachments on a text-only runtime instead of silently dropping them', async () => {
+    const { host } = await makeFixture('pi');
+    const runner = makeRunner({});
+    const bridge = new ChannelBridge(host, { runtimeRunners: { pi: runner } });
+    const error = vi.fn();
+    await bridge.handleMessage({
+      channelKey: 'web:abc', text: 'inspect', attachments: [{ filename: 'photo.png', url: 'data:image/png;base64,aGVsbG8=' }],
+    }, { onDone: () => {}, onError: error });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('not supported by the pi runtime'));
+    expect(runner.calls).toHaveLength(0);
+  });
+
   it("dispatches through the registered runner and persists nativeSessionRef", async () => {
     const { host, sessionDir, updateSessionMetadata } =
       await makeFixture("claude-sdk");

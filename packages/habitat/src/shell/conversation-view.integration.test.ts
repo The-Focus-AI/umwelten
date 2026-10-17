@@ -47,6 +47,15 @@ async function assistant(text: string, streaming = false) {
 }
 
 describe("shared assistant Markdown in Habitat chat", () => {
+  it("never renders remote URLs or active content as uploaded image parts", async () => {
+    await render([{ role: "user", parts: [
+      { kind: "image", url: "https://example.com/tracker.png" },
+      { kind: "image", url: "data:image/svg+xml;base64,PHN2Zy8+" },
+      { kind: "image", url: "javascript:alert(1)" },
+    ] }]);
+    expect(await page.locator('.log img, .log svg, .log iframe').count()).toBe(0);
+  });
+
   it("renders semantic blocks, nested lists, emphasis, code and safe links through browser ESM", async () => {
     await assistant(
       '# Status\n\n## C#\n\n**Ready** with *care* and `a < b`.\n\n- first\n  - nested\n- second\n\n3. third\n4. fourth\n\n```js\nconst x = "<img>";\n```\n\n[**Docs**](https://example.com/a_(b)) and [mail](mailto:help@example.com)',

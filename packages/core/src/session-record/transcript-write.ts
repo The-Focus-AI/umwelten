@@ -24,6 +24,8 @@ import type { TokenUsage } from '../costs/costs.js';
 type VercelContentPart = {
   type?: string;
   text?: string;
+  image?: unknown;
+  mediaType?: string;
   toolName?: string;
   toolCallId?: string;
   args?: unknown;
@@ -60,6 +62,11 @@ function extractContentBlocks(content: ModelMessage['content']): ContentBlock[] 
 
     if (part.type === 'text' && typeof part.text === 'string') {
       blocks.push({ type: 'text', text: part.text });
+      continue;
+    }
+
+    if (part.type === 'image' && typeof part.image === 'string' && part.mediaType && !part.image.includes(':')) {
+      blocks.push({ type: 'image', source: { type: 'base64', media_type: part.mediaType, data: part.image } });
       continue;
     }
 

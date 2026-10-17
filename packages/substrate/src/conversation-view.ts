@@ -10,9 +10,10 @@
 import { renderMarkdown } from "./markdown.js";
 
 export interface ConversationPart {
-  kind: "text" | "reasoning" | "tool" | "error";
+  kind: "text" | "reasoning" | "tool" | "error" | "image";
   text?: string;
   name?: string;
+  url?: string;
   input?: unknown;
   output?: unknown;
 }
@@ -103,6 +104,26 @@ export function renderConversation(
       padding: "0.5rem 0.8rem",
     });
     for (const part of message.parts) {
+      if (message.role === "user" && part.kind === "image") {
+        if (
+          /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$/.test(
+            part.url ?? "",
+          )
+        ) {
+          const image = document.createElement("img");
+          image.src = part.url!;
+          image.alt = part.name || "Uploaded image";
+          Object.assign(image.style, {
+            display: "block",
+            maxWidth: "100%",
+            maxHeight: "16rem",
+            objectFit: "contain",
+            margin: "0.3rem 0",
+          });
+          bubble.append(image);
+        }
+        continue;
+      }
       if (message.role === "assistant" && part.kind === "text") {
         bubble.append(renderMarkdown(text(part.text)));
         continue;

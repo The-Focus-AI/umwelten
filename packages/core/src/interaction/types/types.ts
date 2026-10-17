@@ -116,7 +116,12 @@ export interface ToolResultContent {
 	is_error?: boolean;
 }
 
-export type ContentBlock = TextContent | ToolUseContent | ToolResultContent;
+export interface ImageContent {
+	type: "image";
+	source: { type: "base64"; media_type: string; data: string };
+}
+
+export type ContentBlock = TextContent | ToolUseContent | ToolResultContent | ImageContent;
 
 /**
  * Token usage information

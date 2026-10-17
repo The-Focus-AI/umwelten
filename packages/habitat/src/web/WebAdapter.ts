@@ -12,6 +12,8 @@ import { randomUUID } from 'node:crypto';
 import type { ChannelBridge } from '../bridge/channel-bridge.js';
 import type { UserContext } from './types.js';
 import { UiMessageStream } from './ui-stream.js';
+import type { ChannelAttachment } from '../bridge/types.js';
+import { MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES, parseImageDataUrl } from '@umwelten/substrate/images.js';
 
 // ── useChat request shape ───────────────────────────────────────────
 //
@@ -39,31 +41,54 @@ interface ChatRequestBody {
   threadId?: string;
 }
 
-function extractLastUserText(messages: UiMessage[] | undefined): string {
-  if (!messages?.length) return '';
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role !== 'user') continue;
-    if (typeof m.content === 'string' && m.content.trim()) return m.content;
-    if (Array.isArray(m.parts)) {
-      const text = m.parts
-        .filter((p) => p.type === 'text' && typeof p.text === 'string')
-        .map((p) => p.text as string)
-        .join('');
-      if (text.trim()) return text;
-    }
-  }
-  return '';
+function extractLastUserMessage(messages: UiMessage[] | undefined) {
+  const message = Array.isArray(messages) ? [...messages].reverse().find((m) => m?.role === 'user') : undefined;
+  const parts = Array.isArray(message?.parts) ? message.parts : [];
+  const text = typeof message?.content === 'string' ? message.content
+    : parts.filter((p) => p?.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('');
+  const files = parts.filter((p) => p?.type === 'file');
+  if (files.length > MAX_IMAGES) throw new Error(`Attach at most ${MAX_IMAGES} images.`);
+  let total = 0;
+  const attachments: ChannelAttachment[] = files.map((p) => {
+    const image = parseImageDataUrl(p.url);
+    total += image.size;
+    if (p.mediaType !== image.mediaType) throw new Error('Image media type does not match its data.');
+    return {
+      filename: typeof p.filename === 'string' ? p.filename.slice(0, 255) : 'image',
+      mimeType: image.mediaType,
+      url: p.url as string,
+    };
+  });
+  if (total > MAX_TOTAL_IMAGE_BYTES) throw new Error('Images must total 10 MiB or less.');
+  if (!text.trim() && !attachments.length) throw new Error('No user message in request');
+  return { text, attachments };
 }
+
+class BodyTooLarge extends Error {}
+
+// Includes base64 expansion plus a bounded allowance for text/JSON metadata.
+const MAX_CHAT_BODY_BYTES = Math.ceil(MAX_TOTAL_IMAGE_BYTES / 3) * 4 + 1024 * 1024;
 
 function readBody(req: IncomingMessage): Promise<ChatRequestBody> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => chunks.push(c));
+    let bytes = 0;
+    req.on('data', (c: Buffer) => {
+      bytes += c.length;
+      if (bytes > MAX_CHAT_BODY_BYTES) {
+        chunks.length = 0;
+        reject(new BodyTooLarge('Chat request is too large.'));
+        return;
+      }
+      chunks.push(c);
+    });
     req.on('end', () => {
+      if (bytes > MAX_CHAT_BODY_BYTES) return;
       try {
         const raw = Buffer.concat(chunks).toString('utf-8');
-        resolve(raw ? JSON.parse(raw) : {});
+        const body = raw ? JSON.parse(raw) : {};
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid body');
+        resolve(body);
       } catch (e) {
         reject(e);
       }
@@ -89,16 +114,18 @@ export class WebAdapter {
     let body: ChatRequestBody;
     try {
       body = await readBody(req);
-    } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+    } catch (err) {
+      res.writeHead(err instanceof BodyTooLarge ? 413 : 400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err instanceof BodyTooLarge ? err.message : 'Invalid JSON body' }));
       return;
     }
 
-    const text = extractLastUserText(body.messages);
-    if (!text) {
+    let message: ReturnType<typeof extractLastUserMessage>;
+    try {
+      message = extractLastUserMessage(body.messages);
+    } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'No user message in request' }));
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'Invalid user message' }));
       return;
     }
 
@@ -116,7 +143,7 @@ export class WebAdapter {
     const toolCallIds = new Map<string, string>(); // toolName -> last callId
 
     await this.bridge.handleMessage(
-      { channelKey, text, userId: user.userId },
+      { channelKey, ...message, userId: user.userId },
       {
         onText: (delta) => stream.textDelta(delta),
         onReasoning: (delta) => stream.reasoningDelta(delta),

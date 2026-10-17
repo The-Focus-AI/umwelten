@@ -61,11 +61,17 @@ export async function signInAgain(base, token) {
     // A broken/rejected login must not cause an automatic navigation loop.
     const lastAttempt = Number(sessionStorage.getItem(loginAttemptKey));
     if (lastAttempt && Date.now() - lastAttempt < 60_000) return false;
+    const pending = [];
     const checkpoint = new CustomEvent("shell:before-sign-in", {
       cancelable: true,
-      detail: { userId: identity.userId },
+      detail: {
+        userId: identity.userId,
+        waitUntil: (promise) => pending.push(promise),
+      },
     });
     if (!window.dispatchEvent(checkpoint)) return false;
+    redirecting = true;
+    await Promise.all(pending);
     sessionStorage.setItem(loginAttemptKey, String(Date.now()));
     const returnTo = new URL(location.href);
     returnTo.searchParams.delete("token");
@@ -74,10 +80,10 @@ export async function signInAgain(base, token) {
       "return_to",
       returnTo.pathname + returnTo.search + returnTo.hash,
     );
-    redirecting = true;
     location.assign(login.href);
     return true;
   } catch {
+    redirecting = false;
     // If storage is unavailable, retain the live conversation rather than
     // navigating away and losing the user's work.
     return false;

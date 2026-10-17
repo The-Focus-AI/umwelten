@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
@@ -57,11 +57,32 @@ async function loginFixture(page: Page, mode = "success") {
   await page.goto(`${baseUrl}/shell/?panel=chat`);
   await page.locator("habitat-chat").waitFor({ state: "visible" });
   const chat = page.locator("habitat-chat");
-  await chat.locator("input").fill("first message");
+  await chat.getByRole("textbox").fill("first message");
   await chat.locator("button").click();
   await expect.poll(() => chat.locator(".log").textContent()).toContain("echo: first message");
   await expect.poll(() => chat.locator("button").isEnabled()).toBe(true);
   return state;
+}
+
+async function imageFile(page: Page, name = 'market.png', padded = false) {
+  const url = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 180;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#e9e0bf'; ctx.fillRect(0, 0, 320, 180);
+    ctx.fillStyle = '#315840'; ctx.fillRect(18, 18, 284, 144);
+    ctx.fillStyle = '#ffffff'; ctx.font = '24px sans-serif'; ctx.fillText('Cornwall Market', 34, 94);
+    return canvas.toDataURL('image/png');
+  });
+  const png = Buffer.from(url.split(',')[1], 'base64');
+  return { name, mimeType: 'image/png', buffer: padded ? Buffer.concat([png, Buffer.alloc(4 * 1024 * 1024 - png.length)]) : png };
+}
+
+async function screenshot(page: Page, name: string) {
+  if (!process.env.SHELL_SCREENSHOT_DIR) return;
+  await mkdir(process.env.SHELL_SCREENSHOT_DIR, { recursive: true });
+  await page.screenshot({ path: join(process.env.SHELL_SCREENSHOT_DIR, name), fullPage: true });
 }
 
 /** Answer a tools/call like the habitat's stateless /mcp would. */
@@ -204,6 +225,122 @@ afterAll(async () => {
 });
 
 describe("the shell assembles itself in a browser", () => {
+  it('previews/removes images and sends image-only messages with exact bytes', async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 });
+    try {
+      await page.goto(`${baseUrl}/shell/`);
+      const chat = page.locator('habitat-chat');
+      const image = await imageFile(page);
+      const other = { ...image, name: 'remove-me.png' };
+      await chat.getByRole('textbox').waitFor();
+      expect(await chat.innerText()).not.toContain('5 MiB');
+      await screenshot(page, 'habitat-image-composer.png');
+      const chooser = page.waitForEvent('filechooser');
+      await chat.locator('label[title^="Attach images"]').click();
+      await (await chooser).setFiles([image, other]);
+      await expect.poll(() => chat.locator('.attachments img').count()).toBe(2);
+      await chat.getByRole('button', { name: 'Remove remove-me.png', exact: true }).click();
+      await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
+      await screenshot(page, 'habitat-image-selected.png');
+      const request = page.waitForRequest((req) => new URL(req.url()).pathname === '/api/chat');
+      await chat.getByRole('button', { name: 'send', exact: true }).click();
+      const body = (await request).postDataJSON();
+      expect(body.messages[0].content).toBe('');
+      expect(body.messages[0].parts).toEqual([{ type: 'file', mediaType: 'image/png', filename: 'market.png', url: `data:image/png;base64,${image.buffer.toString('base64')}` }]);
+      await expect.poll(() => chat.locator('.log img').evaluateAll((images) => images.every((img) => (img as HTMLImageElement).naturalWidth === 320))).toBe(true);
+      expect(await chat.locator('.log img').count()).toBe(1);
+      expect(await chat.locator('.attachments img').count()).toBe(0);
+      await page.getByRole('button', { name: 'hide rail', exact: true }).click();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await screenshot(page, 'habitat-image-sent-mobile.png');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    } finally { await page.close(); }
+  });
+
+  it('rejects unsupported, oversized and excessive selections without losing the draft', async () => {
+    const page = await browser.newPage({ deviceScaleFactor: 2 });
+    try {
+      await page.goto(`${baseUrl}/shell/`);
+      const chat = page.locator('habitat-chat');
+      await chat.getByRole('textbox').fill('Keep this draft');
+      const files = chat.getByLabel('Attach images', { exact: true });
+      await files.setInputFiles({ name: 'script.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg onload="alert(1)"/>') });
+      await expect.poll(() => chat.getByRole('alert').textContent()).toContain('Use PNG');
+      await files.setInputFiles({ name: 'huge.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
+      await expect.poll(() => chat.getByRole('alert').textContent()).toContain('5 MiB');
+      const image = await imageFile(page);
+      await files.setInputFiles(Array.from({ length: 5 }, (_, i) => ({ ...image, name: `${i}.png` })));
+      await expect.poll(() => chat.getByRole('alert').textContent()).toContain('at most 4');
+      expect(await chat.getByRole('textbox').inputValue()).toBe('Keep this draft');
+      expect(await chat.locator('.attachments img').count()).toBe(0);
+      await screenshot(page, 'habitat-image-validation.png');
+    } finally { await page.close(); }
+  });
+
+  it.each(['success', 'different-user'])('identity-bound image replay after login, including data beyond sessionStorage quota: %s', async (mode) => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page, mode);
+      const chat = page.locator('habitat-chat');
+      const image = await imageFile(page, 'large.png', true);
+      const sent: unknown[] = [];
+      page.on('request', (req) => { if (new URL(req.url()).pathname === '/api/chat') sent.push(req.postDataJSON()); });
+      await chat.getByLabel('Attach images', { exact: true }).setInputFiles(image);
+      await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
+      state.expired = true;
+      await chat.getByRole('button', { name: 'send', exact: true }).click();
+      await expect.poll(() => state.logins).toBe(1);
+      if (mode === 'success') {
+        await expect.poll(() => sent.length).toBe(2);
+        expect(sent[1]).toEqual(sent[0]);
+        await expect.poll(() => chat.locator('.log img').count()).toBe(1);
+        expect(state.attempts.filter((attempt) => attempt.accepted)).toHaveLength(2);
+      } else {
+        await expect.poll(() => chat.locator('[data-role="user"]').count()).toBe(0);
+        expect(sent).toHaveLength(1);
+        expect(await chat.locator('img').count()).toBe(0);
+      }
+    } finally { await page.close(); }
+  });
+
+  it('preserves unsent images with the draft through panel-triggered login', async () => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page);
+      const chat = page.locator('habitat-chat');
+      await chat.getByRole('textbox').fill('Use this image');
+      const image = await imageFile(page);
+      await chat.getByLabel('Attach images', { exact: true }).setInputFiles(image);
+      await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
+      state.expired = true;
+      await page.locator('[data-session="sess-1"]').click();
+      await expect.poll(() => state.logins).toBe(1);
+      await expect.poll(() => chat.getByRole('textbox').inputValue()).toBe('Use this image');
+      await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
+      expect(await chat.locator('.attachments img').getAttribute('src')).toBe(`data:image/png;base64,${image.buffer.toString('base64')}`);
+      expect(state.attempts).toHaveLength(1);
+    } finally { await page.close(); }
+  });
+
+  it('retains the live image and draft instead of navigating when checkpoint storage fails', async () => {
+    const page = await browser.newPage();
+    try {
+      const state = await loginFixture(page);
+      const chat = page.locator('habitat-chat');
+      await chat.getByRole('textbox').fill('Do not lose this');
+      await chat.getByLabel('Attach images', { exact: true }).setInputFiles(await imageFile(page));
+      await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
+      await page.evaluate(() => { indexedDB.open = () => { throw new Error('Storage blocked'); }; });
+      state.expired = true;
+      await page.locator('[data-session="sess-1"]').click();
+      await expect.poll(() => page.locator('[data-component="sessions"]').textContent()).toContain('Your session expired');
+      expect(state.logins).toBe(0);
+      expect(await chat.getByRole('textbox').inputValue()).toBe('Do not lose this');
+      expect(await chat.getByRole('textbox').isEnabled()).toBe(true);
+      expect(await chat.locator('.attachments img').count()).toBe(1);
+    } finally { await page.close(); }
+  });
+
   it("boots, loads the manifest, mounts the status component, renders live data", async () => {
     const page = await browser.newPage();
     const pageErrors: string[] = [];
@@ -257,7 +394,7 @@ describe("the shell assembles itself in a browser", () => {
     const chat = page.locator("habitat-chat");
     await chat.waitFor({ state: "visible", timeout: 10_000 });
 
-    await chat.locator("input").fill("hello substrate");
+    await chat.getByRole("textbox").fill("hello substrate");
     await chat.locator("button").click();
 
     // User bubble, streamed reply, tool event, reasoning — all rendered.
@@ -279,13 +416,13 @@ describe("the shell assembles itself in a browser", () => {
         await page.goto(`${baseUrl}/shell/`);
         const chat = page.locator("habitat-chat");
         await chat.waitFor({ state: "visible", timeout: 10_000 });
-        await chat.locator("input").fill(prompt);
+        await chat.getByRole("textbox").fill(prompt);
         await chat.locator("button").click();
         await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toBe(
           (prompt === "fail after partial reply" ? "Partial answer" : "") + "HTTP 503: no_eligible_offer",
         );
         await expect.poll(() => chat.locator("button").isEnabled()).toBe(true);
-        await chat.locator("input").fill("try again");
+        await chat.getByRole("textbox").fill("try again");
         await chat.locator("button").click();
         await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toContain("echo: try again");
       } finally { await page.close(); }
@@ -298,7 +435,7 @@ describe("the shell assembles itself in a browser", () => {
       const state = await loginFixture(page);
       state.expired = true;
       const chat = page.locator("habitat-chat");
-      await chat.locator("input").fill("second message");
+      await chat.getByRole("textbox").fill("second message");
       await chat.locator("button").click();
       await expect.poll(() => chat.locator(".log").textContent()).toContain("echo: second message");
       expect(state.logins).toBe(1);
@@ -321,7 +458,7 @@ describe("the shell assembles itself in a browser", () => {
       const state = await loginFixture(page);
       state.expired = true;
       const chat = page.locator("habitat-chat");
-      await chat.locator("input").fill("**Preview ready** [Open preview](https://example.com/preview)");
+      await chat.getByRole("textbox").fill("**Preview ready** [Open preview](https://example.com/preview)");
       await chat.locator("button").click();
       await expect.poll(() => chat.locator("strong").textContent()).toBe("Preview ready");
       expect(state.logins).toBe(1);
@@ -330,7 +467,7 @@ describe("the shell assembles itself in a browser", () => {
       expect(await tool.getAttribute("open")).toBeNull();
       await tool.locator("summary").click();
       expect(await tool.locator("pre").allTextContents()).toEqual(["{}", "now"]);
-      await chat.locator("input").fill("fail after partial reply");
+      await chat.getByRole("textbox").fill("fail after partial reply");
       await chat.locator("button").click();
       await expect.poll(() => chat.locator('[data-role="assistant"]').last().textContent()).toBe("Partial answerHTTP 503: no_eligible_offer");
     } finally { await page.close(); }
@@ -340,11 +477,11 @@ describe("the shell assembles itself in a browser", () => {
     const page = await browser.newPage();
     try {
       const state = await loginFixture(page);
-      await page.locator("habitat-chat input").fill("draft not sent yet");
+      await page.locator("habitat-chat").getByRole("textbox").fill("draft not sent yet");
       state.expired = true;
       await page.locator('[data-session="sess-1"]').click();
       await expect.poll(() => state.logins).toBe(1);
-      await expect.poll(() => page.locator("habitat-chat input").inputValue()).toBe("draft not sent yet");
+      await expect.poll(() => page.locator("habitat-chat").getByRole("textbox").inputValue()).toBe("draft not sent yet");
       expect(state.attempts).toHaveLength(1);
       expect(await page.locator("habitat-chat .log").textContent()).toContain("echo: first message");
     } finally { await page.close(); }
@@ -363,7 +500,7 @@ describe("the shell assembles itself in a browser", () => {
           body: 'data: {"type":"text-delta","delta":"finished once"}\n\ndata: [DONE]\n\n',
         });
       });
-      await page.locator("habitat-chat input").fill("long request");
+      await page.locator("habitat-chat").getByRole("textbox").fill("long request");
       await page.locator("habitat-chat button").click();
       await expect.poll(() => page.locator("habitat-chat button").isDisabled()).toBe(true);
       state.expired = true;
@@ -380,7 +517,7 @@ describe("the shell assembles itself in a browser", () => {
     try {
       const state = await loginFixture(page, mode);
       state.expired = true;
-      await page.locator("habitat-chat input").fill("private pending message");
+      await page.locator("habitat-chat").getByRole("textbox").fill("private pending message");
       await page.locator("habitat-chat button").click();
       if (mode === "different-user") {
         await expect.poll(() => state.logins).toBe(1);

@@ -11,6 +11,7 @@
  */
 
 import { serviceKey } from "../substrate/index.js";
+import { checkpoint } from "./conversation-checkpoint.js";
 import {
   resolveToken,
   browserSession,
@@ -29,7 +30,6 @@ export default {
     let threadId = crypto.randomUUID();
     const token = resolveToken(config?.token);
     const identity = browserSession(base, token);
-    const checkpointKey = "shell:conversation-login";
     let rejected = null;
 
     /** @type {Array<{role:string, parts:Array<object>, streaming?:boolean}>} */
@@ -45,17 +45,30 @@ export default {
       },
       messages,
       draft: "",
+      images: [],
+      preparingImages: false,
+      savingForLogin: false,
+      setImages(images) {
+        conversation.images = images;
+        notify();
+      },
       busy: false,
       subscribe(fn) {
         listeners.add(fn);
         fn(messages);
         return () => listeners.delete(fn);
       },
-      async send(text, allowSignIn = true) {
+      async send(text, allowSignIn = true, images = []) {
         await ready;
-        if (conversation.busy) return;
+        if (conversation.busy || conversation.savingForLogin) return;
         conversation.busy = true;
-        messages.push({ role: "user", parts: [{ kind: "text", text }] });
+        messages.push({
+          role: "user",
+          parts: [
+            ...(text ? [{ kind: "text", text }] : []),
+            ...images.map((image) => ({ kind: "image", ...image })),
+          ],
+        });
         const reply = { role: "assistant", parts: [], streaming: true };
         messages.push(reply);
         notify();
@@ -77,13 +90,24 @@ export default {
             headers,
             body: JSON.stringify({
               id: threadId,
-              messages: [{ role: "user", content: text }],
+              messages: [
+                {
+                  role: "user",
+                  content: text,
+                  parts: images.map((image) => ({
+                    type: "file",
+                    url: image.url,
+                    mediaType: image.mediaType,
+                    filename: image.name,
+                  })),
+                },
+              ],
             }),
           });
           if (res.status === 401) {
             // Authentication rejects this request before the model runs. Only
             // this known-unexecuted message may be resumed after signing in.
-            rejected = { text, reply };
+            rejected = { text, images, reply };
             if (allowSignIn && (await signInAgain(base, token))) return;
             rejected = null;
             throw new Error(signInMessage);
@@ -148,25 +172,28 @@ export default {
 
     const beforeSignIn = (event) => {
       // A panel's expired request must not abort a chat already executing.
-      if (conversation.busy && !rejected) {
+      if (conversation.preparingImages || (conversation.busy && !rejected)) {
         event.preventDefault();
         return;
       }
-      try {
-        sessionStorage.setItem(
-          checkpointKey,
-          JSON.stringify({
-            userId: event.detail.userId,
-            savedAt: Date.now(),
-            threadId,
-            messages: rejected ? messages.slice(0, -2) : messages,
-            draft: conversation.draft,
-            pending: rejected?.text,
-          }),
-        );
-      } catch {
-        event.preventDefault();
-      }
+      conversation.savingForLogin = true;
+      notify();
+      event.detail.waitUntil(
+        checkpoint({
+          userId: event.detail.userId,
+          savedAt: Date.now(),
+          threadId,
+          messages: rejected ? messages.slice(0, -2) : messages,
+          draft: conversation.draft,
+          images: conversation.images,
+          pending: rejected
+            ? { text: rejected.text, images: rejected.images }
+            : null,
+        }).finally(() => {
+          conversation.savingForLogin = false;
+          notify();
+        }),
+      );
     };
     window.addEventListener("shell:before-sign-in", beforeSignIn);
     ctx.effect(
@@ -174,12 +201,9 @@ export default {
         window.removeEventListener("shell:before-sign-in", beforeSignIn),
     );
 
-    const ready = identity.then((user) => {
+    const ready = identity.then(async (user) => {
       try {
-        const saved = JSON.parse(
-          sessionStorage.getItem(checkpointKey) ?? "null",
-        );
-        sessionStorage.removeItem(checkpointKey);
+        const saved = await checkpoint();
         // Signing in as somebody else must not expose or replay this user's
         // conversation. Checkpoints are tab-local and consumed once.
         if (
@@ -191,8 +215,14 @@ export default {
         threadId = saved.threadId;
         messages.push(...saved.messages);
         conversation.draft = saved.draft ?? "";
+        conversation.images = saved.images ?? [];
         notify();
-        if (saved.pending) void conversation.send(saved.pending, false);
+        if (saved.pending)
+          void conversation.send(
+            saved.pending.text,
+            false,
+            saved.pending.images,
+          );
       } catch {
         // No saved state (or storage disabled): start a normal conversation.
       }

@@ -16,6 +16,7 @@ import {
   generateImage,
   generateText,
   stepCountIs,
+  streamText,
   tool,
 } from "ai";
 import { z } from "zod";
@@ -147,6 +148,36 @@ describe("MycelProvider", () => {
     await generateText({ model, prompt: "hi" });
 
     expect(endUser).toBe("habitat-twitter");
+  });
+
+  it("streams inline images without corrupting bytes at the provider boundary", async () => {
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4XcAAAAASUVORK5CYII=";
+    let sent: unknown;
+    const url = await startFakeExchange(async (req, res) => {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      sent = JSON.parse(raw).messages;
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end(`data: ${JSON.stringify({
+        id: "image-stream", object: "chat.completion.chunk", created: 1,
+        model: "image-model",
+        choices: [{ index: 0, delta: { content: "seen" }, finish_reason: "stop" }],
+      })}\n\ndata: [DONE]\n\n`);
+    });
+    const model = createMycelProvider("test-key", url, "image-test")
+      .getLanguageModel({ provider: "mycel", name: "image-model" });
+    const result = streamText({
+      model,
+      messages: [{ role: "user", content: [
+        { type: "text", text: "Describe this picture" },
+        { type: "image", image: png, mediaType: "image/png" },
+      ] }],
+    });
+    expect(await result.text).toBe("seen");
+    expect(sent).toEqual([{ role: "user", content: [
+      { type: "text", text: "Describe this picture" },
+      { type: "image_url", image_url: { url: `data:image/png;base64,${png}` } },
+    ] }]);
   });
 
   it("completes an AI SDK 7 multi-step tool round trip", async () => {
