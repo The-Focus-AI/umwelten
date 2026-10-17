@@ -19,6 +19,7 @@ import { Stimulus } from '@umwelten/core/stimulus/stimulus.js';
 import { writeSessionTranscript } from '@umwelten/core/session-record/transcript-write.js';
 import { loadRecentHabitatTranscriptCoreMessages } from '@umwelten/core/session-record/habitat-transcript-load.js';
 import { resolveChannelRoute, loadRouting, routeSignature, setChannelRoute } from './routing.js';
+import { parseImageDataUrl } from '@umwelten/substrate/images.js';
 import type {
   ChannelMessage,
   BridgeEventHandlers,
@@ -138,9 +139,11 @@ export class ChannelBridge {
       // Non-default runtimes dispatch through the RuntimeRunner seam (#118)
       const route = await this.resolveRoute(msg.channelKey, msg.parentChannelKey);
       if (route.kind === 'agent' && route.runtime !== 'default') {
+        if (msg.attachments?.length) throw new Error(`Image attachments are not supported by the ${route.runtime} runtime. Use the default runtime.`);
         return await this.handleRuntime(msg, route.agentId, route.runtime, events);
       }
 
+      const images = (msg.attachments ?? []).map((attachment) => parseImageDataUrl(attachment.url));
       const entry = await this.getOrCreateEntry(msg);
       const { interaction, sessionId, sessionDir } = entry;
 
@@ -200,7 +203,13 @@ export class ChannelBridge {
         multiSpeaker && msg.userId
           ? `[${msg.displayName ?? msg.userId}]: ${msg.text}`
           : msg.text;
-      interaction.addMessage({ role: 'user', content: userContent });
+      interaction.addMessage({
+        role: 'user',
+        content: images.length ? [
+          ...(userContent ? [{ type: 'text' as const, text: userContent }] : []),
+          ...images.map(({ data, mediaType }) => ({ type: 'image' as const, image: data, mediaType })),
+        ] : userContent,
+      });
 
       // Stream the response
       let response;

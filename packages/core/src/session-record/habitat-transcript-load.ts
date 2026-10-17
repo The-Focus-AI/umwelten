@@ -42,7 +42,7 @@ export async function loadHabitatSessionTranscriptMessages(
 }
 
 /**
- * Last N user+assistant text-only CoreMessages for resume-after-restart (Telegram/Discord).
+ * Last N user+assistant messages for resume, including inline user images.
  * Mirrors compact transcript shape across frozen segments + live file.
  */
 export async function loadRecentHabitatTranscriptCoreMessages(
@@ -56,6 +56,15 @@ export async function loadRecentHabitatTranscriptCoreMessages(
       const content = (entry as UserMessageEntry).message.content;
       if (typeof content === "string") {
         messages.push({ role: "user", content });
+      } else if (Array.isArray(content)) {
+        const parts: import("ai").UserContent = [];
+        for (const part of content) {
+          if (part.type === "text") parts.push({ type: "text", text: part.text });
+          else if (part.type === "image" && part.source?.type === "base64") {
+            parts.push({ type: "image", image: part.source.data, mediaType: part.source.media_type });
+          }
+        }
+        if (parts.length) messages.push({ role: "user", content: parts });
       }
     } else if (entry.type === "assistant") {
       const content = (entry as AssistantMessageEntry).message.content;

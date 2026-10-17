@@ -57,6 +57,7 @@ vi.mock("@umwelten/core/interaction/core/interaction.js", () => {
 
 import { ChannelBridge } from "./channel-bridge.js";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
+import { loadRecentHabitatTranscriptCoreMessages } from "@umwelten/core/session-record/habitat-transcript-load.js";
 import type { AgentHost } from "../types.js";
 
 async function makeFixture() {
@@ -81,6 +82,26 @@ async function makeFixture() {
 }
 
 describe("ChannelBridge per-user identity (ADR 0003 step 2)", () => {
+  it("delivers inline images to the model and preserves them through transcript resume", async () => {
+    instances.length = 0;
+    const { host, sessionDir } = await makeFixture();
+    const bridge = new ChannelBridge(host);
+    const data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/LxoAAAAASUVORK5CYII=';
+    const error = vi.fn();
+    await bridge.handleMessage({
+      channelKey: 'web:images', text: 'What is in this picture?', userId: 'alice',
+      attachments: [{ filename: 'photo.png', mimeType: 'image/png', url: `data:image/png;base64,${data}` }],
+    }, { onDone: () => {}, onError: error });
+    expect(error).not.toHaveBeenCalled();
+    const expected = [{ role: 'user', content: [
+      { type: 'text', text: 'What is in this picture?' },
+      { type: 'image', image: data, mediaType: 'image/png' },
+    ] }];
+    expect(instances[0].messages).toEqual(expected);
+    expect(instances[0].userIdAtGeneration).toEqual(['alice']);
+    expect(await loadRecentHabitatTranscriptCoreMessages(sessionDir, 4)).toEqual(expected);
+  });
+
   it("single-speaker thread: userId set, no labeling", async () => {
     instances.length = 0;
     const { host } = await makeFixture();

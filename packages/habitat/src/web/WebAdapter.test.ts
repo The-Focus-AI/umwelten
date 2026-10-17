@@ -106,6 +106,71 @@ function makeScriptedBridge(
 }
 
 describe('WebAdapter.handleChat — AI SDK UI Message Stream Protocol', () => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/LxoAAAAASUVORK5CYII=';
+  const file = { type: 'file', mediaType: 'image/png', url: png, filename: '<photo>.png' };
+
+  it('forwards text and image bytes from only the latest user turn', async () => {
+    const bridge = makeScriptedBridge(async (events) => {
+      await events.onDone({ content: 'seen', sessionId: 's', channelKey: 'web:images' });
+    });
+    const request = fakeReqRes({ id: 'images', messages: [
+      { role: 'user', content: 'old question' },
+      { role: 'assistant', content: 'old response' },
+      { role: 'user', parts: [{ type: 'text', text: 'compare these' }, file, { ...file, filename: 'second.png' }] },
+    ] });
+    await new WebAdapter(bridge).handleChat(request.req, request.res, { userId: 'alice' });
+    await request.getBody();
+    expect(bridge.handleMessage).toHaveBeenCalledWith({
+      channelKey: 'web:images', text: 'compare these', userId: 'alice', attachments: [
+        { filename: '<photo>.png', mimeType: 'image/png', url: png },
+        { filename: 'second.png', mimeType: 'image/png', url: png },
+      ],
+    }, expect.any(Object));
+  });
+
+  it('accepts an image-only latest turn without resending an older prompt', async () => {
+    const bridge = makeScriptedBridge((events) => events.onError?.('test complete'));
+    const request = fakeReqRes({ messages: [{ role: 'user', content: 'old' }, { role: 'user', parts: [file] }] });
+    await new WebAdapter(bridge).handleChat(request.req, request.res, { userId: 'alice' });
+    expect(bridge.handleMessage).toHaveBeenCalledWith(expect.objectContaining({ text: '', attachments: [expect.objectContaining({ url: png })] }), expect.any(Object));
+  });
+
+  it.each([
+    [{ ...file, url: 'https://internal.example/image.png' }],
+    [{ ...file, url: 'file:///etc/passwd' }],
+    [{ ...file, url: 'data:image/svg+xml;base64,PHN2Zy8+' }],
+    [{ ...file, url: 'data:image/png;base64,PGh0bWw+' }],
+    [{ ...file, mediaType: 'image/jpeg' }],
+    Array(5).fill(file),
+  ])('rejects unsafe or invalid image parts before invoking the bridge: %j', async (...parts) => {
+    const bridge = makeScriptedBridge(() => {});
+    const request = fakeReqRes({ messages: [{ role: 'user', content: 'inspect', parts }] });
+    await new WebAdapter(bridge).handleChat(request.req, request.res, { userId: 'alice' });
+    expect(request.getStatus()).toBe(400);
+    expect(bridge.handleMessage).not.toHaveBeenCalled();
+  });
+
+  it('bounds request bytes before parsing JSON or invoking a model', async () => {
+    const bridge = makeScriptedBridge(() => {});
+    const request = fakeReqRes({ padding: 'x'.repeat(16 * 1024 * 1024) });
+    await new WebAdapter(bridge).handleChat(request.req, request.res, { userId: 'alice' });
+    expect(request.getStatus()).toBe(413);
+    expect(bridge.handleMessage).not.toHaveBeenCalled();
+  });
+
+  it('enforces the total image limit independently of the per-file and JSON limits', async () => {
+    const bytes = Buffer.alloc(5 * 1024 * 1024);
+    bytes.write('GIF89a');
+    const large = { type: 'file', mediaType: 'image/gif', url: `data:image/gif;base64,${bytes.toString('base64')}` };
+    for (const extra of [false, true]) {
+      const bridge = makeScriptedBridge((events) => events.onError?.('test complete'));
+      const request = fakeReqRes({ messages: [{ role: 'user', parts: [large, large, ...(extra ? [file] : [])] }] });
+      await new WebAdapter(bridge).handleChat(request.req, request.res, { userId: 'alice' });
+      expect(request.getStatus()).toBe(extra ? 400 : 200);
+      expect(bridge.handleMessage).toHaveBeenCalledTimes(extra ? 0 : 1);
+    }
+  });
+
   it('emits start → text-start → text-delta → text-end → finish → [DONE]', async () => {
     const bridge = makeScriptedBridge(async (events) => {
       events.onText?.('Hello');
