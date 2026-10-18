@@ -87,8 +87,14 @@ const customer = createCustomerHandler({
     if (String(model).includes("fail"))
       return Response.json(
         { error: "Simulated unsupported model" },
-        { status: 400 },
+        { status: 500 },
       );
+    if (String(_url).endsWith("/decisions"))
+      return Response.json({
+        model,
+        answers: { ok: { type: "noul", noul: 0.99 } },
+        usage: { input_tokens: 1, output_tokens: 1 },
+      });
     return Response.json({
       text: "",
       duration: 1,
