@@ -26,16 +26,18 @@ export default {
     const el = document.createElement("div");
     el.className = "shell-card";
     el.dataset.component = "quick-prompts";
-    el.innerHTML = `<h2>quick prompts</h2>
-      <div style="display:flex;flex-direction:column;gap:0.5rem;"></div>`;
-    const list = el.querySelector("div");
+    el.innerHTML = `<h2>Quick prompts</h2>
+      <div class="prompt-list"></div>`;
+    const list = el.querySelector(".prompt-list");
+    list.style.cssText = "display:flex;flex-direction:column;gap:8px;";
     for (const prompt of prompts) {
       const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn secondary";
+      btn.style.textAlign = "left";
+      btn.style.height = "auto";
+      btn.style.whiteSpace = "normal";
       btn.textContent = prompt;
-      btn.style.cssText =
-        "background:var(--bg);border:1px solid var(--line);border-radius:4px;" +
-        "color:var(--ink);font:inherit;padding:0.45rem 0.7rem;cursor:pointer;" +
-        "text-align:left;";
       btn.addEventListener("click", () => void conversation.send(prompt));
       list.appendChild(btn);
     }

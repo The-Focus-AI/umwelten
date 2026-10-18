@@ -45,10 +45,9 @@ export default {
     el.dataset.component = "habitats";
     el.style.gridColumn = "1 / -1";
     el.innerHTML = `
-      <h2>habitats</h2>
-      <p class="note" style="margin:0 0 0.5rem;color:var(--muted);">loading fleet…</p>
-      <ul style="list-style:none;margin:0;padding:0;display:flex;
-        flex-direction:column;gap:0.4rem;"></ul>`;
+      <h2>Habitats</h2>
+      <p class="note">loading fleet…</p>
+      <ul></ul>`;
     region.appendChild(el);
     const note = el.querySelector(".note");
     const list = el.querySelector("ul");
@@ -92,18 +91,13 @@ export default {
         list.innerHTML = habitats
           .map((h) => {
             const running = h.status === "running";
-            const dot = running ? "var(--accent)" : "var(--muted)";
-            return `<li style="display:flex;align-items:center;gap:0.7rem;">
-              <span style="width:0.6rem;height:0.6rem;border-radius:50%;
-                background:${dot};flex-shrink:0;"></span>
-              <span style="flex:1;min-width:8rem;">${esc(h.name ?? h.id)}
-                <span style="color:var(--muted);font-size:0.75rem;">
-                  ${esc(h.status)} · ${esc(h.model ?? "")}</span></span>
-              ${h.url && running ? `<a href="${esc(h.url)}" target="_blank" style="color:var(--accent);font-size:0.75rem;">open</a>` : ""}
-              <button data-action="${running ? "stop" : "start"}" data-id="${esc(h.id)}"
-                style="background:none;border:1px solid var(--line);border-radius:4px;
-                color:var(--muted);font:inherit;font-size:0.75rem;
-                padding:0.1rem 0.6rem;cursor:pointer;">${running ? "stop" : "start"}</button>
+            return `<li class="list-row">
+              <span class="live-dot${running ? "" : " off"}"></span>
+              <span class="name">${esc(h.name ?? h.id)}
+                <span class="sub">${esc(h.status)} · ${esc(h.model ?? "")}</span></span>
+              ${h.url && running ? `<a href="${esc(h.url)}" target="_blank">Open</a>` : ""}
+              <button class="btn ghost sm" data-action="${running ? "stop" : "start"}" data-id="${esc(h.id)}"
+                type="button">${running ? "Stop" : "Start"}</button>
             </li>`;
           })
           .join("");

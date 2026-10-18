@@ -30,7 +30,7 @@ export default {
     const el = document.createElement("div");
     el.className = "shell-card";
     el.dataset.component = "catalogue-stats";
-    el.innerHTML = `<h2>catalogue</h2><dl></dl>`;
+    el.innerHTML = `<h2>Catalogue</h2><dl></dl>`;
     region.appendChild(el);
     const dl = el.querySelector("dl");
 

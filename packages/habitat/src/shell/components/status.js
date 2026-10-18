@@ -12,7 +12,7 @@ const baseKey = serviceKey("shell:base");
 class HabitatStatus extends HTMLElement {
   connectedCallback() {
     this.classList.add("shell-card");
-    this.innerHTML = `<h2>status</h2><dl></dl>`;
+    this.innerHTML = `<h2>Status</h2><dl></dl>`;
   }
   render(health) {
     this.hasData = true;

@@ -21,6 +21,44 @@ describe("the serving contract", () => {
     expect(r?.status).toBe(200);
     expect(r?.contentType).toContain("text/html");
     expect(asText(r!.body)).toContain('src="./shell.js"');
+    expect(asText(r!.body)).toContain('href="./theme.css"');
+    expect(asText(r!.body)).not.toContain("#101410");
+  });
+
+  it("serves the shared theme stylesheet (no duplicated page CSS)", async () => {
+    const r = await resolveShellRequest("/shell/theme.css");
+    expect(r?.status).toBe(200);
+    expect(r?.contentType).toContain("text/css");
+    const css = asText(r!.body);
+    expect(css).toContain("--bg: #fafafa");
+    expect(css).toContain("--panel: var(--surface)");
+    expect(css).toContain("--accent: var(--action)");
+    expect(css).toContain("--error: var(--danger)");
+    expect(css).toContain(".shell-card");
+    expect(css).not.toMatch(/text-transform:\s*uppercase/);
+  });
+
+  it("self-hosts Geist woff2 files and the OFL license", async () => {
+    const font = await resolveShellRequest("/shell/fonts/Geist-Regular.woff2");
+    expect(font?.status).toBe(200);
+    expect(font?.contentType).toBe("font/woff2");
+    expect(Buffer.isBuffer(font!.body) || typeof font!.body === "string").toBe(
+      true,
+    );
+    expect(Buffer.from(font!.body).length).toBeGreaterThan(1000);
+    const license = await resolveShellRequest("/shell/fonts/OFL.txt");
+    expect(license?.status).toBe(200);
+    expect(asText(license!.body)).toContain("SIL Open Font License");
+  });
+
+  it("refuses font path traversal", async () => {
+    for (const path of [
+      "/shell/fonts/../theme.css",
+      "/shell/fonts/..%2Fshell.js",
+    ]) {
+      const r = await resolveShellRequest(path);
+      expect(r?.status, path).toBe(404);
+    }
   });
 
   it("serves the boot script", async () => {
@@ -153,6 +191,9 @@ describe("solo pages (wire projection, #406)", () => {
     expect(html).toContain('const target = "status"');
     expect(html).toContain("e.provides || e.id === target");
     expect(html).toContain("../../substrate/index.js");
+    expect(html).toContain('href="../../theme.css"');
+    expect(html).not.toContain("#101410");
+    expect(html).not.toContain("text-transform: uppercase");
   });
 
   it("accepts custom-component ids and refuses everything unsafe", async () => {

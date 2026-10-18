@@ -243,7 +243,7 @@ describe("the shell assembles itself in a browser", () => {
       await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
       await screenshot(page, 'habitat-image-selected.png');
       const request = page.waitForRequest((req) => new URL(req.url()).pathname === '/api/chat');
-      await chat.getByRole('button', { name: 'send', exact: true }).click();
+      await chat.getByRole('button', { name: 'Send', exact: true }).click();
       const body = (await request).postDataJSON();
       expect(body.messages[0].content).toBe('');
       expect(body.messages[0].parts).toEqual([{ type: 'file', mediaType: 'image/png', filename: 'market.png', url: `data:image/png;base64,${image.buffer.toString('base64')}` }]);
@@ -288,7 +288,7 @@ describe("the shell assembles itself in a browser", () => {
       await chat.getByLabel('Attach images', { exact: true }).setInputFiles(image);
       await expect.poll(() => chat.locator('.attachments img').count()).toBe(1);
       state.expired = true;
-      await chat.getByRole('button', { name: 'send', exact: true }).click();
+      await chat.getByRole('button', { name: 'Send', exact: true }).click();
       await expect.poll(() => state.logins).toBe(1);
       if (mode === 'success') {
         await expect.poll(() => sent.length).toBe(2);

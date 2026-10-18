@@ -95,14 +95,8 @@ export function renderConversation(
   container.replaceChildren();
   for (const message of messages) {
     const bubble = document.createElement("div");
+    bubble.className = "msg";
     bubble.dataset.role = message.role;
-    Object.assign(bubble.style, {
-      alignSelf: message.role === "user" ? "flex-end" : "flex-start",
-      maxWidth: "85%",
-      border: `1px solid ${message.role === "user" ? "var(--accent)" : "var(--line)"}`,
-      borderRadius: "6px",
-      padding: "0.5rem 0.8rem",
-    });
     for (const part of message.parts) {
       if (message.role === "user" && part.kind === "image") {
         if (

@@ -13,14 +13,14 @@ const baseKey = serviceKey("shell:base");
 class ExchangeHealth extends HTMLElement {
   connectedCallback() {
     this.classList.add("shell-card");
-    this.innerHTML = `<h2>exchange</h2><dl></dl>`;
+    this.innerHTML = `<h2>Exchange</h2><dl></dl>`;
   }
   render(health) {
     this.hasData = true;
     const degraded = health.status !== "ok";
     this.querySelector("dl").innerHTML = `
       <dt>status</dt>
-      <dd style="${degraded ? "color:var(--error)" : "color:var(--accent)"}">${health.status ?? "—"}</dd>
+      <dd style="${degraded ? "color:var(--danger)" : "color:var(--live)"}">${health.status ?? "—"}</dd>
       ${health.store ? `<dt>store</dt><dd style="color:var(--error)">${health.store}</dd>` : ""}`;
     const title = document.getElementById("host-name");
     if (title) title.textContent = "mycel — the Exchange";

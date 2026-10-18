@@ -157,6 +157,15 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       "      return () => el.remove();          // your inverse: called on unmount\n" +
       "    },\n" +
       "  };\n\n" +
+      "Styling: Habitats v0.2 (habitats.thefocus.ai design.md, ported as " +
+      "./theme.css). Light theme only. Use .shell-card for panels, " +
+      ".btn.primary / .btn.secondary / .btn.ghost for buttons, .input for " +
+      "fields, .tag (plus .live / .warn / .info) for chips, .list-row for " +
+      "rows, .live-dot for presence. CSS variables --bg, --surface, --ink, " +
+      "--ink-2/3/4, --action, --danger, --border; old names --panel, --line, " +
+      "--muted, --accent, --error still alias onto those. Geist for UI " +
+      "text; Geist Mono only for IDs, keys, and timestamps. No uppercase " +
+      "eyebrow headings; black is the action color.\n\n" +
       "Custom elements: guard registration with " +
       "`if (!customElements.get(...))` since hot-reload re-evaluates the module.\n\n" +
       "Backend capabilities: create a narrow server tool with create_tool, " +
@@ -167,7 +176,7 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       '"layout" — it replaces the stock layout (collapsible rail + main) ' +
       "while it exists, and removing it restores the stock one. Read " +
       "./components/layout.js on this host for the shape: a placement map " +
-      "keyed by data-component, a style element, containers you create, and " +
+      "keyed by data-component, containers you create, and " +
       "a disposer that puts every adopted panel back. Never re-parent " +
       '[data-component="foreign"] elements — moving an iframe reloads it.',
     inputSchema: z.object({

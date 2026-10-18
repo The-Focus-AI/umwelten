@@ -74,8 +74,7 @@ export default {
     el.dataset.resource = resource ?? "";
     el.innerHTML = `
       <h2>${esc(title ?? resource ?? "foreign component")}</h2>
-      <p class="note" style="margin:0 0 0.5rem;color:var(--muted);font-size:0.75rem;">
-        loading from peer…</p>`;
+      <p class="note">loading from peer…</p>`;
     region.appendChild(el);
     const note = el.querySelector(".note");
 
@@ -111,7 +110,7 @@ export default {
         );
         iframe.src = url;
         iframe.style.cssText =
-          "width:100%;height:120px;border:0;border-radius:4px;background:var(--bg);";
+          "width:100%;height:120px;border:0;border-radius:var(--r-md);background:var(--bg);";
         el.appendChild(iframe);
       } catch (err) {
         note.textContent = err.message;
