@@ -69,6 +69,7 @@ describe("the Exchange's client surface", () => {
     const r = await get(createClientSurfaceHandler(), "/shell/");
     expect(r.status).toBe(200);
     expect(r.body).toContain('src="./shell.js"');
+    expect(r.body).toContain('href="./theme.css"');
   });
 
   it("its manifest is exactly the read-only components", async () => {

@@ -94,6 +94,8 @@ export interface ShellResponse {
 
 /** A served file name: single flat segment, .js only. */
 const SAFE_MODULE = /^[a-zA-Z0-9_-]+\.js$/;
+/** Self-hosted Geist files (OFL) plus the license text. */
+const SAFE_FONT = /^[a-zA-Z0-9_.-]+\.(woff2|txt)$/;
 
 function ownPackageRoot(): string {
   // serve/ sits directly under the package root.
@@ -202,24 +204,7 @@ function soloPage(id: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${id}</title>
-<style>
-  :root {
-    --bg: #101410; --panel: #181e18; --line: #2a332a;
-    --ink: #d8e0d8; --muted: #8a968a; --accent: #7fb069; --error: #c8664a;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  main#region { display: grid; gap: 1rem; padding: 1rem; align-items: start; }
-  #solo-status { padding: 0.4rem 1rem; color: var(--muted); font-size: 0.8rem; }
-  .shell-card { background: var(--panel); border: 1px solid var(--line);
-    border-radius: 6px; padding: 1rem 1.2rem; }
-  .shell-card h2 { margin: 0 0 0.6rem; font-size: 0.8rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
-  .shell-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; }
-  .shell-card dt { color: var(--muted); }
-  .shell-card dd { margin: 0; }
-</style>
+<link rel="stylesheet" href="../../theme.css">
 </head>
 <body>
   <main id="region"></main>
@@ -358,6 +343,25 @@ export async function resolveShellRequest(
         status: 200,
         contentType: JS,
         body: await readFile(join(shellDir, "shell.js")),
+      };
+    }
+    if (rel === "theme.css") {
+      return {
+        status: 200,
+        contentType: "text/css; charset=utf-8",
+        body: await readFile(join(shellDir, "theme.css"), "utf8"),
+      };
+    }
+    if (rel.startsWith("fonts/")) {
+      const name = rel.slice("fonts/".length);
+      if (!SAFE_FONT.test(name)) return notFound;
+      const fontPath = join(shellDir, "fonts", name);
+      return {
+        status: 200,
+        contentType: name.endsWith(".woff2")
+          ? "font/woff2"
+          : "text/plain; charset=utf-8",
+        body: await readFile(fontPath),
       };
     }
     if (rel === "manifest.json") {

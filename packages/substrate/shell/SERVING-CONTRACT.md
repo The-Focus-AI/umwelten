@@ -9,6 +9,8 @@ unchanged. All paths are relative to the base (e.g. `/shell/` on a habitat).
 | --- | --- |
 | `./` | `index.html` — the shell page |
 | `./shell.js` | the shell boot script (plain ESM) |
+| `./theme.css` | shared Habitats v0.2 theme (tokens + base classes). Source: habitats `design.md`; port lives in `DESIGN.md` beside this file |
+| `./fonts/*` | self-hosted Geist / Geist Mono (OFL) plus `OFL.txt` |
 | `./substrate/*.js` | the `@umwelten/substrate` runtime as browser ESM (e.g. `./substrate/index.js`; internal relative imports resolve within this prefix) |
 | `./manifest.json` | `{ "entries": [ { "id", "url", "config"?, "disabled"? } ] }` — the loader entries to realize; `url` is resolved against the base |
 | `./components/*.js` | component modules: plain ESM whose default export is a `ComponentSpec` |
@@ -37,7 +39,8 @@ imported.
 - **No build step in the loading path.** Component modules are served as
   plain ESM. A host may transpile *its own* sources on the way out (the
   habitat transpiles the substrate's TypeScript), but nothing a component
-  author writes requires a bundler.
+  author writes requires a bundler. `theme.css` and the Geist files under
+  `./fonts/` are static assets — no bundler, no Google Fonts.
 - **Auth follows the host's static-asset posture.** The shell and its
   assets are as open as the host's UI; anything a component *calls* is
   authenticated by the host's normal endpoint rules.

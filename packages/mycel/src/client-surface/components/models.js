@@ -30,8 +30,8 @@ export default {
     el.dataset.component = "models";
     el.style.gridColumn = "1 / -1";
     el.innerHTML = `
-      <h2>models</h2>
-      <p class="note" style="margin:0 0 0.5rem;color:var(--muted);">loading catalogue…</p>
+      <h2>Models</h2>
+      <p class="note">loading catalogue…</p>
       <div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;
         font-size:0.85rem;"></table></div>`;
     region.appendChild(el);
@@ -57,7 +57,7 @@ export default {
               .map(
                 (m) => `<tr style="border-top:1px solid var(--line);">
               <td style="${td}">${esc(m.id)}</td>
-              <td style="${td}color:#77c593;">● ${m.status === "available" ? "Available now" : "Unknown"}</td>
+              <td style="${td}"><span class="live-dot${m.status === "available" ? "" : " off"}"></span> ${m.status === "available" ? "Available now" : "Unknown"}</td>
               <td style="${td}">${dollars(m.pricing?.prompt)}</td>
               <td style="${td}">${dollars(m.pricing?.completion)}</td>
               <td style="${td}">${m.context_length ? esc(m.context_length) : "—"}</td>

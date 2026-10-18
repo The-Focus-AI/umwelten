@@ -25,16 +25,12 @@ export default {
     el.className = "shell-card";
     el.dataset.component = "sessions";
     el.innerHTML = `
-      <h2>sessions</h2>
-      <p class="note" style="margin:0 0 0.5rem;color:var(--muted);">loading…</p>
-      <ul style="list-style:none;margin:0;padding:0;display:flex;
-        flex-direction:column;gap:0.3rem;max-height:16rem;overflow-y:auto;"></ul>
+      <h2>Sessions</h2>
+      <p class="note">loading…</p>
+      <ul></ul>
       <div class="detail" style="display:none;margin-top:0.6rem;">
-        <button class="back" style="background:none;border:1px solid var(--line);
-          border-radius:4px;color:var(--muted);font:inherit;font-size:0.75rem;
-          padding:0.15rem 0.6rem;cursor:pointer;margin-bottom:0.5rem;">← back</button>
-        <div class="messages" style="display:flex;flex-direction:column;gap:0.4rem;
-          max-height:16rem;overflow-y:auto;"></div>
+        <button class="back btn ghost sm" type="button">← Back</button>
+        <div class="messages chat-log"></div>
       </div>`;
     region.appendChild(el);
 
@@ -45,7 +41,7 @@ export default {
 
     const showList = () => {
       detail.style.display = "none";
-      list.style.display = "flex";
+      list.style.display = "block";
     };
 
     const openSession = async (sessionId) => {
@@ -62,9 +58,8 @@ export default {
               typeof m.content === "string"
                 ? m.content
                 : (m.text ?? JSON.stringify(m.content ?? m));
-            const border = role === "user" ? "var(--accent)" : "var(--line)";
-            return `<div style="border-left:2px solid ${border};padding:0.1rem 0.6rem;">
-              <span style="color:var(--muted);font-size:0.75rem;">${esc(role)}</span>
+            return `<div class="msg" data-role="${esc(role)}">
+              <span class="meta">${esc(role)}</span>
               <p style="margin:0.1rem 0 0;white-space:pre-wrap;">${esc(String(text).slice(0, 500))}</p></div>`;
           })
           .join("");
@@ -79,16 +74,15 @@ export default {
       try {
         const result = await tools.call("sessions_list", { limit: 15 });
         const sessions = Array.isArray(result) ? result : (result.sessions ?? []);
-        note.textContent = sessions.length ? "" : "no sessions yet";
+        note.textContent = sessions.length ? "" : "No sessions yet";
         list.innerHTML = sessions
           .map(
-            (s) => `<li><button data-session="${esc(s.sessionId)}"
-              style="width:100%;text-align:left;background:var(--bg);
-              border:1px solid var(--line);border-radius:4px;color:var(--ink);
-              font:inherit;font-size:0.8rem;padding:0.35rem 0.6rem;cursor:pointer;">
-              ${esc((s.firstPrompt ?? s.sessionId ?? "").slice(0, 70))}
-              <span style="color:var(--muted);"> · ${esc(String(s.messageCount ?? "?"))} msgs</span>
-            </button></li>`,
+            (s) => `<li>
+              <button class="list-row" data-session="${esc(s.sessionId)}" type="button">
+                <span class="name">${esc((s.firstPrompt ?? s.sessionId ?? "").slice(0, 70))}</span>
+                <span class="meta">${esc(String(s.messageCount ?? "?"))} msgs</span>
+              </button>
+            </li>`,
           )
           .join("");
       } catch (err) {

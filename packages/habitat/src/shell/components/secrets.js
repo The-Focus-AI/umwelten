@@ -25,43 +25,34 @@ export default {
     el.className = "shell-card";
     el.dataset.component = "secrets";
     el.innerHTML = `
-      <h2>habitat secrets</h2>
-      <p style="margin:0 0 0.6rem;color:var(--muted);font-size:0.75rem;">
-        this habitat's own store — on Gaia, the fleet vault is separate</p>
-      <ul style="list-style:none;margin:0 0 0.8rem;padding:0;display:flex;
-        flex-direction:column;gap:0.3rem;"></ul>
-      <p class="note" style="margin:0 0 0.8rem;color:var(--muted);"></p>
-      <form style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <input name="name" placeholder="NAME" autocomplete="off" spellcheck="false"
-          style="flex:1;min-width:8rem;background:var(--bg);border:1px solid var(--line);
-          border-radius:4px;color:var(--ink);font:inherit;padding:0.4rem 0.6rem;">
-        <input name="value" placeholder="value" type="password" autocomplete="off"
-          style="flex:2;min-width:10rem;background:var(--bg);border:1px solid var(--line);
-          border-radius:4px;color:var(--ink);font:inherit;padding:0.4rem 0.6rem;">
-        <button style="background:var(--accent);border:0;border-radius:4px;
-          color:var(--bg);font:inherit;font-weight:600;padding:0.4rem 0.9rem;
-          cursor:pointer;">set</button>
+      <h2>Secrets</h2>
+      <p class="note">This habitat's own store — on Gaia, the fleet vault is separate</p>
+      <ul class="secret-list"></ul>
+      <p class="note empty"></p>
+      <form class="composer">
+        <input class="input" name="name" placeholder="NAME" autocomplete="off" spellcheck="false">
+        <input class="input" name="value" placeholder="value" type="password" autocomplete="off">
+        <button class="btn primary" type="submit">Set</button>
       </form>`;
     region.appendChild(el);
 
     const list = el.querySelector("ul");
-    const note = el.querySelector(".note");
+    const note = el.querySelector(".empty");
     const form = el.querySelector("form");
 
     const refresh = async () => {
       try {
         const result = await tools.call("secrets_list");
         const names = Array.isArray(result) ? result : (result.secrets ?? result.names ?? []);
-        note.textContent = names.length ? "" : "no secrets set";
+        note.textContent = names.length ? "" : "No secrets set";
         list.innerHTML = names
-          .map(
-            (n) => `<li style="display:flex;align-items:center;gap:0.6rem;">
-              <code style="flex:1;">${esc(typeof n === "string" ? n : n.name)}</code>
-              <button data-remove="${esc(typeof n === "string" ? n : n.name)}"
-                style="background:none;border:1px solid var(--line);border-radius:4px;
-                color:var(--muted);font:inherit;font-size:0.75rem;padding:0.1rem 0.5rem;
-                cursor:pointer;">remove</button></li>`,
-          )
+          .map((n) => {
+            const name = typeof n === "string" ? n : n.name;
+            return `<li class="list-row">
+              <code class="name">${esc(name)}</code>
+              <button class="btn ghost sm" data-remove="${esc(name)}" type="button">Remove</button>
+            </li>`;
+          })
           .join("");
       } catch (err) {
         note.textContent = err.message;
