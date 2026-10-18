@@ -81,9 +81,10 @@ verified role independently of the browser.
    admin-managed, or a check that finds an operation the stored offer did not
    have, is stored disabled until this save. A check that only confirms or
    removes operations leaves that flag as it was. **Edit / verify** on an
-   admin-managed offer opens its prices with no probe. **Check again** runs
-   the full check and replaces the rows. A vendor offer that is not
-   admin-managed opens the check first. An agent supplier is not edited here.
+   admin-managed offer opens its prices with no probe. **Check again** returns
+   to the authorization step, then runs the full check and replaces the rows.
+   A vendor offer that is not admin-managed opens the check first. An agent
+   supplier is not edited here.
    If the credential is rejected before any pass, or any operation returns no
    result, the stored offer is left unchanged and the form shows those results
    without prices. A credential rejection after a pass records the earlier

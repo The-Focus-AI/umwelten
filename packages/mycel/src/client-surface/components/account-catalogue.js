@@ -345,7 +345,7 @@ export default {
       }
       function checkAgainButton() {
         const again = button("Check again");
-        again.onclick = () => void runCheck(false);
+        again.onclick = () => showCheckChrome();
         return again;
       }
       function saveButton() {
@@ -370,6 +370,7 @@ export default {
       }
       function showCheckChrome() {
         editor.dataset.mode = "check";
+        rows.replaceChildren();
         const confirmLabel = document.createElement("label");
         confirmLabel.className = "catalogue-check";
         confirm = document.createElement("input");
@@ -415,6 +416,13 @@ export default {
             }),
           ),
         );
+        const passed = findings.some((finding) => finding.judgment === "pass");
+        if (!passed) {
+          editor.dataset.mode = "findings";
+          footer.replaceChildren(helpNote());
+          actions.replaceChildren(checkAgainButton(), cancelButton());
+          return;
+        }
         editor.dataset.mode = "price";
         footer.replaceChildren(enableBox(Boolean(stored?.enabled)), helpNote());
         actions.replaceChildren(saveButton(), checkAgainButton(), cancelButton());

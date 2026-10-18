@@ -240,7 +240,6 @@ async function discard(
   return judgment;
 }
 
-/** Classify one operation. Upstream bodies and error text stay here. */
 async function probe(
   supplier: Supplier,
   model: string,
@@ -621,7 +620,7 @@ export function createCatalogue(
         );
       const offer = await store.getOffer(s.id, model);
       if (!offer) throw new CatalogueError(404, "offer_not_found");
-      if (!offer.adminManaged)
+      if (!offer.adminManaged || !offer.verifiedAt)
         throw new CatalogueError(409, "probe_before_publishing");
       const billable = new Set(
         offer.capabilities.filter((capability): capability is OperationName =>
@@ -638,7 +637,7 @@ export function createCatalogue(
         { model, capabilities: operations, servingMode: "adapted" },
         { ...pricing, operationPricing } as OfferPricing,
         body.enabled,
-        offer.verifiedAt ?? offer.publishedAt,
+        offer.verifiedAt,
       );
     },
   };
