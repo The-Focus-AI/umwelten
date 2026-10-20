@@ -15,7 +15,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "tsup"
+    "build": "tsup",
+    "probe-catalogue": "tsx src/testing/probe-catalogue-model.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
