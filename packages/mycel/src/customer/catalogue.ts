@@ -82,7 +82,7 @@ type ProbeSettlement =
 type PresentedFinding = OperationFinding & { label: string; summary: string };
 const JUDGMENT_SUMMARY: Record<OperationJudgment, string> = {
   pass: "Supported.",
-  contract: "Not supported.",
+  contract: "No usable response for this fixture.",
   rejected:
     "The upstream refused this operation. That does not mean the model lacks it.",
   auth: "Credential rejected. That does not mean the model lacks this operation.",
@@ -240,6 +240,16 @@ async function discard(
   return judgment;
 }
 
+function usableChatContent(content: unknown): boolean {
+  if (typeof content === "string") return true;
+  if (!Array.isArray(content)) return false;
+  return content.some((part) => {
+    if (typeof part === "string") return true;
+    if (!part || typeof part !== "object") return false;
+    return typeof (part as { text?: unknown }).text === "string";
+  });
+}
+
 async function probe(
   supplier: Supplier,
   model: string,
@@ -266,15 +276,18 @@ async function probe(
     body = form;
   } else {
     headers["content-type"] = "application/json";
+    const chatBody: Record<string, unknown> = {
+      model,
+      max_tokens: 64,
+      messages: [{ role: "user", content: "Say OK." }],
+    };
+    // A short fixture with reasoning left on often returns null content.
+    if (supplier.baseUrl.includes("openrouter.ai")) {
+      chatBody.reasoning = { effort: "none" };
+      chatBody.include_reasoning = false;
+    }
     const requests = {
-      chat: [
-        "/chat/completions",
-        {
-          model,
-          max_tokens: 8,
-          messages: [{ role: "user", content: "Say OK." }],
-        },
-      ],
+      chat: ["/chat/completions", chatBody],
       embeddings: ["/embeddings", { model, input: "capability probe" }],
       decisions: ["/decisions", { model, state: "OK", questions }],
       "image-generation": [
@@ -346,7 +359,7 @@ async function probe(
       supported = true;
     }
     if (operation === "chat")
-      supported = typeof result.choices?.[0]?.message?.content === "string";
+      supported = usableChatContent(result.choices?.[0]?.message?.content);
     if (operation === "embeddings") {
       const embedding = result.data?.[0]?.embedding;
       supported =
@@ -562,6 +575,12 @@ export function createCatalogue(
         }
       }
       const presented = findings.map(present);
+      // An all-miss check is not a verified empty catalogue. Leave any stored offer alone.
+      const completedMiss = findings.every(
+        (finding) =>
+          finding.judgment === "contract" || finding.judgment === "rejected",
+      );
+      if (completedMiss) return { ...(await api.list()), findings: presented };
       const settlement = settle(findings);
       if (settlement.effect === "leave-unchanged")
         throw new CatalogueError(422, settlement.error, presented);

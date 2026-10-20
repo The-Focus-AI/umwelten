@@ -194,7 +194,7 @@ describe("admin catalogue", () => {
     });
     expect(JSON.parse(String(chatInit?.body))).toEqual({
       model: "mixed",
-      max_tokens: 8,
+      max_tokens: 64,
       messages: [{ role: "user", content: "Say OK." }],
     });
     const decisionsCall = upstream.mock.calls[2];
@@ -493,8 +493,11 @@ describe("admin catalogue", () => {
     const payload = await response.json();
     expect(
       payload.findings.find((finding: { operation: string }) => finding.operation === "transcription"),
-    ).toMatchObject({ judgment: "contract", summary: "Not supported." });
-    expect((await store.getOffer("vendor", modelId))?.capabilities).toEqual([]);
+    ).toMatchObject({
+      judgment: "contract",
+      summary: "No usable response for this fixture.",
+    });
+    expect(await store.getOffer("vendor", modelId)).toBeNull();
   });
 
   it("leaves the stored offer unchanged when a later operation has no result", async () => {
@@ -541,7 +544,9 @@ describe("admin catalogue", () => {
       judgment: "auth",
       summary: "Credential rejected. That does not mean the model lacks this operation.",
     });
-    expect(body.findings[0].summary).not.toBe("Not supported.");
+    expect(body.findings[0].summary).not.toBe(
+      "No usable response for this fixture.",
+    );
     expect(body.findings.slice(1).every((finding: { judgment: string }) => finding.judgment === "not-run")).toBe(true);
   });
 
@@ -579,14 +584,34 @@ describe("admin catalogue", () => {
     });
   });
 
-  it("records an empty capability list when every completed check misses", async () => {
+  it("does not write an offer when every completed check misses", async () => {
+    const verifiedAt = new Date("2026-03-01T00:00:00.000Z");
+    await store.saveAdminOffer(
+      "vendor",
+      { model: "kept", capabilities: ["chat"], servingMode: "adapted" },
+      { ...DEFAULT_PRICING, wholesalePromptPerMillion: 17 },
+      true,
+      verifiedAt,
+    );
+    const before = JSON.parse(JSON.stringify(await store.getOffer("vendor", "kept")));
     route({
       "/images/generations": () => new Response(null, { status: 403 }),
     });
-    const response = await request("/check", checkBody("empty"));
-    expect(response.status).toBe(200);
-    expect((await store.getOffer("vendor", "empty"))?.capabilities).toEqual([]);
-    expect((await store.getOffer("vendor", "empty"))?.enabled).toBe(false);
+    const kept = await request("/check", checkBody("kept"));
+    expect(kept.status).toBe(200);
+    expect(JSON.parse(JSON.stringify(await store.getOffer("vendor", "kept")))).toEqual(
+      before,
+    );
+    const fresh = await request("/check", checkBody("empty"));
+    expect(fresh.status).toBe(200);
+    expect(await store.getOffer("vendor", "empty")).toBeNull();
+    const body = await fresh.json();
+    expect(body.findings).toHaveLength(6);
+    expect(
+      body.suppliers
+        .flatMap((supplier: { offers: { model: string }[] }) => supplier.offers)
+        .some((offer: { model: string }) => offer.model === "empty"),
+    ).toBe(false);
   });
 
   it("never exposes upstream errors or binds secrets to caller-controlled destinations", async () => {
@@ -667,7 +692,7 @@ describe("admin catalogue", () => {
         (finding: { operation: string }) => finding.operation === "embeddings",
       ).judgment,
     ).toBe("contract");
-    expect((await store.getOffer("vendor", modelId))?.capabilities).not.toContain("embeddings");
+    expect(await store.getOffer("vendor", modelId)).toBeNull();
     route({
       "/embeddings": () => Response.json({ data: [{ embedding: [0.2, -0.7] }] }),
     });
@@ -698,4 +723,106 @@ describe("admin catalogue", () => {
       expect((await store.getOffer("vendor", modelId))?.capabilities).toEqual([operation]);
     },
   );
+
+  it("turns reasoning off on an OpenRouter chat fixture and accepts string content", async () => {
+    await store.createSupplier(
+      supplierFixture({
+        id: "openrouter",
+        displayName: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        upstreamCredentialEnv: undefined,
+        credentialHash: "openrouter-unused",
+      }),
+    );
+    route({
+      "/chat/completions": () =>
+        Response.json({ choices: [{ message: { content: "OK" } }] }),
+    });
+    const response = await request("/check", {
+      supplierId: "openrouter",
+      model: "inception/mercury-3",
+      confirmPaidProbe: true,
+    });
+    expect(response.status).toBe(200);
+    expect(String(upstream.mock.calls[0][0])).toBe(
+      "https://openrouter.ai/api/v1/chat/completions",
+    );
+    expect(JSON.parse(String(upstream.mock.calls[0][1]?.body))).toEqual({
+      model: "inception/mercury-3",
+      max_tokens: 64,
+      messages: [{ role: "user", content: "Say OK." }],
+      reasoning: { effort: "none" },
+      include_reasoning: false,
+    });
+    const body = await response.json();
+    expect(
+      body.findings.find((finding: { operation: string }) => finding.operation === "chat"),
+    ).toMatchObject({ judgment: "pass", label: "Chat", summary: "Supported." });
+    expect(
+      (await store.getOffer("openrouter", "inception/mercury-3"))?.capabilities,
+    ).toContain("chat");
+  });
+
+  it("records a fixture miss when chat content is null", async () => {
+    route({
+      "/chat/completions": () =>
+        Response.json({
+          choices: [{ message: { content: null, reasoning: "hidden" } }],
+        }),
+      "/embeddings": () => Response.json({ data: [{ embedding: [0.2] }] }),
+    });
+    const response = await request("/check", checkBody("null-content"));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(
+      body.findings.find((finding: { operation: string }) => finding.operation === "chat"),
+    ).toMatchObject({
+      judgment: "contract",
+      summary: "No usable response for this fixture.",
+    });
+    expect((await store.getOffer("vendor", "null-content"))?.capabilities).toEqual([
+      "embeddings",
+    ]);
+  });
+
+  it.each([
+    ["empty-string", ""],
+    ["text-part", [{ type: "text", text: "OK" }]],
+    ["string-part", ["OK"]],
+  ] as const)("passes chat when content is %s", async (model, content) => {
+    route({
+      "/chat/completions": () =>
+        Response.json({ choices: [{ message: { content } }] }),
+    });
+    const response = await request("/check", checkBody(model));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(
+      body.findings.find((finding: { operation: string }) => finding.operation === "chat"),
+    ).toMatchObject({ judgment: "pass", summary: "Supported." });
+    expect((await store.getOffer("vendor", model))?.capabilities).toContain("chat");
+  });
+
+  it("does not create an offer row when all six operations miss the fixture", async () => {
+    upstream.mockImplementation(async () =>
+      Response.json({ choices: [{ message: { content: null } }] }),
+    );
+    const response = await request("/check", checkBody("all-miss"));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.findings).toHaveLength(6);
+    expect(
+      body.findings.every(
+        (finding: { judgment: string; summary: string }) =>
+          finding.judgment === "contract" &&
+          finding.summary === "No usable response for this fixture.",
+      ),
+    ).toBe(true);
+    expect(await store.getOffer("vendor", "all-miss")).toBeNull();
+    expect(
+      body.suppliers
+        .flatMap((supplier: { offers: { model: string }[] }) => supplier.offers)
+        .some((offer: { model: string }) => offer.model === "all-miss"),
+    ).toBe(false);
+  });
 });
