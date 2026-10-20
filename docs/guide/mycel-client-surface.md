@@ -62,25 +62,41 @@ verified role independently of the browser.
    or `TOGETHER_API_KEY`. No credential value or supplier publisher hash is
    exposed to the browser. Register other endpoints through the operator CLI
    first; the web API accepts neither arbitrary URLs nor environment names.
-2. **Add model** using its exact upstream ID, or **Edit / verify** an offer.
-   Select chat, embeddings, speech-to-text, image generation, or video generation.
-   Enter wholesale and retail input/output prices in **USD per million units**.
-   STT uses seconds in and tokens out: $100/million seconds is $0.0001/second.
-   The API stores nonnegative integer micro-dollars and requires the operation's
-   exact `OPERATION_UNITS`; missing or mismatched prices cannot be published.
-3. Authorize billable test requests, then **Verify & save offer**. The server
-   calls only the selected endpoints with fixed small fixtures, no redirects,
-   a 30-second timeout per operation and a 10 MB response limit. STT must return
-   text and a positive measured duration. All selected checks must pass before
-   metadata and pricing are committed together. Failed checks leave the old
-   offer unchanged; disable that old offer separately if it must stop serving.
+2. **Add model** using its exact upstream ID, or pick one from the supplier's
+   list. Authorize billable test requests, then **Check what this model can
+   do**. The server calls chat, embeddings, decisions, speech-to-text, image
+   generation, and video generation, in that order, with fixed small fixtures.
+   Requests do not follow redirects. Each call waits at most 30 seconds and
+   reads at most 10 MB. Speech-to-text must return text and a positive measured
+   duration. Decisions must return the decisions contract. The form lists every
+   result. Price fields appear only on passes, prefilled from the stored offer
+   when that operation was already priced, otherwise wholesale 0 and retail
+   $0.10 in / $0.40 out per million units. STT uses seconds in and tokens out:
+   $100/million seconds is $0.0001/second. The API stores nonnegative integer
+   micro-dollars and requires the operation's exact `OPERATION_UNITS`.
+   **Leave out** drops a pass from this save. Other rows have no prices and
+   cannot be saved.
+3. **Save offer** writes the passes still on the form and whether the offer is
+   enabled. It does not call the vendor. A new offer, an offer that was not
+   admin-managed, or a check that finds an operation the stored offer did not
+   have, is stored disabled until this save. A check that only confirms or
+   removes operations leaves that flag as it was. **Edit / verify** on an
+   admin-managed offer opens its prices with no probe. **Check again** returns
+   to the authorization step, then runs the full check and replaces the rows.
+   A vendor offer that is not admin-managed opens the check first. An agent
+   supplier is not edited here.
+   If the credential is rejected before any pass, or any operation returns no
+   result, the stored offer is left unchanged and the form shows those results
+   without prices. A credential rejection after a pass records the earlier
+   passes and does not send the rest.
 4. Use **Disable offer** or **Disable supplier** to withdraw supply, and
    **Refresh availability** to see dispatch eligibility or the blocking reason.
 
-**Publication ownership:** Saving a vendor model in this card takes admin
-ownership of that supplier/model pair. It survives both total CLI/agent
-republishes and NeonStore restarts, including prices, verification time and
-disablement. Other models remain publisher-owned. Admin vendor offers do not
+**Publication ownership:** Checking a vendor model records the passes and takes
+admin ownership of that supplier/model pair. Saving sets prices and the enable
+flag without a new probe. The pair survives both total CLI/agent republishes
+and NeonStore restarts, including prices, verification time and disablement.
+Other models remain publisher-owned. Admin vendor offers do not
 require a `--watch` process and remain published until disabled. There is no
 automatic transfer back to publisher ownership in this version. Normal vendor
 publications still expire, and dial-in agents still require a live connection.
@@ -90,8 +106,9 @@ records endpoint-contract verification, not model quality or an uptime promise.
 The generic fixtures may reject vendor-specific APIs or models requiring other
 parameters. Chat verifies plain, non-streaming chat only; tool calling,
 streaming, vision, reasoning, and structured output are not inferred. Saving
-an existing offer replaces its capabilities with only the selected verified
-operations. Video verification requires immediate usable media, not just an
+an offer replaces that model's capabilities with the passed operations still
+on the form. A refusal or a missing result is not stored as proof the model
+lacks the operation. Video verification requires immediate usable media, not just an
 asynchronous vendor job ID. Agent model capabilities and per-offer controls
 remain agent/CLI-owned; this card shows their availability and can disable a
 whole supplier. Use NeonStore for durability; ephemeral MemoryStore deliberately

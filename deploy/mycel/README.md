@@ -188,8 +188,11 @@ sync's model list or capabilities: its alpha model may be absent from `/models`.
 After approval to deploy the code, reconcile the release with the running
 deployment worktree (including any local production patches), then use the
 normal deploy procedure below. Before publishing, verify the new protected
-endpoint exists. As an authenticated catalogue admin, POST to
-`/api/customer/admin/catalogue/save` with this body:
+endpoint exists. As an authenticated catalogue admin, POST
+`/api/customer/admin/catalogue/check` with supplier `openrouter`, model
+`typesafe/jev-1.13`, and `"confirmPaidProbe": true`. The check probes every
+operation and records only passes. Then POST
+`/api/customer/admin/catalogue/save` with this body and no `confirmPaidProbe`:
 
 ```json
 {
@@ -197,7 +200,6 @@ endpoint exists. As an authenticated catalogue admin, POST to
   "model": "typesafe/jev-1.13",
   "operations": ["decisions"],
   "enabled": true,
-  "confirmPaidProbe": true,
   "pricing": {
     "wholesalePromptPerMillion": 0,
     "wholesaleCompletionPerMillion": 0,
@@ -220,10 +222,13 @@ endpoint exists. As an authenticated catalogue admin, POST to
 These are the September 2026 listed input price ($0.042/M) and the active
 OpenRouter Offers' 5% retail markup; recheck
 <https://openrouter.ai/typesafe/jev-1.13> before publication. Chat prices are
-unused because the Offer has no chat capability. The save performs a bounded
-real Decisions probe before writing one admin-managed Offer. That Offer survives
-`offers sync` and restarts without changing any other pair or the sync service.
-Check for an existing pair first; do not overwrite different operator pricing.
+unused because the Offer has no chat capability, and are sent as zeros. The
+check performs the bounded probes, including Decisions on OpenRouter's alpha
+path, and writes the admin-managed Offer. Save sets the price and `enabled`
+without another probe or a new `verifiedAt`. That Offer survives `offers sync`
+and restarts without changing any other pair or the sync service. Check for an
+existing pair first. A recheck keeps the stored price of an operation that
+passes again, and save is what replaces it.
 
 Finally send a small synthetic request through `/v1/decisions` with the
 Application bearer credential and `X-Mycel-End-User`. Read the credential from

@@ -356,7 +356,7 @@ describe("Decisions serving path", () => {
   });
 
   it("probes Decisions before publication and preserves the offer across chat sync", async () => {
-    upstream.mockResolvedValue(
+    upstream.mockImplementation(async () =>
       Response.json({
         model,
         answers: { ok: { type: "noul", noul: 0.99 } },
@@ -367,17 +367,23 @@ describe("Decisions serving path", () => {
       fetch: upstream,
       readCredential: () => "upstream-test-key",
     });
+    await catalogue.check({
+      supplierId: "openrouter",
+      model,
+      confirmPaidProbe: true,
+    });
+    expect(upstream.mock.calls.map((call) => call[0])).toContain(
+      "https://openrouter.ai/api/alpha/decisions",
+    );
+    upstream.mockClear();
     await catalogue.save({
       supplierId: "openrouter",
       model,
       operations: ["decisions"],
       pricing,
       enabled: true,
-      confirmPaidProbe: true,
     });
-    expect(upstream.mock.calls[0][0]).toBe(
-      "https://openrouter.ai/api/alpha/decisions",
-    );
+    expect(upstream).not.toHaveBeenCalled();
     await store.replaceOffers("openrouter", [
       { model: "chat-only", capabilities: ["chat"], servingMode: "adapted" },
     ]);
@@ -387,19 +393,17 @@ describe("Decisions serving path", () => {
       enabled: true,
       operationPricing: pricing.operationPricing,
     });
-    upstream.mockResolvedValue(
+    upstream.mockImplementation(async () =>
       Response.json({ choices: [{ message: { content: "OK" } }] }),
     );
-    await expect(
-      catalogue.save({
-        supplierId: "openrouter",
-        model: "unverified",
-        operations: ["decisions"],
-        pricing,
-        enabled: true,
-        confirmPaidProbe: true,
-      }),
-    ).rejects.toThrow("verification_failed:decisions");
-    expect(await store.getOffer("openrouter", "unverified")).toBeNull();
+    await catalogue.check({
+      supplierId: "openrouter",
+      model: "unverified",
+      confirmPaidProbe: true,
+    });
+    expect(await store.getOffer("openrouter", "unverified")).toMatchObject({
+      capabilities: ["chat"],
+      adminManaged: true,
+    });
   });
 });

@@ -448,14 +448,18 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
         } else if (path === `${ROOT}/admin/catalogue/models` && req.method === "GET") {
           const query = new URLSearchParams((req.url ?? "").split("?")[1]);
           sendJson(res, 200, await catalogue.models(query.get("supplierId")));
+        } else if (path === `${ROOT}/admin/catalogue/check` && req.method === "POST") {
+          sendJson(res, 200, await catalogue.check(await readJson(req)));
         } else if (req.method === "POST" && ["connect", "save", "enabled"].some((action) => path === `${ROOT}/admin/catalogue/${action}`)) {
           const action = path.split("/").pop() as "connect" | "save" | "enabled";
           await catalogue[action](await readJson(req));
           sendJson(res, 200, await catalogue.list());
         } else sendJson(res, 405, { error: "method_not_allowed" });
       } catch (error) {
-        sendJson(res, error instanceof CatalogueError ? error.status : error instanceof Error && error.message === "invalid_json" ? 400 : 500, {
-          error: error instanceof CatalogueError ? error.message : error instanceof Error && error.message === "invalid_json" ? "invalid_json" : "catalogue_failed",
+        const catalogueError = error instanceof CatalogueError;
+        sendJson(res, catalogueError ? error.status : error instanceof Error && error.message === "invalid_json" ? 400 : 500, {
+          error: catalogueError ? error.message : error instanceof Error && error.message === "invalid_json" ? "invalid_json" : "catalogue_failed",
+          ...(catalogueError && error.findings ? { findings: error.findings } : {}),
         });
       }
       return true;

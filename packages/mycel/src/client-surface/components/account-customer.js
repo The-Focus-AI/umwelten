@@ -27,10 +27,12 @@ export default {
       const response = await authorizedFetch(path, options);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(
+        const failure = new Error(
           payload.error?.replaceAll?.("_", " ") ??
             `Request failed (${response.status}).`,
         );
+        if (Array.isArray(payload.findings)) failure.findings = payload.findings;
+        throw failure;
       }
       return payload;
     };

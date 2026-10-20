@@ -1,7 +1,9 @@
 import { Operator } from "../operator.js";
 import { dispatch } from "../dispatch.js";
 import {
+  DEFAULT_PRICING,
   OPERATION_UNITS,
+  type Offer,
   type OfferPricing,
   type OperationName,
   type Supplier,
@@ -52,11 +54,47 @@ const OP_PRICES = [
   "retailInputPerMillion",
   "retailOutputPerMillion",
 ] as const;
+const OPERATION_LABELS: Record<OperationName, string> = {
+  chat: "Chat",
+  embeddings: "Embeddings",
+  decisions: "Decisions",
+  transcription: "Speech to text (STT)",
+  "image-generation": "Image generation",
+  "video-generation": "Video generation",
+};
+type OperationJudgment =
+  | "pass"
+  | "contract"
+  | "auth"
+  | "rejected"
+  | "unobserved"
+  | "not-run";
+type OperationFinding = {
+  operation: OperationName;
+  judgment: OperationJudgment;
+};
+type ProbeSettlement =
+  | { effect: "record"; capabilities: OperationName[] }
+  | {
+      effect: "leave-unchanged";
+      error: "upstream_unauthorized" | "upstream_unobserved";
+    };
+type PresentedFinding = OperationFinding & { label: string; summary: string };
+const JUDGMENT_SUMMARY: Record<OperationJudgment, string> = {
+  pass: "Supported.",
+  contract: "Not supported.",
+  rejected:
+    "The upstream refused this operation. That does not mean the model lacks it.",
+  auth: "Credential rejected. That does not mean the model lacks this operation.",
+  unobserved: "No result. That does not mean the model lacks this operation.",
+  "not-run": "Not sent.",
+};
 
 export class CatalogueError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly findings?: readonly PresentedFinding[],
   ) {
     super(message);
   }
@@ -106,14 +144,109 @@ function silentWav(): Uint8Array<ArrayBuffer> {
   return new Uint8Array(wav);
 }
 
-/** Verify only the selected operation. No response text or upstream error is exposed. */
-async function verify(
+function present(finding: OperationFinding): PresentedFinding {
+  return {
+    ...finding,
+    label: OPERATION_LABELS[finding.operation],
+    summary: JUDGMENT_SUMMARY[finding.judgment],
+  };
+}
+function settle(findings: readonly OperationFinding[]): ProbeSettlement {
+  const capabilities = findings
+    .filter((finding) => finding.judgment === "pass")
+    .map((finding) => finding.operation);
+  if (
+    findings.some((finding) => finding.judgment === "auth") &&
+    capabilities.length === 0
+  )
+    return { effect: "leave-unchanged", error: "upstream_unauthorized" };
+  // A stored row means these passed a completed check. A missing answer is not absence.
+  if (findings.some((finding) => finding.judgment === "unobserved"))
+    return { effect: "leave-unchanged", error: "upstream_unobserved" };
+  return { effect: "record", capabilities };
+}
+function chatRate(
+  existing: Offer | null,
+  passed: boolean,
+  key: (typeof CHAT_PRICES)[number],
+): number {
+  if (!passed) return 0;
+  if (existing?.capabilities.includes("chat")) return existing[key];
+  return DEFAULT_PRICING[key];
+}
+function pricingForRecord(
+  existing: Offer | null,
+  capabilities: readonly OperationName[],
+): OfferPricing {
+  const chat = capabilities.includes("chat");
+  const operationPricing: NonNullable<OfferPricing["operationPricing"]> = {};
+  for (const operation of capabilities) {
+    if (operation === "chat") continue;
+    const stored = existing?.capabilities.includes(operation)
+      ? existing.operationPricing?.[operation]
+      : undefined;
+    operationPricing[operation] = stored
+      ? { ...stored }
+      : {
+          inputUnit: OPERATION_UNITS[operation].input,
+          outputUnit: OPERATION_UNITS[operation].output,
+          wholesaleInputPerMillion: 0,
+          wholesaleOutputPerMillion: 0,
+          retailInputPerMillion: 100_000,
+          retailOutputPerMillion: 400_000,
+        };
+  }
+  return {
+    wholesalePromptPerMillion: chatRate(
+      existing,
+      chat,
+      "wholesalePromptPerMillion",
+    ),
+    wholesaleCompletionPerMillion: chatRate(
+      existing,
+      chat,
+      "wholesaleCompletionPerMillion",
+    ),
+    retailPromptPerMillion: chatRate(existing, chat, "retailPromptPerMillion"),
+    retailCompletionPerMillion: chatRate(
+      existing,
+      chat,
+      "retailCompletionPerMillion",
+    ),
+    operationPricing,
+  };
+}
+function enabledForRecord(
+  existing: Offer | null,
+  capabilities: readonly OperationName[],
+): boolean {
+  if (!existing?.adminManaged) return false;
+  const discovered = capabilities.some(
+    (operation) => !existing.capabilities.includes(operation),
+  );
+  return discovered ? false : existing.enabled;
+}
+function aborted(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "TimeoutError")
+  );
+}
+async function discard(
+  response: Response,
+  judgment: OperationJudgment,
+): Promise<OperationJudgment> {
+  await response.body?.cancel().catch(() => undefined);
+  return judgment;
+}
+
+async function probe(
   supplier: Supplier,
   model: string,
   operation: OperationName,
   doFetch: typeof fetch,
   credential?: string,
-): Promise<void> {
+): Promise<OperationJudgment> {
   let path: SupplierPath;
   let body: BodyInit;
   const questions = { ok: { type: "noul", instructions: "Does the state say OK?" } };
@@ -162,18 +295,28 @@ async function verify(
     path = requests[operation][0];
     body = JSON.stringify(requests[operation][1]);
   }
+  let response: Response;
   try {
-    const response = await doFetch(
-      supplierRequestUrl(supplier.baseUrl, path),
-      {
-        method: "POST",
-        headers,
-        body,
-        redirect: "error",
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
-    if (!response.ok || !response.body) throw new Error();
+    response = await doFetch(supplierRequestUrl(supplier.baseUrl, path), {
+      method: "POST",
+      headers,
+      body,
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    return "unobserved";
+  }
+  if (response.status === 401) return discard(response, "auth");
+  if (response.status === 403) return discard(response, "rejected");
+  if (
+    response.status === 408 ||
+    response.status === 429 ||
+    response.status >= 500
+  )
+    return discard(response, "unobserved");
+  try {
+    if (!response.ok || !response.body) return discard(response, "contract");
     // Bound even a lying Content-Length. Media responses may be larger than chat.
     const reader = response.body.getReader();
     let size = 0;
@@ -183,7 +326,7 @@ async function verify(
         const { done, value } = await reader.read();
         if (done) break;
         size += value.length;
-        if (size > 10_000_000) throw new Error();
+        if (size > 10_000_000) return "contract";
         chunks.push(value);
       }
     } finally {
@@ -232,9 +375,10 @@ async function verify(
         result.data.every(media);
     if (operation === "video-generation")
       supported = media(result.data?.[0] ?? result.video);
-    if (!supported) throw new Error();
-  } catch {
-    throw new CatalogueError(422, `verification_failed:${operation}`);
+    return supported ? "pass" : "contract";
+  } catch (error) {
+    if (aborted(error)) return "unobserved";
+    return "contract";
   }
 }
 
@@ -256,7 +400,7 @@ export function createCatalogue(
     if (!found) throw new CatalogueError(404, "supplier_not_found");
     return found;
   }
-  return {
+  const api = {
     async models(id: unknown) {
       const s = await supplier(id);
       if (s.kind !== "vendor")
@@ -319,6 +463,7 @@ export function createCatalogue(
         })),
         operations: OPERATIONS,
         units: OPERATION_UNITS,
+        labels: { ...OPERATION_LABELS },
         suppliers: await Promise.all(
           suppliers.map(async (s) => ({
             id: s.id,
@@ -384,25 +529,61 @@ export function createCatalogue(
         await store.setOfferEnabled(s.id, model, body.enabled);
       } else await store.setSupplierEnabled(s.id, body.enabled);
     },
-    async save(input: unknown) {
+    async check(input: unknown) {
       const body = object(input);
-      exact(body, [
-        "supplierId",
-        "model",
-        "operations",
-        "pricing",
-        "enabled",
-        "confirmPaidProbe",
-      ]);
+      exact(body, ["supplierId", "model", "confirmPaidProbe"]);
+      const model = name(body.model);
+      if (body.confirmPaidProbe !== true) invalid();
       const s = await supplier(body.supplierId);
       if (s.kind !== "vendor")
         throw new CatalogueError(
           409,
           "agent_capabilities_are_published_by_agent",
         );
+      if (!ready(s)) throw new CatalogueError(409, "credential_not_configured");
+      const credential = s.upstreamCredentialEnv
+        ? readCredential(s.upstreamCredentialEnv)
+        : undefined;
+      const findings: OperationFinding[] = [];
+      for (const operation of OPERATIONS) {
+        const judgment = await probe(
+          s,
+          model,
+          operation,
+          options.fetch ?? fetch,
+          credential,
+        );
+        findings.push({ operation, judgment });
+        if (judgment === "auth") {
+          // A rejected credential is the supplier's, so later calls would bill the same refusal.
+          for (const later of OPERATIONS.slice(findings.length))
+            findings.push({ operation: later, judgment: "not-run" });
+          break;
+        }
+      }
+      const presented = findings.map(present);
+      const settlement = settle(findings);
+      if (settlement.effect === "leave-unchanged")
+        throw new CatalogueError(422, settlement.error, presented);
+      const existing = await store.getOffer(s.id, model);
+      await store.saveAdminOffer(
+        s.id,
+        {
+          model,
+          capabilities: settlement.capabilities,
+          servingMode: "adapted",
+        },
+        pricingForRecord(existing, settlement.capabilities),
+        enabledForRecord(existing, settlement.capabilities),
+        new Date(),
+      );
+      return { ...(await api.list()), findings: presented };
+    },
+    async save(input: unknown) {
+      const body = object(input);
+      exact(body, ["supplierId", "model", "operations", "pricing", "enabled"]);
       const model = name(body.model);
-      if (typeof body.enabled !== "boolean" || body.confirmPaidProbe !== true)
-        invalid();
+      if (typeof body.enabled !== "boolean") invalid();
       if (
         !Array.isArray(body.operations) ||
         !body.operations.length ||
@@ -411,16 +592,16 @@ export function createCatalogue(
         new Set(body.operations).size !== body.operations.length
       )
         invalid();
-      const operations = body.operations as OperationName[];
+      const requested = body.operations as OperationName[];
       const pricing = object(body.pricing);
       exact(pricing, [...CHAT_PRICES, "operationPricing"]);
       prices(pricing, CHAT_PRICES);
       const operationPricing = object(pricing.operationPricing ?? {});
       exact(
         operationPricing,
-        operations.filter((op) => op !== "chat"),
+        requested.filter((op) => op !== "chat"),
       );
-      for (const operation of operations) {
+      for (const operation of requested) {
         if (operation === "chat") continue;
         const price = object(operationPricing[operation]);
         exact(price, [...OP_PRICES, "inputUnit", "outputUnit"]);
@@ -431,25 +612,34 @@ export function createCatalogue(
         )
           invalid();
       }
-      if (!ready(s)) throw new CatalogueError(409, "credential_not_configured");
-      for (const operation of operations) {
-        await verify(
-          s,
-          model,
-          operation,
-          options.fetch ?? fetch,
-          s.upstreamCredentialEnv
-            ? readCredential(s.upstreamCredentialEnv)
-            : undefined,
+      const s = await supplier(body.supplierId);
+      if (s.kind !== "vendor")
+        throw new CatalogueError(
+          409,
+          "agent_capabilities_are_published_by_agent",
         );
-      }
+      const offer = await store.getOffer(s.id, model);
+      if (!offer) throw new CatalogueError(404, "offer_not_found");
+      if (!offer.adminManaged || !offer.verifiedAt)
+        throw new CatalogueError(409, "probe_before_publishing");
+      const billable = new Set(
+        offer.capabilities.filter((capability): capability is OperationName =>
+          OPERATIONS.includes(capability as OperationName),
+        ),
+      );
+      if (requested.some((operation) => !billable.has(operation)))
+        throw new CatalogueError(409, "not_a_checked_capability");
+      const operations = OPERATIONS.filter((operation) =>
+        requested.includes(operation),
+      );
       await store.saveAdminOffer(
         s.id,
         { model, capabilities: operations, servingMode: "adapted" },
-        { ...pricing, operationPricing } as unknown as OfferPricing,
+        { ...pricing, operationPricing } as OfferPricing,
         body.enabled,
-        new Date(),
+        offer.verifiedAt,
       );
     },
   };
+  return api;
 }
