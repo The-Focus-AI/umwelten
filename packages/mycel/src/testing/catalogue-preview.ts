@@ -1,4 +1,13 @@
-/** Local-only review fixture. Never imported by the exchange entrypoint. */
+/**
+ * Local-only review fixture. Never imported by the exchange entrypoint.
+ *
+ * Demo model ids:
+ * - demo/chat-small is a normal pass. Chat returns string content "OK".
+ * - demo/reasoning-mercury is a reasoning miss. Chat returns HTTP 200 with
+ *   choices[0].message.content null, and the other fixtures miss, so the
+ *   check writes no offer.
+ * - demo/fail is unobserved. Every probe returns HTTP 500.
+ */
 import http from "node:http";
 import { createAccountSurfaceHandler } from "../client-surface/serve.js";
 import { createCustomerHandler } from "../customer/handler.js";
@@ -79,6 +88,8 @@ const customer = createCustomerHandler({
       return Response.json({ data: [
         { id: "demo/chat-small", name: "Demo Chat Small" },
         { id: "demo/whisper-large-v3", name: "Demo Whisper Large V3" },
+        { id: "demo/reasoning-mercury", name: "Demo Reasoning Mercury" },
+        { id: "demo/fail", name: "Demo Fail" },
       ] });
     const model =
       init?.body instanceof FormData
@@ -89,6 +100,13 @@ const customer = createCustomerHandler({
         { error: "Simulated unsupported model" },
         { status: 500 },
       );
+    if (String(model).includes("reasoning")) {
+      if (String(_url).endsWith("/chat/completions"))
+        return Response.json({
+          choices: [{ message: { content: null, reasoning: "hidden" } }],
+        });
+      return Response.json({});
+    }
     if (String(_url).endsWith("/decisions"))
       return Response.json({
         model,
