@@ -1,18 +1,19 @@
-/**
- * Local-only review fixture. Never imported by the exchange entrypoint.
- *
- * Demo model ids:
- * - demo/chat-small is a normal pass. Chat returns string content "OK".
- * - demo/reasoning-mercury is a reasoning miss. Chat returns HTTP 200 with
- *   choices[0].message.content null, and the other fixtures miss, so the
- *   check writes no offer.
- * - demo/fail is unobserved. Every probe returns HTTP 500.
- */
+/** Local-only review fixture. Never imported by the exchange entrypoint. */
 import http from "node:http";
 import { createAccountSurfaceHandler } from "../client-surface/serve.js";
 import { createCustomerHandler } from "../customer/handler.js";
 import { MemoryStore } from "../store/memory-store.js";
 import { DEFAULT_PRICING } from "../types.js";
+
+const DEMO_MODELS = {
+  pass: { id: "demo/chat-small", name: "Demo Chat Small" },
+  reasoningMiss: {
+    id: "demo/reasoning-mercury",
+    name: "Demo Reasoning Mercury",
+  },
+  unobserved: { id: "demo/fail", name: "Demo Fail" },
+  whisper: { id: "demo/whisper-large-v3", name: "Demo Whisper Large V3" },
+} as const;
 
 const store = new MemoryStore();
 await store.createSupplier({
@@ -85,22 +86,20 @@ const customer = createCustomerHandler({
   // Every probe is simulated. No keys, real provider requests, database, or billing.
   fetch: async (_url, init) => {
     if (String(_url).endsWith("/models"))
-      return Response.json({ data: [
-        { id: "demo/chat-small", name: "Demo Chat Small" },
-        { id: "demo/whisper-large-v3", name: "Demo Whisper Large V3" },
-        { id: "demo/reasoning-mercury", name: "Demo Reasoning Mercury" },
-        { id: "demo/fail", name: "Demo Fail" },
-      ] });
+      return Response.json({
+        data: Object.values(DEMO_MODELS).map(({ id, name }) => ({ id, name })),
+      });
     const model =
       init?.body instanceof FormData
         ? init.body.get("model")
         : JSON.parse(String(init?.body ?? "{}")).model;
-    if (String(model).includes("fail"))
+    const modelId = String(model);
+    if (modelId.includes("fail"))
       return Response.json(
         { error: "Simulated unsupported model" },
         { status: 500 },
       );
-    if (String(model).includes("reasoning")) {
+    if (modelId.includes("reasoning")) {
       if (String(_url).endsWith("/chat/completions"))
         return Response.json({
           choices: [{ message: { content: null, reasoning: "hidden" } }],

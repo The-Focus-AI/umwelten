@@ -75,6 +75,7 @@ type OperationFinding = {
 };
 type ProbeSettlement =
   | { effect: "record"; capabilities: OperationName[] }
+  | { effect: "findings-only" }
   | {
       effect: "leave-unchanged";
       error: "upstream_unauthorized" | "upstream_unobserved";
@@ -163,6 +164,14 @@ function settle(findings: readonly OperationFinding[]): ProbeSettlement {
   // A stored row means these passed a completed check. A missing answer is not absence.
   if (findings.some((finding) => finding.judgment === "unobserved"))
     return { effect: "leave-unchanged", error: "upstream_unobserved" };
+  if (
+    capabilities.length === 0 &&
+    findings.every(
+      (finding) =>
+        finding.judgment === "contract" || finding.judgment === "rejected",
+    )
+  )
+    return { effect: "findings-only" };
   return { effect: "record", capabilities };
 }
 function chatRate(
@@ -575,13 +584,9 @@ export function createCatalogue(
         }
       }
       const presented = findings.map(present);
-      // An all-miss check is not a verified empty catalogue. Leave any stored offer alone.
-      const completedMiss = findings.every(
-        (finding) =>
-          finding.judgment === "contract" || finding.judgment === "rejected",
-      );
-      if (completedMiss) return { ...(await api.list()), findings: presented };
       const settlement = settle(findings);
+      if (settlement.effect === "findings-only")
+        return { ...(await api.list()), findings: presented };
       if (settlement.effect === "leave-unchanged")
         throw new CatalogueError(422, settlement.error, presented);
       const existing = await store.getOffer(s.id, model);
