@@ -82,6 +82,16 @@ const CSS = `
   .catalogue-editor { max-width: none; margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line); }
   .catalogue-editor h3 { margin: 0 0 8px; font: 400 28px/1.2 var(--serif); }
   .catalogue-editor fieldset { min-width: 0; margin: 0; padding: 18px; border: 1px solid var(--line); }
+  .catalogue-rows { display: grid; gap: 16px; }
+  .catalogue-result { margin: 0; padding: 12px 14px; border: 1px solid rgba(199,244,170,.45); background: rgba(199,244,170,.08); }
+  .catalogue-result.miss { border-color: rgba(255,155,130,.45); background: rgba(110,35,24,.16); }
+  .catalogue-result p { margin: 0; }
+  .catalogue-result-title { color: var(--ink); }
+  .catalogue-result .account-note { margin-top: 6px; }
+  .catalogue-editor fieldset[data-priced='true'] legend { color: var(--accent); }
+  .catalogue-misses { color: var(--muted); font-size: 13px; }
+  .catalogue-misses summary { cursor: pointer; }
+  .catalogue-misses p { margin: 8px 0 0; }
   .catalogue-rates { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
   .account-form .catalogue-check { display: flex; align-items: center; gap: 10px; line-height: 1.5; }
   .account-form .catalogue-check input { width: 16px; height: 16px; accent-color: var(--accent); }

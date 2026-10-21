@@ -68,14 +68,27 @@ verified role independently of the browser.
    generation, and video generation, in that order, with fixed small fixtures.
    Requests do not follow redirects. Each call waits at most 30 seconds and
    reads at most 10 MB. Speech-to-text must return text and a positive measured
-   duration. Decisions must return the decisions contract. The form lists every
-   result. Price fields appear only on passes, prefilled from the stored offer
-   when that operation was already priced, otherwise wholesale 0 and retail
-   $0.10 in / $0.40 out per million units. STT uses seconds in and tokens out:
-   $100/million seconds is $0.0001/second. The API stores nonnegative integer
-   micro-dollars and requires the operation's exact `OPERATION_UNITS`.
-   **Leave out** drops a pass from this save. Other rows have no prices and
-   cannot be saved.
+   duration. Decisions must return the decisions contract. The chat fixture
+   asks for 64 tokens. When the supplier base URL contains `openrouter.ai`,
+   the fixture also sends `reasoning` effort `none` and `include_reasoning`
+   false. A reasoning model often returns null message content when the
+   fixture is short and reasoning stays on. Null content is a fixture miss.
+   Chat passes when content is a string, including an empty string, or when
+   content is an array of parts that includes a string or an object whose
+   `text` is a string.
+   The form lists passes first. If any operation passed, a banner reads **Ready to price
+   N operations** (or **1 operation**). Price fields appear only on those
+   passes, prefilled from the stored offer when that operation was already
+   priced, otherwise wholesale 0 and retail $0.10 in and $0.40 out per million
+   units. STT uses seconds in and tokens out. $100 per million seconds is
+   $0.0001 per second. The API stores nonnegative integer micro-dollars and
+   requires the operation's exact `OPERATION_UNITS`. **Leave out** drops a
+   pass from this save. **Save offer** stays only while at least one pass
+   remains on the form. Misses are one disclosure, **N not included**, followed
+   by their names. The disclosure says a fixture miss is not proof the model
+   lacks the capability. The form does not draw an empty price box for each
+   miss. If nothing passed, the banner reads **Check did not pass.** The
+   primary button is **Check again**.
 3. **Save offer** writes the passes still on the form and whether the offer is
    enabled. It does not call the vendor. A new offer, an offer that was not
    admin-managed, or a check that finds an operation the stored offer did not
@@ -85,15 +98,20 @@ verified role independently of the browser.
    to the authorization step, then runs the full check and replaces the rows.
    A vendor offer that is not admin-managed opens the check first. An agent
    supplier is not edited here.
-   If the credential is rejected before any pass, or any operation returns no
-   result, the stored offer is left unchanged and the form shows those results
-   without prices. A credential rejection after a pass records the earlier
-   passes and does not send the rest.
+   A check where every operation is a completed miss returns 200 with the
+   findings and the current catalogue, and does not write an offer. An offer
+   already stored for that model stays as it was. A completed miss is an
+   unusable fixture response or an upstream refusal. If the credential is
+   rejected before any pass, or any operation returns no result, the response
+   is 422, the stored offer is left unchanged, and the form shows those
+   results without prices. A credential rejection after a pass records the
+   earlier passes and does not send the rest.
 4. Use **Disable offer** or **Disable supplier** to withdraw supply, and
    **Refresh availability** to see dispatch eligibility or the blocking reason.
 
 **Publication ownership:** Checking a vendor model records the passes and takes
-admin ownership of that supplier/model pair. Saving sets prices and the enable
+admin ownership of that supplier/model pair. A check with no passes does not
+write an offer and does not take ownership. Saving sets prices and the enable
 flag without a new probe. The pair survives both total CLI/agent republishes
 and NeonStore restarts, including prices, verification time and disablement.
 Other models remain publisher-owned. Admin vendor offers do not
@@ -104,7 +122,7 @@ publications still expire, and dial-in agents still require a live connection.
 **Limits:** Eligibility is not continuous vendor health. The displayed timestamp
 records endpoint-contract verification, not model quality or an uptime promise.
 The generic fixtures may reject vendor-specific APIs or models requiring other
-parameters. Chat verifies plain, non-streaming chat only; tool calling,
+parameters. Chat verifies plain, non-streaming chat only. Tool calling,
 streaming, vision, reasoning, and structured output are not inferred. Saving
 an offer replaces that model's capabilities with the passed operations still
 on the form. A refusal or a missing result is not stored as proof the model
@@ -121,10 +139,15 @@ pnpm exec tsx packages/mycel/src/testing/catalogue-preview.ts
 ```
 
 It uses port 7439 (or `PORT`), a memory store, demo identity and simulated probes;
-it never contacts a vendor. Open `/account/`, append `?role=member` or
-`?role=anonymous` to review unauthorized UI, and use a model ID containing
-`fail` to exercise verification failure. This fixture is not imported by the
-production entrypoint. In an orb, start it as a supervised portal service.
+it never contacts a vendor. Open `/account/`. Append `?role=member` or
+`?role=anonymous` to review unauthorized UI. `demo/chat-small` is a normal
+pass and returns chat content `OK`. An id containing `reasoning`, such as
+`demo/reasoning-mercury`, returns HTTP 200 chat with null content and misses
+the other fixtures, so the form shows the miss banner and the catalogue gains
+no offer. An id containing `fail`, such as `demo/fail`, returns HTTP 500.
+That check is unobserved and leaves any offer unchanged. This fixture is not
+imported by the production entrypoint. In an orb, start it as a supervised
+portal service.
 
 ## The self-assembly loop (#410)
 

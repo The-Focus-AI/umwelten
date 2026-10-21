@@ -159,6 +159,10 @@ mycel supplier register openrouter \
   --base-url https://openrouter.ai/api/v1 \
   --credential-env OPENROUTER_API_KEY
 
+# Live catalogue check against OpenRouter (billable; never imported by serve).
+# Needs OPENROUTER_API_KEY in .env. Exits 1 unless chat passed.
+dotenvx run -- pnpm exec tsx packages/mycel/src/testing/probe-catalogue-model.ts inception/mercury-3
+
 # Its catalogue. A vendor runs no agent, so the operator publishes for it — and
 # a vendor runs no agent, so this has to keep running — it IS the heartbeat.
 # Machines need none of it; see the failure below.

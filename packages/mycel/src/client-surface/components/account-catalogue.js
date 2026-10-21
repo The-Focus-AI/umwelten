@@ -287,7 +287,16 @@ export default {
       });
       return inputs;
     }
-    function operationRow({ operation, label, summary, priced, stored, units }) {
+    function splitFindings(findings) {
+      const passes = [];
+      const misses = [];
+      for (const finding of findings) {
+        if (finding.judgment === "pass") passes.push(finding);
+        else misses.push(finding);
+      }
+      return { passes, misses };
+    }
+    function operationRow({ operation, label, summary, priced, stored, units, onLeave }) {
       const group = document.createElement("fieldset");
       group.dataset.operation = operation;
       if (priced) group.dataset.priced = "true";
@@ -303,7 +312,10 @@ export default {
       if (priced) {
         group.append(priceFields(operation, units, stored));
         const leave = button("Leave out");
-        leave.onclick = () => group.remove();
+        leave.onclick = () => {
+          group.remove();
+          onLeave?.();
+        };
         group.append(leave);
       }
       return group;
@@ -334,6 +346,7 @@ export default {
       model.readOnly = Boolean(offer);
       modelLabel.append(model);
       const rows = document.createElement("div");
+      rows.className = "catalogue-rows";
       const footer = document.createElement("div");
       const actions = document.createElement("div");
       actions.className = "account-actions";
@@ -343,8 +356,8 @@ export default {
         cancel.onclick = () => closeEditor();
         return cancel;
       }
-      function checkAgainButton() {
-        const again = button("Check again");
+      function checkAgainButton(primary = false) {
+        const again = button("Check again", primary ? "primary" : "");
         again.onclick = () => showCheckChrome();
         return again;
       }
@@ -387,40 +400,114 @@ export default {
         actions.replaceChildren(check, cancelButton());
       }
       function showFindings(findings) {
-        rows.replaceChildren(
-          ...findings.map((finding) =>
-            operationRow({
-              operation: finding.operation,
-              label: finding.label,
-              summary: finding.summary,
-              priced: false,
-            }),
-          ),
+        const { passes, misses } = splitFindings(findings);
+        const nodes = passes.map((finding) =>
+          operationRow({
+            operation: finding.operation,
+            label: finding.label,
+            summary: finding.summary,
+            priced: false,
+          }),
         );
+        if (misses.length)
+          nodes.push(missDetails(misses, { open: true, note: null }));
+        rows.replaceChildren(...nodes);
         if (editor.dataset.mode === "price") {
           editor.dataset.mode = "findings";
           footer.replaceChildren();
-          actions.replaceChildren(checkAgainButton(), cancelButton());
+          actions.replaceChildren(checkAgainButton(passes.length === 0), cancelButton());
         }
       }
+      function resultBanner(passes) {
+        const banner = document.createElement("div");
+        banner.className = passes.length ? "catalogue-result" : "catalogue-result miss";
+        const title = document.createElement("p");
+        title.className = "catalogue-result-title";
+        if (passes.length) {
+          const noun = passes.length === 1 ? "operation" : "operations";
+          title.textContent = `Ready to price ${passes.length} ${noun}.`;
+          banner.append(title);
+          return banner;
+        }
+        title.textContent = "Check did not pass.";
+        const honest = document.createElement("p");
+        honest.className = "account-note";
+        honest.textContent =
+          "A fixture miss is not proof the model lacks the capability.";
+        banner.append(title, honest);
+        return banner;
+      }
+      function missDetails(misses, { open, note }) {
+        const details = document.createElement("details");
+        details.className = "catalogue-misses";
+        details.open = open;
+        const summary = document.createElement("summary");
+        const labels = misses
+          .map((finding) => finding.label)
+          .filter((label) => typeof label === "string" && label.length > 0);
+        summary.textContent = `${misses.length} not included · ${labels.join(", ")}`;
+        details.append(summary);
+        if (note) {
+          const line = document.createElement("p");
+          line.className = "account-note";
+          line.textContent = note;
+          details.append(line);
+          return details;
+        }
+        const seen = new Set();
+        for (const finding of misses) {
+          if (typeof finding.summary !== "string" || !finding.summary || seen.has(finding.summary))
+            continue;
+          seen.add(finding.summary);
+          const line = document.createElement("p");
+          line.className = "account-note";
+          line.textContent = finding.summary;
+          details.append(line);
+        }
+        return details;
+      }
+      function refreshResultChrome() {
+        const remaining = rows.querySelectorAll("fieldset[data-priced='true']").length;
+        const title = rows.querySelector(".catalogue-result-title");
+        const banner = rows.querySelector(".catalogue-result");
+        if (title && banner && !banner.classList.contains("miss")) {
+          title.textContent = remaining
+            ? `Ready to price ${remaining} ${remaining === 1 ? "operation" : "operations"}.`
+            : "No operations left to price.";
+        }
+        if (remaining) return;
+        editor.dataset.mode = "findings";
+        footer.replaceChildren();
+        actions.replaceChildren(checkAgainButton(true), cancelButton());
+      }
       function showPriceEditor(findings, stored) {
-        rows.replaceChildren(
-          ...findings.map((finding) =>
+        const { passes, misses } = splitFindings(findings);
+        const nodes = [resultBanner(passes)];
+        for (const finding of passes) {
+          nodes.push(
             operationRow({
               operation: finding.operation,
               label: finding.label,
               summary: finding.summary,
-              priced: finding.judgment === "pass",
+              priced: true,
               stored: ratesFor(stored, finding.operation),
               units: unitsFor(finding.operation),
+              onLeave: refreshResultChrome,
             }),
-          ),
-        );
-        const passed = findings.some((finding) => finding.judgment === "pass");
-        if (!passed) {
+          );
+        }
+        if (misses.length)
+          nodes.push(
+            missDetails(misses, {
+              open: passes.length === 0,
+              note: "These completed the check without a usable response for this fixture. That is not proof the model lacks the capability forever.",
+            }),
+          );
+        rows.replaceChildren(...nodes);
+        if (!passes.length) {
           editor.dataset.mode = "findings";
-          footer.replaceChildren(helpNote());
-          actions.replaceChildren(checkAgainButton(), cancelButton());
+          footer.replaceChildren();
+          actions.replaceChildren(checkAgainButton(true), cancelButton());
           return;
         }
         editor.dataset.mode = "price";
@@ -439,6 +526,7 @@ export default {
               priced: true,
               stored: ratesFor(stored, operation),
               units: unitsFor(operation),
+              onLeave: refreshResultChrome,
             }),
           ),
         );
