@@ -38,7 +38,7 @@
     "@umwelten/protocols": "workspace:*",
     "@umwelten/substrate": "workspace:*",
     "ai": "^7.0.41",
-    "chalk": "^5.6.2",
+    "chalk": "^6.0.0",
     "commander": "^15.0.0",
     "esbuild": "^0.28.1",
     "gray-matter": "^4.0.3",
