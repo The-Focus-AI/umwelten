@@ -17,16 +17,20 @@ import {
   listShellComponents as listContractComponents,
   resolveShellRequest as resolveContractRequest,
   type ShellManifestEntry,
-  type ShellServeOptions,
+  type ShellServeOptions as ContractServeOptions,
   type ShellResponse,
 } from "@umwelten/substrate/serve";
 
 export {
   registerShellResources,
   type ShellManifestEntry,
-  type ShellServeOptions,
   type ShellResponse,
 } from "@umwelten/substrate/serve";
+
+export interface ShellServeOptions extends ContractServeOptions {
+  /** Current host tool roster; omitted by hosts that supply no capability information. */
+  toolNames?: () => string[];
+}
 
 const DEFAULT_ENTRIES: ShellManifestEntry[] = [
   // The stock layout (ADR 0034). `provides` here means "mounts everywhere,
@@ -75,8 +79,15 @@ function withHabitatDefaults(options?: ShellServeOptions): ShellServeOptions {
     entries: DEFAULT_ENTRIES,
     componentsDir: defaultComponentsDir(),
     transpile: transpileTs,
-    transformEntries: customLayoutWins,
     ...options,
+    transformEntries(entries) {
+      entries = (options?.transformEntries ?? customLayoutWins)(entries);
+      if (!options?.toolNames) return entries;
+      const names = new Set(options.toolNames());
+      const hasSecrets = ["secrets_list", "secrets_set", "secrets_remove"]
+        .every((name) => names.has(name));
+      return hasSecrets ? entries : entries.filter((entry) => entry.id !== "secrets");
+    },
   };
 }
 

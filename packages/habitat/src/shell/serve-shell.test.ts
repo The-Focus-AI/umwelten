@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { resolveShellRequest } from "./serve-shell.js";
+import { listShellComponents, resolveShellRequest } from "./serve-shell.js";
 
 const asText = (body: string | Buffer) => body.toString();
 
@@ -80,6 +80,29 @@ describe("the serving contract", () => {
       "secrets",
       "sessions",
     ]);
+  });
+
+  it("only offers the Secrets panel when the current tool roster supports it", async () => {
+    let names: string[] = [];
+    const options = { toolNames: () => names };
+    for (const available of [
+      [],
+      ["secrets_list"],
+      ["secrets_list", "secrets_set"],
+      ["secrets_list", "secrets_set", "secrets_remove"],
+      [],
+    ]) {
+      names = available;
+      const response = await resolveShellRequest("/shell/manifest.json", options);
+      const manifest = JSON.parse(asText(response!.body));
+      const entries = await listShellComponents(options);
+      for (const roster of [manifest.entries, entries]) {
+        const ids = roster.map((entry: { id: string }) => entry.id);
+        expect(ids.includes("secrets")).toBe(available.length === 3);
+        expect(ids).toContain("chat");
+        expect(ids).toContain("sessions");
+      }
+    }
   });
 
   it("a host can supply its own entries", async () => {

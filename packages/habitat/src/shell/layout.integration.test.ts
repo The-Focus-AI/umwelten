@@ -20,10 +20,14 @@ let server: Server;
 let baseUrl: string;
 let browser: Browser;
 let customDir: string;
+let toolNames = ["secrets_list", "secrets_set", "secrets_remove"];
 
 beforeAll(async () => {
   customDir = await mkdtemp(join(tmpdir(), "shell-layout-int-"));
-  const shell = createShellHandler({ customComponentsDir: customDir });
+  const shell = createShellHandler({
+    customComponentsDir: customDir,
+    toolNames: () => toolNames,
+  });
   server = createServer(async (req, res) => {
     if (req.url?.startsWith("/health")) {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -92,6 +96,24 @@ describe("the stock layout", () => {
     await page.close();
   }, 30_000);
 
+  it("removes unsupported Secrets controls while keeping chat and sessions", async () => {
+    const page = await browser.newPage();
+    const supported = toolNames;
+    try {
+      await page.goto(`${baseUrl}/shell/`);
+      await page.locator('[data-component="secrets"]').waitFor();
+      toolNames = [];
+      await page.locator('[data-component="secrets"]').waitFor({ state: "detached" });
+      expect(await page.locator("habitat-chat").isVisible()).toBe(true);
+      expect(await page.locator('[data-component="sessions"]').isVisible()).toBe(true);
+      toolNames = supported;
+      await page.locator('[data-component="secrets"] input[name="value"]').waitFor();
+    } finally {
+      toolNames = supported;
+      await page.close();
+    }
+  }, 30_000);
+
   it("collapse toggles and persists per viewer", async () => {
     const page = await browser.newPage();
     await page.goto(`${baseUrl}/shell/`);
@@ -136,6 +158,45 @@ describe("the stock layout", () => {
       .toBe(0);
     await page.close();
   }, 60_000);
+
+  it("keeps the composer clear of a tall preview after the transcript grows", async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    try {
+      await writeFile(join(customDir, "preview.js"), `export default {
+        name: "preview", inject: [], apply() {
+          const el = document.createElement("section");
+          el.className = "shell-card";
+          el.dataset.component = "preview";
+          el.style.cssText = "grid-column:1 / -1;height:520px";
+          el.textContent = "Website preview";
+          document.getElementById("region").appendChild(el);
+          return () => el.remove();
+        }
+      };`);
+      await page.goto(`${baseUrl}/shell/`);
+      await page.locator('[data-component="preview"]').waitFor();
+      await page.locator("habitat-chat").evaluate((el) => {
+        (el as HTMLElement & { renderTranscript(messages: unknown[]): void }).renderTranscript([
+          { role: "assistant", parts: [{ kind: "text", text: "A long website editing response.\n\n".repeat(80) }] },
+        ]);
+      });
+      const composer = page.locator('habitat-chat input[name="text"]');
+      for (const viewport of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }]) {
+        await page.setViewportSize(viewport);
+        await composer.scrollIntoViewIfNeeded();
+        const inputBox = (await composer.boundingBox())!;
+        const previewBox = (await page.locator('[data-component="preview"]').boundingBox())!;
+        expect(previewBox.y).toBeGreaterThanOrEqual(inputBox.y + inputBox.height);
+        await composer.click();
+        await page.keyboard.type("Make the heading smaller");
+        expect(await composer.inputValue()).toBe("Make the heading smaller");
+        await composer.fill("");
+      }
+    } finally {
+      await page.close();
+      await rm(join(customDir, "preview.js"), { force: true });
+    }
+  }, 30_000);
 
   it("a custom layout replaces the stock rail; removing it restores the rail", async () => {
     const page = await browser.newPage();

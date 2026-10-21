@@ -434,6 +434,7 @@ export async function startContainerServer(
 	const shellHandler = createShellHandler({
 		customComponentsDir: join(habitat.getWorkDir(), "components"),
 		extraEntries: options.shellEntries,
+		toolNames: () => Object.keys(habitat.getTools()),
 	});
 
 	const httpServer = createServer(
@@ -1091,6 +1092,7 @@ export async function startContainerServer(
 							await listShellComponents({
 								customComponentsDir: join(habitat.getWorkDir(), "components"),
 								extraEntries: options.shellEntries,
+								toolNames: () => Object.keys(habitat.getTools()),
 							}),
 							lastPublicOrigin ?? getPublicBaseUrl(req),
 							serverName,

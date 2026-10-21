@@ -123,6 +123,9 @@ describe("central browser login entry", () => {
     expect((await request("/api/habitat")).status).toBe(401);
     expect((await request("/mcp", {}, "POST")).status).toBe(401);
     expect((await request("/shell/components/auth.js")).status).toBe(200);
+    const manifest = await (await request("/shell/manifest.json")).json();
+    expect(manifest.entries.map((entry: { id: string }) => entry.id))
+      .not.toContain("secrets"); // This host has no local secret-management tools.
     expect(
       (await request("/shell/solo/status/", { "sec-fetch-dest": "iframe" }))
         .status,
