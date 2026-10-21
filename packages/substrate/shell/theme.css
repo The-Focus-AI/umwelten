@@ -448,6 +448,7 @@ body.shell-railed > header { grid-column: 1 / -1; }
 body.shell-railed > main#region {
   grid-row: 2;
   grid-column: 2;
+  grid-auto-rows: max-content;
   align-content: start;
   overflow: auto;
   min-height: 0;
