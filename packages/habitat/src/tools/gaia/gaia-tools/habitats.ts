@@ -8,6 +8,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { Tool } from "ai";
+import { saasRegistrationSchema } from "../types.js";
 import { sendA2AMessage } from "@umwelten/protocols";
 import { CapabilityResolver } from "../capability-resolver.js";
 import { seedOrgReadonly, seedStandardsAgent } from "../gaia-seed.js";
@@ -262,6 +263,11 @@ export function createHabitatLifecycleTools(
 			inputSchema: z.object({
 				id: z.string().describe("Slug identifier (e.g. 'jeeves-bot')"),
 				name: z.string().describe("Display name"),
+				saasRegistration: saasRegistrationSchema
+					.optional()
+					.describe(
+						"Exact SaaS organization and workspace UUIDs; overrides the global workspace slug. Does not create a workspace.",
+					),
 				gitUrl: z
 					.string()
 					.optional()
@@ -582,9 +588,9 @@ export function createHabitatLifecycleTools(
 
 		update_habitat_config: tool({
 			description:
-				"Update a habitat's configuration. Can set provider, model, name, gitUrl, gitBranch, or requiredSecrets. " +
+				"Update a habitat's configuration. Can set provider, model, name, gitUrl, gitBranch, or saasRegistration. " +
 				"When changing the model, verify the exact id with list_models first — NEVER write a model id from memory. " +
-				"Changes are persisted to the registry and the volume is re-seeded. Rebuild the habitat for changes to take effect if it's running.",
+				"Runtime changes re-seed the volume and need a rebuild. SaaS destination changes only update the registry; use register_in_saas to announce without restarting.",
 			inputSchema: z.object({
 				id: z.string().describe("Habitat ID"),
 				provider: z
@@ -598,8 +604,21 @@ export function createHabitatLifecycleTools(
 				name: z.string().optional().describe("Display name"),
 				gitUrl: z.string().optional().describe("Git URL for provisioning"),
 				gitBranch: z.string().optional().describe("Git branch"),
+				saasRegistration: saasRegistrationSchema
+					.optional()
+					.describe(
+						"Exact SaaS organization and workspace UUIDs; both are required when setting a destination.",
+					),
 			}),
-			execute: async ({ id, provider, model, name, gitUrl, gitBranch }) => {
+			execute: async ({
+				id,
+				provider,
+				model,
+				name,
+				gitUrl,
+				gitBranch,
+				saasRegistration,
+			}) => {
 				const entry = registry.get(id);
 				if (!entry) return `Habitat "${id}" not found`;
 
@@ -625,10 +644,18 @@ export function createHabitatLifecycleTools(
 					entry.config.gitBranch = gitBranch;
 					changes.push(`gitBranch=${gitBranch}`);
 				}
+				if (saasRegistration !== undefined) changes.push("saasRegistration");
 
 				if (changes.length === 0) return "No changes specified.";
 
-				await registry.update(id, { name: entry.name, config: entry.config });
+				await registry.update(id, {
+					name: entry.name,
+					config: entry.config,
+					saasRegistration,
+				});
+				if (saasRegistration !== undefined && changes.length === 1) {
+					return `Updated habitat "${id}" SaaS destination. Use register_in_saas to announce it; no rebuild is needed.`;
+				}
 
 				// Re-seed volume so next start picks up new config
 				await docker.seedVolume(id, buildSeedFiles(entry, vault, catalog));
@@ -919,10 +946,7 @@ export function createHabitatLifecycleTools(
 					id,
 					name: parsed.name ?? id,
 					provider: parsed.config.defaultProvider ?? gaiaProvider ?? "mycel",
-					model:
-						parsed.config.defaultModel ??
-						gaiaModel ??
-						"default",
+					model: parsed.config.defaultModel ?? gaiaModel ?? "default",
 					gitUrl: parsed.config.gitUrl,
 					gitBranch: parsed.config.gitBranch,
 					secretBindings: parsed.secretBindings ?? [],

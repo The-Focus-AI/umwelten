@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { GaiaRegistryManager } from "./registry.js";
 import {
 	announceHabitat,
 	buildAnnouncement,
@@ -60,7 +64,9 @@ describe("resolveSaasRegistryConfig", () => {
 	 * produce failing calls — better to stay inert than to retry forever.
 	 */
 	it("is null when only the URL or only the secret is set", () => {
-		expect(resolveSaasRegistryConfig({ HABITATS_SAAS_REGISTRY_URL: "u" })).toBeNull();
+		expect(
+			resolveSaasRegistryConfig({ HABITATS_SAAS_REGISTRY_URL: "u" }),
+		).toBeNull();
 		expect(
 			resolveSaasRegistryConfig({ HABITATS_SAAS_REGISTRY_SECRET: "s" }),
 		).toBeNull();
@@ -116,11 +122,93 @@ describe("buildAnnouncement", () => {
 	 * attached and can never answer.
 	 */
 	it("returns null for a habitat with no public hostname", () => {
-		expect(buildAnnouncement(entry({ containerPort: 7450 }), CONFIG)).toBeNull();
+		expect(
+			buildAnnouncement(entry({ containerPort: 7450 }), CONFIG),
+		).toBeNull();
 	});
 });
 
 describe("announceHabitat", () => {
+	it("persists exact destinations and sends them instead of the legacy global slug", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "gaia-saas-"));
+		try {
+			const registry = new GaiaRegistryManager(dir);
+			await registry.load();
+			const first = {
+				organizationId: "dba072fd-d067-4de2-90ae-0378ac85c760",
+				workspaceId: "032a3e72-c8c7-4d89-9a32-e46784e080e2",
+			};
+			const second = {
+				...first,
+				workspaceId: "07c90259-8c2c-42b3-8f89-e3579ab3b893",
+			};
+			await registry.create({
+				id: "mapped",
+				name: "Mapped",
+				hostname: "mapped.example.com",
+				saasRegistration: first,
+			});
+			expect(registry.get("mapped")?.saasRegistration).toEqual(first);
+			await registry.update("mapped", { saasRegistration: second });
+			await registry.update("mapped", {
+				name: "Renamed",
+				image: "pinned-image",
+			});
+			const reloaded = new GaiaRegistryManager(dir);
+			await reloaded.load();
+			const mapped = reloaded.get("mapped")!;
+			expect(mapped.saasRegistration).toEqual(second);
+			const fetch = vi
+				.fn()
+				.mockResolvedValue({ ok: true, json: async () => ({}) });
+			await announceHabitat(mapped, CONFIG, { fetch });
+			const payload = JSON.parse(fetch.mock.calls[0][1].body);
+			expect(payload).toMatchObject({
+				...second,
+				habitatId: "mapped",
+				name: "Renamed",
+			});
+			expect(payload).not.toHaveProperty("workspaceSlug");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects invalid destinations before creating or changing a registry entry", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "gaia-saas-"));
+		try {
+			const registry = new GaiaRegistryManager(dir);
+			await registry.load();
+			await registry.create({ id: "existing", name: "Original" });
+			for (const invalid of [
+				null,
+				{},
+				{ organizationId: "dba072fd-d067-4de2-90ae-0378ac85c760" },
+				{
+					organizationId: "not-a-uuid",
+					workspaceId: "07c90259-8c2c-42b3-8f89-e3579ab3b893",
+				},
+			]) {
+				const saasRegistration =
+					invalid as GaiaHabitatEntry["saasRegistration"];
+				await expect(
+					registry.create({ id: "invalid", name: "Invalid", saasRegistration }),
+				).rejects.toThrow();
+				await expect(
+					registry.update("existing", { name: "Changed", saasRegistration }),
+				).rejects.toThrow();
+			}
+			const reloaded = new GaiaRegistryManager(dir);
+			await reloaded.load();
+			expect(registry.get("invalid")).toBeUndefined();
+			expect(registry.get("existing")?.name).toBe("Original");
+			expect(reloaded.get("existing")?.name).toBe("Original");
+			expect(reloaded.get("existing")).not.toHaveProperty("saasRegistration");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("posts the payload with the shared secret as a bearer", async () => {
 		const fetch = vi.fn().mockResolvedValue({
 			ok: true,
@@ -132,7 +220,11 @@ describe("announceHabitat", () => {
 			{ fetch: fetch as unknown as typeof globalThis.fetch },
 		);
 
-		expect(out).toMatchObject({ ok: true, created: true, agentKey: "gaia-operations" });
+		expect(out).toMatchObject({
+			ok: true,
+			created: true,
+			agentKey: "gaia-operations",
+		});
 		const [url, init] = fetch.mock.calls[0];
 		expect(url).toBe(CONFIG.url);
 		expect(init.headers.authorization).toBe("Bearer shh");
@@ -180,7 +272,9 @@ describe("announceHabitat", () => {
 		const fetch = vi.fn(
 			(_u: unknown, init: { signal: AbortSignal }) =>
 				new Promise((_res, rej) =>
-					init.signal.addEventListener("abort", () => rej(new Error("aborted"))),
+					init.signal.addEventListener("abort", () =>
+						rej(new Error("aborted")),
+					),
 				),
 		);
 		const out = await announceHabitat(
