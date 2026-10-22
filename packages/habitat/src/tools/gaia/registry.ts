@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import type { AgentEntry, HabitatConfig } from "../../types.js";
 import { mountsToAgentEntries } from "./mounts.js";
 import { deriveRepoScopes, mergeDerivedReadScope } from "./repo-scopes.js";
+import { saasRegistrationSchema } from "./types.js";
 import type {
 	GaiaRegistry,
 	GaiaHabitatEntry,
@@ -105,6 +106,10 @@ export class GaiaRegistryManager {
 	async create(options: CreateHabitatOptions): Promise<GaiaHabitatEntry> {
 		this.ensureLoaded();
 
+		const saasRegistration =
+			options.saasRegistration === undefined
+				? undefined
+				: saasRegistrationSchema.parse(options.saasRegistration);
 		const id = slugify(options.id);
 		if (this.registry.habitats.some((h) => h.id === id)) {
 			throw new Error(`Habitat "${id}" already exists`);
@@ -141,6 +146,7 @@ export class GaiaRegistryManager {
 			apiKey: generateApiKey(),
 			previewSuffix: generatePreviewSuffix(),
 			...(options.image ? { image: options.image } : {}),
+			...(saasRegistration ? { saasRegistration } : {}),
 			...(options.hostname ? { hostname: options.hostname } : {}),
 			// Read scope is derived from the Owned repo plus these mounts, so a
 			// mount can never fail at boot with a GitHub 404 that reads like
@@ -221,6 +227,7 @@ export class GaiaRegistryManager {
 				| "secretBindings"
 				| "containerPort"
 				| "image"
+				| "saasRegistration"
 				| "github"
 				| "cachedCard"
 				| "lastActivityAt"
@@ -235,7 +242,14 @@ export class GaiaRegistryManager {
 		const idx = this.registry.habitats.findIndex((h) => h.id === id);
 		if (idx === -1) throw new Error(`Habitat "${id}" not found`);
 
+		// Validate before changing any field: HTTP callers bypass tool schemas.
+		const saasRegistration =
+			updates.saasRegistration === undefined
+				? undefined
+				: saasRegistrationSchema.parse(updates.saasRegistration);
 		const entry = this.registry.habitats[idx];
+		if (saasRegistration !== undefined)
+			entry.saasRegistration = saasRegistration;
 		if (updates.name !== undefined) entry.name = updates.name;
 		if (updates.config !== undefined) entry.config = updates.config;
 		if (updates.secretBindings !== undefined)

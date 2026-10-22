@@ -241,6 +241,37 @@ curl -s -X POST http://localhost:7420/api/habitats/twitter/start
 
 ## 6. Attach to the habitats SaaS
 
+### Automatic registration to an exact workspace
+
+Configure `HABITATS_SAAS_REGISTRY_URL` and `HABITATS_SAAS_REGISTRY_SECRET`
+on Gaia to enable announcements. Select each child's destination through
+`create_habitat`, `update_habitat_config`, or the registry HTTP API:
+
+```json
+{
+  "saasRegistration": {
+    "organizationId": "<organization UUID>",
+    "workspaceId": "<workspace UUID>"
+  }
+}
+```
+
+Both IDs are required. They are operator-owned registry metadata, not part of
+the repository's `habitat.json`. SaaS must verify that the active workspace
+belongs to that organization; this setting does not create workspaces or grant
+memberships. Deploy the SaaS receiver supporting these fields before configuring
+destinations on Gaia. Older receivers may ignore the IDs and use their default.
+
+A destination-only update does not re-seed or restart the child. Use
+`register_in_saas` to announce the new mapping explicitly, or let the next normal
+start announce it. Unrelated registry/declaration updates preserve the mapping.
+Mapped entries omit the legacy `workspaceSlug`; unmapped entries retain the
+`HABITATS_SAAS_REGISTRY_WORKSPACE` fallback. On the updated SaaS receiver, a legacy
+slug must identify exactly one active workspace globally. Do not use a shared
+slug such as `general` to infer tenant ownership.
+
+### Manual attachment
+
 The SaaS "+ Umwelten agent" flow needs an A2A endpoint + bearer token. Reach the
 Gaia-managed habitat through Gaia's proxy:
 

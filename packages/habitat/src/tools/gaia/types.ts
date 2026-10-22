@@ -3,7 +3,18 @@
  */
 
 import type { AgentCardSummary } from "@umwelten/protocols";
-import type { HabitatConfig, CapabilityBinding, RequiredSecret } from "../../types.js";
+import type {
+	HabitatConfig,
+	CapabilityBinding,
+	RequiredSecret,
+} from "../../types.js";
+import { z } from "zod";
+
+/** An operator-selected SaaS destination, never inferred from a repo declaration. */
+export const saasRegistrationSchema = z.object({
+	organizationId: z.string().uuid(),
+	workspaceId: z.string().uuid(),
+});
 
 /** A registered habitat managed by Gaia. */
 export interface GaiaHabitatEntry {
@@ -17,6 +28,8 @@ export interface GaiaHabitatEntry {
 	secretBindings: string[];
 	/** Auto-generated per-container API key */
 	apiKey: string;
+	/** Exact SaaS tenant/workspace pair; overrides the legacy global workspace slug. */
+	saasRegistration?: z.infer<typeof saasRegistrationSchema>;
 	/**
 	 * Docker image this habitat's container runs.
 	 * Omitted ⇒ the default habitat image. Specialized images (coding agent,
@@ -155,11 +168,7 @@ export type ContainerStatus =
 
 /** Docker HEALTHCHECK status; `none` means the image declares no check. */
 export type ContainerHealthStatus =
-	| "healthy"
-	| "unhealthy"
-	| "starting"
-	| "none"
-	| "not-found";
+	"healthy" | "unhealthy" | "starting" | "none" | "not-found";
 
 /** Habitat entry enriched with live container status. */
 export interface GaiaHabitatWithStatus extends GaiaHabitatEntry {
@@ -189,6 +198,8 @@ export interface CreateHabitatOptions {
 	github?: GaiaHabitatEntry["github"];
 	/** Backing-storage declaration (see GaiaHabitatEntry.storage). */
 	storage?: GaiaHabitatEntry["storage"];
+	/** Exact SaaS destination, selected by the operator. */
+	saasRegistration?: GaiaHabitatEntry["saasRegistration"];
 	/**
 	 * Repos this habitat reads but never writes (ADR 0006).
 	 *

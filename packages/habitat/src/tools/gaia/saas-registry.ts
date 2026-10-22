@@ -44,8 +44,7 @@ export function resolveSaasAppOrigin(
 	env: NodeJS.ProcessEnv = process.env,
 ): string | null {
 	const configured =
-		env.HABITATS_SAAS_URL?.trim() ??
-		env.HABITATS_SAAS_REGISTRY_URL?.trim();
+		env.HABITATS_SAAS_URL?.trim() ?? env.HABITATS_SAAS_REGISTRY_URL?.trim();
 	if (!configured) return null;
 	try {
 		return new URL(configured).origin;
@@ -79,6 +78,8 @@ export interface AnnouncePayload {
 	name: string;
 	token: string;
 	workspaceSlug?: string;
+	organizationId?: string;
+	workspaceId?: string;
 }
 
 /**
@@ -105,7 +106,11 @@ export function buildAnnouncement(
 		endpoint: `https://${host}`,
 		name: entry.name,
 		token: entry.apiKey,
-		...(config.workspace ? { workspaceSlug: config.workspace } : {}),
+		...(entry.saasRegistration
+			? entry.saasRegistration
+			: config.workspace
+				? { workspaceSlug: config.workspace }
+				: {}),
 	};
 }
 

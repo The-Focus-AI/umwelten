@@ -74,6 +74,29 @@ describe("create_habitat provider/model defaults", () => {
 		return t.create_habitat.execute(input, {} as any);
 	}
 
+	it("sets a SaaS destination through lifecycle tools without changing the runtime config", async () => {
+		const t = tools();
+		const first = {
+			organizationId: "dba072fd-d067-4de2-90ae-0378ac85c760",
+			workspaceId: "032a3e72-c8c7-4d89-9a32-e46784e080e2",
+		};
+		await create(t, { id: "mapped", name: "Mapped", saasRegistration: first });
+		expect(registry.get("mapped")?.saasRegistration).toEqual(first);
+		const config = structuredClone(registry.get("mapped")!.config);
+		const second = {
+			...first,
+			workspaceId: "07c90259-8c2c-42b3-8f89-e3579ab3b893",
+		};
+		await (t.update_habitat_config as any).execute(
+			{ id: "mapped", saasRegistration: second },
+			{},
+		);
+		const fresh = new GaiaRegistryManager(dataDir);
+		await fresh.load();
+		expect(fresh.get("mapped")?.saasRegistration).toEqual(second);
+		expect(fresh.get("mapped")?.config).toEqual(config);
+	});
+
 	it("an omitted provider/model inherits Gaia's own", async () => {
 		const t = tools({
 			provider: "openrouter",
