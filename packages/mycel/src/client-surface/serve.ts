@@ -60,8 +60,6 @@ const ACCOUNT_ENTRIES: ShellManifestEntry[] = [
     id: "account-supplier-connections",
     url: "./components/account-supplier-connections.js",
   },
-  { id: "account-ledger", url: "./components/account-ledger.js" },
-  { id: "account-usage", url: "./components/account-usage.js" },
   { id: "account-team", url: "./components/account-team.js" },
 ];
 
@@ -110,7 +108,7 @@ export function createAccountSurfaceHandler(options?: {
       ? { ...entry, url: options.authenticationUrl }
       : entry,
   );
-  return createShellHandler({
+  const account = createShellHandler({
     prefix: "/account",
     entries,
     componentsDir: join(dirname(fileURLToPath(import.meta.url)), "components"),
@@ -123,4 +121,22 @@ export function createAccountSurfaceHandler(options?: {
         })
       ).code,
   });
+  const reports = createShellHandler({
+    prefix: "/account/reports",
+    entries: [
+      ...entries.filter((entry) => entry.provides),
+      { id: "account-reports", url: "./components/account-reports.js" },
+      { id: "account-ledger", url: "./components/account-ledger.js" },
+    ],
+    componentsDir: join(dirname(fileURLToPath(import.meta.url)), "components"),
+    transpile: async (source) =>
+      (
+        await transform(source, {
+          loader: "ts",
+          format: "esm",
+          target: "es2022",
+        })
+      ).code,
+  });
+  return async (req, res) => (await reports(req, res)) || account(req, res);
 }

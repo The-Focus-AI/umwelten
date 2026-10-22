@@ -117,8 +117,6 @@ describe("the Exchange's client surface", () => {
       "account-funding",
       "account-admin-grant",
       "account-supplier-connections",
-      "account-ledger",
-      "account-usage",
       "account-team",
     ]);
     expect(
@@ -127,6 +125,28 @@ describe("the Exchange's client surface", () => {
         .map((entry) => entry.id),
     ).toEqual(["account-authentication", "account-layout", "account-customer"]);
     expect(manifest.entries[0].url).toBe("/assets/account-authentication.js");
+  });
+
+  it("serves reporting separately with the same trusted authentication", async () => {
+    const handler = createAccountSurfaceHandler();
+    expect((await get(handler, "/account/reports")).location).toBe(
+      "/account/reports/",
+    );
+    expect((await get(handler, "/account/reports/")).status).toBe(200);
+    const manifest = JSON.parse(
+      (await get(handler, "/account/reports/manifest.json")).body,
+    );
+    expect(manifest.entries.map((entry: { id: string }) => entry.id)).toEqual([
+      "account-authentication",
+      "account-layout",
+      "account-customer",
+      "account-reports",
+      "account-ledger",
+    ]);
+    expect(
+      (await get(handler, "/account/reports/components/account-reports.js"))
+        .status,
+    ).toBe(200);
   });
 
   it("serves agent-authored components live from a configured dir (#410)", async () => {

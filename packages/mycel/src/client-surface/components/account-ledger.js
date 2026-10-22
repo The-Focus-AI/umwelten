@@ -15,6 +15,11 @@ export default {
       element.hidden = state.phase !== "ready" || !dashboard?.onboarded;
       if (element.hidden) return;
       body.replaceChildren();
+      body.append(
+        empty(
+          "Account-wide ledger, all time. Usage filters above do not apply to these entries.",
+        ),
+      );
       const list = document.createElement("ul");
       list.className = "account-list account-ledger";
       for (const entry of dashboard.ledger ?? []) {

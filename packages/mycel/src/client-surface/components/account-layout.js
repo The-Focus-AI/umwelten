@@ -28,6 +28,8 @@ const CSS = `
   .account-card[data-component='account-catalogue'],
   .account-card[data-component='account-applications'],
   .account-card[data-component='account-playground'],
+  .account-card[data-component='account-reports'],
+  .account-card[data-component='account-ledger'],
   .account-card[data-component='account-usage'] { grid-column: 1 / -1; }
   .account-card > header { min-height: 78px; display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
   .account-card > header span { color: #63746a; font: 9px/1 var(--mono); }
@@ -106,7 +108,8 @@ const CSS = `
     .catalogue-offers li { align-items: start; flex-direction: column; }
     body.account-surface main#region { grid-template-columns: 1fr; padding-top: 34px; }
     .account-card { grid-column: 1 !important; }
-    .account-nav > a:not([aria-current]) { display: none; }
+    body.account-surface > header { flex-wrap: wrap; gap: 16px; padding: 18px 4vw; }
+    .account-nav { flex-wrap: wrap; gap: 14px; }
     .account-hero { display: block; }
     .account-vitals { margin-top: 28px; }
     .account-form.two { grid-template-columns: 1fr; }
@@ -127,7 +130,8 @@ export default {
     const style = document.createElement("style");
     style.textContent = CSS;
     document.head.append(style);
-    document.title = "Account — Mycel";
+    const reporting = location.pathname.startsWith("/account/reports");
+    document.title = reporting ? "Reports — Mycel" : "Account — Mycel";
     document.body.classList.add("account-surface");
 
     const brand = document.createElement("a");
@@ -136,8 +140,14 @@ export default {
     brand.textContent = "mycel";
     const nav = document.createElement("nav");
     nav.className = "account-nav";
+    nav.setAttribute("aria-label", "Account navigation");
     nav.innerHTML =
-      '<a href="/account/" aria-current="page">Account</a><a href="/shell/">Exchange</a>';
+      '<a href="/account/">Account</a><a href="/account/reports/">Reports</a><a href="/shell/">Exchange</a>';
+    nav
+      .querySelector(
+        reporting ? '[href="/account/reports/"]' : '[href="/account/"]',
+      )
+      .setAttribute("aria-current", "page");
     const controls = document.createElement("div");
     controls.className = "account-auth-controls";
     const signIn = document.createElement("button");
