@@ -360,7 +360,11 @@ export class BaseModelRunner implements ModelRunner {
               observer?.onToolCall?.({ toolCallId, toolName, input });
               break;
             }
+            case "tool-error":
             case "tool-result": {
+              // Streaming tools may emit progress before their final result.
+              // Only final results (including failures) belong in model history.
+              if (ev.preliminary === true) break;
               if (pendingToolCalls.length > 0) {
                 interaction.addMessage({
                   role: "assistant",
@@ -380,8 +384,10 @@ export class BaseModelRunner implements ModelRunner {
                 pendingToolCalls.length = 0;
                 interaction.notifyTranscriptUpdate?.();
               }
-              const out = ev.result ?? ev.output;
-              const isError = ev.isError === true;
+              const isError = ev.type === "tool-error" || ev.isError === true;
+              const out = ev.type === "tool-error"
+                ? ev.error instanceof Error ? ev.error.message : ev.error
+                : ev.result ?? ev.output;
               const output =
                 isError
                   ? {

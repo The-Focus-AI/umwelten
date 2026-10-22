@@ -20,6 +20,8 @@ vi.mock('ai', async (importOriginal) => {
 import { BaseModelRunner } from './runner.js';
 import { Interaction } from '../interaction/core/interaction.js';
 import { Stimulus } from '../stimulus/stimulus.js';
+import { MockLanguageModelV3 } from 'ai/test';
+import { buildRequestOptions } from './request-options.js';
 
 function makeInteraction() {
   return new Interaction(
@@ -42,6 +44,55 @@ afterEach(() => {
 });
 
 describe('Runner streamText error surfacing', () => {
+  it('preserves failed tool results alongside successful parallel calls for the next turn', async () => {
+    const runner = new BaseModelRunner();
+    const interaction = makeInteraction();
+    interaction.addMessage({ role: 'user', content: 'Inspect the repository.' });
+    vi.spyOn(runner, 'startUp').mockResolvedValue({
+      startTime: new Date(),
+      modelIdString: 'minimax/MiniMax-M2.5',
+    } as any);
+    vi.spyOn(runner, 'makeStreamOptions').mockResolvedValue({} as any);
+    streamTextMock.mockReturnValue({
+      fullStream: fullStreamOf([
+        { type: 'tool-call', toolCallId: 'read', toolName: 'bash', input: { command: 'cat README.md' } },
+        { type: 'tool-call', toolCallId: 'update', toolName: 'bash', input: { command: 'git pull' } },
+        { type: 'tool-result', toolCallId: 'read', toolName: 'bash', output: 'Reading...', preliminary: true },
+        { type: 'tool-result', toolCallId: 'read', toolName: 'bash', output: 'Repository documentation' },
+        { type: 'tool-error', toolCallId: 'update', toolName: 'bash', error: new Error('Permission denied') },
+        { type: 'text-delta', text: 'The update failed.' },
+      ]),
+      usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+    });
+
+    await runner.streamText(interaction);
+    interaction.addMessage({ role: 'user', content: 'What failed?' });
+    const results = interaction.getMessages()
+      .filter((message) => message.role === 'tool')
+      .flatMap((message) => message.content);
+    expect(results).toEqual([
+      { type: 'tool-result', toolCallId: 'read', toolName: 'bash', output: { type: 'text', value: 'Repository documentation' } },
+      { type: 'tool-result', toolCallId: 'update', toolName: 'bash', output: { type: 'error-text', value: 'Permission denied' } },
+    ]);
+
+    // Exercise real SDK prompt validation on the next turn, not just its schema.
+    const { generateText } = await vi.importActual<typeof import('ai')>('ai');
+    const options = buildRequestOptions({
+      interaction,
+      model: new MockLanguageModelV3({
+        doGenerate: async () => ({
+          content: [{ type: 'text', text: 'Git pull was denied.' }],
+          finishReason: 'stop',
+          usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+          warnings: [],
+        }),
+      }),
+      config: {}, label: 'follow-up', streaming: false,
+    });
+    const followUp = await generateText(options as Parameters<typeof generateText>[0]);
+    expect(followUp.text).toBe('Git pull was denied.');
+  });
+
   it('throws the real stream error, not the opaque "No output generated"', async () => {
     const runner = new BaseModelRunner();
     const interaction = makeInteraction();
