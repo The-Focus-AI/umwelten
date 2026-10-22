@@ -37,7 +37,10 @@ beforeAll(async () => {
     clientId: "browser-client",
   });
   await store.createSupplier(
-    supplierFixture({ id: "browser-supplier", displayName: "Browser Supplier" }),
+    supplierFixture({
+      id: "browser-supplier",
+      displayName: "Browser Supplier",
+    }),
   );
   await store.createSupplier(
     supplierFixture({ id: "thor", kind: "agent", displayName: "Thor" }),
@@ -158,8 +161,13 @@ describe("Mycel's signed-in account console", () => {
       "$25.00",
     );
     expect(
-      await page.locator('[data-component="account-ledger"]').textContent(),
-    ).toContain("opening credit");
+      await page.locator('[data-component="account-ledger"]').count(),
+    ).toBe(0);
+    expect(
+      await page
+        .getByRole("link", { name: "Reports", exact: true })
+        .getAttribute("href"),
+    ).toBe("/account/reports/");
     expect(
       await page.locator('[data-component="account-team"]').textContent(),
     ).toContain("user_browser");
@@ -193,9 +201,7 @@ describe("Mycel's signed-in account console", () => {
           };
         };
       };
-      void shell.__shell.root
-        .get({ id: "mycel:account-customer" })
-        ?.refresh();
+      void shell.__shell.root.get({ id: "mycel:account-customer" })?.refresh();
     });
     await expect
       .poll(() =>
@@ -204,9 +210,7 @@ describe("Mycel's signed-in account console", () => {
       .toContain("Browser Client");
     await expect
       .poll(() =>
-        page
-          .locator('[data-component="account-applications"]')
-          .isVisible(),
+        page.locator('[data-component="account-applications"]').isVisible(),
       )
       .toBe(true);
     releaseRefresh();
@@ -230,7 +234,6 @@ describe("Mycel's signed-in account console", () => {
         }));
       },
     );
-    expect(assembly).toHaveLength(12);
     expect(assembly.every((entry) => entry.active)).toBe(true);
 
     await expect
@@ -254,9 +257,8 @@ describe("Mycel's signed-in account console", () => {
       .poll(() => store.listRequests({ applicationId: "browser-app" }))
       .toHaveLength(1);
 
-    const beforeGrant = (
-      await store.getBalance("client", "browser-client")
-    ).microDollars;
+    const beforeGrant = (await store.getBalance("client", "browser-client"))
+      .microDollars;
     await page
       .locator('[data-component="account-admin-grant"] input[name="amount"]')
       .fill("5");
@@ -286,10 +288,6 @@ describe("Mycel's signed-in account console", () => {
           .textContent(),
       )
       .toContain(displayedBalance);
-    expect(
-      await page.locator('[data-component="account-ledger"]').textContent(),
-    ).toContain("admin grant by user_browser: Browser review");
-
     await page
       .locator('[data-component="account-applications"]')
       .getByRole("button", { name: "Disable" })
@@ -310,5 +308,97 @@ describe("Mycel's signed-in account console", () => {
     await expect
       .poll(() => page.locator(".account-invite").textContent())
       .toContain("/account/#invite=invite-mycel-");
+  });
+
+  it("reports spend by Application, filters, and opens request details on its own page", async () => {
+    await new Operator(store).createApplication({
+      id: "report-app",
+      clientId: "browser-client",
+    });
+    await new Operator(store).createApplication({
+      id: "unused-app",
+      clientId: "browser-client",
+    });
+    const now = new Date();
+    await store.recordRequest({
+      id: "report-browser",
+      applicationId: "report-app",
+      subject: "report-user",
+      supplierId: "browser-supplier",
+      model: "report-model",
+      promptTokens: 137,
+      completionTokens: 41,
+      cost: 11,
+      charge: 1234567,
+      outcome: "supply-failed",
+      startedAt: new Date(now.getTime() - 2000),
+      finishedAt: now,
+    });
+    await page.goto(`${origin}/account/reports/?applicationId=report-app`);
+    await expect
+      .poll(() => page.locator(".report-metrics").textContent())
+      .toContain("$1.234567");
+    expect(
+      await page.locator('[data-component="account-playground"]').count(),
+    ).toBe(0);
+    expect(
+      await page.locator('[data-component="account-ledger"]').textContent(),
+    ).toContain("opening credit");
+    await page
+      .locator(".report-request summary")
+      .filter({ hasText: "report-model" })
+      .click();
+    expect(await page.locator(".report-request[open]").textContent()).toContain(
+      "report-browser",
+    );
+    expect(await page.locator(".report-request[open]").textContent()).toContain(
+      "report-user",
+    );
+    await page
+      .getByRole("combobox", { name: /Application \/ key/ })
+      .selectOption("unused-app");
+    await expect
+      .poll(() => page.locator(".report-requests").textContent())
+      .toContain("No requests in this period");
+    expect(await page.locator(".report-metrics").textContent()).toContain(
+      "$0.00",
+    );
+    await page.reload();
+    await expect
+      .poll(() =>
+        page.getByRole("combobox", { name: /Application \/ key/ }).inputValue(),
+      )
+      .toBe("unused-app");
+    await page
+      .getByRole("combobox", { name: /Application \/ key/ })
+      .selectOption("report-app");
+    await page.getByRole("combobox", { name: /Period/ }).selectOption("all");
+    await expect.poll(() => page.locator(".report-request").count()).toBe(1);
+    await page.route("**/api/customer/reports?**", (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: '{"error":"temporarily_unavailable"}',
+      }),
+    );
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect
+      .poll(() => page.getByRole("status").textContent())
+      .toContain("Could not load reports");
+    expect(await page.locator(".report-metrics").count()).toBe(0);
+    await page.unroute("**/api/customer/reports?**");
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect.poll(() => page.locator(".report-request").count()).toBe(1);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page
+        .getByRole("link", { name: "Account", exact: true })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
   });
 });

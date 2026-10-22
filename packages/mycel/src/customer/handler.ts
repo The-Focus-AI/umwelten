@@ -10,6 +10,7 @@ import { Operator } from "../operator.js";
 import type { ExchangeStore } from "../store/types.js";
 import type { BuyerHandler } from "../buyer/handler.js";
 import { CatalogueError, createCatalogue } from "./catalogue.js";
+import { customerReport, isReportPeriod } from "./reporting.js";
 
 const ROOT = "/api/customer";
 const MAX_BODY_BYTES = 32_000;
@@ -436,6 +437,37 @@ export function createCustomerHandler(opts: CustomerHandlerOptions) {
 
     const caller = await identity(req, res);
     if (!caller) return true;
+
+    if (path === `${ROOT}/reports` && req.method === "GET") {
+      const client = await ownedClient(caller.subject);
+      if (!client) {
+        sendJson(res, 403, { error: "onboarding_required" });
+        return true;
+      }
+      const query = new URLSearchParams((req.url ?? "").split("?")[1]);
+      const period = query.get("period") ?? "30d";
+      if (!isReportPeriod(period) || query.getAll("period").length > 1 || query.getAll("applicationId").length > 1) {
+        sendJson(res, 400, { error: "invalid_period_or_application" });
+        return true;
+      }
+      const applicationId = query.get("applicationId");
+      const ownedApplications = (await store.listApplications()).filter(
+        (application) => application.clientId === client.id,
+      );
+      if (applicationId !== null && !ownedApplications.some((application) => application.id === applicationId)) {
+        sendJson(res, 404, { error: "not_found" });
+        return true;
+      }
+      const applications = ownedApplications.filter(
+        (application) => applicationId === null || application.id === applicationId,
+      );
+      const now = new Date();
+      const requests = (await Promise.all(applications.map(
+        (application) => store.listRequests({ applicationId: application.id }),
+      ))).flat();
+      sendJson(res, 200, customerReport({ period, applications, requests, now }));
+      return true;
+    }
 
     if (path === `${ROOT}/admin/catalogue` || path.startsWith(`${ROOT}/admin/catalogue/`)) {
       if (caller.role !== ADMIN_ROLE) {

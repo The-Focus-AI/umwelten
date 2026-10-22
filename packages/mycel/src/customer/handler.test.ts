@@ -139,6 +139,84 @@ describe("Mycel's self-service customer control plane", () => {
     expect((await request("/api/customer")).status).toBe(401);
   });
 
+  it("reports complete tenant usage independently of the latest 100 rows", async () => {
+    for (const subject of ["user_admin", "user_bob"]) {
+      await request("/api/customer/onboard", {
+        subject, method: "POST",
+        body: { clientName: subject, applicationName: subject },
+      });
+    }
+    const link = await store.getClientOperator("user_admin");
+    const applications = await store.listApplications();
+    const own = applications.find((application) => application.clientId === link?.clientId)!;
+    const foreign = applications.find((application) => application.id !== own.id)!;
+    await store.createApplication({ ...own, id: "unused", enabled: false });
+    const now = Date.now();
+    const add = async (id: string, applicationId: string, ageDays: number, charge: number) => {
+      const startedAt = new Date(now - ageDays * 86_400_000);
+      await store.recordRequest({
+        id, applicationId, subject: "end-user", supplierId: "secret-supplier",
+        model: charge === 11 ? "model-a" : "model-b",
+        promptTokens: 3, completionTokens: 7, cost: 2, charge,
+        outcome: charge === 11 ? "completed" : "supply-failed",
+        startedAt, finishedAt: new Date(startedAt.getTime() + charge * 100),
+      });
+    };
+    for (let index = 0; index < 105; index++) {
+      await add(`recent-${String(index).padStart(3, "0")}`, own.id, 1, 11);
+    }
+    await add("older", own.id, 15, 101);
+    await add("oldest", own.id, 60, 201);
+    await add("ancient", own.id, 120, 301);
+    await add("future", own.id, -1, 401);
+    await add("foreign", foreign.id, 1, 999999);
+    const report = await request("/api/customer/reports", { subject: "user_admin" });
+    expect(report.status).toBe(200);
+    expect(report.body.period).toBe("30d");
+    expect(new Date(report.body.to).getTime() - new Date(report.body.from).getTime()).toBe(30 * 86_400_000);
+    expect(report.body.totalRequests).toBe(106);
+    expect(report.body.summary).toEqual({
+      charge: 1256, requests: 106, promptTokens: 318, completionTokens: 742,
+      nonCompleted: 1, averageDurationMs: 125600 / 106,
+    });
+    expect(report.body.requests).toHaveLength(100);
+    expect(report.body.requests[0]).toEqual({
+      id: "recent-000", applicationId: own.id, subject: "end-user", model: "model-a",
+      operation: "chat", promptTokens: 3, completionTokens: 7, charge: 11,
+      outcome: "completed", startedAt: new Date(now - 86_400_000).toISOString(),
+      finishedAt: new Date(now - 86_400_000 + 1100).toISOString(),
+      inputUnits: null, outputUnits: null, inputUnit: null, outputUnit: null,
+    });
+    expect(report.body.requests.at(-1).id).toBe("recent-099");
+    expect(report.body.byApplication).toContainEqual({
+      applicationId: "unused", charge: 0, requests: 0, promptTokens: 0,
+      completionTokens: 0, nonCompleted: 0, averageDurationMs: 0,
+    });
+    expect(report.body.byModel).toEqual([
+      { model: "model-a", charge: 1155, requests: 105, promptTokens: 315, completionTokens: 735, nonCompleted: 0, averageDurationMs: 1100 },
+      { model: "model-b", charge: 101, requests: 1, promptTokens: 3, completionTokens: 7, nonCompleted: 1, averageDurationMs: 10100 },
+    ]);
+    const serialized = JSON.stringify(report.body);
+    for (const secret of ["secret-supplier", "credentialHash", '"cost"', foreign.id]) expect(serialized).not.toContain(secret);
+    for (const [period, total] of [["7d", 105], ["90d", 107], ["all", 108]]) {
+      const result = await request(`/api/customer/reports?period=${period}`, { subject: "user_admin" });
+      expect(result.body.totalRequests).toBe(total);
+      if (period === "all") expect(result.body.from).toBeNull();
+    }
+    const filtered = await request("/api/customer/reports?applicationId=unused", { subject: "user_admin" });
+    expect(filtered.body.applications).toEqual([{ id: "unused", enabled: false }]);
+    expect(filtered.body.byApplication).toHaveLength(1);
+    expect(filtered.body.totalRequests).toBe(0);
+    for (const applicationId of [foreign.id, "missing", ""]) {
+      expect((await request(`/api/customer/reports?applicationId=${applicationId}`, { subject: "user_admin" })).status).toBe(404);
+    }
+    for (const query of ["period=bad", "period=", "period=7d&period=all", "applicationId=unused&applicationId=unused"]) {
+      expect((await request(`/api/customer/reports?${query}`, { subject: "user_admin" })).status).toBe(400);
+    }
+    expect((await request("/api/customer/reports")).status).toBe(401);
+    expect(await request("/api/customer/reports", { subject: "unlinked" })).toEqual({ status: 403, body: { error: "onboarding_required" } });
+  });
+
   it("shows live machine connection state only to Clerk administrators", async () => {
     await store.createSupplier(
       supplierFixture({ id: "thor", kind: "agent", displayName: "Thor" }),
