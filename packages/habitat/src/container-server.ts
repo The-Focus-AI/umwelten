@@ -60,6 +60,7 @@ import { createClaudeSdkRuntimeRunner } from "./claude-sdk-runner.js";
 import { createPiRuntimeRunner } from "./pi-runner.js";
 import { buildConfiguredRuntimeRunners } from "./cli-runner.js";
 import { ChannelBridge } from "./bridge/channel-bridge.js";
+import { refreshRepositories } from "./repository-freshness.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth, parseApiKeys } from "./web/auth/bearer-auth.js";
@@ -310,7 +311,21 @@ export async function startContainerServer(
 		randomBytes(32).toString("hex");
 
 	// Chat bridge + adapter, with logging wrapper
+	let pendingDiskRefresh = true;
 	const bridge = new ChannelBridge(habitat, {
+		beforeGeneration: habitat.getConfig().requireFreshRepositories ? async () => {
+			try {
+				const changed = await refreshRepositories(habitat.workDir, habitat.getConfig());
+				if (!changed && !pendingDiskRefresh) return false;
+				await habitat.refreshDiskStimulus();
+				pendingDiskRefresh = false;
+				return true;
+			} catch (error) {
+				// A multi-repo refresh may have advanced some repos before failing.
+				pendingDiskRefresh = true;
+				throw error;
+			}
+		} : undefined,
 		platformInstruction: [
 			"You are responding via a web interface. Markdown is rendered natively.",
 			"Files in the work directory (/data) are served at /files/* URLs. For example, /data/project/output/image.png is viewable at /files/project/output/image.png.",

@@ -30,7 +30,14 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       "For API integrations: read keys from process.env, use fetch() for HTTP. " +
       "Write a TOOL.md with frontmatter (name, description) and a handler.ts " +
       "that default-exports a Vercel AI SDK Tool. " +
-      "After creation, call reload_tools to make it available immediately.",
+      "Use inputSchema: z.object({...}); the MCP bridge does not accept plain JSON Schema or ai.jsonSchema(). " +
+      "Check ai/zod imports from the actual handler directory before writing the tool. " +
+      "If packages cannot resolve, do not replace Zod with a plain object or hard-code versioned node_modules paths. " +
+      "Use the dependency-free script format instead: write TOOL.md with type: script and script: ./run.mjs, " +
+      "and no handler.ts/js. The loader supplies the schema; the script reads args from stdin " +
+      "and returns stdout/stderr. " +
+      "After reload_tools, verify authenticated MCP tools/list and a safe tools/call before using it in a component. " +
+      "Reload validates MCP registration/listing, not handler results or browser behavior.",
     inputSchema: z.object({
       name: z
         .string()
@@ -41,7 +48,8 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
         .describe(
           "TypeScript code for handler.ts. Must default-export a Vercel AI SDK Tool " +
             "(using `tool()` from 'ai' and `z` from 'zod') " +
-            "or a factory function (context) => Tool.",
+            "or a factory function (context) => Tool. Use inputSchema: z.object({...}), " +
+            "not parameters or a JSON Schema object. Imports must resolve from this handler's directory.",
         ),
     }),
     execute: async ({ name, description, handlerCode }) => {
@@ -172,6 +180,12 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
       "reload it, then inject shell:tools and call it by name. The server tool " +
       "may use process.env, a private database, or an agent; never put credentials, " +
       "database handles, or unrestricted SQL/RPC in browser component code.\n\n" +
+      "Verify the backend over authenticated MCP before building the full panel: tools/list, " +
+      "then a safe tools/call with representative input. One invalid tool schema can break " +
+      "all /mcp requests, including Sessions. After mounting, inspect the rendered panel and " +
+      "an existing panel; distinguish transport failures from data errors. A module that loads " +
+      "or a successful direct execute() call is not an end-to-end check. " +
+      "If browser verification is unavailable, say so rather than claiming the panel works.\n\n" +
       "Layout (ADR 0034): to rearrange the page, create a component named " +
       '"layout" — it replaces the stock layout (collapsible rail + main) ' +
       "while it exists, and removing it restores the stock one. Read " +
@@ -209,7 +223,10 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
   const reload_tools = tool({
     description:
       "Reload all tools from the habitat tools directory. " +
-      "Use after create_tool to make newly created tools available immediately.",
+      "Use after create_tool to make newly created tools available immediately. " +
+      "Candidates must load, register with MCP, and pass tools/list before replacing active tools. " +
+      "A failed check leaves the previous tools active; fix the reported error and retry. " +
+      "Handlers are not executed by validation. Verify a safe tools/call and browser behavior afterward; do not print credentials.",
     inputSchema: z.object({}),
     execute: async () => {
       try {
@@ -217,7 +234,7 @@ export function createSelfModifyTools(habitat: SelfModifyToolsContext) {
         return {
           reloaded,
           count: reloaded.length,
-          message: `Reloaded ${reloaded.length} tool(s): ${reloaded.join(", ") || "(none)"}`,
+          message: `Reloaded ${reloaded.length} tool(s): ${reloaded.join(", ") || "(none)"}. MCP registration and tools/list passed; handlers were not executed.`,
         };
       } catch (err) {
         return {

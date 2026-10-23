@@ -437,6 +437,9 @@ export interface HabitatConfig {
 	gitBranch?: string;
 	/** Subdirectory for the git clone, relative to workDir (default: "project"). */
 	projectDir?: string;
+	/** Fail closed unless owned and mounted repos refresh before each turn.
+	 * Requires Gaia read-token service; branches default to main. No installs. */
+	requireFreshRepositories?: boolean;
 	/** Secrets required for this habitat to function. */
 	requiredSecrets?: RequiredSecret[];
 	/**

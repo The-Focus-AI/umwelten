@@ -38,6 +38,7 @@ interface InteractionEntry {
   sessionId: string;
   sessionDir: string;
   routeSig: string;
+  contextStale?: boolean;
   /**
    * Distinct speakers seen on this thread (ADR 0003 step 2). One contextId
    * can carry many speakers; once there is more than one, user turns are
@@ -90,6 +91,8 @@ function wrapLegacyClaudeSdkFn(fn: RunClaudeSdkFn): RuntimeRunner {
 export class ChannelBridge {
   private host: AgentHost;
   private cache = new Map<string, InteractionEntry>();
+  private beforeGeneration?: () => Promise<boolean>;
+  private turnQueue: Promise<void> = Promise.resolve();
   private resumeMessagePairs: number;
   private platformInstruction?: string;
   private routingPath?: string;
@@ -108,6 +111,7 @@ export class ChannelBridge {
     },
   ) {
     this.host = host;
+    this.beforeGeneration = options?.beforeGeneration;
     this.resumeMessagePairs = options?.resumeMessagePairs ?? 4;
     this.platformInstruction = options?.platformInstruction;
     this.routingPath = options?.routingPath;
@@ -135,9 +139,27 @@ export class ChannelBridge {
     events: BridgeEventHandlers,
     signal?: AbortSignal,
   ): Promise<void> {
+    if (!this.beforeGeneration) return this.handleTurn(msg, events, signal);
+    const turn = this.turnQueue.then(() => this.handleTurn(msg, events, signal));
+    this.turnQueue = turn.catch(() => {});
+    return turn;
+  }
+
+  private async handleTurn(
+    msg: ChannelMessage,
+    events: BridgeEventHandlers,
+    signal?: AbortSignal,
+  ): Promise<void> {
     try {
+      if (signal?.aborted) return;
       // Non-default runtimes dispatch through the RuntimeRunner seam (#118)
       const route = await this.resolveRoute(msg.channelKey, msg.parentChannelKey);
+      if (signal?.aborted) return;
+      if (await this.beforeGeneration?.()) {
+        // Mark every cached route stale, but retain history/session/participants.
+        for (const entry of this.cache.values()) entry.contextStale = true;
+      }
+      if (signal?.aborted) return;
       if (route.kind === 'agent' && route.runtime !== 'default') {
         if (msg.attachments?.length) throw new Error(`Image attachments are not supported by the ${route.runtime} runtime. Use the default runtime.`);
         return await this.handleRuntime(msg, route.agentId, route.runtime, events);
@@ -145,6 +167,7 @@ export class ChannelBridge {
 
       const images = (msg.attachments ?? []).map((attachment) => parseImageDataUrl(attachment.url));
       const entry = await this.getOrCreateEntry(msg);
+      if (signal?.aborted) return;
       const { interaction, sessionId, sessionDir } = entry;
 
       // Per-turn speaker (ADR 0003 step 2): set userId on EVERY message, not
@@ -259,6 +282,9 @@ export class ChannelBridge {
       };
       await events.onDone(result);
     } catch (err) {
+      if (this.beforeGeneration) {
+        for (const entry of this.cache.values()) entry.contextStale = true;
+      }
       const message = err instanceof Error ? err.message : String(err);
       if (events.onError) {
         events.onError(message);
@@ -427,6 +453,10 @@ export class ChannelBridge {
     // Check cache: hit if entry exists and route hasn't changed
     const existing = this.cache.get(channelKey);
     if (existing && existing.routeSig === sig) {
+      if (existing.contextStale) {
+        existing.interaction.setStimulus(await this.buildStimulusForRoute(resolution));
+        existing.contextStale = false;
+      }
       return existing;
     }
 
@@ -515,7 +545,11 @@ export class ChannelBridge {
     }
 
     // Clone so we don't mutate the habitat's cached stimulus
-    const stimulus = new Stimulus(baseStimulus.options);
+    const stimulus = new Stimulus({
+      ...baseStimulus.options,
+      instructions: baseStimulus.options.instructions?.slice(),
+      skills: baseStimulus.getSkillsRegistry()?.listSkills() ?? baseStimulus.options.skills,
+    });
     for (const [name, tool] of Object.entries(baseStimulus.getTools())) {
       stimulus.addTool(name, tool);
     }

@@ -172,7 +172,7 @@ Handlers can be:
 
    export default tool({
      description: "My tool",
-     parameters: z.object({ query: z.string() }),
+     inputSchema: z.object({ query: z.string() }),
      execute: async ({ query }) => {
        return { result: query };
      },
@@ -193,7 +193,7 @@ Handlers can be:
    }): Tool {
      return tool({
        description: "My contextual tool",
-       parameters: z.object({ command: z.string() }),
+       inputSchema: z.object({ command: z.string() }),
        execute: async ({ command }) => {
          // Can use context.workDir, context.getAgent(), etc.
          return { result: command };
@@ -202,15 +202,58 @@ Handlers can be:
    }
    ```
 
-3. **Script tool** — TOOL.md sets `type: script` and `script: path/to/script.ts`:
+3. **Script tool** — no SDK imports needed. TOOL.md sets `type: script` and a Node script path:
    ```yaml
    ---
    name: my_script
    description: "Runs a script"
    type: script
-   script: ./run.ts
+   script: ./run.mjs
    ---
    ```
+
+   `run.mjs` reads the optional `args` string from stdin and writes its result to stdout:
+
+   ```javascript
+   let input = "";
+   for await (const chunk of process.stdin) input += chunk;
+   const { query = "" } = JSON.parse(input || "{}");
+   console.log(JSON.stringify({ result: query }));
+   ```
+
+   The loader supplies a Zod schema for `{ args?: string }` and returns
+   `{ stdout, stderr }`. Call with `{ args: JSON.stringify({ query: "hello" }) }`;
+   parse `stdout` if the script emits JSON. Do not leave a `handler.ts` or
+   `handler.js` in the same directory: handlers take precedence over scripts.
+
+#### Verify the transport, not just the handler
+
+For handler tools, `inputSchema` must be a Zod object for the current MCP bridge.
+A plain JSON Schema object or AI SDK `jsonSchema()` wrapper is not a substitute.
+The loader accepting an `execute()` export does not establish MCP compatibility.
+
+Check SDK imports from the handler's directory, not the runtime checkout:
+`/data/tools/...` may not resolve the packages installed under `/habitat`.
+If imports fail, use the script format above or provision dependencies through
+the normal project workflow. Do not hard-code versioned `.pnpm` paths or weaken
+the schema to work around module resolution.
+
+Before publishing a tool-backed Shell component:
+
+1. Test the data transformation with representative fixtures.
+2. Run `reload_tools`: it stages candidates through real MCP registration and
+   `tools/list` before replacing the active custom tools. Failure preserves the
+   previous active set. It does not execute handlers. Then verify authenticated
+   MCP `tools/list` and a safe `tools/call` against the served endpoint. Check the
+   protocol result and `isError`, not only HTTP status. Directly invoking
+   `execute()` bypasses schema registration and is insufficient.
+3. Inspect the rendered component and an existing consumer such as Sessions.
+   One invalid tool schema currently prevents registration of the entire MCP
+   tool set. Do not diagnose a transport error as missing or invalid source data.
+
+Use the existing authenticated client/session; never print tokens or dump the
+environment while debugging. If browser verification is unavailable, report
+that limitation rather than claiming the UI works.
 
 ### Builtin Tools
 

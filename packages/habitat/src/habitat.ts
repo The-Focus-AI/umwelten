@@ -58,6 +58,7 @@ import type { AgentRunnerToolsContext } from "./tools/agent-runner-tools.js";
 import type { SecretsToolsContext } from "./tools/secrets-tools.js";
 import type { SearchToolsContext } from "./tools/search-tools.js";
 import { ToolRegistry } from "./tool-registry.js";
+import { validateMcpTools } from "./mcp-tool-bridge.js";
 import { HabitatAgent } from "./habitat-agent.js";
 import { loadSecrets, saveSecrets } from "./secrets.js";
 import {
@@ -336,6 +337,20 @@ export class Habitat
 		return this.stimulus;
 	}
 
+	/** Reload disk prompt only; retain installed capabilities without running skill installers. */
+	async refreshDiskStimulus(): Promise<void> {
+		const diskOptions = await loadStimulusOptionsFromWorkDir(this.workDir, this.config);
+		const stimulus = this.stimulus ?? new Stimulus();
+		// Objective is omitted by the disk loader when removed from frontmatter.
+		// Replace the disk-owned fields while retaining model options, tools and
+		// the installed skills registry (including activation state), without loading skills.
+		stimulus.options = { ...stimulus.options, objective: undefined, ...diskOptions };
+		// Rebinding the registry replaces the stimulus's tools, including skill tools.
+		// An existing stimulus is already bound; only bind a newly-created one.
+		if (!this.stimulus) this.toolRegistry.setStimulus(stimulus);
+		this.stimulus = stimulus;
+	}
+
 	private async buildStimulus(): Promise<Stimulus> {
 		const stimulusOptions = await loadStimulusOptionsFromWorkDir(
 			this.workDir,
@@ -402,6 +417,7 @@ export class Habitat
 				}),
 			);
 		}
+		await validateMcpTools(tools);
 		await this.toolRegistry.replaceWorkDirTools(tools);
 		return Object.keys(tools);
 	}
