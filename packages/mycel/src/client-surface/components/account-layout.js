@@ -7,7 +7,11 @@ const CSS = `
     --serif: Georgia, 'Times New Roman', serif;
     --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   }
-  body.account-surface { background: var(--bg); color: var(--ink); font-family: Arial, sans-serif; }
+  body.account-surface {
+    /* Remap shared shell tokens the dark account page overrides incompletely. */
+    --surface: var(--panel); --on-action: var(--bg); --border: var(--line);
+    background: var(--bg); color: var(--ink); font-family: Arial, sans-serif;
+  }
   body.account-surface > header {
     position: sticky; top: 0; z-index: 10; min-height: 72px; padding: 0 4vw;
     align-items: center; background: rgba(7,16,12,.9); backdrop-filter: blur(18px);
@@ -62,6 +66,20 @@ const CSS = `
   .account-playground-form .account-inline { align-items: end; }
   .account-playground-form .account-inline label { flex: 1 1 300px; }
   .account-conversation { display: flex; flex-direction: column; gap: .6rem; min-height: 100px; max-height: 52vh; margin-bottom: 20px; overflow-y: auto; }
+  /* Shared shell theme.css paints .msg on --surface (white). Account remaps
+     --ink to light text for the dark page, so assistant replies went pale-on-white. */
+  .account-conversation .msg {
+    align-self: flex-start; max-width: min(720px, 100%); padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); color: var(--ink);
+  }
+  .account-conversation .msg[data-role="user"] {
+    align-self: flex-end; background: rgba(199,244,170,.12); color: var(--ink);
+    border-color: rgba(199,244,170,.28);
+  }
+  .account-conversation .msg a { color: var(--accent); }
+  .account-conversation .msg p { margin: 0 0 .55em; }
+  .account-conversation .msg p:last-child { margin-bottom: 0; }
   .account-list { margin: 0; padding: 0; list-style: none; }
   .account-list li { min-height: 64px; display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); }
   .account-list li:last-child { border-bottom: 0; }
