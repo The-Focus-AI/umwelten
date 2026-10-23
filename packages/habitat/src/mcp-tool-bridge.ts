@@ -14,7 +14,9 @@
  * habitat serve modes' transcripts are tail-watched by users.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Tool } from "ai";
 import {
 	extractUIResources,
@@ -27,6 +29,33 @@ import {
 export type McpContentBlock =
 	| { type: "text"; text: string }
 	| McpEmbeddedResource;
+
+/** Stage custom tools through the real MCP contract without executing handlers. */
+export async function validateMcpTools(tools: Record<string, Tool>): Promise<void> {
+	// MCP only installs tools/list when at least one server-side tool is registered.
+	if (!Object.values(tools).some((candidate) => typeof candidate.execute === "function")) return;
+	const server = new McpServer({ name: "tool-validation", version: "1.0.0" });
+	const client = new Client({ name: "tool-validation", version: "1.0.0" });
+	try {
+		for (const [name, candidate] of Object.entries(tools)) {
+			try {
+				registerAiTool(server, name, candidate);
+			} catch (error) {
+				throw new Error(`Tool "${name}" failed MCP registration: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+			}
+		}
+		const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
+		await server.connect(serverTransport);
+		await client.connect(clientTransport);
+		// Registration alone does not exercise conversion to the wire JSON Schema.
+		await client.listTools();
+	} catch (error) {
+		throw new Error(`Custom tools were not activated; MCP validation failed. ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+	} finally {
+		await client.close();
+		await server.close();
+	}
+}
 
 /**
  * MCP content blocks for an AI SDK tool result (ADR 0005 slice C, #196).

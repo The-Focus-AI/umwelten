@@ -10,9 +10,17 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Tool } from "ai";
 import { Habitat } from "./habitat.js";
+import { registerAiTool } from "./mcp-tool-bridge.js";
 import type { HabitatConfig } from "./types.js";
+
+// Temp fixtures have no node_modules; resolve the installed package without
+// hard-coding its version. Real handlers must provision imports or use script tools.
+const zodUrl = pathToFileURL(createRequire(import.meta.url).resolve("zod")).href;
 
 async function writeTool(
 	toolsBase: string,
@@ -25,14 +33,14 @@ async function writeTool(
 		join(dir, "TOOL.md"),
 		`---\nname: ${name}\ndescription: test tool ${name}\n---\n\nTest tool.\n`,
 	);
-	// Direct Tool export (see packages/core/src/stimulus/tools/loader.ts):
-	// any default export with an execute() function is used as-is.
+	// Use the real MCP-compatible contract, not a loader-only plain-schema stub.
 	await writeFile(
 		join(dir, "handler.js"),
 		[
+			`import { z } from ${JSON.stringify(zodUrl)};`,
 			"export default {",
 			`	description: "test tool ${name}",`,
-			'	inputSchema: { type: "object", properties: {} },',
+			"	inputSchema: z.object({}),",
 			`	execute: async () => ${JSON.stringify(returnValue)},`,
 			"};",
 			"",
@@ -41,6 +49,13 @@ async function writeTool(
 }
 
 async function execute(tool: Tool): Promise<unknown> {
+	// Loading and direct execution alone miss schemas that break every /mcp request.
+	const server = new McpServer({ name: "project-tool-fixture", version: "1.0.0" });
+	try {
+		registerAiTool(server, "fixture", tool);
+	} finally {
+		await server.close();
+	}
 	// AI SDK tools take (input, options); ours ignore both.
 	return (tool.execute as (a: unknown, b: unknown) => Promise<unknown>)(
 		{},
@@ -105,7 +120,23 @@ describe("Habitat.create project-dir tools", () => {
 		expect(Object.keys(habitat.getTools())).not.toContain("ghost");
 	});
 
-	it("keeps the previous work-directory layer when an edited handler is broken", async () => {
+	it.each([
+		{
+			failure: "syntax",
+			code: "export default { this is not valid JavaScript",
+			error: "failed to load handler",
+		},
+		{
+			failure: "MCP registration",
+			code: 'export default { inputSchema: { type: "object", properties: {} }, execute: async () => "broken" };',
+			error: 'Tool "stable" failed MCP registration',
+		},
+		{
+			failure: "MCP schema serialization",
+			code: `import { z } from ${JSON.stringify(zodUrl)}; export default { inputSchema: z.object({ value: z.custom() }), execute: async () => "broken" };`,
+			error: "MCP validation failed",
+		},
+	])("keeps the previous work-directory layer on $failure failure", async ({ code, error }) => {
 		await writeTool(join(workDir, "tools"), "stable", "working");
 		const habitat = await Habitat.create({
 			workDir,
@@ -116,12 +147,14 @@ describe("Habitat.create project-dir tools", () => {
 
 		await writeFile(
 			join(workDir, "tools", "stable", "handler.js"),
-			"export default { this is not valid JavaScript",
+			code,
 		);
 
-		await expect(habitat.reloadWorkDirTools()).rejects.toThrow(
-			"failed to load handler",
-		);
+		await expect(habitat.reloadWorkDirTools()).rejects.toThrow(error);
 		expect(await execute(habitat.getTools().stable)).toBe("working");
+
+		await writeTool(join(workDir, "tools"), "stable", "repaired");
+		await expect(habitat.reloadWorkDirTools()).resolves.toEqual(["stable"]);
+		expect(await execute(habitat.getTools().stable)).toBe("repaired");
 	});
 });

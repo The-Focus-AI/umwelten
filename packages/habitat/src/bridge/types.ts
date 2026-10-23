@@ -176,6 +176,9 @@ export type RouteResolution =
 // ── Bridge options ───────────────────────────────────────────────────
 
 export interface ChannelBridgeOptions {
+  /** Awaited before generation. True means disk context changed; failures block the turn.
+   * Enabling this also serializes whole turns, so refresh cannot mutate an active turn. */
+  beforeGeneration?: () => Promise<boolean>;
   /** Number of recent user+assistant message pairs to restore from transcript (default: 4). */
   resumeMessagePairs?: number;
   /** Platform-specific instruction appended to the stimulus (e.g. "Keep messages short"). */
