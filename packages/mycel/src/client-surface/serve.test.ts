@@ -7,6 +7,8 @@
 
 import { describe, it, expect } from "vitest";
 import http from "node:http";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import {
@@ -217,6 +219,53 @@ describe("the Exchange's client surface", () => {
 });
 
 describe("wired into the exchange app", () => {
+  it("passes the deployment gate and rejects unavailable reporting assets", async () => {
+    const script = await readFile(
+      new URL("../../../../deploy/mycel/deploy.sh", import.meta.url),
+      "utf8",
+    );
+    const start = script.indexOf("verify_client_surface() {");
+    const end = script.indexOf("\ndescribe_revision\n", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const verify = script.slice(start, end);
+    const app = createExchangeApp(new MemoryStore());
+    let unavailable = "";
+    const server = http.createServer((req, res) => {
+      if (req.url === unavailable) {
+        res.writeHead(404).end();
+        return;
+      }
+      void app(req, res);
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+    const run = () =>
+      promisify(execFile)(
+        "bash",
+        ["-c", `set -euo pipefail\n${verify}\nverify_client_surface`],
+        {
+          env: { ...process.env, URL: `http://127.0.0.1:${port}` },
+        },
+      );
+    try {
+      await expect(run()).resolves.toMatchObject({ stderr: "" });
+      for (const path of [
+        "/account/reports/manifest.json",
+        "/account/reports/",
+        "/account/reports/components/account-reports.js",
+        "/account/reports/components/account-ledger.js",
+      ]) {
+        unavailable = path;
+        await expect(run(), path).rejects.toMatchObject({ code: 1 });
+      }
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   async function appGet(path: string) {
     const app = createExchangeApp(new MemoryStore());
     const server = http.createServer((req, res) => void app(req, res));
