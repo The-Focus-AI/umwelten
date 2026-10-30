@@ -103,7 +103,7 @@ wait_for_health() {
 # image omitted runtime-read assets, so every browser stayed on "assembling…".
 # Gate the candidate on the actual serving contract before calling it deployed.
 verify_client_surface() {
-  local account_auth account_manifest agent_guide animation animation_path component landing manifest openapi substrate status
+  local account_auth account_manifest agent_guide animation animation_path component landing manifest openapi reports_manifest reports_page reports_component substrate status
   landing="$(curl -sfS --max-time 5 "$URL/")" || {
     echo "error: landing page unavailable" >&2
     return 1
@@ -139,9 +139,31 @@ verify_client_surface() {
     echo "error: account assembly manifest unavailable" >&2
     return 1
   }
-  for component in account-authentication account-customer account-overview account-applications account-playground account-funding account-admin-grant account-supplier-connections account-ledger account-usage account-team; do
+  for component in account-authentication account-layout account-customer account-overview account-applications account-playground account-funding account-admin-grant account-supplier-connections account-team; do
     if ! grep -Eq '"id"[[:space:]]*:[[:space:]]*"'"$component"'"' <<<"$account_manifest"; then
       echo "error: account manifest missing component: $component" >&2
+      return 1
+    fi
+  done
+  reports_manifest="$(curl -sfS --max-time 5 "$URL/account/reports/manifest.json")" || {
+    echo "error: reports assembly manifest unavailable" >&2
+    return 1
+  }
+  for component in account-authentication account-layout account-customer account-reports account-ledger; do
+    if ! grep -Eq '"id"[[:space:]]*:[[:space:]]*"'"$component"'"' <<<"$reports_manifest"; then
+      echo "error: reports manifest missing component: $component" >&2
+      return 1
+    fi
+  done
+  reports_page="$(curl -sfS --max-time 5 "$URL/account/reports/")" || return 1
+  if ! grep -q 'src="./shell.js"' <<<"$reports_page"; then
+    echo "error: reports page is not the account shell" >&2
+    return 1
+  fi
+  for component in account-reports account-ledger; do
+    reports_component="$(curl -sfS --max-time 5 "$URL/account/reports/components/$component.js")" || return 1
+    if ! grep -q 'export' <<<"$reports_component"; then
+      echo "error: reports component is not browser ESM: $component" >&2
       return 1
     fi
   done
