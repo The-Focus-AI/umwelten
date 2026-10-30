@@ -257,6 +257,41 @@ describe("Mycel's signed-in account console", () => {
       .poll(() => store.listRequests({ applicationId: "browser-app" }))
       .toHaveLength(1);
 
+    const messageContrast = await page
+      .locator(".account-conversation .msg")
+      .evaluateAll((messages) => {
+        const luminance = (color: string) => {
+          const channels = color
+            .match(/[\d.]+/g)!
+            .slice(0, 3)
+            .map((value) => {
+              const channel = Number(value) / 255;
+              return channel <= 0.04045
+                ? channel / 12.92
+                : ((channel + 0.055) / 1.055) ** 2.4;
+            });
+          return (
+            channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
+          );
+        };
+        return messages.map((message) => {
+          const background = luminance(
+            getComputedStyle(message).backgroundColor,
+          );
+          const paragraph = [...message.querySelectorAll("p")].find((node) =>
+            node.textContent?.trim(),
+          );
+          const foreground = luminance(getComputedStyle(paragraph!).color);
+          return (
+            (Math.max(background, foreground) + 0.05) /
+            (Math.min(background, foreground) + 0.05)
+          );
+        });
+      });
+    expect(messageContrast).toHaveLength(2);
+    for (const ratio of messageContrast)
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+
     const beforeGrant = (await store.getBalance("client", "browser-client"))
       .microDollars;
     await page

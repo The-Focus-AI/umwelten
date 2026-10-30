@@ -7,7 +7,10 @@ const CSS = `
     --serif: Georgia, 'Times New Roman', serif;
     --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   }
-  body.account-surface { background: var(--bg); color: var(--ink); font-family: Arial, sans-serif; }
+  body.account-surface {
+    --surface: var(--panel); --border: var(--line); --on-action: var(--bg);
+    background: var(--bg); color: var(--ink); font-family: Arial, sans-serif;
+  }
   body.account-surface > header {
     position: sticky; top: 0; z-index: 10; min-height: 72px; padding: 0 4vw;
     align-items: center; background: rgba(7,16,12,.9); backdrop-filter: blur(18px);
