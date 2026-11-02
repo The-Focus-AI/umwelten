@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { Tool } from "ai";
 import type { HabitatConfig, RequiredSecret } from "../types.js";
 import { resolveProjectDir, saveConfig, fileExists } from "../config.js";
+import { refreshRepositories } from "../repository-freshness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -171,7 +172,7 @@ export function createProvisionTools(
 
   const provisionUpdate = tool({
     description:
-      "Update the project: git pull, mise install, re-install dependencies if lockfiles changed.",
+      "Update the project. On Gaia, renew the managed read token and fast-forward clean repositories only; never request a replacement personal token or install dependencies for a content refresh. Outside Gaia, pull and re-install dependencies.",
     inputSchema: z.object({}),
     execute: async () => {
       const workDir = ctx.getWorkDir();
@@ -185,8 +186,17 @@ export function createProvisionTools(
         };
       }
 
+      if (process.env.GAIA_URL) {
+        try {
+          const changed = await refreshRepositories(workDir, config);
+          return { success: true, changed, message: changed ? "Repositories fast-forwarded using a fresh Gaia read token." : "Repositories are already current (verified with a fresh Gaia read token)." };
+        } catch (error) {
+          return { error: "PULL_FAILED", message: error instanceof Error ? error.message : "Managed repository refresh failed." };
+        }
+      }
+
       // Git pull
-      const pullResult = await exec("git pull", projectDir);
+      const pullResult = await exec("git pull --ff-only", projectDir);
       if (pullResult.exitCode !== 0) {
         return {
           error: "PULL_FAILED",

@@ -21,13 +21,16 @@ import {
 
 const baseKey = serviceKey("shell:base");
 const conversationKey = serviceKey("shell:conversation");
+const toolsKey = serviceKey("shell:tools");
 
 export default {
   name: "conversation",
-  inject: [baseKey],
+  inject: [baseKey, toolsKey],
   apply(ctx, view, config) {
     const base = view.get(baseKey);
+    const tools = view.get(toolsKey);
     let threadId = crypto.randomUUID();
+    let selectionVersion = 0;
     const token = resolveToken(config?.token);
     const identity = browserSession(base, token);
     let rejected = null;
@@ -48,6 +51,51 @@ export default {
       images: [],
       preparingImages: false,
       savingForLogin: false,
+      loadingSession: false,
+      readOnly: false,
+      selectedSession: null,
+      async openSession(session) {
+        await ready;
+        if (conversation.busy || conversation.savingForLogin || conversation.preparingImages) return;
+        const version = ++selectionVersion;
+        conversation.loadingSession = true;
+        notify();
+        try {
+          const result = await tools.call("sessions_messages", { sessionId: session.sessionId });
+          if (version !== selectionVersion) return;
+          if (result.error) throw new Error(result.message ?? result.error);
+          const rows = Array.isArray(result) ? result : (result.messages ?? []);
+          messages.splice(0, messages.length, ...rows.map((m) => ({
+            role: m.role === "user" ? "user" : "assistant",
+            parts: m.role === "tool"
+              ? [{ kind: "tool", name: m.tool ?? "tool", output: m.content }]
+              : [{ kind: "text", text: m.content ?? m.text ?? "" }],
+          })));
+          threadId = session.sessionId;
+          conversation.selectedSession = session.sessionId;
+          conversation.readOnly = session.type !== "web";
+          conversation.draft = "";
+          conversation.images = [];
+        } finally {
+          if (version === selectionVersion) {
+            conversation.loadingSession = false;
+            notify();
+          }
+        }
+      },
+      async newChat() {
+        await ready;
+        if (conversation.busy || conversation.savingForLogin || conversation.preparingImages) return;
+        selectionVersion++;
+        threadId = crypto.randomUUID();
+        conversation.loadingSession = false;
+        conversation.readOnly = false;
+        conversation.selectedSession = null;
+        conversation.draft = "";
+        conversation.images = [];
+        messages.splice(0);
+        notify();
+      },
       setImages(images) {
         conversation.images = images;
         notify();
@@ -60,7 +108,7 @@ export default {
       },
       async send(text, allowSignIn = true, images = []) {
         await ready;
-        if (conversation.busy || conversation.savingForLogin) return;
+        if (conversation.busy || conversation.savingForLogin || conversation.loadingSession || conversation.readOnly) return;
         conversation.busy = true;
         messages.push({
           role: "user",
@@ -183,6 +231,8 @@ export default {
           userId: event.detail.userId,
           savedAt: Date.now(),
           threadId,
+          readOnly: conversation.readOnly,
+          selectedSession: conversation.selectedSession,
           messages: rejected ? messages.slice(0, -2) : messages,
           draft: conversation.draft,
           images: conversation.images,
@@ -213,6 +263,8 @@ export default {
         )
           return;
         threadId = saved.threadId;
+        conversation.readOnly = saved.readOnly ?? false;
+        conversation.selectedSession = saved.selectedSession ?? null;
         messages.push(...saved.messages);
         conversation.draft = saved.draft ?? "";
         conversation.images = saved.images ?? [];

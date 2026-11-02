@@ -8,6 +8,7 @@ import { serviceKey } from "../substrate/index.js";
 
 const regionKey = serviceKey("shell:region");
 const toolsKey = serviceKey("shell:tools");
+const conversationKey = serviceKey("shell:conversation");
 
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) =>
@@ -16,64 +17,37 @@ const esc = (s) =>
 
 export default {
   name: "sessions",
-  inject: [regionKey, toolsKey],
+  inject: [regionKey, toolsKey, conversationKey],
   apply(ctx, view) {
     const region = view.get(regionKey);
     const tools = view.get(toolsKey);
+    const conversation = view.get(conversationKey);
+    let sessions = [];
 
     const el = document.createElement("div");
     el.className = "shell-card";
     el.dataset.component = "sessions";
     el.innerHTML = `
       <h2>Sessions</h2>
+      <button class="new-chat btn ghost sm" type="button">New chat</button>
       <p class="note">loading…</p>
-      <ul></ul>
-      <div class="detail" style="display:none;margin-top:0.6rem;">
-        <button class="back btn ghost sm" type="button">← Back</button>
-        <div class="messages chat-log"></div>
-      </div>`;
+      <ul></ul>`;
     region.appendChild(el);
 
     const note = el.querySelector(".note");
     const list = el.querySelector("ul");
-    const detail = el.querySelector(".detail");
-    const messages = el.querySelector(".messages");
-
-    const showList = () => {
-      detail.style.display = "none";
-      list.style.display = "block";
-    };
-
-    const openSession = async (sessionId) => {
-      try {
-        const result = await tools.call("sessions_messages", {
-          sessionId,
-          limit: 50,
-        });
-        const msgs = Array.isArray(result) ? result : (result.messages ?? []);
-        messages.innerHTML = msgs
-          .map((m) => {
-            const role = m.role ?? "?";
-            const text =
-              typeof m.content === "string"
-                ? m.content
-                : (m.text ?? JSON.stringify(m.content ?? m));
-            return `<div class="msg" data-role="${esc(role)}">
-              <span class="meta">${esc(role)}</span>
-              <p style="margin:0.1rem 0 0;white-space:pre-wrap;">${esc(String(text).slice(0, 500))}</p></div>`;
-          })
-          .join("");
-        list.style.display = "none";
-        detail.style.display = "block";
-      } catch (err) {
-        note.textContent = err.message;
+    const updateSelection = () => {
+      for (const button of el.querySelectorAll("button")) {
+        button.disabled = conversation.busy || conversation.savingForLogin;
+        if (button.dataset.session) button.setAttribute("aria-pressed", String(button.dataset.session === conversation.selectedSession));
       }
     };
+    ctx.effect(() => conversation.subscribe(updateSelection));
 
     const refresh = async () => {
       try {
         const result = await tools.call("sessions_list", { limit: 15 });
-        const sessions = Array.isArray(result) ? result : (result.sessions ?? []);
+        sessions = Array.isArray(result) ? result : (result.sessions ?? []);
         note.textContent = sessions.length ? "" : "No sessions yet";
         list.innerHTML = sessions
           .map(
@@ -85,18 +59,27 @@ export default {
             </li>`,
           )
           .join("");
+        updateSelection();
       } catch (err) {
         note.textContent = err.message;
       }
     };
 
-    const onClick = (e) => {
+    const onClick = async (e) => {
       const id = e.target.closest("[data-session]")?.dataset?.session;
-      if (id) void openSession(id);
+      const session = sessions.find((s) => s.sessionId === id);
+      if (!session) return;
+      note.textContent = "Loading conversation…";
+      try {
+        await conversation.openSession(session);
+        note.textContent = "";
+        document.querySelector("habitat-chat")?.scrollIntoView({ block: "nearest" });
+      } catch (err) {
+        note.textContent = err.message;
+      }
     };
-    const onBack = () => showList();
     list.addEventListener("click", onClick);
-    el.querySelector(".back").addEventListener("click", onBack);
+    el.querySelector(".new-chat").onclick = () => { void conversation.newChat(); };
     ctx.effect(() => () => {
       list.removeEventListener("click", onClick);
     });

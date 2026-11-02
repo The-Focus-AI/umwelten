@@ -103,6 +103,7 @@ function stubToolResult(name: string, args: Record<string, unknown>): unknown {
             sessionId: "sess-1",
             firstPrompt: "build me a clock",
             messageCount: 4,
+            type: "web",
           },
         ],
       };
@@ -487,7 +488,7 @@ describe("the shell assembles itself in a browser", () => {
     } finally { await page.close(); }
   });
 
-  it("does not let a panel's expiry interrupt a chat already in flight", async () => {
+  it("prevents switching sessions while a chat is in flight", async () => {
     const page = await browser.newPage();
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -504,8 +505,7 @@ describe("the shell assembles itself in a browser", () => {
       await page.locator("habitat-chat button").click();
       await expect.poll(() => page.locator("habitat-chat button").isDisabled()).toBe(true);
       state.expired = true;
-      await page.locator('[data-session="sess-1"]').click();
-      await expect.poll(() => page.locator('[data-component="sessions"]').textContent()).toContain("Your session expired");
+      expect(await page.locator('[data-session="sess-1"]').isDisabled()).toBe(true);
       expect(state.logins).toBe(0);
       release();
       await expect.poll(() => page.locator("habitat-chat .log").textContent()).toContain("finished once");
@@ -630,8 +630,13 @@ describe("the shell assembles itself in a browser", () => {
     await page.close();
   }, 30_000);
 
-  it("sessions panel: lists sessions and opens one to its messages", async () => {
+  it("session selection loads main chat, resumes its ID, and allows a new conversation", async () => {
     const page = await browser.newPage();
+    const sentIds: string[] = [];
+    await page.route("**/api/chat", (route) => {
+      sentIds.push(route.request().postDataJSON().id);
+      return route.continue();
+    });
     await page.goto(`${baseUrl}/shell/`);
     const panel = page.locator('[data-component="sessions"]');
     await panel.waitFor({ state: "visible", timeout: 10_000 });
@@ -642,15 +647,58 @@ describe("the shell assembles itself in a browser", () => {
 
     await panel.locator('[data-session="sess-1"]').click();
     await expect
-      .poll(() => panel.textContent(), { timeout: 10_000 })
+      .poll(() => page.locator('habitat-chat .log').textContent(), { timeout: 10_000 })
       .toContain("done — mounted session-clock");
-
-    await panel.locator(".back").click();
-    await expect(
-      await panel.locator("ul").isVisible(),
-    ).toBe(true);
+    expect(await panel.locator(".chat-log").count()).toBe(0);
+    const chat = page.locator("habitat-chat");
+    await chat.getByRole("textbox").fill("continue this session");
+    await chat.locator('button[type="submit"]').click();
+    await expect.poll(() => chat.locator(".log").textContent()).toContain("echo: continue this session");
+    expect(sentIds).toEqual(["sess-1"]);
+    await screenshot(page, "session-selected.png");
+    await panel.getByRole("button", { name: "New chat" }).click();
+    expect(await chat.locator(".log").textContent()).toBe("");
+    await chat.getByRole("textbox").fill("new conversation");
+    await chat.locator('button[type="submit"]').click();
+    await expect.poll(() => sentIds.length).toBe(2);
+    expect(sentIds[1]).not.toBe("sess-1");
     await page.close();
   }, 30_000);
+
+  it("keeps the latest selected session when loads race and does not resume other channels", async () => {
+    const page = await browser.newPage();
+    let release!: () => void;
+    let slowStarted = false;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route("**/mcp", async (route) => {
+      const rpc = route.request().postDataJSON();
+      let result;
+      if (rpc.params.name === "sessions_list") {
+        result = { sessions: [
+          { sessionId: "slow", firstPrompt: "Slow web session", type: "web" },
+          { sessionId: "other", firstPrompt: "Telegram session", type: "telegram" },
+        ] };
+      } else if (rpc.params.name === "sessions_messages") {
+        if (rpc.params.arguments.sessionId === "slow") { slowStarted = true; await gate; }
+        result = { messages: [{ role: "assistant", content: rpc.params.arguments.sessionId === "slow" ? "Old response" : "Selected response" }] };
+      } else return route.continue();
+      await route.fulfill({ json: { jsonrpc: "2.0", id: rpc.id, result: { content: [{ type: "text", text: JSON.stringify(result) }] } } });
+    });
+    try {
+      await page.goto(`${baseUrl}/shell/`);
+      await page.locator('[data-session="slow"]').click();
+      await expect.poll(() => slowStarted).toBe(true);
+      await page.locator('[data-session="other"]').click();
+      await expect.poll(() => page.locator("habitat-chat .log").textContent()).toBe("Selected response");
+      release();
+      await page.waitForTimeout(150);
+      expect(await page.locator("habitat-chat .log").textContent()).toBe("Selected response");
+      expect(await page.locator("habitat-chat").getByRole("textbox").isDisabled()).toBe(true);
+      expect(await page.locator("habitat-chat .session-state").textContent()).toContain("Read-only");
+      await page.getByRole("button", { name: "New chat", exact: true }).click();
+      expect(await page.locator("habitat-chat").getByRole("textbox").isEnabled()).toBe(true);
+    } finally { release(); await page.close(); }
+  });
 
   it("a solo page mounts exactly its target component (#406's mountable projection)", async () => {
     const page = await browser.newPage();

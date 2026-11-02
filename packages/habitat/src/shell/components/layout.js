@@ -49,6 +49,76 @@ export default {
     const admin = rail.querySelector(".rail-admin");
     document.body.classList.add("shell-railed");
 
+    // Viewer preferences only: hide content without unmounting components or
+    // re-parenting their iframes. Hidden panels remain recoverable in the menu.
+    const panels = new Map();
+    let preferences = {};
+    try { preferences = JSON.parse(localStorage.getItem("shell-panels") || "{}") ?? {}; } catch { /* session-only */ }
+    const menu = document.createElement("details");
+    menu.className = "shell-panel-menu";
+    menu.innerHTML = '<summary class="btn ghost sm">Panels</summary><div class="shell-panel-options"></div>';
+    header.appendChild(menu);
+    const renderMenu = () => {
+      const options = menu.querySelector(".shell-panel-options");
+      options.replaceChildren();
+      for (const [el, panel] of panels) {
+        if (!el.isConnected) { panels.delete(el); continue; }
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = preferences[panel.id] !== "hidden";
+        checkbox.onchange = () => panel.set(checkbox.checked ? "expanded" : "hidden");
+        label.append(checkbox, document.createTextNode(panel.title));
+        options.appendChild(label);
+      }
+      menu.hidden = panels.size === 0;
+    };
+    const addPanelControls = (el) => {
+      if (!el.dataset.component || el.dataset.component === "chat" || panels.has(el)) return;
+      const id = el.dataset.component;
+      const title = el.querySelector("h2")?.textContent || id;
+      const textWrappers = [];
+      for (const node of [...el.childNodes]) {
+        if (node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) continue;
+        const span = document.createElement("span");
+        node.replaceWith(span);
+        span.appendChild(node);
+        textWrappers.push(span);
+      }
+      const controls = document.createElement("div");
+      controls.className = "shell-panel-controls";
+      const name = document.createElement("span");
+      name.textContent = title;
+      const collapse = document.createElement("button");
+      collapse.className = "btn ghost sm";
+      collapse.type = "button";
+      const hide = document.createElement("button");
+      hide.className = "btn ghost sm";
+      hide.type = "button";
+      hide.textContent = "Hide";
+      hide.setAttribute("aria-label", `Hide ${title}`);
+      const renderPanel = () => {
+        const state = preferences[id];
+        el.classList.toggle("shell-panel-hidden", state === "hidden");
+        el.classList.toggle("shell-panel-collapsed", state === "collapsed");
+        collapse.textContent = state === "collapsed" ? "Expand" : "Collapse";
+        collapse.setAttribute("aria-label", `${collapse.textContent} ${title}`);
+        collapse.setAttribute("aria-expanded", String(state !== "collapsed"));
+      };
+      const set = (state) => {
+        preferences[id] = state;
+        try { localStorage.setItem("shell-panels", JSON.stringify(preferences)); } catch { /* best effort */ }
+        renderPanel();
+        renderMenu();
+      };
+      collapse.onclick = () => set(preferences[id] === "collapsed" ? "expanded" : "collapsed");
+      hide.onclick = () => set("hidden");
+      controls.append(name, collapse, hide);
+      el.prepend(controls);
+      panels.set(el, { id, title, set, controls, textWrappers });
+      renderPanel();
+    };
+
     /** Panels this layout moved, to return on dispose. */
     const adopted = new Set();
     const targetOf = (el) => {
@@ -64,11 +134,14 @@ export default {
         adopted.add(el);
         target.appendChild(el);
       }
+      if (!target) addPanelControls(el);
     };
     for (const el of [...region.children]) adopt(el);
+    renderMenu();
     // Panels mount in manifest order, layout included — adopt late arrivals.
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) for (const n of m.addedNodes) adopt(n);
+      renderMenu();
     });
     observer.observe(region, { childList: true });
 
@@ -100,6 +173,12 @@ export default {
 
     return () => {
       observer.disconnect();
+      for (const [el, panel] of panels) {
+        panel.controls.remove();
+        for (const span of panel.textWrappers) span.replaceWith(...span.childNodes);
+        el.classList.remove("shell-panel-hidden", "shell-panel-collapsed");
+      }
+      menu.remove();
       for (const el of adopted) {
         if (el.isConnected && el.parentElement !== region) region.appendChild(el);
       }

@@ -515,6 +515,27 @@ button.rail-toggle {
   flex-shrink: 0;
 }
 
+.shell-panel-menu { position: relative; margin-left: auto; }
+.shell-panel-menu[hidden], .shell-panel-hidden { display: none !important; }
+.shell-panel-options {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  min-width: 180px;
+  padding: 12px;
+  background: var(--surface, white);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+.shell-panel-options label { display: flex; gap: 8px; padding: 4px; }
+.shell-panel-controls { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.shell-panel-controls span { margin-right: auto; font-weight: 600; }
+.shell-panel-collapsed { height: auto !important; min-height: 0 !important; }
+.shell-panel-collapsed > :not(.shell-panel-controls) { display: none !important; }
+.shell-panel-collapsed .shell-panel-controls { margin-bottom: 0; }
+[data-component="sessions"] [aria-pressed="true"] { background: var(--hover, #eeeeee); }
+
 /* === CHAT / CONVERSATION === */
 habitat-chat {
   display: flex;
