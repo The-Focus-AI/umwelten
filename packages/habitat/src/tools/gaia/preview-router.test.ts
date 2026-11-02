@@ -1,5 +1,6 @@
 import { createServer, request, type Server } from "node:http";
 import { connect } from "node:net";
+import { runInNewContext } from "node:vm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPreviewRouter, type PreviewRouterContext } from "./preview-router.js";
 import { previewHostname } from "./preview-address.js";
@@ -105,6 +106,59 @@ describe("preview router state machine", () => {
       req.end();
     });
     expect(ctx.wake).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the loading page through transient missing routes until the site is ready", async () => {
+    const habitat = entry(3000, { containerPort: undefined });
+    const port = await listen(createPreviewRouter({ context: context(habitat) }));
+    const known = previewHostname(habitat, habitat.publishedPreviews![0], domain);
+    const response = await get(port, known);
+    const script = response.body.match(/<script>([\s\S]*?)<\/script>/)![1];
+    const reload = vi.fn();
+    const timers: Array<() => Promise<void>> = [];
+    const pageStatuses = [410, 503, 200];
+    await runInNewContext(script, {
+      Date, AbortSignal,
+      location: { href: `http://${known}/`, reload },
+      fetch: async (url: string) => new Response("", { status: url === "/__preview/wake" ? 202 : pageStatuses.shift()! }),
+      setTimeout: (callback: () => Promise<void>) => timers.push(callback),
+    });
+    expect(reload).not.toHaveBeenCalled();
+    await timers.shift()!();
+    expect(reload).not.toHaveBeenCalled();
+    await timers.shift()!();
+    expect(reload).toHaveBeenCalledOnce();
+    expect(timers).toHaveLength(0);
+  });
+
+  it.each(["serving", "stopped"] as const)("recovers a reaped habitat with a stale port and %s preview metadata", async (status) => {
+    const habitat = entry(1);
+    habitat.publishedPreviews![0].status = status;
+    const ctx = context(habitat);
+    ctx.wake.mockImplementation(async () => {
+      const upstreamPort = await listen(createServer((_req, res) => res.end("Restored site")));
+      habitat.publishedPreviews![0].port = upstreamPort;
+      habitat.publishedPreviews![0].status = "serving";
+      return { ok: true };
+    });
+    const port = await listen(createPreviewRouter({ context: ctx }));
+    const known = previewHostname(habitat, habitat.publishedPreviews![0], domain);
+    const cold = await get(port, known);
+    expect(cold.status).toBe(503);
+    expect(cold.body).toContain("fetch('/__preview/wake'");
+    expect(ctx.wake).not.toHaveBeenCalled();
+    const wakeStatus = await new Promise<number>((resolve, reject) => {
+      const req = request({ hostname: "127.0.0.1", port, path: "/__preview/wake", method: "POST", headers: { host: known } }, (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode!));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    expect(wakeStatus).toBe(202);
+    const restored = await get(port, known);
+    expect(restored.status).toBe(200);
+    expect(restored.body).toBe("Restored site");
   });
 });
 

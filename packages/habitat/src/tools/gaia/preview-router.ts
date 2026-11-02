@@ -49,7 +49,19 @@ function html(res: ServerResponse, status: number, title: string, body: string):
 function dormantPage(res: ServerResponse): void {
   noIndex(res);
   res.writeHead(503, { "Content-Type": "text/html; charset=utf-8", "Retry-After": "3" });
-  res.end(`<!doctype html><meta name="robots" content="${NO_INDEX}"><title>Preview is waking</title><main><h1>This preview is asleep</h1><p>Waking its Habitat…</p></main><script>fetch('/__preview/wake',{method:'POST'}).then(()=>setTimeout(()=>location.reload(),1500))</script>`);
+  res.end(`<!doctype html><meta name="robots" content="${NO_INDEX}"><title>Preview is waking</title><main><h1>This preview is asleep</h1><p>Waking its Habitat…</p></main><script>
+const started = Date.now();
+async function poll() {
+  try {
+    await fetch('/__preview/wake',{method:'POST',signal:AbortSignal.timeout(10000)});
+    const response = await fetch(location.href,{cache:'no-store',signal:AbortSignal.timeout(10000)});
+    if (response.ok) { location.reload(); return; }
+  } catch {}
+  if (Date.now() - started < 180000) setTimeout(poll,1500);
+  else document.querySelector('p').textContent = 'The preview is taking longer than expected. Reload this page to retry.';
+}
+poll();
+</script>`);
 }
 
 function upstreamOptions(
@@ -98,11 +110,8 @@ async function routeRequest(
     return;
   }
   if (req.url === "/__preview/wake" && req.method === "POST") {
-    if (!resolution.dormant) {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
+    // Reaped habitats retain their recorded port. Let Gaia's waker check
+    // actual container state; a port alone does not establish liveness.
     const outcome = await ctx.wake(resolution.entry);
     res.writeHead(outcome.ok ? 202 : 503, { "Content-Type": "application/json" });
     res.end(JSON.stringify(outcome));
@@ -114,9 +123,7 @@ async function routeRequest(
   }
   void ctx.activity(resolution.entry, resolution.preview.worktreeId).catch(() => {});
   if (resolution.preview.status === "stopped") {
-    noIndex(res);
-    res.writeHead(503, { "Content-Type": "text/html; charset=utf-8", "Retry-After": "2" });
-    res.end(`<!doctype html><meta name="robots" content="${NO_INDEX}"><title>Preview is restarting</title><main><h1>Preview is restarting</h1></main><script>setTimeout(()=>location.reload(),1500)</script>`);
+    dormantPage(res);
     return;
   }
   if (resolution.preview.status === "failing") {
@@ -137,8 +144,12 @@ async function routeRequest(
       },
     );
     upstream.on("error", (error) => {
-      if (!res.headersSent) html(res, 502, "Preview unavailable", error.message);
-      else res.destroy(error);
+      if (res.headersSent) res.destroy(error);
+      else if (["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN"].includes((error as NodeJS.ErrnoException).code ?? "")) {
+        // Docker removes a sleeping container's DNS name. Only the browser's
+        // explicit POST wakes it; crawler GETs still do not start containers.
+        dormantPage(res);
+      } else html(res, 502, "Preview unavailable", error.message);
       resolve();
     });
     req.pipe(upstream);
