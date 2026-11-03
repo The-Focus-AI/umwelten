@@ -16,6 +16,7 @@ import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import type { AgentHost } from "./types.js";
 import { Habitat } from "./habitat.js";
+import { createProvisionTools } from "./tools/provision-tools.js";
 
 let root: string, source: string, remote: string, project: string;
 const git = (cwd: string, ...args: string[]) =>
@@ -97,6 +98,22 @@ it("refreshes owned and mounted repos, renews read credentials and skips unchang
     body: '{"kind":"read"}',
     headers: { authorization: "Bearer child-secret" },
   });
+});
+
+it("explicit provisioning refresh uses managed credentials and refuses failed renewal", async () => {
+  const tools = createProvisionTools({
+    getWorkDir: () => root,
+    getConfig: config,
+    getConfigPath: () => join(root, "config.json"),
+    reloadConfig: async () => {},
+  });
+  vi.stubEnv("GITHUB_TOKEN", "expired-boot-token");
+  await advance();
+  const update = () => tools.provision_update.execute!({}, { toolCallId: "refresh", messages: [] });
+  expect(await update()).toMatchObject({ success: true, changed: true });
+  expect(await readFile(join(project, "README.md"), "utf8")).toBe("fresh context");
+  vi.mocked(fetch).mockResolvedValue(new Response("unauthorized", { status: 401 }));
+  expect(await update()).toMatchObject({ error: "PULL_FAILED" });
 });
 
 it("resolves relative git-backed mounts from workDir, canonicalizes aliases, and ignores local directory agents", async () => {

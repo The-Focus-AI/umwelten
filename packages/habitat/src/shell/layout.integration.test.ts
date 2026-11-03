@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Browser } from "playwright-core";
@@ -151,6 +151,38 @@ describe("the stock layout", () => {
       .poll(() => page.locator('#region [data-component="beacon"]').count(), { timeout: 15_000 })
       .toBe(1);
     expect(await page.locator('aside.shell-rail [data-component="beacon"]').count()).toBe(0);
+
+    const panel = page.locator('[data-component="beacon"]');
+    // Keep local state and mounted DOM while collapsed/hidden.
+    await panel.evaluate((el) => {
+      const input = document.createElement("input");
+      input.value = "unsaved panel state";
+      input.setAttribute("aria-label", "Panel draft");
+      el.appendChild(input);
+    });
+    await page.getByRole("button", { name: "Collapse beacon", exact: true }).click();
+    expect(await panel.getByLabel("Panel draft").isVisible()).toBe(false);
+    expect(await panel.getByLabel("Panel draft").inputValue()).toBe("unsaved panel state");
+    if (process.env.SHELL_SCREENSHOT_DIR) {
+      await mkdir(process.env.SHELL_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: join(process.env.SHELL_SCREENSHOT_DIR, "panel-collapsed.png"), fullPage: true });
+    }
+    await page.reload();
+    await page.getByRole("button", { name: "Expand beacon", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Hide beacon", exact: true }).click();
+    expect(await panel.isVisible()).toBe(false);
+    await page.reload();
+    await page.locator(".shell-panel-menu summary").click();
+    expect(await page.getByRole("checkbox", { name: "beacon", exact: true }).isChecked()).toBe(false);
+    if (process.env.SHELL_SCREENSHOT_DIR) {
+      await page.screenshot({ path: join(process.env.SHELL_SCREENSHOT_DIR, "panel-hidden.png"), fullPage: true });
+    }
+    await page.getByRole("checkbox", { name: "beacon", exact: true }).check();
+    expect(await panel.isVisible()).toBe(true);
+    await page.locator(".shell-panel-menu summary").click();
+    if (process.env.SHELL_SCREENSHOT_DIR) {
+      await page.screenshot({ path: join(process.env.SHELL_SCREENSHOT_DIR, "panel-expanded.png"), fullPage: true });
+    }
 
     await rm(join(customDir, "beacon.js"));
     await expect

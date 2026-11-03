@@ -24,6 +24,7 @@ class HabitatChat extends HTMLElement {
     this.style.gridColumn = "1 / -1";
     this.innerHTML = `
       <h2>Chat</h2>
+      <p class="session-state note" aria-live="polite"></p>
       <div class="log chat-log"></div>
       <div class="attachments" aria-label="Attached images"></div>
       <p class="attachment-error" role="alert"></p>
@@ -71,9 +72,13 @@ export default {
     const unsubscribe = conversation.subscribe((messages) => {
       el.renderTranscript(messages);
       input.value = conversation.draft;
-      input.disabled = conversation.savingForLogin;
+      el.querySelector(".session-state").textContent = conversation.loadingSession
+        ? "Loading conversation…"
+        : conversation.readOnly ? "Read-only session from another channel. Choose New chat to start a conversation."
+        : conversation.selectedSession ? "Continuing selected session" : "";
+      input.disabled = conversation.savingForLogin || conversation.loadingSession || conversation.readOnly;
       send.disabled = files.disabled =
-        conversation.busy || reading || conversation.savingForLogin;
+        conversation.busy || reading || input.disabled;
       if (shownImages !== conversation.images) {
         shownImages = conversation.images;
         const list = el.querySelector(".attachments");
