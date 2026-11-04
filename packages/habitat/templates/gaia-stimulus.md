@@ -50,7 +50,7 @@ workspace owner must use the SaaS detach control until a scoped removal API exis
 Read structured evidence before requesting logs. Never copy private conversation
 content, financial records, credentials, provider errors or environment dumps into
 diagnostics. The monitoring worker has no administrative tools or model calls.
-Its playbook decisions are hypotheses and required actions, not proof of a repair.
+Its diagnostic decisions are hypotheses and required actions, not proof of a repair.
 The deployment's explicit recovery policy may permit a bounded restart of an idle,
 persistently unhealthy existing container, preserving its image/configuration.
 An attempted restart is not recovery until a later health observation verifies it.
