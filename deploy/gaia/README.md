@@ -512,11 +512,21 @@ Manual deploy is the same one command: `deploy/gaia/redeploy.sh` (or
 ### Child and host health
 
 Every child starts with Docker's `unless-stopped` restart policy, so an OOM kill
-or daemon restart does not leave it down. Gaia also checks every expected-running
-child every 30 seconds. After three consecutive `exited`, `dead`, missing, or
-Docker-unhealthy observations, Gaia recreates it through the normal start path.
-An intentionally stopped or idle-reaped habitat has no recorded port and is
-never restarted by the monitor.
+or daemon restart does not leave it down. Gaia observes runtime state every
+30 seconds without waking dormant children. An idle-reaped container is absent
+but can retain its recorded port; port presence is **not** desired running state.
+Docker errors are unknown, not proof that a container is absent.
+
+The operational monitor replaces the old restart loop. `GAIA_AUTO_RECOVERY=0`
+(default) leaves recovery to operators. If explicitly approved and set to `1`,
+three consecutive unhealthy observations may restart an **existing running**
+container, preserving its image/configuration/mounts. Fresh task telemetry must
+show no active turns, active tasks or waiting tasks. Unknown telemetry denies
+recovery. Attempts are persisted before execution, limited to one per habitat
+per hour and three fleet-wide per day; a later healthy check verifies recovery.
+This is best-effort task gating, not atomic draining: leave recovery disabled for
+workloads that cannot tolerate work arriving between the final probe and restart.
+It never recreates missing containers or repairs registration by restarting.
 
 Gaia samples host memory, swap, and the filesystem containing
 `/opt/gaia-data`. Both authenticated `GET /api/status` and
@@ -524,6 +534,59 @@ Gaia samples host memory, swap, and the filesystem containing
 disk use above 90% produce transition-based warnings in Gaia's logs. The
 Compose deployment mounts host `/proc` read-only at `/host/proc`; host-run Gaia
 reads `/proc` directly.
+
+### Durable operational status and rollout
+
+`operations.json` in Gaia's persistent data directory contains conditions,
+bounded diagnostic/action history, allowlisted observations and registration
+retry state. It contains no credentials, raw errors or private conversation
+content. A corrupt file disables monitoring/recovery without overwriting the
+evidence; restore a known-good copy and restart Gaia. Resolved conditions expire
+after seven days; diagnostic and action histories retain the latest 200 entries.
+
+The operator Shell panel and authenticated `/api/operations` / `operational_status`
+tool expose fleet metadata. Each child relays only its own conditions at
+authenticated `GET /api/operations`; its key selects the subject at Gaia, never
+a browser-supplied ID. Existing child JWT auth works. Gaia polls the child's
+service-key-only `/internal/operations/telemetry`: task state counts, readiness
+of required environment variables and a bounded 15-minute completion summary.
+This is not proof that every external dependency works. Absent/truncated
+execution records are explicitly unknown/incomplete. Polls do not count as user
+activity. Waiting for input/authorization is not abandoned work; 30 minutes
+without active-task progress flags investigation, not cancellation.
+
+Registration reconciliation runs independently of container starts. An explicit
+per-habitat organization/workspace or configured legacy workspace is required;
+Gaia never guesses ownership. Changed name/address/key/destination is republished,
+successful entries refresh every 15 minutes, transient errors back off from
+30 seconds to 30 minutes, and rejected 4xx responses block until configuration
+changes or an operator explicitly retries. 408/429 remain retryable. Removing a
+habitat records a pending SaaS detach decision: the current receiver has no
+fleet-authenticated tombstone endpoint. A workspace owner must detach it there.
+
+Roll out the child endpoint before expecting full telemetry or SaaS status;
+old images show unknown, not healthy. Deploy Gaia with recovery disabled first.
+Verify fresh observations, expected destinations and permission isolation with
+synthetic data, then consider enabling recovery separately. Existing persistent
+`STIMULUS.md` is not overwritten: review and merge the template's operational
+introspection section as an explicit rollout step. Preserve pinned child images
+and unrelated habitat configuration; a Gaia rollout is not permission to rebuild
+every child. Rollback restores the previous Gaia image and leaves operational
+state and all habitat data intact.
+
+### External watchdog and backup approval
+
+Public `GET /health/operations` exposes only `{status:"ok"|"stale"}` and returns
+503 when the monitor has no fresh completed pass (120 seconds), including failed
+state loading. It contains no fleet metadata and requires no administrative key.
+Configure an uptime check **outside this host** against that path and `/health`,
+with a one-minute interval, two consecutive failures, and an approved alert
+destination. Test delivery by an authorized disposable failure before relying on
+it. This repository does not provision the check, notification destination or
+cloud permissions; those require deployment approval. Gaia records watchdog and
+backup guarantees as unverified. Configure snapshot schedules/retention and run
+an isolated restore test before making any backup guarantee. Healthy HTTP is not
+evidence of recoverable data.
 
 ---
 
@@ -534,7 +597,7 @@ reads `/proc` directly.
 | `health` shows `"docker": false` | Socket not mounted / no daemon access. Check `/var/run/docker.sock` mount + the host user is in the `docker` group. |
 | Gaia can't reach a started child (proxy 502) | Gaia and the child must share a user-defined network for embedded DNS. Ensure Gaia is attached to the same network as `GAIA_INGRESS_NETWORK` (children join it; Gaia must too). |
 | `hostResources.error` appears in status | Containerized Gaia needs the read-only `/proc:/host/proc:ro` mount and `GAIA_HOST_PROC=/host/proc`. Check that the data directory also exists so disk capacity can be sampled. |
-| A child repeatedly logs `unhealthy (n/3)` | Inspect `docker logs gaia-<id>` and its `/health` response. Gaia recreates it after the third consecutive failure; a recurring cycle indicates an application or resource-pressure fault. |
+| A child stays unhealthy | Inspect `operational_status` first. Recovery is opt-in and task/cooldown guarded; never use restarts to repair rejected SaaS registration. Request bounded redacted logs only when metadata is insufficient. |
 | `Image "twitter-habitat" not found` | Build it on this host (§1). Gaia only auto-builds the default `habitat` image. |
 | Child session dirs empty on host | Data dir not identity-mounted. Keep `/opt/gaia-data:/opt/gaia-data` (same path in/out). |
 | Bookmarks tool: `needs_reauth` | `TWITTER_REFRESH_TOKEN` missing/expired — re-run the OAuth bootstrap and re-set the secret, then `rebuild` the habitat. |

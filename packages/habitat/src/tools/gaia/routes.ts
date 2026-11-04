@@ -51,6 +51,7 @@ const gapDecisions = new Map<
 >();
 
 export interface GaiaRouteContext {
+	operations?: GaiaToolsContext["operations"];
 	registry: GaiaRegistryManager;
 	vault: GaiaSecretVault;
 	docker: DockerManager;
@@ -143,10 +144,10 @@ function matchRoute(
 	return params;
 }
 
-function sendJson(res: ServerResponse, data: unknown, status = 200): void {
+function sendJson(res: ServerResponse, data: unknown, status = 200, cacheControl = "no-cache"): void {
 	res.writeHead(status, {
 		"Content-Type": "application/json",
-		"Cache-Control": "no-cache",
+		"Cache-Control": cacheControl,
 	});
 	res.end(JSON.stringify(data));
 }
@@ -224,6 +225,28 @@ export async function handleGaiaRoute(
 	const { path, query } = parseUrl(req.url ?? "/");
 	const method = req.method ?? "GET";
 	let params: Record<string, string> | null;
+
+	// External uptime probes get liveness only, never fleet or tenant metadata.
+	if (path === "/health/operations" && method === "GET") {
+		const current = ctx.operations && !ctx.operations.snapshot().stale;
+		sendJson(res, { status: current ? "ok" : "stale" }, current ? 200 : 503, "no-store");
+		return true;
+	}
+
+	if (path === "/internal/operations/status" && method === "GET") {
+		const key = bearer(req);
+		const entry = key ? ctx.registry.list().find((e) => e.apiKey === key) : undefined;
+		if (!entry) { sendJson(res, { error: "Unauthorized" }, 401); return true; }
+		if (!ctx.operations) { sendJson(res, { error: "Operations unavailable" }, 503, "no-store"); return true; }
+		sendJson(res, ctx.operations.snapshot(entry.id), 200, "no-store");
+		return true;
+	}
+	// Operator-authenticated by the host before extraRawHandler is called.
+	if (path === "/api/operations" && method === "GET") {
+		if (!ctx.operations) { sendJson(res, { error: "Operations unavailable" }, 503, "no-store"); return true; }
+		sendJson(res, ctx.operations.snapshot(), 200, "no-store");
+		return true;
+	}
 
 	// Child supervisor publication uses the child's own credential, not Gaia's
 	// broad control-plane key. This internal path is outside /api and gates itself.

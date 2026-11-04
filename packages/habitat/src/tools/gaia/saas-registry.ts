@@ -123,7 +123,7 @@ export interface AnnounceDeps {
 
 export type AnnounceOutcome =
 	| { ok: true; created?: boolean; agentKey?: string }
-	| { ok: false; reason: string }
+	| { ok: false; reason: string; status?: number }
 	| { ok: "skipped"; reason: string };
 
 /**
@@ -147,6 +147,7 @@ export async function announceHabitat(
 	try {
 		const res = await deps.fetch(config.url, {
 			method: "POST",
+			redirect: "error",
 			headers: {
 				"content-type": "application/json",
 				authorization: `Bearer ${config.secret}`,
@@ -155,8 +156,10 @@ export async function announceHabitat(
 			signal: controller.signal,
 		});
 		if (!res.ok) {
-			const body = await res.text().catch(() => "");
-			return { ok: false, reason: `HTTP ${res.status} ${body.slice(0, 200)}` };
+			// Response bodies can echo submitted credentials. Keep only the
+			// protocol status for diagnostics, retries and operator messages.
+			await res.body?.cancel();
+			return { ok: false, status: res.status, reason: `HTTP ${res.status}` };
 		}
 		const json = (await res.json().catch(() => ({}))) as {
 			created?: boolean;
@@ -171,10 +174,10 @@ export async function announceHabitat(
 			...(json.created !== undefined ? { created: json.created } : {}),
 			...(json.agentKey ? { agentKey: json.agentKey } : {}),
 		};
-	} catch (err) {
+	} catch {
 		return {
 			ok: false,
-			reason: err instanceof Error ? err.message : String(err),
+			reason: "Registry unavailable or request timed out",
 		};
 	} finally {
 		clearTimeout(timer);

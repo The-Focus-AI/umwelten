@@ -49,6 +49,9 @@ services:
       GAIA_CHILD_ADDRESS_MODE: network
       # Read host pressure rather than only this container's cgroup view.
       GAIA_HOST_PROC: /host/proc
+      # Explicit policy: bounded restart of idle unhealthy existing containers.
+      # Off by default; observations and registration reconciliation still run.
+      GAIA_AUTO_RECOVERY: ${GAIA_AUTO_RECOVERY:-0}
       # Auth for Gaia's own control-plane API. The SaaS sends this as
       # `Authorization: Bearer` to create/start/stop habitats. Empty ⇒ open auth
       # (local dev only — NEVER leave open on a reachable deploy).
@@ -130,6 +133,8 @@ services:
     networks:
       - gaia-net
     environment:
+      # Match the router listener for the base image's PORT-aware health check.
+      PORT: "7431"
       GAIA_PREVIEW_DOMAIN: ${GAIA_PREVIEW_DOMAIN:-preview.crepusculardiphthong.com}
       GAIA_PREVIEW_WAKE_KEY: ${GAIA_PREVIEW_WAKE_KEY:-}
       GAIA_PREVIEW_ACTIVITY_KEY: ${GAIA_PREVIEW_ACTIVITY_KEY:-}

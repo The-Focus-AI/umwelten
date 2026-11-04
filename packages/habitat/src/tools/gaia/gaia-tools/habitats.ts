@@ -53,7 +53,7 @@ import { buildSeedFiles } from "./seed-files.js";
 export async function startHabitatContainer(
 	ctx: Pick<
 		GaiaToolsContext,
-		"registry" | "vault" | "docker" | "catalog" | "githubTokens" | "gaiaConfig"
+		"registry" | "vault" | "docker" | "catalog" | "githubTokens" | "gaiaConfig" | "operations"
 	>,
 	id: string,
 ): Promise<number> {
@@ -154,11 +154,9 @@ export async function startHabitatContainer(
 	// window between being started and first being asked anything.
 	await recordHabitatActivity(registry, id);
 
-	// Tell the SaaS this habitat exists, at this address, under this name.
-	// Deliberately not awaited into the start's success: a habitat that is
-	// running matters more than the SaaS knowing about it this second, and the
-	// next start announces again. Inert unless the registry env is configured.
-	void announceOnStart({ ...entry, containerPort: port });
+	// The durable reconciler observes registry changes independently of starts.
+	// Embedders without it retain the legacy best-effort announcement.
+	if (!ctx.operations) void announceOnStart({ ...entry, containerPort: port });
 
 	return port;
 }
@@ -198,6 +196,7 @@ export function createHabitatLifecycleTools(
 					.describe("Habitat to announce; omit for all of them"),
 			}),
 			execute: async ({ id }) => {
+				if (ctx.operations) return JSON.stringify(await ctx.operations.retryRegistration(id));
 				const config = resolveSaasRegistryConfig();
 				if (!config) {
 					return (

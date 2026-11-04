@@ -619,6 +619,13 @@ export class DockerManager {
     } catch { /* container may not exist */ }
   }
 
+  /** Recovery preserves the existing container's image, config and mounts.
+   * A concurrent idle removal fails instead of recreating dormant capacity.
+   */
+  async restartUnhealthyContainer(id: string): Promise<void> {
+    await execFile("docker", ["restart", "--time", "10", containerName(id)], { timeout: 30_000 });
+  }
+
   /** Get the host port for a container. */
   async getContainerPort(id: string): Promise<number> {
     const name = containerName(id);
@@ -638,10 +645,11 @@ export class DockerManager {
         "--format",
         "{{.State.Status}}",
         name,
-      ]);
+      ], { timeout: 5_000 });
       return stdout.trim() as ContainerStatus;
-    } catch {
-      return "not-found";
+    } catch (error) {
+      if (/No such (object|container)/i.test(String((error as { stderr?: string }).stderr))) return "not-found";
+      throw new Error("Container status unavailable", { cause: error });
     }
   }
 
@@ -654,7 +662,7 @@ export class DockerManager {
         "--format",
         "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
         name,
-      ]);
+      ], { timeout: 5_000 });
       return stdout.trim() as ContainerHealthStatus;
     } catch {
       return "not-found";
