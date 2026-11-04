@@ -234,18 +234,18 @@ describe("announceHabitat", () => {
 		});
 	});
 
-	it("reports a non-2xx as a reason rather than throwing", async () => {
+	it("reports status without echoing a response that may contain credentials", async () => {
 		const fetch = vi.fn().mockResolvedValue({
 			ok: false,
 			status: 403,
-			text: async () => "forbidden",
+			text: async () => "forbidden: secret-token",
 		});
 		const out = await announceHabitat(
 			entry({ hostname: "h.example.com" }),
 			CONFIG,
 			{ fetch: fetch as unknown as typeof globalThis.fetch },
 		);
-		expect(out).toEqual({ ok: false, reason: "HTTP 403 forbidden" });
+		expect(out).toEqual({ ok: false, status: 403, reason: "HTTP 403" });
 	});
 
 	/** The caller is a start path; a network fault must never surface as a throw. */
@@ -256,7 +256,7 @@ describe("announceHabitat", () => {
 			CONFIG,
 			{ fetch: fetch as unknown as typeof globalThis.fetch },
 		);
-		expect(out).toEqual({ ok: false, reason: "ECONNREFUSED" });
+		expect(out).toEqual({ ok: false, reason: "Registry unavailable or request timed out" });
 	});
 
 	it("skips, without calling out, when there is no public hostname", async () => {

@@ -61,6 +61,7 @@ import { createPiRuntimeRunner } from "./pi-runner.js";
 import { buildConfiguredRuntimeRunners } from "./cli-runner.js";
 import { ChannelBridge } from "./bridge/channel-bridge.js";
 import { refreshRepositories } from "./repository-freshness.js";
+import { collectOperationalTelemetry, fetchOperationsJson } from "./operational-telemetry.js";
 import { WebAdapter } from "./web/WebAdapter.js";
 import { devAuth } from "./web/auth/dev-auth.js";
 import { bearerAuth, parseApiKeys } from "./web/auth/bearer-auth.js";
@@ -261,7 +262,7 @@ function matchRoute(
 function sendJson(res: ServerResponse, data: unknown, status = 200): void {
 	res.writeHead(status, {
 		"Content-Type": "application/json",
-		"Cache-Control": "no-cache",
+		"Cache-Control": res.getHeader("Cache-Control") ?? "no-cache",
 	});
 	res.end(JSON.stringify(data));
 }
@@ -362,11 +363,18 @@ export async function startContainerServer(
 
 	// Wrap bridge.handleMessage to log chat activity and track session
 	const originalHandleMessage = bridge.handleMessage.bind(bridge);
+	let activeTurns = 0;
+	let operationalErrors: number[] = [];
+	const recordOperationalError = () => {
+		operationalErrors.push(Date.now());
+		operationalErrors = operationalErrors.slice(-1_000);
+	};
 	bridge.handleMessage = async (msg, events, signal) => {
 		const ts = () => new Date().toISOString();
 		console.log(
 			`[${ts()}] 💬 chat: "${msg.text.slice(0, 80)}${msg.text.length > 80 ? "..." : ""}"`,
 		);
+		activeTurns++;
 		return originalHandleMessage(
 			msg,
 			{
@@ -382,6 +390,7 @@ export async function startContainerServer(
 					events.onToolCall?.(name, input);
 				},
 				onToolResult: (name, output, isError) => {
+					if (isError) recordOperationalError();
 					const marker = isError ? "✗" : "✓";
 					console.log(`[${ts()}] ${marker} ${name}`);
 					events.onToolResult?.(name, output, isError);
@@ -392,12 +401,13 @@ export async function startContainerServer(
 					return events.onDone(result);
 				},
 				onError: (err) => {
+					recordOperationalError();
 					console.error(`[${ts()}] ❌ chat error: ${err}`);
 					events.onError?.(err);
 				},
 			},
 			signal,
-		);
+		).finally(() => { activeTurns--; });
 	};
 
 	const webAdapter = new WebAdapter(bridge);
@@ -473,6 +483,7 @@ export async function startContainerServer(
 
 			const { path, query } = parseRoute(req.url ?? "/");
 			const reqStart = Date.now();
+			res.once("finish", () => { if (res.statusCode >= 500) recordOperationalError(); });
 
 			// Health checks and the idle probe itself are deliberately not
 			// activity: an orchestrator polling to decide whether we are idle
@@ -480,6 +491,8 @@ export async function startContainerServer(
 			if (
 				path !== "/health" &&
 				path !== "/api/activity" &&
+				path !== "/api/operations" &&
+				path !== "/internal/operations/telemetry" &&
 				!path.startsWith("/internal/preview-activity/")
 			) {
 				lastRequestAt = new Date().toISOString();
@@ -538,6 +551,26 @@ export async function startContainerServer(
 					);
 					options.previewActivity.touch(worktreeId);
 					sendJson(res, { touched: true });
+					return;
+				}
+
+				// Metadata for Gaia only, never a tenant-facing transcript/log API.
+				if (path === "/internal/operations/telemetry" && req.method === "GET") {
+					const keys = parseApiKeys(process.env.HABITAT_API_KEY);
+					const supplied = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1];
+					if (!supplied || !keys.includes(supplied)) {
+						sendJson(res, { error: "Unauthorized" }, 401);
+						return;
+					}
+					const requirements = await habitat.computeRequirements();
+					operationalErrors = operationalErrors.filter((at) => Date.now() - at <= 15 * 60_000);
+					const report = await collectOperationalTelemetry({
+						workDir: habitat.getWorkDir(),
+						runtimeErrors: operationalErrors.length,
+						configurationReady: requirements.aggregate.envVars.every((r) => !r.required || !!habitat.getSecret(r.name)),
+					});
+					report.tasks.active += activeTurns;
+					sendJson(res, report);
 					return;
 				}
 
@@ -1227,6 +1260,23 @@ export async function startContainerServer(
 				// ── API routes (auth required if key set) ─────────────
 				if (path.startsWith("/api/")) {
 					let user: UserContext | null = null;
+
+					if (path === "/api/operations" && req.method === "GET") {
+						if (authRequired && !await auth.authenticate(req)) {
+							sendJson(res, { error: "Unauthorized" }, 401);
+							return;
+						}
+						res.setHeader("Cache-Control", "no-store");
+						const gaiaUrl = process.env.GAIA_URL;
+						const key = parseApiKeys(process.env.HABITAT_API_KEY)[0];
+						try {
+							if (!gaiaUrl || !key) throw new Error("unconfigured");
+							sendJson(res, await fetchOperationsJson(new URL("/internal/operations/status", gaiaUrl).href, key));
+						} catch {
+							sendJson(res, { error: "Operational status unavailable" }, 503);
+						}
+						return;
+					}
 
 					// GET /api/status — operator status via Gaia's documented
 					// /api/habitats/:id/status proxy; also exposes scheduler state.

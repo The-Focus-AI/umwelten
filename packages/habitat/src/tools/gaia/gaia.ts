@@ -24,7 +24,7 @@ import {
 } from "../../container-server.js";
 import { GaiaRegistryManager } from "./registry.js";
 import { GaiaSecretVault } from "./secrets.js";
-import { DockerManager } from "./docker.js";
+import { DockerManager, resolveChildAddress } from "./docker.js";
 import { CredentialCatalog } from "./credential-catalog.js";
 import { CredentialAuditLogger } from "./credential-audit.js";
 import { createGaiaToolSet } from "./gaia-tools.js";
@@ -43,7 +43,9 @@ import {
 	resolveStorageRelayConfig,
 } from "./storage/token-service.js";
 import { sampleHostResources } from "./host-resources.js";
-import { ChildHealthMonitor } from "./health-monitor.js";
+import { GaiaOperations, telemetrySchema } from "./operations.js";
+import { announceHabitat, resolveSaasRegistryConfig } from "./saas-registry.js";
+import { fetchOperationsJson } from "../../operational-telemetry.js";
 
 export interface GaiaStartOptions {
 	dataDir: string;
@@ -195,7 +197,27 @@ export class Gaia {
 			);
 		}
 
+		const operations = new GaiaOperations({
+			file: pathResolve(dataDir, "operations.json"),
+			listEntries: () => registry.list(),
+			getStatus: (id) => docker.getStatus(id),
+			getHealthStatus: (id) => docker.getHealthStatus(id),
+			resources: () => sampleHostResources({ diskPath: dataDir }),
+			telemetry: async (entry) => {
+				const address = resolveChildAddress(entry);
+				return telemetrySchema.parse(await fetchOperationsJson(`http://${address.hostname}:${address.port}/internal/operations/telemetry`, entry.apiKey));
+			},
+			registryConfig: () => resolveSaasRegistryConfig(),
+			announce: (entry, config) => announceHabitat(entry, config, { fetch: globalThis.fetch, timeoutMs: 3_000 }),
+			recoveryEnabled: process.env.GAIA_AUTO_RECOVERY === "1",
+			restart: (id) => docker.restartUnhealthyContainer(id),
+			log: (message) => console.warn(message),
+		});
+		let operationsReady = false;
+		try { await operations.load(); operationsReady = true; }
+		catch { console.error("[operations] Cannot read durable state; monitoring and recovery disabled. Restore operations.json before restarting Gaia."); }
 		const toolsContext = {
+			operations: operationsReady ? operations : undefined,
 			registry,
 			vault,
 			docker,
@@ -260,7 +282,10 @@ export class Gaia {
 			// Gaia's dashboard is an assembly (#408): the fleet panel rides the
 			// standard shell as a host-contributed entry, and from there mounts
 			// each running habitat's status as a foreign component.
-			shellEntries: [{ id: "habitats", url: "./components/habitats.js" }],
+			shellEntries: [
+				{ id: "habitats", url: "./components/habitats.js" },
+				{ id: "operations", url: "./components/operations.js" },
+			],
 			extraRawHandler: (req, res) => handleGaiaRoute(routeCtx, req, res),
 			statusDetails: async () => ({
 				hostResources: await routeCtx.hostResources(),
@@ -276,20 +301,14 @@ export class Gaia {
 			docker,
 			config: resolveReaperConfig(process.env),
 		});
-		const healthMonitor = new ChildHealthMonitor({
-			listEntries: () => registry.list(),
-			getStatus: (id) => docker.getStatus(id),
-			getHealthStatus: (id) => docker.getHealthStatus(id),
-			restart: (id) => startHabitatContainer(toolsContext, id),
-			sampleHostResources: () => sampleHostResources({ diskPath: dataDir }),
-		});
-		healthMonitor.start();
+		// One health/recovery owner; do not run the old restart loop alongside it.
+		if (operationsReady) operations.start();
 
 		if (!options.noSignalHandlers) {
-			const shutdown = () => {
+			const shutdown = async () => {
 				console.log("\n[container] Shutting down...");
 				reaper.stop();
-				healthMonitor.stop();
+				await operations.stop().catch(() => {});
 				server.close();
 				process.exit(0);
 			};

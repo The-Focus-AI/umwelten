@@ -20,6 +20,8 @@
  */
 
 import type { ToolSet } from "../../../tool-sets.js";
+import { tool } from "ai";
+import { z } from "zod";
 import { type GaiaToolsContext } from "./context.js";
 import { createHabitatLifecycleTools } from "./habitats.js";
 import { createSecretsTools } from "./secrets.js";
@@ -55,6 +57,11 @@ export function createGaiaToolSet(ctx: GaiaToolsContext): ToolSet {
 		description:
 			"Manage multiple habitat containers — create, start, stop, query, and configure them via Docker. Manage the master secret vault and delegate tasks to running habitats via A2A.",
 		createTools: () => ({
+			operational_status: tool({
+				description: "Read Gaia's durable operational conditions, diagnostic decisions and recovery history. Metadata only; does not wake habitats or call a model.",
+				inputSchema: z.object({}),
+				execute: async () => ctx.operations?.snapshot() ?? { version: 1, observedAt: null, stale: true, conditions: [] },
+			}),
 			...createHabitatLifecycleTools(ctx),
 			...createSecretsTools(ctx),
 			...createSkillsTools(ctx),

@@ -30,8 +30,10 @@ import type { CredentialAuditLogger } from "../credential-audit.js";
 import type { GithubTokenService } from "../github/token-service.js";
 import type { GithubAdministration } from "../github/admin.js";
 import { resolveSaasAppOrigin } from "../saas-registry.js";
+import type { GaiaOperations } from "../operations.js";
 
 export interface GaiaToolsContext {
+	operations?: GaiaOperations;
 	registry: GaiaRegistryManager;
 	vault: GaiaSecretVault;
 	docker: DockerManager;
