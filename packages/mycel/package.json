@@ -19,17 +19,17 @@
     "probe-catalogue": "tsx src/testing/probe-catalogue-model.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
+    "@neondatabase/serverless": "^1.2.0",
     "@umwelten/substrate": "workspace:*",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "commander": "^15.0.0",
-    "jose": "^6.2.4",
-    "ws": "^8.21.3"
+    "jose": "^6.2.13",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
-    "@types/ws": "^8.18.1",
-    "playwright-core": "^1.62.1",
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "playwright-core": "^1.64.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
