@@ -90,10 +90,8 @@ describe('buildRequestOptions — token-cap regression guards', () => {
     expect(opts.maxOutputTokens).toBeUndefined();
   });
 
-  it('honors a Stimulus-set maxTokens (the only sanctioned way to cap)', () => {
-    // If a stimulus author intentionally sets a cap, it should reach the
-    // request. We don't transform it — AI SDK v5 accepts either key from
-    // caller input via the spread of interaction.options.
+  it.each([false, true])('honors a Stimulus-set maxTokens in SDK v7 (streaming=%s)', (streaming) => {
+    // SDK v7 consumes maxOutputTokens, not the historical maxTokens name.
     const stim = new Stimulus({ role: 'test', maxTokens: 2000 });
     const interaction = makeInteractionWithMessage(stim);
 
@@ -102,14 +100,10 @@ describe('buildRequestOptions — token-cap regression guards', () => {
       model: {} as any,
       config: {},
       label: 'test',
-      streaming: false,
+      streaming,
     });
 
-    // Whatever the key, SOMETHING token-related should be present since
-    // the author asked for it explicitly.
-    const hasExplicitCap =
-      (opts as any).maxOutputTokens !== undefined ||
-      (opts as any).maxTokens !== undefined;
-    expect(hasExplicitCap).toBe(true);
+    expect(opts.maxOutputTokens).toBe(2000);
+    expect('maxTokens' in opts).toBe(false);
   });
 });

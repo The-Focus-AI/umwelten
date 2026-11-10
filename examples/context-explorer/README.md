@@ -72,3 +72,71 @@ Each run writes a session directory:
 `transcript.jsonl` is the same format the rest of the session tooling reads.
 `fanout.jsonl` is what a report gets built from. Override the root with
 `CONTEXT_EXPLORER_DIR`.
+
+## Read-only collaboration traces
+
+Set `COLLABORATION_DIR` to the directory containing collaboration run directories,
+then open **Collaboration traces ↗** in the explorer header. It opens a separate
+tab at `/collaboration`, leaving the live probe conversation in place.
+
+```bash
+COLLABORATION_DIR=/path/to/collaboration-runs pnpm tsx examples/context-explorer/server.ts
+```
+
+This inspector requires **Node.js 22.13+ with `node:sqlite` enabled**. It opens
+SQLite with `DatabaseSync({ readOnly: true })`; no new dependency or model API
+key is needed for inspection. The original context explorer retains its existing
+runtime requirements. SQLite is loaded only when a trace is requested.
+
+Expected storage layout:
+
+```text
+COLLABORATION_DIR/
+  <UUID run ID>/
+    collaboration.sqlite  # events, agents, artifacts tables
+    blobs/<sha256>        # artifact content
+```
+
+Select a run, then inspect:
+
+- **Agent branches:** parentage, depth, models, status, task, and full persisted
+  state. Select an agent to filter decisions, communications, and calls.
+- **Decisions:** recorded messages, tools, options, delivered event IDs, output,
+  completion messages, and usage. Incomplete decisions remain visible.
+- **Communications & events:** append order by event ID, timestamps, causes,
+  message senders/recipients, and spawn context (`fresh`, `summary`, or `fork`).
+- **Artifacts:** all run artifacts and historical publication versions, hashes,
+  and plain-text previews (UTF-8, at most 1 MiB). Artifact markup is never rendered.
+- **Cost & calls:** totals from `call.completed` only, with estimated, failed,
+  and unpriced calls distinguished. Decision usage is not counted twice.
+
+Refresh manually to read a new consistent database snapshot. The inspector reads
+the whole trace, so it is intended for local inspection, not very large traces.
+It never resumes agents, runs tools, sends messages, or mutates run data.
+
+The GET-only API is `/api/collaboration/runs`,
+`/api/collaboration/runs/<UUID>`, and
+`/api/collaboration/runs/<UUID>/blobs/<sha256>`. Browser input cannot select a
+filesystem path. Symlinks beneath the configured root are rejected; blob hashes
+must be referenced by that run. Configure a trusted storage root and keep the
+server private: traces may contain sensitive model inputs, tool results, or
+artifacts. This local example does not add authentication or redact trace data.
+It does not expose environment variables or database error paths.
+
+### Verify without a model
+
+```bash
+pnpm exec tsx --test examples/context-explorer/collaboration.test.ts
+
+# Creates nonsensitive synthetic data in a new OS temporary directory:
+COLLABORATION_DIR=$(pnpm exec tsx examples/context-explorer/collaboration-fixture.ts)
+export COLLABORATION_DIR
+pnpm tsx examples/context-explorer/server.ts
+```
+
+The fixture includes a completed decision, an incomplete decision, fork/fresh
+branches, direct messages, two artifact versions, and both estimated and failed
+calls. Expected totals: **2 calls, 400 tokens, $0.002000**, despite the deliberately
+different decision usage. Delete the printed temporary directory after inspection.
+In an Amp orb, start the server with `amp orb service start ... --portal` rather
+than a foreground shell command, using the generated directory in its environment.

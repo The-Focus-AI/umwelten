@@ -85,6 +85,13 @@ export function buildRequestOptions(input: RequestOptionsInput): Record<string, 
     },
   };
 
+  // Translate only a caller's explicit Stimulus cap to the AI SDK v7 field.
+  // No runner/config default: requests without a per-task cap remain uncapped.
+  if (interaction.options?.maxTokens !== undefined) {
+    options.maxOutputTokens = interaction.options.maxTokens;
+  }
+  delete options.maxTokens;
+
   if (abortSignal) {
     options.abortSignal = abortSignal;
   }

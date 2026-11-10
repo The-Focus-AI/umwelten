@@ -21,6 +21,7 @@ import { createAgentAskTool } from "./ask.js";
 import { createAgentAskClaudeTool } from "./ask-claude.js";
 import { createAgentConverseTool } from "./converse.js";
 import { createAgentConfigureTool } from "./configure.js";
+import { createCollaborationRunTools } from "./collaboration.js";
 
 export type { AgentRunnerToolsContext } from "./context.js";
 export { registerManagedAgentDirectory } from "./register-directory.js";
@@ -30,6 +31,7 @@ export function createAgentRunnerTools(
 	ctx: AgentRunnerToolsContext,
 ): Record<string, Tool> {
 	return {
+		...createCollaborationRunTools(ctx),
 		agent_register_directory: createAgentRegisterDirectoryTool(ctx),
 		agent_clone: createAgentCloneTool(ctx),
 		agent_logs: createAgentLogsTool(ctx),

@@ -64,6 +64,25 @@ const suite = new EvalSuite({
 await suite.run();
 ```
 
+## Multi-agent collaboration
+
+Agents can spawn children with fresh, summarized, or forked context, communicate
+through durable mailboxes and public channels, and publish versioned artifacts.
+The existing Habitat `agent-runner` tool set includes experiment management;
+participants use ordinary identity-bound collaboration tools. Runs have bounded
+scheduling, SQLite traces, and redaction-required training exports.
+
+Start with a credential-free smoke run:
+
+```bash
+pnpm exec tsx examples/collaboration/run.ts --scripted --context fork
+```
+
+See the [collaboration README](examples/collaboration/README.md) for live-model
+examples, all tools, context inheritance, budgets, restart semantics, evaluation,
+and training-data export. For sequential fixed-roster conversations, use
+[`umwelten converse`](docs/guide/agent-dialogues.md).
+
 ## Web applications
 
 Habitats also drive HTTP chat. `@umwelten/habitat` exposes `startWebServer` — the web peer to the Discord and Telegram adapters. It speaks the [Vercel AI SDK UI Message Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol), so any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Streaming text, tool calls, and tool results all flow through the same `ChannelBridge` that every other channel uses.

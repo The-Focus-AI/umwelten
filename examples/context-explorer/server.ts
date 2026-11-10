@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import type { ModelMessage } from "ai";
+import { handleCollaboration } from "./collaboration.js";
 import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
 import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
 import { estimateContextSize } from "@umwelten/core/context/estimate-size.js";
@@ -150,6 +151,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname;
   const method = req.method ?? "GET";
+
+  if (await handleCollaboration(req, res, path)) return;
+  if (path === "/collaboration" && method === "GET") {
+    const html = await readFile(join(root, "collaboration.html"), "utf8");
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(html);
+    return;
+  }
 
   if (path === "/" || path === "/index.html") {
     const html = await readFile(join(root, "index.html"), "utf8");
