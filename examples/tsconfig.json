@@ -23,6 +23,7 @@
     "types": ["node"]
   },
   "include": [
+    "collaboration/**/*.ts",
     "evals/**/*.ts",
     "jev/**/*.ts",
     "model-showdown/generate-report.ts",

@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Collaboration traces · Context explorer</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f9f9f7;
+        --surface: #fcfcfb;
+        --soft: #f2f1ee;
+        --text: #0b0b0b;
+        --muted: #52514e;
+        --line: #e1e0d9;
+        --blue: #2a78d6;
+        --error: #b52d2d;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #0d0d0d;
+          --surface: #1a1a19;
+          --soft: #232322;
+          --text: #fff;
+          --muted: #c3c2b7;
+          --line: #383835;
+          --blue: #71acf4;
+          --error: #ff9191;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.55 system-ui,
+          sans-serif;
+      }
+      header {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 13px;
+        margin: 16px 0 6px;
+      }
+      a {
+        color: var(--blue);
+      }
+      .muted,
+      small {
+        color: var(--muted);
+      }
+      small {
+        display: block;
+        font-size: 12px;
+      }
+      button,
+      select {
+        font: inherit;
+        color: inherit;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 7px 10px;
+        max-width: 100%;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--soft);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+      button[aria-pressed="true"] {
+        border-color: var(--blue);
+        background: var(--soft);
+        color: var(--blue);
+      }
+      :focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 3px;
+      }
+      .badge {
+        font-size: 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 8px;
+        white-space: nowrap;
+      }
+      main {
+        max-width: 1440px;
+        margin: auto;
+        padding: 22px 24px;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      #notice {
+        min-height: 24px;
+        margin: 12px 0;
+        color: var(--muted);
+      }
+      #notice.error {
+        color: var(--error);
+      }
+      #metrics {
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+        padding: 16px 20px;
+        margin-bottom: 18px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .metric b {
+        display: block;
+        font-size: 21px;
+        font-variant-numeric: tabular-nums;
+      }
+      .metric span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 20px;
+      }
+      aside,
+      .panel {
+        min-width: 0;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px;
+      }
+      aside {
+        align-self: start;
+      }
+      #agents {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .agent {
+        text-align: left;
+        overflow-wrap: anywhere;
+        border-left: 3px solid var(--line);
+      }
+      .agent strong {
+        display: block;
+      }
+      nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      pre {
+        background: var(--soft);
+        border-radius: 7px;
+        padding: 12px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 350px;
+        overflow: auto;
+        margin: 8px 0;
+        font:
+          12px/1.6 ui-monospace,
+          monospace;
+      }
+      details {
+        border-top: 1px solid var(--line);
+        padding: 10px 0;
+      }
+      summary {
+        cursor: pointer;
+        overflow-wrap: anywhere;
+      }
+      .event {
+        border-left: 2px solid var(--line);
+        padding: 0 0 18px 16px;
+        overflow-wrap: anywhere;
+      }
+      .event b {
+        color: var(--blue);
+      }
+      .event p {
+        margin: 6px 0;
+        white-space: pre-wrap;
+      }
+      .event details {
+        border: 0;
+        padding: 4px 0;
+      }
+      .scroll {
+        max-height: 620px;
+        overflow: auto;
+      }
+      .table-wrap {
+        overflow: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      td {
+        overflow-wrap: anywhere;
+      }
+      .hash {
+        font:
+          11px/1.5 ui-monospace,
+          monospace;
+        max-width: 210px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 800px) {
+        header,
+        main {
+          padding: 14px;
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        #agents {
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+        #metrics {
+          gap: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/">Context explorer</a>
+      <h1>Collaboration traces</h1>
+      <span class="badge">Read-only · no model calls</span>
+    </header>
+    <main>
+      <div class="toolbar">
+        <label for="run">Run</label
+        ><select id="run">
+          <option value="">Select a run…</option></select
+        ><button id="refresh">Refresh traces</button
+        ><span class="muted">Persisted snapshots, refreshed on demand</span>
+      </div>
+      <p id="notice" role="status" aria-live="polite">
+        Loading available runs…
+      </p>
+      <div id="content" hidden>
+        <section id="metrics" aria-label="Run totals"></section>
+        <div class="layout">
+          <aside>
+            <h2>Agent branches</h2>
+            <small>Select an agent to filter the trace.</small>
+            <div id="agents"></div>
+            <div id="agent-state"></div>
+          </aside>
+          <div>
+            <nav aria-label="Trace views">
+              <button data-view="decisions" aria-pressed="true">
+                Decisions</button
+              ><button data-view="timeline" aria-pressed="false">
+                Communications & events</button
+              ><button data-view="artifacts" aria-pressed="false">
+                Artifacts</button
+              ><button data-view="cost" aria-pressed="false">
+                Cost & calls
+              </button>
+            </nav>
+            <section
+              id="panel"
+              class="panel"
+              aria-label="Trace details"
+            ></section>
+          </div>
+        </div>
+      </div>
+    </main>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      let trace,
+        agent = "",
+        view = "decisions",
+        decision = "",
+        generation = 0;
+      const pretty = (value) =>
+        typeof value === "string"
+          ? value
+          : JSON.stringify(value ?? null, null, 2);
+      const model = (value) =>
+        value
+          ? `${value.provider ?? "?"}/${value.name ?? "?"}`
+          : "Unrecorded model";
+      function el(tag, text, className) {
+        const node = document.createElement(tag);
+        if (text !== undefined) node.textContent = text;
+        if (className) node.className = className;
+        return node;
+      }
+      function details(title, data, open = false) {
+        const node = el("details");
+        node.open = open;
+        node.append(el("summary", title), el("pre", pretty(data)));
+        return node;
+      }
+      function notice(text, error = false) {
+        $("notice").textContent = text;
+        $("notice").className = error ? "error" : "";
+      }
+      async function api(path) {
+        const response = await fetch(path, { cache: "no-store" });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error);
+        return body;
+      }
+      const base = () =>
+        `/api/collaboration/runs/${encodeURIComponent(trace.id)}`;
+      const selectedEvents = () =>
+        trace.events.filter(
+          (e) =>
+            !agent ||
+            e.agentId === agent ||
+            (e.kind === "message" && e.data.to === agent),
+        );
+      function totals(events) {
+        const calls = events.filter((e) => e.kind === "call.completed");
+        const sum = (key) =>
+          calls.reduce(
+            (n, e) => n + (typeof e.data[key] === "number" ? e.data[key] : 0),
+            0,
+          );
+        return {
+          calls: calls.length,
+          tokens: sum("tokens"),
+          cost: sum("cost"),
+          estimated: calls.filter((e) => e.data.estimated).length,
+          failed: calls.filter((e) => e.data.failed).length,
+          unknown: calls.filter((e) => typeof e.data.cost !== "number").length,
+        };
+      }
+      function render() {
+        const t = totals(trace.events),
+          stop = trace.events.findLast((e) => e.kind === "run.stopped");
+        $("metrics").replaceChildren();
+        for (const [label, value] of [
+          ["Agents", trace.agents.length],
+          ["Recorded calls", t.calls],
+          ["Tokens", t.tokens.toLocaleString()],
+          ["Recorded cost", `$${t.cost.toFixed(6)}`],
+          ["Estimated / failed calls", `${t.estimated} / ${t.failed}`],
+          ["Run state", stop ? pretty(stop.data.reason) : "No stop recorded"],
+        ]) {
+          const metric = el("div", undefined, "metric");
+          metric.append(el("b", String(value)), el("span", label));
+          $("metrics").append(metric);
+        }
+        $("agents").replaceChildren();
+        const all = el("button", "All agents");
+        all.setAttribute("aria-pressed", String(!agent));
+        all.onclick = () => {
+          agent = "";
+          decision = "";
+          render();
+        };
+        $("agents").append(all);
+        // Group descendants next to their parent, retaining orphaned states in the list.
+        const seen = new Set();
+        function branch(a, level) {
+          if (seen.has(a.id)) return;
+          seen.add(a.id);
+          const spawn = trace.events.find(
+            (e) => e.kind === "agent.spawned" && e.data.childId === a.id,
+          );
+          const button = el("button", undefined, "agent");
+          button.style.marginLeft = `${Math.min(level, 5) * 10}px`;
+          button.setAttribute("aria-pressed", String(agent === a.id));
+          button.append(
+            el("strong", a.id),
+            el("small", `${a.status} · depth ${a.depth}`),
+            el("small", model(a.model)),
+            el(
+              "small",
+              `${a.parentId ? `← ${a.parentId}` : "Root agent"}${spawn ? ` · ${spawn.data.context}` : ""}`,
+            ),
+          );
+          button.onclick = () => {
+            agent = a.id;
+            decision = "";
+            render();
+          };
+          $("agents").append(button);
+          trace.agents
+            .filter((child) => child.parentId === a.id)
+            .forEach((child) => branch(child, level + 1));
+        }
+        trace.agents.filter((a) => !a.parentId).forEach((a) => branch(a, 0));
+        trace.agents.forEach((a) => branch(a, 0));
+        $("agent-state").replaceChildren();
+        if (agent) {
+          const state = trace.agents.find((a) => a.id === agent);
+          $("agent-state").append(
+            el("h3", "Task"),
+            el("p", pretty(state.task)),
+            details("Agent state & context", state),
+          );
+        }
+        renderPanel();
+      }
+      function renderPanel() {
+        const panel = $("panel");
+        panel.replaceChildren();
+        document
+          .querySelectorAll("[data-view]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.view === view),
+            ),
+          );
+        const events = selectedEvents();
+        if (view === "decisions") {
+          panel.append(
+            el("h2", "Decision inspection"),
+            el(
+              "p",
+              "Exact recorded inputs and results; nothing is replayed.",
+              "muted",
+            ),
+          );
+          const starts = events.filter((e) => e.kind === "decision.started");
+          if (!starts.length) {
+            panel.append(el("p", "No decisions recorded for this selection."));
+            return;
+          }
+          const select = el("select");
+          select.id = "decision";
+          const label = el("label", "Decision ");
+          label.htmlFor = select.id;
+          starts.forEach((e) => {
+            const option = el(
+              "option",
+              `#${e.id} · ${e.agentId ?? "run"} · ${e.data.decisionId}`,
+            );
+            option.value = String(e.id);
+            select.append(option);
+          });
+          const start =
+            starts.find((e) => String(e.id) === decision) ?? starts[0];
+          select.value = String(start.id);
+          decision = select.value;
+          select.onchange = () => {
+            decision = select.value;
+            renderPanel();
+          };
+          panel.append(label, select);
+          const finish = trace.events.find(
+            (e) =>
+              e.kind === "decision.completed" &&
+              e.data.decisionId === start.data.decisionId &&
+              e.agentId === start.agentId,
+          );
+          const failure = trace.events.find(
+            (e) =>
+              e.kind === "decision.failed" &&
+              e.data.decisionId === start.data.decisionId &&
+              e.agentId === start.agentId,
+          );
+          panel.append(
+            el(
+              "p",
+              `${model(start.data.model)} · ${finish ? "Completed" : failure ? "Failed" : "Pending / no completion recorded"}`,
+              "muted",
+            ),
+            el("h3", "Input messages"),
+            el("pre", pretty(start.data.messages)),
+            details("Tools offered", start.data.tools),
+            details("Options & delivered event IDs", {
+              options: start.data.options,
+              deliveredEventIds: start.data.deliveredEventIds,
+            }),
+            el("h3", "Output"),
+            el(
+              "pre",
+              finish
+                ? pretty(finish.data.output)
+                : failure
+                  ? pretty(failure.data.error)
+                  : "Waiting for a recorded completion.",
+            ),
+          );
+          if (finish)
+            panel.append(
+              details("Completion messages & usage", {
+                messages: finish.data.messages,
+                usage: finish.data.usage,
+              }),
+            );
+          panel.append(
+            details("Full decision events", {
+              started: start,
+              completed: finish ?? null,
+              failed: failure ?? null,
+            }),
+          );
+        } else if (view === "timeline") {
+          panel.append(
+            el("h2", "Communications & events"),
+            el(
+              "p",
+              "Append order by event ID. Agent filter includes incoming direct messages.",
+              "muted",
+            ),
+          );
+          const label = el("label");
+          const only = el("input");
+          only.type = "checkbox";
+          only.id = "messages-only";
+          label.append(
+            only,
+            document.createTextNode(" Messages and spawns only"),
+          );
+          panel.append(label);
+          const list = el("div", undefined, "scroll");
+          panel.append(list);
+          function timeline() {
+            list.replaceChildren();
+            const rows = events.filter(
+              (e) =>
+                !only.checked || ["message", "agent.spawned"].includes(e.kind),
+            );
+            if (!rows.length) list.append(el("p", "No matching events."));
+            rows.forEach((e) => {
+              const row = el("div", undefined, "event");
+              row.append(
+                el("b", `#${e.id} ${e.kind}`),
+                el(
+                  "small",
+                  `${e.timestamp} · ${e.agentId ?? "run"}${e.causeId != null ? ` · caused by #${e.causeId}` : ""}`,
+                ),
+              );
+              if (e.kind === "message")
+                row.append(
+                  el("p", `→ ${pretty(e.data.to)}\n${pretty(e.data.content)}`),
+                );
+              if (e.kind === "agent.spawned")
+                row.append(
+                  el(
+                    "p",
+                    `→ ${e.data.childId} · ${e.data.context} context · ${Array.isArray(e.data.inheritedMessages) ? e.data.inheritedMessages.length : (e.data.inheritedMessages ?? 0)} inherited messages`,
+                  ),
+                );
+              row.append(details("Event data", e.data));
+              list.append(row);
+            });
+          }
+          only.onchange = timeline;
+          timeline();
+        } else if (view === "artifacts") {
+          panel.append(
+            el("h2", "Artifact versions"),
+            el(
+              "p",
+              "All run artifacts. Historical versions come from publication events. Previews are plain text, never executed.",
+              "muted",
+            ),
+          );
+          const versions = new Map();
+          trace.artifacts.forEach((a) =>
+            versions.set(JSON.stringify([a.path, a.version]), a),
+          );
+          trace.events
+            .filter((e) => e.kind === "artifact.published")
+            .forEach((e) =>
+              versions.set(JSON.stringify([e.data.path, e.data.version]), {
+                ...e.data,
+                agentId: e.agentId,
+              }),
+            );
+          if (!versions.size) {
+            panel.append(el("p", "No artifacts published."));
+            return;
+          }
+          const wrap = el("div", undefined, "table-wrap"),
+            table = el("table"),
+            head = el("tr");
+          ["Path / publisher", "Version", "SHA-256", "Content"].forEach(
+            (text) => head.append(el("th", text)),
+          );
+          table.append(head);
+          wrap.append(table);
+          panel.append(wrap);
+          const preview = el("div");
+          [...versions.values()]
+            .sort(
+              (a, b) => a.path.localeCompare(b.path) || a.version - b.version,
+            )
+            .forEach((a) => {
+              const row = el("tr"),
+                path = el("td", a.path);
+              path.append(el("small", a.agentId ?? "Stored artifact"));
+              const cell = el("td"),
+                button = el("button", "Preview");
+              button.onclick = async () => {
+                preview.replaceChildren(el("p", "Loading artifact…"));
+                const run = trace.id;
+                try {
+                  const result = await api(
+                    `${base()}/blobs/${encodeURIComponent(a.hash)}`,
+                  );
+                  if (trace.id === run)
+                    preview.replaceChildren(
+                      el("h3", `${a.path} · version ${a.version}`),
+                      el("pre", result.content),
+                    );
+                } catch (error) {
+                  preview.replaceChildren(el("p", error.message));
+                }
+              };
+              cell.append(button);
+              row.append(
+                path,
+                el(
+                  "td",
+                  `${a.version}${a.previousVersion != null ? ` ← ${a.previousVersion}` : ""}`,
+                ),
+                el("td", a.hash, "hash"),
+                cell,
+              );
+              table.append(row);
+            });
+          panel.append(preview);
+        } else {
+          const t = totals(events);
+          panel.append(
+            el("h2", "Cost & calls"),
+            el(
+              "p",
+              `${t.calls} calls · ${t.tokens.toLocaleString()} recorded tokens · $${t.cost.toFixed(6)} recorded cost · ${t.estimated} estimates · ${t.failed} failed · ${t.unknown} unpriced`,
+            ),
+          );
+          panel.append(
+            el(
+              "p",
+              "Totals use call.completed only, avoiding double-counting decision usage. Missing token or cost values are not inferred.",
+              "muted",
+            ),
+          );
+          const created = trace.events.find((e) => e.kind === "run.created");
+          if (created) panel.append(details("Run limits", created.data.limits));
+          const calls = events.filter((e) => e.kind === "call.completed");
+          if (!calls.length)
+            panel.append(el("p", "No completed calls recorded."));
+          calls.forEach((e) =>
+            panel.append(
+              details(
+                `#${e.id} · ${e.agentId ?? "run"} · ${typeof e.data.cost === "number" ? "$" + e.data.cost.toFixed(6) : "Unpriced"}${e.data.estimated ? " · estimated" : ""}${e.data.failed ? " · failed" : ""}`,
+                e,
+              ),
+            ),
+          );
+        }
+      }
+      async function loadRun() {
+        const request = ++generation,
+          id = $("run").value;
+        $("content").hidden = true;
+        if (!id) {
+          notice("Select a run to inspect.");
+          return;
+        }
+        notice("Loading trace…");
+        try {
+          const result = await api(
+            `/api/collaboration/runs/${encodeURIComponent(id)}`,
+          );
+          if (request !== generation) return;
+          trace = result;
+          if (!trace.agents.some((a) => a.id === agent)) agent = "";
+          render();
+          $("content").hidden = false;
+          notice(
+            `${trace.events.length} events · snapshot loaded ${new Date().toLocaleTimeString()}`,
+          );
+        } catch (error) {
+          if (request === generation) notice(error.message, true);
+        }
+      }
+      async function refresh() {
+        $("refresh").disabled = true;
+        try {
+          const previous = $("run").value,
+            result = await api("/api/collaboration/runs");
+          $("run").replaceChildren();
+          const empty = el("option", "Select a run…");
+          empty.value = "";
+          $("run").append(empty);
+          result.runs.forEach((id) => {
+            const option = el("option", id);
+            option.value = id;
+            $("run").append(option);
+          });
+          $("run").value = result.runs.includes(previous) ? previous : "";
+          await loadRun();
+          if (!result.runs.length)
+            notice(
+              "No collaboration runs found. Create a run in the server-configured COLLABORATION_DIR, then refresh.",
+            );
+        } catch (error) {
+          ++generation;
+          $("content").hidden = true;
+          notice(error.message, true);
+        } finally {
+          $("refresh").disabled = false;
+        }
+      }
+      $("refresh").onclick = refresh;
+      $("run").onchange = () => {
+        agent = "";
+        decision = "";
+        loadRun();
+      };
+      document.querySelectorAll("[data-view]").forEach(
+        (button) =>
+          (button.onclick = () => {
+            view = button.dataset.view;
+            renderPanel();
+          }),
+      );
+      refresh();
+    </script>
+  </body>
+</html>

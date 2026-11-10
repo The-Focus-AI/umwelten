@@ -170,6 +170,21 @@ describe("runFanout baselines", () => {
     });
     expect(result.error).toMatch(/Nothing to compact/);
   });
+
+  it("preserves an unresolved tool tail when compacting earlier complete turns", async () => {
+    const tail: ModelMessage[] = [
+      { role: "user", content: "Check the current slots." },
+      { role: "assistant", content: [{ type: "tool-call", toolCallId: "pending", toolName: "slots", input: {} }] },
+    ];
+    const [result] = await runFanout({
+      messages: [...CONVERSATION, ...tail],
+      model: MODEL,
+      probes: [{ id: "sum", label: "C", kind: "baseline", strategyId: "test-summarize" }],
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.replacement).toHaveLength(4);
+    expect(result.replacement!.slice(-2)).toEqual(tail);
+  });
 });
 
 describe("runFanout as a whole", () => {

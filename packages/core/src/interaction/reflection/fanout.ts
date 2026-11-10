@@ -23,6 +23,7 @@ import { Stimulus } from "../../stimulus/stimulus.js";
 import { Interaction } from "../core/interaction.js";
 import { estimateContextSize } from "../../context/estimate-size.js";
 import { getCompactionStrategy } from "../../context/registry.js";
+import { getCompactionSegment } from "../../context/segment.js";
 
 export type ProbeKind = "annotation" | "baseline";
 
@@ -122,6 +123,12 @@ export const DEFAULT_PROBES: Probe[] = [
     kind: "baseline",
     strategyId: "truncate",
   },
+  {
+    id: "task-handoff",
+    label: "Compacted (task handoff)",
+    kind: "baseline",
+    strategyId: "task-handoff",
+  },
 ];
 
 function usageOf(response: { metadata?: unknown } | undefined) {
@@ -200,29 +207,22 @@ async function runBaseline(
     throw new Error(`Unknown compaction strategy: ${probe.strategyId}`);
   }
 
-  // Compact everything after the system message up to the last assistant turn.
-  let segmentEnd = -1;
-  for (let i = options.messages.length - 1; i >= 1; i--) {
-    if ((options.messages[i] as { role?: string }).role === "assistant") {
-      segmentEnd = i;
-      break;
-    }
-  }
-  if (segmentEnd < 1) throw new Error("Nothing to compact yet.");
+  const segment = getCompactionSegment(options.messages);
+  if (!segment) throw new Error("Nothing to compact yet.");
 
   const result = await strategy.compact({
     messages: options.messages,
-    segmentStart: 1,
-    segmentEnd,
+    segmentStart: segment.start,
+    segmentEnd: segment.end,
     model,
     runner,
     options: probe.strategyOptions,
   });
 
   const replacement: ModelMessage[] = [
-    options.messages[0],
+    ...options.messages.slice(0, segment.start),
     ...result.replacementMessages,
-    ...options.messages.slice(segmentEnd + 1),
+    ...options.messages.slice(segment.end + 1),
   ];
   const text = result.replacementMessages
     .map((m) => {
@@ -239,6 +239,8 @@ async function runBaseline(
     replacement,
     model,
     latencyMs: Date.now() - started,
+    promptTokens: result.usage?.promptTokens,
+    completionTokens: result.usage?.completionTokens,
     resultTokens: estimateContextSize(replacement).estimatedTokens,
     // Strategies build their own summarizer prompt, so the conversation is not
     // sent as a verbatim prefix and a warm cache doesn't help them.
