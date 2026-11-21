@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { GgufModel } from "@umwelten/core/providers/llamaswap-config.js";
+import type { GgufModel } from "./llamaswap-config.js";
 import {
   ManagedModeError,
   RUNTIME_CONCURRENCY,

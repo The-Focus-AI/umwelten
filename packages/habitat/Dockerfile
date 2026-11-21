@@ -15,7 +15,7 @@
 #
 # Run (managed by Gaia): Gaia assigns ports in the 7440+ range automatically.
 
-FROM node:22-slim
+FROM node:24-slim
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable && corepack prepare pnpm@9.15.5 --activate
 
@@ -41,16 +41,15 @@ ENV PATH="/opt/mise/shims:${PATH}"
 WORKDIR /habitat
 
 COPY pnpm-workspace.yaml ./
-COPY packages/core/package.json ./packages/core/
 COPY packages/protocols/package.json ./packages/protocols/
 COPY packages/sessions/package.json ./packages/sessions/
 COPY packages/cli/package.json ./packages/cli/
 COPY packages/evaluation/package.json ./packages/evaluation/
 COPY packages/habitat/package.json ./packages/habitat/
 COPY packages/mycel/package.json ./packages/mycel/
+COPY packages/pi/package.json ./packages/pi/
 COPY packages/substrate/package.json ./packages/substrate/
 COPY packages/supplier/package.json ./packages/supplier/
-COPY packages/ui/package.json ./packages/ui/
 COPY packages/umwelten/package.json ./packages/umwelten/
 COPY package.json pnpm-lock.yaml tsconfig.json ./
 RUN printf '%s\n' 'package-import-method=copy' > .npmrc

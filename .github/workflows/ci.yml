@@ -22,11 +22,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          # pnpm 11 (declared in package.json packageManager) needs Node 22.13+
-          node-version: 22
+          # @earendil-works/pi-* and session-spec-verify (--experimental-strip-types + node:sqlite) use Node 24 LTS
+          node-version: 24
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Validate modular specs
+        run: pnpm run specs:check
       - name: Install and build the isolated Mycel client
         run: |
           pnpm --dir apps/mycel-client install --frozen-lockfile

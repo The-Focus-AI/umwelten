@@ -1,6 +1,6 @@
 {
   "name": "@umwelten/protocols",
-  "version": "0.4.13",
+  "version": "0.6.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,30 +14,20 @@
       "import": "./src/*.ts"
     }
   },
-  "description": "Network protocol layer: MCP server/client and A2A client/server scaffolding",
+  "description": "OAuth 2.1 MCP server framework, pi-mcp client (with ui:// preservation), and Pi Durable A2A 1.0 surface",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
-    "directory": "packages/protocols"
-  },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "vitest --reporter=verbose",
-    "test:run": "vitest run --reporter=verbose",
-    "conformance": "tsx src/a2a/conformance/run.ts"
+    "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@a2a-js/sdk": "^1.0.1",
-    "@ai-sdk/provider": "^4.0.4",
-    "@ai-sdk/provider-utils": "^5.0.14",
+    "@a2a-js/sdk": "^1.3.0",
+    "@earendil-works/pi-mcp": "1.6.0",
+    "@leocavalcante/pi-a2a": "0.5.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@neondatabase/serverless": "^1.1.0",
-    "@umwelten/core": "workspace:*",
-    "ai": "^7.0.41",
-    "chalk": "^5.6.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

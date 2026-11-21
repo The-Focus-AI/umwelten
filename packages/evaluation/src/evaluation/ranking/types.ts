@@ -1,23 +1,13 @@
-/**
- * Types for pairwise Elo ranking of model responses.
- */
+import type { ModelSpec } from "@umwelten/pi";
 
-import type { ModelDetails, ModelResponse } from '@umwelten/core/cognition/types.js';
-
-/**
- * Minimal shape accepted by `evaluationResultsToRankingEntries`. Loose by
- * design so callers can adapt any per-model response collection without
- * adopting a wider evaluation-result type.
- */
 export interface RankableEvaluationResult {
   results: Array<{
-    model: ModelDetails;
+    model: ModelSpec;
     success: boolean;
-    response?: Pick<ModelResponse, 'content'> | null;
+    response?: { content?: string } | null;
   }>;
 }
 
-/** A single model response to be ranked. */
 export interface RankingEntry {
   key: string;
   model: string;
@@ -26,16 +16,14 @@ export interface RankingEntry {
   metadata?: Record<string, unknown>;
 }
 
-/** Result of a single pairwise comparison. */
 export interface PairwiseResult {
   aKey: string;
   bKey: string;
-  winner: 'A' | 'B' | 'tie';
+  winner: "A" | "B" | "tie";
   reason: string;
   confidence: string;
 }
 
-/** A model's final ranked position with Elo and match stats. */
 export interface RankedModel {
   model: string;
   provider: string;
@@ -48,7 +36,6 @@ export interface RankedModel {
   metadata?: Record<string, unknown>;
 }
 
-/** Output from a full ranking run. */
 export interface RankingOutput {
   mode: string;
   comparisons: number;
@@ -57,45 +44,28 @@ export interface RankingOutput {
   matchResults: PairwiseResult[];
 }
 
-/** Configuration for the PairwiseRanker. */
 export interface PairwiseRankerConfig {
-  /** Model to use as judge. */
-  judgeModel: ModelDetails;
-  /** Instructions for the judge stimulus. */
+  judgeModel: ModelSpec;
   judgeInstructions: string[];
-  /** 'all' for round-robin, 'swiss' for swiss tournament. Default: 'swiss'. */
-  pairingMode?: 'all' | 'swiss';
-  /** Number of swiss rounds (only used when pairingMode is 'swiss'). Default: 5. */
+  pairingMode?: "all" | "swiss";
   swissRounds?: number;
-  /** Elo K-factor. Default: 32. */
   kFactor?: number;
-  /** Initial Elo rating. Default: 1500. */
   initialElo?: number;
-  /** Max response length before truncation. Default: 3000. */
   maxResponseLength?: number;
-  /** Directory to cache comparisons and rankings. */
   cacheDir?: string;
-  /** Delay between comparisons in ms. Default: 300. */
   delayMs?: number;
-  /** Judge temperature. Default: 0. */
   temperature?: number;
-  /** Judge max tokens. Default: 300. */
   maxTokens?: number;
-  /** Callback for progress reporting. */
   onProgress?: (label: string, cached: boolean) => void;
 }
 
-/**
- * Convert evaluation results into RankingEntry[].
- * Filters out failed results and results without response content.
- */
 export function evaluationResultsToRankingEntries(
-  evalResult: RankableEvaluationResult
+  evalResult: RankableEvaluationResult,
 ): RankingEntry[] {
   return evalResult.results
-    .filter(r => r.success && r.response?.content)
-    .map(r => ({
-      key: `${r.model.provider}__${r.model.name}`.replace(/[/:]/g, '_'),
+    .filter((r) => r.success && r.response?.content)
+    .map((r) => ({
+      key: `${r.model.provider}__${r.model.name}`.replace(/[/:]/g, "_"),
       model: r.model.name,
       provider: r.model.provider,
       responseText: r.response!.content!,

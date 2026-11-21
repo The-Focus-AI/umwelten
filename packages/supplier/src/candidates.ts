@@ -17,7 +17,7 @@
  */
 
 import { extractQuant } from "./managed.js";
-import type { GgufModel } from "@umwelten/core/providers/llamaswap-config.js";
+import type { GgufModel } from "./llamaswap-config.js";
 
 /** What a quantization costs per weight, in bits. Approximate by construction. */
 const BITS_PER_WEIGHT: Record<string, number> = {

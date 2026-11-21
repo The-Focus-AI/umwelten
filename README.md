@@ -1,180 +1,105 @@
 # Umwelten
 
-Every AI model lives in its own perceptual bubble — its *Umwelt*. Umwelten lets you build agent environments that observe, measure, and understand themselves.
+Multi-model evaluations, cross-harness session sensemaking, host-agnostic **Durable Habitats**, and the **Mycel** Token Exchange — built directly on [**Pi**](https://github.com/earendil-works/pi) (`@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, `@earendil-works/pi-mcp`) and **Pi Durable** (`@earendil-works/pi-durable`).
 
-**Habitat** — a living container for AI agents: persona, tools, memory, sessions, sub-agents, multiple interfaces (CLI, Telegram, Discord, web). **Evaluation** — systematic model assessment that reveals how models actually see the world. TypeScript / Node 20+.
+Umwelten deliberately avoids re-implementing what Pi already provides (model catalogs, streaming, coding tools, interactive CLI chat, compaction, `models.json`). Instead, it focuses strictly on the capabilities **not built into Pi**:
 
-## See for yourself
+1. **Installable Pi Extension (`@umwelten/pi`)** — Plug cross-harness session search (`umwelten_session_search`), knowledge promotion (`umwelten_promote_knowledge` → `FACTS.md` / `AGENTS.md` / `.umwelten/reflections/`), and `/umwelten-explorations` straight into `pi`.
+2. **Multi-Model Evaluations & Ranking (`@umwelten/evaluation`)** — Declarative `EvalSuite` (`VerifyTask` + LLM `JudgeTask` + multi-step tool benchmarks with uncapped `models.stream()`), Swiss/round-robin `PairwiseRanker` Elo tournaments, calibrated probability judgments (`Jev` / Brier / ECE), and multi-suite cost/speed scorecards.
+3. **Cross-Harness Session Sensemaking (`@umwelten/sessions`)** — Read-only adapters for **Pi JSONL v3**, **Pi Durable SQLite** (`habitat.sqlite`), **Claude Code**, and **Cursor**, projecting trees and forks into queryable **Explorations** with fast `ripgrep` search and deterministic conversation beats.
+4. **Host-Agnostic Durable Habitats (`@umwelten/habitat` + `@umwelten/protocols`)** — Multiplex SQLite- or Postgres-backed `DurableHabitat` instances in a single Node process (`HabitatHost`) over `@earendil-works/pi-durable` (`Storage` + optional `ExecutionEnv`), with Owned R/W vs. Mounted R/O repo guards, durable cron tasks, Turn Fan-out `Annotation` probes, `ui://` MCP-UI resources, A2A 1.0 serving (`@leocavalcante/pi-a2a/durable`), and OAuth 2.1 `mcp-serve`.
+5. **The Mycel Token Exchange & GPU Suppliers (`@umwelten/mycel` + `@umwelten/supplier`)** — Wholesale-to-retail token Exchange (`mycel.thefocus.ai`) metered in integer micro-dollars with hard `Guarantee` / `Capability` dispatch filters and outbound WebSocket GPU Supplier dial-in (`umwelten supplier dial`).
+
+---
+
+## Quick Start
+
+### 1. Install the Pi Extension (`@umwelten/pi`)
 
 ```bash
-git clone https://github.com/The-Focus-AI/umwelten.git
-cd umwelten && pnpm install && cp env.template .env
-# Add your GOOGLE_GENERATIVE_AI_API_KEY to .env
-# `umwelten search` requires ripgrep (rg) on PATH: brew install ripgrep
+pi install ./packages/pi
 ```
 
-```bash
-# Start an agent environment
-npx umwelten habitat
+Inside `pi`, you gain:
+- `umwelten_session_search` — ripgrep across Pi, Pi Durable SQLite, Claude Code, and Cursor sessions
+- `umwelten_promote_knowledge` — route distilled facts and instructions to `FACTS.md`, `AGENTS.md`, or `.umwelten/reflections/`
+- `/umwelten-explorations` — inspect projected Explorations for the current workspace
 
-# Run one prompt through a provider/model
-npx umwelten run "Explain why the sky is blue" \
-  --provider google --model gemini-3-flash-preview
+For custom or local OpenAI-compatible endpoints (Mycel, Ollama, vLLM, llama-swap), configure Pi's native `~/.pi/agent/models.json`.
 
-# 76% of models fail this common-sense question
-dotenvx run -- pnpm tsx examples/evals/car-wash.ts
+### 2. Run Multi-Model Evaluations (`@umwelten/evaluation`)
 
-# Watch models fall for classic logic traps
-dotenvx run -- pnpm tsx examples/evals/reasoning.ts
+```ts
+import "@umwelten/pi";
+import { z } from "zod";
+import { EvalSuite } from "@umwelten/evaluation";
 
-# Can a model write exactly 12 words?
-dotenvx run -- pnpm tsx examples/evals/instruction.ts
-```
-
-## Programmatic usage
-
-```typescript
-import { Stimulus, Interaction, Habitat, EvalSuite } from "umwelten";
-
-// Talk to any model
-const stimulus = new Stimulus({ role: "helpful assistant" });
-const interaction = new Interaction(
-  { name: "gemini-3-flash-preview", provider: "google" },
-  stimulus,
-);
-interaction.addMessage({ role: "user", content: "Hello" });
-const reply = await interaction.generateText();
-
-// Build an agent environment
-const habitat = await Habitat.create({ workDir: "./my-agent" });
-const { interaction: ix } = await habitat.createInteraction();
-ix.addMessage({ role: "user", content: "List my agents" });
-await ix.generateText();
-
-// Evaluate models
 const suite = new EvalSuite({
-  name: 'quick-test',
-  stimulus: { role: 'helpful assistant', temperature: 0.3 },
-  models: [{ name: 'gemini-3-flash-preview', provider: 'google' }],
-  tasks: [{
-    id: 'math', prompt: 'What is 2+2?', maxScore: 1,
-    verify: (r) => ({ score: r.trim() === '4' ? 1 : 0, details: r.trim() }),
-  }],
+  name: "car-wash",
+  systemPrompt: "Think carefully and give a clear recommendation.",
+  temperature: 0.2,
+  // Leave maxTokens undefined on benchmarks so models.stream() stays uncapped
+  models: [
+    { provider: "google", name: "gemini-3-flash-preview" },
+    { provider: "openrouter", name: "anthropic/claude-sonnet-4.6" },
+  ],
+  tasks: [
+    {
+      id: "car-wash",
+      prompt: "The car wash is 50 meters away. Should I walk or drive?",
+      maxScore: 5,
+      judge: {
+        schema: z.object({
+          reasoning_quality: z.coerce.number().min(1).max(5),
+          explanation: z.string(),
+        }),
+        instructions: ["Score 5 only if the model says DRIVE because the car must be at the wash."],
+      },
+    },
+  ],
 });
+
 await suite.run();
 ```
 
-## Multi-agent collaboration
-
-Agents can spawn children with fresh, summarized, or forked context, communicate
-through durable mailboxes and public channels, and publish versioned artifacts.
-The existing Habitat `agent-runner` tool set includes experiment management;
-participants use ordinary identity-bound collaboration tools. Runs have bounded
-scheduling, SQLite traces, and redaction-required training exports.
-
-Start with a credential-free smoke run:
+### 3. Host Durable Habitats Over A2A 1.0 (`@umwelten/habitat`)
 
 ```bash
-pnpm exec tsx examples/collaboration/run.ts --scripted --context fork
+# Serve lazy-opened SQLite DurableHabitats at /habitats/:id/{.well-known/agent-card.json,a2a}
+dotenvx run -- pnpm run cli -- habitat serve --port 7430 --data-dir ./habitats-data
 ```
 
-See the [collaboration README](examples/collaboration/README.md) for live-model
-examples, all tools, context inheritance, budgets, restart semantics, evaluation,
-and training-data export. For sequential fixed-roster conversations, use
-[`umwelten converse`](docs/guide/agent-dialogues.md).
-
-## Web applications
-
-Habitats also drive HTTP chat. `@umwelten/habitat` exposes `startWebServer` — the web peer to the Discord and Telegram adapters. It speaks the [Vercel AI SDK UI Message Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol), so any React frontend using `@ai-sdk/react`'s `useChat` connects with no glue code. Streaming text, tool calls, and tool results all flow through the same `ChannelBridge` that every other channel uses.
-
-```ts
-import { Habitat } from 'umwelten';
-import { startWebServer } from '@umwelten/habitat';
-
-const habitat = await Habitat.create({ workDir: './my-habitat' });
-await startWebServer({
-  habitat,
-  auth: 'dev',            // or a custom AuthProvider
-  staticRoot: './public', // built SPA
-  port: 3000,
-});
-```
-
-Generative UI comes via a `renderUi` tool that ships a [json-render](https://json-render.dev) Spec through the tool-call channel — the client renders it with `@json-render/react`. See [`examples/umwelten-web-demo/`](examples/umwelten-web-demo/) for the reference app (`useChat` + thread sidebar + tool-call cards + renderUi).
+### 4. Search Sessions & Promote Knowledge (`@umwelten/sessions`)
 
 ```bash
-mise run web-demo         # API server on :3000
-mise run web-demo-client  # Vite dev server on :5173 (proxies /api)
+pnpm run cli -- sessions explorations
+pnpm run cli -- sessions search "micro-dollars"
+pnpm run cli -- sessions promote "Always run pnpm test:run in CI." --target agent-instruction
 ```
 
-[Gaia](examples/gaia-ui/) — the built-in habitat manager UI — is a thin wrapper over the same framework (`mise run habitat-web`).
+---
 
-## Remote MCP servers
+## Examples (`examples/`)
 
-Connect to any remote MCP server with OAuth — chat from the command line or build your own MCP-backed agent.
+Every example in `examples/` is typechecked in CI and demonstrates capabilities built **on top of** Pi:
+
+- [`examples/pi-extension/demo.ts`](./examples/pi-extension/demo.ts) — `@umwelten/pi` extension tools + projecting `pi-durable` SQLite conversations into Explorations
+- [`examples/durable-habitat/host.ts`](./examples/durable-habitat/host.ts) — `HabitatHost` multiplexing SQLite `DurableHabitat`s over A2A 1.0 HTTP
+- [`examples/evals/`](./examples/evals/) — `car-wash.ts` (`JudgeTask`), `instruction.ts` (`VerifyTask`), `reasoning.ts`, and `tool-math.ts` (multi-step Pi tools + `PairwiseRanker` Elo)
+- [`examples/jev/`](./examples/jev/) — Calibrated probability judgments (`Jev` vs. LLM constrained-sampling baseline, Brier & ECE)
+- [`examples/model-showdown/`](./examples/model-showdown/) — Aggregating multi-suite `EvalDimension` runs into scorecards
+- [`examples/mycel-e2e/`](./examples/mycel-e2e/) — End-to-end Mycel Exchange + Supplier metering over `@earendil-works/pi-ai`
+
+---
+
+## Specifications & Verification
+
+Active specifications, external standards, architectural decisions, and immutable verification runs are managed with [`session-spec-verify`](https://github.com/The-Focus-AI/session-spec-verify) under [`docs/INDEX.md`](./docs/INDEX.md) (historical VitePress docs are archived in [`docs-archive/`](./docs-archive/)).
 
 ```bash
-# Chat with a remote MCP server (OAuth handled automatically)
-npx umwelten mcp chat --url https://oura-mcp.fly.dev/mcp
-
-# One-shot query
-npx umwelten mcp chat --url https://oura-mcp.fly.dev/mcp --one-shot "how did I sleep?"
+pnpm run specs:check   # Validate standards, spec packs, decisions, and run verdicts
+pnpm typecheck         # Typecheck all workspace packages + examples/**/*.ts
+pnpm test:run          # Run offline contract test suite (~20s)
+pnpm lint              # Lint packages and examples
+pnpm -r build          # Build published umwelten and mycel bundles
 ```
-
-Build your own multi-user MCP server with Habitat: see [`examples/oura-mcp/`](examples/oura-mcp/) — a complete Oura Ring MCP server with OAuth, Neon Postgres, deployable on fly.io.
-
-## Session digestion
-
-Your Habitat reads Claude Code and Cursor history — every session, every tool call, every solution. Digest with AI, search full text, extract learnings.
-
-```bash
-npx umwelten sessions list                           # see your sessions
-npx umwelten sessions index                          # AI-index everything
-npx umwelten sessions search "authentication"        # full-content search
-npx umwelten sessions browse                         # interactive browser
-```
-
-## Documentation
-
-**[umwelten.thefocus.ai](https://umwelten.thefocus.ai/)**
-
-- [Getting started](https://umwelten.thefocus.ai/guide/getting-started) — build an agent in 10 minutes
-- [Habitat](https://umwelten.thefocus.ai/guide/habitat) — tools, agents, sessions, interfaces
-- [Creating evaluations](https://umwelten.thefocus.ai/guide/creating-evaluations) — EvalSuite, VerifyTask, JudgeTask
-- [Source sessions](https://umwelten.thefocus.ai/guide/source-sessions) — Claude Code, Cursor, pi, Antigravity & remote habitat history
-- [Model Showdown](https://umwelten.thefocus.ai/walkthroughs/model-showdown) — 49 models, 5 dimensions
-- [API reference](https://umwelten.thefocus.ai/api/overview)
-
-Machine-oriented summary for agents: [LLM.txt](LLM.txt).
-
-## Repository layout
-
-Monorepo managed with [pnpm workspaces](https://pnpm.io/workspaces). Each package is independently publishable under the `@umwelten/` scope.
-
-```
-packages/
-  core/          @umwelten/core       — model runners, stimulus, interaction, providers, context, memory
-  protocols/     @umwelten/protocols  — MCP, A2A, OAuth, protocol task storage
-  substrate/     @umwelten/substrate  — reversible Components, Services, Shell composition
-  habitat/       @umwelten/habitat    — agent container, tools, Gaia, web/A2A/MCP server
-  sessions/      @umwelten/sessions   — session search, browse, digest commands
-  evaluation/    @umwelten/evaluation — EvalSuite, ranking, aggregation, reporting
-  ui/            @umwelten/ui         — Telegram, Discord, TUI adapters
-  mycel/         @umwelten/mycel      — the Exchange: dispatch, metering, balances
-  supplier/      @umwelten/supplier   — supplier discovery, probing, publishing, serving
-  cli/           @umwelten/cli        — umwelten CLI commands
-  umwelten/      umwelten             — published compatibility/meta-package
-examples/
-  evals/           — EvalSuite examples (car-wash, reasoning, instruction)
-  model-showdown/  — multi-dimension eval suite
-  oura-mcp/        — multi-user Oura Ring MCP server (Habitat + fly.io)
-  umwelten-web-demo/ — React + useChat reference app
-  habitat-minimal/ — minimal Habitat work-dir
-```
-
-See the [current architecture map](docs/architecture/system-map-2026-08.md)
-for runtime flows, the Gaia/SaaS boundary, old/new paths, and cleanup priorities.
-
-## License
-
-MIT — see [LICENSE](LICENSE).

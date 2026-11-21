@@ -13,7 +13,14 @@ export type {
   SupplierConfig,
 } from "./types.js";
 
-export { discoverRuntimes } from "./discover.js";
+export { discoverRuntimes, toProbeTargets, VllmAuthError } from "./discover.js";
+export {
+  DEFAULT_CACHE_PATHS,
+  findLlamaSwapModels,
+  generateLlamaSwapConfig,
+  normalizeModelName,
+} from "./llamaswap-config.js";
+export type { GgufModel, BuildConfigOptions } from "./llamaswap-config.js";
 export { probeOffer } from "./probe.js";
 export { probeOperationCapabilities } from "./operation-probe.js";
 export type { OperationProbeOptions } from "./operation-probe.js";

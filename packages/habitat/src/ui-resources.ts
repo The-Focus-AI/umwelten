@@ -26,8 +26,16 @@ import { readdir, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Part } from "@a2a-js/sdk";
-import { dataPart } from "@umwelten/protocols";
-import { toAbsoluteArtifactUrl } from "./tools/artifact-tools.js";
+
+function dataPart(data: Record<string, unknown>, metadata?: Record<string, unknown>): Part {
+  return { data, ...(metadata ? { metadata } : {}) } as unknown as Part;
+}
+
+function toAbsoluteArtifactUrl(url: string, origin?: string): string {
+  if (!origin || /^https?:\/\//i.test(url)) return url;
+  const parsed = new URL(origin);
+  return `${parsed.origin}${url.startsWith("/") ? url : `/${url}`}`;
+}
 
 /** A2A output mode advertised on the agent card when UI resources are emitted. */
 export const UI_OUTPUT_MODE = "text/html+mcp";

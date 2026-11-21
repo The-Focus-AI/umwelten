@@ -1,6 +1,6 @@
 {
   "name": "@umwelten/evaluation",
-  "version": "0.4.13",
+  "version": "0.6.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,29 +14,20 @@
       "import": "./src/*.ts"
     }
   },
-  "description": "Model evaluation, ranking, aggregation, and reporting",
+  "description": "Multi-model EvalSuite, Elo PairwiseRanker, calibrated Jev judgments, and scorecards directly on @earendil-works/pi-ai",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
-    "directory": "packages/evaluation"
-  },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@ai-sdk/provider": "^4.0.4",
-    "@ai-sdk/provider-utils": "^5.0.14",
-    "@umwelten/core": "workspace:*",
-    "ai": "^7.0.41",
+    "@earendil-works/pi-ai": "1.6.0",
+    "@umwelten/pi": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@dagger.io/dagger": "^0.21.7",
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

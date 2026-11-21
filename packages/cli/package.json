@@ -1,40 +1,28 @@
 {
   "name": "@umwelten/cli",
-  "version": "0.4.13",
+  "version": "0.6.0",
   "type": "module",
   "main": "./src/cli.ts",
   "types": "./src/cli.ts",
   "bin": {
     "umwelten": "src/entry.ts"
   },
-  "description": "CLI entry point for umwelten",
+  "description": "Focused CLI for Umwelten sessions, DurableHabitats, GPU Suppliers, and Mycel Exchange",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
-    "directory": "packages/cli"
-  },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "cli": "NODE_OPTIONS='--no-deprecation' tsx src/entry.ts",
-    "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@umwelten/core": "workspace:*",
-    "@umwelten/protocols": "workspace:*",
     "@umwelten/habitat": "workspace:*",
-    "@umwelten/evaluation": "workspace:*",
+    "@umwelten/mycel": "workspace:*",
+    "@umwelten/pi": "workspace:*",
     "@umwelten/sessions": "workspace:*",
-    "@umwelten/ui": "workspace:*",
-    "file-type": "^22.0.1",
-    "chalk": "^5.6.2",
-    "cli-table3": "^0.6.5",
-    "commander": "^15.0.0",
     "@umwelten/supplier": "workspace:*",
-    "@umwelten/mycel": "workspace:*"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

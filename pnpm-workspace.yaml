@@ -1,6 +1,7 @@
 packages:
   - 'packages/*'
 allowBuilds:
+  '@google/genai': false
   '@modelcontextprotocol/ext-apps': false
   better-sqlite3: true
   esbuild: true

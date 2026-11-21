@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   JudgmentBackend,
   JudgmentResult,
-} from "@umwelten/core/judgment/types.js";
-import { JudgmentError } from "@umwelten/core/judgment/types.js";
+} from "./types.js";
+import { JudgmentError } from "./types.js";
 import {
   pilotKey,
   runPilot,

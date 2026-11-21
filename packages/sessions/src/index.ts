@@ -1,36 +1,27 @@
 /**
- * @umwelten/sessions — Session browsing, search, digest, learnings, transcripts.
- *
- * Wraps the digest pipeline in `@umwelten/core/interaction/analysis/` with
- * commander-based CLI commands and a session-browser data layer.
+ * `@umwelten/sessions` — Cross-harness session sensemaking, Explorations,
+ * ripgrep session search, deterministic beats, and knowledge promotion.
  */
 
-// CLI commands (registered by @umwelten/cli)
-export { sessionsCommand } from "./sessions.js";
-export {
-	introspectCommand,
-	browseCommand,
-	runBrowseAction,
-} from "./introspect.js";
-export { searchCommand } from "./search.js";
+export * from "./types/types.js";
+export * from "./types/normalized-types.js";
+export * from "./types/domain-types.js";
 
-// Session-browser data layer (consumed by TUI components)
+export * from "./adapters/index.js";
+export * from "./projection/index.js";
+export * from "./search/index.js";
+export * from "./analysis/conversation-beats.js";
+export * from "./knowledge/index.js";
+export * from "./promotion/index.js";
 export {
-	buildExploreBrowse,
-	applyExploreFilter,
-	searchToVirtualExploration,
-	loadDigest,
-	saveDigest,
-	getDigestPath,
-} from "./introspection/browse.js";
-export type {
-	SessionBrowserEntry,
-	ExplorationBrowserEntry,
-	VirtualExplorationResult,
-	BuildBrowseOptions,
-	DateWindow,
-	StatusFilter,
-	SourceFilter,
-	FilterState,
-	SessionSourceKind,
-} from "./introspection/browse.js";
+  parseSessionFile,
+  extractConversation,
+  extractToolCalls,
+  summarizeSession,
+  sessionMessagesToNormalized,
+  getBeatsForSession,
+  parseSessionFileMetadata,
+  isSessionJsonlFilename,
+} from "./persistence/session-parser.js";
+
+export { sessionsCommand } from "./command.js";

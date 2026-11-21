@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest";
 import { ManagedRuntime, RuntimeStartError } from "./runtime.js";
 import type { RuntimeEffects, SpawnedProcess } from "./runtime.js";
 import { planManagedRuntime } from "./managed.js";
-import type { GgufModel } from "@umwelten/core/providers/llamaswap-config.js";
+import type { GgufModel } from "./llamaswap-config.js";
 
 const DISK: GgufModel[] = [
   { path: "/models/gemma.gguf", baseName: "gemma-4-26b-Q4_K_M", alias: "gemma-4-26b", sizeBytes: 1 },

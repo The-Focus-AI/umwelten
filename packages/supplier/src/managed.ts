@@ -17,7 +17,7 @@ import {
   buildLlamaSwapConfig,
   normalizeModelName,
   type GgufModel,
-} from "@umwelten/core/providers/llamaswap-config.js";
+} from "./llamaswap-config.js";
 import type { ManagedOptions } from "./types.js";
 
 /**
