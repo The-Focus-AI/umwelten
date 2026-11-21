@@ -1,0 +1,3648 @@
+{
+  "mode": "mock",
+  "generatedAt": "2026-11-21T18:02:43.188Z",
+  "reproduceCommand": "pnpm run site:bench",
+  "freshCommand": "pnpm run site:bench --fresh",
+  "judgeModel": "google:gemini-3.8-flash",
+  "dimensions": [
+    {
+      "id": "reasoning",
+      "label": "Reasoning Traps",
+      "maxScore": 20,
+      "tasks": 4,
+      "scoring": "Zod JudgeTask"
+    },
+    {
+      "id": "knowledge",
+      "label": "Adversarial Knowledge",
+      "maxScore": 20,
+      "tasks": 4,
+      "scoring": "Deterministic JSON"
+    },
+    {
+      "id": "instruction",
+      "label": "Strict Format Compliance",
+      "maxScore": 25,
+      "tasks": 5,
+      "scoring": "Deterministic Verify"
+    },
+    {
+      "id": "coding",
+      "label": "Executed JS/ESM Coding",
+      "maxScore": 30,
+      "tasks": 3,
+      "scoring": "Node Subprocess (15 vectors)"
+    },
+    {
+      "id": "tools",
+      "label": "Multi-Step Tool Chaining",
+      "maxScore": 10,
+      "tasks": 2,
+      "scoring": "Tool-Call Count + Exact Math + Elo"
+    }
+  ],
+  "totalSuiteCostUsd": 0.07999,
+  "models": [
+    {
+      "id": "qwen/qwen3.8-flash",
+      "provider": "openrouter",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.15,
+        "completionTokens": 0.47
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1500,
+      "cost": 0.00111,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000027,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000014,
+            "durationMs": 1
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000015,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000046,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000016,
+            "durationMs": 1
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.00002,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000019,
+            "durationMs": 1
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000019,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000024,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000024,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000051,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000126,
+            "durationMs": 1
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000072,
+            "durationMs": 1
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000249,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000186,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000166,
+            "durationMs": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "gpt-oss-120b",
+      "provider": "cerebras",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.35,
+        "completionTokens": 0.75
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1468,
+      "cost": 0.00214,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000048,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.00003,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.00003,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000083,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000034,
+            "durationMs": 1
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000034,
+            "durationMs": 1
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.00004,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000033,
+            "durationMs": 1
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000037,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000038,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000046,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000047,
+            "durationMs": 1
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000093,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000212,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.00013,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000419,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000413,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000374,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "provider": "google",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 0.5,
+        "completionTokens": 3
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1532,
+      "cost": 0.00555,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000151,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000058,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000073,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000258,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000084,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.00007,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000098,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000078,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000093,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000086,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000125,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000124,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000276,
+            "durationMs": 1
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000762,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000398,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001501,
+            "durationMs": 1
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000704,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.00061,
+            "durationMs": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.8-flash",
+      "provider": "google",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 0.75,
+        "completionTokens": 3.75
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1500,
+      "cost": 0.00735,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000194,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000082,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000098,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000333,
+            "durationMs": 1
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000112,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000096,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000131,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000105,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000124,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000117,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000165,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000164,
+            "durationMs": 1
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000359,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000964,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000514,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001901,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.001011,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000885,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "grok-4.3",
+      "provider": "xai",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 1.25,
+        "completionTokens": 2.5
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1564,
+      "cost": 0.00741,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000163,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000106,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000104,
+            "durationMs": 1
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000285,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.00012,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000119,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.00014,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000115,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000128,
+            "durationMs": 1
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000131,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000159,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000161,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.00032,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000714,
+            "durationMs": 1
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000444,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001413,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.001464,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.001329,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gpt-6.1-terra",
+      "provider": "openai",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 1,
+        "completionTokens": 5
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1532,
+      "cost": 0.00981,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000259,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000109,
+            "durationMs": 1
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000131,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000444,
+            "durationMs": 1
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.00015,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000128,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000175,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.00014,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000165,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000156,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.00022,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000219,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000478,
+            "durationMs": 1
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001285,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000685,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.002534,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.001348,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.00118,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemini-4-hydrogen",
+      "provider": "google",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 1.5,
+        "completionTokens": 7.5
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1486,
+      "cost": 0.01471,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000389,
+            "durationMs": 5
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000164,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000197,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000666,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000225,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000192,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000263,
+            "durationMs": 1
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.00021,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000247,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000234,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.00033,
+            "durationMs": 1
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000329,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000717,
+            "durationMs": 1
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001928,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001027,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.003801,
+            "durationMs": 1
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.002022,
+            "durationMs": 5
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.00177,
+            "durationMs": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "provider": "anthropic",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 2,
+        "completionTokens": 10
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1468,
+      "cost": 0.01961,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000518,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000218,
+            "durationMs": 1
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000262,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000888,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.0003,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000256,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.00035,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.00028,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.00033,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000312,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.00044,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000438,
+            "durationMs": 1
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000956,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.00257,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.00137,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.005068,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.002696,
+            "durationMs": 0
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.00236,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "provider": "anthropic",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 0.1,
+        "completionTokens": 0.5
+      },
+      "combined": 99.2,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 96,
+      "instructionRaw": "24/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1500,
+      "cost": 0.00098,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000026,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000011,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000013,
+            "durationMs": 1
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000044,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000015,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000013,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000014,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000016,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000022,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000022,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0.000048,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000128,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000068,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000253,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000135,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000118,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gpt-6-luna",
+      "provider": "openai",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 0.1,
+        "completionTokens": 0.5
+      },
+      "combined": 99.2,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 96,
+      "instructionRaw": "24/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1468,
+      "cost": 0.00098,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000026,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000011,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000013,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000044,
+            "durationMs": 1
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000015,
+            "durationMs": 2
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000013,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000014,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000016,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000022,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000022,
+            "durationMs": 4
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0.000048,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000128,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000068,
+            "durationMs": 1
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000253,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000135,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000118,
+            "durationMs": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "minimax/minimax-m3.1-flash",
+      "provider": "openrouter",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.15,
+        "completionTokens": 0.6
+      },
+      "combined": 99.2,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 96,
+      "instructionRaw": "24/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1500,
+      "cost": 0.00128,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000032,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000015,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000056,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.00002,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000018,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000023,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000019,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000022,
+            "durationMs": 1
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000021,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000028,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000028,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0.000061,
+            "durationMs": 1
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000157,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000086,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.00031,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000193,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000171,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "provider": "google",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 0.3,
+        "completionTokens": 2.5
+      },
+      "combined": 99.2,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 96,
+      "instructionRaw": "24/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1532,
+      "cost": 0.00423,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000121,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000041,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000055,
+            "durationMs": 1
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000205,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000063,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000049,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000073,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000058,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000071,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000064,
+            "durationMs": 1
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000097,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000096,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0.000217,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000624,
+            "durationMs": 1
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000316,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001228,
+            "durationMs": 1
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000463,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000393,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "provider": "openrouter",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.15,
+        "completionTokens": 0.6
+      },
+      "combined": 98.7,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1500,
+      "cost": 0.00127,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000032,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000015,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000017,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000056,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.00002,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000018,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000023,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000019,
+            "durationMs": 1
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000022,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000021,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000028,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000028,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000061,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000157,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000086,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0.000301,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000193,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000171,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "openai/gpt-oss-20b",
+      "provider": "groq",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.075,
+        "completionTokens": 0.3
+      },
+      "combined": 98.4,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 92,
+      "instructionRaw": "23/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1500,
+      "cost": 0.00064,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000016,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000008,
+            "durationMs": 1
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000009,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000028,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.00001,
+            "durationMs": 1
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000009,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000012,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000009,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 3,
+            "maxScore": 5,
+            "details": "13 words (off by 1)",
+            "costUsd": 0.00001,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.00001,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000014,
+            "durationMs": 1
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000014,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.00003,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000079,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000043,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000155,
+            "durationMs": 1
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000097,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000086,
+            "durationMs": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-flash",
+      "provider": "openrouter",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.04,
+        "completionTokens": 0.08
+      },
+      "combined": 97.9,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 96,
+      "instructionRaw": "24/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1532,
+      "cost": 0.00024,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000005,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000003,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000003,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000009,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000004,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000004,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000004,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000004,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000004,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000004,
+            "durationMs": 1
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000005,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000005,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0.00001,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000023,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000014,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0.000044,
+            "durationMs": 1
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.000047,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000043,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gpt-oss-20b",
+      "provider": "llamaswap",
+      "tier": "local",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0,
+        "completionTokens": 0
+      },
+      "combined": 97.1,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 92,
+      "instructionRaw": "23/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1514,
+      "cost": 0,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 3,
+            "maxScore": 5,
+            "details": "13 words (off by 1)",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemma-4-26b",
+      "provider": "llamaswap",
+      "tier": "local",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0,
+        "completionTokens": 0
+      },
+      "combined": 96.3,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 88,
+      "instructionRaw": "22/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1468,
+      "cost": 0,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 1
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0,
+            "durationMs": 2
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 3,
+            "maxScore": 5,
+            "details": "13 words (off by 1)",
+            "costUsd": 0,
+            "durationMs": 2
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "provider": "google",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 0.25,
+        "completionTokens": 1.5
+      },
+      "combined": 95.1,
+      "reasoning": 90,
+      "reasoningRaw": "18/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 92,
+      "instructionRaw": "23/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1436,
+      "cost": 0.00268,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0.000075,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000029,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0.000037,
+            "durationMs": 1
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 3,
+            "maxScore": 5,
+            "details": "Identifies 4v4 initial split but hand-waves the tilted second-weighing rotation.",
+            "costUsd": 0.000058,
+            "durationMs": 1
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000042,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000035,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000049,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000039,
+            "durationMs": 1
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 3,
+            "maxScore": 5,
+            "details": "13 words (off by 1)",
+            "costUsd": 0.000044,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000043,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000063,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000062,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000138,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000381,
+            "durationMs": 0
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000199,
+            "durationMs": 1
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0.000728,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0.00035,
+            "durationMs": 0
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000305,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "nemotron-3-nano-4b",
+      "provider": "llamaswap",
+      "tier": "local",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0,
+        "completionTokens": 0
+      },
+      "combined": 94.3,
+      "reasoning": 90,
+      "reasoningRaw": "18/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 88,
+      "instructionRaw": "22/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1502,
+      "cost": 0,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Immediately recommends driving because the car must physically be at the wash.",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 3,
+            "maxScore": 5,
+            "details": "Identifies 4v4 initial split but hand-waves the tilted second-weighing rotation.",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 3,
+            "maxScore": 5,
+            "details": "13 words (off by 1)",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 4,
+            "maxScore": 5,
+            "details": "Failed: fences",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0,
+            "durationMs": 1
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0,
+            "durationMs": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemma-4-e2b",
+      "provider": "llamaswap",
+      "tier": "local",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0,
+        "completionTokens": 0
+      },
+      "combined": 91.1,
+      "reasoning": 70,
+      "reasoningRaw": "14/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 92,
+      "instructionRaw": "23/25",
+      "coding": 93.3,
+      "codingRaw": "28/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1498,
+      "cost": 0,
+      "timeSec": 0,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 1,
+            "maxScore": 5,
+            "details": "Recommends walking 50m and forgets the car itself needs to be washed.",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Complete, verified reasoning across every branch.",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 3,
+            "maxScore": 5,
+            "details": "Identifies 4v4 initial split but hand-waves the tilted second-weighing rotation.",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 3,
+            "maxScore": 5,
+            "details": "13 words (off by 1)",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0,
+            "durationMs": 0
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 8,
+            "maxScore": 10,
+            "details": "4/5 (failed: unary_prec)",
+            "costUsd": 0,
+            "durationMs": 0
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=3",
+            "costUsd": 0,
+            "durationMs": 1
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0,
+            "durationMs": 1
+          }
+        ]
+      }
+    }
+  ],
+  "unavailableCatalogueModels": []
+}

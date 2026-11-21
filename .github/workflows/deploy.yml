@@ -1,11 +1,9 @@
-name: Deploy VitePress site to Pages
+name: Deploy umwelten.thefocus.ai site (manual dispatch)
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
+  # Builds the ../labs-styled Model Watch & Prompt-First Examples static site
+  # (`pnpm run site:build` -> `build/site`). Kept manual-only until ready to
+  # cut over GitHub Pages.
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -36,20 +34,18 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          # pnpm 11 (declared in package.json packageManager) needs Node 22.13+
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build with VitePress
-        run: NODE_ENV=production pnpm run docs:build
+      - name: Build Model Watch & Prompt-First Examples site
+        run: pnpm run site:build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          # Upload dist repository root to github-pages branch
-          path: docs/.vitepress/dist
+          path: build/site
 
   # Deployment job
   deploy:

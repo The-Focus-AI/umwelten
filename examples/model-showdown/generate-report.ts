@@ -1,86 +1,76 @@
 #!/usr/bin/env node
 /**
- * Model Showdown — Combined Report Generator
+ * Multi-Suite Combined Report Generator
  *
- * Loads results from all 4 evaluation suites and produces
- * a unified leaderboard with cost/speed analysis.
+ * Combines cached per-dimension `EvalSuite` runs into normalized scorecards.
+ * Defaults to `output/mock-evaluations` (`MODEL_WATCH_SUITE`) unless `--live`
+ * is passed.
  *
  * Usage:
- *   pnpm tsx examples/model-showdown/generate-report.ts                    # console tables
- *   pnpm tsx examples/model-showdown/generate-report.ts --format md        # structured markdown
- *   pnpm tsx examples/model-showdown/generate-report.ts --format narrative # full writeup
- *   pnpm tsx examples/model-showdown/generate-report.ts --format narrative --output report.md
- *   pnpm tsx examples/model-showdown/generate-report.ts --focus nemotron
- *   pnpm tsx examples/model-showdown/generate-report.ts --exclude mcp  # 4-dim report (no MCP)
+ *   pnpm tsx examples/model-showdown/generate-report.ts               # console table (mock cache)
+ *   pnpm tsx examples/model-showdown/generate-report.ts --live        # console table (live cache)
+ *   pnpm tsx examples/model-showdown/generate-report.ts --format md   # structured markdown
  */
 
-import { loadSuite, buildSuiteReport, buildNarrativeReport } from '@umwelten/evaluation/evaluation/combine/index.js';
-import { Reporter } from '@umwelten/evaluation/reporting/reporter.js';
-import { SHOWDOWN_SUITE } from './suite-config.js';
-import fs from 'fs';
-import path from 'path';
+import fs from "node:fs";
+import path from "node:path";
+import {
+  buildNarrativeReport,
+  buildSuiteReport,
+  loadSuite,
+} from "@umwelten/evaluation/evaluation/combine/index.js";
+import { Reporter } from "@umwelten/evaluation/reporting/reporter.js";
+import { MODEL_WATCH_SUITE, SHOWDOWN_SUITE } from "./suite-config.js";
 
-const args = process.argv.slice(2);
-const formatIdx = args.indexOf('--format');
-const format = formatIdx >= 0 ? args[formatIdx + 1] : 'console';
+const args = process.argv.slice(2).filter((a) => a !== "--");
+const isLive = args.includes("--live");
+const useLegacy = args.includes("--legacy-showdown");
 
-const outputIdx = args.indexOf('--output');
+const baseDir = isLive
+  ? path.join(process.cwd(), "output", "evaluations")
+  : path.join(process.cwd(), "output", "mock-evaluations");
+
+const formatIdx = args.indexOf("--format");
+const format = formatIdx >= 0 ? args[formatIdx + 1] : "console";
+
+const outputIdx = args.indexOf("--output");
 const outputFile = outputIdx >= 0 ? args[outputIdx + 1] : undefined;
 
-const focusIdx = args.indexOf('--focus');
-const focusModels = focusIdx >= 0 ? args.slice(focusIdx + 1).filter(a => !a.startsWith('--')) : undefined;
-
-const excludeIdx = args.indexOf('--exclude');
-const excludeDims = excludeIdx >= 0 ? args.slice(excludeIdx + 1).filter(a => !a.startsWith('--')) : [];
-
-const suite = excludeDims.length > 0
-  ? SHOWDOWN_SUITE.filter(d => !excludeDims.some(ex => d.label.toLowerCase().includes(ex.toLowerCase())))
-  : SHOWDOWN_SUITE;
-
-const result = loadSuite(suite);
+const baseSuite = useLegacy ? SHOWDOWN_SUITE : MODEL_WATCH_SUITE;
+const result = loadSuite(baseSuite, { baseDir });
 
 if (result.scorecards.length === 0) {
-  console.error('No models found in all evaluation dimensions.');
-  console.error('Make sure all 4 evals have been run:');
-  console.error('  model-showdown-reasoning, model-showdown-knowledge,');
-  console.error('  model-showdown-instruction, model-showdown-coding');
+  console.error(`No cached suite results found under ${baseDir}.`);
+  console.error(
+    `Run \`pnpm run site:bench${isLive ? " --live" : ""}\` first to populate the suite caches.`,
+  );
   process.exit(1);
 }
 
-let output: string;
+const reporter = new Reporter();
+let output = "";
 
-if (format === 'narrative' || format === 'full' || format === 'writeup') {
+if (format === "narrative" || format === "full") {
   output = buildNarrativeReport(result, {
-    title: 'Model Showdown — Full Evaluation Report',
+    title: "Umwelten Multi-Dimension Evaluation Report",
   });
-} else if (format === 'md' || format === 'markdown') {
-  const report = buildSuiteReport(result, {
-    title: 'Model Showdown — Combined Results',
-    focusModels,
-  });
-  const reporter = new Reporter();
-  output = reporter.toMarkdown(report);
-} else if (format === 'json') {
-  const report = buildSuiteReport(result, {
-    title: 'Model Showdown — Combined Results',
-    focusModels,
-  });
-  const reporter = new Reporter();
-  output = reporter.toJson(report);
+} else if (format === "md" || format === "markdown") {
+  output = reporter.toMarkdown(
+    buildSuiteReport(result, { title: "Umwelten — Combined Dimension Standings" }),
+  );
+} else if (format === "json") {
+  output = reporter.toJson(
+    buildSuiteReport(result, { title: "Umwelten — Combined Dimension Standings" }),
+  );
 } else {
-  // Console — use structured report with toConsole
-  const report = buildSuiteReport(result, {
-    title: 'Model Showdown — Combined Results',
-    focusModels,
-  });
-  const reporter = new Reporter();
-  reporter.toConsole(report);
-  output = '';
+  reporter.toConsole(
+    buildSuiteReport(result, { title: "Umwelten — Combined Dimension Standings" }),
+  );
 }
 
 if (outputFile && output) {
   const resolved = path.resolve(outputFile);
-  fs.writeFileSync(resolved, output, 'utf8');
+  fs.writeFileSync(resolved, output, "utf8");
   console.error(`Report saved to: ${resolved}`);
 } else if (output) {
   console.log(output);
