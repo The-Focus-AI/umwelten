@@ -22,3 +22,15 @@ export {
   type TurnAnnotationProbe,
   type TurnFanoutExtensionOptions,
 } from "./extensions.js";
+
+export {
+  assertValidHabitatId,
+  createGaiaAuthenticator,
+  GaiaHost,
+  parseBearerKeys,
+  type AuthenticatedCaller,
+  type GaiaAuthenticator,
+  type GaiaAuthOptions,
+  type GaiaHostOptions,
+  type StoredHabitatDeclaration,
+} from "./gaia-host.js";

@@ -58,6 +58,24 @@ import {
   type TurnFanoutExtensionOptions,
 } from "./extensions.js";
 
+function isPrivateOrForwardedTls(req: IncomingMessage): boolean {
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined)
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
+  if (proto === "https") return true;
+
+  const raw = (req.socket?.remoteAddress ?? "").replace(/^::ffff:/, "");
+  if (raw.startsWith("10.") || raw.startsWith("192.168.")) return true;
+  const m172 = raw.match(/^172\.(\d+)\./);
+  if (m172) {
+    const second = Number(m172[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  if (raw.startsWith("fc") || raw.startsWith("fd")) return true;
+  return false;
+}
+
 export interface DurableHabitatOptions {
   id: string;
   name?: string;
@@ -346,6 +364,7 @@ export class DurableHabitat {
   createA2ASurface(options: {
     endpointUrl: string;
     bearerToken?: string;
+    bearerFormat?: string;
     allowUnauthenticatedLoopback?: boolean;
     authenticate?: (
       req: IncomingMessage,
@@ -357,6 +376,7 @@ export class DurableHabitat {
       res: ServerResponse,
     ) => Promise<boolean>;
   } {
+    const hasAuth = Boolean(options.authenticate || options.bearerToken);
     const card = AgentCard.fromJSON({
       name: this.name,
       description: this.description,
@@ -369,6 +389,20 @@ export class DurableHabitat {
         },
       ],
       capabilities: { streaming: true },
+      ...(hasAuth
+        ? {
+            securitySchemes: {
+              bearer: {
+                httpAuthSecurityScheme: {
+                  scheme: "Bearer",
+                  ...(options.bearerFormat
+                    ? { bearerFormat: options.bearerFormat }
+                    : {}),
+                },
+              },
+            },
+          }
+        : {}),
       defaultInputModes: ["text/plain"],
       defaultOutputModes: ["text/plain"],
       skills: [
@@ -417,10 +451,23 @@ export class DurableHabitat {
         ? bearerAuth(() => options.bearerToken, "operator")
         : undefined);
 
-    const httpHandler = a2aHttpHandler(adapter, {
+    const rawHttpHandler = a2aHttpHandler(adapter, {
       authenticate: auth,
       allowUnauthenticatedLoopback: options.allowUnauthenticatedLoopback,
     });
+
+    const httpHandler = async (
+      req: IncomingMessage,
+      res: ServerResponse,
+    ): Promise<boolean> => {
+      if (isPrivateOrForwardedTls(req) && req.socket && !(req.socket as { encrypted?: boolean }).encrypted) {
+        Object.defineProperty(req.socket, "encrypted", {
+          value: true,
+          configurable: true,
+        });
+      }
+      return rawHttpHandler(req, res);
+    };
 
     return { adapter, httpHandler };
   }
@@ -473,6 +520,18 @@ export class HabitatHost {
     config: Omit<DurableHabitatOptions, "id" | "workDir" | "onWake"> = {},
   ): void {
     this.configs.set(id, config);
+  }
+
+  unregister(id: string): void {
+    this.configs.delete(id);
+  }
+
+  async closeOne(id: string, ctx: Context = BACKGROUND_CONTEXT): Promise<void> {
+    const existing = this.openHabitats.get(id);
+    if (!existing) return;
+    this.openHabitats.delete(id);
+    if (existing.wakeTimer) clearTimeout(existing.wakeTimer);
+    await existing.habitat.close(ctx);
   }
 
   listOpenIds(): string[] {

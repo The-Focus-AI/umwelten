@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
-# Redeploy the Gaia host onto the current checkout.
+# Redeploy the single-container `pi-durable` Gaia HabitatHost.
 #
-# What it does (the manual runbook §1–§5, mechanized):
-#   1. Build habitat and both derived images (twitter-habitat, habitat-coding)
-#   2. Recreate the gaia service via docker compose (new image ⇒ new container)
-#   3. Re-attach gaia to the ingress network (compose only attaches gaia-net)
-#   4. Wait for Gaia's public /health
-#   5. Cycle every RUNNING child habitat via Gaia's API — start is
-#      stop+rm+fresh `docker run`, so children come back on the new image
-#      (data persists on their named volumes) — and wait for each health
-#
-# Config comes from the compose .env. By default the one next to this script;
-# CI runs from a throwaway checkout, so it points GAIA_ENV_FILE at the host's
-# canonical copy instead.
-#
-# Requires: docker (daemon access), curl. Run as a user in the docker group.
+# Steps:
+#   1. Tag the currently running image (`habitat:previous`) for automatic rollback
+#   2. Build `habitat` from `packages/habitat/Dockerfile` and run an offline CLI check
+#   3. Recreate the `gaia` container via docker compose and attach `GAIA_INGRESS_NETWORK`
+#   4. Verify `/health` (`"runtime":"pi-durable"`), `/.well-known/agent-card.json`,
+#      unauthenticated 401 gate, and authenticated `/api/habitats`
+#   5. Roll back automatically to `habitat:previous` if verification fails
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,117 +29,100 @@ set +a
 : "${GAIA_API_KEY:?GAIA_API_KEY must be set in $ENV_FILE}"
 
 GAIA_URL="https://$GAIA_HOSTNAME"
-# GAIA_API_KEY may hold several comma-separated keys — Gaia accepts any of them,
-# but a bearer header carries exactly one. Take the first; the whole list would
-# be sent as a single token and 401 on every child cycle below.
 GAIA_PRIMARY_KEY="$(printf '%s' "${GAIA_API_KEY%%,*}" | tr -d '[:space:]')"
 : "${GAIA_PRIMARY_KEY:?GAIA_API_KEY must contain at least one non-empty key}"
-AUTH=(-H "Authorization: Bearer $GAIA_PRIMARY_KEY")
+PREVIOUS="habitat:previous"
 
-log() { echo "[redeploy] $*"; }
+log() { echo "[gaia-deploy] $*"; }
 
-wait_for() { # wait_for <label> <timeout_s> <curl args...>
-  local label="$1" timeout="$2"; shift 2
-  local deadline=$((SECONDS + timeout))
-  until curl -sf --max-time 5 "$@" >/dev/null 2>&1; do
+attach_ingress() {
+  if [[ -n "${GAIA_INGRESS_NETWORK:-}" ]]; then
+    docker network connect "$GAIA_INGRESS_NETWORK" gaia 2>/dev/null \
+      && log "attached gaia to $GAIA_INGRESS_NETWORK" \
+      || log "gaia already on $GAIA_INGRESS_NETWORK"
+  fi
+}
+
+rollback() {
+  if [[ "${HAVE_PREVIOUS:-0}" == "1" ]]; then
+    log "verification failed — rolling back to $PREVIOUS"
+    docker tag "$PREVIOUS" habitat
+    docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d gaia
+    attach_ingress
+  fi
+}
+
+verify_live_surface() {
+  local deadline=$((SECONDS + 90))
+  local health=""
+  while true; do
+    health="$(curl -sf --max-time 5 "$GAIA_URL/health" 2>/dev/null || true)"
+    if grep -q '"status":"ok"' <<<"$health" && grep -q '"runtime":"pi-durable"' <<<"$health"; then
+      break
+    fi
     if ((SECONDS >= deadline)); then
-      echo "error: timed out after ${timeout}s waiting for $label" >&2
+      echo "error: timed out waiting for pi-durable /health at $GAIA_URL/health (last: $health)" >&2
       return 1
     fi
     sleep 2
   done
+
+  local card=""
+  card="$(curl -sfS --max-time 5 "$GAIA_URL/.well-known/agent-card.json")" || {
+    echo "error: /.well-known/agent-card.json unreachable" >&2
+    return 1
+  }
+  grep -q 'Gaia HabitatHost' <<<"$card" || {
+    echo "error: unexpected root Agent Card payload" >&2
+    return 1
+  }
+
+  local unauth_code=""
+  unauth_code="$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' "$GAIA_URL/api/habitats")"
+  if [[ "$unauth_code" != "401" ]]; then
+    echo "error: expected 401 on unauthenticated /api/habitats, got $unauth_code" >&2
+    return 1
+  fi
+
+  curl -sfS --max-time 5 \
+    -H "Authorization: Bearer $GAIA_PRIMARY_KEY" \
+    "$GAIA_URL/api/habitats" | grep -q '"habitats"' || {
+    echo "error: authenticated /api/habitats check failed" >&2
+    return 1
+  }
 }
 
-# The private standards corpus is independent of runtime code. Bootstrap or
-# refresh it with an authorized token; routine builds reuse only the corpus
-# from the last coding image, not that image's stale server/toolchain layers.
-if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-  CODING_STANDARDS=(--secret id=gh_token,env=GITHUB_TOKEN)
-else
-  if ! docker image inspect habitat-coding:latest >/dev/null 2>&1; then
-    echo "error: first coding-image build needs GITHUB_TOKEN with standards read access" >&2
-    exit 1
-  fi
-  CODING_STANDARDS=(--build-context standards=docker-image://habitat-coding:latest)
+HAVE_PREVIOUS=0
+if current_image="$(docker inspect -f '{{.Image}}' gaia 2>/dev/null)"; then
+  docker tag "$current_image" "$PREVIOUS"
+  HAVE_PREVIOUS=1
+  log "saved rollback image $PREVIOUS ($current_image)"
 fi
 
-log "building images from $ROOT"
+log "building habitat image from $ROOT ($(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown))"
 docker build -t habitat -f "$ROOT/packages/habitat/Dockerfile" "$ROOT"
-docker build -t twitter-habitat -f "$ROOT/packages/habitat/Dockerfile.twitter-habitat" "$ROOT"
-docker build "${CODING_STANDARDS[@]}" \
-  -t habitat-coding -f "$ROOT/packages/habitat/Dockerfile.coding-agent" "$ROOT"
 
-# Catch package-manager writes to the immutable workspace before taking any
-# running habitat down. No network, credentials, or production data are used.
-docker run --rm --network none --user node --entrypoint pnpm \
-  habitat-coding exec node --version >/dev/null
+log "smoke-testing built CLI bundle offline"
+docker run --rm --network none habitat \
+  node packages/umwelten/dist/cli/entry.js habitat gaia --help >/dev/null
 
-log "recreating gaia"
+docker network inspect gaia-net >/dev/null 2>&1 || docker network create gaia-net
+
+log "recreating gaia container"
 docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d gaia
+attach_ingress
 
-# Compose only attaches gaia-net; in the reuse-existing-caddy shape the proxy
-# reaches gaia over GAIA_INGRESS_NETWORK, so re-attach after every recreate.
-if [[ -n "${GAIA_INGRESS_NETWORK:-}" ]]; then
-  docker network connect "$GAIA_INGRESS_NETWORK" gaia 2>/dev/null \
-    && log "attached gaia to $GAIA_INGRESS_NETWORK" \
-    || log "gaia already on $GAIA_INGRESS_NETWORK"
+log "verifying live Gaia HabitatHost at $GAIA_URL"
+if ! verify_live_surface; then
+  docker logs --tail 60 gaia >&2 || true
+  rollback
+  exit 1
 fi
 
-log "waiting for $GAIA_URL/health"
-wait_for "gaia health" 90 "$GAIA_URL/health"
-
-# The preview router is intentionally deployed only when both of its narrow
-# capabilities are configured. It joins the reused ingress network explicitly,
-# just like Gaia, because compose owns only gaia-net in this deployment shape.
-if [[ -n "${GAIA_PREVIEW_WAKE_KEY:-}" && -n "${GAIA_PREVIEW_ACTIVITY_KEY:-}" ]]; then
-  log "recreating preview router"
-  docker compose --project-directory "$SCRIPT_DIR" --env-file "$ENV_FILE" up -d preview-router
-  if [[ -n "${GAIA_INGRESS_NETWORK:-}" ]]; then
-    docker network connect --alias preview-router "$GAIA_INGRESS_NETWORK" gaia-preview-router 2>/dev/null \
-      && log "attached preview router to $GAIA_INGRESS_NETWORK" \
-      || log "preview router already on $GAIA_INGRESS_NETWORK"
-  fi
-  wait_for "preview router health" 60 http://localhost:7431/health \
-    --resolve localhost:7431:$(docker inspect --format '{{(index .NetworkSettings.Networks "gaia-net").IPAddress}}' gaia-preview-router)
-else
-  log "preview router disabled — both preview capabilities are required"
+# Retire the obsolete preview-router container from the pre-pi-durable topology if present
+if docker inspect gaia-preview-router >/dev/null 2>&1; then
+  log "removing retired gaia-preview-router container"
+  docker rm -f gaia-preview-router >/dev/null 2>&1 || true
 fi
 
-# Cycle only children whose container is currently running. Registry entries
-# that are deliberately stopped (e.g. parked habitats) stay stopped.
-mapfile -t RUNNING < <(docker ps --format '{{.Names}}' \
-  | grep '^gaia-' | grep -Ev '^gaia-(caddy|preview-router)$' | sed 's/^gaia-//')
-
-if ((${#RUNNING[@]} == 0)); then
-  log "no running child habitats to cycle"
-else
-  for id in "${RUNNING[@]}"; do
-    log "cycling habitat: $id"
-    curl -sf "${AUTH[@]}" -X POST "$GAIA_URL/api/habitats/$id/stop" >/dev/null
-    curl -sf "${AUTH[@]}" -X POST "$GAIA_URL/api/habitats/$id/start" >/dev/null
-    wait_for "$id health" 120 "${AUTH[@]}" "$GAIA_URL/api/habitats/$id/health"
-    # A healthy process may still be serving an old derived image. Exercise
-    # browser auth without a service header; keep legacy-only hosts unchanged.
-    docker exec "gaia-$id" node -e '
-      const e = process.env;
-      const issuer = e.HABITAT_AUTH_ISSUER || e.HABITAT_AUTH_JWKS_URL;
-      if (e.HABITAT_ID && e.HABITAT_AUTH_AUDIENCE && e.HABITAT_API_KEY &&
-          issuer && (e.HABITAT_AUTH_JWKS_URL || e.HABITAT_AUTH_PUBLIC_KEY)) {
-        fetch(`http://127.0.0.1:${e.PORT || 8080}/shell/`, {
-          headers: { Accept: "text/html" }, redirect: "manual",
-          signal: AbortSignal.timeout(10000),
-        }).then(response => {
-          const location = new URL(response.headers.get("location") || "", issuer);
-          if (response.status !== 303 || location.origin !== new URL(issuer).origin ||
-              location.pathname !== "/auth/handoff" ||
-              location.searchParams.get("habitat_id") !== e.HABITAT_ID) {
-            throw new Error(`Browser login check failed (HTTP ${response.status})`);
-          }
-        }).catch(error => { console.error(error.message); process.exitCode = 1; });
-      }
-    '
-    log "  $id healthy"
-  done
-fi
-
-log "done — gaia + ${#RUNNING[@]} habitat(s) on the new images"
+log "deployed successfully — Gaia HabitatHost (pi-durable) healthy at $GAIA_URL"

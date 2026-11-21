@@ -347,6 +347,96 @@ export function registerPiProvider(provider: PiProvider): void {
   getPiModels().setProvider(provider);
 }
 
+export async function registerMycelProviderOn(
+  targetModels: MutableModels = getPiModels(),
+  options?: {
+    apiKey?: string;
+    baseUrl?: string;
+    endUser?: string;
+    extraModelIds?: string[];
+  },
+): Promise<void> {
+  const rawBase = (
+    options?.baseUrl ??
+    process.env.MYCEL_URL ??
+    "http://localhost:7438"
+  ).replace(/\/$/, "");
+  const baseUrl = rawBase.endsWith("/v1") ? rawBase : `${rawBase}/v1`;
+  const apiKey = options?.apiKey ?? process.env.MYCEL_API_KEY;
+  const endUser =
+    options?.endUser?.trim() ||
+    process.env.MYCEL_END_USER?.trim() ||
+    process.env.HABITAT_ID?.trim() ||
+    "gaia-host";
+
+  const headers = { "X-Mycel-End-User": endUser };
+  const discovered = new Map<string, typeof DEFAULT_COST>();
+  discovered.set("default", DEFAULT_COST);
+  for (const id of options?.extraModelIds ?? []) {
+    discovered.set(id, DEFAULT_COST);
+  }
+
+  if (apiKey || process.env.MYCEL_URL) {
+    try {
+      const cat = await listMycelModels(apiKey, rawBase);
+      for (const entry of cat) {
+        discovered.set(entry.name, {
+          input: entry.costs?.promptTokens ?? 0,
+          output: entry.costs?.completionTokens ?? 0,
+          cacheRead: entry.costs?.promptTokens ?? 0,
+          cacheWrite: 0,
+        });
+      }
+    } catch {
+      // Keep seed model IDs when catalogue is temporarily unreachable at boot
+    }
+  }
+
+  const piModelList: PiModel<"openai-completions">[] = Array.from(
+    discovered.entries(),
+  ).map(([id, cost]) => ({
+    id,
+    name: id,
+    api: "openai-completions",
+    provider: "mycel",
+    baseUrl,
+    input: ["text", "image"],
+    cost,
+    reasoning: true,
+    contextWindow: 131072,
+    maxTokens: 32768,
+    compat: {
+      supportsUsageInStreaming: true,
+      maxTokensField: "max_tokens",
+    },
+    headers,
+  }));
+
+  targetModels.setProvider(
+    createProvider({
+      id: "mycel",
+      name: "Mycel Exchange",
+      baseUrl,
+      headers,
+      auth: {
+        apiKey: {
+          name: "Mycel API key",
+          resolve: async () => ({
+            source: "explicit",
+            auth: {
+              apiKey: apiKey || "local-keyless",
+              baseUrl,
+              headers,
+            },
+          }),
+        },
+      },
+      models: piModelList as PiModel<PiApi>[],
+      api: openAICompletionsApi(),
+    }),
+  );
+}
+
 export interface ResolvedPiInvocationTarget {
   models: MutableModels;
   piModel: PiModel<PiApi>;
