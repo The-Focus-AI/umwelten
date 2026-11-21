@@ -1,6 +1,6 @@
 {
   "name": "@umwelten/sessions",
-  "version": "0.4.13",
+  "version": "0.6.0",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -14,28 +14,25 @@
       "import": "./src/*.ts"
     }
   },
-  "description": "Session browsing, search, digest, learnings, and transcript tools for umwelten",
+  "description": "Cross-harness session adapters (Pi JSONL, Pi Durable SQLite, Claude Code, Cursor), Explorations, ripgrep search, beats, and knowledge promotion",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/The-Focus-AI/umwelten.git",
-    "directory": "packages/sessions"
-  },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "vitest --reporter=verbose",
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@umwelten/core": "workspace:*",
-    "@umwelten/ui": "workspace:*",
+    "@earendil-works/chord": "1.6.0",
+    "@earendil-works/pi-ai": "1.6.0",
+    "@earendil-works/pi-durable": "1.6.0",
+    "better-sqlite3": "^12.11.1",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^15.0.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

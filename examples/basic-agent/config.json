@@ -1,6 +1,0 @@
-{
-  "name": "basic-agent",
-  "defaultProvider": "openrouter",
-  "defaultModel": "anthropic/claude-sonnet-5",
-  "toolsDir": "tools"
-}

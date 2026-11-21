@@ -58,10 +58,10 @@ examples/local-providers/llama-swap.yaml
 
 docker-temp*
 
-# VitePress
-docs/.vitepress/cache/
-docs/.vitepress/dist/
-docs/.vitepress/temp/
+# VitePress (archived in docs-archive/)
+docs-archive/.vitepress/cache/
+docs-archive/.vitepress/dist/
+docs-archive/.vitepress/temp/
 
 umwelten-*.tgz
 
@@ -110,7 +110,6 @@ test-output/
 
 # Agent runtime state
 .pi/
-.agents/skills
 
 # Gaia orchestrator data
 gaia-data/
@@ -121,8 +120,8 @@ gaia-data/
 # Antigravity CLI state
 .antigravitycli/
 
-# Docs-site copy of the dialogue web explorer (synced from examples/dialogue-web by docs:sync-assets)
-docs/public/dialogue/
+# Docs-site copy of the dialogue web explorer
+docs-archive/public/dialogue/
 .webreel/
 
 # dialogue-web demo recordings — scripts/pages are committed, outputs are not
@@ -133,9 +132,17 @@ examples/dialogue-web/transcripts/
 .claude/
 **/.agents/
 
-# Keep the root orb lifecycle scripts while continuing to ignore generated
-# per-directory agent state and the root skill cache.
+# Keep the root orb lifecycle scripts and bundled session-spec-verify skills
+# while continuing to ignore generated per-directory agent state.
 !/.agents/
 /.agents/*
 !/.agents/setup
 !/.agents/resume
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/spec-extract/
+!/.agents/skills/spec-extract/**
+!/.agents/skills/spec-refactor/
+!/.agents/skills/spec-refactor/**
+!/.agents/skills/verify-deploy/
+!/.agents/skills/verify-deploy/**

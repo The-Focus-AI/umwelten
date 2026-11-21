@@ -1,77 +1,104 @@
 /**
- * @umwelten/evaluation — Model evaluation, ranking, reporting.
- *
- * The canonical entry point is `EvalSuite` (below); for end-to-end runs
- * across language / coding / tool-calling, compose with `runFullEval`
- * from `./evaluation/llm-eval/`. See examples/local-providers and
- * examples/evals for usage patterns.
+ * `@umwelten/evaluation` — Multi-model benchmarking (`EvalSuite`), Elo ranking
+ * (`PairwiseRanker`), calibrated probability judgments (`Jev` / Brier / ECE),
+ * and multi-suite scorecards (`combine` + `Reporter`) directly on `@earendil-works/pi-ai`.
  */
 
-// ── EvalSuite (declarative eval runner) ─────────────────────────────────
-export { EvalSuite } from "./evaluation/suite.js";
+export { EvalSuite, isJudgeTask, modelKey } from "./evaluation/suite.js";
 export type {
-	EvalSuiteConfig,
-	EvalTask,
-	VerifyTask,
-	JudgeTask,
-	VerifyResult,
-	TaskResultRecord,
+  EvalSuiteConfig,
+  EvalTask,
+  VerifyTask,
+  JudgeTask,
+  VerifyResult,
+  TaskResultRecord,
+  TaskTurnOptions,
 } from "./evaluation/suite.js";
 
-// ── Standard LLM benchmark composition ────────────────────────────────
 export {
-	runFullEval,
-	makeLanguageSuite,
-	makeCodingSuite,
-	makeToolCallingSuite,
+  runFullEval,
+  makeLanguageSuite,
+  makeToolCallingSuite,
 } from "./evaluation/llm-eval/index.js";
+export {
+  calculatorTool,
+  statisticsTool,
+} from "./evaluation/llm-eval/tool-calling.js";
 export type {
-	FullEvalOptions,
-	FullEvalResult,
-	SuiteRunResult,
-	LlmEvalSuiteName,
-	LanguageSuiteOptions,
-	CodingSuiteOptions,
-	ToolCallingSuiteOptions,
+  FullEvalOptions,
+  FullEvalResult,
+  SuiteRunResult,
+  LlmEvalSuiteName,
+  LanguageSuiteOptions,
+  ToolCallingSuiteOptions,
 } from "./evaluation/llm-eval/index.js";
 
-// ── Ranking ─────────────────────────────────────────────────────────────
 export {
-	PairwiseRanker,
-	expectedScore,
-	updateElo,
-	buildStandings,
-	allPairs,
-	swissPairs,
-	evaluationResultsToRankingEntries,
+  PairwiseRanker,
+  expectedScore,
+  updateElo,
+  buildStandings,
+  allPairs,
+  swissPairs,
+  evaluationResultsToRankingEntries,
 } from "./evaluation/ranking/index.js";
 export type {
-	RankingEntry,
-	PairwiseResult,
-	RankedModel,
-	RankingOutput,
-	PairwiseRankerConfig,
+  RankingEntry,
+  PairwiseResult,
+  RankedModel,
+  RankingOutput,
+  PairwiseRankerConfig,
 } from "./evaluation/ranking/index.js";
 
-// ── Combine (multi-evaluation aggregation) ──────────────────────────────
+export { createJevBackend, type JevOptions } from "./evaluation/judgment/jev.js";
+export { createLlmJudgmentBackend, JUDGMENT_INSTRUCTIONS } from "./evaluation/judgment/llm.js";
 export {
-	loadSuite,
-	findLatestRunDir,
-	loadDimension,
-	buildSuiteReport,
-	buildNarrativeReport,
+  answerSchema,
+  parseAnswers,
+  validateRequest,
+  wireQuestions,
+} from "./evaluation/judgment/schema.js";
+export {
+  JudgmentError,
+  type JudgmentAnswer,
+  type JudgmentBackend,
+  type JudgmentQuestion,
+  type JudgmentQuestions,
+  type JudgmentRequest,
+  type JudgmentResult,
+} from "./evaluation/judgment/types.js";
+export {
+  brierScore,
+  rankedProbabilityScore,
+  reliabilityBins,
+  selectiveRisk,
+} from "./evaluation/judgment/metrics.js";
+export {
+  pilotKey,
+  runPilot,
+  summarizePilot,
+  validateCase,
+  type JudgmentCase,
+  type PilotRecord,
+} from "./evaluation/judgment/pilot.js";
+
+export {
+  loadSuite,
+  findLatestRunDir,
+  loadDimension,
+  buildSuiteReport,
+  buildNarrativeReport,
 } from "./evaluation/combine/index.js";
 export type {
-	EvalDimension,
-	ModelScorecard,
-	SuiteResult,
-	DimensionScore,
-	SuiteRunInfo,
-	TaskResult,
-	SuiteReportOptions,
-	NarrativeReportOptions,
+  EvalDimension,
+  ModelScorecard,
+  SuiteResult,
+  DimensionScore,
+  SuiteRunInfo,
+  TaskResult,
+  SuiteReportOptions,
+  NarrativeReportOptions,
 } from "./evaluation/combine/index.js";
 
-// ── Reporting ───────────────────────────────────────────────────────────
 export { Reporter } from "./reporting/reporter.js";
 export type { Report, ReportSection, ReportType } from "./reporting/types.js";

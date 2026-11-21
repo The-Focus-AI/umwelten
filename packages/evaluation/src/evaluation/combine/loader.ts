@@ -18,7 +18,7 @@ export function findLatestRunDir(
   baseDir?: string
 ): { runDir: string; runNumber: number } | null {
   const evalDir = path.join(
-    baseDir || path.join(process.cwd(), 'output', 'evaluations'),
+    baseDir || process.env.UMWELTEN_EVAL_DIR || path.join(process.cwd(), 'output', 'evaluations'),
     evalName,
     'runs'
   );
@@ -200,7 +200,7 @@ export function loadSuite(
 
     if (dim.runNumber !== undefined) {
       const runDir = path.join(
-        baseDir || path.join(process.cwd(), 'output', 'evaluations'),
+        baseDir || process.env.UMWELTEN_EVAL_DIR || path.join(process.cwd(), 'output', 'evaluations'),
         dim.evalName,
         'runs',
         String(dim.runNumber).padStart(3, '0')

@@ -1,0 +1,773 @@
+{
+  "generatedAt": "2026-11-21T13:37:20.519Z",
+  "reproduceCommand": "pnpm run site:bench",
+  "freshCommand": "pnpm run site:bench -- --fresh",
+  "judgeModel": "mycel:deepseek/deepseek-v4.1-flash",
+  "dimensions": [
+    {
+      "id": "reasoning",
+      "label": "Reasoning Traps",
+      "maxScore": 20,
+      "tasks": 4,
+      "scoring": "Zod JudgeTask"
+    },
+    {
+      "id": "knowledge",
+      "label": "Adversarial Knowledge",
+      "maxScore": 20,
+      "tasks": 4,
+      "scoring": "Deterministic JSON"
+    },
+    {
+      "id": "instruction",
+      "label": "Strict Format Compliance",
+      "maxScore": 25,
+      "tasks": 5,
+      "scoring": "Deterministic Verify"
+    },
+    {
+      "id": "coding",
+      "label": "Executed JS/ESM Coding",
+      "maxScore": 30,
+      "tasks": 3,
+      "scoring": "Node Subprocess (15 vectors)"
+    },
+    {
+      "id": "tools",
+      "label": "Multi-Step Tool Chaining",
+      "maxScore": 10,
+      "tasks": 2,
+      "scoring": "Tool-Call Count + Exact Math + Elo"
+    }
+  ],
+  "totalSuiteCostUsd": 0.3528,
+  "models": [
+    {
+      "id": "moonshotai/kimi-k3.1-pro",
+      "provider": "mycel",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.1,
+        "completionTokens": 0.4
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1454,
+      "cost": 0.01029,
+      "timeSec": 246.4,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly recommends driving and immediately explains that the car must be physically present at the car wash to be washed.",
+            "costUsd": 0.000171,
+            "durationMs": 9599
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response directly identifies the surgeon as the boy's mother, correctly resolving the riddle by noting the father died and the mother is the surgeon.",
+            "costUsd": 0.000075,
+            "durationMs": 1527
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly identifies the ball cost as $0.05, sets up and solves the equation, and verifies that the bat costs $1.05, which is exactly $1.00 more than the ball.",
+            "costUsd": 0.000144,
+            "durationMs": 1820
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response gives a complete 3-weighing decision tree for the classic 12-coin problem. It correctly handles the balanced first weighing and both tilted branches, including exact second-weighing coin rotations and third-weighing conclusions that identify the counterfeit coin and whether it is heavy or light.",
+            "costUsd": 0.003438,
+            "durationMs": 44888
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000056,
+            "durationMs": 1421
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000213,
+            "durationMs": 3347
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000057,
+            "durationMs": 1818
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000062,
+            "durationMs": 1189
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000053,
+            "durationMs": 819
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000054,
+            "durationMs": 3908
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000061,
+            "durationMs": 1386
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000071,
+            "durationMs": 798
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000367,
+            "durationMs": 14063
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001026,
+            "durationMs": 47555
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.000738,
+            "durationMs": 13561
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.002206,
+            "durationMs": 83487
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=8",
+            "costUsd": 0.001168,
+            "durationMs": 11766
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000327,
+            "durationMs": 3429
+          }
+        ]
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "provider": "mycel",
+      "tier": "cloud",
+      "weights": "closed",
+      "pricingPerMillion": {
+        "promptTokens": 4.2,
+        "completionTokens": 21
+      },
+      "combined": 100,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1485,
+      "cost": 0.22523,
+      "timeSec": 93.9,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response immediately recommends driving and correctly explains that the car must be physically at the car wash to be washed. It also acknowledges the only exception where walking could make sense if just getting supplies, but the main recommendation is correct.",
+            "costUsd": 0.003948,
+            "durationMs": 2833
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response directly identifies the surgeon as the boy's mother and also notes the valid alternative that the surgeon could be his other father in a same-sex marriage. It clearly explains the gender assumption that makes the riddle challenging.",
+            "costUsd": 0.005057,
+            "durationMs": 3219
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly solves the problem, showing the algebra x + (x + 1.00) = 1.10, derives x = 0.05, verifies the total and difference, and explicitly identifies the common $0.10 trap.",
+            "costUsd": 0.004927,
+            "durationMs": 3358
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response provides a complete and correct 3-weighing decision tree. It handles the balanced 4v4 case and both tilted branches, including exact coin rotations in the second weighing and all third-weighing outcomes. Every branch identifies the fake coin and whether it is heavier or lighter.",
+            "costUsd": 0.045087,
+            "durationMs": 17159
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.001336,
+            "durationMs": 1631
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.004288,
+            "durationMs": 2880
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.001298,
+            "durationMs": 1551
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.00205,
+            "durationMs": 2016
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.003087,
+            "durationMs": 2470
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.001432,
+            "durationMs": 1613
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.001604,
+            "durationMs": 2260
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.001819,
+            "durationMs": 1571
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.011802,
+            "durationMs": 5244
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.012335,
+            "durationMs": 4619
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.021601,
+            "durationMs": 8151
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.04258,
+            "durationMs": 15001
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=7",
+            "costUsd": 0.04502,
+            "durationMs": 12870
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.015956,
+            "durationMs": 5447
+          }
+        ]
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-flash",
+      "provider": "mycel",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.1575,
+        "completionTokens": 0.525
+      },
+      "combined": 99.2,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 96,
+      "instructionRaw": "24/25",
+      "coding": 100,
+      "codingRaw": "30/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1531,
+      "cost": 0.01866,
+      "timeSec": 213.3,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly recommends driving and immediately explains that the car must be at the car wash to be washed, directly addressing the key constraint.",
+            "costUsd": 0.000138,
+            "durationMs": 1431
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response directly identifies the surgeon as the boy's mother and also notes the valid same-sex-marriage alternative, fully resolving the riddle without speculative hedging.",
+            "costUsd": 0.000106,
+            "durationMs": 2489
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly gives $0.05, explicitly verifies that the ball costs $0.05 and the bat costs $1.05, and shows the total is $1.10 while the difference is $1.00. It also explains why $0.10 is wrong, using algebra and a clear check.",
+            "costUsd": 0.000314,
+            "durationMs": 3756
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response provides a complete and correct 3-weighing decision tree. It starts with 4v4, fully handles the balanced branch, and correctly handles both unbalanced branches with an appropriate second weighing that swaps coins. All sub-branches specify exact third weighings and correctly identify whether the counterfeit coin is heavier or lighter.",
+            "costUsd": 0.003564,
+            "durationMs": 46729
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.00007,
+            "durationMs": 1700
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.000164,
+            "durationMs": 2750
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000155,
+            "durationMs": 1526
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000078,
+            "durationMs": 990
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000361,
+            "durationMs": 2758
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000055,
+            "durationMs": 1452
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000112,
+            "durationMs": 1531
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.000096,
+            "durationMs": 1594
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 4,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=false",
+            "costUsd": 0.000323,
+            "durationMs": 3871
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.002593,
+            "durationMs": 30388
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.00104,
+            "durationMs": 4917
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.007594,
+            "durationMs": 87218
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=8",
+            "costUsd": 0.001513,
+            "durationMs": 12839
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000386,
+            "durationMs": 5392
+          }
+        ]
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "provider": "mycel",
+      "tier": "cloud",
+      "weights": "open",
+      "pricingPerMillion": {
+        "promptTokens": 0.1575,
+        "completionTokens": 0.63
+      },
+      "combined": 93.3,
+      "reasoning": 100,
+      "reasoningRaw": "20/20",
+      "knowledge": 100,
+      "knowledgeRaw": "20/20",
+      "instruction": 100,
+      "instructionRaw": "25/25",
+      "coding": 66.7,
+      "codingRaw": "20/30",
+      "tools": 100,
+      "toolsRaw": "10/10",
+      "elo": 1530,
+      "cost": 0.09862,
+      "timeSec": 384.1,
+      "taskBreakdown": {
+        "reasoning": [
+          {
+            "taskId": "car-wash",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly recommends driving and explicitly states that the car must be at the car wash to be washed, noting that walking would leave the car behind.",
+            "costUsd": 0.000153,
+            "durationMs": 1370
+          },
+          {
+            "taskId": "surgeon",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response directly identifies the surgeon as the boy's mother and correctly explains that the riddle challenges the assumption that the surgeon must be male.",
+            "costUsd": 0.000111,
+            "durationMs": 1021
+          },
+          {
+            "taskId": "bat-ball",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response correctly identifies the ball as $0.05 and provides a clear algebraic derivation: x + (x + 1.00) = 1.10, so 2x = 0.10 and x = 0.05. It also verifies the bat costs $1.05, making the total $1.10.",
+            "costUsd": 0.000099,
+            "durationMs": 875
+          },
+          {
+            "taskId": "counterfeit-coin",
+            "score": 5,
+            "maxScore": 5,
+            "details": "The response provides a complete, correct non-adaptive 3-weighing scheme. The three 4v4 weighings assign each coin a unique left/right/off pattern, and the table maps every possible outcome to the counterfeit coin and whether it is heavy or light. It covers all branches implicitly and does not require a fourth weighing.",
+            "costUsd": 0.00748,
+            "durationMs": 47707
+          }
+        ],
+        "knowledge": [
+          {
+            "taskId": "strawberry-91",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"strawberry_rs\":3,\"is_91_prime\":false,\"smallest_prime_factor_of_91\":7}",
+            "costUsd": 0.000099,
+            "durationMs": 1325
+          },
+          {
+            "taskId": "sheep-carbon14",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"sheep_left\":9,\"c14_half_life_years\":5730}",
+            "costUsd": 0.001642,
+            "durationMs": 17505
+          },
+          {
+            "taskId": "transformer-https",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"transformer_base_d_model\":512,\"transformer_base_heads\":8,\"https_default_port\":443}",
+            "costUsd": 0.000067,
+            "durationMs": 563
+          },
+          {
+            "taskId": "astana-int32",
+            "score": 5,
+            "maxScore": 5,
+            "details": "{\"kazakhstan_capital\":\"Astana\",\"max_signed_int32\":2147483647}",
+            "costUsd": 0.000071,
+            "durationMs": 763
+          }
+        ],
+        "instruction": [
+          {
+            "taskId": "word-count",
+            "score": 5,
+            "maxScore": 5,
+            "details": "12 words ✓",
+            "costUsd": 0.000392,
+            "durationMs": 2200
+          },
+          {
+            "taskId": "json-output",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect",
+            "costUsd": 0.000049,
+            "durationMs": 652
+          },
+          {
+            "taskId": "negative-constraints",
+            "score": 5,
+            "maxScore": 5,
+            "details": "All constraints met",
+            "costUsd": 0.000142,
+            "durationMs": 970
+          },
+          {
+            "taskId": "markdown-table",
+            "score": 5,
+            "maxScore": 5,
+            "details": "Perfect table",
+            "costUsd": 0.00004,
+            "durationMs": 904
+          },
+          {
+            "taskId": "acrostic-8words",
+            "score": 5,
+            "maxScore": 5,
+            "details": "acrostic=true, 8w=5/5 [8,8,8,8,8], noZ=true",
+            "costUsd": 0.000382,
+            "durationMs": 1986
+          }
+        ],
+        "coding": [
+          {
+            "taskId": "rail-fence-cipher",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.001088,
+            "durationMs": 7450
+          },
+          {
+            "taskId": "business-days",
+            "score": 10,
+            "maxScore": 10,
+            "details": "5/5 vectors ✓",
+            "costUsd": 0.002029,
+            "durationMs": 9705
+          },
+          {
+            "taskId": "rational-evaluator",
+            "score": 0,
+            "maxScore": 10,
+            "details": "empty response",
+            "costUsd": 0.082618,
+            "durationMs": 281081
+          }
+        ],
+        "tools": [
+          {
+            "taskId": "grocery-total",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact28.88=true, toolCalls=8",
+            "costUsd": 0.001708,
+            "durationMs": 5741
+          },
+          {
+            "taskId": "stats-invoice",
+            "score": 5,
+            "maxScore": 5,
+            "details": "exact24.38=true, stats=true, calc=true, calls=2",
+            "costUsd": 0.000455,
+            "durationMs": 2297
+          }
+        ]
+      }
+    }
+  ],
+  "unavailableCatalogueModels": [
+    {
+      "provider": "mycel",
+      "name": "inception/mercury-3",
+      "error": "404 \"upstream_error\""
+    }
+  ]
+}

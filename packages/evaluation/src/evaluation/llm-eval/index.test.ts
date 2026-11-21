@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelDetails } from '@umwelten/core/cognition/types.js';
+import type { ModelSpec as ModelDetails } from '@umwelten/pi';
 import { runFullEval } from './index.js';
 
 const model: ModelDetails = {

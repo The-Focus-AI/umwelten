@@ -1,27 +1,15 @@
 /**
- * Stage 3 of the supplier agent: probe.
- *
- * This is the only stage that produces facts. `whichllm` estimates from VRAM
- * math and other people's leaderboard scores; Ollama reports context windows
- * from a hardcoded lookup table (`providers/ollama.ts`). Neither knows what
- * *this* box does with *this* build of *this* quantization — which is exactly
- * the thing an Offer's Capabilities are supposed to record.
- *
- * So we run the model and watch what happens.
- *
- * On token limits: the binary capability probes set `maxTokens` on their own
- * Stimulus, which is the sanctioned per-task escape hatch in CLAUDE.md's HARD
- * RULES — we are testing whether a tool call happens, not how long a model can
- * talk. The headroom probe deliberately sets **no** cap; it uses a
- * self-terminating prompt so the measurement window is bounded by the task
- * rather than by a truncation that would distort tokens/sec.
+ * Stage 3 of the supplier agent: probe capabilities and headroom directly
+ * over `@earendil-works/pi-ai` (`runPiTurn` / `runPiStructuredObject`).
  */
 
 import { z } from "zod";
-import { tool } from "ai";
-import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
-import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
-import type { ModelDetails } from "@umwelten/core/cognition/types.js";
+import {
+  runPiStructuredObject,
+  runPiTurn,
+  tool,
+  type ModelSpec,
+} from "@umwelten/pi";
 import { runWithWatchdog } from "./watchdog.js";
 import {
   HEADROOM_POLICY,
@@ -30,11 +18,14 @@ import {
   meetsPolicy,
   sanitizeLevels,
 } from "./headroom.js";
-import type { CapabilityProbe, HeadroomMeta, HeadroomSample, ProbedOffer } from "./types.js";
+import type {
+  CapabilityProbe,
+  HeadroomMeta,
+  HeadroomSample,
+  ProbedOffer,
+} from "./types.js";
 
-/** Binary probes are short by construction; 3 minutes is already generous. */
 const CAPABILITY_TIMEOUT_MS = 3 * 60_000;
-/** Throughput generates ~200 lines, and a cold model load can be slow. */
 const THROUGHPUT_TIMEOUT_MS = 10 * 60_000;
 
 function elapsedSince(start: number): number {
@@ -50,28 +41,19 @@ function median(values: number[]): number {
     : sorted[mid];
 }
 
-// ── Individual capability probes ─────────────────────────────────────────────
-
-/** Does it answer at all, and does it follow a trivial instruction? */
-async function probeChat(model: ModelDetails): Promise<CapabilityProbe> {
+async function probeChat(model: ModelSpec): Promise<CapabilityProbe> {
   const start = Date.now();
   const outcome = await runWithWatchdog({
     timeoutMs: CAPABILITY_TIMEOUT_MS,
-    task: async (signal) => {
-      const interaction = new Interaction(
+    task: (signal) =>
+      runPiTurn({
         model,
-        new Stimulus({
-          role: "a terse assistant",
-          instructions: ["Answer with the single requested word and nothing else."],
-          maxTokens: 32,
-        }),
-      );
-      interaction.addMessage({
-        role: "user",
-        content: 'Reply with exactly the word: READY',
-      });
-      return interaction.generateText(signal);
-    },
+        systemPrompt:
+          "You are a terse assistant. Answer with the single requested word and nothing else.",
+        prompt: "Reply with exactly the word: READY",
+        maxTokens: 32,
+        signal,
+      }),
   });
 
   if (!outcome.ok) {
@@ -94,28 +76,23 @@ async function probeChat(model: ModelDetails): Promise<CapabilityProbe> {
   };
 }
 
-/** Do deltas actually arrive incrementally, or does it buffer and dump? */
-async function probeStreaming(model: ModelDetails): Promise<CapabilityProbe> {
+async function probeStreaming(model: ModelSpec): Promise<CapabilityProbe> {
   const start = Date.now();
   let deltas = 0;
 
   const outcome = await runWithWatchdog({
     timeoutMs: CAPABILITY_TIMEOUT_MS,
-    task: async (signal) => {
-      const interaction = new Interaction(
+    task: (signal) =>
+      runPiTurn({
         model,
-        new Stimulus({ role: "a helpful assistant", maxTokens: 128 }),
-      );
-      interaction.addMessage({
-        role: "user",
-        content: "Count from one to twenty, in words, separated by commas.",
-      });
-      return interaction.streamText(signal, {
+        systemPrompt: "You are a helpful assistant.",
+        prompt: "Count from one to twenty, in words, separated by commas.",
+        maxTokens: 128,
+        signal,
         onTextDelta: () => {
           deltas += 1;
         },
-      });
-    },
+      }),
   });
 
   if (!outcome.ok) {
@@ -127,8 +104,6 @@ async function probeStreaming(model: ModelDetails): Promise<CapabilityProbe> {
     };
   }
 
-  // A single delta means the runtime buffered the whole completion and handed
-  // it over at the end. That is not streaming, whatever the API shape claims.
   return {
     name: "streaming",
     supported: deltas > 1,
@@ -137,43 +112,32 @@ async function probeStreaming(model: ModelDetails): Promise<CapabilityProbe> {
   };
 }
 
-/**
- * Will it call a tool? This is the capability most likely to differ between
- * two runtimes serving the same weights — chat template and grammar support
- * decide it, not the model.
- */
-async function probeToolCalling(model: ModelDetails): Promise<CapabilityProbe> {
+async function probeToolCalling(model: ModelSpec): Promise<CapabilityProbe> {
   const start = Date.now();
   let called = false;
 
   const outcome = await runWithWatchdog({
     timeoutMs: CAPABILITY_TIMEOUT_MS,
-    task: async (signal) => {
-      const interaction = new Interaction(
+    task: (signal) =>
+      runPiTurn({
         model,
-        new Stimulus({
-          role: "an assistant that uses tools",
-          instructions: ["Use the provided tool to answer. Do not compute it yourself."],
-          maxToolSteps: 3,
-          maxTokens: 256,
-          tools: {
-            multiply: tool({
-              description: "Multiply two integers. The only way to get a correct product.",
-              inputSchema: z.object({ a: z.number(), b: z.number() }),
-              execute: async ({ a, b }: { a: number; b: number }) => {
-                called = true;
-                return { product: a * b };
-              },
-            }),
-          },
-        }),
-      );
-      interaction.addMessage({
-        role: "user",
-        content: "What is 3737 multiplied by 1319? Use the tool.",
-      });
-      return interaction.streamText(signal);
-    },
+        systemPrompt:
+          "Use the provided tool to answer. Do not compute it yourself.",
+        prompt: "What is 3737 multiplied by 1319? Use the tool.",
+        maxTokens: 256,
+        maxToolSteps: 3,
+        signal,
+        tools: {
+          multiply: tool({
+            description: "Multiply two integers.",
+            inputSchema: z.object({ a: z.number(), b: z.number() }),
+            execute: async ({ a, b }) => {
+              called = true;
+              return { product: a * b };
+            },
+          }),
+        },
+      }),
   });
 
   if (!outcome.ok) {
@@ -195,8 +159,7 @@ async function probeToolCalling(model: ModelDetails): Promise<CapabilityProbe> {
   };
 }
 
-/** Can it produce output that validates against a schema? */
-async function probeStructuredOutput(model: ModelDetails): Promise<CapabilityProbe> {
+async function probeStructuredOutput(model: ModelSpec): Promise<CapabilityProbe> {
   const start = Date.now();
   const schema = z.object({
     city: z.string(),
@@ -206,17 +169,15 @@ async function probeStructuredOutput(model: ModelDetails): Promise<CapabilityPro
 
   const outcome = await runWithWatchdog({
     timeoutMs: CAPABILITY_TIMEOUT_MS,
-    task: async (signal) => {
-      const interaction = new Interaction(
+    task: (signal) =>
+      runPiStructuredObject({
         model,
-        new Stimulus({ role: "a precise data extractor", maxTokens: 256 }),
-      );
-      interaction.addMessage({
-        role: "user",
-        content: "Give me structured data about the capital city of Japan.",
-      });
-      return interaction.generateObject(schema, signal);
-    },
+        schema,
+        systemPrompt: "You are a precise data extractor.",
+        prompt: "Give me structured data about the capital city of Japan.",
+        maxTokens: 256,
+        signal,
+      }),
   });
 
   if (!outcome.ok) {
@@ -228,56 +189,28 @@ async function probeStructuredOutput(model: ModelDetails): Promise<CapabilityPro
     };
   }
 
-  // The runner stringifies generateObject's result into `content`, so this
-  // parses in practice — but a probe that crashes the whole run because one
-  // model returned something odd is worse than a probe that records a failure.
-  let parsedOk = false;
-  let detail = "";
-  try {
-    const parsed = schema.safeParse(JSON.parse(outcome.value.content || "{}"));
-    parsedOk = parsed.success;
-    if (!parsed.success) detail = `schema mismatch: ${outcome.value.content.slice(0, 120)}`;
-  } catch {
-    detail = `unparseable output: ${outcome.value.content.slice(0, 120)}`;
-  }
-
   return {
     name: "structured-output",
-    supported: parsedOk,
-    evidence: parsedOk ? "returned schema-valid JSON" : detail,
+    supported: true,
+    evidence: "returned schema-valid JSON",
     elapsedMs: elapsedSince(start),
   };
 }
 
-/**
- * Can this Offer surface reasoning tokens separately from the answer?
- *
- * Note the question: *can it*, not *does it by default*. Those differ, and the
- * difference was worth a bug — llama-server splits thinking into its own
- * channel unprompted, while Ollama only does so when asked via `think: true`.
- * Probing without asking measured a default, not a capability, and reported
- * that four models had no reasoning when they had it all along.
- *
- * So we ask, by setting `reasoningEffort`. Providers that ignore it are
- * unaffected; providers that honor it now answer the question we meant.
- */
-async function probeReasoning(model: ModelDetails): Promise<CapabilityProbe> {
+async function probeReasoning(model: ModelSpec): Promise<CapabilityProbe> {
   const start = Date.now();
-  const asking: ModelDetails = { ...model, reasoningEffort: "medium" };
+  const asking: ModelSpec = { ...model, reasoningEffort: "medium" };
   const outcome = await runWithWatchdog({
     timeoutMs: CAPABILITY_TIMEOUT_MS,
-    task: async (signal) => {
-      const interaction = new Interaction(
-        asking,
-        new Stimulus({ role: "a careful reasoner", maxTokens: 1024 }),
-      );
-      interaction.addMessage({
-        role: "user",
-        content:
+    task: (signal) =>
+      runPiTurn({
+        model: asking,
+        systemPrompt: "You are a careful reasoner.",
+        prompt:
           "A bat and a ball cost $1.10 together. The bat costs $1.00 more than the ball. How much does the ball cost?",
-      });
-      return interaction.generateText(signal);
-    },
+        maxTokens: 1024,
+        signal,
+      }),
   });
 
   if (!outcome.ok) {
@@ -293,8 +226,6 @@ async function probeReasoning(model: ModelDetails): Promise<CapabilityProbe> {
   return {
     name: "reasoning",
     supported: hasReasoning,
-    // Deliberately not scored for correctness — that is an eval's job, not a
-    // capability probe's. We only record whether the channel exists.
     evidence: hasReasoning
       ? `${outcome.value.reasoning!.length} chars of reasoning surfaced`
       : "no separate reasoning channel",
@@ -302,56 +233,31 @@ async function probeReasoning(model: ModelDetails): Promise<CapabilityProbe> {
   };
 }
 
-// ── Throughput ───────────────────────────────────────────────────────────────
-
-/**
- * Time to first token on the very first request of the run.
- *
- * Published because cold and warm are worth seconds apart — on-demand model
- * loads were observed at 14–28 seconds, which is the whole difference between
- * dispatching to a warm Offer and a sleeping one, and it was previously
- * unpriced.
- *
- * "Cold" here means *first-touch*, not forced-cold. A runtime that already had
- * the Model resident reports a warm number, which is why the flag travels with
- * the figure rather than the figure travelling alone.
- */
-async function measureColdStart(model: ModelDetails): Promise<number | undefined> {
+async function measureColdStart(model: ModelSpec): Promise<number | undefined> {
   let firstTokenAt: number | undefined;
   const started = Date.now();
 
   const outcome = await runWithWatchdog({
     timeoutMs: THROUGHPUT_TIMEOUT_MS,
-    task: async (signal) => {
-      const interaction = new Interaction(
+    task: (signal) =>
+      runPiTurn({
         model,
-        // Short on purpose: we are timing the load, not the generation.
-        new Stimulus({ role: "a terse assistant", maxTokens: 8 }),
-      );
-      interaction.addMessage({ role: "user", content: "Say: hi" });
-      return interaction.streamText(signal, {
+        systemPrompt: "You are a terse assistant.",
+        prompt: "Say: hi",
+        maxTokens: 8,
+        signal,
         onTextDelta: () => {
           firstTokenAt ??= Date.now();
         },
-      });
-    },
+      }),
   });
 
   if (!outcome.ok || !firstTokenAt) return undefined;
   return firstTokenAt - started;
 }
 
-/**
- * Measure TTFT and tokens/sec at a given concurrency. Run at 1 to get the
- * single-stream number a buyer experiences, and at N to find where the box
- * stops scaling — that inflection is the Headroom the exchange needs.
- *
- * No `maxTokens` here on purpose: the prompt self-terminates, so the window is
- * defined by the task. Capping would truncate mid-generation and inflate the
- * rate.
- */
 async function measureThroughput(
-  model: ModelDetails,
+  model: ModelSpec,
   concurrency: number,
   countTo: number = HEADROOM_POLICY.countTo,
 ): Promise<HeadroomSample> {
@@ -369,21 +275,17 @@ async function measureThroughput(
 
       const outcome = await runWithWatchdog({
         timeoutMs: THROUGHPUT_TIMEOUT_MS,
-        task: async (signal) => {
-          const interaction = new Interaction(
+        task: (signal) =>
+          runPiTurn({
             model,
-            new Stimulus({
-              role: "a counting machine",
-              instructions: ["Output only the numbers. No commentary."],
-            }),
-          );
-          interaction.addMessage({ role: "user", content: countingPrompt(countTo) });
-          return interaction.streamText(signal, {
+            // Deliberately uncapped: self-terminating counting prompt
+            systemPrompt: "Output only the numbers. No commentary.",
+            prompt: countingPrompt(countTo),
+            signal,
             onTextDelta: () => {
               firstTokenAt ??= Date.now();
             },
-          });
-        },
+          }),
       });
 
       if (!outcome.ok) {
@@ -391,23 +293,20 @@ async function measureThroughput(
         return;
       }
 
-      const tokens = outcome.value.metadata.tokenUsage.completionTokens ?? 0;
+      const tokens = outcome.value.usage.completionTokens ?? 0;
       completionTokens += tokens;
 
       if (firstTokenAt) {
         ttfts.push(firstTokenAt - started);
-        // Decode rate excludes the wait before generation began, so it isolates
-        // how fast the box emits tokens from how long it made you queue.
         const decodeSeconds = (Date.now() - firstTokenAt) / 1000;
-        if (decodeSeconds > 0 && tokens > 0) decodeRates.push(tokens / decodeSeconds);
+        if (decodeSeconds > 0 && tokens > 0) {
+          decodeRates.push(tokens / decodeSeconds);
+        }
       }
     }),
   );
 
   const wallSeconds = (Date.now() - wallStart) / 1000;
-  // How long generation actually ran, net of the queue wait. This is the number
-  // that decides whether the sample is a rate or a floor, so it is published
-  // rather than checked and thrown away.
   const decodeSeconds = Number(
     Math.max(0, wallSeconds - median(ttfts) / 1000).toFixed(1),
   );
@@ -415,7 +314,8 @@ async function measureThroughput(
   const sample: HeadroomSample = {
     concurrency,
     ttftMs: Math.round(median(ttfts)),
-    tokensPerSecond: wallSeconds > 0 ? Number((completionTokens / wallSeconds).toFixed(1)) : 0,
+    tokensPerSecond:
+      wallSeconds > 0 ? Number((completionTokens / wallSeconds).toFixed(1)) : 0,
     decodeTokensPerSecond: Number(median(decodeRates).toFixed(1)),
     errors,
     decodeSeconds,
@@ -424,17 +324,8 @@ async function measureThroughput(
   return { ...sample, meetsPolicy: meetsPolicy(sample) };
 }
 
-/**
- * Sample Headroom across the policy's levels.
- *
- * Sequential, with a cooldown between levels: on a single-GPU box, overlapping
- * levels would measure our own interference, and sampling is not supposed to
- * be the load. The whole run is bounded by `maxSampleSeconds` — a Model slow
- * enough to blow the budget gets the levels we managed rather than an
- * open-ended measurement of a machine that is meant to be earning.
- */
 async function sampleHeadroom(
-  model: ModelDetails,
+  model: ModelSpec,
   opts: {
     concurrency?: number[];
     sleep?: (ms: number) => Promise<void>;
@@ -461,7 +352,8 @@ async function sampleHeadroom(
     samples.push(await measureThroughput(model, level));
   }
 
-  const allFailed = samples.length > 0 && samples.every((s) => s.tokensPerSecond === 0);
+  const allFailed =
+    samples.length > 0 && samples.every((s) => s.tokensPerSecond === 0);
   if (allFailed) failed ??= "every sample errored or produced no tokens";
   if (samples.length === 0) failed ??= "no samples were taken";
 
@@ -478,39 +370,25 @@ async function sampleHeadroom(
   };
 }
 
-// ── Orchestration ────────────────────────────────────────────────────────────
-
 export interface ProbeOptions {
-  /**
-   * Concurrency levels to sample. Clamped by `sanitizeLevels` — an operator
-   * chooses where to sample, not how hard, and a single level is padded
-   * because one point measures a speed rather than a Headroom.
-   */
   concurrency?: number[];
-  /** Skip the headroom stage — capabilities only, much faster. */
   skipHeadroom?: boolean;
 }
 
-/**
- * Probe one (runtime, model) pair. Capability probes run in sequence rather
- * than in parallel: on a single-GPU box, concurrent probes would contend and
- * the headroom numbers would measure our own interference.
- */
 export async function probeOffer(
   provider: string,
   model: string,
   opts: ProbeOptions = {},
 ): Promise<ProbedOffer> {
-  const details: ModelDetails = { name: model, provider };
+  const details: ModelSpec = { name: model, provider };
   const probedAt = new Date().toISOString();
 
-  // First, before anything else has touched this Model — otherwise we would be
-  // timing a load that the capability probes already paid for.
-  const coldStartMs = opts.skipHeadroom ? undefined : await measureColdStart(details);
+  const coldStartMs = opts.skipHeadroom
+    ? undefined
+    : await measureColdStart(details);
 
   const chat = await probeChat(details);
   if (!chat.supported) {
-    // Nothing downstream is meaningful if it cannot hold a conversation.
     return {
       provider,
       model,
@@ -537,9 +415,12 @@ export async function probeOffer(
     coldStartFirstTouch: true,
   });
 
-  // Note what does *not* happen when sampling fails: the Offer is still
-  // returned. A Model that serves but whose throughput we could not measure is
-  // more useful to Dispatch than no Model at all, so long as the gap is on the
-  // Offer rather than hidden in a log.
-  return { provider, model, probedAt, capabilities, headroom: samples, headroomMeta: meta };
+  return {
+    provider,
+    model,
+    probedAt,
+    capabilities,
+    headroom: samples,
+    headroomMeta: meta,
+  };
 }

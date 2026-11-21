@@ -1,26 +1,18 @@
 #!/usr/bin/env node
 /**
- * The whole path, end to end: a habitat's model call reaching a Supplier
- * through the Exchange, metered and charged on the way.
+ * The whole path, end to end: a Pi turn reaching a Supplier through the Mycel
+ * Token Exchange, metered and charged in integer micro-dollars on the way.
  *
- *   umwelten Interaction
- *     → core's `exchange` provider (HTTP, imports nothing from the package)
- *       → the Exchange (auth, dispatch, metering, balances)
- *         → a mock Supplier
- *
- * This lives in `examples/` because it is the only place allowed to import both
- * `@umwelten/core` and `@umwelten/mycel`. Core sits at the root of the
- * dependency DAG — a test inside either package could not span the seam without
- * creating the repo's first cycle, which is exactly the constraint the seam
- * exists to enforce.
+ *   @umwelten/pi runPiTurn({ model: { provider: "mycel", name } })
+ *     → OpenAI /v1 HTTP with X-Mycel-End-User (imports nothing from @umwelten/mycel)
+ *       → the Exchange (auth, Guarantee-filtered dispatch, metering, balances)
+ *         → a Supplier
  *
  * Run:  pnpm tsx examples/mycel-e2e/run.ts
  */
 
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
-import { Stimulus } from "@umwelten/core/stimulus/stimulus.js";
-import { Interaction } from "@umwelten/core/interaction/core/interaction.js";
-import { createMycelProvider } from "@umwelten/core/providers/mycel.js";
+import { listMycelModels, runPiTurn } from "@umwelten/pi";
 import { MemoryStore } from "@umwelten/mycel/store/memory-store.js";
 import { Operator } from "@umwelten/mycel/operator.js";
 import { Balances, applicationOwner, endUserOwner } from "@umwelten/mycel/metering/balances.js";
@@ -108,25 +100,22 @@ async function main() {
     .setExpirationTime("5m")
     .sign(privateKey);
 
-  const provider = createMycelProvider(token, exchange.url);
-
-  const catalogue = await provider.listModels();
+  const catalogue = await listMycelModels(token, exchange.url);
   log(`\nCatalogue: ${catalogue.map((m) => m.name).join(", ")}`);
   log(
     `  retail $${catalogue[0]?.costs?.promptTokens}/M prompt, ` +
       `$${catalogue[0]?.costs?.completionTokens}/M completion`,
   );
 
-  const interaction = new Interaction(
-    { name: MODEL, provider: "mycel" },
-    new Stimulus({ role: "a helpful assistant" }),
-  );
-  // The provider registry resolves credentials from the environment.
   process.env.MYCEL_API_KEY = token;
   process.env.MYCEL_URL = exchange.url;
-  interaction.addMessage({ role: "user", content: "Say something brief." });
+  process.env.MYCEL_END_USER = "user-1";
 
-  const response = await interaction.streamText();
+  const response = await runPiTurn({
+    model: { name: MODEL, provider: "mycel" },
+    systemPrompt: "You are a helpful assistant.",
+    prompt: "Say something brief.",
+  });
   log(`\nResponse: ${JSON.stringify(response.content.slice(0, 80))}`);
 
   // ── What the Exchange recorded ──────────────────────────────────────

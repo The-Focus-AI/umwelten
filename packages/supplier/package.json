@@ -1,7 +1,7 @@
 {
   "name": "@umwelten/supplier",
-  "version": "0.4.13",
-  "description": "Turns a machine into a Supplier the Exchange can dispatch to",
+  "version": "0.6.0",
+  "description": "GPU Supplier dial-in agent for Mycel Exchange over @earendil-works/pi-ai",
   "type": "module",
   "exports": {
     ".": {
@@ -17,12 +17,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@umwelten/core": "workspace:*",
+    "@umwelten/pi": "workspace:*",
     "commander": "^15.0.0",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

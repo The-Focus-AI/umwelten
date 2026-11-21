@@ -15,7 +15,7 @@ import {
   type DetectEffects,
   type MachineResources,
 } from "./candidates.js";
-import type { GgufModel } from "@umwelten/core/providers/llamaswap-config.js";
+import type { GgufModel } from "./llamaswap-config.js";
 
 const GIB = 1024 ** 3;
 

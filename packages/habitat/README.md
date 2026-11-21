@@ -1,29 +1,10 @@
-# @umwelten/habitat
+# `@umwelten/habitat`
 
-Agent container runtime — habitats, tools, sessions, Gaia orchestrator, web/A2A server, and channel bridge.
+Host-agnostic `DurableHabitat` and multi-Habitat `HabitatHost` built on `@earendil-works/pi-durable` (`Storage` + optional `ExecutionEnv`) with:
+- Owned read/write vs. Mounted read-only repository guards (`createRepoScopeExtension`)
+- Durable cron schedules (`createCronScheduleExtension`)
+- Post-turn `Annotation` fan-out (`createTurnFanoutExtension`)
+- `ui://` MCP-UI resource publication (`createUiResourcesExtension`)
+- A2A 1.0 JSON-RPC + Agent Card serving (`@leocavalcante/pi-a2a/durable`)
 
-## Install
-
-```bash
-pnpm add @umwelten/habitat
-```
-
-## Quick start
-
-```typescript
-import { Habitat } from '@umwelten/habitat';
-
-const habitat = await Habitat.create({ workDir: './my-agent' });
-const { interaction } = await habitat.createInteraction();
-await interaction.chat('List my agents');
-```
-
-## What's inside
-
-- **habitat.ts** — `Habitat` class, agent management
-- **tools/** — File ops, time, agents, sessions, search, secrets, self-modify, artifacts
-- **gaia/** — Multi-habitat orchestrator (registry, Docker, secrets vault, dashboard)
-- **bridge/** — `ChannelBridge` message routing, diagnosis/monitor agents
-- **web/** — HTTP server, routes, auth (`startWebServer`)
-- **container-server.ts** — Unified HTTP: MCP + A2A + chat + web UI + files
-- **a2a-handler.ts** — Agent-to-Agent protocol handler
+See [`examples/durable-habitat/host.ts`](../../examples/durable-habitat/host.ts).

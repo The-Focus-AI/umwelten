@@ -1,174 +1,21 @@
-# gcloud in this repo targets the habitats runtime-plane project (GCE Gaia
-# host, Cloud Logging, snapshots — docs/architecture/migration-plan-2026-07.md).
-# The named configuration is created per-machine:
-#   gcloud config configurations create habitats --no-activate
-#   CLOUDSDK_ACTIVE_CONFIG_NAME=habitats gcloud config set project habitats-502314
-[env]
-CLOUDSDK_ACTIVE_CONFIG_NAME = "habitats"
-
 [tools]
-claude = "latest"
-gcloud = "latest"
-node = "latest"
-"npm:@anthropic-ai/claude-code" = "latest"
+node = "24"
 "npm:@earendil-works/pi-coding-agent" = "latest"
-"npm:@earendil-works/pi-coding-agent\n" = "latest"
-"npm:node-addon-api" = "latest"
-"npm:skills" = "latest"
 
-# Keep root tasks focused on workflows people run often. Example-specific
-# variants should live in the example READMEs as direct pnpm/dotenvx commands.
+[tasks.specs]
+description = "Validate modular specifications, decisions, and verification runs"
+run = "pnpm run specs:check"
 
-[tasks.install]
-description = "Install dependencies and restore skills from skills-lock.json (STD-011 §3.3)"
-run = ["pnpm install", "skills experimental_install"]
-
-# ── Habitat Container ─────────────────────────────────────────────────
-
-[tasks."habitat-build"]
-description = "Build the habitat Docker container"
-dir = "{{ config_root }}"
-run = "docker build -t habitat -f packages/habitat/Dockerfile ."
-
-[tasks."coding-agent-build"]
-description = "Build the coding-agent container (standards toolchain on the habitat base)"
-dir = "{{ config_root }}"
-run = "docker build -t habitat-coding -f packages/habitat/Dockerfile.coding-agent ."
-depends = ["habitat-build"]
-
-[tasks."coding-agent-smoke"]
-description = "Build + boot smoke check for the coding-agent image"
-dir = "{{ config_root }}"
-run = "scripts/smoke-coding-agent.sh"
-
-[tasks."habitat-run"]
-description = "Run the habitat container (port 8080, volume ./habitat-data:/data)"
-dir = "{{ config_root }}"
-run = "docker run --rm -p 8080:8080 -v ./habitat-data:/data --env-file .env habitat"
+[tasks.verify]
+description = "Run typecheck, contract tests, lint, and spec validation"
+run = ["pnpm run specs:check", "pnpm typecheck", "pnpm test:run", "pnpm lint"]
 
 [tasks."habitat-serve"]
-description = "Run habitat MCP server locally via tsx (no Docker)"
+description = "Start HabitatHost (multi-Habitat pi-durable + A2A 1.0 server on :7430)"
 dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx packages/cli/src/entry.ts habitat serve --port 8080 --skip-onboard"
+run = "dotenvx run -- pnpm run cli -- habitat serve --port 7430 --data-dir ./habitats-data"
 
-[tasks.gaia]
-description = "Start Gaia orchestrator (port 7420). Secrets resolved via fnox (or env fallback). Do NOT use dotenvx — Gaia owns its own secrets."
+[tasks.explorations]
+description = "List projected Explorations across Pi, Pi Durable, Claude Code, and Cursor"
 dir = "{{ config_root }}"
-run = "pnpm run cli -- habitat gaia -p google -m gemini-3-flash-preview"
-
-[tasks."gaia-docker"]
-description = "Start Gaia orchestrator inside Docker (clean env, no key leaks, port 7420)"
-dir = "{{ config_root }}"
-run = """
-  docker build -t habitat -f packages/habitat/Dockerfile . && \
-  docker rm -f gaia 2>/dev/null || true && \
-  docker run --rm \
-    --name gaia \
-    -p 7420:7420 \
-    -e GOOGLE_GENERATIVE_AI_API_KEY \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v ./gaia-data:/data \
-    habitat \
-    pnpm exec tsx packages/cli/src/entry.ts habitat gaia -p google -m gemini-3-flash-preview --port 7420 --data-dir /data
-"""
-
-# ── Habitat CLI ───────────────────────────────────────────────────────
-# All interfaces share ONE work dir (examples/jeeves-bot/jeeves-bot-data-dir)
-# so agents, persona, memories, and tools are the same everywhere.
-# API keys come from examples/jeeves-bot/.env; model from JEEVES_PROVIDER/JEEVES_MODEL.
-
-[tasks.habitat]
-description = "Habitat CLI REPL"
-dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat -w examples/jeeves-bot/jeeves-bot-data-dir --sessions-dir examples/jeeves-bot/jeeves-bot-sessions --env-prefix JEEVES"
-
-[tasks."habitat-web"]
-description = "Habitat Gaia web server (http://localhost:3000)"
-dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat web -w examples/jeeves-bot/jeeves-bot-data-dir --sessions-dir examples/jeeves-bot/jeeves-bot-sessions --env-prefix JEEVES"
-
-[tasks."habitat-telegram"]
-description = "Habitat Telegram bot"
-dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat telegram -w examples/jeeves-bot/jeeves-bot-data-dir --sessions-dir examples/jeeves-bot/jeeves-bot-sessions --env-prefix JEEVES"
-
-[tasks."habitat-discord"]
-description = "Habitat Discord bot"
-dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- habitat discord -w examples/jeeves-bot/jeeves-bot-data-dir --sessions-dir examples/jeeves-bot/jeeves-bot-sessions --env-prefix JEEVES"
-
-[tasks."habitat-discord-check"]
-description = "Verify Discord env, work dir, and bot token"
-dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm exec tsx examples/jeeves-bot/scripts/check-discord-setup.ts"
-
-# ── umwelten-web-demo ─────────────────────────────────────────────────
-
-[tasks."web-demo"]
-description = "umwelten-web-demo API server on :3000 (AI SDK UI Message Stream Protocol, useChat-compatible)"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/umwelten-web-demo/src/server.ts"
-
-[tasks."web-demo-client"]
-description = "umwelten-web-demo Vite dev server on :5173 (proxies /api to :3000)"
-dir = "{{ config_root }}"
-run = "pnpm exec vite --config examples/umwelten-web-demo/vite.config.ts"
-
-[tasks."web-demo-build"]
-description = "Build the umwelten-web-demo SPA into examples/umwelten-web-demo/public"
-dir = "{{ config_root }}"
-run = "pnpm exec vite build --config examples/umwelten-web-demo/vite.config.ts"
-
-# ── Session browser ───────────────────────────────────────────────────
-
-[tasks.browse]
-description = "Session browser: every session with digest, actions to digest, view detail, see transcript (TUI)"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm run cli -- browse"
-
-[tasks."habitat-browse"]
-description = "Session browser scoped to Jeeves habitat sessions"
-dir = "{{ config_root }}"
-run = "dotenvx run -f examples/jeeves-bot/.env -- pnpm run cli -- browse --sessions-dir examples/jeeves-bot/jeeves-bot-sessions --target examples/jeeves-bot/jeeves-bot-data-dir/system.md"
-
-# ── Local providers / local model showdown ─────────────────────────────
-# Quality tasks are resume-safe: cached per-task results are skipped, and
-# run-quality.ts keeps going after suite failures/watchdogs. If a run is
-# interrupted, re-run the same mise task to continue from disk cache.
-
-[tasks."local-catalog"]
-description = "Local providers: list available runtimes/models"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/local-providers/catalog.ts"
-
-[tasks."local-smoke"]
-description = "Local providers: cold/warm smoke test with eviction"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/local-providers/smoke.ts"
-
-[tasks."local-quality"]
-description = "Local providers: resume-safe default quality matrix"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/local-providers/run-quality.ts"
-
-[tasks."local-quality-nothink"]
-description = "Local providers: resume-safe quality matrix with thinking disabled"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/local-providers/run-quality.ts --matrix nothink"
-
-[tasks."local-report"]
-description = "Local providers: combine cached results into markdown report"
-dir = "{{ config_root }}"
-run = "pnpm exec tsx examples/local-providers/generate-report.ts --format md --output output/local-providers-report.md"
-
-# ── Model showdown ──────────────────────────────────────────────────────
-
-[tasks."model-showdown"]
-description = "Run the model-showdown evaluation suite"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/model-showdown/run-all.ts"
-
-[tasks."model-showdown-report"]
-description = "Generate the model-showdown report from cached results"
-dir = "{{ config_root }}"
-run = "dotenvx run -- pnpm exec tsx examples/model-showdown/generate-report.ts"
+run = "pnpm run cli -- sessions explorations"

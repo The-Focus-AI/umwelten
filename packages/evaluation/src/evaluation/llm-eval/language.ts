@@ -11,7 +11,7 @@
  */
 
 import { EvalSuite, type EvalTask } from '../suite.js';
-import type { ModelDetails } from '@umwelten/core/cognition/types.js';
+import type { ModelSpec as ModelDetails } from '@umwelten/pi';
 import { ALL_TASKS as INSTRUCTION_TASKS } from './data/instruction-tasks.js';
 import { ALL_PUZZLES as REASONING_PUZZLES } from './data/reasoning-puzzles.js';
 
@@ -82,7 +82,6 @@ export function makeLanguageSuite(
             'Explain your reasoning briefly',
           ],
           temperature: 0.3,
-          maxTokens: 800,
         };
       }
       return {
@@ -95,7 +94,6 @@ export function makeLanguageSuite(
           'Output ONLY what is requested',
         ],
         temperature: 0.0,
-        maxTokens: 500,
       };
     },
     tasks,

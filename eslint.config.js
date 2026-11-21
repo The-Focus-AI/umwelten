@@ -26,9 +26,7 @@ export default [
 	{
 		files: [
 			"packages/*/src/**/*.{ts,tsx}",
-			"examples/supplier-agent/**/*.ts",
-			"examples/mycel-metering/**/*.ts",
-			"examples/mycel-e2e/**/*.ts",
+			"examples/**/*.ts",
 		],
 		languageOptions: {
 			parser: tsParser,

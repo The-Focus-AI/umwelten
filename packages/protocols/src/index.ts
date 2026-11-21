@@ -1,102 +1,10 @@
 /**
- * @umwelten/protocols — Network protocol layer.
- *
- * MCP server framework (OAuth, Neon store), MCP client (OAuth PKCE),
- * MCP-to-AI-SDK integration, and A2A (Agent-to-Agent) client + server
- * scaffolding.
+ * `@umwelten/protocols` — OAuth 2.1 MCP server (`mcp-serve`), `@earendil-works/pi-mcp`
+ * remote client (preserving `ui://` `EmbeddedResource`s), endpoint discovery, and
+ * `@leocavalcante/pi-a2a` durable A2A 1.0 surface.
  */
 
-// ── A2A (client + server scaffolding) ───────────────────────────────────
-export {
-  fetchAgentCard,
-  sendA2AMessage,
-  sendA2AMessageToUrl,
-  streamA2AMessage,
-  decodeA2ASendPayload,
-  createA2AServer,
-  DualJsonRpcTransportHandler,
-  buildServerCallContext,
-  AgentEvent,
-  ServerCallContext,
-  UnauthenticatedUser,
-  A2A_SERVER_PROTOCOL_VERSION,
-  taskStateFromLegacy,
-  taskStateToLegacy,
-  stateOf,
-  textPart,
-  dataPart,
-  filePart,
-  partText,
-  partData,
-  partFileUrl,
-  messageText,
-  userMessage,
-  agentMessage,
-  taskFromStoredJson,
-  taskToStoredJson,
-  a2aChat,
-  fetchJson,
-  truncateJson,
-  discoverToken,
-  FileTaskStore,
-  FilePushNotificationStore,
-  TERMINAL_TASK_STATES,
-  INTERRUPTED_TASK_STATES,
-  isTerminalTaskState,
-  isInterruptedTaskState,
-  isAbandonableTaskState,
-  sweepAbandonedTasks,
-  notifySweptTasks,
-  ABANDONED_TASK_MARKER,
-  DEFAULT_ABANDONED_REASON,
-  summarizeTasks,
-  MAX_LISTED_TASK_IDS,
-  resolveA2AEndpointUrl,
-  createA2ATransport,
-  sendA2ATask,
-  getA2ATask,
-  cancelA2ATask,
-  pollA2ATask,
-  sendAndAwaitA2ATask,
-  isA2ATask,
-  isSettledTaskState,
-  A2APollTimeoutError,
-  registerA2APush,
-  listA2APushConfigs,
-  deleteA2APushConfig,
-} from "./a2a/index.js";
-export type {
-  A2AEndpoint,
-  AgentCardSummary,
-  A2AMessageResponse,
-  SendA2AMessageToUrlOptions,
-  StreamA2AMessageOptions,
-  A2AStreamEvent,
-  LegacyTaskState,
-  A2AServer,
-  A2AServerOptions,
-  AgentExecutor,
-  RequestContext,
-  ExecutionEventBus,
-  AgentCard,
-  AgentSkill,
-  A2AChatOptions,
-  FileTaskStoreOptions,
-  FilePushNotificationStoreOptions,
-  PushNotificationStore,
-  PushNotificationSender,
-  RegisterA2APushOptions,
-  SweepOptions,
-  SweepResult,
-  TaskStateSummary,
-  A2ATaskTarget,
-  SendA2ATaskOptions,
-  GetA2ATaskOptions,
-  PollA2ATaskOptions,
-  SendAndAwaitOptions,
-} from "./a2a/index.js";
-
-// ── MCP Serve (OAuth MCP server framework) ──────────────────────────────
+// ── MCP Serve (OAuth 2.1 MCP server framework) ──────────────────────────
 export { createMcpServer } from "./mcp-serve/server.js";
 export type { McpHttpServer } from "./mcp-serve/server.js";
 export { createMcpServeMount, isMcpServeMountPath } from "./mcp-serve/mount.js";
@@ -126,24 +34,29 @@ export type {
   DiscoverOptions,
 } from "./discovery/discover.js";
 
-// ── MCP Client (remote connection with OAuth PKCE) ──────────────────────
-export { RemoteMcpClient } from "./mcp/client/remote.js";
-
-// ── MCP Legacy Client (custom protocol) ─────────────────────────────────
-export { MCPClient, createMCPClient, createStdioConfig } from "./mcp/client/client.js";
-
-// ── MCP Integration (bridge MCP tools → AI SDK tools) ───────────────────
+// ── MCP Client (`@earendil-works/pi-mcp` + OAuth PKCE + `ui://` preservation)
 export {
-  MCPStimulusManager,
-  createMCPStimulusManager,
-  mcpToolToToolDefinition,
-} from "./mcp/integration/stimulus.js";
-export type {
-  MCPStimulusConfig,
-  MCPStimulusBaseConfig,
-  MCPStimulusStdioConfig,
-  MCPStimulusTransportWrapperConfig,
-} from "./mcp/integration/stimulus.js";
+  RemoteMcpClient,
+  type RemoteMcpClientOptions,
+  type RemoteMcpExecutableTool,
+} from "./mcp/client/remote.js";
+export {
+  McpClient,
+  StdioTransport,
+  StreamableHttpTransport,
+  PipeTransport,
+} from "@earendil-works/pi-mcp";
 
-// ── MCP Types ───────────────────────────────────────────────────────────
-export type { TransportConfig } from "./mcp/types/transport.js";
+// ── Pi Durable A2A 1.0 Adapter (`@leocavalcante/pi-a2a`) ────────────────
+export {
+  createDurableA2A,
+  createA2ATools,
+  DurableA2A,
+  type DurableA2AOptions,
+  type Identity as DurableA2AIdentity,
+} from "@leocavalcante/pi-a2a/durable";
+export {
+  a2aHttpHandler,
+  bearerAuth as a2aBearerAuth,
+  createA2AServer as createDurableA2AServer,
+} from "@leocavalcante/pi-a2a/server";

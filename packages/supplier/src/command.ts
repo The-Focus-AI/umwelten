@@ -13,7 +13,7 @@
 import path from "node:path";
 import os from "node:os";
 import { Command } from "commander";
-import { findLlamaSwapModels, type GgufModel } from "@umwelten/core/providers/llamaswap-config.js";
+import { findLlamaSwapModels, type GgufModel } from "./llamaswap-config.js";
 import { estimateCandidates } from "./candidates.js";
 import { detectMachineResources } from "./candidates-node.js";
 import { discoverRuntimes } from "./discover.js";

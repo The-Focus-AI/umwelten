@@ -6,9 +6,9 @@ import type {
   JudgmentBackend,
   JudgmentRequest,
   JudgmentResult,
-} from "@umwelten/core/judgment/types.js";
-import { JudgmentError } from "@umwelten/core/judgment/types.js";
-import { validateRequest } from "@umwelten/core/judgment/schema.js";
+} from "./types.js";
+import { JudgmentError } from "./types.js";
+import { validateRequest } from "./schema.js";
 import {
   brierScore,
   rankedProbabilityScore,
