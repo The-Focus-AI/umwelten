@@ -1,8 +1,0 @@
-{
-  "name": "Gaia Orchestrator",
-  "defaultProvider": "{{provider}}",
-  "defaultModel": "{{model}}",
-  "modelCredentials": {
-    "mycel": "MYCEL_API_KEY"
-  }
-}

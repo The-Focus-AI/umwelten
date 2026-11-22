@@ -1,204 +1,42 @@
-# Gaia orchestrator — containerized deploy (Docker-out-of-Docker).
+# Gaia HabitatHost — Single-Container `pi-durable` Deployment.
 #
-# Gaia spawns sibling habitat containers by driving the HOST docker daemon via
-# the mounted socket, and is itself a normal caddy-fronted, authenticated
-# habitat — its control-plane API is served over TLS at GAIA_HOSTNAME, not raw
-# on 0.0.0.0:7420. Two things to know:
-#
-#   1. No host networking. Gaia addresses its children by Docker embedded DNS
-#      (gaia-<id>:8080) over the shared ingress network, so it just joins that
-#      network like any container. Caddy reaches Gaia the same way
-#      ({{upstreams 7420}}).
-#
-#   2. Identity bind mount for the data dir (/opt/gaia-data:/opt/gaia-data).
-#      Gaia bind-mounts each child's sessions dir at <dataDir>/sessions/<id>,
-#      resolved by the HOST daemon — so the data dir must live at the SAME path
-#      inside the Gaia container and on the host for child bind mounts to line up.
-#
-# Two deploy shapes:
-#   - Bundled caddy (fresh host): `docker compose up -d` brings up Gaia + a
-#     caddy-docker-proxy on gaia-net that owns 80/443.
-#   - Reuse an existing caddy: set GAIA_INGRESS_NETWORK to that proxy's network
-#     and attach Gaia to it; bring up only Gaia (see deploy/gaia/README.md).
-#
-# Prereqs: `docker build -t habitat -f packages/habitat/Dockerfile .` (and any
-# specialized images) on this host. Full runbook: deploy/gaia/README.md.
+# Multiplexes SQLite-backed DurableHabitats under `/opt/gaia-data/habitats/<id>/habitat.sqlite`
+# behind Caddy TLS at `https://$GAIA_HOSTNAME` with zero Docker socket privileges
+# and zero child containers.
 
 services:
   gaia:
     image: habitat
     container_name: gaia
     restart: unless-stopped
-    networks:
-      - gaia-net
-    environment:
-      # Gaia and new children use the Exchange's advertised model catalog.
-      GAIA_PROVIDER: ${GAIA_PROVIDER:-mycel}
-      GAIA_MODEL: ${GAIA_MODEL:-default}
-      GAIA_PORT: ${GAIA_PORT:-7420}
-      HABITAT_WORK_DIR: /opt/gaia-data
-      HABITAT_ID: gaia
-      # Per-habitat public URLs via Caddy (#170). Spawned children join
-      # GAIA_INGRESS_NETWORK and get caddy=<id>.$GAIA_BASE_DOMAIN labels. Empty ⇒
-      # no labels / default gaia-net (local dev). Set GAIA_INGRESS_NETWORK to an
-      # existing caddy network to reuse that proxy (and attach Gaia to it too).
-      GAIA_BASE_DOMAIN: ${GAIA_BASE_DOMAIN:-}
-      GAIA_INGRESS_NETWORK: ${GAIA_INGRESS_NETWORK:-}
-      # This Gaia runs on the child network, so use Docker DNS rather than each
-      # child's host-published loopback port.
-      GAIA_CHILD_ADDRESS_MODE: network
-      # Read host pressure rather than only this container's cgroup view.
-      GAIA_HOST_PROC: /host/proc
-      # Explicit policy: bounded restart of idle unhealthy existing containers.
-      # Off by default; observations and registration reconciliation still run.
-      GAIA_AUTO_RECOVERY: ${GAIA_AUTO_RECOVERY:-0}
-      # Auth for Gaia's own control-plane API. The SaaS sends this as
-      # `Authorization: Bearer` to create/start/stop habitats. Empty ⇒ open auth
-      # (local dev only — NEVER leave open on a reachable deploy).
-      HABITAT_API_KEY: ${GAIA_API_KEY:-}
-      # Per-user identity (ADR 0003). GAIA_JWKS_URL = the SaaS public keys; it is
-      # passed through so spawned CHILDREN verify per-user JWTs, AND reused below
-      # so GAIA ITSELF verifies them on its own A2A surface. With HABITAT_API_KEY
-      # still set, Gaia runs dual-auth (jwt+bearer): it accepts a per-user JWT
-      # (identity, so the SaaS attach flow needs no pasted token) OR the shared
-      # bearer (service trust / relay). Audience = Gaia's own public URL. All
-      # empty ⇒ bearer-only (unchanged). Set GAIA_AUTH_AUDIENCE to Gaia's HTTPS
-      # origin (e.g. https://gaia.habitats.example.com) to turn JWT on.
-      GAIA_JWKS_URL: ${GAIA_JWKS_URL:-}
-      HABITAT_AUTH_AUDIENCE: ${GAIA_AUTH_AUDIENCE:-}
-      HABITAT_AUTH_JWKS_URL: ${GAIA_JWKS_URL:-}
-      # The provider key Gaia uses for its own chat. Child habitats get their
-      # own keys via the master vault + secret bindings, not from here.
-      MYCEL_URL: ${MYCEL_URL:-https://mycel.thefocus.ai}
-      MYCEL_API_KEY: ${MYCEL_API_KEY:-}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
-      # GitHub App (ADR 0004). Gaia is the sole token-minting authority: it
-      # exchanges the App private key for down-scoped, 1-hour installation
-      # tokens per habitat. All three must be set to turn the feature on;
-      # any unset ⇒ feature off (no /github/token route, no boot injection).
-      # The key is a FILE PATH read at mint time — it must NOT live in the
-      # shared vault JSON. Place the PEM on the host under the bind-mounted
-      # data dir (mode 0600) so it appears at the same path in the container.
-      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
-      GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
-      GITHUB_APP_PRIVATE_KEY_FILE: ${GITHUB_APP_PRIVATE_KEY_FILE:-}
-
-      # Dynamic registry (#358): Gaia announces each habitat it starts to the
-      # Habitats SaaS, so the product's view of the fleet stops being a snapshot
-      # of whoever last pasted a URL into the attach form. Announcing is inert
-      # unless BOTH the URL and the secret are set — either alone is a
-      # half-configured integration that could only produce failing calls.
-      # The secret must match UMWELTEN_REGISTRY_SECRET on the SaaS.
-      HABITATS_SAAS_REGISTRY_URL: ${HABITATS_SAAS_REGISTRY_URL:-}
-      HABITATS_SAAS_REGISTRY_SECRET: ${HABITATS_SAAS_REGISTRY_SECRET:-}
-      HABITATS_SAAS_REGISTRY_WORKSPACE: ${HABITATS_SAAS_REGISTRY_WORKSPACE:-}
-      HABITATS_SAAS_URL: ${HABITATS_SAAS_URL:-}
-      # Purpose-specific credentials shared only with preview-router. Gaia's
-      # corresponding endpoints must reject these on every broader API route.
-      GAIA_PREVIEW_WAKE_KEY: ${GAIA_PREVIEW_WAKE_KEY:-}
-      GAIA_PREVIEW_ACTIVITY_KEY: ${GAIA_PREVIEW_ACTIVITY_KEY:-}
-    labels:
-      # Gaia is itself a caddy-fronted habitat: control plane over TLS + auth at
-      # GAIA_HOSTNAME, reached by caddy over the network ({{upstreams 7420}}).
-      caddy: ${GAIA_HOSTNAME:-gaia.localhost}
-      caddy.reverse_proxy: "{{upstreams 7420}}"
-    volumes:
-      # Drive the host docker daemon (spawn/seed/stop child habitats).
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Read-only host memory telemetry for /api/docker/status and warnings.
-      - /proc:/host/proc:ro
-      # Identity mount — see header note #2. Registry + master secrets persist
-      # here; child session dirs are bind-mounted from subpaths of it.
-      - /opt/gaia-data:/opt/gaia-data
-    command:
-      - sh
-      - -c
-      - >
-        pnpm exec tsx packages/cli/src/entry.ts habitat gaia
-        --port "$$GAIA_PORT"
-        --data-dir /opt/gaia-data
-        --provider "$$GAIA_PROVIDER"
-        --model "$$GAIA_MODEL"
-
-  # Stable ingress for every project preview. It reads Gaia's registry cache,
-  # but cannot mutate it, and receives only the purpose-specific wake/activity
-  # capabilities (never GAIA_API_KEY or the master vault/provider secrets).
-  preview-router:
-    image: habitat
-    container_name: gaia-preview-router
-    restart: unless-stopped
-    read_only: true
     init: true
     networks:
       - gaia-net
     environment:
-      # Match the router listener for the base image's PORT-aware health check.
-      PORT: "7431"
-      GAIA_PREVIEW_DOMAIN: ${GAIA_PREVIEW_DOMAIN:-preview.crepusculardiphthong.com}
-      GAIA_PREVIEW_WAKE_KEY: ${GAIA_PREVIEW_WAKE_KEY:-}
-      GAIA_PREVIEW_ACTIVITY_KEY: ${GAIA_PREVIEW_ACTIVITY_KEY:-}
+      GAIA_HOSTNAME: ${GAIA_HOSTNAME:-}
+      GAIA_PORT: ${GAIA_PORT:-7420}
+      PORT: ${GAIA_PORT:-7420}
+      HABITAT_WORK_DIR: /data
+      GAIA_PROVIDER: ${GAIA_PROVIDER:-mycel}
+      GAIA_MODEL: ${GAIA_MODEL:-default}
+      GAIA_API_KEY: ${GAIA_API_KEY:-}
+      GAIA_BASE_DOMAIN: ${GAIA_BASE_DOMAIN:-}
+      GAIA_JWKS_URL: ${GAIA_JWKS_URL:-}
+      GAIA_AUTH_AUDIENCE: ${GAIA_AUTH_AUDIENCE:-}
+      MYCEL_URL: ${MYCEL_URL:-https://mycel.thefocus.ai}
+      MYCEL_API_KEY: ${MYCEL_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    labels:
+      caddy: ${GAIA_HOSTNAME:-gaia.localhost}
+      caddy.reverse_proxy: "{{upstreams 7420}}"
     volumes:
-      - /opt/gaia-data:/opt/gaia-data:ro
-    tmpfs:
-      - /tmp
-    command:
-      - sh
-      - -c
-      - >
-        ./node_modules/.bin/tsx packages/cli/src/entry.ts habitat preview-router
-        --data-dir /opt/gaia-data
-        --gaia-url http://gaia:7420
-        --port 7431
-    depends_on:
-      - gaia
-
-  # Bundled label-driven reverse proxy (#170) for the fresh-host shape. Gives
-  # Gaia and every spawned habitat its own public HTTPS URL. Caddy watches the
-  # docker socket and builds routes from the `caddy=<host>` /
-  # `caddy.reverse_proxy={{upstreams ...}}` labels on each container, reaching
-  # them by container DNS over gaia-net.
-  #
-  # Reusing an existing caddy instead? Don't start this service — set
-  # GAIA_INGRESS_NETWORK to that proxy's network and attach Gaia to it
-  # (see README). Requires DNS `*.${GAIA_BASE_DOMAIN}` → this host + 80/443 open;
-  # Caddy auto-provisions Let's Encrypt certs. Auth is pass-through for children
-  # (each verifies its own token); Gaia enforces HABITAT_API_KEY itself.
-  caddy:
-    build:
-      context: ../..
-      dockerfile: deploy/gaia/Dockerfile.caddy
-    image: gaia-caddy:local
-    container_name: gaia-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      CADDY_INGRESS_NETWORKS: gaia-net
-      CADDY_DOCKER_CADDYFILE_EMAIL: ${CADDY_EMAIL:-}
-      CADDY_DOCKER_CADDYFILE_PATH: /etc/caddy/Caddyfile
-      GAIA_PREVIEW_DOMAIN: ${GAIA_PREVIEW_DOMAIN:-preview.crepusculardiphthong.com}
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
-    networks:
-      - gaia-net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./Caddyfile.preview:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data     # certificates — persist across restarts
-      - caddy-config:/config
+      - /opt/gaia-data:/data
 
 networks:
-  # Shared with the children DockerManager spawns. `external: true` because
-  # DockerManager's ensureNetwork() creates it without compose labels — newer
-  # compose versions refuse to adopt an unlabeled network otherwise. Create it
-  # once with `docker network create gaia-net` on a fresh host. `name:` pins
-  # the literal name (no compose project prefix) so it matches what
-  # DockerManager looks for.
   gaia-net:
     name: gaia-net
     external: true
-
-volumes:
-  caddy-data:
-  caddy-config:

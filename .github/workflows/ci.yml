@@ -91,3 +91,29 @@ jobs:
           curl -fsS -o /tmp/mycel-substrate.js \
             http://127.0.0.1:17438/shell/substrate/index.js
           grep -q 'export' /tmp/mycel-substrate.js
+
+      - name: Smoke-test the Gaia HabitatHost image and A2A surface
+        run: |
+          set -euo pipefail
+          docker build -t gaia-ci -f packages/habitat/Dockerfile .
+          docker run -d --name gaia-ci \
+            -e GAIA_HOSTNAME=gaia.ci.local \
+            -e GAIA_API_KEY=ci-key-1,ci-key-2 \
+            -p 127.0.0.1:17420:7420 \
+            gaia-ci
+          trap 'docker rm -f gaia-ci >/dev/null 2>&1 || true' EXIT
+          deadline=$((SECONDS + 30))
+          until curl -fsS http://127.0.0.1:17420/health | grep -q '"runtime":"pi-durable"'; do
+            if ((SECONDS >= deadline)); then
+              docker logs gaia-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:17420/.well-known/agent-card.json | grep -q 'Gaia HabitatHost'
+          test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:17420/api/habitats)" = "401"
+          curl -fsS -X POST http://127.0.0.1:17420/api/habitats \
+            -H 'Authorization: Bearer ci-key-2' \
+            -H 'Content-Type: application/json' \
+            -d '{"id":"ci-notes","name":"CI Notes"}' | grep -q '"ci-notes"'
+          curl -fsS http://127.0.0.1:17420/habitats/ci-notes/.well-known/agent-card.json | grep -q 'CI Notes'
