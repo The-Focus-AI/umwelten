@@ -93,10 +93,11 @@ verify_live_surface() {
 }
 
 HAVE_PREVIOUS=0
-if current_image="$(docker inspect -f '{{.Image}}' gaia 2>/dev/null)"; then
-  docker tag "$current_image" "$PREVIOUS"
+if docker image inspect habitat >/dev/null 2>&1 && docker tag habitat "$PREVIOUS" 2>/dev/null; then
   HAVE_PREVIOUS=1
-  log "saved rollback image $PREVIOUS ($current_image)"
+  log "saved rollback image $PREVIOUS"
+else
+  log "no taggable habitat image found — proceeding without rollback tag"
 fi
 
 log "building habitat image from $ROOT ($(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown))"
