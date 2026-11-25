@@ -1,0 +1,533 @@
+{
+  "version": 1,
+  "defaultJudge": "google:gemini-4-hydrogen",
+  "defaultGroups": [
+    "frontier-fable",
+    "frontier-workhorse",
+    "open-weight-cloud",
+    "local-ollama"
+  ],
+  "groups": {
+    "frontier-fable": {
+      "description": "Ultra-frontier / Fable-class models across labs",
+      "enabled": true,
+      "defaultEfforts": [
+        "low",
+        "high"
+      ],
+      "models": [
+        {
+          "provider": "anthropic",
+          "name": "claude-fable-5-2",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Anthropic public Mythos/Fable-class flagship (1M ctx, adaptive thinking)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "openai/gpt-6.2-astra",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "OpenAI GPT-6.2 Astra flagship (1.05M ctx) via OpenRouter."
+        },
+        {
+          "provider": "google",
+          "name": "gemini-4-carbon",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Google Gemini 4 Carbon frontier heavy-reasoning & agentic model."
+        },
+        {
+          "provider": "google",
+          "name": "gemini-4-neon",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Google Gemini 4 Neon repository & terminal coding frontier model."
+        },
+        {
+          "provider": "openrouter",
+          "name": "meta/muse-wonder",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Meta Muse Wonder frontier reasoning & agentic flagship (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "qwen/qwen4-max",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": ">2T MoE",
+          "tagline": "Alibaba Qwen 4 Max flagship (>2T MoE, 1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "x-ai/grok-4.7",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-fable",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "xAI Grok 4.7 flagship coding & verification model (500K ctx)."
+        }
+      ]
+    },
+    "frontier-workhorse": {
+      "description": "Fast & mid-tier frontier closed-weight cloud baselines",
+      "enabled": true,
+      "defaultEfforts": [
+        "low",
+        "high"
+      ],
+      "models": [
+        {
+          "provider": "google",
+          "name": "gemini-4-hydrogen",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Google Gemini 4 Hydrogen high-efficiency workhorse (1M ctx)."
+        },
+        {
+          "provider": "anthropic",
+          "name": "claude-opus-5-5",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Claude Opus 5.5 coding & long-horizon agentic flagship tier."
+        },
+        {
+          "provider": "anthropic",
+          "name": "claude-sonnet-5-5",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Claude Sonnet 5.5 everyday frontier coding & tool baseline."
+        },
+        {
+          "provider": "anthropic",
+          "name": "claude-haiku-5-5",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Claude Haiku 5.5 ($0.10/$0.50 per M, 1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "openai/gpt-6.2-sol",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "OpenAI GPT-6.2 Sol balanced workhorse via OpenRouter."
+        },
+        {
+          "provider": "openrouter",
+          "name": "openai/gpt-6.1-terra",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "OpenAI GPT-6.1 Terra mid-tier coding & agent model."
+        },
+        {
+          "provider": "openrouter",
+          "name": "openai/gpt-6-luna",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "OpenAI GPT-6 Luna high-speed sub-dime tier ($0.10/$0.50 per M)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "meta/muse-ember",
+          "weights": "closed",
+          "tier": "cloud",
+          "family": "frontier-workhorse",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Meta Muse Ember lightweight execution & tool-routing tier ($0.10/$0.50)."
+        }
+      ]
+    },
+    "open-weight-cloud": {
+      "description": "Large open-weight flagships & local-parity weights hosted on OpenRouter",
+      "enabled": true,
+      "defaultEfforts": [
+        "low",
+        "high"
+      ],
+      "models": [
+        {
+          "provider": "openrouter",
+          "name": "thinkingmachines/inkling-2-small",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": "594B (17B act)",
+          "tagline": "Thinking Machines Inkling 2 Small (594B total / 17B active MoE, 1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "thinkingmachines/inkling-2-mini",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "26.4B (3.4B act)",
+          "footprint": "~19–24 GiB",
+          "canonicalId": "inkling-2-mini",
+          "costs": {
+            "promptTokens": 0.07,
+            "completionTokens": 0.3
+          },
+          "tagline": "Thinking Machines Inkling 2 Mini (26.4B/3.4B looped MoE, pairs with local)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "thinkingmachines/inkling",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": "975B (41B act)",
+          "tagline": "Thinking Machines Inkling v1 flagship (975B total / 41B active MoE)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "deepseek/deepseek-v4-pro-0813",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": "1.6T (49B act)",
+          "tagline": "DeepSeek V4 Pro GA (1.6T total / 49B active MoE, 1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "deepseek/deepseek-v4.1-flash-1017",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": "MoE (cluster)",
+          "tagline": "DeepSeek V4.1 Flash Oct 2026 snapshot (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "z-ai/glm-5.3-prime",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Z.AI GLM 5.3 Prime high-throughput open flagship (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "z-ai/glm-5.3",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Z.AI GLM 5.3 large-scale SWE & long-horizon reasoning model (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "z-ai/glm-5.3-flash",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Z.AI GLM 5.3 Flash ultra-budget Pareto leader (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "moonshotai/kimi-k3.1-pro",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": "2.8T MoE family",
+          "tagline": "Moonshot Kimi K3.1 Pro (2.8T family, 1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "meta/muse-spark-open",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "Meta Muse Spark Open coding-optimized open-weight model (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "minimax/minimax-m3.1-flash",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "tagline": "MiniMax M3.1 Flash (1M ctx)."
+        },
+        {
+          "provider": "openrouter",
+          "name": "google/gemma-4-31b-it",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "31B dense",
+          "footprint": "~19 GB",
+          "canonicalId": "gemma-4-31b",
+          "tagline": "Hosted Gemma 4 31B IT pairing with local 31B weights."
+        },
+        {
+          "provider": "openrouter",
+          "name": "google/gemma-4-26b-a4b-it",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "26B (4B act)",
+          "footprint": "~17 GB",
+          "canonicalId": "gemma-4-26b-a4b",
+          "tagline": "Hosted Gemma 4 26B-A4B MoE pairing with local 26B weights."
+        },
+        {
+          "provider": "openrouter",
+          "name": "openai/gpt-oss-120b",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "no",
+          "params": "120B MoE",
+          "tagline": "OpenAI GPT-OSS 120B open-weight baseline on OpenRouter."
+        },
+        {
+          "provider": "openrouter",
+          "name": "openai/gpt-oss-20b",
+          "weights": "open",
+          "tier": "cloud",
+          "family": "open-weight",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "20B MXFP4",
+          "footprint": "~13 GB",
+          "canonicalId": "gpt-oss-20b",
+          "tagline": "OpenAI GPT-OSS 20B pairing with local Ollama gpt-oss:latest."
+        }
+      ]
+    },
+    "local-ollama": {
+      "description": "Local Ollama chat models installed on workstation (http://127.0.0.1:11434)",
+      "enabled": true,
+      "defaultEfforts": [
+        "none",
+        "low",
+        "high"
+      ],
+      "models": [
+        {
+          "provider": "ollama",
+          "name": "inkling-2-mini:latest",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "26.4B (3.4B act)",
+          "footprint": "~20 GB",
+          "canonicalId": "inkling-2-mini",
+          "tagline": "Local Inkling 2 Mini (20 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "gemma4:31b",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "31B dense",
+          "footprint": "~19 GB",
+          "canonicalId": "gemma-4-31b",
+          "tagline": "Local Gemma 4 31B (19 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "gemma4:26b",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "26B (4B act)",
+          "footprint": "~17 GB",
+          "canonicalId": "gemma-4-26b-a4b",
+          "tagline": "Local Gemma 4 26B-A4B MoE (17 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "gpt-oss:latest",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "20B MXFP4",
+          "footprint": "~13 GB",
+          "canonicalId": "gpt-oss-20b",
+          "tagline": "Local GPT-OSS 20B MXFP4 (13 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "clef-flash:latest",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "9.1B Q8_0",
+          "footprint": "~10 GB",
+          "canonicalId": "clef-flash",
+          "tagline": "Local Clef Flash 9.1B Q8_0 (10 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "gemma4:12b",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "12B dense",
+          "footprint": "~7.6 GB",
+          "canonicalId": "gemma-4-12b",
+          "tagline": "Local Gemma 4 12B (7.6 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "gemma4:e4b",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "E4B edge",
+          "footprint": "~9.6 GB",
+          "canonicalId": "gemma-4-e4b",
+          "tagline": "Local Gemma 4 E4B (9.6 GB) on Ollama."
+        },
+        {
+          "provider": "ollama",
+          "name": "gemma4:e2b",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "E2B edge",
+          "footprint": "~7.2 GB",
+          "canonicalId": "gemma-4-e2b",
+          "tagline": "Local Gemma 4 E2B (7.2 GB) edge model on Ollama."
+        }
+      ]
+    },
+    "local-lab": {
+      "description": "Tuned M4 Max local lab endpoints mirroring ../local-model-labs-m4-max (opt-in via --group local-lab or --lab-dir)",
+      "enabled": false,
+      "defaultEfforts": [
+        "none",
+        "low",
+        "high"
+      ],
+      "models": [
+        {
+          "provider": "mlx",
+          "name": "inkling-2-mini-mlx-nvfp4",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "26.4B (3.4B act)",
+          "footprint": "24.4 GiB peak",
+          "canonicalId": "inkling-2-mini",
+          "baseUrl": "http://127.0.0.1:8000",
+          "tagline": "inkling-2-mini-mlx-nvfp4 via http://127.0.0.1:8000"
+        },
+        {
+          "provider": "ollama",
+          "name": "inkling-2-mini:latest",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "26.4B (3.4B act)",
+          "footprint": "28.0 GiB peak",
+          "canonicalId": "inkling-2-mini",
+          "baseUrl": "http://127.0.0.1:11435",
+          "tagline": "inkling-2-mini-ollama via http://127.0.0.1:11435"
+        },
+        {
+          "provider": "mlx",
+          "name": "qwen3.8-27b-mlx-4bit",
+          "weights": "open",
+          "tier": "local",
+          "family": "local",
+          "enabled": true,
+          "laptopFit": "yes",
+          "params": "27B 4-bit",
+          "footprint": "17.3 GiB base",
+          "canonicalId": "qwen3.8-27b-mlx-4bit",
+          "baseUrl": "http://127.0.0.1:8090",
+          "tagline": "qwen3.8-27b-mlx-4bit via http://127.0.0.1:8090"
+        }
+      ]
+    }
+  }
+}

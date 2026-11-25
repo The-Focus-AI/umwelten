@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building &amp; Shipping Durable Client Agents — TheFocus.AI Internal Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700;800;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;0,8..60,900;1,8..60,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f3f2ea;
+      --surface: #e8e6df;
+      --surface-raised: #faf8f2;
+      --void: #1a1a1a;
+      --void-soft: #262520;
+      --ink: #1a1a1a;
+      --ink-secondary: rgba(26, 26, 26, 0.72);
+      --ink-muted: rgba(26, 26, 26, 0.45);
+      --border: rgba(26, 26, 26, 0.20);
+      --border-strong: rgba(26, 26, 26, 0.45);
+      --paper-secondary: rgba(243, 242, 234, 0.76);
+      --paper-muted: rgba(243, 242, 234, 0.46);
+      --border-dark: rgba(243, 242, 234, 0.22);
+      --rand-blue: #0055aa;
+      --rand-soft: #e6eef7;
+      --alert-red: #d93025;
+      --alert-soft: #fce8e6;
+      --green: #0e6b3f;
+      --green-bg: #e6f1eb;
+      --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+      --sans: "Inter", system-ui, -apple-system, sans-serif;
+      --mono: "Courier Prime", ui-monospace, Menlo, monospace;
+      --shadow-card: 4px 4px 0 rgba(26, 26, 26, 0.12);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--void);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .deck-viewport {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 24px 64px;
+      position: relative;
+      overflow: hidden;
+      background: #141412;
+    }
+
+    .slide {
+      display: none;
+      width: min(1240px, 100%);
+      height: min(698px, 100%);
+      aspect-ratio: 16 / 9;
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid var(--border-strong);
+      padding: 40px 48px 34px;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow-y: auto;
+      box-shadow: 0 24px 60px rgba(20, 20, 18, 0.48);
+    }
+
+    .slide.active {
+      display: flex;
+    }
+
+    .slide.dark {
+      background: var(--void);
+      color: var(--paper);
+      border-color: var(--border-dark);
+    }
+
+    .slide.dark .topbar {
+      border-bottom-color: var(--border-dark);
+    }
+
+    .slide.dark .slide-kicker {
+      color: var(--paper-secondary);
+    }
+
+    .slide.dark .slide-num {
+      color: var(--paper-muted);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .slide-kicker {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--rand-blue);
+    }
+
+    .slide.dark .slide-kicker.accent-red {
+      color: var(--alert-red);
+    }
+
+    .slide-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+
+    .slide-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+      padding: 18px 0 8px;
+      min-height: 0;
+    }
+
+    h1.display {
+      font-family: var(--serif);
+      font-weight: 700;
+      font-size: clamp(30px, 3.6vw, 48px);
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+
+    h2.title {
+      font-family: var(--sans);
+      font-weight: 900;
+      font-size: clamp(22px, 2.3vw, 31px);
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+    }
+
+    h3.card-head {
+      font-family: var(--sans);
+      font-weight: 800;
+      font-size: 14px;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    .lead {
+      font-size: 15.5px;
+      line-height: 1.55;
+      color: var(--ink-secondary);
+      max-width: 60ch;
+    }
+
+    .slide.dark .lead {
+      color: var(--paper-secondary);
+    }
+
+    p.copy {
+      font-size: 13.5px;
+      line-height: 1.52;
+      color: var(--ink-secondary);
+      max-width: 60ch;
+    }
+
+    .slide.dark p.copy {
+      color: var(--paper-secondary);
+    }
+
+    .mono-label {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+
+    .slide.dark .mono-label {
+      color: var(--paper-muted);
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: rgba(26, 26, 26, 0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    .slide.dark code {
+      background: rgba(243, 242, 234, 0.11);
+      color: var(--paper);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
+    .grid-2-wide {
+      display: grid;
+      grid-template-columns: 1.35fr 0.95fr;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .card.surface {
+      background: var(--surface);
+      box-shadow: none;
+    }
+
+    .card.dark-card {
+      background: var(--void-soft);
+      border: 1px solid var(--border-dark);
+      color: var(--paper);
+      box-shadow: none;
+    }
+
+    .card.accent-blue {
+      border-top: 3px solid var(--rand-blue);
+    }
+
+    .card.accent-red {
+      border-top: 3px solid var(--alert-red);
+    }
+
+    .pill {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: 3px;
+    }
+
+    .pill.blue {
+      background: var(--rand-soft);
+      border-color: var(--rand-blue);
+      color: var(--rand-blue);
+    }
+
+    .pill.red {
+      background: var(--alert-soft);
+      border-color: var(--alert-red);
+      color: var(--alert-red);
+    }
+
+    .pill.green {
+      background: var(--green-bg);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    ul.tight {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    ul.tight li {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink-secondary);
+      padding-left: 14px;
+      position: relative;
+      max-width: 60ch;
+    }
+
+    ul.tight li::before {
+      content: "—";
+      position: absolute;
+      left: 0;
+      color: var(--rand-blue);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .slide.dark ul.tight li {
+      color: var(--paper-secondary);
+    }
+
+    .pull-quote {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 18px;
+      line-height: 1.42;
+      padding: 12px 18px;
+      border-left: 3px solid var(--rand-blue);
+      background: var(--surface-raised);
+      color: var(--ink);
+    }
+
+    .section-numeral {
+      font-family: var(--serif);
+      font-size: 82px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--alert-red);
+      margin-bottom: 8px;
+    }
+
+    .svg-frame {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 12px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .svg-frame svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--ink-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .slide.dark .slide-footer {
+      border-top-color: var(--border-dark);
+      color: var(--paper-muted);
+    }
+
+    /* Bottom presenter controls */
+    .deck-controls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 48px;
+      background: var(--void);
+      color: var(--paper);
+      border-top: 1px solid var(--border-dark);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 30;
+    }
+
+    .progress-bar {
+      position: fixed;
+      left: 0;
+      bottom: 48px;
+      height: 3px;
+      background: var(--rand-blue);
+      transition: width 180ms ease;
+      z-index: 31;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      border: 1px solid var(--border-dark);
+      background: var(--void-soft);
+      color: var(--paper);
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .ctrl-btn:hover {
+      border-color: var(--paper);
+    }
+
+    .ctrl-btn.active {
+      background: var(--rand-blue);
+      border-color: var(--rand-blue);
+    }
+
+    /* Presenter speaker notes drawer */
+    .notes-drawer {
+      display: none;
+      position: fixed;
+      left: 24px;
+      right: 24px;
+      bottom: 58px;
+      max-width: 880px;
+      margin: 0 auto;
+      background: var(--surface-raised);
+      color: var(--ink);
+      border: 2px solid var(--ink);
+      padding: 16px 20px;
+      box-shadow: 6px 6px 0 rgba(20, 20, 18, 0.35);
+      z-index: 40;
+    }
+
+    .notes-drawer.open {
+      display: block;
+    }
+
+    /* Slide overview grid modal */
+    .grid-overlay {
+      display: none;
+      position: fixed;
+      inset: 0 0 48px 0;
+      background: rgba(20, 20, 18, 0.94);
+      padding: 28px 32px;
+      overflow-y: auto;
+      z-index: 45;
+    }
+
+    .grid-overlay.open {
+      display: block;
+    }
+
+    .thumb-grid {
+      max-width: 1200px;
+      margin: 16px auto 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+    }
+
+    .thumb-card {
+      background: var(--paper);
+      color: var(--ink);
+      border: 2px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 14px 16px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .thumb-card.current {
+      border-color: var(--rand-blue);
+      box-shadow: 0 0 0 2px var(--rand-blue);
+    }
+
+    .thumb-card.dark-thumb {
+      background: var(--void-soft);
+      color: var(--paper);
+      border-color: var(--border-dark);
+    }
+
+    @media (max-width: 900px) {
+      .deck-viewport { padding: 8px 8px 56px; }
+      .slide {
+        height: auto;
+        min-height: 100%;
+        aspect-ratio: auto;
+        padding: 20px 18px;
+      }
+      .grid-2, .grid-2-wide, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      @page {
+        size: landscape;
+        margin: 0;
+      }
+      html, body {
+        height: auto;
+        overflow: visible;
+        background: var(--paper);
+      }
+      .deck-viewport {
+        display: block;
+        padding: 0;
+        background: var(--paper);
+        overflow: visible;
+      }
+      .slide {
+        display: flex !important;
+        width: 100vw;
+        height: 100vh;
+        box-shadow: none;
+        border: none;
+        page-break-after: always;
+        break-after: page;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .deck-controls, .progress-bar, .notes-drawer, .grid-overlay {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-bar" id="progress-bar"></div>
+
+  <main class="deck-viewport" id="deck">
+    <!-- SLIDE 1: COVER -->
+    <section class="slide dark active" data-title="Cover: Building &amp; Shipping Durable Client Agents" data-notes="Frame this for engineering + delivery leads: Umwelten moves from a messy QuickBooks SME sandbox into a two-container Client Environment (trusted perimeter-gateway holding secrets + client-local Mycel LLM tracer + hybrid HTTP/MCP proxy, isolating a zero-secret habitat-runtime on an internal Docker network).">
+      <div class="topbar">
+        <span class="slide-kicker">TheFocus.AI · Internal Architecture Walkthrough</span>
+        <span class="slide-num">01 / 12</span>
+      </div>
+      <div class="slide-body" style="gap: 28px;">
+        <div>
+          <span class="pill red" style="margin-bottom: 14px;">Architecture + Delivery Playbook</span>
+          <h1 class="display" style="margin-top: 8px; max-width: 22ch;">Building &amp; Shipping Durable Client Agents</h1>
+          <p class="lead" style="margin-top: 16px;">
+            How we take a client engagement from a hand-tuned QuickBooks sandbox to a versioned domain ontology, isolate it inside a two-plane Client Environment on GCP with proxy-level audit &amp; tracing, and expose it over A2A 1.0.
+          </p>
+        </div>
+        <div class="grid-4">
+          <div class="card dark-card" style="border-top: 3px solid var(--rand-blue);">
+            <div class="mono-label">01 · Connect &amp; Tune</div>
+            <p class="copy" style="margin-top: 6px;">Wire QuickBooks safely through a credential proxy, sit with the SME, fork tricky turns.</p>
+          </div>
+          <div class="card dark-card" style="border-top: 3px solid var(--rand-blue);">
+            <div class="mono-label">02 · Build Ontology</div>
+            <p class="copy" style="margin-top: 6px;">Turn tribal accounting definitions into <code>GLOSSARY.md</code>, rules, and probes.</p>
+          </div>
+          <div class="card dark-card" style="border-top: 3px solid var(--alert-red);">
+            <div class="mono-label">03 · Verify &amp; Deploy</div>
+            <p class="copy" style="margin-top: 6px;">Lock invariants via <code>verify-deploy</code>; deploy the two-container <strong>Client Env</strong> to GCP.</p>
+          </div>
+          <div class="card dark-card" style="border-top: 3px solid var(--rand-blue);">
+            <div class="mono-label">04 · Expose via A2A</div>
+            <p class="copy" style="margin-top: 6px;">Serve traced A2A 1.0 + <code>/.well-known/agent-card.json</code> to Pi, Slack, and peers.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Umwelten on Pi &amp; Pi Durable</span>
+        <span>Press G for Grid · N for Notes · Arrow Keys to Navigate</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: FOUR-LAYER STACK -->
+    <section class="slide" data-title="High-Level Architecture: The Two-Plane Client Environment" data-notes="Highlight the rethink of GaiaHost: in production, a Client Environment splits the stack across a network perimeter — dedicated client-local Mycel + hybrid HTTP/MCP proxy + unified audit ledger on the trusted gateway side, and zero-secret DurableHabitats on an internal-only Docker network.">
+      <div class="topbar">
+        <span class="slide-kicker">High-Level Architecture</span>
+        <span class="slide-num">02 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Four Layers, Split Cleanly Across a Trusted Client Perimeter</h2>
+          <p class="lead" style="margin-top: 6px;">Rethinking <code>GaiaHost</code> as a <strong>Client Environment</strong>: LLM + HTTP proxying, credentials, and wire-level audit live on the perimeter — never inside the agent runtime.</p>
+        </div>
+        <div class="grid-2-wide">
+          <div class="svg-frame">
+            <svg viewBox="0 0 640 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Umwelten four-layer architecture with Client Environment perimeter">
+              <rect x="16" y="14" width="608" height="72" rx="4" fill="#e6eef7" stroke="#0055aa" stroke-width="2"/>
+              <text x="32" y="37" font-family="Courier Prime, monospace" font-size="11" font-weight="700" fill="#0055aa">LAYER 4 · PERIMETER &amp; PROTOCOLS (@umwelten/protocols, Client Gateway)</text>
+              <text x="32" y="59" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1a1a">A2A v1.0 Auth &amp; Trace Minting · Hybrid HTTP/MCP Egress Proxy · Audit Ledger</text>
+
+              <rect x="16" y="102" width="608" height="86" rx="4" fill="#faf8f2" stroke="#d93025" stroke-width="2"/>
+              <text x="32" y="126" font-family="Courier Prime, monospace" font-size="11" font-weight="700" fill="#d93025">LAYER 3 · ZERO-SECRET HABITAT RUNTIME (internal: true network)</text>
+              <text x="32" y="148" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1a1a">DurableHabitat (node:sqlite) · Owned/Mounted Repo Guards · Cron Wakes</text>
+              <text x="32" y="168" font-family="Inter, sans-serif" font-size="12" fill="#524f47">Turn Fan-out Probes · Session Explorations &amp; FACTS.md · Zero Internet Route</text>
+
+              <rect x="16" y="204" width="608" height="76" rx="4" fill="#e8e6df" stroke="#1a1a1a" stroke-width="1.5"/>
+              <text x="32" y="228" font-family="Courier Prime, monospace" font-size="11" font-weight="700" fill="#1a1a1a">LAYER 2 · CLIENT-LOCAL MYCEL (@umwelten/mycel, @umwelten/supplier)</text>
+              <text x="32" y="250" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1a1a">Perimeter LLM Proxy &amp; Wire Tracer · Micro-Dollar Metering · Local GPU Dial-In</text>
+
+              <rect x="16" y="296" width="608" height="70" rx="4" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="1.5"/>
+              <text x="32" y="320" font-family="Courier Prime, monospace" font-size="11" font-weight="700" fill="#f3f2ea">LAYER 1 · FOUNDATION (@earendil-works/pi-ai &amp; @umwelten/pi)</text>
+              <text x="32" y="342" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#f3f2ea">Uncapped models.stream() · Structured Outputs · Frontier Cloud + Local GPUs</text>
+            </svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="card accent-red">
+              <h3 class="card-head">Two Planes, Zero Shared Secrets</h3>
+              <p class="copy">The <strong>Perimeter Gateway</strong> holds keys, routes LLM/HTTP traffic, and logs traces; <strong>Habitat Runtime</strong> has no direct internet and zero upstream credentials.</p>
+            </div>
+            <div class="card accent-blue">
+              <h3 class="card-head">Correlated Wire Audit</h3>
+              <p class="copy">Every inbound A2A request mints one <code>trace_id</code> carried across Mycel LLM completions and QuickBooks/MCP egress calls.</p>
+            </div>
+            <div class="card">
+              <h3 class="card-head">Testable Offline First</h3>
+              <p class="copy">Swap real providers for <code>fauxProvider</code> + mock upstreams locally (`examples/client-env/`) to test ACLs, redaction, and traces in milliseconds.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Packages: @umwelten/mycel · @umwelten/habitat · @umwelten/protocols</span>
+        <span>02 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: WHY DURABLEHABITAT -->
+    <section class="slide" data-title="Why DurableHabitat on @earendil-works/pi-durable" data-notes="Key distinction for internal teams: an agent that integrates with client QuickBooks is NOT a stateless Lambda wrapper — it accumulates institutional state, scheduled close checklists, and isolated human/peer threads.">
+      <div class="topbar">
+        <span class="slide-kicker">Runtime Foundation</span>
+        <span class="slide-num">03 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Why <code>DurableHabitat</code> Beats Stateless Agent Scripts</h2>
+          <p class="lead" style="margin-top: 6px;">Built directly on <code>@earendil-works/pi-durable</code>'s transactional <code>Harness</code> and Node 24's built-in <code>node:sqlite</code>.</p>
+        </div>
+        <div class="grid-2">
+          <div class="card surface">
+            <span class="pill">What Usually Breaks in Production</span>
+            <h3 class="card-head" style="margin-top: 10px;">Typical Ephemeral Agent Wrapper</h3>
+            <ul class="tight" style="margin-top: 8px;">
+              <li>In-memory chat arrays lost on deploy or process crash.</li>
+              <li>Unbounded workspace file access when tools are enabled.</li>
+              <li>No safe way to branch from Turn 7 and test a prompt fix.</li>
+              <li>Cron jobs live in external scripts disconnected from session context.</li>
+              <li>Single global conversation leaks across callers or channels.</li>
+            </ul>
+          </div>
+          <div class="card accent-blue">
+            <span class="pill blue">What DurableHabitat Gives Us</span>
+            <h3 class="card-head" style="margin-top: 10px;">Transactional Habitat Store (<code>habitat.sqlite</code>)</h3>
+            <ul class="tight" style="margin-top: 8px;">
+              <li><strong>Crash-safe resume:</strong> Commit turns atomically; <code>harness.resume()</code> recovers cleanly across restarts.</li>
+              <li><strong>Zero-copy <code>fork(entryId)</code>:</strong> Test fixes against real client state without mutating history.</li>
+              <li><strong>Scoped execution:</strong> Omit <code>ExecutionEnv</code> (API-only) or enforce <strong>Owned R/W</strong> vs. <strong>Mounted R/O</strong> roots.</li>
+              <li><strong>Armed sleep/wake:</strong> Durable <code>HabitatCronTask</code> stays scheduled even when idle Harnesses evict after 10m.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-4">
+          <div class="card surface">
+            <div class="mono-label">Storage Engine</div>
+            <div style="font-family: var(--serif); font-size: 20px; font-weight: 700; margin-top: 4px;">node:sqlite</div>
+            <p class="copy" style="font-size: 12px;">Zero external DB required per agent.</p>
+          </div>
+          <div class="card surface">
+            <div class="mono-label">Idle Eviction</div>
+            <div style="font-family: var(--serif); font-size: 20px; font-weight: 700; margin-top: 4px;">10 min</div>
+            <p class="copy" style="font-size: 12px;">Cold on disk, auto-reopened on request.</p>
+          </div>
+          <div class="card surface">
+            <div class="mono-label">Post-Turn Probes</div>
+            <div style="font-family: var(--serif); font-size: 20px; font-weight: 700; margin-top: 4px;">Turn Fan-out</div>
+            <p class="copy" style="font-size: 12px;"><code>ConversationAnnotationsDoc</code> flags.</p>
+          </div>
+          <div class="card surface">
+            <div class="mono-label">Human Surfaces</div>
+            <div style="font-family: var(--serif); font-size: 20px; font-weight: 700; margin-top: 4px;">ui:// DataPart</div>
+            <p class="copy" style="font-size: 12px;">Rich HTML without bloating LLM context.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Spec: docs/specs/orchestration/durable-habitats.md</span>
+        <span>03 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: SECTION 01 DIVIDER -->
+    <section class="slide dark" data-title="Part 01: Connect, Hand-Tune &amp; Build Ontology (QuickBooks Walkthrough)" data-notes="Transition from platform architecture into a concrete walkthrough: standing up a QuickBooks Online Financial Operations agent for a client.">
+      <div class="topbar">
+        <span class="slide-kicker accent-red">Part 01 · Client Delivery Walkthrough</span>
+        <span class="slide-num">04 / 12</span>
+      </div>
+      <div class="slide-body" style="justify-content: center;">
+        <div class="section-numeral">01</div>
+        <h1 class="display" style="max-width: 19ch;">Connect QuickBooks, Hand-Tune &amp; Build the Ontology</h1>
+        <p class="lead" style="margin-top: 16px;">
+          Walkthrough scenario: a client wants an internal Finance &amp; Ops agent over their <strong>QuickBooks Online</strong> ledger — answering A/R questions, spotting uncategorized spend, and preparing month-end variance briefs.
+        </p>
+        <div class="grid-3" style="margin-top: 12px;">
+          <div class="card dark-card">
+            <div class="mono-label">Step 1 · Safe Boundary</div>
+            <p class="copy" style="margin-top: 6px;">QuickBooks OAuth 2.0 stays in <code>mcp-serve</code> / bearer proxy — zero secrets inside the Habitat.</p>
+          </div>
+          <div class="card dark-card">
+            <div class="mono-label">Step 2 · Hand-Tuning</div>
+            <p class="copy" style="margin-top: 6px;">Engineer + Controller test live queries via Pi, fork edge cases, promote <code>FACTS.md</code>.</p>
+          </div>
+          <div class="card dark-card">
+            <div class="mono-label">Step 3–4 · Ontology + Gate</div>
+            <p class="copy" style="margin-top: 6px;">Commit <code>GLOSSARY.md</code> + GL mappings, extract specs, freeze Evals before GCP.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Case Study: Client QuickBooks Agent</span>
+        <span>04 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: STEP 1 CONNECTING QUICKBOOKS SAFELY -->
+    <section class="slide" data-title="Step 1: Connect QuickBooks via Hybrid Perimeter Proxy" data-notes="Explain why the Hybrid proxy beats putting Intuit tokens or LLM keys inside the agent runtime: structured QuickBooks MCP/HTTP calls use clean named routes (/egress/quickbooks/*) with zero MITM setup, while optional CodingTools bash egress uses a CA-backed forward proxy — all correlated by trace_id into one audit ledger.">
+      <div class="topbar">
+        <span class="slide-kicker">Step 01 · Hybrid Credential &amp; Audit Proxy</span>
+        <span class="slide-num">05 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Hybrid Proxy: Named Egress Routes + Correlated LLM Tracing</h2>
+          <p class="lead" style="margin-top: 6px;">The Habitat holds <strong>zero</strong> QuickBooks OAuth tokens or LLM keys — every request crosses the Perimeter carrying <code>x-trace-id</code>.</p>
+        </div>
+        <div class="svg-frame">
+          <svg viewBox="0 0 920 205" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hybrid named-route plus optional CA-backed forward proxy with client-local Mycel LLM tracing">
+            <rect x="14" y="20" width="276" height="164" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="28" y="46" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#1a1a1a">UNTRUSTED HABITAT RUNTIME</text>
+            <text x="28" y="70" font-family="Inter, sans-serif" font-size="14.5" font-weight="800" fill="#1a1a1a">QuickBooks DurableHabitat</text>
+            <text x="28" y="92" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">• Holds ONLY scoped habitat token</text>
+            <text x="28" y="110" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">• Calls /egress/quickbooks/* + /llm/v1</text>
+            <text x="28" y="128" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">• Optional HTTP_PROXY for CodingTools</text>
+            <text x="28" y="150" font-family="Courier Prime, monospace" font-size="10.5" fill="#d93025">Zero direct internet · Zero secrets</text>
+
+            <line x1="290" y1="68" x2="338" y2="68" stroke="#d93025" stroke-width="2"/>
+            <polygon points="338,63 348,68 338,73" fill="#d93025"/>
+            <line x1="290" y1="140" x2="338" y2="140" stroke="#0055aa" stroke-width="2"/>
+            <polygon points="338,135 348,140 338,145" fill="#0055aa"/>
+
+            <rect x="348" y="16" width="290" height="84" rx="4" fill="#fce8e6" stroke="#d93025" stroke-width="2"/>
+            <text x="364" y="38" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#d93025">HYBRID HTTP/MCP PROXY + VAULT</text>
+            <text x="364" y="58" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1a1a">Named /egress/quickbooks + MCP Routes</text>
+            <text x="364" y="76" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">Injects Intuit OAuth · GET-only ACL · Scrubs leaks</text>
+            <text x="364" y="92" font-family="Inter, sans-serif" font-size="10.5" fill="#524f47">+ Optional CA forward proxy when bash runs</text>
+
+            <rect x="348" y="108" width="290" height="80" rx="4" fill="#e6eef7" stroke="#0055aa" stroke-width="2"/>
+            <text x="364" y="130" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#0055aa">CLIENT-LOCAL MYCEL EXCHANGE</text>
+            <text x="364" y="150" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1a1a">Injects LLM Key + Meters Micro-Dollars</text>
+            <text x="364" y="168" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">Captures full prompt/tool/completion trace</text>
+
+            <line x1="638" y1="58" x2="684" y2="58" stroke="#1a1a1a" stroke-width="2"/>
+            <polygon points="684,53 694,58 684,63" fill="#1a1a1a"/>
+            <line x1="638" y1="148" x2="684" y2="148" stroke="#0055aa" stroke-width="2"/>
+            <polygon points="684,143 694,148 684,153" fill="#0055aa"/>
+
+            <rect x="694" y="20" width="212" height="76" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="708" y="44" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#1a1a1a">UPSTREAM DATA + AUDIT</text>
+            <text x="708" y="64" font-family="Inter, sans-serif" font-size="13" font-weight="800" fill="#1a1a1a">QuickBooks Online</text>
+            <text x="708" y="82" font-family="Inter, sans-serif" font-size="11" fill="#524f47">Read-only Invoices / A/R / P&amp;L</text>
+
+            <rect x="694" y="110" width="212" height="76" rx="4" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="708" y="134" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#d93025">CORRELATED LEDGER</text>
+            <text x="708" y="154" font-family="Inter, sans-serif" font-size="13" font-weight="800" fill="#f3f2ea">traces.jsonl + Mycel</text>
+            <text x="708" y="172" font-family="Inter, sans-serif" font-size="11" fill="rgba(243,242,234,0.78)">trace_id joins LLM + HTTP spans</text>
+          </svg>
+        </div>
+        <div class="grid-3">
+          <div class="card">
+            <h3 class="card-head">1. Hybrid Egress Control</h3>
+            <p class="copy">Named <code>/egress/quickbooks</code> &amp; <code>/egress/mcp</code> routes enforce GET-only ACLs with zero TLS CA setup; optional CA forward proxy covers shell tools.</p>
+          </div>
+          <div class="card">
+            <h3 class="card-head">2. Wire-Level Traceability</h3>
+            <p class="copy">Even if the agent stays silent, the proxy records every URL queried, method blocked (<code>403</code>), secret scrubbed, and micro-dollar spent.</p>
+          </div>
+          <div class="card">
+            <h3 class="card-head">3. <code>ui://</code> Keeps Context Slim</h3>
+            <p class="copy">Large 200-row aging schedules travel in <code>_uiResources</code> for the human while the LLM receives a 20-token summary.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Primitives: Client-Local Mycel · /egress/:service/* Proxy · RemoteMcpClient · ui://</span>
+        <span>05 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: STEP 2 HAND-TUNING WITH AN SME -->
+    <section class="slide" data-title="Step 2: Hand-Tuning Locally with the Client Controller" data-notes="Explain how engineers sit with the client's controller/bookkeeper on a laptop using Pi or DurableHabitat against read-only QuickBooks data, using fork() and PromotionRouter instead of editing a monolithic system prompt blindly.">
+      <div class="topbar">
+        <span class="slide-kicker">Step 02 · Interactive Hand-Tuning</span>
+        <span class="slide-num">06 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Hand-Tune with the Client SME Before Automating Anything</h2>
+          <p class="lead" style="margin-top: 6px;">Sit next to the bookkeeper using <code>pi</code> + <code>DurableHabitat</code>: turn messy edge cases into durable memory, not one huge brittle prompt.</p>
+        </div>
+        <div class="grid-4">
+          <div class="card accent-blue">
+            <span class="pill blue">Turn 1 · Probe</span>
+            <h3 class="card-head" style="margin-top: 10px;">Run Real Questions</h3>
+            <p class="copy" style="margin-top: 4px;"><em>"What was net SaaS margin in Q3 excluding AWS pass-through?"</em> Watch real tool queries against sandbox/R-O QBO.</p>
+          </div>
+          <div class="card accent-red">
+            <span class="pill red">Turn 2 · Spot Drift</span>
+            <h3 class="card-head" style="margin-top: 10px;">Catch Domain Quirks</h3>
+            <p class="copy" style="margin-top: 4px;">Agent treated Account <code>4120</code> ("Setup Fees") as recurring ARR or missed vendor alias <code>AMZN MKTP</code>.</p>
+          </div>
+          <div class="card">
+            <span class="pill">Turn 3 · Fork &amp; Compare</span>
+            <h3 class="card-head" style="margin-top: 10px;"><code>fork(entryId)</code> A/B</h3>
+            <p class="copy" style="margin-top: 4px;">Fork right before the mistake. Test refined instructions or swap frontier vs. local models cleanly.</p>
+          </div>
+          <div class="card accent-blue">
+            <span class="pill green">Turn 4 · Promote</span>
+            <h3 class="card-head" style="margin-top: 10px;"><code>PromotionRouter</code></h3>
+            <p class="copy" style="margin-top: 4px;">Distill confirmed rules with <code>umwelten_promote_knowledge</code> straight into <code>FACTS.md</code> &amp; <code>AGENTS.md</code>.</p>
+          </div>
+        </div>
+        <div class="card surface" style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;">
+          <div style="max-width: 66%;">
+            <div class="mono-label">Real Session Beat → Promoted Knowledge</div>
+            <p class="copy" style="margin-top: 4px;">
+              <strong>Session Discovery:</strong> Customer "Acme Corp (Legacy)" and "Acme Holdings LLC" share one parent billing contract in QBO notes, and GL <code>6410</code> is reimbursable client hardware — never include in internal COGS.
+            </p>
+          </div>
+          <div style="font-family: var(--mono); font-size: 11.5px; background: var(--void); color: var(--paper); padding: 10px 14px; border-radius: 4px;">
+            umwelten sessions explorations<br>
+            → FACTS.md + docs/ontology/
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Primitives: DurableHabitat.fork() · PiSessionAdapter · PromotionRouter</span>
+        <span>06 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: STEP 3 BUILDING THE CLIENT ONTOLOGY -->
+    <section class="slide" data-title="Step 3: Crystallizing the Client Ontology" data-notes="Hammer this core Insight: raw QuickBooks schemas do not encode how this specific company actually defines revenue, customers, or cost centers. That mapping becomes a versioned git repository Mounted Read-Only into the production Habitat.">
+      <div class="topbar">
+        <span class="slide-kicker">Step 03 · Domain Ontology</span>
+        <span class="slide-num">07 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Crystallize Tribal Accounting Knowledge into a Mounted Ontology</h2>
+          <p class="lead" style="margin-top: 6px;">Raw QuickBooks tables do not know how the client defines <em>ARR</em>, <em>COGS</em>, or <em>entity rollups</em>. Version that meaning in Git.</p>
+        </div>
+        <div class="grid-2-wide">
+          <div class="svg-frame">
+            <svg viewBox="0 0 640 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapping QuickBooks tables into a client Git ontology mounted read-only">
+              <rect x="16" y="18" width="210" height="274" rx="4" fill="#e8e6df" stroke="#1a1a1a" stroke-width="1.5"/>
+              <text x="30" y="42" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#1a1a1a">RAW QUICKBOOKS ENTITIES</text>
+              <rect x="30" y="58" width="182" height="36" rx="3" fill="#faf8f2" stroke="#1a1a1a"/>
+              <text x="42" y="81" font-family="Courier Prime, monospace" font-size="12" font-weight="700" fill="#1a1a1a">Account (4000–6999)</text>
+              <rect x="30" y="104" width="182" height="36" rx="3" fill="#faf8f2" stroke="#1a1a1a"/>
+              <text x="42" y="127" font-family="Courier Prime, monospace" font-size="12" font-weight="700" fill="#1a1a1a">Customer &amp; SubCustomer</text>
+              <rect x="30" y="150" width="182" height="36" rx="3" fill="#faf8f2" stroke="#1a1a1a"/>
+              <text x="42" y="173" font-family="Courier Prime, monospace" font-size="12" font-weight="700" fill="#1a1a1a">Vendor (raw bank memos)</text>
+              <rect x="30" y="196" width="182" height="36" rx="3" fill="#faf8f2" stroke="#1a1a1a"/>
+              <text x="42" y="219" font-family="Courier Prime, monospace" font-size="12" font-weight="700" fill="#1a1a1a">Invoice + Payment + Class</text>
+              <text x="30" y="264" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">Ambiguous names, legacy codes,</text>
+              <text x="30" y="280" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">unmapped pass-through lines.</text>
+
+              <line x1="226" y1="155" x2="294" y2="155" stroke="#0055aa" stroke-width="2.5"/>
+              <polygon points="294,149 306,155 294,161" fill="#0055aa"/>
+              <text x="234" y="142" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#0055aa">DISTILL</text>
+
+              <rect x="306" y="18" width="318" height="274" rx="4" fill="#faf8f2" stroke="#0055aa" stroke-width="2"/>
+              <text x="322" y="42" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#0055aa">MOUNTED R/O REPO: client-finops-ontology/</text>
+              <text x="322" y="72" font-family="Courier Prime, monospace" font-size="12.5" font-weight="700" fill="#1a1a1a">GLOSSARY.md</text>
+              <text x="334" y="90" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">Canonical definitions: Booked ARR vs Recognized Rev</text>
+              <text x="322" y="120" font-family="Courier Prime, monospace" font-size="12.5" font-weight="700" fill="#1a1a1a">ontology/gl-buckets.json</text>
+              <text x="334" y="138" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">Exact QBO Account IDs -&gt; COGS / OpEx / Pass-Through</text>
+              <text x="322" y="168" font-family="Courier Prime, monospace" font-size="12.5" font-weight="700" fill="#1a1a1a">ontology/entity-aliases.yaml</text>
+              <text x="334" y="186" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">Parent customer rollups &amp; canonical vendor map</text>
+              <text x="322" y="216" font-family="Courier Prime, monospace" font-size="12.5" font-weight="700" fill="#1a1a1a">docs/adr/ + checkbooks/</text>
+              <text x="334" y="234" font-family="Inter, sans-serif" font-size="11.5" fill="#524f47">Signed policy decisions &amp; close verification steps</text>
+              <rect x="322" y="252" width="286" height="26" rx="3" fill="#e6f1eb" stroke="#0e6b3f"/>
+              <text x="332" y="269" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#0e6b3f">Protected by createRepoScopeExtension (R/O)</text>
+            </svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="pull-quote">
+              "The model is interchangeable. The versioned client ontology and deterministic checks running alongside durable state are the real asset."
+            </div>
+            <div class="card">
+              <h3 class="card-head">Mounted Read-Only Guard</h3>
+              <p class="copy">The Habitat can always read updated rules from <code>/ontology</code>, but <code>write</code>/<code>edit</code> calls are rejected so runtime chats never silently corrupt client policy.</p>
+            </div>
+            <div class="card accent-blue">
+              <h3 class="card-head">Automatic Drift Detection</h3>
+              <p class="copy"><code>TurnAnnotationProbe</code> inspects every completed turn and flags new unmapped GL codes or split invoices in <code>ConversationAnnotationsDoc</code> for human review.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Skills: domain-modeling · grill-with-docs · createRepoScopeExtension</span>
+        <span>07 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: STEP 4 SESSION-SPEC-VERIFY GATE -->
+    <section class="slide" data-title="Step 4: Extract Specs &amp; Lock Invariants (session-spec-verify)" data-notes="Before any client deployment, we graduate the prototype through spec-extract, EvalSuite regression fixtures built from those controller edge cases, and verify-deploy immutable run audits.">
+      <div class="topbar">
+        <span class="slide-kicker">Step 04 · Spec &amp; Verification Gate</span>
+        <span class="slide-num">08 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Graduate Prototype Sessions via <code>spec-extract</code> &amp; <code>verify-deploy</code></h2>
+          <p class="lead" style="margin-top: 6px;">Turn conversation discoveries and SME quirks into verifiable contracts before pushing a container to GCP.</p>
+        </div>
+        <div class="grid-3">
+          <div class="card accent-blue">
+            <span class="pill blue">1 · Extract Intent &amp; Rules</span>
+            <h3 class="card-head" style="margin-top: 10px;"><code>spec-extract</code></h3>
+            <p class="copy" style="margin-top: 6px;">Distills code diff + conversation transcript into modular packs:</p>
+            <ul class="tight" style="margin-top: 8px;">
+              <li><code>docs/specs/agent/quickbooks-ops.md</code></li>
+              <li><code>[zero-secret-habitat-runtime]</code> invariant</li>
+              <li><code>[perimeter-correlated-audit-trace]</code></li>
+              <li><code>docs/decisions.jsonl</code> (<code>D-1..N</code> why-log)</li>
+            </ul>
+          </div>
+          <div class="card">
+            <span class="pill">2 · Freeze Edge Cases</span>
+            <h3 class="card-head" style="margin-top: 10px;"><code>EvalSuite</code> + Matrix</h3>
+            <p class="copy" style="margin-top: 6px;">Turns gnarly client scenarios into repeatable regression checks:</p>
+            <ul class="tight" style="margin-top: 8px;">
+              <li>Accrual vs. cash cutoff test tasks</li>
+              <li>Pass-through GL exclusion accuracy</li>
+              <li>Benchmark <code>fable</code> vs. <code>hydrogen</code> vs. local <code>qwen4</code></li>
+              <li>Zero-cost offline <code>fauxProvider</code> contract gate</li>
+            </ul>
+          </div>
+          <div class="card accent-red">
+            <span class="pill red">3 · Gate Release</span>
+            <h3 class="card-head" style="margin-top: 10px;"><code>verify-deploy</code></h3>
+            <p class="copy" style="margin-top: 6px;">No green verdict from prose — proves every invariant with live &amp; sandbox checks:</p>
+            <ul class="tight" style="margin-top: 8px;">
+              <li>Mode 1: read-only SQLite + trace ledger audit</li>
+              <li>Mode 2: <code>403</code> egress block + secret scrub drill</li>
+              <li>Writes immutable <code>docs/runs/&lt;ts&gt;_&lt;sha&gt;/verdicts.jsonl</code></li>
+            </ul>
+          </div>
+        </div>
+        <div class="card surface" style="font-family: var(--mono); font-size: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <span>pnpm run specs:check &amp;&amp; pnpm exec vitest run</span>
+          <span class="pill green">specs:check PASS · Immutable Audit Written to docs/runs/</span>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Skills: spec-extract · spec-refactor · verify-deploy · Lab 09</span>
+        <span>08 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: SECTION 02 DIVIDER -->
+    <section class="slide dark" data-title="Part 02: Deploy Client Environment to GCP &amp; Expose via A2A 1.0" data-notes="Transition to the rethought GaiaHost -> Client Environment deployment: two containers on an internal Docker network inside client GCP, terminating auth and metering + tracing all LLM/HTTP egress at the perimeter gateway before anything touches DurableHabitats.">
+      <div class="topbar">
+        <span class="slide-kicker accent-red">Part 02 · Client GCP &amp; A2A Ecosystem</span>
+        <span class="slide-num">09 / 12</span>
+      </div>
+      <div class="slide-body" style="justify-content: center;">
+        <div class="section-numeral">02</div>
+        <h1 class="display" style="max-width: 20ch;">Deploy the Client Environment to GCP &amp; Expose via A2A 1.0</h1>
+        <p class="lead" style="margin-top: 16px;">
+          Two containers on an <code>internal: true</code> Docker network inside the client's GCP VM: a trusted <strong>Perimeter Gateway</strong> (dedicated Mycel LLM tracer + Hybrid HTTP/MCP proxy + secrets + audit ledger) isolating a zero-secret <strong>Habitat Runtime</strong>.
+        </p>
+      </div>
+      <div class="slide-footer">
+        <span>Infrastructure: Perimeter Gateway + Habitat Runtime + Internal Network</span>
+        <span>09 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: STEP 5 GCP CLIENT ENVIRONMENT DEPLOYMENT -->
+    <section class="slide" data-title="Step 5: Two-Container Client Environment Inside Client GCP" data-notes="Show exact container boundaries: Caddy feeds perimeter-gateway, which owns ingress jwt+bearer auth, client-local Mycel LLM proxy+tracer, hybrid HTTP/MCP proxy with vault secrets, and /opt/client-env/audit/traces.jsonl. The habitat-runtime container sits on internal: true (no direct internet, zero upstream secrets) holding only SQLite state and mounted ontology.">
+      <div class="topbar">
+        <span class="slide-kicker">Step 05 · GCP Client Environment Topology</span>
+        <span class="slide-num">10 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">Two-Container Client Environment Inside Client GCP</h2>
+          <p class="lead" style="margin-top: 6px;"><code>habitat-runtime</code> sits on an <code>internal: true</code> network with zero internet route and zero secrets; <code>perimeter-gateway</code> owns Mycel + proxies + audit.</p>
+        </div>
+        <div class="svg-frame">
+          <svg viewBox="0 0 920 264" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two-container Client Environment topology on Client GCP VM">
+            <rect x="10" y="10" width="900" height="244" rx="4" fill="#e8e6df" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="24" y="32" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#1a1a1a">CLIENT GCP PROJECT · GCE VM (Caddy TLS · 4G swap · Ops Agent -> Cloud Monitoring · Traces stay in /opt/client-env)</text>
+
+            <rect x="24" y="46" width="382" height="194" rx="4" fill="#faf8f2" stroke="#d93025" stroke-width="2"/>
+            <text x="38" y="68" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#d93025">CONTAINER 1 · perimeter-gateway (HOLDS SECRETS + INTERNET)</text>
+            <rect x="38" y="80" width="354" height="34" rx="3" fill="#e6eef7" stroke="#0055aa"/>
+            <text x="48" y="101" font-family="Inter, sans-serif" font-size="11.5" font-weight="700" fill="#1a1a1a">Ingress Auth (JWT/Bearer) -> mints x-trace-id</text>
+            <rect x="38" y="120" width="172" height="44" rx="3" fill="#faf8f2" stroke="#0055aa"/>
+            <text x="48" y="139" font-family="Inter, sans-serif" font-size="11.5" font-weight="800" fill="#0055aa">Client-Local Mycel</text>
+            <text x="48" y="155" font-family="Inter, sans-serif" font-size="10" fill="#524f47">LLM proxy + micro-$ tracer</text>
+            <rect x="220" y="120" width="172" height="44" rx="3" fill="#fce8e6" stroke="#d93025"/>
+            <text x="230" y="139" font-family="Inter, sans-serif" font-size="11.5" font-weight="800" fill="#d93025">Hybrid HTTP/MCP Proxy</text>
+            <text x="230" y="155" font-family="Inter, sans-serif" font-size="10" fill="#524f47">Named + optional CA forward</text>
+            <rect x="38" y="172" width="354" height="54" rx="3" fill="#1a1a1a" stroke="#1a1a1a"/>
+            <text x="50" y="193" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#f3f2ea">Unified Audit Ledger (/opt/client-env/audit/traces.jsonl)</text>
+            <text x="50" y="211" font-family="Inter, sans-serif" font-size="10.5" fill="rgba(243,242,234,0.78)">Correlates a2a.inbound -&gt; llm.completion -&gt; http.egress</text>
+
+            <line x1="406" y1="110" x2="494" y2="110" stroke="#0055aa" stroke-width="2.5"/>
+            <polygon points="494,104 504,110 494,116" fill="#0055aa"/>
+            <text x="415" y="98" font-family="Courier Prime, monospace" font-size="9.5" font-weight="700" fill="#0055aa">internal: true</text>
+            <text x="416" y="128" font-family="Courier Prime, monospace" font-size="9.5" fill="#d93025">NO INTERNET</text>
+
+            <rect x="504" y="46" width="222" height="194" rx="4" fill="#e6eef7" stroke="#0055aa" stroke-width="2"/>
+            <text x="518" y="68" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#0055aa">CONTAINER 2 · habitat-runtime</text>
+            <text x="518" y="92" font-family="Inter, sans-serif" font-size="14" font-weight="800" fill="#1a1a1a">DurableHabitats</text>
+            <text x="518" y="114" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">• ZERO LLM or SaaS secrets</text>
+            <text x="518" y="132" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">• Only scoped habitat token</text>
+            <text x="518" y="150" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">• SQLite: /opt/client-env/data</text>
+            <text x="518" y="168" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">• Mounted R/O /ontology</text>
+            <text x="518" y="186" font-family="Inter, sans-serif" font-size="11" fill="#1a1a1a">• Idle evict + armed crons</text>
+            <rect x="518" y="200" width="194" height="26" rx="3" fill="#e6f1eb" stroke="#0e6b3f"/>
+            <text x="526" y="217" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#0e6b3f">Calls /llm/v1 + /egress/* only</text>
+
+            <rect x="742" y="46" width="154" height="88" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="754" y="68" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#0055aa">OUTBOUND INFERENCE</text>
+            <text x="754" y="90" font-family="Inter, sans-serif" font-size="12.5" font-weight="800" fill="#1a1a1a">Vertex · Anthropic</text>
+            <text x="754" y="108" font-family="Inter, sans-serif" font-size="11" fill="#524f47">OpenAI · GPU Suppliers</text>
+
+            <rect x="742" y="152" width="154" height="88" rx="4" fill="#faf8f2" stroke="#d93025" stroke-width="1.5"/>
+            <text x="754" y="174" font-family="Courier Prime, monospace" font-size="10" font-weight="700" fill="#d93025">OUTBOUND SAAS / MCP</text>
+            <text x="754" y="196" font-family="Inter, sans-serif" font-size="12.5" font-weight="800" fill="#1a1a1a">QuickBooks · MCP</text>
+            <text x="754" y="214" font-family="Inter, sans-serif" font-size="11" fill="#524f47">Credentials injected here</text>
+          </svg>
+        </div>
+        <div class="grid-3">
+          <div class="card">
+            <h3 class="card-head">Zero-Secret Execution Plane</h3>
+            <p class="copy">Even with <code>CodingTools</code> shell enabled, <code>habitat-runtime</code> has no route past the Docker internal net and zero Intuit or Anthropic keys in env.</p>
+          </div>
+          <div class="card accent-blue">
+            <h3 class="card-head">Complete Client Auditability</h3>
+            <p class="copy">Client-local Mycel + HTTP proxy log every prompt, completion, QuickBooks query, and blocked verb under one shared <code>trace_id</code>.</p>
+          </div>
+          <div class="card accent-red">
+            <h3 class="card-head">Safe CI/CD Rollback</h3>
+            <p class="copy"><code>redeploy.sh</code> snapshots <code>habitat:previous</code>, verifies <code>/health</code> + <code>401</code> + A2A Card + trace write, and rolls back automatically on failure.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Decision D-11 · Two-Container Client Environment on GCE (internal: true + Mycel + HTTP Proxy)</span>
+        <span>10 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 11: STEP 6 A2A 1.0 EXPOSURE -->
+    <section class="slide" data-title="Step 6: Exposing the Client Agent via A2A 1.0" data-notes="Because every inbound A2A 1.0 request enters through perimeter-gateway and receives an x-trace-id, Pi CLI analysts, peer agents, Slack portals, and MCP bridges all get unified traceability across LLM calls and QuickBooks queries.">
+      <div class="topbar">
+        <span class="slide-kicker">Step 06 · Traced A2A 1.0 Ecosystem Exposure</span>
+        <span class="slide-num">11 / 12</span>
+      </div>
+      <div class="slide-body">
+        <div>
+          <h2 class="title">One Verified &amp; Audited A2A 1.0 Endpoint Powers Every Consumer</h2>
+          <p class="lead" style="margin-top: 6px;">Inbound <code>POST /a2a</code> authenticates at the perimeter, mints <code>x-trace-id</code>, dispatches to <code>habitat-runtime</code>, and records the full tree.</p>
+        </div>
+        <div class="svg-frame">
+          <svg viewBox="0 0 920 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Traced A2A 1.0 hub-and-spoke exposure from Perimeter plus QuickBooks Habitat to downstream consumers">
+            <rect x="18" y="34" width="286" height="192" rx="4" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="2"/>
+            <text x="36" y="64" font-family="Courier Prime, monospace" font-size="10.5" font-weight="700" fill="#d93025">TRACED A2A 1.0 PERIMETER</text>
+            <text x="36" y="92" font-family="Source Serif 4, Georgia, serif" font-size="21" font-weight="700" fill="#f3f2ea">QuickBooks Client Env</text>
+            <text x="36" y="118" font-family="Courier Prime, monospace" font-size="11" fill="#f3f2ea">/.well-known/agent-card.json</text>
+            <text x="36" y="138" font-family="Courier Prime, monospace" font-size="11" fill="#f3f2ea">POST /a2a (jwt+bearer -> trace_id)</text>
+            <line x1="36" y1="154" x2="286" y2="154" stroke="rgba(243,242,234,0.22)" stroke-width="1"/>
+            <text x="36" y="176" font-family="Inter, sans-serif" font-size="11.5" fill="rgba(243,242,234,0.78)">• Per-(tenant, userId) SQLite isolation</text>
+            <text x="36" y="196" font-family="Inter, sans-serif" font-size="11.5" fill="rgba(243,242,234,0.78)">• Traceable LLM + QBO spans per task</text>
+            <text x="36" y="216" font-family="Inter, sans-serif" font-size="11.5" fill="rgba(243,242,234,0.78)">• Text answer + ui:// DataPart cards</text>
+
+            <line x1="304" y1="74" x2="394" y2="44" stroke="#0055aa" stroke-width="2"/>
+            <polygon points="392,39 403,41 395,49" fill="#0055aa"/>
+
+            <line x1="304" y1="112" x2="394" y2="104" stroke="#0055aa" stroke-width="2"/>
+            <polygon points="393,99 403,103 394,109" fill="#0055aa"/>
+
+            <line x1="304" y1="150" x2="394" y2="164" stroke="#0055aa" stroke-width="2"/>
+            <polygon points="395,159 403,165 393,169" fill="#0055aa"/>
+
+            <line x1="304" y1="188" x2="394" y2="220" stroke="#0055aa" stroke-width="2"/>
+            <polygon points="395,215 403,223 392,225" fill="#0055aa"/>
+
+            <rect x="404" y="16" width="498" height="48" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="420" y="38" font-family="Inter, sans-serif" font-size="13.5" font-weight="800" fill="#1a1a1a">1. Internal Analysts &amp; Engineers (Pi CLI)</text>
+            <text x="420" y="54" font-family="Courier Prime, monospace" font-size="11" fill="#0055aa">~/.pi/a2a/agents.json -> /a2a send quickbooks · a2a_send + live progress widget</text>
+
+            <rect x="404" y="76" width="498" height="48" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="420" y="98" font-family="Inter, sans-serif" font-size="13.5" font-weight="800" fill="#1a1a1a">2. Peer Habitats (CFO Forecast · RevOps · Audit Viewer)</text>
+            <text x="420" y="114" font-family="Courier Prime, monospace" font-size="11" fill="#0055aa">createA2ATools({ self }) · directional peer bearer tokens · trace_id propagated</text>
+
+            <rect x="404" y="136" width="498" height="48" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="420" y="158" font-family="Inter, sans-serif" font-size="13.5" font-weight="800" fill="#1a1a1a">3. Client Portals &amp; Slack / Chat Surfaces</text>
+            <text x="420" y="174" font-family="Courier Prime, monospace" font-size="11" fill="#0055aa">@leocavalcante/pi-a2a/client · OIDC JWT speaker identity · renders ui:// cards</text>
+
+            <rect x="404" y="196" width="498" height="48" rx="4" fill="#faf8f2" stroke="#1a1a1a" stroke-width="1.5"/>
+            <text x="420" y="218" font-family="Inter, sans-serif" font-size="13.5" font-weight="800" fill="#1a1a1a">4. MCP-Only Hosts (Cursor · Claude Desktop)</text>
+            <text x="420" y="234" font-family="Courier Prime, monospace" font-size="11" fill="#0055aa">Thin A2A -&gt; mcp-serve Bridge exposing skills as MCP tools + EmbeddedResource</text>
+          </svg>
+        </div>
+        <div class="card surface" style="font-family: var(--mono); font-size: 12px;">
+          Full forensic trail for every caller: click any A2A <code>taskId</code> to inspect the exact Mycel model cost, prompt, and QuickBooks API spans it triggered.
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Standard: docs/standards/per-speaker-agent-identity.md · Decision D-11</span>
+        <span>11 / 12</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 12: 5-DAY DELIVERY PLAYBOOK -->
+    <section class="slide dark" data-title="Summary: The 5-Day Delivery Playbook" data-notes="Close with the 5-day team cadence and point everyone to the runnable Client Environment demo (`pnpm run demo:client-env`), prompt-first Labs (`examples/labs/`), and Multi-A2A harness (`pnpm run demo:multi-a2a`).">
+      <div class="topbar">
+        <span class="slide-kicker">Summary · Repeatable Delivery Cadence</span>
+        <span class="slide-num">12 / 12</span>
+      </div>
+      <div class="slide-body" style="gap: 24px;">
+        <div>
+          <span class="pill blue">From Prototype to Production</span>
+          <h1 class="display" style="margin-top: 10px; max-width: 22ch;">The 5-Day Client Agent Playbook</h1>
+        </div>
+        <div class="grid-4">
+          <div class="card dark-card" style="border-top: 3px solid var(--rand-blue);">
+            <div class="mono-label">Day 1 · Connect</div>
+            <h3 class="card-head" style="margin-top: 8px; color: var(--paper);">Zero-Secret Boundary</h3>
+            <p class="copy" style="margin-top: 6px;">Wrap QuickBooks in hybrid OAuth MCP / bearer proxy; verify <code>403</code> &amp; response scrubbing.</p>
+          </div>
+          <div class="card dark-card" style="border-top: 3px solid var(--rand-blue);">
+            <div class="mono-label">Days 2–3 · Ontology</div>
+            <h3 class="card-head" style="margin-top: 8px; color: var(--paper);">Tune with the SME</h3>
+            <p class="copy" style="margin-top: 6px;">Sit with Finance, <code>fork()</code> wrong answers, lock <code>GLOSSARY.md</code> + GL maps + probes.</p>
+          </div>
+          <div class="card dark-card" style="border-top: 3px solid var(--alert-red);">
+            <div class="mono-label">Day 4 · Spec Gate</div>
+            <h3 class="card-head" style="margin-top: 8px; color: var(--paper);">Lock Invariants</h3>
+            <p class="copy" style="margin-top: 6px;">Run <code>spec-extract</code>, freeze QBO edge cases in <code>EvalSuite</code>, pass <code>verify-deploy</code> Mode 2.</p>
+          </div>
+          <div class="card dark-card" style="border-top: 3px solid var(--rand-blue);">
+            <div class="mono-label">Day 5 · GCP &amp; A2A</div>
+            <h3 class="card-head" style="margin-top: 8px; color: var(--paper);">Client Env + Mesh</h3>
+            <p class="copy" style="margin-top: 6px;">Deploy two-container Client Env (Mycel + HTTP proxy + zero-secret runtime) on GCE, hand out A2A Card.</p>
+          </div>
+        </div>
+        <div class="card dark-card" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <div>
+            <div class="mono-label">Try It Locally Today</div>
+            <p class="copy" style="margin-top: 4px;">
+              Client Env demo: <code>pnpm run demo:client-env</code> · Multi-A2A: <code>pnpm run demo:multi-a2a</code> · Prompt Labs: <code>examples/labs/README.md</code>
+            </p>
+          </div>
+          <span class="pill blue">Decision D-11 · Deploy Ref: deploy/gaia/README.md</span>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>TheFocus.AI · Internal Architecture Deck</span>
+        <span>12 / 12</span>
+      </div>
+    </section>
+  </main>
+
+  <aside class="notes-drawer" id="notes-drawer" aria-label="Presenter Speaker Notes">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span class="mono-label" id="notes-title">Speaker Notes</span>
+      <button type="button" class="ctrl-btn" id="close-notes">Close (Esc)</button>
+    </div>
+    <p id="notes-body" style="font-size: 14px; line-height: 1.55; color: var(--ink);"></p>
+  </aside>
+
+  <div class="grid-overlay" id="grid-overlay" aria-label="Slide Overview Grid">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+      <span class="mono-label" style="color: var(--paper);">All Slides (Click to Jump · Press Esc to Close)</span>
+      <button type="button" class="ctrl-btn" id="close-grid">Close Grid</button>
+    </div>
+    <div class="thumb-grid" id="thumb-grid"></div>
+  </div>
+
+  <nav class="deck-controls" aria-label="Presentation Navigation">
+    <div class="ctrl-group">
+      <button type="button" class="ctrl-btn" id="btn-prev">Prev</button>
+      <button type="button" class="ctrl-btn" id="btn-next">Next</button>
+      <span class="mono-label" id="slide-counter" style="color: var(--paper); margin-left: 8px;">01 / 12</span>
+    </div>
+    <div class="ctrl-group">
+      <button type="button" class="ctrl-btn" id="btn-notes">Notes (N)</button>
+      <button type="button" class="ctrl-btn" id="btn-grid">Grid (G)</button>
+      <button type="button" class="ctrl-btn" id="btn-print">PDF (Cmd+P)</button>
+    </div>
+  </nav>
+
+  <script>
+    (function () {
+      var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+      var total = slides.length;
+      var current = 0;
+
+      var counter = document.getElementById("slide-counter");
+      var progress = document.getElementById("progress-bar");
+      var notesDrawer = document.getElementById("notes-drawer");
+      var notesTitle = document.getElementById("notes-title");
+      var notesBody = document.getElementById("notes-body");
+      var gridOverlay = document.getElementById("grid-overlay");
+      var thumbGrid = document.getElementById("thumb-grid");
+      var btnNotes = document.getElementById("btn-notes");
+      var btnGrid = document.getElementById("btn-grid");
+
+      function pad(n) {
+        return n < 10 ? "0" + n : String(n);
+      }
+
+      function renderThumbs() {
+        thumbGrid.innerHTML = "";
+        for (var i = 0; i < total; i++) {
+          (function (idx) {
+            var s = slides[idx];
+            var btn = document.createElement("button");
+            btn.type = "button";
+            var isDark = s.classList.contains("dark");
+            btn.className = "thumb-card" + (isDark ? " dark-thumb" : "") + (idx === current ? " current" : "");
+            var title = s.getAttribute("data-title") || ("Slide " + (idx + 1));
+            var label = document.createElement("div");
+            label.className = "mono-label";
+            label.textContent = pad(idx + 1) + " / " + pad(total);
+            var h = document.createElement("div");
+            h.style.fontWeight = "800";
+            h.style.fontSize = "13.5px";
+            h.style.marginTop = "6px";
+            h.textContent = title;
+            btn.appendChild(label);
+            btn.appendChild(h);
+            btn.addEventListener("click", function () {
+              goTo(idx);
+              toggleGrid(false);
+            });
+            thumbGrid.appendChild(btn);
+          })(i);
+        }
+      }
+
+      function goTo(index) {
+        if (index < 0) index = 0;
+        if (index >= total) index = total - 1;
+        current = index;
+
+        for (var i = 0; i < total; i++) {
+          slides[i].classList.toggle("active", i === current);
+        }
+
+        counter.textContent = pad(current + 1) + " / " + pad(total);
+        progress.style.width = (((current + 1) / total) * 100).toFixed(2) + "%";
+
+        var active = slides[current];
+        notesTitle.textContent = "Speaker Notes · " + pad(current + 1) + " — " + (active.getAttribute("data-title") || "");
+        notesBody.textContent = active.getAttribute("data-notes") || "No notes for this slide.";
+
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", "#slide-" + (current + 1));
+        }
+        renderThumbs();
+      }
+
+      function toggleNotes(force) {
+        var next = typeof force === "boolean" ? force : !notesDrawer.classList.contains("open");
+        notesDrawer.classList.toggle("open", next);
+        btnNotes.classList.toggle("active", next);
+      }
+
+      function toggleGrid(force) {
+        var next = typeof force === "boolean" ? force : !gridOverlay.classList.contains("open");
+        gridOverlay.classList.toggle("open", next);
+        btnGrid.classList.toggle("active", next);
+        if (next) renderThumbs();
+      }
+
+      function parseHash() {
+        var m = (window.location.hash || "").match(/^#slide-(\d+)$/);
+        if (!m) return 0;
+        var idx = parseInt(m[1], 10) - 1;
+        return isNaN(idx) ? 0 : idx;
+      }
+
+      document.getElementById("btn-prev").addEventListener("click", function () { goTo(current - 1); });
+      document.getElementById("btn-next").addEventListener("click", function () { goTo(current + 1); });
+      btnNotes.addEventListener("click", function () { toggleNotes(); });
+      btnGrid.addEventListener("click", function () { toggleGrid(); });
+      document.getElementById("close-notes").addEventListener("click", function () { toggleNotes(false); });
+      document.getElementById("close-grid").addEventListener("click", function () { toggleGrid(false); });
+      document.getElementById("btn-print").addEventListener("click", function () { window.print(); });
+
+      window.addEventListener("keydown", function (e) {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+          e.preventDefault();
+          goTo(current + 1);
+        } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+          e.preventDefault();
+          goTo(current - 1);
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          goTo(0);
+        } else if (e.key === "End") {
+          e.preventDefault();
+          goTo(total - 1);
+        } else if (e.key === "n" || e.key === "N") {
+          e.preventDefault();
+          toggleNotes();
+        } else if (e.key === "g" || e.key === "G") {
+          e.preventDefault();
+          toggleGrid();
+        } else if (e.key === "Escape") {
+          toggleNotes(false);
+          toggleGrid(false);
+        }
+      });
+
+      window.addEventListener("hashchange", function () {
+        goTo(parseHash());
+      });
+
+      goTo(parseHash());
+    })();
+  </script>
+</body>
+</html>

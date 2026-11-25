@@ -22,6 +22,7 @@ export interface PairwiseResult {
   winner: "A" | "B" | "tie";
   reason: string;
   confidence: string;
+  costUsd?: number;
 }
 
 export interface RankedModel {
@@ -40,6 +41,7 @@ export interface RankingOutput {
   mode: string;
   comparisons: number;
   judge: string;
+  judgeCostUsd?: number;
   rankings: RankedModel[];
   matchResults: PairwiseResult[];
 }

@@ -65,7 +65,7 @@ export function loadDimension(
     if (!fs.existsSync(resultsPath)) continue;
 
     const jsonFiles = fs.readdirSync(resultsPath)
-      .filter(f => f.endsWith('.json'));
+      .filter(f => f.endsWith('.json') && !f.endsWith('.transcript.json'));
 
     for (const file of jsonFiles) {
       const modelKey = file.replace('.json', '');
@@ -156,29 +156,42 @@ export function loadDimension(
  * or "anthropic-claude-haiku-4.5-openrouter".
  */
 function parseModelKey(modelKey: string): { model: string; provider: string } {
+  const stripped = modelKey.replace(
+    /-effort-(off|none|minimal|low|medium|high|xhigh|max)$/,
+    '',
+  );
   // Keep longer/more specific provider suffixes before their base providers.
   const providers = [
     'llamaswap-nothink',
     'llamabarn-nothink',
+    'mlx-nothink',
     'github-models',
     'openrouter',
     'deepinfra',
     'togetherai',
     'llamaswap',
     'llamabarn',
+    'anthropic',
     'lmstudio',
+    'cerebras',
+    'minimax',
+    'openai',
     'google',
     'ollama',
+    'mycel',
+    'groq',
+    'mlx',
+    'xai',
   ];
   for (const p of providers) {
-    if (modelKey.endsWith(`-${p}`)) {
+    if (stripped.endsWith(`-${p}`)) {
       return {
-        model: modelKey.slice(0, -(p.length + 1)),
+        model: stripped.slice(0, -(p.length + 1)),
         provider: p,
       };
     }
   }
-  return { model: modelKey, provider: 'unknown' };
+  return { model: stripped, provider: 'unknown' };
 }
 
 /**

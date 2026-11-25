@@ -40,7 +40,9 @@ export class EvaluationCache {
     promptHash: string,
     execFn: () => Promise<PiTurnResult>,
   ): Promise<{ turn: PiTurnResult; cached: boolean }> {
-    const safeModel = `${model.provider}-${model.name}${model.reasoningEffort ? `-${model.reasoningEffort}` : ""}`.replace(
+    const effort =
+      model.reasoningEffort === "none" ? "off" : model.reasoningEffort;
+    const safeModel = `${model.provider}-${model.name}${effort ? `-${effort}` : ""}`.replace(
       /[^a-zA-Z0-9._-]/g,
       "_",
     );

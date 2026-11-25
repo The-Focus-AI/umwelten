@@ -13,14 +13,19 @@ import dotenv from "dotenv";
 import { z } from "zod";
 import {
   calculateCost as piCalculateCost,
+  clampThinkingLevel,
   createModels,
   createProvider,
   envApiKeyAuth,
+  getSupportedThinkingLevels,
+  type AnthropicEffort,
   type Api as PiApi,
   type AssistantMessage as PiAssistantMessage,
   type Context as PiContext,
+  type GoogleApiThinkingLevel,
   type Message as PiMessage,
   type Model as PiModel,
+  type ModelThinkingLevel,
   type MutableModels,
   type OpenAICompletionsCompat,
   type Provider as PiProvider,
@@ -71,11 +76,23 @@ loadEnv();
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export type ThinkingEffort =
+  | "off"
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
+
 export interface ModelSpec {
   provider: string;
   name: string;
-  reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high";
+  reasoningEffort?: ThinkingEffort;
   contextLength?: number;
+  baseUrl?: string;
+  extraBody?: Record<string, unknown>;
   costs?: {
     promptTokens: number;
     completionTokens: number;
@@ -117,11 +134,13 @@ export interface PiTurnResult {
     completionTokens: number;
     cacheReadTokens: number;
     cacheWriteTokens: number;
+    reasoningTokens: number;
     total: number;
   };
   costUsd: number;
   durationMs: number;
   stopReason?: string;
+  effectiveThinkingLevel?: string;
 }
 
 export interface RunPiTurnInput {
@@ -165,6 +184,18 @@ interface LocalEndpointDefaults {
   headers?: () => Record<string, string>;
   extraBody?: Record<string, unknown>;
 }
+
+const LOCAL_PROVIDERS = new Set([
+  "ollama",
+  "lmstudio",
+  "vllm",
+  "llamaswap",
+  "llamaswap-nothink",
+  "llamabarn",
+  "llamabarn-nothink",
+  "mlx",
+  "mlx-nothink",
+]);
 
 const LOCAL_AND_EXCHANGE_ENDPOINTS: Record<string, LocalEndpointDefaults> = {
   ollama: {
@@ -210,6 +241,15 @@ const LOCAL_AND_EXCHANGE_ENDPOINTS: Record<string, LocalEndpointDefaults> = {
       ),
     extraBody: { chat_template_kwargs: { enable_thinking: false } },
   },
+  mlx: {
+    baseUrl: () =>
+      (process.env.MLX_HOST ?? "http://127.0.0.1:8000/v1").replace(/\/$/, ""),
+  },
+  "mlx-nothink": {
+    baseUrl: () =>
+      (process.env.MLX_HOST ?? "http://127.0.0.1:8000/v1").replace(/\/$/, ""),
+    extraBody: { enable_thinking: false, reasoning_effort: "none" },
+  },
   mycel: {
     baseUrl: () =>
       `${(process.env.MYCEL_URL ?? "http://localhost:7438").replace(/\/$/, "")}/v1`,
@@ -224,6 +264,102 @@ const LOCAL_AND_EXCHANGE_ENDPOINTS: Record<string, LocalEndpointDefaults> = {
     },
   },
 };
+
+const VALID_EFFORTS = new Set<ThinkingEffort>([
+  "off",
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
+
+export function canonicalizeThinkingEffort(
+  effort?: ThinkingEffort,
+): ModelThinkingLevel | undefined {
+  if (effort === undefined) return undefined;
+  return effort === "none" ? "off" : effort;
+}
+
+/**
+ * Parse `"provider:model[@effort]"` (splitting on the first `:` so Ollama tags
+ * like `"ollama:gemma4:26b@off"` round-trip cleanly).
+ */
+export function parseModelSpecString(raw: string): ModelSpec {
+  const trimmed = raw.trim();
+  const colonIdx = trimmed.indexOf(":");
+  if (colonIdx <= 0 || colonIdx === trimmed.length - 1) {
+    throw new Error(`Expected provider:model[@effort], got "${raw}"`);
+  }
+  const provider = trimmed.slice(0, colonIdx);
+  let rest = trimmed.slice(colonIdx + 1);
+  let reasoningEffort: ThinkingEffort | undefined;
+
+  const atIdx = rest.lastIndexOf("@");
+  if (atIdx !== -1) {
+    const suffix = rest.slice(atIdx + 1) as ThinkingEffort;
+    if (!VALID_EFFORTS.has(suffix)) {
+      throw new Error(
+        `Unknown thinking effort "@${suffix}" in "${raw}". Expected one of: off, none, minimal, low, medium, high, xhigh, max.`,
+      );
+    }
+    reasoningEffort = suffix === "none" ? "off" : suffix;
+    rest = rest.slice(0, atIdx);
+  }
+  if (!rest) {
+    throw new Error(`Expected model name after "${provider}:" in "${raw}"`);
+  }
+  return {
+    provider,
+    name: rest,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+  };
+}
+
+export function formatModelSpecString(spec: ModelSpec): string {
+  const effort = canonicalizeThinkingEffort(spec.reasoningEffort);
+  return `${spec.provider}:${spec.name}${effort ? `@${effort}` : ""}`;
+}
+
+export interface CatalogModelInfo {
+  found: boolean;
+  cost: {
+    promptTokens: number;
+    completionTokens: number;
+    cachedInputTokens: number;
+    cacheWriteTokens: number;
+  } | null;
+  contextWindow?: number;
+  reasoning?: boolean;
+  supportedThinkingLevels: string[];
+}
+
+export function getCatalogModelInfo(spec: ModelSpec): CatalogModelInfo {
+  const piModels = getPiModels();
+  const providerId = spec.provider === "togetherai" ? "together" : spec.provider;
+  const found = piModels.getModel(providerId, spec.name);
+  if (!found) {
+    return {
+      found: false,
+      cost: null,
+      supportedThinkingLevels: [],
+    };
+  }
+  return {
+    found: true,
+    cost: {
+      promptTokens: found.cost.input,
+      completionTokens: found.cost.output,
+      cachedInputTokens: found.cost.cacheRead,
+      cacheWriteTokens: found.cost.cacheWrite,
+    },
+    contextWindow: found.contextWindow,
+    reasoning: found.reasoning,
+    supportedThinkingLevels: getSupportedThinkingLevels(found),
+  };
+}
 
 export function loadPiModelsJsonInto(
   models: MutableModels,
@@ -444,12 +580,66 @@ export interface ResolvedPiInvocationTarget {
   extraBody?: Record<string, unknown>;
 }
 
+function normalizeOpenAiBaseUrl(raw: string): string {
+  const trimmed = raw.replace(/\/$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
+function mergePayloadObjects(
+  base: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base, ...patch };
+  if (
+    base.chat_template_kwargs &&
+    patch.chat_template_kwargs &&
+    typeof base.chat_template_kwargs === "object" &&
+    typeof patch.chat_template_kwargs === "object" &&
+    !Array.isArray(base.chat_template_kwargs) &&
+    !Array.isArray(patch.chat_template_kwargs)
+  ) {
+    merged.chat_template_kwargs = {
+      ...(base.chat_template_kwargs as Record<string, unknown>),
+      ...(patch.chat_template_kwargs as Record<string, unknown>),
+    };
+  }
+  return merged;
+}
+
 export async function resolvePiModel(
   spec: ModelSpec,
 ): Promise<ResolvedPiInvocationTarget> {
   loadEnv();
   const piModels = getPiModels();
   const providerId = spec.provider === "togetherai" ? "together" : spec.provider;
+  const endpointDefaults = LOCAL_AND_EXCHANGE_ENDPOINTS[providerId];
+
+  if (spec.baseUrl) {
+    if (providerId !== "mycel") ensureLocalFetchDispatcher();
+    const baseUrl = normalizeOpenAiBaseUrl(spec.baseUrl);
+    const mergedExtraBody =
+      endpointDefaults?.extraBody || spec.extraBody
+        ? mergePayloadObjects(endpointDefaults?.extraBody ?? {}, spec.extraBody ?? {})
+        : undefined;
+    const cost = spec.costs
+      ? {
+          input: spec.costs.promptTokens,
+          output: spec.costs.completionTokens,
+          cacheRead: spec.costs.cachedInputTokens ?? spec.costs.promptTokens,
+          cacheWrite: spec.costs.cacheWriteTokens ?? 0,
+        }
+      : DEFAULT_COST;
+    return createAdHocTarget({
+      providerId: spec.provider,
+      modelId: spec.name,
+      baseUrl,
+      apiKey: endpointDefaults?.apiKey?.(),
+      api: "openai-completions",
+      headers: endpointDefaults?.headers?.(),
+      extraBody: mergedExtraBody,
+      cost,
+    });
+  }
 
   const piProvider = piModels.getProvider(providerId);
   if (piProvider) {
@@ -457,8 +647,20 @@ export async function resolvePiModel(
     if (!authCheck) {
       throw new Error(`No credentials configured for provider "${providerId}"`);
     }
+    if (LOCAL_PROVIDERS.has(providerId)) ensureLocalFetchDispatcher();
+    const mergedExtraBody =
+      endpointDefaults?.extraBody || spec.extraBody
+        ? mergePayloadObjects(endpointDefaults?.extraBody ?? {}, spec.extraBody ?? {})
+        : undefined;
+
     const exact = piModels.getModel(providerId, spec.name);
-    if (exact) return { models: piModels, piModel: exact };
+    if (exact) {
+      return {
+        models: piModels,
+        piModel: exact,
+        ...(mergedExtraBody ? { extraBody: mergedExtraBody } : {}),
+      };
+    }
 
     if (VARIANT_SUFFIX_RE.test(spec.name)) {
       const base = piModels.getModel(
@@ -469,6 +671,7 @@ export async function resolvePiModel(
         return {
           models: piModels,
           piModel: { ...base, id: spec.name, name: spec.name },
+          ...(mergedExtraBody ? { extraBody: mergedExtraBody } : {}),
         };
       }
     }
@@ -481,6 +684,14 @@ export async function resolvePiModel(
       piProvider.baseUrl ??
       ""
     ).replace(/\/$/, "");
+    const cost = spec.costs
+      ? {
+          input: spec.costs.promptTokens,
+          output: spec.costs.completionTokens,
+          cacheRead: spec.costs.cachedInputTokens ?? spec.costs.promptTokens,
+          cacheWrite: spec.costs.cacheWriteTokens ?? 0,
+        }
+      : DEFAULT_COST;
     return createAdHocTarget({
       providerId,
       modelId: spec.name,
@@ -495,6 +706,8 @@ export async function resolvePiModel(
             ? "anthropic-messages"
             : "openai-completions",
       headers: resolvedAuth?.auth.headers as Record<string, string> | undefined,
+      extraBody: mergedExtraBody,
+      cost,
     });
   }
 
@@ -505,6 +718,10 @@ export async function resolvePiModel(
       throw new Error("MYCEL_API_KEY or MYCEL_URL is required for Mycel calls");
     }
     const headers = endpoint.headers?.();
+    const mergedExtraBody =
+      endpoint.extraBody || spec.extraBody
+        ? mergePayloadObjects(endpoint.extraBody ?? {}, spec.extraBody ?? {})
+        : undefined;
     let cost = DEFAULT_COST;
     if (spec.costs) {
       cost = {
@@ -540,7 +757,7 @@ export async function resolvePiModel(
       apiKey: endpoint.apiKey?.(),
       api: "openai-completions",
       headers,
-      extraBody: endpoint.extraBody,
+      extraBody: mergedExtraBody,
       cost,
     });
   }
@@ -576,6 +793,9 @@ function createAdHocTarget(input: {
           compat: {
             supportsUsageInStreaming: true,
             maxTokensField: "max_tokens" as const,
+            ...(input.providerId === "openrouter"
+              ? { thinkingFormat: "openrouter" as const }
+              : {}),
           },
         }
       : {}),
@@ -672,9 +892,265 @@ function splitThinkTags(
   };
 }
 
+export interface ThinkingStreamResolution {
+  streamOptionsPatch: Record<string, unknown>;
+  extraPayloadPatch: Record<string, unknown>;
+  effectiveEffort: string;
+}
+
+const THINKING_BUDGETS: Record<Exclude<ModelThinkingLevel, "off">, number> = {
+  minimal: 1024,
+  low: 2048,
+  medium: 8192,
+  high: 16384,
+  xhigh: 16384,
+  max: 16384,
+};
+
+function isLocalInvocationTarget(
+  piModel: PiModel<PiApi>,
+  providerId: string,
+): boolean {
+  if (LOCAL_PROVIDERS.has(providerId)) return true;
+  const url = piModel.baseUrl ?? "";
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(
+    url,
+  );
+}
+
+function usesGoogleDiscreteThinkingLevel(modelId: string): boolean {
+  const id = modelId.toLowerCase();
+  return (
+    /gemini-3(?:\.\d+)?-(?:pro|flash)/.test(id) ||
+    /gemini-(?:[4-9]|[1-9]\d)/.test(id) ||
+    id === "gemini-flash-latest" ||
+    id === "gemini-flash-lite-latest" ||
+    /gemma-?4/.test(id)
+  );
+}
+
+/**
+ * Translate a provider-neutral `ThinkingEffort` into raw `models.stream()`
+ * options + OpenAI-compatible payload knobs without ever injecting `maxTokens`.
+ */
+export function resolveThinkingStreamOptions(
+  piModel: PiModel<PiApi>,
+  providerId: string,
+  requested?: ThinkingEffort,
+): ThinkingStreamResolution {
+  const canonical = canonicalizeThinkingEffort(requested);
+  if (canonical === undefined) {
+    return {
+      streamOptionsPatch: {},
+      extraPayloadPatch: {},
+      effectiveEffort: "default",
+    };
+  }
+
+  const isLocal = isLocalInvocationTarget(piModel, providerId);
+
+  const resolveOff = (): ThinkingStreamResolution => {
+    if (piModel.api === "google-generative-ai") {
+      return {
+        streamOptionsPatch: { thinking: { enabled: false } },
+        extraPayloadPatch: {},
+        effectiveEffort: clampThinkingLevel(piModel, "off"),
+      };
+    }
+    if (piModel.api === "anthropic-messages") {
+      return {
+        streamOptionsPatch: { thinkingEnabled: false },
+        extraPayloadPatch: {},
+        effectiveEffort: "off",
+      };
+    }
+    if (
+      piModel.api === "openai-responses" ||
+      piModel.api === "azure-openai-responses" ||
+      piModel.api === "openai-codex-responses"
+    ) {
+      return {
+        streamOptionsPatch: {},
+        extraPayloadPatch: {},
+        effectiveEffort: "off",
+      };
+    }
+    if (piModel.api === "openai-completions") {
+      if (providerId === "ollama") {
+        return {
+          streamOptionsPatch: {},
+          extraPayloadPatch: { think: false, reasoning_effort: "none" },
+          effectiveEffort: "off",
+        };
+      }
+      if (providerId === "mlx" || providerId === "mlx-nothink") {
+        return {
+          streamOptionsPatch: {},
+          extraPayloadPatch: { enable_thinking: false, reasoning_effort: "none" },
+          effectiveEffort: "off",
+        };
+      }
+      if (isLocal) {
+        return {
+          streamOptionsPatch: {},
+          extraPayloadPatch: { chat_template_kwargs: { enable_thinking: false } },
+          effectiveEffort: "off",
+        };
+      }
+      return {
+        streamOptionsPatch: {},
+        extraPayloadPatch: {},
+        effectiveEffort: clampThinkingLevel(piModel, "off"),
+      };
+    }
+    return {
+      streamOptionsPatch: {},
+      extraPayloadPatch: {},
+      effectiveEffort: clampThinkingLevel(piModel, "off"),
+    };
+  };
+
+  if (canonical === "off") {
+    return resolveOff();
+  }
+
+  const clamped = isLocal ? canonical : clampThinkingLevel(piModel, canonical);
+  if (clamped === "off") {
+    return resolveOff();
+  }
+
+  if (piModel.api === "google-generative-ai") {
+    if (usesGoogleDiscreteThinkingLevel(piModel.id)) {
+      const levelMap: Record<
+        Exclude<ModelThinkingLevel, "off">,
+        GoogleApiThinkingLevel
+      > = {
+        minimal: "MINIMAL",
+        low: "LOW",
+        medium: "MEDIUM",
+        high: "HIGH",
+        xhigh: "HIGH",
+        max: "HIGH",
+      };
+      const level = levelMap[clamped];
+      return {
+        streamOptionsPatch: { thinking: { enabled: true, level } },
+        extraPayloadPatch: {},
+        effectiveEffort: level.toLowerCase(),
+      };
+    }
+    return {
+      streamOptionsPatch: {
+        thinking: { enabled: true, budgetTokens: THINKING_BUDGETS[clamped] },
+      },
+      extraPayloadPatch: {},
+      effectiveEffort: clamped,
+    };
+  }
+
+  if (piModel.api === "anthropic-messages") {
+    const forceAdaptive =
+      (piModel.compat as { forceAdaptiveThinking?: boolean } | undefined)
+        ?.forceAdaptiveThinking === true;
+    if (forceAdaptive) {
+      const mapped = piModel.thinkingLevelMap?.[clamped];
+      const effort = (
+        typeof mapped === "string"
+          ? mapped
+          : clamped === "minimal"
+            ? "low"
+            : clamped
+      ) as AnthropicEffort;
+      return {
+        streamOptionsPatch: { thinkingEnabled: true, effort },
+        extraPayloadPatch: {},
+        effectiveEffort: effort,
+      };
+    }
+    return {
+      streamOptionsPatch: {
+        thinkingEnabled: true,
+        thinkingBudgetTokens: THINKING_BUDGETS[clamped],
+      },
+      extraPayloadPatch: {},
+      effectiveEffort: clamped,
+    };
+  }
+
+  if (
+    piModel.api === "openai-responses" ||
+    piModel.api === "azure-openai-responses" ||
+    piModel.api === "openai-codex-responses"
+  ) {
+    return {
+      streamOptionsPatch: { reasoningEffort: clamped },
+      extraPayloadPatch: {},
+      effectiveEffort: clamped,
+    };
+  }
+
+  if (piModel.api === "openai-completions") {
+    if (providerId === "ollama") {
+      return {
+        streamOptionsPatch: { reasoningEffort: clamped },
+        extraPayloadPatch: { think: true, reasoning_effort: clamped },
+        effectiveEffort: clamped,
+      };
+    }
+    if (providerId === "mlx" || providerId === "mlx-nothink") {
+      return {
+        streamOptionsPatch: { reasoningEffort: clamped },
+        extraPayloadPatch: { enable_thinking: true, reasoning_effort: clamped },
+        effectiveEffort: clamped,
+      };
+    }
+    if (isLocal) {
+      return {
+        streamOptionsPatch: { reasoningEffort: clamped },
+        extraPayloadPatch: { chat_template_kwargs: { enable_thinking: true } },
+        effectiveEffort: clamped,
+      };
+    }
+    return {
+      streamOptionsPatch: { reasoningEffort: clamped },
+      extraPayloadPatch: {},
+      effectiveEffort: clamped,
+    };
+  }
+
+  return {
+    streamOptionsPatch: { reasoningEffort: clamped },
+    extraPayloadPatch: {},
+    effectiveEffort: clamped,
+  };
+}
+
+/**
+ * Preserve provider-reported cost (e.g. OpenRouter `totalFromProvider: true`)
+ * instead of clobbering it with `calculateCost()` static catalog rates.
+ */
+export function extractStepCostUsd(
+  piModel: PiModel<PiApi>,
+  usage: PiAssistantMessage["usage"],
+): number {
+  const cost = usage.cost as
+    | { total?: number; totalFromProvider?: boolean }
+    | undefined;
+  if (cost?.totalFromProvider === true && Number.isFinite(cost.total)) {
+    return cost.total as number;
+  }
+  const computed = piCalculateCost(piModel, usage);
+  return computed?.total ?? cost?.total ?? 0;
+}
+
 export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
   const started = Date.now();
   const target = await resolvePiModel(input.model);
+  const thinking = resolveThinkingStreamOptions(
+    target.piModel,
+    input.model.provider,
+    input.model.reasoningEffort,
+  );
   const piTools = toPiTools(input.tools);
   const maxSteps = piTools ? (input.maxToolSteps ?? 12) : 1;
 
@@ -689,6 +1165,7 @@ export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
   let completionTokens = 0;
   let cacheReadTokens = 0;
   let cacheWriteTokens = 0;
+  let reasoningTokens = 0;
   let costUsd = 0;
   let finalText = "";
   let finalReasoning: string | undefined;
@@ -710,12 +1187,10 @@ export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
       ...(piTools ? { tools: piTools } : {}),
     };
 
-    const extraPayload: Record<string, unknown> = {
-      ...(target.extraBody ?? {}),
-    };
-    if (input.model.provider === "ollama" && input.model.reasoningEffort) {
-      extraPayload.think = input.model.reasoningEffort !== "none";
-    }
+    const extraPayload = mergePayloadObjects(
+      target.extraBody ?? {},
+      thinking.extraPayloadPatch,
+    );
 
     const streamOpts: PiStreamOptions & Record<string, unknown> = {
       ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
@@ -723,16 +1198,15 @@ export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
       ...(input.maxTokens !== undefined ? { maxTokens: input.maxTokens } : {}),
       ...(input.signal ? { signal: input.signal } : {}),
       ...(target.headers ? { headers: target.headers } : {}),
-      ...(input.model.reasoningEffort &&
-      input.model.reasoningEffort !== "none" &&
-      input.model.provider !== "ollama"
-        ? { reasoningEffort: input.model.reasoningEffort }
-        : {}),
+      ...thinking.streamOptionsPatch,
       ...(Object.keys(extraPayload).length > 0
         ? {
             onPayload: (payload: unknown) =>
               payload && typeof payload === "object" && !Array.isArray(payload)
-                ? { ...extraPayload, ...(payload as Record<string, unknown>) }
+                ? mergePayloadObjects(
+                    payload as Record<string, unknown>,
+                    extraPayload,
+                  )
                 : undefined,
           }
         : {}),
@@ -764,8 +1238,7 @@ export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
     completionTokens += assistantMsg.usage.output ?? 0;
     cacheReadTokens += assistantMsg.usage.cacheRead ?? 0;
     cacheWriteTokens += assistantMsg.usage.cacheWrite ?? 0;
-    const computedCost = piCalculateCost(target.piModel, assistantMsg.usage);
-    costUsd += computedCost?.total ?? assistantMsg.usage.cost?.total ?? 0;
+    costUsd += extractStepCostUsd(target.piModel, assistantMsg.usage);
 
     messages.push(assistantMsg);
 
@@ -781,6 +1254,14 @@ export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
       input.model.provider === "google"
         ? { content: rawText, reasoning: rawThinking || undefined }
         : splitThinkTags(rawText, rawThinking || undefined);
+
+    const rawUsageReasoning = (assistantMsg.usage as { reasoning?: number }).reasoning;
+    reasoningTokens +=
+      rawUsageReasoning !== undefined
+        ? rawUsageReasoning
+        : split.reasoning
+          ? Math.ceil(split.reasoning.length / 4)
+          : 0;
 
     finalText = split.content;
     if (split.reasoning) finalReasoning = split.reasoning;
@@ -871,11 +1352,13 @@ export async function runPiTurn(input: RunPiTurnInput): Promise<PiTurnResult> {
       completionTokens,
       cacheReadTokens,
       cacheWriteTokens,
+      reasoningTokens,
       total: promptTokens + completionTokens + cacheReadTokens + cacheWriteTokens,
     },
     costUsd,
     durationMs: Date.now() - started,
     stopReason,
+    effectiveThinkingLevel: thinking.effectiveEffort,
   };
 }
 
@@ -959,7 +1442,9 @@ export async function runPiStructuredObject<T>(input: {
     capturedArgs !== undefined ? capturedArgs : extractFirstJson(rawText);
   const object = input.schema.parse(candidate);
   const serialized = JSON.stringify(object);
-  const computedCost = piCalculateCost(target.piModel, assistantMsg.usage);
+  const stepCostUsd = extractStepCostUsd(target.piModel, assistantMsg.usage);
+  const reasoningTokens =
+    (assistantMsg.usage as { reasoning?: number }).reasoning ?? 0;
 
   return {
     object,
@@ -973,9 +1458,10 @@ export async function runPiStructuredObject<T>(input: {
         completionTokens: assistantMsg.usage.output ?? 0,
         cacheReadTokens: assistantMsg.usage.cacheRead ?? 0,
         cacheWriteTokens: assistantMsg.usage.cacheWrite ?? 0,
+        reasoningTokens,
         total: assistantMsg.usage.totalTokens ?? 0,
       },
-      costUsd: computedCost?.total ?? assistantMsg.usage.cost?.total ?? 0,
+      costUsd: stepCostUsd,
       durationMs: Date.now() - started,
       stopReason: assistantMsg.stopReason,
     },

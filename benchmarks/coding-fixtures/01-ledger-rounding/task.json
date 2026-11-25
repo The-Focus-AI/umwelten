@@ -1,0 +1,13 @@
+{
+  "id": "01-ledger-rounding",
+  "title": "Multi-Currency Ledger Rounding & Credit Split",
+  "difficulty": "easy",
+  "language": "typescript",
+  "prompt": "Fix the accounting and rounding bugs in this multi-currency ledger library.\n\nReported issues:\n1. Splitting amounts (`splitByWeights`) loses or misallocates remainder minor units, and negative credit-note splits can corrupt signs or fail to sum back to the exact input total.\n2. Zero-decimal currencies (`JPY`, `KRW`, `VND`) and three-decimal currencies (`BHD`, `KWD`, `OMR`) are incorrectly scaled as 2-decimal currencies.\n3. Tax calculation and invoice line/discount/tax math suffer from floating-point drift and asymmetric rounding on negative credit notes (`applyTax(-X, r)` should equal `-applyTax(X, r)` with half-away-from-zero rounding on exact ties).\n4. Formatting and parsing minor units must respect the currency's decimal places and never produce `\"-0\"` / `\"-0.00\"`.\n\nRun `node --test test/public.test.ts` to check the visible tests, then inspect `src/` carefully for every edge case.",
+  "visibleTestCommand": "node --test test/public.test.ts",
+  "hiddenTestCommand": "node --test test/public.test.ts test/hidden.test.ts",
+  "protectedPaths": ["test/public.test.ts"],
+  "maxTurns": 15,
+  "timeoutMs": 180000,
+  "tags": ["arithmetic", "currency", "edge-cases"]
+}

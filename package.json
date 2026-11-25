@@ -15,6 +15,12 @@
     "specs:bundle": "node --experimental-strip-types .agents/skills/spec-refactor/scripts/check-specs.ts --root . --bundle",
     "site:extract-archives": "tsx scripts/extract-historical-reports.ts",
     "site:bench": "tsx examples/model-watch/run.ts",
+    "bench:code": "tsx examples/coding-bench/run.ts",
+    "bench:interactive": "tsx examples/coding-bench/interactive.ts",
+    "bench:ui": "tsx scripts/bench-ui-server.ts",
+    "bench:models": "tsx scripts/bench-models.ts",
+    "demo:multi-a2a": "tsx examples/multi-a2a/e2e.ts",
+    "demo:client-env": "tsx examples/client-env/run.ts",
     "site:build": "tsx scripts/build-site.ts",
     "typecheck": "for d in packages/*/tsconfig.json examples/tsconfig.json; do tsc --noEmit -p \"$d\" || exit 1; done"
   },

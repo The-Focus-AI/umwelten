@@ -1,0 +1,13 @@
+{
+  "id": "04-reactive-dag-engine",
+  "title": "Glitch-Free Reactive DAG Engine & Dynamic Unsubscription",
+  "difficulty": "hard",
+  "language": "typescript",
+  "prompt": "Fix the reactive dependency tracking, propagation ordering, and cycle recovery bugs in this incremental computation engine.\n\nReported issues:\n1. Diamond glitching: when `A` updates and `D` depends on both `B(A)` and `C(A)`, `D` recomputes multiple times per update and its subscribers observe inconsistent intermediate `(new B, old C)` states — both on direct `set()` and inside `batch()`.\n2. Stale dependency leaks: when a conditional `computed` switches branches (e.g. `flag.get() ? a.get() : b.get()`), changing the previously-read cell still triggers spurious recomputations of the computed cell and can trigger false cycle errors.\n3. Non-recoverable cycle errors: if updating a cell introduces a dependency cycle, throwing a cycle error leaves internal node state corrupted so catching the error and reverting the condition fails to recover clean evaluation.\n\nInspect the codebase and run `node --test test/public.test.ts` to verify baseline behavior.",
+  "visibleTestCommand": "node --test test/public.test.ts",
+  "hiddenTestCommand": "node --test test/public.test.ts test/hidden.test.ts",
+  "protectedPaths": ["test/public.test.ts"],
+  "maxTurns": 25,
+  "timeoutMs": 300000,
+  "tags": ["dag", "reactive", "topological-sort", "cycles"]
+}

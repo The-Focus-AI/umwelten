@@ -3,7 +3,7 @@ kind: spec
 id: mycel-and-suppliers
 title: Mycel Token Exchange and Dial-In Supplier Agent
 layer: exchange
-version: 1
+version: 2
 uses:
   - standards/per-speaker-agent-identity@1
 ---
@@ -22,6 +22,7 @@ Operate a closed-membership token Exchange (`@umwelten/mycel`) that buys inferen
 
 - **[supplier-dial-in-liveness]**: `@umwelten/supplier` probes local serving paths (`chat`, `streaming`, `tool-calling`, `structured-output`, multi-concurrency `headroom`) and holds an outbound `WSS /suppliers/connect` connection whose presence defines availability and whose disconnect immediately withdraws the machine's Offers.
 - **[mid-stream-balance-enforcement]**: When an End User or Application exhausts its prepaid balance or postpaid credit limit mid-generation, the Exchange cancels the upstream Supplier request and records prompt plus relayed completion charges accurately.
+- **[client-local-mycel-llm-proxy]**: Each Client Environment deploys a dedicated client-local Mycel Exchange instance inside its trusted `perimeter-gateway` as the LLM proxy, micro-dollar meter, and wire-level trace source for isolated `DurableHabitat` runtimes.
 
 ## Implementation Notes
 
@@ -30,3 +31,4 @@ Operate a closed-membership token Exchange (`@umwelten/mycel`) that buys inferen
 ## Verification
 
 1. **Exchange, Store Conformance & Supplier Suite**: Run `pnpm exec vitest run packages/mycel/ packages/supplier/` and `node packages/mycel/dist/mycel.js --help` after `pnpm -r build`.
+2. **Client-Local LLM Proxy & Tracing Drill**: Run `pnpm run demo:client-env -- --smoke`.

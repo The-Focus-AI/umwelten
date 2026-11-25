@@ -21,8 +21,13 @@ import {
   type Model,
   type TranscriptContext,
 } from "@earendil-works/pi-ai";
-import { registerPiProvider, type ModelSpec } from "@umwelten/pi";
+import {
+  getCatalogModelInfo,
+  registerPiProvider,
+  type ModelSpec,
+} from "@umwelten/pi";
 import { DEFAULT_FAST_JUDGE, FAST_MODEL_ROSTER } from "./fast-models.js";
+import { loadModelMatrix, selectMatrixModels } from "./model-matrix.js";
 
 const RAIL_FENCE_JS = `export function encode(text, rails) {
   if (rails <= 1 || rails >= text.length) return text;
@@ -155,12 +160,16 @@ function isTinyTier(modelId: string): boolean {
 }
 
 function isMidLiteTier(modelId: string): boolean {
-  return /3\.5-flash-lite|glm-5\.3-flash|minimax-m3\.1-flash|haiku-5-5|gpt-6-luna|gemma-4-26b/i.test(
+  return /3\.5-flash-lite|glm-5\.3-flash|minimax-m3\.1-flash|haiku-5-5|gpt-6-luna|muse-ember|inkling-2-mini|gemma-4-26b|gemma4:26b|gemma4:12b|clef-flash/i.test(
     modelId,
   );
 }
 
-function buildMockReply(context: TranscriptContext, model: Model<string>): AssistantMessage {
+function buildMockReply(
+  context: TranscriptContext,
+  model: Model<string>,
+  streamOpts?: Record<string, unknown>,
+): AssistantMessage {
   const ctxRec = context as unknown as {
     systemPrompt?: unknown;
     tools?: Array<{ name: string }>;
@@ -297,14 +306,23 @@ function buildMockReply(context: TranscriptContext, model: Model<string>): Assis
   }
 
   // ── 3. Reasoning Puzzles ──────────────────────────────────────────────────
+  const requestedEffort =
+    typeof streamOpts?.reasoningEffort === "string"
+      ? streamOpts.reasoningEffort
+      : undefined;
+
   if (promptText.includes("car wash is 50 meters away")) {
-    if (id === "gemma-4-e2b") {
+    if (/e2b/i.test(id)) {
       return fauxAssistantMessage(
         "50 meters is less than a one-minute stroll — you should walk and save gas.",
       );
     }
     return fauxAssistantMessage([
-      fauxThinking("Wait: the goal is to wash the car, so the car has to arrive at the car wash."),
+      fauxThinking(
+        requestedEffort === "high" || requestedEffort === "xhigh" || requestedEffort === "max"
+          ? "Wait: the goal is to wash the car itself, not merely visit the car wash on foot. Without driving the car there, no washing can occur."
+          : "Wait: the goal is to wash the car, so the car has to arrive at the car wash.",
+      ),
       {
         type: "text",
         text: "Drive. Even though 50 meters is short, the car itself must be at the car wash to get washed.",
@@ -330,9 +348,17 @@ function buildMockReply(context: TranscriptContext, model: Model<string>): Assis
         "Split into three groups of 4, weigh 4 vs 4, then narrow down the suspect coin in two more weighings.",
       );
     }
-    return fauxAssistantMessage(
-      "Divide into A(1-4), B(5-8), C(9-12). Weigh A vs B. If balanced, weigh C1,C2,C3 vs A1,A2,A3 to isolate C4 or tilt direction, then weigh C1 vs C2. If A > B, weigh A1,A2,B1 vs A3,B2,C1 (rotating suspect heavy/light coins); the three outcomes isolate <=3 candidates resolved in weighing 3.",
-    );
+    const answerText =
+      "Divide into A(1-4), B(5-8), C(9-12). Weigh A vs B. If balanced, weigh C1,C2,C3 vs A1,A2,A3 to isolate C4 or tilt direction, then weigh C1 vs C2. If A > B, weigh A1,A2,B1 vs A3,B2,C1 (rotating suspect heavy/light coins); the three outcomes isolate <=3 candidates resolved in weighing 3.";
+    if (requestedEffort) {
+      return fauxAssistantMessage([
+        fauxThinking(
+          `Checking 3-weighing decision tree at reasoningEffort=${requestedEffort}: 3^3 = 27 outcomes >= 24 coin states.`,
+        ),
+        { type: "text", text: answerText },
+      ]);
+    }
+    return fauxAssistantMessage(answerText);
   }
 
   // ── 4. Knowledge JSON Tasks ───────────────────────────────────────────────
@@ -358,14 +384,20 @@ function buildMockReply(context: TranscriptContext, model: Model<string>): Assis
   // ── 5. Instruction Compliance Tasks ───────────────────────────────────────
   if (promptText.includes("EXACTLY 12 words")) {
     return fauxAssistantMessage(
-      tiny || id.includes("gpt-oss-20b") || id === "gemma-4-26b"
+      tiny ||
+        id.includes("gpt-oss-20b") ||
+        id.includes("gpt-oss:latest") ||
+        id.includes("gemma-4-26b") ||
+        id.includes("gemma4:26b")
         ? "Cold dark waves roll endlessly toward the quiet rocky shore at dawn today." // 13 words
         : "Deep blue waves crash softly against ancient weathered cliffs beneath silver clouds.", // 12 words
     );
   }
   if (promptText.includes('"skills": array of 3 strings')) {
     const raw = '{"name":"Ada","age":29,"skills":["rust","sql","math"],"active":true}';
-    return fauxAssistantMessage(id === "nemotron-3-nano-4b" ? "```json\n" + raw + "\n```" : raw);
+    return fauxAssistantMessage(
+      id.includes("nemotron-3-nano-4b") ? "```json\n" + raw + "\n```" : raw,
+    );
   }
   if (promptText.includes('Do NOT use: "beautiful"')) {
     return fauxAssistantMessage(
@@ -409,14 +441,23 @@ function buildMockReply(context: TranscriptContext, model: Model<string>): Assis
     return fauxAssistantMessage(BUSINESS_DAYS_JS);
   }
   if (promptText.includes("evaluateRational")) {
-    return fauxAssistantMessage(
+    const code =
       tiny ||
-        model.provider === "llamaswap" ||
-        id.includes("deepseek-v4.1-flash") ||
-        id.includes("glm-5.3-flash")
+      id.includes("e4b") ||
+      id.includes("clef-flash") ||
+      id.includes("deepseek-v4.1-flash") ||
+      id.includes("glm-5.3-flash")
         ? RATIONAL_BUGGY_UNARY_JS
-        : RATIONAL_EVAL_JS,
-    );
+        : RATIONAL_EVAL_JS;
+    if (requestedEffort) {
+      return fauxAssistantMessage([
+        fauxThinking(
+          `Checking operator precedence (^ right-associative, higher than unary -).`,
+        ),
+        { type: "text", text: code },
+      ]);
+    }
+    return fauxAssistantMessage(code);
   }
 
   void last;
@@ -445,8 +486,14 @@ export function setupExampleRuntime(
 
   if (!mockInstalled) {
     mockInstalled = true;
+    const manifest = loadModelMatrix();
+    const allMatrixEntries = selectMatrixModels(manifest, {
+      groups: Object.keys(manifest.groups),
+      includeDisabledEntries: true,
+    });
     const allSpecs: ModelSpec[] = [
       ...FAST_MODEL_ROSTER,
+      ...allMatrixEntries,
       DEFAULT_FAST_JUDGE,
       { provider: "openrouter", name: "anthropic/claude-haiku-4.5", costs: { promptTokens: 1, completionTokens: 5 } },
       ...models,
@@ -466,7 +513,11 @@ export function setupExampleRuntime(
           const rosterMatch = FAST_MODEL_ROSTER.find(
             (r) => r.provider === s.provider && r.name === s.name,
           );
-          const c = s.costs ?? rosterMatch?.costs ?? { promptTokens: 0.25, completionTokens: 1.0 };
+          const catalogCost = getCatalogModelInfo(s).cost;
+          const c =
+            s.costs ??
+            rosterMatch?.costs ??
+            catalogCost ?? { promptTokens: 0.25, completionTokens: 1.0 };
           return {
             id: s.name,
             name: s.name,
@@ -474,16 +525,20 @@ export function setupExampleRuntime(
             cost: {
               input: c.promptTokens,
               output: c.completionTokens,
-              cacheRead: c.promptTokens,
-              cacheWrite: 0,
+              cacheRead: c.cachedInputTokens ?? c.promptTokens,
+              cacheWrite: c.cacheWriteTokens ?? 0,
             },
           };
         }),
       });
 
-      const step: FauxResponseStep = (ctx, _streamOpts, _state, reqModel) => {
+      const step: FauxResponseStep = (ctx, streamOpts, _state, reqModel) => {
         handle.appendResponses([step]);
-        return buildMockReply(ctx, reqModel);
+        return buildMockReply(
+          ctx,
+          reqModel,
+          streamOpts as unknown as Record<string, unknown>,
+        );
       };
       handle.setResponses([step]);
       registerPiProvider(handle.provider);

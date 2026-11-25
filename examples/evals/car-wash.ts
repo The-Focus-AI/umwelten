@@ -22,8 +22,8 @@ import { setupExampleRuntime } from "../_shared/mock-runtime.js";
 
 const MODELS = [
   ...QUICK_FAST_MODELS,
-  FAST_MODEL_ROSTER.find((m) => m.name === "gemma-4-e2b")!,
-];
+  FAST_MODEL_ROSTER.find((m) => m.name === "gemma4:e2b"),
+].filter((m): m is NonNullable<typeof m> => Boolean(m));
 
 setupExampleRuntime(FAST_MODEL_ROSTER);
 
@@ -51,13 +51,14 @@ const suite = new EvalSuite({
             .number()
             .min(1)
             .max(5)
-            .describe("5=immediately gets it, 2=right answer wrong reason, 1=missed"),
+            .describe("5=immediately gets that the car must be at the wash, 2=right answer wrong reason, 1=missed"),
           explanation: z.string(),
         }),
         instructions: [
           "The ONLY correct answer is DRIVE — the car must be at the car wash to be washed.",
-          'A model saying "drive" for convenience/laziness has the wrong reason (score 2).',
-          'A model saying "walk" completely fails (score 1).',
+          "Score 5: recommends driving AND explains that the car itself must physically be at the car wash to be washed.",
+          'Score 2: recommends "drive" only for convenience/laziness without noting the car must be washed there.',
+          'Score 1: recommends "walk" or misses that the car must go to the wash.',
         ],
       },
     },
