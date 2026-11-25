@@ -1,0 +1,13 @@
+{
+  "id": "03-wal-kv-recovery",
+  "title": "WAL Key-Value Store UTF-8 Framing & Crash Compaction",
+  "difficulty": "medium",
+  "language": "typescript",
+  "prompt": "Fix the durability, encoding, and compaction bugs in this Write-Ahead Log (WAL) backed key-value store.\n\nReported issues:\n1. Storing keys or values with multi-byte UTF-8 characters (accented letters, CJK, emoji) corrupts WAL record framing and fails CRC checks upon reopen.\n2. Replaying a WAL segment with a torn/truncated trailing write or corrupt trailing CRC crashes `open()` instead of recovering every valid prefix record and truncating the corrupted tail so new writes append cleanly.\n3. Partial compaction (`compact({ keepOldest })` where older segments remain uncompacted) drops tombstone records too early, resurrecting deleted keys after reopening the store.\n\nInspect the codebase and run `node --test test/public.test.ts` as you work.",
+  "visibleTestCommand": "node --test test/public.test.ts",
+  "hiddenTestCommand": "node --test test/public.test.ts test/hidden.test.ts",
+  "protectedPaths": ["test/public.test.ts"],
+  "maxTurns": 20,
+  "timeoutMs": 180000,
+  "tags": ["storage", "wal", "utf8", "compaction"]
+}

@@ -14,8 +14,8 @@ import { setupExampleRuntime } from "../_shared/mock-runtime.js";
 
 const MODELS = [
   ...QUICK_FAST_MODELS,
-  FAST_MODEL_ROSTER.find((m) => m.name === "nemotron-3-nano-4b")!,
-];
+  FAST_MODEL_ROSTER.find((m) => m.name === "inkling-2-mini:latest"),
+].filter((m): m is NonNullable<typeof m> => Boolean(m));
 
 setupExampleRuntime(FAST_MODEL_ROSTER);
 

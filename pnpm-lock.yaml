@@ -61,7 +61,7 @@ importers:
         version: 3.9.6
       tsup:
         specifier: ^8.5.1
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -70,7 +70,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1))
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -107,13 +107,28 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/evaluation:
     dependencies:
+      '@earendil-works/chord':
+        specifier: 1.6.0
+        version: 1.6.0(esbuild@0.27.7)(ws@8.21.3)
       '@earendil-works/pi-ai':
         specifier: 1.6.0
         version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-codemode':
+        specifier: 1.6.0
+        version: 1.6.0
+      '@earendil-works/pi-durable':
+        specifier: 1.6.0
+        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-schema':
+        specifier: 1.6.0
+        version: 1.6.0
+      '@umwelten/habitat':
+        specifier: workspace:*
+        version: link:../habitat
       '@umwelten/pi':
         specifier: workspace:*
         version: link:../pi
@@ -129,7 +144,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/habitat:
     dependencies:
@@ -159,7 +174,7 @@ importers:
         version: 1.6.0
       '@leocavalcante/pi-a2a':
         specifier: 0.5.1
-        version: 0.5.1(@earendil-works/chord@1.6.0(esbuild@0.27.7)(ws@8.21.3))(@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)(typebox@1.3.27)
+        version: 0.5.1(@earendil-works/chord@1.6.0(esbuild@0.27.7)(ws@8.21.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(express@5.2.1)
       '@mcp-ui/server':
         specifier: ^6.1.0
         version: 6.1.0(zod@4.4.3)
@@ -184,7 +199,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/mycel:
     dependencies:
@@ -218,13 +233,13 @@ importers:
         version: 1.62.1
       tsup:
         specifier: ^8.5.0
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/pi:
     dependencies:
@@ -249,7 +264,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 1.6.0
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)
+        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)
       '@types/node':
         specifier: ^26.1.2
         version: 26.1.2
@@ -258,7 +273,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/protocols:
     dependencies:
@@ -270,7 +285,7 @@ importers:
         version: 1.6.0
       '@leocavalcante/pi-a2a':
         specifier: 0.5.1
-        version: 0.5.1(@earendil-works/chord@1.6.0(esbuild@0.28.1)(ws@8.21.3))(@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)(typebox@1.3.27)
+        version: 0.5.1(@earendil-works/chord@1.6.0(esbuild@0.27.7)(ws@8.21.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(express@5.2.1)
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.4.3)
@@ -289,7 +304,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/sessions:
     dependencies:
@@ -301,7 +316,7 @@ importers:
         version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-durable':
         specifier: 1.6.0
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
       better-sqlite3:
         specifier: ^12.11.1
         version: 12.11.1
@@ -326,7 +341,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/substrate:
     devDependencies:
@@ -341,7 +356,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/supplier:
     dependencies:
@@ -369,7 +384,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: 4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
 
   packages/umwelten:
     dependencies:
@@ -399,7 +414,7 @@ importers:
         version: 1.6.0
       '@leocavalcante/pi-a2a':
         specifier: 0.5.1
-        version: 0.5.1(@earendil-works/chord@1.6.0(esbuild@0.28.1)(ws@8.21.3))(@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)(typebox@1.3.27)
+        version: 0.5.1(@earendil-works/chord@1.6.0(esbuild@0.28.1)(ws@8.21.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)
       '@mcp-ui/server':
         specifier: ^6.1.0
         version: 6.1.0(zod@4.4.3)
@@ -472,7 +487,7 @@ importers:
         version: link:../supplier
       tsup:
         specifier: ^8.5.0
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -660,15 +675,6 @@ packages:
   '@earendil-works/pi-tui@1.6.0':
     resolution: {integrity: sha512-nVtWZ4rYr3KHDla3skGAWG5XoITEUJCoEx1AsWv1yKxV7+v86ulD2hxVn/P+COI6jsoeQmj3orqHbCHZwAUsUg==}
     engines: {node: '>=22.19.0'}
-
-  '@emnapi/core@1.11.1':
-    resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
-
-  '@emnapi/runtime@1.11.1':
-    resolution: {integrity: sha512-vgj7R3y3Wgx24IQaGPA/R6YFXLHVMOZ0uVEyIQPaWs+rd1AzfEMXlAC22FYwO1XkKR6NPsq7mUandH8oIRdZFw==}
-
-  '@emnapi/wasi-threads@1.2.2':
-    resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
 
   '@esbuild/aix-ppc64@0.27.7':
     resolution: {integrity: sha512-EKX3Qwmhz1eMdEJokhALr0YiD0lhQNwDqkPYyPhiSwKrh7/4KRjQc04sZ8db+5DVVnZ1LmbNDI1uAMPEUBnQPg==}
@@ -1123,12 +1129,6 @@ packages:
     os: [linux]
     libc: [glibc]
 
-  '@napi-rs/wasm-runtime@1.1.6':
-    resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
-    peerDependencies:
-      '@emnapi/core': ^1.7.1
-      '@emnapi/runtime': ^1.7.1
-
   '@neondatabase/serverless@1.1.0':
     resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
     engines: {node: '>=19.0.0'}
@@ -1295,11 +1295,6 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [openharmony]
-
-  '@rolldown/binding-wasm32-wasi@1.1.5':
-    resolution: {integrity: sha512-VbQGPX2b4r48TAMIM2cjgluIM1HYutm4pcTEJsle7iEP7sB1dFqtPLBVbdLAZCxy1txCcPxf4QFf4v8uvltPqA==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [wasm32]
 
   '@rolldown/binding-win32-arm64-msvc@1.1.5':
     resolution: {integrity: sha512-gHv82k63z4qpV5+Q1y/12KrK0ltWBukVDI8nZcbT7Tt/ZlOIVwppazneq0F93oDxTo3IgAMEDIoQh3E2n6mVsw==}
@@ -1525,9 +1520,6 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
-
-  '@tybys/wasm-util@0.10.3':
-    resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
 
   '@types/better-sqlite3@7.6.13':
     resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
@@ -3250,9 +3242,9 @@ snapshots:
       esbuild: 0.28.1
       ws: 8.21.3
 
-  '@earendil-works/pi-agent-core@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-schema': 1.6.0
     transitivePeerDependencies:
       - '@aws-sdk/credential-provider-node'
@@ -3320,14 +3312,40 @@ snapshots:
       - ws
       - zod
 
+  '@earendil-works/pi-ai@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.129.0(zod@4.4.3)
+      '@aws-sdk/client-bedrock-runtime': 3.1127.0
+      '@earendil-works/pi-schema': 1.6.0
+      '@earendil-works/pi-telemetry': 1.6.0
+      '@google/genai': 2.32.0(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))
+      '@smithy/node-http-handler': 4.12.1
+      http-proxy-agent: 9.1.0
+      https-proxy-agent: 9.1.0
+      openai: 7.59.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      partial-json: 0.1.7
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@modelcontextprotocol/sdk'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
+      - bufferutil
+      - google-auth-library
+      - kerberos
+      - supports-color
+      - undici
+      - utf-8-validate
+      - ws
+      - zod
+
   '@earendil-works/pi-codemode@1.6.0':
     dependencies:
       quickjs-wasi: 3.6.2
 
-  '@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
-      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-agent-core': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-codemode': 1.6.0
       '@earendil-works/pi-mcp': 1.6.0
       '@earendil-works/pi-tui': 1.6.0
@@ -3386,10 +3404,10 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)':
+  '@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3)':
     dependencies:
       '@earendil-works/chord': 1.6.0(esbuild@0.28.1)(ws@8.21.3)
-      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-codemode': 1.6.0
       '@earendil-works/pi-schema': 1.6.0
       '@earendil-works/pi-telemetry': 1.6.0
@@ -3410,12 +3428,11 @@ snapshots:
       - utf-8-validate
       - ws
       - zod
-    optional: true
 
-  '@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3)':
+  '@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/chord': 1.6.0(esbuild@0.28.1)(ws@8.21.3)
-      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/chord': 1.6.0(esbuild@0.27.7)(ws@8.21.3)
+      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-codemode': 1.6.0
       '@earendil-works/pi-schema': 1.6.0
       '@earendil-works/pi-telemetry': 1.6.0
@@ -3490,22 +3507,6 @@ snapshots:
       get-east-asian-width: 1.6.0
       marked: 18.0.11
       marked-cjk-friendly: 0.1.2(marked@18.0.11)
-
-  '@emnapi/core@1.11.1':
-    dependencies:
-      '@emnapi/wasi-threads': 1.2.2
-      tslib: 2.8.1
-    optional: true
-
-  '@emnapi/runtime@1.11.1':
-    dependencies:
-      tslib: 2.8.1
-    optional: true
-
-  '@emnapi/wasi-threads@1.2.2':
-    dependencies:
-      tslib: 2.8.1
-    optional: true
 
   '@esbuild/aix-ppc64@0.27.7':
     optional: true
@@ -3746,15 +3747,13 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@leocavalcante/pi-a2a@0.5.1(@earendil-works/chord@1.6.0(esbuild@0.27.7)(ws@8.21.3))(@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)(typebox@1.3.27)':
+  '@leocavalcante/pi-a2a@0.5.1(@earendil-works/chord@1.6.0(esbuild@0.27.7)(ws@8.21.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(express@5.2.1)':
     dependencies:
       '@a2a-js/sdk': 1.3.0(better-sqlite3@12.11.1)(express@5.2.1)
       unpdf: 1.9.1
     optionalDependencies:
       '@earendil-works/chord': 1.6.0(esbuild@0.27.7)(ws@8.21.3)
-      '@earendil-works/pi-coding-agent': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-durable': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.27.7)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
-      typebox: 1.3.27
     transitivePeerDependencies:
       - '@bufbuild/protobuf'
       - '@grpc/grpc-js'
@@ -3765,34 +3764,13 @@ snapshots:
       - mysql2
       - pg
 
-  '@leocavalcante/pi-a2a@0.5.1(@earendil-works/chord@1.6.0(esbuild@0.28.1)(ws@8.21.3))(@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)(typebox@1.3.27)':
+  '@leocavalcante/pi-a2a@0.5.1(@earendil-works/chord@1.6.0(esbuild@0.28.1)(ws@8.21.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)':
     dependencies:
       '@a2a-js/sdk': 1.3.0(better-sqlite3@12.11.1)(express@5.2.1)
       unpdf: 1.9.1
     optionalDependencies:
       '@earendil-works/chord': 1.6.0(esbuild@0.28.1)(ws@8.21.3)
-      '@earendil-works/pi-coding-agent': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)
-      '@earendil-works/pi-durable': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.12.4)(ws@8.21.3)(zod@4.4.3)
-      typebox: 1.3.27
-    transitivePeerDependencies:
-      - '@bufbuild/protobuf'
-      - '@grpc/grpc-js'
-      - '@napi-rs/canvas'
-      - better-sqlite3
-      - express
-      - kysely
-      - mysql2
-      - pg
-
-  '@leocavalcante/pi-a2a@0.5.1(@earendil-works/chord@1.6.0(esbuild@0.28.1)(ws@8.21.3))(@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3))(@earendil-works/pi-durable@1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3))(better-sqlite3@12.11.1)(express@5.2.1)(typebox@1.3.27)':
-    dependencies:
-      '@a2a-js/sdk': 1.3.0(better-sqlite3@12.11.1)(express@5.2.1)
-      unpdf: 1.9.1
-    optionalDependencies:
-      '@earendil-works/chord': 1.6.0(esbuild@0.28.1)(ws@8.21.3)
-      '@earendil-works/pi-coding-agent': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(google-auth-library@10.9.1)(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-durable': 1.6.0(@aws-sdk/credential-provider-node@3.972.97)(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(@smithy/signature-v4@5.7.5)(esbuild@0.28.1)(google-auth-library@10.9.1)(undici@8.9.0)(ws@8.21.3)(zod@4.4.3)
-      typebox: 1.3.27
     transitivePeerDependencies:
       - '@bufbuild/protobuf'
       - '@grpc/grpc-js'
@@ -3860,13 +3838,6 @@ snapshots:
       - supports-color
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
-    optional: true
-
-  '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
-    dependencies:
-      '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.1
-      '@tybys/wasm-util': 0.10.3
     optional: true
 
   '@neondatabase/serverless@1.1.0': {}
@@ -3960,13 +3931,6 @@ snapshots:
     optional: true
 
   '@rolldown/binding-openharmony-arm64@1.1.5':
-    optional: true
-
-  '@rolldown/binding-wasm32-wasi@1.1.5':
-    dependencies:
-      '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.1
-      '@napi-rs/wasm-runtime': 1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
     optional: true
 
   '@rolldown/binding-win32-arm64-msvc@1.1.5':
@@ -4117,11 +4081,6 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tybys/wasm-util@0.10.3':
-    dependencies:
-      tslib: 2.8.1
-    optional: true
-
   '@types/better-sqlite3@7.6.13':
     dependencies:
       '@types/node': 26.1.2
@@ -4249,21 +4208,21 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))':
+  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)
 
-  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))':
+  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -5160,14 +5119,13 @@ snapshots:
 
   playwright-core@1.62.1: {}
 
-  postcss-load-config@6.0.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(yaml@2.9.0):
+  postcss-load-config@6.0.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1):
     dependencies:
       lilconfig: 3.1.3
     optionalDependencies:
       jiti: 2.7.0
       postcss: 8.5.23
       tsx: 4.23.1
-      yaml: 2.9.0
 
   postcss@8.5.23:
     dependencies:
@@ -5284,7 +5242,6 @@ snapshots:
       '@rolldown/binding-linux-x64-gnu': 1.1.5
       '@rolldown/binding-linux-x64-musl': 1.1.5
       '@rolldown/binding-openharmony-arm64': 1.1.5
-      '@rolldown/binding-wasm32-wasi': 1.1.5
       '@rolldown/binding-win32-arm64-msvc': 1.1.5
       '@rolldown/binding-win32-x64-msvc': 1.1.5
 
@@ -5500,7 +5457,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsup@8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0):
+  tsup@8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(typescript@5.9.3):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.27.7)
       cac: 6.7.14
@@ -5511,7 +5468,7 @@ snapshots:
       fix-dts-default-cjs-exports: 1.0.1
       joycon: 3.1.1
       picocolors: 1.1.1
-      postcss-load-config: 6.0.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)(yaml@2.9.0)
+      postcss-load-config: 6.0.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.1)
       resolve-from: 5.0.0
       rollup: 4.62.4
       source-map: 0.7.6
@@ -5572,7 +5529,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0):
+  vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -5585,9 +5542,8 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.7.0
       tsx: 4.23.1
-      yaml: 2.9.0
 
-  vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0):
+  vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -5600,12 +5556,11 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.7.0
       tsx: 4.23.1
-      yaml: 2.9.0
 
-  vitest@4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)):
+  vitest@4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -5622,17 +5577,17 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 26.1.2
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)):
+  vitest@4.1.10(@types/node@26.1.2)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -5649,7 +5604,7 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 26.1.2

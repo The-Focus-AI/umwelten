@@ -1,0 +1,13 @@
+{
+  "id": "05-async-rate-limiter",
+  "title": "Hierarchical Token Bucket & Sliding Window Rate Limiter",
+  "difficulty": "medium",
+  "language": "python",
+  "prompt": "Fix the timing, boundary, and multi-tier atomicity bugs in this rate limiter package (`limiter`).\n\nReported issues:\n1. Rate limiters ignore injected clocks (`VirtualClock` / monotonic clock) in refill/timestamp checks, making behavior depend on wall-clock `time.time()`.\n2. Sliding window expiration fails at exact window boundaries (`now - window_seconds`), causing an immediate retry after the returned `retry_after` delay to still be rejected.\n3. Requests with `cost > capacity` (or `cost < 0`) misbehave instead of raising `CostExceedsCapacityError` (or `ValueError`).\n4. Hierarchical rate limiting (`HierarchicalLimiter`) deducts tokens/quota from earlier tiers (such as per-tenant) even when a later tier (such as global quota) rejects the request — leaking quota permanently across rejected requests.\n\nInspect the package and run `python3 -m unittest discover -s tests -p \"test_public.py\"`.",
+  "visibleTestCommand": "python3 -m unittest discover -s tests -p \"test_public.py\"",
+  "hiddenTestCommand": "python3 -m unittest discover -s tests",
+  "protectedPaths": ["tests/test_public.py"],
+  "maxTurns": 20,
+  "timeoutMs": 180000,
+  "tags": ["python", "rate-limiting", "atomicity", "clock"]
+}

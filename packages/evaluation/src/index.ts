@@ -7,6 +7,7 @@
 export { EvalSuite, isJudgeTask, modelKey } from "./evaluation/suite.js";
 export type {
   EvalSuiteConfig,
+  EvalSuiteRunStats,
   EvalTask,
   VerifyTask,
   JudgeTask,
@@ -102,3 +103,5 @@ export type {
 
 export { Reporter } from "./reporting/reporter.js";
 export type { Report, ReportSection, ReportType } from "./reporting/types.js";
+
+export * from "./coding/index.js";

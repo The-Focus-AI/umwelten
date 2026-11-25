@@ -73,10 +73,12 @@ export class PairwiseRanker {
     }
 
     const rankings = buildStandings(this.entries, elo, wins, losses, ties);
+    const judgeCostUsd = allResults.reduce((s, r) => s + (r.costUsd ?? 0), 0);
     const output: RankingOutput = {
       mode: pairingMode === "all" ? "round-robin" : `swiss-${swissRounds}`,
       comparisons: allResults.length,
       judge: `${this.config.judgeModel.provider}:${this.config.judgeModel.name}`,
+      judgeCostUsd,
       rankings,
       matchResults: allResults,
     };
@@ -173,6 +175,7 @@ export class PairwiseRanker {
         winner,
         reason: parsed.reason ?? "",
         confidence: parsed.confidence ?? "medium",
+        costUsd: response.costUsd,
       };
     } catch {
       return {
@@ -181,6 +184,7 @@ export class PairwiseRanker {
         winner: "tie",
         reason: "judge error",
         confidence: "low",
+        costUsd: 0,
       };
     }
   }

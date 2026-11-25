@@ -1,0 +1,13 @@
+{
+  "id": "06-sql-mini-planner",
+  "title": "Mini SQL Three-Valued NULLs, LEFT JOIN Pushdown & Aggregates",
+  "difficulty": "hard",
+  "language": "python",
+  "prompt": "Fix the SQL semantics, relational optimizer, and aggregate execution bugs in this in-memory SQL engine (`minisql`).\n\nReported issues:\n1. NULL handling violates SQL three-valued logic (`TRUE`, `FALSE`, `UNKNOWN`/`None`): `NULL = NULL` and `NULL != 1` return booleans instead of `NULL`, `FALSE AND NULL` / `TRUE OR NULL` short-circuit incorrectly, and `UNKNOWN` truth values are mishandled in `WHERE`.\n2. The query optimizer unsafely pushes right-table `WHERE` predicates below a `LEFT JOIN` (breaking unmatched NULL rows and `WHERE right.col IS NULL` anti-joins) and mistakenly pushes `HAVING` predicates before aggregation.\n3. Aggregate execution mishandles NULLs and empty inputs: `COUNT(col)` counts NULLs like `COUNT(*)`, `SUM`/`AVG`/`MIN`/`MAX` over all-NULL groups return `0` instead of `None`, and an ungrouped aggregate query (`SELECT COUNT(*) FROM t WHERE ...`) over zero matching rows returns `[]` instead of a single row with `COUNT(*)=0` (while grouped aggregates over zero rows still return `[]`).\n\nInspect the package and run `python3 -m unittest discover -s tests -p \"test_public.py\"`.",
+  "visibleTestCommand": "python3 -m unittest discover -s tests -p \"test_public.py\"",
+  "hiddenTestCommand": "python3 -m unittest discover -s tests",
+  "protectedPaths": ["tests/test_public.py"],
+  "maxTurns": 25,
+  "timeoutMs": 300000,
+  "tags": ["python", "sql", "query-optimizer", "three-valued-logic"]
+}

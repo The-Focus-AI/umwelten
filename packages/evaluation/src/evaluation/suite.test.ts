@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { isJudgeTask, type VerifyTask, type JudgeTask, type EvalTask } from './suite.js';
+import { describe, it, expect, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fauxAssistantMessage, fauxProvider, fauxThinking } from '@earendil-works/pi-ai';
+import { registerPiProvider } from '@umwelten/pi';
+import { EvalSuite, isJudgeTask, type VerifyTask, type JudgeTask, type EvalTask } from './suite.js';
 import { z } from 'zod';
 
 describe('isJudgeTask', () => {
@@ -152,5 +157,159 @@ describe('EvalTask type guards', () => {
   it('task without judge or verify is not a judge task', () => {
     const minimal = { id: 'x', prompt: 'y', maxScore: 1 } as EvalTask;
     expect(isJudgeTask(minimal)).toBe(false);
+  });
+});
+
+describe('EvalSuite execution, caching, judge cost, and executionOrder', () => {
+  const prevEvalDir = process.env.UMWELTEN_EVAL_DIR;
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    if (prevEvalDir === undefined) delete process.env.UMWELTEN_EVAL_DIR;
+    else process.env.UMWELTEN_EVAL_DIR = prevEvalDir;
+    for (const d of tempDirs.splice(0)) {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it('tracks full tokenUsage, separates judgeCostUsd, measures error duration, and reuses Layer 2 cache when judge changes', async () => {
+    const evalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'umwelten-suite-test-'));
+    tempDirs.push(evalDir);
+    process.env.UMWELTEN_EVAL_DIR = evalDir;
+
+    let candidateCalls = 0;
+    let judgeCalls = 0;
+
+    const candProvider = fauxProvider({
+      provider: 'faux-suite-cand',
+      models: [
+        { id: 'm-ok', cost: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0 }, reasoning: true },
+        { id: 'm-err', cost: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0 }, reasoning: true },
+      ],
+    });
+    const candStep = (_ctx: unknown, _opts: unknown, _state: unknown, reqModel: { id: string }) => {
+      candProvider.appendResponses([candStep]);
+      if (reqModel.id === 'm-err') {
+        throw new Error('simulated upstream error');
+      }
+      candidateCalls++;
+      return fauxAssistantMessage([
+        fauxThinking('Reasoning through the answer.'),
+        { type: 'text', text: 'Drive to the car wash.' },
+      ]);
+    };
+    candProvider.setResponses([candStep]);
+    registerPiProvider(candProvider.provider);
+
+    const judgeProvider = fauxProvider({
+      provider: 'faux-suite-judge',
+      models: [{ id: 'judge-1', cost: { input: 10, output: 20, cacheRead: 0, cacheWrite: 0 } }],
+    });
+    const judgeStep = () => {
+      judgeProvider.appendResponses([judgeStep]);
+      judgeCalls++;
+      return fauxAssistantMessage(
+        JSON.stringify({ reasoning_quality: 5, explanation: 'Correctly drives car.' }),
+      );
+    };
+    judgeProvider.setResponses([judgeStep]);
+    registerPiProvider(judgeProvider.provider);
+
+    const suite1 = new EvalSuite({
+      name: 'unit-judge-cache-suite',
+      judgeModel: { provider: 'faux-suite-judge', name: 'judge-1' },
+      judgeDelayMs: 0,
+      models: [
+        { provider: 'faux-suite-cand', name: 'm-ok', reasoningEffort: 'high' },
+        { provider: 'faux-suite-cand', name: 'm-err' },
+      ],
+      tasks: [
+        {
+          id: 'cw',
+          prompt: 'Should I drive?',
+          maxScore: 5,
+          judge: {
+            schema: z.object({ reasoning_quality: z.number(), explanation: z.string() }),
+            instructions: ['Rubric v1'],
+          },
+        },
+      ],
+    });
+
+    const res1 = await suite1.run();
+    const okRec = res1.find((r) => r.model === 'm-ok')!;
+    const errRec = res1.find((r) => r.model === 'm-err')!;
+
+    expect(okRec.score).toBe(5);
+    expect(okRec.effectiveThinkingLevel).toBe('high');
+    expect(okRec.tokenUsage?.reasoningTokens).toBeGreaterThan(0);
+    expect(okRec.tokenUsage?.cacheReadTokens).toBe(0);
+    expect(okRec.judgeCostUsd).toBeGreaterThan(0);
+    expect(suite1.getLastRunStats().judgeCostUsd).toBeGreaterThan(0);
+    expect(errRec.error).toContain('simulated upstream error');
+    expect(errRec.durationMs).toBeGreaterThan(0);
+    expect(candidateCalls).toBe(1);
+    expect(judgeCalls).toBe(1);
+
+    // Changing only judge instructions invalidates Layer 1 record but hits Layer 2 response cache
+    const suite2 = new EvalSuite({
+      name: 'unit-judge-cache-suite',
+      judgeModel: { provider: 'faux-suite-judge', name: 'judge-1' },
+      judgeDelayMs: 0,
+      models: [{ provider: 'faux-suite-cand', name: 'm-ok', reasoningEffort: 'high' }],
+      tasks: [
+        {
+          id: 'cw',
+          prompt: 'Should I drive?',
+          maxScore: 5,
+          judge: {
+            schema: z.object({ reasoning_quality: z.number(), explanation: z.string() }),
+            instructions: ['Rubric v2'],
+          },
+        },
+      ],
+    });
+
+    await suite2.run();
+    expect(candidateCalls).toBe(1); // Layer 2 response cache hit!
+    expect(judgeCalls).toBe(2); // Re-judged under Rubric v2
+  });
+
+  it('supports executionOrder: model-first across tasks', async () => {
+    const evalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'umwelten-suite-order-'));
+    tempDirs.push(evalDir);
+    process.env.UMWELTEN_EVAL_DIR = evalDir;
+
+    const callOrder: string[] = [];
+    const orderProvider = fauxProvider({
+      provider: 'faux-order',
+      models: [{ id: 'm1' }, { id: 'm2' }],
+    });
+    const step = (ctx: { messages: Array<{ content: unknown }> }, _o: unknown, _s: unknown, reqModel: { id: string }) => {
+      orderProvider.appendResponses([step]);
+      const p = String(ctx.messages[0]?.content ?? '');
+      callOrder.push(`${reqModel.id}:${p}`);
+      return fauxAssistantMessage('4');
+    };
+    orderProvider.setResponses([step]);
+    registerPiProvider(orderProvider.provider);
+
+    const suite = new EvalSuite({
+      name: 'unit-model-first',
+      executionOrder: 'model-first',
+      concurrency: 1,
+      models: [
+        { provider: 'faux-order', name: 'm1' },
+        { provider: 'faux-order', name: 'm2' },
+      ],
+      tasks: [
+        { id: 't1', prompt: 't1', maxScore: 1, verify: () => ({ score: 1, details: 'ok' }) },
+        { id: 't2', prompt: 't2', maxScore: 1, verify: () => ({ score: 1, details: 'ok' }) },
+      ],
+    });
+
+    const out = await suite.run();
+    expect(out).toHaveLength(4);
+    expect(callOrder).toEqual(['m1:t1', 'm1:t2', 'm2:t1', 'm2:t2']);
   });
 });

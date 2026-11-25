@@ -15,11 +15,22 @@ import type {
   ArchivedShowdownRow,
 } from "./extract-historical-reports.js";
 
+export interface LiveWatchTokens {
+  prompt: number;
+  completion: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning: number;
+  total: number;
+}
+
 export interface LiveWatchModel {
   id: string;
   provider: string;
   tier: "cloud" | "local";
   weights: "open" | "closed";
+  reasoningEffort?: string;
+  effectiveThinkingLevel?: string;
   pricingPerMillion: { promptTokens: number; completionTokens: number } | null;
   combined: number;
   reasoning: number;
@@ -35,6 +46,8 @@ export interface LiveWatchModel {
   elo: number | null;
   cost: number;
   timeSec: number;
+  tokens?: LiveWatchTokens;
+  tokPerSec?: number | null;
   taskBreakdown: Record<
     string,
     Array<{
@@ -44,6 +57,8 @@ export interface LiveWatchModel {
       details: string;
       costUsd: number;
       durationMs: number;
+      tokens?: LiveWatchTokens;
+      error?: string;
     }>
   >;
 }
@@ -61,6 +76,9 @@ export interface LiveWatchArtifact {
     scoring: string;
   }>;
   totalSuiteCostUsd: number;
+  judgeCostUsd?: number;
+  eloJudgeCostUsd?: number;
+  totalRunCostUsd?: number;
   models: LiveWatchModel[];
   unavailableCatalogueModels: Array<{
     provider: string;
@@ -136,6 +154,104 @@ export interface ExamplesLiveArtifact {
   outputs: Record<string, string>;
 }
 
+export interface CodingBenchTaskSummary {
+  id: string;
+  title: string;
+  difficulty: "easy" | "medium" | "hard";
+  language: "typescript" | "python";
+  tags: string[];
+}
+
+export interface CodingBenchTaskResult {
+  taskId: string;
+  title: string;
+  difficulty: "easy" | "medium" | "hard";
+  language: "typescript" | "python";
+  passed: boolean;
+  score: number;
+  maxScore: number;
+  details: string;
+  visibleTests: { passed: number; failed: number; total: number };
+  hiddenTests: { passed: number; failed: number; total: number };
+  cheatedProtectedFiles: boolean;
+  stopReason: "completed" | "turn_limit" | "timeout" | "error";
+  durationMs: number;
+  turns: number;
+  toolCallsTotal: number;
+  toolCallsByName: Record<string, number>;
+  toolErrors: number;
+  costUsd: number;
+  tokenUsage: {
+    prompt: number;
+    completion: number;
+    cacheRead: number;
+    cacheWrite: number;
+    reasoning: number;
+    total: number;
+  };
+  changedFiles: string[];
+  gitDiffStat: string;
+  error?: string;
+}
+
+export interface CodingBenchModelRow {
+  id: string;
+  provider: string;
+  tier: "cloud" | "local";
+  weights: "open" | "closed";
+  reasoningEffort: string;
+  effectiveThinkingLevel: string;
+  extensionProfile: string;
+  pricingPerMillion: { promptTokens: number; completionTokens: number } | null;
+  passedTasks: number;
+  totalTasks: number;
+  passRate: number;
+  avgScore: number;
+  totalCostUsd: number;
+  totalTimeSec: number;
+  avgTurns: number;
+  totalToolCalls: number;
+  toolErrors: number;
+  toolErrorRate: number;
+  tokens: LiveWatchTokens;
+  tokPerSec: number | null;
+  taskResults: CodingBenchTaskResult[];
+}
+
+export interface CodingBenchArtifact {
+  mode: "live" | "mock";
+  isMockPreview: boolean;
+  generatedAt: string;
+  reproduceCommand: string;
+  freshCommand: string;
+  extensionProfile: string;
+  tasks: CodingBenchTaskSummary[];
+  totalRunCostUsd: number;
+  models: CodingBenchModelRow[];
+  unavailableModels?: Array<{ provider: string; name: string; error: string }>;
+}
+
+export function loadCodingBenchData(rootDir: string): CodingBenchArtifact | null {
+  const dataDir = path.join(rootDir, "reports", "data");
+  const livePath = path.join(dataDir, "coding-bench-live.json");
+  const mockPath = path.join(dataDir, "coding-bench-mock.json");
+  if (fs.existsSync(livePath)) {
+    const raw = JSON.parse(fs.readFileSync(livePath, "utf8")) as Omit<
+      CodingBenchArtifact,
+      "isMockPreview"
+    >;
+    return { ...raw, isMockPreview: false };
+  }
+  if (fs.existsSync(mockPath)) {
+    const raw = JSON.parse(fs.readFileSync(mockPath, "utf8")) as Omit<
+      CodingBenchArtifact,
+      "isMockPreview"
+    >;
+    return { ...raw, isMockPreview: true };
+  }
+  return null;
+}
+
 export function loadSiteDatasets(rootDir: string) {
   const dataDir = path.join(rootDir, "reports", "data");
   const mockWatch = JSON.parse(
@@ -153,8 +269,9 @@ export function loadSiteDatasets(rootDir: string) {
   const examplesMock = JSON.parse(
     fs.readFileSync(path.join(dataDir, "examples-mock.json"), "utf8"),
   ) as ExamplesLiveArtifact;
+  const codingBench = loadCodingBenchData(rootDir);
 
-  return { mockWatch, liveWatch, archives, jevLive, examplesMock };
+  return { mockWatch, liveWatch, archives, jevLive, examplesMock, codingBench };
 }
 
 export interface ExamplePick {

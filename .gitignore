@@ -146,3 +146,9 @@ examples/dialogue-web/transcripts/
 !/.agents/skills/spec-refactor/**
 !/.agents/skills/verify-deploy/
 !/.agents/skills/verify-deploy/**
+
+# Local runtime habitats & stale docs build caches (never commit secrets or sessions)
+examples/twitter-habitat/
+examples/pi-coder/
+docs/.vitepress/
+docs/public/

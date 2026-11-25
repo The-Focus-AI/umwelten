@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fauxAssistantMessage, fauxProvider } from '@earendil-works/pi-ai';
+import { registerPiProvider } from '@umwelten/pi';
 import { expectedScore, updateElo, buildStandings } from './elo.js';
 import { allPairs, swissPairs } from './pairing.js';
+import { PairwiseRanker } from './pairwise-ranker.js';
 import { evaluationResultsToRankingEntries } from './types.js';
 import type { RankingEntry } from './types.js';
 
@@ -164,5 +170,64 @@ describe('evaluationResultsToRankingEntries', () => {
     expect(entries[0].key).toBe('openrouter__openai_gpt-4o');
     expect(entries[0].key).not.toContain('/');
     expect(entries[0].key).not.toContain(':');
+  });
+});
+
+describe('PairwiseRanker caching and judgeCostUsd', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it('tracks judgeCostUsd and reuses comparisons.json cache on subsequent runs', async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'umwelten-elo-test-'));
+    dirs.push(cacheDir);
+
+    let calls = 0;
+    const faux = fauxProvider({
+      provider: 'faux-elo-judge',
+      models: [{ id: 'j1', cost: { input: 5, output: 15, cacheRead: 0, cacheWrite: 0 } }],
+    });
+    faux.setResponses([
+      () => {
+        calls++;
+        return fauxAssistantMessage(
+          JSON.stringify({ winner: 'A', reason: 'Clear breakdown', confidence: 'high' }),
+        );
+      },
+    ]);
+    registerPiProvider(faux.provider);
+
+    const entries: RankingEntry[] = [
+      { key: 'p:m1', provider: 'p', model: 'm1', responseText: 'Subtotal $26.74, total 28.88' },
+      { key: 'p:m2', provider: 'p', model: 'm2', responseText: 'Total 28.88' },
+    ];
+
+    const ranker1 = new PairwiseRanker(entries, {
+      judgeModel: { provider: 'faux-elo-judge', name: 'j1' },
+      judgeInstructions: ['Pick clearest answer.'],
+      pairingMode: 'all',
+      delayMs: 0,
+      cacheDir,
+    });
+    const out1 = await ranker1.rank();
+    expect(out1.comparisons).toBe(1);
+    expect(out1.judgeCostUsd).toBeGreaterThan(0);
+    expect(calls).toBe(1);
+
+    // Second run has no queued faux responses — must succeed purely from comparisons.json
+    const ranker2 = new PairwiseRanker(entries, {
+      judgeModel: { provider: 'faux-elo-judge', name: 'j1' },
+      judgeInstructions: ['Pick clearest answer.'],
+      pairingMode: 'all',
+      delayMs: 0,
+      cacheDir,
+    });
+    const out2 = await ranker2.rank();
+    expect(out2.comparisons).toBe(1);
+    expect(out2.judgeCostUsd).toBeGreaterThan(0);
+    expect(calls).toBe(1);
   });
 });

@@ -1,0 +1,13 @@
+{
+  "id": "02-cron-dst-scheduler",
+  "title": "Cron Parser & DST-Safe Timezone Scheduler",
+  "difficulty": "medium",
+  "language": "typescript",
+  "prompt": "Fix the cron parsing, matching, and next-run scheduling bugs in this library.\n\nReported issues:\n1. Wrap-around ranges (such as `22-02` for hours or `FRI-MON` for weekdays) and named month/weekday aliases (`JAN`..`DEC`, `SUN`..`SAT`, plus weekday `7` as Sunday) fail to parse or match.\n2. When both day-of-month and day-of-week are restricted (neither is a wildcard `*`), schedules are evaluated using AND instead of standard Vixie cron OR semantics (if only one is restricted, use that restriction).\n3. Scheduling ignores IANA timezones (`timeZone` parameter) and breaks across Daylight Saving Time transitions:\n   - Skipped spring-forward local times (e.g. `02:30` on `2026-03-08` in `America/New_York`) must skip that date rather than loop or misfire.\n   - Repeated fall-back local times (e.g. `01:30` occurring twice on `2026-11-01` in `America/New_York`) must fire only once for fixed-hour schedules on the first (earlier UTC) occurrence rather than firing twice an hour apart.\n4. Sparse dates such as leap day (`0 0 29 2 *`) fail to resolve within reasonable time.\n\nInspect the repository and run `node --test test/public.test.ts` as you work.",
+  "visibleTestCommand": "node --test test/public.test.ts",
+  "hiddenTestCommand": "node --test test/public.test.ts test/hidden.test.ts",
+  "protectedPaths": ["test/public.test.ts"],
+  "maxTurns": 20,
+  "timeoutMs": 180000,
+  "tags": ["cron", "dst", "timezones", "parsing"]
+}

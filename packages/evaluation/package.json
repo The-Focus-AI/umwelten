@@ -23,7 +23,12 @@
     "test:run": "vitest run --reporter=verbose"
   },
   "dependencies": {
+    "@earendil-works/chord": "1.6.0",
     "@earendil-works/pi-ai": "1.6.0",
+    "@earendil-works/pi-codemode": "1.6.0",
+    "@earendil-works/pi-durable": "1.6.0",
+    "@earendil-works/pi-schema": "1.6.0",
+    "@umwelten/habitat": "workspace:*",
     "@umwelten/pi": "workspace:*",
     "zod": "^4.4.3"
   },

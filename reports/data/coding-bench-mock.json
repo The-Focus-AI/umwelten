@@ -1,0 +1,1006 @@
+{
+  "mode": "mock",
+  "generatedAt": "2026-11-22T16:58:52.977Z",
+  "reproduceCommand": "pnpm run bench:code -- --mock",
+  "freshCommand": "pnpm run bench:code -- --mock --fresh",
+  "extensionProfile": "pi-default",
+  "tasks": [
+    {
+      "id": "01-ledger-rounding",
+      "title": "Multi-Currency Ledger Rounding & Credit Split",
+      "difficulty": "easy",
+      "language": "typescript",
+      "tags": [
+        "arithmetic",
+        "currency",
+        "edge-cases"
+      ]
+    },
+    {
+      "id": "02-cron-dst-scheduler",
+      "title": "Cron Parser & DST-Safe Timezone Scheduler",
+      "difficulty": "medium",
+      "language": "typescript",
+      "tags": [
+        "cron",
+        "dst",
+        "timezones",
+        "parsing"
+      ]
+    },
+    {
+      "id": "03-wal-kv-recovery",
+      "title": "WAL Key-Value Store UTF-8 Framing & Crash Compaction",
+      "difficulty": "medium",
+      "language": "typescript",
+      "tags": [
+        "storage",
+        "wal",
+        "utf8",
+        "compaction"
+      ]
+    },
+    {
+      "id": "04-reactive-dag-engine",
+      "title": "Glitch-Free Reactive DAG Engine & Dynamic Unsubscription",
+      "difficulty": "hard",
+      "language": "typescript",
+      "tags": [
+        "dag",
+        "reactive",
+        "topological-sort",
+        "cycles"
+      ]
+    },
+    {
+      "id": "05-async-rate-limiter",
+      "title": "Hierarchical Token Bucket & Sliding Window Rate Limiter",
+      "difficulty": "medium",
+      "language": "python",
+      "tags": [
+        "python",
+        "rate-limiting",
+        "atomicity",
+        "clock"
+      ]
+    },
+    {
+      "id": "06-sql-mini-planner",
+      "title": "Mini SQL Three-Valued NULLs, LEFT JOIN Pushdown & Aggregates",
+      "difficulty": "hard",
+      "language": "python",
+      "tags": [
+        "python",
+        "sql",
+        "query-optimizer",
+        "three-valued-logic"
+      ]
+    }
+  ],
+  "totalRunCostUsd": 0.29859,
+  "models": [
+    {
+      "id": "claude-fable-5-2",
+      "provider": "anthropic",
+      "tier": "cloud",
+      "weights": "closed",
+      "reasoningEffort": "high",
+      "effectiveThinkingLevel": "high",
+      "extensionProfile": "pi-default",
+      "pricingPerMillion": {
+        "promptTokens": 8,
+        "completionTokens": 40
+      },
+      "passedTasks": 6,
+      "totalTasks": 6,
+      "passRate": 100,
+      "avgScore": 10,
+      "totalCostUsd": 0.28545,
+      "totalTimeSec": 0.8,
+      "avgTurns": 4,
+      "totalToolCalls": 31,
+      "toolErrors": 0,
+      "toolErrorRate": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 11418,
+        "cacheRead": 37542,
+        "cacheWrite": 21570,
+        "reasoning": 0,
+        "total": 70530
+      },
+      "tokPerSec": 14272.5,
+      "taskResults": [
+        {
+          "taskId": "01-ledger-rounding",
+          "title": "Multi-Currency Ledger Rounding & Credit Split",
+          "difficulty": "easy",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 6/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 175,
+          "turns": 4,
+          "toolCallsTotal": 6,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 4,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.03515,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1406,
+            "cacheRead": 5172,
+            "cacheWrite": 2819,
+            "reasoning": 0,
+            "total": 9397
+          },
+          "changedFiles": [
+            "src/invoice.ts",
+            "src/money.ts",
+            "src/split.ts",
+            "src/tax.ts"
+          ],
+          "gitDiffStat": "src/invoice.ts | 30 ++++++++++--------------------\n src/money.ts   | 38 +++++++++++++++++++++++++-------------\n src/split.ts   | 33 ++++++++++++++++++++-------------\n src/tax.ts     | 20 ++++++++++----------\n 4 files changed, 65 insertions(+), 56 deletions(-)"
+        },
+        {
+          "taskId": "02-cron-dst-scheduler",
+          "title": "Cron Parser & DST-Safe Timezone Scheduler",
+          "difficulty": "medium",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 6/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 169,
+          "turns": 4,
+          "toolCallsTotal": 6,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 4,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.05215,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 2086,
+            "cacheRead": 6687,
+            "cacheWrite": 3890,
+            "reasoning": 0,
+            "total": 12663
+          },
+          "changedFiles": [
+            "src/matcher.ts",
+            "src/next-run.ts",
+            "src/parser.ts",
+            "src/timezone.ts"
+          ],
+          "gitDiffStat": "src/matcher.ts  |  4 ++-\n src/next-run.ts | 61 +++++++++++++++++++++++++++++++++++++++++-----\n src/parser.ts   | 75 +++++++++++++++++++++++++++++++++++++++------------------\n src/timezone.ts | 51 +++++++++++++++++++++++++++++++--------\n 4 files changed, 150 insertions(+), 41 deletions(-)"
+        },
+        {
+          "taskId": "03-wal-kv-recovery",
+          "title": "WAL Key-Value Store UTF-8 Framing & Crash Compaction",
+          "difficulty": "medium",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 5/5",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 5,
+            "failed": 0,
+            "total": 5
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 162,
+          "turns": 4,
+          "toolCallsTotal": 5,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 3,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.034425,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1377,
+            "cacheRead": 5666,
+            "cacheWrite": 3071,
+            "reasoning": 0,
+            "total": 10114
+          },
+          "changedFiles": [
+            "src/codec.ts",
+            "src/compactor.ts",
+            "src/wal.ts"
+          ],
+          "gitDiffStat": "src/codec.ts     | 14 +++-----------\n src/compactor.ts |  4 +---\n src/wal.ts       | 24 ++++++++++++++++++------\n 3 files changed, 22 insertions(+), 20 deletions(-)"
+        },
+        {
+          "taskId": "04-reactive-dag-engine",
+          "title": "Glitch-Free Reactive DAG Engine & Dynamic Unsubscription",
+          "difficulty": "hard",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 6/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 149,
+          "turns": 4,
+          "toolCallsTotal": 4,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 2,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.03905,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1562,
+            "cacheRead": 6304,
+            "cacheWrite": 3444,
+            "reasoning": 0,
+            "total": 11310
+          },
+          "changedFiles": [
+            "src/batch.ts",
+            "src/cell.ts"
+          ],
+          "gitDiffStat": "src/batch.ts |  23 ++++------\n src/cell.ts  | 140 +++++++++++++++++++++++++++++++++++++++++++++++------------\n 2 files changed, 121 insertions(+), 42 deletions(-)"
+        },
+        {
+          "taskId": "05-async-rate-limiter",
+          "title": "Hierarchical Token Bucket & Sliding Window Rate Limiter",
+          "difficulty": "medium",
+          "language": "python",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 2/2, hidden 7/7",
+          "visibleTests": {
+            "passed": 2,
+            "failed": 0,
+            "total": 2
+          },
+          "hiddenTests": {
+            "passed": 7,
+            "failed": 0,
+            "total": 7
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 56,
+          "turns": 4,
+          "toolCallsTotal": 5,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 3,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.038475,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1539,
+            "cacheRead": 5628,
+            "cacheWrite": 3094,
+            "reasoning": 0,
+            "total": 10261
+          },
+          "changedFiles": [
+            "limiter/bucket.py",
+            "limiter/hierarchy.py",
+            "limiter/sliding.py",
+            "limiter/__pycache__/",
+            "tests/__pycache__/"
+          ],
+          "gitDiffStat": "limiter/bucket.py    | 28 ++++++++++++++++++++--------\n limiter/hierarchy.py | 23 ++++++-----------------\n limiter/sliding.py   | 40 ++++++++++++++++++++++++++--------------\n 3 files changed, 52 insertions(+), 39 deletions(-)"
+        },
+        {
+          "taskId": "06-sql-mini-planner",
+          "title": "Mini SQL Three-Valued NULLs, LEFT JOIN Pushdown & Aggregates",
+          "difficulty": "hard",
+          "language": "python",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 2/2, hidden 6/6",
+          "visibleTests": {
+            "passed": 2,
+            "failed": 0,
+            "total": 2
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 60,
+          "turns": 4,
+          "toolCallsTotal": 5,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 3,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.0862,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 3448,
+            "cacheRead": 8085,
+            "cacheWrite": 5252,
+            "reasoning": 0,
+            "total": 16785
+          },
+          "changedFiles": [
+            "minisql/eval_expr.py",
+            "minisql/executor.py",
+            "minisql/optimizer.py",
+            "minisql/__pycache__/",
+            "tests/__pycache__/"
+          ],
+          "gitDiffStat": "minisql/eval_expr.py | 30 ++++++++++++++++++++++--------\n minisql/executor.py  | 43 +++++++++++++++++++++++++------------------\n minisql/optimizer.py | 10 +++-------\n 3 files changed, 50 insertions(+), 33 deletions(-)"
+        }
+      ]
+    },
+    {
+      "id": "gemini-4-hydrogen",
+      "provider": "google",
+      "tier": "cloud",
+      "weights": "closed",
+      "reasoningEffort": "low",
+      "effectiveThinkingLevel": "low",
+      "extensionProfile": "pi-default",
+      "pricingPerMillion": {
+        "promptTokens": 1.5,
+        "completionTokens": 7.5
+      },
+      "passedTasks": 4,
+      "totalTasks": 6,
+      "passRate": 66.7,
+      "avgScore": 7.17,
+      "totalCostUsd": 0.01314,
+      "totalTimeSec": 0.7,
+      "avgTurns": 3.7,
+      "totalToolCalls": 26,
+      "toolErrors": 0,
+      "toolErrorRate": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 6571,
+        "cacheRead": 28284,
+        "cacheWrite": 15954,
+        "reasoning": 0,
+        "total": 50809
+      },
+      "tokPerSec": 9387.1,
+      "taskResults": [
+        {
+          "taskId": "01-ledger-rounding",
+          "title": "Multi-Currency Ledger Rounding & Credit Split",
+          "difficulty": "easy",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 6/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 156,
+          "turns": 4,
+          "toolCallsTotal": 6,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 4,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.00281,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1405,
+            "cacheRead": 5171,
+            "cacheWrite": 2817,
+            "reasoning": 0,
+            "total": 9393
+          },
+          "changedFiles": [
+            "src/invoice.ts",
+            "src/money.ts",
+            "src/split.ts",
+            "src/tax.ts"
+          ],
+          "gitDiffStat": "src/invoice.ts | 30 ++++++++++--------------------\n src/money.ts   | 38 +++++++++++++++++++++++++-------------\n src/split.ts   | 33 ++++++++++++++++++++-------------\n src/tax.ts     | 20 ++++++++++----------\n 4 files changed, 65 insertions(+), 56 deletions(-)"
+        },
+        {
+          "taskId": "02-cron-dst-scheduler",
+          "title": "Cron Parser & DST-Safe Timezone Scheduler",
+          "difficulty": "medium",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 6/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 168,
+          "turns": 4,
+          "toolCallsTotal": 6,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 4,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.00417,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 2085,
+            "cacheRead": 6687,
+            "cacheWrite": 3889,
+            "reasoning": 0,
+            "total": 12661
+          },
+          "changedFiles": [
+            "src/matcher.ts",
+            "src/next-run.ts",
+            "src/parser.ts",
+            "src/timezone.ts"
+          ],
+          "gitDiffStat": "src/matcher.ts  |  4 ++-\n src/next-run.ts | 61 +++++++++++++++++++++++++++++++++++++++++-----\n src/parser.ts   | 75 +++++++++++++++++++++++++++++++++++++++------------------\n src/timezone.ts | 51 +++++++++++++++++++++++++++++++--------\n 4 files changed, 150 insertions(+), 41 deletions(-)"
+        },
+        {
+          "taskId": "03-wal-kv-recovery",
+          "title": "WAL Key-Value Store UTF-8 Framing & Crash Compaction",
+          "difficulty": "medium",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 5/5",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 5,
+            "failed": 0,
+            "total": 5
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 157,
+          "turns": 4,
+          "toolCallsTotal": 5,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 3,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.00275,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1375,
+            "cacheRead": 5666,
+            "cacheWrite": 3071,
+            "reasoning": 0,
+            "total": 10112
+          },
+          "changedFiles": [
+            "src/codec.ts",
+            "src/compactor.ts",
+            "src/wal.ts"
+          ],
+          "gitDiffStat": "src/codec.ts     | 14 +++-----------\n src/compactor.ts |  4 +---\n src/wal.ts       | 24 ++++++++++++++++++------\n 3 files changed, 22 insertions(+), 20 deletions(-)"
+        },
+        {
+          "taskId": "04-reactive-dag-engine",
+          "title": "Glitch-Free Reactive DAG Engine & Dynamic Unsubscription",
+          "difficulty": "hard",
+          "language": "typescript",
+          "passed": false,
+          "score": 1,
+          "maxScore": 10,
+          "details": "PARTIAL: visible 1/1, hidden 1/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 1,
+            "failed": 5,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 141,
+          "turns": 3,
+          "toolCallsTotal": 2,
+          "toolCallsByName": {
+            "read": 1,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.000162,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 81,
+            "cacheRead": 2214,
+            "cacheWrite": 1215,
+            "reasoning": 0,
+            "total": 3510
+          },
+          "changedFiles": [],
+          "gitDiffStat": ""
+        },
+        {
+          "taskId": "05-async-rate-limiter",
+          "title": "Hierarchical Token Bucket & Sliding Window Rate Limiter",
+          "difficulty": "medium",
+          "language": "python",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 2/2, hidden 7/7",
+          "visibleTests": {
+            "passed": 2,
+            "failed": 0,
+            "total": 2
+          },
+          "hiddenTests": {
+            "passed": 7,
+            "failed": 0,
+            "total": 7
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 53,
+          "turns": 4,
+          "toolCallsTotal": 5,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 3,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.003076,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1538,
+            "cacheRead": 5626,
+            "cacheWrite": 3093,
+            "reasoning": 0,
+            "total": 10257
+          },
+          "changedFiles": [
+            "limiter/bucket.py",
+            "limiter/hierarchy.py",
+            "limiter/sliding.py",
+            "limiter/__pycache__/",
+            "tests/__pycache__/"
+          ],
+          "gitDiffStat": "limiter/bucket.py    | 28 ++++++++++++++++++++--------\n limiter/hierarchy.py | 23 ++++++-----------------\n limiter/sliding.py   | 40 ++++++++++++++++++++++++++--------------\n 3 files changed, 52 insertions(+), 39 deletions(-)"
+        },
+        {
+          "taskId": "06-sql-mini-planner",
+          "title": "Mini SQL Three-Valued NULLs, LEFT JOIN Pushdown & Aggregates",
+          "difficulty": "hard",
+          "language": "python",
+          "passed": false,
+          "score": 2,
+          "maxScore": 10,
+          "details": "PARTIAL: visible 2/2, hidden 2/6",
+          "visibleTests": {
+            "passed": 2,
+            "failed": 0,
+            "total": 2
+          },
+          "hiddenTests": {
+            "passed": 2,
+            "failed": 4,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 55,
+          "turns": 3,
+          "toolCallsTotal": 2,
+          "toolCallsByName": {
+            "read": 1,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0.000174,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 87,
+            "cacheRead": 2920,
+            "cacheWrite": 1869,
+            "reasoning": 0,
+            "total": 4876
+          },
+          "changedFiles": [
+            "minisql/__pycache__/",
+            "tests/__pycache__/"
+          ],
+          "gitDiffStat": ""
+        }
+      ]
+    },
+    {
+      "id": "inkling-2-mini:latest",
+      "provider": "ollama",
+      "tier": "local",
+      "weights": "open",
+      "reasoningEffort": "off",
+      "effectiveThinkingLevel": "off",
+      "extensionProfile": "pi-default",
+      "pricingPerMillion": {
+        "promptTokens": 0,
+        "completionTokens": 0
+      },
+      "passedTasks": 2,
+      "totalTasks": 6,
+      "passRate": 33.3,
+      "avgScore": 4.83,
+      "totalCostUsd": 0,
+      "totalTimeSec": 0.7,
+      "avgTurns": 3.5,
+      "totalToolCalls": 21,
+      "toolErrors": 0,
+      "toolErrorRate": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 3952,
+        "cacheRead": 23412,
+        "cacheWrite": 12792,
+        "reasoning": 0,
+        "total": 40156
+      },
+      "tokPerSec": 5645.7,
+      "taskResults": [
+        {
+          "taskId": "01-ledger-rounding",
+          "title": "Multi-Currency Ledger Rounding & Credit Split",
+          "difficulty": "easy",
+          "language": "typescript",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 1/1, hidden 6/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 6,
+            "failed": 0,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 138,
+          "turns": 4,
+          "toolCallsTotal": 6,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 4,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1349,
+            "cacheRead": 5129,
+            "cacheWrite": 2776,
+            "reasoning": 0,
+            "total": 9254
+          },
+          "changedFiles": [
+            "src/invoice.ts",
+            "src/money.ts",
+            "src/split.ts",
+            "src/tax.ts"
+          ],
+          "gitDiffStat": "src/invoice.ts | 30 ++++++++++--------------------\n src/money.ts   | 38 +++++++++++++++++++++++++-------------\n src/split.ts   | 33 ++++++++++++++++++++-------------\n src/tax.ts     | 20 ++++++++++----------\n 4 files changed, 65 insertions(+), 56 deletions(-)"
+        },
+        {
+          "taskId": "02-cron-dst-scheduler",
+          "title": "Cron Parser & DST-Safe Timezone Scheduler",
+          "difficulty": "medium",
+          "language": "typescript",
+          "passed": false,
+          "score": 1,
+          "maxScore": 10,
+          "details": "PARTIAL: visible 1/1, hidden 1/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 1,
+            "failed": 5,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 142,
+          "turns": 3,
+          "toolCallsTotal": 2,
+          "toolCallsByName": {
+            "read": 1,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 36,
+            "cacheRead": 2297,
+            "cacheWrite": 1238,
+            "reasoning": 0,
+            "total": 3571
+          },
+          "changedFiles": [],
+          "gitDiffStat": ""
+        },
+        {
+          "taskId": "03-wal-kv-recovery",
+          "title": "WAL Key-Value Store UTF-8 Framing & Crash Compaction",
+          "difficulty": "medium",
+          "language": "typescript",
+          "passed": false,
+          "score": 5,
+          "maxScore": 10,
+          "details": "PARTIAL: visible 1/1, hidden 4/5",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 4,
+            "failed": 1,
+            "total": 5
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 147,
+          "turns": 4,
+          "toolCallsTotal": 4,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 2,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1008,
+            "cacheRead": 5298,
+            "cacheWrite": 2703,
+            "reasoning": 0,
+            "total": 9009
+          },
+          "changedFiles": [
+            "src/codec.ts",
+            "src/wal.ts"
+          ],
+          "gitDiffStat": "src/codec.ts | 14 +++-----------\n src/wal.ts   | 24 ++++++++++++++++++------\n 2 files changed, 21 insertions(+), 17 deletions(-)"
+        },
+        {
+          "taskId": "04-reactive-dag-engine",
+          "title": "Glitch-Free Reactive DAG Engine & Dynamic Unsubscription",
+          "difficulty": "hard",
+          "language": "typescript",
+          "passed": false,
+          "score": 1,
+          "maxScore": 10,
+          "details": "PARTIAL: visible 1/1, hidden 1/6",
+          "visibleTests": {
+            "passed": 1,
+            "failed": 0,
+            "total": 1
+          },
+          "hiddenTests": {
+            "passed": 1,
+            "failed": 5,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 133,
+          "turns": 3,
+          "toolCallsTotal": 2,
+          "toolCallsByName": {
+            "read": 1,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 36,
+            "cacheRead": 2199,
+            "cacheWrite": 1185,
+            "reasoning": 0,
+            "total": 3420
+          },
+          "changedFiles": [],
+          "gitDiffStat": ""
+        },
+        {
+          "taskId": "05-async-rate-limiter",
+          "title": "Hierarchical Token Bucket & Sliding Window Rate Limiter",
+          "difficulty": "medium",
+          "language": "python",
+          "passed": true,
+          "score": 10,
+          "maxScore": 10,
+          "details": "PASS: visible 2/2, hidden 7/7",
+          "visibleTests": {
+            "passed": 2,
+            "failed": 0,
+            "total": 2
+          },
+          "hiddenTests": {
+            "passed": 7,
+            "failed": 0,
+            "total": 7
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 49,
+          "turns": 4,
+          "toolCallsTotal": 5,
+          "toolCallsByName": {
+            "read": 1,
+            "write": 3,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 1479,
+            "cacheRead": 5583,
+            "cacheWrite": 3049,
+            "reasoning": 0,
+            "total": 10111
+          },
+          "changedFiles": [
+            "limiter/bucket.py",
+            "limiter/hierarchy.py",
+            "limiter/sliding.py",
+            "limiter/__pycache__/",
+            "tests/__pycache__/"
+          ],
+          "gitDiffStat": "limiter/bucket.py    | 28 ++++++++++++++++++++--------\n limiter/hierarchy.py | 23 ++++++-----------------\n limiter/sliding.py   | 40 ++++++++++++++++++++++++++--------------\n 3 files changed, 52 insertions(+), 39 deletions(-)"
+        },
+        {
+          "taskId": "06-sql-mini-planner",
+          "title": "Mini SQL Three-Valued NULLs, LEFT JOIN Pushdown & Aggregates",
+          "difficulty": "hard",
+          "language": "python",
+          "passed": false,
+          "score": 2,
+          "maxScore": 10,
+          "details": "PARTIAL: visible 2/2, hidden 2/6",
+          "visibleTests": {
+            "passed": 2,
+            "failed": 0,
+            "total": 2
+          },
+          "hiddenTests": {
+            "passed": 2,
+            "failed": 4,
+            "total": 6
+          },
+          "cheatedProtectedFiles": false,
+          "stopReason": "completed",
+          "durationMs": 53,
+          "turns": 3,
+          "toolCallsTotal": 2,
+          "toolCallsByName": {
+            "read": 1,
+            "bash": 1
+          },
+          "toolErrors": 0,
+          "costUsd": 0,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 44,
+            "cacheRead": 2906,
+            "cacheWrite": 1841,
+            "reasoning": 0,
+            "total": 4791
+          },
+          "changedFiles": [
+            "minisql/__pycache__/",
+            "tests/__pycache__/"
+          ],
+          "gitDiffStat": ""
+        }
+      ]
+    }
+  ],
+  "unavailableModels": []
+}
