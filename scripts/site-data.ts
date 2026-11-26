@@ -252,6 +252,66 @@ export function loadCodingBenchData(rootDir: string): CodingBenchArtifact | null
   return null;
 }
 
+export interface LocalLabRecipeRow {
+  slug: string;
+  planPath: string;
+  planUrl: string;
+  engine: string;
+  status: string;
+  decodePrimary: number | null;
+  decodeDisplay: string;
+  prefill4k: number | null;
+  prefill32k: number | null;
+  prefillDisplay: string;
+  longRetrieval: string;
+  peakRamGib: number | null;
+  peakRamDisplay: string;
+  recipeSummary: string;
+}
+
+export interface LocalLabMachineSnapshot {
+  id: "m4-max" | "thor";
+  label: string;
+  repo: string;
+  url: string;
+  isPrivate: boolean;
+  pushedAt: string;
+  description: string;
+  specs: {
+    gpu: string;
+    cpu: string;
+    ram: string;
+    os: string;
+    note?: string;
+  };
+  recipes: LocalLabRecipeRow[];
+  footnotes: string[];
+  keyFindings: string[];
+}
+
+export interface LocalLabTemplateMeta {
+  repo: string;
+  url: string;
+  isPrivate: boolean;
+  pushedAt: string;
+  description: string;
+  stages: string[];
+  startCommands: string;
+  upstreamProjects: Array<{ name: string; url: string; purpose: string }>;
+}
+
+export interface LocalModelLabsArtifact {
+  syncedAt: string;
+  template: LocalLabTemplateMeta;
+  machines: LocalLabMachineSnapshot[];
+}
+
+export function loadLocalModelLabsData(rootDir: string): LocalModelLabsArtifact | null {
+  const filePath = path.join(rootDir, "reports", "data", "local-model-labs.json");
+  if (!fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, "utf8")) as LocalModelLabsArtifact;
+}
+
 export function loadSiteDatasets(rootDir: string) {
   const dataDir = path.join(rootDir, "reports", "data");
   const mockWatch = JSON.parse(
@@ -270,8 +330,9 @@ export function loadSiteDatasets(rootDir: string) {
     fs.readFileSync(path.join(dataDir, "examples-mock.json"), "utf8"),
   ) as ExamplesLiveArtifact;
   const codingBench = loadCodingBenchData(rootDir);
+  const localLabs = loadLocalModelLabsData(rootDir);
 
-  return { mockWatch, liveWatch, archives, jevLive, examplesMock, codingBench };
+  return { mockWatch, liveWatch, archives, jevLive, examplesMock, codingBench, localLabs };
 }
 
 export interface ExamplePick {

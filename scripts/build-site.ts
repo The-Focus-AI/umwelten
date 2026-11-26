@@ -28,6 +28,8 @@ import {
   type JevLiveArtifact,
   type LiveWatchArtifact,
   type LiveWatchModel,
+  type LocalLabMachineSnapshot,
+  type LocalModelLabsArtifact,
   type PromptExampleMeta,
 } from "./site-data.js";
 import { loadLabs, type LoadedLab } from "./site-labs.js";
@@ -772,6 +774,7 @@ function buildIndexPage(
   jevLive: JevLiveArtifact,
   codingBench: CodingBenchArtifact | null,
   labsCount: number,
+  localLabs: LocalModelLabsArtifact | null,
 ): string {
   const live = summarizeLiveWatch(liveWatch);
   const liveRunDate = live.liveRunDate;
@@ -1285,11 +1288,15 @@ function buildIndexPage(
 
     <!-- 05 — Local Preview -->
     <section class="report-section" id="local-preview">
-      <div class="section-num">05 &mdash; Local Serving Headroom (Verbatim from reports/2026-07-26-headroom-ollama-does-not-batch.md)</div>
-      <h2 class="section-title">Apple M4 Max concurrency probe: <code>c=1</code> vs. <code>c=4</code></h2>
+      <div class="section-num">05 &mdash; Local Hardware Labs &amp; Concurrency Headroom</div>
+      <h2 class="section-title">Apple M4 Max (64 GB), Jetson AGX Thor (122.8 GB) &amp; <code>c=1</code> vs. <code>c=4</code></h2>
       <p class="body-text">
-        Extracted directly by <code>scripts/extract-historical-reports.ts</code>. Full 14-row table + 13 local Ollama showdown scores on
-        <a href="./local.html">Local Models &amp; Serving Physics &rarr;</a>
+        ${
+          localLabs
+            ? `Includes <strong>${localLabs.machines.reduce((s, m) => s + m.recipes.length, 0)}</strong> live local hardware recipes synced from <code>local-model-labs-m4-max</code> (up to <strong>80.6 tok/s</strong> decode) and <code>local-model-labs-thor</code> (up to <strong>3,306 tok/s</strong> prefill @ 223K context), alongside our M4 Max concurrency benchmarks.`
+            : "Extracted directly by <code>scripts/extract-historical-reports.ts</code>."
+        }
+        Explore the full matrix on <a href="./local.html#hardware-labs">Local Models &amp; Hardware Labs &rarr;</a>
       </p>
 
       <div class="results-table-wrap">
@@ -2700,8 +2707,7 @@ function buildIndexPage(
 
   return renderShell({
     title: "Umwelten — Reproducible Model Watch & Prompt-First Pi Examples",
-    description:
-      "Reproducible Cost & Speed Pareto frontiers on @earendil-works/pi-ai, local M4 Max serving benchmarks, and 10 prompt-first Pi examples.",
+    description: `Reproducible Cost & Speed Pareto frontiers on @earendil-works/pi-ai, Apple M4 Max & NVIDIA Jetson AGX Thor local labs, ${labsCount} prototyping labs, and ${PROMPT_EXAMPLES.length} prompt-first Pi examples.`,
     activeNav: "watch",
     prefix: ".",
     bodyHtml,
@@ -2709,25 +2715,56 @@ function buildIndexPage(
   });
 }
 
-function buildLocalPage(archives: HistoricalArchivesArtifact): string {
+function statusBadgeCls(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "qualified") return "badge-green";
+  if (s === "tuned") return "badge-pareto";
+  if (s === "gated" || s === "new") return "badge-cluster";
+  return "badge-neutral";
+}
+
+function buildLocalPage(
+  archives: HistoricalArchivesArtifact,
+  localLabs: LocalModelLabsArtifact | null,
+): string {
   const localShowdown = archives.showdown.rows.filter((r) => r.tier === "local");
   const headroomRows = archives.headroom.rows;
 
+  const m4Machine: LocalLabMachineSnapshot | undefined = localLabs?.machines.find(
+    (m) => m.id === "m4-max",
+  );
+  const thorMachine: LocalLabMachineSnapshot | undefined = localLabs?.machines.find(
+    (m) => m.id === "thor",
+  );
+  const combinedRecipes = (localLabs?.machines ?? []).flatMap((m) =>
+    m.recipes.map((r) => ({ machine: m, recipe: r })),
+  );
+  const m4TopDecode =
+    m4Machine && m4Machine.recipes.length > 0
+      ? Math.max(...m4Machine.recipes.map((r) => r.decodePrimary ?? 0))
+      : 80.6;
+  const thorTopPrefill =
+    thorMachine && thorMachine.recipes.length > 0
+      ? Math.max(
+          ...thorMachine.recipes.map((r) => Math.max(r.prefill4k ?? 0, r.prefill32k ?? 0)),
+        )
+      : 3306;
+
   const localPicks: ExamplePick[] = [
     {
-      role: "Top Ollama",
-      name: "gpt-oss:latest",
-      note: "93.3% 4-dim score in docs-archive/walkthroughs/model-showdown-results.md (20/20 R, 28/30 K, 29/30 I, 105/126 C).",
+      role: "M4 Max Decode",
+      name: "inkling-2-mini-mtplx-bare-speed",
+      note: "80.6 tok/s median decode, 721/700 prefill, 3/3 @ 30.5K (61.6 tok/s), 24.9 GiB peak RAM in local-model-labs-m4-max.",
     },
     {
-      role: "Apple Silicon",
-      name: "nemotron-3-nano:latest",
-      note: "89.4% 4-dim score (20/20 Reasoning, 30/30 Knowledge, 27/30 Instruction, 85/126 Coding).",
+      role: "Thor Prefill",
+      name: "inkling-2-mini-nvfp4-vllm",
+      note: "43.0 tok/s decode, 3,216 / 3,306 tok/s prefill, and 3/3 @ 221.7K (lossy DSpark variant hits 50.0 / 85.3 tok/s c=4).",
     },
     {
-      role: "Specialist",
-      name: "qwen3:30b-a3b",
-      note: "126/126 Coding and 20/20 Reasoning, but 4/30 Instruction (77.5% combined — wraps raw JSON in fences).",
+      role: "Dense 27B M4",
+      name: "bonsai-2.5-27b-llamacpp",
+      note: "PrismML PQ2_0-mtp reaches 39.5 tok/s short and holds 39.4 tok/s @ 10.8K (21.4 GiB peak, 87.1% MTP acceptance).",
     },
     {
       role: "Batching 6.8×",
@@ -2737,53 +2774,252 @@ function buildLocalPage(archives: HistoricalArchivesArtifact): string {
   ];
 
   const maxTok = 1050;
+  const maxDecodeChart = 85;
+  const maxPrefillChart = Math.max(3400, thorTopPrefill);
+
+  const hardwareSectionHtml = localLabs
+    ? `
+    <section class="report-section" id="hardware-labs">
+      <div class="section-num">01 &mdash; Live Hardware Labs (${esc(localLabs.syncedAt.slice(0, 10))} Snapshot via <code>pnpm run site:sync-local-labs</code>)</div>
+      <h2 class="section-title">Apple M4 Max (64 GB) vs. NVIDIA Jetson AGX Thor (122.8 GB)</h2>
+      <p class="body-text">
+        Synced directly from the two machine-specific <code>The-Focus-AI/local-model-labs-*</code> repositories built on our reusable
+        <code>local-model-lab</code> harness. M4 Max leads single-stream decode via 546 GB/s unified Metal bandwidth, while Jetson AGX Thor
+        delivers 4.5&times; faster cold prefill and fits full 223K contexts in 122.8 GB unified memory.
+      </p>
+
+      <div class="hardware-grid">
+        ${localLabs.machines
+          .map((m) => {
+            const topDec = Math.max(...m.recipes.map((r) => r.decodePrimary ?? 0));
+            const topPre = Math.max(
+              ...m.recipes.map((r) => Math.max(r.prefill4k ?? 0, r.prefill32k ?? 0)),
+            );
+            const qualCount = m.recipes.filter(
+              (r) => r.status === "qualified" || r.status === "tuned",
+            ).length;
+            return `<article class="hardware-card ${m.id === "m4-max" ? "is-m4" : "is-thor"}">
+              <div class="hardware-card-head">
+                <div>
+                  <div class="portal-kicker">${m.id === "m4-max" ? "Machine Lab 01 · Apple Silicon" : "Machine Lab 02 · NVIDIA Jetson"}</div>
+                  <h3 class="hardware-card-title">${esc(m.label)}</h3>
+                </div>
+                <span class="badge ${m.id === "m4-max" ? "badge-local" : "badge-green"}">${m.recipes.length} recipes &middot; ${qualCount} tuned/qualified</span>
+              </div>
+              <div class="hw-spec-list">
+                <div><span>GPU / Accelerator</span><strong>${esc(m.specs.gpu)}</strong></div>
+                <div><span>Unified Memory</span><strong>${esc(m.specs.ram)}</strong></div>
+                <div><span>CPU</span><strong>${esc(m.specs.cpu)}</strong></div>
+                <div><span>OS / Runtime</span><strong>${esc(m.specs.os)}</strong></div>
+              </div>
+              <div class="hardware-card-foot">
+                <span>Peak decode <strong>${topDec.toFixed(1)} t/s</strong> &middot; Peak prefill <strong>${topPre.toLocaleString()} t/s</strong></span>
+                <a href="${esc(m.url)}" target="_blank" rel="noopener"><code>${esc(m.repo)}</code> (${m.isPrivate ? "private" : "public"}) &nearr;</a>
+              </div>
+            </article>`;
+          })
+          .join("\n        ")}
+      </div>
+
+      <nav class="dept-switcher" id="hw-switcher" aria-label="Filter hardware lab recipes" style="margin-top:0.5rem;padding-top:0.75rem">
+        <button type="button" class="dept-pill is-active" data-machine="all"><span>All Recipes</span><span class="dept-pill-count">${combinedRecipes.length}</span></button>
+        ${localLabs.machines
+          .map(
+            (m) =>
+              `<button type="button" class="dept-pill" data-machine="${m.id}"><span>${m.id === "m4-max" ? "Apple M4 Max" : "Jetson AGX Thor"}</span><span class="dept-pill-count">${m.recipes.length}</span></button>`,
+          )
+          .join("\n        ")}
+      </nav>
+
+      <div class="scale-bars" id="hw-bars">
+        ${combinedRecipes
+          .map(({ machine, recipe }) => {
+            const decPct = Math.max(2, Math.min(100, ((recipe.decodePrimary ?? 0) / maxDecodeChart) * 100));
+            const bestPre = Math.max(recipe.prefill4k ?? 0, recipe.prefill32k ?? 0);
+            const prePct = Math.max(2, Math.min(100, (bestPre / maxPrefillChart) * 100));
+            return `<div class="scale-row hw-bar-row" data-machine="${machine.id}">
+              <div>
+                <div class="model-cell"><a href="${esc(recipe.planUrl)}" target="_blank" rel="noopener">${esc(recipe.slug)}</a></div>
+                <div class="cost-cell" style="margin-top:2px">
+                  <span class="badge ${machine.id === "m4-max" ? "badge-local" : "badge-green"}">${machine.id === "m4-max" ? "M4 Max" : "Thor"}</span>
+                  ${esc(recipe.engine.replace(/`/g, ""))} &middot; ${esc(recipe.peakRamDisplay)}
+                </div>
+              </div>
+              <div class="scale-track-group">
+                <div class="scale-track-line">
+                  <span>decode</span>
+                  <div class="scale-bar-bg"><div class="scale-bar-fill" style="width:${decPct.toFixed(1)}%"></div></div>
+                  <strong>${esc(recipe.decodeDisplay)} t/s</strong>
+                </div>
+                <div class="scale-track-line">
+                  <span>prefill</span>
+                  <div class="scale-bar-bg"><div class="scale-bar-fill" style="width:${prePct.toFixed(1)}%;background:var(--accent-warm)"></div></div>
+                  <span>${esc(recipe.prefillDisplay)}</span>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <span class="badge ${statusBadgeCls(recipe.status)}">${esc(recipe.status)}</span>
+                <div class="cost-cell" style="margin-top:4px">${esc(recipe.longRetrieval)}</div>
+              </div>
+            </div>`;
+          })
+          .join("\n        ")}
+      </div>
+
+      <div class="results-table-wrap">
+        <table class="labs-table" id="hw-table">
+          <thead>
+            <tr>
+              <th>Machine</th>
+              <th>Recipe (PLAN.md)</th>
+              <th>Engine</th>
+              <th>Status</th>
+              <th>Decode (tok/s)</th>
+              <th>Prefill 4K / 32K</th>
+              <th>Long Retrieval</th>
+              <th>Peak RAM</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${combinedRecipes
+              .map(
+                ({ machine, recipe }) => `<tr class="${machine.id === "m4-max" ? "tier-local" : "tier-1"}" data-machine="${machine.id}">
+                  <td><span class="badge ${machine.id === "m4-max" ? "badge-local" : "badge-green"}">${machine.id === "m4-max" ? "M4 Max" : "Thor"}</span></td>
+                  <td class="model-cell"><a href="${esc(recipe.planUrl)}" target="_blank" rel="noopener">${esc(recipe.slug)} &nearr;</a></td>
+                  <td class="cost-cell" style="white-space:normal;max-width:190px">${esc(recipe.engine.replace(/`/g, ""))}</td>
+                  <td><span class="badge ${statusBadgeCls(recipe.status)}">${esc(recipe.status)}</span></td>
+                  <td class="combined-cell">${esc(recipe.decodeDisplay)}</td>
+                  <td class="score-cell">${esc(recipe.prefillDisplay)}</td>
+                  <td class="time-cell">${esc(recipe.longRetrieval)}</td>
+                  <td class="cost-cell">${esc(recipe.peakRamDisplay)}</td>
+                  <td class="cost-cell" style="white-space:normal;max-width:300px;color:var(--text)">${esc(recipe.recipeSummary.replace(/`/g, ""))}</td>
+                </tr>`,
+              )
+              .join("\n            ")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="hw-footnotes">
+        <div><strong>M4 Max notes:</strong> Ollama hit 65.4 tok/s with <code>reasoning_effort: "none"</code> (failed long retrieval 0/3) vs. 28.6 tok/s with thinking on (3/3).</div>
+        <div><strong>Jetson AGX Thor notes:</strong> Lossy int8 Inkling DSpark reached <strong>50.0 tok/s</strong> single-stream (85.3 c=4); DGX Spark images (<code>sm_120</code>) do not run on Thor (<code>sm_110</code>).</div>
+      </div>
+
+      <h3 class="sub-title">Cross-Machine Engineering Takeaways</h3>
+      <div class="finding-grid">
+        ${localLabs.machines
+          .flatMap((m) =>
+            m.keyFindings.slice(0, 3).map((txt, idx) => ({
+              machine: m,
+              num: idx + 1,
+              txt,
+            })),
+          )
+          .map(
+            (item) => `<article class="finding-card">
+              <div class="finding-head">
+                <span class="f-num">${item.machine.id === "m4-max" ? "M4 Max" : "Thor"} &middot; #0${item.num}</span>
+                <span class="f-date">${esc(item.machine.pushedAt.slice(0, 10))}</span>
+              </div>
+              <p>${esc(item.txt.replace(/`/g, ""))}</p>
+            </article>`,
+          )
+          .join("\n        ")}
+      </div>
+    </section>
+
+    <section class="report-section" id="workbench-template">
+      <div class="section-num">02 &mdash; Generic Test Harness (<a href="${esc(localLabs.template.url)}" target="_blank" rel="noopener">${esc(localLabs.template.repo)} &nearr;</a>)</div>
+      <h2 class="section-title">The 5-Stage Reproducible Local Model Lab Pipeline</h2>
+      <p class="body-text">
+        ${esc(localLabs.template.description)}. Every machine forks this upstream template, runs <code>mise run init</code>, and accumulates
+        immutable <code>ledger.jsonl</code> measurements without committing multi-gigabyte model weights.
+      </p>
+
+      <div class="workbench-grid">
+        <div class="workbench-card">
+          <div class="section-num" style="margin-bottom:0.45rem">Five-Stage Qualification Protocol</div>
+          <ol class="lab-steps" style="margin-bottom:0">
+            ${localLabs.template.stages
+              .map((st) => `<li>${esc(st.replace(/`/g, ""))}</li>`)
+              .join("\n            ")}
+          </ol>
+        </div>
+
+        <div class="workbench-card" style="padding:0;display:flex;flex-direction:column;justify-content:space-between">
+          <div class="code-sheet" style="margin:0;border:none;border-bottom:1px solid var(--border)">
+            <div class="code-sheet-head">
+              <span class="code-sheet-path">mise quickstart (one checkout per machine)</span>
+              <button type="button" class="copy-btn-sm" id="copy-mise-btn">Copy</button>
+            </div>
+            <pre><code>${esc(localLabs.template.startCommands)}</code></pre>
+          </div>
+          <div style="padding:0.9rem 1.1rem;font-size:0.83rem;color:var(--text-2);display:grid;gap:0.35rem">
+            <div class="section-num" style="margin-bottom:0.15rem">Upstream Dependencies</div>
+            ${localLabs.template.upstreamProjects
+              .map(
+                (u) =>
+                  `<div><a href="${esc(u.url)}" target="_blank" rel="noopener"><strong>${esc(u.name)} &nearr;</strong></a> &mdash; ${esc(u.purpose.replace(/`/g, ""))}</div>`,
+              )
+              .join("\n            ")}
+          </div>
+        </div>
+      </div>
+    </section>`
+    : "";
 
   const bodyHtml = `<div class="container">
     <div class="hero">
-      <div class="hero-label">Local Serving Bench &middot; Extracted Verbatim From Committed Reports</div>
-      <h1>Local Models &amp;<br><em>Serving Physics</em></h1>
+      <div class="hero-label">Local Hardware Labs &amp; Serving Physics &middot; M4 Max, Jetson AGX Thor &amp; Ollama Archives</div>
+      <h1>Local Models &amp;<br><em>Hardware Labs</em></h1>
       <p class="hero-subtitle">
-        Every row on this page is parsed directly by <code>scripts/extract-historical-reports.ts</code> from
-        <code>${esc(archives.headroom.sourceReport)}</code> (${esc(archives.headroom.hardware)}) and
-        <code>${esc(archives.showdown.sourceReport)}</code> &mdash; including recorded memory-pressure failures.
+        Live measurements from <code>The-Focus-AI/local-model-labs-m4-max</code> (Apple M4 Max 64 GB),
+        <code>The-Focus-AI/local-model-labs-thor</code> (NVIDIA Jetson AGX Thor 122.8 GB), and the generic
+        <code>local-model-lab</code> harness (synced via <code>pnpm run site:sync-local-labs</code>), paired with our
+        historical <code>llama-swap</code> vs. <code>ollama</code> concurrency archives.
       </p>
       <div class="hero-meta">
-        <span>Hardware: <strong>${esc(archives.headroom.hardware)}</strong></span>
-        <span>Reproduce: <code>${esc(archives.headroom.reproduceCommand)}</code></span>
+        <span><a href="#hardware-labs">Hardware Labs (${combinedRecipes.length} recipes) &darr;</a></span>
+        <span><a href="#workbench-template">Generic Harness (<code>local-model-lab</code>) &darr;</a></span>
+        <span><a href="#headroom">Concurrency Probe (<code>c=1</code> vs. <code>c=4</code>) &darr;</a></span>
+        <span><a href="#ollama-showdown">Ollama Showdown (${localShowdown.length}) &darr;</a></span>
       </div>
     </div>
 
     <div class="stats-row">
       <div class="stat-card s-local">
-        <div class="stat-num">93.3%</div>
-        <div class="stat-label">Top Local Ollama</div>
-        <div class="stat-sub">gpt-oss:latest (#21 of 48)</div>
-      </div>
-      <div class="stat-card s-accent">
-        <div class="stat-num">1,014.3</div>
-        <div class="stat-label">Peak c=4 agg tok/s</div>
-        <div class="stat-sub">gemma-4-E2B (llama-swap, 6.8&times;)</div>
-      </div>
-      <div class="stat-card s-yellow">
-        <div class="stat-num">48,767ms</div>
-        <div class="stat-label">Worst Queued TTFT</div>
-        <div class="stat-sub">gemma4:31b on ollama @ c=4</div>
+        <div class="stat-num">${m4TopDecode.toFixed(1)}</div>
+        <div class="stat-label">Peak M4 Max Decode</div>
+        <div class="stat-sub">tok/s (inkling-2-mini mtplx)</div>
       </div>
       <div class="stat-card s-green">
-        <div class="stat-num">${localShowdown.length}</div>
-        <div class="stat-label">Local Models Scored</div>
-        <div class="stat-sub">4-dim showdown baseline</div>
+        <div class="stat-num">${thorTopPrefill.toLocaleString()}</div>
+        <div class="stat-label">Peak Thor 32K Prefill</div>
+        <div class="stat-sub">tok/s (inkling-2-mini vLLM @ 221.7K)</div>
+      </div>
+      <div class="stat-card s-accent">
+        <div class="stat-num">${combinedRecipes.length || localShowdown.length}</div>
+        <div class="stat-label">Active Lab Recipes</div>
+        <div class="stat-sub">${m4Machine?.recipes.length ?? 0} M4 Max &middot; ${thorMachine?.recipes.length ?? 0} Jetson AGX Thor</div>
+      </div>
+      <div class="stat-card s-yellow">
+        <div class="stat-num">1,014.3</div>
+        <div class="stat-label">Peak c=4 Batching</div>
+        <div class="stat-sub">gemma-4-E2B on llama-swap (6.8&times;)</div>
       </div>
     </div>
 
     ${renderModelPicks(
       localPicks,
-      `extracted from ${archives.headroom.runDate} & ${archives.showdown.runDate} reports`,
-      "Measured local findings",
+      `synced ${localLabs?.syncedAt.slice(0, 10) ?? archives.headroom.runDate} + historical ${archives.headroom.runDate}`,
+      "Top Local & Hardware Lab Picks",
     )}
 
-    <section class="report-section">
-      <div class="section-num">01 &mdash; Concurrency Headroom (${esc(archives.headroom.sourceReport)})</div>
+    ${hardwareSectionHtml}
+
+    <section class="report-section" id="headroom">
+      <div class="section-num">${localLabs ? "03" : "01"} &mdash; Concurrency Headroom (${esc(archives.headroom.sourceReport)})</div>
       <h2 class="section-title">All ${headroomRows.length} measured M4 Max rows: <code>llama-swap</code> vs. <code>ollama</code></h2>
       <p class="body-text">
         Note on <code>gemma-4-31B</code> under <code>llama-swap</code>: recorded as <code>&mdash;</code> because four concurrent
@@ -2861,8 +3097,8 @@ function buildLocalPage(archives: HistoricalArchivesArtifact): string {
       </div>
     </section>
 
-    <section class="report-section">
-      <div class="section-num">02 &mdash; All ${localShowdown.length} Local Ollama Models (${esc(archives.showdown.sourceReport)})</div>
+    <section class="report-section" id="ollama-showdown">
+      <div class="section-num">${localLabs ? "04" : "02"} &mdash; All ${localShowdown.length} Local Ollama Models (${esc(archives.showdown.sourceReport)})</div>
       <h2 class="section-title">Verbatim 4-dimension scores on local weights</h2>
       <div class="results-table-wrap">
         <table class="labs-table">
@@ -2899,13 +3135,40 @@ function buildLocalPage(archives: HistoricalArchivesArtifact): string {
     </section>
   </div>`;
 
+  const miseCmdJson = JSON.stringify(localLabs?.template.startCommands ?? "").replace(/<\//g, "<\\/");
+  const scriptHtml = `<script>
+  (() => {
+    const MISE_CMD = ${miseCmdJson};
+    const switcher = document.getElementById("hw-switcher");
+    const barRows = Array.from(document.querySelectorAll(".hw-bar-row"));
+    const tableRows = Array.from(document.querySelectorAll("#hw-table tbody tr"));
+    switcher?.querySelectorAll("button[data-machine]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        switcher.querySelectorAll("button").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        const m = btn.getAttribute("data-machine") || "all";
+        barRows.forEach((el) => {
+          el.style.display = m === "all" || el.getAttribute("data-machine") === m ? "grid" : "none";
+        });
+        tableRows.forEach((tr) => {
+          tr.style.display = m === "all" || tr.getAttribute("data-machine") === m ? "" : "none";
+        });
+      });
+    });
+    document.getElementById("copy-mise-btn")?.addEventListener("click", function () {
+      copyTextWithFeedback(this, MISE_CMD, "Copied ✓");
+    });
+  })();
+  </script>`;
+
   return renderShell({
-    title: "Local Models & Serving Physics · Umwelten",
+    title: "Local Models & Hardware Labs · Umwelten",
     description:
-      "Verbatim M4 Max c=1 vs c=4 concurrency measurements and 13 local Ollama 4-dimension showdown scores.",
+      "Live Apple M4 Max (80.6 tok/s) and NVIDIA Jetson AGX Thor (122.8 GB, 3,306 tok/s prefill) hardware lab benchmarks, generic local-model-lab harness, and concurrency physics.",
     activeNav: "local",
     prefix: ".",
     bodyHtml,
+    scriptHtml,
   });
 }
 
@@ -3600,7 +3863,7 @@ function buildArchitecturePage(): string {
 }
 
 function main() {
-  const { mockWatch, liveWatch, archives, jevLive, examplesMock, codingBench } =
+  const { mockWatch, liveWatch, archives, jevLive, examplesMock, codingBench, localLabs } =
     loadSiteDatasets(ROOT);
   const labs = loadLabs(ROOT);
 
@@ -3615,10 +3878,10 @@ function main() {
   fs.writeFileSync(path.join(OUT_DIR, "styles", "labs.css"), LABS_CSS, "utf8");
   fs.writeFileSync(
     path.join(OUT_DIR, "index.html"),
-    buildIndexPage(mockWatch, liveWatch, archives, jevLive, codingBench, labs.length),
+    buildIndexPage(mockWatch, liveWatch, archives, jevLive, codingBench, labs.length, localLabs),
     "utf8",
   );
-  fs.writeFileSync(path.join(OUT_DIR, "local.html"), buildLocalPage(archives), "utf8");
+  fs.writeFileSync(path.join(OUT_DIR, "local.html"), buildLocalPage(archives, localLabs), "utf8");
   fs.writeFileSync(path.join(OUT_DIR, "examples.html"), buildExamplesHubPage(), "utf8");
   fs.writeFileSync(path.join(OUT_DIR, "labs.html"), buildLabsHubPage(labs), "utf8");
   fs.writeFileSync(path.join(OUT_DIR, "architecture.html"), buildArchitecturePage(), "utf8");
