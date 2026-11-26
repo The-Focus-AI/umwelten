@@ -2305,4 +2305,114 @@ table.labs-table tr.tier-local td:first-child { border-left: 3px solid var(--loc
   .deck-feature-banner { grid-template-columns: 1fr; }
   .deck-preview-pane { border-right: none; border-bottom: 1px solid var(--ink); }
 }
+
+/* ── Live Local Hardware Labs (.hardware-grid / .workbench-grid) ─────────── */
+.hardware-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.hardware-card {
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-top-width: 3px;
+  padding: 1.35rem 1.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.hardware-card.is-m4 { border-top-color: var(--local); }
+.hardware-card.is-thor { border-top-color: var(--green); }
+
+.hardware-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hardware-card-title {
+  font-family: var(--display-card);
+  font-size: 1.28rem;
+  font-weight: 500;
+  color: var(--text-strong);
+  line-height: 1.2;
+}
+
+.hw-spec-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.9rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.hw-spec-list div span {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.hw-spec-list div strong {
+  font-family: var(--font-mono);
+  font-size: 0.77rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.hardware-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.hw-footnotes {
+  margin: 0.65rem 0 1.4rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-raised);
+  border-left: 3px solid var(--border-strong);
+  font-size: 0.83rem;
+  color: var(--text-2);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 1.25rem;
+  margin: 1.25rem 0 1rem;
+}
+
+.workbench-card {
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  padding: 1.3rem 1.4rem;
+}
+
+@media (max-width: 960px) {
+  .hardware-grid,
+  .workbench-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .hw-spec-list { grid-template-columns: 1fr; }
+}
 `;

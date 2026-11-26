@@ -14,6 +14,7 @@
     "specs:effective": "node --experimental-strip-types .agents/skills/spec-refactor/scripts/check-specs.ts --root . --effective",
     "specs:bundle": "node --experimental-strip-types .agents/skills/spec-refactor/scripts/check-specs.ts --root . --bundle",
     "site:extract-archives": "tsx scripts/extract-historical-reports.ts",
+    "site:sync-local-labs": "tsx scripts/sync-local-labs.ts",
     "site:bench": "tsx examples/model-watch/run.ts",
     "bench:code": "tsx examples/coding-bench/run.ts",
     "bench:interactive": "tsx examples/coding-bench/interactive.ts",
