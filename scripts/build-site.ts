@@ -30,6 +30,7 @@ import {
   type LiveWatchModel,
   type PromptExampleMeta,
 } from "./site-data.js";
+import { loadLabs, type LoadedLab } from "./site-labs.js";
 import { LABS_CSS } from "./site-styles.js";
 
 const ROOT = process.cwd();
@@ -476,13 +477,14 @@ function highlightTs(source: string): string {
     .join("\n");
 }
 
-type NavKey = "watch" | "local" | "examples" | "architecture";
+type NavKey = "watch" | "local" | "examples" | "labs" | "architecture";
 
 function renderShell(opts: {
   title: string;
   description: string;
   activeNav: NavKey;
   prefix: "." | "..";
+  labCount?: number;
   storylineHtml?: string;
   bodyHtml: string;
   scriptHtml?: string;
@@ -492,6 +494,7 @@ function renderShell(opts: {
     { key: "watch", href: `${p}/index.html`, label: "Model Watch" },
     { key: "local", href: `${p}/local.html`, label: "Local Models" },
     { key: "examples", href: `${p}/examples.html`, label: `Examples (${PROMPT_EXAMPLES.length})` },
+    { key: "labs", href: `${p}/labs.html`, label: `Labs (${opts.labCount ?? 9})` },
     { key: "architecture", href: `${p}/architecture.html`, label: "Architecture" },
   ];
 
@@ -532,6 +535,9 @@ function renderShell(opts: {
         </a>`;
           })
           .join("\n        ")}
+        <a href="${p}/presentations/durable-agents-architecture/index.html" class="site-nav-deck">
+          <span>Deck</span>
+        </a>
         <a href="https://github.com/The-Focus-AI/umwelten" class="site-nav-gh" target="_blank" rel="noopener">
           <span>GitHub &nearr;</span>
         </a>
@@ -549,11 +555,13 @@ function renderShell(opts: {
     <div class="site-footer-inner">
       <span>Published by <a href="https://thefocus.ai">TheFocus.AI</a> &middot; Data reproduced via <code>pnpm run site:bench</code></span>
       <span>
-        <a href="https://labs.thefocus.ai">Labs</a>
+        <a href="${p}/labs.html">Prototyping Labs</a>
         &middot;
         <a href="${p}/examples.html">Examples</a>
         &middot;
         <a href="${p}/architecture.html">Specs &amp; Verdicts</a>
+        &middot;
+        <a href="${p}/presentations/durable-agents-architecture/index.html">Architecture Deck</a>
         &middot;
         <a href="https://github.com/The-Focus-AI/umwelten">Source</a>
       </span>
@@ -763,6 +771,7 @@ function buildIndexPage(
   archives: HistoricalArchivesArtifact,
   jevLive: JevLiveArtifact,
   codingBench: CodingBenchArtifact | null,
+  labsCount: number,
 ): string {
   const live = summarizeLiveWatch(liveWatch);
   const liveRunDate = live.liveRunDate;
@@ -956,9 +965,9 @@ function buildIndexPage(
         <span><a href="#explorer">Model Explorer (${explorer.models.length}) &darr;</a></span>
         <span><a href="#coding-bench">Coding Benchmark (${codingBench ? codingBench.tasks.length : 6}) &darr;</a></span>
         <span><a href="#pareto">Legacy 18-Task Watch (${liveWatch.models.length} live) &darr;</a></span>
-        <span><a href="#dispatches">Verified Findings &darr;</a></span>
+        <span><a href="./labs.html">Prototyping Labs (${labsCount}) &rarr;</a></span>
+        <span><a href="./presentations/durable-agents-architecture/index.html">Architecture Deck (12 slides) &rarr;</a></span>
         <span>Live run: <strong>${esc(liveRunDate)}</strong> &middot; Judge: <code>${esc(liveWatch.judgeModel)}</code></span>
-        <span>Coding run: <code>pnpm run bench:code -- --live</code></span>
       </div>
     </div>
 
@@ -983,6 +992,33 @@ function buildIndexPage(
         <div class="stat-label">Measured Live (${esc(liveRunDate)})</div>
         <div class="stat-sub">$${live.liveTotalRunCost.toFixed(2)} run incl. ${esc(shortModelId(liveWatch.judgeModel))}</div>
       </div>
+    </div>
+
+    <div class="portal-strip" aria-label="Architecture, Prototyping Labs, and Examples">
+      <a class="portal-card" href="./labs.html">
+        <div>
+          <div class="portal-kicker">Labs 01&ndash;0${labsCount} &middot; Copy-Paste Prompts</div>
+          <h3>${labsCount} Prompt-First Prototyping Labs</h3>
+          <p>Mermaid flows, wireframes, and coding-agent prompts for Pi Durable, Mycel tracing, credential proxies, MCP <code>ui://</code>, A2A meshes, and production ejection.</p>
+        </div>
+        <span class="portal-cta">Browse All ${labsCount} Labs &rarr;</span>
+      </a>
+      <a class="portal-card is-void" href="./presentations/durable-agents-architecture/index.html">
+        <div>
+          <div class="portal-kicker">12-Slide Interactive Deck</div>
+          <h3>Building &amp; Shipping Durable Client Agents</h3>
+          <p>Walks through the Client Environment rethink (Decision D-11), hand-tuned QuickBooks ontology, zero-secret GCP runtime, and A2A 1.0 exposure.</p>
+        </div>
+        <span class="portal-cta">Launch Slide Deck &rarr;</span>
+      </a>
+      <a class="portal-card" href="./examples.html">
+        <div>
+          <div class="portal-kicker">${PROMPT_EXAMPLES.length} Runnable Scripts &middot; Incl. D-11 &amp; Multi-A2A</div>
+          <h3>Prompt-First Examples &amp; Specs</h3>
+          <p>Copy the prompt, inspect the checked-in TypeScript, run locally via <code>pnpm</code>, or audit ratified decisions &amp; <code>session-spec-verify</code> verdicts.</p>
+        </div>
+        <span class="portal-cta">Explore Examples &rarr;</span>
+      </a>
     </div>
 
     <!-- 01 — Front-Door Model Explorer -->
@@ -2889,7 +2925,8 @@ function buildExamplesHubPage(): string {
       <h1>Prompt-First<br><em>Pi Examples</em></h1>
       <p class="hero-subtitle">
         Each page starts at the top with the exact prompt you give Pi, followed by the real TypeScript file read directly from
-        <code>examples/</code> at build time, and the actual captured execution output from <code>reports/data/examples-live.json</code>.
+        <code>examples/</code> at build time, and the captured smoke/live execution output. Looking for interactive design drills?
+        See the <a href="./labs.html">9 Prototyping Labs</a>.
       </p>
     </div>
 
@@ -2929,8 +2966,7 @@ function buildExamplesHubPage(): string {
 
   return renderShell({
     title: "Prompt-First Examples · Umwelten",
-    description:
-      "Ten prompt-first Pi & Pi Durable examples with live workspace TypeScript sources and captured execution outputs.",
+    description: `${PROMPT_EXAMPLES.length} prompt-first Pi & Pi Durable examples with live workspace TypeScript sources and captured execution outputs.`,
     activeNav: "examples",
     prefix: ".",
     bodyHtml,
@@ -3135,6 +3171,255 @@ function buildSingleExamplePage(
   });
 }
 
+function renderDeckFeatureBanner(prefix: "." | ".."): string {
+  return `<section class="deck-feature-banner" aria-label="Architecture Slide Deck">
+      <div class="deck-preview-pane">
+        <div>
+          <div class="deck-preview-kicker">Interactive Slide Deck &middot; 12 Slides</div>
+          <div class="deck-preview-title">Building &amp; Shipping Durable Client Agents</div>
+        </div>
+        <div class="deck-preview-slides">
+          <span>01 Stack</span>
+          <span>04 QuickBooks Tuning</span>
+          <span>06 Ontology</span>
+          <span>08 Client Env (D-11)</span>
+          <span>11 GCP Rollout</span>
+          <span>12 A2A Mesh</span>
+        </div>
+      </div>
+      <div class="deck-feature-body">
+        <div>
+          <div class="section-num" style="margin-bottom:0.35rem">Presentation &middot; End-to-End Architecture</div>
+          <h3>From hand-tuned QuickBooks ontology to zero-secret GCP Client Environments</h3>
+          <p>
+            Walks through the two-plane Client Environment rethink (<code>perimeter-gateway</code> with client-local Mycel + credential-injecting
+            HTTP/MCP proxy vs. zero-secret <code>habitat-runtime</code>), interactive ontology extraction, and A2A 1.0 service exposure.
+          </p>
+        </div>
+        <div class="deck-feature-actions">
+          <a class="button-primary" style="display:inline-flex;align-items:center;padding:0.55rem 1.05rem;background:var(--signal);color:#fff;border:1px solid var(--signal);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;" href="${prefix}/presentations/durable-agents-architecture/index.html">Launch Slide Deck (12 Slides) &rarr;</a>
+          <a class="filter-btn" href="${prefix}/examples/client-env-perimeter.html">Inspect D-11 Example &rarr;</a>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderLabCard(lab: LoadedLab, prefix: "." | ".."): string {
+  const shortGoal = lab.goal.length > 142 ? lab.goal.slice(0, 139).trimEnd() + "…" : lab.goal;
+  return `<a class="item-card" href="${prefix}/labs/${lab.slug}.html" data-track="${lab.track}">
+    <div>
+      <div class="item-meta">
+        <span class="item-kind">
+          <span class="telemetry-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>Lab ${esc(lab.num)} &middot; ${esc(lab.badge)}</span>
+        </span>
+        <span>${esc(lab.trackLabel)}</span>
+      </div>
+      <h3>${esc(lab.shortTitle)}</h3>
+      <div class="item-prompt-preview">${esc(shortGoal)}</div>
+    </div>
+    <div class="item-footer">
+      <span>${esc(lab.visualSurface)}</span>
+      <span class="item-cta">Prompt &amp; Guide &rarr;</span>
+    </div>
+  </a>`;
+}
+
+function buildLabsHubPage(labs: LoadedLab[]): string {
+  const counts = {
+    all: labs.length,
+    runtime: labs.filter((l) => l.track === "runtime").length,
+    "proxy-governance": labs.filter((l) => l.track === "proxy-governance").length,
+    "protocols-ui": labs.filter((l) => l.track === "protocols-ui").length,
+    "mesh-production": labs.filter((l) => l.track === "mesh-production").length,
+  };
+
+  const bodyHtml = `<div class="container">
+    <div class="hero">
+      <div class="hero-label">Interactive Workbench Series &middot; ${labs.length} Prompt-First Labs</div>
+      <h1>Prototyping Labs &amp;<br><em>Agent Prompts</em></h1>
+      <p class="hero-subtitle">
+        Bite-sized, copy-paste tutorials for coding agents (Pi, Claude Code, Codex, Antigravity). Every lab includes a Mermaid flow diagram,
+        terminal/browser wireframe, repo anchors, an exact prompt defaulting to offline <code>fauxProvider</code> mocks, and verification checks.
+      </p>
+    </div>
+
+    <nav class="dept-switcher" id="lab-switcher" aria-label="Lab tracks">
+      <button type="button" class="dept-pill is-active" data-track="all"><span>All Labs</span><span class="dept-pill-count">${counts.all}</span></button>
+      <button type="button" class="dept-pill" data-track="runtime"><span>Durable Runtime</span><span class="dept-pill-count">${counts.runtime}</span></button>
+      <button type="button" class="dept-pill" data-track="proxy-governance"><span>Proxy &amp; Governance</span><span class="dept-pill-count">${counts["proxy-governance"]}</span></button>
+      <button type="button" class="dept-pill" data-track="protocols-ui"><span>Protocols &amp; UI</span><span class="dept-pill-count">${counts["protocols-ui"]}</span></button>
+      <button type="button" class="dept-pill" data-track="mesh-production"><span>Mesh &amp; Production</span><span class="dept-pill-count">${counts["mesh-production"]}</span></button>
+    </nav>
+
+    <div class="drafting-bento" style="margin-top:0">
+      <div class="example-grid" id="hub-lab-grid">
+        ${labs.map((lab) => renderLabCard(lab, ".")).join("\n        ")}
+      </div>
+    </div>
+
+    ${renderDeckFeatureBanner(".")}
+  </div>`;
+
+  const scriptHtml = `<script>
+  (() => {
+    const switcher = document.getElementById("lab-switcher");
+    const cards = Array.from(document.querySelectorAll("#hub-lab-grid .item-card"));
+    switcher?.querySelectorAll("button[data-track]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        switcher.querySelectorAll("button").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        const track = btn.getAttribute("data-track") || "all";
+        cards.forEach((c) => {
+          const match = track === "all" || c.getAttribute("data-track") === track;
+          c.style.display = match ? "flex" : "none";
+        });
+      });
+    });
+  })();
+  </script>`;
+
+  return renderShell({
+    title: "Prototyping Labs & Coding-Agent Prompts · Umwelten",
+    description: `${labs.length} prompt-first prototyping labs covering Pi Durable, Mycel authless tracing, credential proxies, MCP ui://, A2A meshes, and production ejection.`,
+    activeNav: "labs",
+    prefix: ".",
+    labCount: labs.length,
+    bodyHtml,
+    scriptHtml,
+  });
+}
+
+function buildSingleLabPage(lab: LoadedLab, index: number, allLabs: LoadedLab[]): string {
+  const prev = allLabs[(index - 1 + allLabs.length) % allLabs.length];
+  const next = allLabs[(index + 1) % allLabs.length];
+  const padTotal = String(allLabs.length).padStart(2, "0");
+
+  const storylineHtml = `<div class="issue-storyline">
+    <div class="storyline-inner">
+      <a class="storyline-back" href="../labs.html">&larr; All Labs</a>
+      <span class="storyline-center">
+        <span class="storyline-pill">Lab ${esc(lab.num)} / ${padTotal}</span>
+        <span class="storyline-title">${esc(lab.shortTitle)}</span>
+      </span>
+      <div class="storyline-actions">
+        <button type="button" class="storyline-btn" id="copy-lab-md-top">Copy Full MD</button>
+        <button type="button" class="storyline-btn is-primary" data-copy-prompt>Copy Prompt</button>
+      </div>
+    </div>
+  </div>`;
+
+  const bodyHtml = `<div class="container">
+    <div class="hero">
+      <div class="hero-label">Prototyping Lab ${esc(lab.num)} &middot; ${esc(lab.trackLabel)} &middot; ${esc(lab.visualSurface)}</div>
+      <h1>${esc(lab.title)}</h1>
+      <p class="hero-subtitle">${esc(lab.goal)}</p>
+      <div class="hero-meta">
+        <span><span class="badge badge-pareto">${esc(lab.badge)}</span></span>
+        <span><strong>Modes:</strong> ${esc(lab.modes.replace(/`/g, ""))}</span>
+        <span>Source: <a href="https://github.com/The-Focus-AI/umwelten/blob/main/${esc(lab.file)}" target="_blank" rel="noopener"><code>${esc(lab.file)}</code></a></span>
+      </div>
+      ${
+        lab.anchors.length > 0
+          ? `<div class="lab-anchors" aria-label="Repository anchors">${lab.anchors
+              .map(
+                (a) =>
+                  `<a class="lab-anchor-chip" href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.label)} &nearr;</a>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+    </div>
+
+    <article class="lab-article">
+      ${lab.bodyHtml}
+    </article>
+
+    <nav class="prev-next-grid" aria-label="Adjacent labs">
+      <a class="item-card" href="./${prev.slug}.html">
+        <div>
+          <div class="item-meta">
+            <span class="item-kind">&larr; Previous Lab</span>
+            <span>Lab ${esc(prev.num)}</span>
+          </div>
+          <h3>${esc(prev.shortTitle)}</h3>
+        </div>
+        <div class="item-footer">
+          <span>${esc(prev.visualSurface)}</span>
+          <span class="item-cta">Open &rarr;</span>
+        </div>
+      </a>
+      <a class="item-card" href="./${next.slug}.html">
+        <div>
+          <div class="item-meta">
+            <span class="item-kind">Next Lab &rarr;</span>
+            <span>Lab ${esc(next.num)}</span>
+          </div>
+          <h3>${esc(next.shortTitle)}</h3>
+        </div>
+        <div class="item-footer">
+          <span>${esc(next.visualSurface)}</span>
+          <span class="item-cta">Open &rarr;</span>
+        </div>
+      </a>
+    </nav>
+  </div>`;
+
+  const payloadJson = JSON.stringify({
+    prompt: lab.promptText,
+    md: lab.rawMarkdown,
+    snippets: lab.codeSnippets,
+  }).replace(/<\//g, "<\\/");
+
+  const scriptHtml = `<script>
+  (() => {
+    const LAB_DATA = ${payloadJson};
+    document.querySelectorAll("[data-copy-prompt]").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        copyTextWithFeedback(this, LAB_DATA.prompt, "Prompt Copied ✓");
+      });
+    });
+    document.getElementById("copy-lab-md-top")?.addEventListener("click", function () {
+      copyTextWithFeedback(this, LAB_DATA.md, "Markdown Copied ✓");
+    });
+    document.querySelectorAll("[data-copy-snippet]").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const idx = Number(this.getAttribute("data-copy-snippet"));
+        const snippet = LAB_DATA.snippets[idx] || "";
+        copyTextWithFeedback(this, snippet, "Copied ✓");
+      });
+    });
+  })();
+  </script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#faf8f2",
+        primaryBorderColor: "#1a1a1a",
+        primaryTextColor: "#1a1a1a",
+        lineColor: "#0055aa",
+        secondaryColor: "#e6eef7",
+        tertiaryColor: "#e8e6df",
+        fontFamily: "Inter, system-ui, sans-serif",
+      },
+    });
+  </script>`;
+
+  return renderShell({
+    title: `Lab ${lab.num}: ${lab.shortTitle} · Umwelten Labs`,
+    description: lab.goal,
+    activeNav: "labs",
+    prefix: "..",
+    labCount: allLabs.length,
+    storylineHtml,
+    bodyHtml,
+    scriptHtml,
+  });
+}
+
 function buildArchitecturePage(): string {
   const decisionsPath = path.join(ROOT, "docs", "decisions.jsonl");
   const decisions = fs.existsSync(decisionsPath)
@@ -3223,6 +3508,8 @@ function buildArchitecturePage(): string {
       </div>
     </div>
 
+    ${renderDeckFeatureBanner(".")}
+
     <section class="report-section">
       <div class="section-num">01 &mdash; Workspace Package Matrix</div>
       <h2 class="section-title">What Pi owns vs. what each Umwelten package adds</h2>
@@ -3305,8 +3592,7 @@ function buildArchitecturePage(): string {
 
   return renderShell({
     title: "Architecture & Spec Verification · Umwelten",
-    description:
-      "The 10-package Umwelten architecture on Pi & Pi Durable, ratified decisions, and 39/39 passing session-spec-verify verdicts.",
+    description: `The 10-package Umwelten architecture on Pi & Pi Durable, ratified decisions (including D-11 Client Environments), and ${passCount}/${verdicts.length} passing session-spec-verify verdicts.`,
     activeNav: "architecture",
     prefix: ".",
     bodyHtml,
@@ -3316,19 +3602,25 @@ function buildArchitecturePage(): string {
 function main() {
   const { mockWatch, liveWatch, archives, jevLive, examplesMock, codingBench } =
     loadSiteDatasets(ROOT);
+  const labs = loadLabs(ROOT);
 
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(path.join(OUT_DIR, "styles"), { recursive: true });
   fs.mkdirSync(path.join(OUT_DIR, "examples"), { recursive: true });
+  fs.mkdirSync(path.join(OUT_DIR, "labs"), { recursive: true });
+  fs.mkdirSync(path.join(OUT_DIR, "presentations", "durable-agents-architecture"), {
+    recursive: true,
+  });
 
   fs.writeFileSync(path.join(OUT_DIR, "styles", "labs.css"), LABS_CSS, "utf8");
   fs.writeFileSync(
     path.join(OUT_DIR, "index.html"),
-    buildIndexPage(mockWatch, liveWatch, archives, jevLive, codingBench),
+    buildIndexPage(mockWatch, liveWatch, archives, jevLive, codingBench, labs.length),
     "utf8",
   );
   fs.writeFileSync(path.join(OUT_DIR, "local.html"), buildLocalPage(archives), "utf8");
   fs.writeFileSync(path.join(OUT_DIR, "examples.html"), buildExamplesHubPage(), "utf8");
+  fs.writeFileSync(path.join(OUT_DIR, "labs.html"), buildLabsHubPage(labs), "utf8");
   fs.writeFileSync(path.join(OUT_DIR, "architecture.html"), buildArchitecturePage(), "utf8");
 
   PROMPT_EXAMPLES.forEach((ex, i) => {
@@ -3339,8 +3631,27 @@ function main() {
     );
   });
 
+  labs.forEach((lab, i) => {
+    fs.writeFileSync(
+      path.join(OUT_DIR, "labs", `${lab.slug}.html`),
+      buildSingleLabPage(lab, i, labs),
+      "utf8",
+    );
+  });
+
+  const deckSrc = path.join(ROOT, "presentations", "durable-agents-architecture", "index.html");
+  const deckOut = path.join(OUT_DIR, "presentations", "durable-agents-architecture", "index.html");
+  if (fs.existsSync(deckSrc)) {
+    const rawDeck = fs.readFileSync(deckSrc, "utf8");
+    const withHomeLink = rawDeck.replace(
+      '<div class="ctrl-group">\n      <button type="button" class="ctrl-btn" id="btn-prev">',
+      '<div class="ctrl-group">\n      <a href="../../index.html" class="ctrl-btn" style="text-decoration:none">&larr; Umwelten</a>\n      <button type="button" class="ctrl-btn" id="btn-prev">',
+    );
+    fs.writeFileSync(deckOut, withHomeLink, "utf8");
+  }
+
   console.log(
-    `Built umwelten.thefocus.ai static site (${4 + PROMPT_EXAMPLES.length} HTML pages + labs.css) from reports/data/*.json -> ${OUT_DIR}`,
+    `Built umwelten.thefocus.ai static site (${5 + PROMPT_EXAMPLES.length + labs.length + 1} HTML pages + labs.css) from reports/data/*.json + examples/labs -> ${OUT_DIR}`,
   );
 }
 

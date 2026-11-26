@@ -706,6 +706,105 @@ export const PROMPT_EXAMPLES: PromptExampleMeta[] = [
         and Headroom rank surviving Offers, and missing <code>X-Mycel-End-User</code> headers fail closed with HTTP 401.
       </p>`,
   },
+  {
+    num: "11",
+    slug: "client-env-perimeter",
+    outputKey: "client-env-perimeter",
+    category: "habitats",
+    categoryLabel: "Durable Habitats",
+    badge: "Decision D-11 · Perimeter + Proxy",
+    title: "Client Environment: Two-Plane Perimeter, Mycel Tracing & Credential Proxy",
+    heroHtml: "Client Environment:<br><em>Perimeter &amp; Zero-Secret Runtime</em>",
+    subtitle:
+      "Separate a client-local perimeter gateway (Mycel LLM tracing + credential-injecting HTTP/MCP proxy + unified audit log) from a zero-secret DurableHabitat runtime.",
+    file: "examples/client-env/run.ts",
+    runCommand: "pnpm run demo:client-env -- --smoke",
+    packages: ["@umwelten/habitat", "@umwelten/mycel", "@umwelten/protocols", "@earendil-works/pi-durable"],
+    readMinutes: 7,
+    prompt:
+      "Split the single-container GaiaHost into a two-plane Client Environment (Decision D-11): a trusted perimeter-gateway running client-local @umwelten/mycel (LLM tracing + budget governance), a credential-injecting HTTP/MCP forward proxy that scrubs leaked secret tokens from responses and enforces host/method ACLs, and a unified SQLite audit ledger correlated by X-Client-Correlation-Id — paired with a zero-secret habitat-runtime running DurableHabitat.",
+    picks: [
+      {
+        role: "Security Boundary",
+        name: "Zero-Secret Habitat Runtime",
+        note: "Agent runtime holds zero upstream API keys or OAuth tokens; every secret stays in the perimeter gateway.",
+      },
+      {
+        role: "Audit Plane",
+        name: "Mycel + Hybrid Proxy Ledger",
+        note: "Correlates LLM turns, HTTP API calls, and MCP tool calls under one trace ID with fail-closed 401/403 enforcement.",
+      },
+    ],
+    fallbackOutput: `=== Client Environment Perimeter + Correlated Audit Smoke Test ===
+Perimeter Gateway:  http://127.0.0.1:61455
+Client-Local Mycel: http://127.0.0.1:61453
+1. PASS Warm Paper Audit UI HTML + inline JS syntax valid
+2. PASS Unauthenticated egress request rejected (HTTP 401)
+3. PASS Destructive DELETE blocked at perimeter ACL (HTTP 403, 0 upstream hits)
+4. PASS Secret scrubber redacted upstream echoed token
+5. PASS Forward proxy allowlist blocked non-approved host (HTTP 403)
+6. PASS Multi-turn traced QBO answer -> "QuickBooks Aged Receivables shows $24,450 overdue across Acme Holdings LLC ($16,600) and Northwind Co ($7,850), with $27,700 current ($52,150 total A/R)."
+7. PASS Audit ledger correlated 4 spans under tr-qbo-run-1 (2 Mycel LLM + 1 QuickBooks HTTP + 1 inbound)
+
+ALL CLIENT ENVIRONMENT CHECKS PASSED.`,
+    writeupHtml: `
+      <p class="body-text">
+        Per Decision <code>D-11</code>, client-owned deployments separate cognition from secrets and governance: LLM calls stream through
+        a client-local Mycel perimeter while external REST and MCP calls pass through a host-allowlisted HTTP/MCP proxy that injects
+        short-lived credentials and scrubs echoed tokens before responses return to the agent.
+      </p>`,
+  },
+  {
+    num: "12",
+    slug: "multi-a2a-mesh",
+    outputKey: "multi-a2a-mesh",
+    category: "habitats",
+    categoryLabel: "Durable Habitats",
+    badge: "A2A 1.0 · Multi-Agent Mesh",
+    title: "Multi-A2A Pi Coordinator: Connecting to Multiple Remote Agents",
+    heroHtml: "Multi-A2A Mesh:<br><em>Pi Driving Remote Agents</em>",
+    subtitle:
+      "Boot two isolated A2A 1.0 DurableHabitat peers on loopback, discover their Agent Cards, drive them from real Pi CLI slash commands, and verify on a clean machine.",
+    file: "examples/multi-a2a/e2e.ts",
+    runCommand: "pnpm run demo:multi-a2a",
+    packages: ["@umwelten/habitat", "@umwelten/protocols", "@leocavalcante/pi-a2a"],
+    readMinutes: 5,
+    prompt:
+      "Stand up two isolated A2A 1.0 DurableHabitat peers (researcher and reviewer) on loopback, verify fail-closed 401 auth and Agent Card discovery (/.well-known/agent-card.json), write an isolated agents.json config, drive /a2a list, /a2a send, and /a2a result end-to-end through the real Pi CLI (@leocavalcante/pi-a2a), and pair it with a clean-machine shell verifier.",
+    picks: [
+      {
+        role: "Wire Protocol",
+        name: "A2A 1.0 Agent Cards + JSON-RPC",
+        note: "Each specialist peer exposes /.well-known/agent-card.json and SendMessage over standard HTTP.",
+      },
+      {
+        role: "Clean Verification",
+        name: "examples/multi-a2a/clean-machine.sh",
+        note: "Self-contained bootstrap and end-to-end verification script for fresh machines.",
+      },
+    ],
+    fallbackOutput: `=== Multi-A2A Pi E2E Verification (offline mock (fauxProvider)) ===
+Pi CLI version: 1.5.2
+
+1. Started two isolated A2A 1.0 DurableHabitat servers:
+   - researcher -> http://127.0.0.1:61477
+   - reviewer   -> http://127.0.0.1:61478
+2. Verified Agent Card discovery + fail-closed 401 auth.
+3. Wrote isolated A2A config: .../agents.json
+
+4. Driving both A2A agents via real \`pi\` CLI:
+   - PASS /a2a list -> ["researcher","reviewer"]
+   - PASS /a2a send researcher -> [researcher] Analyzes architecture tradeoffs and risks
+   - PASS /a2a send reviewer   -> [reviewer] Audits auth boundaries and failure modes
+   - PASS /a2a result researcher -> TASK_STATE_COMPLETED
+
+ALL MULTI-A2A PI CHECKS PASSED.`,
+    writeupHtml: `
+      <p class="body-text">
+        Demonstrates Pi acting as a multi-agent coordinator via <code>@leocavalcante/pi-a2a</code> against live <code>DurableHabitat</code>
+        endpoints, complete with <code>clean-machine.sh</code> so every claim reproduces from scratch.
+      </p>`,
+  },
 ];
 
 export interface PackageNode {
