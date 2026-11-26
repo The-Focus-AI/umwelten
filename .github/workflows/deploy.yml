@@ -1,9 +1,21 @@
-name: Deploy umwelten.thefocus.ai site (manual dispatch)
+name: Deploy umwelten.thefocus.ai site
 
 on:
-  # Builds the ../labs-styled Model Watch & Prompt-First Examples static site
-  # (`pnpm run site:build` -> `build/site`). Kept manual-only until ready to
-  # cut over GitHub Pages.
+  # Builds the ../labs-styled Model Watch, Labs, Examples & Architecture site
+  # (`pnpm run site:build` -> `build/site`) and publishes to GitHub Pages.
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "reports/data/**"
+      - "examples/**"
+      - "docs/decisions.jsonl"
+      - "docs/specs/**"
+      - "docs/runs/**"
+      - "presentations/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
