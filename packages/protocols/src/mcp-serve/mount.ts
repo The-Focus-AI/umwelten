@@ -11,7 +11,8 @@
  * authorization_endpoint https://host/agents/foo/oauth/authorize, returns
  * WWW-Authenticate resource_metadata under that prefix, and so on.
  *
- * Discovery caveat (verified against @modelcontextprotocol/sdk 1.29.0):
+ * Discovery caveat (verified against @modelcontextprotocol/sdk 1.29.0; the
+ * 2.x client keeps the RFC 8414 path-inserted form):
  * for an issuer with a path component, clients build the RFC 8414
  * path-inserted form /.well-known/oauth-authorization-server/<prefix> at
  * the ORIGIN — they never try <prefix>/.well-known/... for AS metadata.
@@ -21,7 +22,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { McpServeConfig } from './types.js';
-import { handleMcpRequest, type McpHandlerConfig } from './mcp-handler.js';
+import { createMcpRequestHandler } from './mcp-handler.js';
 import { handleProtectedResource, handleAuthServerMetadata } from './oauth/metadata.js';
 import { handleRegister } from './oauth/register.js';
 import { handleAuthorize, handleUpstreamCallback } from './oauth/authorize.js';
@@ -62,15 +63,16 @@ export function isMcpServeMountPath(subPath: string): boolean {
 }
 
 export function createMcpServeMount(config: McpServeMountConfig): McpServeMount {
-  const { name, version = '0.1.0', upstream, registerTools, store } = config;
+  const { name, version = '0.1.0', upstream, registerTools, store, skills } = config;
 
-  const mcpHandlerConfig: McpHandlerConfig = {
+  const handleMcpRequest = createMcpRequestHandler({
     serverName: name,
     serverVersion: version,
     upstream,
     store,
     registerTools,
-  };
+    skills,
+  });
 
   return {
     async handle(req, res, subPath, baseUrl) {
@@ -102,7 +104,7 @@ export function createMcpServeMount(config: McpServeMountConfig): McpServeMount 
         return true;
       }
       if (path === 'mcp') {
-        await handleMcpRequest(mcpHandlerConfig, req, res, base);
+        await handleMcpRequest(req, res, base);
         return true;
       }
 

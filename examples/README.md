@@ -1,6 +1,6 @@
 # Umwelten Examples (on Pi & Pi Durable)
 
-Every example in `examples/` focuses strictly on what Umwelten adds on top of `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, `@earendil-works/pi-mcp`, and `@earendil-works/pi-durable`.
+Every example in `examples/` focuses strictly on what Umwelten adds on top of `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, the official MCP SDK (`@modelcontextprotocol/client` / `server` 2.x), and `@earendil-works/pi-durable`.
 
 ## Instant Offline Mock vs. `--live` Device Runs
 

@@ -8,8 +8,8 @@ Umwelten consists of four bounded contexts layered cleanly atop `@earendil-works
 2. **Evaluation & Calibration** (`@umwelten/evaluation` → `@umwelten/pi`)
    - `EvalSuite`, `PairwiseRanker` (Elo), `Jev` probability judgments, and `combine` / `Reporter` scorecards.
 3. **Durable Habitats & Protocols** (`@umwelten/protocols`, `@umwelten/habitat`)
-   - `@umwelten/protocols`: OAuth 2.1 `mcp-serve` server framework, `@earendil-works/pi-mcp` `RemoteMcpClient` (preserving `ui://` `EmbeddedResource`s), and `@leocavalcante/pi-a2a`.
-   - `@umwelten/habitat`: Host-agnostic `DurableHabitat` and `HabitatHost` over `pi-durable` `Storage` + `ExecutionEnv`.
+   - `@umwelten/protocols`: OAuth 2.1 `mcp-serve` server framework, `RemoteMcpClient` on the official MCP SDK 2.x (protocol `2026-07-28`, preserving `ui://` `EmbeddedResource`s), the MCP Skills extension host (`McpSkillHost`), and `@leocavalcante/pi-a2a`.
+   - `@umwelten/habitat`: Host-agnostic `DurableHabitat` and `HabitatHost` over `pi-durable` `Storage` + `ExecutionEnv`, plus `createMcpSkillsExtension` (MCP skills inside a Harness).
 4. **The Token Exchange** (`@umwelten/substrate` → `@umwelten/mycel`, plus `@umwelten/supplier` → `@umwelten/pi`)
    - `@umwelten/mycel` is strictly isolated from `@umwelten/pi`, `@umwelten/evaluation`, and `@umwelten/habitat`.
    - `@umwelten/supplier` talks to `@umwelten/mycel` exclusively over HTTP and outbound WebSockets (`WSS /suppliers/connect`), keeping database drivers off GPU machines.

@@ -15,7 +15,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { McpServeConfig } from './types.js';
-import { handleMcpRequest, type McpHandlerConfig } from './mcp-handler.js';
+import { createMcpRequestHandler } from './mcp-handler.js';
 import { handleProtectedResource, handleAuthServerMetadata } from './oauth/metadata.js';
 import { handleRegister } from './oauth/register.js';
 import { handleAuthorize, handleUpstreamCallback } from './oauth/authorize.js';
@@ -79,16 +79,17 @@ export interface McpHttpServer {
 }
 
 export function createMcpServer(config: McpServeConfig): McpHttpServer {
-  const { name, version = '0.1.0', upstream, registerTools, store, staticRoot } = config;
+  const { name, version = '0.1.0', upstream, registerTools, store, staticRoot, skills } = config;
   const port = config.port ?? 8080;
 
-  const mcpHandlerConfig: McpHandlerConfig = {
+  const handleMcpRequest = createMcpRequestHandler({
     serverName: name,
     serverVersion: version,
     upstream,
     store,
     registerTools,
-  };
+    skills,
+  });
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -132,7 +133,7 @@ export function createMcpServer(config: McpServeConfig): McpHttpServer {
 
       // MCP endpoint
       if (path === '/mcp') {
-        return await handleMcpRequest(mcpHandlerConfig, req, res, publicBaseUrl);
+        return await handleMcpRequest(req, res, publicBaseUrl);
       }
 
       // Health check

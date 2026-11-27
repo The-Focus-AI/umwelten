@@ -14,6 +14,11 @@ Shared domain vocabulary for Umwelten on Pi and Pi Durable.
 - **DurableHabitat**: A stateful agent backed by `@earendil-works/pi-durable`'s transactional `Harness` over generic `Storage` (`openNodeSqliteStorage`, `MemoryStorage`, or Postgres) and optional `ExecutionEnv` (`undefined` for zero-container API Habitats, `NodeExecutionEnv` or `pi-env` for coding Habitats).
 - **HabitatHost**: A single Node process multiplexing many `DurableHabitat` SQLite stores on demand (`/habitats/:id/a2a`), evicting idle Harnesses from RAM while keeping scheduled wake timers armed.
 - **Owned vs. Mounted Repository**: Each coding Habitat has at most one **Owned** read/write repository and zero or more **Mounted** read-only repositories, enforced by `createRepoScopeExtension` (`ToolTask` `beforeTool` hook).
+- **MCP Skill**: A `SKILL.md` instruction package served by an MCP server through the Skills extension (`io.modelcontextprotocol/skills`), with a complete file manifest of `{uri, digest, size}`. Identified by `(serverLabel, uri)`; `name` is only a label. Content is untrusted third-party text, loaded lazily and only after **Skill Approval**.
+- **Server Label**: The host-assigned name for a connected MCP server (e.g. `localhost-7701`, `standards`). Skill identity, origin tags (`mcp:<label>`), and qualified names (`<label>/<name>`) use it — never the server's self-reported `serverInfo.name`.
+- **Skill Approval**: A user's consent to load one MCP Skill, bound to its `manifestHash` (SHA-256 over the sorted `{uri, digest}` set). Any manifest change revokes it.
+- **Active Skill**: An MCP Skill loaded into one conversation (`ActiveMcpSkillsDoc`, kept across forks). While any is active, code-execution tools need per-call approval.
+- **A2A Agent Skill**: An entry in an A2A agent card's `skills` — an advertised capability of an agent, with no content. A Habitat may advertise MCP Skills it *serves* as A2A agent skills (`id: mcp-skill:<uri>`), never ones it has *loaded*.
 - **Turn Fan-out (`Annotation`)**: Post-turn `GenerationTask` `afterRun` child tasks that compute structured sidecar annotations stored in `ConversationAnnotationsDoc`.
 
 ## Evaluation & Judgment (`@umwelten/evaluation`)

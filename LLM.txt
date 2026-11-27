@@ -8,5 +8,6 @@ Umwelten provides multi-model evaluation (`EvalSuite`, `PairwiseRanker`, `Jev`),
 - Evaluations: `import { EvalSuite, PairwiseRanker } from "@umwelten/evaluation"`
 - Durable Habitats: `import { DurableHabitat, HabitatHost } from "@umwelten/habitat"`
 - Session Sensemaking: `import { projectSessions, searchSessions, PromotionRouter } from "@umwelten/sessions"`
-- OAuth MCP Server / Client: `import { createMcpServer, RemoteMcpClient } from "@umwelten/protocols"`
+- OAuth MCP Server / Client (MCP SDK 2.x, protocol 2026-07-28): `import { createMcpServer, RemoteMcpClient } from "@umwelten/protocols"`
+- MCP Skills: `import { loadSkills, McpSkillHost } from "@umwelten/protocols"`; in a Harness `import { createMcpSkillsExtension } from "@umwelten/habitat"`
 - Specifications & Verdicts: `docs/INDEX.md` (`pnpm run specs:check`)

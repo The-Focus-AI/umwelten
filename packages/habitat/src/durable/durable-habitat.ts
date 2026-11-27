@@ -45,6 +45,10 @@ import {
   type ExecutableTool as UmweltenTool,
 } from "@umwelten/pi";
 import {
+  a2aSkillsForServedMcpSkills,
+  type McpSkillEntry,
+} from "@umwelten/protocols";
+import {
   bridgeUmweltenToolsToExtension,
   ConversationAnnotationsDoc,
   ConversationUIResourcesDoc,
@@ -360,9 +364,15 @@ export class DurableHabitat {
   /**
    * Expose this `DurableHabitat` over A2A v1.0 using `@leocavalcante/pi-a2a/durable`,
    * isolating conversations per `(tenant, userId)` speaker identity.
+   *
+   * The card always advertises the Habitat itself as one A2A agent skill. MCP
+   * skills the Habitat *serves* on its own MCP surface may be advertised too
+   * (`servedMcpSkills`, as `mcp-skill:<uri>` agent skills tagged `mcp-skill`);
+   * MCP skills it has *loaded* from other servers never are.
    */
   createA2ASurface(options: {
     endpointUrl: string;
+    servedMcpSkills?: readonly McpSkillEntry[];
     bearerToken?: string;
     bearerFormat?: string;
     allowUnauthenticatedLoopback?: boolean;
@@ -412,6 +422,7 @@ export class DurableHabitat {
           description: this.description,
           tags: ["habitat", "pi-durable"],
         },
+        ...a2aSkillsForServedMcpSkills(options.servedMcpSkills ?? []),
       ],
     });
 

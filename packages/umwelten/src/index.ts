@@ -94,7 +94,7 @@ export type {
   ProvisionPlan,
 } from "@umwelten/habitat";
 
-// ── @umwelten/protocols (OAuth 2.1 mcp-serve + pi-mcp client + A2A 1.0) ─
+// ── @umwelten/protocols (OAuth 2.1 mcp-serve + MCP SDK 2.x client + Skills + A2A 1.0)
 export {
   createMcpServer,
   createMcpServeMount,
@@ -104,8 +104,13 @@ export {
   hashToken,
   RemoteMcpClient,
   McpClient,
-  StdioTransport,
-  StreamableHttpTransport,
+  StdioClientTransport,
+  StreamableHTTPClientTransport,
+  McpSkillHost,
+  FileSkillApprovalStore,
+  SkillsClient,
+  loadSkills,
+  a2aSkillsForServedMcpSkills,
   discoverAgentEndpoint,
   createDurableA2A,
   createA2ATools,
@@ -120,6 +125,8 @@ export type {
   McpServeStore,
   RemoteMcpClientOptions,
   RemoteMcpExecutableTool,
+  McpSkillRecord,
+  McpSkillRef,
   EndpointCard,
 } from "@umwelten/protocols";
 

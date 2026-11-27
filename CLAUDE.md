@@ -5,7 +5,7 @@ Guidance for coding agents working in `The-Focus-AI/umwelten`.
 ## Architectural Principle
 
 Umwelten builds **strictly what is not built into Pi (`@earendil-works/pi-*`) and Pi Durable (`@earendil-works/pi-durable`)**:
-- **Never** re-introduce custom provider wrappers, model catalogs, custom agent loops (`cognition/`, `Stimulus`, `Interaction`, `BaseModelRunner`), custom MCP JSON-RPC clients, or custom terminal chat CLIs.
+- **Never** re-introduce custom provider wrappers, model catalogs, custom agent loops (`cognition/`, `Stimulus`, `Interaction`, `BaseModelRunner`), custom MCP JSON-RPC clients or servers (use the official `@modelcontextprotocol/client` / `server` SDK 2.x), or custom terminal chat CLIs.
 - Cloud providers come directly from `@earendil-works/pi-ai/providers/all` (`builtinModels()`); custom and local OpenAI-compatible endpoints configure through `~/.pi/agent/models.json` (`loadPiModelsJsonInto`).
 - Interactive terminal coding sessions use `pi` (`@earendil-works/pi-coding-agent`) with `@umwelten/pi` installed (`pi install ./packages/pi`).
 
@@ -30,7 +30,7 @@ Umwelten builds **strictly what is not built into Pi (`@earendil-works/pi-*`) an
         ├── @umwelten/supplier   (GPU Supplier dial-in agent: discover, probe, headroom, WSS connect)
         └── @umwelten/habitat    (DurableHabitat & HabitatHost on pi-durable + A2A 1.0 + repo guards + ui://)
               ↑
-@umwelten/protocols   (0 internal deps — OAuth 2.1 mcp-serve, pi-mcp RemoteMcpClient preserving ui://, @leocavalcante/pi-a2a)
+@umwelten/protocols   (0 internal deps — OAuth 2.1 mcp-serve + RemoteMcpClient on MCP SDK 2.x, McpSkillHost, @leocavalcante/pi-a2a)
 
 @umwelten/cli + umwelten (CLI entry `sessions | habitat serve | supplier | mycel` & published tsup bundle)
 ```
@@ -53,6 +53,7 @@ dotenvx run -- pnpm tsx examples/evals/car-wash.ts    # Multi-model JudgeTask Ev
 dotenvx run -- pnpm tsx examples/evals/tool-math.ts   # Multi-step Pi tools + PairwiseRanker Elo
 pnpm tsx examples/jev/run.ts                          # Calibrated judgment dry-run (--live for API calls)
 pnpm tsx examples/mycel-e2e/run.ts                    # Full Exchange + Supplier metering E2E
+pnpm run demo:mcp-skills                              # MCP skills chat host ↔ skill server E2E (examples/mcp-skills-chat)
 ```
 
 ## Specifications (`session-spec-verify`)

@@ -69,7 +69,7 @@ Read these repo files first to reuse existing extension mechanics rather than re
 
 Requirements:
 1. Create `examples/lab-06-mcp-scaling/catalog.ts` defining 60 realistic tools (15 per domain: `billing`, `calendar`, `issues`, `audit-logs`, complete with JSON Schemas and in-memory deterministic fixtures so ~15–20k schema tokens exist when all 60 are exposed directly).
-2. Expose those 60 tools over loopback MCP (`McpServer` + `StreamableHTTPServerTransport` on `127.0.0.1:0`) OR bridge them cleanly through `McpClient` (`@earendil-works/pi-mcp`) into Pi Durable `Harness` sessions so tool discovery & calls go through real MCP wire calls.
+2. Expose those 60 tools over loopback MCP (`McpServer` + `StreamableHTTPServerTransport` on `127.0.0.1:0`) OR bridge them cleanly through `McpClient` (`@modelcontextprotocol/client` 2.x; was `@earendil-works/pi-mcp`) into Pi Durable `Harness` sessions so tool discovery & calls go through real MCP wire calls.
 3. Define 4 multi-step ground-truth tasks (each requiring calling 2–4 specific tools across at least 2 domains and computing a deterministic exact answer checked by a verifier function).
 4. Create `examples/lab-06-mcp-scaling/run.ts`:
    - Default offline mode: scripted `fauxProvider` responses demonstrating all 3 modes (`direct`, `tool-search`, `codemode`) across 4 tasks, printing a clean scorecard table (Pass@1, Avg Turns, Prompt Tokens, Completion Tokens, Schema-Token Reduction %).

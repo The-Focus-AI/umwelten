@@ -505,3 +505,57 @@ export function bridgeUmweltenToolsToExtension(
     tools: registrations,
   });
 }
+
+/** The client surface `bridgeMcpClientToExtension` needs (satisfied by `RemoteMcpClient`). */
+export interface McpToolSource {
+  readonly label: string;
+  getTools(): Record<
+    string,
+    {
+      description: string;
+      inputSchema: Record<string, unknown>;
+      execute(params: Record<string, unknown>, opts?: { abortSignal?: AbortSignal }): Promise<unknown>;
+    }
+  >;
+}
+
+/** Tool name prefix for one MCP server: `mcp__<label>__`. */
+export function mcpToolPrefix(label: string): string {
+  return `mcp__${label.replace(/[^a-zA-Z0-9_-]/g, "_")}__`;
+}
+
+/**
+ * Bridge one connected MCP server's tools into a `pi-durable` extension named
+ * `mcp.<label>`, tools prefixed `mcp__<label>__`. The model sees the concise
+ * result; `ui://` resources and `_meta` stay in the result `details`.
+ */
+export function bridgeMcpClientToExtension(source: McpToolSource): Extension {
+  const prefix = mcpToolPrefix(source.label);
+  const registrations: ToolRegistration[] = Object.entries(source.getTools()).map(([name, mcpTool]) =>
+    defineTool({
+      name: `${prefix}${name}`,
+      description: `[MCP server "${source.label}"] ${mcpTool.description}`,
+      parameters: mcpTool.inputSchema as JsonObject,
+      async execute(args, _api, ctx) {
+        const result = (await mcpTool.execute(args as Record<string, unknown>, {
+          abortSignal: ctx.abortSignal,
+        })) as { success?: boolean; data?: unknown; error?: unknown; _uiResources?: unknown; _meta?: unknown };
+        const payload = result.success === false ? result.error : result.data;
+        const text = typeof payload === "string" ? payload : JSON.stringify(payload ?? null, null, 2);
+        const details: JsonObject = {};
+        if (result._uiResources) details.uiResources = result._uiResources as JsonObject[];
+        if (result._meta) details.meta = result._meta as JsonObject;
+        return {
+          output: [{ type: "text", text }],
+          ...(result.success === false ? { isError: true } : {}),
+          ...(Object.keys(details).length > 0 ? { details } : {}),
+        };
+      },
+    }),
+  );
+  return defineExtension({
+    name: `mcp.${source.label}`,
+    namespace: { name: prefix.slice(0, -2), description: `Tools of MCP server "${source.label}"` },
+    tools: registrations,
+  });
+}

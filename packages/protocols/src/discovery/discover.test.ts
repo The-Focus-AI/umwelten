@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createServer, type Server } from 'node:http';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { memorySkillFiles, SkillsExtension } from '@modelcontextprotocol/server/ext/skills';
 import { z } from 'zod';
+import { createTestMcpServer } from '../mcp/testing.js';
 import {
   agentCardCandidates,
   discoverAgentEndpoint,
@@ -78,7 +78,7 @@ describe('discoverAgentEndpoint — A2A', () => {
     expect(result.streaming).toBe(true);
     expect(result.auth).toBe('bearer');
     expect(result.capabilities).toEqual([
-      { name: 'General', description: 'Everything.' },
+      { kind: 'a2a-skill', name: 'General', description: 'Everything.', id: 'general' },
     ]);
   });
 
@@ -94,48 +94,39 @@ describe('discoverAgentEndpoint — A2A', () => {
 });
 
 describe('discoverAgentEndpoint — MCP', () => {
-  it('connects to a stateless MCP server and lists tools', async () => {
-    const server = createServer(async (req, res) => {
-      if (!req.url?.startsWith('/mcp')) {
-        res.writeHead(404);
-        res.end();
-        return;
-      }
-      const rawBody = await new Promise<string>((resolve, reject) => {
-        let data = '';
-        req.on('data', (c) => (data += c));
-        req.on('end', () => resolve(data));
-        req.on('error', reject);
-      });
-      const parsedBody = rawBody ? JSON.parse(rawBody) : undefined;
-      const mcpServer = new McpServer({ name: 'test-mcp', version: '9.9.9' });
-      mcpServer.registerTool(
-        'add',
-        {
-          description: 'Add two numbers',
-          inputSchema: { a: z.number(), b: z.number() },
-        },
-        async ({ a, b }) => ({
-          content: [{ type: 'text', text: String(a + b) }],
-        }),
-      );
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-      });
-      await mcpServer.connect(transport);
-      await transport.handleRequest(req, res, parsedBody);
-      await transport.close();
+  it('negotiates 2026-07-28 and lists tools and MCP skills as distinct capability kinds', async () => {
+    const skills = await SkillsExtension.load(
+      memorySkillFiles({
+        'triage/SKILL.md': '---\nname: triage\ndescription: Triage an incident\n---\nSteps.\n',
+      }),
+    );
+    const mcp = createTestMcpServer({
+      name: 'test-mcp',
+      version: '9.9.9',
+      skills,
+      register(server) {
+        server.registerTool(
+          'add',
+          { description: 'Add two numbers', inputSchema: z.object({ a: z.number(), b: z.number() }) },
+          async ({ a, b }) => ({ content: [{ type: 'text', text: String(a + b) }] }),
+        );
+      },
     });
-    const port = await listen(server);
-
-    const result = await discoverAgentEndpoint(`http://127.0.0.1:${port}/mcp`);
-    expect(result.kind).toBe('mcp');
-    expect(result.name).toBe('test-mcp');
-    expect(result.version).toBe('9.9.9');
-    expect(result.auth).toBe('open');
-    expect(result.capabilities).toEqual([
-      { name: 'add', description: 'Add two numbers' },
-    ]);
+    const url = await mcp.listen();
+    try {
+      const result = await discoverAgentEndpoint(url);
+      expect(result.kind).toBe('mcp');
+      expect(result.name).toBe('test-mcp');
+      expect(result.version).toBe('9.9.9');
+      expect(result.auth).toBe('open');
+      expect((result.raw as { protocolVersion?: string }).protocolVersion).toBe('2026-07-28');
+      expect(result.capabilities).toEqual([
+        { kind: 'mcp-tool', name: 'add', description: 'Add two numbers' },
+        { kind: 'mcp-skill', name: 'triage', description: 'Triage an incident', id: 'skill://triage/SKILL.md' },
+      ]);
+    } finally {
+      await mcp.close();
+    }
   });
 
   it('reports oauth-required on a 401 instead of failing', async () => {

@@ -7,7 +7,8 @@
  * for a given authenticated user.
  */
 
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer } from '@modelcontextprotocol/server';
+import type { SkillsExtension } from '@modelcontextprotocol/server/ext/skills';
 
 // ── Upstream OAuth Provider ─────────────────────────────────────────
 
@@ -159,4 +160,10 @@ export interface McpServeConfig {
    * Also serves `<staticRoot>/index.html` for `GET /index.html`.
    */
   staticRoot?: string;
+  /**
+   * Optional Skills extension (`io.modelcontextprotocol/skills`, SEP-2640)
+   * attached to every per-request server — typically
+   * `await loadSkills(dir)` from `@modelcontextprotocol/server/ext/skills/node`.
+   */
+  skills?: SkillsExtension;
 }

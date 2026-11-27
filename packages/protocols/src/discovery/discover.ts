@@ -7,21 +7,38 @@
  * counterpart of the server-side rule that discovery surfaces (A2A agent
  * card, MCP `server/discover`) project from one source of truth.
  *
+ * MCP probes negotiate protocol revision 2026-07-28 (`server/discover`) and
+ * fall back to the 2025-era `initialize` handshake; a server declaring the
+ * Skills extension also has its skill catalog listed (names only — nothing is
+ * read, consistent with lazy skill retrieval).
+ *
  * The MCP probe here is deliberately non-interactive: no OAuth browser
  * flow, no callback server. A 401 is an *answer* ("this endpoint exists
  * and wants OAuth"), not a prompt to authenticate — interactive auth
  * belongs to `RemoteMcpClient`.
  */
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { SkillsClient } from '@modelcontextprotocol/client/ext/skills';
 
 export type EndpointKind = 'mcp' | 'a2a';
 
-/** One tool (MCP) or skill (A2A), normalized for display. */
+/**
+ * What a capability is. The word "skill" means two different things here:
+ * - `a2a-skill`: an A2A agent-card `AgentSkill` — an advertised capability of
+ *   the agent ("what you can ask it to do"); no content is attached.
+ * - `mcp-skill`: an MCP Skills-extension entry — a SKILL.md instruction package
+ *   with a file manifest that a host may load into a model's context.
+ */
+export type EndpointCapabilityKind = 'mcp-tool' | 'mcp-skill' | 'a2a-skill';
+
+/** One MCP tool, MCP skill, or A2A agent skill, normalized for display. */
 export interface EndpointCapability {
+  kind: EndpointCapabilityKind;
   name: string;
   description?: string;
+  /** `mcp-skill`: the skill's `SKILL.md` URI. `a2a-skill`: the AgentSkill `id`. */
+  id?: string;
 }
 
 /** What auth the probe established the endpoint needs. */
@@ -36,7 +53,7 @@ export interface EndpointCard {
   name: string;
   description?: string;
   version?: string;
-  /** Tools (MCP) or skills (A2A). Empty when auth blocked listing. */
+  /** MCP tools + MCP skills, or A2A agent skills. Empty when auth blocked listing. */
   capabilities: EndpointCapability[];
   /** A2A only: whether the agent card advertises streaming. */
   streaming?: boolean;
@@ -55,10 +72,12 @@ export interface DiscoverOptions {
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 function isUnauthorized(err: unknown): boolean {
-  // StreamableHTTPError carries the HTTP status in `code`; UnauthorizedError
-  // and proxy-shaped errors only say so in the message.
-  const code = (err as { code?: unknown } | null)?.code;
-  if (code === 401 || code === 403) return true;
+  // SDK HTTP errors carry the status in `status` (2.x `SdkHttpError`) or
+  // `code`; UnauthorizedError and proxy-shaped errors only say so in the message.
+  const e = err as { code?: unknown; status?: unknown; data?: { status?: unknown } } | null;
+  for (const status of [e?.code, e?.status, e?.data?.status]) {
+    if (status === 401 || status === 403) return true;
+  }
   const msg = err instanceof Error ? err.message : String(err);
   return /\b401\b|unauthorized/i.test(msg);
 }
@@ -126,8 +145,10 @@ async function probeA2A(
       description: card.description,
       version: card.version,
       capabilities: (card.skills ?? []).map((s) => ({
+        kind: 'a2a-skill' as const,
         name: s.name ?? s.id ?? 'unnamed skill',
         description: s.description,
+        ...(s.id ? { id: s.id } : {}),
       })),
       streaming: card.capabilities?.streaming,
       auth: hasSecurity ? 'bearer' : 'open',
@@ -144,17 +165,22 @@ async function probeMcp(
   const headers: Record<string, string> = {};
   if (opts.bearerToken) headers.authorization = `Bearer ${opts.bearerToken}`;
 
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const client = new Client(
-    { name: 'umwelten-endpoint-discovery', version: '1.0.0' },
-    { capabilities: {} },
+    { name: 'umwelten-endpoint-discovery', version: '2.0.0' },
+    { versionNegotiation: { mode: 'auto', probe: { timeoutMs } } },
   );
   const transport = new StreamableHTTPClientTransport(new URL(inputUrl), {
     requestInit: { headers },
   });
 
   try {
-    await client.connect(transport);
-    const listed = await client.listTools();
+    await client.connect(transport, { timeout: timeoutMs });
+    const listed = await client.listTools(undefined, { timeout: timeoutMs });
+    const skills = new SkillsClient(client, { skipInvalid: true });
+    const skillListing = skills.supported
+      ? await skills.list(undefined, { timeout: timeoutMs })
+      : { skills: [] };
     const serverInfo = client.getServerVersion();
     return {
       kind: 'mcp',
@@ -162,12 +188,26 @@ async function probeMcp(
       inputUrl,
       name: serverInfo?.name ?? new URL(inputUrl).hostname,
       version: serverInfo?.version,
-      capabilities: listed.tools.map((t) => ({
-        name: t.name,
-        description: t.description,
-      })),
+      capabilities: [
+        ...listed.tools.map((t) => ({
+          kind: 'mcp-tool' as const,
+          name: t.name,
+          description: t.description,
+        })),
+        ...skillListing.skills.map((s) => ({
+          kind: 'mcp-skill' as const,
+          name: s.frontmatter.name,
+          description: s.frontmatter.description,
+          id: s.uri,
+        })),
+      ],
       auth: opts.bearerToken ? 'bearer' : 'open',
-      raw: { serverInfo, tools: listed.tools },
+      raw: {
+        serverInfo,
+        protocolVersion: client.getNegotiatedProtocolVersion(),
+        tools: listed.tools,
+        skills: skillListing.skills,
+      },
     };
   } catch (err) {
     if (isUnauthorized(err)) {
